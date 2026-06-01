@@ -3,16 +3,21 @@
 from __future__ import annotations
 
 import asyncio
+import shutil
 import sys
+import time
 from pathlib import Path
 
 import click
 from rich.console import Console
+from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 from trinity import __version__
 from trinity.config import TrinityConfig
+from trinity.logging import setup_logging
 from trinity.orchestrator import TrinityOrchestrator
 
 console = Console()
@@ -185,6 +190,153 @@ def status():
 
     console.print(table)
     console.print(f"\n[dim]Shared context: {status_data['shared_context_path']}[/dim]")
+
+
+@main.command(name="status-watch")
+@click.option("--interval", default=2.0, help="Refresh interval in seconds")
+def status_watch(interval: float):
+    """Live status dashboard (top-style). Updates every N seconds.
+
+    Example: trinity status-watch --interval 3
+    """
+    config = load_config()
+    orchestrator = TrinityOrchestrator(config)
+
+    def build_table() -> Table:
+        status_data = orchestrator.get_status()
+        table = Table(title=f"Trinity Status  [dim]{time.strftime('%H:%M:%S')}[/dim]")
+        table.add_column("Agent", style="cyan")
+        table.add_column("Provider", style="green")
+        table.add_column("Status")
+        table.add_column("Context")
+
+        for name, info in status_data["agents"].items():
+            table.add_row(
+                name,
+                info["provider"],
+                "✓ active" if info["alive"] else "✗ offline",
+                info["context"],
+            )
+        return table
+
+    try:
+        with Live(build_table(), console=console, refresh_per_second=1) as live:
+            while True:
+                time.sleep(interval)
+                live.update(build_table())
+    except KeyboardInterrupt:
+        console.print("\n[dim]Stopped.[/dim]")
+
+
+@main.command()
+def attach():
+    """Attach to the tmux session running Trinity agents."""
+    config = load_config()
+
+    if not config.session_name:
+        console.print("[yellow]No tmux session configured.[/yellow]")
+        return
+
+    import subprocess
+    result = subprocess.run(
+        ["tmux", "attach-session", "-t", config.session_name],
+    )
+    if result.returncode != 0:
+        console.print(
+            f"[red]Failed to attach to tmux session '{config.session_name}'. "
+            f"Is it running?[/red]"
+        )
+
+
+@main.command()
+@click.option("--follow", is_flag=True, help="Follow log output in real-time")
+@click.option("--lines", default=50, help="Number of lines to show")
+def logs(follow: bool, lines: int):
+    """View Trinity orchestrator logs.
+
+    Example: trinity logs --follow
+    """
+    config = load_config()
+    log_path = config.effective_state_dir / "logs" / "trinity.log"
+
+    if not log_path.exists():
+        console.print("[yellow]No log file found. Run 'trinity ask' first.[/yellow]")
+        return
+
+    if follow:
+        import subprocess
+        subprocess.run(["tail", "-f", "-n", str(lines), str(log_path)])
+    else:
+        content = log_path.read_text(encoding="utf-8")
+        log_lines = content.splitlines()
+        for line in log_lines[-lines:]:
+            console.print(line)
+
+
+@main.command("config")
+@click.argument("key", required=False)
+def config_show(key: str | None):
+    """Show configuration values.
+
+    Example: trinity config max_deliberation_rounds
+    """
+    cfg = load_config()
+
+    if key:
+        value = getattr(cfg, key, None)
+        if value is None:
+            console.print(f"[yellow]Unknown config key: {key}[/yellow]")
+            return
+        console.print(f"{key} = {value}")
+    else:
+        table = Table(title="Trinity Configuration")
+        table.add_column("Key", style="cyan")
+        table.add_column("Value")
+
+        for attr in [
+            "session_name", "max_deliberation_rounds", "consensus_threshold",
+            "round_timeout_seconds", "context_rotate_threshold",
+            "health_check_interval_seconds", "log_level",
+        ]:
+            table.add_row(attr, str(getattr(cfg, attr)))
+
+        console.print(table)
+
+
+@main.command()
+@click.option("--keep-context", is_flag=True, help="Preserve shared.md when resetting")
+def reset(keep_context: bool):
+    """Reset the Trinity session state.
+
+    Use --keep-context to preserve the shared context file.
+    """
+    config = load_config()
+    state_dir = config.effective_state_dir
+
+    if not state_dir.exists():
+        console.print("[yellow]No .trinity/ directory found.[/yellow]")
+        return
+
+    # Optionally save shared.md
+    shared_backup = None
+    shared_path = state_dir / "shared.md"
+    if keep_context and shared_path.exists():
+        shared_backup = shared_path.read_text(encoding="utf-8")
+
+    # Remove state directory
+    shutil.rmtree(state_dir, ignore_errors=True)
+
+    # Re-initialize
+    init(force=True)
+
+    # Restore shared.md if requested
+    if shared_backup and keep_context:
+        shared_path = state_dir / "shared.md"
+        shared_path.parent.mkdir(parents=True, exist_ok=True)
+        shared_path.write_text(shared_backup, encoding="utf-8")
+        console.print("[green]✓ Shared context preserved.[/green]")
+
+    console.print("[green]✓ Trinity session reset.[/green]")
 
 
 @main.command()

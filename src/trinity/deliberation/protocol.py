@@ -40,6 +40,7 @@ class DeliberationProtocol:
         distributor: TaskDistributor | None = None,
         max_rounds: int = 5,
         round_timeout: float = 120.0,
+        tmux_manager=None,
     ):
         self.agents = agents
         self.shared = shared
@@ -47,6 +48,7 @@ class DeliberationProtocol:
         self.distributor = distributor or TaskDistributor()
         self.max_rounds = max_rounds
         self.round_timeout = round_timeout
+        self.tmux_manager = tmux_manager
 
     async def run(self, user_prompt: str) -> DeliberationResult:
         """Execute full deliberation loop."""
@@ -61,6 +63,9 @@ class DeliberationProtocol:
 
         for round_num in range(1, self.max_rounds + 1):
             logger.info(f"=== Round {round_num}/{self.max_rounds} ===")
+
+            # Update tmux pane titles to show round progress
+            self._update_pane_titles(f"Round {round_num}/{self.max_rounds}")
 
             # Build prompt for this round
             round_prompt = self._build_round_prompt(round_num, user_prompt)
@@ -83,9 +88,13 @@ class DeliberationProtocol:
             if consensus.reached:
                 logger.info(f"Consensus reached at round {round_num}!")
                 self.shared.update_consensus(consensus.summary)
+                self._update_pane_titles("✓ Consensus!")
                 break
 
             logger.info(f"No consensus yet. Continuing to round {round_num + 1}.")
+
+        # Update pane titles for task distribution phase
+        self._update_pane_titles("Distributing tasks...")
 
         # If no consensus after all rounds, force conclusion
         if consensus and not consensus.reached:
@@ -181,3 +190,29 @@ class DeliberationProtocol:
                 f"End your response with either 'I AGREE with [name]' or your counter-proposal.\n"
                 f"Keep your response under 300 words."
             )
+
+    def _update_pane_titles(self, status_text: str) -> None:
+        """Update tmux pane titles to show round progress (Phase 2 feature)."""
+        if not self.tmux_manager:
+            return
+
+        import subprocess
+
+        for name in self.agents:
+            pane = self.tmux_manager.get_pane(name)
+            if pane:
+                try:
+                    subprocess.run(
+                        [
+                            "tmux",
+                            "select-pane",
+                            "-t",
+                            pane.pane_id,
+                            "-T",
+                            f"{name}: {status_text}",
+                        ],
+                        capture_output=True,
+                        timeout=5,
+                    )
+                except Exception:
+                    pass  # Non-critical — don't fail deliberation for title update

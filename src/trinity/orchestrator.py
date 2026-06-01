@@ -4,15 +4,25 @@ from __future__ import annotations
 
 import logging
 import time
+from pathlib import Path
 
 from trinity.agents.base import AgentWrapper
-from trinity.agents.claude_agent import PrintModeClaudeAgent
+from trinity.agents.claude_agent import InteractiveClaudeAgent, PrintModeClaudeAgent
+from trinity.agents.factory import AgentFactory
+from trinity.completion.base import FallbackChainDetector
+from trinity.completion.hook import HookDetector
+from trinity.completion.idle import IdleDetector
+from trinity.completion.prompt import PromptReturnDetector
 from trinity.config import TrinityConfig
+from trinity.context.monitor import ContextMonitor
+from trinity.context.rotator import SessionRotator
 from trinity.context.shared import SharedContextEngine
 from trinity.deliberation.consensus import ConsensusEngine
 from trinity.deliberation.distributor import TaskDistributor
 from trinity.deliberation.protocol import DeliberationProtocol
+from trinity.health.checker import HealthChecker
 from trinity.models import DeliberationResult, Provider
+from trinity.tmux.session import TmuxSessionManager
 
 logger = logging.getLogger(__name__)
 
@@ -20,11 +30,16 @@ logger = logging.getLogger(__name__)
 class TrinityOrchestrator:
     """Owns all components and drives the deliberation lifecycle."""
 
-    def __init__(self, config: TrinityConfig):
+    def __init__(self, config: TrinityConfig, interactive: bool = False):
         self.config = config
+        self.interactive = interactive
         self.agents: dict[str, AgentWrapper] = {}
         self.shared: SharedContextEngine | None = None
         self.protocol: DeliberationProtocol | None = None
+        self.tmux_manager: TmuxSessionManager | None = None
+        self.context_monitor: ContextMonitor | None = None
+        self.session_rotator: SessionRotator | None = None
+        self.health_checker: HealthChecker | None = None
 
     def _ensure_initialized(self) -> None:
         """Lazy initialization: create agents, shared context, protocol."""
@@ -44,11 +59,10 @@ class TrinityOrchestrator:
             keep_sections=self.config.keep_sections,
         )
 
-        # Create agent wrappers
-        for name, spec in self.config.active_agents.items():
-            agent = self._create_agent(spec)
-            self.agents[name] = agent
-            logger.info(f"Created agent: {agent}")
+        if self.interactive:
+            self._init_interactive_mode(state_dir)
+        else:
+            self._init_print_mode()
 
         if not self.agents:
             raise ValueError(
@@ -65,28 +79,77 @@ class TrinityOrchestrator:
             distributor=TaskDistributor(),
             max_rounds=self.config.max_deliberation_rounds,
             round_timeout=self.config.round_timeout_seconds,
+            tmux_manager=self.tmux_manager if self.interactive else None,
         )
 
-    def _create_agent(self, spec) -> AgentWrapper:
-        """Factory: create the appropriate agent wrapper based on provider."""
-        if spec.provider == Provider.CLAUDE_CODE:
-            return PrintModeClaudeAgent(spec)
-        elif spec.provider == Provider.CODEX:
-            # Phase 4: CodexAgent
-            logger.warning(
-                f"Codex agent not yet implemented. "
-                f"Falling back to Claude print-mode for '{spec.name}'."
+        # Create context monitor and session rotator
+        self.context_monitor = ContextMonitor(
+            agents=self.agents,
+            rotate_threshold=self.config.context_rotate_threshold,
+        )
+        self.session_rotator = SessionRotator(
+            agents=self.agents,
+            shared=self.shared,
+            recent_rounds=self.config.recent_rounds_on_rotate,
+        )
+
+        # Create health checker
+        self.health_checker = HealthChecker(
+            agents=self.agents,
+            check_interval=self.config.health_check_interval_seconds,
+        )
+
+    def _init_print_mode(self) -> None:
+        """Initialize agents in print mode (Phase 1 — subprocess-based)."""
+        for name, spec in self.config.active_agents.items():
+            agent = self._create_print_agent(spec)
+            self.agents[name] = agent
+            logger.info(f"Created agent (print mode): {agent}")
+
+    def _init_interactive_mode(self, state_dir: Path) -> None:
+        """Initialize agents in interactive tmux mode (Phase 2)."""
+        active_agents = self.config.active_agents
+
+        # Create tmux session with panes for each agent
+        self.tmux_manager = TmuxSessionManager(
+            session_name=self.config.session_name,
+        )
+        self.tmux_manager.create_session(list(active_agents.values()))
+
+        # Create agents with panes and completion detectors
+        for name, spec in active_agents.items():
+            pane = self.tmux_manager.get_pane(name)
+            if not pane:
+                logger.warning(f"No pane for agent '{name}', falling back to print mode")
+                agent = self._create_print_agent(spec)
+                self.agents[name] = agent
+                continue
+
+            # Build completion detector chain for this agent
+            signal_path = state_dir / "agents" / name / "completion_signal.json"
+            detector = AgentFactory.create_detector_chain(signal_path, spec.provider)
+
+            agent = AgentFactory.create(
+                spec=spec,
+                mode="interactive",
+                pane=pane,
+                detector=detector,
+                signal_path=signal_path,
             )
-            return PrintModeClaudeAgent(spec)
-        elif spec.provider == Provider.GEMINI_CLI:
-            # Phase 4: GeminiAgent
-            logger.warning(
-                f"Gemini agent not yet implemented. "
-                f"Falling back to Claude print-mode for '{spec.name}'."
-            )
-            return PrintModeClaudeAgent(spec)
-        else:
-            raise ValueError(f"Unknown provider: {spec.provider}")
+            self.agents[name] = agent
+            logger.info(f"Created agent (interactive): {agent}")
+
+    def _create_detector_chain(self, signal_path: Path) -> FallbackChainDetector:
+        """Create a default fallback chain: Hook → PromptReturn → Idle."""
+        return FallbackChainDetector([
+            HookDetector(signal_path=signal_path),
+            PromptReturnDetector(),
+            IdleDetector(idle_timeout=10.0),
+        ])
+
+    def _create_print_agent(self, spec) -> AgentWrapper:
+        """Factory: create a print-mode agent using AgentFactory."""
+        return AgentFactory.create(spec, mode="print")
 
     async def ask(self, prompt: str) -> DeliberationResult:
         """Main entry point: run deliberation on a user prompt."""
@@ -103,6 +166,9 @@ class TrinityOrchestrator:
         # Run the deliberation protocol
         result = await self.protocol.run(prompt)
 
+        # Check context usage and rotate if needed
+        await self._check_and_rotate()
+
         elapsed = time.time() - start_time
         logger.info(
             f"Deliberation complete: {result.rounds_completed} rounds, "
@@ -110,6 +176,22 @@ class TrinityOrchestrator:
         )
 
         return result
+
+    async def _check_and_rotate(self) -> None:
+        """Check all agents' context usage and rotate those exceeding threshold."""
+        if not self.context_monitor or not self.session_rotator:
+            return
+
+        needs_rotation = self.context_monitor.check_usage()
+
+        for agent_name in needs_rotation:
+            logger.info(f"[{agent_name}] Context threshold reached, rotating session...")
+            success = await self.session_rotator.rotate(agent_name)
+
+            if success:
+                # Broadcast rotation to other agents
+                msg = self.session_rotator.build_broadcast_message(agent_name)
+                logger.info(f"Broadcast: {msg}")
 
     def get_status(self) -> dict:
         """Return current orchestrator status."""
@@ -125,4 +207,21 @@ class TrinityOrchestrator:
             },
             "shared_context_path": str(self.config.shared_context_path),
             "max_rounds": self.config.max_deliberation_rounds,
+            "interactive": self.interactive,
+            "tmux_session": (
+                self.config.session_name if self.tmux_manager else None
+            ),
         }
+
+    async def shutdown(self) -> None:
+        """Gracefully shut down all agents and tmux session."""
+        for name, agent in self.agents.items():
+            try:
+                await agent.graceful_shutdown()
+                logger.info(f"Agent '{name}' shut down")
+            except Exception as e:
+                logger.error(f"Error shutting down agent '{name}': {e}")
+
+        if self.tmux_manager:
+            self.tmux_manager.destroy()
+            logger.info("tmux session destroyed")

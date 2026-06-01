@@ -114,7 +114,8 @@ def init(force: bool):
 @click.argument("prompt")
 @click.option("--max-rounds", type=int, default=None, help="Override max deliberation rounds")
 @click.option("--agents", "agent_names", default=None, help="Comma-separated agent names to use")
-def ask(prompt: str, max_rounds: int | None, agent_names: str | None):
+@click.option("-i", "--interactive", is_flag=True, help="Use tmux interactive mode (Phase 2)")
+def ask(prompt: str, max_rounds: int | None, agent_names: str | None, interactive: bool):
     """Run deliberation on a prompt.
 
     Example: trinity ask "What testing framework should we use?"
@@ -133,15 +134,17 @@ def ask(prompt: str, max_rounds: int | None, agent_names: str | None):
 
     # Show header
     active = config.active_agents
+    mode_str = "interactive (tmux)" if interactive else "print mode"
     console.print(Panel.fit(
         f"[bold]{prompt}[/bold]\n\n"
         f"Agents: {', '.join(active.keys())}\n"
-        f"Max rounds: {config.max_deliberation_rounds}",
+        f"Max rounds: {config.max_deliberation_rounds}\n"
+        f"Mode: {mode_str}",
         title="Trinity Deliberation",
     ))
 
     # Run orchestrator
-    orchestrator = TrinityOrchestrator(config)
+    orchestrator = TrinityOrchestrator(config, interactive=interactive)
 
     try:
         result = asyncio.run(orchestrator.ask(prompt))

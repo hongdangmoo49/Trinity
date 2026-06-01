@@ -493,6 +493,29 @@ Phase 4에서 추가된 다중 Provider 지원, 헬스체크, 워크스페이스
 
 ---
 
+## Post-6 핫픽스
+
+### surrogate 문자 인코딩 크래시 수정 — ✅ 완료
+
+**문제**: 사용자 입력 또는 tmux capture-pane 출력에 포함된 **서로게이트 코드포인트**(U+D800–U+DFFF)가 `SharedContextEngine.write()`에서 `UnicodeEncodeError: 'utf-8' codec can't encode characters: surrogates not allowed` 크래시를 유발.
+
+**원인**: Python이 터미널/tmux에서 유효하지 않은 UTF-8 바이트를 읽을 때 `surrogateescape` 핸들러로 이를 서로게이트 코드포인트로 변환. 이후 `write_text(encoding="utf-8")`로 쓸 때 서로게이트는 UTF-8로 인코딩할 수 없어 크래시.
+
+**수정**:
+- `src/trinity/context/shared.py` — `_sanitize()` 정적 메서드 추가: `encode("utf-8", errors="replace").decode("utf-8")`로 서로게이트를 `?`로 치환
+- `write()`에서 `_sanitize()` 호출하여 모든 쓰기 경로에서 서로게이트 문제 해결
+
+**테스트**: 4개 신규 테스트 추가 (600 passed, 기존 596 → 4개 추가)
+
+| 테스트 | 검증 내용 |
+|--------|-----------|
+| `test_write_surrogate_characters` | `initialize()`가 서로게이트 포함 프롬프트 처리 |
+| `test_write_section_with_surrogates` | `write_section()`이 서로게이트 포함 내용 처리 |
+| `test_append_opinion_with_surrogates` | `append_opinion()`이 서로게이트 포함 에이전트 출력 처리 |
+| `test_sanitize_preserves_valid_utf8` | 정상 한글·이모지는 변경 없이 보존 |
+
+---
+
 ## 아키텍처 부채 (현재 알려진 것)
 
 | 항목 | 심각도 | 설명 | 해결 시점 |

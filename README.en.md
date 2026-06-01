@@ -81,19 +81,19 @@ That's it. Trinity will:
 ## 🔁 How It Works
 
 ```
-  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+  ┌───────────────┐     ┌───────────────┐     ┌───────────────┐
   │   🏗️ Claude   │     │   ⚙️ Codex    │     │   🔍 Gemini   │
-  │  (Architect) │     │(Implementer) │     │  (Reviewer)  │
-  └──────┬──────┘     └──────┬──────┘     └──────┬──────┘
-         │                   │                   │
-         └───────────┬───────┴───────────────────┘
-                     │
-             ┌───────┴───────┐
-             │  Orchestrator  │
-             │ Shared Context │
-             │   Consensus    │
-             │  Task Distrib  │
-             └───────────────┘
+  │  (Architect)  │     │ (Implementer) │     │  (Reviewer)   │
+  └───────┬───────┘     └───────┬───────┘     └───────┬───────┘
+          │                     │                     │
+          └─────────────────────┼─────────────────────┘
+                                │
+                       ┌────────┴────────┐
+                       │  Orchestrator   │
+                       │ Shared Context  │
+                       │    Consensus    │
+                       │  Task Distrib   │
+                       └─────────────────┘
 ```
 
 ### Deliberation Flow
@@ -126,30 +126,30 @@ Trinity features a **Rich-based terminal UI** with real-time deliberation visual
   🏗️ claude ✅    ⚙️ codex ✅    🔍 gemini ✅
 
   📊 Agent Status
-  ┌──────────────────────────────────────────────────────────────────┐
-  │  🏗️ claude    Architect    ✅ responded    12%    I recommend...│
-  │  ⚙️ codex     Implementer  ✅ responded    8%     Agreed with...│
-  │  🔍 gemini    Reviewer     ✅ responded    15%    I suggest...  │
-  └──────────────────────────────────────────────────────────────────┘
+  ┌────────────────────────────────────────────────────────────────┐
+  │  🏗️ claude    Architect    ✅ responded    12%    I recommend... │
+  │  ⚙️ codex     Implementer  ✅ responded    8%     Agreed with... │
+  │  🔍 gemini    Reviewer     ✅ responded    15%    I suggest...   │
+  └────────────────────────────────────────────────────────────────┘
 
   💬 Deliberation
   ─── Round 1 ──────────────────────────────────────────────────────
     ✅ claude (Architect)
     ┌──────────────────────────────────────────────────────────┐
-    │  I recommend using JWT with RS256 for the auth system.  │
-    │  The architecture should follow a middleware pattern...  │
+    │  I recommend using JWT with RS256 for the auth system.    │
+    │  The architecture should follow a middleware pattern...   │
     └──────────────────────────────────────────────────────────┘
 
     ✅ codex (Implementer)
     ┌──────────────────────────────────────────────────────────┐
-    │  I AGREE with claude. Additionally, we should add       │
-    │  refresh token rotation for security...                  │
+    │  I AGREE with claude. Additionally, we should add         │
+    │  refresh token rotation for security...                   │
     └──────────────────────────────────────────────────────────┘
 
     ✅ gemini (Reviewer)
     ┌──────────────────────────────────────────────────────────┐
-    │  I suggest considering OAuth2 as an alternative. The    │
-    │  token rotation idea is good, but we need edge case...  │
+    │  I suggest considering OAuth2 as an alternative. The      │
+    │  token rotation idea is good, but we need edge case...    │
     └──────────────────────────────────────────────────────────┘
 
     🔍 Evaluating consensus...  2/3 agree (67%)

@@ -391,56 +391,50 @@ Phase 4에서 추가된 다중 Provider 지원, 헬스체크, 워크스페이스
 
 ---
 
-## Phase 5: 프로덕션 폴리싱 — 🔲 예정
+## Phase 5: 프로덕션 폴리싱 — ✅ 완료
 
-### 구현해야 할 것
-
-| 작업 | 상세 |
-|------|------|
-| `trinity attach` | tmux 세션에 attach |
-| `trinity logs --follow` | 오케스트레이터 로그 실시간 출력 |
-| `trinity config --show <key>` | 설정 값 확인 |
-| `trinity reset --keep-context` | 세션 초기화 (shared.md 보존 옵션) |
-| 재시도 로직 | RetryConfig: CLI 종료 코드 + 출력 패턴 기반, 지수 백오프 |
-| 에러 핸들링 | Provider 크래시 → 자동 respawn, 세션 복구 |
-| 로깅 개선 | 파일 로깅 + Rich 콘솔 포맷팅 |
-| `trinity status --watch` | 실시간 상태 대시보드 (top 명령어 스타일) |
-
----
-
-## Phase 5-T: Phase 5 테스트 — 🔲 예정
-
-### 목표
-Phase 5에서 추가된 프로덕션 기능 관련 모듈의 테스트를 작성한다.
-
-### 구현해야 할 것
+### 구현한 것
 
 | 작업 | 파일 | 상세 |
 |------|------|------|
-| **재시도 로직 테스트** | `tests/test_retry.py` | RetryConfig: 종료 코드 매칭, 출력 패턴 매칭, 지수 백오프 계산, 최대 재시도 |
-| **에러 핸들링 테스트** | `tests/test_error_handling.py` | Provider 크래시 → 자동 respawn, 세션 복구 플로우, graceful degradation |
-| **CLI 추가 명령어 테스트** | `tests/test_cli_v2.py` | attach, logs, config --show, reset --keep-context, status --watch |
-| **로깅 테스트** | `tests/test_logging.py` | 파일 로깅 출력, Rich 포맷팅, 로그 레벨 필터링 |
-| **E2E 시나리오 테스트** | `tests/test_e2e.py` | init → ask → status → context 전체 흐름 (mock 에이전트) |
+| `trinity attach` | `cli.py` | tmux 세션에 attach |
+| `trinity logs --follow` | `cli.py` | 오케스트레이터 로그 실시간 출력 |
+| `trinity config <key>` | `cli.py` | 설정 값 조회 |
+| `trinity reset --keep-context` | `cli.py` | 세션 초기화 (shared.md 보존 옵션) |
+| `trinity status-watch` | `cli.py` | 실시간 상태 대시보드 (Live) |
+| **재시도 로직** | `retry.py` | RetryConfig: 종료 코드 + 출력 패턴 기반, 지수 백오프, jitter |
+| **에러 핸들링** | `error_handler.py` | Provider 크래시 → 자동 respawn, 컨텍스트 주입, 비활성화 정책 |
+| **로깅 개선** | `logging.py` | 파일 로깅 + Rich 콘솔 포맷팅, 레벨 필터링 |
 
-### 마일스톤
+### 검증 완료
 
-```
-pytest tests/ -v --cov=trinity
-  → 210+ 테스트 통과
-  → 전체 커버리지 85%+
-  → E2E 시나리오로 사용자 관점 검증 완료
-```
+- [x] **RetryConfig** — 지수 백오프, jitter, 종료 코드/패턴/예외 기반 재시도 판정
+- [x] **ErrorHandler** — 크래시 기록, 자동 respawn, 컨텍스트 주입, 비활성화 임계값
+- [x] **로깅** — Rich 콘솔 + 파일 동시 출력, 디렉토리 자동 생성
+- [x] **CLI** — attach, logs, config, reset, status-watch 5개 명령어 추가
+- [x] 기존 테스트 386개 전부 통과 — Phase 5 코드가 이전 기능에 영향 없음
 
-### 결과 문서
+---
 
-테스트 완료 후 `docs/test-results/phase-5-T.md`에 다음 내용을 기록한다:
+## Phase 5-T: Phase 5 테스트 — ✅ 완료
 
-- 테스트 수, 통과/실패, 커버리지 수치
-- 테스트 파일별 상세 결과 테이블
-- 미커버 영역 분석 및 후속 조치
-- 발견된 이슈 및 해결 내역
-- 전체 Phase 로드맵 완료 요약
+### 구현한 것
+
+| 작업 | 파일 | 상세 |
+|------|------|------|
+| **재시도 로직 테스트** | `tests/test_retry.py` | 24 tests: 지수 백오프, jitter, 종료 코드/패턴/예외 판정, async/sync 실행 |
+| **에러 핸들링 테스트** | `tests/test_error_handling.py` | 17 tests: 크래시 기록, 비활성화, respawn, 콜백, 리셋 |
+| **CLI 추가 명령어 테스트** | `tests/test_cli_v2.py` | 10 tests: config, logs, reset, attach, status-watch |
+| **로깅 테스트** | `tests/test_logging.py` | 10 tests: 파일/콘솔 핸들러, 포맷, 레벨, 자식 Logger |
+| **E2E 시나리오 테스트** | `tests/test_e2e.py` | 8 tests: init → status → ask → context → version |
+
+### 검증 완료
+
+- [x] `pytest tests/ -v` → **455 passed** (기존 386개 → 69개 추가)
+- [x] `pytest tests/ --cov=trinity` → **90% 커버리지**
+- [x] 5개 신규 테스트 파일 작성
+- [x] E2E 시나리오로 init → ask → status → context 전체 흐름 검증
+- [x] 테스트 결과 문서: [`docs/test-results/phase-5-T.md`](test-results/phase-5-T.md)
 
 ---
 
@@ -468,8 +462,8 @@ Phase 3   ✅ Context 모니터링 + 자동 세션 교체 (완료)
 Phase 3-T ✅ Phase 3 테스트 (234 테스트, 94% 커버리지) → docs/test-results/phase-3-T.md
 Phase 4   ✅ 다중 Provider + 헬스체크 + 워크스페이스 격리 (완료)
 Phase 4-T ✅ Phase 4 테스트 (386 테스트, 91% 커버리지) → docs/test-results/phase-4-T.md
-Phase 5   🔲 프로덕션 폴리싱
-Phase 5-T 🔲 Phase 5 테스트 → docs/test-results/phase-5-T.md
+Phase 5   ✅ 프로덕션 폴리싱 (완료)
+Phase 5-T ✅ Phase 5 테스트 (455 테스트, 90% 커버리지) → docs/test-results/phase-5-T.md
 ```
 
 ### 테스트 Phase 공통 규칙
@@ -492,4 +486,4 @@ Phase 5-T 🔲 Phase 5 테스트 → docs/test-results/phase-5-T.md
 - **마지막 커밋**: `eefb8cb` — feat: implement Trinity v0.1.0 — Phase 1 core
 
 *작성일: 2026-06-01*
-*갱신일: 2026-06-01 — Phase 4/4-T 완료 반영, 386 테스트, 91% 커버리지*
+*갱신일: 2026-06-01 — Phase 5/5-T 완료, 전체 로드맵 완료, 455 테스트, 90% 커버리지*

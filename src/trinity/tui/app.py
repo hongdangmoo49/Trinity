@@ -1,31 +1,34 @@
 """Trinity TUI application — Rich Live-based interactive terminal UI.
 
 Provides a full-screen terminal interface with:
-- Header panel (version, agent status, session info)
-- Agent status panel (per-agent response summary, context usage, state)
-- Deliberation progress panel (round status, consensus tracking)
-- Input prompt (user question entry + command mode)
+- Header panel (version, agent status pills, session info)
+- Agent status panel (per-agent colored response summary, context usage, state)
+- Deliberation panel (real-time agent opinions with Markdown rendering)
+- Result panel (consensus progress, Markdown summary, Tree task distribution)
 """
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable
 
-from rich.align import Align
 from rich.console import Console, Group
-from rich.live import Live
+from rich.markdown import Markdown
 from rich.panel import Panel
+from rich.progress import BarColumn, Progress, TextColumn
+from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
+from rich.tree import Tree
 
 from trinity import __version__
 from trinity.config import TrinityConfig
 from trinity.models import AgentHealth, ConsensusResult, DeliberationResult, TaskAssignment
+from trinity.tui.events import TUIEvent, TUIEventType
+from trinity.tui.theme import get_theme
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +51,7 @@ class AgentTUIStatus:
     provider: str
     state: AgentTUIState = AgentTUIState.IDLE
     response_preview: str = ""
+    full_response: str = ""
     context_percent: float = 0.0
     role: str = ""
 
@@ -80,7 +84,9 @@ class RoundStatus:
 
     round_num: int
     agent_states: dict[str, AgentTUIState] = field(default_factory=dict)
+    agent_opinions: dict[str, str] = field(default_factory=dict)
     consensus: str = "waiting"  # "waiting" | "checking" | "reached" | "not_reached"
+    consensus_detail: str = ""
     duration: float = 0.0
 
 
@@ -120,25 +126,98 @@ class TrinityTUI:
                 state=AgentTUIState.DISABLED if not spec.enabled else AgentTUIState.IDLE,
             )
 
+    # ─── Event Consumption ─────────────────────────────────────────────
+
+    def consume_event(self, event: TUIEvent) -> None:
+        """Process a TUI event and update internal state.
+
+        Called from the main thread during Live refresh to apply
+        real-time deliberation updates.
+
+        Args:
+            event: The event from TUIEventBus.
+        """
+        if event.type == TUIEventType.ROUND_START:
+            self.start_round(event.data["round_num"])
+
+        elif event.type == TUIEventType.AGENT_THINKING:
+            name = event.data["agent"]
+            self.update_agent_status(name, state=AgentTUIState.RESPONDING)
+
+        elif event.type == TUIEventType.AGENT_RESPONDED:
+            name = event.data["agent"]
+            content = event.data.get("content", "")
+            preview = content[:80]
+            self.mark_agent_responded(name, preview)
+            # Store full response
+            if name in self.agents:
+                self.agents[name].full_response = content
+            # Store opinion in current round
+            if self.rounds:
+                self.rounds[-1].agent_opinions[name] = content
+
+        elif event.type == TUIEventType.AGENT_ERROR:
+            name = event.data["agent"]
+            self.update_agent_status(name, state=AgentTUIState.ERROR)
+            if name in self.agents:
+                self.agents[name].full_response = event.data.get("error", "Unknown error")
+            if self.rounds:
+                self.rounds[-1].agent_opinions[name] = (
+                    f"[Error: {event.data.get('error', 'Unknown')}]"
+                )
+
+        elif event.type == TUIEventType.CONSENSUS_CHECKING:
+            self.mark_consensus_checking()
+
+        elif event.type == TUIEventType.CONSENSUS_RESULT:
+            reached = event.data["reached"]
+            self.mark_consensus_result(reached)
+            if self.rounds:
+                agree = event.data.get("agreement_count", 0)
+                total = event.data.get("total_agents", 0)
+                if total > 0:
+                    pct = int(agree / total * 100)
+                    self.rounds[-1].consensus_detail = f"{agree}/{total} 동의 ({pct}%)"
+
+        elif event.type == TUIEventType.DELIBERATION_DONE:
+            pass  # No special action needed
+
+    # ─── Layout Builders ───────────────────────────────────────────────
+
     def build_header(self) -> Panel:
-        """Build the header panel."""
-        # Agent status line
-        agent_parts = []
+        """Build the header panel with agent status pills."""
+        # Agent status pills with per-agent colors
+        agent_parts: list[Text] = []
         for name, status in self.agents.items():
+            theme = get_theme(name)
             if status.state == AgentTUIState.DISABLED:
-                agent_parts.append(f"{name} ❌")
+                pill = Text(f"  {name} ⏸  ", style="dim")
             else:
-                agent_parts.append(f"{name} ✅")
-        agent_line = "  ".join(agent_parts)
+                icon = status.state_icon
+                pill = Text(f"  {theme.icon} {name} {icon}  ", style=f"bold {theme.color}")
+            agent_parts.append(pill)
+
+        agent_line = Text.assemble(*agent_parts)
 
         elapsed = time.time() - self.session_start
         mins, secs = divmod(int(elapsed), 60)
 
-        content = (
-            f"[bold cyan]🧠 Trinity v{__version__}[/bold cyan]\n"
-            f"[dim]Three minds, one context[/dim]\n\n"
-            f"Agents: {agent_line}\n"
-            f"Session: {self.config.session_name}  ⏱ {mins}m {secs:02d}s"
+        content = Group(
+            Text(),
+            Text.assemble(
+                Text("🧠 ", style=""),
+                Text(f"Trinity v{__version__}", style="bold cyan"),
+                Text("  —  ", style="dim"),
+                Text("Three minds, one context", style="dim italic"),
+            ),
+            Text(),
+            agent_line,
+            Text(),
+            Text.assemble(
+                Text(f"📡 Session: {self.config.session_name}", style="dim"),
+                Text(f"  ⏱ {mins}m {secs:02d}s", style="dim"),
+            ),
+            Text(),
         )
 
         return Panel.fit(
@@ -147,31 +226,35 @@ class TrinityTUI:
         )
 
     def build_agent_panel(self) -> Panel:
-        """Build the agent status panel."""
+        """Build the agent status panel with per-agent colors."""
         table = Table(
             show_header=True,
             header_style="bold",
             expand=True,
             title="📊 Agent Status",
             title_style="bold",
+            show_lines=False,
         )
-        table.add_column("Agent", style="cyan", min_width=12)
+        table.add_column("Agent", min_width=14)
         table.add_column("Role", max_width=20)
-        table.add_column("Status", min_width=12)
+        table.add_column("Status", min_width=14)
         table.add_column("Context", justify="right", min_width=8)
-        table.add_column("Response", max_width=40)
+        table.add_column("Response Preview", max_width=40)
 
         for name, status in self.agents.items():
             if status.state == AgentTUIState.DISABLED:
                 continue
 
+            theme = get_theme(name)
             state_str = f"{status.state_icon} {status.state.value}"
+
+            # Truncate preview
             preview = status.response_preview[:40]
             if len(status.response_preview) > 40:
                 preview += "..."
 
             table.add_row(
-                name,
+                f"[{theme.color}]{theme.icon} {name}[/{theme.color}]",
                 status.role[:20],
                 state_str,
                 status.context_bar,
@@ -181,91 +264,192 @@ class TrinityTUI:
         return Panel(table, border_style="blue")
 
     def build_deliberation_panel(self) -> Panel:
-        """Build the deliberation progress panel."""
-        table = Table(
-            show_header=True,
-            header_style="bold",
-            expand=True,
-            title="📋 Deliberation Progress",
-            title_style="bold",
-        )
-        table.add_column("Round", style="cyan", min_width=8)
-        table.add_column("Agents", max_width=50)
-        table.add_column("Consensus", min_width=15)
+        """Build the deliberation panel showing actual agent opinions.
 
-        for round_status in self.rounds:
-            round_label = f"Round {round_status.round_num}"
-            agent_parts = []
-            for name, state in round_status.agent_states.items():
-                icon = {
-                    AgentTUIState.IDLE: "⬜",
-                    AgentTUIState.RESPONDING: "🔄",
-                    AgentTUIState.RESPONDED: "✅",
-                    AgentTUIState.ERROR: "❌",
-                }.get(state, "❓")
-                agent_parts.append(f"{icon} {name}")
-
-            agents_str = " → ".join(agent_parts)
-
-            consensus_icons = {
-                "waiting": "⏳ 대기",
-                "checking": "🔍 판정중",
-                "reached": "✅ 합의 도달",
-                "not_reached": "❌ 합의 실패",
-            }
-            consensus_str = consensus_icons.get(
-                round_status.consensus, round_status.consensus
-            )
-
-            table.add_row(round_label, agents_str, consensus_str)
+        This is the key visual improvement: instead of just showing
+        status icons, it displays each agent's actual opinion text
+        as it arrives in real-time.
+        """
+        renderables: list = []
 
         if not self.rounds:
-            table.add_row("[dim]—[/dim]", "[dim]No deliberation yet[/dim]", "[dim]—[/dim]")
+            renderables.append(
+                Text("  No deliberation yet. Ask a question to begin.", style="dim")
+            )
+        else:
+            for round_status in self.rounds:
+                # Round separator
+                renderables.append(
+                    Rule(
+                        f"  Round {round_status.round_num}  ",
+                        style="bold cyan",
+                        characters="─",
+                    )
+                )
 
-        # Consensus summary
+                # Show each agent's opinion
+                for name, state in round_status.agent_states.items():
+                    theme = get_theme(name)
+                    opinion_text = round_status.agent_opinions.get(name, "")
+
+                    if state == AgentTUIState.RESPONDING:
+                        # Agent still thinking
+                        renderables.append(
+                            Text.assemble(
+                                Text("  🔄 ", style=""),
+                                Text(f"{name}", style=f"bold {theme.color}"),
+                                Text(f" ({theme.role_label})", style="dim"),
+                                Text(" 생각중...", style="yellow"),
+                            )
+                        )
+                    elif state == AgentTUIState.ERROR:
+                        renderables.append(
+                            Text.assemble(
+                                Text("  ❌ ", style=""),
+                                Text(f"{name}", style=f"bold {theme.color}"),
+                                Text(f" ({theme.role_label})", style="dim"),
+                                Text(" 오류 발생", style="red"),
+                            )
+                        )
+                        if opinion_text:
+                            renderables.append(
+                                Text(f"     {opinion_text[:100]}", style="red dim")
+                            )
+                    elif state == AgentTUIState.RESPONDED and opinion_text:
+                        # Agent responded — show opinion
+                        # Header line: icon + name + role
+                        header = Text.assemble(
+                            Text("  ✅ ", style=""),
+                            Text(f"{name}", style=f"bold {theme.color}"),
+                            Text(f" ({theme.role_label})", style="dim"),
+                        )
+                        renderables.append(header)
+
+                        # Opinion content as a styled panel with Markdown
+                        opinion_panel = Panel(
+                            Markdown(opinion_text[:500]),
+                            border_style=theme.border_style,
+                            padding=(0, 1),
+                        )
+                        renderables.append(opinion_panel)
+                        renderables.append(Text())  # Spacer
+
+                # Consensus status for this round
+                consensus_labels = {
+                    "waiting": ("⏳ 대기중", "dim"),
+                    "checking": ("🔍 합의 판정중...", "yellow"),
+                    "reached": ("✅ 합의 도달!", "bold green"),
+                    "not_reached": ("❌ 합의 실패", "yellow"),
+                }
+                label, style = consensus_labels.get(
+                    round_status.consensus,
+                    (round_status.consensus, "white"),
+                )
+
+                consensus_line = Text(f"  {label}", style=style)
+                if round_status.consensus_detail:
+                    consensus_line.append(
+                        Text(f"  {round_status.consensus_detail}", style="dim")
+                    )
+                renderables.append(consensus_line)
+
+        # Round counter + elapsed time
         round_info = f"Round: {self.current_round}/{self.max_rounds}"
         elapsed = time.time() - self.session_start
         mins, secs = divmod(int(elapsed), 60)
         time_info = f"⏱ {mins}m {secs:02d}s"
 
+        renderables.append(Text())
+        renderables.append(
+            Text(f"  {round_info}    {time_info}", style="dim")
+        )
+
         return Panel(
-            Group(table, Text(f"\n{round_info}  {time_info}")),
+            Group(*renderables),
+            title="💬 Deliberation",
             border_style="green",
         )
 
     def build_result_panel(self) -> Panel | None:
-        """Build the result panel if a result is available."""
+        """Build the result panel with consensus progress and task distribution."""
         if not self.last_result:
             return None
 
         result = self.last_result
+        renderables: list = []
 
+        # Consensus status header
         if result.has_consensus:
-            content = f"[green bold]✅ Consensus Reached (Round {result.rounds_completed})[/green bold]\n\n"
-            content += f"[white]{result.consensus.summary}[/white]\n"
+            renderables.append(
+                Text("  ✅ 합의 도달", style="bold green")
+            )
+            if result.consensus:
+                # Consensus progress bar
+                agree = result.consensus.agreement_count
+                total = result.consensus.total_agents
+                if total > 0:
+                    progress = Progress(
+                        TextColumn("  "),
+                        TextColumn("{task.description}", style="dim"),
+                        BarColumn(bar_width=30, complete_style="green"),
+                        TextColumn("{task.completed}/{task.total}", style="bold"),
+                    )
+                    task = progress.add_task(
+                        "합의 진행률", total=total, completed=agree
+                    )
+                    # Stop the progress (static rendering)
+                    progress.update(task, completed=agree)
+                    renderables.append(progress)
+                    renderables.append(Text())
+
+                # Consensus summary as Markdown
+                if result.consensus.summary:
+                    renderables.append(
+                        Panel(
+                            Markdown(result.consensus.summary),
+                            title="📋 합의 요약",
+                            border_style="green",
+                            padding=(0, 1),
+                        )
+                    )
         else:
-            content = f"[yellow]⚠️ No Consensus ({result.rounds_completed} rounds)[/yellow]\n"
+            renderables.append(
+                Text(f"  ⚠️ 합의 실패 ({result.rounds_completed} 라운드)", style="yellow")
+            )
 
+        # Task distribution as Tree
         if result.tasks:
-            content += "\n[bold]Task Distribution:[/bold]\n"
+            renderables.append(Text())
+            tree = Tree("🎯 작업 분배")
             for task in sorted(result.tasks, key=lambda t: -t.priority):
-                desc = task.task_description[:60]
-                if len(task.task_description) > 60:
+                theme = get_theme(task.agent_name)
+                desc = task.task_description[:80]
+                if len(task.task_description) > 80:
                     desc += "..."
-                content += f"  • [cyan]{task.agent_name}[/cyan]: {desc}\n"
+                priority_label = f" [우선순위: {task.priority}]" if task.priority else ""
+                tree.add(
+                    f"[{theme.color}]{theme.icon} {task.agent_name}[/{theme.color}]: "
+                    f"{desc}[dim]{priority_label}[/dim]"
+                )
+            renderables.append(tree)
 
+        # Stats line
         stats = (
-            f"\n[dim]Duration: {result.duration_seconds:.1f}s | "
-            f"Tokens: {result.total_tokens_used:,} | "
-            f"Rounds: {result.rounds_completed}[/dim]"
+            f"\n  [dim]소요시간: {result.duration_seconds:.1f}s | "
+            f"토큰: {result.total_tokens_used:,} | "
+            f"라운드: {result.rounds_completed}[/dim]"
         )
-        content += stats
+        renderables.append(Text.from_markup(stats))
 
-        return Panel(content, title="📋 Result", border_style="yellow")
+        return Panel(
+            Group(*renderables),
+            title="📋 Result",
+            border_style="yellow",
+        )
 
     def build_layout(self) -> Group:
         """Build the complete TUI layout."""
-        panels = [
+        panels: list = [
             self.build_header(),
             self.build_agent_panel(),
             self.build_deliberation_panel(),
@@ -279,6 +463,8 @@ class TrinityTUI:
         panels.append(Text("💬 trinity>", style="bold green"))
 
         return Group(*panels)
+
+    # ─── State Mutations ───────────────────────────────────────────────
 
     def update_agent_status(
         self,
@@ -321,6 +507,7 @@ class TrinityTUI:
                 agent_states[name] = AgentTUIState.RESPONDING
                 status.state = AgentTUIState.RESPONDING
                 status.response_preview = ""
+                status.full_response = ""
 
         self.rounds.append(RoundStatus(
             round_num=round_num,
@@ -375,6 +562,7 @@ class TrinityTUI:
             if status.state != AgentTUIState.DISABLED:
                 status.state = AgentTUIState.IDLE
                 status.response_preview = ""
+                status.full_response = ""
         # Clear round history between deliberations
         self.rounds.clear()
         self.current_round = 0

@@ -16,6 +16,7 @@ from trinity.models import (
     TaskAssignment,
 )
 from trinity.tui.app import AgentTUIState
+from trinity.tui.events import TUIEvent, TUIEventBus, TUIEventType
 from trinity.tui.session import InteractiveSession
 
 
@@ -264,3 +265,47 @@ class TestSessionDisplayResult:
             ],
         )
         session._display_result(result)
+
+
+class TestTUIEventBus:
+    """Tests for the thread-safe event bus."""
+
+    def test_emit_and_poll(self):
+        bus = TUIEventBus()
+        bus.emit(TUIEvent(type=TUIEventType.ROUND_START, data={"round_num": 1}))
+        events = bus.poll()
+        assert len(events) == 1
+        assert events[0].type == TUIEventType.ROUND_START
+        assert events[0].data["round_num"] == 1
+
+    def test_poll_empty(self):
+        bus = TUIEventBus()
+        events = bus.poll()
+        assert events == []
+
+    def test_multiple_events_in_order(self):
+        bus = TUIEventBus()
+        bus.emit(TUIEvent(type=TUIEventType.ROUND_START, data={"round_num": 1}))
+        bus.emit(TUIEvent(type=TUIEventType.AGENT_THINKING, data={"agent": "claude"}))
+        bus.emit(TUIEvent(type=TUIEventType.AGENT_RESPONDED, data={"agent": "claude"}))
+
+        events = bus.poll()
+        assert len(events) == 3
+        assert events[0].type == TUIEventType.ROUND_START
+        assert events[1].type == TUIEventType.AGENT_THINKING
+        assert events[2].type == TUIEventType.AGENT_RESPONDED
+
+    def test_poll_drains_queue(self):
+        bus = TUIEventBus()
+        bus.emit(TUIEvent(type=TUIEventType.ROUND_START, data={}))
+        bus.poll()
+        events = bus.poll()
+        assert events == []
+
+    def test_all_event_types(self):
+        """All TUIEventType values can be emitted and polled."""
+        bus = TUIEventBus()
+        for et in TUIEventType:
+            bus.emit(TUIEvent(type=et, data={}))
+        events = bus.poll()
+        assert len(events) == len(TUIEventType)

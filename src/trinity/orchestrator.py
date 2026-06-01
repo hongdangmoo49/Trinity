@@ -40,6 +40,15 @@ class TrinityOrchestrator:
         self.context_monitor: ContextMonitor | None = None
         self.session_rotator: SessionRotator | None = None
         self.health_checker: HealthChecker | None = None
+        self._event_bus = None
+
+    def set_event_bus(self, bus) -> None:
+        """Set the TUI event bus for real-time deliberation updates.
+
+        Args:
+            bus: A TUIEventBus instance from trinity.tui.events.
+        """
+        self._event_bus = bus
 
     def _ensure_initialized(self) -> None:
         """Lazy initialization: create agents, shared context, protocol."""
@@ -70,6 +79,7 @@ class TrinityOrchestrator:
             )
 
         # Create deliberation protocol
+        event_callback = self._event_bus.emit if self._event_bus else None
         self.protocol = DeliberationProtocol(
             agents=self.agents,
             shared=self.shared,
@@ -80,6 +90,7 @@ class TrinityOrchestrator:
             max_rounds=self.config.max_deliberation_rounds,
             round_timeout=self.config.round_timeout_seconds,
             tmux_manager=self.tmux_manager if self.interactive else None,
+            event_callback=event_callback,
         )
 
         # Create context monitor and session rotator

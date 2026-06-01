@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from typing import Callable
 
 from trinity.agents.base import AgentWrapper
 from trinity.context.shared import SharedContextEngine
@@ -17,6 +18,7 @@ from trinity.models import (
     MessageRole,
     TaskAssignment,
 )
+from trinity.tui.events import TUIEvent, TUIEventType
 
 logger = logging.getLogger(__name__)
 
@@ -26,10 +28,14 @@ class DeliberationProtocol:
 
     Each round:
     1. Build a round-specific prompt for all agents
-    2. Send to all agents in parallel (asyncio.gather)
+    2. Send to all agents in parallel (with per-agent completion streaming)
     3. Collect responses → write to shared.md
     4. Check for consensus
     5. If reached, distribute tasks. Otherwise, next round.
+
+    When an event_callback is provided, events are emitted for each
+    agent completion, round transition, and consensus evaluation,
+    enabling real-time TUI updates.
     """
 
     def __init__(
@@ -41,6 +47,7 @@ class DeliberationProtocol:
         max_rounds: int = 5,
         round_timeout: float = 120.0,
         tmux_manager=None,
+        event_callback: Callable[[TUIEvent], None] | None = None,
     ):
         self.agents = agents
         self.shared = shared
@@ -49,6 +56,12 @@ class DeliberationProtocol:
         self.max_rounds = max_rounds
         self.round_timeout = round_timeout
         self.tmux_manager = tmux_manager
+        self._event_callback = event_callback
+
+    def _emit(self, event_type: TUIEventType, **kwargs) -> None:
+        """Emit a TUI event if callback is registered."""
+        if self._event_callback:
+            self._event_callback(TUIEvent(type=event_type, data=kwargs))
 
     async def run(self, user_prompt: str) -> DeliberationResult:
         """Execute full deliberation loop."""
@@ -64,13 +77,16 @@ class DeliberationProtocol:
         for round_num in range(1, self.max_rounds + 1):
             logger.info(f"=== Round {round_num}/{self.max_rounds} ===")
 
+            # Emit round start
+            self._emit(TUIEventType.ROUND_START, round_num=round_num)
+
             # Update tmux pane titles to show round progress
             self._update_pane_titles(f"Round {round_num}/{self.max_rounds}")
 
             # Build prompt for this round
             round_prompt = self._build_round_prompt(round_num, user_prompt)
 
-            # Collect opinions from all agents in parallel
+            # Collect opinions from all agents (with per-agent streaming)
             opinions = await self._collect_opinions(round_num, round_prompt)
 
             # Write opinions to shared.md
@@ -82,6 +98,8 @@ class DeliberationProtocol:
                 msg.round_num = round_num
 
             # Check consensus
+            self._emit(TUIEventType.CONSENSUS_CHECKING, round_num=round_num)
+
             opinion_texts = {name: msg.content for name, msg in opinions.items()}
             consensus = self.consensus_engine.evaluate(opinion_texts)
 
@@ -89,9 +107,27 @@ class DeliberationProtocol:
                 logger.info(f"Consensus reached at round {round_num}!")
                 self.shared.update_consensus(consensus.summary)
                 self._update_pane_titles("✓ Consensus!")
+
+                self._emit(
+                    TUIEventType.CONSENSUS_RESULT,
+                    reached=True,
+                    agreement_count=consensus.agreement_count,
+                    total_agents=consensus.total_agents,
+                    summary=consensus.summary,
+                    round_num=round_num,
+                )
                 break
 
             logger.info(f"No consensus yet. Continuing to round {round_num + 1}.")
+
+            self._emit(
+                TUIEventType.CONSENSUS_RESULT,
+                reached=False,
+                agreement_count=consensus.agreement_count,
+                total_agents=consensus.total_agents,
+                summary="",
+                round_num=round_num,
+            )
 
         # Update pane titles for task distribution phase
         self._update_pane_titles("Distributing tasks...")
@@ -125,6 +161,8 @@ class DeliberationProtocol:
         )
         elapsed = time.time() - start_time
 
+        self._emit(TUIEventType.DELIBERATION_DONE)
+
         return DeliberationResult(
             user_prompt=user_prompt,
             rounds_completed=round_num,
@@ -137,32 +175,67 @@ class DeliberationProtocol:
     async def _collect_opinions(
         self, round_num: int, prompt: str
     ) -> dict[str, DeliberationMessage]:
-        """Send prompt to all agents in parallel and collect responses."""
-        tasks = {
-            name: agent.send_and_wait(prompt, timeout=self.round_timeout)
-            for name, agent in self.agents.items()
-        }
+        """Send prompt to all agents in parallel and collect responses.
 
-        results = await asyncio.gather(
-            *tasks.values(), return_exceptions=True
-        )
+        Uses asyncio.wait(FIRST_COMPLETED) instead of asyncio.gather
+        to enable per-agent completion streaming via events.
+        """
+        # Create tasks with agent names attached
+        pending: set[asyncio.Task] = set()
+        task_to_name: dict[asyncio.Task, str] = {}
+
+        for name, agent in self.agents.items():
+            coro = agent.send_and_wait(prompt, timeout=self.round_timeout)
+            task = asyncio.ensure_future(coro)
+            task_to_name[task] = name
+            pending.add(task)
+            self._emit(TUIEventType.AGENT_THINKING, agent=name, round_num=round_num)
 
         opinions: dict[str, DeliberationMessage] = {}
-        for name, result in zip(tasks.keys(), results):
-            if isinstance(result, Exception):
-                logger.error(f"[{name}] Error in round {round_num}: {result}")
-                opinions[name] = DeliberationMessage(
-                    source=name,
-                    target="all",
-                    round_num=round_num,
-                    role=MessageRole.OPINION,
-                    content=f"[Error: {result}]",
-                )
-            elif isinstance(result, DeliberationMessage):
-                result.round_num = round_num
-                opinions[name] = result
-            else:
-                logger.warning(f"[{name}] Unexpected result type: {type(result)}")
+
+        while pending:
+            done, pending = await asyncio.wait(
+                pending, return_when=asyncio.FIRST_COMPLETED
+            )
+
+            for task in done:
+                name = task_to_name[task]
+                try:
+                    result = task.result()
+                except Exception as exc:
+                    logger.error(f"[{name}] Error in round {round_num}: {exc}")
+                    opinions[name] = DeliberationMessage(
+                        source=name,
+                        target="all",
+                        round_num=round_num,
+                        role=MessageRole.OPINION,
+                        content=f"[Error: {exc}]",
+                    )
+                    self._emit(
+                        TUIEventType.AGENT_ERROR,
+                        agent=name,
+                        error=str(exc),
+                        round_num=round_num,
+                    )
+                    continue
+
+                if isinstance(result, DeliberationMessage):
+                    result.round_num = round_num
+                    opinions[name] = result
+                    self._emit(
+                        TUIEventType.AGENT_RESPONDED,
+                        agent=name,
+                        content=result.content,
+                        round_num=round_num,
+                    )
+                else:
+                    logger.warning(f"[{name}] Unexpected result type: {type(result)}")
+                    self._emit(
+                        TUIEventType.AGENT_ERROR,
+                        agent=name,
+                        error=f"Unexpected result type: {type(result)}",
+                        round_num=round_num,
+                    )
 
         return opinions
 

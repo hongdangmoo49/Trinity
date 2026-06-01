@@ -4,7 +4,7 @@ Manages the interactive prompt loop:
 1. Display TUI layout via Rich Live
 2. Accept user input (questions or /commands)
 3. Run deliberation asynchronously
-4. Update TUI in real-time during deliberation
+4. Update TUI in real-time during deliberation via event bus
 5. Display results
 """
 
@@ -25,6 +25,8 @@ from rich.text import Text
 from trinity.config import TrinityConfig
 from trinity.models import DeliberationResult
 from trinity.tui.app import AgentTUIState, TrinityTUI
+from trinity.tui.events import TUIEventBus
+from trinity.tui.theme import get_theme
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +137,7 @@ class InteractiveSession:
         from rich.table import Table
 
         table = Table(title="Agent Status")
-        table.add_column("Agent", style="cyan")
+        table.add_column("Agent")
         table.add_column("Provider", style="green")
         table.add_column("Enabled")
         table.add_column("State")
@@ -145,10 +147,17 @@ class InteractiveSession:
             spec = self.config.agents.get(name)
             if not spec:
                 continue
+            theme = get_theme(name)
             enabled = "✅" if spec.enabled else "❌"
             state = status.state.value
             ctx = status.context_bar
-            table.add_row(name, spec.provider.value, enabled, state, ctx)
+            table.add_row(
+                f"[{theme.color}]{theme.icon} {name}[/{theme.color}]",
+                spec.provider.value,
+                enabled,
+                state,
+                ctx,
+            )
 
         self.console.print(table)
 
@@ -301,9 +310,11 @@ class InteractiveSession:
     def _run_with_live(
         self, orchestrator: "TrinityOrchestrator", prompt: str,
     ) -> DeliberationResult:
-        """Run deliberation with Rich Live real-time display.
+        """Run deliberation with Rich Live real-time display via event bus.
 
-        Shows a live-updating TUI while the deliberation runs.
+        Creates a TUIEventBus, passes it to the orchestrator for event
+        emission, and polls for events during the Live refresh loop to
+        drive real-time TUI state updates.
 
         Args:
             orchestrator: The orchestrator to run.
@@ -314,15 +325,16 @@ class InteractiveSession:
         """
         import threading
 
+        bus = TUIEventBus()
+        orchestrator.set_event_bus(bus)
+
         result_holder: list[DeliberationResult | None] = [None]
         error_holder: list[Exception | None] = [None]
 
         def _run_async():
-            """Run the async deliberation in a thread."""
+            """Run the async deliberation in a background thread."""
             try:
-                result = asyncio.run(
-                    self._run_with_tui_updates(orchestrator, prompt)
-                )
+                result = asyncio.run(orchestrator.ask(prompt))
                 result_holder[0] = result
             except Exception as e:
                 error_holder[0] = e
@@ -332,16 +344,25 @@ class InteractiveSession:
         thread.start()
 
         # Show live TUI while deliberation runs
+        # Poll the event bus during each refresh to get real-time updates
         try:
             with Live(
                 self.tui.build_layout(),
                 console=self.console,
-                refresh_per_second=2,
+                refresh_per_second=4,
                 transient=True,
             ) as live:
                 while thread.is_alive():
-                    thread.join(timeout=0.5)
+                    thread.join(timeout=0.25)
+                    # Consume all pending events and update TUI state
+                    for event in bus.poll():
+                        self.tui.consume_event(event)
                     live.update(self.tui.build_layout())
+
+                # Drain any remaining events after thread completes
+                for event in bus.poll():
+                    self.tui.consume_event(event)
+                live.update(self.tui.build_layout())
         except KeyboardInterrupt:
             raise
 
@@ -349,47 +370,6 @@ class InteractiveSession:
             raise error_holder[0]
 
         return result_holder[0]  # type: ignore[return-value]
-
-    async def _run_with_tui_updates(
-        self, orchestrator: "TrinityOrchestrator", prompt: str,
-    ) -> DeliberationResult:
-        """Run deliberation and update TUI state in real-time.
-
-        Updates agent statuses, round tracking, and consensus
-        state as the deliberation progresses.
-
-        Args:
-            orchestrator: The orchestrator to run.
-            prompt: The user's prompt.
-
-        Returns:
-            The deliberation result.
-        """
-        # Run the deliberation
-        result = await orchestrator.ask(prompt)
-
-        # Simulate round-by-round updates
-        for r in range(1, result.rounds_completed + 1):
-            self.tui.start_round(r)
-            for name in self.config.active_agents:
-                self.tui.mark_agent_responded(name, f"Round {r} response")
-            self.tui.mark_consensus_checking()
-
-        reached = result.has_consensus
-        self.tui.mark_consensus_result(reached)
-
-        # Update context usage from result
-        if result.total_tokens_used > 0:
-            for name in self.config.active_agents:
-                spec = self.config.agents.get(name)
-                if spec:
-                    budget = spec.effective_context_budget
-                    n_agents = len(self.config.active_agents)
-                    per_agent = result.total_tokens_used // max(n_agents, 1)
-                    pct = min(100.0, (per_agent / budget) * 100) if budget > 0 else 0
-                    self.tui.update_agent_status(name, context_percent=pct)
-
-        return result
 
     # ─── Display ────────────────────────────────────────────────────────
 
@@ -412,15 +392,20 @@ class InteractiveSession:
             from rich.table import Table
 
             table = Table(title="Task Distribution")
-            table.add_column("Agent", style="cyan")
+            table.add_column("Agent")
             table.add_column("Task", style="white")
             table.add_column("Priority", justify="right")
 
             for task in sorted(result.tasks, key=lambda t: -t.priority):
+                theme = get_theme(task.agent_name)
                 desc = task.task_description[:80]
                 if len(task.task_description) > 80:
                     desc += "..."
-                table.add_row(task.agent_name, desc, str(task.priority))
+                table.add_row(
+                    f"[{theme.color}]{theme.icon} {task.agent_name}[/{theme.color}]",
+                    desc,
+                    str(task.priority),
+                )
 
             self.console.print(table)
 

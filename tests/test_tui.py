@@ -14,6 +14,8 @@ from trinity.models import (
     TaskAssignment,
 )
 from trinity.tui.app import AgentTUIState, AgentTUIStatus, RoundStatus, TrinityTUI
+from trinity.tui.events import TUIEvent, TUIEventType
+from trinity.tui.theme import AgentTheme, get_theme
 
 
 @pytest.fixture
@@ -74,6 +76,7 @@ class TestAgentTUIStatus:
         status = AgentTUIStatus(name="claude", provider="claude-code")
         assert status.state == AgentTUIState.IDLE
         assert status.response_preview == ""
+        assert status.full_response == ""
         assert status.context_percent == 0.0
 
     def test_role_extraction(self):
@@ -81,6 +84,10 @@ class TestAgentTUIStatus:
             name="claude", provider="claude-code", role="You are the Architect"
         )
         assert status.role == "You are the Architect"
+
+    def test_full_response_default(self):
+        status = AgentTUIStatus(name="claude", provider="claude-code")
+        assert status.full_response == ""
 
 
 class TestTrinityTUI:
@@ -241,6 +248,7 @@ class TestTrinityTUI:
         tui.update_agent_status("claude", state=AgentTUIState.RESPONDING)
         tui.reset_agents()
         assert tui.agents["claude"].state == AgentTUIState.IDLE
+        assert tui.agents["claude"].full_response == ""
 
     def test_reset_agents_preserves_disabled(self, tui):
         tui.reset_agents()
@@ -286,6 +294,132 @@ class TestTrinityTUI:
         assert panel is not None
 
 
+class TestConsumeEvent:
+    """Tests for the consume_event() method — real-time event processing."""
+
+    def test_round_start_event(self, tui):
+        event = TUIEvent(type=TUIEventType.ROUND_START, data={"round_num": 1})
+        tui.consume_event(event)
+        assert tui.current_round == 1
+        assert len(tui.rounds) == 1
+        assert tui.agents["claude"].state == AgentTUIState.RESPONDING
+
+    def test_agent_thinking_event(self, tui):
+        event = TUIEvent(
+            type=TUIEventType.AGENT_THINKING,
+            data={"agent": "claude", "round_num": 1},
+        )
+        tui.consume_event(event)
+        assert tui.agents["claude"].state == AgentTUIState.RESPONDING
+
+    def test_agent_responded_event(self, tui):
+        # Start a round first
+        tui.start_round(1)
+        event = TUIEvent(
+            type=TUIEventType.AGENT_RESPONDED,
+            data={"agent": "claude", "content": "I recommend pytest.", "round_num": 1},
+        )
+        tui.consume_event(event)
+        assert tui.agents["claude"].state == AgentTUIState.RESPONDED
+        assert tui.agents["claude"].full_response == "I recommend pytest."
+        assert tui.rounds[0].agent_opinions["claude"] == "I recommend pytest."
+
+    def test_agent_error_event(self, tui):
+        tui.start_round(1)
+        event = TUIEvent(
+            type=TUIEventType.AGENT_ERROR,
+            data={"agent": "claude", "error": "timeout", "round_num": 1},
+        )
+        tui.consume_event(event)
+        assert tui.agents["claude"].state == AgentTUIState.ERROR
+        assert "timeout" in tui.rounds[0].agent_opinions["claude"]
+
+    def test_consensus_checking_event(self, tui):
+        tui.start_round(1)
+        event = TUIEvent(type=TUIEventType.CONSENSUS_CHECKING, data={"round_num": 1})
+        tui.consume_event(event)
+        assert tui.rounds[0].consensus == "checking"
+
+    def test_consensus_result_reached_event(self, tui):
+        tui.start_round(1)
+        event = TUIEvent(
+            type=TUIEventType.CONSENSUS_RESULT,
+            data={"reached": True, "agreement_count": 2, "total_agents": 3, "summary": "OK"},
+        )
+        tui.consume_event(event)
+        assert tui.rounds[0].consensus == "reached"
+        assert "2/3" in tui.rounds[0].consensus_detail
+
+    def test_consensus_result_not_reached_event(self, tui):
+        tui.start_round(1)
+        event = TUIEvent(
+            type=TUIEventType.CONSENSUS_RESULT,
+            data={"reached": False, "agreement_count": 1, "total_agents": 3, "summary": ""},
+        )
+        tui.consume_event(event)
+        assert tui.rounds[0].consensus == "not_reached"
+        assert "1/3" in tui.rounds[0].consensus_detail
+
+    def test_deliberation_done_event(self, tui):
+        event = TUIEvent(type=TUIEventType.DELIBERATION_DONE, data={})
+        # Should not raise
+        tui.consume_event(event)
+
+    def test_full_event_sequence(self, tui):
+        """Simulate a complete deliberation event sequence."""
+        events = [
+            TUIEvent(type=TUIEventType.ROUND_START, data={"round_num": 1}),
+            TUIEvent(type=TUIEventType.AGENT_THINKING, data={"agent": "claude", "round_num": 1}),
+            TUIEvent(
+                type=TUIEventType.AGENT_RESPONDED,
+                data={"agent": "claude", "content": "Use pytest", "round_num": 1},
+            ),
+            TUIEvent(type=TUIEventType.CONSENSUS_CHECKING, data={"round_num": 1}),
+            TUIEvent(
+                type=TUIEventType.CONSENSUS_RESULT,
+                data={"reached": True, "agreement_count": 1, "total_agents": 1, "summary": "OK"},
+            ),
+            TUIEvent(type=TUIEventType.DELIBERATION_DONE, data={}),
+        ]
+        for event in events:
+            tui.consume_event(event)
+
+        assert len(tui.rounds) == 1
+        assert tui.rounds[0].consensus == "reached"
+        assert tui.rounds[0].agent_opinions["claude"] == "Use pytest"
+        assert tui.agents["claude"].full_response == "Use pytest"
+
+    def test_deliberation_panel_with_opinions_renders(self, tui):
+        """Deliberation panel should render without error when opinions are present."""
+        tui.start_round(1)
+        tui.rounds[0].agent_opinions["claude"] = "I recommend using pytest for testing."
+        tui.rounds[0].agent_states["claude"] = AgentTUIState.RESPONDED
+        panel = tui.build_deliberation_panel()
+        assert panel is not None
+
+    def test_result_panel_with_consensus_renders(self, tui):
+        """Result panel should render with consensus progress bar and Markdown."""
+        result = DeliberationResult(
+            user_prompt="test",
+            rounds_completed=1,
+            consensus=ConsensusResult(
+                reached=True,
+                agreement_count=2,
+                total_agents=3,
+                opinions={"claude": "yes", "codex": "yes", "gemini": "no"},
+                summary="## Decision\n\nUse pytest with fixtures.",
+            ),
+            tasks=[
+                TaskAssignment(agent_name="claude", task_description="Design API", priority=10),
+            ],
+            total_tokens_used=1000,
+            duration_seconds=5.0,
+        )
+        tui.set_result(result)
+        panel = tui.build_result_panel()
+        assert panel is not None
+
+
 class TestRoundStatus:
     def test_default_values(self):
         rs = RoundStatus(round_num=1)
@@ -293,6 +427,8 @@ class TestRoundStatus:
         assert rs.consensus == "waiting"
         assert rs.duration == 0.0
         assert rs.agent_states == {}
+        assert rs.agent_opinions == {}
+        assert rs.consensus_detail == ""
 
     def test_with_agent_states(self):
         rs = RoundStatus(
@@ -303,6 +439,16 @@ class TestRoundStatus:
         assert rs.round_num == 2
         assert rs.agent_states["claude"] == AgentTUIState.RESPONDED
         assert rs.consensus == "reached"
+
+    def test_with_opinions(self):
+        rs = RoundStatus(
+            round_num=1,
+            agent_opinions={"claude": "I agree", "codex": "I disagree"},
+            consensus_detail="1/2 동의 (50%)",
+        )
+        assert rs.agent_opinions["claude"] == "I agree"
+        assert rs.agent_opinions["codex"] == "I disagree"
+        assert "1/2" in rs.consensus_detail
 
 
 class TestAgentTUIState:
@@ -315,3 +461,51 @@ class TestAgentTUIState:
 
     def test_is_string_enum(self):
         assert isinstance(AgentTUIState.IDLE, str)
+
+
+class TestAgentTheme:
+    """Tests for the agent theme system."""
+
+    def test_get_theme_claude(self):
+        theme = get_theme("claude")
+        assert theme.name == "claude"
+        assert theme.color == "cyan"
+        assert theme.icon == "🏗️"
+        assert theme.role_label == "Architect"
+
+    def test_get_theme_codex(self):
+        theme = get_theme("codex")
+        assert theme.name == "codex"
+        assert theme.color == "green"
+        assert theme.role_label == "Implementer"
+
+    def test_get_theme_gemini(self):
+        theme = get_theme("gemini")
+        assert theme.name == "gemini"
+        assert theme.color == "magenta"
+        assert theme.role_label == "Reviewer"
+
+    def test_get_theme_unknown_agent(self):
+        theme = get_theme("unknown_agent")
+        assert theme.name == "unknown_agent"
+        assert theme.icon == "🤖"
+        assert theme.role_label == "Unknown_Agent"
+        # Should have a fallback color
+        assert theme.color in [
+            "bright_blue", "bright_green", "bright_magenta",
+            "bright_yellow", "bright_red", "bright_cyan",
+        ]
+
+    def test_get_theme_consistent(self):
+        """Same name always returns same theme."""
+        t1 = get_theme("custom_agent")
+        t2 = get_theme("custom_agent")
+        assert t1.color == t2.color
+        assert t1.icon == t2.icon
+
+    def test_agent_theme_is_frozen(self):
+        theme = get_theme("claude")
+        assert isinstance(theme, AgentTheme)
+        # Frozen dataclass
+        with pytest.raises(AttributeError):
+            theme.color = "red"  # type: ignore[misc]

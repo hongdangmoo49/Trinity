@@ -99,3 +99,46 @@ class TestSharedContextEngine:
 
         assert shared_engine.read_section("Section A") is not None
         assert shared_engine.read_section("Section B") is not None
+
+    def test_write_surrogate_characters(self, shared_engine):
+        """Surrogate code points from tmux/terminal input must not crash write().
+
+        When Python reads invalid UTF-8 bytes via surrogateescape (the default
+        for os.fsdecode and terminal I/O), each bad byte becomes a lone
+        surrogate code point (U+D800–U+DFFF).  These are illegal in UTF-8 and
+        would raise UnicodeEncodeError if passed to write_text() unchanged.
+        SharedContextEngine.write() must sanitize them.
+        """
+        # \udc80 is a lone surrogate (low surrogate without a matching high)
+        prompt_with_surrogates = "alias tws \udc80\udc81 파악해서 보고"
+        shared_engine.initialize(prompt_with_surrogates, ["claude"])
+        content = shared_engine.read()
+        assert "alias tws" in content
+        # Surrogates should be replaced (not crash)
+        assert "\udc80" not in content
+        assert "\udc81" not in content
+
+    def test_write_section_with_surrogates(self, shared_engine):
+        """write_section must also handle surrogate characters."""
+        shared_engine.initialize("Test", ["claude"])
+        shared_engine.write_section("Results", "정상 텍스트 \udcff 손상")
+        section = shared_engine.read_section("Results")
+        assert section is not None
+        assert "정상 텍스트" in section
+        assert "\udcff" not in section
+
+    def test_append_opinion_with_surrogates(self, shared_engine):
+        """append_opinion must handle surrogate characters in agent output."""
+        shared_engine.initialize("Test", ["claude"])
+        # Simulate tmux capture-pane output with surrogates
+        shared_engine.append_opinion("claude", 1, "JWT 추천\udc80합니다")
+        section = shared_engine.read_section("Round 1 Opinions")
+        assert "JWT 추천" in section
+        assert "\udc80" not in section
+
+    def test_sanitize_preserves_valid_utf8(self, shared_engine):
+        """Sanitization must not alter valid UTF-8 (Korean, emoji, etc.)."""
+        valid = "한글 테스트 🧠 ✅ — 정상적인 텍스트"
+        shared_engine.initialize(valid, ["claude", "codex"])
+        content = shared_engine.read()
+        assert valid in content

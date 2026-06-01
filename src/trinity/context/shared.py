@@ -58,10 +58,25 @@ class SharedContextEngine:
             return ""
         return self.path.read_text(encoding="utf-8")
 
+    @staticmethod
+    def _sanitize(text: str) -> str:
+        """Remove surrogate characters that can arise from tmux/terminal input.
+
+        When Python reads bytes with the 'surrogateescape' error handler
+        (the default for os.fsdecode and some terminal I/O), invalid UTF-8
+        bytes become surrogate code points (U+D800–U+DFFF). These cannot be
+        re-encoded as UTF-8, causing UnicodeEncodeError on write.
+
+        Round-tripping through encode/decode with 'replace' swaps each
+        unencodable character for '?' (encode) then cleanly decodes back.
+        """
+        return text.encode("utf-8", errors="replace").decode("utf-8")
+
     def write(self, content: str) -> None:
         """Overwrite the entire shared.md."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(content, encoding="utf-8")
+        sanitized = self._sanitize(content)
+        self.path.write_text(sanitized, encoding="utf-8")
 
     def read_section(self, section_name: str) -> str | None:
         """Read a specific ## section by name. Returns None if not found."""

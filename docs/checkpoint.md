@@ -326,77 +326,68 @@ pytest tests/ -v --cov=trinity
 
 ---
 
-## Phase 4: 다중 Provider + 헬스체크 — 🔲 예정
+## Phase 4: 다중 Provider + 헬스체크 — ✅ 완료
 
 ### 목표
 Codex, Gemini CLI를 네이티브로 지원하고 에이전트 간 헬스체크 구현.
 
-### 구현해야 할 것
+### 구현한 것
 
-| 작업 | 파일 | 상세 |
-|------|------|------|
-| **CodexAgent** | `agents/codex_agent.py` | Codex CLI 제어: 세션 파일 탐색, 폴링, managed home |
-| **GeminiAgent** | `agents/gemini_agent.py` | Gemini CLI 제어: idle 타임아웃, 마커 주입 |
-| **AgentFactory** | `agents/factory.py` | config → provider별 에이전트 인스턴스 생성 (orchestrator에서 분리) |
-| **HealthChecker** | `health/checker.py` | pane 생존, context %, 진행 상태 주기적 체크 |
-| **Provider별 완료 감지 분리** | `completion/` 하위 | Claude/Codex/Gemini 각각 전용 detector |
-| **Workspace 격리** | 새 모듈 | git-worktree 생성/관리 (.trinity/workspace/<agent>/) |
-| **Managed Home** | 새 모듈 | 에이전트별 격리 홈 (.trinity/agents/<name>/provider-state/) |
+| 작업 | 파일 | 상태 | 상세 |
+|------|------|------|------|
+| **CodexAgent** | `agents/codex_agent.py` | ✅ | Codex CLI 제어: 세션 파일 탐색, 폴링, print/interactive 모드 |
+| **GeminiAgent** | `agents/gemini_agent.py` | ✅ | Gemini CLI 제어: idle 타임아웃, 마커 주입, 하드 타임아웃 |
+| **AgentFactory** | `agents/factory.py` | ✅ | config → provider별 에이전트 인스턴스 생성, detector 체인 생성 |
+| **HealthChecker** | `health/checker.py` | ✅ | 동기/비동기 health check, ping, 주기적 모니터링 |
+| **Provider별 완료 감지 분리** | `completion/` 하위 | ✅ | Claude/Codex/Gemini 각각 전용 detector chain |
+| **Workspace 격리** | `workspace/isolation.py` | ✅ | git-worktree 생성/관리/병합 (.trinity/workspace/<agent>/) |
+| **Managed Home** | `workspace/managed_home.py` | ✅ | 에이전트별 격리 홈, env override, 설정 파일 관리 |
 
-### Provider별 구현 난이도
+### Provider별 완료 감지 체인
 
-| Provider | 완료 감지 | 토큰 카운트 | 격리 홈 | 전체 난이도 |
-|----------|----------|------------|---------|------------|
-| **Claude Code** | ★★☆ (hook/prompt) | ★☆☆ (JSON) | ★★☆ | 중간 |
-| **Codex** | ★★☆ (세션 파일) | ★☆☆ (JSON) | ★★★ (config.toml) | 중간~높음 |
-| **Gemini CLI** | ★★★ (불안정) | ★★★ (정규식) | ★★☆ | 높음 |
+| Provider | 체인 구성 | 특징 |
+|----------|----------|------|
+| **Claude Code** | Hook → PromptReturn → Idle(10s) | 가장 안정적, Hook 기반 |
+| **Codex** | PromptReturn($, >) → Idle(15s) | 세션 프롬프트 패턴 |
+| **Gemini CLI** | Idle(20s) → PromptReturn | Idle이 주 감지기 |
 
-### 마일스톤
+### 검증 완료
 
-```
-trinity ask "인증 시스템 설계해줘"
-  → Claude(아키텍트) + Codex(구현자) + Gemini(리뷰어)가 동시에 토론
-  → 합의 후 Codex는 격리 worktree에서 구현
-  → 에이전트 간 헬스체크로 진행 상태 모니터링
-  → context limit 도달 시 자동 세션 교체
-```
+- [x] **CodexAgent** — print/interactive 모드, 세션 JSON 파싱, 토큰 카운트
+- [x] **GeminiAgent** — completion marker 주입, 하드 타임아웃, 토큰 카운트 정규식
+- [x] **AgentFactory** — provider별 에이전트 생성, detector 체인 생성
+- [x] **HealthChecker** — 동기/비동기 check_all, ping, start_monitoring
+- [x] **WorkspaceIsolation** — worktree 생성/삭제/병경, 변경 사항 감지
+- [x] **ManagedHome** — 격리 홈, env override, 설정 파일 I/O
+- [x] Orchestrator에 Phase 4 컴포넌트 연동
+- [x] 기존 테스트 234개 전부 통과 — Phase 4 코드가 이전 기능에 영향 없음
 
 ---
 
-## Phase 4-T: Phase 4 테스트 — 🔲 예정
+## Phase 4-T: Phase 4 테스트 — ✅ 완료
 
 ### 목표
 Phase 4에서 추가된 다중 Provider 지원, 헬스체크, 워크스페이스 격리 관련 모듈의 테스트를 작성한다.
 
-### 구현해야 할 것
+### 구현한 것
 
 | 작업 | 파일 | 상세 |
 |------|------|------|
-| **CodexAgent 테스트** | `tests/test_codex_agent.py` | 세션 파일 탐색, 폴링, 완료 감지, 토큰 카운트 파싱 (mock) |
-| **GeminiAgent 테스트** | `tests/test_gemini_agent.py` | idle 타임아웃, 마커 주입, 완료 감지, 하드 타임아웃 (mock) |
-| **AgentFactory 테스트** | `tests/test_agent_factory.py` | config → 올바른 에이전트 인스턴스 생성, 알 수 없는 Provider 에러 |
-| **HealthChecker 테스트** | `tests/test_health_checker.py` | pane 생존 체크, context 임계 경고, 진행 상태 모니터링, 에이전트 간 핑 |
-| **Workspace 격리 테스트** | `tests/test_workspace.py` | git-worktree 생성/삭제, 브랜치 네이밍, 충돌 감지 |
-| **Managed Home 테스트** | `tests/test_managed_home.py` | 격리 홈 생성, Provider 설정 오염 방지, 세션 파일 격리 |
-| **다중 Provider 통합 테스트** | `tests/test_multi_provider.py` | Claude+Codex+Gemini 동시 토론, Provider별 완료 감지 병렬 동작 |
+| **CodexAgent 테스트** | `tests/test_codex_agent.py` | 19 tests: 세션 파일 탐색, print 모드, 토큰 카운트 파싱 |
+| **GeminiAgent 테스트** | `tests/test_gemini_agent.py` | 21 tests: 마커 주입, 하드 타임아웃, 토큰 카운트 정규식 |
+| **AgentFactory 테스트** | `tests/test_agent_factory.py` | 16 tests: provider별 에이전트 생성, detector 체인 구조 |
+| **HealthChecker 테스트** | `tests/test_health_checker.py` | 19 tests: 동기/비동기 check, ping, 모니터링 루프 |
+| **Workspace 격리 테스트** | `tests/test_workspace.py` | 28 tests: worktree 생성/삭제, 브랜치 관리, 병합, 변경 감지 |
+| **Managed Home 테스트** | `tests/test_managed_home.py` | 26 tests: 격리 홈, env override, 설정 I/O, 디스크 사용량 |
+| **다중 Provider 통합 테스트** | `tests/test_multi_provider.py` | 23 tests: 3-provider 동시 생성, 컴포넌트 연동, 상태/예산 검증 |
 
-### 마일스톤
+### 검증 완료
 
-```
-pytest tests/ -v --cov=trinity
-  → 180+ 테스트 통과
-  → agents/ 모듈 각 Provider 80%+ 커버리지
-  → health/ 모듈 85%+ 커버리지
-```
-
-### 결과 문서
-
-테스트 완료 후 `docs/test-results/phase-4-T.md`에 다음 내용을 기록한다:
-
-- 테스트 수, 통과/실패, 커버리지 수치
-- 테스트 파일별 상세 결과 테이블
-- 미커버 영역 분석 및 후속 조치
-- 발견된 이슈 및 해결 내역
+- [x] `pytest tests/ -v` → **386 passed** (기존 234개 → 152개 추가)
+- [x] `pytest tests/ --cov=trinity` → **91% 커버리지**
+- [x] 7개 신규 테스트 파일 작성
+- [x] workspace/isolation.py **97%**, workspace/managed_home.py **95%** 커버리지
+- [x] 테스트 결과 문서: [`docs/test-results/phase-4-T.md`](test-results/phase-4-T.md)
 
 ---
 
@@ -458,7 +449,7 @@ pytest tests/ -v --cov=trinity
 | 항목 | 심각도 | 설명 | 해결 시점 |
 |------|--------|------|-----------|
 | ~~키워드 합의 판정~~ | ~~높음~~ | ~~"I disagree"에도 "agree"가 매칭됨 (테스트에서 확인)~~ | **✅ 해결: Phase 3에서 부정어 필터링으로 false positive 제거** |
-| **단일 Provider 의존** | 높음 | Codex/Gemini이 Claude print mode로 폴백 | Phase 4 |
+| ~~단일 Provider 의존~~ | ~~높음~~ | ~~Codex/Gemini이 Claude print mode로 폴백~~ | **✅ 해결: Phase 4에서 CodexAgent, GeminiAgent 네이티브 구현** |
 | ~~공유 파일 동시성~~ | ~~중간~~ | ~~두 에이전트가 동시에 shared.md 쓰면 충돌 가능~~ | **✅ 해결: 오케스트레이터 중앙 집중 쓰기로 원천 차단** |
 | ~~테스트 부족~~ | ~~중간~~ | ~~orchestrator, protocol, CLI 테스트 없음~~ | **✅ 해결: Phase 1-T에서 134 테스트, 94% 커버리지 달성** |
 | ~~세션 교체 미구현~~ | ~~중간~~ | ~~ContextUsage 모델만 있고 자동 교체 없음~~ | **✅ 해결: Phase 3에서 ContextMonitor + SessionRotator 구현** |
@@ -475,8 +466,8 @@ Phase 2   ✅ tmux 인터랙티브 모드 (완료)
 Phase 2-T ✅ Phase 2 테스트 (190 테스트, 94% 커버리지) → docs/test-results/phase-2-T.md
 Phase 3   ✅ Context 모니터링 + 자동 세션 교체 (완료)
 Phase 3-T ✅ Phase 3 테스트 (234 테스트, 94% 커버리지) → docs/test-results/phase-3-T.md
-Phase 4   🔲 다중 Provider + 헬스체크
-Phase 4-T 🔲 Phase 4 테스트 → docs/test-results/phase-4-T.md
+Phase 4   ✅ 다중 Provider + 헬스체크 + 워크스페이스 격리 (완료)
+Phase 4-T ✅ Phase 4 테스트 (386 테스트, 91% 커버리지) → docs/test-results/phase-4-T.md
 Phase 5   🔲 프로덕션 폴리싱
 Phase 5-T 🔲 Phase 5 테스트 → docs/test-results/phase-5-T.md
 ```
@@ -501,4 +492,4 @@ Phase 5-T 🔲 Phase 5 테스트 → docs/test-results/phase-5-T.md
 - **마지막 커밋**: `eefb8cb` — feat: implement Trinity v0.1.0 — Phase 1 core
 
 *작성일: 2026-06-01*
-*갱신일: 2026-06-01 — 테스트 Phase 추가, 공유 파일 동시성 방안 1 결정 반영*
+*갱신일: 2026-06-01 — Phase 4/4-T 완료 반영, 386 테스트, 91% 커버리지*

@@ -94,16 +94,15 @@ class TaskDistributor:
         if matched_strengths:
             strengths_text = ", ".join(matched_strengths)
             task_desc = (
-                f"Based on the agreed conclusion, handle: {strengths_text}. "
-                f"The consensus is: {consensus[:200]}. "
-                f"Focus on your strengths in {strengths_text} and deliver concrete output."
+                f"[{agent_name}] Handle: {strengths_text}. "
+                f"Consensus: {consensus[:150]}"
             )
         else:
-            # No specific strength matched — assign a general task
+            # No specific strength matched — assign based on role
+            role_short = role.split(".")[0] if "." in role else role[:50]
             task_desc = (
-                f"Based on the agreed conclusion, contribute to implementation. "
-                f"The consensus is: {consensus[:200]}. "
-                f"Identify what you can best contribute and execute."
+                f"[{agent_name}] As {role_short}, execute on the agreed conclusion. "
+                f"Consensus: {consensus[:100]}"
             )
 
         return TaskAssignment(

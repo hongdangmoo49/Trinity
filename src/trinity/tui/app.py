@@ -276,7 +276,7 @@ class TrinityTUI:
             panels.append(result_panel)
 
         panels.append(Text())  # Spacer
-        panels.append(Text("[bold green]💬 trinity>[/bold green] ", style="bold green"))
+        panels.append(Text("💬 trinity>", style="bold green"))
 
         return Group(*panels)
 
@@ -370,11 +370,14 @@ class TrinityTUI:
         })
 
     def reset_agents(self) -> None:
-        """Reset all agent states to idle."""
+        """Reset all agent states to idle and clear round history."""
         for name, status in self.agents.items():
             if status.state != AgentTUIState.DISABLED:
                 status.state = AgentTUIState.IDLE
                 status.response_preview = ""
+        # Clear round history between deliberations
+        self.rounds.clear()
+        self.current_round = 0
 
     def get_welcome_text(self) -> str:
         """Get the welcome/help text for the TUI."""

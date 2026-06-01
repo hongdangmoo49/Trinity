@@ -163,9 +163,41 @@ class ConsensusEngine:
     ) -> str:
         """Build a human-readable consensus summary."""
         if reached:
+            # Extract key content from opinions for a meaningful summary
+            key_points = self._extract_key_points(opinions)
+            if key_points:
+                return (
+                    f"Consensus reached ({len(agreeing)}/{len(opinions)} agree). "
+                    f"Key points: {key_points}"
+                )
             return f"Consensus reached. Agreeing: {', '.join(agreeing)}."
         else:
             return (
                 f"Consensus not reached ({len(agreeing)}/{len(opinions)} agree). "
                 f"Need another round of deliberation."
             )
+
+    def _extract_key_points(self, opinions: dict[str, str]) -> str:
+        """Extract key points from agent opinions for summary.
+
+        Takes the first opinion and truncates to a reasonable length.
+        """
+        if not opinions:
+            return ""
+
+        # Use the first opinion as representative
+        for text in opinions.values():
+            # Clean and truncate
+            clean = text.strip()
+            # Take first meaningful sentence(s), up to 200 chars
+            if len(clean) > 200:
+                # Truncate at last sentence boundary within limit
+                truncated = clean[:200]
+                last_period = truncated.rfind(".")
+                if last_period > 50:
+                    clean = truncated[: last_period + 1]
+                else:
+                    clean = truncated + "..."
+            return clean
+
+        return ""

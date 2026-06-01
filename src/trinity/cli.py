@@ -45,11 +45,16 @@ def find_config_path() -> Path | None:
     return None
 
 
-def load_config() -> TrinityConfig:
-    """Load config from file or return default."""
+def load_config(silent: bool = False) -> TrinityConfig:
+    """Load config from file or return default.
+
+    Args:
+        silent: If True, suppress the "Loaded config from..." message.
+    """
     config_path = find_config_path()
     if config_path:
-        console.print(f"[dim]Loaded config from {config_path}[/dim]")
+        if not silent:
+            console.print(f"[dim]Loaded config from {config_path}[/dim]")
         return TrinityConfig.load(config_path)
     return TrinityConfig.default_config()
 
@@ -78,7 +83,7 @@ def _run_interactive_tui() -> None:
     """Launch the interactive TUI session."""
     from trinity.tui.session import InteractiveSession
 
-    config = load_config()
+    config = load_config(silent=True)
 
     # If no .trinity/ directory exists, suggest running init first
     state_dir = config.effective_state_dir

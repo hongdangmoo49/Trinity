@@ -77,7 +77,8 @@ class TrinityConfig:
 
         text = path.read_text(encoding="utf-8")
         data = tomllib.loads(text)
-        return cls._from_dict(data, path.parent)
+        # path = <project>/.trinity/trinity.config → project_dir = <project>/
+        return cls._from_dict(data, path.parent.parent)
 
     @classmethod
     def _from_dict(cls, data: dict, project_dir: Path) -> "TrinityConfig":

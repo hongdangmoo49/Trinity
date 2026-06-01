@@ -1,0 +1,50 @@
+# Trinity Configuration
+# Place in .trinity/trinity.config
+
+[general]
+session_name = "trinity"
+max_deliberation_rounds = 5
+consensus_threshold = 0.6
+context_rotate_threshold = 0.60
+
+[agents.claude]
+provider = "claude-code"
+cli_command = "claude"
+enabled = true
+workspace_mode = "inplace"
+context_budget = 200000
+role_prompt = "You are the Architect. You design systems, review code, and make high-level technical decisions."
+extra_args = ["--dangerously-skip-permissions"]
+
+[agents.codex]
+provider = "codex"
+cli_command = "codex"
+enabled = false
+workspace_mode = "git-worktree"
+branch_template = "trinity/codex"
+context_budget = 128000
+role_prompt = "You are the Implementer. You write clean, efficient code based on architectural decisions."
+
+[agents.gemini]
+provider = "gemini-cli"
+cli_command = "gemini"
+enabled = false
+workspace_mode = "inplace"
+context_budget = 1000000
+role_prompt = "You are the Reviewer. You explore alternatives, identify issues, and ensure quality."
+
+[deliberation]
+max_rounds = 5
+round_timeout_seconds = 120
+
+[context]
+keep_sections = ["## Current Goal", "## Agreed Conclusion"]
+recent_rounds_on_rotate = 3
+summary_max_tokens = 500
+
+[health]
+check_interval_seconds = 30
+
+[logging]
+level = "INFO"
+file = ".trinity/logs/trinity.log"

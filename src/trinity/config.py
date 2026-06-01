@@ -1,0 +1,215 @@
+"""Trinity configuration — TOML-based config loader."""
+
+from __future__ import annotations
+
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from trinity.models import AgentSpec, Provider
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    try:
+        import tomli as tomllib
+    except ImportError:
+        tomllib = None  # type: ignore[assignment]
+
+
+@dataclass
+class TrinityConfig:
+    """Top-level Trinity configuration."""
+
+    # Paths
+    project_dir: Path = field(default_factory=lambda: Path.cwd())
+    state_dir: Path | None = None  # defaults to project_dir/.trinity
+
+    # Session
+    session_name: str = "trinity"
+
+    # Deliberation
+    max_deliberation_rounds: int = 5
+    consensus_threshold: float = 0.6  # fraction of agents required
+    round_timeout_seconds: float = 120.0
+
+    # Context management
+    context_rotate_threshold: float = 0.60
+    keep_sections: list[str] = field(
+        default_factory=lambda: ["## Current Goal", "## Agreed Conclusion"]
+    )
+    recent_rounds_on_rotate: int = 3
+    summary_max_tokens: int = 500
+
+    # Health
+    health_check_interval_seconds: float = 30.0
+
+    # Logging
+    log_level: str = "INFO"
+    log_file: str = ".trinity/logs/trinity.log"
+
+    # Agents
+    agents: dict[str, AgentSpec] = field(default_factory=dict)
+
+    @property
+    def effective_state_dir(self) -> Path:
+        """Resolved state directory."""
+        if self.state_dir:
+            return self.state_dir
+        return self.project_dir / ".trinity"
+
+    @property
+    def shared_context_path(self) -> Path:
+        return self.effective_state_dir / "shared.md"
+
+    @property
+    def active_agents(self) -> dict[str, AgentSpec]:
+        """Only enabled agents."""
+        return {name: spec for name, spec in self.agents.items() if spec.enabled}
+
+    @classmethod
+    def load(cls, path: Path) -> "TrinityConfig":
+        """Load config from a TOML file."""
+        if tomllib is None:
+            raise RuntimeError(
+                "No TOML parser available. Install tomli: pip install tomli"
+            )
+
+        text = path.read_text(encoding="utf-8")
+        data = tomllib.loads(text)
+        return cls._from_dict(data, path.parent)
+
+    @classmethod
+    def _from_dict(cls, data: dict, project_dir: Path) -> "TrinityConfig":
+        """Parse config from a deserialized TOML dict."""
+        general = data.get("general", {})
+        deliberation = data.get("deliberation", {})
+        context = data.get("context", {})
+        health = data.get("health", {})
+        logging_conf = data.get("logging", {})
+
+        agents = {}
+        for name, agent_data in data.get("agents", {}).items():
+            agents[name] = AgentSpec(
+                name=name,
+                provider=Provider(agent_data.get("provider", "claude-code")),
+                cli_command=agent_data.get("cli_command", name),
+                role_prompt=agent_data.get("role_prompt", ""),
+                role_file=(
+                    Path(agent_data["role_file"])
+                    if "role_file" in agent_data
+                    else None
+                ),
+                workspace_mode=agent_data.get("workspace_mode", "inplace"),
+                branch_template=agent_data.get("branch_template", f"trinity/{name}"),
+                context_budget=agent_data.get("context_budget", 0),
+                enabled=agent_data.get("enabled", True),
+                extra_args=agent_data.get("extra_args", []),
+            )
+
+        return cls(
+            project_dir=project_dir,
+            state_dir=(
+                Path(general["state_dir"]) if "state_dir" in general else None
+            ),
+            session_name=general.get("session_name", "trinity"),
+            max_deliberation_rounds=deliberation.get(
+                "max_rounds", general.get("max_deliberation_rounds", 5)
+            ),
+            consensus_threshold=deliberation.get(
+                "consensus_threshold", general.get("consensus_threshold", 0.6)
+            ),
+            round_timeout_seconds=deliberation.get("round_timeout_seconds", 120.0),
+            context_rotate_threshold=context.get(
+                "rotate_threshold", general.get("context_rotate_threshold", 0.60)
+            ),
+            keep_sections=context.get(
+                "keep_sections", ["## Current Goal", "## Agreed Conclusion"]
+            ),
+            recent_rounds_on_rotate=context.get("recent_rounds_on_rotate", 3),
+            summary_max_tokens=context.get("summary_max_tokens", 500),
+            health_check_interval_seconds=health.get("check_interval_seconds", 30.0),
+            log_level=logging_conf.get("level", "INFO"),
+            log_file=logging_conf.get("file", ".trinity/logs/trinity.log"),
+            agents=agents,
+        )
+
+    @classmethod
+    def default_config(cls, project_dir: Path | None = None) -> "TrinityConfig":
+        """Create a config with sensible defaults for 3 agents."""
+        pd = project_dir or Path.cwd()
+        return cls(
+            project_dir=pd,
+            agents={
+                "claude": AgentSpec(
+                    name="claude",
+                    provider=Provider.CLAUDE_CODE,
+                    cli_command="claude",
+                    role_prompt=(
+                        "You are the Architect. You design systems, review code, "
+                        "and make high-level technical decisions. Think carefully "
+                        "and provide structured, well-reasoned opinions."
+                    ),
+                    extra_args=["--dangerously-skip-permissions"],
+                ),
+                "codex": AgentSpec(
+                    name="codex",
+                    provider=Provider.CODEX,
+                    cli_command="codex",
+                    role_prompt=(
+                        "You are the Implementer. You write clean, efficient code "
+                        "based on architectural decisions. Focus on practical "
+                        "implementation and edge cases."
+                    ),
+                    enabled=False,  # Disabled by default until codex CLI is available
+                ),
+                "gemini": AgentSpec(
+                    name="gemini",
+                    provider=Provider.GEMINI_CLI,
+                    cli_command="gemini",
+                    role_prompt=(
+                        "You are the Reviewer. You explore alternatives, identify "
+                        "potential issues, and ensure quality. Think critically "
+                        "about trade-offs and propose tests."
+                    ),
+                    enabled=False,  # Disabled by default until gemini CLI is available
+                ),
+            },
+        )
+
+    def save(self, path: Path) -> None:
+        """Serialize config to TOML file."""
+        lines = [
+            "# Trinity Configuration",
+            "# Generated by trinity init",
+            "",
+            "[general]",
+            f'session_name = "{self.session_name}"',
+            f'max_deliberation_rounds = {self.max_deliberation_rounds}',
+            f'consensus_threshold = {self.consensus_threshold}',
+            f'context_rotate_threshold = {self.context_rotate_threshold}',
+            "",
+        ]
+
+        for name, spec in self.agents.items():
+            lines.extend(
+                [
+                    f"[agents.{name}]",
+                    f'provider = "{spec.provider.value}"',
+                    f'cli_command = "{spec.cli_command}"',
+                    f"enabled = {str(spec.enabled).lower()}",
+                    f'workspace_mode = "{spec.workspace_mode}"',
+                    f"context_budget = {spec.context_budget}",
+                ]
+            )
+            if spec.role_prompt:
+                # Escape for TOML multi-line
+                escaped = spec.role_prompt.replace('"', '\\"')
+                lines.append(f'role_prompt = "{escaped}"')
+            if spec.extra_args:
+                args_str = ", ".join(f'"{a}"' for a in spec.extra_args)
+                lines.append(f"extra_args = [{args_str}]")
+            lines.append("")
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("\n".join(lines), encoding="utf-8")

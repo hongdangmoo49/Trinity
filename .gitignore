@@ -1,0 +1,6 @@
+.trinity/
+.trinity/
+__pycache__/
+.venv/
+*.egg-info/
+.pytest_cache/

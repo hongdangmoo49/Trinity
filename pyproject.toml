@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "trinity"
+version = "0.1.0"
+description = "Three minds, one context. Multi-agent AI orchestrator."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "click>=8.1",
+    "rich>=13.0",
+    "tomli>=2.0; python_version < '3.11'",
+]
+
+[project.scripts]
+trinity = "trinity.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/trinity"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]

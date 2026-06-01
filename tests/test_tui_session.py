@@ -1,0 +1,266 @@
+"""Tests for trinity.tui.session — interactive session and commands."""
+
+import json
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from click.testing import CliRunner
+from rich.console import Console
+
+from trinity.config import TrinityConfig
+from trinity.models import (
+    ConsensusResult,
+    DeliberationResult,
+    Provider,
+    TaskAssignment,
+)
+from trinity.tui.app import AgentTUIState
+from trinity.tui.session import InteractiveSession
+
+
+@pytest.fixture
+def config(tmp_path):
+    cfg = TrinityConfig.default_config(project_dir=tmp_path)
+    # Create state directory
+    state = tmp_path / ".trinity"
+    state.mkdir(exist_ok=True)
+    (state / "trinity.config").write_text(
+        '[general]\nsession_name = "test"\n\n'
+        '[agents.claude]\nprovider = "claude-code"\ncli_command = "claude"\nenabled = true\n',
+        encoding="utf-8",
+    )
+    (state / "shared.md").write_text(
+        "# Shared Context\n\n## Current Goal\nTest\n", encoding="utf-8"
+    )
+    (state / "history").mkdir(exist_ok=True)
+    return cfg
+
+
+@pytest.fixture
+def session(config):
+    console = Console(force_terminal=True, width=120)
+    return InteractiveSession(config, console)
+
+
+class TestInteractiveSession:
+    def test_init(self, session, config):
+        assert session.config is config
+        assert session.tui is not None
+        assert session.running is False
+
+    def test_has_tmux_check(self, session):
+        with patch("shutil.which", return_value="/usr/bin/tmux"):
+            assert session._has_tmux() is True
+        with patch("shutil.which", return_value=None):
+            assert session._has_tmux() is False
+
+
+class TestSessionCommands:
+    def test_cmd_status(self, session):
+        session._cmd_status()
+        # Should not raise — displays a table
+
+    def test_cmd_context(self, session):
+        session._cmd_context()
+        # Should not raise — displays shared context
+
+    def test_cmd_rounds_show(self, session):
+        session._cmd_rounds([])
+        # Should show current max rounds
+
+    def test_cmd_rounds_set(self, session):
+        session._cmd_rounds(["3"])
+        assert session.config.max_deliberation_rounds == 3
+        assert session.tui.max_rounds == 3
+
+    def test_cmd_rounds_invalid(self, session):
+        session._cmd_rounds(["abc"])
+        # Should print "Invalid number" — no crash
+
+    def test_cmd_rounds_out_of_range(self, session):
+        session._cmd_rounds(["0"])
+        # Should print range warning
+        assert session.config.max_deliberation_rounds == 5  # unchanged
+
+    def test_cmd_rounds_too_high(self, session):
+        session._cmd_rounds(["100"])
+        assert session.config.max_deliberation_rounds == 5  # unchanged
+
+    def test_cmd_agent_enable(self, session):
+        session._cmd_agent(["codex", "on"])
+        assert session.config.agents["codex"].enabled is True
+
+    def test_cmd_agent_disable(self, session):
+        session._cmd_agent(["claude", "off"])
+        assert session.config.agents["claude"].enabled is False
+
+    def test_cmd_agent_unknown(self, session):
+        session._cmd_agent(["unknown", "on"])
+        # Should print "Unknown agent" — no crash
+
+    def test_cmd_agent_no_args(self, session):
+        session._cmd_agent([])
+        # Should print usage — no crash
+
+    def test_cmd_agent_invalid_action(self, session):
+        session._cmd_agent(["claude", "maybe"])
+        # Should print usage — no crash
+
+    def test_cmd_history_empty(self, session):
+        session._cmd_history()
+        # Should print "No deliberation history yet"
+
+    def test_cmd_history_with_entries(self, session):
+        session.tui.history = [
+            {"prompt": "test 1", "rounds": 2, "consensus": True, "duration": 1.5},
+            {"prompt": "test 2", "rounds": 3, "consensus": False, "duration": 3.0},
+        ]
+        session._cmd_history()
+        # Should display history table
+
+    def test_cmd_save_no_result(self, session):
+        session._cmd_save()
+        # Should print "No results to save"
+
+    def test_cmd_save_with_result(self, session):
+        session.tui.last_result = DeliberationResult(
+            user_prompt="test", rounds_completed=1, consensus=None
+        )
+        session._cmd_save()
+        # Should save to history file
+
+
+class TestSessionHandleCommand:
+    def test_quit_command(self, session):
+        session._handle_command("/quit")
+        assert session.running is False
+
+    def test_exit_command(self, session):
+        session._handle_command("/exit")
+        assert session.running is False
+
+    def test_q_command(self, session):
+        session._handle_command("/q")
+        assert session.running is False
+
+    def test_help_command(self, session):
+        session._handle_command("/help")
+        # Should print help text — no crash
+
+    def test_unknown_command(self, session):
+        session._handle_command("/unknown")
+        # Should print "Unknown command"
+
+    def test_empty_command(self, session):
+        session._handle_command("/")
+        # Should do nothing
+
+
+class TestSessionPersistence:
+    def test_save_history_creates_file(self, session, tmp_path):
+        session.tui.history = [
+            {"prompt": "test", "rounds": 1, "consensus": True, "duration": 1.0},
+        ]
+        session._save_history()
+
+        history_file = session._history_file
+        assert history_file.exists()
+
+        data = json.loads(history_file.read_text(encoding="utf-8"))
+        assert len(data) == 1
+        assert data[0]["prompt"] == "test"
+
+    def test_save_history_appends(self, session, tmp_path):
+        # Pre-existing history
+        session._history_file.parent.mkdir(parents=True, exist_ok=True)
+        session._history_file.write_text(
+            json.dumps([{"prompt": "old", "rounds": 1, "consensus": True, "duration": 1.0}]),
+            encoding="utf-8",
+        )
+
+        session.tui.history = [
+            {"prompt": "new", "rounds": 2, "consensus": False, "duration": 2.0},
+        ]
+        session._save_history()
+
+        data = json.loads(session._history_file.read_text(encoding="utf-8"))
+        assert len(data) == 2
+        assert data[0]["prompt"] == "old"
+        assert data[1]["prompt"] == "new"
+
+    def test_save_history_handles_corrupt_file(self, session):
+        session._history_file.parent.mkdir(parents=True, exist_ok=True)
+        session._history_file.write_text("not json", encoding="utf-8")
+
+        session.tui.history = [
+            {"prompt": "test", "rounds": 1, "consensus": True, "duration": 1.0},
+        ]
+        session._save_history()
+
+        data = json.loads(session._history_file.read_text(encoding="utf-8"))
+        assert len(data) == 1  # Only new entry, old corrupt data replaced
+
+
+class TestSessionDisplayResult:
+    def test_display_consensus(self, session):
+        result = DeliberationResult(
+            user_prompt="test",
+            rounds_completed=2,
+            consensus=ConsensusResult(
+                reached=True,
+                agreement_count=2,
+                total_agents=2,
+                opinions={"a": "yes", "b": "yes"},
+                summary="Use pytest.",
+            ),
+        )
+        session._display_result(result)
+        # Should not raise
+
+    def test_display_no_consensus(self, session):
+        result = DeliberationResult(
+            user_prompt="test",
+            rounds_completed=5,
+            consensus=None,
+        )
+        session._display_result(result)
+
+    def test_display_with_tasks(self, session):
+        result = DeliberationResult(
+            user_prompt="test",
+            rounds_completed=1,
+            consensus=ConsensusResult(
+                reached=True,
+                agreement_count=1,
+                total_agents=1,
+                opinions={"a": "yes"},
+                summary="Done.",
+            ),
+            tasks=[
+                TaskAssignment(agent_name="claude", task_description="Write code", priority=10),
+                TaskAssignment(agent_name="codex", task_description="Write tests", priority=5),
+            ],
+        )
+        session._display_result(result)
+
+    def test_display_with_long_task_description(self, session):
+        result = DeliberationResult(
+            user_prompt="test",
+            rounds_completed=1,
+            consensus=ConsensusResult(
+                reached=True,
+                agreement_count=1,
+                total_agents=1,
+                opinions={"a": "yes"},
+                summary="Done.",
+            ),
+            tasks=[
+                TaskAssignment(
+                    agent_name="claude",
+                    task_description="x" * 120,  # Very long description
+                    priority=10,
+                ),
+            ],
+        )
+        session._display_result(result)

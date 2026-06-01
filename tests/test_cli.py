@@ -39,13 +39,13 @@ class TestVersion:
     def test_version_flag(self, runner):
         result = runner.invoke(main, ["--version"])
         assert result.exit_code == 0
-        assert "0.1.0" in result.output
+        assert __import__("trinity").__version__ in result.output
 
 
 class TestInit:
     def test_init_creates_structure(self, runner, tmp_path):
         with runner.isolated_filesystem(temp_dir=tmp_path):
-            result = runner.invoke(main, ["init"])
+            result = runner.invoke(main, ["init", "--non-interactive"])
             assert result.exit_code == 0
 
             # Check directory structure
@@ -61,7 +61,7 @@ class TestInit:
 
     def test_init_shared_md_content(self, runner, tmp_path):
         with runner.isolated_filesystem(temp_dir=tmp_path):
-            result = runner.invoke(main, ["init"])
+            result = runner.invoke(main, ["init", "--non-interactive"])
             assert result.exit_code == 0
 
             shared = Path(".trinity/shared.md").read_text(encoding="utf-8")
@@ -70,7 +70,7 @@ class TestInit:
 
     def test_init_adds_gitignore(self, runner, tmp_path):
         with runner.isolated_filesystem(temp_dir=tmp_path):
-            result = runner.invoke(main, ["init"])
+            result = runner.invoke(main, ["init", "--non-interactive"])
             assert result.exit_code == 0
 
             gitignore = Path(".gitignore").read_text(encoding="utf-8")
@@ -78,21 +78,21 @@ class TestInit:
 
     def test_init_existing_without_force(self, runner, tmp_path):
         with runner.isolated_filesystem(temp_dir=tmp_path):
-            runner.invoke(main, ["init"])  # First init
+            runner.invoke(main, ["init", "--non-interactive"])  # First init
             result = runner.invoke(main, ["init"])  # Second init without --force
             assert "already exists" in result.output
 
     def test_init_with_force(self, runner, tmp_path):
         with runner.isolated_filesystem(temp_dir=tmp_path):
-            runner.invoke(main, ["init"])  # First init
-            result = runner.invoke(main, ["init", "--force"])  # Force re-init
+            runner.invoke(main, ["init", "--non-interactive"])  # First init
+            result = runner.invoke(main, ["init", "--force", "--non-interactive"])  # Force re-init
             assert result.exit_code == 0
             assert "initialized" in result.output.lower() or "✓" in result.output
 
     def test_init_gitignore_no_duplicate(self, runner, tmp_path):
         with runner.isolated_filesystem(temp_dir=tmp_path):
-            runner.invoke(main, ["init"])
-            runner.invoke(main, ["init", "--force"])
+            runner.invoke(main, ["init", "--non-interactive"])
+            runner.invoke(main, ["init", "--force", "--non-interactive"])
 
             gitignore = Path(".gitignore").read_text(encoding="utf-8")
             assert gitignore.count(".trinity/") == 1

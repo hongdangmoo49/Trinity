@@ -438,6 +438,61 @@ Phase 4에서 추가된 다중 Provider 지원, 헬스체크, 워크스페이스
 
 ---
 
+## Phase 6: 인터랙티브 설정 + Terminal UI — ✅ 완료
+
+### 구현한 것
+
+| 작업 | 파일 | 상세 |
+|------|------|------|
+| **CLI 자동 감지** | `setup/detector.py` | `claude --version`, `codex --version`, `gemini --version` 실행, 설치 여부/버전/경로 감지 |
+| **인터랙티브 설정 위자드** | `setup/wizard.py` | Rich 기반 4단계 위자드: 감지 → 선택 → 커스터마이징 → 리뷰 |
+| **TUI 애플리케이션** | `tui/app.py` | Rich Live 기반: 헤더, 에이전트 상태, 토론 진행, 결과 패널 |
+| **인터랙티브 세션** | `tui/session.py` | 입력 루프 + /명령어 + 실시간 Rich Live 업데이트 |
+| **tmux TUI 레이아웃** | `tmux/layout.py` | 상단 TUI + 하단 에이전트 분할 레이아웃 |
+| **CLI 업그레이드** | `cli.py` | `trinity` 단독 실행 → TUI 진입, `init` → 인터랙티브 위자드, `--non-interactive` 플래그 |
+
+### 검증 완료
+
+- [x] `pytest tests/ -v` → **571 passed** (기존 454개 → 117개 추가)
+- [x] `pytest tests/ --cov=trinity` → **87% 커버리지**
+- [x] 5개 신규 테스트 파일: test_cli_detector, test_setup_wizard, test_tui, test_tui_session, test_tmux_layout
+- [x] 기존 454개 테스트 호환성 유지
+- [x] 테스트 결과 문서: [`docs/test-results/phase-6-T.md`](test-results/phase-6-T.md)
+
+### CLI 변경 사항
+
+| 명령어 | 변경 |
+|--------|------|
+| `trinity` | 단독 실행 시 인터랙티브 TUI 모드 진입 (신규) |
+| `trinity init` | 인터랙티브 설정 위자드 (CLI 감지 + 에이전트 선택) |
+| `trinity init --non-interactive` | 기존 동작 (기본값으로 바로 생성) |
+
+### TUI 명령어 모드
+
+| 명령어 | 설명 |
+|--------|------|
+| `질문 텍스트` | 에이전트에게 토론 주제 전달 |
+| `/status` | 에이전트 상태 테이블 표시 |
+| `/context` | 공유 컨텍스트(shared.md) 표시 |
+| `/rounds [N]` | 최대 라운드 수 변경 |
+| `/agent <name> on/off` | 특정 에이전트 활성화/비활성화 |
+| `/history` | 이전 토론 기록 표시 |
+| `/save` | 현재 세션 결과 저장 |
+| `/quit` | 종료 |
+
+---
+
+## Phase 6-T: Phase 6 테스트 — ✅ 완료
+
+### 검증 완료
+
+- [x] `pytest tests/ -v` → **571 passed** (기존 454개 → 117개 추가)
+- [x] `pytest tests/ --cov=trinity` → **87% 커버리지**
+- [x] 5개 신규 테스트 파일 작성
+- [x] 테스트 결과 문서: [`docs/test-results/phase-6-T.md`](test-results/phase-6-T.md)
+
+---
+
 ## 아키텍처 부채 (현재 알려진 것)
 
 | 항목 | 심각도 | 설명 | 해결 시점 |
@@ -464,6 +519,8 @@ Phase 4   ✅ 다중 Provider + 헬스체크 + 워크스페이스 격리 (완료
 Phase 4-T ✅ Phase 4 테스트 (386 테스트, 91% 커버리지) → docs/test-results/phase-4-T.md
 Phase 5   ✅ 프로덕션 폴리싱 (완료)
 Phase 5-T ✅ Phase 5 테스트 (455 테스트, 90% 커버리지) → docs/test-results/phase-5-T.md
+Phase 6   ✅ 인터랙티브 설정 + TUI (완료)
+Phase 6-T ✅ Phase 6 테스트 (571 테스트, 87% 커버리지) → docs/test-results/phase-6-T.md
 ```
 
 ### 테스트 Phase 공통 규칙
@@ -486,4 +543,4 @@ Phase 5-T ✅ Phase 5 테스트 (455 테스트, 90% 커버리지) → docs/test-
 - **마지막 커밋**: `eefb8cb` — feat: implement Trinity v0.1.0 — Phase 1 core
 
 *작성일: 2026-06-01*
-*갱신일: 2026-06-01 — Phase 5/5-T 완료, 전체 로드맵 완료, 455 테스트, 90% 커버리지*
+*갱신일: 2026-06-01 — Phase 6/6-T 완료, 전체 로드맵 완료, 571 테스트, 87% 커버리지*

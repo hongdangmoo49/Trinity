@@ -1,4 +1,12 @@
-"""Trinity CLI — command-line interface."""
+"""Trinity CLI — command-line interface.
+
+Supports:
+  trinity             → Interactive TUI mode (Phase 6)
+  trinity init        → Interactive setup wizard with CLI detection (Phase 6)
+  trinity ask "..."   → One-shot deliberation
+  trinity status      → Show agent status
+  trinity ...         → Various management commands
+"""
 
 from __future__ import annotations
 
@@ -46,38 +54,156 @@ def load_config() -> TrinityConfig:
     return TrinityConfig.default_config()
 
 
-@click.group()
+@click.group(invoke_without_command=True)
 @click.version_option(version=__version__, prog_name="trinity")
-def main():
+@click.option("--interactive/--no-interactive", default=None, help="Force interactive TUI mode")
+@click.pass_context
+def main(ctx: click.Context, interactive: bool | None):
     """Trinity — Three minds, one context.
 
     Multi-agent AI orchestrator that unifies Claude Code, Codex, and Gemini
     through shared context, round-based deliberation, and task distribution.
-    """
-    pass
 
+    Run without arguments to enter interactive TUI mode.
+    """
+    ctx.ensure_object(dict)
+    ctx.obj["force_interactive"] = interactive
+
+    if ctx.invoked_subcommand is None:
+        # No subcommand → enter interactive TUI mode
+        _run_interactive_tui()
+
+
+def _run_interactive_tui() -> None:
+    """Launch the interactive TUI session."""
+    from trinity.tui.session import InteractiveSession
+
+    config = load_config()
+
+    # If no .trinity/ directory exists, suggest running init first
+    state_dir = config.effective_state_dir
+    if not (state_dir / "trinity.config").exists():
+        console.print(Panel.fit(
+            "[yellow]No Trinity project found in current directory.[/yellow]\n\n"
+            "Run [cyan]trinity init[/cyan] first to set up a project.",
+            title="Trinity",
+        ))
+        sys.exit(1)
+
+    session = InteractiveSession(config, console)
+    try:
+        session.run()
+    except KeyboardInterrupt:
+        console.print("\n[bold cyan]👋 Goodbye from Trinity![/bold cyan]")
+
+
+# ─── trinity init ────────────────────────────────────────────────────────
 
 @main.command()
 @click.option("--force", is_flag=True, help="Overwrite existing .trinity/ directory")
-def init(force: bool):
-    """Initialize .trinity/ in the current directory."""
+@click.option("--non-interactive", is_flag=True, help="Skip interactive setup, use defaults")
+def init(force: bool, non_interactive: bool):
+    """Initialize .trinity/ in the current directory.
+
+    Runs an interactive setup wizard that:
+    1. Detects installed AI CLI tools (claude, codex, gemini)
+    2. Lets you choose which agents to enable
+    3. Customizes role prompts and context budgets
+    4. Saves the configuration
+
+    Use --non-interactive to skip the wizard and use defaults.
+    """
     target = Path.cwd() / ".trinity"
 
     if target.exists() and not force:
         console.print(f"[yellow].trinity/ already exists. Use --force to overwrite.[/yellow]")
         return
 
+    if non_interactive:
+        _init_default(target, force)
+    else:
+        _init_interactive(target, force)
+
+
+def _init_interactive(target: Path, force: bool) -> None:
+    """Run interactive setup wizard for init."""
+    from trinity.setup.wizard import SetupWizard
+
+    wizard = SetupWizard(console=console)
+
+    # Run the wizard
+    selected_agents = wizard.run(project_dir=Path.cwd())
+    if selected_agents is None:
+        console.print("[yellow]Setup cancelled.[/yellow]")
+        return
+
+    # Build full agent dict including disabled agents for missing CLIs
+    all_agents = dict(selected_agents)
+    missing = wizard.build_missing_agent_specs()
+    all_agents.update(missing)
+
+    # Create config from selections
+    config = TrinityConfig(
+        project_dir=Path.cwd(),
+        agents=all_agents,
+    )
+
+    # Create directory structure
+    _create_directory_structure(target)
+
+    # Save config
+    config.save(target / "trinity.config")
+
+    # Create initial shared.md
+    (target / "shared.md").write_text(
+        "# Shared Context\n\n## Current Goal\n(No goal set yet)\n", encoding="utf-8"
+    )
+
+    # Create role files
+    for name, spec in all_agents.items():
+        role_path = target / "agents" / name / "role.md"
+        role_path.parent.mkdir(parents=True, exist_ok=True)
+        role_path.write_text(spec.role_prompt, encoding="utf-8")
+
+    # Add to .gitignore
+    _update_gitignore()
+
+    # Show summary
+    active_names = [n for n, s in all_agents.items() if s.enabled]
+    inactive_names = [n for n, s in all_agents.items() if not s.enabled]
+
+    summary_lines = [
+        "[green bold]✓ Trinity initialized![/green bold]\n",
+        f"  Directory: {target}",
+        f"  Config:    {target / 'trinity.config'}",
+        f"  Shared:    {target / 'shared.md'}\n",
+        f"  Agents: [cyan]{', '.join(active_names)}[/cyan] (active)",
+    ]
+    if inactive_names:
+        summary_lines.append(
+            f"  Skipped: [dim]{', '.join(inactive_names)}[/dim] (CLI not installed)"
+        )
+
+    summary_lines.append(
+        "\n💡 Start deliberation:\n"
+        "   [cyan]trinity[/cyan]          — Interactive TUI mode\n"
+        "   [cyan]trinity ask \"...\"[/cyan] — One-shot question"
+    )
+
+    console.print(Panel.fit(
+        "\n".join(summary_lines),
+        title="Trinity Init",
+        border_style="green",
+    ))
+
+
+def _init_default(target: Path, force: bool) -> None:
+    """Non-interactive init with defaults (original behavior)."""
     config = TrinityConfig.default_config(project_dir=Path.cwd())
     state = target
 
     # Create directory structure
-    state.mkdir(exist_ok=True)
-    (state / "agents" / "claude").mkdir(parents=True, exist_ok=True)
-    (state / "agents" / "codex").mkdir(parents=True, exist_ok=True)
-    (state / "agents" / "gemini").mkdir(parents=True, exist_ok=True)
-    (state / "history").mkdir(exist_ok=True)
-    (state / "logs").mkdir(exist_ok=True)
-    (state / "workspace").mkdir(exist_ok=True)
+    _create_directory_structure(state)
 
     # Save config
     config.save(state / "trinity.config")
@@ -88,22 +214,13 @@ def init(force: bool):
     )
 
     # Create role files
-    (state / "agents" / "claude" / "role.md").write_text(
-        config.agents["claude"].role_prompt, encoding="utf-8"
-    )
-    (state / "agents" / "codex" / "role.md").write_text(
-        config.agents["codex"].role_prompt, encoding="utf-8"
-    )
-    (state / "agents" / "gemini" / "role.md").write_text(
-        config.agents["gemini"].role_prompt, encoding="utf-8"
-    )
+    for name, spec in config.agents.items():
+        role_path = state / "agents" / name / "role.md"
+        role_path.parent.mkdir(parents=True, exist_ok=True)
+        role_path.write_text(spec.role_prompt, encoding="utf-8")
 
     # Add to .gitignore
-    gitignore = Path.cwd() / ".gitignore"
-    gitignore_lines = gitignore.read_text().splitlines() if gitignore.exists() else []
-    if ".trinity/" not in gitignore_lines:
-        gitignore_lines.append(".trinity/")
-        gitignore.write_text("\n".join(gitignore_lines) + "\n", encoding="utf-8")
+    _update_gitignore()
 
     console.print(Panel.fit(
         "[green]✓ Trinity initialized![/green]\n\n"
@@ -114,6 +231,28 @@ def init(force: bool):
         title="Trinity Init",
     ))
 
+
+def _create_directory_structure(state: Path) -> None:
+    """Create the .trinity/ directory structure."""
+    state.mkdir(exist_ok=True)
+    (state / "agents" / "claude").mkdir(parents=True, exist_ok=True)
+    (state / "agents" / "codex").mkdir(parents=True, exist_ok=True)
+    (state / "agents" / "gemini").mkdir(parents=True, exist_ok=True)
+    (state / "history").mkdir(exist_ok=True)
+    (state / "logs").mkdir(exist_ok=True)
+    (state / "workspace").mkdir(exist_ok=True)
+
+
+def _update_gitignore() -> None:
+    """Add .trinity/ to .gitignore if not already present."""
+    gitignore = Path.cwd() / ".gitignore"
+    gitignore_lines = gitignore.read_text().splitlines() if gitignore.exists() else []
+    if ".trinity/" not in gitignore_lines:
+        gitignore_lines.append(".trinity/")
+        gitignore.write_text("\n".join(gitignore_lines) + "\n", encoding="utf-8")
+
+
+# ─── trinity ask ─────────────────────────────────────────────────────────
 
 @main.command()
 @click.argument("prompt")
@@ -166,6 +305,8 @@ def ask(prompt: str, max_rounds: int | None, agent_names: str | None, interactiv
     _display_result(result)
 
 
+# ─── trinity status ──────────────────────────────────────────────────────
+
 @main.command()
 def status():
     """Show current Trinity status."""
@@ -191,6 +332,8 @@ def status():
     console.print(table)
     console.print(f"\n[dim]Shared context: {status_data['shared_context_path']}[/dim]")
 
+
+# ─── trinity status-watch ────────────────────────────────────────────────
 
 @main.command(name="status-watch")
 @click.option("--interval", default=2.0, help="Refresh interval in seconds")
@@ -228,6 +371,8 @@ def status_watch(interval: float):
         console.print("\n[dim]Stopped.[/dim]")
 
 
+# ─── trinity attach ──────────────────────────────────────────────────────
+
 @main.command()
 def attach():
     """Attach to the tmux session running Trinity agents."""
@@ -247,6 +392,8 @@ def attach():
             f"Is it running?[/red]"
         )
 
+
+# ─── trinity logs ────────────────────────────────────────────────────────
 
 @main.command()
 @click.option("--follow", is_flag=True, help="Follow log output in real-time")
@@ -272,6 +419,8 @@ def logs(follow: bool, lines: int):
         for line in log_lines[-lines:]:
             console.print(line)
 
+
+# ─── trinity config ──────────────────────────────────────────────────────
 
 @main.command("config")
 @click.argument("key", required=False)
@@ -303,6 +452,8 @@ def config_show(key: str | None):
         console.print(table)
 
 
+# ─── trinity reset ───────────────────────────────────────────────────────
+
 @main.command()
 @click.option("--keep-context", is_flag=True, help="Preserve shared.md when resetting")
 def reset(keep_context: bool):
@@ -326,8 +477,8 @@ def reset(keep_context: bool):
     # Remove state directory
     shutil.rmtree(state_dir, ignore_errors=True)
 
-    # Re-initialize
-    init(force=True)
+    # Re-initialize with non-interactive defaults
+    _init_default(state_dir, force=True)
 
     # Restore shared.md if requested
     if shared_backup and keep_context:
@@ -338,6 +489,8 @@ def reset(keep_context: bool):
 
     console.print("[green]✓ Trinity session reset.[/green]")
 
+
+# ─── trinity context ─────────────────────────────────────────────────────
 
 @main.command()
 @click.option("--section", default=None, help="Show only a specific section")
@@ -362,6 +515,8 @@ def context(section: str | None):
             return
         console.print(content)
 
+
+# ─── Helper ──────────────────────────────────────────────────────────────
 
 def _display_result(result):
     """Pretty-print deliberation results."""

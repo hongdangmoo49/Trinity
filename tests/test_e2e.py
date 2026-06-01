@@ -46,7 +46,7 @@ def _mock_orchestrator_result():
 class TestE2EInit:
     def test_init_creates_directory(self, runner, project_dir):
         with patch("trinity.cli.Path.cwd", return_value=project_dir):
-            result = runner.invoke(main, ["init"])
+            result = runner.invoke(main, ["init", "--non-interactive"])
 
         assert result.exit_code == 0
         assert (project_dir / ".trinity").exists()
@@ -56,7 +56,7 @@ class TestE2EInit:
 
     def test_init_creates_agent_dirs(self, runner, project_dir):
         with patch("trinity.cli.Path.cwd", return_value=project_dir):
-            runner.invoke(main, ["init"])
+            runner.invoke(main, ["init", "--non-interactive"])
 
         assert (project_dir / ".trinity" / "agents" / "claude").exists()
         assert (project_dir / ".trinity" / "agents" / "codex").exists()
@@ -64,18 +64,18 @@ class TestE2EInit:
 
     def test_init_force_overwrites(self, runner, project_dir):
         with patch("trinity.cli.Path.cwd", return_value=project_dir):
-            runner.invoke(main, ["init"])
+            runner.invoke(main, ["init", "--non-interactive"])
             # Modify a file
             config_path = project_dir / ".trinity" / "trinity.config"
             config_path.write_text("modified", encoding="utf-8")
 
-            result = runner.invoke(main, ["init", "--force"])
+            result = runner.invoke(main, ["init", "--force", "--non-interactive"])
             assert result.exit_code == 0
             assert config_path.read_text() != "modified"
 
     def test_init_no_force_warns(self, runner, project_dir):
         with patch("trinity.cli.Path.cwd", return_value=project_dir):
-            runner.invoke(main, ["init"])
+            runner.invoke(main, ["init", "--non-interactive"])
             result = runner.invoke(main, ["init"])
             assert "already exists" in result.output
 
@@ -87,7 +87,7 @@ class TestE2EInit:
 class TestE2EStatus:
     def test_status_shows_agents(self, runner, project_dir):
         with patch("trinity.cli.Path.cwd", return_value=project_dir):
-            runner.invoke(main, ["init"])
+            runner.invoke(main, ["init", "--non-interactive"])
 
         config_path = project_dir / ".trinity" / "trinity.config"
         with patch("trinity.cli.find_config_path", return_value=config_path):
@@ -105,7 +105,7 @@ class TestE2EAsk:
         mock_result = _mock_orchestrator_result()
 
         with patch("trinity.cli.Path.cwd", return_value=project_dir):
-            runner.invoke(main, ["init"])
+            runner.invoke(main, ["init", "--non-interactive"])
 
         config_path = project_dir / ".trinity" / "trinity.config"
 
@@ -128,7 +128,7 @@ class TestE2EAsk:
 class TestE2EContext:
     def test_context_shows_shared(self, runner, project_dir):
         with patch("trinity.cli.Path.cwd", return_value=project_dir):
-            runner.invoke(main, ["init"])
+            runner.invoke(main, ["init", "--non-interactive"])
 
         config_path = project_dir / ".trinity" / "trinity.config"
         with patch("trinity.cli.find_config_path", return_value=config_path):

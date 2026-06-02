@@ -72,6 +72,13 @@ enabled = true
         assert config.agents["claude"].role_prompt == "You are a tester."
         assert config.agents["codex"].enabled
 
+    def test_config_compression_defaults(self):
+        """TrinityConfig should have prompt compression defaults."""
+        config = TrinityConfig.default_config()
+        assert config.prompt_compression_enabled is True
+        assert config.prompt_compression_round_threshold == 2
+        assert config.prompt_compression_max_summary_tokens == 200
+
     def test_save_and_reload(self, tmp_path):
         config = TrinityConfig.default_config(project_dir=tmp_path)
         save_path = tmp_path / "test_config.toml"

@@ -41,6 +41,11 @@ class TrinityConfig:
     recent_rounds_on_rotate: int = 3
     summary_max_tokens: int = 500
 
+    # Prompt compression (Phase 7)
+    prompt_compression_enabled: bool = True
+    prompt_compression_round_threshold: int = 2
+    prompt_compression_max_summary_tokens: int = 200
+
     # Health
     health_check_interval_seconds: float = 30.0
 
@@ -129,6 +134,9 @@ class TrinityConfig:
             ),
             recent_rounds_on_rotate=context.get("recent_rounds_on_rotate", 3),
             summary_max_tokens=context.get("summary_max_tokens", 500),
+            prompt_compression_enabled=context.get("prompt_compression_enabled", True),
+            prompt_compression_round_threshold=context.get("prompt_compression_round_threshold", 2),
+            prompt_compression_max_summary_tokens=context.get("prompt_compression_max_summary_tokens", 200),
             health_check_interval_seconds=health.get("check_interval_seconds", 30.0),
             log_level=logging_conf.get("level", "INFO"),
             log_file=logging_conf.get("file", ".trinity/logs/trinity.log"),

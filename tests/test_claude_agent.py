@@ -194,6 +194,22 @@ class TestRunSubprocess:
 
             assert result["result"] == "Plain text response, not JSON"
 
+    def test_subprocess_uses_configured_launch_context(self, agent, tmp_path):
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = json.dumps({"result": "Hello", "usage": {}})
+        agent.configure_launch(
+            cwd=tmp_path,
+            env_overrides={"HOME": str(tmp_path / "home")},
+        )
+
+        with patch("subprocess.run", return_value=mock_proc) as mock_run:
+            agent._run_subprocess(["claude", "-p", "test"], 120)
+
+        kwargs = mock_run.call_args.kwargs
+        assert kwargs["cwd"] == tmp_path
+        assert kwargs["env"]["HOME"] == str(tmp_path / "home")
+
 
 class TestParseResponse:
     def test_normal_response(self, agent):

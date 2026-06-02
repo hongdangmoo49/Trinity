@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 import subprocess
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Mapping
 
 from trinity.models import AgentSpec
 from trinity.tmux.pane import TmuxPane
@@ -30,7 +32,11 @@ class TmuxSessionManager:
         )
         return result.returncode == 0
 
-    def create_session(self, agent_specs: list[AgentSpec]) -> None:
+    def create_session(
+        self,
+        agent_specs: list[AgentSpec],
+        launch_contexts: Mapping[str, object] | None = None,
+    ) -> None:
         """Create a new tmux session with panes for each agent.
 
         Layout: horizontal split, one pane per agent.
@@ -79,15 +85,19 @@ class TmuxSessionManager:
 
         # Create additional panes via split-window
         for i, name in enumerate(all_names[1:], start=1):
+            split_cmd = [
+                "tmux",
+                *TMUX_CONFIG_FLAGS,
+                "split-window",
+                "-h",
+            ]
+            cwd = self._launch_cwd(launch_contexts, name)
+            if cwd:
+                split_cmd.extend(["-c", str(cwd)])
+            split_cmd.extend(["-t", self.session_name])
+
             subprocess.run(
-                [
-                    "tmux",
-                    *TMUX_CONFIG_FLAGS,
-                    "split-window",
-                    "-h",
-                    "-t",
-                    self.session_name,
-                ],
+                split_cmd,
                 check=True,
                 capture_output=True,
                 timeout=10,
@@ -134,6 +144,18 @@ class TmuxSessionManager:
     def get_pane(self, agent_name: str) -> TmuxPane | None:
         """Get pane for an agent by name."""
         return self.pane_map.get(agent_name)
+
+    @staticmethod
+    def _launch_cwd(
+        launch_contexts: Mapping[str, object] | None,
+        agent_name: str,
+    ) -> Path | None:
+        """Extract an agent cwd from launch context metadata."""
+        if not launch_contexts:
+            return None
+        context = launch_contexts.get(agent_name)
+        cwd = getattr(context, "cwd", None)
+        return cwd if isinstance(cwd, Path) else None
 
     def attach(self) -> None:
         """Attach to the tmux session (interactive)."""

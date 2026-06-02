@@ -71,6 +71,29 @@ PROVIDER_INSTALL_URLS: dict[Provider, str] = {
     Provider.GEMINI_CLI: "https://github.com/google-gemini/gemini-cli",
 }
 
+# Provider → default agent name (used to look up role prompts in i18n)
+PROVIDER_AGENT_NAMES: dict[Provider, str] = {
+    Provider.CLAUDE_CODE: "claude",
+    Provider.CODEX: "codex",
+    Provider.GEMINI_CLI: "gemini",
+}
+
+
+def get_provider_role(provider: Provider, lang: str = "en") -> str:
+    """Get a localized role prompt for a provider.
+
+    Args:
+        provider: The AI provider.
+        lang: "en" or "ko".
+
+    Returns:
+        Localized role prompt string.
+    """
+    from trinity.i18n import role_prompt
+
+    agent_name = PROVIDER_AGENT_NAMES.get(provider, provider.value)
+    return role_prompt(agent_name, lang)
+
 
 @dataclass
 class CLIDetectionResult:

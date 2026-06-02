@@ -136,9 +136,17 @@ class TrinityConfig:
         )
 
     @classmethod
-    def default_config(cls, project_dir: Path | None = None) -> "TrinityConfig":
-        """Create a config with sensible defaults for 3 agents."""
+    def default_config(cls, project_dir: Path | None = None, lang: str = "en") -> "TrinityConfig":
+        """Create a config with sensible defaults for 3 agents.
+
+        Args:
+            project_dir: Project root directory.
+            lang: "en" for English role prompts, "ko" for Korean.
+        """
+        from trinity.i18n import localized_roles
+
         pd = project_dir or Path.cwd()
+        roles = localized_roles(lang)
         return cls(
             project_dir=pd,
             agents={
@@ -146,33 +154,21 @@ class TrinityConfig:
                     name="claude",
                     provider=Provider.CLAUDE_CODE,
                     cli_command="claude",
-                    role_prompt=(
-                        "You are the Architect. You design systems, review code, "
-                        "and make high-level technical decisions. Think carefully "
-                        "and provide structured, well-reasoned opinions."
-                    ),
+                    role_prompt=roles["claude"],
                     extra_args=["--dangerously-skip-permissions"],
                 ),
                 "codex": AgentSpec(
                     name="codex",
                     provider=Provider.CODEX,
                     cli_command="codex",
-                    role_prompt=(
-                        "You are the Implementer. You write clean, efficient code "
-                        "based on architectural decisions. Focus on practical "
-                        "implementation and edge cases."
-                    ),
+                    role_prompt=roles["codex"],
                     enabled=False,  # Disabled by default until codex CLI is available
                 ),
                 "gemini": AgentSpec(
                     name="gemini",
                     provider=Provider.GEMINI_CLI,
                     cli_command="gemini",
-                    role_prompt=(
-                        "You are the Reviewer. You explore alternatives, identify "
-                        "potential issues, and ensure quality. Think critically "
-                        "about trade-offs and propose tests."
-                    ),
+                    role_prompt=roles["gemini"],
                     enabled=False,  # Disabled by default until gemini CLI is available
                 ),
             },

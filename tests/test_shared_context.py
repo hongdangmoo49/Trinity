@@ -142,3 +142,47 @@ class TestSharedContextEngine:
         shared_engine.initialize(valid, ["claude", "codex"])
         content = shared_engine.read()
         assert valid in content
+
+
+def test_write_compressed_summary(shared_engine):
+    """write_compressed_summary should store a compressed round summary."""
+    shared_engine.initialize(goal="test goal", agent_names=["claude", "codex"])
+    shared_engine.append_opinion("claude", 1, "Opinion 1 from claude")
+    shared_engine.append_opinion("codex", 1, "Opinion 1 from codex")
+
+    shared_engine.write_compressed_summary(1, "claude+codex agree on pytest")
+
+    section = shared_engine.read_section("Round 1 Summary")
+    assert "claude+codex agree on pytest" in section
+
+
+def test_get_rounds_for_prompt_includes_compressed(shared_engine):
+    """get_rounds_for_prompt should include compressed summaries for old rounds."""
+    shared_engine.initialize(goal="test", agent_names=["claude"])
+    shared_engine.append_opinion("claude", 1, "Long opinion round 1 " * 50)
+    shared_engine.append_opinion("claude", 2, "Opinion round 2")
+    shared_engine.append_opinion("claude", 3, "Opinion round 3")
+
+    # Compress round 1
+    shared_engine.write_compressed_summary(1, "Compressed: use pytest")
+
+    # For round 4 prompt: should get compressed R1 + full R3
+    context = shared_engine.get_rounds_for_prompt(
+        current_round=4,
+        verbatim_rounds=1,
+    )
+
+    assert "Compressed: use pytest" in context
+    assert "Opinion round 3" in context
+
+
+def test_get_rounds_for_prompt_no_compression(shared_engine):
+    """get_rounds_for_prompt with enough verbatim_rounds should skip compression."""
+    shared_engine.initialize(goal="test", agent_names=["claude"])
+    shared_engine.append_opinion("claude", 1, "Opinion 1")
+    shared_engine.append_opinion("claude", 2, "Opinion 2")
+
+    # No compressed summaries exist — should return verbatim
+    context = shared_engine.get_rounds_for_prompt(current_round=3, verbatim_rounds=2)
+    assert "Opinion 1" in context
+    assert "Opinion 2" in context

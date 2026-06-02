@@ -133,6 +133,53 @@ class SharedContextEngine:
         entry = f"\n### {agent} — {timestamp}\n{summary}\n"
         self.append_to_section("Session History", entry)
 
+    def write_compressed_summary(self, round_num: int, summary: str) -> None:
+        """Store a compressed summary for a completed round."""
+        self.write_section(f"Round {round_num} Summary", summary)
+
+    def get_rounds_for_prompt(
+        self, current_round: int, verbatim_rounds: int = 1
+    ) -> str:
+        """Build context for a round prompt with compression.
+
+        Returns formatted text with:
+        - Compressed summaries for old rounds
+        - Full verbatim text for the latest rounds
+
+        Args:
+            current_round: The round about to start (1-based).
+            verbatim_rounds: How many recent rounds to include verbatim.
+        """
+        full = self.read()
+        sections = self._parse_sections(full)
+
+        parts: list[str] = []
+
+        prev_round = current_round - 1
+        verbatim_start = max(1, prev_round - verbatim_rounds + 1)
+        compress_end = verbatim_start - 1
+
+        # Compressed summaries for old rounds
+        if compress_end >= 1:
+            compressed_parts: list[str] = []
+            for r in range(1, compress_end + 1):
+                summary_key = self._normalize_heading(f"Round {r} Summary")
+                if summary_key in sections:
+                    compressed_parts.append(sections[summary_key])
+                else:
+                    compressed_parts.append(f"(Round {r}: see shared context for details)")
+
+            if compressed_parts:
+                parts.append("## Earlier Rounds (summarized)\n" + "\n".join(compressed_parts))
+
+        # Verbatim rounds
+        for r in range(verbatim_start, prev_round + 1):
+            section_key = self._normalize_heading(f"Round {r} Opinions")
+            if section_key in sections:
+                parts.append(sections[section_key])
+
+        return "\n\n".join(parts)
+
     def get_context_for_rotation(self, recent_rounds: int = 3) -> str:
         """Get context for session handoff: pinned sections + recent rounds."""
         full = self.read()

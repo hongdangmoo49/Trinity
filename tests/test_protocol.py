@@ -1,11 +1,13 @@
 """Tests for trinity.deliberation.protocol — DeliberationProtocol."""
 
 import asyncio
+import logging
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from trinity.agents.base import AgentWrapper
 from trinity.config import TrinityConfig
+from trinity.context.budget import BudgetCheckResult
 from trinity.context.shared import SharedContextEngine
 from trinity.deliberation.consensus import ConsensusEngine
 from trinity.deliberation.distributor import TaskDistributor
@@ -44,6 +46,30 @@ def _make_opinion(name: str, round_num: int, content: str) -> DeliberationMessag
         role=MessageRole.OPINION,
         content=content,
     )
+
+
+class RecordingBudgetChecker:
+    """Budget checker test double that records call order."""
+
+    def __init__(self, events: list[str]):
+        self.events = events
+        self.calls: list[tuple[str, str, ContextUsage]] = []
+
+    def check(
+        self,
+        prompt: str,
+        current_usage: ContextUsage,
+        agent_spec: AgentSpec,
+    ) -> BudgetCheckResult:
+        self.events.append(f"check:{agent_spec.name}")
+        self.calls.append((prompt, agent_spec.name, current_usage))
+        return BudgetCheckResult(
+            estimated_prompt_tokens=10,
+            projected_total=current_usage.used + 10,
+            projected_ratio=0.01,
+            safe=True,
+            recommendation="proceed",
+        )
 
 
 class TestBuildRoundPrompt:
@@ -158,6 +184,111 @@ class TestCollectOpinions:
 
         opinions = await protocol._collect_opinions(3, "Test")
         assert opinions["claude"].round_num == 3
+
+    @pytest.mark.asyncio
+    async def test_invalid_response_goes_to_diagnostics_not_opinions(self, tmp_path):
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        engine.initialize("Test goal", ["gemini"])
+        agents = {"gemini": _make_mock_agent("gemini")}
+
+        agents["gemini"].send_and_wait = AsyncMock(
+            return_value=_make_opinion(
+                "gemini",
+                0,
+                "Waiting for authentication...\nOpen the following URL to login.",
+            )
+        )
+
+        consensus = ConsensusEngine(required_fraction=1.0)
+        protocol = DeliberationProtocol(
+            agents=agents,
+            shared=engine,
+            consensus_engine=consensus,
+            max_rounds=1,
+        )
+
+        result = await protocol.run("Test prompt")
+
+        assert result.rounds_completed == 1
+        assert result.consensus is not None
+        assert result.consensus.opinions["gemini"] == "[Invalid response omitted: auth_wait]"
+        assert engine.read_section("Round 1 Opinions") is None
+        diagnostics = engine.read_section("Response Diagnostics")
+        assert diagnostics is not None
+        assert "classification: auth_wait" in diagnostics
+        assert "Waiting for authentication" in diagnostics
+
+    @pytest.mark.asyncio
+    async def test_budget_checker_runs_before_agent_sends(self, tmp_path):
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        agents = {
+            "claude": _make_mock_agent("claude"),
+            "codex": _make_mock_agent("codex"),
+        }
+        events: list[str] = []
+
+        def make_send(name: str):
+            def send_and_wait(prompt, timeout=120.0):
+                events.append(f"send:{name}")
+
+                async def response():
+                    return _make_opinion(name, 1, "I agree.")
+
+                return response()
+
+            return send_and_wait
+
+        agents["claude"].send_and_wait = make_send("claude")
+        agents["codex"].send_and_wait = make_send("codex")
+
+        protocol = DeliberationProtocol(
+            agents=agents, shared=engine, max_rounds=5,
+        )
+        protocol.budget_checker = RecordingBudgetChecker(events)
+
+        await protocol._collect_opinions(1, "Test prompt")
+
+        assert events[:2] == ["check:claude", "check:codex"]
+        assert events[2:] == ["send:claude", "send:codex"]
+        assert protocol.last_round_rotation_candidates == []
+
+    @pytest.mark.asyncio
+    async def test_high_risk_agents_are_surfaced_before_send(self, tmp_path, caplog):
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        agents = {
+            "claude": _make_mock_agent("claude"),
+            "codex": _make_mock_agent("codex"),
+        }
+        agents["claude"].context_usage = ContextUsage(used=119_000, total=200_000)
+        agents["codex"].context_usage = ContextUsage(used=20_000, total=200_000)
+
+        agents["claude"].send_and_wait = AsyncMock(
+            return_value=_make_opinion("claude", 1, "I agree.")
+        )
+        agents["codex"].send_and_wait = AsyncMock(
+            return_value=_make_opinion("codex", 1, "I agree.")
+        )
+
+        protocol = DeliberationProtocol(
+            agents=agents, shared=engine, max_rounds=5,
+        )
+
+        with caplog.at_level(logging.WARNING, logger="trinity.deliberation.protocol"):
+            await protocol._collect_opinions(1, "x " * 1000)
+
+        assert [w.agent_name for w in protocol.last_round_rotation_candidates] == [
+            "claude"
+        ]
+        candidate = protocol.last_round_rotation_candidates[0]
+        assert candidate.round_num == 1
+        assert candidate.current_used == 119_000
+        assert candidate.context_total == 200_000
+        assert candidate.projected_total > candidate.current_used
+        assert candidate.recommendation == "rotate_first"
+        assert candidate.safe is False
+        assert protocol.get_agents_needing_rotation() == [candidate]
+        assert protocol.get_rotation_candidates() == [candidate]
+        assert "Rotation should run before the next prompt" in caplog.text
 
 
 class TestProtocolRun:

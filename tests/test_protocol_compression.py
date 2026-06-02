@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 from trinity.agents.base import AgentWrapper
+from trinity.context.analytics import TokenAnalytics
 from trinity.context.shared import SharedContextEngine
 from trinity.deliberation.protocol import DeliberationProtocol
 from trinity.models import AgentSpec, ContextUsage, DeliberationMessage, MessageRole, Provider
@@ -201,6 +202,7 @@ class TestRoundPromptCompression:
         agent = _make_mock_agent("claude", "I agree with this approach.")
         # Override send_and_wait to include token_count in metadata
         original_send = agent.send_and_wait
+        analytics_path = tmp_path / "history" / "analytics.jsonl"
 
         async def send_with_tokens(prompt, timeout=120.0):
             msg = await original_send(prompt, timeout)
@@ -212,6 +214,7 @@ class TestRoundPromptCompression:
             agents={"claude": agent},
             shared=shared,
             max_rounds=3,
+            analytics_path=analytics_path,
         )
         shared.initialize(goal="test", agent_names=["claude"])
 
@@ -222,3 +225,7 @@ class TestRoundPromptCompression:
         assert protocol.analytics is not None
         assert len(protocol.analytics.history) >= 1
         assert protocol.analytics.total_session_tokens > 0
+
+        persisted = TokenAnalytics.from_file(analytics_path)
+        assert len(persisted.history) == len(protocol.analytics.history)
+        assert persisted.total_session_tokens == protocol.analytics.total_session_tokens

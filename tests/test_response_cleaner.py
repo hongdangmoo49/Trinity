@@ -1,6 +1,6 @@
 """Tests for ResponseCleaner — CLI splash/banner stripping from agent output."""
 
-from trinity.agents.response_cleaner import ResponseCleaner
+from trinity.agents.response_cleaner import ResponseCleaner, ResponseValidator
 
 
 class TestSplashRemoval:
@@ -199,3 +199,93 @@ class TestQualityCheck:
         with caplog.at_level(logging.WARNING, logger="trinity.agents.response_cleaner"):
             cleaned = ResponseCleaner.clean(raw)
         assert "mostly boilerplate" in caplog.text or "short" in cleaned
+
+
+class TestResponseValidation:
+    """Opinion validation rejects CLI state and prompt echo before shared.md writes."""
+
+    def test_usable_opinion(self):
+        raw = (
+            "I recommend using FastAPI with PostgreSQL for this service. "
+            "It keeps the implementation small, supports async I/O, and leaves "
+            "room for background workers if ingestion grows."
+        )
+
+        result = ResponseValidator.validate_opinion(raw)
+
+        assert result.usable is True
+        assert result.classification == ResponseValidator.USABLE_OPINION
+        assert result.cleaned_text == raw
+
+    def test_short_oauth_opinion_is_usable(self):
+        result = ResponseValidator.validate_opinion("Use OAuth.")
+
+        assert result.usable is True
+        assert result.classification == ResponseValidator.USABLE_OPINION
+
+    def test_gemini_auth_ui_is_invalid(self):
+        raw = (
+            "Gemini CLI\n"
+            "? Select Auth Method\n"
+            "❯ Login with Google\n"
+            "Open the following URL to sign in:\n"
+            "https://accounts.google.com/o/oauth2/auth\n"
+            "Waiting for authentication..."
+        )
+
+        result = ResponseValidator.validate_opinion(raw)
+
+        assert result.usable is False
+        assert result.classification == ResponseValidator.AUTH_WAIT
+        assert "Select Auth Method" in result.raw_excerpt
+
+    def test_gemini_thinking_ui_is_invalid(self):
+        raw = "✦ Thinking...\nProcessing request...\nPress Esc to interrupt"
+
+        result = ResponseValidator.validate_opinion(raw)
+
+        assert result.usable is False
+        assert result.classification == ResponseValidator.THINKING_UI
+
+    def test_codex_model_loading_ui_is_invalid(self):
+        raw = (
+            ">_ OpenAI Codex (v0.136.0)\n"
+            "model: gpt-5.5 xhigh /model to change\n"
+            "Loading model gpt-5.5...\n"
+            "Preparing workspace..."
+        )
+
+        result = ResponseCleaner.validate_opinion(raw)
+
+        assert result.usable is False
+        assert result.classification == ResponseValidator.MODEL_LOADING
+
+    def test_claude_prompt_echo_is_invalid(self):
+        raw = (
+            "Read the shared context below for background.\n"
+            "User's request: Build an auth system\n"
+            "Share your initial opinion. Be specific and concise.\n"
+            "State your recommendation and key reasoning.\n"
+            "Keep your response under 500 words."
+        )
+
+        result = ResponseValidator.validate_opinion(raw)
+
+        assert result.usable is False
+        assert result.classification == ResponseValidator.PROMPT_ECHO
+
+    def test_shared_context_summary_echo_is_invalid(self):
+        raw = (
+            "Previous round opinions:\n\n"
+            "## Round 1 Summary\n"
+            "**claude**: Use FastAPI with PostgreSQL.\n"
+            "**codex**: Same recommendation, add Redis later.\n"
+            "---\n"
+            "For each other agent's opinion above, state whether you AGREE or DISAGREE.\n"
+            "End your response with either 'I AGREE with [name]' or 'I DISAGREE with all'."
+        )
+
+        result = ResponseValidator.validate_opinion(raw)
+
+        assert result.usable is False
+        assert result.classification == ResponseValidator.SHARED_CONTEXT_ECHO

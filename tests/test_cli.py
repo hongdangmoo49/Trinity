@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from click.testing import CliRunner
 
 from trinity.cli import main, load_config, find_config_path
+from trinity.context.analytics import RoundRecord, TokenAnalytics, analytics_history_path
 
 
 @pytest.fixture
@@ -223,6 +224,28 @@ class TestAnalytics:
         with runner.isolated_filesystem():
             result = runner.invoke(main, ["analytics"])
             assert result.exit_code == 0
+
+    def test_analytics_command_reads_persisted_history(self, runner, trinity_project):
+        """trinity analytics should display saved records without a live session."""
+        state_dir = trinity_project / ".trinity"
+        token_analytics = TokenAnalytics(history_path=analytics_history_path(state_dir))
+        token_analytics.record(
+            RoundRecord(1, {"claude": 100, "codex": 50}, 20, 1.0)
+        )
+        token_analytics.record(
+            RoundRecord(2, {"claude": 150, "codex": 100}, 25, 1.5)
+        )
+
+        config_path = state_dir / "trinity.config"
+        with patch("trinity.cli.find_config_path", return_value=config_path):
+            result = runner.invoke(main, ["analytics"])
+
+        assert result.exit_code == 0
+        assert "Rounds: 2" in result.output
+        assert "Total tokens: 400" in result.output
+        assert "Avg tokens/round: 200" in result.output
+        assert "claude" in result.output
+        assert "codex" in result.output
 
 
 class TestFindConfigPath:

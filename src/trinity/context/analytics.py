@@ -2,8 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import json
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
+
+
+ANALYTICS_HISTORY_FILENAME = "analytics.jsonl"
+
+
+def analytics_history_path(state_dir: Path) -> Path:
+    """Return the canonical analytics history file for a Trinity state dir."""
+    return state_dir / "history" / ANALYTICS_HISTORY_FILENAME
 
 
 @dataclass
@@ -28,23 +38,87 @@ class RoundRecord:
             return 0.0
         return self.total_tokens / count
 
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize this record to a JSON-compatible dict."""
+        return {
+            "round_num": self.round_num,
+            "agent_tokens": dict(self.agent_tokens),
+            "prompt_tokens": self.prompt_tokens,
+            "duration_seconds": self.duration_seconds,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "RoundRecord":
+        """Deserialize a record from JSON-compatible data."""
+        agent_tokens = data.get("agent_tokens", {})
+        if not isinstance(agent_tokens, dict):
+            raise ValueError("agent_tokens must be a mapping")
+
+        return cls(
+            round_num=int(data["round_num"]),
+            agent_tokens={str(name): int(tokens) for name, tokens in agent_tokens.items()},
+            prompt_tokens=int(data.get("prompt_tokens", 0)),
+            duration_seconds=float(data.get("duration_seconds", 0.0)),
+        )
+
 
 class TokenAnalytics:
     """Tracks historical token usage and predicts future consumption."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        history_path: Path | None = None,
+        load_existing: bool = False,
+    ) -> None:
         self._history: list[RoundRecord] = []
+        self.history_path = history_path
+        if self.history_path and load_existing:
+            self._history = self._load_records(self.history_path)
 
     # -- recording -----------------------------------------------------------
 
     def record(self, round_record: RoundRecord) -> None:
         """Append a round record to the history."""
         self._history.append(round_record)
+        if self.history_path:
+            self._append_record(self.history_path, round_record)
 
     @property
     def history(self) -> list[RoundRecord]:
         """Return the full recorded history."""
         return self._history
+
+    # -- persistence ---------------------------------------------------------
+
+    @classmethod
+    def from_file(cls, history_path: Path) -> "TokenAnalytics":
+        """Load analytics history from a JSONL file."""
+        return cls(history_path=history_path, load_existing=True)
+
+    @staticmethod
+    def _append_record(history_path: Path, round_record: RoundRecord) -> None:
+        """Append one round record as a JSON line."""
+        history_path.parent.mkdir(parents=True, exist_ok=True)
+        with history_path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(round_record.to_dict(), sort_keys=True) + "\n")
+
+    @staticmethod
+    def _load_records(history_path: Path) -> list[RoundRecord]:
+        """Load persisted records, ignoring blank or malformed lines."""
+        if not history_path.exists():
+            return []
+
+        records: list[RoundRecord] = []
+        for line in history_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                data = json.loads(line)
+                if isinstance(data, dict):
+                    records.append(RoundRecord.from_dict(data))
+            except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+                continue
+        return records
 
     # -- aggregate properties ------------------------------------------------
 

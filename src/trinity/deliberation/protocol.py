@@ -5,11 +5,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 
 from trinity.agents.base import AgentWrapper
 from trinity.context.analytics import TokenAnalytics, RoundRecord
-from trinity.context.budget import TokenBudgetChecker
+from trinity.context.budget import BudgetCheckResult, TokenBudgetChecker
 from trinity.context.compressor import PromptCompressor
 from trinity.context.shared import SharedContextEngine
 from trinity.deliberation.consensus import ConsensusEngine
@@ -24,6 +26,21 @@ from trinity.models import (
 from trinity.tui.events import TUIEvent, TUIEventType
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class RoundBudgetWarning:
+    """Structured budget readiness warning captured before a round prompt is sent."""
+
+    agent_name: str
+    round_num: int
+    estimated_prompt_tokens: int
+    current_used: int
+    context_total: int
+    projected_total: int
+    projected_ratio: float
+    safe: bool
+    recommendation: str
 
 
 class DeliberationProtocol:
@@ -57,6 +74,7 @@ class DeliberationProtocol:
         caveman_mode: bool = True,
         caveman_intensity: str = "full",
         lang: str = "en",
+        analytics_path: Path | None = None,
     ):
         self.agents = agents
         self.shared = shared
@@ -77,14 +95,26 @@ class DeliberationProtocol:
             )
         self.compression_round_threshold = compression_round_threshold
         self.budget_checker = TokenBudgetChecker()
+        self.budget_warnings: list[RoundBudgetWarning] = []
+        self.last_round_budget_warnings: list[RoundBudgetWarning] = []
+        self.rotation_candidates: list[RoundBudgetWarning] = []
+        self.last_round_rotation_candidates: list[RoundBudgetWarning] = []
 
         # Token usage analytics
-        self.analytics = TokenAnalytics()
+        self.analytics = TokenAnalytics(history_path=analytics_path)
 
     def _emit(self, event_type: TUIEventType, **kwargs) -> None:
         """Emit a TUI event if callback is registered."""
         if self._event_callback:
             self._event_callback(TUIEvent(type=event_type, data=kwargs))
+
+    def get_rotation_candidates(self) -> list[RoundBudgetWarning]:
+        """Return agents whose pre-send budget check recommended rotation."""
+        return list(self.rotation_candidates)
+
+    def get_agents_needing_rotation(self) -> list[RoundBudgetWarning]:
+        """Return latest round agents that should rotate before another prompt."""
+        return list(self.last_round_rotation_candidates)
 
     async def run(self, user_prompt: str) -> DeliberationResult:
         """Execute full deliberation loop."""
@@ -114,6 +144,8 @@ class DeliberationProtocol:
 
             # Write opinions to shared.md
             for name, msg in opinions.items():
+                if msg.metadata.get("invalid_response"):
+                    continue
                 self.shared.append_opinion(name, round_num, msg.content)
 
             # Record token analytics for this round
@@ -216,6 +248,8 @@ class DeliberationProtocol:
         Uses asyncio.wait(FIRST_COMPLETED) instead of asyncio.gather
         to enable per-agent completion streaming via events.
         """
+        self._check_round_budgets(round_num, prompt)
+
         # Create tasks with agent names attached
         pending: set[asyncio.Task] = set()
         task_to_name: dict[asyncio.Task, str] = {}
@@ -257,6 +291,7 @@ class DeliberationProtocol:
 
                 if isinstance(result, DeliberationMessage):
                     result.round_num = round_num
+                    result = self._validate_agent_response(name, round_num, result)
                     opinions[name] = result
                     self._emit(
                         TUIEventType.AGENT_RESPONDED,
@@ -274,6 +309,99 @@ class DeliberationProtocol:
                     )
 
         return opinions
+
+    def _validate_agent_response(
+        self, agent_name: str, round_num: int, msg: DeliberationMessage
+    ) -> DeliberationMessage:
+        """Clean and validate a response before TUI/shared-context use."""
+        from trinity.agents.response_cleaner import ResponseCleaner
+
+        validation = ResponseCleaner.validate_opinion(msg.content)
+        msg.metadata["response_validation"] = {
+            "usable": validation.usable,
+            "classification": validation.classification,
+            "reasons": list(validation.reasons),
+        }
+
+        if validation.usable:
+            msg.content = validation.cleaned_text
+            return msg
+
+        self.shared.append_invalid_response_diagnostic(
+            agent=agent_name,
+            round_num=round_num,
+            classification=validation.classification,
+            reasons=validation.reasons,
+            excerpt=validation.raw_excerpt or msg.content,
+        )
+        msg.metadata["invalid_response"] = True
+        msg.content = f"[Invalid response omitted: {validation.classification}]"
+        return msg
+
+    def _check_round_budgets(
+        self, round_num: int, prompt: str
+    ) -> list[RoundBudgetWarning]:
+        """Evaluate all agents' projected context use before sending a round prompt."""
+        warnings: list[RoundBudgetWarning] = []
+        rotation_candidates: list[RoundBudgetWarning] = []
+
+        for name, agent in self.agents.items():
+            usage = agent.context_usage
+            result = self.budget_checker.check(
+                prompt=prompt,
+                current_usage=usage,
+                agent_spec=agent.spec,
+            )
+            warning = self._budget_warning_from_result(
+                agent_name=name,
+                round_num=round_num,
+                result=result,
+                current_used=usage.used,
+                context_total=usage.total,
+            )
+
+            if result.recommendation != "proceed":
+                warnings.append(warning)
+
+            if not result.safe:
+                rotation_candidates.append(warning)
+                logger.warning(
+                    "[%s] Round %s prompt projected context at %.0f%% "
+                    "(%s/%s tokens; +%s prompt tokens). Rotation should run before "
+                    "the next prompt.",
+                    name,
+                    round_num,
+                    result.projected_ratio * 100,
+                    result.projected_total,
+                    usage.total,
+                    result.estimated_prompt_tokens,
+                )
+
+        self.last_round_budget_warnings = warnings
+        self.budget_warnings.extend(warnings)
+        self.last_round_rotation_candidates = rotation_candidates
+        self.rotation_candidates.extend(rotation_candidates)
+        return rotation_candidates
+
+    @staticmethod
+    def _budget_warning_from_result(
+        agent_name: str,
+        round_num: int,
+        result: BudgetCheckResult,
+        current_used: int,
+        context_total: int,
+    ) -> RoundBudgetWarning:
+        return RoundBudgetWarning(
+            agent_name=agent_name,
+            round_num=round_num,
+            estimated_prompt_tokens=result.estimated_prompt_tokens,
+            current_used=current_used,
+            context_total=context_total,
+            projected_total=result.projected_total,
+            projected_ratio=result.projected_ratio,
+            safe=result.safe,
+            recommendation=result.recommendation,
+        )
 
     def _build_round_prompt(self, round_num: int, user_prompt: str) -> str:
         """Build the prompt for a specific deliberation round.

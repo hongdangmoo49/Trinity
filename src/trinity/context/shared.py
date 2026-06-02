@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
 
@@ -72,6 +73,16 @@ class SharedContextEngine:
         """
         return text.encode("utf-8", errors="replace").decode("utf-8")
 
+    @staticmethod
+    def _format_diagnostic_excerpt(excerpt: str, max_chars: int) -> str:
+        """Bound and fence-safe diagnostic text for shared.md."""
+        text = excerpt.strip()
+        if not text:
+            return ""
+        if len(text) > max_chars:
+            text = text[:max_chars].rstrip() + "\n[truncated]"
+        return text.replace("```", "'''")
+
     def write(self, content: str) -> None:
         """Overwrite the entire shared.md."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -115,6 +126,33 @@ class SharedContextEngine:
         section_name = f"Round {round_num} Opinions"
         entry = f"\n### {agent}\n{opinion}\n"
         self.append_to_section(section_name, entry)
+
+    def append_invalid_response_diagnostic(
+        self,
+        agent: str,
+        round_num: int,
+        classification: str,
+        reasons: Iterable[str] = (),
+        excerpt: str = "",
+        max_excerpt_chars: int = 1200,
+    ) -> None:
+        """Record a rejected response outside Round N Opinions."""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        lines = [
+            f"\n### Round {round_num} / {agent} — {timestamp}",
+            f"- classification: {classification}",
+        ]
+
+        reason_list = [reason for reason in reasons if reason]
+        if reason_list:
+            lines.append("- reasons:")
+            lines.extend(f"  - {reason}" for reason in reason_list)
+
+        safe_excerpt = self._format_diagnostic_excerpt(excerpt, max_excerpt_chars)
+        if safe_excerpt:
+            lines.extend(["", "```text", safe_excerpt, "```"])
+
+        self.append_to_section("Response Diagnostics", "\n".join(lines))
 
     def update_consensus(self, consensus_text: str) -> None:
         """Write the agreed conclusion section."""

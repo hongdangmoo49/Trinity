@@ -13,7 +13,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import time
 from pathlib import Path
 
 from rich.console import Console, Group
@@ -340,9 +339,9 @@ class InteractiveSession:
             self.tui.reset_agents()
             return
 
-        # Guard: result may be None if deliberation timed out or was interrupted
+        # Guard: result may be None if deliberation was interrupted or failed silently
         if result is None:
-            self.console.print("[yellow]Deliberation did not complete in time.[/yellow]")
+            self.console.print("[yellow]Deliberation did not produce a result.[/yellow]")
             self.tui.reset_agents()
             return
 
@@ -364,8 +363,8 @@ class InteractiveSession:
         emission, and polls for events during the Live refresh loop to
         drive real-time TUI state updates.
 
-        Includes a hard timeout guard (5 minutes) and early exit on
-        DELIBERATION_DONE event to prevent session freezes.
+        Exits on DELIBERATION_DONE or thread completion. Agent/provider
+        timeouts are enforced inside the deliberation protocol.
 
         Args:
             orchestrator: The orchestrator to run.
@@ -396,9 +395,6 @@ class InteractiveSession:
         thread = threading.Thread(target=_run_async, daemon=True)
         thread.start()
 
-        # Hard timeout: 5 minutes maximum to prevent session freeze
-        max_wait_seconds = 300
-        start_time = time.time()
         done_received = False
 
         # Show live TUI while deliberation runs
@@ -410,15 +406,6 @@ class InteractiveSession:
                 transient=True,
             ) as live:
                 while thread.is_alive():
-                    # Hard timeout guard
-                    elapsed = time.time() - start_time
-                    if elapsed > max_wait_seconds:
-                        logger.warning(
-                            "Deliberation thread timeout after %ds — forcing exit",
-                            int(elapsed),
-                        )
-                        break
-
                     thread.join(timeout=0.25)
 
                     # Consume all pending events and update TUI state

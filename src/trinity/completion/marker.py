@@ -18,7 +18,6 @@ class MarkerDetector(CompletionDetector):
     def __init__(self, marker: str, lines: int = -200):
         self.marker = marker
         self.lines = lines
-        self._start_line: int | None = None
         self._ignored_marker_count = 0
 
     @property
@@ -31,7 +30,6 @@ class MarkerDetector(CompletionDetector):
         start_line: int = 0,
         sent_text: str = "",
     ) -> None:
-        self._start_line = start_line
         self._ignored_marker_count = sent_text.count(self.marker)
 
     async def wait_for_completion(
@@ -73,11 +71,5 @@ class MarkerDetector(CompletionDetector):
             await asyncio.sleep(poll_interval)
 
     def _capture_scoped_output(self, pane: TmuxPane) -> str:
-        """Capture only text emitted after this request boundary when known."""
-        if self._start_line is None:
-            return "\n".join(pane.capture(lines=self.lines))
-
-        lines = pane.capture(lines=-9999)
-        if len(lines) <= self._start_line:
-            return ""
-        return "\n".join(lines[self._start_line:])
+        """Capture recent pane text without relying on append-only line counts."""
+        return "\n".join(pane.capture(lines=self.lines))

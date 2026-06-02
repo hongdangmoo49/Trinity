@@ -175,28 +175,26 @@ class TestPromptReturnDetector:
         """A prompt visible before the request must not complete the request."""
         d = PromptReturnDetector()
         pane = _make_pane()
-        d.prepare_for_request(pane=pane, start_line=2, sent_text="Question")
 
         captures = [
             ["ready", "> "],
             ["ready", "> ", "Question", "Thinking..."],
             ["ready", "> ", "Question", "Final answer", "> "],
         ]
-        state = {"n": 0}
+        state = {"n": -1}
 
         def scoped_capture(lines=-5):
-            if lines == -200:
-                return captures[min(state["n"], len(captures) - 1)]
-            idx = min(state["n"], len(captures) - 1)
             state["n"] += 1
+            idx = min(max(state["n"], 0), len(captures) - 1)
             return captures[idx]
 
         pane.capture = scoped_capture
+        d.prepare_for_request(pane=pane, start_line=2, sent_text="Question")
 
         result = await d.wait_for_completion(pane, timeout=1.0, poll_interval=0.01)
 
         assert result.completed
-        assert state["n"] == 3
+        assert state["n"] >= 2
         assert "Final answer" in result.output
 
 

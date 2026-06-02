@@ -102,6 +102,8 @@ class TestGeminiSendAndWait:
         agent = GeminiAgent(gemini_spec, pane=pane, detector=detector)
 
         await agent.start(initial_prompt="Welcome.")
+        marker = f"{COMPLETION_MARKER}#1"
+        agent._completion_marker = marker
         sent_prompt = agent._build_prompt("Review tests.")
         before_lines = ["gemini ready", "> "]
         after_lines = (
@@ -110,7 +112,7 @@ class TestGeminiSendAndWait:
             + [
                 "Processing...",
                 "Prefer pytest fixtures for provider extraction tests.",
-                COMPLETION_MARKER,
+                marker,
                 "> ",
             ]
         )
@@ -139,7 +141,7 @@ class TestGeminiBuildPrompt:
 
 class TestGeminiExtractResponse:
     def test_strips_marker(self, agent):
-        raw = f"Some response {COMPLETION_MARKER}\n> "
+        raw = f"Some response {COMPLETION_MARKER}#3\n> "
         result = agent._extract_response(raw)
         assert COMPLETION_MARKER not in result
         assert "Some response" in result

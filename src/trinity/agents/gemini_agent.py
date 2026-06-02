@@ -49,6 +49,7 @@ class GeminiAgent(AgentWrapper):
         self._hard_timeout = 120.0  # seconds
         self._last_response_start_line = 0
         self._sent_text = ""
+        self._completion_marker = COMPLETION_MARKER
 
     async def start(self, initial_prompt: str = "") -> None:
         self._started = True
@@ -68,6 +69,7 @@ class GeminiAgent(AgentWrapper):
             raise RuntimeError(f"Agent {self.name} not started")
 
         self._message_count += 1
+        self._completion_marker = f"{COMPLETION_MARKER}#{self._message_count}"
         full_prompt = self._build_prompt(prompt)
 
         start_time = time.time()
@@ -78,6 +80,7 @@ class GeminiAgent(AgentWrapper):
             pre_lines = self._capture_pane_lines()
             self._last_response_start_line = len(pre_lines)
             self._sent_text = full_prompt
+            self._prepare_marker_detector()
             from trinity.completion.base import prepare_detector_for_request
 
             prepare_detector_for_request(
@@ -165,7 +168,9 @@ class GeminiAgent(AgentWrapper):
             parts.append(f"[Context]\n{self._initial_prompt}\n")
         # Add completion marker for detection
         parts.append(user_prompt)
-        parts.append(f"\n\nAfter completing your response, output: {COMPLETION_MARKER}")
+        parts.append(
+            f"\n\nAfter completing your response, output: {self._completion_marker}"
+        )
         return "\n\n".join(parts)
 
     def _run_subprocess(self, prompt: str, timeout: float) -> str:
@@ -183,8 +188,23 @@ class GeminiAgent(AgentWrapper):
 
         output = proc.stdout
         # Strip completion marker if present
-        output = output.replace(COMPLETION_MARKER, "").strip()
+        output = self._strip_completion_markers(output)
         return output
+
+    def _prepare_marker_detector(self) -> None:
+        """Use a per-request marker so stale Gemini output cannot complete later requests."""
+        from trinity.completion.base import FallbackChainDetector
+        from trinity.completion.marker import MarkerDetector
+
+        detectors = []
+        if isinstance(self._detector, FallbackChainDetector):
+            detectors = self._detector.detectors
+        elif isinstance(self._detector, MarkerDetector):
+            detectors = [self._detector]
+
+        for detector in detectors:
+            if isinstance(detector, MarkerDetector):
+                detector.marker = self._completion_marker
 
     def _capture_pane_lines(self) -> list[str]:
         """Capture full pane output defensively for interactive extraction."""
@@ -311,7 +331,7 @@ class GeminiAgent(AgentWrapper):
         return cleaned
 
     def _strip_completion_markers(self, text: str) -> str:
-        return text.replace(COMPLETION_MARKER, "").strip()
+        return re.sub(r"\[TRINITY_DONE\](?:#\d+)?", "", text).strip()
 
     def _sent_lines(self) -> list[str]:
         return [

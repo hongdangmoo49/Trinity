@@ -27,6 +27,7 @@ class PromptReturnDetector(CompletionDetector):
     DEFAULT_PATTERNS = [
         r"^\s*>\s*$",       # Claude Code default prompt: >
         r"^\s*\$\s*$",      # Shell-style prompt: $
+        r"^\s*›\s*$",       # Codex prompt: ›
         r"^\s*❯\s*$",       # Starship-style prompt: ❯
         r"^\s*╭─+╮\s*$",    # Some CLI custom prompts
     ]
@@ -45,7 +46,8 @@ class PromptReturnDetector(CompletionDetector):
             "|".join(f"({p})" for p in patterns),
             re.MULTILINE,
         )
-        self._start_line: int | None = None
+        self._baseline_text = ""
+        self._saw_request_activity = False
 
     @property
     def name(self) -> str:
@@ -57,7 +59,8 @@ class PromptReturnDetector(CompletionDetector):
         start_line: int = 0,
         sent_text: str = "",
     ) -> None:
-        self._start_line = start_line
+        self._baseline_text = "\n".join(pane.capture(lines=-200))
+        self._saw_request_activity = False
 
     async def wait_for_completion(
         self,
@@ -79,11 +82,20 @@ class PromptReturnDetector(CompletionDetector):
                     metadata={"reason": "timeout"},
                 )
 
-            # Check only the current request region when a boundary is known.
             lines = self._capture_scoped_lines(pane)
-            tail = "\n".join(lines[-5:])
+            output = "\n".join(lines)
 
-            if tail and self._pattern.search(tail):
+            if not self._saw_request_activity:
+                self._saw_request_activity = bool(
+                    output and output != self._baseline_text
+                )
+
+            last_line = self._last_meaningful_line(lines)
+            if (
+                self._saw_request_activity
+                and last_line
+                and self._pattern.search(last_line)
+            ):
                 logger.debug(f"Prompt pattern detected in pane output")
                 # Capture the full response (before the prompt line)
                 full_output = "\n".join(pane.capture(lines=-200))
@@ -97,11 +109,13 @@ class PromptReturnDetector(CompletionDetector):
             await asyncio.sleep(poll_interval)
 
     def _capture_scoped_lines(self, pane: TmuxPane) -> list[str]:
-        """Return pane lines relevant to the current request."""
-        if self._start_line is None:
-            return pane.capture(lines=-5)
+        """Return recent pane lines without assuming append-only scrollback."""
+        return pane.capture(lines=-200)
 
-        lines = pane.capture(lines=-9999)
-        if len(lines) <= self._start_line:
-            return []
-        return lines[self._start_line:]
+    @staticmethod
+    def _last_meaningful_line(lines: list[str]) -> str:
+        """Return the last non-empty line in a pane capture."""
+        for line in reversed(lines):
+            if line.strip():
+                return line.strip()
+        return ""

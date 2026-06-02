@@ -137,6 +137,27 @@ class SharedContextEngine:
         """Store a compressed summary for a completed round."""
         self.write_section(f"Round {round_num} Summary", summary)
 
+    def remove_section(self, heading: str) -> None:
+        """Remove a ## section entirely from shared.md."""
+        full = self.read()
+        sections = self._parse_sections(full)
+        key = self._normalize_heading(heading)
+        if key not in sections:
+            return
+        lines = full.splitlines()
+        result = []
+        in_target = False
+        heading_prefix = f"## {heading}"
+        for line in lines:
+            if line.strip() == heading_prefix:
+                in_target = True
+                continue
+            if in_target and line.startswith("## ") and not line.startswith("### "):
+                in_target = False
+            if not in_target:
+                result.append(line)
+        self.write("\n".join(result))
+
     def get_rounds_for_prompt(
         self, current_round: int, verbatim_rounds: int = 1
     ) -> str:

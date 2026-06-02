@@ -186,3 +186,29 @@ def test_get_rounds_for_prompt_no_compression(shared_engine):
     context = shared_engine.get_rounds_for_prompt(current_round=3, verbatim_rounds=2)
     assert "Opinion 1" in context
     assert "Opinion 2" in context
+
+
+def test_remove_section(shared_engine):
+    """remove_section should delete a section entirely."""
+    shared_engine.initialize(goal="test", agent_names=["claude"])
+    shared_engine.append_opinion("claude", 1, "Opinion 1")
+    assert shared_engine.read_section("Round 1 Opinions") is not None
+    shared_engine.remove_section("Round 1 Opinions")
+    assert shared_engine.read_section("Round 1 Opinions") is None
+
+
+def test_remove_nonexistent_section_noop(shared_engine):
+    """Removing a section that doesn't exist should not error."""
+    shared_engine.initialize(goal="test", agent_names=["claude"])
+    shared_engine.remove_section("Nonexistent Section")
+
+
+def test_remove_section_preserves_others(shared_engine):
+    """Removing one section should not affect other sections."""
+    shared_engine.initialize(goal="test", agent_names=["claude"])
+    shared_engine.append_opinion("claude", 1, "Opinion 1")
+    shared_engine.append_opinion("claude", 2, "Opinion 2")
+    shared_engine.remove_section("Round 1 Opinions")
+    assert shared_engine.read_section("Round 1 Opinions") is None
+    assert shared_engine.read_section("Round 2 Opinions") is not None
+    assert shared_engine.read_section("Current Goal") is not None

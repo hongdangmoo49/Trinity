@@ -697,6 +697,8 @@ Phase 6-T ✅ Phase 6 테스트 (571 테스트, 87% 커버리지) → docs/test-
 Phase 7   ✅ 프롬프트 압축 (완료) → docs/test-results/phase-7-T.md
 Phase 7B  ✅ 토큰 최적화 — 정리, 추정, 인터랙티브 카운팅 (완료)
 Phase 7C  ✅ 토큰 사용량 분석/예측 (완료) → 670 테스트 통과
+Phase 8   ✅ Caveman 출력 압축 통합 (완료) → 671 테스트, v0.6.0
+Phase 9   🔧 TUI/UX 대수선 — 설계 완료, 구현 대기 → docs/plans/2026-06-02-tui-overhaul.md
 ```
 
 ### 테스트 Phase 공통 규칙
@@ -719,4 +721,4 @@ Phase 7C  ✅ 토큰 사용량 분석/예측 (완료) → 670 테스트 통과
 - **구현 계획**: `docs/plans/2026-06-02-prompt-compression.md`
 
 *작성일: 2026-06-01*
-*갱신일: 2026-06-02 — Phase 8 Caveman 통합 완료, 671 테스트, v0.6.0*
+*갱신일: 2026-06-02 — Phase 9 TUI/UX 대수선 설계 완료, v0.6.0*

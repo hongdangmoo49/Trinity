@@ -596,6 +596,29 @@ Round 3+: "요약된 과거:\n{compressed}\n최근:\n{full}"  ← NEW!
 
 ---
 
+## Phase 7B: 토큰 최적화 — 정리, 추정, 인터랙티브 카운팅 — ✅ 완료
+
+### 목표
+Phase 7의 프롬프트 압축에 이어 세 가지 추가 토큰 최적화: (1) 압축 후 오래된 라운드 섹션 자동 삭제, (2) 프롬프트 전송 전 토큰 예산 검사, (3) InteractiveClaudeAgent 누적 토큰 카운팅.
+
+### 구현한 것
+
+| 작업 | 파일 | 상세 |
+|------|------|------|
+| **섹션 삭제** | `context/shared.py` | `remove_section()` — shared.md에서 ## 섹션 제거 |
+| **압축 후 자동 정리** | `deliberation/protocol.py` | `_compress_old_rounds()`에서 압축 후 원본 Opinion 섹션 삭제 |
+| **토큰 예산 검사기** | `context/budget.py` (신규) | `TokenBudgetChecker`: 전송 전 토큰 추정, 안전/경고/위험 판정 |
+| **프로토콜 통합** | `deliberation/protocol.py` | `budget_checker` 속성으로 예산 검사기 인스턴스 보유 |
+| **인터랙티브 누적 카운팅** | `agents/claude_agent.py` | `InteractiveClaudeAgent.send_and_wait()`에서 토큰 누적 (리셋 방지) |
+
+### 검증 완료
+
+- [x] `pytest tests/ -q` → **655 passed** (기존 640개 → 15개 추가)
+- [x] 5개 커밋 (Task별 1개)
+- [x] 기존 테스트 회귀 없음
+
+---
+
 ## 전체 Phase 로드맵 요약
 
 ```
@@ -612,6 +635,7 @@ Phase 5-T ✅ Phase 5 테스트 (455 테스트, 90% 커버리지) → docs/test-
 Phase 6   ✅ 인터랙티브 설정 + TUI (완료)
 Phase 6-T ✅ Phase 6 테스트 (571 테스트, 87% 커버리지) → docs/test-results/phase-6-T.md
 Phase 7   ✅ 프롬프트 압축 (완료) → docs/test-results/phase-7-T.md
+Phase 7B  ✅ 토큰 최적화 — 정리, 추정, 인터랙티브 카운팅 (완료)
 ```
 
 ### 테스트 Phase 공통 규칙
@@ -634,4 +658,4 @@ Phase 7   ✅ 프롬프트 압축 (완료) → docs/test-results/phase-7-T.md
 - **구현 계획**: `docs/plans/2026-06-02-prompt-compression.md`
 
 *작성일: 2026-06-01*
-*갱신일: 2026-06-02 — Phase 7 프롬프트 압축 완료, 640 테스트, v0.4.0*
+*갱신일: 2026-06-02 — Phase 7B 토큰 최적화 완료, 655 테스트, v0.4.1*

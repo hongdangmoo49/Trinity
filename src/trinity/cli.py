@@ -132,6 +132,7 @@ def init(force: bool, non_interactive: bool):
 
 def _init_interactive(target: Path, force: bool) -> None:
     """Run interactive setup wizard for init."""
+    from trinity.i18n import get_strings
     from trinity.setup.wizard import SetupWizard
 
     wizard = SetupWizard(console=console)
@@ -139,8 +140,11 @@ def _init_interactive(target: Path, force: bool) -> None:
     # Run the wizard
     selected_agents = wizard.run(project_dir=Path.cwd())
     if selected_agents is None:
-        console.print("[yellow]Setup cancelled.[/yellow]")
+        S = get_strings(wizard.language)
+        console.print(f"[yellow]{S.cancelled}[/yellow]")
         return
+
+    S = get_strings(wizard.language)
 
     # Build full agent dict including disabled agents for missing CLIs
     all_agents = dict(selected_agents)
@@ -178,21 +182,21 @@ def _init_interactive(target: Path, force: bool) -> None:
     inactive_names = [n for n, s in all_agents.items() if not s.enabled]
 
     summary_lines = [
-        "[green bold]✓ Trinity initialized![/green bold]\n",
-        f"  Directory: {target}",
-        f"  Config:    {target / 'trinity.config'}",
-        f"  Shared:    {target / 'shared.md'}\n",
-        f"  Agents: [cyan]{', '.join(active_names)}[/cyan] (active)",
+        f"[green bold]{S.summary_initialized}[/green bold]\n",
+        f"  {S.summary_directory.format(path=target)}",
+        f"  {S.summary_config.format(path=target / 'trinity.config')}",
+        f"  {S.summary_shared.format(path=target / 'shared.md')}\n",
+        f"  {S.summary_agents.format(agents=', '.join(active_names))}",
     ]
     if inactive_names:
         summary_lines.append(
-            f"  Skipped: [dim]{', '.join(inactive_names)}[/dim] (CLI not installed)"
+            f"  {S.summary_skipped.format(agents=', '.join(inactive_names))}"
         )
 
     summary_lines.append(
-        "\n💡 Start deliberation:\n"
-        "   [cyan]trinity[/cyan]          — Interactive TUI mode\n"
-        "   [cyan]trinity ask \"...\"[/cyan] — One-shot question"
+        f"\n{S.summary_start_hint}\n"
+        f"   [cyan]{S.summary_start_tui}[/cyan]\n"
+        f"   [cyan]{S.summary_start_ask}[/cyan]"
     )
 
     console.print(Panel.fit(

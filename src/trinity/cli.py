@@ -499,6 +499,42 @@ def reset(keep_context: bool):
     console.print("[green]✓ Trinity session reset.[/green]")
 
 
+# ─── trinity analytics ────────────────────────────────────────────────────
+
+@main.command()
+def analytics():
+    """Show token usage analytics for the current session."""
+    config = load_config()
+    orchestrator = TrinityOrchestrator(config)
+
+    summary = orchestrator.get_analytics()
+    if not summary:
+        console.print("[yellow]No analytics data available. Run a deliberation first.[/yellow]")
+        return
+
+    console.print(Panel.fit(
+        f"Rounds: {summary['rounds_recorded']}\n"
+        f"Total tokens: {summary['total_tokens']:,}\n"
+        f"Avg tokens/round: {summary['avg_tokens_per_round']:,.0f}\n"
+        f"Trend: {summary['trend']}",
+        title="Token Analytics",
+    ))
+
+    if summary.get("agents"):
+        table = Table(title="Agent Usage")
+        table.add_column("Agent", style="cyan")
+        table.add_column("Total Tokens", justify="right")
+        table.add_column("Burn Rate (tok/round)", justify="right")
+
+        for name, data in summary["agents"].items():
+            table.add_row(
+                name,
+                f"{data['total']:,}",
+                f"{data['burn_rate']:,.0f}",
+            )
+        console.print(table)
+
+
 # ─── trinity context ─────────────────────────────────────────────────────
 
 @main.command()

@@ -217,6 +217,14 @@ class TestAsk:
                 assert result.exit_code == 0
 
 
+class TestAnalytics:
+    def test_analytics_command_no_data(self, runner):
+        """trinity analytics should handle no-data case gracefully."""
+        with runner.isolated_filesystem():
+            result = runner.invoke(main, ["analytics"])
+            assert result.exit_code == 0
+
+
 class TestFindConfigPath:
     def test_finds_config_in_current_dir(self, trinity_project):
         with patch("trinity.cli.Path.cwd", return_value=trinity_project):

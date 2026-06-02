@@ -207,6 +207,12 @@ class TrinityOrchestrator:
                 msg = self.session_rotator.build_broadcast_message(agent_name)
                 logger.info(f"Broadcast: {msg}")
 
+    def get_analytics(self) -> dict | None:
+        """Return token analytics summary if available."""
+        if self.protocol and self.protocol.analytics.history:
+            return self.protocol.analytics.summary()
+        return None
+
     def get_status(self) -> dict:
         """Return current orchestrator status."""
         self._ensure_initialized()

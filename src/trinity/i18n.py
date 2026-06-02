@@ -99,6 +99,11 @@ class Strings:
     current_role: str
     customize_role: str
     enter_role: str
+    select_model: str
+    custom_model: str
+    custom_model_hint: str
+    enter_model: str
+    model_budget_applied: str
     context_budget: str
     change_budget: str
     enter_budget: str
@@ -107,6 +112,7 @@ class Strings:
     step4_title: str
     col_agent: str
     col_provider: str
+    col_model: str
     col_role: str
     col_budget: str
     save_prompt: str
@@ -154,12 +160,18 @@ EN_STRINGS = Strings(
     current_role="Current role: {role}",
     customize_role="Customize role for {name}?",
     enter_role="Enter role prompt",
+    select_model="Select model",
+    custom_model="Custom model",
+    custom_model_hint="Enter a model id and budget manually",
+    enter_model="Enter model id",
+    model_budget_applied="Model context budget applied: {budget:,} tokens",
     context_budget="Context budget: {budget:,} tokens",
     change_budget="Change context budget?",
     enter_budget="Enter context budget (tokens)",
     step4_title="📝 Step 4: Review configuration",
     col_agent="Agent",
     col_provider="Provider",
+    col_model="Model",
     col_role="Role",
     col_budget="Context Budget",
     save_prompt="Save this configuration?",
@@ -203,12 +215,18 @@ KO_STRINGS = Strings(
     current_role="현재 역할: {role}",
     customize_role="{name}의 역할을 커스터마이징하시겠습니까?",
     enter_role="역할 프롬프트를 입력하세요",
+    select_model="사용할 모델을 선택하세요",
+    custom_model="직접 입력",
+    custom_model_hint="모델 ID와 예산을 직접 입력",
+    enter_model="모델 ID를 입력하세요",
+    model_budget_applied="모델 컨텍스트 예산 적용됨: {budget:,} 토큰",
     context_budget="컨텍스트 예산: {budget:,} 토큰",
     change_budget="컨텍스트 예산을 변경하시겠습니까?",
     enter_budget="컨텍스트 예산을 입력하세요 (토큰)",
     step4_title="📝 Step 4: 설정 검토",
     col_agent="에이전트",
     col_provider="제공자",
+    col_model="모델",
     col_role="역할",
     col_budget="컨텍스트 예산",
     save_prompt="이 설정을 저장하시겠습니까?",

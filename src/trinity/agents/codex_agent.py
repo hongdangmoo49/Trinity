@@ -75,6 +75,7 @@ class CodexAgent(AgentWrapper):
 
         if self._pane and self._detector:
             # Interactive mode
+            self._pane.send_text_heredoc(full_prompt)
             result = await self._detector.wait_for_completion(
                 self._pane, timeout=timeout
             )

@@ -72,6 +72,25 @@ enabled = true
         assert config.agents["claude"].role_prompt == "You are a tester."
         assert config.agents["codex"].enabled
 
+    def test_load_detects_lang_from_korean_role_prompt(self, tmp_trinity_dir):
+        config_path = tmp_trinity_dir / "trinity.config"
+        config_path.write_text(
+            """
+[general]
+session_name = "test-session"
+
+[agents.claude]
+provider = "claude-code"
+cli_command = "claude"
+enabled = true
+role_prompt = "당신은 아키텍트입니다."
+""",
+            encoding="utf-8",
+        )
+
+        config = TrinityConfig.load(config_path)
+        assert config.lang == "ko"
+
     def test_config_compression_defaults(self):
         """TrinityConfig should have prompt compression defaults."""
         config = TrinityConfig.default_config()

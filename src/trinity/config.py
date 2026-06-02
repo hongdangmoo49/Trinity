@@ -131,7 +131,7 @@ class TrinityConfig:
                 Path(general["state_dir"]) if "state_dir" in general else None
             ),
             session_name=general.get("session_name", "trinity"),
-            lang=general.get("lang", "en"),
+            lang=lang,
             max_deliberation_rounds=deliberation.get(
                 "max_rounds", general.get("max_deliberation_rounds", 5)
             ),

@@ -5,6 +5,7 @@ import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 
 from trinity.agents.codex_agent import CodexAgent
+from trinity.completion.base import CompletionResult
 from trinity.models import AgentSpec, ContextUsage, MessageRole, Provider
 
 
@@ -97,6 +98,28 @@ class TestCodexSendAndWait:
             msg = await agent.send_and_wait("test")
 
         assert "Error" in msg.content
+
+    @pytest.mark.asyncio
+    async def test_interactive_mode_sends_prompt_before_waiting(self, codex_spec):
+        pane = MagicMock()
+        pane.is_alive.return_value = True
+        detector = AsyncMock()
+        detector.wait_for_completion.return_value = CompletionResult(
+            completed=True,
+            output="Codex response",
+            detector_name="mock",
+        )
+        agent = CodexAgent(codex_spec, pane=pane, detector=detector)
+
+        await agent.start(initial_prompt="Welcome.")
+        msg = await agent.send_and_wait("Implement auth.")
+
+        sent_prompt = pane.send_text_heredoc.call_args.args[0]
+        assert "[System Role]" in sent_prompt
+        assert "Welcome." in sent_prompt
+        assert "Implement auth." in sent_prompt
+        detector.wait_for_completion.assert_awaited_once_with(pane, timeout=120.0)
+        assert msg.content == "Codex response"
 
 
 class TestCodexBuildPrompt:

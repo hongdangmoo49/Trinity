@@ -13,12 +13,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-from rich.console import Console, Group
+from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
-from rich.text import Text
 
 from trinity.config import TrinityConfig
 from trinity.models import DeliberationResult
@@ -28,6 +27,9 @@ from trinity.tui.prompt import TrinityPromptSession
 from trinity.tui.theme import get_theme
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from trinity.orchestrator import TrinityOrchestrator
 
 
 class InteractiveSession:
@@ -143,6 +145,7 @@ class InteractiveSession:
         table.add_column("Provider", style="green")
         table.add_column("Enabled")
         table.add_column("State")
+        table.add_column("Readiness")
         table.add_column("Context")
 
         for name, status in self.tui.agents.items():
@@ -152,12 +155,16 @@ class InteractiveSession:
             theme = get_theme(name)
             enabled = "✅" if spec.enabled else "❌"
             state = status.state.value
+            readiness = status.readiness_state
+            if status.readiness_reason:
+                readiness = f"{readiness}: {status.readiness_reason}"
             ctx = status.context_bar
             table.add_row(
                 f"[{theme.color}]{theme.icon} {name}[/{theme.color}]",
                 spec.provider.value,
                 enabled,
                 state,
+                readiness,
                 ctx,
             )
 

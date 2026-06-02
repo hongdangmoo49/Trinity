@@ -1,16 +1,12 @@
 """Tests for trinity.tui.app — TUI application components."""
 
-import time
-
 import pytest
 from rich.console import Console
 
 from trinity.config import TrinityConfig
 from trinity.models import (
-    AgentSpec,
     ConsensusResult,
     DeliberationResult,
-    Provider,
     TaskAssignment,
 )
 from trinity.tui.app import AgentTUIState, AgentTUIStatus, RoundStatus, TrinityTUI
@@ -333,6 +329,43 @@ class TestConsumeEvent:
         tui.consume_event(event)
         assert tui.agents["claude"].state == AgentTUIState.ERROR
         assert "timeout" in tui.rounds[0].agent_opinions["claude"]
+
+    def test_provider_readiness_not_ready_event(self, tui):
+        event = TUIEvent(
+            type=TUIEventType.PROVIDER_READINESS,
+            data={
+                "agent": "claude",
+                "provider": "claude-code",
+                "ready": False,
+                "state": "auth_required",
+                "reason": "claude-code requires authentication",
+                "action_hint": "Run `claude` in a terminal.",
+                "excerpt": "OAuth URL",
+            },
+        )
+
+        tui.consume_event(event)
+
+        status = tui.agents["claude"]
+        assert status.state == AgentTUIState.NOT_READY
+        assert status.readiness_state == "auth_required"
+        assert "authentication" in status.readiness_reason
+        assert "OAuth URL" in status.full_response
+
+    def test_start_round_skips_not_ready_agents(self, tui):
+        tui.mark_provider_readiness(
+            name="claude",
+            ready=False,
+            readiness_state="auth_required",
+            reason="login required",
+            action_hint="Run `claude`.",
+            excerpt="OAuth URL",
+        )
+
+        tui.start_round(1)
+
+        assert "claude" not in tui.rounds[0].agent_states
+        assert tui.agents["claude"].state == AgentTUIState.NOT_READY
 
     def test_consensus_checking_event(self, tui):
         tui.start_round(1)

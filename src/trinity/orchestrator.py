@@ -18,8 +18,13 @@ from trinity.deliberation.consensus import ConsensusEngine
 from trinity.deliberation.distributor import TaskDistributor
 from trinity.deliberation.protocol import DeliberationProtocol
 from trinity.health.checker import HealthChecker
-from trinity.models import AgentSpec, DeliberationResult
+from trinity.models import AgentSpec, ConsensusResult, DeliberationResult
+from trinity.providers.readiness import (
+    ProviderReadinessGate,
+    ReadinessResult,
+)
 from trinity.tmux.session import TmuxSessionManager
+from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workspace.isolation import WorkspaceIsolation
 from trinity.workspace.managed_home import ManagedHome
 
@@ -50,6 +55,8 @@ class TrinityOrchestrator:
         self.context_monitor: ContextMonitor | None = None
         self.session_rotator: SessionRotator | None = None
         self.health_checker: HealthChecker | None = None
+        self.readiness_gate: ProviderReadinessGate | None = None
+        self.readiness_results: dict[str, ReadinessResult] = {}
         self.managed_home: ManagedHome | None = None
         self.workspace_isolation: WorkspaceIsolation | None = None
         self.agent_launch_contexts: dict[str, AgentLaunchContext] = {}
@@ -130,6 +137,9 @@ class TrinityOrchestrator:
         self.health_checker = HealthChecker(
             agents=self.agents,
             check_interval=self.config.health_check_interval_seconds,
+        )
+        self.readiness_gate = ProviderReadinessGate(
+            timeout=self.config.provider_readiness_timeout_seconds,
         )
 
     def _prepare_agent_launch_contexts(
@@ -265,6 +275,10 @@ class TrinityOrchestrator:
             role_prompt = agent.spec.role_prompt or ""
             await agent.start(initial_prompt=role_prompt)
 
+        readiness_failure = self._check_provider_readiness(prompt, start_time)
+        if readiness_failure is not None:
+            return readiness_failure
+
         # Run the deliberation protocol
         result = await self.protocol.run(prompt)
 
@@ -278,6 +292,127 @@ class TrinityOrchestrator:
         )
 
         return result
+
+    def _check_provider_readiness(
+        self,
+        prompt: str,
+        start_time: float,
+    ) -> DeliberationResult | None:
+        """Run provider readiness checks and enforce configured policy."""
+        if not self.readiness_gate:
+            return None
+
+        self.readiness_results = self.readiness_gate.check_all(self.agents)
+        for result in self.readiness_results.values():
+            self._emit_readiness(result)
+
+        not_ready = {
+            name: result
+            for name, result in self.readiness_results.items()
+            if not result.ready
+        }
+        if not not_ready:
+            return None
+
+        mode = self.config.provider_readiness_mode.lower()
+        ready_agents = {
+            name: agent
+            for name, agent in self.agents.items()
+            if self.readiness_results.get(name)
+            and self.readiness_results[name].ready
+        }
+
+        if mode == "degraded" and ready_agents:
+            logger.warning(
+                "Provider readiness degraded mode: continuing with ready agents: %s",
+                ", ".join(ready_agents),
+            )
+            self._apply_ready_agents(ready_agents)
+            return None
+
+        logger.warning("Provider readiness failed; deliberation will not start")
+        result = self._build_readiness_failure_result(
+            prompt=prompt,
+            readiness=not_ready,
+            start_time=start_time,
+        )
+        self._emit_deliberation_done()
+        return result
+
+    def _apply_ready_agents(self, ready_agents: dict[str, AgentWrapper]) -> None:
+        """Restrict runtime components to the agents that passed readiness."""
+        self.agents = ready_agents
+        if self.protocol:
+            self.protocol.agents = ready_agents
+        if self.context_monitor:
+            self.context_monitor.agents = ready_agents
+        if self.session_rotator:
+            self.session_rotator.agents = ready_agents
+        if self.health_checker:
+            self.health_checker.agents = ready_agents
+
+    def _build_readiness_failure_result(
+        self,
+        prompt: str,
+        readiness: dict[str, ReadinessResult],
+        start_time: float,
+    ) -> DeliberationResult:
+        """Build a user-facing result explaining readiness failures."""
+        lines = [
+            "Provider readiness check failed. Deliberation was not started.",
+            "",
+        ]
+        for name, result in readiness.items():
+            lines.append(
+                f"- {name} ({result.provider.value}): {result.state.value} - "
+                f"{result.reason}"
+            )
+            if result.action_hint:
+                lines.append(f"  Action: {result.action_hint}")
+            if result.excerpt:
+                lines.append("  Pane excerpt:")
+                for excerpt_line in result.excerpt.splitlines()[-4:]:
+                    lines.append(f"    {excerpt_line}")
+
+        summary = "\n".join(lines)
+        return DeliberationResult(
+            user_prompt=prompt,
+            rounds_completed=0,
+            consensus=ConsensusResult(
+                reached=False,
+                agreement_count=0,
+                total_agents=len(self.agents),
+                opinions={name: result.reason for name, result in readiness.items()},
+                summary=summary,
+            ),
+            tasks=[],
+            total_tokens_used=0,
+            duration_seconds=time.time() - start_time,
+        )
+
+    def _emit_readiness(self, result: ReadinessResult) -> None:
+        """Emit a provider readiness TUI event."""
+        if not self._event_bus:
+            return
+        self._event_bus.emit(
+            TUIEvent(
+                type=TUIEventType.PROVIDER_READINESS,
+                data={
+                    "agent": result.agent_name,
+                    "provider": result.provider.value,
+                    "ready": result.ready,
+                    "state": result.state.value,
+                    "reason": result.reason,
+                    "action_hint": result.action_hint,
+                    "excerpt": result.excerpt,
+                },
+            )
+        )
+
+    def _emit_deliberation_done(self) -> None:
+        """Emit the completion event when deliberation is skipped."""
+        if self._event_bus:
+            self._event_bus.emit(TUIEvent(type=TUIEventType.DELIBERATION_DONE))
 
     async def _check_and_rotate(self) -> None:
         """Check all agents' context usage and rotate those exceeding threshold."""
@@ -310,6 +445,21 @@ class TrinityOrchestrator:
                     "provider": agent.spec.provider.value,
                     "alive": True,  # Print mode always "alive"
                     "context": str(agent.context_usage),
+                    "readiness": (
+                        self.readiness_results[name].state.value
+                        if name in self.readiness_results
+                        else "unknown"
+                    ),
+                    "readiness_reason": (
+                        self.readiness_results[name].reason
+                        if name in self.readiness_results
+                        else ""
+                    ),
+                    "readiness_action_hint": (
+                        self.readiness_results[name].action_hint
+                        if name in self.readiness_results
+                        else ""
+                    ),
                 }
                 for name, agent in self.agents.items()
             },

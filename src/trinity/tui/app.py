@@ -20,12 +20,11 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.progress import BarColumn, Progress, TextColumn
 from rich.rule import Rule
-from rich.table import Table
 from rich.text import Text
 
 from trinity import __version__
 from trinity.config import TrinityConfig
-from trinity.models import AgentHealth, ConsensusResult, DeliberationResult, TaskAssignment
+from trinity.models import DeliberationResult
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.tui.theme import get_theme
 
@@ -36,9 +35,11 @@ class AgentTUIState(str, Enum):
     """TUI display state for an agent."""
 
     IDLE = "idle"
+    READY = "ready"
     RESPONDING = "responding"
     RESPONDED = "responded"
     ERROR = "error"
+    NOT_READY = "not_ready"
     DISABLED = "disabled"
 
 
@@ -53,14 +54,19 @@ class AgentTUIStatus:
     full_response: str = ""
     context_percent: float = 0.0
     role: str = ""
+    readiness_state: str = "unknown"
+    readiness_reason: str = ""
+    readiness_action_hint: str = ""
 
     @property
     def state_icon(self) -> str:
         icons = {
             AgentTUIState.IDLE: "⬜",
+            AgentTUIState.READY: "✅",
             AgentTUIState.RESPONDING: "🔄",
             AgentTUIState.RESPONDED: "✅",
             AgentTUIState.ERROR: "❌",
+            AgentTUIState.NOT_READY: "⚠️",
             AgentTUIState.DISABLED: "⏸️",
         }
         return icons.get(self.state, "❓")
@@ -172,6 +178,16 @@ class TrinityTUI:
                     f"[Error: {event.data.get('error', 'Unknown')}]"
                 )
 
+        elif event.type == TUIEventType.PROVIDER_READINESS:
+            self.mark_provider_readiness(
+                name=event.data["agent"],
+                ready=event.data.get("ready", False),
+                readiness_state=event.data.get("state", "unknown"),
+                reason=event.data.get("reason", ""),
+                action_hint=event.data.get("action_hint", ""),
+                excerpt=event.data.get("excerpt", ""),
+            )
+
         elif event.type == TUIEventType.CONSENSUS_CHECKING:
             self.mark_consensus_checking()
 
@@ -242,8 +258,6 @@ class TrinityTUI:
         Shows a single line per active agent with icon, name, and state.
         Detailed status is available via /status command.
         """
-        import shutil
-
         parts: list[Text] = []
         for name, status in self.agents.items():
             if status.state == AgentTUIState.DISABLED:
@@ -253,7 +267,13 @@ class TrinityTUI:
             icon = status.state_icon
 
             # Compact: icon + name + state
-            parts.append(Text(f"  {theme.icon} {name} {icon}  ", style=f"bold {theme.color}"))
+            label = status.readiness_state if status.state == AgentTUIState.NOT_READY else status.state.value
+            parts.append(
+                Text(
+                    f"  {theme.icon} {name} {icon} {label}  ",
+                    style=f"bold {theme.color}",
+                )
+            )
 
         if not parts:
             parts.append(Text("  No active agents", style="dim"))
@@ -490,7 +510,7 @@ class TrinityTUI:
 
         agent_states = {}
         for name, status in self.agents.items():
-            if status.state != AgentTUIState.DISABLED:
+            if status.state not in {AgentTUIState.DISABLED, AgentTUIState.NOT_READY}:
                 agent_states[name] = AgentTUIState.RESPONDING
                 status.state = AgentTUIState.RESPONDING
                 status.response_preview = ""
@@ -520,6 +540,29 @@ class TrinityTUI:
 
         if self.rounds:
             self.rounds[-1].agent_states[name] = AgentTUIState.ERROR
+
+    def mark_provider_readiness(
+        self,
+        name: str,
+        ready: bool,
+        readiness_state: str,
+        reason: str,
+        action_hint: str,
+        excerpt: str,
+    ) -> None:
+        """Record provider readiness state for one agent."""
+        if name not in self.agents:
+            logger.warning(f"TUI: Unknown agent '{name}'")
+            return
+
+        status = self.agents[name]
+        status.readiness_state = readiness_state
+        status.readiness_reason = reason
+        status.readiness_action_hint = action_hint
+        status.full_response = "\n".join(
+            part for part in (reason, action_hint, excerpt) if part
+        )
+        status.state = AgentTUIState.READY if ready else AgentTUIState.NOT_READY
 
     def mark_consensus_checking(self) -> None:
         """Mark that consensus is being evaluated for the current round."""
@@ -582,6 +625,9 @@ class TrinityTUI:
                 status.state = AgentTUIState.IDLE
                 status.response_preview = ""
                 status.full_response = ""
+                status.readiness_state = "unknown"
+                status.readiness_reason = ""
+                status.readiness_action_hint = ""
         # Clear round history between deliberations
         self.rounds.clear()
         self.current_round = 0

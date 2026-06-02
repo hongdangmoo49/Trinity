@@ -8,6 +8,7 @@ import time
 from typing import Callable
 
 from trinity.agents.base import AgentWrapper
+from trinity.context.compressor import PromptCompressor
 from trinity.context.shared import SharedContextEngine
 from trinity.deliberation.consensus import ConsensusEngine
 from trinity.deliberation.distributor import TaskDistributor
@@ -48,6 +49,9 @@ class DeliberationProtocol:
         round_timeout: float = 120.0,
         tmux_manager=None,
         event_callback: Callable[[TUIEvent], None] | None = None,
+        compression_enabled: bool = True,
+        compression_round_threshold: int = 2,
+        compression_max_summary_tokens: int = 200,
     ):
         self.agents = agents
         self.shared = shared
@@ -57,6 +61,13 @@ class DeliberationProtocol:
         self.round_timeout = round_timeout
         self.tmux_manager = tmux_manager
         self._event_callback = event_callback
+        self.compressor: PromptCompressor | None = None
+        self.compression_enabled = compression_enabled
+        if compression_enabled:
+            self.compressor = PromptCompressor(
+                max_summary_tokens=compression_max_summary_tokens,
+            )
+        self.compression_round_threshold = compression_round_threshold
 
     def _emit(self, event_type: TUIEventType, **kwargs) -> None:
         """Emit a TUI event if callback is registered."""
@@ -240,7 +251,10 @@ class DeliberationProtocol:
         return opinions
 
     def _build_round_prompt(self, round_num: int, user_prompt: str) -> str:
-        """Build the prompt for a specific deliberation round."""
+        """Build the prompt for a specific deliberation round.
+
+        For rounds >= compression_round_threshold, old rounds are compressed.
+        """
         if round_num == 1:
             return (
                 f"Read the shared context below for background.\n\n"
@@ -249,20 +263,88 @@ class DeliberationProtocol:
                 f"State your recommendation and key reasoning.\n"
                 f"Keep your response under 500 words."
             )
+
+        use_compression = (
+            self.compression_enabled
+            and self.compressor is not None
+            and round_num >= self.compression_round_threshold
+        )
+
+        if use_compression:
+            self._compress_old_rounds(round_num)
+            prev_context = self.shared.get_rounds_for_prompt(
+                current_round=round_num,
+                verbatim_rounds=1,
+            )
+            if not prev_context.strip():
+                prev_context = "(previous round opinions not available)"
         else:
-            # Read previous round opinions from shared.md
             prev_section = self.shared.read_section(f"Round {round_num - 1} Opinions")
             prev_context = prev_section or "(previous round opinions not available)"
 
-            return (
-                f"Previous round opinions:\n\n"
-                f"{prev_context}\n\n"
-                f"---\n\n"
-                f"For each other agent's opinion above, state whether you AGREE or DISAGREE "
-                f"and explain why. If you disagree, propose an alternative.\n"
-                f"End your response with either 'I AGREE with [name]' or your counter-proposal.\n"
-                f"Keep your response under 300 words."
-            )
+        return (
+            f"Previous round opinions:\n\n"
+            f"{prev_context}\n\n"
+            f"---\n\n"
+            f"For each other agent's opinion above, state whether you AGREE or DISAGREE "
+            f"and explain why. If you disagree, propose an alternative.\n"
+            f"End your response with either 'I AGREE with [name]' or your counter-proposal.\n"
+            f"Keep your response under 300 words."
+        )
+
+    def _compress_old_rounds(self, current_round: int) -> None:
+        """Compress rounds older than current_round - 1 if not already compressed."""
+        if not self.compressor:
+            return
+
+        prev_round = current_round - 1
+        round_to_compress = prev_round - 1
+
+        if round_to_compress < 1:
+            return
+
+        # Check if already compressed
+        existing = self.shared.read_section(f"Round {round_to_compress} Summary")
+        if existing is not None:
+            return
+
+        round_section = self.shared.read_section(f"Round {round_to_compress} Opinions")
+        if not round_section:
+            return
+
+        agent_opinions = self._extract_agent_opinions(round_section)
+
+        if agent_opinions:
+            compressed = self.compressor.compress_opinions_heuristic(agent_opinions)
+        else:
+            compressed = self.compressor.compress_heuristic(round_section)
+
+        self.shared.write_compressed_summary(round_to_compress, compressed)
+        logger.info(
+            f"Compressed Round {round_to_compress}: "
+            f"{len(round_section)} -> {len(compressed)} chars"
+        )
+
+    @staticmethod
+    def _extract_agent_opinions(round_section: str) -> dict[str, str]:
+        """Extract ### agent_name blocks from round section markdown."""
+        opinions: dict[str, str] = {}
+        current_agent: str | None = None
+        current_lines: list[str] = []
+
+        for line in round_section.splitlines():
+            if line.startswith("### "):
+                if current_agent is not None:
+                    opinions[current_agent] = "\n".join(current_lines).strip()
+                current_agent = line[4:].strip()
+                current_lines = []
+            elif current_agent is not None:
+                current_lines.append(line)
+
+        if current_agent is not None:
+            opinions[current_agent] = "\n".join(current_lines).strip()
+
+        return opinions
 
     def _update_pane_titles(self, status_text: str) -> None:
         """Update tmux pane titles to show round progress (Phase 2 feature)."""

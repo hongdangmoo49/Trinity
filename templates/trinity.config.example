@@ -3,6 +3,7 @@
 
 [general]
 session_name = "trinity"
+lang = "en"
 max_deliberation_rounds = 5
 consensus_threshold = 0.6
 context_rotate_threshold = 0.60
@@ -41,6 +42,11 @@ round_timeout_seconds = 120
 keep_sections = ["## Current Goal", "## Agreed Conclusion"]
 recent_rounds_on_rotate = 3
 summary_max_tokens = 500
+prompt_compression_enabled = true
+prompt_compression_round_threshold = 2
+prompt_compression_max_summary_tokens = 200
+caveman_mode = true
+caveman_intensity = "full"
 
 [health]
 check_interval_seconds = 30

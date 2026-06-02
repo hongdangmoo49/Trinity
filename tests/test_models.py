@@ -14,6 +14,7 @@ from trinity.models import (
     MessageRole,
     Provider,
     TaskAssignment,
+    TaskIntent,
 )
 
 
@@ -121,6 +122,22 @@ class TestConsensusResult:
             opinions={"a": "agree", "b": "no", "c": "no"},
         )
         assert not result.reached
+
+
+class TestTaskAssignment:
+    def test_defaults_to_plan_metadata(self):
+        task = TaskAssignment(agent_name="claude", task_description="Plan next steps")
+        assert task.intent == TaskIntent.PLAN
+        assert not task.requires_execution
+        assert not task.design_only
+
+    def test_design_only_property(self):
+        task = TaskAssignment(
+            agent_name="claude",
+            task_description="Design API",
+            intent=TaskIntent.DESIGN_ONLY,
+        )
+        assert task.design_only
 
 
 class TestDeliberationResult:

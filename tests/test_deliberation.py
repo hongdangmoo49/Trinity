@@ -4,7 +4,7 @@ import pytest
 
 from trinity.deliberation.consensus import ConsensusEngine
 from trinity.deliberation.distributor import TaskDistributor
-from trinity.models import AgentSpec, Provider
+from trinity.models import AgentSpec, Provider, TaskIntent
 
 
 class TestConsensusEngine:
@@ -146,3 +146,78 @@ class TestTaskDistributor:
         codex_task = next(t for t in tasks if t.agent_name == "codex")
         claude_task = next(t for t in tasks if t.agent_name == "claude")
         assert codex_task.priority >= claude_task.priority
+
+    def test_design_only_distribution_creates_non_execution_plan(self):
+        distributor = TaskDistributor()
+        agents = {
+            "claude": AgentSpec(
+                name="claude",
+                provider=Provider.CLAUDE_CODE,
+                cli_command="claude",
+            ),
+            "codex": AgentSpec(
+                name="codex",
+                provider=Provider.CODEX,
+                cli_command="codex",
+            ),
+        }
+
+        tasks = distributor.distribute(
+            consensus_text="Design only: draft authentication API architecture and tradeoffs.",
+            agents=agents,
+        )
+
+        assert len(tasks) == 2
+        for task in tasks:
+            description = task.task_description.lower()
+            assert task.intent == TaskIntent.DESIGN_ONLY
+            assert task.design_only
+            assert not task.requires_execution
+            assert "plan item (design only)" in description
+            assert "do not edit files" in description
+            assert "execute on the agreed conclusion" not in description
+            assert "plan item (execution)" not in description
+            assert "implement" not in description
+
+    def test_design_only_marker_overrides_implementation_terms(self):
+        distributor = TaskDistributor()
+        agents = {
+            "claude": AgentSpec(
+                name="claude",
+                provider=Provider.CLAUDE_CODE,
+                cli_command="claude",
+            ),
+        }
+
+        tasks = distributor.distribute(
+            consensus_text="Do not implement; plan how to implement the auth middleware.",
+            agents=agents,
+        )
+
+        assert tasks[0].intent == TaskIntent.DESIGN_ONLY
+        assert tasks[0].design_only
+        assert not tasks[0].requires_execution
+
+    def test_implementation_distribution_creates_executable_intent(self):
+        distributor = TaskDistributor()
+        agents = {
+            "codex": AgentSpec(
+                name="codex",
+                provider=Provider.CODEX,
+                cli_command="codex",
+            ),
+        }
+
+        tasks = distributor.distribute(
+            consensus_text="Implement authentication middleware, update tests, and fix sessions.",
+            agents=agents,
+        )
+
+        assert len(tasks) == 1
+        description = tasks[0].task_description.lower()
+        assert tasks[0].intent == TaskIntent.EXECUTION
+        assert tasks[0].requires_execution
+        assert not tasks[0].design_only
+        assert "plan item (execution)" in description
+        assert "actionable implementation" in description
+        assert "execute on the agreed conclusion" not in description

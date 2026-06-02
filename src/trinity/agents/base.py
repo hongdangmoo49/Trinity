@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import os
+import shlex
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 from trinity.models import AgentSpec, ContextUsage, DeliberationMessage
 
@@ -17,6 +20,8 @@ class AgentWrapper(ABC):
     def __init__(self, spec: AgentSpec):
         self.spec = spec
         self._context_usage = ContextUsage(total=spec.effective_context_budget)
+        self.launch_cwd: Path | None = None
+        self.env_overrides: dict[str, str] = {}
 
     @property
     def name(self) -> str:
@@ -62,6 +67,38 @@ class AgentWrapper(ABC):
             used=used,
             total=total if total is not None else self._context_usage.total,
         )
+
+    def configure_launch(
+        self,
+        cwd: Path | None = None,
+        env_overrides: dict[str, str] | None = None,
+    ) -> None:
+        """Apply prepared cwd/env metadata to future provider launches."""
+        self.launch_cwd = cwd
+        self.env_overrides = dict(env_overrides or {})
+
+    def _subprocess_kwargs(self) -> dict:
+        """Return cwd/env kwargs for subprocess.run."""
+        kwargs = {}
+        if self.launch_cwd is not None:
+            kwargs["cwd"] = self.launch_cwd
+        if self.env_overrides:
+            env = os.environ.copy()
+            env.update(self.env_overrides)
+            kwargs["env"] = env
+        return kwargs
+
+    def _shell_command(self, args: list[str]) -> str:
+        """Build a shell command with per-agent environment overrides."""
+        command = " ".join(shlex.quote(str(arg)) for arg in args)
+        if not self.env_overrides:
+            return command
+
+        env_parts = [
+            f"{key}={shlex.quote(str(value))}"
+            for key, value in sorted(self.env_overrides.items())
+        ]
+        return " ".join(["env", *env_parts, command])
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.name!r}, provider={self.spec.provider.value})"

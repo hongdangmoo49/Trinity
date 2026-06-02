@@ -17,7 +17,14 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import FileHistory
+from prompt_toolkit.input import DummyInput
+from prompt_toolkit.output import DummyOutput
 from prompt_toolkit.styles import Style
+
+try:  # Windows services/non-console test runners can lack a screen buffer.
+    from prompt_toolkit.output.win32 import NoConsoleScreenBufferError
+except Exception:  # pragma: no cover - platform-specific import guard
+    NoConsoleScreenBufferError = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -56,13 +63,34 @@ class TrinityPromptSession:
             history_dir.mkdir(parents=True, exist_ok=True)
             history_path = str(history_dir / "input_history")
 
-        self.session: PromptSession[str] = PromptSession(
+        self.session: PromptSession[str] = self._create_session(history_path)
+
+    def _create_session(self, history_path: str | None) -> PromptSession[str]:
+        """Create a prompt_toolkit session, falling back in non-console runs."""
+        kwargs = dict(
             history=FileHistory(history_path) if history_path else None,
             auto_suggest=AutoSuggestFromHistory(),
             multiline=False,
             completer=WordCompleter(TRINITY_COMMANDS, ignore_case=True),
             style=TRINITY_STYLE,
         )
+        try:
+            return PromptSession(**kwargs)
+        except Exception as exc:
+            if NoConsoleScreenBufferError is None or not isinstance(
+                exc, NoConsoleScreenBufferError
+            ):
+                raise
+
+            logger.debug(
+                "PromptSession could not attach to a Windows console; "
+                "falling back to dummy prompt_toolkit I/O."
+            )
+            return PromptSession(
+                input=DummyInput(),
+                output=DummyOutput(),
+                **kwargs,
+            )
 
     def get_input(self) -> str:
         """Read user input with arrow keys, history, and tab completion.

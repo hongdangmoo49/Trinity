@@ -148,6 +148,8 @@ class TestWorkspaceHomeIsolation:
         assert set(orch.agent_launch_contexts) == {"claude", "codex"}
         assert orch.get_agent_cwd("claude") == tmp_path.resolve()
         assert orch.agent_launch_contexts["claude"].managed_home == claude_home
+        assert orch.agents["claude"].launch_cwd == tmp_path.resolve()
+        assert orch.agents["claude"].env_overrides["HOME"] == str(claude_home)
 
     def test_env_overrides_exposed_as_copy(self, tmp_path):
         state_dir = tmp_path / ".trinity"
@@ -221,6 +223,7 @@ class TestWorkspaceHomeIsolation:
         assert reviewer_context.cwd == tmp_path.resolve()
         assert reviewer_context.workspace_path is None
         assert orch.get_agent_cwd("builder") == worktree_path
+        assert orch.agents["builder"].launch_cwd == worktree_path
 
 
 class TestAgentFactory:

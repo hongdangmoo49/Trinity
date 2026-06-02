@@ -1,12 +1,18 @@
 """Tests for trinity.tmux — TmuxPane and TmuxSessionManager."""
 
 import pytest
+from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import MagicMock, patch, call
 
 from trinity.models import AgentSpec, Provider
 from trinity.tmux.pane import TmuxPane
 from trinity.tmux.session import TmuxSessionManager
+
+
+@dataclass
+class _LaunchContext:
+    cwd: Path
 
 
 class TestTmuxPane:
@@ -156,6 +162,35 @@ class TestTmuxSessionManager:
             assert "cmd" in mgr.pane_map
             assert "claude" in mgr.pane_map
             assert "codex" in mgr.pane_map
+
+    def test_create_session_uses_agent_launch_cwd(self, tmp_path):
+        mgr = TmuxSessionManager(session_name="trinity")
+        specs = [self._make_agent_spec("claude")]
+        cwd = tmp_path / "claude-worktree"
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = [
+                MagicMock(returncode=1),  # session_exists
+                MagicMock(returncode=0),  # new-session
+                MagicMock(returncode=0),  # set-option history-limit
+                MagicMock(stdout="%0\n", returncode=0),  # list-panes (cmd)
+                MagicMock(returncode=0),  # split-window
+                MagicMock(stdout="%0\n%1\n", returncode=0),  # list-panes
+                MagicMock(returncode=0),  # select-layout
+                MagicMock(returncode=0),  # select-pane cmd
+                MagicMock(returncode=0),  # select-pane claude
+            ]
+
+            mgr.create_session(
+                specs,
+                launch_contexts={"claude": _LaunchContext(cwd=cwd)},
+            )
+
+        split_call = next(
+            c for c in mock_run.call_args_list if "split-window" in c.args[0]
+        )
+        assert "-c" in split_call.args[0]
+        assert str(cwd) in split_call.args[0]
 
     def test_destroy_session(self):
         mgr = TmuxSessionManager(session_name="trinity")

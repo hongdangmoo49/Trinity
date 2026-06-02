@@ -13,7 +13,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/hongdangmoo49/Trinity/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/badge/PyPI-trinity--agent-blue)](https://pypi.org/project/trinity-agent/)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-yellow)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-596%20passed-brightgreen)](https://github.com/hongdangmoo49/Trinity)
+[![Tests](https://img.shields.io/badge/tests-743%20passed-brightgreen)](https://github.com/hongdangmoo49/Trinity)
 
 [English](./README.en.md) · [빠른 시작](#-빠른-시작) · [왜 Trinity인가](#-왜-trinity인가) · [작동 원리](#-작동-원리) · [TUI](#-대화형-tui) · [명령어](#-명령어) · [아키텍처](#-아키텍처)
 
@@ -119,7 +119,7 @@ Trinity가 백그라운드에서 다음 단계를 자동으로 수행합니다:
 Trinity는 **Rich 라이브러리 기반의 미려한 터미널 UI(TUI)**를 제공하여, 에이전트 간의 실시간 토론 과정을 시각적으로 보여줍니다.
 
 ```
-  🧠 Trinity v0.3.0  —  세 개의 두뇌, 하나의 컨텍스트
+  🧠 Trinity v0.6.9  —  세 개의 두뇌, 하나의 컨텍스트
 
   🏗️ claude ✅    ⚙️ codex ✅    🔍 gemini ✅
 
@@ -208,6 +208,7 @@ Trinity는 **Rich 라이브러리 기반의 미려한 터미널 UI(TUI)**를 제
 ```toml
 [general]
 session_name = "trinity"
+lang = "en"
 state_dir = ".trinity"
 max_deliberation_rounds = 5
 consensus_threshold = 0.6
@@ -219,8 +220,14 @@ round_timeout_seconds = 120
 
 [context]
 rotate_threshold = 0.6
-keep_sections = ["Current Goal", "Agreed Conclusion"]
+keep_sections = ["## Current Goal", "## Agreed Conclusion"]
 recent_rounds_on_rotate = 3
+summary_max_tokens = 500
+prompt_compression_enabled = true
+prompt_compression_round_threshold = 2
+prompt_compression_max_summary_tokens = 200
+caveman_mode = true
+caveman_intensity = "full"
 
 [agents.claude]
 provider = "claude-code"
@@ -337,7 +344,7 @@ git clone https://github.com/hongdangmoo49/Trinity.git
 cd Trinity
 uv sync
 
-# 테스트 스위트 실행 (총 596개 테스트 케이스)
+# 테스트 스위트 실행 (총 743개 테스트 케이스)
 uv run pytest tests/ -v
 
 # 코드 커버리지 리포트와 함께 테스트 실행
@@ -359,11 +366,11 @@ uv publish --token <PYPI_TOKEN>
 
 | 지표 | 수치 |
 | :--- | :--- |
-| **버전** | 0.3.0 |
-| **테스트** | 596개 테스트 통과 |
+| **버전** | 0.6.9 |
+| **테스트** | 743개 테스트 통과 |
 | **커버리지** | 약 87% |
-| **소스 파일** | 40여 개 |
-| **주요 의존성 라이브러리** | `click`, `rich`, `tomli` |
+| **소스 파일** | 50여 개 |
+| **주요 의존성 라이브러리** | `click`, `rich`, `prompt_toolkit`, `tomli` |
 | **권장 Python 버전** | 3.10+ |
 
 ---

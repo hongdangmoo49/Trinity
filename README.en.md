@@ -12,7 +12,7 @@ through shared context, round-based deliberation, and intelligent task distribut
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/hongdangmoo49/Trinity/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/badge/PyPI-trinity--agent-blue)](https://pypi.org/project/trinity-agent/)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-yellow)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-596%20passed-brightgreen)](https://github.com/hongdangmoo49/Trinity)
+[![Tests](https://img.shields.io/badge/tests-743%20passed-brightgreen)](https://github.com/hongdangmoo49/Trinity)
 
 [한국어](./README.md) · [Quick Start](#-quick-start) · [Why Trinity](#-why-trinity) · [How It Works](#-how-it-works) · [TUI](#-interactive-tui) · [Commands](#-commands) · [Architecture](#-architecture)
 
@@ -121,7 +121,7 @@ That's it. Trinity will:
 Trinity features a **Rich-based terminal UI** with real-time deliberation visualization.
 
 ```
-  🧠 Trinity v0.3.0  —  Three minds, one context
+  🧠 Trinity v0.6.9  —  Three minds, one context
 
   🏗️ claude ✅    ⚙️ codex ✅    🔍 gemini ✅
 
@@ -210,6 +210,7 @@ Edit `.trinity/trinity.config` (TOML format):
 ```toml
 [general]
 session_name = "trinity"
+lang = "en"
 state_dir = ".trinity"
 max_deliberation_rounds = 5
 consensus_threshold = 0.6
@@ -221,8 +222,14 @@ round_timeout_seconds = 120
 
 [context]
 rotate_threshold = 0.6
-keep_sections = ["Current Goal", "Agreed Conclusion"]
+keep_sections = ["## Current Goal", "## Agreed Conclusion"]
 recent_rounds_on_rotate = 3
+summary_max_tokens = 500
+prompt_compression_enabled = true
+prompt_compression_round_threshold = 2
+prompt_compression_max_summary_tokens = 200
+caveman_mode = true
+caveman_intensity = "full"
 
 [agents.claude]
 provider = "claude-code"
@@ -339,7 +346,7 @@ git clone https://github.com/hongdangmoo49/Trinity.git
 cd Trinity
 uv sync
 
-# Run tests (596 tests)
+# Run tests (743 tests)
 uv run pytest tests/ -v
 
 # Run with coverage
@@ -361,11 +368,11 @@ uv publish --token <PYPI_TOKEN>
 
 | Metric | Value |
 | :--- | :--- |
-| **Version** | 0.3.0 |
-| **Tests** | 596 passed |
+| **Version** | 0.6.9 |
+| **Tests** | 743 passed |
 | **Coverage** | ~87% |
-| **Source files** | 40+ |
-| **Dependencies** | `click`, `rich`, `tomli` |
+| **Source files** | 50+ |
+| **Dependencies** | `click`, `rich`, `prompt_toolkit`, `tomli` |
 | **Python** | 3.10+ |
 
 ---

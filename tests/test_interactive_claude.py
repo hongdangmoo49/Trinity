@@ -110,6 +110,18 @@ class TestInteractiveStart:
         assert any("claude" in str(c) for c in mock_pane.send_text.call_args_list)
 
     @pytest.mark.asyncio
+    async def test_launch_command_uses_env_overrides(self, agent, mock_pane):
+        mock_pane.capture = MagicMock(return_value=["> "])
+        agent.configure_launch(env_overrides={"HOME": "/tmp/trinity-home"})
+
+        await agent.start()
+
+        command = mock_pane.send_text.call_args.args[0]
+        assert command.startswith("env ")
+        assert "HOME=/tmp/trinity-home" in command
+        assert "claude" in command
+
+    @pytest.mark.asyncio
     async def test_injects_role_prompt(self, agent, mock_pane, mock_detector):
         mock_pane.capture = MagicMock(return_value=["> "])
 

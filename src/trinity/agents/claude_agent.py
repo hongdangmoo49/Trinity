@@ -140,6 +140,7 @@ class PrintModeClaudeAgent(AgentWrapper):
             encoding="utf-8",
             errors="replace",
             timeout=timeout,
+            **self._subprocess_kwargs(),
         )
 
         if proc.returncode != 0:
@@ -232,7 +233,7 @@ class InteractiveClaudeAgent(AgentWrapper):
         # Launch claude CLI
         cmd_parts = [self.spec.cli_command]
         cmd_parts.extend(self.spec.extra_args)
-        cmd = " ".join(cmd_parts)
+        cmd = self._shell_command(cmd_parts)
 
         logger.info(f"[{self.name}] Launching in tmux pane: {cmd}")
         self._pane.send_text(cmd)

@@ -196,6 +196,7 @@ class TrinityOrchestrator:
         """Initialize agents in print mode (Phase 1 — subprocess-based)."""
         for name, spec in (active_agents or self.config.active_agents).items():
             agent = self._create_print_agent(spec)
+            self._apply_launch_context(name, agent)
             self.agents[name] = agent
             logger.info(f"Created agent (print mode): {agent}")
 
@@ -209,7 +210,10 @@ class TrinityOrchestrator:
         self.tmux_manager = TmuxSessionManager(
             session_name=self.config.session_name,
         )
-        self.tmux_manager.create_session(list(active_agents.values()))
+        self.tmux_manager.create_session(
+            list(active_agents.values()),
+            launch_contexts=self.agent_launch_contexts,
+        )
 
         # Create agents with panes and completion detectors
         for name, spec in active_agents.items():
@@ -217,6 +221,7 @@ class TrinityOrchestrator:
             if not pane:
                 logger.warning(f"No pane for agent '{name}', falling back to print mode")
                 agent = self._create_print_agent(spec)
+                self._apply_launch_context(name, agent)
                 self.agents[name] = agent
                 continue
 
@@ -231,12 +236,22 @@ class TrinityOrchestrator:
                 detector=detector,
                 signal_path=signal_path,
             )
+            self._apply_launch_context(name, agent)
             self.agents[name] = agent
             logger.info(f"Created agent (interactive): {agent}")
 
     def _create_print_agent(self, spec) -> AgentWrapper:
         """Factory: create a print-mode agent using AgentFactory."""
         return AgentFactory.create(spec, mode="print")
+
+    def _apply_launch_context(self, agent_name: str, agent: AgentWrapper) -> None:
+        """Attach prepared cwd/env metadata to an agent wrapper."""
+        context = self.agent_launch_contexts.get(agent_name)
+        if context:
+            agent.configure_launch(
+                cwd=context.cwd,
+                env_overrides=context.env_overrides,
+            )
 
     async def ask(self, prompt: str) -> DeliberationResult:
         """Main entry point: run deliberation on a user prompt."""

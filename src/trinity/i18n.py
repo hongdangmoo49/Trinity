@@ -269,3 +269,79 @@ def localized_roles(lang: Lang = "en") -> dict[str, str]:
         Dict of agent_name → localized role prompt.
     """
     return dict(ROLE_PROMPTS[lang])
+
+
+# ─── Caveman Compression ─────────────────────────────────────────────────
+
+CAVEMAN_RULES: dict[str, str] = {
+    "lite": (
+        "Drop filler words, hedging, and pleasantries. "
+        "Keep full sentences and articles. Professional but tight."
+    ),
+    "full": (
+        "Drop articles (a, an, the), filler, hedging (I think, perhaps), "
+        "and pleasantries. Use sentence fragments. Prefer short synonyms. "
+        "No intro phrases like 'Here is' or 'Let me'. "
+        "Code and technical terms stay untouched."
+    ),
+    "ultra": (
+        "Abbreviate prose words (database→DB, authentication→auth, "
+        "configuration→config). Use arrows (→) for causality. "
+        "Strip conjunctions where unambiguous. "
+        "NEVER abbreviate code symbols, function names, or identifiers. "
+        "No filler, no hedging, no pleasantries."
+    ),
+}
+
+CAVEMAN_REINFORCEMENT: dict[str, str] = {
+    "lite": "[Respond in concise professional style. No filler.]",
+    "full": "[Caveman: respond in compressed style. No articles, no filler, fragments OK.]",
+    "ultra": "[Caveman ULTRA: max compression. Abbreviate prose, preserve all code symbols.]",
+}
+
+VALID_CAVEMAN_INTENSITIES = ("lite", "full", "ultra")
+
+
+def get_agent_prompt(
+    agent_name: str,
+    lang: Lang = "en",
+    caveman_mode: bool = True,
+    caveman_intensity: str = "full",
+) -> str:
+    """Get an agent's role prompt, optionally with caveman compression rules.
+
+    Args:
+        agent_name: One of "claude", "codex", "gemini".
+        lang: "en" or "ko".
+        caveman_mode: Whether to append caveman compression rules.
+        caveman_intensity: "lite", "full", or "ultra".
+
+    Returns:
+        Role prompt string, with caveman rules appended if enabled.
+    """
+    base = ROLE_PROMPTS[lang][agent_name]
+    if caveman_mode and caveman_intensity in CAVEMAN_RULES:
+        rules = CAVEMAN_RULES[caveman_intensity]
+        return f"{base}\n\n[Output Style] {rules}"
+    return base
+
+
+def localized_roles_with_caveman(
+    lang: Lang = "en",
+    caveman_mode: bool = True,
+    caveman_intensity: str = "full",
+) -> dict[str, str]:
+    """Get all agent role prompts with optional caveman compression.
+
+    Args:
+        lang: "en" or "ko".
+        caveman_mode: Whether to append caveman rules.
+        caveman_intensity: "lite", "full", or "ultra".
+
+    Returns:
+        Dict of agent_name → role prompt (with caveman if enabled).
+    """
+    return {
+        name: get_agent_prompt(name, lang, caveman_mode, caveman_intensity)
+        for name in ROLE_PROMPTS[lang]
+    }

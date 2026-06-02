@@ -19,7 +19,7 @@ from rich.prompt import Confirm, IntPrompt, Prompt
 from rich.table import Table
 from rich.text import Text
 
-from trinity.i18n import Lang, get_strings, localized_roles
+from trinity.i18n import Lang, get_strings, localized_roles_with_caveman
 from trinity.models import AgentSpec, Provider
 from trinity.setup.detector import (
     PROVIDER_DEFAULT_ARGS,
@@ -172,7 +172,7 @@ class SetupWizard:
         self.console.print(f"[bold]{S.step2_title}[/bold]")
         self.console.print()
 
-        roles = localized_roles(self.lang)
+        roles = localized_roles_with_caveman(self.lang)
 
         for d in installed:
             agent_name = PROVIDER_AGENT_NAMES.get(d.provider, d.provider.value)
@@ -289,7 +289,7 @@ class SetupWizard:
             d.provider for d in self.detections if d.installed
         }
         missing_specs: dict[str, AgentSpec] = {}
-        roles = localized_roles(self.lang)
+        roles = localized_roles_with_caveman(self.lang)
 
         for provider in Provider:
             if provider not in installed_providers:

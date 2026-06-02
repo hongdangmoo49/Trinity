@@ -54,6 +54,8 @@ class DeliberationProtocol:
         compression_enabled: bool = True,
         compression_round_threshold: int = 2,
         compression_max_summary_tokens: int = 200,
+        caveman_mode: bool = True,
+        caveman_intensity: str = "full",
     ):
         self.agents = agents
         self.shared = shared
@@ -65,6 +67,8 @@ class DeliberationProtocol:
         self._event_callback = event_callback
         self.compressor: PromptCompressor | None = None
         self.compression_enabled = compression_enabled
+        self.caveman_mode = caveman_mode
+        self.caveman_intensity = caveman_intensity
         if compression_enabled:
             self.compressor = PromptCompressor(
                 max_summary_tokens=compression_max_summary_tokens,
@@ -273,15 +277,17 @@ class DeliberationProtocol:
         """Build the prompt for a specific deliberation round.
 
         For rounds >= compression_round_threshold, old rounds are compressed.
+        When caveman_mode is active, appends per-turn compression reinforcement.
         """
         if round_num == 1:
-            return (
+            prompt = (
                 f"Read the shared context below for background.\n\n"
                 f"User's request: {user_prompt}\n\n"
                 f"Share your initial opinion. Be specific and concise.\n"
                 f"State your recommendation and key reasoning.\n"
                 f"Keep your response under 500 words."
             )
+            return self._append_caveman(prompt)
 
         use_compression = (
             self.compression_enabled
@@ -301,7 +307,7 @@ class DeliberationProtocol:
             prev_section = self.shared.read_section(f"Round {round_num - 1} Opinions")
             prev_context = prev_section or "(previous round opinions not available)"
 
-        return (
+        return self._append_caveman(
             f"Previous round opinions:\n\n"
             f"{prev_context}\n\n"
             f"---\n\n"
@@ -310,6 +316,16 @@ class DeliberationProtocol:
             f"End your response with either 'I AGREE with [name]' or your counter-proposal.\n"
             f"Keep your response under 300 words."
         )
+
+    def _append_caveman(self, prompt: str) -> str:
+        """Append caveman compression reinforcement to a prompt."""
+        if not self.caveman_mode:
+            return prompt
+        from trinity.i18n import CAVEMAN_REINFORCEMENT
+        reinforcement = CAVEMAN_REINFORCEMENT.get(self.caveman_intensity, "")
+        if reinforcement:
+            return f"{prompt}\n\n{reinforcement}"
+        return prompt
 
     def _compress_old_rounds(self, current_round: int) -> None:
         """Compress rounds older than current_round - 1 if not already compressed."""

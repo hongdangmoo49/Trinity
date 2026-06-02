@@ -217,6 +217,9 @@ class TrinityTUI:
                 Text(f"📡 Session: {self.config.session_name}", style="dim"),
                 Text(f"  ⏱ {mins}m {secs:02d}s", style="dim"),
             ),
+            Text.assemble(
+                self._caveman_badge(),
+            ),
             Text(),
         )
 
@@ -567,6 +570,16 @@ class TrinityTUI:
         self.rounds.clear()
         self.current_round = 0
 
+    def _caveman_badge(self) -> Text:
+        """Render caveman status badge for the header."""
+        if self.config.caveman_mode:
+            intensity = self.config.caveman_intensity.upper()
+            return Text.assemble(
+                Text("  🦴 ", style=""),
+                Text(f"CAVEMAN:{intensity}", style="bold orange3"),
+            )
+        return Text()
+
     def get_welcome_text(self) -> str:
         """Get the welcome/help text for the TUI."""
         return (
@@ -579,6 +592,7 @@ class TrinityTUI:
             "  [cyan]/agent <n> on/off[/cyan] — Enable/disable an agent\n"
             "  [cyan]/history[/cyan]    — Show deliberation history\n"
             "  [cyan]/save[/cyan]       — Save current session results\n"
+            "  [cyan]/caveman[/cyan]   — Toggle compression [on|off|lite|full|ultra]\n"
             "  [cyan]/help[/cyan]       — Show this help\n"
             "  [cyan]/quit[/cyan]       — Exit Trinity\n"
         )

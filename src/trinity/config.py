@@ -46,6 +46,10 @@ class TrinityConfig:
     prompt_compression_round_threshold: int = 2
     prompt_compression_max_summary_tokens: int = 200
 
+    # Caveman output compression (default: on, full intensity)
+    caveman_mode: bool = True
+    caveman_intensity: str = "full"  # "lite" | "full" | "ultra"
+
     # Health
     health_check_interval_seconds: float = 30.0
 
@@ -137,6 +141,8 @@ class TrinityConfig:
             prompt_compression_enabled=context.get("prompt_compression_enabled", True),
             prompt_compression_round_threshold=context.get("prompt_compression_round_threshold", 2),
             prompt_compression_max_summary_tokens=context.get("prompt_compression_max_summary_tokens", 200),
+            caveman_mode=context.get("caveman_mode", True),
+            caveman_intensity=context.get("caveman_intensity", "full"),
             health_check_interval_seconds=health.get("check_interval_seconds", 30.0),
             log_level=logging_conf.get("level", "INFO"),
             log_file=logging_conf.get("file", ".trinity/logs/trinity.log"),
@@ -151,10 +157,10 @@ class TrinityConfig:
             project_dir: Project root directory.
             lang: "en" for English role prompts, "ko" for Korean.
         """
-        from trinity.i18n import localized_roles
+        from trinity.i18n import localized_roles_with_caveman
 
         pd = project_dir or Path.cwd()
-        roles = localized_roles(lang)
+        roles = localized_roles_with_caveman(lang)
         return cls(
             project_dir=pd,
             agents={
@@ -194,6 +200,10 @@ class TrinityConfig:
             f'consensus_threshold = {self.consensus_threshold}',
             f'context_rotate_threshold = {self.context_rotate_threshold}',
             "",
+            "[context]",
+            f"caveman_mode = {str(self.caveman_mode).lower()}",
+            f'caveman_intensity = "{self.caveman_intensity}"',
+            "",
         ]
 
         for name, spec in self.agents.items():
@@ -208,8 +218,8 @@ class TrinityConfig:
                 ]
             )
             if spec.role_prompt:
-                # Escape for TOML multi-line
-                escaped = spec.role_prompt.replace('"', '\\"')
+                # Escape for TOML: replace newlines with \\n and quotes with \"
+                escaped = spec.role_prompt.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
                 lines.append(f'role_prompt = "{escaped}"')
             if spec.extra_args:
                 args_str = ", ".join(f'"{a}"' for a in spec.extra_args)

@@ -126,6 +126,8 @@ class InteractiveSession:
             self._cmd_history()
         elif cmd == "save":
             self._cmd_save()
+        elif cmd == "caveman":
+            self._cmd_caveman(args)
         else:
             self.console.print(
                 f"[yellow]Unknown command: /{cmd}. "
@@ -252,6 +254,41 @@ class InteractiveSession:
 
         self._save_history()
         self.console.print(f"[green]✓ Session history saved to {self._history_file}[/green]")
+
+    def _cmd_caveman(self, args: list[str]) -> None:
+        """Toggle or configure caveman compression.
+
+        Usage: /caveman [on|off|lite|full|ultra]
+        """
+        from trinity.i18n import VALID_CAVEMAN_INTENSITIES
+
+        if not args:
+            mode = "on" if self.config.caveman_mode else "off"
+            intensity = self.config.caveman_intensity
+            self.console.print(
+                f"  🦴 Caveman: [cyan]{mode}[/cyan] "
+                f"(intensity: [cyan]{intensity}[/cyan])\n"
+                f"  [dim]Usage: /caveman [on|off|lite|full|ultra][/dim]"
+            )
+            return
+
+        action = args[0].lower()
+
+        if action in ("off", "disable"):
+            self.config.caveman_mode = False
+            self.console.print("[yellow]🦴 Caveman compression disabled.[/yellow]")
+        elif action in ("on", "enable"):
+            self.config.caveman_mode = True
+            self.console.print(f"[green]🦴 Caveman compression enabled ({self.config.caveman_intensity}).[/green]")
+        elif action in VALID_CAVEMAN_INTENSITIES:
+            self.config.caveman_mode = True
+            self.config.caveman_intensity = action
+            self.console.print(f"[green]🦴 Caveman set to [bold]{action}[/bold].[/green]")
+        else:
+            self.console.print(
+                f"[yellow]Unknown option: {action}. "
+                f"Use: on, off, lite, full, ultra[/yellow]"
+            )
 
     # ─── Deliberation ──────────────────────────────────────────────────
 

@@ -762,6 +762,69 @@ trinity run → config.lang="ko" 로드
 
 ---
 
+## Phase 11 / v0.7.0: Multi-Agent Workflow Engine 재설계 — 📋 계획 수립
+
+### 배경
+
+실사용 interactive smoke에서 "레이어2 체인 간 브릿지 경로 탐색 봇 설계" 요청을 실행했을 때, Trinity가 실제 설계 합의를 만들지 못하고 provider 인증/초기화 UI를 응답으로 캡처하는 문제가 확인되었다.
+
+관찰된 문제:
+
+| Agent | 관찰된 상태 | 영향 |
+|-------|-------------|------|
+| Claude | OAuth URL, invalid code, retry 화면 | ready 상태가 아닌데 deliberation에 투입됨 |
+| Codex | `gpt-5.5 default`, `/model to change`, CLI 배너 | 실제 답변 대신 CLI noise가 캡처됨 |
+| Gemini | 인증 방식 선택/Vertex env 안내 화면 | 인증 대기 UI가 응답으로 캡처됨 |
+
+최종 결과는 `No usable consensus after 5 rounds`, `Tokens: 0`이었다. 이는 Phase 10 provider reliability가 아직 완전히 해결되지 않았고, 동시에 Trinity의 상위 흐름이 단발성 deliberation protocol에서 workflow engine으로 확장되어야 함을 보여준다.
+
+### v0.7.0 사용자 목표
+
+사용자가 원하는 동작:
+
+1. 등록된 1~3개 에이전트가 설계/기획을 상호 수정하며 하나의 결론을 만든다.
+2. 사용자 의사결정이 필요하면 다음 채팅에서 질의응답을 반복한다.
+3. 결론이 확정되면 큰 설계도를 에이전트 수만큼 work package로 분해한다.
+4. 각 에이전트는 할당받은 일을 수행하고 필요하면 내부 subagent/tool에 위임한다.
+5. 실행 중 변경사항과 의사결정은 공유문서에 기록한다.
+6. 전체 과정은 상태 기반 loop로 진행된다.
+7. 모든 단계에서 context 사용량과 세션 상태를 감시하고, 임계치 도달 시 요약 후 새 세션으로 이어간다.
+
+### 핵심 재설계 항목
+
+| 우선순위 | 항목 | 목표 |
+|----------|------|------|
+| P0 | Provider readiness/auth gating | 인증/모델 로딩/CLI 배너 상태에서는 deliberation을 시작하지 않음 |
+| P0 | Interactive response contract | raw output과 clean response를 분리하고 request boundary 기반 추출을 강화 |
+| P1 | Workflow state machine | `DELIBERATING`, `NEEDS_USER_DECISION`, `EXECUTING` 등 상태 기반 진행 |
+| P1 | Structured deliberation | plain text consensus 대신 blueprint/open question/decision 구조 생성 |
+| P1 | User decision loop | 사용자 답변을 새 prompt가 아니라 pending question 답변으로 처리 |
+| P1 | Blueprint decomposition | 확정 설계를 active agent 수만큼 work package로 분해 |
+| P1 | Execution protocol | task assignment를 실제 agent 실행으로 연결 |
+| P2 | Subagent delegation policy | provider 내부 subagent/tool 사용 결과를 parent agent report로 추적 |
+| P2 | Shared decision ledger | shared.md와 workflow JSON state를 분리 저장 |
+| P2 | Lifecycle rotation everywhere | deliberation/execution/user decision 전체에서 context rotation 수행 |
+
+### 계획 문서
+
+상세 설계:
+
+- [`docs/plans/2026-06-03-v0.7.0-workflow-engine-redesign.md`](plans/2026-06-03-v0.7.0-workflow-engine-redesign.md)
+
+### 완료 기준 초안
+
+- [ ] Provider readiness 실패 시 명확한 사용자 조치와 함께 workflow 시작 차단
+- [ ] 1/2/3 active agent별 structured blueprint 합의
+- [ ] 사용자 의사결정 질문 생성/답변/재개 loop
+- [ ] blueprint에서 agent별 work package 생성
+- [ ] execution intent에서 실제 agent call 수행
+- [ ] shared.md에 decisions/open questions/work packages/task results 기록
+- [ ] workflow state를 `.trinity/workflow/session.json`에 저장/복구
+- [ ] context threshold가 round 전후와 execution package 전후에 감시됨
+- [ ] WSL/tmux 실제 smoke 결과 문서 작성
+
+---
+
 ## Phase 7B: 토큰 최적화 — 정리, 추정, 인터랙티브 카운팅 — ✅ 완료
 
 ### 목표
@@ -806,6 +869,7 @@ Phase 7C  ✅ 토큰 사용량 분석/예측 (완료) → 670 테스트 통과
 Phase 8   ✅ Caveman 출력 압축 통합 (완료) → 671 테스트, v0.6.0
 Phase 9   ✅ TUI/UX 대수선 (완료) → docs/test-results/phase-9-T.md
 Phase 10  🔧 Interactive Provider Reliability (진행 중) → docs/plans/2026-06-02-phase-10-interactive-redesign.md, docs/test-results/phase-10-T.md
+Phase 11  📋 v0.7.0 Multi-Agent Workflow Engine (계획 수립) → docs/plans/2026-06-03-v0.7.0-workflow-engine-redesign.md
 ```
 
 ### 테스트 Phase 공통 규칙
@@ -829,4 +893,4 @@ Phase 10  🔧 Interactive Provider Reliability (진행 중) → docs/plans/2026
 - **Phase 9 설계**: `docs/plans/2026-06-02-tui-overhaul.md`
 
 *작성일: 2026-06-01*
-*갱신일: 2026-06-02 — 모델 선택 기반 컨텍스트 예산 설정, 758 테스트*
+*갱신일: 2026-06-03 — v0.7.0 Multi-Agent Workflow Engine 재설계 계획 수립*

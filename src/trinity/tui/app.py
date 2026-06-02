@@ -2,9 +2,9 @@
 
 Provides a full-screen terminal interface with:
 - Header panel (version, agent status pills, session info)
-- Agent status panel (per-agent colored response summary, context usage, state)
+- Agent status panel (compact pilot view with per-agent state)
 - Deliberation panel (real-time agent opinions with Markdown rendering)
-- Result panel (consensus progress, Markdown summary, Tree task distribution)
+- Result panel (consensus progress, Markdown summary, task list)
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ from rich.progress import BarColumn, Progress, TextColumn
 from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
-from rich.tree import Tree
 
 from trinity import __version__
 from trinity.config import TrinityConfig
@@ -147,7 +146,7 @@ class TrinityTUI:
         elif event.type == TUIEventType.AGENT_RESPONDED:
             name = event.data["agent"]
             content = event.data.get("content", "")
-            preview = content[:80]
+            preview = content[:200]
             self.mark_agent_responded(name, preview)
             # Store full response
             if name in self.agents:
@@ -229,42 +228,32 @@ class TrinityTUI:
         )
 
     def build_agent_panel(self) -> Panel:
-        """Build the agent status panel with per-agent colors."""
-        table = Table(
-            show_header=True,
-            header_style="bold",
-            expand=True,
-            title="📊 Agent Status",
-            title_style="bold",
-            show_lines=False,
-        )
-        table.add_column("Agent", min_width=14)
-        table.add_column("Role", max_width=20)
-        table.add_column("Status", min_width=14)
-        table.add_column("Context", justify="right", min_width=8)
-        table.add_column("Response Preview", max_width=40)
+        """Build the agent status panel — compact pilot view.
 
+        Shows a single line per active agent with icon, name, and state.
+        Detailed status is available via /status command.
+        """
+        import shutil
+
+        parts: list[Text] = []
         for name, status in self.agents.items():
             if status.state == AgentTUIState.DISABLED:
                 continue
 
             theme = get_theme(name)
-            state_str = f"{status.state_icon} {status.state.value}"
+            icon = status.state_icon
 
-            # Truncate preview
-            preview = status.response_preview[:40]
-            if len(status.response_preview) > 40:
-                preview += "..."
+            # Compact: icon + name + state
+            parts.append(Text(f"  {theme.icon} {name} {icon}  ", style=f"bold {theme.color}"))
 
-            table.add_row(
-                f"[{theme.color}]{theme.icon} {name}[/{theme.color}]",
-                status.role[:20],
-                state_str,
-                status.context_bar,
-                preview,
-            )
+        if not parts:
+            parts.append(Text("  No active agents", style="dim"))
 
-        return Panel(table, border_style="blue")
+        return Panel(
+            Text.assemble(*parts),
+            title="📊 Agents",
+            border_style="blue",
+        )
 
     def build_deliberation_panel(self) -> Panel:
         """Build the deliberation panel showing actual agent opinions.
@@ -319,7 +308,12 @@ class TrinityTUI:
                                 Text(f"     {opinion_text[:100]}", style="red dim")
                             )
                     elif state == AgentTUIState.RESPONDED and opinion_text:
-                        # Agent responded — show opinion
+                        # Agent responded — show opinion card
+                        import shutil
+
+                        term_width = shutil.get_terminal_size().columns
+                        max_opinion_chars = max(800, term_width * 8)
+
                         # Header line: icon + name + role
                         header = Text.assemble(
                             Text("  ✅ ", style=""),
@@ -329,8 +323,11 @@ class TrinityTUI:
                         renderables.append(header)
 
                         # Opinion content as a styled panel with Markdown
+                        display_text = opinion_text[:max_opinion_chars]
+                        if len(opinion_text) > max_opinion_chars:
+                            display_text += "\n..."
                         opinion_panel = Panel(
-                            Markdown(opinion_text[:500]),
+                            Markdown(display_text),
                             border_style=theme.border_style,
                             padding=(0, 1),
                         )
@@ -420,21 +417,21 @@ class TrinityTUI:
                 Text(f"  ⚠️ 합의 실패 ({result.rounds_completed} 라운드)", style="yellow")
             )
 
-        # Task distribution as Tree
+        # Task distribution as simple list
         if result.tasks:
             renderables.append(Text())
-            tree = Tree("🎯 작업 분배")
+            renderables.append(Text("  🎯 작업 분배", style="bold"))
             for task in sorted(result.tasks, key=lambda t: -t.priority):
                 theme = get_theme(task.agent_name)
-                desc = task.task_description[:80]
-                if len(task.task_description) > 80:
+                desc = task.task_description[:120]
+                if len(task.task_description) > 120:
                     desc += "..."
-                priority_label = f" [우선순위: {task.priority}]" if task.priority else ""
-                tree.add(
-                    f"[{theme.color}]{theme.icon} {task.agent_name}[/{theme.color}]: "
-                    f"{desc}[dim]{priority_label}[/dim]"
+                renderables.append(
+                    Text.from_markup(
+                        f"    [{theme.color}]{theme.icon} {task.agent_name}[/{theme.color}]: "
+                        f"{desc}"
+                    )
                 )
-            renderables.append(tree)
 
         # Stats line
         stats = (

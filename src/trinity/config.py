@@ -28,6 +28,9 @@ class TrinityConfig:
     # Session
     session_name: str = "trinity"
 
+    # Language (affects deliberation prompts + role prompts)
+    lang: str = "en"  # "en" | "ko"
+
     # Deliberation
     max_deliberation_rounds: int = 5
     consensus_threshold: float = 0.6  # fraction of agents required
@@ -123,6 +126,7 @@ class TrinityConfig:
                 Path(general["state_dir"]) if "state_dir" in general else None
             ),
             session_name=general.get("session_name", "trinity"),
+            lang=general.get("lang", "en"),
             max_deliberation_rounds=deliberation.get(
                 "max_rounds", general.get("max_deliberation_rounds", 5)
             ),
@@ -163,6 +167,7 @@ class TrinityConfig:
         roles = localized_roles_with_caveman(lang)
         return cls(
             project_dir=pd,
+            lang=lang,
             agents={
                 "claude": AgentSpec(
                     name="claude",
@@ -196,6 +201,7 @@ class TrinityConfig:
             "",
             "[general]",
             f'session_name = "{self.session_name}"',
+            f'lang = "{self.lang}"',
             f'max_deliberation_rounds = {self.max_deliberation_rounds}',
             f'consensus_threshold = {self.consensus_threshold}',
             f'context_rotate_threshold = {self.context_rotate_threshold}',

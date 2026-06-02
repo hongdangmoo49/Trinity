@@ -19,13 +19,13 @@ from pathlib import Path
 from rich.console import Console, Group
 from rich.live import Live
 from rich.panel import Panel
-from rich.prompt import Prompt
 from rich.text import Text
 
 from trinity.config import TrinityConfig
 from trinity.models import DeliberationResult
 from trinity.tui.app import AgentTUIState, TrinityTUI
 from trinity.tui.events import TUIEventBus
+from trinity.tui.prompt import TrinityPromptSession
 from trinity.tui.theme import get_theme
 
 logger = logging.getLogger(__name__)
@@ -51,6 +51,7 @@ class InteractiveSession:
         self.tui = TrinityTUI(config, self.console)
         self.running = False
         self._history_file = config.effective_state_dir / "history" / "session_history.json"
+        self._prompt_session = TrinityPromptSession(config.effective_state_dir)
 
     def run(self) -> None:
         """Run the interactive session (blocking).
@@ -94,8 +95,8 @@ class InteractiveSession:
         self.console.print("\n[bold cyan]👋 Goodbye from Trinity![/bold cyan]")
 
     def _get_input(self) -> str:
-        """Get user input with styled prompt."""
-        return Prompt.ask("\n[bold green]💬 trinity>[/bold green]", console=self.console)
+        """Get user input with prompt_toolkit (arrow keys, history, tab completion)."""
+        return self._prompt_session.get_input()
 
     def _handle_command(self, command: str) -> None:
         """Handle a /command from the user.
@@ -353,6 +354,9 @@ class InteractiveSession:
         emission, and polls for events during the Live refresh loop to
         drive real-time TUI state updates.
 
+        Includes a hard timeout guard (5 minutes) and early exit on
+        DELIBERATION_DONE event to prevent session freezes.
+
         Args:
             orchestrator: The orchestrator to run.
             prompt: The user's prompt.
@@ -361,6 +365,8 @@ class InteractiveSession:
             The deliberation result.
         """
         import threading
+
+        from trinity.tui.events import TUIEventType
 
         bus = TUIEventBus()
         orchestrator.set_event_bus(bus)
@@ -380,8 +386,12 @@ class InteractiveSession:
         thread = threading.Thread(target=_run_async, daemon=True)
         thread.start()
 
+        # Hard timeout: 5 minutes maximum to prevent session freeze
+        max_wait_seconds = 300
+        start_time = time.time()
+        done_received = False
+
         # Show live TUI while deliberation runs
-        # Poll the event bus during each refresh to get real-time updates
         try:
             with Live(
                 self.tui.build_layout(),
@@ -390,10 +400,33 @@ class InteractiveSession:
                 transient=True,
             ) as live:
                 while thread.is_alive():
+                    # Hard timeout guard
+                    elapsed = time.time() - start_time
+                    if elapsed > max_wait_seconds:
+                        logger.warning(
+                            "Deliberation thread timeout after %ds — forcing exit",
+                            int(elapsed),
+                        )
+                        break
+
                     thread.join(timeout=0.25)
+
                     # Consume all pending events and update TUI state
                     for event in bus.poll():
                         self.tui.consume_event(event)
+                        # Early exit when deliberation is done
+                        if event.type == TUIEventType.DELIBERATION_DONE:
+                            done_received = True
+
+                    # If DELIBERATION_DONE received, drain remaining events and exit
+                    if done_received:
+                        for event in bus.poll():
+                            self.tui.consume_event(event)
+                        live.update(self.tui.build_layout())
+                        # Give the thread a moment to finish cleanup
+                        thread.join(timeout=2.0)
+                        break
+
                     live.update(self.tui.build_layout())
 
                 # Drain any remaining events after thread completes
@@ -426,25 +459,15 @@ class InteractiveSession:
             ))
 
         if result.tasks:
-            from rich.table import Table
-
-            table = Table(title="Task Distribution")
-            table.add_column("Agent")
-            table.add_column("Task", style="white")
-            table.add_column("Priority", justify="right")
-
+            self.console.print("\n[bold]🎯 작업 분배[/bold]")
             for task in sorted(result.tasks, key=lambda t: -t.priority):
                 theme = get_theme(task.agent_name)
-                desc = task.task_description[:80]
-                if len(task.task_description) > 80:
+                desc = task.task_description[:120]
+                if len(task.task_description) > 120:
                     desc += "..."
-                table.add_row(
-                    f"[{theme.color}]{theme.icon} {task.agent_name}[/{theme.color}]",
-                    desc,
-                    str(task.priority),
+                self.console.print(
+                    f"  [{theme.color}]{theme.icon} {task.agent_name}[/{theme.color}]: {desc}"
                 )
-
-            self.console.print(table)
 
         self.console.print(
             f"\n[dim]Duration: {result.duration_seconds:.1f}s | "

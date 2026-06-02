@@ -96,6 +96,7 @@ class TrinityOrchestrator:
             compression_max_summary_tokens=self.config.prompt_compression_max_summary_tokens,
             caveman_mode=self.config.caveman_mode,
             caveman_intensity=self.config.caveman_intensity,
+            lang=self.config.lang,
         )
 
         # Create context monitor and session rotator

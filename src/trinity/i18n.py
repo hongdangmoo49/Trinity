@@ -302,6 +302,67 @@ CAVEMAN_REINFORCEMENT: dict[str, str] = {
 VALID_CAVEMAN_INTENSITIES = ("lite", "full", "ultra")
 
 
+# ─── Deliberation Round Prompts ──────────────────────────────────────────
+
+ROUND_PROMPTS: dict[Lang, dict[str, str]] = {
+    "en": {
+        "round1_prefix": (
+            "Read the shared context below for background.\n"
+            "User's request: {prompt}\n"
+            "Share your initial opinion. Be specific and concise.\n"
+            "State your recommendation and key reasoning.\n"
+            "Keep your response under 500 words."
+        ),
+        "round2_plus_prefix": (
+            "For each other agent's opinion above, state whether you AGREE or "
+            "DISAGREE and explain why. If you disagree, propose an alternative. "
+            "End your response with either 'I AGREE with [name]' or "
+            "'I DISAGREE with all'. Keep your response under 300 words."
+        ),
+        "consensus_instruction": (
+            "State your final recommendation clearly. "
+            "End with: 'I AGREE with [name]' or 'I DISAGREE with all'."
+        ),
+    },
+    "ko": {
+        "round1_prefix": (
+            "아래 공유 컨텍스트를 배경으로 읽으세요.\n"
+            "사용자 요청: {prompt}\n"
+            "초기 의견을 제시해주세요. 구체적이고 간결하게 작성하세요.\n"
+            "권장 사항과 핵심 근거를 명시하세요.\n"
+            "500단어 이내로 작성하세요."
+        ),
+        "round2_plus_prefix": (
+            "위의 다른 에이전트 의견에 대해 동의(AGREE) 또는 비동의(DISAGREE) 여부를 "
+            "밝히고 이유를 설명하세요. 비동의하는 경우 대안을 제시하세요. "
+            "응답 끝에 'I AGREE with [name]' 또는 'I DISAGREE with all'으로 마무리하세요. "
+            "300단어 이내로 작성하세요."
+        ),
+        "consensus_instruction": (
+            "최종 권장 사항을 명확히 제시하세요. "
+            "응답 끝에 'I AGREE with [name]' 또는 'I DISAGREE with all'으로 마무리하세요."
+        ),
+    },
+}
+
+
+def get_round_prompt(key: str, lang: Lang = "en", **kwargs: str) -> str:
+    """Get a localized round prompt template, with optional formatting.
+
+    Args:
+        key: One of "round1_prefix", "round2_plus_prefix", "consensus_instruction".
+        lang: "en" or "ko".
+        **kwargs: Format arguments (e.g., prompt="...").
+
+    Returns:
+        Formatted prompt string.
+    """
+    template = ROUND_PROMPTS[lang][key]
+    if kwargs:
+        return template.format(**kwargs)
+    return template
+
+
 def get_agent_prompt(
     agent_name: str,
     lang: Lang = "en",

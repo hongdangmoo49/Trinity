@@ -2,7 +2,7 @@
 
 import json
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 from trinity.agents.claude_agent import PrintModeClaudeAgent
 from trinity.models import AgentSpec, ContextUsage, MessageRole, Provider
@@ -34,6 +34,12 @@ class TestPrintModeClaudeAgentInit:
     def test_context_usage_initialized(self, agent):
         assert agent.context_usage.total == 200_000
         assert agent.context_usage.used == 0
+
+    def test_context_usage_uses_selected_model_budget(self, claude_spec):
+        claude_spec.model = "opus[1m]"
+        claude_spec.context_budget = 0
+        agent = PrintModeClaudeAgent(claude_spec)
+        assert agent.context_usage.total == 1_000_000
 
     def test_repr(self, agent):
         assert "PrintModeClaudeAgent" in repr(agent)
@@ -82,6 +88,21 @@ class TestSendAndWait:
             assert msg.content == "I recommend JWT."
             assert msg.metadata["token_count"] == 150
             assert msg.metadata["model"] == "claude-sonnet-4-6"
+
+    def test_subprocess_command_includes_model_arg(self, claude_spec):
+        claude_spec.model = "opus[1m]"
+        agent = PrintModeClaudeAgent(claude_spec)
+        proc = MagicMock()
+        proc.returncode = 0
+        proc.stdout = json.dumps({"result": "ok", "usage": {}})
+        proc.stderr = ""
+
+        with patch("trinity.agents.claude_agent.subprocess.run", return_value=proc) as run:
+            agent._run_subprocess(["claude", *agent._model_args(), "-p", "prompt"], 120)
+
+        cmd = run.call_args.args[0]
+        assert "--model" in cmd
+        assert "opus[1m]" in cmd
 
     @pytest.mark.asyncio
     async def test_updates_context_usage(self, agent):

@@ -31,6 +31,12 @@ class TestGeminiInit:
     def test_context_budget(self, agent):
         assert agent.context_usage.total == 1_000_000
 
+    def test_context_budget_uses_selected_model_budget(self, gemini_spec):
+        gemini_spec.model = "gemini-2.5-flash"
+        gemini_spec.context_budget = 0
+        agent = GeminiAgent(gemini_spec)
+        assert agent.context_usage.total == 1_000_000
+
     def test_not_started(self, agent):
         assert not agent._started
 
@@ -66,6 +72,20 @@ class TestGeminiSendAndWait:
         assert msg.source == "gemini"
         assert msg.role == MessageRole.OPINION
         assert "testing" in msg.content
+
+    def test_subprocess_command_includes_model_arg(self, gemini_spec):
+        gemini_spec.model = "gemini-2.5-pro"
+        agent = GeminiAgent(gemini_spec)
+        proc = MagicMock()
+        proc.returncode = 0
+        proc.stdout = "ok"
+        proc.stderr = ""
+
+        with patch("trinity.agents.gemini_agent.subprocess.run", return_value=proc) as run:
+            agent._run_subprocess("prompt", 120)
+
+        cmd = run.call_args.args[0]
+        assert cmd[:3] == ["gemini", "--model", "gemini-2.5-pro"]
 
     @pytest.mark.asyncio
     async def test_timeout(self, agent):

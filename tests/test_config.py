@@ -1,6 +1,5 @@
 """Tests for trinity.config."""
 
-import pytest
 from pathlib import Path
 
 from trinity.config import TrinityConfig
@@ -54,6 +53,7 @@ max_deliberation_rounds = 3
 [agents.claude]
 provider = "claude-code"
 cli_command = "claude"
+model = "opus[1m]"
 enabled = true
 role_prompt = "You are a tester."
 
@@ -69,6 +69,7 @@ enabled = true
         assert config.session_name == "test-session"
         assert config.max_deliberation_rounds == 3
         assert len(config.agents) == 2
+        assert config.agents["claude"].model == "opus[1m]"
         assert config.agents["claude"].role_prompt == "You are a tester."
         assert config.agents["codex"].enabled
 
@@ -108,3 +109,15 @@ role_prompt = "당신은 아키텍트입니다."
         assert loaded.session_name == config.session_name
         assert len(loaded.agents) == len(config.agents)
         assert loaded.agents["claude"].provider == Provider.CLAUDE_CODE
+        assert loaded.agents["claude"].model == config.agents["claude"].model
+
+    def test_save_includes_model_field(self, tmp_path):
+        config = TrinityConfig.default_config(project_dir=tmp_path)
+        config.agents["claude"].model = "opus[1m]"
+        config.agents["claude"].context_budget = 1_000_000
+        save_path = tmp_path / "test_config.toml"
+
+        config.save(save_path)
+
+        text = save_path.read_text(encoding="utf-8")
+        assert 'model = "opus[1m]"' in text

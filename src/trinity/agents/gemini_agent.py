@@ -57,7 +57,7 @@ class GeminiAgent(AgentWrapper):
         logger.info(f"[{self.name}] Gemini agent initialized")
 
         if self._pane and self._detector:
-            cmd_parts = [self.spec.cli_command]
+            cmd_parts = self._command_parts()
             cmd_parts.extend(self.spec.extra_args)
             self._pane.send_text(self._shell_command(cmd_parts))
             logger.info(f"[{self.name}] Gemini launched in tmux pane")
@@ -189,7 +189,7 @@ class GeminiAgent(AgentWrapper):
         return "\n\n".join(parts)
 
     def _run_subprocess(self, prompt: str, timeout: float) -> str:
-        cmd = [self.spec.cli_command, "-p", prompt]
+        cmd = self._command_parts("-p", prompt)
         cmd.extend(self.spec.extra_args)
 
         proc = subprocess.run(

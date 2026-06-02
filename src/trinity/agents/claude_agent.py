@@ -15,8 +15,7 @@ from trinity.agents.base import AgentWrapper
 from trinity.models import AgentSpec, ContextUsage, DeliberationMessage, MessageRole
 
 if TYPE_CHECKING:
-    from trinity.completion.base import CompletionDetector
-    from trinity.completion.hook import HookDetector
+    from trinity.completion.base import CompletionDetector, CompletionResult
     from trinity.tmux.pane import TmuxPane
 
 logger = logging.getLogger(__name__)
@@ -60,11 +59,10 @@ class PrintModeClaudeAgent(AgentWrapper):
         full_prompt = self._build_prompt(prompt)
 
         # Build CLI command
-        cmd = [
-            self.spec.cli_command,
+        cmd = self._command_parts(
             "-p",
             "--output-format", "json",
-        ]
+        )
         cmd.extend(self.spec.extra_args)
         cmd.append(full_prompt)
 
@@ -231,7 +229,7 @@ class InteractiveClaudeAgent(AgentWrapper):
         self._last_response_start_line = len(self._pane.capture(lines=-9999))
 
         # Launch claude CLI
-        cmd_parts = [self.spec.cli_command]
+        cmd_parts = self._command_parts()
         cmd_parts.extend(self.spec.extra_args)
         cmd = self._shell_command(cmd_parts)
 

@@ -120,3 +120,36 @@ class TestConsensusWithNegationInMultiAgent:
         result = engine.evaluate(opinions)
         assert not result.reached
         assert result.agreement_count == 0
+
+
+class TestUnusableOpinionFiltering:
+    """Test that unusable captured responses are excluded from consensus math."""
+
+    def test_invalid_response_placeholder_excluded_from_total(self):
+        engine = ConsensusEngine(required_fraction=1.0)
+        opinions = {
+            "claude": "I agree with the plan.",
+            "gemini": "[Invalid response omitted: auth_wait]",
+        }
+
+        result = engine.evaluate(opinions)
+
+        assert result.reached
+        assert result.agreement_count == 1
+        assert result.total_agents == 1
+        assert result.opinions == {"claude": "I agree with the plan."}
+
+    def test_all_unusable_responses_have_no_usable_consensus(self):
+        engine = ConsensusEngine(required_fraction=0.6)
+        opinions = {
+            "codex": "[Timeout after 120s]",
+            "gemini": "[Invalid response omitted: auth_wait]",
+        }
+
+        result = engine.evaluate(opinions)
+
+        assert not result.reached
+        assert result.agreement_count == 0
+        assert result.total_agents == 0
+        assert result.opinions == {}
+        assert "No usable consensus" in result.summary

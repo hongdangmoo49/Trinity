@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -269,7 +270,7 @@ class InteractiveClaudeAgent(AgentWrapper):
             self._detector.reset()
 
         # Record start position in pane output
-        pre_lines = self._pane.capture(lines=-9999)
+        pre_lines = self._capture_pane_lines()
         self._last_response_start_line = len(pre_lines)
 
         # Send the prompt
@@ -290,8 +291,8 @@ class InteractiveClaudeAgent(AgentWrapper):
         result = await self._send_and_wait_for_response(full_prompt, timeout)
         elapsed = time.time() - start_time
 
-        # Extract response: re-capture FULL pane to use absolute line boundary
-        response_text = self._extract_response_from_pane()
+        # Prefer detector-scoped output; fall back to pane capture only if needed.
+        response_text = self._extract_response_from_pane(result.output)
 
         # Parse token usage if possible — accumulate across calls
         parsed = self._parse_usage_from_output(result.output)
@@ -300,18 +301,34 @@ class InteractiveClaudeAgent(AgentWrapper):
             self._update_usage(used=new_used, total=parsed.get("total"))
         # If no usage data, preserve existing count (don't reset to 0)
 
+        detector_metadata = (
+            result.metadata if isinstance(result.metadata, dict) else {}
+        )
+        timeout_reason = detector_metadata.get("reason")
+        completion_timeout = (
+            not result.completed
+            or timeout_reason in {"timeout", "hard_timeout"}
+        )
+        metadata = {
+            "elapsed_seconds": elapsed,
+            "token_count": parsed.get("used", 0),
+            "detector": result.detector_name,
+            "completed": result.completed,
+            "detector_metadata": detector_metadata,
+            "prompt_num": self._prompt_counter,
+        }
+        if completion_timeout:
+            metadata["completion_timeout"] = True
+            if timeout_reason:
+                metadata["completion_timeout_reason"] = timeout_reason
+
         return DeliberationMessage(
             source=self.name,
             target="all",
             round_num=0,  # Set by protocol
             role=MessageRole.OPINION,
             content=response_text,
-            metadata={
-                "elapsed_seconds": elapsed,
-                "token_count": parsed.get("used", 0),
-                "detector": result.detector_name,
-                "prompt_num": self._prompt_counter,
-            },
+            metadata=metadata,
         )
 
     async def get_context_usage(self) -> ContextUsage:
@@ -375,155 +392,171 @@ class InteractiveClaudeAgent(AgentWrapper):
         )
         return result
 
-    def _extract_response_from_pane(self) -> str:
-        """Extract response by re-capturing the full pane after completion.
+    def _capture_pane_lines(self) -> list[str]:
+        """Capture pane output defensively for interactive extraction."""
+        if not self._pane:
+            return []
 
-        Uses _last_response_start_line (absolute line count captured before
-        sending) to precisely slice the response region from the pane.
-        Falls back to substring matching if the boundary is outside the
-        visible window.
-        """
-        import re
-        from trinity.agents.response_cleaner import ResponseCleaner
+        try:
+            captured = self._pane.capture(lines=-9999)
+        except Exception:
+            logger.exception("[%s] Failed to capture pane output", self.name)
+            return []
 
-        prompt_re = re.compile(r"^[>❯$]\s*$")
+        if isinstance(captured, list):
+            return [str(line) for line in captured]
+        if isinstance(captured, str):
+            return captured.splitlines()
+        return []
 
-        # Re-capture the full pane scrollback
-        if self._pane:
-            all_lines = self._pane.capture(lines=-9999)
-        else:
+    def _extract_response_from_pane(self, detector_output: str = "") -> str:
+        """Extract response, preferring detector-scoped output over full pane text."""
+        if detector_output.strip():
+            scoped = self._extract_response(detector_output)
+            if scoped:
+                return scoped
+
+        all_lines = self._capture_pane_lines()
+        if not all_lines:
             return ""
-
-        total = len(all_lines)
-
-        # Strategy 1: Absolute line boundary
-        if self._last_response_start_line > 0 and total > self._last_response_start_line:
-            response_lines = all_lines[self._last_response_start_line:]
-
-            # Skip the prompt echo — find where sent text ends
-            if self._sent_text:
-                sent_first_line = self._sent_text.split("\n")[0][:50]
-                echo_ended = False
-                cleaned_echo = []
-                for line in response_lines:
-                    if not echo_ended:
-                        if sent_first_line in line:
-                            echo_ended = True
-                        continue
-                    cleaned_echo.append(line)
-                if cleaned_echo:
-                    response_lines = cleaned_echo
-        else:
-            # Strategy 2: Last-occurrence substring match
-            last_match = -1
-            if self._sent_text:
-                sent_first = self._sent_text.split("\n")[0][:50]
-                for i, line in enumerate(all_lines):
-                    if sent_first in line:
-                        last_match = i
-            if last_match >= 0:
-                response_lines = all_lines[last_match + 1:]
-            else:
-                # Strategy 3: Fallback — last lines
-                response_lines = all_lines[-50:]
-                logger.warning(
-                    "[%s] No prompt boundary found (%d lines), using last 50",
-                    self.name, total,
-                )
-
-        # Strip trailing prompt characters
-        cleaned = []
-        for line in reversed(response_lines):
-            if prompt_re.match(line.strip()):
-                continue
-            cleaned.append(line)
-        cleaned.reverse()
-
-        text = "\n".join(cleaned).strip()
-        text = ResponseCleaner.clean(text) if text else ""
-        return text if text else ""
+        return self._extract_response_from_lines(all_lines, use_line_boundary=True)
 
     def _extract_response(self, raw_output: str) -> str:
         """Extract the agent's response from the raw pane output.
 
         Uses three strategies in priority order:
-        1. Line-count boundary (from _last_response_start_line)
-        2. Substring match on sent text (last occurrence)
-        3. Fallback: last N lines with aggressive cleaning
+        1. Last prompt echo anchor based on all sent lines
+        2. Fallback: last N lines with aggressive cleaning
 
         Then strips trailing prompt characters and applies ResponseCleaner.
         """
-        import re
+        return self._extract_response_from_lines(
+            raw_output.splitlines(),
+            use_line_boundary=False,
+        )
+
+    def _extract_response_from_lines(
+        self,
+        lines: list[str],
+        use_line_boundary: bool = False,
+    ) -> str:
+        """Slice captured lines to the current response and remove CLI echoes."""
         from trinity.agents.response_cleaner import ResponseCleaner
 
-        lines = raw_output.splitlines()
+        response_lines = self._slice_response_lines(
+            lines,
+            use_line_boundary=use_line_boundary,
+        )
+        response_lines = self._strip_sent_prompt_echo(response_lines)
+        response_lines = self._strip_cli_status_lines(response_lines)
+        response_lines = self._strip_prompt_lines(response_lines)
+
+        text = "\n".join(response_lines[-50:]).strip()
+        if not text:
+            return ""
+
+        return ResponseCleaner.clean(text)
+
+    def _slice_response_lines(
+        self,
+        lines: list[str],
+        use_line_boundary: bool = True,
+    ) -> list[str]:
+        echo_idx = self._find_last_echo_anchor(lines)
+        if echo_idx >= 0:
+            return lines[echo_idx + 1:]
+
         total_lines = len(lines)
+        if (
+            use_line_boundary
+            and self._last_response_start_line > 0
+            and total_lines > self._last_response_start_line
+        ):
+            return lines[self._last_response_start_line:]
 
-        prompt_re = re.compile(r"^[>❯$]\s*$")
+        return lines[-50:]
 
-        # ── Strategy 1: Line-count boundary ─────────────────────────
-        # _last_response_start_line was set before we sent the prompt.
-        # Any lines after that count are the response (after prompt echo).
-        if self._last_response_start_line > 0 and total_lines > self._last_response_start_line:
-            # The prompt echo + response start from _last_response_start_line onward
-            # Skip lines that are part of the prompt echo (matched by sent text)
-            candidate_lines = lines[self._last_response_start_line:]
+    def _strip_sent_prompt_echo(self, lines: list[str]) -> list[str]:
+        sent_lines = self._sent_lines()
+        if not sent_lines:
+            return lines
 
-            # Find where the prompt echo ends and actual response begins
-            # The echo includes our sent text, possibly wrapped across lines
-            response_lines = []
-            echo_ended = False
+        search_limit = min(len(lines), max(len(sent_lines) + 20, 50))
+        echo_idx = self._find_last_echo_anchor(lines, search_limit=search_limit)
+        if echo_idx >= 0:
+            return lines[echo_idx + 1:]
+        return lines
 
-            if self._sent_text:
-                sent_first_line = self._sent_text.split("\n")[0][:50]
-                for line in candidate_lines:
-                    if not echo_ended:
-                        # Skip echo lines until we pass the sent text
-                        if sent_first_line in line:
-                            echo_ended = True
-                        continue
-                    response_lines.append(line)
+    def _find_last_echo_anchor(
+        self,
+        lines: list[str],
+        search_limit: int | None = None,
+    ) -> int:
+        sent_lines = self._sent_lines()
+        if not sent_lines:
+            return -1
 
-            if not response_lines:
-                # Sent text wasn't found in echo — take everything after boundary
-                response_lines = candidate_lines
-        else:
-            # ── Strategy 2: Substring match (last occurrence) ───────
-            response_lines = []
-            found_prompt = False
-            last_match_idx = -1
+        last_echo_idx = -1
+        sent_idx = 0
+        limit = len(lines) if search_limit is None else min(len(lines), search_limit)
 
-            # Find the LAST occurrence of sent text
-            if self._sent_text:
-                sent_first_line = self._sent_text.split("\n")[0][:50]
-                for i, line in enumerate(lines):
-                    if sent_first_line in line:
-                        last_match_idx = i
-
-            if last_match_idx >= 0:
-                response_lines = lines[last_match_idx + 1:]
-            else:
-                # ── Strategy 3: Fallback — last lines + heavy clean ─
-                response_lines = lines[-50:]
-                logger.warning(
-                    "[%s] No prompt boundary found in %d lines, using last 50",
-                    self.name, total_lines,
-                )
-
-        # Strip trailing prompt characters
-        cleaned = []
-        for line in reversed(response_lines):
-            if prompt_re.match(line.strip()):
+        for i, line in enumerate(lines[:limit]):
+            normalized = self._normalize_echo_line(line)
+            if not normalized:
+                if last_echo_idx >= 0 and sent_idx < len(sent_lines):
+                    last_echo_idx = i
                 continue
-            cleaned.append(line)
-        cleaned.reverse()
 
-        text = "\n".join(cleaned).strip()
+            for j in range(sent_idx, len(sent_lines)):
+                if self._is_echo_match(normalized, sent_lines[j]):
+                    last_echo_idx = i
+                    sent_idx = j + 1
+                    break
 
-        # Apply shared response cleaner to remove CLI splash/banner noise
-        text = ResponseCleaner.clean(text) if text else text
+            if sent_idx >= len(sent_lines):
+                break
 
-        return text if text else raw_output.strip()
+        return last_echo_idx
+
+    def _strip_cli_status_lines(self, lines: list[str]) -> list[str]:
+        return [line for line in lines if not self._is_cli_status_line(line)]
+
+    def _strip_prompt_lines(self, lines: list[str]) -> list[str]:
+        return [line for line in lines if not self._is_prompt_line(line)]
+
+    def _sent_lines(self) -> list[str]:
+        return [
+            self._normalize_echo_line(line)
+            for line in self._sent_text.splitlines()
+            if self._normalize_echo_line(line)
+        ]
+
+    @staticmethod
+    def _normalize_echo_line(line: str) -> str:
+        return line.strip().lstrip(">❯$ ").strip()
+
+    @staticmethod
+    def _is_echo_match(line: str, sent_line: str) -> bool:
+        if not line or not sent_line:
+            return False
+        return line in sent_line or sent_line in line
+
+    @staticmethod
+    def _is_prompt_line(line: str) -> bool:
+        return bool(re.match(r"^[>$❯]\s*$", line.strip()))
+
+    @staticmethod
+    def _is_cli_status_line(line: str) -> bool:
+        stripped = line.strip()
+        status_patterns = (
+            r"^(?:thinking|processing|working|waiting)(?:[.\s…]|$)",
+            r"^(?:thinking|processing|working|waiting)\s+for\s+\d+",
+            r"^press\s+esc\s+to\s+(?:cancel|interrupt|stop)",
+        )
+        return any(
+            re.search(pattern, stripped, re.IGNORECASE)
+            for pattern in status_patterns
+        )
 
     def _parse_usage_from_output(self, output: str) -> dict:
         """Try to extract token usage from the pane output."""

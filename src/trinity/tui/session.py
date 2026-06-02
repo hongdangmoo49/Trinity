@@ -455,8 +455,13 @@ class InteractiveSession:
                 border_style="green",
             ))
         else:
+            summary = (
+                result.consensus.summary
+                if result.consensus and result.consensus.summary
+                else "No consensus reached."
+            )
             self.console.print(Panel.fit(
-                "[yellow]No consensus reached.[/yellow]",
+                f"[yellow]{summary}[/yellow]",
                 title=f"Deliberation Result ({result.rounds_completed} rounds)",
                 border_style="yellow",
             ))

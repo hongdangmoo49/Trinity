@@ -158,6 +158,43 @@ class TestInteractiveSendAndWait:
         assert msg.role == MessageRole.OPINION
         assert msg.metadata["detector"] == "MockDetector"
 
+    @pytest.mark.asyncio
+    async def test_prefers_detector_scoped_output(self, agent, mock_pane, mock_detector):
+        agent._started = True
+        mock_pane.capture = MagicMock(return_value=["stale pane response", "> "])
+        mock_detector.wait_for_completion = AsyncMock(return_value=CompletionResult(
+            completed=True,
+            output="What should we do?\nUse the detector scoped answer.\n> ",
+            detector_name="MockDetector",
+            elapsed_seconds=1.0,
+        ))
+
+        msg = await agent.send_and_wait("What should we do?")
+
+        assert msg.content == "Use the detector scoped answer."
+        assert "stale pane" not in msg.content
+
+    @pytest.mark.asyncio
+    async def test_preserves_timeout_detector_metadata(
+        self, agent, mock_pane, mock_detector
+    ):
+        agent._started = True
+        mock_pane.capture = MagicMock(return_value=["fallback response"])
+        mock_detector.wait_for_completion = AsyncMock(return_value=CompletionResult(
+            completed=False,
+            output="thinking for 2s\n> ",
+            detector_name="MockDetector",
+            elapsed_seconds=1.0,
+            metadata={"reason": "timeout"},
+        ))
+
+        msg = await agent.send_and_wait("test")
+
+        assert msg.metadata["completed"] is False
+        assert msg.metadata["completion_timeout"] is True
+        assert msg.metadata["completion_timeout_reason"] == "timeout"
+        assert msg.metadata["detector_metadata"] == {"reason": "timeout"}
+
 
 class TestExtractResponse:
     def test_extracts_after_sent_text(self, agent):
@@ -184,6 +221,28 @@ class TestExtractResponse:
         raw = "response text here"
         result = agent._extract_response(raw)
         assert "response" in result
+
+    def test_strips_multiline_sent_prompt_echo(self, agent):
+        agent._sent_text = "\n".join([
+            "Read the shared context below.",
+            "# Shared Context",
+            "User's request:",
+            "Decide the auth strategy.",
+        ])
+        raw = "\n".join([
+            "Read the shared context below.",
+            "# Shared Context",
+            "User's request:",
+            "Decide the auth strategy.",
+            "Use short-lived JWTs with rotating refresh tokens.",
+            "> ",
+        ])
+
+        result = agent._extract_response(raw)
+
+        assert result == "Use short-lived JWTs with rotating refresh tokens."
+        assert "Shared Context" not in result
+        assert "User's request" not in result
 
 
 class TestParseUsageFromOutput:

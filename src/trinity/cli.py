@@ -575,8 +575,13 @@ def _display_result(result):
             title=f"✓ Consensus (Round {result.rounds_completed})",
         ))
     else:
+        summary = (
+            result.consensus.summary
+            if result.consensus and result.consensus.summary
+            else "No consensus reached."
+        )
         console.print(Panel.fit(
-            "[yellow]No consensus reached.[/yellow]",
+            f"[yellow]{summary}[/yellow]",
             title=f"Deliberation Result ({result.rounds_completed} rounds)",
         ))
 

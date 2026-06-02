@@ -102,14 +102,29 @@ class GeminiAgent(AgentWrapper):
             if usage["used"] > 0:
                 self._update_usage(**usage)
 
+            detector_metadata = (
+                result.metadata if isinstance(result.metadata, dict) else {}
+            )
+            timeout_reason = detector_metadata.get("reason")
+            completion_timeout = (
+                not result.completed
+                or timeout_reason in {"timeout", "hard_timeout"}
+            )
+            metadata = {
+                "elapsed_seconds": elapsed,
+                "detector": result.detector_name,
+                "completed": result.completed,
+                "detector_metadata": detector_metadata,
+            }
+            if completion_timeout:
+                metadata["completion_timeout"] = True
+                if timeout_reason:
+                    metadata["completion_timeout_reason"] = timeout_reason
+
             return DeliberationMessage(
                 source=self.name, target="all", round_num=0,
                 role=MessageRole.OPINION, content=response_text,
-                metadata={
-                    "elapsed_seconds": elapsed,
-                    "detector": result.detector_name,
-                    "completed": result.completed,
-                },
+                metadata=metadata,
             )
         else:
             # Print mode: subprocess
@@ -224,31 +239,42 @@ class GeminiAgent(AgentWrapper):
         return []
 
     def _extract_response_from_pane(self, fallback_output: str = "") -> str:
-        """Re-capture the pane and extract text after this request's boundary."""
+        """Extract text, preferring detector-scoped output over full pane text."""
+        if fallback_output.strip():
+            scoped = self._extract_response(fallback_output)
+            if scoped:
+                return scoped
+
         all_lines = self._capture_pane_lines()
         if all_lines:
-            if (
-                self._last_response_start_line > 0
-                and len(all_lines) <= self._last_response_start_line
-                and fallback_output.strip()
-            ):
-                return self._extract_response(fallback_output)
-            return self._extract_response_from_lines(all_lines, fallback_output)
-        return self._extract_response(fallback_output)
+            return self._extract_response_from_lines(
+                all_lines,
+                use_line_boundary=True,
+            )
+        return ""
 
     def _extract_response(self, raw_output: str) -> str:
         """Extract response from pane output, stripping markers and prompts."""
-        return self._extract_response_from_lines(raw_output.splitlines(), raw_output)
+        return self._extract_response_from_lines(
+            raw_output.splitlines(),
+            use_line_boundary=False,
+        )
 
     def _extract_response_from_lines(
-        self, lines: list[str], fallback_output: str = ""
+        self,
+        lines: list[str],
+        use_line_boundary: bool = True,
     ) -> str:
         """Slice captured lines to the current response and remove CLI echoes."""
         from trinity.agents.response_cleaner import ResponseCleaner
 
-        response_lines = self._slice_response_lines(lines)
+        response_lines = self._slice_response_lines(
+            lines,
+            use_line_boundary=use_line_boundary,
+        )
         response_lines = self._strip_sent_prompt_echo(response_lines)
         response_lines = self._strip_cli_status_lines(response_lines)
+        response_lines = self._truncate_at_completion_marker(response_lines)
         response_lines = self._strip_prompt_and_marker_lines(response_lines)
 
         text = "\n".join(response_lines[-50:]).strip()
@@ -257,30 +283,23 @@ class GeminiAgent(AgentWrapper):
             if cleaned:
                 return cleaned
 
-        fallback = fallback_output.strip()
-        if fallback:
-            fallback = self._strip_completion_markers(fallback)
-            return ResponseCleaner.clean(fallback)
         return ""
 
-    def _slice_response_lines(self, lines: list[str]) -> list[str]:
-        total_lines = len(lines)
+    def _slice_response_lines(
+        self,
+        lines: list[str],
+        use_line_boundary: bool = True,
+    ) -> list[str]:
+        echo_idx = self._find_last_echo_anchor(lines)
+        if echo_idx >= 0:
+            return lines[echo_idx + 1:]
 
         if (
-            self._last_response_start_line > 0
-            and total_lines > self._last_response_start_line
+            use_line_boundary
+            and self._last_response_start_line > 0
+            and len(lines) > self._last_response_start_line
         ):
             return lines[self._last_response_start_line:]
-
-        if self._sent_text:
-            sent_lines = self._sent_lines()
-            last_match_idx = -1
-            for i, line in enumerate(lines):
-                normalized = self._normalize_echo_line(line)
-                if any(self._is_echo_match(normalized, sent) for sent in sent_lines):
-                    last_match_idx = i
-            if last_match_idx >= 0:
-                return lines[last_match_idx + 1:]
 
         return lines[-50:]
 
@@ -289,11 +308,26 @@ class GeminiAgent(AgentWrapper):
         if not sent_lines:
             return lines
 
+        search_limit = min(len(lines), max(len(sent_lines) + 20, 50))
+        echo_idx = self._find_last_echo_anchor(lines, search_limit=search_limit)
+        if echo_idx >= 0:
+            return lines[echo_idx + 1:]
+        return lines
+
+    def _find_last_echo_anchor(
+        self,
+        lines: list[str],
+        search_limit: int | None = None,
+    ) -> int:
+        sent_lines = self._sent_lines()
+        if not sent_lines:
+            return -1
+
         last_echo_idx = -1
         sent_idx = 0
-        search_limit = min(len(lines), max(len(sent_lines) + 20, 50))
+        limit = len(lines) if search_limit is None else min(len(lines), search_limit)
 
-        for i, line in enumerate(lines[:search_limit]):
+        for i, line in enumerate(lines[:limit]):
             normalized = self._normalize_echo_line(line)
             if not normalized:
                 if last_echo_idx >= 0 and sent_idx < len(sent_lines):
@@ -307,25 +341,38 @@ class GeminiAgent(AgentWrapper):
                     break
 
             if sent_idx >= len(sent_lines):
-                return lines[i + 1:]
+                break
 
-        if last_echo_idx >= 0:
-            return lines[last_echo_idx + 1:]
-        return lines
+        return last_echo_idx
 
     def _strip_cli_status_lines(self, lines: list[str]) -> list[str]:
-        has_body = any(self._is_response_body_line(line) for line in lines)
-        if not has_body:
-            return lines
         return [line for line in lines if not self._is_cli_status_line(line)]
+
+    def _truncate_at_completion_marker(self, lines: list[str]) -> list[str]:
+        truncated: list[str] = []
+
+        for line in lines:
+            match = re.search(r"\[TRINITY_DONE\](?:#\d+)?", line)
+            if not match:
+                truncated.append(line)
+                continue
+
+            before_marker = line[:match.start()].rstrip()
+            if before_marker:
+                truncated.append(before_marker)
+            return truncated
+
+        return truncated
 
     def _strip_prompt_and_marker_lines(self, lines: list[str]) -> list[str]:
         cleaned: list[str] = []
         for line in lines:
             stripped = line.strip()
-            if self._is_prompt_line(stripped) or stripped == COMPLETION_MARKER:
-                continue
             without_marker = self._strip_completion_markers(line)
+            if self._is_prompt_line(stripped):
+                continue
+            if re.fullmatch(r"\[TRINITY_DONE\](?:#\d+)?", stripped):
+                continue
             if without_marker.strip() or cleaned:
                 cleaned.append(without_marker)
         return cleaned
@@ -347,6 +394,11 @@ class GeminiAgent(AgentWrapper):
     @staticmethod
     def _is_echo_match(line: str, sent_line: str) -> bool:
         if not line or not sent_line:
+            return False
+        if (
+            re.fullmatch(r"\[TRINITY_DONE\](?:#\d+)?", line.strip())
+            and line.strip() != sent_line.strip()
+        ):
             return False
         return line in sent_line or sent_line in line
 

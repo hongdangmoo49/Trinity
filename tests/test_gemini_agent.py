@@ -126,6 +126,64 @@ class TestGeminiSendAndWait:
         assert COMPLETION_MARKER not in msg.content
         assert ">" not in msg.content
 
+    @pytest.mark.asyncio
+    async def test_interactive_mode_prefers_detector_scoped_output(self, gemini_spec):
+        pane = MagicMock()
+        pane.is_alive.return_value = True
+        detector = AsyncMock()
+        agent = GeminiAgent(gemini_spec, pane=pane, detector=detector)
+
+        await agent.start(initial_prompt="Welcome.")
+        marker = f"{COMPLETION_MARKER}#1"
+        agent._completion_marker = marker
+        sent_prompt = agent._build_prompt("Review tests.")
+        detector.wait_for_completion.return_value = CompletionResult(
+            completed=True,
+            output="\n".join(
+                sent_prompt.splitlines()
+                + [
+                    "Use the detector scoped Gemini answer.",
+                    marker,
+                    "Gemini prompt UI after marker",
+                    "> ",
+                ]
+            ),
+            detector_name="mock",
+            metadata={"marker": marker},
+        )
+        pane.capture.return_value = ["stale pane response", "> "]
+
+        msg = await agent.send_and_wait("Review tests.")
+
+        assert msg.content == "Use the detector scoped Gemini answer."
+        assert "stale pane" not in msg.content
+        assert "Gemini prompt UI" not in msg.content
+        assert COMPLETION_MARKER not in msg.content
+
+    @pytest.mark.asyncio
+    async def test_interactive_mode_preserves_timeout_detector_metadata(
+        self, gemini_spec
+    ):
+        pane = MagicMock()
+        pane.is_alive.return_value = True
+        pane.capture.return_value = ["fallback response"]
+        detector = AsyncMock()
+        detector.wait_for_completion.return_value = CompletionResult(
+            completed=False,
+            output=f"Processing...\n{COMPLETION_MARKER}#1\n> ",
+            detector_name="mock",
+            metadata={"reason": "timeout", "marker": f"{COMPLETION_MARKER}#1"},
+        )
+        agent = GeminiAgent(gemini_spec, pane=pane, detector=detector)
+
+        await agent.start()
+        msg = await agent.send_and_wait("Review tests.")
+
+        assert msg.metadata["completed"] is False
+        assert msg.metadata["completion_timeout"] is True
+        assert msg.metadata["completion_timeout_reason"] == "timeout"
+        assert msg.metadata["detector_metadata"]["reason"] == "timeout"
+
 
 class TestGeminiBuildPrompt:
     def test_includes_completion_marker(self, agent):
@@ -145,6 +203,22 @@ class TestGeminiExtractResponse:
         result = agent._extract_response(raw)
         assert COMPLETION_MARKER not in result
         assert "Some response" in result
+
+    def test_truncates_ui_after_marker(self, agent):
+        marker = f"{COMPLETION_MARKER}#7"
+        agent._completion_marker = marker
+        raw = "\n".join([
+            "Final Gemini response.",
+            marker,
+            "Gemini prompt UI after marker",
+            "> ",
+        ])
+
+        result = agent._extract_response(raw)
+
+        assert result == "Final Gemini response."
+        assert "Gemini prompt UI" not in result
+        assert COMPLETION_MARKER not in result
 
     def test_handles_empty(self, agent):
         result = agent._extract_response("")

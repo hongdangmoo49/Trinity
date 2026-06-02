@@ -146,8 +146,15 @@ class TrinityTUI:
         elif event.type == TUIEventType.AGENT_RESPONDED:
             name = event.data["agent"]
             content = event.data.get("content", "")
+            metadata = event.data.get("metadata", {})
+            response_status = event.data.get("response_status")
+            if not response_status:
+                response_status = self._response_status_from_metadata(metadata)
             preview = content[:200]
-            self.mark_agent_responded(name, preview)
+            if response_status == "ok":
+                self.mark_agent_responded(name, preview)
+            else:
+                self.mark_agent_response_error(name, preview)
             # Store full response
             if name in self.agents:
                 self.agents[name].full_response = content
@@ -177,6 +184,8 @@ class TrinityTUI:
                 if total > 0:
                     pct = int(agree / total * 100)
                     self.rounds[-1].consensus_detail = f"{agree}/{total} 동의 ({pct}%)"
+                elif event.data.get("summary"):
+                    self.rounds[-1].consensus_detail = event.data["summary"]
 
         elif event.type == TUIEventType.DELIBERATION_DONE:
             pass  # No special action needed
@@ -505,6 +514,13 @@ class TrinityTUI:
         if self.rounds:
             self.rounds[-1].agent_states[name] = AgentTUIState.RESPONDED
 
+    def mark_agent_response_error(self, name: str, preview: str = "") -> None:
+        """Mark a completed response as unusable or unreliable."""
+        self.update_agent_status(name, AgentTUIState.ERROR, preview)
+
+        if self.rounds:
+            self.rounds[-1].agent_states[name] = AgentTUIState.ERROR
+
     def mark_consensus_checking(self) -> None:
         """Mark that consensus is being evaluated for the current round."""
         if self.rounds:
@@ -518,6 +534,31 @@ class TrinityTUI:
         """
         if self.rounds:
             self.rounds[-1].consensus = "reached" if reached else "not_reached"
+
+    @staticmethod
+    def _response_status_from_metadata(metadata: Any) -> str:
+        """Infer response quality from event metadata for older emitters."""
+        if not isinstance(metadata, dict):
+            return "ok"
+
+        if metadata.get("invalid_response"):
+            return "invalid_response"
+
+        validation = metadata.get("response_validation")
+        if isinstance(validation, dict) and validation.get("usable") is False:
+            return str(validation.get("classification") or "invalid_response")
+
+        if metadata.get("error") == "timeout":
+            return "timeout"
+
+        if metadata.get("completed") is False:
+            return "completion_timeout"
+
+        detector = str(metadata.get("detector", "")).lower()
+        if detector == "fallback" or detector.startswith("fallbackchain("):
+            return "captured_fallback"
+
+        return "ok"
 
     def set_result(self, result: DeliberationResult) -> None:
         """Set the final deliberation result.

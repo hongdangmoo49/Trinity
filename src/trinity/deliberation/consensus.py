@@ -83,19 +83,25 @@ class ConsensusEngine:
         Returns:
             ConsensusResult with reached=True if enough agents agree.
         """
-        if not opinions:
+        usable_opinions = {
+            agent: text
+            for agent, text in opinions.items()
+            if self._is_usable_opinion(text)
+        }
+
+        if not usable_opinions:
             return ConsensusResult(
                 reached=False,
                 agreement_count=0,
                 total_agents=0,
-                opinions=opinions,
-                summary="No opinions to evaluate.",
+                opinions={},
+                summary="No usable consensus: no valid agent opinions to evaluate.",
             )
 
-        total = len(opinions)
+        total = len(usable_opinions)
         agreeing_agents: list[str] = []
 
-        for agent, text in opinions.items():
+        for agent, text in usable_opinions.items():
             if self._contains_agreement(text):
                 agreeing_agents.append(agent)
 
@@ -103,7 +109,7 @@ class ConsensusEngine:
         fraction = agreement_count / total
         reached = fraction >= self.required_fraction
 
-        summary = self._build_summary(reached, agreeing_agents, opinions)
+        summary = self._build_summary(reached, agreeing_agents, usable_opinions)
 
         logger.info(
             f"Consensus evaluation: {agreement_count}/{total} agree "
@@ -114,9 +120,22 @@ class ConsensusEngine:
             reached=reached,
             agreement_count=agreement_count,
             total_agents=total,
-            opinions=opinions,
+            opinions=usable_opinions,
             summary=summary,
         )
+
+    def _is_usable_opinion(self, text: str) -> bool:
+        """Return whether a raw opinion text can participate in consensus."""
+        if not text or not text.strip():
+            return False
+
+        normalized = text.strip().lower()
+        unusable_prefixes = (
+            "[invalid response omitted:",
+            "[timeout after ",
+            "[error:",
+        )
+        return not normalized.startswith(unusable_prefixes)
 
     def _contains_agreement(self, text: str) -> bool:
         """Check if text contains agreement keywords without negation.

@@ -89,6 +89,40 @@ class ResponseCleaner:
     # Minimum ratio of meaningful text lines to total lines.
     # Below this threshold, the response is considered mostly garbage.
     MIN_MEANINGFUL_RATIO = 0.15
+    MIN_SUBSTANTIVE_TAIL_CHARS = 8
+
+    COMPLETION_MARKER_PATTERN = re.compile(r"\[TRINITY_DONE\](?:#\d+)?")
+
+    INTERACTIVE_APPROVAL_PATTERNS: list[re.Pattern[str]] = [
+        re.compile(r"^Action Required$", re.IGNORECASE),
+        re.compile(r"^Enter Plan Mode$", re.IGNORECASE),
+        re.compile(r"^Allow once$", re.IGNORECASE),
+        re.compile(r"^Allow for (?:this )?session$", re.IGNORECASE),
+        re.compile(r"^Shift\+Tab\s+to\s+accept\s+edits$", re.IGNORECASE),
+    ]
+
+    LEADING_ECHO_PATTERNS: list[re.Pattern[str]] = [
+        re.compile(r"Read the shared context below", re.IGNORECASE),
+        re.compile(r"User'?s request:", re.IGNORECASE),
+        re.compile(r"Share your initial opinion", re.IGNORECASE),
+        re.compile(r"State your recommendation and key reasoning", re.IGNORECASE),
+        re.compile(r"Keep your response under \d+ words", re.IGNORECASE),
+        re.compile(r"Previous round opinions:", re.IGNORECASE),
+        re.compile(r"For each other agent'?s opinion above", re.IGNORECASE),
+        re.compile(r"End your response with either", re.IGNORECASE),
+        re.compile(r"I DISAGREE with all", re.IGNORECASE),
+        re.compile(r"\[Caveman(?:\s+ULTRA)?:", re.IGNORECASE),
+        re.compile(r"^# Shared Context\s*$", re.IGNORECASE),
+        re.compile(r"^## Current Goal\s*$", re.IGNORECASE),
+        re.compile(r"^## Agents\s*$", re.IGNORECASE),
+        re.compile(r"^## Round \d+ Opinions\s*$", re.IGNORECASE),
+        re.compile(r"^## Round \d+ Summary\s*$", re.IGNORECASE),
+        re.compile(r"^## Agreed Conclusion\s*$", re.IGNORECASE),
+        re.compile(r"^## Task Assignment\s*$", re.IGNORECASE),
+        re.compile(r"^## Session History\s*$", re.IGNORECASE),
+        re.compile(r"^### (?:claude|codex|gemini)\b", re.IGNORECASE),
+        re.compile(r"^\*\*(?:claude|codex|gemini)\*\*:", re.IGNORECASE),
+    ]
 
     @classmethod
     def clean(cls, raw: str) -> str:
@@ -103,7 +137,11 @@ class ResponseCleaner:
         if not raw or not raw.strip():
             return raw
 
-        lines = raw.splitlines()
+        text = cls.strip_completion_marker_tail(raw)
+        text = cls.strip_interactive_approval_ui(text)
+        text = cls.strip_leading_prompt_echo(text)
+
+        lines = text.splitlines()
         kept: list[str] = []
 
         for line in lines:
@@ -142,12 +180,115 @@ class ResponseCleaner:
         return cleaned
 
     @classmethod
+    def strip_completion_marker_tail(cls, text: str) -> str:
+        """Remove the completion marker and any captured text after it."""
+        match = cls.COMPLETION_MARKER_PATTERN.search(text)
+        if not match:
+            return text
+        return text[: match.start()].rstrip()
+
+    @classmethod
+    def strip_interactive_approval_ui(cls, text: str) -> str:
+        """Remove trailing interactive approval UI blocks from captured output."""
+        lines = text.splitlines()
+        for idx, line in enumerate(lines):
+            if cls._is_interactive_approval_line(line.strip()):
+                block_start = cls._interactive_ui_block_start(lines, idx)
+                return "\n".join(lines[:block_start]).rstrip()
+        return text
+
+    @classmethod
+    def strip_leading_prompt_echo(cls, text: str) -> str:
+        """Keep the answer tail when a captured response starts with prompt echo."""
+        lines = text.splitlines()
+        echo_indices = [
+            idx
+            for idx, line in enumerate(lines)
+            if line.strip() and cls._is_leading_echo_line(line.strip())
+        ]
+        if not echo_indices or not cls._has_leading_echo(lines, echo_indices):
+            return text
+
+        tail = "\n".join(lines[echo_indices[-1] + 1 :]).strip()
+        if cls._has_substantive_tail(tail):
+            return tail
+        return text
+
+    @classmethod
     def _is_splash_line(cls, line: str) -> bool:
         """Check if a line matches a known CLI splash/banner pattern."""
         for pattern in cls.SPLASH_PATTERNS:
             if pattern.search(line):
                 return True
         return False
+
+    @classmethod
+    def _is_interactive_approval_line(cls, line: str) -> bool:
+        """Check if a line is part of an interactive approval prompt."""
+        normalized = cls._normalize_boxed_ui_line(line)
+        for pattern in cls.INTERACTIVE_APPROVAL_PATTERNS:
+            if pattern.search(normalized):
+                return True
+        return False
+
+    @classmethod
+    def _interactive_ui_block_start(cls, lines: list[str], trigger_idx: int) -> int:
+        block_start = trigger_idx
+        while block_start > 0:
+            previous = lines[block_start - 1].strip()
+            if not previous or cls._is_border_line(previous):
+                block_start -= 1
+                continue
+            break
+        return block_start
+
+    @staticmethod
+    def _normalize_boxed_ui_line(line: str) -> str:
+        normalized = line.strip().strip("│┃║").strip()
+        normalized = re.sub(r"^[>❯●○•*\-\d.)\s]+", "", normalized).strip()
+        return normalized.strip("│┃║").strip()
+
+    @classmethod
+    def _is_leading_echo_line(cls, line: str) -> bool:
+        for pattern in cls.LEADING_ECHO_PATTERNS:
+            if pattern.search(line):
+                return True
+        return False
+
+    @classmethod
+    def _has_leading_echo(cls, lines: list[str], echo_indices: list[int]) -> bool:
+        first_content_idx = cls._first_non_noise_line_index(lines)
+        if first_content_idx is not None and first_content_idx in echo_indices:
+            return True
+
+        early_nonblank = [
+            idx for idx, line in enumerate(lines) if line.strip()
+        ][:12]
+        early_echo_count = sum(1 for idx in early_nonblank if idx in echo_indices)
+        return early_echo_count >= 2
+
+    @classmethod
+    def _first_non_noise_line_index(cls, lines: list[str]) -> int | None:
+        for idx, line in enumerate(lines):
+            stripped = line.strip()
+            if (
+                not stripped
+                or cls._is_splash_line(stripped)
+                or cls._is_border_line(stripped)
+            ):
+                continue
+            return idx
+        return None
+
+    @classmethod
+    def _has_substantive_tail(cls, text: str) -> bool:
+        tail = text.strip()
+        if len(tail) < cls.MIN_SUBSTANTIVE_TAIL_CHARS:
+            return False
+        return any(
+            len(line.strip()) >= cls.MIN_SUBSTANTIVE_TAIL_CHARS
+            for line in tail.splitlines()
+        )
 
     @classmethod
     def _is_border_line(cls, line: str) -> bool:
@@ -271,14 +412,17 @@ class ResponseValidator:
             )
 
         counts = {
-            cls.AUTH_WAIT: cls._count_matching_lines(raw, cls.AUTH_WAIT_PATTERNS),
-            cls.MODEL_LOADING: cls._count_matching_lines(raw, cls.MODEL_LOADING_PATTERNS),
-            cls.THINKING_UI: cls._count_matching_lines(raw, cls.THINKING_UI_PATTERNS),
-            cls.PROMPT_ECHO: cls._count_matching_lines(raw, cls.PROMPT_ECHO_PATTERNS),
-            cls.SHARED_CONTEXT_ECHO: cls._count_matching_lines(raw, cls.SHARED_CONTEXT_PATTERNS),
-            cls.CLI_NOISE: cls._count_cli_noise_lines(raw),
+            cls.AUTH_WAIT: cls._count_matching_lines(cleaned, cls.AUTH_WAIT_PATTERNS),
+            cls.MODEL_LOADING: cls._count_matching_lines(cleaned, cls.MODEL_LOADING_PATTERNS),
+            cls.THINKING_UI: cls._count_matching_lines(cleaned, cls.THINKING_UI_PATTERNS),
+            cls.PROMPT_ECHO: cls._count_matching_lines(cleaned, cls.PROMPT_ECHO_PATTERNS),
+            cls.SHARED_CONTEXT_ECHO: cls._count_matching_lines(
+                cleaned,
+                cls.SHARED_CONTEXT_PATTERNS,
+            ),
+            cls.CLI_NOISE: cls._count_cli_noise_lines(cleaned),
         }
-        raw_nonblank_count = sum(1 for line in raw.splitlines() if line.strip())
+        nonblank_count = sum(1 for line in cleaned.splitlines() if line.strip())
         nonblank_lines = [line for line in cleaned.splitlines() if line.strip()]
         remaining_lines = [
             line for line in nonblank_lines if not cls._is_validation_noise_line(line.strip())
@@ -288,7 +432,7 @@ class ResponseValidator:
         state_category = cls._dominant_state_category(counts)
         if state_category and (
             remaining_chars < cls.MIN_REMAINING_CHARS
-            or cls._state_markers_dominate(counts[state_category], raw_nonblank_count)
+            or cls._state_markers_dominate(counts[state_category], nonblank_count)
         ):
             return cls._invalid(
                 state_category,

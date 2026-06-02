@@ -154,6 +154,58 @@ class TestCodexSendAndWait:
         assert "thinking" not in msg.content.lower()
         assert ">" not in msg.content
 
+    @pytest.mark.asyncio
+    async def test_interactive_mode_prefers_detector_scoped_output(self, codex_spec):
+        pane = MagicMock()
+        pane.is_alive.return_value = True
+        detector = AsyncMock()
+        agent = CodexAgent(codex_spec, pane=pane, detector=detector)
+
+        await agent.start(initial_prompt="Welcome.")
+        sent_prompt = agent._build_prompt("Implement auth.")
+        detector.wait_for_completion.return_value = CompletionResult(
+            completed=True,
+            output="\n".join(
+                sent_prompt.splitlines()
+                + [
+                    "Use the detector scoped Codex answer.",
+                    "> ",
+                ]
+            ),
+            detector_name="mock",
+        )
+        pane.capture.return_value = ["stale pane response", "> "]
+
+        msg = await agent.send_and_wait("Implement auth.")
+
+        assert msg.content == "Use the detector scoped Codex answer."
+        assert "stale pane" not in msg.content
+        assert "Implement auth." not in msg.content
+
+    @pytest.mark.asyncio
+    async def test_interactive_mode_preserves_timeout_detector_metadata(
+        self, codex_spec
+    ):
+        pane = MagicMock()
+        pane.is_alive.return_value = True
+        pane.capture.return_value = ["fallback response"]
+        detector = AsyncMock()
+        detector.wait_for_completion.return_value = CompletionResult(
+            completed=False,
+            output="thinking for 2s\n> ",
+            detector_name="mock",
+            metadata={"reason": "timeout"},
+        )
+        agent = CodexAgent(codex_spec, pane=pane, detector=detector)
+
+        await agent.start()
+        msg = await agent.send_and_wait("Implement auth.")
+
+        assert msg.metadata["completed"] is False
+        assert msg.metadata["completion_timeout"] is True
+        assert msg.metadata["completion_timeout_reason"] == "timeout"
+        assert msg.metadata["detector_metadata"] == {"reason": "timeout"}
+
 
 class TestCodexBuildPrompt:
     def test_with_role(self, agent):

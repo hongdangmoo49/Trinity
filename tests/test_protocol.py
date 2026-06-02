@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import pytest
+from rich.console import Console
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from trinity.agents.base import AgentWrapper
@@ -21,6 +22,8 @@ from trinity.models import (
     MessageRole,
     Provider,
 )
+from trinity.tui.app import AgentTUIState, TrinityTUI
+from trinity.tui.events import TUIEvent, TUIEventType
 
 
 def _make_mock_agent(name: str) -> MagicMock:
@@ -37,7 +40,12 @@ def _make_mock_agent(name: str) -> MagicMock:
     return agent
 
 
-def _make_opinion(name: str, round_num: int, content: str) -> DeliberationMessage:
+def _make_opinion(
+    name: str,
+    round_num: int,
+    content: str,
+    metadata: dict | None = None,
+) -> DeliberationMessage:
     """Create a test DeliberationMessage."""
     return DeliberationMessage(
         source=name,
@@ -45,6 +53,7 @@ def _make_opinion(name: str, round_num: int, content: str) -> DeliberationMessag
         round_num=round_num,
         role=MessageRole.OPINION,
         content=content,
+        metadata=metadata or {},
     )
 
 
@@ -211,12 +220,54 @@ class TestCollectOpinions:
 
         assert result.rounds_completed == 1
         assert result.consensus is not None
-        assert result.consensus.opinions["gemini"] == "[Invalid response omitted: auth_wait]"
+        assert not result.has_consensus
+        assert result.consensus.total_agents == 0
+        assert result.consensus.opinions == {}
+        assert "No usable consensus" in result.consensus.summary
+        assert "Majority opinion selected" not in result.consensus.summary
         assert engine.read_section("Round 1 Opinions") is None
         diagnostics = engine.read_section("Response Diagnostics")
         assert diagnostics is not None
         assert "classification: auth_wait" in diagnostics
         assert "Waiting for authentication" in diagnostics
+
+    @pytest.mark.asyncio
+    async def test_invalid_response_excluded_from_consensus_denominator(self, tmp_path):
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        agents = {
+            "claude": _make_mock_agent("claude"),
+            "gemini": _make_mock_agent("gemini"),
+        }
+
+        agents["claude"].send_and_wait = AsyncMock(
+            return_value=_make_opinion("claude", 1, "I agree with the plan.")
+        )
+        agents["gemini"].send_and_wait = AsyncMock(
+            return_value=_make_opinion(
+                "gemini",
+                1,
+                "Waiting for authentication...\nOpen the following URL to login.",
+            )
+        )
+
+        protocol = DeliberationProtocol(
+            agents=agents,
+            shared=engine,
+            consensus_engine=ConsensusEngine(required_fraction=1.0),
+            max_rounds=1,
+        )
+
+        result = await protocol.run("Test prompt")
+
+        assert result.has_consensus
+        assert result.consensus.agreement_count == 1
+        assert result.consensus.total_agents == 1
+        assert result.consensus.opinions == {"claude": "I agree with the plan."}
+
+        round_opinions = engine.read_section("Round 1 Opinions")
+        assert round_opinions is not None
+        assert "claude" in round_opinions
+        assert "gemini" not in round_opinions
 
     @pytest.mark.asyncio
     async def test_budget_checker_runs_before_agent_sends(self, tmp_path):
@@ -289,6 +340,37 @@ class TestCollectOpinions:
         assert protocol.get_agents_needing_rotation() == [candidate]
         assert protocol.get_rotation_candidates() == [candidate]
         assert "Rotation should run before the next prompt" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_unreliable_response_metadata_is_emitted(self, tmp_path):
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        agents = {"claude": _make_mock_agent("claude")}
+        events = []
+
+        agents["claude"].send_and_wait = AsyncMock(
+            return_value=_make_opinion(
+                "claude",
+                1,
+                "I agree with the plan.",
+                metadata={"completed": False},
+            )
+        )
+
+        protocol = DeliberationProtocol(
+            agents=agents,
+            shared=engine,
+            max_rounds=1,
+            event_callback=events.append,
+        )
+
+        opinions = await protocol._collect_opinions(1, "Test prompt")
+
+        assert protocol._is_unusable_agent_response(opinions["claude"])
+        responded = [
+            event for event in events if event.type == TUIEventType.AGENT_RESPONDED
+        ][0]
+        assert responded.data["response_status"] == "completion_timeout"
+        assert responded.data["metadata"]["completed"] is False
 
 
 class TestProtocolRun:
@@ -384,10 +466,14 @@ class TestProtocolRun:
         )
         result = await protocol.run("Test")
 
-        # Should force consensus at round 3
+        # Should not report a false majority consensus at round 3
         assert result.rounds_completed == 3
-        assert result.consensus.reached  # Forced
-        assert "Forced conclusion" in result.consensus.summary
+        assert not result.has_consensus
+        assert not result.consensus.reached
+        assert "Consensus not reached after 3 rounds" in result.consensus.summary
+        assert "No majority consensus was selected" in result.consensus.summary
+        assert "Majority opinion selected" not in result.consensus.summary
+        assert result.tasks == []
 
     @pytest.mark.asyncio
     async def test_task_distribution_after_consensus(self, tmp_path):
@@ -445,3 +531,44 @@ class TestProtocolRun:
 
         assert result.duration_seconds > 0
         assert result.total_tokens_used == 500
+
+
+class TestTUIResponseStatus:
+    """Regression tests for protocol response metadata consumed by the TUI."""
+
+    def test_timeout_response_event_marks_agent_error(self):
+        config = TrinityConfig.default_config()
+        tui = TrinityTUI(config, Console(force_terminal=True, width=120))
+        tui.start_round(1)
+
+        tui.consume_event(TUIEvent(
+            type=TUIEventType.AGENT_RESPONDED,
+            data={
+                "agent": "claude",
+                "content": "[Timeout after 120s]",
+                "metadata": {"error": "timeout"},
+                "round_num": 1,
+            },
+        ))
+
+        assert tui.agents["claude"].state == AgentTUIState.ERROR
+        assert tui.rounds[0].agent_states["claude"] == AgentTUIState.ERROR
+        assert tui.agents["claude"].full_response == "[Timeout after 120s]"
+
+    def test_captured_fallback_response_event_marks_agent_error(self):
+        config = TrinityConfig.default_config()
+        tui = TrinityTUI(config, Console(force_terminal=True, width=120))
+        tui.start_round(1)
+
+        tui.consume_event(TUIEvent(
+            type=TUIEventType.AGENT_RESPONDED,
+            data={
+                "agent": "claude",
+                "content": "Partial captured pane output",
+                "metadata": {"detector": "fallback"},
+                "round_num": 1,
+            },
+        ))
+
+        assert tui.agents["claude"].state == AgentTUIState.ERROR
+        assert tui.rounds[0].agent_states["claude"] == AgentTUIState.ERROR

@@ -144,7 +144,7 @@ class DeliberationProtocol:
 
             # Write opinions to shared.md
             for name, msg in opinions.items():
-                if msg.metadata.get("invalid_response"):
+                if self._is_unusable_agent_response(msg):
                     continue
                 self.shared.append_opinion(name, round_num, msg.content)
 
@@ -168,7 +168,11 @@ class DeliberationProtocol:
             # Check consensus
             self._emit(TUIEventType.CONSENSUS_CHECKING, round_num=round_num)
 
-            opinion_texts = {name: msg.content for name, msg in opinions.items()}
+            opinion_texts = {
+                name: msg.content
+                for name, msg in opinions.items()
+                if not self._is_unusable_agent_response(msg)
+            }
             consensus = self.consensus_engine.evaluate(opinion_texts)
 
             if consensus.reached:
@@ -193,31 +197,44 @@ class DeliberationProtocol:
                 reached=False,
                 agreement_count=consensus.agreement_count,
                 total_agents=consensus.total_agents,
-                summary="",
+                summary=consensus.summary,
                 round_num=round_num,
             )
 
         # Update pane titles for task distribution phase
         self._update_pane_titles("Distributing tasks...")
 
-        # If no consensus after all rounds, force conclusion
+        # If no consensus after all rounds, keep that semantic state explicit.
         if consensus and not consensus.reached:
-            logger.warning(f"Max rounds ({self.max_rounds}) reached. Forcing conclusion.")
+            logger.warning(
+                f"Max rounds ({self.max_rounds}) reached without consensus."
+            )
+            if consensus.total_agents == 0:
+                summary = (
+                    f"No usable consensus after {self.max_rounds} rounds. "
+                    "All agent responses were invalid, empty, timed out, or unavailable."
+                )
+            else:
+                summary = (
+                    f"Consensus not reached after {self.max_rounds} rounds "
+                    f"({consensus.agreement_count}/{consensus.total_agents} usable "
+                    "opinions agreed). No majority consensus was selected."
+                )
             consensus = ConsensusResult(
-                reached=True,  # Force it
+                reached=False,
                 agreement_count=consensus.agreement_count,
                 total_agents=consensus.total_agents,
                 opinions=consensus.opinions,
-                summary=f"Forced conclusion after {self.max_rounds} rounds. "
-                f"Majority opinion selected.",
+                summary=summary,
             )
-            self.shared.update_consensus(consensus.summary)
 
-        # Distribute tasks
-        tasks = self.distributor.distribute(
-            consensus_text=consensus.summary if consensus else user_prompt,
-            agents={name: ag.spec for name, ag in self.agents.items()},
-        )
+        # Distribute tasks only when there is an actual agreed conclusion.
+        tasks = []
+        if consensus and consensus.reached:
+            tasks = self.distributor.distribute(
+                consensus_text=consensus.summary,
+                agents={name: ag.spec for name, ag in self.agents.items()},
+            )
 
         # Write tasks to shared.md
         task_dict = {t.agent_name: t.task_description for t in tasks}
@@ -280,6 +297,14 @@ class DeliberationProtocol:
                         round_num=round_num,
                         role=MessageRole.OPINION,
                         content=f"[Error: {exc}]",
+                        metadata={
+                            "invalid_response": True,
+                            "response_validation": {
+                                "usable": False,
+                                "classification": "agent_error",
+                                "reasons": [str(exc)],
+                            },
+                        },
                     )
                     self._emit(
                         TUIEventType.AGENT_ERROR,
@@ -297,6 +322,8 @@ class DeliberationProtocol:
                         TUIEventType.AGENT_RESPONDED,
                         agent=name,
                         content=result.content,
+                        metadata=dict(result.metadata),
+                        response_status=self._response_status(result),
                         round_num=round_num,
                     )
                 else:
@@ -337,6 +364,38 @@ class DeliberationProtocol:
         msg.metadata["invalid_response"] = True
         msg.content = f"[Invalid response omitted: {validation.classification}]"
         return msg
+
+    @classmethod
+    def _is_unusable_agent_response(cls, msg: DeliberationMessage) -> bool:
+        """Return whether a message should be excluded from consensus input."""
+        return cls._response_status(msg) != "ok"
+
+    @staticmethod
+    def _response_status(msg: DeliberationMessage) -> str:
+        """Classify response quality for consensus and TUI display."""
+        metadata = msg.metadata
+
+        if metadata.get("invalid_response"):
+            return "invalid_response"
+
+        validation = metadata.get("response_validation")
+        if isinstance(validation, dict) and validation.get("usable") is False:
+            return str(validation.get("classification") or "invalid_response")
+
+        if metadata.get("error") == "timeout":
+            return "timeout"
+
+        if metadata.get("completed") is False:
+            return "completion_timeout"
+
+        detector = str(metadata.get("detector", "")).lower()
+        if detector == "fallback" or detector.startswith("fallbackchain("):
+            return "captured_fallback"
+
+        if not msg.content or not msg.content.strip():
+            return "empty"
+
+        return "ok"
 
     def _check_round_budgets(
         self, round_num: int, prompt: str

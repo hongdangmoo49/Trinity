@@ -710,11 +710,23 @@ trinity run → config.lang="ko" 로드
 
 ### 검증 완료
 
-- [x] **691 테스트 통과** (671 → 691, 신규 20개)
+- [x] **690 테스트 통과** (671 → 690, 신규 20개)
 - [x] ResponseCleaner 12개 테스트 — Claude/Codex/Gemini 스플래시 제거 검증
 - [x] TrinityPromptSession 8개 테스트 — 히스토리, 완성, 예외 전파 검증
-- [x] 기존 671 테스트 전부 통과 — 회귀 없음
+- [x] 기존 테스트 전부 통과 — 회귀 없음
 - [x] 설계 문서 → `docs/plans/2026-06-02-tui-overhaul.md`
+- [x] 테스트 결과 → `docs/test-results/phase-9-T.md`
+
+### 후속 핫픽스 (v0.6.1~0.6.4)
+
+실사용 테스트에서 발견된 문제를 3차례 패치로 해결:
+
+| 버전 | 문제 | 해결 |
+|------|------|------|
+| v0.6.2 | Live 중 스플래시 여전히 표시 | `build_deliberation_panel()` 내용 렌더링 완전 차단, 상태만 표시 |
+| v0.6.3 | 타임아웃 시 `NoneType` 크래시 | `_run_deliberation()` None 가드 + 모든 에러 경로 `reset_agents()` |
+| v0.6.4 | 응답 추출 실패 (line-count 불일치) | `_extract_response_from_pane()` 전체 패널 재캡처 + 절대 줄 경계 |
+| v0.6.4 | 기존 TOML에 `lang` 없어 영어 응답 | `_detect_lang_from_agents()` role_prompt 한글 감지 자동 설정 |
 
 ---
 

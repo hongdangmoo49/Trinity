@@ -101,6 +101,11 @@ class TrinityConfig:
         health = data.get("health", {})
         logging_conf = data.get("logging", {})
 
+        # Detect language: explicit lang field, or infer from role prompts
+        lang = general.get("lang", None)
+        if lang is None:
+            lang = cls._detect_lang_from_agents(data.get("agents", {}))
+
         agents = {}
         for name, agent_data in data.get("agents", {}).items():
             agents[name] = AgentSpec(
@@ -234,3 +239,19 @@ class TrinityConfig:
 
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("\n".join(lines), encoding="utf-8")
+
+    @staticmethod
+    def _detect_lang_from_agents(agents_data: dict) -> str:
+        """Detect language from existing role prompts.
+
+        If any role prompt contains Korean characters (hangul), return "ko".
+        Otherwise return "en". This handles configs created before the
+        lang field was added.
+        """
+        import re
+        hangul = re.compile(r"[ㄱ-ㆎ가-힣]")
+        for agent_data in agents_data.values():
+            role = agent_data.get("role_prompt", "")
+            if hangul.search(role):
+                return "ko"
+        return "en"

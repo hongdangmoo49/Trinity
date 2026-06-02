@@ -282,8 +282,8 @@ class InteractiveClaudeAgent(AgentWrapper):
         result = await self._send_and_wait_for_response(full_prompt, timeout)
         elapsed = time.time() - start_time
 
-        # Extract response text (strip what we sent)
-        response_text = self._extract_response(result.output)
+        # Extract response: re-capture FULL pane to use absolute line boundary
+        response_text = self._extract_response_from_pane()
 
         # Parse token usage if possible — accumulate across calls
         parsed = self._parse_usage_from_output(result.output)
@@ -367,43 +367,147 @@ class InteractiveClaudeAgent(AgentWrapper):
         )
         return result
 
-    def _extract_response(self, raw_output: str) -> str:
-        """Extract the agent's response from the raw pane output.
+    def _extract_response_from_pane(self) -> str:
+        """Extract response by re-capturing the full pane after completion.
 
-        Strips the sent prompt, prompt characters, and CLI boilerplate.
+        Uses _last_response_start_line (absolute line count captured before
+        sending) to precisely slice the response region from the pane.
+        Falls back to substring matching if the boundary is outside the
+        visible window.
         """
+        import re
         from trinity.agents.response_cleaner import ResponseCleaner
 
-        # Get lines after what we sent
-        lines = raw_output.splitlines()
-
-        # Try to find where our prompt was
-        response_lines = []
-        found_prompt = False
-
-        for line in lines:
-            # Skip lines that are part of what we sent
-            if not found_prompt:
-                # Look for the last occurrence of our sent text
-                if self._sent_text and self._sent_text[:50] in line:
-                    found_prompt = True
-                continue
-            response_lines.append(line)
-
-        if not response_lines:
-            # Fallback: return last ~100 lines (skip prompt characters)
-            response_lines = lines[-100:]
-
-        # Clean up: remove trailing prompt characters
-        import re
-
         prompt_re = re.compile(r"^[>❯$]\s*$")
+
+        # Re-capture the full pane scrollback
+        if self._pane:
+            all_lines = self._pane.capture(lines=-9999)
+        else:
+            return ""
+
+        total = len(all_lines)
+
+        # Strategy 1: Absolute line boundary
+        if self._last_response_start_line > 0 and total > self._last_response_start_line:
+            response_lines = all_lines[self._last_response_start_line:]
+
+            # Skip the prompt echo — find where sent text ends
+            if self._sent_text:
+                sent_first_line = self._sent_text.split("\n")[0][:50]
+                echo_ended = False
+                cleaned_echo = []
+                for line in response_lines:
+                    if not echo_ended:
+                        if sent_first_line in line:
+                            echo_ended = True
+                        continue
+                    cleaned_echo.append(line)
+                if cleaned_echo:
+                    response_lines = cleaned_echo
+        else:
+            # Strategy 2: Last-occurrence substring match
+            last_match = -1
+            if self._sent_text:
+                sent_first = self._sent_text.split("\n")[0][:50]
+                for i, line in enumerate(all_lines):
+                    if sent_first in line:
+                        last_match = i
+            if last_match >= 0:
+                response_lines = all_lines[last_match + 1:]
+            else:
+                # Strategy 3: Fallback — last lines
+                response_lines = all_lines[-50:]
+                logger.warning(
+                    "[%s] No prompt boundary found (%d lines), using last 50",
+                    self.name, total,
+                )
+
+        # Strip trailing prompt characters
         cleaned = []
         for line in reversed(response_lines):
             if prompt_re.match(line.strip()):
                 continue
             cleaned.append(line)
+        cleaned.reverse()
 
+        text = "\n".join(cleaned).strip()
+        text = ResponseCleaner.clean(text) if text else ""
+        return text if text else ""
+
+    def _extract_response(self, raw_output: str) -> str:
+        """Extract the agent's response from the raw pane output.
+
+        Uses three strategies in priority order:
+        1. Line-count boundary (from _last_response_start_line)
+        2. Substring match on sent text (last occurrence)
+        3. Fallback: last N lines with aggressive cleaning
+
+        Then strips trailing prompt characters and applies ResponseCleaner.
+        """
+        import re
+        from trinity.agents.response_cleaner import ResponseCleaner
+
+        lines = raw_output.splitlines()
+        total_lines = len(lines)
+
+        prompt_re = re.compile(r"^[>❯$]\s*$")
+
+        # ── Strategy 1: Line-count boundary ─────────────────────────
+        # _last_response_start_line was set before we sent the prompt.
+        # Any lines after that count are the response (after prompt echo).
+        if self._last_response_start_line > 0 and total_lines > self._last_response_start_line:
+            # The prompt echo + response start from _last_response_start_line onward
+            # Skip lines that are part of the prompt echo (matched by sent text)
+            candidate_lines = lines[self._last_response_start_line:]
+
+            # Find where the prompt echo ends and actual response begins
+            # The echo includes our sent text, possibly wrapped across lines
+            response_lines = []
+            echo_ended = False
+
+            if self._sent_text:
+                sent_first_line = self._sent_text.split("\n")[0][:50]
+                for line in candidate_lines:
+                    if not echo_ended:
+                        # Skip echo lines until we pass the sent text
+                        if sent_first_line in line:
+                            echo_ended = True
+                        continue
+                    response_lines.append(line)
+
+            if not response_lines:
+                # Sent text wasn't found in echo — take everything after boundary
+                response_lines = candidate_lines
+        else:
+            # ── Strategy 2: Substring match (last occurrence) ───────
+            response_lines = []
+            found_prompt = False
+            last_match_idx = -1
+
+            # Find the LAST occurrence of sent text
+            if self._sent_text:
+                sent_first_line = self._sent_text.split("\n")[0][:50]
+                for i, line in enumerate(lines):
+                    if sent_first_line in line:
+                        last_match_idx = i
+
+            if last_match_idx >= 0:
+                response_lines = lines[last_match_idx + 1:]
+            else:
+                # ── Strategy 3: Fallback — last lines + heavy clean ─
+                response_lines = lines[-50:]
+                logger.warning(
+                    "[%s] No prompt boundary found in %d lines, using last 50",
+                    self.name, total_lines,
+                )
+
+        # Strip trailing prompt characters
+        cleaned = []
+        for line in reversed(response_lines):
+            if prompt_re.match(line.strip()):
+                continue
+            cleaned.append(line)
         cleaned.reverse()
 
         text = "\n".join(cleaned).strip()

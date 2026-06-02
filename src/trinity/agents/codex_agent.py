@@ -193,13 +193,17 @@ class CodexAgent(AgentWrapper):
         return None
 
     def _extract_response(self, raw_output: str) -> str:
-        """Extract response from pane output (interactive mode)."""
+        """Extract response from pane output (interactive mode).
+
+        Takes last N lines, strips prompts and CLI boilerplate.
+        """
+        import re
         from trinity.agents.response_cleaner import ResponseCleaner
 
         lines = raw_output.splitlines()
-        # Filter out prompt lines
-        import re
         prompt_re = re.compile(r"^[$>]\s*$")
+
+        # Strip prompt character lines, then take last 50
         cleaned = [l for l in lines if not prompt_re.match(l.strip())]
         text = "\n".join(cleaned[-50:]).strip() or raw_output.strip()
 

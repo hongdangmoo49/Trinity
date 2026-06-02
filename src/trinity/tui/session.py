@@ -332,18 +332,28 @@ class InteractiveSession:
             result = self._run_with_live(orchestrator, prompt)
         except KeyboardInterrupt:
             self.console.print("\n[yellow]Deliberation interrupted.[/yellow]")
+            self.tui.reset_agents()
             return
         except Exception as e:
             self.console.print(f"[red]Error: {e}[/red]")
             logger.exception("Deliberation failed")
+            self.tui.reset_agents()
+            return
+
+        # Guard: result may be None if deliberation timed out or was interrupted
+        if result is None:
+            self.console.print("[yellow]Deliberation did not complete in time.[/yellow]")
+            self.tui.reset_agents()
             return
 
         # Update TUI with result
         self.tui.set_result(result)
-        self.tui.reset_agents()
 
-        # Display results
+        # Display results BEFORE resetting (agents store full_response)
         self._display_result(result)
+
+        # Now reset agent states for next deliberation
+        self.tui.reset_agents()
 
     def _run_with_live(
         self, orchestrator: "TrinityOrchestrator", prompt: str,
@@ -439,12 +449,18 @@ class InteractiveSession:
         if error_holder[0]:
             raise error_holder[0]
 
-        return result_holder[0]  # type: ignore[return-value]
+        result = result_holder[0]
+        if result is None:
+            logger.warning("Deliberation thread completed but produced no result")
+
+        return result  # type: ignore[return-value]
 
     # ─── Display ────────────────────────────────────────────────────────
 
     def _display_result(self, result: DeliberationResult) -> None:
-        """Display deliberation result."""
+        """Display deliberation result with agent opinions."""
+        from rich.markdown import Markdown
+
         if result.has_consensus:
             self.console.print(Panel.fit(
                 f"[green bold]{result.consensus.summary}[/green bold]",
@@ -457,6 +473,25 @@ class InteractiveSession:
                 title=f"Deliberation Result ({result.rounds_completed} rounds)",
                 border_style="yellow",
             ))
+
+        # Show each agent's final opinion
+        if self.tui.agents:
+            self.console.print()
+            for name, status in self.tui.agents.items():
+                if status.state == AgentTUIState.DISABLED:
+                    continue
+                theme = get_theme(name)
+                response = status.full_response
+                if response:
+                    self.console.print(
+                        f"  [{theme.color}]{theme.icon} {name}[/{theme.color}] "
+                        f"[dim]({theme.role_label})[/dim]"
+                    )
+                    self.console.print(Panel(
+                        Markdown(response[:2000]),
+                        border_style=theme.border_style,
+                        padding=(0, 1),
+                    ))
 
         if result.tasks:
             self.console.print("\n[bold]🎯 작업 분배[/bold]")

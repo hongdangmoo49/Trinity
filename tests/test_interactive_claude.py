@@ -244,3 +244,98 @@ class TestGetContextUsage:
         usage = await agent.get_context_usage()
         assert isinstance(usage, ContextUsage)
         assert usage.total == 200_000
+
+
+class TestTokenAccumulation:
+    """Verify that token counts accumulate across calls instead of resetting."""
+
+    def test_parse_usage_returns_incremental(self, agent):
+        """_parse_usage_from_output should return incremental tokens, not reset."""
+        output = "Tokens: 150/200000"
+        result = agent._parse_usage_from_output(output)
+        assert result["used"] == 150
+
+    def test_update_usage_preserves_on_zero_parse(self, agent):
+        """When parsed usage is 0, existing cumulative count must be preserved."""
+        # Pre-set some usage
+        agent._update_usage(used=500, total=200_000)
+        assert agent._context_usage.used == 500
+
+        # Simulate what send_and_wait does when no usage info found
+        parsed = agent._parse_usage_from_output("no usage info here")
+        assert parsed["used"] == 0
+        # The fix: don't call _update_usage when parsed["used"] == 0
+        # (previously this would reset to 0)
+        if parsed["used"] > 0:
+            agent._update_usage(used=agent._context_usage.used + parsed["used"])
+
+        assert agent._context_usage.used == 500
+
+    def test_update_usage_accumulates_on_nonzero_parse(self, agent):
+        """When parsed usage is nonzero, it should be added to existing count."""
+        agent._update_usage(used=100, total=200_000)
+        assert agent._context_usage.used == 100
+
+        parsed = agent._parse_usage_from_output("Tokens: 50/200000")
+        assert parsed["used"] == 50
+
+        # Simulate accumulation logic from send_and_wait
+        new_used = agent._context_usage.used + parsed["used"]
+        agent._update_usage(used=new_used, total=parsed.get("total"))
+
+        assert agent._context_usage.used == 150
+
+    @pytest.mark.asyncio
+    async def test_send_and_wait_preserves_usage_on_empty_output(
+        self, agent, mock_pane, mock_detector
+    ):
+        """send_and_wait should not reset cumulative tokens when output has no usage info."""
+        agent._started = True
+        mock_pane.capture = MagicMock(return_value=["response", "> "])
+
+        # Pre-set cumulative usage
+        agent._update_usage(used=500, total=200_000)
+
+        # Mock detector returns output with no usage info
+        mock_detector.wait_for_completion = AsyncMock(return_value=CompletionResult(
+            completed=True,
+            output="plain response with no token info\n> ",
+            detector_name="MockDetector",
+            elapsed_seconds=1.0,
+        ))
+
+        await agent.send_and_wait("test")
+
+        # Cumulative usage should still be 500, not reset to 0
+        assert agent._context_usage.used == 500
+
+    @pytest.mark.asyncio
+    async def test_send_and_wait_accumulates_tokens(
+        self, agent, mock_pane, mock_detector
+    ):
+        """send_and_wait should accumulate token counts across calls."""
+        agent._started = True
+        mock_pane.capture = MagicMock(return_value=["response", "> "])
+
+        # Pre-set cumulative usage
+        agent._update_usage(used=200, total=200_000)
+
+        # First call returns 100 tokens
+        mock_detector.wait_for_completion = AsyncMock(return_value=CompletionResult(
+            completed=True,
+            output="response\nTokens: 100/200000\n> ",
+            detector_name="MockDetector",
+            elapsed_seconds=1.0,
+        ))
+        await agent.send_and_wait("prompt 1")
+        assert agent._context_usage.used == 300  # 200 + 100
+
+        # Second call returns 50 tokens
+        mock_detector.wait_for_completion = AsyncMock(return_value=CompletionResult(
+            completed=True,
+            output="response\nTokens: 50/200000\n> ",
+            detector_name="MockDetector",
+            elapsed_seconds=1.0,
+        ))
+        await agent.send_and_wait("prompt 2")
+        assert agent._context_usage.used == 350  # 300 + 50

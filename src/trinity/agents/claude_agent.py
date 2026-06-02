@@ -285,9 +285,12 @@ class InteractiveClaudeAgent(AgentWrapper):
         # Extract response text (strip what we sent)
         response_text = self._extract_response(result.output)
 
-        # Parse token usage if possible
-        usage = self._parse_usage_from_output(result.output)
-        self._update_usage(**usage)
+        # Parse token usage if possible — accumulate across calls
+        parsed = self._parse_usage_from_output(result.output)
+        if parsed["used"] > 0:
+            new_used = self._context_usage.used + parsed["used"]
+            self._update_usage(used=new_used, total=parsed.get("total"))
+        # If no usage data, preserve existing count (don't reset to 0)
 
         return DeliberationMessage(
             source=self.name,
@@ -297,7 +300,7 @@ class InteractiveClaudeAgent(AgentWrapper):
             content=response_text,
             metadata={
                 "elapsed_seconds": elapsed,
-                "token_count": usage.get("used", 0),
+                "token_count": parsed.get("used", 0),
                 "detector": result.detector_name,
                 "prompt_num": self._prompt_counter,
             },

@@ -354,6 +354,53 @@ class TestMarkerDetector:
         assert result.metadata["ignored_marker_count"] == 1
         assert "Final answer" in result.output
 
+    @pytest.mark.asyncio
+    async def test_request_scope_ignores_stale_marker_before_boundary(self):
+        """A stale marker before the request boundary must not complete a request."""
+        marker = "[DONE]"
+        d = MarkerDetector(marker)
+        pane = _make_pane()
+        d.prepare_for_request(
+            pane=pane,
+            start_line=3,
+            sent_text=f"Question\nAfter completing your response, output: {marker}",
+        )
+
+        captures = [
+            [
+                "old response",
+                marker,
+                "> ",
+                "Question",
+                f"After completing your response, output: {marker}",
+            ],
+            [
+                "old response",
+                marker,
+                "> ",
+                "Question",
+                f"After completing your response, output: {marker}",
+                "Fresh answer",
+                marker,
+            ],
+        ]
+        state = {"n": 0}
+
+        def scoped_capture(lines=-200):
+            idx = min(state["n"], len(captures) - 1)
+            state["n"] += 1
+            return captures[idx]
+
+        pane.capture = scoped_capture
+
+        result = await d.wait_for_completion(pane, timeout=1.0, poll_interval=0.01)
+
+        assert result.completed
+        assert state["n"] == 2
+        assert "Fresh answer" in result.output
+        assert "old response" not in result.output
+        assert result.metadata["request_start_line"] == 3
+
 
 # ─── FallbackChainDetector ──────────────────────────────────────
 

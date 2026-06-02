@@ -596,6 +596,66 @@ Round 3+: "요약된 과거:\n{compressed}\n최근:\n{full}"  ← NEW!
 
 ---
 
+## Phase 8: Caveman 출력 압축 통합 — ✅ 완료
+
+### 배경
+
+[Caveman](https://github.com/JuliusBrussee/caveman)은 AI 에이전트의 출력에서 불필요한 말을 제거하여 **65-75% 토큰 절감**을 달성하는 크로스 플랫폼 플러그인. Trinity의 에이전트가 Caveman 스타일로 응답하면 토론 전체의 토큰 비용이 크게 감소.
+
+Trinity는 에이전트에 보내는 **모든 프롬프트를 완전히 제어**하므로, Caveman처럼 별도 hook을 설치할 필요 없이 프롬프트에 압축 규칙을 추가하는 것만으로 통합 가능.
+
+### 설계 결정
+
+- **기본 활성화**: `caveman_mode=True`, `caveman_intensity="full"` — init 시 질문 없이 바로 적용
+- **3단계 강도**: `lite`(미사여구만 제거) / `full`(관사/파편화/짧은동의어) / `ultra`(축약어/화살표/최대압축)
+- **이중 주입**: 역할 프롬프트에 규칙 부착 + 매 턴 per-turn reinforcement (드리프트 방지)
+- **런타임 토글**: TUI `/caveman` 명령어로 실시간 on/off/강도 변경
+
+### 구현한 것
+
+| 작업 | 파일 | 상세 |
+|------|------|------|
+| **Caveman 규칙** | `i18n.py` | `CAVEMAN_RULES` (3강도), `CAVEMAN_REINFORCEMENT` (per-turn), `get_agent_prompt()`, `localized_roles_with_caveman()` |
+| **설정 필드** | `config.py` | `caveman_mode: bool = True`, `caveman_intensity: str = "full"`, TOML `[context]` 섹션에 저장 |
+| **Per-turn 강화** | `deliberation/protocol.py` | `_append_caveman()` — 매 라운드 프롬프트에 압축 리마인더 추가 |
+| **설정 전달** | `orchestrator.py` | `TrinityConfig.caveman_*` → `DeliberationProtocol(caveman_mode=, caveman_intensity=)` |
+| **마법사 연동** | `setup/wizard.py` | `localized_roles_with_caveman()`로 caveman 포함 역할 프롬프트 사용 |
+| **TUI 명령어** | `tui/session.py` | `/caveman [on\|off\|lite\|full\|ultra]` — 런타임 실시간 토글 |
+| **TUI 뱃지** | `tui/app.py` | 헤더에 `🦴 CAVEMAN:FULL` 상태 뱃지 표시 |
+
+### 프롬프트 주입 흐름
+
+```
+Agent Role Prompt (세션 시작 시 1회):
+  "You are the Architect. You design systems..."
+
+  + [Output Style] Drop articles (a, an, the), filler, hedging...   ← Caveman 규칙
+
+Round Prompt (매 턴):
+  "Previous round opinions: ..."
+
+  + [Caveman: respond in compressed style. No articles, no filler...]  ← Per-turn 강화
+```
+
+### TOML 설정
+
+```toml
+[context]
+caveman_mode = true
+caveman_intensity = "full"    # lite | full | ultra
+```
+
+### 검증 완료
+
+- [x] 기본값 `caveman_mode=True` + `caveman_intensity="full"` 동작 확인
+- [x] 역할 프롬프트에 `[Output Style]` 규칙 자동 부착 확인
+- [x] `_build_round_prompt()`에 per-turn 강화 추가 확인
+- [x] `/caveman` TUI 명령어 on/off/강도 변경 동작
+- [x] 기존 671 테스트 전부 통과 — 회귀 없음
+- [x] `pip install trinity-agent==0.6.0` 배포 완료
+
+---
+
 ## Phase 7B: 토큰 최적화 — 정리, 추정, 인터랙티브 카운팅 — ✅ 완료
 
 ### 목표
@@ -659,4 +719,4 @@ Phase 7C  ✅ 토큰 사용량 분석/예측 (완료) → 670 테스트 통과
 - **구현 계획**: `docs/plans/2026-06-02-prompt-compression.md`
 
 *작성일: 2026-06-01*
-*갱신일: 2026-06-02 — Phase 7C 토큰 분석/예측 완료, 670 테스트, v0.5.0*
+*갱신일: 2026-06-02 — Phase 8 Caveman 통합 완료, 671 테스트, v0.6.0*

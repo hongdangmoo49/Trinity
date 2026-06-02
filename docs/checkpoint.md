@@ -784,4 +784,4 @@ Phase 9   ✅ TUI/UX 대수선 (완료) → docs/test-results/phase-9-T.md
 - **Phase 9 설계**: `docs/plans/2026-06-02-tui-overhaul.md`
 
 *작성일: 2026-06-01*
-*갱신일: 2026-06-02 — Phase 9 TUI/UX 대수선 완료, 691 테스트*
+*갱신일: 2026-06-02 — Phase 9 TUI/UX 대수선 완료, 691 테스트, v0.6.1*

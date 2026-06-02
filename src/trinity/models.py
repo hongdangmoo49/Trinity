@@ -29,6 +29,14 @@ class Provider(str, Enum):
     GEMINI_CLI = "gemini-cli"
 
 
+class TaskIntent(str, Enum):
+    """Whether a task plan is design-only or intended for later execution."""
+
+    PLAN = "plan"
+    DESIGN_ONLY = "design_only"
+    EXECUTION = "execution"
+
+
 @dataclass
 class AgentSpec:
     """Configuration for a single agent."""
@@ -121,11 +129,18 @@ class ConsensusResult:
 
 @dataclass
 class TaskAssignment:
-    """A task assigned to a specific agent."""
+    """A planned task assigned to a specific agent."""
 
     agent_name: str
     task_description: str
     priority: int = 0  # higher = more important
+    intent: TaskIntent = TaskIntent.PLAN
+    requires_execution: bool = False
+
+    @property
+    def design_only(self) -> bool:
+        """Return True when this task should stay in planning/design mode."""
+        return self.intent == TaskIntent.DESIGN_ONLY
 
 
 @dataclass

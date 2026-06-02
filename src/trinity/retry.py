@@ -49,7 +49,7 @@ class RetryConfig:
         delay = min(self.base_delay * (self.backoff_factor ** attempt), self.max_delay)
         if self.jitter:
             delay *= random.uniform(0.75, 1.25)
-        return delay
+        return min(delay, self.max_delay)
 
     def should_retry(
         self,

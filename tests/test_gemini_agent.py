@@ -1,9 +1,10 @@
 """Tests for trinity.agents.gemini_agent — GeminiAgent."""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from trinity.agents.gemini_agent import GeminiAgent, COMPLETION_MARKER
+from trinity.completion.base import CompletionResult
 from trinity.models import AgentSpec, ContextUsage, MessageRole, Provider
 
 
@@ -87,6 +88,41 @@ class TestGeminiSendAndWait:
             msg = await agent.send_and_wait("test")
 
         assert "Error" in msg.content
+
+    @pytest.mark.asyncio
+    async def test_interactive_mode_extracts_after_pane_boundary(self, gemini_spec):
+        pane = MagicMock()
+        pane.is_alive.return_value = True
+        detector = AsyncMock()
+        detector.wait_for_completion.return_value = CompletionResult(
+            completed=True,
+            output=f"Processing...\n{COMPLETION_MARKER}\n> ",
+            detector_name="mock",
+        )
+        agent = GeminiAgent(gemini_spec, pane=pane, detector=detector)
+
+        await agent.start(initial_prompt="Welcome.")
+        sent_prompt = agent._build_prompt("Review tests.")
+        before_lines = ["gemini ready", "> "]
+        after_lines = (
+            before_lines
+            + sent_prompt.splitlines()
+            + [
+                "Processing...",
+                "Prefer pytest fixtures for provider extraction tests.",
+                COMPLETION_MARKER,
+                "> ",
+            ]
+        )
+        pane.capture.side_effect = [before_lines, after_lines]
+
+        msg = await agent.send_and_wait("Review tests.")
+
+        assert msg.content == "Prefer pytest fixtures for provider extraction tests."
+        assert "Review tests." not in msg.content
+        assert "Processing" not in msg.content
+        assert COMPLETION_MARKER not in msg.content
+        assert ">" not in msg.content
 
 
 class TestGeminiBuildPrompt:

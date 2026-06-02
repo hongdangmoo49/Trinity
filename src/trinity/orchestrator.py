@@ -4,16 +4,13 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from trinity.agents.base import AgentWrapper
-from trinity.agents.claude_agent import InteractiveClaudeAgent, PrintModeClaudeAgent
 from trinity.agents.factory import AgentFactory
-from trinity.completion.base import FallbackChainDetector
-from trinity.completion.hook import HookDetector
-from trinity.completion.idle import IdleDetector
-from trinity.completion.prompt import PromptReturnDetector
 from trinity.config import TrinityConfig
+from trinity.context.analytics import analytics_history_path
 from trinity.context.monitor import ContextMonitor
 from trinity.context.rotator import SessionRotator
 from trinity.context.shared import SharedContextEngine
@@ -21,10 +18,23 @@ from trinity.deliberation.consensus import ConsensusEngine
 from trinity.deliberation.distributor import TaskDistributor
 from trinity.deliberation.protocol import DeliberationProtocol
 from trinity.health.checker import HealthChecker
-from trinity.models import DeliberationResult, Provider
+from trinity.models import AgentSpec, DeliberationResult
 from trinity.tmux.session import TmuxSessionManager
+from trinity.workspace.isolation import WorkspaceIsolation
+from trinity.workspace.managed_home import ManagedHome
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class AgentLaunchContext:
+    """Prepared launch paths for a single active agent."""
+
+    agent_name: str
+    cwd: Path
+    env_overrides: dict[str, str] = field(default_factory=dict)
+    managed_home: Path | None = None
+    workspace_path: Path | None = None
 
 
 class TrinityOrchestrator:
@@ -40,6 +50,9 @@ class TrinityOrchestrator:
         self.context_monitor: ContextMonitor | None = None
         self.session_rotator: SessionRotator | None = None
         self.health_checker: HealthChecker | None = None
+        self.managed_home: ManagedHome | None = None
+        self.workspace_isolation: WorkspaceIsolation | None = None
+        self.agent_launch_contexts: dict[str, AgentLaunchContext] = {}
         self._event_bus = None
 
     def set_event_bus(self, bus) -> None:
@@ -61,6 +74,8 @@ class TrinityOrchestrator:
         (state_dir / "agents").mkdir(exist_ok=True)
         (state_dir / "history").mkdir(exist_ok=True)
         (state_dir / "logs").mkdir(exist_ok=True)
+        active_agents = self.config.active_agents
+        self._prepare_agent_launch_contexts(active_agents, state_dir)
 
         # Create shared context engine
         self.shared = SharedContextEngine(
@@ -69,9 +84,9 @@ class TrinityOrchestrator:
         )
 
         if self.interactive:
-            self._init_interactive_mode(state_dir)
+            self._init_interactive_mode(state_dir, active_agents)
         else:
-            self._init_print_mode()
+            self._init_print_mode(active_agents)
 
         if not self.agents:
             raise ValueError(
@@ -97,6 +112,7 @@ class TrinityOrchestrator:
             caveman_mode=self.config.caveman_mode,
             caveman_intensity=self.config.caveman_intensity,
             lang=self.config.lang,
+            analytics_path=analytics_history_path(state_dir),
         )
 
         # Create context monitor and session rotator
@@ -116,16 +132,78 @@ class TrinityOrchestrator:
             check_interval=self.config.health_check_interval_seconds,
         )
 
-    def _init_print_mode(self) -> None:
+    def _prepare_agent_launch_contexts(
+        self, active_agents: dict[str, AgentSpec], state_dir: Path
+    ) -> None:
+        """Prepare per-agent cwd/env metadata before wrappers are created."""
+        self.managed_home = ManagedHome(state_dir=state_dir)
+        self.agent_launch_contexts = {}
+
+        needs_worktree = any(
+            spec.workspace_mode == "git-worktree" for spec in active_agents.values()
+        )
+        self.workspace_isolation = (
+            WorkspaceIsolation(
+                project_root=self.config.project_dir,
+                state_dir=state_dir / "workspace",
+            )
+            if needs_worktree
+            else None
+        )
+
+        for name, spec in active_agents.items():
+            provider_name = getattr(spec.provider, "value", str(spec.provider))
+            managed_home = self.managed_home.setup(name, provider=provider_name)
+            env_overrides = self.managed_home.get_env_overrides(name)
+
+            cwd = self.config.project_dir.resolve()
+            workspace_path: Path | None = None
+            if spec.workspace_mode == "git-worktree":
+                if self.workspace_isolation is None:
+                    raise RuntimeError("Workspace isolation was not initialized")
+                workspace_path = self.workspace_isolation.create(name)
+                cwd = workspace_path
+            elif spec.workspace_mode != "inplace":
+                raise ValueError(
+                    f"Unsupported workspace_mode for agent '{name}': "
+                    f"{spec.workspace_mode!r}"
+                )
+
+            self.agent_launch_contexts[name] = AgentLaunchContext(
+                agent_name=name,
+                cwd=cwd,
+                env_overrides=env_overrides,
+                managed_home=managed_home,
+                workspace_path=workspace_path,
+            )
+
+    def get_agent_launch_context(self, agent_name: str) -> AgentLaunchContext | None:
+        """Return prepared launch metadata for an agent, initializing if needed."""
+        self._ensure_initialized()
+        return self.agent_launch_contexts.get(agent_name)
+
+    def get_agent_env_overrides(self, agent_name: str) -> dict[str, str]:
+        """Return a copy of env overrides prepared for an agent launch."""
+        context = self.get_agent_launch_context(agent_name)
+        return dict(context.env_overrides) if context else {}
+
+    def get_agent_cwd(self, agent_name: str) -> Path | None:
+        """Return the prepared launch cwd for an agent."""
+        context = self.get_agent_launch_context(agent_name)
+        return context.cwd if context else None
+
+    def _init_print_mode(self, active_agents: dict[str, AgentSpec] | None = None) -> None:
         """Initialize agents in print mode (Phase 1 — subprocess-based)."""
-        for name, spec in self.config.active_agents.items():
+        for name, spec in (active_agents or self.config.active_agents).items():
             agent = self._create_print_agent(spec)
             self.agents[name] = agent
             logger.info(f"Created agent (print mode): {agent}")
 
-    def _init_interactive_mode(self, state_dir: Path) -> None:
+    def _init_interactive_mode(
+        self, state_dir: Path, active_agents: dict[str, AgentSpec] | None = None
+    ) -> None:
         """Initialize agents in interactive tmux mode (Phase 2)."""
-        active_agents = self.config.active_agents
+        active_agents = active_agents or self.config.active_agents
 
         # Create tmux session with panes for each agent
         self.tmux_manager = TmuxSessionManager(
@@ -155,14 +233,6 @@ class TrinityOrchestrator:
             )
             self.agents[name] = agent
             logger.info(f"Created agent (interactive): {agent}")
-
-    def _create_detector_chain(self, signal_path: Path) -> FallbackChainDetector:
-        """Create a default fallback chain: Hook → PromptReturn → Idle."""
-        return FallbackChainDetector([
-            HookDetector(signal_path=signal_path),
-            PromptReturnDetector(),
-            IdleDetector(idle_timeout=10.0),
-        ])
 
     def _create_print_agent(self, spec) -> AgentWrapper:
         """Factory: create a print-mode agent using AgentFactory."""

@@ -11,7 +11,7 @@ from trinity.agents.codex_agent import CodexAgent
 from trinity.agents.gemini_agent import GeminiAgent
 from trinity.completion.base import CompletionDetector, FallbackChainDetector
 from trinity.completion.hook import HookDetector
-from trinity.completion.idle import IdleDetector
+from trinity.completion.marker import MarkerDetector
 from trinity.completion.prompt import PromptReturnDetector
 from trinity.models import AgentSpec, Provider
 from trinity.tmux.pane import TmuxPane
@@ -98,29 +98,28 @@ class AgentFactory:
     def create_detector_chain(signal_path: Path, provider: Provider) -> FallbackChainDetector:
         """Create a provider-appropriate completion detector chain.
 
-        Claude: Hook → PromptReturn → Idle (short)
-        Codex: PromptReturn → Idle (medium)
-        Gemini: Idle (long) → PromptReturn
+        Claude: Hook → PromptReturn
+        Codex: PromptReturn
+        Gemini: explicit marker → PromptReturn
         """
         if provider == Provider.CLAUDE_CODE:
             return FallbackChainDetector([
                 HookDetector(signal_path=signal_path),
                 PromptReturnDetector(),
-                IdleDetector(idle_timeout=10.0),
             ])
         elif provider == Provider.CODEX:
             return FallbackChainDetector([
                 PromptReturnDetector(prompt_patterns=[r"\$\s*$", r">\s*$"]),
-                IdleDetector(idle_timeout=15.0),
             ])
         elif provider == Provider.GEMINI_CLI:
+            from trinity.agents.gemini_agent import COMPLETION_MARKER
+
             return FallbackChainDetector([
-                IdleDetector(idle_timeout=20.0),
+                MarkerDetector(COMPLETION_MARKER),
                 PromptReturnDetector(),
             ])
         else:
-            # Default: prompt + idle
+            # Default: wait for an explicit prompt return only.
             return FallbackChainDetector([
                 PromptReturnDetector(),
-                IdleDetector(idle_timeout=15.0),
             ])

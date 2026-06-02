@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch, AsyncMock
 from trinity.completion.base import CompletionDetector, CompletionResult, FallbackChainDetector
 from trinity.completion.hook import HookDetector
 from trinity.completion.idle import IdleDetector
+from trinity.completion.marker import MarkerDetector
 from trinity.completion.prompt import PromptReturnDetector
 from trinity.tmux.pane import TmuxPane
 
@@ -244,6 +245,47 @@ class TestHookDetector:
 
         # Should timeout because mtime didn't change
         assert not result.completed
+
+
+# ─── MarkerDetector ─────────────────────────────────────────────
+
+class TestMarkerDetector:
+
+    def test_name(self):
+        d = MarkerDetector("[DONE]")
+        assert "MarkerDetector" in d.name
+        assert "[DONE]" in d.name
+
+    @pytest.mark.asyncio
+    async def test_detects_marker(self):
+        d = MarkerDetector("[DONE]")
+        pane = _make_pane()
+
+        call_count = {"n": 0}
+        def eventually_done(lines=-200):
+            call_count["n"] += 1
+            if call_count["n"] <= 2:
+                return ["thinking..."]
+            return ["final answer", "[DONE]"]
+
+        pane.capture = eventually_done
+
+        result = await d.wait_for_completion(pane, timeout=2.0, poll_interval=0.05)
+
+        assert result.completed
+        assert result.metadata["marker"] == "[DONE]"
+        assert "final answer" in result.output
+
+    @pytest.mark.asyncio
+    async def test_timeout_without_marker(self):
+        d = MarkerDetector("[DONE]")
+        pane = _make_pane()
+        pane.capture = MagicMock(return_value=["thinking..."])
+
+        result = await d.wait_for_completion(pane, timeout=0.2, poll_interval=0.05)
+
+        assert not result.completed
+        assert result.metadata["reason"] == "timeout"
 
 
 # ─── FallbackChainDetector ──────────────────────────────────────

@@ -25,6 +25,7 @@ from rich.text import Text
 
 from trinity import __version__
 from trinity.config import TrinityConfig
+from trinity.context.analytics import TokenAnalytics, analytics_history_path
 from trinity.logging import setup_logging
 from trinity.orchestrator import TrinityOrchestrator
 
@@ -503,11 +504,13 @@ def reset(keep_context: bool):
 
 @main.command()
 def analytics():
-    """Show token usage analytics for the current session."""
+    """Show persisted token usage analytics."""
     config = load_config()
-    orchestrator = TrinityOrchestrator(config)
 
-    summary = orchestrator.get_analytics()
+    token_analytics = TokenAnalytics.from_file(
+        analytics_history_path(config.effective_state_dir)
+    )
+    summary = token_analytics.summary() if token_analytics.history else None
     if not summary:
         console.print("[yellow]No analytics data available. Run a deliberation first.[/yellow]")
         return

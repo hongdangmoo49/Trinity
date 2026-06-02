@@ -23,6 +23,21 @@ class TestTokenAnalytics:
         a.record(RoundRecord(2, {"claude": 600}, 150, 3.0))
         assert len(a.history) == 2
 
+    def test_record_persists_jsonl_history(self, tmp_path):
+        history_path = tmp_path / "history" / "analytics.jsonl"
+        a = TokenAnalytics(history_path=history_path)
+
+        a.record(RoundRecord(1, {"claude": 500, "codex": 300}, 100, 2.0))
+        a.record(RoundRecord(2, {"claude": 700, "codex": 400}, 150, 3.0))
+
+        assert history_path.exists()
+        assert len(history_path.read_text(encoding="utf-8").splitlines()) == 2
+
+        loaded = TokenAnalytics.from_file(history_path)
+        assert len(loaded.history) == 2
+        assert loaded.total_session_tokens == 1900
+        assert loaded.agent_burn_rate("codex") == 350.0
+
     def test_total_session_tokens(self):
         a = TokenAnalytics()
         a.record(RoundRecord(1, {"claude": 500}, 100, 2.0))

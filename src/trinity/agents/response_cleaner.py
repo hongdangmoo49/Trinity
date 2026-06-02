@@ -12,10 +12,22 @@ own _extract_response() to remove known CLI boilerplate patterns.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import logging
 import re
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class ResponseValidationResult:
+    """Classification result for an agent response candidate."""
+
+    usable: bool
+    classification: str
+    cleaned_text: str
+    reasons: tuple[str, ...] = ()
+    raw_excerpt: str = ""
 
 
 class ResponseCleaner:
@@ -157,3 +169,276 @@ class ResponseCleaner:
             result.append(line)
             prev_blank = is_blank
         return result
+
+    @classmethod
+    def validate_opinion(cls, raw: str) -> ResponseValidationResult:
+        """Validate whether captured output is safe to write as an opinion.
+
+        This is a convenience wrapper around ResponseValidator so callers that
+        already depend on ResponseCleaner do not need a second import.
+        """
+        return ResponseValidator.validate_opinion(raw)
+
+
+class ResponseValidator:
+    """Classifies cleaned agent output before shared.md opinion writes."""
+
+    USABLE_OPINION = "usable_opinion"
+    EMPTY = "empty"
+    CLI_NOISE = "cli_noise"
+    AUTH_WAIT = "auth_wait"
+    MODEL_LOADING = "model_loading"
+    THINKING_UI = "thinking_ui"
+    PROMPT_ECHO = "prompt_echo"
+    SHARED_CONTEXT_ECHO = "shared_context_echo"
+
+    MIN_REMAINING_CHARS = 24
+    MAX_EXCERPT_CHARS = 800
+
+    AUTH_WAIT_PATTERNS: list[re.Pattern[str]] = [
+        re.compile(r"\bauth(?:entication)?\s+required\b", re.IGNORECASE),
+        re.compile(r"\bselect\s+auth\s+method\b", re.IGNORECASE),
+        re.compile(r"\blogin\s+with\s+google\b", re.IGNORECASE),
+        re.compile(r"\bsign\s+in\s+with\s+google\b", re.IGNORECASE),
+        re.compile(r"\bwaiting\s+for\s+auth(?:entication)?\b", re.IGNORECASE),
+        re.compile(r"\bopen\s+(?:the\s+)?(?:following\s+)?url\b", re.IGNORECASE),
+        re.compile(r"\benter\s+(?:the\s+)?(?:auth(?:entication)?|oauth)\s+code\b", re.IGNORECASE),
+    ]
+
+    MODEL_LOADING_PATTERNS: list[re.Pattern[str]] = [
+        re.compile(r"\bloading\s+(?:model|session)\b", re.IGNORECASE),
+        re.compile(r"\bmodel\s+loading\b", re.IGNORECASE),
+        re.compile(r"\bdownloading\s+model\b", re.IGNORECASE),
+        re.compile(r"\binitializing\s+(?:model|session|codex)\b", re.IGNORECASE),
+        re.compile(r"\bwarming\s+up\s+(?:model|session)\b", re.IGNORECASE),
+        re.compile(r"\bpreparing\s+(?:model|session|workspace)\b", re.IGNORECASE),
+    ]
+
+    THINKING_UI_PATTERNS: list[re.Pattern[str]] = [
+        re.compile(r"^\s*(?:[✦✧*•·⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s*)?thinking(?:[.\s…]|$)", re.IGNORECASE),
+        re.compile(r"\bthinking\s+for\s+\d+\s*(?:s|sec|seconds)\b", re.IGNORECASE),
+        re.compile(r"\bthought\s+for\s+\d+\s*(?:s|sec|seconds)\b", re.IGNORECASE),
+        re.compile(r"\bprocessing(?:[.\s…]|$)", re.IGNORECASE),
+        re.compile(r"\bpress\s+esc\s+to\s+(?:cancel|interrupt|stop)\b", re.IGNORECASE),
+    ]
+
+    PROMPT_ECHO_PATTERNS: list[re.Pattern[str]] = [
+        re.compile(r"Read the shared context below", re.IGNORECASE),
+        re.compile(r"User'?s request:", re.IGNORECASE),
+        re.compile(r"Share your initial opinion", re.IGNORECASE),
+        re.compile(r"State your recommendation and key reasoning", re.IGNORECASE),
+        re.compile(r"Keep your response under \d+ words", re.IGNORECASE),
+        re.compile(r"Previous round opinions:", re.IGNORECASE),
+        re.compile(r"For each other agent'?s opinion above", re.IGNORECASE),
+        re.compile(r"End your response with either", re.IGNORECASE),
+        re.compile(r"I DISAGREE with all", re.IGNORECASE),
+        re.compile(r"\[Caveman(?:\s+ULTRA)?:", re.IGNORECASE),
+    ]
+
+    SHARED_CONTEXT_PATTERNS: list[re.Pattern[str]] = [
+        re.compile(r"^# Shared Context\s*$", re.IGNORECASE),
+        re.compile(r"^## Current Goal\s*$", re.IGNORECASE),
+        re.compile(r"^## Agents\s*$", re.IGNORECASE),
+        re.compile(r"^## Round \d+ Opinions\s*$", re.IGNORECASE),
+        re.compile(r"^## Round \d+ Summary\s*$", re.IGNORECASE),
+        re.compile(r"^## Agreed Conclusion\s*$", re.IGNORECASE),
+        re.compile(r"^## Task Assignment\s*$", re.IGNORECASE),
+        re.compile(r"^## Session History\s*$", re.IGNORECASE),
+        re.compile(r"^### (?:claude|codex|gemini)\b", re.IGNORECASE),
+        re.compile(r"^\*\*(?:claude|codex|gemini)\*\*:", re.IGNORECASE),
+    ]
+
+    @classmethod
+    def validate_opinion(cls, raw: str) -> ResponseValidationResult:
+        """Classify raw agent output as usable opinion or likely CLI/prompt noise."""
+        cleaned = ResponseCleaner.clean(raw)
+        raw_excerpt = cls._excerpt(raw)
+
+        if not raw or not raw.strip():
+            return cls._invalid(
+                cls.EMPTY,
+                cleaned,
+                ("empty response",),
+                raw_excerpt,
+            )
+
+        if not cleaned or not cleaned.strip():
+            return cls._invalid(
+                cls.CLI_NOISE,
+                cleaned,
+                ("cleaner removed all captured text",),
+                raw_excerpt,
+            )
+
+        counts = {
+            cls.AUTH_WAIT: cls._count_matching_lines(raw, cls.AUTH_WAIT_PATTERNS),
+            cls.MODEL_LOADING: cls._count_matching_lines(raw, cls.MODEL_LOADING_PATTERNS),
+            cls.THINKING_UI: cls._count_matching_lines(raw, cls.THINKING_UI_PATTERNS),
+            cls.PROMPT_ECHO: cls._count_matching_lines(raw, cls.PROMPT_ECHO_PATTERNS),
+            cls.SHARED_CONTEXT_ECHO: cls._count_matching_lines(raw, cls.SHARED_CONTEXT_PATTERNS),
+            cls.CLI_NOISE: cls._count_cli_noise_lines(raw),
+        }
+        raw_nonblank_count = sum(1 for line in raw.splitlines() if line.strip())
+        nonblank_lines = [line for line in cleaned.splitlines() if line.strip()]
+        remaining_lines = [
+            line for line in nonblank_lines if not cls._is_validation_noise_line(line.strip())
+        ]
+        remaining_chars = len("\n".join(remaining_lines).strip())
+
+        state_category = cls._dominant_state_category(counts)
+        if state_category and (
+            remaining_chars < cls.MIN_REMAINING_CHARS
+            or cls._state_markers_dominate(counts[state_category], raw_nonblank_count)
+        ):
+            return cls._invalid(
+                state_category,
+                cleaned,
+                (
+                    f"matched {counts[state_category]} {state_category} marker(s)",
+                    "no substantive response remains or markers dominate captured output",
+                ),
+                raw_excerpt,
+            )
+
+        prompt_markers = counts[cls.PROMPT_ECHO]
+        shared_markers = counts[cls.SHARED_CONTEXT_ECHO]
+        if cls._is_likely_prompt_echo(prompt_markers, shared_markers, nonblank_lines, remaining_chars):
+            classification = (
+                cls.SHARED_CONTEXT_ECHO
+                if shared_markers >= prompt_markers
+                else cls.PROMPT_ECHO
+            )
+            return cls._invalid(
+                classification,
+                cleaned,
+                (
+                    f"matched {prompt_markers} prompt marker(s)",
+                    f"matched {shared_markers} shared-context marker(s)",
+                ),
+                raw_excerpt,
+            )
+
+        if cls._is_likely_cli_noise(counts[cls.CLI_NOISE], nonblank_lines, remaining_chars):
+            return cls._invalid(
+                cls.CLI_NOISE,
+                cleaned,
+                (f"matched {counts[cls.CLI_NOISE]} CLI noise marker(s)",),
+                raw_excerpt,
+            )
+
+        return ResponseValidationResult(
+            usable=True,
+            classification=cls.USABLE_OPINION,
+            cleaned_text=cleaned,
+            reasons=(),
+            raw_excerpt=raw_excerpt,
+        )
+
+    @classmethod
+    def _invalid(
+        cls,
+        classification: str,
+        cleaned_text: str,
+        reasons: tuple[str, ...],
+        raw_excerpt: str,
+    ) -> ResponseValidationResult:
+        return ResponseValidationResult(
+            usable=False,
+            classification=classification,
+            cleaned_text=cleaned_text,
+            reasons=reasons,
+            raw_excerpt=raw_excerpt,
+        )
+
+    @classmethod
+    def _dominant_state_category(cls, counts: dict[str, int]) -> str | None:
+        for category in (cls.AUTH_WAIT, cls.MODEL_LOADING, cls.THINKING_UI):
+            if counts[category] > 0:
+                return category
+        return None
+
+    @staticmethod
+    def _state_markers_dominate(marker_count: int, line_count: int) -> bool:
+        return marker_count >= 2 and marker_count / max(1, line_count) >= 0.35
+
+    @classmethod
+    def _is_likely_prompt_echo(
+        cls,
+        prompt_markers: int,
+        shared_markers: int,
+        nonblank_lines: list[str],
+        remaining_chars: int,
+    ) -> bool:
+        total_markers = prompt_markers + shared_markers
+        if total_markers == 0:
+            return False
+
+        line_count = max(1, len(nonblank_lines))
+        marker_ratio = total_markers / line_count
+
+        if prompt_markers >= 2 and remaining_chars < 160:
+            return True
+        if shared_markers >= 2 and prompt_markers >= 1:
+            return True
+        if total_markers >= 3 and marker_ratio >= 0.35:
+            return True
+        return False
+
+    @classmethod
+    def _is_likely_cli_noise(
+        cls,
+        cli_noise_lines: int,
+        nonblank_lines: list[str],
+        remaining_chars: int,
+    ) -> bool:
+        if cli_noise_lines == 0:
+            return False
+        if remaining_chars < cls.MIN_REMAINING_CHARS:
+            return True
+        return cli_noise_lines / max(1, len(nonblank_lines)) >= 0.8
+
+    @classmethod
+    def _is_validation_noise_line(cls, line: str) -> bool:
+        if ResponseCleaner._is_splash_line(line) or ResponseCleaner._is_border_line(line):
+            return True
+        for patterns in (
+            cls.AUTH_WAIT_PATTERNS,
+            cls.MODEL_LOADING_PATTERNS,
+            cls.THINKING_UI_PATTERNS,
+            cls.PROMPT_ECHO_PATTERNS,
+            cls.SHARED_CONTEXT_PATTERNS,
+        ):
+            if cls._matches_any(line, patterns):
+                return True
+        return False
+
+    @classmethod
+    def _count_matching_lines(cls, text: str, patterns: list[re.Pattern[str]]) -> int:
+        return sum(
+            1
+            for line in text.splitlines()
+            if line.strip() and cls._matches_any(line.strip(), patterns)
+        )
+
+    @classmethod
+    def _count_cli_noise_lines(cls, text: str) -> int:
+        return sum(
+            1
+            for line in text.splitlines()
+            if line.strip()
+            and (
+                ResponseCleaner._is_splash_line(line.strip())
+                or ResponseCleaner._is_border_line(line.strip())
+            )
+        )
+
+    @staticmethod
+    def _matches_any(line: str, patterns: list[re.Pattern[str]]) -> bool:
+        return any(pattern.search(line) for pattern in patterns)
+
+    @classmethod
+    def _excerpt(cls, text: str) -> str:
+        stripped = text.strip()
+        if len(stripped) <= cls.MAX_EXCERPT_CHARS:
+            return stripped
+        return stripped[: cls.MAX_EXCERPT_CHARS].rstrip() + "\n[truncated]"

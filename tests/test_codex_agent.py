@@ -121,6 +121,39 @@ class TestCodexSendAndWait:
         detector.wait_for_completion.assert_awaited_once_with(pane, timeout=120.0)
         assert msg.content == "Codex response"
 
+    @pytest.mark.asyncio
+    async def test_interactive_mode_extracts_after_pane_boundary(self, codex_spec):
+        pane = MagicMock()
+        pane.is_alive.return_value = True
+        detector = AsyncMock()
+        detector.wait_for_completion.return_value = CompletionResult(
+            completed=True,
+            output="thinking for 2s\n> ",
+            detector_name="mock",
+        )
+        agent = CodexAgent(codex_spec, pane=pane, detector=detector)
+
+        await agent.start(initial_prompt="Welcome.")
+        sent_prompt = agent._build_prompt("Implement auth.")
+        before_lines = ["codex ready", "> "]
+        after_lines = (
+            before_lines
+            + sent_prompt.splitlines()
+            + [
+                "thinking for 2s",
+                "Use JWT with rotating refresh tokens.",
+                "> ",
+            ]
+        )
+        pane.capture.side_effect = [before_lines, after_lines]
+
+        msg = await agent.send_and_wait("Implement auth.")
+
+        assert msg.content == "Use JWT with rotating refresh tokens."
+        assert "Implement auth." not in msg.content
+        assert "thinking" not in msg.content.lower()
+        assert ">" not in msg.content
+
 
 class TestCodexBuildPrompt:
     def test_with_role(self, agent):

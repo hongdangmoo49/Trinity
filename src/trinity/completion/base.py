@@ -29,7 +29,8 @@ class CompletionDetector(ABC):
     Each detector implements a specific strategy:
     - HookDetector: watches for a file signal from Claude's stop-hook
     - PromptReturnDetector: watches for the CLI prompt to reappear
-    - IdleDetector: watches for output to stop changing
+    - IdleDetector: watches for output to stop changing; useful for stall
+      diagnostics, but not a reliable completion signal for provider chains.
     """
 
     @abstractmethod
@@ -61,7 +62,8 @@ class CompletionDetector(ABC):
 class FallbackChainDetector(CompletionDetector):
     """Runs multiple detectors in priority order, returns first success.
 
-    Typical chain: HookDetector → PromptReturnDetector → IdleDetector
+    Phase 10 provider chains avoid idle-as-completion and prefer explicit
+    provider signals such as hooks, markers, or prompt return.
 
     If all detectors fail, the result has completed=False (timeout).
     """

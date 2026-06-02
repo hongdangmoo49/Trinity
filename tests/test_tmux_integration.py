@@ -139,10 +139,9 @@ class TestDetectorChain:
             agent = orch.agents["claude"]
             from trinity.completion.base import FallbackChainDetector
             assert isinstance(agent.detector, FallbackChainDetector)
-            assert len(agent.detector.detectors) == 3
+            assert len(agent.detector.detectors) == 2
             assert "Hook" in agent.detector.detectors[0].name
             assert "PromptReturn" in agent.detector.detectors[1].name
-            assert "Idle" in agent.detector.detectors[2].name
 
 
 class TestOrchestratorShutdown:

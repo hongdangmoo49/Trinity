@@ -9,7 +9,7 @@ from trinity.agents.codex_agent import CodexAgent
 from trinity.agents.factory import AgentFactory
 from trinity.agents.gemini_agent import GeminiAgent
 from trinity.completion.hook import HookDetector
-from trinity.completion.idle import IdleDetector
+from trinity.completion.marker import MarkerDetector
 from trinity.completion.prompt import PromptReturnDetector
 from trinity.models import AgentSpec, Provider
 
@@ -186,36 +186,30 @@ class TestCreateDetectorChain:
     """AgentFactory.create_detector_chain() — provider별 detector 체인."""
 
     def test_claude_chain_structure(self, signal_path):
-        """Claude: Hook → PromptReturn → Idle(10s)."""
+        """Claude: Hook → PromptReturn."""
         chain = AgentFactory.create_detector_chain(signal_path, Provider.CLAUDE_CODE)
-        assert len(chain.detectors) == 3
+        assert len(chain.detectors) == 2
         assert isinstance(chain.detectors[0], HookDetector)
         assert isinstance(chain.detectors[1], PromptReturnDetector)
-        assert isinstance(chain.detectors[2], IdleDetector)
-        assert chain.detectors[2].idle_timeout == 10.0
 
     def test_codex_chain_structure(self, signal_path):
-        """Codex: PromptReturn(custom patterns) → Idle(15s)."""
+        """Codex: PromptReturn(custom patterns)."""
         chain = AgentFactory.create_detector_chain(signal_path, Provider.CODEX)
-        assert len(chain.detectors) == 2
+        assert len(chain.detectors) == 1
         assert isinstance(chain.detectors[0], PromptReturnDetector)
-        assert isinstance(chain.detectors[1], IdleDetector)
-        assert chain.detectors[1].idle_timeout == 15.0
 
     def test_gemini_chain_structure(self, signal_path):
-        """Gemini: Idle(20s) → PromptReturn."""
+        """Gemini: Marker → PromptReturn."""
         chain = AgentFactory.create_detector_chain(signal_path, Provider.GEMINI_CLI)
         assert len(chain.detectors) == 2
-        assert isinstance(chain.detectors[0], IdleDetector)
-        assert chain.detectors[0].idle_timeout == 20.0
+        assert isinstance(chain.detectors[0], MarkerDetector)
         assert isinstance(chain.detectors[1], PromptReturnDetector)
 
     def test_unknown_provider_default_chain(self, signal_path):
-        """알 수 없는 provider는 기본 PromptReturn → Idle 체인."""
+        """알 수 없는 provider는 기본 PromptReturn 체인."""
         chain = AgentFactory.create_detector_chain(signal_path, "unknown")
-        assert len(chain.detectors) == 2
+        assert len(chain.detectors) == 1
         assert isinstance(chain.detectors[0], PromptReturnDetector)
-        assert isinstance(chain.detectors[1], IdleDetector)
 
     def test_claude_hook_signal_path(self, signal_path):
         """Claude 체인의 HookDetector가 signal_path를 정확히 사용."""

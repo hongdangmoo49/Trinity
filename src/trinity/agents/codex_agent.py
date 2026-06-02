@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -40,6 +41,8 @@ class CodexAgent(AgentWrapper):
         self._message_count = 0
         self._initial_prompt = ""
         self._session_dir: Path | None = None
+        self._last_response_start_line = 0
+        self._sent_text = ""
 
     @property
     def session_dir(self) -> Path | None:
@@ -75,12 +78,15 @@ class CodexAgent(AgentWrapper):
 
         if self._pane and self._detector:
             # Interactive mode
+            pre_lines = self._capture_pane_lines()
+            self._last_response_start_line = len(pre_lines)
+            self._sent_text = full_prompt
             self._pane.send_text_heredoc(full_prompt)
             result = await self._detector.wait_for_completion(
                 self._pane, timeout=timeout
             )
             elapsed = time.time() - start_time
-            response_text = self._extract_response(result.output)
+            response_text = self._extract_response_from_pane(result.output)
             return DeliberationMessage(
                 source=self.name, target="all", round_num=0,
                 role=MessageRole.OPINION, content=response_text,
@@ -193,20 +199,157 @@ class CodexAgent(AgentWrapper):
 
         return None
 
-    def _extract_response(self, raw_output: str) -> str:
-        """Extract response from pane output (interactive mode).
+    def _capture_pane_lines(self) -> list[str]:
+        """Capture full pane output defensively for interactive extraction."""
+        if not self._pane:
+            return []
 
-        Takes last N lines, strips prompts and CLI boilerplate.
-        """
-        import re
+        try:
+            captured = self._pane.capture(lines=-9999)
+        except Exception:
+            logger.exception("[%s] Failed to capture pane output", self.name)
+            return []
+
+        if isinstance(captured, list):
+            return [str(line) for line in captured]
+        if isinstance(captured, str):
+            return captured.splitlines()
+        return []
+
+    def _extract_response_from_pane(self, fallback_output: str = "") -> str:
+        """Re-capture the pane and extract text after this request's boundary."""
+        all_lines = self._capture_pane_lines()
+        if all_lines:
+            if (
+                self._last_response_start_line > 0
+                and len(all_lines) <= self._last_response_start_line
+                and fallback_output.strip()
+            ):
+                return self._extract_response(fallback_output)
+            return self._extract_response_from_lines(all_lines, fallback_output)
+        return self._extract_response(fallback_output)
+
+    def _extract_response(self, raw_output: str) -> str:
+        """Extract response from pane output (interactive mode)."""
+        return self._extract_response_from_lines(raw_output.splitlines(), raw_output)
+
+    def _extract_response_from_lines(
+        self, lines: list[str], fallback_output: str = ""
+    ) -> str:
+        """Slice captured lines to the current response and remove CLI echoes."""
         from trinity.agents.response_cleaner import ResponseCleaner
 
-        lines = raw_output.splitlines()
-        prompt_re = re.compile(r"^[$>]\s*$")
+        response_lines = self._slice_response_lines(lines)
+        response_lines = self._strip_sent_prompt_echo(response_lines)
+        response_lines = self._strip_cli_status_lines(response_lines)
+        response_lines = self._strip_prompt_lines(response_lines)
 
-        # Strip prompt character lines, then take last 50
-        cleaned = [l for l in lines if not prompt_re.match(l.strip())]
-        text = "\n".join(cleaned[-50:]).strip() or raw_output.strip()
+        text = "\n".join(response_lines[-50:]).strip()
+        if text:
+            cleaned = ResponseCleaner.clean(text)
+            if cleaned:
+                return cleaned
 
-        # Apply shared response cleaner
-        return ResponseCleaner.clean(text) if text else text
+        fallback = fallback_output.strip()
+        return ResponseCleaner.clean(fallback) if fallback else ""
+
+    def _slice_response_lines(self, lines: list[str]) -> list[str]:
+        total_lines = len(lines)
+
+        if (
+            self._last_response_start_line > 0
+            and total_lines > self._last_response_start_line
+        ):
+            return lines[self._last_response_start_line:]
+
+        if self._sent_text:
+            sent_lines = self._sent_lines()
+            last_match_idx = -1
+            for i, line in enumerate(lines):
+                normalized = self._normalize_echo_line(line)
+                if any(self._is_echo_match(normalized, sent) for sent in sent_lines):
+                    last_match_idx = i
+            if last_match_idx >= 0:
+                return lines[last_match_idx + 1:]
+
+        return lines[-50:]
+
+    def _strip_sent_prompt_echo(self, lines: list[str]) -> list[str]:
+        sent_lines = self._sent_lines()
+        if not sent_lines:
+            return lines
+
+        last_echo_idx = -1
+        sent_idx = 0
+        search_limit = min(len(lines), max(len(sent_lines) + 20, 50))
+
+        for i, line in enumerate(lines[:search_limit]):
+            normalized = self._normalize_echo_line(line)
+            if not normalized:
+                if last_echo_idx >= 0 and sent_idx < len(sent_lines):
+                    last_echo_idx = i
+                continue
+
+            for j in range(sent_idx, len(sent_lines)):
+                if self._is_echo_match(normalized, sent_lines[j]):
+                    last_echo_idx = i
+                    sent_idx = j + 1
+                    break
+
+            if sent_idx >= len(sent_lines):
+                return lines[i + 1:]
+
+        if last_echo_idx >= 0:
+            return lines[last_echo_idx + 1:]
+        return lines
+
+    def _strip_cli_status_lines(self, lines: list[str]) -> list[str]:
+        has_body = any(self._is_response_body_line(line) for line in lines)
+        if not has_body:
+            return lines
+        return [line for line in lines if not self._is_cli_status_line(line)]
+
+    def _strip_prompt_lines(self, lines: list[str]) -> list[str]:
+        return [line for line in lines if not self._is_prompt_line(line)]
+
+    def _sent_lines(self) -> list[str]:
+        return [
+            self._normalize_echo_line(line)
+            for line in self._sent_text.splitlines()
+            if self._normalize_echo_line(line)
+        ]
+
+    @staticmethod
+    def _normalize_echo_line(line: str) -> str:
+        return line.strip().lstrip(">❯$ ").strip()
+
+    @staticmethod
+    def _is_echo_match(line: str, sent_line: str) -> bool:
+        if not line or not sent_line:
+            return False
+        return line in sent_line or sent_line in line
+
+    @staticmethod
+    def _is_prompt_line(line: str) -> bool:
+        return bool(re.match(r"^[>$❯]\s*$", line.strip()))
+
+    def _is_response_body_line(self, line: str) -> bool:
+        stripped = line.strip()
+        return bool(
+            stripped
+            and not self._is_prompt_line(stripped)
+            and not self._is_cli_status_line(stripped)
+        )
+
+    @staticmethod
+    def _is_cli_status_line(line: str) -> bool:
+        stripped = line.strip()
+        status_patterns = (
+            r"^(?:thinking|processing|working|waiting)(?:[.\s…]|$)",
+            r"^(?:thinking|processing|working|waiting)\s+for\s+\d+",
+            r"^press\s+esc\s+to\s+(?:cancel|interrupt|stop)",
+        )
+        return any(
+            re.search(pattern, stripped, re.IGNORECASE)
+            for pattern in status_patterns
+        )

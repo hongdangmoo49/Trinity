@@ -257,11 +257,11 @@ class TestFactoryMultiProvider:
             p: AgentFactory.create_detector_chain(tmp_path / "sig.json", p)
             for p in [Provider.CLAUDE_CODE, Provider.CODEX, Provider.GEMINI_CLI]
         }
-        # Claude chain should be longest (3 detectors)
-        assert len(chains[Provider.CLAUDE_CODE].detectors) == 3
-        assert len(chains[Provider.CODEX].detectors) == 2
+        # Claude keeps hook + prompt, Codex prompt-only, Gemini marker + prompt.
+        assert len(chains[Provider.CLAUDE_CODE].detectors) == 2
+        assert len(chains[Provider.CODEX].detectors) == 1
         assert len(chains[Provider.GEMINI_CLI].detectors) == 2
 
-        # Gemini chain starts with IdleDetector, not PromptReturn
-        from trinity.completion.idle import IdleDetector
-        assert isinstance(chains[Provider.GEMINI_CLI].detectors[0], IdleDetector)
+        # Gemini chain starts with explicit marker detection, not idle.
+        from trinity.completion.marker import MarkerDetector
+        assert isinstance(chains[Provider.GEMINI_CLI].detectors[0], MarkerDetector)

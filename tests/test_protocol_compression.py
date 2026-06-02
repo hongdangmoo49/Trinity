@@ -109,6 +109,34 @@ class TestRoundPromptCompression:
         prompt = protocol._build_round_prompt(3, "test")
         assert "Compressed R1" not in prompt
 
+    def test_compressed_round_opinions_removed(self, tmp_path):
+        """After compression, original Round N Opinions section should be removed."""
+        shared = SharedContextEngine(path=tmp_path / "shared.md")
+        agent = _make_mock_agent("claude")
+        protocol = DeliberationProtocol(
+            agents={"claude": agent},
+            shared=shared,
+            max_rounds=5,
+            compression_enabled=True,
+            compression_round_threshold=2,
+        )
+
+        shared.initialize(goal="test", agent_names=["claude"])
+        shared.append_opinion("claude", 1, "Original opinion round 1. " * 30)
+        shared.append_opinion("claude", 2, "Opinion round 2.")
+
+        # Before: both sections exist
+        assert shared.read_section("Round 1 Opinions") is not None
+        assert shared.read_section("Round 2 Opinions") is not None
+
+        # Trigger compression
+        protocol._build_round_prompt(3, "test")
+
+        # After: R1 Opinions removed, R1 Summary exists, R2 Opinions preserved
+        assert shared.read_section("Round 1 Opinions") is None
+        assert shared.read_section("Round 1 Summary") is not None
+        assert shared.read_section("Round 2 Opinions") is not None
+
     def test_prompt_size_reduction(self, tmp_path):
         """Verify that compression reduces context from old rounds.
 
@@ -143,3 +171,26 @@ class TestRoundPromptCompression:
         # The compressed prompt's context portion should be smaller than
         # the full verbatim of all rounds
         assert len(prompt_compressed) < len(full_verbatim)
+
+    def test_budget_checker_integrated(self, tmp_path):
+        """Protocol should have a budget_checker attribute."""
+        shared = SharedContextEngine(path=tmp_path / "shared.md")
+        agent = _make_mock_agent("claude")
+        protocol = DeliberationProtocol(
+            agents={"claude": agent},
+            shared=shared,
+            max_rounds=5,
+        )
+
+        shared.initialize(goal="test", agent_names=["claude"])
+        agent.context_usage = ContextUsage(used=110_000, total=200_000)
+        shared.append_opinion("claude", 1, "Opinion. " * 2000)
+
+        assert protocol.budget_checker is not None
+        prompt = protocol._build_round_prompt(2, "test")
+        result = protocol.budget_checker.check(
+            prompt=prompt,
+            current_usage=agent.context_usage,
+            agent_spec=agent.spec,
+        )
+        assert result.recommendation in ("proceed", "proceed_with_caution", "rotate_first")

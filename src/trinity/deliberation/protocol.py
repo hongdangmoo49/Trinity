@@ -8,6 +8,7 @@ import time
 from typing import Callable
 
 from trinity.agents.base import AgentWrapper
+from trinity.context.budget import TokenBudgetChecker
 from trinity.context.compressor import PromptCompressor
 from trinity.context.shared import SharedContextEngine
 from trinity.deliberation.consensus import ConsensusEngine
@@ -68,6 +69,7 @@ class DeliberationProtocol:
                 max_summary_tokens=compression_max_summary_tokens,
             )
         self.compression_round_threshold = compression_round_threshold
+        self.budget_checker = TokenBudgetChecker()
 
     def _emit(self, event_type: TUIEventType, **kwargs) -> None:
         """Emit a TUI event if callback is registered."""

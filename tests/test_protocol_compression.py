@@ -194,3 +194,31 @@ class TestRoundPromptCompression:
             agent_spec=agent.spec,
         )
         assert result.recommendation in ("proceed", "proceed_with_caution", "rotate_first")
+
+    def test_analytics_recorded_after_run(self, tmp_path):
+        """Protocol should record analytics after each round."""
+        shared = SharedContextEngine(path=tmp_path / "shared.md")
+        agent = _make_mock_agent("claude", "I agree with this approach.")
+        # Override send_and_wait to include token_count in metadata
+        original_send = agent.send_and_wait
+
+        async def send_with_tokens(prompt, timeout=120.0):
+            msg = await original_send(prompt, timeout)
+            msg.metadata["token_count"] = 150
+            return msg
+
+        agent.send_and_wait = send_with_tokens
+        protocol = DeliberationProtocol(
+            agents={"claude": agent},
+            shared=shared,
+            max_rounds=3,
+        )
+        shared.initialize(goal="test", agent_names=["claude"])
+
+        import asyncio
+        result = asyncio.run(protocol.run("test question"))
+
+        assert result.rounds_completed >= 1
+        assert protocol.analytics is not None
+        assert len(protocol.analytics.history) >= 1
+        assert protocol.analytics.total_session_tokens > 0

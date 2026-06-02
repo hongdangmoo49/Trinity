@@ -8,6 +8,7 @@ import time
 from typing import Callable
 
 from trinity.agents.base import AgentWrapper
+from trinity.context.analytics import TokenAnalytics, RoundRecord
 from trinity.context.budget import TokenBudgetChecker
 from trinity.context.compressor import PromptCompressor
 from trinity.context.shared import SharedContextEngine
@@ -71,6 +72,9 @@ class DeliberationProtocol:
         self.compression_round_threshold = compression_round_threshold
         self.budget_checker = TokenBudgetChecker()
 
+        # Token usage analytics
+        self.analytics = TokenAnalytics()
+
     def _emit(self, event_type: TUIEventType, **kwargs) -> None:
         """Emit a TUI event if callback is registered."""
         if self._event_callback:
@@ -105,6 +109,19 @@ class DeliberationProtocol:
             # Write opinions to shared.md
             for name, msg in opinions.items():
                 self.shared.append_opinion(name, round_num, msg.content)
+
+            # Record token analytics for this round
+            round_agent_tokens = {name: msg.token_count for name, msg in opinions.items()}
+            round_prompt_tokens = (
+                self.compressor.estimate_tokens(round_prompt) if self.compressor
+                else len(round_prompt.split())
+            )
+            self.analytics.record(RoundRecord(
+                round_num=round_num,
+                agent_tokens=round_agent_tokens,
+                prompt_tokens=round_prompt_tokens,
+                duration_seconds=0.0,  # Per-round timing not critical here
+            ))
 
             # Update message round_num (it was set to 0 in agent)
             for name, msg in opinions.items():

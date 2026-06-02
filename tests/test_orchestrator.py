@@ -103,6 +103,126 @@ class TestTrinityOrchestratorInit:
             orch._ensure_initialized()
 
 
+class TestWorkspaceHomeIsolation:
+    """Test first-stage workspace/home launch metadata wiring."""
+
+    def test_managed_home_created_for_each_active_agent(self, tmp_path):
+        state_dir = tmp_path / ".trinity"
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=state_dir,
+            agents={
+                "claude": AgentSpec(
+                    name="claude",
+                    provider=Provider.CLAUDE_CODE,
+                    cli_command="claude",
+                    enabled=True,
+                ),
+                "codex": AgentSpec(
+                    name="codex",
+                    provider=Provider.CODEX,
+                    cli_command="codex",
+                    enabled=True,
+                ),
+                "disabled": AgentSpec(
+                    name="disabled",
+                    provider=Provider.GEMINI_CLI,
+                    cli_command="gemini",
+                    enabled=False,
+                ),
+            },
+        )
+        orch = TrinityOrchestrator(config)
+        orch._ensure_initialized()
+
+        claude_home = state_dir / "agents" / "claude" / "provider-state"
+        codex_home = state_dir / "agents" / "codex" / "provider-state"
+        disabled_home = state_dir / "agents" / "disabled" / "provider-state"
+
+        assert claude_home.exists()
+        assert (claude_home / ".claude").exists()
+        assert codex_home.exists()
+        assert (codex_home / ".codex").exists()
+        assert not disabled_home.exists()
+
+        assert set(orch.agent_launch_contexts) == {"claude", "codex"}
+        assert orch.get_agent_cwd("claude") == tmp_path.resolve()
+        assert orch.agent_launch_contexts["claude"].managed_home == claude_home
+
+    def test_env_overrides_exposed_as_copy(self, tmp_path):
+        state_dir = tmp_path / ".trinity"
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=state_dir,
+            agents={
+                "gemini": AgentSpec(
+                    name="gemini",
+                    provider=Provider.GEMINI_CLI,
+                    cli_command="gemini",
+                    enabled=True,
+                ),
+            },
+        )
+        orch = TrinityOrchestrator(config)
+        orch._ensure_initialized()
+
+        env = orch.get_agent_env_overrides("gemini")
+        expected_home = state_dir / "agents" / "gemini" / "provider-state"
+        assert env["HOME"] == str(expected_home)
+        assert env["XDG_CONFIG_HOME"] == str(expected_home / ".config")
+
+        env["HOME"] = "changed"
+        assert orch.agent_launch_contexts["gemini"].env_overrides["HOME"] == str(
+            expected_home
+        )
+
+    def test_git_worktree_workspace_mode_prepares_launch_cwd(self, tmp_path):
+        state_dir = tmp_path / ".trinity"
+        worktree_path = state_dir / "workspace" / "builder"
+        worktree_path.mkdir(parents=True)
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=state_dir,
+            agents={
+                "builder": AgentSpec(
+                    name="builder",
+                    provider=Provider.CODEX,
+                    cli_command="codex",
+                    workspace_mode="git-worktree",
+                    enabled=True,
+                ),
+                "reviewer": AgentSpec(
+                    name="reviewer",
+                    provider=Provider.CLAUDE_CODE,
+                    cli_command="claude",
+                    workspace_mode="inplace",
+                    enabled=True,
+                ),
+            },
+        )
+
+        with patch("trinity.orchestrator.WorkspaceIsolation") as MockWorkspace:
+            workspace = MockWorkspace.return_value
+            workspace.create.return_value = worktree_path
+
+            orch = TrinityOrchestrator(config)
+            orch._ensure_initialized()
+
+        MockWorkspace.assert_called_once_with(
+            project_root=tmp_path,
+            state_dir=state_dir / "workspace",
+        )
+        workspace.create.assert_called_once_with("builder")
+
+        builder_context = orch.agent_launch_contexts["builder"]
+        reviewer_context = orch.agent_launch_contexts["reviewer"]
+        assert builder_context.cwd == worktree_path
+        assert builder_context.workspace_path == worktree_path
+        assert reviewer_context.cwd == tmp_path.resolve()
+        assert reviewer_context.workspace_path is None
+        assert orch.get_agent_cwd("builder") == worktree_path
+
+
 class TestAgentFactory:
     """Test _create_print_agent dispatches to correct agent class."""
 

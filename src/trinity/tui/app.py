@@ -256,11 +256,12 @@ class TrinityTUI:
         )
 
     def build_deliberation_panel(self) -> Panel:
-        """Build the deliberation panel showing actual agent opinions.
+        """Build the deliberation panel — status-only during live updates.
 
-        This is the key visual improvement: instead of just showing
-        status icons, it displays each agent's actual opinion text
-        as it arrives in real-time.
+        During the Live refresh loop, shows only agent status indicators
+        (thinking/responded) without opinion content. This prevents garbled
+        CLI splash screens from appearing in the panel. Content is displayed
+        only in the final result after deliberation completes.
         """
         renderables: list = []
 
@@ -279,13 +280,11 @@ class TrinityTUI:
                     )
                 )
 
-                # Show each agent's opinion
+                # Show each agent's status only — NO content during live
                 for name, state in round_status.agent_states.items():
                     theme = get_theme(name)
-                    opinion_text = round_status.agent_opinions.get(name, "")
 
                     if state == AgentTUIState.RESPONDING:
-                        # Agent still thinking
                         renderables.append(
                             Text.assemble(
                                 Text("  🔄 ", style=""),
@@ -303,36 +302,15 @@ class TrinityTUI:
                                 Text(" 오류 발생", style="red"),
                             )
                         )
-                        if opinion_text:
-                            renderables.append(
-                                Text(f"     {opinion_text[:100]}", style="red dim")
+                    elif state == AgentTUIState.RESPONDED:
+                        renderables.append(
+                            Text.assemble(
+                                Text("  ✅ ", style=""),
+                                Text(f"{name}", style=f"bold {theme.color}"),
+                                Text(f" ({theme.role_label})", style="dim"),
+                                Text(" 응답 완료", style="green"),
                             )
-                    elif state == AgentTUIState.RESPONDED and opinion_text:
-                        # Agent responded — show opinion card
-                        import shutil
-
-                        term_width = shutil.get_terminal_size().columns
-                        max_opinion_chars = max(800, term_width * 8)
-
-                        # Header line: icon + name + role
-                        header = Text.assemble(
-                            Text("  ✅ ", style=""),
-                            Text(f"{name}", style=f"bold {theme.color}"),
-                            Text(f" ({theme.role_label})", style="dim"),
                         )
-                        renderables.append(header)
-
-                        # Opinion content as a styled panel with Markdown
-                        display_text = opinion_text[:max_opinion_chars]
-                        if len(opinion_text) > max_opinion_chars:
-                            display_text += "\n..."
-                        opinion_panel = Panel(
-                            Markdown(display_text),
-                            border_style=theme.border_style,
-                            padding=(0, 1),
-                        )
-                        renderables.append(opinion_panel)
-                        renderables.append(Text())  # Spacer
 
                 # Consensus status for this round
                 consensus_labels = {

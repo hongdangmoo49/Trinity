@@ -656,6 +656,68 @@ caveman_intensity = "full"    # lite | full | ultra
 
 ---
 
+## Phase 9: TUI/UX 대수선 — ✅ 완료
+
+### 목표
+
+v0.6.0 실사용에서 발견된 6가지 치명적 UX 결함을 수정하여 TUI를 프로덕션 수준으로 끌어올린다.
+
+### 배경
+
+사용자가 `uv run trinity`로 실제 질문("이더 스캔에서 고래 추적 봇 설계")을 던졌을 때,
+에이전트 응답이 CLI 스플래시 화면과 뒤섞여 알아볼 수 없었고, 합의 후 세션이 멈추며,
+방향키 입력이 깨지는 등 기본적인 인터랙션이 불가능했다.
+
+### 해결한 문제
+
+| # | 문제 | 원인 | 해결 |
+|---|------|------|------|
+| **P1** | 세션 멈춤 | `_run_with_live()`가 스레드 종료만 대기, 타임아웃 없음 | 5분 하드 리미트 + `DELIBERATION_DONE` 이벤트 즉시 종료 |
+| **P2** | 출력 왜곡 | tmux 캡처 시 CLI 스플래시/배너가 응답에 포함 | `ResponseCleaner` 정제 파이프라인 신규 추가 |
+| **P3** | 언어 미반영 | 프로토콜 라운드 프롬프트가 항상 영어 | `config.lang` → `protocol.lang` → `i18n.ROUND_PROMPTS` |
+| **P4** | 글자수 제한 | 80/500자 하드코딩 | 터미널 너비 기반 동적 계산 (최소 800자) |
+| **P5** | 테이블 깨짐 | Rich Table이 터미널 너비 초과 → 줄바꿈 | 파일럿 뷰 + 카드 레이아웃 + 간단 리스트 |
+| **P6** | 방향키 깨짐 | `Prompt.ask()` → `input()`은 라인 편집 불가 | `prompt_toolkit` 도입 (히스토리, 커서, Tab) |
+
+### 구현된 것
+
+| 컴포넌트 | 파일 | 상태 | 설명 |
+|----------|------|------|------|
+| **응답 정제기** | `src/trinity/agents/response_cleaner.py` | ✅ 신규 | CLI 스플래시/배너/패턴 블랙리스트 제거 |
+| **프롬프트 세션** | `src/trinity/tui/prompt.py` | ✅ 신규 | prompt_toolkit 기반 입력 (방향키, 히스토리, 자동완성) |
+| **에이전트 수정** | `claude_agent.py`, `codex_agent.py`, `gemini_agent.py` | ✅ 수정 | `_extract_response()`에 ResponseCleaner 적용 |
+| **설정 언어** | `src/trinity/config.py` | ✅ 수정 | `lang` 필드 추가, TOML 읽기/쓰기 |
+| **라운드 i18n** | `src/trinity/i18n.py` | ✅ 수정 | `ROUND_PROMPTS` en/ko, `get_round_prompt()` |
+| **프로토콜 현지화** | `src/trinity/deliberation/protocol.py` | ✅ 수정 | `lang` 매개변수, `_build_round_prompt()` 현지화 |
+| **오케스트레이터** | `src/trinity/orchestrator.py` | ✅ 수정 | `config.lang` → protocol 전달 |
+| **TUI 레이아웃** | `src/trinity/tui/app.py` | ✅ 수정 | 파일럿 뷰, 동적 글자수, 리스트 작업 분배 |
+| **세션 루프** | `src/trinity/tui/session.py` | ✅ 수정 | 타임아웃 가드, prompt_toolkit, 단순 결과 표시 |
+| **의존성** | `pyproject.toml` | ✅ 수정 | `prompt_toolkit>=3.0` 추가 |
+
+### 데이터 흐름 (언어)
+
+```
+trinity init → lang="ko"
+  → TrinityConfig.lang = "ko" → TOML 저장
+  → ROLE_PROMPTS["ko"] → AgentSpec.role_prompt (기존)
+
+trinity run → config.lang="ko" 로드
+  → TrinityOrchestrator → DeliberationProtocol(lang="ko")
+  → _build_round_prompt()
+    → i18n.get_round_prompt("round1_prefix", "ko", prompt=...)
+    → "아래 공유 컨텍스트를 배경으로 읽으세요.\n사용자 요청: ..."
+```
+
+### 검증 완료
+
+- [x] **691 테스트 통과** (671 → 691, 신규 20개)
+- [x] ResponseCleaner 12개 테스트 — Claude/Codex/Gemini 스플래시 제거 검증
+- [x] TrinityPromptSession 8개 테스트 — 히스토리, 완성, 예외 전파 검증
+- [x] 기존 671 테스트 전부 통과 — 회귀 없음
+- [x] 설계 문서 → `docs/plans/2026-06-02-tui-overhaul.md`
+
+---
+
 ## Phase 7B: 토큰 최적화 — 정리, 추정, 인터랙티브 카운팅 — ✅ 완료
 
 ### 목표
@@ -697,6 +759,8 @@ Phase 6-T ✅ Phase 6 테스트 (571 테스트, 87% 커버리지) → docs/test-
 Phase 7   ✅ 프롬프트 압축 (완료) → docs/test-results/phase-7-T.md
 Phase 7B  ✅ 토큰 최적화 — 정리, 추정, 인터랙티브 카운팅 (완료)
 Phase 7C  ✅ 토큰 사용량 분석/예측 (완료) → 670 테스트 통과
+Phase 8   ✅ Caveman 출력 압축 통합 (완료) → 671 테스트, v0.6.0
+Phase 9   ✅ TUI/UX 대수선 (완료) → docs/test-results/phase-9-T.md
 ```
 
 ### 테스트 Phase 공통 규칙
@@ -717,6 +781,7 @@ Phase 7C  ✅ 토큰 사용량 분석/예측 (완료) → 670 테스트 통과
 - **레포**: https://github.com/hongdangmoo49/Trinity
 - **참고 아키텍처**: `docs/reference-architecture.md`
 - **구현 계획**: `docs/plans/2026-06-02-prompt-compression.md`
+- **Phase 9 설계**: `docs/plans/2026-06-02-tui-overhaul.md`
 
 *작성일: 2026-06-01*
-*갱신일: 2026-06-02 — Phase 8 Caveman 통합 완료, 671 테스트, v0.6.0*
+*갱신일: 2026-06-02 — Phase 9 TUI/UX 대수선 완료, 691 테스트, v0.6.1*

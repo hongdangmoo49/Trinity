@@ -175,13 +175,18 @@ class GeminiAgent(AgentWrapper):
 
     def _extract_response(self, raw_output: str) -> str:
         """Extract response from pane output, stripping markers and prompts."""
+        from trinity.agents.response_cleaner import ResponseCleaner
+
         text = raw_output.replace(COMPLETION_MARKER, "")
         lines = text.splitlines()
 
         # Filter out empty trailing lines and prompt characters
         prompt_re = re.compile(r"^[$>❯]\s*$")
         cleaned = [l for l in lines if not prompt_re.match(l.strip())]
-        return "\n".join(cleaned[-50:]).strip() or raw_output.strip()
+        text = "\n".join(cleaned[-50:]).strip() or raw_output.strip()
+
+        # Apply shared response cleaner
+        return ResponseCleaner.clean(text) if text else text
 
     def _parse_usage_from_output(self, output: str) -> dict:
         """Try to extract token usage from Gemini output."""

@@ -370,8 +370,10 @@ class InteractiveClaudeAgent(AgentWrapper):
     def _extract_response(self, raw_output: str) -> str:
         """Extract the agent's response from the raw pane output.
 
-        Strips the sent prompt and any prompt characters from the output.
+        Strips the sent prompt, prompt characters, and CLI boilerplate.
         """
+        from trinity.agents.response_cleaner import ResponseCleaner
+
         # Get lines after what we sent
         lines = raw_output.splitlines()
 
@@ -393,10 +395,10 @@ class InteractiveClaudeAgent(AgentWrapper):
             response_lines = lines[-100:]
 
         # Clean up: remove trailing prompt characters
-        cleaned = []
         import re
 
         prompt_re = re.compile(r"^[>❯$]\s*$")
+        cleaned = []
         for line in reversed(response_lines):
             if prompt_re.match(line.strip()):
                 continue
@@ -405,6 +407,10 @@ class InteractiveClaudeAgent(AgentWrapper):
         cleaned.reverse()
 
         text = "\n".join(cleaned).strip()
+
+        # Apply shared response cleaner to remove CLI splash/banner noise
+        text = ResponseCleaner.clean(text) if text else text
+
         return text if text else raw_output.strip()
 
     def _parse_usage_from_output(self, output: str) -> dict:

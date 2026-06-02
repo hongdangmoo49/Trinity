@@ -56,6 +56,7 @@ class DeliberationProtocol:
         compression_max_summary_tokens: int = 200,
         caveman_mode: bool = True,
         caveman_intensity: str = "full",
+        lang: str = "en",
     ):
         self.agents = agents
         self.shared = shared
@@ -69,6 +70,7 @@ class DeliberationProtocol:
         self.compression_enabled = compression_enabled
         self.caveman_mode = caveman_mode
         self.caveman_intensity = caveman_intensity
+        self.lang = lang
         if compression_enabled:
             self.compressor = PromptCompressor(
                 max_summary_tokens=compression_max_summary_tokens,
@@ -276,17 +278,14 @@ class DeliberationProtocol:
     def _build_round_prompt(self, round_num: int, user_prompt: str) -> str:
         """Build the prompt for a specific deliberation round.
 
+        Uses localized templates from i18n.ROUND_PROMPTS when lang is set.
         For rounds >= compression_round_threshold, old rounds are compressed.
         When caveman_mode is active, appends per-turn compression reinforcement.
         """
+        from trinity.i18n import get_round_prompt
+
         if round_num == 1:
-            prompt = (
-                f"Read the shared context below for background.\n\n"
-                f"User's request: {user_prompt}\n\n"
-                f"Share your initial opinion. Be specific and concise.\n"
-                f"State your recommendation and key reasoning.\n"
-                f"Keep your response under 500 words."
-            )
+            prompt = get_round_prompt("round1_prefix", self.lang, prompt=user_prompt)
             return self._append_caveman(prompt)
 
         use_compression = (
@@ -307,14 +306,13 @@ class DeliberationProtocol:
             prev_section = self.shared.read_section(f"Round {round_num - 1} Opinions")
             prev_context = prev_section or "(previous round opinions not available)"
 
+        round2_prefix = get_round_prompt("round2_plus_prefix", self.lang)
+
         return self._append_caveman(
             f"Previous round opinions:\n\n"
             f"{prev_context}\n\n"
             f"---\n\n"
-            f"For each other agent's opinion above, state whether you AGREE or DISAGREE "
-            f"and explain why. If you disagree, propose an alternative.\n"
-            f"End your response with either 'I AGREE with [name]' or your counter-proposal.\n"
-            f"Keep your response under 300 words."
+            f"{round2_prefix}"
         )
 
     def _append_caveman(self, prompt: str) -> str:

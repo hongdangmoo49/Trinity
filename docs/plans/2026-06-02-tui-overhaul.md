@@ -1,8 +1,9 @@
 # Phase 9: TUI/UX 대수선 (Overhaul) 설계 문서
 
-> **상태**: 설계 완료 — 코드 수정 없음
+> **상태**: ✅ 구현 완료 — `phase9/tui-ux-overhaul` 브랜치, 691 테스트 통과
 > **날짜**: 2026-06-02
-> **관련 Phase**: v0.6.0 이후, v0.7.0 마일스톤
+> **관련 Phase**: v0.6.0 이후
+> **테스트 결과**: `docs/test-results/phase-9-T.md`
 
 ---
 

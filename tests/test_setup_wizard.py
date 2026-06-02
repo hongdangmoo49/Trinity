@@ -141,11 +141,57 @@ class TestSetupWizard:
             enabled=True,
         )
 
-        with patch("trinity.setup.wizard.Confirm.ask", return_value=False):
-            wizard._step_customize_roles()
+        with patch("trinity.setup.wizard.Prompt.ask", return_value="1"):
+            with patch("trinity.setup.wizard.Confirm.ask", return_value=False):
+                wizard._step_customize_roles()
 
         # Role should be unchanged
         assert wizard.selected_agents["claude"].role_prompt == "You are the Architect."
+        assert wizard.selected_agents["claude"].model == "default"
+        assert wizard.selected_agents["claude"].context_budget == 200_000
+
+    def test_step_customize_roles_selects_model_budget(self, console, mock_detector):
+        """Test model selection updates model id and context budget."""
+        wizard = SetupWizard(console=console, detector=mock_detector)
+        wizard.selected_agents["claude"] = AgentSpec(
+            name="claude",
+            provider=Provider.CLAUDE_CODE,
+            cli_command="claude",
+            role_prompt="You are the Architect.",
+            context_budget=200_000,
+            enabled=True,
+        )
+
+        # Claude option 3 is opus[1m].
+        with patch("trinity.setup.wizard.Prompt.ask", return_value="3"):
+            with patch("trinity.setup.wizard.Confirm.ask", return_value=False):
+                wizard._step_customize_roles()
+
+        assert wizard.selected_agents["claude"].model == "opus[1m]"
+        assert wizard.selected_agents["claude"].context_budget == 1_000_000
+
+    def test_step_customize_roles_custom_model_budget(self, console, mock_detector):
+        """Test custom model selection asks for model id and budget."""
+        wizard = SetupWizard(console=console, detector=mock_detector)
+        wizard.selected_agents["codex"] = AgentSpec(
+            name="codex",
+            provider=Provider.CODEX,
+            cli_command="codex",
+            role_prompt="You are the Implementer.",
+            context_budget=128_000,
+            enabled=True,
+        )
+
+        with patch(
+            "trinity.setup.wizard.Prompt.ask",
+            side_effect=["c", "my-codex-model"],
+        ):
+            with patch("trinity.setup.wizard.IntPrompt.ask", return_value=256_000):
+                with patch("trinity.setup.wizard.Confirm.ask", return_value=False):
+                    wizard._step_customize_roles()
+
+        assert wizard.selected_agents["codex"].model == "my-codex-model"
+        assert wizard.selected_agents["codex"].context_budget == 256_000
 
     def test_step_review_accept(self, console, mock_detector):
         """Test review step with acceptance."""
@@ -207,6 +253,7 @@ class TestSetupWizard:
         assert wizard.selected_agents["claude"].provider == Provider.CLAUDE_CODE
         assert wizard.selected_agents["codex"].provider == Provider.CODEX
         assert wizard.selected_agents["gemini"].provider == Provider.GEMINI_CLI
+        assert wizard.selected_agents["claude"].model == "default"
 
 
 class TestProviderAgentNames:

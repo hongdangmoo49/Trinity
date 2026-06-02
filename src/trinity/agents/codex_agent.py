@@ -60,7 +60,7 @@ class CodexAgent(AgentWrapper):
 
         if self._pane and self._detector:
             # Interactive mode: launch codex in tmux pane
-            cmd_parts = [self.spec.cli_command]
+            cmd_parts = self._command_parts()
             cmd_parts.extend(self.spec.extra_args)
             self._pane.send_text(self._shell_command(cmd_parts))
             logger.info(f"[{self.name}] Codex launched in tmux pane")
@@ -177,7 +177,7 @@ class CodexAgent(AgentWrapper):
         return "\n\n".join(parts)
 
     def _run_subprocess(self, prompt: str, timeout: float) -> dict:
-        cmd = [self.spec.cli_command, "-q", prompt]
+        cmd = self._command_parts("-q", prompt)
         cmd.extend(self.spec.extra_args)
 
         proc = subprocess.run(

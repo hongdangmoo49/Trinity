@@ -32,6 +32,12 @@ class TestCodexInit:
     def test_context_budget(self, agent):
         assert agent.context_usage.total == 128_000
 
+    def test_context_budget_uses_selected_model_budget(self, codex_spec):
+        codex_spec.model = "gpt-5.1"
+        codex_spec.context_budget = 0
+        agent = CodexAgent(codex_spec)
+        assert agent.context_usage.total == 400_000
+
     def test_not_started(self, agent):
         assert not agent._started
 
@@ -73,6 +79,20 @@ class TestCodexSendAndWait:
         assert msg.source == "codex"
         assert msg.role == MessageRole.OPINION
         assert "auth" in msg.content
+
+    def test_subprocess_command_includes_model_arg(self, codex_spec):
+        codex_spec.model = "gpt-5.1"
+        agent = CodexAgent(codex_spec)
+        proc = MagicMock()
+        proc.returncode = 0
+        proc.stdout = json.dumps({"result": "ok", "usage": {}})
+        proc.stderr = ""
+
+        with patch("trinity.agents.codex_agent.subprocess.run", return_value=proc) as run:
+            agent._run_subprocess("prompt", 120)
+
+        cmd = run.call_args.args[0]
+        assert cmd[:3] == ["codex", "--model", "gpt-5.1"]
 
     @pytest.mark.asyncio
     async def test_timeout(self, agent):

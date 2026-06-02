@@ -1,7 +1,5 @@
 """Tests for trinity.models dataclasses."""
 
-import time
-
 import pytest
 
 from trinity.models import (
@@ -12,7 +10,10 @@ from trinity.models import (
     DeliberationMessage,
     DeliberationResult,
     MessageRole,
+    model_context_budget,
     Provider,
+    provider_default_budget,
+    provider_model_choices,
     TaskAssignment,
     TaskIntent,
 )
@@ -45,6 +46,42 @@ class TestAgentSpec:
     def test_effective_context_budget_auto_gemini(self):
         spec = AgentSpec(name="gemini", provider=Provider.GEMINI_CLI, cli_command="gemini")
         assert spec.effective_context_budget == 1_000_000
+
+    def test_model_context_budget_overrides_provider_default(self):
+        spec = AgentSpec(
+            name="claude",
+            provider=Provider.CLAUDE_CODE,
+            cli_command="claude",
+            model="opus[1m]",
+        )
+        assert spec.effective_context_budget == 1_000_000
+
+    def test_explicit_context_budget_wins_over_model_budget(self):
+        spec = AgentSpec(
+            name="claude",
+            provider=Provider.CLAUDE_CODE,
+            cli_command="claude",
+            model="opus[1m]",
+            context_budget=750_000,
+        )
+        assert spec.effective_context_budget == 750_000
+
+
+class TestModelRegistry:
+    def test_provider_model_choices_include_claude_1m(self):
+        choices = provider_model_choices(Provider.CLAUDE_CODE)
+        assert any(choice.model == "opus[1m]" for choice in choices)
+
+    def test_model_context_budget_known_model(self):
+        assert model_context_budget(Provider.CODEX, "gpt-5.1") == 400_000
+
+    def test_model_context_budget_unknown_model(self):
+        assert model_context_budget(Provider.CODEX, "custom-model") is None
+
+    def test_provider_default_budget_preserves_existing_defaults(self):
+        assert provider_default_budget(Provider.CLAUDE_CODE) == 200_000
+        assert provider_default_budget(Provider.CODEX) == 128_000
+        assert provider_default_budget(Provider.GEMINI_CLI) == 1_000_000
 
 
 class TestContextUsage:

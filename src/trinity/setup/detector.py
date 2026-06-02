@@ -9,11 +9,9 @@ from __future__ import annotations
 import logging
 import shutil
 import subprocess
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any
+from dataclasses import dataclass
 
-from trinity.models import Provider
+from trinity.models import Provider, provider_default_budget
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +31,8 @@ PROVIDER_DISPLAY_NAMES: dict[Provider, str] = {
 
 # Provider → default context budget (tokens)
 PROVIDER_DEFAULT_BUDGETS: dict[Provider, int] = {
-    Provider.CLAUDE_CODE: 200_000,
-    Provider.CODEX: 128_000,
-    Provider.GEMINI_CLI: 1_000_000,
+    provider: provider_default_budget(provider)
+    for provider in Provider
 }
 
 # Provider → default role prompt

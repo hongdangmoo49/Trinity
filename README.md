@@ -13,7 +13,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/hongdangmoo49/Trinity/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/badge/PyPI-trinity--agent-blue)](https://pypi.org/project/trinity-agent/)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-yellow)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-743%20passed-brightgreen)](https://github.com/hongdangmoo49/Trinity)
+[![Tests](https://img.shields.io/badge/tests-758%20passed-brightgreen)](https://github.com/hongdangmoo49/Trinity)
 
 [English](./README.en.md) · [빠른 시작](#-빠른-시작) · [왜 Trinity인가](#-왜-trinity인가) · [작동 원리](#-작동-원리) · [TUI](#-대화형-tui) · [명령어](#-명령어) · [아키텍처](#-아키텍처)
 
@@ -205,6 +205,10 @@ Trinity는 **Rich 라이브러리 기반의 미려한 터미널 UI(TUI)**를 제
 
 `.trinity/trinity.config` 편집 (TOML 형식):
 
+`trinity init`은 각 에이전트의 모델을 선택받고, 알려진 모델이면 알맞은
+`context_budget`을 자동으로 저장합니다. `model = "default"`는 해당 CLI의 로컬
+기본 모델을 그대로 사용하며, 보수적인 provider 기본 예산을 적용합니다.
+
 ```toml
 [general]
 session_name = "trinity"
@@ -232,6 +236,8 @@ caveman_intensity = "full"
 [agents.claude]
 provider = "claude-code"
 cli_command = "claude"
+model = "opus[1m]"
+context_budget = 1000000
 role_prompt = "You are the Architect. You design systems, review code..."
 enabled = true
 extra_args = ["--dangerously-skip-permissions"]
@@ -239,12 +245,16 @@ extra_args = ["--dangerously-skip-permissions"]
 [agents.codex]
 provider = "codex"
 cli_command = "codex"
+model = "gpt-5.1"
+context_budget = 400000
 role_prompt = "You are the Implementer. You write clean, efficient code..."
 enabled = false                    # 기본값은 비활성화
 
 [agents.gemini]
 provider = "gemini-cli"
 cli_command = "gemini"
+model = "gemini-2.5-pro"
+context_budget = 1000000
 role_prompt = "You are the Reviewer. You explore alternatives..."
 enabled = false                    # 기본값은 비활성화
 ```
@@ -344,7 +354,7 @@ git clone https://github.com/hongdangmoo49/Trinity.git
 cd Trinity
 uv sync
 
-# 테스트 스위트 실행 (총 743개 테스트 케이스)
+# 테스트 스위트 실행 (총 758개 테스트 케이스)
 uv run pytest tests/ -v
 
 # 코드 커버리지 리포트와 함께 테스트 실행
@@ -367,7 +377,7 @@ uv publish --token <PYPI_TOKEN>
 | 지표 | 수치 |
 | :--- | :--- |
 | **버전** | 0.6.9 |
-| **테스트** | 743개 테스트 통과 |
+| **테스트** | 758개 테스트 통과 |
 | **커버리지** | 약 87% |
 | **소스 파일** | 50여 개 |
 | **주요 의존성 라이브러리** | `click`, `rich`, `prompt_toolkit`, `tomli` |

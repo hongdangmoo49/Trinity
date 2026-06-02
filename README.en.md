@@ -12,7 +12,7 @@ through shared context, round-based deliberation, and intelligent task distribut
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/hongdangmoo49/Trinity/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/badge/PyPI-trinity--agent-blue)](https://pypi.org/project/trinity-agent/)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-yellow)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-743%20passed-brightgreen)](https://github.com/hongdangmoo49/Trinity)
+[![Tests](https://img.shields.io/badge/tests-758%20passed-brightgreen)](https://github.com/hongdangmoo49/Trinity)
 
 [한국어](./README.md) · [Quick Start](#-quick-start) · [Why Trinity](#-why-trinity) · [How It Works](#-how-it-works) · [TUI](#-interactive-tui) · [Commands](#-commands) · [Architecture](#-architecture)
 
@@ -207,6 +207,10 @@ Inside the interactive TUI (`trinity` with no args):
 
 Edit `.trinity/trinity.config` (TOML format):
 
+`trinity init` asks which model each agent should use and stores the matching
+`context_budget` for known models. `model = "default"` keeps the local CLI's
+default model and applies Trinity's conservative provider default budget.
+
 ```toml
 [general]
 session_name = "trinity"
@@ -234,6 +238,8 @@ caveman_intensity = "full"
 [agents.claude]
 provider = "claude-code"
 cli_command = "claude"
+model = "opus[1m]"
+context_budget = 1000000
 role_prompt = "You are the Architect. You design systems, review code..."
 enabled = true
 extra_args = ["--dangerously-skip-permissions"]
@@ -241,12 +247,16 @@ extra_args = ["--dangerously-skip-permissions"]
 [agents.codex]
 provider = "codex"
 cli_command = "codex"
+model = "gpt-5.1"
+context_budget = 400000
 role_prompt = "You are the Implementer. You write clean, efficient code..."
 enabled = false                    # Disabled by default
 
 [agents.gemini]
 provider = "gemini-cli"
 cli_command = "gemini"
+model = "gemini-2.5-pro"
+context_budget = 1000000
 role_prompt = "You are the Reviewer. You explore alternatives..."
 enabled = false                    # Disabled by default
 ```
@@ -346,7 +356,7 @@ git clone https://github.com/hongdangmoo49/Trinity.git
 cd Trinity
 uv sync
 
-# Run tests (743 tests)
+# Run tests (758 tests)
 uv run pytest tests/ -v
 
 # Run with coverage
@@ -369,7 +379,7 @@ uv publish --token <PYPI_TOKEN>
 | Metric | Value |
 | :--- | :--- |
 | **Version** | 0.6.9 |
-| **Tests** | 743 passed |
+| **Tests** | 758 passed |
 | **Coverage** | ~87% |
 | **Source files** | 50+ |
 | **Dependencies** | `click`, `rich`, `prompt_toolkit`, `tomli` |

@@ -740,6 +740,28 @@ trinity run → config.lang="ko" 로드
 
 ---
 
+## Post-10: 모델 선택 기반 컨텍스트 예산 설정 — ✅ 완료
+
+### 목표
+`trinity init`에서 provider 기본 예산만 보여주던 한계를 보완하여, 사용자가 각 에이전트의 모델을 선택하면 해당 모델의 컨텍스트 예산을 config에 저장한다.
+
+### 구현한 것
+
+| 작업 | 파일 | 상세 |
+|------|------|------|
+| **모델 registry** | `src/trinity/models.py` | Claude/Codex/Gemini 모델별 context budget 메타데이터와 provider 기본 모델 정의 |
+| **AgentSpec 모델 필드** | `src/trinity/models.py`, `src/trinity/config.py` | `model` 필드 저장/로드, 알려진 모델이면 `effective_context_budget`에 반영 |
+| **CLI 모델 전달** | `src/trinity/agents/*_agent.py`, `src/trinity/agents/base.py` | `model != "default"`이면 provider 실행 명령에 `--model <model>` 자동 추가 |
+| **init 모델 선택** | `src/trinity/setup/wizard.py`, `src/trinity/i18n.py` | Step 3에서 모델 선택/직접 입력을 제공하고 선택된 budget을 표시 |
+| **문서/템플릿** | `README.md`, `README.en.md`, `templates/trinity.config.example` | `model`과 `context_budget` 예시 갱신 |
+
+### 검증 완료
+
+- [x] `uv run pytest -q` → **758 passed** (경고 1건: mock 관련 RuntimeWarning)
+- [x] 변경 파일 대상 `ruff check` 통과
+
+---
+
 ## Phase 7B: 토큰 최적화 — 정리, 추정, 인터랙티브 카운팅 — ✅ 완료
 
 ### 목표
@@ -807,4 +829,4 @@ Phase 10  🔧 Interactive Provider Reliability (진행 중) → docs/plans/2026
 - **Phase 9 설계**: `docs/plans/2026-06-02-tui-overhaul.md`
 
 *작성일: 2026-06-01*
-*갱신일: 2026-06-02 — v0.6.9 테스트 기준선 복구, 743 테스트*
+*갱신일: 2026-06-02 — 모델 선택 기반 컨텍스트 예산 설정, 758 테스트*

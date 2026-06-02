@@ -17,15 +17,19 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, IntPrompt, Prompt
 from rich.table import Table
-from rich.text import Text
 
 from trinity.i18n import Lang, get_strings, localized_roles_with_caveman
-from trinity.models import AgentSpec, Provider
+from trinity.models import (
+    AgentSpec,
+    ModelContextSpec,
+    Provider,
+    PROVIDER_DEFAULT_MODELS,
+    provider_model_choices,
+)
 from trinity.setup.detector import (
     PROVIDER_DEFAULT_ARGS,
     PROVIDER_DEFAULT_BUDGETS,
     PROVIDER_DISPLAY_NAMES,
-    PROVIDER_INSTALL_URLS,
     CLIDetectionResult,
     CLIDetector,
     get_provider_role,
@@ -194,6 +198,7 @@ class SetupWizard:
                     name=agent_name,
                     provider=d.provider,
                     cli_command=d.path.split("/")[-1].split("\\")[-1] if d.path else agent_name,
+                    model=PROVIDER_DEFAULT_MODELS.get(d.provider, "default"),
                     role_prompt=role,
                     context_budget=budget,
                     enabled=True,
@@ -224,6 +229,15 @@ class SetupWizard:
             display = PROVIDER_DISPLAY_NAMES.get(spec.provider, name)
             self.console.print(f"[bold cyan]── {display} ({name}) ──[/bold cyan]")
 
+            # Model and context budget
+            selected_model = self._ask_model_choice(spec)
+            if selected_model:
+                spec.model = selected_model.model
+                spec.context_budget = selected_model.context_budget
+                self.console.print(
+                    f"  {S.model_budget_applied.format(budget=spec.context_budget)}"
+                )
+
             # Role prompt
             current_role = spec.role_prompt
             role_preview = current_role[:60] + "..." if len(current_role) > 60 else current_role
@@ -238,7 +252,7 @@ class SetupWizard:
                 )
                 spec.role_prompt = new_role
 
-            # Context budget
+            # Context budget override
             budget = spec.effective_context_budget
             self.console.print(f"  {S.context_budget.format(budget=budget)}")
             change_budget = Confirm.ask(
@@ -253,6 +267,56 @@ class SetupWizard:
 
             self.console.print()
 
+    def _ask_model_choice(self, spec: AgentSpec) -> ModelContextSpec | None:
+        """Prompt for a provider model and return its context metadata."""
+        S = get_strings(self.lang)
+        choices = list(provider_model_choices(spec.provider))
+        if not choices:
+            return None
+
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("#", justify="right")
+        table.add_column(S.col_model, style="cyan")
+        table.add_column(S.col_budget, justify="right")
+        table.add_column(S.col_info, style="dim")
+        for idx, choice in enumerate(choices, start=1):
+            table.add_row(
+                str(idx),
+                f"{choice.display_name} ({choice.model})",
+                f"{choice.context_budget:,}",
+                choice.note,
+            )
+        table.add_row("c", S.custom_model, "-", S.custom_model_hint)
+        self.console.print(table)
+
+        current_model = spec.model or PROVIDER_DEFAULT_MODELS.get(spec.provider, "default")
+        default_idx = "1"
+        for idx, choice in enumerate(choices, start=1):
+            if choice.model == current_model:
+                default_idx = str(idx)
+                break
+
+        selected = Prompt.ask(
+            f"  {S.select_model}",
+            choices=[str(i) for i in range(1, len(choices) + 1)] + ["c"],
+            default=default_idx,
+        )
+
+        if selected == "c":
+            model_name = Prompt.ask(f"  {S.enter_model}", default=current_model)
+            budget = IntPrompt.ask(
+                f"  {S.enter_budget}",
+                default=spec.effective_context_budget,
+            )
+            return ModelContextSpec(
+                model=model_name,
+                display_name=model_name,
+                context_budget=budget,
+                note="custom",
+            )
+
+        return choices[int(selected) - 1]
+
     def _step_review(self) -> bool:
         """Step 4: Review and confirm configuration."""
         S = get_strings(self.lang)
@@ -263,13 +327,14 @@ class SetupWizard:
         table = Table(title="Agent Configuration", show_header=True, header_style="bold")
         table.add_column(S.col_agent, style="cyan")
         table.add_column(S.col_provider, style="green")
+        table.add_column(S.col_model, style="magenta")
         table.add_column(S.col_role, max_width=40)
         table.add_column(S.col_budget, justify="right")
 
         for name, spec in self.selected_agents.items():
             role_preview = spec.role_prompt[:40] + "..." if len(spec.role_prompt) > 40 else spec.role_prompt
             budget = f"{spec.effective_context_budget:,}"
-            table.add_row(name, spec.provider.value, role_preview, budget)
+            table.add_row(name, spec.provider.value, spec.model, role_preview, budget)
 
         self.console.print(table)
         self.console.print()
@@ -302,6 +367,7 @@ class SetupWizard:
                     name=name,
                     provider=provider,
                     cli_command=name,
+                    model=PROVIDER_DEFAULT_MODELS.get(provider, "default"),
                     role_prompt=role,
                     context_budget=budget,
                     enabled=False,

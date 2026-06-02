@@ -112,6 +112,7 @@ class TrinityConfig:
                 name=name,
                 provider=Provider(agent_data.get("provider", "claude-code")),
                 cli_command=agent_data.get("cli_command", name),
+                model=agent_data.get("model", "default"),
                 role_prompt=agent_data.get("role_prompt", ""),
                 role_file=(
                     Path(agent_data["role_file"])
@@ -223,6 +224,7 @@ class TrinityConfig:
                     f"[agents.{name}]",
                     f'provider = "{spec.provider.value}"',
                     f'cli_command = "{spec.cli_command}"',
+                    f'model = "{spec.model}"',
                     f"enabled = {str(spec.enabled).lower()}",
                     f'workspace_mode = "{spec.workspace_mode}"',
                     f"context_budget = {spec.context_budget}",

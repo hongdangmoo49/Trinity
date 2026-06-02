@@ -88,6 +88,17 @@ class AgentWrapper(ABC):
             kwargs["env"] = env
         return kwargs
 
+    def _model_args(self) -> list[str]:
+        """Return CLI args that pin the configured model for this agent."""
+        model = (self.spec.model or "").strip()
+        if not model or model == "default":
+            return []
+        return ["--model", model]
+
+    def _command_parts(self, *parts: str) -> list[str]:
+        """Build provider command parts with model selection applied."""
+        return [self.spec.cli_command, *self._model_args(), *parts]
+
     def _shell_command(self, args: list[str]) -> str:
         """Build a shell command with per-agent environment overrides."""
         command = " ".join(shlex.quote(str(arg)) for arg in args)

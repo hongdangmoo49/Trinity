@@ -537,6 +537,52 @@ Phase 4에서 추가된 다중 Provider 지원, 헬스체크, 워크스페이스
 
 ---
 
+## Phase 7: 프롬프트 압축 — ✅ 완료
+
+### 목표
+토론 라운드가 진행될수록 프롬프트가 선형적으로 커지는 문제를 해결. 오래된 라운드를 자동으로 압축하여 토큰 사용량을 최대 79% 절감.
+
+### 구현한 것
+
+| 작업 | 파일 | 상세 |
+|------|------|------|
+| **압축 설정** | `config.py` | `prompt_compression_enabled`, `prompt_compression_round_threshold`, `prompt_compression_max_summary_tokens` |
+| **휴리스틱 압축기** | `context/compressor.py` (신규) | `PromptCompressor`: 키워드 기반 문장 추출, 한/영 25개 키워드, CJK 토큰 추정 |
+| **압축 섹션 저장** | `context/shared.py` | `write_compressed_summary()`, `get_rounds_for_prompt()` |
+| **프로토콜 통합** | `deliberation/protocol.py` | `_build_round_prompt()` 압축 사용, `_compress_old_rounds()`, `_extract_agent_opinions()` |
+| **설정 전달** | `orchestrator.py` | TrinityConfig → DeliberationProtocol 압축 설정 와이어링 |
+
+### 작동 방식
+
+```
+Round 1: "User's request: {prompt}"                    ← 변경 없음
+Round 2: "Previous opinions:\n{Round 1 전체}"          ← 변경 없음
+Round 3+: "요약된 과거:\n{compressed}\n최근:\n{full}"  ← NEW!
+```
+
+- Round ≥ `compression_round_threshold`(기본 2)부터 오래된 라운드 자동 압축
+- 직전 라운드(N-1)는 verbatim 유지 (정확한 토론 보장)
+- 그 이전 라운드는 키워드 기반 문장 추출로 요약
+- `prompt_compression_enabled=false`로 비활성화 가능
+
+### 토큰 절감 효과 (추정)
+
+| 시나리오 | Before | After | 절감 |
+|----------|--------|-------|------|
+| Round 3 (3 에이전트) | ~3,900 tokens | ~2,100 tokens | **46%** |
+| Round 5 (3 에이전트) | ~5,800 tokens | ~2,400 tokens | **59%** |
+| Round 5 (10라운드 세션) | ~15,000 tokens | ~3,200 tokens | **79%** |
+
+### 검증 완료
+
+- [x] **TDD**: 각 Task마다 테스트 먼저 작성 → 실패 확인 → 구현
+- [x] `pytest tests/ -v` → **640 passed** (기존 622개 → 18개 추가)
+- [x] 기존 622개 테스트 전부 통과 — 회귀 없음
+- [x] 5개 커밋 (Task별 1개)
+- [x] 테스트 결과 문서: [`docs/test-results/phase-7-T.md`](test-results/phase-7-T.md)
+
+---
+
 ## 아키텍처 부채 (현재 알려진 것)
 
 | 항목 | 심각도 | 설명 | 해결 시점 |
@@ -565,6 +611,7 @@ Phase 5   ✅ 프로덕션 폴리싱 (완료)
 Phase 5-T ✅ Phase 5 테스트 (455 테스트, 90% 커버리지) → docs/test-results/phase-5-T.md
 Phase 6   ✅ 인터랙티브 설정 + TUI (완료)
 Phase 6-T ✅ Phase 6 테스트 (571 테스트, 87% 커버리지) → docs/test-results/phase-6-T.md
+Phase 7   ✅ 프롬프트 압축 (완료) → docs/test-results/phase-7-T.md
 ```
 
 ### 테스트 Phase 공통 규칙
@@ -584,7 +631,7 @@ Phase 6-T ✅ Phase 6 테스트 (571 테스트, 87% 커버리지) → docs/test-
 
 - **레포**: https://github.com/hongdangmoo49/Trinity
 - **참고 아키텍처**: `docs/reference-architecture.md`
-- **마지막 커밋**: `eefb8cb` — feat: implement Trinity v0.1.0 — Phase 1 core
+- **구현 계획**: `docs/plans/2026-06-02-prompt-compression.md`
 
 *작성일: 2026-06-01*
-*갱신일: 2026-06-01 — Phase 6/6-T 완료, 전체 로드맵 완료, 571 테스트, 87% 커버리지*
+*갱신일: 2026-06-02 — Phase 7 프롬프트 압축 완료, 640 테스트, v0.4.0*

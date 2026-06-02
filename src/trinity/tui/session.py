@@ -332,10 +332,18 @@ class InteractiveSession:
             result = self._run_with_live(orchestrator, prompt)
         except KeyboardInterrupt:
             self.console.print("\n[yellow]Deliberation interrupted.[/yellow]")
+            self.tui.reset_agents()
             return
         except Exception as e:
             self.console.print(f"[red]Error: {e}[/red]")
             logger.exception("Deliberation failed")
+            self.tui.reset_agents()
+            return
+
+        # Guard: result may be None if deliberation timed out or was interrupted
+        if result is None:
+            self.console.print("[yellow]Deliberation did not complete in time.[/yellow]")
+            self.tui.reset_agents()
             return
 
         # Update TUI with result
@@ -441,7 +449,11 @@ class InteractiveSession:
         if error_holder[0]:
             raise error_holder[0]
 
-        return result_holder[0]  # type: ignore[return-value]
+        result = result_holder[0]
+        if result is None:
+            logger.warning("Deliberation thread completed but produced no result")
+
+        return result  # type: ignore[return-value]
 
     # ─── Display ────────────────────────────────────────────────────────
 

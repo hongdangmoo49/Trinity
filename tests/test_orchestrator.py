@@ -183,6 +183,24 @@ class TestAgentFactory:
             orch._create_print_agent(spec)
 
 
+class TestCompressionWiring:
+    """Test that compression config flows from TrinityConfig to DeliberationProtocol."""
+
+    def test_orchestrator_passes_compression_config(self, tmp_path):
+        """Orchestrator should forward compression settings to DeliberationProtocol."""
+        config = TrinityConfig.default_config(project_dir=tmp_path)
+        config.prompt_compression_enabled = False
+        config.prompt_compression_round_threshold = 3
+        config.prompt_compression_max_summary_tokens = 300
+
+        orchestrator = TrinityOrchestrator(config)
+        orchestrator._ensure_initialized()
+
+        assert orchestrator.protocol.compression_enabled is False
+        assert orchestrator.protocol.compression_round_threshold == 3
+        assert orchestrator.protocol.compressor is None  # disabled
+
+
 class TestGetStatus:
     """Test get_status returns correct structure."""
 

@@ -91,6 +91,9 @@ class TrinityOrchestrator:
             round_timeout=self.config.round_timeout_seconds,
             tmux_manager=self.tmux_manager if self.interactive else None,
             event_callback=event_callback,
+            compression_enabled=self.config.prompt_compression_enabled,
+            compression_round_threshold=self.config.prompt_compression_round_threshold,
+            compression_max_summary_tokens=self.config.prompt_compression_max_summary_tokens,
         )
 
         # Create context monitor and session rotator

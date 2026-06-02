@@ -109,7 +109,7 @@ class AgentFactory:
             ])
         elif provider == Provider.CODEX:
             return FallbackChainDetector([
-                PromptReturnDetector(prompt_patterns=[r"\$\s*$", r">\s*$"]),
+                PromptReturnDetector(prompt_patterns=[r"^\s*\$\s*$", r"^\s*>\s*$"]),
             ])
         elif provider == Provider.GEMINI_CLI:
             from trinity.agents.gemini_agent import COMPLETION_MARKER

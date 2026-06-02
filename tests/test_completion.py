@@ -170,6 +170,35 @@ class TestPromptReturnDetector:
 
         assert result.completed
 
+    @pytest.mark.asyncio
+    async def test_scoped_detection_ignores_stale_prompt(self):
+        """A prompt visible before the request must not complete the request."""
+        d = PromptReturnDetector()
+        pane = _make_pane()
+        d.prepare_for_request(pane=pane, start_line=2, sent_text="Question")
+
+        captures = [
+            ["ready", "> "],
+            ["ready", "> ", "Question", "Thinking..."],
+            ["ready", "> ", "Question", "Final answer", "> "],
+        ]
+        state = {"n": 0}
+
+        def scoped_capture(lines=-5):
+            if lines == -200:
+                return captures[min(state["n"], len(captures) - 1)]
+            idx = min(state["n"], len(captures) - 1)
+            state["n"] += 1
+            return captures[idx]
+
+        pane.capture = scoped_capture
+
+        result = await d.wait_for_completion(pane, timeout=1.0, poll_interval=0.01)
+
+        assert result.completed
+        assert state["n"] == 3
+        assert "Final answer" in result.output
+
 
 # ─── HookDetector ───────────────────────────────────────────────
 
@@ -286,6 +315,46 @@ class TestMarkerDetector:
 
         assert not result.completed
         assert result.metadata["reason"] == "timeout"
+
+    @pytest.mark.asyncio
+    async def test_scoped_detection_ignores_prompt_echo_marker(self):
+        """The marker inside the echoed prompt must not signal completion."""
+        marker = "[DONE]"
+        d = MarkerDetector(marker)
+        pane = _make_pane()
+        d.prepare_for_request(
+            pane=pane,
+            start_line=2,
+            sent_text=f"Question\n\nAfter completing your response, output: {marker}",
+        )
+
+        captures = [
+            ["ready", "> ", "Question", f"After completing your response, output: {marker}"],
+            [
+                "ready",
+                "> ",
+                "Question",
+                f"After completing your response, output: {marker}",
+                "Final answer",
+                marker,
+            ],
+        ]
+        state = {"n": 0}
+
+        def scoped_capture(lines=-200):
+            idx = min(state["n"], len(captures) - 1)
+            state["n"] += 1
+            return captures[idx]
+
+        pane.capture = scoped_capture
+
+        result = await d.wait_for_completion(pane, timeout=1.0, poll_interval=0.01)
+
+        assert result.completed
+        assert state["n"] == 2
+        assert result.metadata["marker_count"] == 2
+        assert result.metadata["ignored_marker_count"] == 1
+        assert "Final answer" in result.output
 
 
 # ─── FallbackChainDetector ──────────────────────────────────────

@@ -78,6 +78,14 @@ class GeminiAgent(AgentWrapper):
             pre_lines = self._capture_pane_lines()
             self._last_response_start_line = len(pre_lines)
             self._sent_text = full_prompt
+            from trinity.completion.base import prepare_detector_for_request
+
+            prepare_detector_for_request(
+                detector=self._detector,
+                pane=self._pane,
+                start_line=self._last_response_start_line,
+                sent_text=full_prompt,
+            )
             self._pane.send_text_heredoc(full_prompt)
 
             result = await self._detector.wait_for_completion(

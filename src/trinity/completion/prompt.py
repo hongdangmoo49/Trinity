@@ -25,10 +25,10 @@ class PromptReturnDetector(CompletionDetector):
 
     # Common CLI prompt patterns
     DEFAULT_PATTERNS = [
-        r">\s*$",           # Claude Code default prompt: >
-        r"\$\s*$",          # Shell-style prompt: $
-        r"❯\s*$",           # Starship-style prompt: ❯
-        r"╭─+╮",           # Some CLI custom prompts
+        r"^\s*>\s*$",       # Claude Code default prompt: >
+        r"^\s*\$\s*$",      # Shell-style prompt: $
+        r"^\s*❯\s*$",       # Starship-style prompt: ❯
+        r"^\s*╭─+╮\s*$",    # Some CLI custom prompts
     ]
 
     def __init__(
@@ -45,10 +45,19 @@ class PromptReturnDetector(CompletionDetector):
             "|".join(f"({p})" for p in patterns),
             re.MULTILINE,
         )
+        self._start_line: int | None = None
 
     @property
     def name(self) -> str:
         return "PromptReturnDetector"
+
+    def prepare_for_request(
+        self,
+        pane: TmuxPane,
+        start_line: int = 0,
+        sent_text: str = "",
+    ) -> None:
+        self._start_line = start_line
 
     async def wait_for_completion(
         self,
@@ -70,11 +79,11 @@ class PromptReturnDetector(CompletionDetector):
                     metadata={"reason": "timeout"},
                 )
 
-            # Check last few lines for prompt pattern
-            lines = pane.capture(lines=-5)
-            tail = "\n".join(lines)
+            # Check only the current request region when a boundary is known.
+            lines = self._capture_scoped_lines(pane)
+            tail = "\n".join(lines[-5:])
 
-            if self._pattern.search(tail):
+            if tail and self._pattern.search(tail):
                 logger.debug(f"Prompt pattern detected in pane output")
                 # Capture the full response (before the prompt line)
                 full_output = "\n".join(pane.capture(lines=-200))
@@ -86,3 +95,13 @@ class PromptReturnDetector(CompletionDetector):
                 )
 
             await asyncio.sleep(poll_interval)
+
+    def _capture_scoped_lines(self, pane: TmuxPane) -> list[str]:
+        """Return pane lines relevant to the current request."""
+        if self._start_line is None:
+            return pane.capture(lines=-5)
+
+        lines = pane.capture(lines=-9999)
+        if len(lines) <= self._start_line:
+            return []
+        return lines[self._start_line:]

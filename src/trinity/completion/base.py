@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -10,6 +11,27 @@ from dataclasses import dataclass, field
 from trinity.tmux.pane import TmuxPane
 
 logger = logging.getLogger(__name__)
+
+
+def prepare_detector_for_request(
+    detector: "CompletionDetector | None",
+    pane: TmuxPane,
+    start_line: int = 0,
+    sent_text: str = "",
+) -> None:
+    """Prepare a detector when it supports request-scoped state."""
+    if detector is None:
+        return
+
+    prepare = getattr(detector, "prepare_for_request", None)
+    if not callable(prepare):
+        return
+
+    result = prepare(pane=pane, start_line=start_line, sent_text=sent_text)
+    if inspect.isawaitable(result):
+        close = getattr(result, "close", None)
+        if callable(close):
+            close()
 
 
 @dataclass
@@ -32,6 +54,20 @@ class CompletionDetector(ABC):
     - IdleDetector: watches for output to stop changing; useful for stall
       diagnostics, but not a reliable completion signal for provider chains.
     """
+
+    def prepare_for_request(
+        self,
+        pane: TmuxPane,
+        start_line: int = 0,
+        sent_text: str = "",
+    ) -> None:
+        """Prepare detector state for a single prompt/response cycle.
+
+        Most detectors are stateless. Detectors that inspect pane text can use
+        the boundary to ignore stale prompts and echoed prompt text from the
+        current request.
+        """
+        return None
 
     @abstractmethod
     async def wait_for_completion(
@@ -139,3 +175,17 @@ class FallbackChainDetector(CompletionDetector):
                 t.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             raise
+
+    def prepare_for_request(
+        self,
+        pane: TmuxPane,
+        start_line: int = 0,
+        sent_text: str = "",
+    ) -> None:
+        """Apply request boundaries to every detector in the chain."""
+        for detector in self.detectors:
+            detector.prepare_for_request(
+                pane=pane,
+                start_line=start_line,
+                sent_text=sent_text,
+            )

@@ -514,6 +514,27 @@ Phase 4에서 추가된 다중 Provider 지원, 헬스체크, 워크스페이스
 | `test_append_opinion_with_surrogates` | `append_opinion()`이 서로게이트 포함 에이전트 출력 처리 |
 | `test_sanitize_preserves_valid_utf8` | 정상 한글·이모지는 변경 없이 보존 |
 
+### init 언어 선택 기능 (i18n) — ✅ 완료
+
+**요구사항**: `trinity init` 시 언어(영어/한국어)를 선택하고, 그에 맞는 역할 프롬프트와 마법사 UI 제공.
+
+**구현**:
+- `src/trinity/i18n.py` (신규) — `Strings` 데이터클래스 + EN/KO 문자열 번들 + 역할 프롬프트
+- `src/trinity/setup/wizard.py` — Step 0 `_step_language()` 추가, 모든 하드코딩 영어 문자열 → `get_strings(self.lang)` 참조로 교체
+- `src/trinity/setup/detector.py` — `get_provider_role(provider, lang)` 함수 추가
+- `src/trinity/config.py` — `default_config(lang="en")` 매개변수 추가
+- `src/trinity/cli.py` — `_init_interactive()` 요약 패널 현지화
+
+**한국어 역할 프롬프트**:
+| 에이전트 | 한국어 역할 |
+|----------|------------|
+| claude | 당신은 아키텍트입니다. 시스템을 설계하고 코드를 리뷰하며... |
+| codex | 당신은 구현자입니다. 아키텍처 결정에 기반하여 깔끔하고 효율적인 코드를... |
+| gemini | 당신은 리뷰어입니다. 대안을 탐색하고 잠재적인 문제를 식별하며... |
+
+**테스트**: 22개 신규 테스트 (test_i18n.py), 622 passed
+**하위호환**: `--non-interactive` 모드는 영어 기본값 유지
+
 ---
 
 ## 아키텍처 부채 (현재 알려진 것)

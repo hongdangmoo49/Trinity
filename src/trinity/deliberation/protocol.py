@@ -327,6 +327,10 @@ class DeliberationProtocol:
             f"{len(round_section)} -> {len(compressed)} chars"
         )
 
+        # Remove original opinions section to prevent shared.md unbounded growth
+        self.shared.remove_section(f"Round {round_to_compress} Opinions")
+        logger.info(f"Removed original Round {round_to_compress} Opinions from shared.md")
+
     @staticmethod
     def _extract_agent_opinions(round_section: str) -> dict[str, str]:
         """Extract ### agent_name blocks from round section markdown."""

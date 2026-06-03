@@ -80,6 +80,8 @@ def test_claude_auth_and_trust_variants_are_classified():
         "Enter authorization code to continue",
         "You need to auth login before proceeding",
         "Error: requires authentication",
+        "Select login method:",
+        "Claude account with subscription",
     ):
         result = gate.classify_pane_state(
             ["Claude Code", line],
@@ -139,12 +141,13 @@ def test_gemini_auth_env_terms_and_process_variants_are_classified():
     assert result.state == ProviderState.PROCESS_DEAD
 
 
-def test_codex_default_model_banner_is_model_loading():
+def test_codex_model_loading_banner_is_model_loading():
     gate = ProviderReadinessGate()
 
     result = gate.classify_pane_state(
         [
             "Codex",
+            "model: loading   /model to change",
             "gpt-5.5 default",
             "/model to change",
             "/help for commands",
@@ -156,6 +159,44 @@ def test_codex_default_model_banner_is_model_loading():
     assert result.ready is False
     assert result.state == ProviderState.MODEL_LOADING
     assert "loading" in result.reason
+
+
+def test_codex_ready_prompt_with_default_model_is_ready():
+    gate = ProviderReadinessGate()
+
+    result = gate.classify_pane_state(
+        [
+            "Codex",
+            "model:     gpt-5.5   /model to change",
+            "Tip: Build faster with Codex.",
+            "› Run /review on my changes",
+            "gpt-5.5 default …",
+        ],
+        provider=Provider.CODEX,
+        agent_name="codex",
+    )
+
+    assert result.ready is True
+    assert result.state == ProviderState.READY
+
+
+def test_gemini_type_message_prompt_is_ready():
+    gate = ProviderReadinessGate()
+
+    result = gate.classify_pane_state(
+        [
+            "Gemini CLI v0.45.0",
+            "Signed in with Google /auth",
+            "Shift+Tab to accept edits",
+            ">   Type your message or @path/to/file",
+            "workspace (/directory)      branch      sandbox",
+        ],
+        provider=Provider.GEMINI_CLI,
+        agent_name="gemini",
+    )
+
+    assert result.ready is True
+    assert result.state == ProviderState.READY
 
 
 def test_codex_auth_and_process_variants_are_classified():
@@ -192,6 +233,7 @@ def test_ready_prompt_is_ready():
         )
         assert result.ready is True
         assert result.state == ProviderState.READY
+        assert result.action_hint == ""
 
 
 def test_cli_banner_without_prompt_is_banner_only():

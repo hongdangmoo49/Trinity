@@ -58,6 +58,7 @@ class ResponseCleaner:
         re.compile(r"built to reason through", re.IGNORECASE),
         re.compile(r"check assumptions", re.IGNORECASE),
         re.compile(r"keep going until", re.IGNORECASE),
+        re.compile(r"^[>›]?\s*\[Pasted Content \d+ chars\]\s*$", re.IGNORECASE),
         # Gemini banner / migration notice
         re.compile(r"Gemini CLI (?:now|will)", re.IGNORECASE),
         re.compile(r"stop serving requests", re.IGNORECASE),

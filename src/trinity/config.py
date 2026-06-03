@@ -36,7 +36,7 @@ class TrinityConfig:
     consensus_threshold: float = 0.6  # fraction of agents required
     round_timeout_seconds: float = 120.0
     provider_readiness_mode: str = "strict"  # "strict" | "degraded"
-    provider_readiness_timeout_seconds: float = 5.0
+    provider_readiness_timeout_seconds: float = 20.0
 
     # Context management
     context_rotate_threshold: float = 0.60
@@ -146,7 +146,7 @@ class TrinityConfig:
                 "provider_readiness_mode", "strict"
             ),
             provider_readiness_timeout_seconds=deliberation.get(
-                "provider_readiness_timeout_seconds", 5.0
+                "provider_readiness_timeout_seconds", 20.0
             ),
             context_rotate_threshold=context.get(
                 "rotate_threshold", general.get("context_rotate_threshold", 0.60)

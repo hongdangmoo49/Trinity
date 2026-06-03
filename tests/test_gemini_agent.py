@@ -240,6 +240,37 @@ class TestGeminiExtractResponse:
         assert "Gemini prompt UI" not in result
         assert COMPLETION_MARKER not in result
 
+    def test_ignores_echoed_marker_before_response(self, agent):
+        marker = f"{COMPLETION_MARKER}#1"
+        agent._completion_marker = marker
+        agent._sent_text = "\n".join(
+            [
+                "Review tests.",
+                "After completing your response, output:",
+                marker,
+            ]
+        )
+        raw = "\n".join(
+            [
+                "Review tests.",
+                "After completing your response, output:",
+                marker,
+                "────────────────────────────────────",
+                "Proposal for L2 Bridge Pathfinder.",
+                "VOTE: APPROVE_WITH_CHANGES",
+                marker,
+                "Shift+Tab to accept edits",
+                ">   Type your message or @path/to/file",
+            ]
+        )
+
+        result = agent._extract_response(raw)
+
+        assert "Proposal for L2 Bridge Pathfinder" in result
+        assert "VOTE: APPROVE_WITH_CHANGES" in result
+        assert "Shift+Tab" not in result
+        assert COMPLETION_MARKER not in result
+
     def test_handles_empty(self, agent):
         result = agent._extract_response("")
         assert isinstance(result, str)

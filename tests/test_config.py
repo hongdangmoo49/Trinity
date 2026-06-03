@@ -102,7 +102,7 @@ role_prompt = "당신은 아키텍트입니다."
     def test_provider_readiness_defaults(self):
         config = TrinityConfig.default_config()
         assert config.provider_readiness_mode == "strict"
-        assert config.provider_readiness_timeout_seconds == 5.0
+        assert config.provider_readiness_timeout_seconds == 20.0
 
     def test_load_provider_readiness_config(self, tmp_trinity_dir):
         config_path = tmp_trinity_dir / "trinity.config"

@@ -352,16 +352,23 @@ class GeminiAgent(AgentWrapper):
 
     def _truncate_at_completion_marker(self, lines: list[str]) -> list[str]:
         truncated: list[str] = []
+        saw_response_body = False
 
         for line in lines:
             match = re.search(r"\[TRINITY_DONE\](?:#\d+)?", line)
             if not match:
                 truncated.append(line)
+                if self._is_response_body_line(line):
+                    saw_response_body = True
                 continue
 
             before_marker = line[:match.start()].rstrip()
             if before_marker:
                 truncated.append(before_marker)
+                if self._is_response_body_line(before_marker):
+                    saw_response_body = True
+            if not saw_response_body:
+                continue
             return truncated
 
         return truncated
@@ -387,6 +394,10 @@ class GeminiAgent(AgentWrapper):
             self._normalize_echo_line(line)
             for line in self._sent_text.splitlines()
             if self._normalize_echo_line(line)
+            and not re.fullmatch(
+                r"\[TRINITY_DONE\](?:#\d+)?",
+                self._normalize_echo_line(line),
+            )
         ]
 
     @staticmethod

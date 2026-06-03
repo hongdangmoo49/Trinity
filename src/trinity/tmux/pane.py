@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import subprocess
+import time
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,9 @@ class TmuxPane:
                 capture_output=True,
                 timeout=10,
             )
+            # TUIs such as Codex collapse bracketed multi-line paste asynchronously.
+            # Give the input widget a moment to settle before submitting.
+            time.sleep(0.2)
             # Send Enter to submit
             subprocess.run(
                 ["tmux", "send-keys", "-t", self.pane_id, "Enter"],

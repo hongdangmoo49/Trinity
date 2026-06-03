@@ -296,6 +296,78 @@ class SharedContextEngine:
         )
         self.write(content)
 
+    # --- Workflow ledger sections (v0.7.0) ---
+
+    def write_workflow_state(
+        self,
+        session_id: str,
+        state: str,
+        current_round: int,
+        active_agents: list[str],
+    ) -> None:
+        """Write the current workflow state section."""
+        lines = [
+            f"- id: {session_id}",
+            f"- state: {state}",
+            f"- current_round: {current_round}",
+            f"- active_agents: {', '.join(active_agents)}",
+        ]
+        self.write_section("Workflow State", "\n".join(lines))
+
+    def write_decisions(self, decisions: list[dict]) -> None:
+        """Write the decisions ledger section."""
+        lines: list[str] = []
+        for d in decisions:
+            lines.append(f"### {d['id']}")
+            lines.append(f"- decided_by: {d.get('decided_by', 'unknown')}")
+            lines.append(f"- decision: {d['decision']}")
+            if d.get("rationale"):
+                lines.append(f"- rationale: {d['rationale']}")
+            lines.append("")
+        self.write_section("Decisions", "\n".join(lines))
+
+    def write_open_questions(self, questions: list[dict]) -> None:
+        """Write the open questions section."""
+        lines: list[str] = []
+        for q in questions:
+            lines.append(f"### {q['id']}")
+            lines.append(f"- status: {q.get('status', 'open')}")
+            lines.append(f"- question: {q['question']}")
+            if q.get("options"):
+                lines.append(f"- options: {', '.join(q['options'])}")
+            if q.get("recommendation"):
+                lines.append(f"- recommendation: {q['recommendation']}")
+            lines.append("")
+        self.write_section("Open Questions", "\n".join(lines))
+
+    def write_work_packages(self, packages: list[dict]) -> None:
+        """Write the work packages section."""
+        lines: list[str] = []
+        for p in packages:
+            lines.append(f"### {p['id']}")
+            lines.append(f"- owner: {p.get('owner', 'unassigned')}")
+            lines.append(f"- status: {p.get('status', 'PENDING')}")
+            lines.append(f"- objective: {p.get('objective', '')}")
+            if p.get("acceptance"):
+                for ac in p["acceptance"]:
+                    lines.append(f"  - {ac}")
+            lines.append("")
+        self.write_section("Work Packages", "\n".join(lines))
+
+    def write_task_results(self, results: list[dict]) -> None:
+        """Write task execution results."""
+        lines: list[str] = []
+        for r in results:
+            lines.append(f"### {r['package_id']} — {r['agent']}")
+            lines.append(f"- status: {r.get('status', 'unknown')}")
+            lines.append(f"- summary: {r.get('summary', '')}")
+            if r.get("files_changed"):
+                lines.append("- files changed:")
+                for f in r["files_changed"]:
+                    lines.append(f"  - {f}")
+            lines.append("")
+        self.write_section("Task Results", "\n".join(lines))
+
     # --- Private helpers ---
 
     def _parse_sections(self, content: str) -> dict[str, str]:

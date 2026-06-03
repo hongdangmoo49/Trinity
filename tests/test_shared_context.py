@@ -292,3 +292,62 @@ class TestMarkdownHeadingSanitization:
         assert section is not None
         assert "## Injected" not in section
         assert "\\# Injected" in section
+
+
+class TestWorkflowLedgerSections:
+    """Test new shared.md sections for workflow state (v0.7.0)."""
+
+    def test_write_workflow_state(self, tmp_path):
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        engine.initialize(goal="Test", agent_names=["claude"])
+        engine.write_workflow_state(
+            session_id="ws-001",
+            state="DELIBERATING",
+            current_round=2,
+            active_agents=["claude", "codex"],
+        )
+        content = engine.read()
+        assert "## Workflow State" in content
+        assert "DELIBERATING" in content
+        assert "ws-001" in content
+
+    def test_write_decisions(self, tmp_path):
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        engine.initialize(goal="Test", agent_names=["claude"])
+        engine.write_decisions([
+            {"id": "DEC-001", "decision": "Use FastAPI", "decided_by": "user"},
+        ])
+        content = engine.read()
+        assert "## Decisions" in content
+        assert "DEC-001" in content
+        assert "FastAPI" in content
+
+    def test_write_open_questions(self, tmp_path):
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        engine.initialize(goal="Test", agent_names=["claude"])
+        engine.write_open_questions([
+            {"id": "Q-001", "question": "Which DB?", "options": ["Postgres", "MySQL"]},
+        ])
+        content = engine.read()
+        assert "## Open Questions" in content
+        assert "Q-001" in content
+
+    def test_write_work_packages(self, tmp_path):
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        engine.initialize(goal="Test", agent_names=["claude"])
+        engine.write_work_packages([
+            {"id": "WP-001", "owner": "claude", "status": "PENDING", "objective": "Build API"},
+        ])
+        content = engine.read()
+        assert "## Work Packages" in content
+        assert "WP-001" in content
+
+    def test_write_task_results(self, tmp_path):
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        engine.initialize(goal="Test", agent_names=["claude"])
+        engine.write_task_results([
+            {"package_id": "WP-001", "agent": "claude", "status": "DONE", "summary": "Done"},
+        ])
+        content = engine.read()
+        assert "## Task Results" in content
+        assert "WP-001" in content

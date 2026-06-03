@@ -29,6 +29,7 @@ dependencies = [
     "prompt_toolkit>=3.0",
     "rich>=13.0",
     "tomli>=2.0; python_version < '3.11'",
+    "tomli-w>=1.2.0",
 ]
 
 [project.urls]

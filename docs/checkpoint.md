@@ -28,6 +28,7 @@
 ### 운영 문서
 
 - [v0.7.0 Workflow Guide](workflow-v0.7.0-guide.md)
+- [v0.7.0 후속 구현 후보](plans/2026-06-04-v0.7.0-follow-up-implementation-candidates.md)
 - [Provider Readiness Troubleshooting](troubleshooting-provider-readiness.md)
 - [v0.7.0 Workflow Engine 테스트 결과](test-results/v0.7.0-workflow-engine.md)
 - [v0.7.0 WSL/tmux Smoke Test Checklist](test-results/v070-smoke-checklist.md)
@@ -53,6 +54,9 @@
 - [x] WSL/tmux smoke 중 Codex pane의 과거 `model: loading` scrollback이 현재 ready prompt보다
   먼저 판정되어 continuation deliberation을 차단하는 false positive가 확인됐다.
   readiness 판정은 현재 prompt readiness를 stale loading/auth/banner scrollback보다 우선하도록 수정했다.
+- [x] 후속 구현 후보를 별도 문서로 정리했다.
+  우선순위는 실제 WSL/tmux smoke, peer review execution, lifecycle rotation 보강,
+  non-blocking question 정책, workflow repair/reset UX 순서다.
 
 ---
 

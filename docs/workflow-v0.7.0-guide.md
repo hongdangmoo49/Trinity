@@ -229,6 +229,7 @@ Execution이 모두 `done`이면 workflow는 `reviewing` 상태가 된다.
 - active agent가 1개뿐이면 self-review package를 만든다.
 
 현재 단계는 review package 계획과 persistence까지 제공한다. 실제 review prompt 실행은 후속 workflow loop에서 확장한다.
+구체적인 후속 구현 후보는 [`docs/plans/2026-06-04-v0.7.0-follow-up-implementation-candidates.md`](plans/2026-06-04-v0.7.0-follow-up-implementation-candidates.md)에 정리한다.
 
 ## 11. Shared Ledger
 

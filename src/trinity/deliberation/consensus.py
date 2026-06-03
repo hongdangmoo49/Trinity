@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 
-from trinity.models import ConsensusResult
+from trinity.models import ConsensusResult, OpenQuestion, StructuredConsensusResult, VoteType
 
 logger = logging.getLogger(__name__)
 
@@ -228,3 +228,145 @@ class ConsensusEngine:
             return clean
 
         return ""
+
+
+# ---------------------------------------------------------------------------
+# Structured Consensus Engine (v0.7.0)
+# ---------------------------------------------------------------------------
+
+
+class StructuredConsensusEngine:
+    """Explicit vote-based consensus detection using VOTE: lines.
+
+    Agents cast structured votes via ``VOTE: APPROVE`` (or Korean aliases).
+    This replaces the keyword-guessing approach with an unambiguous protocol.
+
+    Consensus is reached when:
+    - positive votes (APPROVE + APPROVE_WITH_CHANGES) >= 60% of total, AND
+    - no open questions remain, AND
+    - no blockers exist.
+    """
+
+    VOTE_PATTERN = re.compile(
+        r"(?:VOTE|투표)\s*:\s*"
+        r"(APPROVE_WITH_CHANGES|BLOCKED_BY_QUESTION|APPROVE|REJECT"
+        r"|수정승인|질문차단|승인|거부)",
+        re.IGNORECASE,
+    )
+
+    VOTE_ALIASES: dict[str, VoteType] = {
+        "APPROVE": VoteType.APPROVE,
+        "APPROVE_WITH_CHANGES": VoteType.APPROVE_WITH_CHANGES,
+        "BLOCKED_BY_QUESTION": VoteType.BLOCKED_BY_QUESTION,
+        "REJECT": VoteType.REJECT,
+        "승인": VoteType.APPROVE,
+        "수정승인": VoteType.APPROVE_WITH_CHANGES,
+        "질문차단": VoteType.BLOCKED_BY_QUESTION,
+        "거부": VoteType.REJECT,
+    }
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def extract_vote(self, text: str) -> VoteType:
+        """Extract the vote from an agent response.
+
+        Returns APPROVE_WITH_CHANGES as default when no explicit vote is found.
+        """
+        match = self.VOTE_PATTERN.search(text)
+        if match is None:
+            return VoteType.APPROVE_WITH_CHANGES
+        return self.VOTE_ALIASES[match.group(1).upper()]
+
+    def evaluate_structured(
+        self, opinions: dict[str, str]
+    ) -> StructuredConsensusResult:
+        """Evaluate structured votes from all agents.
+
+        Args:
+            opinions: mapping of agent name to its opinion/response text.
+
+        Returns:
+            StructuredConsensusResult with vote tallies, blockers, and
+            open questions.
+        """
+        from trinity.models import Blueprint  # noqa: F401 — reserved for future use
+
+        votes: dict[str, VoteType] = {}
+        vote_count: dict[str, int] = {}
+        blockers: list[str] = []
+        open_questions: list[OpenQuestion] = []
+
+        for agent, text in opinions.items():
+            vote = self.extract_vote(text)
+            votes[agent] = vote
+            key = vote.value
+            vote_count[key] = vote_count.get(key, 0) + 1
+
+            if vote == VoteType.REJECT:
+                blockers.append(f"{agent}: rejected the design")
+
+            if vote == VoteType.BLOCKED_BY_QUESTION:
+                question_text = self._extract_question_text(text)
+                open_questions.append(
+                    OpenQuestion(
+                        id=f"q-{agent}",
+                        question=question_text,
+                        raised_by=[agent],
+                    )
+                )
+
+        total = len(opinions)
+        if total == 0:
+            return StructuredConsensusResult(
+                reached=False,
+                vote_count=vote_count,
+                final_blueprint=None,
+                open_questions=open_questions,
+                blockers=blockers,
+            )
+
+        positive = vote_count.get("approve", 0) + vote_count.get(
+            "approve_with_changes", 0
+        )
+
+        # Single-agent shortcut
+        if total == 1:
+            single_vote = list(votes.values())[0]
+            reached = single_vote in (VoteType.APPROVE, VoteType.APPROVE_WITH_CHANGES)
+        else:
+            reached = (
+                (positive / total) >= 0.6
+                and len(open_questions) == 0
+                and len(blockers) == 0
+            )
+
+        return StructuredConsensusResult(
+            reached=reached,
+            vote_count=vote_count,
+            final_blueprint=None,
+            open_questions=open_questions,
+            blockers=blockers,
+        )
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _extract_question_text(text: str) -> str:
+        """Return the lines after the VOTE line as the question text."""
+        lines = text.splitlines()
+        vote_line_idx: int | None = None
+        for i, line in enumerate(lines):
+            if StructuredConsensusEngine.VOTE_PATTERN.search(line):
+                vote_line_idx = i
+                break
+
+        if vote_line_idx is None:
+            return ""
+
+        remaining = lines[vote_line_idx + 1 :]
+        question = "\n".join(remaining).strip()
+        return question if question else "No question text provided"

@@ -1,0 +1,159 @@
+"""Workflow state models for v0.7.0 stateful sessions."""
+
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any
+
+
+class WorkflowState(str, Enum):
+    """Lifecycle state for a Trinity workflow."""
+
+    IDLE = "idle"
+    PREFLIGHT = "preflight"
+    DELIBERATING = "deliberating"
+    NEEDS_USER_DECISION = "needs_user_decision"
+    BLUEPRINT_READY = "blueprint_ready"
+    EXECUTING = "executing"
+    REVIEWING = "reviewing"
+    DONE = "done"
+    FAILED = "failed"
+
+
+@dataclass
+class OpenQuestion:
+    """A user-facing decision point raised by agents or workflow logic."""
+
+    id: str
+    question: str
+    options: list[str] = field(default_factory=list)
+    recommended_option: str | None = None
+    blocking: bool = True
+    raised_by: list[str] = field(default_factory=list)
+    rationale: str = ""
+    status: str = "open"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "question": self.question,
+            "options": list(self.options),
+            "recommended_option": self.recommended_option,
+            "blocking": self.blocking,
+            "raised_by": list(self.raised_by),
+            "rationale": self.rationale,
+            "status": self.status,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "OpenQuestion":
+        return cls(
+            id=str(data.get("id", "")),
+            question=str(data.get("question", "")),
+            options=[str(item) for item in data.get("options", [])],
+            recommended_option=(
+                str(data["recommended_option"])
+                if data.get("recommended_option") is not None
+                else None
+            ),
+            blocking=bool(data.get("blocking", True)),
+            raised_by=[str(item) for item in data.get("raised_by", [])],
+            rationale=str(data.get("rationale", "")),
+            status=str(data.get("status", "open")),
+        )
+
+
+@dataclass
+class DecisionRecord:
+    """A resolved decision that must stay attached to the workflow."""
+
+    id: str
+    decision: str
+    question_id: str | None = None
+    decided_by: str = "user"
+    rationale: str = ""
+    timestamp: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "question_id": self.question_id,
+            "decision": self.decision,
+            "decided_by": self.decided_by,
+            "rationale": self.rationale,
+            "timestamp": self.timestamp,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "DecisionRecord":
+        return cls(
+            id=str(data.get("id", "")),
+            question_id=(
+                str(data["question_id"]) if data.get("question_id") is not None else None
+            ),
+            decision=str(data.get("decision", "")),
+            decided_by=str(data.get("decided_by", "user")),
+            rationale=str(data.get("rationale", "")),
+            timestamp=float(data.get("timestamp", time.time())),
+        )
+
+
+@dataclass
+class WorkflowSession:
+    """Persisted state for one stateful workflow."""
+
+    id: str
+    goal: str
+    state: WorkflowState
+    active_agents: list[str] = field(default_factory=list)
+    current_round: int = 0
+    pending_questions: list[OpenQuestion] = field(default_factory=list)
+    blueprint: dict[str, Any] | None = None
+    work_packages: list[dict[str, Any]] = field(default_factory=list)
+    decisions: list[DecisionRecord] = field(default_factory=list)
+    created_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
+
+    @property
+    def open_questions(self) -> list[OpenQuestion]:
+        """Return unanswered questions."""
+        return [q for q in self.pending_questions if q.status == "open"]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "goal": self.goal,
+            "state": self.state.value,
+            "active_agents": list(self.active_agents),
+            "current_round": self.current_round,
+            "pending_questions": [q.to_dict() for q in self.pending_questions],
+            "blueprint": self.blueprint,
+            "work_packages": list(self.work_packages),
+            "decisions": [decision.to_dict() for decision in self.decisions],
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "WorkflowSession":
+        state_value = str(data.get("state", WorkflowState.IDLE.value))
+        return cls(
+            id=str(data.get("id", "")),
+            goal=str(data.get("goal", "")),
+            state=WorkflowState(state_value),
+            active_agents=[str(item) for item in data.get("active_agents", [])],
+            current_round=int(data.get("current_round", 0)),
+            pending_questions=[
+                OpenQuestion.from_dict(item)
+                for item in data.get("pending_questions", [])
+            ],
+            blueprint=data.get("blueprint"),
+            work_packages=list(data.get("work_packages", [])),
+            decisions=[
+                DecisionRecord.from_dict(item) for item in data.get("decisions", [])
+            ],
+            created_at=float(data.get("created_at", time.time())),
+            updated_at=float(data.get("updated_at", time.time())),
+        )

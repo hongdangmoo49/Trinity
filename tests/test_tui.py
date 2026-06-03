@@ -12,6 +12,7 @@ from trinity.models import (
 from trinity.tui.app import AgentTUIState, AgentTUIStatus, RoundStatus, TrinityTUI
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.tui.theme import AgentTheme, get_theme
+from trinity.workflow import OpenQuestion, WorkflowSession, WorkflowState
 
 
 @pytest.fixture
@@ -239,6 +240,23 @@ class TestTrinityTUI:
         assert tui.history[0]["prompt"] == "test question"
         assert tui.history[0]["rounds"] == 3
         assert tui.history[0]["consensus"] is False
+
+    def test_set_workflow_session(self, tui):
+        session = WorkflowSession(
+            id="wf-001",
+            goal="Design",
+            state=WorkflowState.NEEDS_USER_DECISION,
+            pending_questions=[
+                OpenQuestion(id="q-001", question="Choose mode?"),
+            ],
+        )
+
+        tui.set_workflow_session(session)
+
+        assert tui.workflow_id == "wf-001"
+        assert tui.workflow_goal == "Design"
+        assert tui.workflow_state == WorkflowState.NEEDS_USER_DECISION
+        assert tui.pending_question_count == 1
 
     def test_reset_agents(self, tui):
         tui.update_agent_status("claude", state=AgentTUIState.RESPONDING)

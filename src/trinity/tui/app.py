@@ -27,6 +27,7 @@ from trinity.config import TrinityConfig
 from trinity.models import DeliberationResult
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.tui.theme import get_theme
+from trinity.workflow.models import WorkflowSession, WorkflowState
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +118,10 @@ class TrinityTUI:
         self.session_start: float = time.time()
         self.last_result: DeliberationResult | None = None
         self.history: list[dict[str, Any]] = []
+        self.workflow_state: WorkflowState = WorkflowState.IDLE
+        self.workflow_id: str = ""
+        self.workflow_goal: str = ""
+        self.pending_question_count: int = 0
 
         # Callbacks for commands
         self.on_ask: Callable[[str], Any] | None = None
@@ -240,6 +245,14 @@ class TrinityTUI:
             Text.assemble(
                 Text(f"📡 Session: {self.config.session_name}", style="dim"),
                 Text(f"  ⏱ {mins}m {secs:02d}s", style="dim"),
+            ),
+            Text.assemble(
+                Text("Workflow: ", style="dim"),
+                Text(self.workflow_state.value, style="bold magenta"),
+                Text(
+                    f"  Pending questions: {self.pending_question_count}",
+                    style="dim",
+                ),
             ),
             Text.assemble(
                 self._caveman_badge(),
@@ -618,6 +631,13 @@ class TrinityTUI:
             "timestamp": time.time(),
         })
 
+    def set_workflow_session(self, session: WorkflowSession) -> None:
+        """Reflect persisted workflow state in the TUI header."""
+        self.workflow_state = session.state
+        self.workflow_id = session.id
+        self.workflow_goal = session.goal
+        self.pending_question_count = len(session.open_questions)
+
     def reset_agents(self) -> None:
         """Reset all agent states to idle and clear round history."""
         for name, status in self.agents.items():
@@ -655,6 +675,9 @@ class TrinityTUI:
             "  [cyan]/history[/cyan]    — Show deliberation history\n"
             "  [cyan]/save[/cyan]       — Save current session results\n"
             "  [cyan]/caveman[/cyan]   — Toggle compression [on|off|lite|full|ultra]\n"
+            "  [cyan]/workflow[/cyan]   — Show workflow state\n"
+            "  [cyan]/questions[/cyan]  — Show pending workflow questions\n"
+            "  [cyan]/decisions[/cyan]  — Show recorded workflow decisions\n"
             "  [cyan]/help[/cyan]       — Show this help\n"
             "  [cyan]/quit[/cyan]       — Exit Trinity\n"
         )

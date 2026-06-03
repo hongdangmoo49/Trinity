@@ -1,0 +1,99 @@
+"""Tests for stateful workflow engine."""
+
+import json
+
+from trinity.models import ConsensusResult, DeliberationResult
+from trinity.workflow import OpenQuestion, WorkflowEngine, WorkflowState
+
+
+def test_workflow_engine_starts_and_persists_session(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+
+    action = engine.handle_user_input("Design a bot", ["claude", "codex"])
+
+    assert action.should_deliberate is True
+    assert action.started_new_workflow is True
+    assert action.prompt == "Design a bot"
+    assert engine.state == WorkflowState.DELIBERATING
+    assert engine.session.goal == "Design a bot"
+    assert engine.session.active_agents == ["claude", "codex"]
+    assert engine.state_file.exists()
+    assert engine.events_file.exists()
+
+    data = json.loads(engine.state_file.read_text(encoding="utf-8"))
+    assert data["goal"] == "Design a bot"
+    assert data["state"] == "deliberating"
+
+
+def test_workflow_engine_loads_existing_session(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Keep this goal", ["claude"])
+
+    loaded = WorkflowEngine(tmp_path / ".trinity")
+
+    assert loaded.session.id == engine.session.id
+    assert loaded.session.goal == "Keep this goal"
+    assert loaded.state == WorkflowState.DELIBERATING
+
+
+def test_pending_question_answer_records_decision_without_new_workflow(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design a bridge bot", ["claude"])
+    original_id = engine.session.id
+    engine.add_open_question(
+        OpenQuestion(
+            id="q-001",
+            question="Optimize for cost or latency?",
+            options=["cost", "latency"],
+            recommended_option="cost",
+        )
+    )
+
+    action = engine.handle_user_input("Use mixed score", ["claude"])
+
+    assert engine.session.id == original_id
+    assert action.started_new_workflow is False
+    assert action.should_deliberate is True
+    assert action.decision_record is not None
+    assert action.decision_record.question_id == "q-001"
+    assert engine.session.decisions[0].decision == "Use mixed score"
+    assert engine.session.pending_questions[0].status == "answered"
+    assert engine.state == WorkflowState.DELIBERATING
+    assert "Original goal" in action.prompt
+    assert "Use mixed score" in action.prompt
+
+
+def test_multiple_pending_questions_waits_for_remaining_answers(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design", ["claude"])
+    engine.add_open_question(OpenQuestion(id="q-001", question="First?"))
+    engine.add_open_question(OpenQuestion(id="q-002", question="Second?"))
+
+    action = engine.handle_user_input("First answer", ["claude"])
+
+    assert action.should_deliberate is False
+    assert engine.state == WorkflowState.NEEDS_USER_DECISION
+    assert len(engine.pending_questions) == 1
+    assert engine.pending_questions[0].id == "q-002"
+
+
+def test_mark_deliberation_result_updates_state(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design", ["claude"])
+    result = DeliberationResult(
+        user_prompt="Design",
+        rounds_completed=1,
+        consensus=ConsensusResult(
+            reached=True,
+            agreement_count=1,
+            total_agents=1,
+            opinions={"claude": "yes"},
+            summary="Blueprint summary",
+        ),
+    )
+
+    engine.mark_deliberation_result(result)
+
+    assert engine.state == WorkflowState.BLUEPRINT_READY
+    assert engine.session.current_round == 1
+    assert engine.session.blueprint == {"summary": "Blueprint summary"}

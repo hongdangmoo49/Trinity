@@ -25,6 +25,7 @@ from trinity.tui.app import AgentTUIState, TrinityTUI
 from trinity.tui.events import TUIEventBus
 from trinity.tui.prompt import TrinityPromptSession
 from trinity.tui.theme import get_theme
+from trinity.workflow import WorkflowEngine, WorkflowState
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,8 @@ class InteractiveSession:
         self.running = False
         self._history_file = config.effective_state_dir / "history" / "session_history.json"
         self._prompt_session = TrinityPromptSession(config.effective_state_dir)
+        self.workflow = WorkflowEngine(config.effective_state_dir)
+        self.tui.set_workflow_session(self.workflow.session)
 
     def run(self) -> None:
         """Run the interactive session (blocking).
@@ -74,8 +77,7 @@ class InteractiveSession:
                 if user_input.startswith("/"):
                     self._handle_command(user_input)
                 else:
-                    # Deliberation mode
-                    self._run_deliberation(user_input)
+                    self._handle_user_text(user_input)
 
             except KeyboardInterrupt:
                 self.console.print("\n[dim]Use /quit to exit.[/dim]")
@@ -130,6 +132,12 @@ class InteractiveSession:
             self._cmd_save()
         elif cmd == "caveman":
             self._cmd_caveman(args)
+        elif cmd == "workflow":
+            self._cmd_workflow()
+        elif cmd == "questions":
+            self._cmd_questions()
+        elif cmd == "decisions":
+            self._cmd_decisions()
         else:
             self.console.print(
                 f"[yellow]Unknown command: /{cmd}. "
@@ -169,6 +177,7 @@ class InteractiveSession:
             )
 
         self.console.print(table)
+        self._cmd_workflow()
 
     def _cmd_context(self) -> None:
         """Show shared context."""
@@ -297,7 +306,98 @@ class InteractiveSession:
                 f"Use: on, off, lite, full, ultra[/yellow]"
             )
 
+    def _cmd_workflow(self) -> None:
+        """Show current workflow state."""
+        session = self.workflow.session
+        self.tui.set_workflow_session(session)
+        self.console.print(Panel.fit(
+            f"[bold]ID[/bold]: {session.id}\n"
+            f"[bold]State[/bold]: {session.state.value}\n"
+            f"[bold]Goal[/bold]: {session.goal or '(none)'}\n"
+            f"[bold]Round[/bold]: {session.current_round}\n"
+            f"[bold]Active agents[/bold]: {', '.join(session.active_agents) or '(none)'}\n"
+            f"[bold]Pending questions[/bold]: {len(session.open_questions)}\n"
+            f"[bold]Decisions[/bold]: {len(session.decisions)}",
+            title="Workflow",
+            border_style="magenta",
+        ))
+
+    def _cmd_questions(self) -> None:
+        """Show pending workflow questions."""
+        questions = self.workflow.pending_questions
+        if not questions:
+            self.console.print("[dim]No pending workflow questions.[/dim]")
+            return
+
+        from rich.table import Table
+
+        table = Table(title="Pending Questions")
+        table.add_column("ID", style="cyan")
+        table.add_column("Question")
+        table.add_column("Recommendation")
+        table.add_column("Options")
+
+        for question in questions:
+            table.add_row(
+                question.id,
+                question.question,
+                question.recommended_option or "",
+                ", ".join(question.options),
+            )
+
+        self.console.print(table)
+
+    def _cmd_decisions(self) -> None:
+        """Show workflow decision ledger."""
+        decisions = self.workflow.decisions
+        if not decisions:
+            self.console.print("[dim]No workflow decisions recorded.[/dim]")
+            return
+
+        from rich.table import Table
+
+        table = Table(title="Decisions")
+        table.add_column("ID", style="cyan")
+        table.add_column("Question")
+        table.add_column("Decision")
+        table.add_column("By")
+
+        for decision in decisions:
+            table.add_row(
+                decision.id,
+                decision.question_id or "",
+                decision.decision,
+                decision.decided_by,
+            )
+
+        self.console.print(table)
+
     # ─── Deliberation ──────────────────────────────────────────────────
+
+    def _handle_user_text(self, text: str) -> None:
+        """Route normal input through workflow state before deliberating."""
+        active = self.config.active_agents
+        if not active:
+            self.console.print(
+                "[red]No active agents. Use /agent <name> on to enable one.[/red]"
+            )
+            return
+
+        action = self.workflow.handle_user_input(text, list(active.keys()))
+        self.tui.set_workflow_session(self.workflow.session)
+
+        if action.decision_record:
+            self.console.print(
+                f"[green]Recorded decision {action.decision_record.id}.[/green]"
+            )
+
+        if action.should_deliberate:
+            self._run_deliberation(action.prompt)
+        elif self.workflow.state == WorkflowState.NEEDS_USER_DECISION:
+            self.console.print(
+                "[yellow]More workflow decisions are still required. "
+                "Use /questions to view them.[/yellow]"
+            )
 
     def _run_deliberation(self, prompt: str) -> None:
         """Run a deliberation on the user's prompt with real-time TUI updates.
@@ -354,6 +454,8 @@ class InteractiveSession:
 
         # Update TUI with result
         self.tui.set_result(result)
+        self.workflow.mark_deliberation_result(result)
+        self.tui.set_workflow_session(self.workflow.session)
 
         # Display results BEFORE resetting (agents store full_response)
         self._display_result(result)

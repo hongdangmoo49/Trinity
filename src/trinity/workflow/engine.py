@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from trinity.models import DeliberationResult
@@ -20,6 +22,9 @@ from trinity.workflow.models import (
     WorkflowSession,
     WorkflowState,
 )
+
+if TYPE_CHECKING:
+    from trinity.context.shared import SharedContextEngine
 
 
 @dataclass(frozen=True)
@@ -72,6 +77,10 @@ class WorkflowEngine:
     @property
     def subtask_results(self) -> list[SubtaskResult]:
         return list(self.session.subtask_results)
+
+    @property
+    def review_packages(self) -> list[dict[str, Any]]:
+        return [dict(item) for item in self.session.review_packages]
 
     @property
     def has_pending_execution(self) -> bool:
@@ -195,6 +204,8 @@ class WorkflowEngine:
                 )
                 self.session.execution_results = []
                 self.session.subtask_results = []
+                self.session.review_packages = []
+                self.session.review_results = []
                 self.set_state(
                     WorkflowState.BLUEPRINT_READY,
                     reason="structured blueprint reached consensus",
@@ -208,6 +219,8 @@ class WorkflowEngine:
             self.session.work_packages = []
             self.session.execution_results = []
             self.session.subtask_results = []
+            self.session.review_packages = []
+            self.session.review_results = []
             self.set_state(
                 WorkflowState.BLUEPRINT_READY,
                 reason="deliberation reached consensus",
@@ -326,6 +339,7 @@ class WorkflowEngine:
         if executable and all(
             package.status == WorkStatus.DONE for package in executable
         ):
+            self._plan_review_packages()
             self.set_state(
                 WorkflowState.REVIEWING,
                 reason="all work packages completed",
@@ -336,6 +350,19 @@ class WorkflowEngine:
             reason="work package execution still in progress",
         )
 
+    def _plan_review_packages(self) -> None:
+        """Create peer review packages for completed execution results."""
+        from trinity.workflow.review import PeerReviewPlanner
+
+        planner = PeerReviewPlanner()
+        reviews = planner.plan_reviews(
+            self.session.work_packages,
+            self.session.active_agents,
+            self.session.execution_results,
+        )
+        self.session.review_packages = [review.to_dict() for review in reviews]
+        self.session.review_results = []
+
     def _upsert_subtask_result(self, result: SubtaskResult) -> None:
         """Insert or replace a subtask result by id."""
         for index, existing in enumerate(self.session.subtask_results):
@@ -343,6 +370,78 @@ class WorkflowEngine:
                 self.session.subtask_results[index] = result
                 return
         self.session.subtask_results.append(result)
+
+    def render_shared_ledger(
+        self,
+        provider_readiness: Any = None,
+        *,
+        round_opinions: str = "",
+        response_diagnostics: str = "",
+        session_history: str = "",
+    ) -> str:
+        """Render the human-readable shared.md ledger from structured state."""
+        from trinity.workflow.ledger import render_shared_ledger
+
+        return render_shared_ledger(
+            self.session,
+            provider_readiness=provider_readiness,
+            round_opinions=round_opinions,
+            response_diagnostics=response_diagnostics,
+            session_history=session_history,
+        )
+
+    def sync_shared_ledger(
+        self,
+        shared: "SharedContextEngine",
+        provider_readiness: Any = None,
+    ) -> None:
+        """Rewrite shared.md from session.json state while preserving log sections."""
+        sections = self._extract_shared_preserved_sections(shared.read())
+        shared.write(
+            self.render_shared_ledger(
+                provider_readiness=provider_readiness,
+                round_opinions=sections["round_opinions"],
+                response_diagnostics=sections["response_diagnostics"],
+                session_history=sections["session_history"],
+            )
+        )
+
+    @classmethod
+    def _extract_shared_preserved_sections(cls, content: str) -> dict[str, str]:
+        """Collect freeform shared.md sections that are not source-of-truth state."""
+        sections = cls._parse_markdown_sections(content)
+        round_sections = [
+            body
+            for heading, body in sections.items()
+            if heading == "round opinions"
+            or re.fullmatch(r"round\s+\d+\s+opinions", heading)
+        ]
+        return {
+            "round_opinions": "\n\n".join(round_sections).strip(),
+            "response_diagnostics": sections.get("response diagnostics", "").strip(),
+            "session_history": sections.get("session history", "").strip(),
+        }
+
+    @staticmethod
+    def _parse_markdown_sections(content: str) -> dict[str, str]:
+        """Parse top-level markdown ## sections by normalized heading."""
+        sections: dict[str, str] = {}
+        current_heading: str | None = None
+        current_lines: list[str] = []
+
+        for line in content.splitlines():
+            if line.startswith("## ") and not line.startswith("### "):
+                if current_heading is not None:
+                    sections[current_heading] = "\n".join(current_lines).strip()
+                current_heading = line[3:].strip().lower()
+                current_lines = [line]
+                continue
+            if current_heading is not None:
+                current_lines.append(line)
+
+        if current_heading is not None:
+            sections[current_heading] = "\n".join(current_lines).strip()
+        return sections
 
     def set_state(self, state: WorkflowState, reason: str = "") -> None:
         """Set and persist workflow state."""

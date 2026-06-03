@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import re
 import time
@@ -32,6 +33,7 @@ from trinity.workflow.structured import (
     StructuredConsensusResult,
     StructuredConsensusSynthesizer,
 )
+from trinity.workflow.lifecycle import LifecycleDecision, LifecycleGuard
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +87,8 @@ class DeliberationProtocol:
         analytics_path: Path | None = None,
         response_artifact_dir: Path | None = None,
         structured_synthesizer: StructuredConsensusSynthesizer | None = None,
+        lifecycle_guard: LifecycleGuard | None = None,
+        rotation_callback: Callable[[str], object] | None = None,
     ):
         self.agents = agents
         self.shared = shared
@@ -121,6 +125,8 @@ class DeliberationProtocol:
         self.response_artifact_dir = response_artifact_dir or (
             shared.path.parent / "responses"
         )
+        self.lifecycle_guard = lifecycle_guard
+        self._rotation_callback = rotation_callback
 
     def _emit(self, event_type: TUIEventType, **kwargs) -> None:
         """Emit a TUI event if callback is registered."""
@@ -158,9 +164,11 @@ class DeliberationProtocol:
 
             # Build prompt for this round
             round_prompt = self._build_round_prompt(round_num, user_prompt)
+            await self._before_round_lifecycle(round_prompt)
 
             # Collect opinions from all agents (with per-agent streaming)
             opinions = await self._collect_opinions(round_num, round_prompt)
+            await self._after_round_lifecycle()
 
             # Write opinions to shared.md
             for name, msg in opinions.items():
@@ -413,6 +421,45 @@ class DeliberationProtocol:
             raise
 
         return opinions
+
+    async def _before_round_lifecycle(self, prompt: str) -> None:
+        """Run lifecycle checks before sending a round prompt."""
+        if not self.lifecycle_guard:
+            return
+
+        prompt_tokens = (
+            self.compressor.estimate_tokens(prompt)
+            if self.compressor
+            else len(prompt.split())
+        )
+        decision = self.lifecycle_guard.before_round(
+            self.agents,
+            projected_tokens_by_agent={
+                name: prompt_tokens for name in self.agents
+            },
+        )
+        await self._apply_lifecycle_decision(decision)
+
+    async def _after_round_lifecycle(self) -> None:
+        """Run lifecycle checks after collecting a round of responses."""
+        if not self.lifecycle_guard:
+            return
+        await self._apply_lifecycle_decision(
+            self.lifecycle_guard.after_round(self.agents)
+        )
+
+    async def _apply_lifecycle_decision(
+        self,
+        decision: LifecycleDecision,
+    ) -> None:
+        """Execute lifecycle recommendations that this protocol can handle."""
+        if not self._rotation_callback:
+            return
+
+        for agent_name in decision.rotation_agents:
+            result = self._rotation_callback(agent_name)
+            if inspect.isawaitable(result):
+                await result
 
     @staticmethod
     def _new_request_id(round_num: int, agent_name: str) -> str:

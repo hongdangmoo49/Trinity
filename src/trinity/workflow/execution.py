@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import re
 from collections.abc import Iterable
@@ -21,6 +22,7 @@ from trinity.workflow.models import (
     WorkPackage,
     WorkStatus,
 )
+from trinity.workflow.lifecycle import LifecycleDecision, LifecycleGuard
 
 logger = logging.getLogger(__name__)
 
@@ -35,12 +37,16 @@ class ExecutionProtocol:
         artifact_dir: Path,
         timeout: float = 120.0,
         event_callback: Callable[[TUIEvent], None] | None = None,
+        lifecycle_guard: LifecycleGuard | None = None,
+        rotation_callback: Callable[[str], object] | None = None,
     ):
         self.agents = agents
         self.shared = shared
         self.artifact_dir = artifact_dir
         self.timeout = timeout
         self._event_callback = event_callback
+        self.lifecycle_guard = lifecycle_guard
+        self._rotation_callback = rotation_callback
 
     async def run(
         self,
@@ -70,13 +76,42 @@ class ExecutionProtocol:
                 self._record_result(result)
                 continue
 
+            await self._before_work_package_lifecycle(package)
             result = await self.dispatch_package(package, decisions)
+            await self._after_work_package_lifecycle(package)
             package.status = result.status
             results.append(result)
             self._record_result(result)
 
         self._emit(TUIEventType.EXECUTION_DONE, package_count=len(packages))
         return results
+
+    async def _before_work_package_lifecycle(self, package: WorkPackage) -> None:
+        """Run lifecycle checks before dispatching a work package."""
+        if not self.lifecycle_guard:
+            return
+        decision = self.lifecycle_guard.before_work_package(package, self.agents)
+        await self._apply_lifecycle_decision(decision)
+
+    async def _after_work_package_lifecycle(self, package: WorkPackage) -> None:
+        """Run lifecycle checks after a work package finishes."""
+        if not self.lifecycle_guard:
+            return
+        decision = self.lifecycle_guard.after_work_package(package, self.agents)
+        await self._apply_lifecycle_decision(decision)
+
+    async def _apply_lifecycle_decision(
+        self,
+        decision: LifecycleDecision,
+    ) -> None:
+        """Execute lifecycle recommendations that this protocol can handle."""
+        if not self._rotation_callback:
+            return
+
+        for agent_name in decision.rotation_agents:
+            result = self._rotation_callback(agent_name)
+            if inspect.isawaitable(result):
+                await result
 
     async def dispatch_package(
         self,

@@ -28,6 +28,7 @@ from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workspace.isolation import WorkspaceIsolation
 from trinity.workspace.managed_home import ManagedHome
 from trinity.workflow.execution import ExecutionProtocol
+from trinity.workflow.lifecycle import LifecycleGuard
 from trinity.workflow.models import DecisionRecord, ExecutionResult, WorkPackage
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,7 @@ class TrinityOrchestrator:
         self.session_rotator: SessionRotator | None = None
         self.health_checker: HealthChecker | None = None
         self.readiness_gate: ProviderReadinessGate | None = None
+        self.lifecycle_guard: LifecycleGuard | None = None
         self.readiness_results: dict[str, ReadinessResult] = {}
         self.managed_home: ManagedHome | None = None
         self.workspace_isolation: WorkspaceIsolation | None = None
@@ -109,6 +111,10 @@ class TrinityOrchestrator:
 
         # Create deliberation protocol
         event_callback = self._event_bus.emit if self._event_bus else None
+        self.lifecycle_guard = LifecycleGuard(
+            rotate_threshold=self.config.context_rotate_threshold,
+            check_readiness=False,
+        )
         self.protocol = DeliberationProtocol(
             agents=self.agents,
             shared=self.shared,
@@ -128,6 +134,8 @@ class TrinityOrchestrator:
             lang=self.config.lang,
             analytics_path=analytics_history_path(state_dir),
             response_artifact_dir=state_dir / "responses",
+            lifecycle_guard=self.lifecycle_guard,
+            rotation_callback=self._rotate_agent_for_lifecycle,
         )
         self.execution_protocol = ExecutionProtocol(
             agents=self.agents,
@@ -135,6 +143,8 @@ class TrinityOrchestrator:
             artifact_dir=state_dir / "execution",
             timeout=self.config.round_timeout_seconds,
             event_callback=event_callback,
+            lifecycle_guard=self.lifecycle_guard,
+            rotation_callback=self._rotate_agent_for_lifecycle,
         )
 
         # Create context monitor and session rotator
@@ -321,6 +331,13 @@ class TrinityOrchestrator:
             work_packages,
             decisions=decisions or [],
         )
+
+    async def _rotate_agent_for_lifecycle(self, agent_name: str) -> bool:
+        """Rotate one agent when lifecycle guard recommends it."""
+        if not self.session_rotator:
+            return False
+        logger.info("[%s] Lifecycle guard requested session rotation", agent_name)
+        return await self.session_rotator.rotate(agent_name)
 
     def _check_provider_readiness(
         self,

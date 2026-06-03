@@ -3,6 +3,7 @@
 import json
 
 from trinity.models import ConsensusResult, DeliberationResult
+from trinity.context.shared import SharedContextEngine
 from trinity.workflow import (
     ExecutionResult,
     OpenQuestion,
@@ -202,10 +203,14 @@ def test_record_execution_results_moves_to_reviewing(tmp_path):
     assert engine.state == WorkflowState.REVIEWING
     assert engine.session.work_packages[0].status == WorkStatus.DONE
     assert engine.execution_results[0].summary == "Implemented route bot."
+    assert len(engine.review_packages) == 1
+    assert engine.review_packages[0]["package_id"] == "WP-001"
+    assert engine.review_packages[0]["self_review"] is True
 
     loaded = WorkflowEngine(tmp_path / ".trinity")
     assert loaded.state == WorkflowState.REVIEWING
     assert loaded.execution_results[0].files_changed == ["src/routes.py"]
+    assert loaded.review_packages[0]["package_id"] == "WP-001"
 
 
 def test_record_execution_results_persists_subtasks(tmp_path):
@@ -298,3 +303,54 @@ def test_record_execution_results_marks_blocked_as_user_decision(tmp_path):
 
     assert engine.state == WorkflowState.NEEDS_USER_DECISION
     assert engine.session.work_packages[0].status == WorkStatus.BLOCKED
+
+
+def test_sync_shared_ledger_restores_from_structured_session(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement shared ledger", ["codex"])
+    engine.session.current_round = 2
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="ledger package",
+            owner_agent="codex",
+            objective="Render workflow state.",
+            status=WorkStatus.DONE,
+        )
+    ]
+    engine.session.execution_results = [
+        ExecutionResult(
+            package_id="WP-001",
+            agent_name="codex",
+            status=WorkStatus.DONE,
+            summary="Rendered ledger.",
+        )
+    ]
+    engine.save()
+
+    shared = SharedContextEngine(tmp_path / ".trinity" / "shared.md")
+    shared.write(
+        "# Corrupted Shared\n\n"
+        "## Round 1 Opinions\n"
+        "### codex\n"
+        "Keep this freeform opinion.\n\n"
+        "## Response Diagnostics\n"
+        "Provider note.\n"
+    )
+
+    loaded = WorkflowEngine(tmp_path / ".trinity")
+    loaded.sync_shared_ledger(shared)
+
+    content = shared.read()
+    assert content.startswith("# Shared Context\n")
+    assert "## Workflow State" in content
+    assert "- id: " in content
+    assert "- state: deliberating" in content
+    assert "## Work Packages" in content
+    assert "### WP-001: ledger package" in content
+    assert "## Task Results" in content
+    assert "Rendered ledger." in content
+    assert "## Round Opinions" in content
+    assert "Keep this freeform opinion." in content
+    assert "## Response Diagnostics" in content
+    assert "Provider note." in content

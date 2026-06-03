@@ -285,6 +285,8 @@ class WorkflowSession:
     work_packages: list[WorkPackage] = field(default_factory=list)
     execution_results: list[ExecutionResult] = field(default_factory=list)
     subtask_results: list[SubtaskResult] = field(default_factory=list)
+    review_packages: list[dict[str, Any]] = field(default_factory=list)
+    review_results: list[dict[str, Any]] = field(default_factory=list)
     decisions: list[DecisionRecord] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
@@ -310,6 +312,8 @@ class WorkflowSession:
             "subtask_results": [
                 result.to_dict() for result in self.subtask_results
             ],
+            "review_packages": [dict(item) for item in self.review_packages],
+            "review_results": [dict(item) for item in self.review_results],
             "decisions": [decision.to_dict() for decision in self.decisions],
             "created_at": self.created_at,
             "updated_at": self.updated_at,
@@ -342,6 +346,16 @@ class WorkflowSession:
             subtask_results=[
                 SubtaskResult.from_dict(item)
                 for item in data.get("subtask_results", [])
+                if isinstance(item, dict)
+            ],
+            review_packages=[
+                dict(item)
+                for item in data.get("review_packages", [])
+                if isinstance(item, dict)
+            ],
+            review_results=[
+                dict(item)
+                for item in data.get("review_results", [])
                 if isinstance(item, dict)
             ],
             decisions=[

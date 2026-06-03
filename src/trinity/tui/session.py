@@ -323,7 +323,8 @@ class InteractiveSession:
             f"[bold]Pending questions[/bold]: {len(session.open_questions)}\n"
             f"[bold]Decisions[/bold]: {len(session.decisions)}\n"
             f"[bold]Work packages[/bold]: {len(session.work_packages)}\n"
-            f"[bold]Subtasks[/bold]: {len(session.subtask_results)}",
+            f"[bold]Subtasks[/bold]: {len(session.subtask_results)}\n"
+            f"[bold]Review packages[/bold]: {len(session.review_packages)}",
             title="Workflow",
             border_style="magenta",
         ))

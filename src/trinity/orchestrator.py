@@ -27,6 +27,8 @@ from trinity.tmux.session import TmuxSessionManager
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workspace.isolation import WorkspaceIsolation
 from trinity.workspace.managed_home import ManagedHome
+from trinity.workflow.execution import ExecutionProtocol
+from trinity.workflow.models import DecisionRecord, ExecutionResult, WorkPackage
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +53,7 @@ class TrinityOrchestrator:
         self.agents: dict[str, AgentWrapper] = {}
         self.shared: SharedContextEngine | None = None
         self.protocol: DeliberationProtocol | None = None
+        self.execution_protocol: ExecutionProtocol | None = None
         self.tmux_manager: TmuxSessionManager | None = None
         self.context_monitor: ContextMonitor | None = None
         self.session_rotator: SessionRotator | None = None
@@ -69,6 +72,10 @@ class TrinityOrchestrator:
             bus: A TUIEventBus instance from trinity.tui.events.
         """
         self._event_bus = bus
+        if self.protocol:
+            self.protocol._event_callback = bus.emit
+        if self.execution_protocol:
+            self.execution_protocol._event_callback = bus.emit
 
     def _ensure_initialized(self) -> None:
         """Lazy initialization: create agents, shared context, protocol."""
@@ -121,6 +128,13 @@ class TrinityOrchestrator:
             lang=self.config.lang,
             analytics_path=analytics_history_path(state_dir),
             response_artifact_dir=state_dir / "responses",
+        )
+        self.execution_protocol = ExecutionProtocol(
+            agents=self.agents,
+            shared=self.shared,
+            artifact_dir=state_dir / "execution",
+            timeout=self.config.round_timeout_seconds,
+            event_callback=event_callback,
         )
 
         # Create context monitor and session rotator
@@ -294,6 +308,20 @@ class TrinityOrchestrator:
 
         return result
 
+    async def execute_work_packages(
+        self,
+        work_packages: list[WorkPackage],
+        decisions: list[DecisionRecord] | None = None,
+    ) -> list[ExecutionResult]:
+        """Execute approved workflow work packages with active agents."""
+        self._ensure_initialized()
+        if not self.execution_protocol:
+            raise RuntimeError("Execution protocol was not initialized")
+        return await self.execution_protocol.run(
+            work_packages,
+            decisions=decisions or [],
+        )
+
     def _check_provider_readiness(
         self,
         prompt: str,
@@ -345,6 +373,8 @@ class TrinityOrchestrator:
         self.agents = ready_agents
         if self.protocol:
             self.protocol.agents = ready_agents
+        if self.execution_protocol:
+            self.execution_protocol.agents = ready_agents
         if self.context_monitor:
             self.context_monitor.agents = ready_agents
         if self.session_rotator:

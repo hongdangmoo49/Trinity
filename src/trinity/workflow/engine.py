@@ -12,8 +12,10 @@ from trinity.models import DeliberationResult
 from trinity.workflow.decomposer import BlueprintDecomposer, classify_execution_intent
 from trinity.workflow.models import (
     DecisionRecord,
+    ExecutionResult,
     OpenQuestion,
     WorkPackage,
+    WorkStatus,
     WorkflowSession,
     WorkflowState,
 )
@@ -61,6 +63,26 @@ class WorkflowEngine:
     @property
     def work_packages(self) -> list[WorkPackage]:
         return list(self.session.work_packages)
+
+    @property
+    def execution_results(self) -> list[ExecutionResult]:
+        return list(self.session.execution_results)
+
+    @property
+    def has_pending_execution(self) -> bool:
+        """Return whether any generated package still needs execution."""
+        return any(
+            package.requires_execution
+            and package.status
+            in {
+                WorkStatus.PENDING,
+                WorkStatus.RUNNING,
+                WorkStatus.WAITING_ON_DECISION,
+                WorkStatus.BLOCKED,
+                WorkStatus.FAILED,
+            }
+            for package in self.session.work_packages
+        )
 
     def handle_user_input(
         self,
@@ -166,6 +188,7 @@ class WorkflowEngine:
                     self.session.active_agents,
                     requires_execution=self._requires_execution(result),
                 )
+                self.session.execution_results = []
                 self.set_state(
                     WorkflowState.BLUEPRINT_READY,
                     reason="structured blueprint reached consensus",
@@ -176,6 +199,8 @@ class WorkflowEngine:
             self.session.blueprint = {
                 "summary": result.consensus.summary if result.consensus else "",
             }
+            self.session.work_packages = []
+            self.session.execution_results = []
             self.set_state(
                 WorkflowState.BLUEPRINT_READY,
                 reason="deliberation reached consensus",
@@ -227,6 +252,80 @@ class WorkflowEngine:
             if part
         )
         return classify_execution_intent(text)
+
+    def begin_execution(self) -> None:
+        """Move the workflow into execution before dispatching work packages."""
+        if not self.session.work_packages:
+            return
+        self.set_state(WorkflowState.EXECUTING, reason="work package execution started")
+
+    def record_execution_results(self, results: list[ExecutionResult]) -> None:
+        """Persist execution results and derive the next workflow state."""
+        if not results:
+            return
+
+        packages_by_id = {package.id: package for package in self.session.work_packages}
+        existing_by_package = {
+            result.package_id: result for result in self.session.execution_results
+        }
+
+        for result in results:
+            package = packages_by_id.get(result.package_id)
+            if package:
+                package.status = result.status
+            existing_by_package[result.package_id] = result
+
+            for decision in result.decisions_made:
+                if not any(existing.id == decision.id for existing in self.session.decisions):
+                    self.session.decisions.append(decision)
+
+            self._persist(
+                "execution_result_recorded",
+                {
+                    "package_id": result.package_id,
+                    "agent": result.agent_name,
+                    "status": result.status.value,
+                },
+            )
+
+        ordered_package_ids = [package.id for package in self.session.work_packages]
+        self.session.execution_results = [
+            existing_by_package[package_id]
+            for package_id in ordered_package_ids
+            if package_id in existing_by_package
+        ]
+        self.session.updated_at = time.time()
+
+        executable = [
+            package
+            for package in self.session.work_packages
+            if package.requires_execution
+        ]
+        if any(package.status == WorkStatus.FAILED for package in executable):
+            self.set_state(WorkflowState.FAILED, reason="work package execution failed")
+            return
+        if any(
+            package.status
+            in {WorkStatus.BLOCKED, WorkStatus.WAITING_ON_DECISION}
+            for package in executable
+        ):
+            self.set_state(
+                WorkflowState.NEEDS_USER_DECISION,
+                reason="work package execution is blocked",
+            )
+            return
+        if executable and all(
+            package.status == WorkStatus.DONE for package in executable
+        ):
+            self.set_state(
+                WorkflowState.REVIEWING,
+                reason="all work packages completed",
+            )
+            return
+        self.set_state(
+            WorkflowState.EXECUTING,
+            reason="work package execution still in progress",
+        )
 
     def set_state(self, state: WorkflowState, reason: str = "") -> None:
         """Set and persist workflow state."""

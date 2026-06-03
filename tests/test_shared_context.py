@@ -1,8 +1,5 @@
 """Tests for trinity.context.shared.SharedContextEngine."""
 
-import pytest
-from pathlib import Path
-
 from trinity.context.shared import SharedContextEngine
 
 
@@ -65,6 +62,28 @@ class TestSharedContextEngine:
         assert "claude" in section
         assert "Design middleware" in section
         assert "codex" in section
+
+    def test_append_task_result(self, shared_engine, tmp_path):
+        shared_engine.initialize("Test", ["codex"])
+        shared_engine.append_task_result(
+            package_id="WP-001",
+            agent="codex",
+            status="done",
+            summary="Implemented endpoint.",
+            files_changed=["src/app.py"],
+            decisions_made=["Use existing router."],
+            blockers=[],
+            follow_up=["Add load test."],
+            raw_response_path=tmp_path / "execution" / "WP-001.raw.txt",
+        )
+
+        section = shared_engine.read_section("Task Results")
+        assert section is not None
+        assert "WP-001 / codex" in section
+        assert "Implemented endpoint." in section
+        assert "src/app.py" in section
+        assert "Use existing router." in section
+        assert "Add load test." in section
 
     def test_append_session_summary(self, shared_engine):
         shared_engine.initialize("Test", ["claude"])

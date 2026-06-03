@@ -14,7 +14,13 @@ from trinity.models import (
 )
 from trinity.tui.events import TUIEvent, TUIEventBus, TUIEventType
 from trinity.tui.session import InteractiveSession
-from trinity.workflow import OpenQuestion, WorkPackage, WorkflowState
+from trinity.workflow import (
+    ExecutionResult,
+    OpenQuestion,
+    WorkPackage,
+    WorkStatus,
+    WorkflowState,
+)
 
 
 @pytest.fixture
@@ -340,6 +346,55 @@ class TestWorkflowRouting:
 
         assert len(session.workflow.work_packages) == 1
         assert session.tui.work_package_count == 1
+
+    def test_run_deliberation_executes_generated_packages(self, session):
+        result = DeliberationResult(
+            user_prompt="Implement route bot",
+            rounds_completed=1,
+            consensus=ConsensusResult(
+                reached=True,
+                agreement_count=1,
+                total_agents=1,
+                opinions={"claude": "yes"},
+                summary="Implement route bot.",
+            ),
+            metadata={
+                "structured_consensus": {
+                    "reached": True,
+                    "final_blueprint": {
+                        "title": "Route Bot",
+                        "summary": "Find bridge routes.",
+                        "architecture": [],
+                        "data_flow": ["request -> quote -> score"],
+                        "external_dependencies": [],
+                        "risks": [],
+                        "acceptance_criteria": ["rank paths"],
+                        "open_questions": [],
+                    },
+                    "open_questions": [],
+                }
+            },
+        )
+        execution_result = ExecutionResult(
+            package_id="WP-001",
+            agent_name="claude",
+            status=WorkStatus.DONE,
+            summary="Implemented route bot.",
+        )
+        with patch.object(session, "_run_with_live", return_value=result):
+            with patch.object(
+                session,
+                "_run_execution_with_live",
+                return_value=[execution_result],
+            ) as run_execution:
+                with patch.object(session, "_has_tmux", return_value=False):
+                    session.workflow.start("Implement route bot", ["claude"])
+                    session._run_deliberation("Implement route bot")
+
+        run_execution.assert_called_once()
+        assert session.workflow.state == WorkflowState.REVIEWING
+        assert session.workflow.work_packages[0].status == WorkStatus.DONE
+        assert session.tui.workflow_state == WorkflowState.REVIEWING
 
 
 class TestSessionDisplayResult:

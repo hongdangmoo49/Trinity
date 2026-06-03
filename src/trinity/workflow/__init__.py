@@ -2,8 +2,10 @@
 
 from trinity.workflow.decomposer import BlueprintDecomposer, classify_execution_intent
 from trinity.workflow.engine import WorkflowEngine, WorkflowInputAction
+from trinity.workflow.execution import ExecutionProtocol
 from trinity.workflow.models import (
     DecisionRecord,
+    ExecutionResult,
     OpenQuestion,
     WorkPackage,
     WorkStatus,
@@ -25,6 +27,8 @@ __all__ = [
     "Blueprint",
     "BlueprintDecomposer",
     "DecisionRecord",
+    "ExecutionProtocol",
+    "ExecutionResult",
     "OpenQuestion",
     "RiskItem",
     "StructuredConsensusResult",

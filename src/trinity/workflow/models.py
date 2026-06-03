@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
 
@@ -164,6 +165,58 @@ class WorkPackage:
 
 
 @dataclass
+class ExecutionResult:
+    """Result reported by an agent after executing one work package."""
+
+    package_id: str
+    agent_name: str
+    status: WorkStatus
+    summary: str = ""
+    files_changed: list[str] = field(default_factory=list)
+    decisions_made: list[DecisionRecord] = field(default_factory=list)
+    blockers: list[str] = field(default_factory=list)
+    follow_up: list[str] = field(default_factory=list)
+    raw_response_path: Path | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "package_id": self.package_id,
+            "agent_name": self.agent_name,
+            "status": self.status.value,
+            "summary": self.summary,
+            "files_changed": list(self.files_changed),
+            "decisions_made": [
+                decision.to_dict() for decision in self.decisions_made
+            ],
+            "blockers": list(self.blockers),
+            "follow_up": list(self.follow_up),
+            "raw_response_path": (
+                str(self.raw_response_path) if self.raw_response_path else None
+            ),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ExecutionResult":
+        status_value = str(data.get("status", WorkStatus.FAILED.value))
+        raw_path = data.get("raw_response_path")
+        return cls(
+            package_id=str(data.get("package_id", "")),
+            agent_name=str(data.get("agent_name", "")),
+            status=WorkStatus(status_value),
+            summary=str(data.get("summary", "")),
+            files_changed=[str(item) for item in data.get("files_changed", [])],
+            decisions_made=[
+                DecisionRecord.from_dict(item)
+                for item in data.get("decisions_made", [])
+                if isinstance(item, dict)
+            ],
+            blockers=[str(item) for item in data.get("blockers", [])],
+            follow_up=[str(item) for item in data.get("follow_up", [])],
+            raw_response_path=Path(str(raw_path)) if raw_path else None,
+        )
+
+
+@dataclass
 class WorkflowSession:
     """Persisted state for one stateful workflow."""
 
@@ -175,6 +228,7 @@ class WorkflowSession:
     pending_questions: list[OpenQuestion] = field(default_factory=list)
     blueprint: dict[str, Any] | None = None
     work_packages: list[WorkPackage] = field(default_factory=list)
+    execution_results: list[ExecutionResult] = field(default_factory=list)
     decisions: list[DecisionRecord] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
@@ -194,6 +248,9 @@ class WorkflowSession:
             "pending_questions": [q.to_dict() for q in self.pending_questions],
             "blueprint": self.blueprint,
             "work_packages": [package.to_dict() for package in self.work_packages],
+            "execution_results": [
+                result.to_dict() for result in self.execution_results
+            ],
             "decisions": [decision.to_dict() for decision in self.decisions],
             "created_at": self.created_at,
             "updated_at": self.updated_at,
@@ -216,6 +273,11 @@ class WorkflowSession:
             work_packages=[
                 WorkPackage.from_dict(item)
                 for item in data.get("work_packages", [])
+                if isinstance(item, dict)
+            ],
+            execution_results=[
+                ExecutionResult.from_dict(item)
+                for item in data.get("execution_results", [])
                 if isinstance(item, dict)
             ],
             decisions=[

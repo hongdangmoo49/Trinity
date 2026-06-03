@@ -25,7 +25,7 @@ from trinity.tui.app import AgentTUIState, TrinityTUI
 from trinity.tui.events import TUIEventBus
 from trinity.tui.prompt import TrinityPromptSession
 from trinity.tui.theme import get_theme
-from trinity.workflow import WorkflowEngine, WorkflowState
+from trinity.workflow import ExecutionResult, WorkflowEngine, WorkflowState
 
 logger = logging.getLogger(__name__)
 
@@ -487,6 +487,8 @@ class InteractiveSession:
         self.workflow.mark_deliberation_result(result)
         self.tui.set_workflow_session(self.workflow.session)
 
+        self._maybe_run_execution(orchestrator)
+
         # Display results BEFORE resetting (agents store full_response)
         self._display_result(result)
 
@@ -581,6 +583,94 @@ class InteractiveSession:
 
         return result  # type: ignore[return-value]
 
+    # ─── Execution ─────────────────────────────────────────────────────
+
+    def _maybe_run_execution(self, orchestrator: "TrinityOrchestrator") -> None:
+        """Run generated executable work packages after blueprint consensus."""
+        if self.workflow.state != WorkflowState.BLUEPRINT_READY:
+            return
+        if not self.workflow.has_pending_execution:
+            return
+
+        self.workflow.begin_execution()
+        self.tui.set_workflow_session(self.workflow.session)
+
+        try:
+            results = self._run_execution_with_live(orchestrator)
+        except KeyboardInterrupt:
+            self.console.print("\n[yellow]Execution interrupted.[/yellow]")
+            return
+        except Exception as exc:
+            self.console.print(f"[red]Execution error: {exc}[/red]")
+            logger.exception("Execution failed")
+            return
+
+        self.workflow.record_execution_results(results)
+        self.tui.set_workflow_session(self.workflow.session)
+
+    def _run_execution_with_live(
+        self,
+        orchestrator: "TrinityOrchestrator",
+    ) -> list[ExecutionResult]:
+        """Run work package execution while consuming TUI events."""
+        import threading
+
+        from trinity.tui.events import TUIEventType
+
+        bus = TUIEventBus()
+        orchestrator.set_event_bus(bus)
+
+        result_holder: list[list[ExecutionResult] | None] = [None]
+        error_holder: list[Exception | None] = [None]
+
+        def _run_async():
+            try:
+                result_holder[0] = asyncio.run(
+                    orchestrator.execute_work_packages(
+                        self.workflow.session.work_packages,
+                        decisions=self.workflow.decisions,
+                    )
+                )
+            except Exception as exc:
+                error_holder[0] = exc
+
+        thread = threading.Thread(target=_run_async, daemon=True)
+        thread.start()
+        done_received = False
+
+        try:
+            with Live(
+                self.tui.build_layout(),
+                console=self.console,
+                refresh_per_second=4,
+                transient=True,
+            ) as live:
+                while thread.is_alive():
+                    thread.join(timeout=0.25)
+                    for event in bus.poll():
+                        self.tui.consume_event(event)
+                        if event.type == TUIEventType.EXECUTION_DONE:
+                            done_received = True
+
+                    if done_received:
+                        for event in bus.poll():
+                            self.tui.consume_event(event)
+                        live.update(self.tui.build_layout())
+                        thread.join(timeout=2.0)
+                        break
+
+                    live.update(self.tui.build_layout())
+
+                for event in bus.poll():
+                    self.tui.consume_event(event)
+                live.update(self.tui.build_layout())
+        except KeyboardInterrupt:
+            raise
+
+        if error_holder[0]:
+            raise error_holder[0]
+        return result_holder[0] or []
+
     # ─── Display ────────────────────────────────────────────────────────
 
     def _display_result(self, result: DeliberationResult) -> None:
@@ -641,6 +731,18 @@ class InteractiveSession:
                 self.console.print(
                     f"  [cyan]{package.id}[/cyan] {package.owner_agent}: "
                     f"{package.title} ({package.status.value})"
+                )
+
+        if self.workflow.execution_results:
+            self.console.print("\n[bold]🛠 Task Results[/bold]")
+            for execution_result in self.workflow.execution_results:
+                summary = execution_result.summary[:120]
+                if len(execution_result.summary) > 120:
+                    summary += "..."
+                self.console.print(
+                    f"  [cyan]{execution_result.package_id}[/cyan] "
+                    f"{execution_result.agent_name}: "
+                    f"{execution_result.status.value} - {summary}"
                 )
 
         self.console.print(

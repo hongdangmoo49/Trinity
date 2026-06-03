@@ -174,6 +174,51 @@ class SharedContextEngine:
             lines.append(f"- **{safe_agent}**: {safe_task}")
         self.write_section("Task Assignment", "\n".join(lines))
 
+    def append_task_result(
+        self,
+        *,
+        package_id: str,
+        agent: str,
+        status: str,
+        summary: str,
+        files_changed: Iterable[str] = (),
+        decisions_made: Iterable[str] = (),
+        blockers: Iterable[str] = (),
+        follow_up: Iterable[str] = (),
+        raw_response_path: Path | None = None,
+    ) -> None:
+        """Append a work package execution result to shared.md."""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        safe_package = self._sanitize_md_heading(package_id)
+        safe_agent = self._sanitize_md_heading(agent)
+        safe_summary = self._sanitize_md_heading(summary)
+
+        lines = [
+            f"\n### {safe_package} / {safe_agent} — {timestamp}",
+            f"- status: {status}",
+        ]
+        if raw_response_path is not None:
+            lines.append(f"- raw_response_path: `{raw_response_path}`")
+        if safe_summary:
+            lines.extend(["", "#### Summary", safe_summary])
+
+        def _append_list(title: str, items: Iterable[str]) -> None:
+            values = [
+                self._sanitize_md_heading(str(item).strip())
+                for item in items
+                if str(item).strip()
+            ]
+            if not values:
+                return
+            lines.extend(["", f"#### {title}"])
+            lines.extend(f"- {item}" for item in values)
+
+        _append_list("Files Changed", files_changed)
+        _append_list("Decisions Made", decisions_made)
+        _append_list("Blockers", blockers)
+        _append_list("Follow-up", follow_up)
+        self.append_to_section("Task Results", "\n".join(lines))
+
     def append_session_summary(self, agent: str, summary: str) -> None:
         """Append a session rotation summary to session history."""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")

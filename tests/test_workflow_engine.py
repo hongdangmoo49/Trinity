@@ -3,7 +3,14 @@
 import json
 
 from trinity.models import ConsensusResult, DeliberationResult
-from trinity.workflow import OpenQuestion, WorkflowEngine, WorkflowState
+from trinity.workflow import (
+    ExecutionResult,
+    OpenQuestion,
+    WorkPackage,
+    WorkStatus,
+    WorkflowEngine,
+    WorkflowState,
+)
 
 
 def test_workflow_engine_starts_and_persists_session(tmp_path):
@@ -165,3 +172,87 @@ def test_mark_deliberation_result_waits_on_structured_question(tmp_path):
     assert engine.state == WorkflowState.NEEDS_USER_DECISION
     assert len(engine.pending_questions) == 1
     assert engine.pending_questions[0].question == "Optimize for cost or latency?"
+
+
+def test_record_execution_results_moves_to_reviewing(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement route bot.",
+            requires_execution=True,
+        )
+    ]
+    engine.begin_execution()
+
+    engine.record_execution_results([
+        ExecutionResult(
+            package_id="WP-001",
+            agent_name="codex",
+            status=WorkStatus.DONE,
+            summary="Implemented route bot.",
+            files_changed=["src/routes.py"],
+        )
+    ])
+
+    assert engine.state == WorkflowState.REVIEWING
+    assert engine.session.work_packages[0].status == WorkStatus.DONE
+    assert engine.execution_results[0].summary == "Implemented route bot."
+
+    loaded = WorkflowEngine(tmp_path / ".trinity")
+    assert loaded.state == WorkflowState.REVIEWING
+    assert loaded.execution_results[0].files_changed == ["src/routes.py"]
+
+
+def test_record_execution_results_marks_failure(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement", ["codex"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement.",
+        )
+    ]
+
+    engine.record_execution_results([
+        ExecutionResult(
+            package_id="WP-001",
+            agent_name="codex",
+            status=WorkStatus.FAILED,
+            summary="Provider failed.",
+        )
+    ])
+
+    assert engine.state == WorkflowState.FAILED
+    assert engine.session.work_packages[0].status == WorkStatus.FAILED
+
+
+def test_record_execution_results_marks_blocked_as_user_decision(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement", ["codex"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement.",
+        )
+    ]
+
+    engine.record_execution_results([
+        ExecutionResult(
+            package_id="WP-001",
+            agent_name="codex",
+            status=WorkStatus.BLOCKED,
+            summary="Missing credential.",
+            blockers=["Missing credential."],
+        )
+    ])
+
+    assert engine.state == WorkflowState.NEEDS_USER_DECISION
+    assert engine.session.work_packages[0].status == WorkStatus.BLOCKED

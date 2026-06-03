@@ -7,6 +7,7 @@ from trinity.config import TrinityConfig
 from trinity.models import AgentSpec, DeliberationResult, ConsensusResult, Provider
 from trinity.orchestrator import TrinityOrchestrator
 from trinity.providers.readiness import ProviderState, ReadinessResult
+from trinity.workflow import ExecutionResult, WorkPackage, WorkStatus
 
 
 class TestTrinityOrchestratorInit:
@@ -547,3 +548,45 @@ class TestAsk:
             mock_protocol.run.assert_called_once_with("test prompt")
             assert set(orch.agents) == {"claude"}
             assert set(mock_protocol.agents) == {"claude"}
+
+    @pytest.mark.asyncio
+    async def test_execute_work_packages_delegates_to_execution_protocol(self, tmp_path):
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=tmp_path / ".trinity",
+            agents={
+                "codex": AgentSpec(
+                    name="codex",
+                    provider=Provider.CODEX,
+                    cli_command="codex",
+                    enabled=True,
+                ),
+            },
+        )
+        orch = TrinityOrchestrator(config)
+        package = WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement.",
+        )
+        expected = [
+            ExecutionResult(
+                package_id="WP-001",
+                agent_name="codex",
+                status=WorkStatus.DONE,
+                summary="Done.",
+            )
+        ]
+
+        with patch.object(orch, "_ensure_initialized"):
+            from unittest.mock import MagicMock
+
+            mock_execution = MagicMock()
+            mock_execution.run = AsyncMock(return_value=expected)
+            orch.execution_protocol = mock_execution
+
+            result = await orch.execute_work_packages([package])
+
+        assert result == expected
+        mock_execution.run.assert_called_once_with([package], decisions=[])

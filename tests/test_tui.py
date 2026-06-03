@@ -12,7 +12,7 @@ from trinity.models import (
 from trinity.tui.app import AgentTUIState, AgentTUIStatus, RoundStatus, TrinityTUI
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.tui.theme import AgentTheme, get_theme
-from trinity.workflow import OpenQuestion, WorkflowSession, WorkflowState
+from trinity.workflow import OpenQuestion, WorkPackage, WorkflowSession, WorkflowState
 
 
 @pytest.fixture
@@ -240,6 +240,52 @@ class TestTrinityTUI:
         assert tui.history[0]["prompt"] == "test question"
         assert tui.history[0]["rounds"] == 3
         assert tui.history[0]["consensus"] is False
+
+    def test_consume_execution_events_updates_package_statuses(self, tui):
+        tui.consume_event(
+            TUIEvent(
+                type=TUIEventType.EXECUTION_START,
+                data={"package_count": 1},
+            )
+        )
+        tui.consume_event(
+            TUIEvent(
+                type=TUIEventType.WORK_PACKAGE_STARTED,
+                data={"package_id": "WP-001", "status": "running"},
+            )
+        )
+        assert tui.work_package_count == 1
+        assert tui.work_package_statuses["WP-001"] == "running"
+
+        tui.consume_event(
+            TUIEvent(
+                type=TUIEventType.WORK_PACKAGE_COMPLETED,
+                data={"package_id": "WP-001", "status": "done"},
+            )
+        )
+
+        assert tui.work_package_statuses["WP-001"] == "done"
+        assert tui._work_package_summary() == "1/1 done"
+
+    def test_set_workflow_session_tracks_package_statuses(self, tui):
+        session = WorkflowSession(
+            id="wf-001",
+            goal="Implement",
+            state=WorkflowState.EXECUTING,
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="codex package",
+                    owner_agent="codex",
+                    objective="Implement.",
+                )
+            ],
+        )
+
+        tui.set_workflow_session(session)
+
+        assert tui.work_package_count == 1
+        assert tui.work_package_statuses == {"WP-001": "pending"}
 
     def test_set_workflow_session(self, tui):
         session = WorkflowSession(

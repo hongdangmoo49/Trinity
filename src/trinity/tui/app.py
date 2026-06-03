@@ -123,6 +123,7 @@ class TrinityTUI:
         self.workflow_goal: str = ""
         self.pending_question_count: int = 0
         self.work_package_count: int = 0
+        self.work_package_statuses: dict[str, str] = {}
 
         # Callbacks for commands
         self.on_ask: Callable[[str], Any] | None = None
@@ -209,6 +210,28 @@ class TrinityTUI:
                 elif event.data.get("summary"):
                     self.rounds[-1].consensus_detail = event.data["summary"]
 
+        elif event.type == TUIEventType.EXECUTION_START:
+            self.work_package_count = int(
+                event.data.get("package_count", self.work_package_count)
+            )
+
+        elif event.type == TUIEventType.WORK_PACKAGE_STARTED:
+            package_id = str(event.data.get("package_id", ""))
+            if package_id:
+                self.work_package_statuses[package_id] = str(
+                    event.data.get("status", "running")
+                )
+
+        elif event.type == TUIEventType.WORK_PACKAGE_COMPLETED:
+            package_id = str(event.data.get("package_id", ""))
+            if package_id:
+                self.work_package_statuses[package_id] = str(
+                    event.data.get("status", "done")
+                )
+
+        elif event.type == TUIEventType.EXECUTION_DONE:
+            pass
+
         elif event.type == TUIEventType.DELIBERATION_DONE:
             pass  # No special action needed
 
@@ -254,7 +277,10 @@ class TrinityTUI:
                     f"  Pending questions: {self.pending_question_count}",
                     style="dim",
                 ),
-                Text(f"  Work packages: {self.work_package_count}", style="dim"),
+                Text(
+                    f"  Work packages: {self._work_package_summary()}",
+                    style="dim",
+                ),
             ),
             Text.assemble(
                 self._caveman_badge(),
@@ -640,6 +666,9 @@ class TrinityTUI:
         self.workflow_goal = session.goal
         self.pending_question_count = len(session.open_questions)
         self.work_package_count = len(session.work_packages)
+        self.work_package_statuses = {
+            package.id: package.status.value for package in session.work_packages
+        }
 
     def reset_agents(self) -> None:
         """Reset all agent states to idle and clear round history."""
@@ -654,6 +683,15 @@ class TrinityTUI:
         # Clear round history between deliberations
         self.rounds.clear()
         self.current_round = 0
+
+    def _work_package_summary(self) -> str:
+        """Render a compact package status summary for the header."""
+        if not self.work_package_count:
+            return "0"
+        done = sum(
+            1 for status in self.work_package_statuses.values() if status == "done"
+        )
+        return f"{done}/{self.work_package_count} done"
 
     def _caveman_badge(self) -> Text:
         """Render caveman status badge for the header."""

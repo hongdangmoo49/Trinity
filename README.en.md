@@ -379,7 +379,7 @@ uv publish --token <PYPI_TOKEN>
 | Metric | Value |
 | :--- | :--- |
 | **Version** | 0.7.0 |
-| **Tests** | 882 passed |
+| **Tests** | 901 passed |
 | **Coverage** | ~87% |
 | **Source files** | 50+ |
 | **Dependencies** | `click`, `rich`, `prompt_toolkit`, `tomli` |

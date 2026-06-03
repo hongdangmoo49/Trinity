@@ -133,23 +133,27 @@ class StructuredConsensusSynthesizer:
         re.IGNORECASE,
     )
     QUESTION_PATTERN = re.compile(
-        r"^\s*(?:[-*]\s*)?(?:q(?:uestion)?\s*[:.)-]\s*)?(.+\?)\s*$",
+        r"^\s*(?:[-*]\s*)?(?:(?:q(?:uestion)?|질문)\s*[:：.)-]\s*)?(.+\?)\s*$",
         re.IGNORECASE,
     )
     QUESTION_FIELD_PATTERN = re.compile(
-        r"^\s*(?:[-*]\s*)?question\s*:\s*(.+)$",
+        r"^\s*(?:[-*]\s*)?(?:question|질문)\s*[:：]\s*(.+)$",
         re.IGNORECASE,
     )
     OPTIONS_PATTERN = re.compile(
-        r"^\s*(?:[-*]\s*)?options?\s*:\s*(.+)$",
+        r"^\s*(?:[-*]\s*)?(?:options?|옵션|선택지|선택)\s*[:：]\s*(.*)$",
         re.IGNORECASE,
     )
     RECOMMENDED_PATTERN = re.compile(
-        r"^\s*(?:[-*]\s*)?recommended(?:_option)?\s*:\s*(.+)$",
+        (
+            r"^\s*(?:[-*]\s*)?"
+            r"(?:recommended(?:_option)?|recommendation|추천|권장)"
+            r"\s*[:：]\s*(.+)$"
+        ),
         re.IGNORECASE,
     )
     RATIONALE_PATTERN = re.compile(
-        r"^\s*(?:[-*]\s*)?rationale\s*:\s*(.+)$",
+        r"^\s*(?:[-*]\s*)?(?:rationale|reason|이유|근거)\s*[:：]\s*(.+)$",
         re.IGNORECASE,
     )
 
@@ -440,23 +444,33 @@ class StructuredConsensusSynthesizer:
         lines: list[str],
     ) -> list[OpenQuestion]:
         questions: list[OpenQuestion] = []
-        current: dict[str, str] = {}
+        current: dict[str, Any] = {}
+
+        def append_options(raw: str) -> None:
+            options = current.setdefault("option_items", [])
+            options.extend(self._split_options(raw))
 
         def flush() -> None:
             if not current.get("question"):
                 return
             idx = len(questions) + 1
+            options = self._dedupe_options(
+                [
+                    *current.get("option_items", []),
+                    *self._split_options(str(current.get("options", ""))),
+                ]
+            )
             questions.append(
                 OpenQuestion(
                     id=f"q-{agent_name}-{idx:03d}",
-                    question=current["question"].strip(),
-                    options=self._split_options(current.get("options", "")),
+                    question=str(current["question"]).strip(),
+                    options=options,
                     recommended_option=(
-                        current.get("recommended_option", "").strip() or None
+                        str(current.get("recommended_option", "")).strip() or None
                     ),
                     blocking=True,
                     raised_by=[agent_name],
-                    rationale=current.get("rationale", "").strip(),
+                    rationale=str(current.get("rationale", "")).strip(),
                 )
             )
             current.clear()
@@ -477,7 +491,9 @@ class StructuredConsensusSynthesizer:
                 continue
             options_match = self.OPTIONS_PATTERN.match(stripped)
             if options_match:
-                current["options"] = options_match.group(1).strip()
+                raw_options = options_match.group(1).strip()
+                if raw_options:
+                    append_options(raw_options)
                 continue
             recommended_match = self.RECOMMENDED_PATTERN.match(stripped)
             if recommended_match:
@@ -486,6 +502,10 @@ class StructuredConsensusSynthesizer:
             rationale_match = self.RATIONALE_PATTERN.match(stripped)
             if rationale_match:
                 current["rationale"] = rationale_match.group(1).strip()
+                continue
+            option_item = self._option_from_list_item(stripped)
+            if option_item and current.get("question"):
+                append_options(option_item)
                 continue
             if stripped.endswith("?"):
                 flush()
@@ -649,8 +669,29 @@ class StructuredConsensusSynthesizer:
     def _split_options(raw: str) -> list[str]:
         if not raw.strip():
             return []
-        parts = re.split(r"\s*(?:\||,|/)\s*", raw.strip())
+        parts = re.split(r"\s*(?:\||,|/|、|，)\s*", raw.strip())
         return [part.strip() for part in parts if part.strip()]
+
+    @staticmethod
+    def _dedupe_options(options: list[str]) -> list[str]:
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for option in options:
+            normalized = re.sub(r"\s+", " ", option.strip().lower())
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            deduped.append(option.strip())
+        return deduped
+
+    @classmethod
+    def _option_from_list_item(cls, line: str) -> str:
+        if not re.match(r"^\s*(?:[-*]\s+|\d+[.)]\s+)", line):
+            return ""
+        item = cls._clean_list_item(line)
+        if not item or item.endswith("?") or ":" in item or "：" in item:
+            return ""
+        return item
 
     @staticmethod
     def _first_paragraph(text: str) -> str:

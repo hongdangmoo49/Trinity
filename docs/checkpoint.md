@@ -21,10 +21,14 @@
 - Execution protocol MVP, dependency-level 병렬 dispatch, `Task Results` 기록
 - Subagent delegation reporting과 `Subtasks` 기록
 - Shared ledger renderer, LifecycleGuard MVP, peer review planning foundation
+- 명시적 `/answer` user decision UX, `/questions --select` 방향키 옵션 선택
+- `/questions --select --all` decision wizard
+- 한국어/번호형 open question parser 보강
 
 ### 운영 문서
 
 - [v0.7.0 Workflow Guide](workflow-v0.7.0-guide.md)
+- [v0.7.0 후속 구현 후보](plans/2026-06-04-v0.7.0-follow-up-implementation-candidates.md)
 - [Provider Readiness Troubleshooting](troubleshooting-provider-readiness.md)
 - [v0.7.0 Workflow Engine 테스트 결과](test-results/v0.7.0-workflow-engine.md)
 - [v0.7.0 WSL/tmux Smoke Test Checklist](test-results/v070-smoke-checklist.md)
@@ -32,9 +36,27 @@
 ### 검증 기준선
 
 - 패키지/CLI 버전: `0.7.0`
-- `uv run pytest -q` → 882 passed, 1 warning
+- `uv run pytest -q` → 901 passed, 1 warning
 - 변경 파일 대상 ruff check 통과
 - 실제 WSL/tmux/provider smoke는 릴리스 전 별도 수행 필요
+
+### Post-merge smoke follow-ups
+
+- [x] `needs_user_decision` 상태의 일반 텍스트 FIFO 자동 기록을 제거했다.
+  사용자는 `/answer <question-id|index|next> <answer>`로 대상 질문을 명시한다.
+- [x] `/questions`를 실행 가능한 답변 안내 panel로 바꾸고, `/questions --select`로
+  첫 pending question의 options를 방향키로 선택할 수 있게 했다.
+- [x] `/questions --select --all`은 pending question을 순서대로 처리하며,
+  options가 없는 질문은 자유 텍스트 답변을 받는다.
+- [x] 잘못 기록한 decision은 `/answer --replace <question-id|decision-id> <answer>`로 정정한다.
+- [x] 한국어 `질문/옵션/추천/이유` 필드와 빈 `Options:` 뒤 번호형 선택지를
+  structured open question parser가 options/recommended/rationale로 보존한다.
+- [x] WSL/tmux smoke 중 Codex pane의 과거 `model: loading` scrollback이 현재 ready prompt보다
+  먼저 판정되어 continuation deliberation을 차단하는 false positive가 확인됐다.
+  readiness 판정은 현재 prompt readiness를 stale loading/auth/banner scrollback보다 우선하도록 수정했다.
+- [x] 후속 구현 후보를 별도 문서로 정리했다.
+  우선순위는 실제 WSL/tmux smoke, peer review execution, lifecycle rotation 보강,
+  non-blocking question 정책, workflow repair/reset UX 순서다.
 
 ---
 

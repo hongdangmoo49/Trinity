@@ -1,7 +1,5 @@
 """Tests for TrinityPromptSession — prompt_toolkit-backed input."""
 
-import tempfile
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from trinity.tui.prompt import TRINITY_COMMANDS, TrinityPromptSession
@@ -25,7 +23,6 @@ class TestTrinityPromptSession:
         """History file is created at the expected path."""
         state_dir = tmp_path / "state"
         TrinityPromptSession(state_dir)
-        history_path = state_dir / "history" / "input_history"
         # File may not exist yet (prompt_toolkit creates on first write)
         # But the directory must exist
         assert (state_dir / "history").is_dir()
@@ -35,8 +32,23 @@ class TestCommandCompletion:
     """Tab-completion includes all /commands."""
 
     def test_all_commands_present(self):
-        expected = {"/status", "/context", "/rounds", "/agent", "/history",
-                    "/save", "/caveman", "/help", "/quit"}
+        expected = {
+            "/status",
+            "/context",
+            "/rounds",
+            "/agent",
+            "/history",
+            "/save",
+            "/caveman",
+            "/workflow",
+            "/questions",
+            "/answer",
+            "/decisions",
+            "/packages",
+            "/subtasks",
+            "/help",
+            "/quit",
+        }
         assert expected.issubset(set(TRINITY_COMMANDS))
 
     def test_completer_configured(self, tmp_path):
@@ -54,6 +66,15 @@ class TestGetInput:
         with patch.object(session.session, "prompt", return_value="hello world"):
             result = session.get_input()
         assert result == "hello world"
+
+    def test_returns_question_answer_input(self, tmp_path):
+        """get_answer_input uses the workflow question prompt."""
+        session = TrinityPromptSession(tmp_path)
+        with patch.object(session.session, "prompt", return_value="LI.FI") as prompt:
+            result = session.get_answer_input(question_id="q-001")
+
+        assert result == "LI.FI"
+        prompt.assert_called_once()
 
     def test_propagates_keyboard_interrupt(self, tmp_path):
         """KeyboardInterrupt from prompt_toolkit is not swallowed."""
@@ -74,3 +95,19 @@ class TestGetInput:
                 assert False, "Should have raised EOFError"
             except EOFError:
                 pass
+
+    def test_select_option_returns_dialog_selection(self, tmp_path):
+        """select_option delegates to prompt_toolkit radiolist dialog."""
+        session = TrinityPromptSession(tmp_path)
+        dialog = MagicMock()
+        dialog.run.return_value = "2"
+        with patch("trinity.tui.prompt.radiolist_dialog", return_value=dialog):
+            result = session.select_option(
+                title="q-001",
+                question="Which API?",
+                options=["LI.FI", "Socket"],
+                recommended_option="Socket",
+            )
+
+        assert result == "2"
+        dialog.run.assert_called_once()

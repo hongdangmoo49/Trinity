@@ -19,6 +19,7 @@ from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.input import DummyInput
 from prompt_toolkit.output import DummyOutput
+from prompt_toolkit.shortcuts import radiolist_dialog
 from prompt_toolkit.styles import Style
 
 try:  # Windows services/non-console test runners can lack a screen buffer.
@@ -37,6 +38,12 @@ TRINITY_COMMANDS = [
     "/history",
     "/save",
     "/caveman",
+    "/workflow",
+    "/questions",
+    "/answer",
+    "/decisions",
+    "/packages",
+    "/subtasks",
     "/help",
     "/quit",
 ]
@@ -105,3 +112,33 @@ class TrinityPromptSession:
         return self.session.prompt(
             [("class:prompt", "💬 trinity> ")],
         )
+
+    def get_answer_input(self, *, question_id: str) -> str:
+        """Read a free-form workflow question answer."""
+        return self.session.prompt(
+            [("class:prompt", f"❓ {question_id}> ")],
+        )
+
+    def select_option(
+        self,
+        *,
+        title: str,
+        question: str,
+        options: list[str],
+        recommended_option: str | None = None,
+    ) -> str | None:
+        """Select a numbered question option using arrow keys."""
+        values = []
+        for index, option in enumerate(options, 1):
+            label = f"{index}. {option}"
+            if option == recommended_option:
+                label += " (recommended)"
+            values.append((str(index), label))
+
+        return radiolist_dialog(
+            title=title,
+            text=question,
+            values=values,
+            ok_text="Select",
+            cancel_text="Cancel",
+        ).run()

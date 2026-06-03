@@ -105,6 +105,52 @@ Trinity는 structured vote를 평가해 다음 중 하나를 선택한다.
 - consensus 실패 처리
 
 사용자 답변은 새 workflow를 만들지 않고 기존 pending question의 decision으로 저장된다.
+`needs_user_decision` 상태에서 일반 텍스트는 더 이상 첫 질문의 답변으로 자동 소비되지 않는다.
+질문 답변은 명시적인 `/answer` 명령으로 기록해야 한다.
+
+```text
+/questions
+/questions --select
+/questions --select --all
+/answer q-claude-002 LI.FI
+/answer 2 TypeScript
+/answer next "Telegram 먼저"
+/answer 1
+/answer --replace q-claude-002 Socket
+/answer --replace dec-001 Socket
+```
+
+지원되는 답변 대상:
+
+- `q-...` question id
+- `/questions` 표시 순서의 1-based index
+- `next` 또는 `first`
+- `--replace` 사용 시 기존 `dec-...` decision id
+
+`/answer 1`처럼 답변 내용 없이 숫자 하나만 입력하면, 첫 번째 pending question의
+1번 option을 선택한다. `/questions --select`는 터미널이 대화형 TTY일 때 첫 번째
+pending question의 options를 방향키로 선택하는 prompt_toolkit UI를 연다.
+`/questions --select --all`은 pending question을 순서대로 처리하는 decision wizard다.
+options가 있는 질문은 방향키로 고르고, options가 없는 질문은 같은 흐름에서 자유 텍스트를 입력한다.
+명령형으로 처리하려면 `/answer next <answer>`를 사용한다.
+
+Open question parser는 영어 contract와 한국어 agent 출력 변형을 모두 허용한다.
+
+```text
+OPEN QUESTIONS:
+# 1
+질문: 브릿지 API 소스?
+옵션: LI.FI, Socket, 자체 구축
+추천: LI.FI
+이유: 현재 API 커버리지와 서버비 부담이 가장 낮음.
+
+- Question: MVP scope?
+  Options:
+  1. L2 only
+  2. L2 plus Ethereum mainnet
+  Recommended: L2 plus Ethereum mainnet
+  Rationale: Most practical bridge paths use Ethereum as a fallback.
+```
 
 ## 7. Work Packages와 Execution
 
@@ -183,6 +229,7 @@ Execution이 모두 `done`이면 workflow는 `reviewing` 상태가 된다.
 - active agent가 1개뿐이면 self-review package를 만든다.
 
 현재 단계는 review package 계획과 persistence까지 제공한다. 실제 review prompt 실행은 후속 workflow loop에서 확장한다.
+구체적인 후속 구현 후보는 [`docs/plans/2026-06-04-v0.7.0-follow-up-implementation-candidates.md`](plans/2026-06-04-v0.7.0-follow-up-implementation-candidates.md)에 정리한다.
 
 ## 11. Shared Ledger
 

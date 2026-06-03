@@ -21,8 +21,13 @@ class TUIEventType(str, Enum):
     AGENT_THINKING = "agent_thinking"
     AGENT_RESPONDED = "agent_responded"
     AGENT_ERROR = "agent_error"
+    PROVIDER_READINESS = "provider_readiness"
     CONSENSUS_CHECKING = "consensus_checking"
     CONSENSUS_RESULT = "consensus_result"
+    EXECUTION_START = "execution_start"
+    WORK_PACKAGE_STARTED = "work_package_started"
+    WORK_PACKAGE_COMPLETED = "work_package_completed"
+    EXECUTION_DONE = "execution_done"
     DELIBERATION_DONE = "deliberation_done"
 
 

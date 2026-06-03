@@ -1,24 +1,21 @@
 """Tests for trinity.deliberation.protocol — DeliberationProtocol."""
 
-import asyncio
 import logging
 import pytest
 from rich.console import Console
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from trinity.agents.base import AgentWrapper
 from trinity.config import TrinityConfig
 from trinity.context.budget import BudgetCheckResult
 from trinity.context.shared import SharedContextEngine
 from trinity.deliberation.consensus import ConsensusEngine
-from trinity.deliberation.distributor import TaskDistributor
 from trinity.deliberation.protocol import DeliberationProtocol
 from trinity.models import (
     AgentSpec,
     ConsensusResult,
     ContextUsage,
     DeliberationMessage,
-    DeliberationResult,
     MessageRole,
     Provider,
 )
@@ -369,8 +366,9 @@ class TestCollectOpinions:
         responded = [
             event for event in events if event.type == TUIEventType.AGENT_RESPONDED
         ][0]
-        assert responded.data["response_status"] == "completion_timeout"
+        assert responded.data["response_status"] == "timeout"
         assert responded.data["metadata"]["completed"] is False
+        assert responded.data["metadata"]["agent_response"]["status"] == "timeout"
 
 
 class TestProtocolRun:
@@ -531,6 +529,81 @@ class TestProtocolRun:
 
         assert result.duration_seconds > 0
         assert result.total_tokens_used == 500
+
+    @pytest.mark.asyncio
+    async def test_structured_blueprint_metadata_attached(self, tmp_path):
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        agents = {"claude": _make_mock_agent("claude")}
+        agents["claude"].send_and_wait = AsyncMock(
+            return_value=_make_opinion(
+                "claude",
+                1,
+                """\
+BLUEPRINT:
+Title: Route Bot
+Summary: Finds bridge routes.
+
+Architecture:
+- Quote Collector: collects quotes
+
+Data Flow:
+- request -> quotes -> score
+
+Acceptance Criteria:
+- returns ranked paths
+
+VOTE: APPROVE
+""",
+            )
+        )
+
+        protocol = DeliberationProtocol(
+            agents=agents,
+            shared=engine,
+            max_rounds=3,
+        )
+
+        result = await protocol.run("Design route bot")
+
+        structured = result.metadata["structured_consensus"]
+        assert result.has_consensus
+        assert structured["reached"] is True
+        assert structured["final_blueprint"]["title"] == "Route Bot"
+
+    @pytest.mark.asyncio
+    async def test_structured_open_question_stops_round_loop(self, tmp_path):
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        agents = {"gemini": _make_mock_agent("gemini")}
+        agents["gemini"].send_and_wait = AsyncMock(
+            return_value=_make_opinion(
+                "gemini",
+                1,
+                """\
+VOTE: BLOCKED_BY_QUESTION
+
+OPEN QUESTIONS:
+- Question: Optimize for cost or latency?
+  Options: cost | latency | mixed
+  Recommended: mixed
+  Rationale: Trade-off changes scoring.
+""",
+            )
+        )
+
+        protocol = DeliberationProtocol(
+            agents=agents,
+            shared=engine,
+            max_rounds=3,
+        )
+
+        result = await protocol.run("Design route bot")
+
+        structured = result.metadata["structured_consensus"]
+        assert result.rounds_completed == 1
+        assert not result.has_consensus
+        assert structured["open_questions"][0]["question"] == (
+            "Optimize for cost or latency?"
+        )
 
 
 class TestTUIResponseStatus:

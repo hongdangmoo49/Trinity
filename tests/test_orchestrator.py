@@ -1,12 +1,13 @@
 """Tests for trinity.orchestrator — TrinityOrchestrator."""
 
 import pytest
-from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 from trinity.config import TrinityConfig
 from trinity.models import AgentSpec, DeliberationResult, ConsensusResult, Provider
 from trinity.orchestrator import TrinityOrchestrator
+from trinity.providers.readiness import ProviderState, ReadinessResult
+from trinity.workflow import ExecutionResult, WorkPackage, WorkStatus
 
 
 class TestTrinityOrchestratorInit:
@@ -415,3 +416,177 @@ class TestAsk:
             assert result.has_consensus
             mock_agent.start.assert_called_once()
             mock_protocol.run.assert_called_once_with("test prompt")
+
+    @pytest.mark.asyncio
+    async def test_ask_skips_protocol_when_readiness_fails(self, tmp_path):
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=tmp_path / ".trinity",
+            agents={
+                "claude": AgentSpec(
+                    name="claude",
+                    provider=Provider.CLAUDE_CODE,
+                    cli_command="claude",
+                    role_prompt="Tester.",
+                    enabled=True,
+                ),
+            },
+        )
+        orch = TrinityOrchestrator(config)
+
+        with patch.object(orch, "_ensure_initialized"):
+            from unittest.mock import MagicMock
+
+            mock_agent = MagicMock()
+            mock_agent.start = AsyncMock()
+            mock_agent.spec = config.agents["claude"]
+            mock_agent.context_usage.used = 0
+            orch.agents = {"claude": mock_agent}
+
+            mock_protocol = MagicMock()
+            mock_protocol.run = AsyncMock()
+            orch.protocol = mock_protocol
+
+            mock_gate = MagicMock()
+            mock_gate.check_all.return_value = {
+                "claude": ReadinessResult(
+                    agent_name="claude",
+                    provider=Provider.CLAUDE_CODE,
+                    ready=False,
+                    state=ProviderState.AUTH_REQUIRED,
+                    reason="claude-code requires authentication",
+                    action_hint="Run `claude` in a terminal.",
+                    excerpt="OAuth URL",
+                )
+            }
+            orch.readiness_gate = mock_gate
+
+            result = await orch.ask("test prompt")
+
+            mock_agent.start.assert_called_once()
+            mock_protocol.run.assert_not_called()
+            assert result.rounds_completed == 0
+            assert not result.has_consensus
+            assert "Deliberation was not started" in result.consensus.summary
+            assert "auth_required" in result.consensus.summary
+
+    @pytest.mark.asyncio
+    async def test_ask_degraded_mode_uses_ready_agents_only(self, tmp_path):
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=tmp_path / ".trinity",
+            provider_readiness_mode="degraded",
+            agents={
+                "claude": AgentSpec(
+                    name="claude",
+                    provider=Provider.CLAUDE_CODE,
+                    cli_command="claude",
+                    enabled=True,
+                ),
+                "codex": AgentSpec(
+                    name="codex",
+                    provider=Provider.CODEX,
+                    cli_command="codex",
+                    enabled=True,
+                ),
+            },
+        )
+        orch = TrinityOrchestrator(config)
+        expected_result = DeliberationResult(
+            user_prompt="test",
+            rounds_completed=1,
+            consensus=ConsensusResult(
+                reached=True,
+                agreement_count=1,
+                total_agents=1,
+                opinions={"claude": "yes"},
+                summary="ok",
+            ),
+        )
+
+        with patch.object(orch, "_ensure_initialized"):
+            from unittest.mock import MagicMock
+
+            claude = MagicMock()
+            claude.start = AsyncMock()
+            claude.spec = config.agents["claude"]
+            claude.context_usage.used = 10
+            codex = MagicMock()
+            codex.start = AsyncMock()
+            codex.spec = config.agents["codex"]
+            codex.context_usage.used = 0
+            orch.agents = {"claude": claude, "codex": codex}
+
+            mock_protocol = MagicMock()
+            mock_protocol.run = AsyncMock(return_value=expected_result)
+            orch.protocol = mock_protocol
+
+            mock_gate = MagicMock()
+            mock_gate.check_all.return_value = {
+                "claude": ReadinessResult(
+                    agent_name="claude",
+                    provider=Provider.CLAUDE_CODE,
+                    ready=True,
+                    state=ProviderState.READY,
+                    reason="ready",
+                    action_hint="",
+                ),
+                "codex": ReadinessResult(
+                    agent_name="codex",
+                    provider=Provider.CODEX,
+                    ready=False,
+                    state=ProviderState.MODEL_LOADING,
+                    reason="model loading",
+                    action_hint="Wait.",
+                ),
+            }
+            orch.readiness_gate = mock_gate
+
+            result = await orch.ask("test prompt")
+
+            assert result is expected_result
+            mock_protocol.run.assert_called_once_with("test prompt")
+            assert set(orch.agents) == {"claude"}
+            assert set(mock_protocol.agents) == {"claude"}
+
+    @pytest.mark.asyncio
+    async def test_execute_work_packages_delegates_to_execution_protocol(self, tmp_path):
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=tmp_path / ".trinity",
+            agents={
+                "codex": AgentSpec(
+                    name="codex",
+                    provider=Provider.CODEX,
+                    cli_command="codex",
+                    enabled=True,
+                ),
+            },
+        )
+        orch = TrinityOrchestrator(config)
+        package = WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement.",
+        )
+        expected = [
+            ExecutionResult(
+                package_id="WP-001",
+                agent_name="codex",
+                status=WorkStatus.DONE,
+                summary="Done.",
+            )
+        ]
+
+        with patch.object(orch, "_ensure_initialized"):
+            from unittest.mock import MagicMock
+
+            mock_execution = MagicMock()
+            mock_execution.run = AsyncMock(return_value=expected)
+            orch.execution_protocol = mock_execution
+
+            result = await orch.execute_work_packages([package])
+
+        assert result == expected
+        mock_execution.run.assert_called_once_with([package], decisions=[])

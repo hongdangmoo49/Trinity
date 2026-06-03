@@ -102,7 +102,9 @@ class TestBorderRemoval:
         assert "Actual response text" in cleaned
         # The box-drawing chars lines should be gone
         lines = cleaned.splitlines()
-        border_lines = [l for l in lines if "╭" in l or "╰" in l or "╯" in l]
+        border_lines = [
+            line for line in lines if "╭" in line or "╰" in line or "╯" in line
+        ]
         assert len(border_lines) == 0
 
     def test_unicode_box_drawing(self):
@@ -179,6 +181,21 @@ class TestMixedContent:
 
 class TestCompletionMarkerAndInteractiveUiRemoval:
     """Completion markers and interactive approval UI are stripped."""
+
+    def test_request_boundaries_removed(self):
+        raw = (
+            "TRINITY_REQUEST_START round-1-claude-abc123\n"
+            "User's request: design the contract\n"
+            "TRINITY_REQUEST_END round-1-claude-abc123\n"
+            "\n"
+            "Use request ids and persist raw/clean response files."
+        )
+
+        cleaned = ResponseCleaner.clean(raw)
+
+        assert "TRINITY_REQUEST_START" not in cleaned
+        assert "TRINITY_REQUEST_END" not in cleaned
+        assert "Use request ids" in cleaned
 
     def test_marker_tail_removes_following_ui(self):
         raw = (

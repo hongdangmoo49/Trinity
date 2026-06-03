@@ -21,6 +21,7 @@
 - Execution protocol MVP, dependency-level 병렬 dispatch, `Task Results` 기록
 - Subagent delegation reporting과 `Subtasks` 기록
 - Shared ledger renderer, LifecycleGuard MVP, peer review planning foundation
+- 명시적 `/answer` user decision UX, `/questions --select` 방향키 옵션 선택
 
 ### 운영 문서
 
@@ -32,17 +33,20 @@
 ### 검증 기준선
 
 - 패키지/CLI 버전: `0.7.0`
-- `uv run pytest -q` → 888 passed, 1 warning
+- `uv run pytest -q` → 896 passed, 1 warning
 - 변경 파일 대상 ruff check 통과
 - 실제 WSL/tmux/provider smoke는 릴리스 전 별도 수행 필요
 
 ### Post-merge smoke follow-ups
 
-- `needs_user_decision` 상태의 일반 텍스트는 현재 pending question FIFO 순서로 기록된다.
-  q-id를 명시하는 답변 UX(`/answer <question-id> <answer>`)는 후속 설계 과제로 남긴다.
-- WSL/tmux smoke 중 Codex pane의 과거 `model: loading` scrollback이 현재 ready prompt보다
+- [x] `needs_user_decision` 상태의 일반 텍스트 FIFO 자동 기록을 제거했다.
+  사용자는 `/answer <question-id|index|next> <answer>`로 대상 질문을 명시한다.
+- [x] `/questions`를 실행 가능한 답변 안내 panel로 바꾸고, `/questions --select`로
+  첫 pending question의 options를 방향키로 선택할 수 있게 했다.
+- [x] 잘못 기록한 decision은 `/answer --replace <question-id|decision-id> <answer>`로 정정한다.
+- [x] WSL/tmux smoke 중 Codex pane의 과거 `model: loading` scrollback이 현재 ready prompt보다
   먼저 판정되어 continuation deliberation을 차단하는 false positive가 확인됐다.
-  readiness 판정은 현재 prompt readiness를 stale loading/auth/banner scrollback보다 우선해야 한다.
+  readiness 판정은 현재 prompt readiness를 stale loading/auth/banner scrollback보다 우선하도록 수정했다.
 
 ---
 

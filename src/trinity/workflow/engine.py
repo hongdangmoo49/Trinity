@@ -36,6 +36,8 @@ class WorkflowInputAction:
     prompt: str = ""
     decision_record: DecisionRecord | None = None
     started_new_workflow: bool = False
+    replaced_decision: bool = False
+    message: str = ""
 
 
 class WorkflowEngine:
@@ -111,7 +113,13 @@ class WorkflowEngine:
     ) -> WorkflowInputAction:
         """Route a user input as a new goal or a pending-question answer."""
         if self.session.state == WorkflowState.NEEDS_USER_DECISION:
-            return self.answer_pending_question(text)
+            return WorkflowInputAction(
+                should_deliberate=False,
+                message=(
+                    "Workflow is waiting for an explicit answer. "
+                    "Use /answer <question-id|index|next> <answer>."
+                ),
+            )
         return self.start(text, active_agents)
 
     def start(
@@ -139,27 +147,68 @@ class WorkflowEngine:
 
     def answer_pending_question(self, answer: str) -> WorkflowInputAction:
         """Record an answer to the oldest open question and continue deliberation."""
-        questions = self.pending_questions
-        if not questions:
-            return WorkflowInputAction(should_deliberate=False)
+        return self.answer_question("next", answer)
 
-        question = questions[0]
+    def answer_question(
+        self,
+        selector: str,
+        answer: str,
+        *,
+        replace: bool = False,
+    ) -> WorkflowInputAction:
+        """Record or replace a user answer for a selected workflow question."""
+        answer = answer.strip()
+        if not answer:
+            return WorkflowInputAction(
+                should_deliberate=False,
+                message="Answer cannot be empty.",
+            )
+
+        question = self.resolve_question(selector, include_answered=replace)
+        if question is None:
+            return WorkflowInputAction(
+                should_deliberate=False,
+                message=f"No matching workflow question: {selector}",
+            )
+        if question.status != "open" and not replace:
+            return WorkflowInputAction(
+                should_deliberate=False,
+                message=(
+                    f"Question {question.id} is already answered. "
+                    "Use /answer --replace to update it."
+                ),
+            )
+
+        existing = self._decision_for_question(question.id) if replace else None
         question.status = "answered"
-        decision = DecisionRecord(
-            id=f"dec-{len(self.session.decisions) + 1:03d}",
-            question_id=question.id,
-            decision=answer,
-            decided_by="user",
-            rationale=f"Answer to: {question.question}",
-        )
-        self.session.decisions.append(decision)
+        if existing is not None:
+            decision = existing
+            decision.decision = answer
+            decision.decided_by = "user"
+            decision.rationale = f"Updated answer to: {question.question}"
+            decision.timestamp = time.time()
+            event_type = "decision_replaced"
+            replaced = True
+        else:
+            decision = DecisionRecord(
+                id=f"dec-{len(self.session.decisions) + 1:03d}",
+                question_id=question.id,
+                decision=answer,
+                decided_by="user",
+                rationale=f"Answer to: {question.question}",
+            )
+            self.session.decisions.append(decision)
+            event_type = "decision_recorded"
+            replaced = False
+
         self.session.updated_at = time.time()
         self._persist(
-            "decision_recorded",
+            event_type,
             {
                 "decision_id": decision.id,
                 "question_id": question.id,
                 "decision": answer,
+                "replaced": replaced,
             },
         )
 
@@ -171,6 +220,7 @@ class WorkflowEngine:
             return WorkflowInputAction(
                 should_deliberate=False,
                 decision_record=decision,
+                replaced_decision=replaced,
             )
 
         self.set_state(WorkflowState.DELIBERATING, reason="user decision answered")
@@ -178,6 +228,93 @@ class WorkflowEngine:
             should_deliberate=True,
             prompt=self._build_decision_continuation_prompt(decision),
             decision_record=decision,
+            replaced_decision=replaced,
+        )
+
+    def answer_question_option(
+        self,
+        option_selector: str,
+        *,
+        question_selector: str = "next",
+        replace: bool = False,
+    ) -> WorkflowInputAction:
+        """Record a numbered option for a selected workflow question."""
+        question = self.resolve_question(
+            question_selector,
+            include_answered=replace,
+        )
+        if question is None:
+            return WorkflowInputAction(
+                should_deliberate=False,
+                message=f"No matching workflow question: {question_selector}",
+            )
+        if not option_selector.isdigit():
+            return WorkflowInputAction(
+                should_deliberate=False,
+                message=f"Option must be a number: {option_selector}",
+            )
+        index = int(option_selector) - 1
+        if index < 0 or index >= len(question.options):
+            return WorkflowInputAction(
+                should_deliberate=False,
+                message=f"Question {question.id} has no option {option_selector}.",
+            )
+        return self.answer_question(
+            question.id,
+            question.options[index],
+            replace=replace,
+        )
+
+    def resolve_question(
+        self,
+        selector: str,
+        *,
+        include_answered: bool = False,
+    ) -> OpenQuestion | None:
+        """Resolve a question id, 1-based index, or ``next`` selector."""
+        selector = selector.strip()
+        if not selector:
+            return None
+
+        normalized = selector.lower()
+        open_questions = self.pending_questions
+        questions = self.session.pending_questions if include_answered else open_questions
+
+        if normalized in {"next", "first"}:
+            return open_questions[0] if open_questions else None
+
+        if normalized.isdigit():
+            index = int(normalized) - 1
+            if 0 <= index < len(questions):
+                return questions[index]
+            return None
+
+        if include_answered and normalized.startswith("dec-"):
+            decision = next(
+                (
+                    item
+                    for item in self.session.decisions
+                    if item.id.lower() == normalized
+                ),
+                None,
+            )
+            if decision and decision.question_id:
+                normalized = decision.question_id.lower()
+
+        return next(
+            (question for question in questions if question.id.lower() == normalized),
+            None,
+        )
+
+    def _decision_for_question(self, question_id: str) -> DecisionRecord | None:
+        """Return the existing decision attached to a question."""
+        return next(
+            (
+                decision
+                for decision in self.session.decisions
+                if decision.question_id == question_id
+            ),
+            None,
         )
 
     def add_open_question(self, question: OpenQuestion) -> None:

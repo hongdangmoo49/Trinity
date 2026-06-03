@@ -45,7 +45,7 @@ def test_workflow_engine_loads_existing_session(tmp_path):
     assert loaded.state == WorkflowState.DELIBERATING
 
 
-def test_pending_question_answer_records_decision_without_new_workflow(tmp_path):
+def test_pending_question_requires_explicit_answer(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
     engine.start("Design a bridge bot", ["claude"])
     original_id = engine.session.id
@@ -61,7 +61,30 @@ def test_pending_question_answer_records_decision_without_new_workflow(tmp_path)
     action = engine.handle_user_input("Use mixed score", ["claude"])
 
     assert engine.session.id == original_id
-    assert action.started_new_workflow is False
+    assert action.should_deliberate is False
+    assert action.decision_record is None
+    assert "explicit answer" in action.message
+    assert engine.session.decisions == []
+    assert engine.session.pending_questions[0].status == "open"
+    assert engine.state == WorkflowState.NEEDS_USER_DECISION
+
+
+def test_answer_question_records_decision_without_new_workflow(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design a bridge bot", ["claude"])
+    original_id = engine.session.id
+    engine.add_open_question(
+        OpenQuestion(
+            id="q-001",
+            question="Optimize for cost or latency?",
+            options=["cost", "latency"],
+            recommended_option="cost",
+        )
+    )
+
+    action = engine.answer_question("q-001", "Use mixed score")
+
+    assert engine.session.id == original_id
     assert action.should_deliberate is True
     assert action.decision_record is not None
     assert action.decision_record.question_id == "q-001"
@@ -78,12 +101,46 @@ def test_multiple_pending_questions_waits_for_remaining_answers(tmp_path):
     engine.add_open_question(OpenQuestion(id="q-001", question="First?"))
     engine.add_open_question(OpenQuestion(id="q-002", question="Second?"))
 
-    action = engine.handle_user_input("First answer", ["claude"])
+    action = engine.answer_question("1", "First answer")
 
     assert action.should_deliberate is False
     assert engine.state == WorkflowState.NEEDS_USER_DECISION
     assert len(engine.pending_questions) == 1
     assert engine.pending_questions[0].id == "q-002"
+
+
+def test_answer_question_option_records_numbered_option(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design", ["claude"])
+    engine.add_open_question(
+        OpenQuestion(
+            id="q-001",
+            question="Which API?",
+            options=["LI.FI", "Socket"],
+        )
+    )
+
+    action = engine.answer_question_option("2")
+
+    assert action.should_deliberate is True
+    assert engine.decisions[0].question_id == "q-001"
+    assert engine.decisions[0].decision == "Socket"
+
+
+def test_answer_question_replace_updates_existing_decision(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design", ["claude"])
+    engine.add_open_question(OpenQuestion(id="q-001", question="Which API?"))
+
+    first = engine.answer_question("q-001", "LI.FI")
+    updated = engine.answer_question("q-001", "Socket", replace=True)
+
+    assert first.decision_record is not None
+    assert updated.decision_record is not None
+    assert updated.replaced_decision is True
+    assert len(engine.decisions) == 1
+    assert engine.decisions[0].id == first.decision_record.id
+    assert engine.decisions[0].decision == "Socket"
 
 
 def test_mark_deliberation_result_updates_state(tmp_path):

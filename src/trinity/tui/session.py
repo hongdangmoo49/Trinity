@@ -13,10 +13,13 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import shlex
+import sys
 from typing import TYPE_CHECKING
 
 from rich.console import Console
 from rich.live import Live
+from rich.markup import escape
 from rich.panel import Panel
 
 from trinity.config import TrinityConfig
@@ -25,7 +28,12 @@ from trinity.tui.app import AgentTUIState, TrinityTUI
 from trinity.tui.events import TUIEventBus
 from trinity.tui.prompt import TrinityPromptSession
 from trinity.tui.theme import get_theme
-from trinity.workflow import ExecutionResult, WorkflowEngine, WorkflowState
+from trinity.workflow import (
+    ExecutionResult,
+    WorkflowEngine,
+    WorkflowInputAction,
+    WorkflowState,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +115,11 @@ class InteractiveSession:
         Args:
             command: The command string including the leading /.
         """
-        parts = command[1:].split()
+        try:
+            parts = shlex.split(command[1:])
+        except ValueError as exc:
+            self.console.print(f"[yellow]Invalid command syntax: {exc}[/yellow]")
+            return
         if not parts:
             return
 
@@ -135,7 +147,9 @@ class InteractiveSession:
         elif cmd == "workflow":
             self._cmd_workflow()
         elif cmd == "questions":
-            self._cmd_questions()
+            self._cmd_questions(args)
+        elif cmd == "answer":
+            self._cmd_answer(args)
         elif cmd == "decisions":
             self._cmd_decisions()
         elif cmd == "packages":
@@ -329,30 +343,110 @@ class InteractiveSession:
             border_style="magenta",
         ))
 
-    def _cmd_questions(self) -> None:
+    def _cmd_questions(self, args: list[str] | None = None) -> None:
         """Show pending workflow questions."""
+        args = args or []
+        if any(arg in {"--select", "-s"} for arg in args):
+            self._cmd_select_question()
+            return
+
         questions = self.workflow.pending_questions
         if not questions:
             self.console.print("[dim]No pending workflow questions.[/dim]")
             return
 
-        from rich.table import Table
+        self.console.print(self._build_questions_panel(questions))
 
-        table = Table(title="Pending Questions")
-        table.add_column("ID", style="cyan")
-        table.add_column("Question")
-        table.add_column("Recommendation")
-        table.add_column("Options")
+    def _cmd_answer(self, args: list[str]) -> None:
+        """Answer a pending workflow question.
 
-        for question in questions:
-            table.add_row(
-                question.id,
-                question.question,
-                question.recommended_option or "",
-                ", ".join(question.options),
+        Usage:
+            /answer <question-id|index|next> <answer>
+            /answer <option-index>
+            /answer --replace <question-id|decision-id> <answer>
+        """
+        if not args:
+            self.console.print(
+                "[dim]Usage: /answer <question-id|index|next> <answer>[/dim]"
             )
+            return
 
-        self.console.print(table)
+        active = self.config.active_agents
+        if not active:
+            self.console.print(
+                "[red]No active agents. Use /agent <name> on to enable one.[/red]"
+            )
+            return
+
+        replace = False
+        filtered: list[str] = []
+        for arg in args:
+            if arg in {"--replace", "-r"}:
+                replace = True
+            else:
+                filtered.append(arg)
+
+        if not filtered:
+            self.console.print(
+                "[dim]Usage: /answer <question-id|index|next> <answer>[/dim]"
+            )
+            return
+
+        if len(filtered) == 1 and filtered[0].isdigit():
+            action = self.workflow.answer_question_option(
+                filtered[0],
+                replace=replace,
+            )
+            self._apply_workflow_action(action)
+            return
+
+        if len(filtered) == 1:
+            selector = "next"
+            answer = filtered[0]
+        else:
+            selector = filtered[0]
+            answer = " ".join(filtered[1:])
+
+        action = self.workflow.answer_question(selector, answer, replace=replace)
+        self._apply_workflow_action(action)
+
+    def _cmd_select_question(self) -> None:
+        """Select the next question option with arrow keys."""
+        questions = self.workflow.pending_questions
+        if not questions:
+            self.console.print("[dim]No pending workflow questions.[/dim]")
+            return
+
+        if not sys.stdin.isatty() or not sys.stdout.isatty():
+            self.console.print(
+                "[yellow]Interactive selection requires a terminal. "
+                "Use /answer <question-id|index|next> <answer> instead.[/yellow]"
+            )
+            return
+
+        question = questions[0]
+        if not question.options:
+            self.console.print(
+                f"[yellow]{question.id} has no selectable options. "
+                "Use /answer next <answer>.[/yellow]"
+            )
+            return
+
+        selected = self._prompt_session.select_option(
+            title=f"{question.id}",
+            question=question.question,
+            options=question.options,
+            recommended_option=question.recommended_option,
+        )
+        if selected is None:
+            self.console.print("[dim]Selection cancelled.[/dim]")
+            return
+
+        action = self.workflow.answer_question_option(
+            str(selected),
+            question_selector=question.id,
+        )
+        self._apply_workflow_action(action)
 
     def _cmd_decisions(self) -> None:
         """Show workflow decision ledger."""
@@ -447,20 +541,80 @@ class InteractiveSession:
             return
 
         action = self.workflow.handle_user_input(text, list(active.keys()))
+        self._apply_workflow_action(action)
+
+    def _apply_workflow_action(self, action: WorkflowInputAction) -> None:
+        """Apply a routed workflow action to the TUI and deliberation runner."""
         self.tui.set_workflow_session(self.workflow.session)
 
+        if action.message:
+            self.console.print(f"[yellow]{action.message}[/yellow]")
+
         if action.decision_record:
+            verb = "Updated" if action.replaced_decision else "Recorded"
             self.console.print(
-                f"[green]Recorded decision {action.decision_record.id}.[/green]"
+                f"[green]{verb} decision {action.decision_record.id}.[/green]"
             )
 
         if action.should_deliberate:
             self._run_deliberation(action.prompt)
         elif self.workflow.state == WorkflowState.NEEDS_USER_DECISION:
-            self.console.print(
-                "[yellow]More workflow decisions are still required. "
-                "Use /questions to view them.[/yellow]"
+            self._print_decision_required()
+
+    def _print_decision_required(self) -> None:
+        """Print the next actionable workflow decision hint."""
+        questions = self.workflow.pending_questions
+        if not questions:
+            return
+        self.console.print(self._build_questions_panel(questions, compact=True))
+
+    def _build_questions_panel(self, questions, *, compact: bool = False) -> Panel:
+        """Build an actionable pending-question panel."""
+        lines: list[str] = []
+        shown = questions[:1] if compact else questions
+        for index, question in enumerate(shown, 1):
+            lines.append(
+                f"[bold cyan][{index}][/bold cyan] "
+                f"[cyan]{escape(question.id)}[/cyan] · {escape(question.question)}"
             )
+            if question.recommended_option:
+                lines.append(f"    추천: {escape(question.recommended_option)}")
+            if question.options:
+                for option_index, option in enumerate(question.options, 1):
+                    suffix = (
+                        " [green](recommended)[/green]"
+                        if option == question.recommended_option
+                        else ""
+                    )
+                    lines.append(
+                        f"    {option_index}. {escape(option)}{suffix}"
+                    )
+                lines.append(
+                    f"    답변: /answer {index} <값> 또는 "
+                    f"/answer {question.id} <값>"
+                )
+                if index == 1:
+                    lines.append("    선택 UI: /questions --select")
+            else:
+                lines.append(
+                    f"    답변: /answer {index} <값> 또는 "
+                    f"/answer {question.id} <값>"
+                )
+            if question.rationale:
+                lines.append(f"    이유: {escape(question.rationale)}")
+            if not compact:
+                lines.append("")
+
+        if compact and len(questions) > 1:
+            remaining = len(questions) - 1
+            lines.append(f"\n남은 질문 {remaining}개는 /questions 로 확인하세요.")
+
+        title = "Decision Required" if compact else "Pending Questions"
+        return Panel.fit(
+            "\n".join(lines).rstrip(),
+            title=title,
+            border_style="yellow",
+        )
 
     def _run_deliberation(self, prompt: str) -> None:
         """Run a deliberation on the user's prompt with real-time TUI updates.

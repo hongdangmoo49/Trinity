@@ -105,19 +105,31 @@ Trinity는 structured vote를 평가해 다음 중 하나를 선택한다.
 - consensus 실패 처리
 
 사용자 답변은 새 workflow를 만들지 않고 기존 pending question의 decision으로 저장된다.
+`needs_user_decision` 상태에서 일반 텍스트는 더 이상 첫 질문의 답변으로 자동 소비되지 않는다.
+질문 답변은 명시적인 `/answer` 명령으로 기록해야 한다.
 
-현재 v0.7.0 MVP에서는 `needs_user_decision` 상태의 일반 텍스트 입력을
-`/questions` 표의 첫 번째 pending question에 대한 답변으로 처리한다. 예를 들어
-pending question이 `q-claude-002`, `q-claude-003`, `q-claude-004` 순서로 남아 있으면
-다음 일반 텍스트는 `q-claude-002`의 decision으로 저장되고, 그 다음 일반 텍스트는
-`q-claude-003`으로 저장된다.
+```text
+/questions
+/questions --select
+/answer q-claude-002 LI.FI
+/answer 2 TypeScript
+/answer next "Telegram 먼저"
+/answer 1
+/answer --replace q-claude-002 Socket
+/answer --replace dec-001 Socket
+```
 
-후속 UX 설계 과제:
+지원되는 답변 대상:
 
-- `/answer <question-id> <answer>` 형태로 사용자가 답변 대상 question을 명시할 수 있어야 한다.
-- `/questions`는 `options`, `recommended_option`, `rationale`을 사람이 선택하기 쉬운 형태로 표시해야 한다.
-- 일반 텍스트가 pending question 답변으로 소비될 때는 대상 question id를 명확히 보여주거나 확인 흐름을 제공해야 한다.
-- 잘못 기록한 decision을 정정하거나 취소하는 흐름(`/decisions`, `/answer --replace`, `/undo` 등)을 설계해야 한다.
+- `q-...` question id
+- `/questions` 표시 순서의 1-based index
+- `next` 또는 `first`
+- `--replace` 사용 시 기존 `dec-...` decision id
+
+`/answer 1`처럼 답변 내용 없이 숫자 하나만 입력하면, 첫 번째 pending question의
+1번 option을 선택한다. `/questions --select`는 터미널이 대화형 TTY일 때 첫 번째
+pending question의 options를 방향키로 선택하는 prompt_toolkit UI를 연다.
+options가 없는 질문은 `/answer next <answer>`로 자유 텍스트를 입력한다.
 
 ## 7. Work Packages와 Execution
 

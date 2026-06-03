@@ -721,6 +721,7 @@ class TrinityTUI:
             "  [cyan]/caveman[/cyan]   — Toggle compression [on|off|lite|full|ultra]\n"
             "  [cyan]/workflow[/cyan]   — Show workflow state\n"
             "  [cyan]/questions[/cyan]  — Show pending workflow questions\n"
+            "  [cyan]/answer <id|n|next> <text>[/cyan] — Answer a workflow question\n"
             "  [cyan]/decisions[/cyan]  — Show recorded workflow decisions\n"
             "  [cyan]/packages[/cyan]   — Show workflow work packages\n"
             "  [cyan]/subtasks[/cyan]   — Show delegated subtask reports\n"

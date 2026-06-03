@@ -63,6 +63,12 @@ class TrinityConfig:
     # Agents
     agents: dict[str, AgentSpec] = field(default_factory=dict)
 
+    # Workflow (v0.7.0)
+    workflow_mode: str = "guided"  # "guided" | "autonomous"
+    strict_provider_readiness: bool = True
+    allow_degraded_agent_set: bool = False
+    persist_workflow_state: bool = True
+
     @property
     def effective_state_dir(self) -> Path:
         """Resolved state directory."""
@@ -100,6 +106,7 @@ class TrinityConfig:
         context = data.get("context", {})
         health = data.get("health", {})
         logging_conf = data.get("logging", {})
+        workflow = data.get("workflow", {})
 
         # Detect language: explicit lang field, or infer from role prompts
         lang = general.get("lang", None)
@@ -157,6 +164,10 @@ class TrinityConfig:
             log_level=logging_conf.get("level", "INFO"),
             log_file=logging_conf.get("file", ".trinity/logs/trinity.log"),
             agents=agents,
+            workflow_mode=workflow.get("mode", "guided"),
+            strict_provider_readiness=workflow.get("strict_provider_readiness", True),
+            allow_degraded_agent_set=workflow.get("allow_degraded_agent_set", False),
+            persist_workflow_state=workflow.get("persist_state", True),
         )
 
     @classmethod

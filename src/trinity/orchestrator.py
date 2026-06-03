@@ -19,7 +19,9 @@ from trinity.deliberation.distributor import TaskDistributor
 from trinity.deliberation.protocol import DeliberationProtocol
 from trinity.health.checker import HealthChecker
 from trinity.models import AgentSpec, DeliberationResult
+from trinity.providers.readiness import ProviderReadinessGate
 from trinity.tmux.session import TmuxSessionManager
+from trinity.workflow.engine import WorkflowEngine
 from trinity.workspace.isolation import WorkspaceIsolation
 from trinity.workspace.managed_home import ManagedHome
 
@@ -54,6 +56,10 @@ class TrinityOrchestrator:
         self.workspace_isolation: WorkspaceIsolation | None = None
         self.agent_launch_contexts: dict[str, AgentLaunchContext] = {}
         self._event_bus = None
+        self.readiness_gate: ProviderReadinessGate | None = None
+        self.workflow_engine: WorkflowEngine | None = None
+        self.lifecycle_guard = None  # created during _ensure_initialized
+        self.workflow_persistence = None  # created during _ensure_initialized
 
     def set_event_bus(self, bus) -> None:
         """Set the TUI event bus for real-time deliberation updates.

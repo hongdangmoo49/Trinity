@@ -11,6 +11,7 @@ from trinity.agents.codex_agent import CodexAgent
 from trinity.agents.gemini_agent import GeminiAgent
 from trinity.completion.base import CompletionDetector, FallbackChainDetector
 from trinity.completion.hook import HookDetector
+from trinity.completion.idle import IdleDetector
 from trinity.completion.marker import MarkerDetector
 from trinity.completion.prompt import PromptReturnDetector
 from trinity.models import AgentSpec, Provider
@@ -98,20 +99,23 @@ class AgentFactory:
     def create_detector_chain(signal_path: Path, provider: Provider) -> FallbackChainDetector:
         """Create a provider-appropriate completion detector chain.
 
-        Claude: Hook → PromptReturn
-        Codex: PromptReturn
-        Gemini: explicit marker → PromptReturn
+        Claude: Hook → PromptReturn → IdleDetector(15s)
+        Codex: PromptReturn → IdleDetector(20s)
+        Gemini: Marker → PromptReturn → IdleDetector(25s)
+        Default: PromptReturn → IdleDetector(20s)
         """
         if provider == Provider.CLAUDE_CODE:
             return FallbackChainDetector([
                 HookDetector(signal_path=signal_path),
                 PromptReturnDetector(),
+                IdleDetector(15.0),
             ])
         elif provider == Provider.CODEX:
             return FallbackChainDetector([
                 PromptReturnDetector(
                     prompt_patterns=[r"^\s*\$\s*$", r"^\s*>\s*$", r"^\s*›\s*$"]
                 ),
+                IdleDetector(20.0),
             ])
         elif provider == Provider.GEMINI_CLI:
             from trinity.agents.gemini_agent import COMPLETION_MARKER
@@ -119,9 +123,11 @@ class AgentFactory:
             return FallbackChainDetector([
                 MarkerDetector(COMPLETION_MARKER),
                 PromptReturnDetector(),
+                IdleDetector(25.0),
             ])
         else:
-            # Default: wait for an explicit prompt return only.
+            # Default: wait for an explicit prompt return, then idle fallback.
             return FallbackChainDetector([
                 PromptReturnDetector(),
+                IdleDetector(20.0),
             ])

@@ -162,8 +162,8 @@ class CodexAgent(AgentWrapper):
             try:
                 self._pane.send_signal("C-c")
                 await asyncio.sleep(0.5)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("[%s] Graceful shutdown failed: %s", self.name, e)
         self._started = False
         logger.info(f"[{self.name}] Codex agent stopped")
 

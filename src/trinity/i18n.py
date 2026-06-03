@@ -15,11 +15,43 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Literal
 
+logger = logging.getLogger(__name__)
+
 # Type alias for supported languages
 Lang = Literal["en", "ko"]
+
+SUPPORTED_LANGS: list[str] = ["en", "ko"]
+DEFAULT_LANG: str = "en"
+
+
+def validate_lang(lang: str, fallback: str | None = None) -> str:
+    """Validate a language code.
+
+    Args:
+        lang: Language code to validate.
+        fallback: Language to use if invalid. If None, raises ValueError.
+
+    Returns:
+        Validated language code.
+
+    Raises:
+        ValueError: If lang is unsupported and no fallback provided.
+    """
+    if lang in SUPPORTED_LANGS:
+        return lang
+
+    if fallback is not None:
+        logger.warning(f"Unsupported language '{lang}', falling back to '{fallback}'")
+        return fallback if fallback in SUPPORTED_LANGS else DEFAULT_LANG
+
+    raise ValueError(
+        f"Unsupported language: '{lang}'. "
+        f"Supported languages: {', '.join(SUPPORTED_LANGS)}"
+    )
 
 # ─── Agent Role Prompts ──────────────────────────────────────────────────
 
@@ -50,8 +82,8 @@ ROLE_PROMPTS: dict[Lang, dict[str, str]] = {
         ),
         "codex": (
             "당신은 구현자입니다. "
-            "아키텍처 결정에 기반하여 깊끔하고 효율적인 코드를 작성합니다. "
-            "실제 구현과 엓지 케이스에 집중하세요."
+            "아키텍처 결정에 기반하여 깔끔하고 효율적인 코드를 작성합니다. "
+            "실제 구현과 엣지 케이스에 집중하세요."
         ),
         "gemini": (
             "당신은 리뷰어입니다. "
@@ -252,16 +284,17 @@ _STRINGS: dict[Lang, Strings] = {
 
 # ─── Public API ──────────────────────────────────────────────────────────
 
-def get_strings(lang: Lang = "en") -> Strings:
+def get_strings(lang: str = "en") -> Strings:
     """Get the localized string bundle for a language.
 
     Args:
-        lang: "en" for English, "ko" for Korean.
+        lang: "en" for English, "ko" for Korean. Invalid codes fall back to English.
 
     Returns:
         Strings dataclass with all localized values.
     """
-    return _STRINGS[lang]
+    safe_lang = validate_lang(lang, fallback=DEFAULT_LANG)
+    return _STRINGS.get(safe_lang, _STRINGS[DEFAULT_LANG])
 
 
 def role_prompt(agent_name: str, lang: Lang = "en") -> str:

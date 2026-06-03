@@ -180,8 +180,11 @@ class ErrorHandler:
             # Graceful shutdown (in case process is zombie)
             try:
                 await agent.graceful_shutdown()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(
+                    "[%s] Graceful shutdown failed (expected during respawn): %s",
+                    agent_name, e,
+                )
 
             # Wait before respawn
             await asyncio.sleep(self.policy.respawn_delay)

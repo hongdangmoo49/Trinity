@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import string
 import time
 
 from trinity.agents.base import AgentWrapper
@@ -42,18 +43,18 @@ class SessionRotator:
 ## 결정 사항
 - ..."""
 
-    CONTINUATION_PROMPT = """[System] 이전 세션에서 이어서 작업합니다.
+    CONTINUATION_PROMPT = string.Template("""[System] 이전 세션에서 이어서 작업합니다.
 
 ## 공유 컨텍스트
-{shared_context}
+${shared_context}
 
 ## 이전 세션 요약
-{session_summary}
+${session_summary}
 
 ## 당신의 역할
-{agent_role}
+${agent_role}
 
-위 컨텍스트를 숙지하고 작업을 계속 진행하세요."""
+위 컨텍스트를 숙지하고 작업을 계속 진행하세요.""")
 
     def __init__(
         self,
@@ -101,7 +102,7 @@ class SessionRotator:
             )
             role = agent.spec.role_prompt or agent_name
 
-            continuation = self.CONTINUATION_PROMPT.format(
+            continuation = self.CONTINUATION_PROMPT.substitute(
                 shared_context=shared_context,
                 session_summary=summary,
                 agent_role=role,

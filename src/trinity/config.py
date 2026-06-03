@@ -35,6 +35,8 @@ class TrinityConfig:
     max_deliberation_rounds: int = 5
     consensus_threshold: float = 0.6  # fraction of agents required
     round_timeout_seconds: float = 120.0
+    provider_readiness_mode: str = "strict"  # "strict" | "degraded"
+    provider_readiness_timeout_seconds: float = 5.0
 
     # Context management
     context_rotate_threshold: float = 0.60
@@ -140,6 +142,12 @@ class TrinityConfig:
                 "consensus_threshold", general.get("consensus_threshold", 0.6)
             ),
             round_timeout_seconds=deliberation.get("round_timeout_seconds", 120.0),
+            provider_readiness_mode=deliberation.get(
+                "provider_readiness_mode", "strict"
+            ),
+            provider_readiness_timeout_seconds=deliberation.get(
+                "provider_readiness_timeout_seconds", 5.0
+            ),
             context_rotate_threshold=context.get(
                 "rotate_threshold", general.get("context_rotate_threshold", 0.60)
             ),
@@ -210,6 +218,12 @@ class TrinityConfig:
                 "max_deliberation_rounds": self.max_deliberation_rounds,
                 "consensus_threshold": self.consensus_threshold,
                 "context_rotate_threshold": self.context_rotate_threshold,
+            },
+            "deliberation": {
+                "provider_readiness_mode": self.provider_readiness_mode,
+                "provider_readiness_timeout_seconds": (
+                    self.provider_readiness_timeout_seconds
+                ),
             },
             "context": {
                 "caveman_mode": self.caveman_mode,

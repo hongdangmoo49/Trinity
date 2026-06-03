@@ -221,6 +221,57 @@ class ContextUsage:
         return f"{self.used:,}/{self.total:,} ({pct:.1f}%)"
 
 
+class ResponseStatus(str, Enum):
+    """Structured response quality status for provider outputs."""
+
+    OK = "ok"
+    AUTH_REQUIRED = "auth_required"
+    MODEL_LOADING = "model_loading"
+    TIMEOUT = "timeout"
+    PROMPT_ECHO = "prompt_echo"
+    CLI_NOISE = "cli_noise"
+    EMPTY = "empty"
+    PROCESS_DEAD = "process_dead"
+    INVALID = "invalid"
+
+
+@dataclass
+class AgentResponse:
+    """Response contract metadata persisted for every provider request."""
+
+    agent_name: str
+    request_id: str
+    content: str
+    raw_output_path: Path
+    clean_output_path: Path
+    status: ResponseStatus
+    confidence: float
+    token_usage: ContextUsage | None = None
+    diagnostics: list[str] = field(default_factory=list)
+
+    def to_metadata(self) -> dict[str, Any]:
+        """Return a JSON-serializable representation for message metadata."""
+        token_usage = None
+        if self.token_usage is not None:
+            token_usage = {
+                "used": self.token_usage.used,
+                "total": self.token_usage.total,
+                "ratio": self.token_usage.ratio,
+            }
+
+        return {
+            "agent_name": self.agent_name,
+            "request_id": self.request_id,
+            "content": self.content,
+            "raw_output_path": str(self.raw_output_path),
+            "clean_output_path": str(self.clean_output_path),
+            "status": self.status.value,
+            "confidence": self.confidence,
+            "token_usage": token_usage,
+            "diagnostics": list(self.diagnostics),
+        }
+
+
 @dataclass
 class ConsensusResult:
     """Result of consensus evaluation."""
@@ -262,6 +313,7 @@ class DeliberationResult:
     tasks: list[TaskAssignment] = field(default_factory=list)
     total_tokens_used: int = 0
     duration_seconds: float = 0.0
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def has_consensus(self) -> bool:

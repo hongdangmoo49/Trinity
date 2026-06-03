@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
+from uuid import uuid4
 
 from trinity.agents.base import AgentWrapper
 from trinity.context.analytics import TokenAnalytics, RoundRecord
@@ -17,12 +20,20 @@ from trinity.context.shared import SharedContextEngine
 from trinity.deliberation.consensus import ConsensusEngine
 from trinity.deliberation.distributor import TaskDistributor
 from trinity.models import (
+    AgentResponse,
     ConsensusResult,
+    ContextUsage,
     DeliberationMessage,
     DeliberationResult,
     MessageRole,
+    ResponseStatus,
 )
 from trinity.tui.events import TUIEvent, TUIEventType
+from trinity.workflow.structured import (
+    StructuredConsensusResult,
+    StructuredConsensusSynthesizer,
+)
+from trinity.workflow.lifecycle import LifecycleDecision, LifecycleGuard
 
 logger = logging.getLogger(__name__)
 
@@ -74,10 +85,20 @@ class DeliberationProtocol:
         caveman_intensity: str = "full",
         lang: str = "en",
         analytics_path: Path | None = None,
+        response_artifact_dir: Path | None = None,
+        structured_synthesizer: StructuredConsensusSynthesizer | None = None,
+        lifecycle_guard: LifecycleGuard | None = None,
+        rotation_callback: Callable[[str], object] | None = None,
     ):
         self.agents = agents
         self.shared = shared
         self.consensus_engine = consensus_engine or ConsensusEngine()
+        self.structured_synthesizer = (
+            structured_synthesizer
+            or StructuredConsensusSynthesizer(
+                required_fraction=self.consensus_engine.required_fraction,
+            )
+        )
         self.distributor = distributor or TaskDistributor()
         self.max_rounds = max_rounds
         self.round_timeout = round_timeout
@@ -101,6 +122,11 @@ class DeliberationProtocol:
 
         # Token usage analytics
         self.analytics = TokenAnalytics(history_path=analytics_path)
+        self.response_artifact_dir = response_artifact_dir or (
+            shared.path.parent / "responses"
+        )
+        self.lifecycle_guard = lifecycle_guard
+        self._rotation_callback = rotation_callback
 
     def _emit(self, event_type: TUIEventType, **kwargs) -> None:
         """Emit a TUI event if callback is registered."""
@@ -124,6 +150,7 @@ class DeliberationProtocol:
         self.shared.initialize(goal=user_prompt, agent_names=agent_names)
 
         consensus: ConsensusResult | None = None
+        structured_consensus: StructuredConsensusResult | None = None
         round_num = 0
 
         for round_num in range(1, self.max_rounds + 1):
@@ -137,9 +164,11 @@ class DeliberationProtocol:
 
             # Build prompt for this round
             round_prompt = self._build_round_prompt(round_num, user_prompt)
+            await self._before_round_lifecycle(round_prompt)
 
             # Collect opinions from all agents (with per-agent streaming)
             opinions = await self._collect_opinions(round_num, round_prompt)
+            await self._after_round_lifecycle()
 
             # Write opinions to shared.md
             for name, msg in opinions.items():
@@ -172,7 +201,27 @@ class DeliberationProtocol:
                 for name, msg in opinions.items()
                 if not self._is_unusable_agent_response(msg)
             }
-            consensus = self.consensus_engine.evaluate(opinion_texts)
+            structured_consensus = self.structured_synthesizer.evaluate(opinion_texts)
+            if structured_consensus.open_questions:
+                consensus = self._consensus_from_structured(structured_consensus)
+                logger.info(
+                    "Structured deliberation requires user decision at round %s.",
+                    round_num,
+                )
+                self._emit(
+                    TUIEventType.CONSENSUS_RESULT,
+                    reached=False,
+                    agreement_count=consensus.agreement_count,
+                    total_agents=consensus.total_agents,
+                    summary=consensus.summary,
+                    round_num=round_num,
+                )
+                break
+
+            if structured_consensus.reached:
+                consensus = self._consensus_from_structured(structured_consensus)
+            else:
+                consensus = self.consensus_engine.evaluate(opinion_texts)
 
             if consensus.reached:
                 logger.info(f"Consensus reached at round {round_num}!")
@@ -254,6 +303,13 @@ class DeliberationProtocol:
             tasks=tasks,
             total_tokens_used=total_tokens,
             duration_seconds=elapsed,
+            metadata={
+                "structured_consensus": (
+                    structured_consensus.to_dict()
+                    if structured_consensus is not None
+                    else None
+                ),
+            },
         )
 
     async def _collect_opinions(
@@ -269,11 +325,15 @@ class DeliberationProtocol:
         # Create tasks with agent names attached
         pending: set[asyncio.Task] = set()
         task_to_name: dict[asyncio.Task, str] = {}
+        task_to_request_id: dict[asyncio.Task, str] = {}
 
         for name, agent in self.agents.items():
-            coro = agent.send_and_wait(prompt, timeout=self.round_timeout)
+            request_id = self._new_request_id(round_num, name)
+            request_prompt = self._wrap_request_prompt(prompt, request_id)
+            coro = agent.send_and_wait(request_prompt, timeout=self.round_timeout)
             task = asyncio.ensure_future(coro)
             task_to_name[task] = name
+            task_to_request_id[task] = request_id
             pending.add(task)
             self._emit(TUIEventType.AGENT_THINKING, agent=name, round_num=round_num)
 
@@ -287,6 +347,10 @@ class DeliberationProtocol:
 
                 for task in done:
                     name = task_to_name[task]
+                    request_id = task_to_request_id.get(
+                        task,
+                        self._new_request_id(round_num, name),
+                    )
                     try:
                         result = task.result()
                     except Exception as exc:
@@ -306,6 +370,15 @@ class DeliberationProtocol:
                                 },
                             },
                         )
+                        opinions[name].metadata["request_id"] = request_id
+                        self._attach_agent_response_contract(
+                            agent_name=name,
+                            round_num=round_num,
+                            msg=opinions[name],
+                            status=ResponseStatus.INVALID,
+                            clean_content=opinions[name].content,
+                            diagnostics=[str(exc)],
+                        )
                         self._emit(
                             TUIEventType.AGENT_ERROR,
                             agent=name,
@@ -316,6 +389,7 @@ class DeliberationProtocol:
 
                     if isinstance(result, DeliberationMessage):
                         result.round_num = round_num
+                        result.metadata["request_id"] = request_id
                         result = self._validate_agent_response(name, round_num, result)
                         opinions[name] = result
                         self._emit(
@@ -348,6 +422,60 @@ class DeliberationProtocol:
 
         return opinions
 
+    async def _before_round_lifecycle(self, prompt: str) -> None:
+        """Run lifecycle checks before sending a round prompt."""
+        if not self.lifecycle_guard:
+            return
+
+        prompt_tokens = (
+            self.compressor.estimate_tokens(prompt)
+            if self.compressor
+            else len(prompt.split())
+        )
+        decision = self.lifecycle_guard.before_round(
+            self.agents,
+            projected_tokens_by_agent={
+                name: prompt_tokens for name in self.agents
+            },
+        )
+        await self._apply_lifecycle_decision(decision)
+
+    async def _after_round_lifecycle(self) -> None:
+        """Run lifecycle checks after collecting a round of responses."""
+        if not self.lifecycle_guard:
+            return
+        await self._apply_lifecycle_decision(
+            self.lifecycle_guard.after_round(self.agents)
+        )
+
+    async def _apply_lifecycle_decision(
+        self,
+        decision: LifecycleDecision,
+    ) -> None:
+        """Execute lifecycle recommendations that this protocol can handle."""
+        if not self._rotation_callback:
+            return
+
+        for agent_name in decision.rotation_agents:
+            result = self._rotation_callback(agent_name)
+            if inspect.isawaitable(result):
+                await result
+
+    @staticmethod
+    def _new_request_id(round_num: int, agent_name: str) -> str:
+        """Create a request id that is stable enough for artifact lookup."""
+        safe_agent = re.sub(r"[^A-Za-z0-9_.-]+", "-", agent_name).strip("-")
+        return f"round-{round_num}-{safe_agent}-{uuid4().hex[:12]}"
+
+    @staticmethod
+    def _wrap_request_prompt(prompt: str, request_id: str) -> str:
+        """Wrap a prompt with explicit request boundary markers."""
+        return (
+            f"TRINITY_REQUEST_START {request_id}\n"
+            f"{prompt}\n"
+            f"TRINITY_REQUEST_END {request_id}"
+        )
+
     def _validate_agent_response(
         self, agent_name: str, round_num: int, msg: DeliberationMessage
     ) -> DeliberationMessage:
@@ -355,11 +483,25 @@ class DeliberationProtocol:
         from trinity.agents.response_cleaner import ResponseCleaner
 
         validation = ResponseCleaner.validate_opinion(msg.content)
+        status = self._status_from_validation(msg, validation.classification)
+        diagnostics = list(validation.reasons)
+        if not diagnostics and not validation.usable:
+            diagnostics.append(validation.classification)
+
+        self._attach_agent_response_contract(
+            agent_name=agent_name,
+            round_num=round_num,
+            msg=msg,
+            status=status,
+            clean_content=validation.cleaned_text,
+            diagnostics=diagnostics,
+        )
         msg.metadata["response_validation"] = {
             "usable": validation.usable,
             "classification": validation.classification,
             "reasons": list(validation.reasons),
         }
+        msg.metadata["response_status"] = status.value
 
         if validation.usable:
             msg.content = validation.cleaned_text
@@ -376,6 +518,120 @@ class DeliberationProtocol:
         msg.content = f"[Invalid response omitted: {validation.classification}]"
         return msg
 
+    def _attach_agent_response_contract(
+        self,
+        agent_name: str,
+        round_num: int,
+        msg: DeliberationMessage,
+        status: ResponseStatus,
+        clean_content: str,
+        diagnostics: list[str] | None = None,
+    ) -> AgentResponse:
+        """Persist raw/clean outputs and attach AgentResponse metadata."""
+        request_id = str(
+            msg.metadata.get("request_id") or self._new_request_id(round_num, agent_name)
+        )
+        msg.metadata["request_id"] = request_id
+
+        raw_content = str(msg.metadata.get("raw_output") or msg.content or "")
+        raw_path, clean_path = self._write_response_artifacts(
+            agent_name=agent_name,
+            round_num=round_num,
+            request_id=request_id,
+            raw_content=raw_content,
+            clean_content=clean_content,
+        )
+
+        token_usage = self._response_token_usage(agent_name, msg)
+        response = AgentResponse(
+            agent_name=agent_name,
+            request_id=request_id,
+            content=clean_content,
+            raw_output_path=raw_path,
+            clean_output_path=clean_path,
+            status=status,
+            confidence=self._response_confidence(status),
+            token_usage=token_usage,
+            diagnostics=list(diagnostics or []),
+        )
+        msg.metadata["agent_response"] = response.to_metadata()
+        msg.metadata["response_status"] = status.value
+        return response
+
+    def _write_response_artifacts(
+        self,
+        agent_name: str,
+        round_num: int,
+        request_id: str,
+        raw_content: str,
+        clean_content: str,
+    ) -> tuple[Path, Path]:
+        safe_agent = re.sub(r"[^A-Za-z0-9_.-]+", "-", agent_name).strip("-")
+        safe_request = re.sub(r"[^A-Za-z0-9_.-]+", "-", request_id).strip("-")
+        round_dir = self.response_artifact_dir / f"round-{round_num:02d}"
+        round_dir.mkdir(parents=True, exist_ok=True)
+
+        raw_path = round_dir / f"{safe_agent}-{safe_request}.raw.txt"
+        clean_path = round_dir / f"{safe_agent}-{safe_request}.clean.txt"
+        raw_path.write_text(self._safe_artifact_text(raw_content), encoding="utf-8")
+        clean_path.write_text(self._safe_artifact_text(clean_content), encoding="utf-8")
+        return raw_path, clean_path
+
+    @staticmethod
+    def _safe_artifact_text(text: str) -> str:
+        return str(text).encode("utf-8", errors="replace").decode("utf-8")
+
+    def _response_token_usage(
+        self,
+        agent_name: str,
+        msg: DeliberationMessage,
+    ) -> ContextUsage | None:
+        token_count = int(msg.metadata.get("token_count") or 0)
+        if token_count <= 0:
+            return None
+        agent = self.agents.get(agent_name)
+        total = agent.context_usage.total if agent else 0
+        return ContextUsage(used=token_count, total=total)
+
+    @staticmethod
+    def _response_confidence(status: ResponseStatus) -> float:
+        if status == ResponseStatus.OK:
+            return 1.0
+        if status in {
+            ResponseStatus.AUTH_REQUIRED,
+            ResponseStatus.MODEL_LOADING,
+            ResponseStatus.TIMEOUT,
+            ResponseStatus.EMPTY,
+            ResponseStatus.PROCESS_DEAD,
+        }:
+            return 0.0
+        if status in {ResponseStatus.PROMPT_ECHO, ResponseStatus.CLI_NOISE}:
+            return 0.1
+        return 0.2
+
+    @staticmethod
+    def _status_from_validation(
+        msg: DeliberationMessage,
+        classification: str,
+    ) -> ResponseStatus:
+        metadata = msg.metadata
+        if metadata.get("error") == "timeout":
+            return ResponseStatus.TIMEOUT
+        if metadata.get("completed") is False or metadata.get("completion_timeout"):
+            return ResponseStatus.TIMEOUT
+
+        status_by_classification = {
+            "usable_opinion": ResponseStatus.OK,
+            "auth_wait": ResponseStatus.AUTH_REQUIRED,
+            "model_loading": ResponseStatus.MODEL_LOADING,
+            "empty": ResponseStatus.EMPTY,
+            "prompt_echo": ResponseStatus.PROMPT_ECHO,
+            "shared_context_echo": ResponseStatus.PROMPT_ECHO,
+            "cli_noise": ResponseStatus.CLI_NOISE,
+            "thinking_ui": ResponseStatus.CLI_NOISE,
+        }
+        return status_by_classification.get(classification, ResponseStatus.INVALID)
+
     @classmethod
     def _is_unusable_agent_response(cls, msg: DeliberationMessage) -> bool:
         """Return whether a message should be excluded from consensus input."""
@@ -385,6 +641,9 @@ class DeliberationProtocol:
     def _response_status(msg: DeliberationMessage) -> str:
         """Classify response quality for consensus and TUI display."""
         metadata = msg.metadata
+        explicit_status = metadata.get("response_status")
+        if explicit_status:
+            return str(explicit_status)
 
         if metadata.get("invalid_response"):
             return "invalid_response"
@@ -484,7 +743,9 @@ class DeliberationProtocol:
 
         if round_num == 1:
             prompt = get_round_prompt("round1_prefix", self.lang, prompt=user_prompt)
-            return self._append_caveman(prompt)
+            return self._append_caveman(
+                self._append_structured_instructions(prompt, round_num)
+            )
 
         use_compression = (
             self.compression_enabled
@@ -507,10 +768,47 @@ class DeliberationProtocol:
         round2_prefix = get_round_prompt("round2_plus_prefix", self.lang)
 
         return self._append_caveman(
-            f"Previous round opinions:\n\n"
-            f"{prev_context}\n\n"
-            f"---\n\n"
-            f"{round2_prefix}"
+            self._append_structured_instructions(
+                f"Previous round opinions:\n\n"
+                f"{prev_context}\n\n"
+                f"---\n\n"
+                f"{round2_prefix}",
+                round_num,
+            )
+        )
+
+    @staticmethod
+    def _append_structured_instructions(prompt: str, round_num: int) -> str:
+        """Ask agents to emit the v0.7.0 structured deliberation contract."""
+        phase = "proposal" if round_num == 1 else "critique/synthesis"
+        return (
+            f"{prompt}\n\n"
+            "Structured deliberation contract:\n"
+            f"- Phase: {phase}.\n"
+            "- End with exactly one vote line: "
+            "VOTE: APPROVE | APPROVE_WITH_CHANGES | "
+            "BLOCKED_BY_QUESTION | REJECT.\n"
+            "- If a final design is possible, include a BLUEPRINT with "
+            "Title, Summary, Architecture, Data Flow, External Dependencies, "
+            "Risks, and Acceptance Criteria sections.\n"
+            "- If user input is required, vote BLOCKED_BY_QUESTION and include "
+            "OPEN QUESTIONS with Question, Options, Recommended, and Rationale."
+        )
+
+    @staticmethod
+    def _consensus_from_structured(
+        structured: StructuredConsensusResult,
+    ) -> ConsensusResult:
+        """Convert structured consensus into the legacy result shape."""
+        return ConsensusResult(
+            reached=structured.reached,
+            agreement_count=structured.approval_count,
+            total_agents=structured.total_votes,
+            opinions={
+                name: vote.rationale or vote.vote.value
+                for name, vote in structured.votes.items()
+            },
+            summary=structured.summary,
         )
 
     def _append_caveman(self, prompt: str) -> str:

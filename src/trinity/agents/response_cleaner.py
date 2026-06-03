@@ -92,6 +92,9 @@ class ResponseCleaner:
     MIN_SUBSTANTIVE_TAIL_CHARS = 8
 
     COMPLETION_MARKER_PATTERN = re.compile(r"\[TRINITY_DONE\](?:#\d+)?")
+    REQUEST_BOUNDARY_PATTERN = re.compile(
+        r"^\s*TRINITY_REQUEST_(?:START|END)\s+[-\w:.]+\s*$"
+    )
 
     INTERACTIVE_APPROVAL_PATTERNS: list[re.Pattern[str]] = [
         re.compile(r"^Action Required$", re.IGNORECASE),
@@ -138,6 +141,7 @@ class ResponseCleaner:
             return raw
 
         text = cls.strip_completion_marker_tail(raw)
+        text = cls.strip_request_boundaries(text)
         text = cls.strip_interactive_approval_ui(text)
         text = cls.strip_leading_prompt_echo(text)
 
@@ -170,7 +174,9 @@ class ResponseCleaner:
         # Quality check: if too little meaningful content, log warning
         if cleaned:
             meaningful = sum(
-                1 for line in cleaned.splitlines() if line.strip() and len(line.strip()) > 5
+                1
+                for line in cleaned.splitlines()
+                if line.strip() and len(line.strip()) > 5
             )
             total = len(cleaned.splitlines())
             if total > 10 and meaningful / total < cls.MIN_MEANINGFUL_RATIO:
@@ -188,6 +194,15 @@ class ResponseCleaner:
         if not match:
             return text
         return text[: match.start()].rstrip()
+
+    @classmethod
+    def strip_request_boundaries(cls, text: str) -> str:
+        """Remove Trinity request boundary marker lines from echoed output."""
+        return "\n".join(
+            line
+            for line in text.splitlines()
+            if not cls.REQUEST_BOUNDARY_PATTERN.match(line.strip())
+        )
 
     @classmethod
     def strip_interactive_approval_ui(cls, text: str) -> str:

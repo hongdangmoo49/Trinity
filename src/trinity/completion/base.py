@@ -145,6 +145,7 @@ class FallbackChainDetector(CompletionDetector):
                     # Cancel remaining tasks
                     for t in pending:
                         t.cancel()
+                    await asyncio.gather(*pending, return_exceptions=True)
                     result.elapsed_seconds = time.monotonic() - start
                     logger.info(
                         f"Completion detected by {result.detector_name} "

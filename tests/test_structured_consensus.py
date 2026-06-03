@@ -81,6 +81,68 @@ OPEN QUESTIONS:
     assert question.raised_by == ["gemini"]
 
 
+def test_extracts_korean_question_fields_and_recommendation():
+    synthesizer = StructuredConsensusSynthesizer()
+    text = """\
+VOTE: BLOCKED_BY_QUESTION
+
+OPEN QUESTIONS:
+# 1
+질문: 브릿지 API 소스?
+옵션: LI.FI, Socket, 자체 구축
+추천: LI.FI
+이유: 현재 API 커버리지와 서버비 부담이 가장 낮음.
+
+# 2
+질문: 언어/프레임워크?
+옵션: TypeScript | Python | Rust
+추천: TypeScript
+근거: Web3 SDK 생태계 호환성이 높음.
+"""
+
+    result = synthesizer.evaluate({"claude": text})
+
+    assert result.reached is False
+    assert len(result.open_questions) == 2
+    first, second = result.open_questions
+    assert first.question == "브릿지 API 소스?"
+    assert first.options == ["LI.FI", "Socket", "자체 구축"]
+    assert first.recommended_option == "LI.FI"
+    assert first.rationale == "현재 API 커버리지와 서버비 부담이 가장 낮음."
+    assert second.question == "언어/프레임워크?"
+    assert second.options == ["TypeScript", "Python", "Rust"]
+    assert second.recommended_option == "TypeScript"
+    assert second.rationale == "Web3 SDK 생태계 호환성이 높음."
+
+
+def test_extracts_numbered_options_after_empty_options_label():
+    synthesizer = StructuredConsensusSynthesizer()
+    text = """\
+VOTE: BLOCKED_BY_QUESTION
+
+OPEN QUESTIONS:
+- Question: MVP scope?
+  Options:
+  1. L2 only
+  2. L2 plus Ethereum mainnet
+  3. Include all L1s
+  Recommended: L2 plus Ethereum mainnet
+  Rationale: Most practical bridge paths use Ethereum as a fallback.
+"""
+
+    result = synthesizer.evaluate({"gemini": text})
+
+    assert len(result.open_questions) == 1
+    question = result.open_questions[0]
+    assert question.question == "MVP scope?"
+    assert question.options == [
+        "L2 only",
+        "L2 plus Ethereum mainnet",
+        "Include all L1s",
+    ]
+    assert question.recommended_option == "L2 plus Ethereum mainnet"
+
+
 def test_reject_extracts_blocker():
     synthesizer = StructuredConsensusSynthesizer()
 

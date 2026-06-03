@@ -604,6 +604,12 @@ OPEN QUESTIONS:
         assert structured["open_questions"][0]["question"] == (
             "Optimize for cost or latency?"
         )
+        assert structured["open_questions"][0]["options"] == [
+            "cost",
+            "latency",
+            "mixed",
+        ]
+        assert structured["open_questions"][0]["recommended_option"] == "mixed"
 
 
 class TestTUIResponseStatus:

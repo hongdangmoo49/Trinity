@@ -131,6 +131,24 @@ Trinity는 structured vote를 평가해 다음 중 하나를 선택한다.
 pending question의 options를 방향키로 선택하는 prompt_toolkit UI를 연다.
 options가 없는 질문은 `/answer next <answer>`로 자유 텍스트를 입력한다.
 
+Open question parser는 영어 contract와 한국어 agent 출력 변형을 모두 허용한다.
+
+```text
+OPEN QUESTIONS:
+# 1
+질문: 브릿지 API 소스?
+옵션: LI.FI, Socket, 자체 구축
+추천: LI.FI
+이유: 현재 API 커버리지와 서버비 부담이 가장 낮음.
+
+- Question: MVP scope?
+  Options:
+  1. L2 only
+  2. L2 plus Ethereum mainnet
+  Recommended: L2 plus Ethereum mainnet
+  Rationale: Most practical bridge paths use Ethereum as a fallback.
+```
+
 ## 7. Work Packages와 Execution
 
 Blueprint consensus가 만들어지면 `BlueprintDecomposer`가 active agent마다 top-level work package를 만든다.

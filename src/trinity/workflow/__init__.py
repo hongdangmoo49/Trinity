@@ -17,15 +17,19 @@ from trinity.workflow.lifecycle import (
     LifecycleReason,
 )
 from trinity.workflow.models import (
+    ArchitectureComponent,
+    Blueprint,
     DecisionRecord,
     ExecutionResult,
     OpenQuestion,
+    RiskItem,
     SubtaskResult,
     WorkPackage,
     WorkStatus,
     WorkflowSession,
     WorkflowState,
 )
+from trinity.workflow.persistence import WorkflowPersistence
 from trinity.workflow.review import (
     PeerReviewPlanner,
     ReviewPackage,
@@ -33,9 +37,6 @@ from trinity.workflow.review import (
     ReviewStatus,
 )
 from trinity.workflow.structured import (
-    ArchitectureComponent,
-    Blueprint,
-    RiskItem,
     StructuredConsensusResult,
     StructuredConsensusSynthesizer,
     StructuredVote,
@@ -66,6 +67,7 @@ __all__ = [
     "WorkStatus",
     "WorkflowEngine",
     "WorkflowInputAction",
+    "WorkflowPersistence",
     "WorkflowSession",
     "WorkflowState",
     "classify_execution_intent",

@@ -114,6 +114,136 @@ class DecisionRecord:
 
 
 @dataclass
+class ArchitectureComponent:
+    """A major component in a proposed blueprint."""
+
+    name: str
+    responsibility: str
+    owner_agent: str | None = None
+    dependencies: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "responsibility": self.responsibility,
+            "owner_agent": self.owner_agent,
+            "dependencies": list(self.dependencies),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ArchitectureComponent":
+        return cls(
+            name=str(data.get("name", "")),
+            responsibility=str(data.get("responsibility", "")),
+            owner_agent=(
+                str(data["owner_agent"])
+                if data.get("owner_agent") is not None
+                else None
+            ),
+            dependencies=[str(dep) for dep in data.get("dependencies", [])],
+        )
+
+
+@dataclass
+class RiskItem:
+    """A risk captured from a proposed blueprint."""
+
+    description: str
+    severity: str = "medium"
+    mitigation: str = ""
+    owner_agent: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "description": self.description,
+            "severity": self.severity,
+            "mitigation": self.mitigation,
+            "owner_agent": self.owner_agent,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "RiskItem":
+        return cls(
+            description=str(data.get("description", "")),
+            severity=str(data.get("severity", "medium")),
+            mitigation=str(data.get("mitigation", "")),
+            owner_agent=(
+                str(data["owner_agent"])
+                if data.get("owner_agent") is not None
+                else None
+            ),
+        )
+
+
+@dataclass
+class Blueprint:
+    """Structured design conclusion produced by deliberation."""
+
+    title: str
+    summary: str
+    architecture: list[ArchitectureComponent] = field(default_factory=list)
+    data_flow: list[str] = field(default_factory=list)
+    external_dependencies: list[str] = field(default_factory=list)
+    risks: list[RiskItem] = field(default_factory=list)
+    acceptance_criteria: list[str] = field(default_factory=list)
+    open_questions: list[OpenQuestion] = field(default_factory=list)
+
+    @property
+    def is_valid(self) -> bool:
+        """Return whether this blueprint has enough substance to finalize."""
+        has_design_detail = any(
+            (
+                self.architecture,
+                self.data_flow,
+                self.external_dependencies,
+                self.acceptance_criteria,
+            )
+        )
+        return bool(self.title.strip() and self.summary.strip() and has_design_detail)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "title": self.title,
+            "summary": self.summary,
+            "architecture": [item.to_dict() for item in self.architecture],
+            "data_flow": list(self.data_flow),
+            "external_dependencies": list(self.external_dependencies),
+            "risks": [item.to_dict() for item in self.risks],
+            "acceptance_criteria": list(self.acceptance_criteria),
+            "open_questions": [item.to_dict() for item in self.open_questions],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "Blueprint":
+        return cls(
+            title=str(data.get("title", "")),
+            summary=str(data.get("summary", "")),
+            architecture=[
+                ArchitectureComponent.from_dict(item)
+                for item in data.get("architecture", [])
+                if isinstance(item, dict)
+            ],
+            data_flow=[str(item) for item in data.get("data_flow", [])],
+            external_dependencies=[
+                str(item) for item in data.get("external_dependencies", [])
+            ],
+            risks=[
+                RiskItem.from_dict(item)
+                for item in data.get("risks", [])
+                if isinstance(item, dict)
+            ],
+            acceptance_criteria=[
+                str(item) for item in data.get("acceptance_criteria", [])
+            ],
+            open_questions=[
+                OpenQuestion.from_dict(item)
+                for item in data.get("open_questions", [])
+                if isinstance(item, dict)
+            ],
+        )
+
+
+@dataclass
 class WorkPackage:
     """An agent-owned top-level package derived from a blueprint."""
 
@@ -281,7 +411,7 @@ class WorkflowSession:
     active_agents: list[str] = field(default_factory=list)
     current_round: int = 0
     pending_questions: list[OpenQuestion] = field(default_factory=list)
-    blueprint: dict[str, Any] | None = None
+    blueprint: Blueprint | None = None
     work_packages: list[WorkPackage] = field(default_factory=list)
     execution_results: list[ExecutionResult] = field(default_factory=list)
     subtask_results: list[SubtaskResult] = field(default_factory=list)
@@ -304,7 +434,7 @@ class WorkflowSession:
             "active_agents": list(self.active_agents),
             "current_round": self.current_round,
             "pending_questions": [q.to_dict() for q in self.pending_questions],
-            "blueprint": self.blueprint,
+            "blueprint": self.blueprint.to_dict() if self.blueprint else None,
             "work_packages": [package.to_dict() for package in self.work_packages],
             "execution_results": [
                 result.to_dict() for result in self.execution_results
@@ -331,8 +461,13 @@ class WorkflowSession:
             pending_questions=[
                 OpenQuestion.from_dict(item)
                 for item in data.get("pending_questions", [])
+                if isinstance(item, dict)
             ],
-            blueprint=data.get("blueprint"),
+            blueprint=(
+                Blueprint.from_dict(data["blueprint"])
+                if isinstance(data.get("blueprint"), dict)
+                else None
+            ),
             work_packages=[
                 WorkPackage.from_dict(item)
                 for item in data.get("work_packages", [])
@@ -359,7 +494,9 @@ class WorkflowSession:
                 if isinstance(item, dict)
             ],
             decisions=[
-                DecisionRecord.from_dict(item) for item in data.get("decisions", [])
+                DecisionRecord.from_dict(item)
+                for item in data.get("decisions", [])
+                if isinstance(item, dict)
             ],
             created_at=float(data.get("created_at", time.time())),
             updated_at=float(data.get("updated_at", time.time())),

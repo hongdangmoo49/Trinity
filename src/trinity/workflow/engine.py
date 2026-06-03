@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 import time
 from dataclasses import dataclass
@@ -13,6 +12,7 @@ from uuid import uuid4
 from trinity.models import DeliberationResult
 from trinity.workflow.decomposer import BlueprintDecomposer, classify_execution_intent
 from trinity.workflow.models import (
+    Blueprint,
     DecisionRecord,
     ExecutionResult,
     OpenQuestion,
@@ -22,6 +22,7 @@ from trinity.workflow.models import (
     WorkflowSession,
     WorkflowState,
 )
+from trinity.workflow.persistence import WorkflowPersistence
 
 if TYPE_CHECKING:
     from trinity.context.shared import SharedContextEngine
@@ -49,8 +50,13 @@ class WorkflowEngine:
     ):
         self.state_dir = state_dir
         workflow_dir = state_dir / "workflow"
-        self.state_file = state_file or workflow_dir / "session.json"
-        self.events_file = events_file or workflow_dir / "events.jsonl"
+        self.persistence = WorkflowPersistence(
+            state_dir,
+            state_file=state_file or workflow_dir / "session.json",
+            events_file=events_file or workflow_dir / "events.jsonl",
+        )
+        self.state_file = self.persistence.session_path
+        self.events_file = self.persistence.events_path
         self.decomposer = decomposer or BlueprintDecomposer()
         self.session = self._load_or_create()
 
@@ -196,9 +202,9 @@ class WorkflowEngine:
 
             blueprint = structured.get("final_blueprint")
             if structured.get("reached") and isinstance(blueprint, dict):
-                self.session.blueprint = blueprint
+                self.session.blueprint = Blueprint.from_dict(blueprint)
                 self.session.work_packages = self.decomposer.decompose(
-                    blueprint,
+                    self.session.blueprint,
                     self.session.active_agents,
                     requires_execution=self._requires_execution(result),
                 )
@@ -213,9 +219,12 @@ class WorkflowEngine:
                 return
 
         if result.has_consensus:
-            self.session.blueprint = {
-                "summary": result.consensus.summary if result.consensus else "",
-            }
+            summary = result.consensus.summary if result.consensus else ""
+            self.session.blueprint = Blueprint(
+                title="Consensus Blueprint",
+                summary=summary,
+                acceptance_criteria=[summary] if summary else [],
+            )
             self.session.work_packages = []
             self.session.execution_results = []
             self.session.subtask_results = []
@@ -459,15 +468,10 @@ class WorkflowEngine:
 
     def save(self) -> None:
         """Persist session.json."""
-        self.state_file.parent.mkdir(parents=True, exist_ok=True)
-        self.state_file.write_text(
-            json.dumps(self.session.to_dict(), indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
+        self.persistence.save(self.session)
 
     def _persist(self, event_type: str, data: dict) -> None:
         self.save()
-        self.events_file.parent.mkdir(parents=True, exist_ok=True)
         event = {
             "timestamp": time.time(),
             "workflow_id": self.session.id,
@@ -475,16 +479,12 @@ class WorkflowEngine:
             "state": self.session.state.value,
             "data": data,
         }
-        with self.events_file.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(event, ensure_ascii=False) + "\n")
+        self.persistence.append_event(event)
 
     def _load_or_create(self) -> WorkflowSession:
-        if self.state_file.exists():
-            try:
-                data = json.loads(self.state_file.read_text(encoding="utf-8"))
-                return WorkflowSession.from_dict(data)
-            except (json.JSONDecodeError, OSError, ValueError):
-                pass
+        session = self.persistence.load()
+        if session:
+            return session
         return WorkflowSession(
             id=f"wf-{uuid4().hex[:12]}",
             goal="",

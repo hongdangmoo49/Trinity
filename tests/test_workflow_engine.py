@@ -105,7 +105,9 @@ def test_mark_deliberation_result_updates_state(tmp_path):
 
     assert engine.state == WorkflowState.BLUEPRINT_READY
     assert engine.session.current_round == 1
-    assert engine.session.blueprint == {"summary": "Blueprint summary"}
+    assert engine.session.blueprint is not None
+    assert engine.session.blueprint.title == "Consensus Blueprint"
+    assert engine.session.blueprint.summary == "Blueprint summary"
 
 
 def test_mark_deliberation_result_applies_structured_blueprint(tmp_path):
@@ -136,10 +138,15 @@ def test_mark_deliberation_result_applies_structured_blueprint(tmp_path):
     engine.mark_deliberation_result(result)
 
     assert engine.state == WorkflowState.BLUEPRINT_READY
-    assert engine.session.blueprint["title"] == "Route Bot"
+    assert engine.session.blueprint is not None
+    assert engine.session.blueprint.title == "Route Bot"
     assert len(engine.work_packages) == 1
     assert engine.work_packages[0].owner_agent == "claude"
     assert engine.work_packages[0].requires_execution is False
+
+    loaded = WorkflowEngine(tmp_path / ".trinity")
+    assert loaded.session.blueprint is not None
+    assert loaded.session.blueprint.title == "Route Bot"
 
 
 def test_mark_deliberation_result_waits_on_structured_question(tmp_path):

@@ -6,8 +6,7 @@ import re
 from collections.abc import Iterable
 from typing import Any
 
-from trinity.workflow.models import WorkPackage, WorkStatus
-from trinity.workflow.structured import Blueprint
+from trinity.workflow.models import Blueprint, WorkPackage, WorkStatus
 
 
 class BlueprintDecomposer:

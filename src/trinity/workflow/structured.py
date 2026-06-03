@@ -8,7 +8,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from trinity.workflow.models import OpenQuestion
+from trinity.workflow.models import (
+    ArchitectureComponent,
+    Blueprint,
+    OpenQuestion,
+    RiskItem,
+)
 
 
 class VoteType(str, Enum):
@@ -18,131 +23,6 @@ class VoteType(str, Enum):
     APPROVE_WITH_CHANGES = "approve_with_changes"
     BLOCKED_BY_QUESTION = "blocked_by_question"
     REJECT = "reject"
-
-
-@dataclass
-class ArchitectureComponent:
-    """A major component in a proposed blueprint."""
-
-    name: str
-    responsibility: str
-    owner_agent: str | None = None
-    dependencies: list[str] = field(default_factory=list)
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "name": self.name,
-            "responsibility": self.responsibility,
-            "owner_agent": self.owner_agent,
-            "dependencies": list(self.dependencies),
-        }
-
-
-@dataclass
-class RiskItem:
-    """A risk captured from a proposed blueprint."""
-
-    description: str
-    severity: str = "medium"
-    mitigation: str = ""
-    owner_agent: str | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "description": self.description,
-            "severity": self.severity,
-            "mitigation": self.mitigation,
-            "owner_agent": self.owner_agent,
-        }
-
-
-@dataclass
-class Blueprint:
-    """Structured design conclusion produced by deliberation."""
-
-    title: str
-    summary: str
-    architecture: list[ArchitectureComponent] = field(default_factory=list)
-    data_flow: list[str] = field(default_factory=list)
-    external_dependencies: list[str] = field(default_factory=list)
-    risks: list[RiskItem] = field(default_factory=list)
-    acceptance_criteria: list[str] = field(default_factory=list)
-    open_questions: list[OpenQuestion] = field(default_factory=list)
-
-    @property
-    def is_valid(self) -> bool:
-        """Return whether this blueprint has enough substance to finalize."""
-        has_design_detail = any(
-            (
-                self.architecture,
-                self.data_flow,
-                self.external_dependencies,
-                self.acceptance_criteria,
-            )
-        )
-        return bool(self.title.strip() and self.summary.strip() and has_design_detail)
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "title": self.title,
-            "summary": self.summary,
-            "architecture": [item.to_dict() for item in self.architecture],
-            "data_flow": list(self.data_flow),
-            "external_dependencies": list(self.external_dependencies),
-            "risks": [item.to_dict() for item in self.risks],
-            "acceptance_criteria": list(self.acceptance_criteria),
-            "open_questions": [item.to_dict() for item in self.open_questions],
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Blueprint":
-        architecture = [
-            ArchitectureComponent(
-                name=str(item.get("name", "")),
-                responsibility=str(item.get("responsibility", "")),
-                owner_agent=(
-                    str(item["owner_agent"])
-                    if item.get("owner_agent") is not None
-                    else None
-                ),
-                dependencies=[str(dep) for dep in item.get("dependencies", [])],
-            )
-            for item in data.get("architecture", [])
-            if isinstance(item, dict)
-        ]
-        risks = [
-            RiskItem(
-                description=str(item.get("description", "")),
-                severity=str(item.get("severity", "medium")),
-                mitigation=str(item.get("mitigation", "")),
-                owner_agent=(
-                    str(item["owner_agent"])
-                    if item.get("owner_agent") is not None
-                    else None
-                ),
-            )
-            for item in data.get("risks", [])
-            if isinstance(item, dict)
-        ]
-        questions = [
-            OpenQuestion.from_dict(item)
-            for item in data.get("open_questions", [])
-            if isinstance(item, dict)
-        ]
-        return cls(
-            title=str(data.get("title", "")),
-            summary=str(data.get("summary", "")),
-            architecture=architecture,
-            data_flow=[str(item) for item in data.get("data_flow", [])],
-            external_dependencies=[
-                str(item) for item in data.get("external_dependencies", [])
-            ],
-            risks=risks,
-            acceptance_criteria=[
-                str(item) for item in data.get("acceptance_criteria", [])
-            ],
-            open_questions=questions,
-        )
 
 
 @dataclass

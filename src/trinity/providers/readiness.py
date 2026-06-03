@@ -94,14 +94,20 @@ class ProviderReadinessGate:
         Empty or whitespace-only lines produce ``UNKNOWN_NOT_READY``.
         Patterns are evaluated in priority order; first match wins.
         """
-        # Filter out empty lines for content check
-        content_lines = [l for l in lines if l.strip()]
-        if not content_lines:
+        # All lines empty/whitespace → unknown
+        if not any(line.strip() for line in lines):
             return ProviderState.UNKNOWN_NOT_READY
 
-        patterns = _PROVIDER_PATTERNS.get(provider, [])
-        for line in lines:
-            for state, pattern in patterns:
+        # Unknown provider (no patterns registered) → unknown
+        patterns = _PROVIDER_PATTERNS.get(provider)
+        if patterns is None:
+            return ProviderState.UNKNOWN_NOT_READY
+
+        # Outer loop: patterns in priority order; inner loop: lines.
+        # This ensures a higher-priority match on *any* line wins over a
+        # lower-priority match on an earlier line.
+        for state, pattern in patterns:
+            for line in lines:
                 if pattern.search(line):
                     return state
 

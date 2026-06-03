@@ -28,23 +28,19 @@ class TmuxPane:
     def send_text_heredoc(self, text: str, marker: str = "TRINITY_EOF") -> None:
         """Inject multi-line text safely via heredoc pattern.
 
-        Uses a temp file approach instead of literal heredoc to avoid
+        Uses a secure temp file approach instead of literal heredoc to avoid
         send-keys escaping issues with special characters.
         """
-        # Write content to a temp file inside the pane's shell
-        # This avoids all escaping problems with send-keys
-        import tempfile
         import os
+        import tempfile
 
-        # Use a unique temp file
-        tmp_path = f"/tmp/trinity_heredoc_{id(self)}_{os.getpid()}"
-
-        # Write content to temp file from the Python side
-        with open(tmp_path, "w") as f:
-            f.write(text)
-
-        # Use tmux load-buffer + paste approach
+        # Use secure temp file (mkstemp provides unique, non-predictable path)
+        fd, tmp_path = tempfile.mkstemp(prefix="trinity_", suffix=".tmp")
         try:
+            with os.fdopen(fd, "w") as f:
+                f.write(text)
+
+            # Use tmux load-buffer + paste approach
             subprocess.run(
                 ["tmux", "load-buffer", "-t", self.pane_id, tmp_path],
                 check=True,
@@ -107,7 +103,7 @@ class TmuxPane:
     def is_alive(self) -> bool:
         """Check if the pane still exists."""
         result = subprocess.run(
-            ["tmux", "display-panes", "-t", self.pane_id],
+            ["tmux", "list-panes", "-t", self.pane_id, "-F", "#{pane_id}"],
             capture_output=True,
             text=True,
             timeout=5,

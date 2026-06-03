@@ -201,6 +201,8 @@ class ProviderReadinessGate:
         lines: list[str],
         text: str,
     ) -> ProviderState:
+        if _contains(text, _PROCESS_DEAD_PATTERNS):
+            return ProviderState.PROCESS_DEAD
         if _contains(text, _WORKSPACE_TRUST_PATTERNS):
             return ProviderState.WORKSPACE_TRUST_REQUIRED
         if _contains(text, _AUTH_PATTERNS[provider]):
@@ -252,8 +254,11 @@ class ProviderReadinessGate:
 _COMMON_AUTH_PATTERNS = (
     r"\blog\s*in\b",
     r"\blogin\s+required\b",
+    r"\bauth\s+login\b",
     r"\bauth(?:entication)?\s+required\b",
+    r"\brequires\s+authentication\b",
     r"\bnot\s+authenticated\b",
+    r"\bauthorization\s+code\b",
     r"\bsign\s*in\b",
     r"\boauth\b",
     r"\binvalid\s+code\b",
@@ -273,10 +278,14 @@ _AUTH_PATTERNS: dict[Provider, tuple[str, ...]] = {
     ),
     Provider.GEMINI_CLI: (
         *_COMMON_AUTH_PATTERNS,
+        r"\bauth\b.*\bmethod\b",
         r"select\s+(?:auth|authentication)\s+method",
         r"choose\s+(?:auth|authentication)",
         r"google\s+account",
+        r"vertex_ai_project.*not\s+set",
+        r"vertex.*env.*missing",
         r"vertex\s+ai.*(?:missing|required|not\s+configured)",
+        r"terms.*privacy",
     ),
 }
 
@@ -316,6 +325,15 @@ _BANNER_PATTERNS: dict[Provider, tuple[str, ...]] = {
 _WORKSPACE_TRUST_PATTERNS = (
     r"\bworkspace\s+trust\b",
     r"\btrust\s+this\s+workspace\b",
+    r"\btrust\b.*\b(?:file|folder|workspace)s?\b",
     r"\bdo\s+you\s+trust\b.*\bworkspace\b",
+    r"\bdo\s+you\s+trust\b.*\b(?:file|folder)s?\b",
     r"\btrusted\s+workspace\b",
+)
+
+_PROCESS_DEAD_PATTERNS = (
+    r"\bprocess\s+exited\b",
+    r"\bexited\s+with\s+code\b",
+    r"\bno\s+such\s+process\b",
+    r"\[exited\]",
 )

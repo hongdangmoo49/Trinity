@@ -73,6 +73,29 @@ def test_claude_oauth_screen_is_auth_required():
     assert "OAuth" in result.excerpt
 
 
+def test_claude_auth_and_trust_variants_are_classified():
+    gate = ProviderReadinessGate()
+
+    for line in (
+        "Enter authorization code to continue",
+        "You need to auth login before proceeding",
+        "Error: requires authentication",
+    ):
+        result = gate.classify_pane_state(
+            ["Claude Code", line],
+            provider=Provider.CLAUDE_CODE,
+            agent_name="claude",
+        )
+        assert result.state == ProviderState.AUTH_REQUIRED
+
+    result = gate.classify_pane_state(
+        ["Do you trust the files in this folder?"],
+        provider=Provider.CLAUDE_CODE,
+        agent_name="claude",
+    )
+    assert result.state == ProviderState.WORKSPACE_TRUST_REQUIRED
+
+
 def test_gemini_auth_picker_is_auth_required():
     gate = ProviderReadinessGate()
 
@@ -92,6 +115,30 @@ def test_gemini_auth_picker_is_auth_required():
     assert "gemini" in result.action_hint
 
 
+def test_gemini_auth_env_terms_and_process_variants_are_classified():
+    gate = ProviderReadinessGate()
+
+    for line in (
+        "Please choose authentication method:",
+        "Error: VERTEX_AI_PROJECT not set",
+        "vertex env missing, cannot proceed",
+        "Please accept terms & privacy policy to continue",
+    ):
+        result = gate.classify_pane_state(
+            ["Gemini CLI", line],
+            provider=Provider.GEMINI_CLI,
+            agent_name="gemini",
+        )
+        assert result.state == ProviderState.AUTH_REQUIRED
+
+    result = gate.classify_pane_state(
+        ["no such process"],
+        provider=Provider.GEMINI_CLI,
+        agent_name="gemini",
+    )
+    assert result.state == ProviderState.PROCESS_DEAD
+
+
 def test_codex_default_model_banner_is_model_loading():
     gate = ProviderReadinessGate()
 
@@ -109,6 +156,29 @@ def test_codex_default_model_banner_is_model_loading():
     assert result.ready is False
     assert result.state == ProviderState.MODEL_LOADING
     assert "loading" in result.reason
+
+
+def test_codex_auth_and_process_variants_are_classified():
+    gate = ProviderReadinessGate()
+
+    for line in (
+        "please login to use Codex",
+        "Error: authentication required",
+        "Please auth login to continue",
+    ):
+        result = gate.classify_pane_state(
+            ["Codex", line],
+            provider=Provider.CODEX,
+            agent_name="codex",
+        )
+        assert result.state == ProviderState.AUTH_REQUIRED
+
+    result = gate.classify_pane_state(
+        ["process exited with code 1"],
+        provider=Provider.CODEX,
+        agent_name="codex",
+    )
+    assert result.state == ProviderState.PROCESS_DEAD
 
 
 def test_ready_prompt_is_ready():

@@ -49,6 +49,13 @@ class ManagedHome:
         """Return the managed home path for an agent."""
         return self.agents_dir / agent_name / "provider-state"
 
+    def _validate_path_within_home(self, home: Path, filename: str) -> Path:
+        """Resolve filename within home, raising ValueError on path traversal."""
+        resolved = (home / filename).resolve()
+        if not resolved.is_relative_to(home.resolve()):
+            raise ValueError(f"Path traversal detected: {filename}")
+        return resolved
+
     def setup(self, agent_name: str, provider: str | None = None) -> Path:
         """Create an isolated home directory for the agent.
 
@@ -172,7 +179,7 @@ class ManagedHome:
         home = self._agent_home(agent_name)
         home.mkdir(parents=True, exist_ok=True)
 
-        file_path = home / filename
+        file_path = self._validate_path_within_home(home, filename)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_text(content, encoding="utf-8")
 
@@ -186,7 +193,7 @@ class ManagedHome:
             File content, or None if not found.
         """
         home = self._agent_home(agent_name)
-        file_path = home / filename
+        file_path = self._validate_path_within_home(home, filename)
 
         if not file_path.exists():
             return None

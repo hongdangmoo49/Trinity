@@ -59,32 +59,94 @@ class ExecutionProtocol:
             return []
 
         self._emit(TUIEventType.EXECUTION_START, package_count=len(packages))
-        results: list[ExecutionResult] = []
+        results_by_id: dict[str, ExecutionResult] = {}
         packages_by_id = {package.id: package for package in packages}
+        remaining = dict(packages_by_id)
 
-        for package in packages:
-            blocked_dependencies = [
-                dep_id
-                for dep_id in package.dependencies
-                if packages_by_id.get(dep_id)
-                and packages_by_id[dep_id].status != WorkStatus.DONE
+        while remaining:
+            ready_packages = [
+                package
+                for package in remaining.values()
+                if not self._blocked_dependencies(package, packages_by_id)
             ]
-            if blocked_dependencies:
-                result = self._dependency_blocked_result(package, blocked_dependencies)
-                package.status = result.status
-                results.append(result)
-                self._record_result(result)
-                continue
+            if not ready_packages:
+                for package in list(remaining.values()):
+                    blocked_dependencies = self._blocked_dependencies(
+                        package,
+                        packages_by_id,
+                    ) or package.dependencies or ["dependency cycle"]
+                    result = self._dependency_blocked_result(
+                        package,
+                        blocked_dependencies,
+                    )
+                    package.status = result.status
+                    results_by_id[package.id] = result
+                    self._record_result(result)
+                    remaining.pop(package.id, None)
+                break
 
+            batch_results = await asyncio.gather(
+                *[
+                    self._run_ready_package(package, decisions)
+                    for package in ready_packages
+                ],
+                return_exceptions=True,
+            )
+            for package, item in zip(ready_packages, batch_results):
+                if isinstance(item, ExecutionResult):
+                    result = item
+                else:
+                    result = self._exception_result(
+                        package,
+                        self._new_request_id(package),
+                        item,
+                        WorkStatus.FAILED,
+                    )
+                    package.status = result.status
+                results_by_id[package.id] = result
+                self._record_result(result)
+                remaining.pop(package.id, None)
+
+        self._emit(TUIEventType.EXECUTION_DONE, package_count=len(packages))
+        return [
+            results_by_id[package.id]
+            for package in packages
+            if package.id in results_by_id
+        ]
+
+    async def _run_ready_package(
+        self,
+        package: WorkPackage,
+        decisions: Iterable[DecisionRecord],
+    ) -> ExecutionResult:
+        """Run lifecycle hooks and dispatch for one dependency-ready package."""
+        try:
             await self._before_work_package_lifecycle(package)
             result = await self.dispatch_package(package, decisions)
             await self._after_work_package_lifecycle(package)
-            package.status = result.status
-            results.append(result)
-            self._record_result(result)
+        except Exception as exc:
+            logger.error("[%s] execution lifecycle failed: %s", package.owner_agent, exc)
+            result = self._exception_result(
+                package,
+                self._new_request_id(package),
+                exc,
+                WorkStatus.FAILED,
+            )
+        package.status = result.status
+        return result
 
-        self._emit(TUIEventType.EXECUTION_DONE, package_count=len(packages))
-        return results
+    @staticmethod
+    def _blocked_dependencies(
+        package: WorkPackage,
+        packages_by_id: dict[str, WorkPackage],
+    ) -> list[str]:
+        """Return internal dependencies that have not reached DONE."""
+        return [
+            dep_id
+            for dep_id in package.dependencies
+            if packages_by_id.get(dep_id)
+            and packages_by_id[dep_id].status != WorkStatus.DONE
+        ]
 
     async def _before_work_package_lifecycle(self, package: WorkPackage) -> None:
         """Run lifecycle checks before dispatching a work package."""

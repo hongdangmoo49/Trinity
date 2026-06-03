@@ -1,5 +1,6 @@
 """Tests for workflow execution protocol."""
 
+import asyncio
 from unittest.mock import AsyncMock
 
 import pytest
@@ -189,6 +190,54 @@ async def test_execution_protocol_skips_design_only_packages(tmp_path):
 
     assert results == []
     agent.send_and_wait.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_execution_protocol_runs_independent_packages_in_parallel(tmp_path):
+    shared = SharedContextEngine(tmp_path / "shared.md")
+    claude = AsyncMock()
+    codex = AsyncMock()
+    claude_started = asyncio.Event()
+    codex_started = asyncio.Event()
+
+    async def _claude_send(prompt: str, timeout: float):
+        claude_started.set()
+        await asyncio.wait_for(codex_started.wait(), timeout=0.5)
+        return _message("## Completed\n- Claude done\n\n## Blockers\n- none\n")
+
+    async def _codex_send(prompt: str, timeout: float):
+        codex_started.set()
+        await asyncio.wait_for(claude_started.wait(), timeout=0.5)
+        return _message("## Completed\n- Codex done\n\n## Blockers\n- none\n")
+
+    claude.send_and_wait.side_effect = _claude_send
+    codex.send_and_wait.side_effect = _codex_send
+    packages = [
+        WorkPackage(
+            id="WP-001",
+            title="claude package",
+            owner_agent="claude",
+            objective="Plan implementation.",
+        ),
+        WorkPackage(
+            id="WP-002",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement feature.",
+        ),
+    ]
+    protocol = ExecutionProtocol(
+        agents={"claude": claude, "codex": codex},
+        shared=shared,
+        artifact_dir=tmp_path / "execution",
+    )
+
+    results = await protocol.run(packages)
+
+    assert [result.status for result in results] == [WorkStatus.DONE, WorkStatus.DONE]
+    assert [package.status for package in packages] == [WorkStatus.DONE, WorkStatus.DONE]
+    assert claude.send_and_wait.call_count == 1
+    assert codex.send_and_wait.call_count == 1
 
 
 @pytest.mark.asyncio

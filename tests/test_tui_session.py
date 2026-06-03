@@ -388,6 +388,60 @@ class TestWorkflowRouting:
         assert session.workflow.decisions[0].decision == "Socket"
         run_deliberation.assert_called_once()
 
+    def test_questions_select_all_answers_all_option_questions(self, session):
+        session.workflow.start("Original goal", ["claude"])
+        session.workflow.add_open_question(
+            OpenQuestion(
+                id="q-001",
+                question="Which API?",
+                options=["LI.FI", "Socket"],
+            )
+        )
+        session.workflow.add_open_question(
+            OpenQuestion(
+                id="q-002",
+                question="Which framework?",
+                options=["TypeScript", "Python"],
+            )
+        )
+
+        with patch("trinity.tui.session.sys.stdin.isatty", return_value=True):
+            with patch("trinity.tui.session.sys.stdout.isatty", return_value=True):
+                with patch.object(
+                    session._prompt_session,
+                    "select_option",
+                    side_effect=["1", "2"],
+                ) as select_option:
+                    with patch.object(session, "_run_deliberation") as run_deliberation:
+                        session._cmd_questions(["--select", "--all"])
+
+        assert [decision.decision for decision in session.workflow.decisions] == [
+            "LI.FI",
+            "Python",
+        ]
+        assert select_option.call_count == 2
+        run_deliberation.assert_called_once()
+
+    def test_questions_select_all_accepts_free_text_question(self, session):
+        session.workflow.start("Original goal", ["claude"])
+        session.workflow.add_open_question(
+            OpenQuestion(id="q-001", question="Which platform?")
+        )
+
+        with patch("trinity.tui.session.sys.stdin.isatty", return_value=True):
+            with patch("trinity.tui.session.sys.stdout.isatty", return_value=True):
+                with patch.object(
+                    session._prompt_session,
+                    "get_answer_input",
+                    return_value="Telegram",
+                ) as get_answer:
+                    with patch.object(session, "_run_deliberation") as run_deliberation:
+                        session._cmd_questions(["--select", "--all"])
+
+        assert session.workflow.decisions[0].decision == "Telegram"
+        get_answer.assert_called_once_with(question_id="q-001")
+        run_deliberation.assert_called_once()
+
     def test_run_deliberation_updates_workflow_state(self, session):
         result = DeliberationResult(
             user_prompt="test",

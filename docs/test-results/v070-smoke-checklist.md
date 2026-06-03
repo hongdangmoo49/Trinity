@@ -97,13 +97,14 @@ These verify that `uv run trinity` starts correctly and `ProviderReadinessGate` 
 | # | Step | Expected Result | Pass/Fail | Notes |
 |---|------|----------------|-----------|-------|
 | 3.1 | Deliberation produces open questions | Workflow transitions to `NEEDS_USER_DECISION`; TUI displays questions with numbered options and recommendation | | |
-| 3.2 | Enter a number or text answer | Answer is treated as a response to the pending question (not a new goal); `DecisionRecord` is created with `decided_by = "user"` | | |
-| 3.3 | After answering | Workflow transitions back to `DELIBERATING`; the decision is injected into the next round prompt | | |
-| 3.4 | Decision recorded in shared context | shared.md `## Decisions` section contains the new decision with id, question_id, decision text, and rationale | | |
-| 3.5 | `/questions` command | Lists all pending (unanswered) questions with their options | | |
-| 3.6 | `/decisions` command | Lists all recorded decisions so far | | |
-| 3.7 | Answer all blocking questions | Workflow eventually reaches `BLUEPRINT_READY` or `DONE` | | |
-| 3.8 | Non-blocking question remaining | Workflow can still proceed past `NEEDS_USER_DECISION` even with non-blocking questions unanswered | | |
+| 3.2 | Run `/answer <question-id\|index\|next> <answer>` | Answer is treated as a response to the selected pending question, not a new goal; `DecisionRecord` is created with `decided_by = "user"` | | |
+| 3.3 | Run `/questions --select --all` | Direction-key wizard records option answers and free-text answers for pending questions | | |
+| 3.4 | After all blocking answers | Workflow transitions back to `DELIBERATING`; the decisions are injected into the next round prompt | | |
+| 3.5 | Decision recorded in shared context | shared.md `## Decisions` section contains the new decision with id, question_id, decision text, and rationale | | |
+| 3.6 | `/questions` command | Lists all pending (unanswered) questions with their options and actionable `/answer` examples | | |
+| 3.7 | `/decisions` command | Lists all recorded decisions so far | | |
+| 3.8 | Answer all blocking questions | Workflow eventually reaches `BLUEPRINT_READY` or `DONE` | | |
+| 3.9 | Non-blocking question remaining | Workflow can still proceed past `NEEDS_USER_DECISION` even with non-blocking questions unanswered | | |
 
 ### Scenario 4: Execution Dispatch
 
@@ -147,7 +148,7 @@ These verify that `uv run trinity` starts correctly and `ProviderReadinessGate` 
 | 4.2 | `/questions` | Lists pending open questions with options | | |
 | 4.3 | `/decisions` | Lists recorded decisions with who decided and rationale | | |
 | 4.4 | `/workflow` | Shows full workflow state machine: current state, available transitions, session history | | |
-| 4.5 | Prompt input when `state = NEEDS_USER_DECISION` | Input is routed as question answer, not new goal | | |
+| 4.5 | Prompt input when `state = NEEDS_USER_DECISION` | Plain text is not auto-recorded; TUI instructs the user to use `/answer` or `/questions --select` | | |
 | 4.6 | Prompt input when `state = IDLE` | Input starts a new workflow (goal) | | |
 | 4.7 | Provider status panel | Shows each provider name, readiness state, model, and action hint if not ready | | |
 | 4.8 | Graceful shutdown (Ctrl+C) | TUI exits cleanly; tmux session is killed; workflow state is persisted if `persist_workflow_state = true` | | |

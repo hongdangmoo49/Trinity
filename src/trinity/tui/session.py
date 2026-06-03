@@ -347,7 +347,8 @@ class InteractiveSession:
         """Show pending workflow questions."""
         args = args or []
         if any(arg in {"--select", "-s"} for arg in args):
-            self._cmd_select_question()
+            select_all = any(arg in {"--all", "--wizard", "-a"} for arg in args)
+            self._cmd_select_question(select_all=select_all)
             return
 
         questions = self.workflow.pending_questions
@@ -410,13 +411,8 @@ class InteractiveSession:
         action = self.workflow.answer_question(selector, answer, replace=replace)
         self._apply_workflow_action(action)
 
-    def _cmd_select_question(self) -> None:
-        """Select the next question option with arrow keys."""
-        questions = self.workflow.pending_questions
-        if not questions:
-            self.console.print("[dim]No pending workflow questions.[/dim]")
-            return
-
+    def _cmd_select_question(self, *, select_all: bool = False) -> None:
+        """Select one or all pending workflow questions interactively."""
         if not sys.stdin.isatty() or not sys.stdout.isatty():
             self.console.print(
                 "[yellow]Interactive selection requires a terminal. "
@@ -424,29 +420,46 @@ class InteractiveSession:
             )
             return
 
-        question = questions[0]
-        if not question.options:
+        active = self.config.active_agents
+        if not active:
             self.console.print(
-                f"[yellow]{question.id} has no selectable options. "
-                "Use /answer next <answer>.[/yellow]"
+                "[red]No active agents. Use /agent <name> on to enable one.[/red]"
             )
             return
 
-        selected = self._prompt_session.select_option(
-            title=f"{question.id}",
-            question=question.question,
-            options=question.options,
-            recommended_option=question.recommended_option,
-        )
-        if selected is None:
-            self.console.print("[dim]Selection cancelled.[/dim]")
-            return
+        while True:
+            questions = self.workflow.pending_questions
+            if not questions:
+                self.console.print("[dim]No pending workflow questions.[/dim]")
+                return
 
-        action = self.workflow.answer_question_option(
-            str(selected),
-            question_selector=question.id,
-        )
-        self._apply_workflow_action(action)
+            question = questions[0]
+            if question.options:
+                selected = self._prompt_session.select_option(
+                    title=f"{question.id}",
+                    question=question.question,
+                    options=question.options,
+                    recommended_option=question.recommended_option,
+                )
+                if selected is None:
+                    self.console.print("[dim]Selection cancelled.[/dim]")
+                    return
+                action = self.workflow.answer_question_option(
+                    str(selected),
+                    question_selector=question.id,
+                )
+            else:
+                answer = self._prompt_session.get_answer_input(
+                    question_id=question.id,
+                ).strip()
+                if not answer:
+                    self.console.print("[dim]Selection cancelled.[/dim]")
+                    return
+                action = self.workflow.answer_question(question.id, answer)
+
+            self._apply_workflow_action(action)
+            if action.should_deliberate or action.message or not select_all:
+                return
 
     def _cmd_decisions(self) -> None:
         """Show workflow decision ledger."""
@@ -595,6 +608,8 @@ class InteractiveSession:
                 )
                 if index == 1:
                     lines.append("    선택 UI: /questions --select")
+                    if len(questions) > 1:
+                        lines.append("    전체 선택 UI: /questions --select --all")
             else:
                 lines.append(
                     f"    답변: /answer {index} <값> 또는 "

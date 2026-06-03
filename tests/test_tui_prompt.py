@@ -67,6 +67,15 @@ class TestGetInput:
             result = session.get_input()
         assert result == "hello world"
 
+    def test_returns_question_answer_input(self, tmp_path):
+        """get_answer_input uses the workflow question prompt."""
+        session = TrinityPromptSession(tmp_path)
+        with patch.object(session.session, "prompt", return_value="LI.FI") as prompt:
+            result = session.get_answer_input(question_id="q-001")
+
+        assert result == "LI.FI"
+        prompt.assert_called_once()
+
     def test_propagates_keyboard_interrupt(self, tmp_path):
         """KeyboardInterrupt from prompt_toolkit is not swallowed."""
         session = TrinityPromptSession(tmp_path)

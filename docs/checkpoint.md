@@ -22,6 +22,7 @@
 - Subagent delegation reporting과 `Subtasks` 기록
 - Shared ledger renderer, LifecycleGuard MVP, peer review planning foundation
 - 명시적 `/answer` user decision UX, `/questions --select` 방향키 옵션 선택
+- `/questions --select --all` decision wizard
 - 한국어/번호형 open question parser 보강
 
 ### 운영 문서
@@ -34,7 +35,7 @@
 ### 검증 기준선
 
 - 패키지/CLI 버전: `0.7.0`
-- `uv run pytest -q` → 898 passed, 1 warning
+- `uv run pytest -q` → 901 passed, 1 warning
 - 변경 파일 대상 ruff check 통과
 - 실제 WSL/tmux/provider smoke는 릴리스 전 별도 수행 필요
 
@@ -44,6 +45,8 @@
   사용자는 `/answer <question-id|index|next> <answer>`로 대상 질문을 명시한다.
 - [x] `/questions`를 실행 가능한 답변 안내 panel로 바꾸고, `/questions --select`로
   첫 pending question의 options를 방향키로 선택할 수 있게 했다.
+- [x] `/questions --select --all`은 pending question을 순서대로 처리하며,
+  options가 없는 질문은 자유 텍스트 답변을 받는다.
 - [x] 잘못 기록한 decision은 `/answer --replace <question-id|decision-id> <answer>`로 정정한다.
 - [x] 한국어 `질문/옵션/추천/이유` 필드와 빈 `Options:` 뒤 번호형 선택지를
   structured open question parser가 options/recommended/rationale로 보존한다.

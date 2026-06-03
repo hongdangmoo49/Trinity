@@ -113,6 +113,12 @@ class TrinityPromptSession:
             [("class:prompt", "💬 trinity> ")],
         )
 
+    def get_answer_input(self, *, question_id: str) -> str:
+        """Read a free-form workflow question answer."""
+        return self.session.prompt(
+            [("class:prompt", f"❓ {question_id}> ")],
+        )
+
     def select_option(
         self,
         *,

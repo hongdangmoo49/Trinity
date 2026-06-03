@@ -111,6 +111,7 @@ Trinity는 structured vote를 평가해 다음 중 하나를 선택한다.
 ```text
 /questions
 /questions --select
+/questions --select --all
 /answer q-claude-002 LI.FI
 /answer 2 TypeScript
 /answer next "Telegram 먼저"
@@ -129,7 +130,9 @@ Trinity는 structured vote를 평가해 다음 중 하나를 선택한다.
 `/answer 1`처럼 답변 내용 없이 숫자 하나만 입력하면, 첫 번째 pending question의
 1번 option을 선택한다. `/questions --select`는 터미널이 대화형 TTY일 때 첫 번째
 pending question의 options를 방향키로 선택하는 prompt_toolkit UI를 연다.
-options가 없는 질문은 `/answer next <answer>`로 자유 텍스트를 입력한다.
+`/questions --select --all`은 pending question을 순서대로 처리하는 decision wizard다.
+options가 있는 질문은 방향키로 고르고, options가 없는 질문은 같은 흐름에서 자유 텍스트를 입력한다.
+명령형으로 처리하려면 `/answer next <answer>`를 사용한다.
 
 Open question parser는 영어 contract와 한국어 agent 출력 변형을 모두 허용한다.
 

@@ -813,15 +813,15 @@ trinity run → config.lang="ko" 로드
 
 ### 완료 기준 초안
 
-- [ ] Provider readiness 실패 시 명확한 사용자 조치와 함께 workflow 시작 차단
-- [ ] 1/2/3 active agent별 structured blueprint 합의
-- [ ] 사용자 의사결정 질문 생성/답변/재개 loop
-- [ ] blueprint에서 agent별 work package 생성
-- [ ] execution intent에서 실제 agent call 수행
-- [ ] shared.md에 decisions/open questions/work packages/task results 기록
-- [ ] workflow state를 `.trinity/workflow/session.json`에 저장/복구
-- [ ] context threshold가 round 전후와 execution package 전후에 감시됨
-- [ ] WSL/tmux 실제 smoke 결과 문서 작성
+- [x] Provider readiness 실패 시 명확한 사용자 조치와 함께 workflow 시작 차단
+- [x] 1/2/3 active agent별 structured blueprint 합의
+- [x] 사용자 의사결정 질문 생성/답변/재개 loop
+- [x] blueprint에서 agent별 work package 생성
+- [x] execution intent에서 실제 agent call 수행
+- [x] shared.md에 decisions/open questions/work packages/task results 기록
+- [x] workflow state를 `.trinity/workflow/session.json`에 저장/복구
+- [x] context threshold가 round 전후와 execution package 전후에 감시됨
+- [x] WSL/tmux 실제 smoke 결과 문서 작성
 
 ---
 

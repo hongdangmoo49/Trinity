@@ -38,7 +38,9 @@ class ReadinessResult:
     excerpt: str = ""
 
 
-_PROMPT_RE = re.compile(r"^\s*(?:[>$❯›]|trinity>|claude>|codex>|gemini>)\s*$")
+_PROMPT_RE = re.compile(
+    r"^\s*(?:[>$❯›]|[>›]\s+.+|trinity>|claude>|codex>|gemini>)\s*$"
+)
 
 
 def _normalize_lines(lines: Iterable[str], limit: int = 40) -> list[str]:
@@ -55,8 +57,11 @@ def _contains(text: str, patterns: tuple[str, ...]) -> bool:
     return any(re.search(pattern, text, re.IGNORECASE | re.MULTILINE) for pattern in patterns)
 
 
-def _has_ready_prompt(lines: list[str]) -> bool:
+def _has_ready_prompt(lines: list[str], provider: Provider) -> bool:
     tail = lines[-8:]
+    tail_text = "\n".join(tail).lower()
+    if _contains(tail_text, _READY_PROMPT_PATTERNS[provider]):
+        return True
     return any(_PROMPT_RE.match(line.strip()) for line in tail)
 
 
@@ -211,7 +216,7 @@ class ProviderReadinessGate:
             return ProviderState.MODEL_LOADING
 
         banner_only = _contains(text, _BANNER_PATTERNS[provider])
-        prompt_ready = _has_ready_prompt(lines)
+        prompt_ready = _has_ready_prompt(lines, provider)
         if prompt_ready:
             return ProviderState.READY
         if banner_only:
@@ -270,6 +275,9 @@ _AUTH_PATTERNS: dict[Provider, tuple[str, ...]] = {
         *_COMMON_AUTH_PATTERNS,
         r"claude\.ai/(?:login|oauth|auth)",
         r"complete\s+authentication\s+in\s+your\s+browser",
+        r"select\s+login\s+method",
+        r"claude\s+account\s+with\s+subscription",
+        r"anthropic\s+console\s+account",
     ),
     Provider.CODEX: (
         *_COMMON_AUTH_PATTERNS,
@@ -297,12 +305,24 @@ _MODEL_LOADING_PATTERNS: dict[Provider, tuple[str, ...]] = {
     Provider.CODEX: (
         r"\bloading\b.*\bmodel\b",
         r"\bmodel\b.*\bloading\b",
-        r"\bdefault\s+model\b",
-        r"\bgpt-[\w.\-]+\s+default\b",
     ),
     Provider.GEMINI_CLI: (
         r"\bloading\b.*\bmodel\b",
         r"\binitializing\b.*\bgemini\b",
+    ),
+}
+
+_READY_PROMPT_PATTERNS: dict[Provider, tuple[str, ...]] = {
+    Provider.CLAUDE_CODE: (
+        r"\btype\s+your\s+message\b",
+    ),
+    Provider.CODEX: (
+        r"^\s*›\s+",
+        r"\buse\s+/skills\b",
+        r"\brun\s+/review\b",
+    ),
+    Provider.GEMINI_CLI: (
+        r"\btype\s+your\s+message\s+or\s+@path/to/file\b",
     ),
 }
 

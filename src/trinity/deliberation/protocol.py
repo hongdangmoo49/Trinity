@@ -134,7 +134,7 @@ class DeliberationProtocol:
             self._emit(TUIEventType.ROUND_START, round_num=round_num)
 
             # Update tmux pane titles to show round progress
-            self._update_pane_titles(f"Round {round_num}/{self.max_rounds}")
+            await self._update_pane_titles(f"Round {round_num}/{self.max_rounds}")
 
             # Build prompt for this round
             round_prompt = self._build_round_prompt(round_num, user_prompt)
@@ -178,7 +178,7 @@ class DeliberationProtocol:
             if consensus.reached:
                 logger.info(f"Consensus reached at round {round_num}!")
                 self.shared.update_consensus(consensus.summary)
-                self._update_pane_titles("✓ Consensus!")
+                await self._update_pane_titles("✓ Consensus!")
 
                 self._emit(
                     TUIEventType.CONSENSUS_RESULT,
@@ -202,7 +202,7 @@ class DeliberationProtocol:
             )
 
         # Update pane titles for task distribution phase
-        self._update_pane_titles("Distributing tasks...")
+        await self._update_pane_titles("Distributing tasks...")
 
         # If no consensus after all rounds, keep that semantic state explicit.
         if consensus and not consensus.reached:
@@ -280,60 +280,72 @@ class DeliberationProtocol:
 
         opinions: dict[str, DeliberationMessage] = {}
 
-        while pending:
-            done, pending = await asyncio.wait(
-                pending, return_when=asyncio.FIRST_COMPLETED
-            )
+        try:
+            while pending:
+                done, pending = await asyncio.wait(
+                    pending, return_when=asyncio.FIRST_COMPLETED
+                )
 
-            for task in done:
-                name = task_to_name[task]
-                try:
-                    result = task.result()
-                except Exception as exc:
-                    logger.error(f"[{name}] Error in round {round_num}: {exc}")
-                    opinions[name] = DeliberationMessage(
-                        source=name,
-                        target="all",
-                        round_num=round_num,
-                        role=MessageRole.OPINION,
-                        content=f"[Error: {exc}]",
-                        metadata={
-                            "invalid_response": True,
-                            "response_validation": {
-                                "usable": False,
-                                "classification": "agent_error",
-                                "reasons": [str(exc)],
+                for task in done:
+                    name = task_to_name[task]
+                    try:
+                        result = task.result()
+                    except Exception as exc:
+                        logger.error(f"[{name}] Error in round {round_num}: {exc}")
+                        opinions[name] = DeliberationMessage(
+                            source=name,
+                            target="all",
+                            round_num=round_num,
+                            role=MessageRole.OPINION,
+                            content=f"[Error: {exc}]",
+                            metadata={
+                                "invalid_response": True,
+                                "response_validation": {
+                                    "usable": False,
+                                    "classification": "agent_error",
+                                    "reasons": [str(exc)],
+                                },
                             },
-                        },
-                    )
-                    self._emit(
-                        TUIEventType.AGENT_ERROR,
-                        agent=name,
-                        error=str(exc),
-                        round_num=round_num,
-                    )
-                    continue
+                        )
+                        self._emit(
+                            TUIEventType.AGENT_ERROR,
+                            agent=name,
+                            error=str(exc),
+                            round_num=round_num,
+                        )
+                        continue
 
-                if isinstance(result, DeliberationMessage):
-                    result.round_num = round_num
-                    result = self._validate_agent_response(name, round_num, result)
-                    opinions[name] = result
-                    self._emit(
-                        TUIEventType.AGENT_RESPONDED,
-                        agent=name,
-                        content=result.content,
-                        metadata=dict(result.metadata),
-                        response_status=self._response_status(result),
-                        round_num=round_num,
-                    )
-                else:
-                    logger.warning(f"[{name}] Unexpected result type: {type(result)}")
-                    self._emit(
-                        TUIEventType.AGENT_ERROR,
-                        agent=name,
-                        error=f"Unexpected result type: {type(result)}",
-                        round_num=round_num,
-                    )
+                    if isinstance(result, DeliberationMessage):
+                        result.round_num = round_num
+                        result = self._validate_agent_response(name, round_num, result)
+                        opinions[name] = result
+                        self._emit(
+                            TUIEventType.AGENT_RESPONDED,
+                            agent=name,
+                            content=result.content,
+                            metadata=dict(result.metadata),
+                            response_status=self._response_status(result),
+                            round_num=round_num,
+                        )
+                    else:
+                        logger.warning(f"[{name}] Unexpected result type: {type(result)}")
+                        self._emit(
+                            TUIEventType.AGENT_ERROR,
+                            agent=name,
+                            error=f"Unexpected result type: {type(result)}",
+                            round_num=round_num,
+                        )
+        except asyncio.CancelledError:
+            # Clean up pending tasks to prevent leaks
+            all_tasks = set(task_to_name.keys())
+            for t in pending | all_tasks:
+                if not t.done():
+                    t.cancel()
+            await asyncio.gather(
+                *(t for t in all_tasks if not t.done()),
+                return_exceptions=True,
+            )
+            raise
 
         return opinions
 
@@ -570,28 +582,21 @@ class DeliberationProtocol:
 
         return opinions
 
-    def _update_pane_titles(self, status_text: str) -> None:
+    async def _update_pane_titles(self, status_text: str) -> None:
         """Update tmux pane titles to show round progress (Phase 2 feature)."""
         if not self.tmux_manager:
             return
-
-        import subprocess
 
         for name in self.agents:
             pane = self.tmux_manager.get_pane(name)
             if pane:
                 try:
-                    subprocess.run(
-                        [
-                            "tmux",
-                            "select-pane",
-                            "-t",
-                            pane.pane_id,
-                            "-T",
-                            f"{name}: {status_text}",
-                        ],
-                        capture_output=True,
-                        timeout=5,
+                    proc = await asyncio.create_subprocess_exec(
+                        "tmux", "select-pane", "-t", pane.pane_id,
+                        "-T", f"{name}: {status_text}",
+                        stdout=asyncio.subprocess.DEVNULL,
+                        stderr=asyncio.subprocess.DEVNULL,
                     )
+                    await asyncio.wait_for(proc.wait(), timeout=5.0)
                 except Exception:
                     pass  # Non-critical — don't fail deliberation for title update

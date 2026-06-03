@@ -85,6 +85,46 @@ class TestNegationFiltering:
         assert result.agreement_count == 1
 
 
+class TestKoreanNegation:
+    """Test Korean negation patterns in consensus evaluation."""
+
+    def test_korean_disagree_not_counted(self):
+        engine = ConsensusEngine(required_fraction=0.6)
+        opinions = {
+            "a": "I agree with this approach.",
+            "b": "동의하지 않습니다. 다른 방법이 필요합니다.",
+            "c": "I agree too.",
+        }
+        result = engine.evaluate(opinions)
+        assert result.agreement_count == 2
+
+    def test_korean_oppose_not_counted(self):
+        engine = ConsensusEngine(required_fraction=0.6)
+        opinions = {
+            "a": "이 방안에 반대합니다.",
+            "b": "I agree.",
+        }
+        result = engine.evaluate(opinions)
+        assert result.agreement_count == 1
+
+    def test_korean_cannot_agree_not_counted(self):
+        engine = ConsensusEngine(required_fraction=0.6)
+        opinions = {
+            "a": "동의할 수 없습니다.",
+            "b": "I agree.",
+        }
+        result = engine.evaluate(opinions)
+        assert result.agreement_count == 1
+
+    def test_korean_reject_not_counted(self):
+        engine = ConsensusEngine(required_fraction=0.6)
+        opinions = {
+            "a": "이 제안을 거부합니다.",
+        }
+        result = engine.evaluate(opinions)
+        assert result.agreement_count == 0
+
+
 class TestConsensusWithNegationInMultiAgent:
     """Test multi-agent scenarios with negation filtering."""
 

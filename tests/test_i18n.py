@@ -25,9 +25,10 @@ class TestGetStrings:
         assert S is KO_STRINGS
         assert "탐지" in S.step1_title
 
-    def test_invalid_lang_raises(self):
-        with pytest.raises(KeyError):
-            get_strings("fr")
+    def test_invalid_lang_falls_back_to_english(self):
+        """Invalid lang no longer raises — it falls back to English."""
+        S = get_strings("fr")
+        assert S is EN_STRINGS
 
 
 class TestRolePrompt:
@@ -82,6 +83,32 @@ class TestLocalizedRoles:
         roles = localized_roles("en")
         roles["extra"] = "test"
         assert "extra" not in ROLE_PROMPTS["en"]
+
+
+class TestValidateLang:
+    def test_validate_lang_accepts_en(self):
+        from trinity.i18n import validate_lang
+        assert validate_lang("en") == "en"
+
+    def test_validate_lang_accepts_ko(self):
+        from trinity.i18n import validate_lang
+        assert validate_lang("ko") == "ko"
+
+    def test_validate_lang_rejects_unknown(self):
+        from trinity.i18n import validate_lang
+        with pytest.raises(ValueError, match="Unsupported language"):
+            validate_lang("fr")
+
+    def test_validate_lang_falls_back_to_en(self):
+        from trinity.i18n import validate_lang
+        result = validate_lang("fr", fallback="en")
+        assert result == "en"
+
+    def test_get_strings_invalid_lang_returns_english(self):
+        from trinity.i18n import get_strings
+        S = get_strings("fr")
+        # Should return English strings with a warning
+        assert S.wizard_title is not None
 
 
 class TestStringsCompleteness:

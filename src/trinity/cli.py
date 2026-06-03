@@ -11,6 +11,7 @@ Supports:
 from __future__ import annotations
 
 import asyncio
+import logging
 import shutil
 import sys
 import time
@@ -159,7 +160,7 @@ def _init_interactive(target: Path, force: bool) -> None:
     )
 
     # Create directory structure
-    _create_directory_structure(target)
+    _create_directory_structure(target, list(all_agents.keys()))
 
     # Save config
     config.save(target / "trinity.config")
@@ -213,7 +214,7 @@ def _init_default(target: Path, force: bool) -> None:
     state = target
 
     # Create directory structure
-    _create_directory_structure(state)
+    _create_directory_structure(state, list(config.agents.keys()))
 
     # Save config
     config.save(state / "trinity.config")
@@ -242,12 +243,14 @@ def _init_default(target: Path, force: bool) -> None:
     ))
 
 
-def _create_directory_structure(state: Path) -> None:
+def _create_directory_structure(
+    state: Path, agent_names: list[str] | None = None
+) -> None:
     """Create the .trinity/ directory structure."""
     state.mkdir(exist_ok=True)
-    (state / "agents" / "claude").mkdir(parents=True, exist_ok=True)
-    (state / "agents" / "codex").mkdir(parents=True, exist_ok=True)
-    (state / "agents" / "gemini").mkdir(parents=True, exist_ok=True)
+    names = agent_names or ["claude", "codex", "gemini"]
+    for name in names:
+        (state / "agents" / name).mkdir(parents=True, exist_ok=True)
     (state / "history").mkdir(exist_ok=True)
     (state / "logs").mkdir(exist_ok=True)
     (state / "workspace").mkdir(exist_ok=True)
@@ -307,8 +310,8 @@ def ask(prompt: str, max_rounds: int | None, agent_names: str | None, interactiv
         sys.exit(1)
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
-        logger = __import__("logging").getLogger("trinity")
-        logger.exception("Deliberation failed")
+        _logger = logging.getLogger("trinity")
+        _logger.exception("Deliberation failed")
         sys.exit(1)
 
     # Display results
@@ -432,6 +435,14 @@ def logs(follow: bool, lines: int):
 
 # ─── trinity config ──────────────────────────────────────────────────────
 
+_SAFE_CONFIG_KEYS = frozenset({
+    "session_name", "lang", "max_deliberation_rounds",
+    "consensus_threshold", "round_timeout_seconds",
+    "context_rotate_threshold", "health_check_interval_seconds",
+    "log_level", "log_file", "caveman_mode", "caveman_intensity",
+})
+
+
 @main.command("config")
 @click.argument("key", required=False)
 def config_show(key: str | None):
@@ -442,22 +453,17 @@ def config_show(key: str | None):
     cfg = load_config()
 
     if key:
-        value = getattr(cfg, key, None)
-        if value is None:
+        if key not in _SAFE_CONFIG_KEYS:
             console.print(f"[yellow]Unknown config key: {key}[/yellow]")
             return
-        console.print(f"{key} = {value}")
+        console.print(f"{key} = {getattr(cfg, key)}")
     else:
         table = Table(title="Trinity Configuration")
         table.add_column("Key", style="cyan")
         table.add_column("Value")
 
-        for attr in [
-            "session_name", "max_deliberation_rounds", "consensus_threshold",
-            "round_timeout_seconds", "context_rotate_threshold",
-            "health_check_interval_seconds", "log_level",
-        ]:
-            table.add_row(attr, str(getattr(cfg, attr)))
+        for attr in sorted(_SAFE_CONFIG_KEYS):
+            table.add_row(attr, str(getattr(cfg, attr, "N/A")))
 
         console.print(table)
 

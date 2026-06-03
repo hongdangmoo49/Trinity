@@ -60,6 +60,11 @@ class SharedContextEngine:
         return self.path.read_text(encoding="utf-8")
 
     @staticmethod
+    def _sanitize_md_heading(text: str) -> str:
+        """Escape heading markers to prevent markdown section injection."""
+        return re.sub(r'^#{1,3}\s+', r'\\# ', text, flags=re.MULTILINE)
+
+    @staticmethod
     def _sanitize(text: str) -> str:
         """Remove surrogate characters that can arise from tmux/terminal input.
 
@@ -124,7 +129,9 @@ class SharedContextEngine:
     def append_opinion(self, agent: str, round_num: int, opinion: str) -> None:
         """Append an agent's opinion to the round section."""
         section_name = f"Round {round_num} Opinions"
-        entry = f"\n### {agent}\n{opinion}\n"
+        safe_agent = self._sanitize_md_heading(agent)
+        safe_opinion = self._sanitize_md_heading(opinion)
+        entry = f"\n### {safe_agent}\n{safe_opinion}\n"
         self.append_to_section(section_name, entry)
 
     def append_invalid_response_diagnostic(
@@ -162,13 +169,17 @@ class SharedContextEngine:
         """Write task assignments."""
         lines = []
         for agent, task in tasks.items():
-            lines.append(f"- **{agent}**: {task}")
+            safe_agent = self._sanitize_md_heading(agent)
+            safe_task = self._sanitize_md_heading(task)
+            lines.append(f"- **{safe_agent}**: {safe_task}")
         self.write_section("Task Assignment", "\n".join(lines))
 
     def append_session_summary(self, agent: str, summary: str) -> None:
         """Append a session rotation summary to session history."""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-        entry = f"\n### {agent} — {timestamp}\n{summary}\n"
+        safe_agent = self._sanitize_md_heading(agent)
+        safe_summary = self._sanitize_md_heading(summary)
+        entry = f"\n### {safe_agent} — {timestamp}\n{safe_summary}\n"
         self.append_to_section("Session History", entry)
 
     def write_compressed_summary(self, round_num: int, summary: str) -> None:
@@ -251,10 +262,16 @@ class SharedContextEngine:
             if key in self.keep_sections:
                 result_parts.append(content)
 
-        # Include recent round sections
+        # Include recent round sections (sorted numerically, not lexicographically)
+        def _round_sort_key(item):
+            """Extract numeric part from round section key for proper ordering."""
+            key, _ = item
+            match = re.search(r'round\s+(\d+)', key)
+            return int(match.group(1)) if match else 0
+
         round_sections = sorted(
             [(k, v) for k, v in sections.items() if k.startswith("round")],
-            key=lambda x: x[0],
+            key=_round_sort_key,
         )
         for key, content in round_sections[-recent_rounds:]:
             result_parts.append(content)

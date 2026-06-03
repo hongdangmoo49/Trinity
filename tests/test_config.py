@@ -121,3 +121,14 @@ role_prompt = "당신은 아키텍트입니다."
 
         text = save_path.read_text(encoding="utf-8")
         assert 'model = "opus[1m]"' in text
+
+    def test_save_load_roundtrip_with_special_chars(self, tmp_path):
+        """Verify special characters in role_prompt survive save/load."""
+        config = TrinityConfig.default_config()
+        config.agents["claude"].role_prompt = 'He said "hello"\nwith\nnewlines\tand\ttabs'
+
+        config_path = tmp_path / "trinity.config"
+        config.save(config_path)
+        loaded = TrinityConfig.load(config_path)
+
+        assert loaded.agents["claude"].role_prompt == config.agents["claude"].role_prompt

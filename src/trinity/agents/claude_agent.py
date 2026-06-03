@@ -344,8 +344,8 @@ class InteractiveClaudeAgent(AgentWrapper):
             try:
                 self._pane.send_text("/exit")
                 await asyncio.sleep(1.0)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("[%s] Graceful shutdown failed: %s", self.name, e)
         self._started = False
         logger.info(f"[{self.name}] Interactive agent stopped")
 
@@ -355,8 +355,6 @@ class InteractiveClaudeAgent(AgentWrapper):
 
     async def _wait_for_ready(self, timeout: float = 30.0) -> None:
         """Wait for Claude CLI to be ready (prompt appears)."""
-        import re
-
         prompt_pattern = re.compile(r"[>❯$]\s*$", re.MULTILINE)
         deadline = time.monotonic() + timeout
 
@@ -559,8 +557,6 @@ class InteractiveClaudeAgent(AgentWrapper):
 
     def _parse_usage_from_output(self, output: str) -> dict:
         """Try to extract token usage from the pane output."""
-        import re
-
         # Look for patterns like "Tokens: 1234/200000" or "usage: 1234"
         patterns = [
             r"[Tt]okens?:\s*(\d+)[/\s]+(\d+)",

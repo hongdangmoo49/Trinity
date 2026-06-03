@@ -88,23 +88,23 @@ class TestContextUsage:
     def test_zero_usage(self):
         usage = ContextUsage(used=0, total=200_000)
         assert usage.ratio == 0.0
-        assert not usage.should_rotate
+        assert not usage.should_rotate()
         assert usage.remaining == 200_000
 
     def test_at_threshold(self):
         usage = ContextUsage(used=120_000, total=200_000)
         assert usage.ratio == 0.6
-        assert usage.should_rotate  # >= 0.60
+        assert usage.should_rotate()  # >= 0.60
 
     def test_above_threshold(self):
         usage = ContextUsage(used=150_000, total=200_000)
         assert usage.ratio == 0.75
-        assert usage.should_rotate
+        assert usage.should_rotate()
 
     def test_below_threshold(self):
         usage = ContextUsage(used=100_000, total=200_000)
         assert usage.ratio == 0.5
-        assert not usage.should_rotate
+        assert not usage.should_rotate()
 
     def test_str_format(self):
         usage = ContextUsage(used=100_000, total=200_000)
@@ -201,8 +201,8 @@ class TestAgentHealth:
     def test_healthy_agent(self):
         health = AgentHealth(name="claude", alive=True, context_ratio=0.3)
         assert health.alive
-        assert not health.context_warning
+        assert not health.context_warning()
 
     def test_context_warning(self):
         health = AgentHealth(name="claude", alive=True, context_ratio=0.65)
-        assert health.context_warning
+        assert health.context_warning()

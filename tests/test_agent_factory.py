@@ -186,29 +186,29 @@ class TestCreateDetectorChain:
     """AgentFactory.create_detector_chain() — provider별 detector 체인."""
 
     def test_claude_chain_structure(self, signal_path):
-        """Claude: Hook → PromptReturn."""
+        """Claude: Hook → PromptReturn → IdleDetector."""
         chain = AgentFactory.create_detector_chain(signal_path, Provider.CLAUDE_CODE)
-        assert len(chain.detectors) == 2
+        assert len(chain.detectors) == 3
         assert isinstance(chain.detectors[0], HookDetector)
         assert isinstance(chain.detectors[1], PromptReturnDetector)
 
     def test_codex_chain_structure(self, signal_path):
-        """Codex: PromptReturn(custom patterns)."""
+        """Codex: PromptReturn(custom patterns) → IdleDetector."""
         chain = AgentFactory.create_detector_chain(signal_path, Provider.CODEX)
-        assert len(chain.detectors) == 1
+        assert len(chain.detectors) == 2
         assert isinstance(chain.detectors[0], PromptReturnDetector)
 
     def test_gemini_chain_structure(self, signal_path):
-        """Gemini: Marker → PromptReturn."""
+        """Gemini: Marker → PromptReturn → IdleDetector."""
         chain = AgentFactory.create_detector_chain(signal_path, Provider.GEMINI_CLI)
-        assert len(chain.detectors) == 2
+        assert len(chain.detectors) == 3
         assert isinstance(chain.detectors[0], MarkerDetector)
         assert isinstance(chain.detectors[1], PromptReturnDetector)
 
     def test_unknown_provider_default_chain(self, signal_path):
-        """알 수 없는 provider는 기본 PromptReturn 체인."""
+        """알 수 없는 provider는 기본 PromptReturn → IdleDetector 체인."""
         chain = AgentFactory.create_detector_chain(signal_path, "unknown")
-        assert len(chain.detectors) == 1
+        assert len(chain.detectors) == 2
         assert isinstance(chain.detectors[0], PromptReturnDetector)
 
     def test_claude_hook_signal_path(self, signal_path):
@@ -217,3 +217,43 @@ class TestCreateDetectorChain:
         hook = chain.detectors[0]
         assert isinstance(hook, HookDetector)
         assert hook.signal_path == signal_path
+
+
+def test_claude_chain_includes_idle_detector():
+    from pathlib import Path
+    chain = AgentFactory.create_detector_chain(Path("/tmp/signal.json"), Provider.CLAUDE_CODE)
+    names = [d.name for d in chain.detectors]
+    assert any("IdleDetector" in n for n in names)
+
+
+def test_gemini_chain_includes_idle_detector():
+    from pathlib import Path
+    chain = AgentFactory.create_detector_chain(Path("/tmp/signal.json"), Provider.GEMINI_CLI)
+    names = [d.name for d in chain.detectors]
+    assert any("IdleDetector" in n for n in names)
+
+
+def test_codex_chain_includes_idle_detector():
+    from pathlib import Path
+    chain = AgentFactory.create_detector_chain(Path("/tmp/signal.json"), Provider.CODEX)
+    names = [d.name for d in chain.detectors]
+    assert any("IdleDetector" in n for n in names)
+
+
+def test_idle_timeouts_differ_by_provider():
+    from pathlib import Path
+    from trinity.completion.idle import IdleDetector
+
+    claude_chain = AgentFactory.create_detector_chain(Path("/tmp/s.json"), Provider.CLAUDE_CODE)
+    codex_chain = AgentFactory.create_detector_chain(Path("/tmp/s.json"), Provider.CODEX)
+    gemini_chain = AgentFactory.create_detector_chain(Path("/tmp/s.json"), Provider.GEMINI_CLI)
+
+    def get_idle_timeout(chain):
+        for d in chain.detectors:
+            if isinstance(d, IdleDetector):
+                return d.idle_timeout
+        return None
+
+    assert get_idle_timeout(claude_chain) == 15.0
+    assert get_idle_timeout(codex_chain) == 20.0
+    assert get_idle_timeout(gemini_chain) == 25.0

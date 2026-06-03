@@ -195,3 +195,39 @@ class TestDiskUsage:
         nested.mkdir(parents=True)
         (nested / "file.txt").write_text("content")
         assert mh.get_disk_usage("codex") > 0
+
+
+# ===========================================================================
+# Security — path traversal prevention
+# ===========================================================================
+
+class TestManagedHomeSecurity:
+    def test_write_config_rejects_path_traversal(self, tmp_path):
+        mh = ManagedHome(state_dir=tmp_path / ".trinity")
+        mh.setup("test-agent")
+        with pytest.raises(ValueError, match="traversal"):
+            mh.write_config("test-agent", "../../etc/malicious", "data")
+
+    def test_write_config_rejects_absolute_path(self, tmp_path):
+        mh = ManagedHome(state_dir=tmp_path / ".trinity")
+        mh.setup("test-agent")
+        with pytest.raises(ValueError, match="traversal"):
+            mh.write_config("test-agent", "/etc/passwd", "data")
+
+    def test_read_config_rejects_path_traversal(self, tmp_path):
+        mh = ManagedHome(state_dir=tmp_path / ".trinity")
+        mh.setup("test-agent")
+        with pytest.raises(ValueError, match="traversal"):
+            mh.read_config("test-agent", "../../etc/passwd")
+
+    def test_write_config_allows_valid_relative_path(self, tmp_path):
+        mh = ManagedHome(state_dir=tmp_path / ".trinity")
+        mh.setup("test-agent")
+        path = mh.write_config("test-agent", ".claude/settings.json", '{"key": "val"}')
+        assert path.exists()
+
+    def test_read_config_reads_valid_file(self, tmp_path):
+        mh = ManagedHome(state_dir=tmp_path / ".trinity")
+        mh.setup("test-agent")
+        mh.write_config("test-agent", "test.txt", "hello")
+        assert mh.read_config("test-agent", "test.txt") == "hello"

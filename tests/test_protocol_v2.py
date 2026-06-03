@@ -1,7 +1,7 @@
 """Tests for Phase 2 protocol enhancements — pane title visualization."""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from trinity.agents.base import AgentWrapper
 from trinity.context.shared import SharedContextEngine
@@ -41,16 +41,18 @@ def _make_opinion(name: str, round_num: int, content: str) -> DeliberationMessag
 class TestUpdatePaneTitles:
     """Test _update_pane_titles with and without tmux_manager."""
 
-    def test_no_tmux_manager_does_nothing(self, tmp_path):
+    @pytest.mark.asyncio
+    async def test_no_tmux_manager_does_nothing(self, tmp_path):
         engine = SharedContextEngine(path=tmp_path / "shared.md")
         agents = {"claude": _make_mock_agent("claude")}
         protocol = DeliberationProtocol(
             agents=agents, shared=engine, tmux_manager=None,
         )
         # Should not raise or call anything
-        protocol._update_pane_titles("Round 1/5")
+        await protocol._update_pane_titles("Round 1/5")
 
-    def test_with_tmux_manager_updates_titles(self, tmp_path):
+    @pytest.mark.asyncio
+    async def test_with_tmux_manager_updates_titles(self, tmp_path):
         engine = SharedContextEngine(path=tmp_path / "shared.md")
         agents = {"claude": _make_mock_agent("claude")}
 
@@ -63,14 +65,19 @@ class TestUpdatePaneTitles:
             agents=agents, shared=engine, tmux_manager=mock_tmux,
         )
 
-        with patch("subprocess.run") as mock_run:
-            protocol._update_pane_titles("Round 3/5")
-            mock_run.assert_called_once()
-            call_args = mock_run.call_args[0][0]
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+            mock_proc = AsyncMock()
+            mock_proc.wait = AsyncMock(return_value=0)
+            mock_exec.return_value = mock_proc
+
+            await protocol._update_pane_titles("Round 3/5")
+            mock_exec.assert_called_once()
+            call_args = mock_exec.call_args[0]
             assert "select-pane" in call_args
             assert "claude: Round 3/5" in call_args
 
-    def test_title_update_failure_does_not_crash(self, tmp_path):
+    @pytest.mark.asyncio
+    async def test_title_update_failure_does_not_crash(self, tmp_path):
         engine = SharedContextEngine(path=tmp_path / "shared.md")
         agents = {"claude": _make_mock_agent("claude")}
 
@@ -83,11 +90,12 @@ class TestUpdatePaneTitles:
             agents=agents, shared=engine, tmux_manager=mock_tmux,
         )
 
-        with patch("subprocess.run", side_effect=Exception("tmux error")):
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock, side_effect=Exception("tmux error")):
             # Should not raise
-            protocol._update_pane_titles("test")
+            await protocol._update_pane_titles("test")
 
-    def test_title_for_missing_pane(self, tmp_path):
+    @pytest.mark.asyncio
+    async def test_title_for_missing_pane(self, tmp_path):
         engine = SharedContextEngine(path=tmp_path / "shared.md")
         agents = {"claude": _make_mock_agent("claude")}
 
@@ -98,10 +106,10 @@ class TestUpdatePaneTitles:
             agents=agents, shared=engine, tmux_manager=mock_tmux,
         )
 
-        with patch("subprocess.run") as mock_run:
-            protocol._update_pane_titles("Round 1/5")
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+            await protocol._update_pane_titles("Round 1/5")
             # Should not call subprocess since pane is None
-            mock_run.assert_not_called()
+            mock_exec.assert_not_called()
 
 
 class TestProtocolWithTmuxManager:

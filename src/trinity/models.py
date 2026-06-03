@@ -208,9 +208,9 @@ class ContextUsage:
     def ratio(self) -> float:
         return self.used / self.total if self.total > 0 else 0.0
 
-    @property
-    def should_rotate(self) -> bool:
-        return self.ratio >= 0.60
+    def should_rotate(self, threshold: float = 0.60) -> bool:
+        """Check if context usage exceeds rotation threshold."""
+        return self.ratio >= threshold
 
     @property
     def remaining(self) -> int:
@@ -278,6 +278,6 @@ class AgentHealth:
     last_activity: float = 0.0
     status: str = "unknown"  # "idle", "working", "error", "unknown"
 
-    @property
-    def context_warning(self) -> bool:
-        return self.context_ratio >= 0.60
+    def context_warning(self, threshold: float = 0.60) -> bool:
+        """Check if context usage exceeds warning threshold."""
+        return self.context_ratio >= threshold

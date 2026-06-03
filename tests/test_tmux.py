@@ -1,6 +1,5 @@
 """Tests for trinity.tmux — TmuxPane and TmuxSessionManager."""
 
-import pytest
 from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import MagicMock, patch, call
@@ -29,6 +28,26 @@ class TestTmuxPane:
                 capture_output=True,
                 timeout=10,
             )
+
+    def test_send_text_heredoc_waits_before_submit(self):
+        pane = TmuxPane(pane_id="%0", session_name="test")
+
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("trinity.tmux.pane.time.sleep") as sleep,
+            patch("tempfile.mkstemp", return_value=(3, "/tmp/x")),
+            patch("os.fdopen", MagicMock()),
+            patch("os.unlink"),
+        ):
+            pane.send_text_heredoc("multi\nline")
+
+        sleep.assert_called_once_with(0.2)
+        assert mock_run.call_args_list[-1] == call(
+            ["tmux", "send-keys", "-t", "%0", "Enter"],
+            check=True,
+            capture_output=True,
+            timeout=10,
+        )
 
     def test_send_keys(self):
         pane = TmuxPane(pane_id="%1", session_name="test")

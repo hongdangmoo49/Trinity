@@ -43,6 +43,19 @@ class TestSplashRemoval:
         assert "/model to change" not in cleaned
         assert "Tip:" not in cleaned
 
+    def test_codex_pasted_content_placeholder_removed(self):
+        raw = (
+            ">_ OpenAI Codex (v0.136.0)\n"
+            "model:     gpt-5.5   /model to change\n"
+            "› [Pasted Content 1502 chars]\n"
+            "gpt-5.5 default · /home/zaemi/workspace/Trinity"
+        )
+
+        cleaned = ResponseCleaner.clean(raw)
+
+        assert "[Pasted Content" not in cleaned
+        assert "OpenAI Codex" not in cleaned
+
     def test_gemini_migration_notice(self):
         raw = (
             "Gemini CLI now available.\n"

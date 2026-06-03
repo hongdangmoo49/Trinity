@@ -16,8 +16,9 @@
 - Interactive response contract와 response artifact 저장
 - Workflow state machine과 user decision loop
 - Structured deliberation/blueprint consensus
+- Typed Blueprint session state와 WorkflowPersistence 컴포넌트
 - Blueprint decomposition과 work package 생성
-- Execution protocol MVP와 `Task Results` 기록
+- Execution protocol MVP, dependency-level 병렬 dispatch, `Task Results` 기록
 - Subagent delegation reporting과 `Subtasks` 기록
 - Shared ledger renderer, LifecycleGuard MVP, peer review planning foundation
 
@@ -26,10 +27,11 @@
 - [v0.7.0 Workflow Guide](workflow-v0.7.0-guide.md)
 - [Provider Readiness Troubleshooting](troubleshooting-provider-readiness.md)
 - [v0.7.0 Workflow Engine 테스트 결과](test-results/v0.7.0-workflow-engine.md)
+- [v0.7.0 WSL/tmux Smoke Test Checklist](test-results/v070-smoke-checklist.md)
 
 ### 검증 기준선
 
-- `uv run pytest -q` → 876 passed, 1 warning
+- `uv run pytest -q` → 882 passed, 1 warning
 - 변경 파일 대상 ruff check 통과
 - 실제 WSL/tmux/provider smoke는 릴리스 전 별도 수행 필요
 

@@ -1,16 +1,13 @@
 """Tests for trinity.tui.app — TUI application components."""
 
-import time
 
 import pytest
 from rich.console import Console
 
 from trinity.config import TrinityConfig
 from trinity.models import (
-    AgentSpec,
     ConsensusResult,
     DeliberationResult,
-    Provider,
     TaskAssignment,
 )
 from trinity.tui.app import AgentTUIState, AgentTUIStatus, RoundStatus, TrinityTUI

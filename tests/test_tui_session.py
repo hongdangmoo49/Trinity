@@ -1,21 +1,17 @@
 """Tests for trinity.tui.session — interactive session and commands."""
 
 import json
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-from click.testing import CliRunner
 from rich.console import Console
 
 from trinity.config import TrinityConfig
 from trinity.models import (
     ConsensusResult,
     DeliberationResult,
-    Provider,
     TaskAssignment,
 )
-from trinity.tui.app import AgentTUIState
 from trinity.tui.events import TUIEvent, TUIEventBus, TUIEventType
 from trinity.tui.session import InteractiveSession
 

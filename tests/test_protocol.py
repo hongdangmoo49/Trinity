@@ -1,24 +1,21 @@
 """Tests for trinity.deliberation.protocol — DeliberationProtocol."""
 
-import asyncio
 import logging
 import pytest
 from rich.console import Console
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from trinity.agents.base import AgentWrapper
 from trinity.config import TrinityConfig
 from trinity.context.budget import BudgetCheckResult
 from trinity.context.shared import SharedContextEngine
 from trinity.deliberation.consensus import ConsensusEngine
-from trinity.deliberation.distributor import TaskDistributor
 from trinity.deliberation.protocol import DeliberationProtocol
 from trinity.models import (
     AgentSpec,
     ConsensusResult,
     ContextUsage,
     DeliberationMessage,
-    DeliberationResult,
     MessageRole,
     Provider,
 )

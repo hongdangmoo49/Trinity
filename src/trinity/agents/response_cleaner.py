@@ -169,7 +169,9 @@ class ResponseCleaner:
 
         # Quality check: if too little meaningful content, log warning
         if cleaned:
-            meaningful = sum(1 for l in cleaned.splitlines() if l.strip() and len(l.strip()) > 5)
+            meaningful = sum(
+                1 for line in cleaned.splitlines() if line.strip() and len(line.strip()) > 5
+            )
             total = len(cleaned.splitlines())
             if total > 10 and meaningful / total < cls.MIN_MEANINGFUL_RATIO:
                 logger.warning(

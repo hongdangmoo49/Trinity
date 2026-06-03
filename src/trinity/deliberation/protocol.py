@@ -21,7 +21,6 @@ from trinity.models import (
     DeliberationMessage,
     DeliberationResult,
     MessageRole,
-    TaskAssignment,
 )
 from trinity.tui.events import TUIEvent, TUIEventType
 

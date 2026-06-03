@@ -102,7 +102,7 @@ class TestBorderRemoval:
         assert "Actual response text" in cleaned
         # The box-drawing chars lines should be gone
         lines = cleaned.splitlines()
-        border_lines = [l for l in lines if "╭" in l or "╰" in l or "╯" in l]
+        border_lines = [line for line in lines if "╭" in line or "╰" in line or "╯" in line]
         assert len(border_lines) == 0
 
     def test_unicode_box_drawing(self):

@@ -20,12 +20,11 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.progress import BarColumn, Progress, TextColumn
 from rich.rule import Rule
-from rich.table import Table
 from rich.text import Text
 
 from trinity import __version__
 from trinity.config import TrinityConfig
-from trinity.models import AgentHealth, ConsensusResult, DeliberationResult, TaskAssignment
+from trinity.models import DeliberationResult
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.tui.theme import get_theme
 
@@ -242,7 +241,6 @@ class TrinityTUI:
         Shows a single line per active agent with icon, name, and state.
         Detailed status is available via /status command.
         """
-        import shutil
 
         parts: list[Text] = []
         for name, status in self.agents.items():

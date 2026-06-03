@@ -13,12 +13,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-from rich.console import Console, Group
+from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
-from rich.text import Text
 
 from trinity.config import TrinityConfig
 from trinity.models import DeliberationResult
@@ -26,6 +25,9 @@ from trinity.tui.app import AgentTUIState, TrinityTUI
 from trinity.tui.events import TUIEventBus
 from trinity.tui.prompt import TrinityPromptSession
 from trinity.tui.theme import get_theme
+
+if TYPE_CHECKING:
+    from trinity.orchestrator import TrinityOrchestrator
 
 logger = logging.getLogger(__name__)
 

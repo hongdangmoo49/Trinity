@@ -1,7 +1,6 @@
 """Tests for trinity.orchestrator — TrinityOrchestrator."""
 
 import pytest
-from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 from trinity.config import TrinityConfig

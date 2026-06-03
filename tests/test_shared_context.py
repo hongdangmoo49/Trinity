@@ -1,7 +1,5 @@
 """Tests for trinity.context.shared.SharedContextEngine."""
 
-import pytest
-from pathlib import Path
 
 from trinity.context.shared import SharedContextEngine
 

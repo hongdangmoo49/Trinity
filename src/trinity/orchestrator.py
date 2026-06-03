@@ -120,6 +120,7 @@ class TrinityOrchestrator:
             caveman_intensity=self.config.caveman_intensity,
             lang=self.config.lang,
             analytics_path=analytics_history_path(state_dir),
+            response_artifact_dir=state_dir / "responses",
         )
 
         # Create context monitor and session rotator

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
+from uuid import uuid4
 
 from trinity.agents.base import AgentWrapper
 from trinity.context.analytics import TokenAnalytics, RoundRecord
@@ -17,11 +19,13 @@ from trinity.context.shared import SharedContextEngine
 from trinity.deliberation.consensus import ConsensusEngine
 from trinity.deliberation.distributor import TaskDistributor
 from trinity.models import (
+    AgentResponse,
     ConsensusResult,
+    ContextUsage,
     DeliberationMessage,
     DeliberationResult,
     MessageRole,
-    TaskAssignment,
+    ResponseStatus,
 )
 from trinity.tui.events import TUIEvent, TUIEventType
 
@@ -75,6 +79,7 @@ class DeliberationProtocol:
         caveman_intensity: str = "full",
         lang: str = "en",
         analytics_path: Path | None = None,
+        response_artifact_dir: Path | None = None,
     ):
         self.agents = agents
         self.shared = shared
@@ -102,6 +107,9 @@ class DeliberationProtocol:
 
         # Token usage analytics
         self.analytics = TokenAnalytics(history_path=analytics_path)
+        self.response_artifact_dir = response_artifact_dir or (
+            shared.path.parent / "responses"
+        )
 
     def _emit(self, event_type: TUIEventType, **kwargs) -> None:
         """Emit a TUI event if callback is registered."""
@@ -270,11 +278,15 @@ class DeliberationProtocol:
         # Create tasks with agent names attached
         pending: set[asyncio.Task] = set()
         task_to_name: dict[asyncio.Task, str] = {}
+        task_to_request_id: dict[asyncio.Task, str] = {}
 
         for name, agent in self.agents.items():
-            coro = agent.send_and_wait(prompt, timeout=self.round_timeout)
+            request_id = self._new_request_id(round_num, name)
+            request_prompt = self._wrap_request_prompt(prompt, request_id)
+            coro = agent.send_and_wait(request_prompt, timeout=self.round_timeout)
             task = asyncio.ensure_future(coro)
             task_to_name[task] = name
+            task_to_request_id[task] = request_id
             pending.add(task)
             self._emit(TUIEventType.AGENT_THINKING, agent=name, round_num=round_num)
 
@@ -288,6 +300,10 @@ class DeliberationProtocol:
 
                 for task in done:
                     name = task_to_name[task]
+                    request_id = task_to_request_id.get(
+                        task,
+                        self._new_request_id(round_num, name),
+                    )
                     try:
                         result = task.result()
                     except Exception as exc:
@@ -307,6 +323,15 @@ class DeliberationProtocol:
                                 },
                             },
                         )
+                        opinions[name].metadata["request_id"] = request_id
+                        self._attach_agent_response_contract(
+                            agent_name=name,
+                            round_num=round_num,
+                            msg=opinions[name],
+                            status=ResponseStatus.INVALID,
+                            clean_content=opinions[name].content,
+                            diagnostics=[str(exc)],
+                        )
                         self._emit(
                             TUIEventType.AGENT_ERROR,
                             agent=name,
@@ -317,6 +342,7 @@ class DeliberationProtocol:
 
                     if isinstance(result, DeliberationMessage):
                         result.round_num = round_num
+                        result.metadata["request_id"] = request_id
                         result = self._validate_agent_response(name, round_num, result)
                         opinions[name] = result
                         self._emit(
@@ -349,6 +375,21 @@ class DeliberationProtocol:
 
         return opinions
 
+    @staticmethod
+    def _new_request_id(round_num: int, agent_name: str) -> str:
+        """Create a request id that is stable enough for artifact lookup."""
+        safe_agent = re.sub(r"[^A-Za-z0-9_.-]+", "-", agent_name).strip("-")
+        return f"round-{round_num}-{safe_agent}-{uuid4().hex[:12]}"
+
+    @staticmethod
+    def _wrap_request_prompt(prompt: str, request_id: str) -> str:
+        """Wrap a prompt with explicit request boundary markers."""
+        return (
+            f"TRINITY_REQUEST_START {request_id}\n"
+            f"{prompt}\n"
+            f"TRINITY_REQUEST_END {request_id}"
+        )
+
     def _validate_agent_response(
         self, agent_name: str, round_num: int, msg: DeliberationMessage
     ) -> DeliberationMessage:
@@ -356,11 +397,25 @@ class DeliberationProtocol:
         from trinity.agents.response_cleaner import ResponseCleaner
 
         validation = ResponseCleaner.validate_opinion(msg.content)
+        status = self._status_from_validation(msg, validation.classification)
+        diagnostics = list(validation.reasons)
+        if not diagnostics and not validation.usable:
+            diagnostics.append(validation.classification)
+
+        self._attach_agent_response_contract(
+            agent_name=agent_name,
+            round_num=round_num,
+            msg=msg,
+            status=status,
+            clean_content=validation.cleaned_text,
+            diagnostics=diagnostics,
+        )
         msg.metadata["response_validation"] = {
             "usable": validation.usable,
             "classification": validation.classification,
             "reasons": list(validation.reasons),
         }
+        msg.metadata["response_status"] = status.value
 
         if validation.usable:
             msg.content = validation.cleaned_text
@@ -377,6 +432,120 @@ class DeliberationProtocol:
         msg.content = f"[Invalid response omitted: {validation.classification}]"
         return msg
 
+    def _attach_agent_response_contract(
+        self,
+        agent_name: str,
+        round_num: int,
+        msg: DeliberationMessage,
+        status: ResponseStatus,
+        clean_content: str,
+        diagnostics: list[str] | None = None,
+    ) -> AgentResponse:
+        """Persist raw/clean outputs and attach AgentResponse metadata."""
+        request_id = str(
+            msg.metadata.get("request_id") or self._new_request_id(round_num, agent_name)
+        )
+        msg.metadata["request_id"] = request_id
+
+        raw_content = str(msg.metadata.get("raw_output") or msg.content or "")
+        raw_path, clean_path = self._write_response_artifacts(
+            agent_name=agent_name,
+            round_num=round_num,
+            request_id=request_id,
+            raw_content=raw_content,
+            clean_content=clean_content,
+        )
+
+        token_usage = self._response_token_usage(agent_name, msg)
+        response = AgentResponse(
+            agent_name=agent_name,
+            request_id=request_id,
+            content=clean_content,
+            raw_output_path=raw_path,
+            clean_output_path=clean_path,
+            status=status,
+            confidence=self._response_confidence(status),
+            token_usage=token_usage,
+            diagnostics=list(diagnostics or []),
+        )
+        msg.metadata["agent_response"] = response.to_metadata()
+        msg.metadata["response_status"] = status.value
+        return response
+
+    def _write_response_artifacts(
+        self,
+        agent_name: str,
+        round_num: int,
+        request_id: str,
+        raw_content: str,
+        clean_content: str,
+    ) -> tuple[Path, Path]:
+        safe_agent = re.sub(r"[^A-Za-z0-9_.-]+", "-", agent_name).strip("-")
+        safe_request = re.sub(r"[^A-Za-z0-9_.-]+", "-", request_id).strip("-")
+        round_dir = self.response_artifact_dir / f"round-{round_num:02d}"
+        round_dir.mkdir(parents=True, exist_ok=True)
+
+        raw_path = round_dir / f"{safe_agent}-{safe_request}.raw.txt"
+        clean_path = round_dir / f"{safe_agent}-{safe_request}.clean.txt"
+        raw_path.write_text(self._safe_artifact_text(raw_content), encoding="utf-8")
+        clean_path.write_text(self._safe_artifact_text(clean_content), encoding="utf-8")
+        return raw_path, clean_path
+
+    @staticmethod
+    def _safe_artifact_text(text: str) -> str:
+        return str(text).encode("utf-8", errors="replace").decode("utf-8")
+
+    def _response_token_usage(
+        self,
+        agent_name: str,
+        msg: DeliberationMessage,
+    ) -> ContextUsage | None:
+        token_count = int(msg.metadata.get("token_count") or 0)
+        if token_count <= 0:
+            return None
+        agent = self.agents.get(agent_name)
+        total = agent.context_usage.total if agent else 0
+        return ContextUsage(used=token_count, total=total)
+
+    @staticmethod
+    def _response_confidence(status: ResponseStatus) -> float:
+        if status == ResponseStatus.OK:
+            return 1.0
+        if status in {
+            ResponseStatus.AUTH_REQUIRED,
+            ResponseStatus.MODEL_LOADING,
+            ResponseStatus.TIMEOUT,
+            ResponseStatus.EMPTY,
+            ResponseStatus.PROCESS_DEAD,
+        }:
+            return 0.0
+        if status in {ResponseStatus.PROMPT_ECHO, ResponseStatus.CLI_NOISE}:
+            return 0.1
+        return 0.2
+
+    @staticmethod
+    def _status_from_validation(
+        msg: DeliberationMessage,
+        classification: str,
+    ) -> ResponseStatus:
+        metadata = msg.metadata
+        if metadata.get("error") == "timeout":
+            return ResponseStatus.TIMEOUT
+        if metadata.get("completed") is False or metadata.get("completion_timeout"):
+            return ResponseStatus.TIMEOUT
+
+        status_by_classification = {
+            "usable_opinion": ResponseStatus.OK,
+            "auth_wait": ResponseStatus.AUTH_REQUIRED,
+            "model_loading": ResponseStatus.MODEL_LOADING,
+            "empty": ResponseStatus.EMPTY,
+            "prompt_echo": ResponseStatus.PROMPT_ECHO,
+            "shared_context_echo": ResponseStatus.PROMPT_ECHO,
+            "cli_noise": ResponseStatus.CLI_NOISE,
+            "thinking_ui": ResponseStatus.CLI_NOISE,
+        }
+        return status_by_classification.get(classification, ResponseStatus.INVALID)
+
     @classmethod
     def _is_unusable_agent_response(cls, msg: DeliberationMessage) -> bool:
         """Return whether a message should be excluded from consensus input."""
@@ -386,6 +555,9 @@ class DeliberationProtocol:
     def _response_status(msg: DeliberationMessage) -> str:
         """Classify response quality for consensus and TUI display."""
         metadata = msg.metadata
+        explicit_status = metadata.get("response_status")
+        if explicit_status:
+            return str(explicit_status)
 
         if metadata.get("invalid_response"):
             return "invalid_response"

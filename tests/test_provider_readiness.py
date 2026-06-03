@@ -180,6 +180,31 @@ def test_codex_ready_prompt_with_default_model_is_ready():
     assert result.state == ProviderState.READY
 
 
+def test_codex_ready_prompt_wins_over_stale_loading_scrollback():
+    gate = ProviderReadinessGate()
+
+    result = gate.classify_pane_state(
+        [
+            "Codex",
+            "model: loading   /model to change",
+            "directory: /home/zaemi/workspace/Trinity",
+            "› Summarize recent",
+            "gpt-5.5 default …",
+            "Codex",
+            "model:     gpt-5.5   /model to change",
+            "directory: /home/zaemi/workspace/Trinity",
+            "Tip: New Build faster with Codex.",
+            "› Summarize recent",
+            "gpt-5.5 default …",
+        ],
+        provider=Provider.CODEX,
+        agent_name="codex",
+    )
+
+    assert result.ready is True
+    assert result.state == ProviderState.READY
+
+
 def test_gemini_type_message_prompt_is_ready():
     gate = ProviderReadinessGate()
 

@@ -32,9 +32,17 @@
 ### 검증 기준선
 
 - 패키지/CLI 버전: `0.7.0`
-- `uv run pytest -q` → 882 passed, 1 warning
+- `uv run pytest -q` → 888 passed, 1 warning
 - 변경 파일 대상 ruff check 통과
 - 실제 WSL/tmux/provider smoke는 릴리스 전 별도 수행 필요
+
+### Post-merge smoke follow-ups
+
+- `needs_user_decision` 상태의 일반 텍스트는 현재 pending question FIFO 순서로 기록된다.
+  q-id를 명시하는 답변 UX(`/answer <question-id> <answer>`)는 후속 설계 과제로 남긴다.
+- WSL/tmux smoke 중 Codex pane의 과거 `model: loading` scrollback이 현재 ready prompt보다
+  먼저 판정되어 continuation deliberation을 차단하는 false positive가 확인됐다.
+  readiness 판정은 현재 prompt readiness를 stale loading/auth/banner scrollback보다 우선해야 한다.
 
 ---
 

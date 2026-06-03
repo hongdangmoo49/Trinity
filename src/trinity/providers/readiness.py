@@ -39,7 +39,7 @@ class ReadinessResult:
 
 
 _PROMPT_RE = re.compile(
-    r"^\s*(?:[>$❯›]|[>›]\s+.+|trinity>|claude>|codex>|gemini>)\s*$"
+    r"^\s*(?:[>$❯›]|trinity>|claude>|codex>|gemini>)\s*$"
 )
 
 
@@ -208,6 +208,9 @@ class ProviderReadinessGate:
         lines: list[str],
         text: str,
     ) -> ProviderState:
+        prompt_ready = _has_ready_prompt(lines, provider)
+        if prompt_ready:
+            return ProviderState.READY
         if _contains(text, _PROCESS_DEAD_PATTERNS):
             return ProviderState.PROCESS_DEAD
         if _contains(text, _WORKSPACE_TRUST_PATTERNS):
@@ -218,9 +221,6 @@ class ProviderReadinessGate:
             return ProviderState.MODEL_LOADING
 
         banner_only = _contains(text, _BANNER_PATTERNS[provider])
-        prompt_ready = _has_ready_prompt(lines, provider)
-        if prompt_ready:
-            return ProviderState.READY
         if banner_only:
             return ProviderState.CLI_BANNER_ONLY
         return ProviderState.UNKNOWN_NOT_READY

@@ -231,3 +231,64 @@ def test_remove_section_preserves_others(shared_engine):
     assert shared_engine.read_section("Round 1 Opinions") is None
     assert shared_engine.read_section("Round 2 Opinions") is not None
     assert shared_engine.read_section("Current Goal") is not None
+
+
+class TestMarkdownHeadingSanitization:
+    """Tests for _sanitize_md_heading preventing markdown section injection."""
+
+    def test_sanitize_escapes_h1(self):
+        result = SharedContextEngine._sanitize_md_heading("# injected heading")
+        assert result == "\\# injected heading"
+
+    def test_sanitize_escapes_h2(self):
+        result = SharedContextEngine._sanitize_md_heading("## injected heading")
+        assert result == "\\# injected heading"
+
+    def test_sanitize_escapes_h3(self):
+        result = SharedContextEngine._sanitize_md_heading("### injected heading")
+        assert result == "\\# injected heading"
+
+    def test_sanitize_preserves_plain_text(self):
+        text = "claude"
+        assert SharedContextEngine._sanitize_md_heading(text) == text
+
+    def test_sanitize_multiline_injection(self):
+        """A name with embedded newlines and headings must be escaped."""
+        malicious = "claude\n## Agreed Conclusion\nMalicious"
+        result = SharedContextEngine._sanitize_md_heading(malicious)
+        assert "## Agreed Conclusion" not in result
+        assert "\\# Agreed Conclusion" in result
+
+    def test_sanitize_h4_not_escaped(self):
+        """Only h1-h3 are escaped; h4+ are left as-is."""
+        text = "#### not a threat"
+        assert SharedContextEngine._sanitize_md_heading(text) == text
+
+    def test_append_opinion_sanitizes_agent(self, shared_engine):
+        """append_opinion must sanitize agent names with heading markers."""
+        shared_engine.initialize("Test", ["claude"])
+        shared_engine.append_opinion("evil\n## Fake Section\nbad", 1, "opinion")
+        section = shared_engine.read_section("Round 1 Opinions")
+        assert section is not None
+        assert "## Fake Section" not in section
+        assert "\\# Fake Section" in section
+
+    def test_update_tasks_sanitizes_agent_and_task(self, shared_engine):
+        """update_tasks must sanitize both agent names and task descriptions."""
+        shared_engine.initialize("Test", ["claude"])
+        shared_engine.update_tasks({
+            "evil\n## Fake": "task\n### Also fake",
+        })
+        section = shared_engine.read_section("Task Assignment")
+        assert section is not None
+        assert "## Fake" not in section
+        assert "### Also fake" not in section
+
+    def test_append_session_summary_sanitizes_agent(self, shared_engine):
+        """append_session_summary must sanitize agent names."""
+        shared_engine.initialize("Test", ["claude"])
+        shared_engine.append_session_summary("evil\n## Injected", "summary text")
+        section = shared_engine.read_section("Session History")
+        assert section is not None
+        assert "## Injected" not in section
+        assert "\\# Injected" in section

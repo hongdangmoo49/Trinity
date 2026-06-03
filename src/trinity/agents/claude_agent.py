@@ -314,7 +314,6 @@ class InteractiveClaudeAgent(AgentWrapper):
             "detector": result.detector_name,
             "completed": result.completed,
             "detector_metadata": detector_metadata,
-            "raw_output": result.output,
             "prompt_num": self._prompt_counter,
         }
         if completion_timeout:

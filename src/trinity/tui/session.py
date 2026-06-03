@@ -13,11 +13,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import TYPE_CHECKING
+from pathlib import Path
 
-from rich.console import Console
+from rich.console import Console, Group
 from rich.live import Live
 from rich.panel import Panel
+from rich.text import Text
 
 from trinity.config import TrinityConfig
 from trinity.models import DeliberationResult
@@ -25,12 +26,8 @@ from trinity.tui.app import AgentTUIState, TrinityTUI
 from trinity.tui.events import TUIEventBus
 from trinity.tui.prompt import TrinityPromptSession
 from trinity.tui.theme import get_theme
-from trinity.workflow import ExecutionResult, WorkflowEngine, WorkflowState
 
 logger = logging.getLogger(__name__)
-
-if TYPE_CHECKING:
-    from trinity.orchestrator import TrinityOrchestrator
 
 
 class InteractiveSession:
@@ -54,8 +51,6 @@ class InteractiveSession:
         self.running = False
         self._history_file = config.effective_state_dir / "history" / "session_history.json"
         self._prompt_session = TrinityPromptSession(config.effective_state_dir)
-        self.workflow = WorkflowEngine(config.effective_state_dir)
-        self.tui.set_workflow_session(self.workflow.session)
 
     def run(self) -> None:
         """Run the interactive session (blocking).
@@ -77,7 +72,8 @@ class InteractiveSession:
                 if user_input.startswith("/"):
                     self._handle_command(user_input)
                 else:
-                    self._handle_user_text(user_input)
+                    # Deliberation mode
+                    self._run_deliberation(user_input)
 
             except KeyboardInterrupt:
                 self.console.print("\n[dim]Use /quit to exit.[/dim]")
@@ -132,16 +128,6 @@ class InteractiveSession:
             self._cmd_save()
         elif cmd == "caveman":
             self._cmd_caveman(args)
-        elif cmd == "workflow":
-            self._cmd_workflow()
-        elif cmd == "questions":
-            self._cmd_questions()
-        elif cmd == "decisions":
-            self._cmd_decisions()
-        elif cmd == "packages":
-            self._cmd_packages()
-        elif cmd == "subtasks":
-            self._cmd_subtasks()
         else:
             self.console.print(
                 f"[yellow]Unknown command: /{cmd}. "
@@ -157,7 +143,6 @@ class InteractiveSession:
         table.add_column("Provider", style="green")
         table.add_column("Enabled")
         table.add_column("State")
-        table.add_column("Readiness")
         table.add_column("Context")
 
         for name, status in self.tui.agents.items():
@@ -167,21 +152,16 @@ class InteractiveSession:
             theme = get_theme(name)
             enabled = "✅" if spec.enabled else "❌"
             state = status.state.value
-            readiness = status.readiness_state
-            if status.readiness_reason:
-                readiness = f"{readiness}: {status.readiness_reason}"
             ctx = status.context_bar
             table.add_row(
                 f"[{theme.color}]{theme.icon} {name}[/{theme.color}]",
                 spec.provider.value,
                 enabled,
                 state,
-                readiness,
                 ctx,
             )
 
         self.console.print(table)
-        self._cmd_workflow()
 
     def _cmd_context(self) -> None:
         """Show shared context."""
@@ -310,157 +290,7 @@ class InteractiveSession:
                 f"Use: on, off, lite, full, ultra[/yellow]"
             )
 
-    def _cmd_workflow(self) -> None:
-        """Show current workflow state."""
-        session = self.workflow.session
-        self.tui.set_workflow_session(session)
-        self.console.print(Panel.fit(
-            f"[bold]ID[/bold]: {session.id}\n"
-            f"[bold]State[/bold]: {session.state.value}\n"
-            f"[bold]Goal[/bold]: {session.goal or '(none)'}\n"
-            f"[bold]Round[/bold]: {session.current_round}\n"
-            f"[bold]Active agents[/bold]: {', '.join(session.active_agents) or '(none)'}\n"
-            f"[bold]Pending questions[/bold]: {len(session.open_questions)}\n"
-            f"[bold]Decisions[/bold]: {len(session.decisions)}\n"
-            f"[bold]Work packages[/bold]: {len(session.work_packages)}\n"
-            f"[bold]Subtasks[/bold]: {len(session.subtask_results)}\n"
-            f"[bold]Review packages[/bold]: {len(session.review_packages)}",
-            title="Workflow",
-            border_style="magenta",
-        ))
-
-    def _cmd_questions(self) -> None:
-        """Show pending workflow questions."""
-        questions = self.workflow.pending_questions
-        if not questions:
-            self.console.print("[dim]No pending workflow questions.[/dim]")
-            return
-
-        from rich.table import Table
-
-        table = Table(title="Pending Questions")
-        table.add_column("ID", style="cyan")
-        table.add_column("Question")
-        table.add_column("Recommendation")
-        table.add_column("Options")
-
-        for question in questions:
-            table.add_row(
-                question.id,
-                question.question,
-                question.recommended_option or "",
-                ", ".join(question.options),
-            )
-
-        self.console.print(table)
-
-    def _cmd_decisions(self) -> None:
-        """Show workflow decision ledger."""
-        decisions = self.workflow.decisions
-        if not decisions:
-            self.console.print("[dim]No workflow decisions recorded.[/dim]")
-            return
-
-        from rich.table import Table
-
-        table = Table(title="Decisions")
-        table.add_column("ID", style="cyan")
-        table.add_column("Question")
-        table.add_column("Decision")
-        table.add_column("By")
-
-        for decision in decisions:
-            table.add_row(
-                decision.id,
-                decision.question_id or "",
-                decision.decision,
-                decision.decided_by,
-            )
-
-        self.console.print(table)
-
-    def _cmd_packages(self) -> None:
-        """Show generated workflow work packages."""
-        packages = self.workflow.work_packages
-        if not packages:
-            self.console.print("[dim]No workflow work packages generated.[/dim]")
-            return
-
-        from rich.table import Table
-
-        table = Table(title="Work Packages")
-        table.add_column("ID", style="cyan")
-        table.add_column("Owner")
-        table.add_column("Status")
-        table.add_column("Exec")
-        table.add_column("Objective")
-
-        for package in packages:
-            table.add_row(
-                package.id,
-                package.owner_agent,
-                package.status.value,
-                "yes" if package.requires_execution else "no",
-                package.objective,
-            )
-
-        self.console.print(table)
-
-    def _cmd_subtasks(self) -> None:
-        """Show provider-internal subtask delegation reports."""
-        subtasks = self.workflow.subtask_results
-        if not subtasks:
-            self.console.print("[dim]No delegated subtask reports recorded.[/dim]")
-            return
-
-        from rich.table import Table
-
-        table = Table(title="Subtasks")
-        table.add_column("ID", style="cyan")
-        table.add_column("Package")
-        table.add_column("Parent")
-        table.add_column("Delegated To")
-        table.add_column("Status")
-        table.add_column("Summary")
-
-        for subtask in subtasks:
-            table.add_row(
-                subtask.id,
-                subtask.parent_package_id,
-                subtask.parent_agent,
-                subtask.delegated_to,
-                subtask.status.value,
-                subtask.result_summary,
-            )
-
-        self.console.print(table)
-
     # ─── Deliberation ──────────────────────────────────────────────────
-
-    def _handle_user_text(self, text: str) -> None:
-        """Route normal input through workflow state before deliberating."""
-        active = self.config.active_agents
-        if not active:
-            self.console.print(
-                "[red]No active agents. Use /agent <name> on to enable one.[/red]"
-            )
-            return
-
-        action = self.workflow.handle_user_input(text, list(active.keys()))
-        self.tui.set_workflow_session(self.workflow.session)
-
-        if action.decision_record:
-            self.console.print(
-                f"[green]Recorded decision {action.decision_record.id}.[/green]"
-            )
-
-        if action.should_deliberate:
-            self._run_deliberation(action.prompt)
-        elif self.workflow.state == WorkflowState.NEEDS_USER_DECISION:
-            self.console.print(
-                "[yellow]More workflow decisions are still required. "
-                "Use /questions to view them.[/yellow]"
-            )
 
     def _run_deliberation(self, prompt: str) -> None:
         """Run a deliberation on the user's prompt with real-time TUI updates.
@@ -517,10 +347,6 @@ class InteractiveSession:
 
         # Update TUI with result
         self.tui.set_result(result)
-        self.workflow.mark_deliberation_result(result)
-        self.tui.set_workflow_session(self.workflow.session)
-
-        self._maybe_run_execution(orchestrator)
 
         # Display results BEFORE resetting (agents store full_response)
         self._display_result(result)
@@ -616,94 +442,6 @@ class InteractiveSession:
 
         return result  # type: ignore[return-value]
 
-    # ─── Execution ─────────────────────────────────────────────────────
-
-    def _maybe_run_execution(self, orchestrator: "TrinityOrchestrator") -> None:
-        """Run generated executable work packages after blueprint consensus."""
-        if self.workflow.state != WorkflowState.BLUEPRINT_READY:
-            return
-        if not self.workflow.has_pending_execution:
-            return
-
-        self.workflow.begin_execution()
-        self.tui.set_workflow_session(self.workflow.session)
-
-        try:
-            results = self._run_execution_with_live(orchestrator)
-        except KeyboardInterrupt:
-            self.console.print("\n[yellow]Execution interrupted.[/yellow]")
-            return
-        except Exception as exc:
-            self.console.print(f"[red]Execution error: {exc}[/red]")
-            logger.exception("Execution failed")
-            return
-
-        self.workflow.record_execution_results(results)
-        self.tui.set_workflow_session(self.workflow.session)
-
-    def _run_execution_with_live(
-        self,
-        orchestrator: "TrinityOrchestrator",
-    ) -> list[ExecutionResult]:
-        """Run work package execution while consuming TUI events."""
-        import threading
-
-        from trinity.tui.events import TUIEventType
-
-        bus = TUIEventBus()
-        orchestrator.set_event_bus(bus)
-
-        result_holder: list[list[ExecutionResult] | None] = [None]
-        error_holder: list[Exception | None] = [None]
-
-        def _run_async():
-            try:
-                result_holder[0] = asyncio.run(
-                    orchestrator.execute_work_packages(
-                        self.workflow.session.work_packages,
-                        decisions=self.workflow.decisions,
-                    )
-                )
-            except Exception as exc:
-                error_holder[0] = exc
-
-        thread = threading.Thread(target=_run_async, daemon=True)
-        thread.start()
-        done_received = False
-
-        try:
-            with Live(
-                self.tui.build_layout(),
-                console=self.console,
-                refresh_per_second=4,
-                transient=True,
-            ) as live:
-                while thread.is_alive():
-                    thread.join(timeout=0.25)
-                    for event in bus.poll():
-                        self.tui.consume_event(event)
-                        if event.type == TUIEventType.EXECUTION_DONE:
-                            done_received = True
-
-                    if done_received:
-                        for event in bus.poll():
-                            self.tui.consume_event(event)
-                        live.update(self.tui.build_layout())
-                        thread.join(timeout=2.0)
-                        break
-
-                    live.update(self.tui.build_layout())
-
-                for event in bus.poll():
-                    self.tui.consume_event(event)
-                live.update(self.tui.build_layout())
-        except KeyboardInterrupt:
-            raise
-
-        if error_holder[0]:
-            raise error_holder[0]
-        return result_holder[0] or []
-
     # ─── Display ────────────────────────────────────────────────────────
 
     def _display_result(self, result: DeliberationResult) -> None:
@@ -756,37 +494,6 @@ class InteractiveSession:
                     desc += "..."
                 self.console.print(
                     f"  [{theme.color}]{theme.icon} {task.agent_name}[/{theme.color}]: {desc}"
-                )
-
-        if self.workflow.work_packages:
-            self.console.print("\n[bold]📦 Work Packages[/bold]")
-            for package in self.workflow.work_packages:
-                self.console.print(
-                    f"  [cyan]{package.id}[/cyan] {package.owner_agent}: "
-                    f"{package.title} ({package.status.value})"
-                )
-
-        if self.workflow.execution_results:
-            self.console.print("\n[bold]🛠 Task Results[/bold]")
-            for execution_result in self.workflow.execution_results:
-                summary = execution_result.summary[:120]
-                if len(execution_result.summary) > 120:
-                    summary += "..."
-                self.console.print(
-                    f"  [cyan]{execution_result.package_id}[/cyan] "
-                    f"{execution_result.agent_name}: "
-                    f"{execution_result.status.value} - {summary}"
-                )
-
-        if self.workflow.subtask_results:
-            self.console.print("\n[bold]Delegated Subtasks[/bold]")
-            for subtask in self.workflow.subtask_results:
-                summary = subtask.result_summary[:120]
-                if len(subtask.result_summary) > 120:
-                    summary += "..."
-                self.console.print(
-                    f"  [cyan]{subtask.id}[/cyan] {subtask.parent_agent} -> "
-                    f"{subtask.delegated_to}: {subtask.status.value} - {summary}"
                 )
 
         self.console.print(

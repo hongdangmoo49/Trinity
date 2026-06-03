@@ -1,25 +1,21 @@
 """Tests for trinity.tui.app — TUI application components."""
 
+import time
+
 import pytest
 from rich.console import Console
 
 from trinity.config import TrinityConfig
 from trinity.models import (
+    AgentSpec,
     ConsensusResult,
     DeliberationResult,
+    Provider,
     TaskAssignment,
 )
 from trinity.tui.app import AgentTUIState, AgentTUIStatus, RoundStatus, TrinityTUI
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.tui.theme import AgentTheme, get_theme
-from trinity.workflow import (
-    OpenQuestion,
-    SubtaskResult,
-    WorkPackage,
-    WorkStatus,
-    WorkflowSession,
-    WorkflowState,
-)
 
 
 @pytest.fixture
@@ -248,81 +244,6 @@ class TestTrinityTUI:
         assert tui.history[0]["rounds"] == 3
         assert tui.history[0]["consensus"] is False
 
-    def test_consume_execution_events_updates_package_statuses(self, tui):
-        tui.consume_event(
-            TUIEvent(
-                type=TUIEventType.EXECUTION_START,
-                data={"package_count": 1},
-            )
-        )
-        tui.consume_event(
-            TUIEvent(
-                type=TUIEventType.WORK_PACKAGE_STARTED,
-                data={"package_id": "WP-001", "status": "running"},
-            )
-        )
-        assert tui.work_package_count == 1
-        assert tui.work_package_statuses["WP-001"] == "running"
-
-        tui.consume_event(
-            TUIEvent(
-                type=TUIEventType.WORK_PACKAGE_COMPLETED,
-                data={"package_id": "WP-001", "status": "done"},
-            )
-        )
-
-        assert tui.work_package_statuses["WP-001"] == "done"
-        assert tui._work_package_summary() == "1/1 done"
-
-    def test_set_workflow_session_tracks_package_statuses(self, tui):
-        session = WorkflowSession(
-            id="wf-001",
-            goal="Implement",
-            state=WorkflowState.EXECUTING,
-            work_packages=[
-                WorkPackage(
-                    id="WP-001",
-                    title="codex package",
-                    owner_agent="codex",
-                    objective="Implement.",
-                )
-            ],
-            subtask_results=[
-                SubtaskResult(
-                    id="ST-001",
-                    parent_package_id="WP-001",
-                    parent_agent="codex",
-                    delegated_to="code-search tool",
-                    objective="Find patterns.",
-                    result_summary="Found registry.",
-                    status=WorkStatus.DONE,
-                )
-            ],
-        )
-
-        tui.set_workflow_session(session)
-
-        assert tui.work_package_count == 1
-        assert tui.work_package_statuses == {"WP-001": "pending"}
-        assert tui.subtask_result_count == 1
-
-    def test_set_workflow_session(self, tui):
-        session = WorkflowSession(
-            id="wf-001",
-            goal="Design",
-            state=WorkflowState.NEEDS_USER_DECISION,
-            pending_questions=[
-                OpenQuestion(id="q-001", question="Choose mode?"),
-            ],
-        )
-
-        tui.set_workflow_session(session)
-
-        assert tui.workflow_id == "wf-001"
-        assert tui.workflow_goal == "Design"
-        assert tui.workflow_state == WorkflowState.NEEDS_USER_DECISION
-        assert tui.pending_question_count == 1
-
     def test_reset_agents(self, tui):
         tui.update_agent_status("claude", state=AgentTUIState.RESPONDING)
         tui.reset_agents()
@@ -412,43 +333,6 @@ class TestConsumeEvent:
         tui.consume_event(event)
         assert tui.agents["claude"].state == AgentTUIState.ERROR
         assert "timeout" in tui.rounds[0].agent_opinions["claude"]
-
-    def test_provider_readiness_not_ready_event(self, tui):
-        event = TUIEvent(
-            type=TUIEventType.PROVIDER_READINESS,
-            data={
-                "agent": "claude",
-                "provider": "claude-code",
-                "ready": False,
-                "state": "auth_required",
-                "reason": "claude-code requires authentication",
-                "action_hint": "Run `claude` in a terminal.",
-                "excerpt": "OAuth URL",
-            },
-        )
-
-        tui.consume_event(event)
-
-        status = tui.agents["claude"]
-        assert status.state == AgentTUIState.NOT_READY
-        assert status.readiness_state == "auth_required"
-        assert "authentication" in status.readiness_reason
-        assert "OAuth URL" in status.full_response
-
-    def test_start_round_skips_not_ready_agents(self, tui):
-        tui.mark_provider_readiness(
-            name="claude",
-            ready=False,
-            readiness_state="auth_required",
-            reason="login required",
-            action_hint="Run `claude`.",
-            excerpt="OAuth URL",
-        )
-
-        tui.start_round(1)
-
-        assert "claude" not in tui.rounds[0].agent_states
-        assert tui.agents["claude"].state == AgentTUIState.NOT_READY
 
     def test_consensus_checking_event(self, tui):
         tui.start_round(1)

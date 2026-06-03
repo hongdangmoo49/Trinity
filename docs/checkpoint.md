@@ -6,35 +6,6 @@
 
 ---
 
-## v0.7.0 Workflow Engine Redesign — 진행 중
-
-작성일: 2026-06-03
-
-### 구현된 기준선
-
-- Provider readiness/auth gating
-- Interactive response contract와 response artifact 저장
-- Workflow state machine과 user decision loop
-- Structured deliberation/blueprint consensus
-- Blueprint decomposition과 work package 생성
-- Execution protocol MVP와 `Task Results` 기록
-- Subagent delegation reporting과 `Subtasks` 기록
-- Shared ledger renderer, LifecycleGuard MVP, peer review planning foundation
-
-### 운영 문서
-
-- [v0.7.0 Workflow Guide](workflow-v0.7.0-guide.md)
-- [Provider Readiness Troubleshooting](troubleshooting-provider-readiness.md)
-- [v0.7.0 Workflow Engine 테스트 결과](test-results/v0.7.0-workflow-engine.md)
-
-### 검증 기준선
-
-- `uv run pytest -q` → 876 passed, 1 warning
-- 변경 파일 대상 ruff check 통과
-- 실제 WSL/tmux/provider smoke는 릴리스 전 별도 수행 필요
-
----
-
 ## Phase 1: 최소 작동 프로토타입 — ✅ 완료
 
 ### 구현된 것

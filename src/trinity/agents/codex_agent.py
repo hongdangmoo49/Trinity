@@ -108,7 +108,6 @@ class CodexAgent(AgentWrapper):
                 "detector": result.detector_name,
                 "completed": result.completed,
                 "detector_metadata": detector_metadata,
-                "raw_output": result.output,
             }
             if completion_timeout:
                 metadata["completion_timeout"] = True

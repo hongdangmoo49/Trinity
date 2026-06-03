@@ -1,27 +1,23 @@
 """Tests for trinity.tui.session — interactive session and commands."""
 
 import json
-from unittest.mock import patch
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from click.testing import CliRunner
 from rich.console import Console
 
 from trinity.config import TrinityConfig
 from trinity.models import (
     ConsensusResult,
     DeliberationResult,
+    Provider,
     TaskAssignment,
 )
+from trinity.tui.app import AgentTUIState
 from trinity.tui.events import TUIEvent, TUIEventBus, TUIEventType
 from trinity.tui.session import InteractiveSession
-from trinity.workflow import (
-    ExecutionResult,
-    OpenQuestion,
-    SubtaskResult,
-    WorkPackage,
-    WorkStatus,
-    WorkflowState,
-)
 
 
 @pytest.fixture
@@ -135,64 +131,6 @@ class TestSessionCommands:
         session._cmd_save()
         # Should save to history file
 
-    def test_cmd_workflow(self, session):
-        session._cmd_workflow()
-        # Should display workflow panel without crashing
-
-    def test_cmd_questions_empty(self, session):
-        session._cmd_questions()
-        # Should print empty-state message
-
-    def test_cmd_questions_with_pending(self, session):
-        session.workflow.add_open_question(
-            OpenQuestion(id="q-001", question="Choose cost or speed?")
-        )
-        session._cmd_questions()
-        # Should display pending questions table
-
-    def test_cmd_decisions_empty(self, session):
-        session._cmd_decisions()
-        # Should print empty-state message
-
-    def test_cmd_packages_empty(self, session):
-        session._cmd_packages()
-        # Should print empty-state message
-
-    def test_cmd_packages_with_generated_package(self, session):
-        session.workflow.session.work_packages.append(
-            WorkPackage(
-                id="WP-001",
-                title="claude package",
-                owner_agent="claude",
-                objective="Own architecture work.",
-                scope=["Architecture"],
-                acceptance_criteria=["Accepted"],
-            )
-        )
-
-        session._cmd_packages()
-        # Should display work packages table
-
-    def test_cmd_subtasks_empty(self, session):
-        session._cmd_subtasks()
-        # Should print empty-state message
-
-    def test_cmd_subtasks_with_results(self, session):
-        session.workflow.session.subtask_results.append(
-            SubtaskResult(
-                id="ST-001",
-                parent_package_id="WP-001",
-                parent_agent="codex",
-                delegated_to="code-search tool",
-                objective="Find patterns.",
-                result_summary="Found registry.",
-                status=WorkStatus.DONE,
-            )
-        )
-
-        session._cmd_subtasks()
-        # Should display subtask reports table
-
 
 class TestSessionHandleCommand:
     def test_quit_command(self, session):
@@ -210,26 +148,6 @@ class TestSessionHandleCommand:
     def test_help_command(self, session):
         session._handle_command("/help")
         # Should print help text — no crash
-
-    def test_workflow_command(self, session):
-        session._handle_command("/workflow")
-        # Should print workflow state
-
-    def test_questions_command(self, session):
-        session._handle_command("/questions")
-        # Should print questions
-
-    def test_decisions_command(self, session):
-        session._handle_command("/decisions")
-        # Should print decisions
-
-    def test_packages_command(self, session):
-        session._handle_command("/packages")
-        # Should print packages
-
-    def test_subtasks_command(self, session):
-        session._handle_command("/subtasks")
-        # Should print subtasks
 
     def test_unknown_command(self, session):
         session._handle_command("/unknown")
@@ -283,156 +201,6 @@ class TestSessionPersistence:
 
         data = json.loads(session._history_file.read_text(encoding="utf-8"))
         assert len(data) == 1  # Only new entry, old corrupt data replaced
-
-
-class TestWorkflowRouting:
-    def test_handle_user_text_starts_workflow_and_deliberation(self, session):
-        with patch.object(session, "_run_deliberation") as run_deliberation:
-            session._handle_user_text("Design a system")
-
-        run_deliberation.assert_called_once_with("Design a system")
-        assert session.workflow.state == WorkflowState.DELIBERATING
-        assert session.workflow.session.goal == "Design a system"
-        assert session.tui.workflow_state == WorkflowState.DELIBERATING
-
-    def test_pending_question_answer_does_not_start_new_workflow(self, session):
-        session.workflow.start("Original goal", ["claude"])
-        original_id = session.workflow.session.id
-        session.workflow.add_open_question(
-            OpenQuestion(
-                id="q-001",
-                question="Which metric should be optimized?",
-                options=["cost", "latency"],
-            )
-        )
-
-        with patch.object(session, "_run_deliberation") as run_deliberation:
-            session._handle_user_text("Use mixed score")
-
-        assert session.workflow.session.id == original_id
-        assert len(session.workflow.decisions) == 1
-        assert session.workflow.decisions[0].decision == "Use mixed score"
-        continuation_prompt = run_deliberation.call_args.args[0]
-        assert "Original goal" in continuation_prompt
-        assert "Use mixed score" in continuation_prompt
-
-    def test_run_deliberation_updates_workflow_state(self, session):
-        result = DeliberationResult(
-            user_prompt="test",
-            rounds_completed=1,
-            consensus=ConsensusResult(
-                reached=True,
-                agreement_count=1,
-                total_agents=1,
-                opinions={"claude": "yes"},
-                summary="Done.",
-            ),
-        )
-        with patch.object(session, "_run_with_live", return_value=result):
-            with patch.object(session, "_has_tmux", return_value=False):
-                session.workflow.start("test", ["claude"])
-                session._run_deliberation("test")
-
-        assert session.workflow.state == WorkflowState.BLUEPRINT_READY
-        assert session.tui.workflow_state == WorkflowState.BLUEPRINT_READY
-
-    def test_run_deliberation_updates_work_package_count(self, session):
-        result = DeliberationResult(
-            user_prompt="test",
-            rounds_completed=1,
-            consensus=ConsensusResult(
-                reached=True,
-                agreement_count=1,
-                total_agents=1,
-                opinions={"claude": "yes"},
-                summary="Structured consensus reached.",
-            ),
-            metadata={
-                "structured_consensus": {
-                    "reached": True,
-                    "final_blueprint": {
-                        "title": "Route Bot",
-                        "summary": "Find bridge routes.",
-                        "architecture": [],
-                        "data_flow": ["request -> quote -> score"],
-                        "external_dependencies": [],
-                        "risks": [],
-                        "acceptance_criteria": ["rank paths"],
-                        "open_questions": [],
-                    },
-                    "open_questions": [],
-                }
-            },
-        )
-        with patch.object(session, "_run_with_live", return_value=result):
-            with patch.object(session, "_has_tmux", return_value=False):
-                session.workflow.start("test", ["claude"])
-                session._run_deliberation("test")
-
-        assert len(session.workflow.work_packages) == 1
-        assert session.tui.work_package_count == 1
-
-    def test_run_deliberation_executes_generated_packages(self, session):
-        result = DeliberationResult(
-            user_prompt="Implement route bot",
-            rounds_completed=1,
-            consensus=ConsensusResult(
-                reached=True,
-                agreement_count=1,
-                total_agents=1,
-                opinions={"claude": "yes"},
-                summary="Implement route bot.",
-            ),
-            metadata={
-                "structured_consensus": {
-                    "reached": True,
-                    "final_blueprint": {
-                        "title": "Route Bot",
-                        "summary": "Find bridge routes.",
-                        "architecture": [],
-                        "data_flow": ["request -> quote -> score"],
-                        "external_dependencies": [],
-                        "risks": [],
-                        "acceptance_criteria": ["rank paths"],
-                        "open_questions": [],
-                    },
-                    "open_questions": [],
-                }
-            },
-        )
-        execution_result = ExecutionResult(
-            package_id="WP-001",
-            agent_name="claude",
-            status=WorkStatus.DONE,
-            summary="Implemented route bot.",
-            subtasks=[
-                SubtaskResult(
-                    id="ST-001",
-                    parent_package_id="WP-001",
-                    parent_agent="claude",
-                    delegated_to="planner helper",
-                    objective="Check route scoring assumptions.",
-                    result_summary="Confirmed scoring assumptions.",
-                    status=WorkStatus.DONE,
-                )
-            ],
-        )
-        with patch.object(session, "_run_with_live", return_value=result):
-            with patch.object(
-                session,
-                "_run_execution_with_live",
-                return_value=[execution_result],
-            ) as run_execution:
-                with patch.object(session, "_has_tmux", return_value=False):
-                    session.workflow.start("Implement route bot", ["claude"])
-                    session._run_deliberation("Implement route bot")
-
-        run_execution.assert_called_once()
-        assert session.workflow.state == WorkflowState.REVIEWING
-        assert session.workflow.work_packages[0].status == WorkStatus.DONE
-        assert len(session.workflow.subtask_results) == 1
-        assert session.tui.workflow_state == WorkflowState.REVIEWING
-        assert session.tui.subtask_result_count == 1
 
 
 class TestSessionDisplayResult:

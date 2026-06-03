@@ -99,36 +99,8 @@ role_prompt = "당신은 아키텍트입니다."
         assert config.prompt_compression_round_threshold == 2
         assert config.prompt_compression_max_summary_tokens == 200
 
-    def test_provider_readiness_defaults(self):
-        config = TrinityConfig.default_config()
-        assert config.provider_readiness_mode == "strict"
-        assert config.provider_readiness_timeout_seconds == 5.0
-
-    def test_load_provider_readiness_config(self, tmp_trinity_dir):
-        config_path = tmp_trinity_dir / "trinity.config"
-        config_path.write_text(
-            """
-[deliberation]
-provider_readiness_mode = "degraded"
-provider_readiness_timeout_seconds = 1.5
-
-[agents.claude]
-provider = "claude-code"
-cli_command = "claude"
-enabled = true
-""",
-            encoding="utf-8",
-        )
-
-        config = TrinityConfig.load(config_path)
-
-        assert config.provider_readiness_mode == "degraded"
-        assert config.provider_readiness_timeout_seconds == 1.5
-
     def test_save_and_reload(self, tmp_path):
         config = TrinityConfig.default_config(project_dir=tmp_path)
-        config.provider_readiness_mode = "degraded"
-        config.provider_readiness_timeout_seconds = 2.0
         save_path = tmp_path / "test_config.toml"
         config.save(save_path)
 
@@ -138,8 +110,6 @@ enabled = true
         assert len(loaded.agents) == len(config.agents)
         assert loaded.agents["claude"].provider == Provider.CLAUDE_CODE
         assert loaded.agents["claude"].model == config.agents["claude"].model
-        assert loaded.provider_readiness_mode == "degraded"
-        assert loaded.provider_readiness_timeout_seconds == 2.0
 
     def test_save_includes_model_field(self, tmp_path):
         config = TrinityConfig.default_config(project_dir=tmp_path)

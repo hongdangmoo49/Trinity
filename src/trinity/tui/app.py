@@ -20,14 +20,14 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.progress import BarColumn, Progress, TextColumn
 from rich.rule import Rule
+from rich.table import Table
 from rich.text import Text
 
 from trinity import __version__
 from trinity.config import TrinityConfig
-from trinity.models import DeliberationResult
+from trinity.models import AgentHealth, ConsensusResult, DeliberationResult, TaskAssignment
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.tui.theme import get_theme
-from trinity.workflow.models import WorkflowSession, WorkflowState
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +36,9 @@ class AgentTUIState(str, Enum):
     """TUI display state for an agent."""
 
     IDLE = "idle"
-    READY = "ready"
     RESPONDING = "responding"
     RESPONDED = "responded"
     ERROR = "error"
-    NOT_READY = "not_ready"
     DISABLED = "disabled"
 
 
@@ -55,19 +53,14 @@ class AgentTUIStatus:
     full_response: str = ""
     context_percent: float = 0.0
     role: str = ""
-    readiness_state: str = "unknown"
-    readiness_reason: str = ""
-    readiness_action_hint: str = ""
 
     @property
     def state_icon(self) -> str:
         icons = {
             AgentTUIState.IDLE: "⬜",
-            AgentTUIState.READY: "✅",
             AgentTUIState.RESPONDING: "🔄",
             AgentTUIState.RESPONDED: "✅",
             AgentTUIState.ERROR: "❌",
-            AgentTUIState.NOT_READY: "⚠️",
             AgentTUIState.DISABLED: "⏸️",
         }
         return icons.get(self.state, "❓")
@@ -118,13 +111,6 @@ class TrinityTUI:
         self.session_start: float = time.time()
         self.last_result: DeliberationResult | None = None
         self.history: list[dict[str, Any]] = []
-        self.workflow_state: WorkflowState = WorkflowState.IDLE
-        self.workflow_id: str = ""
-        self.workflow_goal: str = ""
-        self.pending_question_count: int = 0
-        self.work_package_count: int = 0
-        self.work_package_statuses: dict[str, str] = {}
-        self.subtask_result_count: int = 0
 
         # Callbacks for commands
         self.on_ask: Callable[[str], Any] | None = None
@@ -186,16 +172,6 @@ class TrinityTUI:
                     f"[Error: {event.data.get('error', 'Unknown')}]"
                 )
 
-        elif event.type == TUIEventType.PROVIDER_READINESS:
-            self.mark_provider_readiness(
-                name=event.data["agent"],
-                ready=event.data.get("ready", False),
-                readiness_state=event.data.get("state", "unknown"),
-                reason=event.data.get("reason", ""),
-                action_hint=event.data.get("action_hint", ""),
-                excerpt=event.data.get("excerpt", ""),
-            )
-
         elif event.type == TUIEventType.CONSENSUS_CHECKING:
             self.mark_consensus_checking()
 
@@ -210,28 +186,6 @@ class TrinityTUI:
                     self.rounds[-1].consensus_detail = f"{agree}/{total} 동의 ({pct}%)"
                 elif event.data.get("summary"):
                     self.rounds[-1].consensus_detail = event.data["summary"]
-
-        elif event.type == TUIEventType.EXECUTION_START:
-            self.work_package_count = int(
-                event.data.get("package_count", self.work_package_count)
-            )
-
-        elif event.type == TUIEventType.WORK_PACKAGE_STARTED:
-            package_id = str(event.data.get("package_id", ""))
-            if package_id:
-                self.work_package_statuses[package_id] = str(
-                    event.data.get("status", "running")
-                )
-
-        elif event.type == TUIEventType.WORK_PACKAGE_COMPLETED:
-            package_id = str(event.data.get("package_id", ""))
-            if package_id:
-                self.work_package_statuses[package_id] = str(
-                    event.data.get("status", "done")
-                )
-
-        elif event.type == TUIEventType.EXECUTION_DONE:
-            pass
 
         elif event.type == TUIEventType.DELIBERATION_DONE:
             pass  # No special action needed
@@ -272,19 +226,6 @@ class TrinityTUI:
                 Text(f"  ⏱ {mins}m {secs:02d}s", style="dim"),
             ),
             Text.assemble(
-                Text("Workflow: ", style="dim"),
-                Text(self.workflow_state.value, style="bold magenta"),
-                Text(
-                    f"  Pending questions: {self.pending_question_count}",
-                    style="dim",
-                ),
-                Text(
-                    f"  Work packages: {self._work_package_summary()}",
-                    style="dim",
-                ),
-                Text(f"  Subtasks: {self.subtask_result_count}", style="dim"),
-            ),
-            Text.assemble(
                 self._caveman_badge(),
             ),
             Text(),
@@ -301,6 +242,8 @@ class TrinityTUI:
         Shows a single line per active agent with icon, name, and state.
         Detailed status is available via /status command.
         """
+        import shutil
+
         parts: list[Text] = []
         for name, status in self.agents.items():
             if status.state == AgentTUIState.DISABLED:
@@ -310,13 +253,7 @@ class TrinityTUI:
             icon = status.state_icon
 
             # Compact: icon + name + state
-            label = status.readiness_state if status.state == AgentTUIState.NOT_READY else status.state.value
-            parts.append(
-                Text(
-                    f"  {theme.icon} {name} {icon} {label}  ",
-                    style=f"bold {theme.color}",
-                )
-            )
+            parts.append(Text(f"  {theme.icon} {name} {icon}  ", style=f"bold {theme.color}"))
 
         if not parts:
             parts.append(Text("  No active agents", style="dim"))
@@ -553,7 +490,7 @@ class TrinityTUI:
 
         agent_states = {}
         for name, status in self.agents.items():
-            if status.state not in {AgentTUIState.DISABLED, AgentTUIState.NOT_READY}:
+            if status.state != AgentTUIState.DISABLED:
                 agent_states[name] = AgentTUIState.RESPONDING
                 status.state = AgentTUIState.RESPONDING
                 status.response_preview = ""
@@ -583,29 +520,6 @@ class TrinityTUI:
 
         if self.rounds:
             self.rounds[-1].agent_states[name] = AgentTUIState.ERROR
-
-    def mark_provider_readiness(
-        self,
-        name: str,
-        ready: bool,
-        readiness_state: str,
-        reason: str,
-        action_hint: str,
-        excerpt: str,
-    ) -> None:
-        """Record provider readiness state for one agent."""
-        if name not in self.agents:
-            logger.warning(f"TUI: Unknown agent '{name}'")
-            return
-
-        status = self.agents[name]
-        status.readiness_state = readiness_state
-        status.readiness_reason = reason
-        status.readiness_action_hint = action_hint
-        status.full_response = "\n".join(
-            part for part in (reason, action_hint, excerpt) if part
-        )
-        status.state = AgentTUIState.READY if ready else AgentTUIState.NOT_READY
 
     def mark_consensus_checking(self) -> None:
         """Mark that consensus is being evaluated for the current round."""
@@ -661,18 +575,6 @@ class TrinityTUI:
             "timestamp": time.time(),
         })
 
-    def set_workflow_session(self, session: WorkflowSession) -> None:
-        """Reflect persisted workflow state in the TUI header."""
-        self.workflow_state = session.state
-        self.workflow_id = session.id
-        self.workflow_goal = session.goal
-        self.pending_question_count = len(session.open_questions)
-        self.work_package_count = len(session.work_packages)
-        self.work_package_statuses = {
-            package.id: package.status.value for package in session.work_packages
-        }
-        self.subtask_result_count = len(session.subtask_results)
-
     def reset_agents(self) -> None:
         """Reset all agent states to idle and clear round history."""
         for name, status in self.agents.items():
@@ -680,21 +582,9 @@ class TrinityTUI:
                 status.state = AgentTUIState.IDLE
                 status.response_preview = ""
                 status.full_response = ""
-                status.readiness_state = "unknown"
-                status.readiness_reason = ""
-                status.readiness_action_hint = ""
         # Clear round history between deliberations
         self.rounds.clear()
         self.current_round = 0
-
-    def _work_package_summary(self) -> str:
-        """Render a compact package status summary for the header."""
-        if not self.work_package_count:
-            return "0"
-        done = sum(
-            1 for status in self.work_package_statuses.values() if status == "done"
-        )
-        return f"{done}/{self.work_package_count} done"
 
     def _caveman_badge(self) -> Text:
         """Render caveman status badge for the header."""
@@ -719,11 +609,6 @@ class TrinityTUI:
             "  [cyan]/history[/cyan]    — Show deliberation history\n"
             "  [cyan]/save[/cyan]       — Save current session results\n"
             "  [cyan]/caveman[/cyan]   — Toggle compression [on|off|lite|full|ultra]\n"
-            "  [cyan]/workflow[/cyan]   — Show workflow state\n"
-            "  [cyan]/questions[/cyan]  — Show pending workflow questions\n"
-            "  [cyan]/decisions[/cyan]  — Show recorded workflow decisions\n"
-            "  [cyan]/packages[/cyan]   — Show workflow work packages\n"
-            "  [cyan]/subtasks[/cyan]   — Show delegated subtask reports\n"
             "  [cyan]/help[/cyan]       — Show this help\n"
             "  [cyan]/quit[/cyan]       — Exit Trinity\n"
         )

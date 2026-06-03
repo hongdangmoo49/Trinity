@@ -233,6 +233,7 @@ def test_ready_prompt_is_ready():
         )
         assert result.ready is True
         assert result.state == ProviderState.READY
+        assert result.action_hint == ""
 
 
 def test_cli_banner_without_prompt_is_banner_only():

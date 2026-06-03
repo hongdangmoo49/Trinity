@@ -71,6 +71,8 @@ def _provider_label(provider: Provider) -> str:
 
 def _action_hint(provider: Provider, state: ProviderState) -> str:
     provider_name = _provider_label(provider)
+    if state == ProviderState.READY:
+        return ""
     if state == ProviderState.AUTH_REQUIRED:
         if provider == Provider.CLAUDE_CODE:
             return "Run `claude` in a terminal and complete login/authentication."

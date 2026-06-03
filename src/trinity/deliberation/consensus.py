@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 # Negation patterns that indicate disagreement despite containing "agree"
 NEGATION_PATTERNS = [
+    # English
     r"\bnot\s+agree",
     r"\bdon'?t\s+agree",
     r"\bdo\s+not\s+agree",
@@ -28,6 +29,13 @@ NEGATION_PATTERNS = [
     r"\bobject",
     r"\breject",
     r"\bagainst\s+(?:this|that|the|it)",
+    # Korean negation
+    r"동의하지\s*않",
+    r"동의할\s*수\s*없",
+    r"합의하지\s*않",
+    r"합의할\s*수\s*없",
+    r"반대",
+    r"거부",
 ]
 
 

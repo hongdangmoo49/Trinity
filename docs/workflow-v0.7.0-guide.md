@@ -82,7 +82,7 @@ v0.7.0은 deliberation 시작 전에 provider readiness를 분류한다.
 ```toml
 [deliberation]
 provider_readiness_mode = "strict"      # strict | degraded
-provider_readiness_timeout_seconds = 5.0
+provider_readiness_timeout_seconds = 20.0
 ```
 
 `strict`는 하나라도 준비되지 않으면 deliberation을 시작하지 않는다.

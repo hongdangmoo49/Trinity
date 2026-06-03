@@ -14,6 +14,7 @@ from trinity.workflow.models import (
     DecisionRecord,
     ExecutionResult,
     OpenQuestion,
+    SubtaskResult,
     WorkPackage,
     WorkStatus,
     WorkflowSession,
@@ -67,6 +68,10 @@ class WorkflowEngine:
     @property
     def execution_results(self) -> list[ExecutionResult]:
         return list(self.session.execution_results)
+
+    @property
+    def subtask_results(self) -> list[SubtaskResult]:
+        return list(self.session.subtask_results)
 
     @property
     def has_pending_execution(self) -> bool:
@@ -189,6 +194,7 @@ class WorkflowEngine:
                     requires_execution=self._requires_execution(result),
                 )
                 self.session.execution_results = []
+                self.session.subtask_results = []
                 self.set_state(
                     WorkflowState.BLUEPRINT_READY,
                     reason="structured blueprint reached consensus",
@@ -201,6 +207,7 @@ class WorkflowEngine:
             }
             self.session.work_packages = []
             self.session.execution_results = []
+            self.session.subtask_results = []
             self.set_state(
                 WorkflowState.BLUEPRINT_READY,
                 reason="deliberation reached consensus",
@@ -278,6 +285,8 @@ class WorkflowEngine:
             for decision in result.decisions_made:
                 if not any(existing.id == decision.id for existing in self.session.decisions):
                     self.session.decisions.append(decision)
+            for subtask in result.subtasks:
+                self._upsert_subtask_result(subtask)
 
             self._persist(
                 "execution_result_recorded",
@@ -326,6 +335,14 @@ class WorkflowEngine:
             WorkflowState.EXECUTING,
             reason="work package execution still in progress",
         )
+
+    def _upsert_subtask_result(self, result: SubtaskResult) -> None:
+        """Insert or replace a subtask result by id."""
+        for index, existing in enumerate(self.session.subtask_results):
+            if existing.id == result.id:
+                self.session.subtask_results[index] = result
+                return
+        self.session.subtask_results.append(result)
 
     def set_state(self, state: WorkflowState, reason: str = "") -> None:
         """Set and persist workflow state."""

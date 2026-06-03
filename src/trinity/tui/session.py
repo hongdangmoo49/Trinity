@@ -140,6 +140,8 @@ class InteractiveSession:
             self._cmd_decisions()
         elif cmd == "packages":
             self._cmd_packages()
+        elif cmd == "subtasks":
+            self._cmd_subtasks()
         else:
             self.console.print(
                 f"[yellow]Unknown command: /{cmd}. "
@@ -320,7 +322,8 @@ class InteractiveSession:
             f"[bold]Active agents[/bold]: {', '.join(session.active_agents) or '(none)'}\n"
             f"[bold]Pending questions[/bold]: {len(session.open_questions)}\n"
             f"[bold]Decisions[/bold]: {len(session.decisions)}\n"
-            f"[bold]Work packages[/bold]: {len(session.work_packages)}",
+            f"[bold]Work packages[/bold]: {len(session.work_packages)}\n"
+            f"[bold]Subtasks[/bold]: {len(session.subtask_results)}",
             title="Workflow",
             border_style="magenta",
         ))
@@ -398,6 +401,35 @@ class InteractiveSession:
                 package.status.value,
                 "yes" if package.requires_execution else "no",
                 package.objective,
+            )
+
+        self.console.print(table)
+
+    def _cmd_subtasks(self) -> None:
+        """Show provider-internal subtask delegation reports."""
+        subtasks = self.workflow.subtask_results
+        if not subtasks:
+            self.console.print("[dim]No delegated subtask reports recorded.[/dim]")
+            return
+
+        from rich.table import Table
+
+        table = Table(title="Subtasks")
+        table.add_column("ID", style="cyan")
+        table.add_column("Package")
+        table.add_column("Parent")
+        table.add_column("Delegated To")
+        table.add_column("Status")
+        table.add_column("Summary")
+
+        for subtask in subtasks:
+            table.add_row(
+                subtask.id,
+                subtask.parent_package_id,
+                subtask.parent_agent,
+                subtask.delegated_to,
+                subtask.status.value,
+                subtask.result_summary,
             )
 
         self.console.print(table)
@@ -743,6 +775,17 @@ class InteractiveSession:
                     f"  [cyan]{execution_result.package_id}[/cyan] "
                     f"{execution_result.agent_name}: "
                     f"{execution_result.status.value} - {summary}"
+                )
+
+        if self.workflow.subtask_results:
+            self.console.print("\n[bold]Delegated Subtasks[/bold]")
+            for subtask in self.workflow.subtask_results:
+                summary = subtask.result_summary[:120]
+                if len(subtask.result_summary) > 120:
+                    summary += "..."
+                self.console.print(
+                    f"  [cyan]{subtask.id}[/cyan] {subtask.parent_agent} -> "
+                    f"{subtask.delegated_to}: {subtask.status.value} - {summary}"
                 )
 
         self.console.print(

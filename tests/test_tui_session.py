@@ -17,6 +17,7 @@ from trinity.tui.session import InteractiveSession
 from trinity.workflow import (
     ExecutionResult,
     OpenQuestion,
+    SubtaskResult,
     WorkPackage,
     WorkStatus,
     WorkflowState,
@@ -172,6 +173,26 @@ class TestSessionCommands:
         session._cmd_packages()
         # Should display work packages table
 
+    def test_cmd_subtasks_empty(self, session):
+        session._cmd_subtasks()
+        # Should print empty-state message
+
+    def test_cmd_subtasks_with_results(self, session):
+        session.workflow.session.subtask_results.append(
+            SubtaskResult(
+                id="ST-001",
+                parent_package_id="WP-001",
+                parent_agent="codex",
+                delegated_to="code-search tool",
+                objective="Find patterns.",
+                result_summary="Found registry.",
+                status=WorkStatus.DONE,
+            )
+        )
+
+        session._cmd_subtasks()
+        # Should display subtask reports table
+
 
 class TestSessionHandleCommand:
     def test_quit_command(self, session):
@@ -205,6 +226,10 @@ class TestSessionHandleCommand:
     def test_packages_command(self, session):
         session._handle_command("/packages")
         # Should print packages
+
+    def test_subtasks_command(self, session):
+        session._handle_command("/subtasks")
+        # Should print subtasks
 
     def test_unknown_command(self, session):
         session._handle_command("/unknown")
@@ -380,6 +405,17 @@ class TestWorkflowRouting:
             agent_name="claude",
             status=WorkStatus.DONE,
             summary="Implemented route bot.",
+            subtasks=[
+                SubtaskResult(
+                    id="ST-001",
+                    parent_package_id="WP-001",
+                    parent_agent="claude",
+                    delegated_to="planner helper",
+                    objective="Check route scoring assumptions.",
+                    result_summary="Confirmed scoring assumptions.",
+                    status=WorkStatus.DONE,
+                )
+            ],
         )
         with patch.object(session, "_run_with_live", return_value=result):
             with patch.object(
@@ -394,7 +430,9 @@ class TestWorkflowRouting:
         run_execution.assert_called_once()
         assert session.workflow.state == WorkflowState.REVIEWING
         assert session.workflow.work_packages[0].status == WorkStatus.DONE
+        assert len(session.workflow.subtask_results) == 1
         assert session.tui.workflow_state == WorkflowState.REVIEWING
+        assert session.tui.subtask_result_count == 1
 
 
 class TestSessionDisplayResult:

@@ -124,6 +124,7 @@ class TrinityTUI:
         self.pending_question_count: int = 0
         self.work_package_count: int = 0
         self.work_package_statuses: dict[str, str] = {}
+        self.subtask_result_count: int = 0
 
         # Callbacks for commands
         self.on_ask: Callable[[str], Any] | None = None
@@ -281,6 +282,7 @@ class TrinityTUI:
                     f"  Work packages: {self._work_package_summary()}",
                     style="dim",
                 ),
+                Text(f"  Subtasks: {self.subtask_result_count}", style="dim"),
             ),
             Text.assemble(
                 self._caveman_badge(),
@@ -669,6 +671,7 @@ class TrinityTUI:
         self.work_package_statuses = {
             package.id: package.status.value for package in session.work_packages
         }
+        self.subtask_result_count = len(session.subtask_results)
 
     def reset_agents(self) -> None:
         """Reset all agent states to idle and clear round history."""
@@ -720,6 +723,7 @@ class TrinityTUI:
             "  [cyan]/questions[/cyan]  — Show pending workflow questions\n"
             "  [cyan]/decisions[/cyan]  — Show recorded workflow decisions\n"
             "  [cyan]/packages[/cyan]   — Show workflow work packages\n"
+            "  [cyan]/subtasks[/cyan]   — Show delegated subtask reports\n"
             "  [cyan]/help[/cyan]       — Show this help\n"
             "  [cyan]/quit[/cyan]       — Exit Trinity\n"
         )

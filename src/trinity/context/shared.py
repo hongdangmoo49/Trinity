@@ -219,6 +219,56 @@ class SharedContextEngine:
         _append_list("Follow-up", follow_up)
         self.append_to_section("Task Results", "\n".join(lines))
 
+    def append_subtask_result(
+        self,
+        *,
+        subtask_id: str,
+        parent_package_id: str,
+        parent_agent: str,
+        delegated_to: str,
+        objective: str,
+        result_summary: str,
+        status: str,
+        decisions_made: Iterable[str] = (),
+        files_changed: Iterable[str] = (),
+        unresolved_issues: Iterable[str] = (),
+    ) -> None:
+        """Append a provider-internal delegation report to shared.md."""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        safe_subtask = self._sanitize_md_heading(subtask_id)
+        safe_package = self._sanitize_md_heading(parent_package_id)
+        safe_agent = self._sanitize_md_heading(parent_agent)
+        safe_delegate = self._sanitize_md_heading(delegated_to)
+        safe_objective = self._sanitize_md_heading(objective)
+        safe_summary = self._sanitize_md_heading(result_summary)
+
+        lines = [
+            f"\n### {safe_subtask} / {safe_package} — {timestamp}",
+            f"- parent_agent: {safe_agent}",
+            f"- delegated_to: {safe_delegate}",
+            f"- status: {status}",
+        ]
+        if safe_objective:
+            lines.extend(["", "#### Objective", safe_objective])
+        if safe_summary:
+            lines.extend(["", "#### Result Summary", safe_summary])
+
+        def _append_list(title: str, items: Iterable[str]) -> None:
+            values = [
+                self._sanitize_md_heading(str(item).strip())
+                for item in items
+                if str(item).strip()
+            ]
+            if not values:
+                return
+            lines.extend(["", f"#### {title}"])
+            lines.extend(f"- {item}" for item in values)
+
+        _append_list("Decisions Made", decisions_made)
+        _append_list("Files Changed", files_changed)
+        _append_list("Unresolved Issues", unresolved_issues)
+        self.append_to_section("Subtasks", "\n".join(lines))
+
     def append_session_summary(self, agent: str, summary: str) -> None:
         """Append a session rotation summary to session history."""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")

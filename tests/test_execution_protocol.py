@@ -73,6 +73,8 @@ async def test_execution_protocol_dispatches_package_and_records_result(tmp_path
     assert "TRINITY_EXECUTION_START" in sent_prompt
     assert "[Work Package]" in sent_prompt
     assert "ID: WP-001" in sent_prompt
+    assert "[Subagent Delegation Policy]" in sent_prompt
+    assert "## Subtasks" in sent_prompt
     task_results = shared.read_section("Task Results")
     assert task_results is not None
     assert "WP-001 / codex" in task_results
@@ -83,6 +85,58 @@ async def test_execution_protocol_dispatches_package_and_records_result(tmp_path
         TUIEventType.WORK_PACKAGE_COMPLETED,
         TUIEventType.EXECUTION_DONE,
     ]
+
+
+@pytest.mark.asyncio
+async def test_execution_protocol_parses_and_records_subtasks(tmp_path):
+    shared = SharedContextEngine(tmp_path / "shared.md")
+    agent = AsyncMock()
+    agent.send_and_wait.return_value = _message(
+        "## Completed\n"
+        "- Implemented routing adapter\n\n"
+        "## Blockers\n"
+        "- none\n\n"
+        "## Subtasks\n"
+        "### ST-001\n"
+        "- delegated_to: code-search tool\n"
+        "- objective: Find existing route adapter patterns\n"
+        "- result_summary: Found adapter and test layout\n"
+        "- status: done\n"
+        "- decisions_made: Reuse existing adapter registry\n"
+        "- files_changed: src/routes.py, tests/test_routes.py\n"
+        "- unresolved_issues: none\n"
+    )
+    package = WorkPackage(
+        id="WP-001",
+        title="codex package",
+        owner_agent="codex",
+        objective="Implement routing adapter.",
+    )
+    protocol = ExecutionProtocol(
+        agents={"codex": agent},
+        shared=shared,
+        artifact_dir=tmp_path / "execution",
+    )
+
+    results = await protocol.run([package])
+
+    assert len(results[0].subtasks) == 1
+    subtask = results[0].subtasks[0]
+    assert subtask.id == "ST-001"
+    assert subtask.parent_package_id == "WP-001"
+    assert subtask.parent_agent == "codex"
+    assert subtask.delegated_to == "code-search tool"
+    assert subtask.objective == "Find existing route adapter patterns"
+    assert subtask.result_summary == "Found adapter and test layout"
+    assert subtask.status == WorkStatus.DONE
+    assert subtask.decisions_made == ["Reuse existing adapter registry"]
+    assert subtask.files_changed == ["src/routes.py", "tests/test_routes.py"]
+
+    subtasks = shared.read_section("Subtasks")
+    assert subtasks is not None
+    assert "ST-001 / WP-001" in subtasks
+    assert "code-search tool" in subtasks
+    assert "Found adapter and test layout" in subtasks
 
 
 @pytest.mark.asyncio

@@ -12,7 +12,14 @@ from trinity.models import (
 from trinity.tui.app import AgentTUIState, AgentTUIStatus, RoundStatus, TrinityTUI
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.tui.theme import AgentTheme, get_theme
-from trinity.workflow import OpenQuestion, WorkPackage, WorkflowSession, WorkflowState
+from trinity.workflow import (
+    OpenQuestion,
+    SubtaskResult,
+    WorkPackage,
+    WorkStatus,
+    WorkflowSession,
+    WorkflowState,
+)
 
 
 @pytest.fixture
@@ -280,12 +287,24 @@ class TestTrinityTUI:
                     objective="Implement.",
                 )
             ],
+            subtask_results=[
+                SubtaskResult(
+                    id="ST-001",
+                    parent_package_id="WP-001",
+                    parent_agent="codex",
+                    delegated_to="code-search tool",
+                    objective="Find patterns.",
+                    result_summary="Found registry.",
+                    status=WorkStatus.DONE,
+                )
+            ],
         )
 
         tui.set_workflow_session(session)
 
         assert tui.work_package_count == 1
         assert tui.work_package_statuses == {"WP-001": "pending"}
+        assert tui.subtask_result_count == 1
 
     def test_set_workflow_session(self, tui):
         session = WorkflowSession(

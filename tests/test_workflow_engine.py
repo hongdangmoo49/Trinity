@@ -6,6 +6,7 @@ from trinity.models import ConsensusResult, DeliberationResult
 from trinity.workflow import (
     ExecutionResult,
     OpenQuestion,
+    SubtaskResult,
     WorkPackage,
     WorkStatus,
     WorkflowEngine,
@@ -205,6 +206,47 @@ def test_record_execution_results_moves_to_reviewing(tmp_path):
     loaded = WorkflowEngine(tmp_path / ".trinity")
     assert loaded.state == WorkflowState.REVIEWING
     assert loaded.execution_results[0].files_changed == ["src/routes.py"]
+
+
+def test_record_execution_results_persists_subtasks(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement", ["codex"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement.",
+        )
+    ]
+
+    engine.record_execution_results([
+        ExecutionResult(
+            package_id="WP-001",
+            agent_name="codex",
+            status=WorkStatus.DONE,
+            summary="Done.",
+            subtasks=[
+                SubtaskResult(
+                    id="ST-001",
+                    parent_package_id="WP-001",
+                    parent_agent="codex",
+                    delegated_to="code-search tool",
+                    objective="Find patterns.",
+                    result_summary="Found registry.",
+                    status=WorkStatus.DONE,
+                    files_changed=["src/routes.py"],
+                )
+            ],
+        )
+    ])
+
+    assert len(engine.subtask_results) == 1
+    assert engine.subtask_results[0].delegated_to == "code-search tool"
+
+    loaded = WorkflowEngine(tmp_path / ".trinity")
+    assert len(loaded.subtask_results) == 1
+    assert loaded.subtask_results[0].files_changed == ["src/routes.py"]
 
 
 def test_record_execution_results_marks_failure(tmp_path):

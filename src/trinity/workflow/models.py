@@ -165,6 +165,54 @@ class WorkPackage:
 
 
 @dataclass
+class SubtaskResult:
+    """Report from a parent agent about provider-internal delegation."""
+
+    id: str
+    parent_package_id: str
+    parent_agent: str
+    delegated_to: str
+    objective: str
+    result_summary: str
+    status: WorkStatus
+    decisions_made: list[str] = field(default_factory=list)
+    files_changed: list[str] = field(default_factory=list)
+    unresolved_issues: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "parent_package_id": self.parent_package_id,
+            "parent_agent": self.parent_agent,
+            "delegated_to": self.delegated_to,
+            "objective": self.objective,
+            "result_summary": self.result_summary,
+            "status": self.status.value,
+            "decisions_made": list(self.decisions_made),
+            "files_changed": list(self.files_changed),
+            "unresolved_issues": list(self.unresolved_issues),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "SubtaskResult":
+        status_value = str(data.get("status", WorkStatus.DONE.value))
+        return cls(
+            id=str(data.get("id", "")),
+            parent_package_id=str(data.get("parent_package_id", "")),
+            parent_agent=str(data.get("parent_agent", "")),
+            delegated_to=str(data.get("delegated_to", "")),
+            objective=str(data.get("objective", "")),
+            result_summary=str(data.get("result_summary", "")),
+            status=WorkStatus(status_value),
+            decisions_made=[str(item) for item in data.get("decisions_made", [])],
+            files_changed=[str(item) for item in data.get("files_changed", [])],
+            unresolved_issues=[
+                str(item) for item in data.get("unresolved_issues", [])
+            ],
+        )
+
+
+@dataclass
 class ExecutionResult:
     """Result reported by an agent after executing one work package."""
 
@@ -176,6 +224,7 @@ class ExecutionResult:
     decisions_made: list[DecisionRecord] = field(default_factory=list)
     blockers: list[str] = field(default_factory=list)
     follow_up: list[str] = field(default_factory=list)
+    subtasks: list[SubtaskResult] = field(default_factory=list)
     raw_response_path: Path | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -190,6 +239,7 @@ class ExecutionResult:
             ],
             "blockers": list(self.blockers),
             "follow_up": list(self.follow_up),
+            "subtasks": [subtask.to_dict() for subtask in self.subtasks],
             "raw_response_path": (
                 str(self.raw_response_path) if self.raw_response_path else None
             ),
@@ -212,6 +262,11 @@ class ExecutionResult:
             ],
             blockers=[str(item) for item in data.get("blockers", [])],
             follow_up=[str(item) for item in data.get("follow_up", [])],
+            subtasks=[
+                SubtaskResult.from_dict(item)
+                for item in data.get("subtasks", [])
+                if isinstance(item, dict)
+            ],
             raw_response_path=Path(str(raw_path)) if raw_path else None,
         )
 
@@ -229,6 +284,7 @@ class WorkflowSession:
     blueprint: dict[str, Any] | None = None
     work_packages: list[WorkPackage] = field(default_factory=list)
     execution_results: list[ExecutionResult] = field(default_factory=list)
+    subtask_results: list[SubtaskResult] = field(default_factory=list)
     decisions: list[DecisionRecord] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
@@ -250,6 +306,9 @@ class WorkflowSession:
             "work_packages": [package.to_dict() for package in self.work_packages],
             "execution_results": [
                 result.to_dict() for result in self.execution_results
+            ],
+            "subtask_results": [
+                result.to_dict() for result in self.subtask_results
             ],
             "decisions": [decision.to_dict() for decision in self.decisions],
             "created_at": self.created_at,
@@ -278,6 +337,11 @@ class WorkflowSession:
             execution_results=[
                 ExecutionResult.from_dict(item)
                 for item in data.get("execution_results", [])
+                if isinstance(item, dict)
+            ],
+            subtask_results=[
+                SubtaskResult.from_dict(item)
+                for item in data.get("subtask_results", [])
                 if isinstance(item, dict)
             ],
             decisions=[

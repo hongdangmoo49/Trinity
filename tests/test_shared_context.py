@@ -85,6 +85,30 @@ class TestSharedContextEngine:
         assert "Use existing router." in section
         assert "Add load test." in section
 
+    def test_append_subtask_result(self, shared_engine):
+        shared_engine.initialize("Test", ["codex"])
+        shared_engine.append_subtask_result(
+            subtask_id="ST-001",
+            parent_package_id="WP-001",
+            parent_agent="codex",
+            delegated_to="code-search tool",
+            objective="Find adapter patterns.",
+            result_summary="Found existing adapter registry.",
+            status="done",
+            decisions_made=["Reuse registry."],
+            files_changed=["src/routes.py"],
+            unresolved_issues=["none"],
+        )
+
+        section = shared_engine.read_section("Subtasks")
+        assert section is not None
+        assert "ST-001 / WP-001" in section
+        assert "code-search tool" in section
+        assert "Find adapter patterns." in section
+        assert "Found existing adapter registry." in section
+        assert "Reuse registry." in section
+        assert "src/routes.py" in section
+
     def test_append_session_summary(self, shared_engine):
         shared_engine.initialize("Test", ["claude"])
         shared_engine.append_session_summary("claude", "Completed auth middleware")

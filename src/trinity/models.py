@@ -313,6 +313,7 @@ class DeliberationResult:
     tasks: list[TaskAssignment] = field(default_factory=list)
     total_tokens_used: int = 0
     duration_seconds: float = 0.0
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def has_consensus(self) -> bool:

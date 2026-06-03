@@ -7,10 +7,26 @@ from trinity.workflow.models import (
     WorkflowSession,
     WorkflowState,
 )
+from trinity.workflow.structured import (
+    ArchitectureComponent,
+    Blueprint,
+    RiskItem,
+    StructuredConsensusResult,
+    StructuredConsensusSynthesizer,
+    StructuredVote,
+    VoteType,
+)
 
 __all__ = [
+    "ArchitectureComponent",
+    "Blueprint",
     "DecisionRecord",
     "OpenQuestion",
+    "RiskItem",
+    "StructuredConsensusResult",
+    "StructuredConsensusSynthesizer",
+    "StructuredVote",
+    "VoteType",
     "WorkflowEngine",
     "WorkflowInputAction",
     "WorkflowSession",

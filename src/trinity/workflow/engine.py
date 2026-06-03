@@ -141,6 +141,24 @@ class WorkflowEngine:
     def mark_deliberation_result(self, result: DeliberationResult) -> None:
         """Update workflow state after a deliberation completes."""
         self.session.current_round = result.rounds_completed
+        structured = result.metadata.get("structured_consensus")
+        if isinstance(structured, dict):
+            if self._apply_structured_questions(structured):
+                self.set_state(
+                    WorkflowState.NEEDS_USER_DECISION,
+                    reason="structured deliberation requires user decision",
+                )
+                return
+
+            blueprint = structured.get("final_blueprint")
+            if structured.get("reached") and isinstance(blueprint, dict):
+                self.session.blueprint = blueprint
+                self.set_state(
+                    WorkflowState.BLUEPRINT_READY,
+                    reason="structured blueprint reached consensus",
+                )
+                return
+
         if result.has_consensus:
             self.session.blueprint = {
                 "summary": result.consensus.summary if result.consensus else "",
@@ -151,6 +169,36 @@ class WorkflowEngine:
             )
         else:
             self.set_state(WorkflowState.FAILED, reason="deliberation ended without consensus")
+
+    def _apply_structured_questions(self, structured: dict) -> bool:
+        raw_questions = structured.get("open_questions", [])
+        if not isinstance(raw_questions, list) or not raw_questions:
+            return False
+
+        existing = {
+            self._normalize_question(question.question)
+            for question in self.session.pending_questions
+        }
+        added = False
+        saw_valid_question = False
+        for item in raw_questions:
+            if not isinstance(item, dict):
+                continue
+            question = OpenQuestion.from_dict(item)
+            normalized = self._normalize_question(question.question)
+            if not normalized:
+                continue
+            saw_valid_question = True
+            if normalized in existing:
+                continue
+            self.session.pending_questions.append(question)
+            existing.add(normalized)
+            added = True
+        return added or saw_valid_question
+
+    @staticmethod
+    def _normalize_question(question: str) -> str:
+        return " ".join(question.strip().lower().split())
 
     def set_state(self, state: WorkflowState, reason: str = "") -> None:
         """Set and persist workflow state."""

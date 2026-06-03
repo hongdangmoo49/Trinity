@@ -28,6 +28,10 @@ from trinity.models import (
     ResponseStatus,
 )
 from trinity.tui.events import TUIEvent, TUIEventType
+from trinity.workflow.structured import (
+    StructuredConsensusResult,
+    StructuredConsensusSynthesizer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -80,10 +84,17 @@ class DeliberationProtocol:
         lang: str = "en",
         analytics_path: Path | None = None,
         response_artifact_dir: Path | None = None,
+        structured_synthesizer: StructuredConsensusSynthesizer | None = None,
     ):
         self.agents = agents
         self.shared = shared
         self.consensus_engine = consensus_engine or ConsensusEngine()
+        self.structured_synthesizer = (
+            structured_synthesizer
+            or StructuredConsensusSynthesizer(
+                required_fraction=self.consensus_engine.required_fraction,
+            )
+        )
         self.distributor = distributor or TaskDistributor()
         self.max_rounds = max_rounds
         self.round_timeout = round_timeout
@@ -133,6 +144,7 @@ class DeliberationProtocol:
         self.shared.initialize(goal=user_prompt, agent_names=agent_names)
 
         consensus: ConsensusResult | None = None
+        structured_consensus: StructuredConsensusResult | None = None
         round_num = 0
 
         for round_num in range(1, self.max_rounds + 1):
@@ -181,7 +193,27 @@ class DeliberationProtocol:
                 for name, msg in opinions.items()
                 if not self._is_unusable_agent_response(msg)
             }
-            consensus = self.consensus_engine.evaluate(opinion_texts)
+            structured_consensus = self.structured_synthesizer.evaluate(opinion_texts)
+            if structured_consensus.open_questions:
+                consensus = self._consensus_from_structured(structured_consensus)
+                logger.info(
+                    "Structured deliberation requires user decision at round %s.",
+                    round_num,
+                )
+                self._emit(
+                    TUIEventType.CONSENSUS_RESULT,
+                    reached=False,
+                    agreement_count=consensus.agreement_count,
+                    total_agents=consensus.total_agents,
+                    summary=consensus.summary,
+                    round_num=round_num,
+                )
+                break
+
+            if structured_consensus.reached:
+                consensus = self._consensus_from_structured(structured_consensus)
+            else:
+                consensus = self.consensus_engine.evaluate(opinion_texts)
 
             if consensus.reached:
                 logger.info(f"Consensus reached at round {round_num}!")
@@ -263,6 +295,13 @@ class DeliberationProtocol:
             tasks=tasks,
             total_tokens_used=total_tokens,
             duration_seconds=elapsed,
+            metadata={
+                "structured_consensus": (
+                    structured_consensus.to_dict()
+                    if structured_consensus is not None
+                    else None
+                ),
+            },
         )
 
     async def _collect_opinions(
@@ -657,7 +696,9 @@ class DeliberationProtocol:
 
         if round_num == 1:
             prompt = get_round_prompt("round1_prefix", self.lang, prompt=user_prompt)
-            return self._append_caveman(prompt)
+            return self._append_caveman(
+                self._append_structured_instructions(prompt, round_num)
+            )
 
         use_compression = (
             self.compression_enabled
@@ -680,10 +721,47 @@ class DeliberationProtocol:
         round2_prefix = get_round_prompt("round2_plus_prefix", self.lang)
 
         return self._append_caveman(
-            f"Previous round opinions:\n\n"
-            f"{prev_context}\n\n"
-            f"---\n\n"
-            f"{round2_prefix}"
+            self._append_structured_instructions(
+                f"Previous round opinions:\n\n"
+                f"{prev_context}\n\n"
+                f"---\n\n"
+                f"{round2_prefix}",
+                round_num,
+            )
+        )
+
+    @staticmethod
+    def _append_structured_instructions(prompt: str, round_num: int) -> str:
+        """Ask agents to emit the v0.7.0 structured deliberation contract."""
+        phase = "proposal" if round_num == 1 else "critique/synthesis"
+        return (
+            f"{prompt}\n\n"
+            "Structured deliberation contract:\n"
+            f"- Phase: {phase}.\n"
+            "- End with exactly one vote line: "
+            "VOTE: APPROVE | APPROVE_WITH_CHANGES | "
+            "BLOCKED_BY_QUESTION | REJECT.\n"
+            "- If a final design is possible, include a BLUEPRINT with "
+            "Title, Summary, Architecture, Data Flow, External Dependencies, "
+            "Risks, and Acceptance Criteria sections.\n"
+            "- If user input is required, vote BLOCKED_BY_QUESTION and include "
+            "OPEN QUESTIONS with Question, Options, Recommended, and Rationale."
+        )
+
+    @staticmethod
+    def _consensus_from_structured(
+        structured: StructuredConsensusResult,
+    ) -> ConsensusResult:
+        """Convert structured consensus into the legacy result shape."""
+        return ConsensusResult(
+            reached=structured.reached,
+            agreement_count=structured.approval_count,
+            total_agents=structured.total_votes,
+            opinions={
+                name: vote.rationale or vote.vote.value
+                for name, vote in structured.votes.items()
+            },
+            summary=structured.summary,
         )
 
     def _append_caveman(self, prompt: str) -> str:

@@ -97,3 +97,68 @@ def test_mark_deliberation_result_updates_state(tmp_path):
     assert engine.state == WorkflowState.BLUEPRINT_READY
     assert engine.session.current_round == 1
     assert engine.session.blueprint == {"summary": "Blueprint summary"}
+
+
+def test_mark_deliberation_result_applies_structured_blueprint(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design", ["claude"])
+    result = DeliberationResult(
+        user_prompt="Design",
+        rounds_completed=1,
+        consensus=None,
+        metadata={
+            "structured_consensus": {
+                "reached": True,
+                "final_blueprint": {
+                    "title": "Route Bot",
+                    "summary": "Find bridge routes.",
+                    "architecture": [],
+                    "data_flow": ["request -> quote -> score"],
+                    "external_dependencies": [],
+                    "risks": [],
+                    "acceptance_criteria": ["rank paths"],
+                    "open_questions": [],
+                },
+                "open_questions": [],
+            }
+        },
+    )
+
+    engine.mark_deliberation_result(result)
+
+    assert engine.state == WorkflowState.BLUEPRINT_READY
+    assert engine.session.blueprint["title"] == "Route Bot"
+
+
+def test_mark_deliberation_result_waits_on_structured_question(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design", ["gemini"])
+    result = DeliberationResult(
+        user_prompt="Design",
+        rounds_completed=1,
+        consensus=None,
+        metadata={
+            "structured_consensus": {
+                "reached": False,
+                "final_blueprint": None,
+                "open_questions": [
+                    {
+                        "id": "q-gemini-001",
+                        "question": "Optimize for cost or latency?",
+                        "options": ["cost", "latency", "mixed"],
+                        "recommended_option": "mixed",
+                        "blocking": True,
+                        "raised_by": ["gemini"],
+                        "rationale": "Scoring depends on this choice.",
+                        "status": "open",
+                    }
+                ],
+            }
+        },
+    )
+
+    engine.mark_deliberation_result(result)
+
+    assert engine.state == WorkflowState.NEEDS_USER_DECISION
+    assert len(engine.pending_questions) == 1
+    assert engine.pending_questions[0].question == "Optimize for cost or latency?"

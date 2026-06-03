@@ -14,7 +14,7 @@ from trinity.models import (
 )
 from trinity.tui.events import TUIEvent, TUIEventBus, TUIEventType
 from trinity.tui.session import InteractiveSession
-from trinity.workflow import OpenQuestion, WorkflowState
+from trinity.workflow import OpenQuestion, WorkPackage, WorkflowState
 
 
 @pytest.fixture
@@ -147,6 +147,25 @@ class TestSessionCommands:
         session._cmd_decisions()
         # Should print empty-state message
 
+    def test_cmd_packages_empty(self, session):
+        session._cmd_packages()
+        # Should print empty-state message
+
+    def test_cmd_packages_with_generated_package(self, session):
+        session.workflow.session.work_packages.append(
+            WorkPackage(
+                id="WP-001",
+                title="claude package",
+                owner_agent="claude",
+                objective="Own architecture work.",
+                scope=["Architecture"],
+                acceptance_criteria=["Accepted"],
+            )
+        )
+
+        session._cmd_packages()
+        # Should display work packages table
+
 
 class TestSessionHandleCommand:
     def test_quit_command(self, session):
@@ -176,6 +195,10 @@ class TestSessionHandleCommand:
     def test_decisions_command(self, session):
         session._handle_command("/decisions")
         # Should print decisions
+
+    def test_packages_command(self, session):
+        session._handle_command("/packages")
+        # Should print packages
 
     def test_unknown_command(self, session):
         session._handle_command("/unknown")
@@ -281,6 +304,42 @@ class TestWorkflowRouting:
 
         assert session.workflow.state == WorkflowState.BLUEPRINT_READY
         assert session.tui.workflow_state == WorkflowState.BLUEPRINT_READY
+
+    def test_run_deliberation_updates_work_package_count(self, session):
+        result = DeliberationResult(
+            user_prompt="test",
+            rounds_completed=1,
+            consensus=ConsensusResult(
+                reached=True,
+                agreement_count=1,
+                total_agents=1,
+                opinions={"claude": "yes"},
+                summary="Structured consensus reached.",
+            ),
+            metadata={
+                "structured_consensus": {
+                    "reached": True,
+                    "final_blueprint": {
+                        "title": "Route Bot",
+                        "summary": "Find bridge routes.",
+                        "architecture": [],
+                        "data_flow": ["request -> quote -> score"],
+                        "external_dependencies": [],
+                        "risks": [],
+                        "acceptance_criteria": ["rank paths"],
+                        "open_questions": [],
+                    },
+                    "open_questions": [],
+                }
+            },
+        )
+        with patch.object(session, "_run_with_live", return_value=result):
+            with patch.object(session, "_has_tmux", return_value=False):
+                session.workflow.start("test", ["claude"])
+                session._run_deliberation("test")
+
+        assert len(session.workflow.work_packages) == 1
+        assert session.tui.work_package_count == 1
 
 
 class TestSessionDisplayResult:

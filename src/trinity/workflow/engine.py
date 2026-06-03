@@ -9,9 +9,11 @@ from pathlib import Path
 from uuid import uuid4
 
 from trinity.models import DeliberationResult
+from trinity.workflow.decomposer import BlueprintDecomposer, classify_execution_intent
 from trinity.workflow.models import (
     DecisionRecord,
     OpenQuestion,
+    WorkPackage,
     WorkflowSession,
     WorkflowState,
 )
@@ -35,11 +37,13 @@ class WorkflowEngine:
         state_dir: Path,
         state_file: Path | None = None,
         events_file: Path | None = None,
+        decomposer: BlueprintDecomposer | None = None,
     ):
         self.state_dir = state_dir
         workflow_dir = state_dir / "workflow"
         self.state_file = state_file or workflow_dir / "session.json"
         self.events_file = events_file or workflow_dir / "events.jsonl"
+        self.decomposer = decomposer or BlueprintDecomposer()
         self.session = self._load_or_create()
 
     @property
@@ -53,6 +57,10 @@ class WorkflowEngine:
     @property
     def decisions(self) -> list[DecisionRecord]:
         return list(self.session.decisions)
+
+    @property
+    def work_packages(self) -> list[WorkPackage]:
+        return list(self.session.work_packages)
 
     def handle_user_input(
         self,
@@ -153,6 +161,11 @@ class WorkflowEngine:
             blueprint = structured.get("final_blueprint")
             if structured.get("reached") and isinstance(blueprint, dict):
                 self.session.blueprint = blueprint
+                self.session.work_packages = self.decomposer.decompose(
+                    blueprint,
+                    self.session.active_agents,
+                    requires_execution=self._requires_execution(result),
+                )
                 self.set_state(
                     WorkflowState.BLUEPRINT_READY,
                     reason="structured blueprint reached consensus",
@@ -199,6 +212,21 @@ class WorkflowEngine:
     @staticmethod
     def _normalize_question(question: str) -> str:
         return " ".join(question.strip().lower().split())
+
+    def _requires_execution(self, result: DeliberationResult) -> bool:
+        if any(task.requires_execution for task in result.tasks):
+            return True
+
+        text = "\n".join(
+            part
+            for part in (
+                self.session.goal,
+                result.user_prompt,
+                result.consensus.summary if result.consensus else "",
+            )
+            if part
+        )
+        return classify_execution_intent(text)
 
     def set_state(self, state: WorkflowState, reason: str = "") -> None:
         """Set and persist workflow state."""

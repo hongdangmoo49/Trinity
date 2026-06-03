@@ -128,6 +128,9 @@ def test_mark_deliberation_result_applies_structured_blueprint(tmp_path):
 
     assert engine.state == WorkflowState.BLUEPRINT_READY
     assert engine.session.blueprint["title"] == "Route Bot"
+    assert len(engine.work_packages) == 1
+    assert engine.work_packages[0].owner_agent == "claude"
+    assert engine.work_packages[0].requires_execution is False
 
 
 def test_mark_deliberation_result_waits_on_structured_question(tmp_path):

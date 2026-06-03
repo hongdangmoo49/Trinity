@@ -138,6 +138,8 @@ class InteractiveSession:
             self._cmd_questions()
         elif cmd == "decisions":
             self._cmd_decisions()
+        elif cmd == "packages":
+            self._cmd_packages()
         else:
             self.console.print(
                 f"[yellow]Unknown command: /{cmd}. "
@@ -317,7 +319,8 @@ class InteractiveSession:
             f"[bold]Round[/bold]: {session.current_round}\n"
             f"[bold]Active agents[/bold]: {', '.join(session.active_agents) or '(none)'}\n"
             f"[bold]Pending questions[/bold]: {len(session.open_questions)}\n"
-            f"[bold]Decisions[/bold]: {len(session.decisions)}",
+            f"[bold]Decisions[/bold]: {len(session.decisions)}\n"
+            f"[bold]Work packages[/bold]: {len(session.work_packages)}",
             title="Workflow",
             border_style="magenta",
         ))
@@ -368,6 +371,33 @@ class InteractiveSession:
                 decision.question_id or "",
                 decision.decision,
                 decision.decided_by,
+            )
+
+        self.console.print(table)
+
+    def _cmd_packages(self) -> None:
+        """Show generated workflow work packages."""
+        packages = self.workflow.work_packages
+        if not packages:
+            self.console.print("[dim]No workflow work packages generated.[/dim]")
+            return
+
+        from rich.table import Table
+
+        table = Table(title="Work Packages")
+        table.add_column("ID", style="cyan")
+        table.add_column("Owner")
+        table.add_column("Status")
+        table.add_column("Exec")
+        table.add_column("Objective")
+
+        for package in packages:
+            table.add_row(
+                package.id,
+                package.owner_agent,
+                package.status.value,
+                "yes" if package.requires_execution else "no",
+                package.objective,
             )
 
         self.console.print(table)
@@ -603,6 +633,14 @@ class InteractiveSession:
                     desc += "..."
                 self.console.print(
                     f"  [{theme.color}]{theme.icon} {task.agent_name}[/{theme.color}]: {desc}"
+                )
+
+        if self.workflow.work_packages:
+            self.console.print("\n[bold]📦 Work Packages[/bold]")
+            for package in self.workflow.work_packages:
+                self.console.print(
+                    f"  [cyan]{package.id}[/cyan] {package.owner_agent}: "
+                    f"{package.title} ({package.status.value})"
                 )
 
         self.console.print(

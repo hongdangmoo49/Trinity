@@ -22,6 +22,18 @@ class WorkflowState(str, Enum):
     FAILED = "failed"
 
 
+class WorkStatus(str, Enum):
+    """Lifecycle state for a workflow work package."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    WAITING_ON_DECISION = "waiting_on_decision"
+    BLOCKED = "blocked"
+    DONE = "done"
+    FAILED = "failed"
+    NEEDS_REVIEW = "needs_review"
+
+
 @dataclass
 class OpenQuestion:
     """A user-facing decision point raised by agents or workflow logic."""
@@ -101,6 +113,57 @@ class DecisionRecord:
 
 
 @dataclass
+class WorkPackage:
+    """An agent-owned top-level package derived from a blueprint."""
+
+    id: str
+    title: str
+    owner_agent: str
+    objective: str
+    scope: list[str] = field(default_factory=list)
+    out_of_scope: list[str] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
+    expected_files: list[str] = field(default_factory=list)
+    acceptance_criteria: list[str] = field(default_factory=list)
+    status: WorkStatus = WorkStatus.PENDING
+    requires_execution: bool = True
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "title": self.title,
+            "owner_agent": self.owner_agent,
+            "objective": self.objective,
+            "scope": list(self.scope),
+            "out_of_scope": list(self.out_of_scope),
+            "dependencies": list(self.dependencies),
+            "expected_files": list(self.expected_files),
+            "acceptance_criteria": list(self.acceptance_criteria),
+            "status": self.status.value,
+            "requires_execution": self.requires_execution,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "WorkPackage":
+        status_value = str(data.get("status", WorkStatus.PENDING.value))
+        return cls(
+            id=str(data.get("id", "")),
+            title=str(data.get("title", "")),
+            owner_agent=str(data.get("owner_agent", "")),
+            objective=str(data.get("objective", "")),
+            scope=[str(item) for item in data.get("scope", [])],
+            out_of_scope=[str(item) for item in data.get("out_of_scope", [])],
+            dependencies=[str(item) for item in data.get("dependencies", [])],
+            expected_files=[str(item) for item in data.get("expected_files", [])],
+            acceptance_criteria=[
+                str(item) for item in data.get("acceptance_criteria", [])
+            ],
+            status=WorkStatus(status_value),
+            requires_execution=bool(data.get("requires_execution", True)),
+        )
+
+
+@dataclass
 class WorkflowSession:
     """Persisted state for one stateful workflow."""
 
@@ -111,7 +174,7 @@ class WorkflowSession:
     current_round: int = 0
     pending_questions: list[OpenQuestion] = field(default_factory=list)
     blueprint: dict[str, Any] | None = None
-    work_packages: list[dict[str, Any]] = field(default_factory=list)
+    work_packages: list[WorkPackage] = field(default_factory=list)
     decisions: list[DecisionRecord] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
@@ -130,7 +193,7 @@ class WorkflowSession:
             "current_round": self.current_round,
             "pending_questions": [q.to_dict() for q in self.pending_questions],
             "blueprint": self.blueprint,
-            "work_packages": list(self.work_packages),
+            "work_packages": [package.to_dict() for package in self.work_packages],
             "decisions": [decision.to_dict() for decision in self.decisions],
             "created_at": self.created_at,
             "updated_at": self.updated_at,
@@ -150,7 +213,11 @@ class WorkflowSession:
                 for item in data.get("pending_questions", [])
             ],
             blueprint=data.get("blueprint"),
-            work_packages=list(data.get("work_packages", [])),
+            work_packages=[
+                WorkPackage.from_dict(item)
+                for item in data.get("work_packages", [])
+                if isinstance(item, dict)
+            ],
             decisions=[
                 DecisionRecord.from_dict(item) for item in data.get("decisions", [])
             ],

@@ -122,6 +122,7 @@ class TrinityTUI:
         self.workflow_id: str = ""
         self.workflow_goal: str = ""
         self.pending_question_count: int = 0
+        self.work_package_count: int = 0
 
         # Callbacks for commands
         self.on_ask: Callable[[str], Any] | None = None
@@ -253,6 +254,7 @@ class TrinityTUI:
                     f"  Pending questions: {self.pending_question_count}",
                     style="dim",
                 ),
+                Text(f"  Work packages: {self.work_package_count}", style="dim"),
             ),
             Text.assemble(
                 self._caveman_badge(),
@@ -637,6 +639,7 @@ class TrinityTUI:
         self.workflow_id = session.id
         self.workflow_goal = session.goal
         self.pending_question_count = len(session.open_questions)
+        self.work_package_count = len(session.work_packages)
 
     def reset_agents(self) -> None:
         """Reset all agent states to idle and clear round history."""
@@ -678,6 +681,7 @@ class TrinityTUI:
             "  [cyan]/workflow[/cyan]   — Show workflow state\n"
             "  [cyan]/questions[/cyan]  — Show pending workflow questions\n"
             "  [cyan]/decisions[/cyan]  — Show recorded workflow decisions\n"
+            "  [cyan]/packages[/cyan]   — Show workflow work packages\n"
             "  [cyan]/help[/cyan]       — Show this help\n"
             "  [cyan]/quit[/cyan]       — Exit Trinity\n"
         )

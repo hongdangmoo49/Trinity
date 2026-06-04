@@ -13,6 +13,7 @@ from trinity.models import (
     TaskAssignment,
 )
 from trinity.tui.events import TUIEvent, TUIEventBus, TUIEventType
+from trinity.tui.prompt import CUSTOM_OPTION_VALUE
 from trinity.tui.session import InteractiveSession
 from trinity.workflow import (
     Blueprint,
@@ -645,6 +646,77 @@ class TestWorkflowRouting:
 
         assert session.workflow.decisions[0].decision == "Telegram"
         get_answer.assert_called_once_with(question_id="q-001")
+        run_deliberation.assert_called_once()
+
+    def test_questions_select_accepts_custom_answer_for_option_question(self, session):
+        session.workflow.start("Original goal", ["claude"])
+        session.workflow.add_open_question(
+            OpenQuestion(
+                id="q-001",
+                question="Which API?",
+                options=["LI.FI", "Socket"],
+            )
+        )
+
+        with patch("trinity.tui.session.sys.stdin.isatty", return_value=True):
+            with patch("trinity.tui.session.sys.stdout.isatty", return_value=True):
+                with patch.object(
+                    session._prompt_session,
+                    "select_option",
+                    return_value=CUSTOM_OPTION_VALUE,
+                ) as select_option:
+                    with patch.object(
+                        session._prompt_session,
+                        "get_answer_input",
+                        return_value="Across first",
+                    ) as get_answer:
+                        with patch.object(
+                            session, "_run_deliberation"
+                        ) as run_deliberation:
+                            session._cmd_questions(["--select"])
+
+        assert session.workflow.decisions[0].decision == "Across first"
+        select_option.assert_called_once()
+        assert select_option.call_args.kwargs["allow_custom"] is True
+        get_answer.assert_called_once_with(question_id="q-001")
+        run_deliberation.assert_called_once()
+
+    def test_offer_pending_questions_runs_all_questions_as_wizard(self, session):
+        session.workflow.start("Original goal", ["claude"])
+        session.workflow.add_open_question(
+            OpenQuestion(
+                id="q-001",
+                question="Which API?",
+                options=["LI.FI", "Socket"],
+            )
+        )
+        session.workflow.add_open_question(
+            OpenQuestion(id="q-002", question="Which platform?")
+        )
+
+        with patch("trinity.tui.session.sys.stdin.isatty", return_value=True):
+            with patch("trinity.tui.session.sys.stdout.isatty", return_value=True):
+                with patch.object(
+                    session._prompt_session,
+                    "select_option",
+                    return_value="1",
+                ) as select_option:
+                    with patch.object(
+                        session._prompt_session,
+                        "get_answer_input",
+                        return_value="Telegram",
+                    ) as get_answer:
+                        with patch.object(
+                            session, "_run_deliberation"
+                        ) as run_deliberation:
+                            session._offer_pending_questions()
+
+        assert [decision.decision for decision in session.workflow.decisions] == [
+            "LI.FI",
+            "Telegram",
+        ]
+        select_option.assert_called_once()
+        get_answer.assert_called_once_with(question_id="q-002")
         run_deliberation.assert_called_once()
 
     def test_run_deliberation_updates_workflow_state(self, session):

@@ -27,7 +27,7 @@ from trinity.config import TrinityConfig
 from trinity.models import DeliberationResult
 from trinity.tui.app import AgentTUIState, TrinityTUI
 from trinity.tui.events import TUIEventBus
-from trinity.tui.prompt import TrinityPromptSession
+from trinity.tui.prompt import CUSTOM_OPTION_VALUE, TrinityPromptSession
 from trinity.tui.theme import get_theme
 from trinity.workflow import (
     ExecutionResult,
@@ -66,6 +66,7 @@ class InteractiveSession:
         self._prompt_session = TrinityPromptSession(config.effective_state_dir)
         self.workflow_persistence = WorkflowPersistence(config.effective_state_dir)
         self._startup_archive = self.workflow_persistence.archive_active_session()
+        self._question_wizard_active = False
         self.workflow = WorkflowEngine(config.effective_state_dir)
         self.tui.set_workflow_session(self.workflow.session)
 
@@ -446,39 +447,57 @@ class InteractiveSession:
             )
             return
 
-        while True:
-            questions = self.workflow.pending_questions
-            if not questions:
-                self.console.print("[dim]No pending workflow questions.[/dim]")
-                return
-
-            question = questions[0]
-            if question.options:
-                selected = self._prompt_session.select_option(
-                    title=f"{question.id}",
-                    question=question.question,
-                    options=question.options,
-                    recommended_option=question.recommended_option,
-                )
-                if selected is None:
-                    self.console.print("[dim]Selection cancelled.[/dim]")
+        previous_wizard_state = self._question_wizard_active
+        self._question_wizard_active = True
+        try:
+            while True:
+                questions = self.workflow.pending_questions
+                if not questions:
+                    self.console.print("[dim]No pending workflow questions.[/dim]")
                     return
-                action = self.workflow.answer_question_option(
-                    str(selected),
-                    question_selector=question.id,
-                )
-            else:
-                answer = self._prompt_session.get_answer_input(
-                    question_id=question.id,
-                ).strip()
-                if not answer:
-                    self.console.print("[dim]Selection cancelled.[/dim]")
-                    return
-                action = self.workflow.answer_question(question.id, answer)
 
-            self._apply_workflow_action(action)
-            if action.should_deliberate or action.message or not select_all:
-                return
+                question = questions[0]
+                if question.options:
+                    selected = self._prompt_session.select_option(
+                        title=f"{question.id}",
+                        question=question.question,
+                        options=question.options,
+                        recommended_option=question.recommended_option,
+                        allow_custom=True,
+                    )
+                    if selected is None:
+                        self.console.print("[dim]Selection cancelled.[/dim]")
+                        return
+                    if selected == CUSTOM_OPTION_VALUE:
+                        answer = self._prompt_session.get_answer_input(
+                            question_id=question.id,
+                        ).strip()
+                        if not answer:
+                            self.console.print("[dim]Selection cancelled.[/dim]")
+                            return
+                        action = self.workflow.answer_question(question.id, answer)
+                    else:
+                        action = self.workflow.answer_question_option(
+                            str(selected),
+                            question_selector=question.id,
+                        )
+                else:
+                    self.console.print(
+                        self._build_questions_panel([question], compact=True)
+                    )
+                    answer = self._prompt_session.get_answer_input(
+                        question_id=question.id,
+                    ).strip()
+                    if not answer:
+                        self.console.print("[dim]Selection cancelled.[/dim]")
+                        return
+                    action = self.workflow.answer_question(question.id, answer)
+
+                self._apply_workflow_action(action)
+                if action.should_deliberate or action.message or not select_all:
+                    return
+        finally:
+            self._question_wizard_active = previous_wizard_state
 
     def _cmd_decisions(self) -> None:
         """Show workflow decision ledger."""
@@ -727,7 +746,10 @@ class InteractiveSession:
 
         if action.should_deliberate:
             self._run_deliberation(action.prompt)
-        elif self.workflow.state == WorkflowState.NEEDS_USER_DECISION:
+        elif (
+            self.workflow.state == WorkflowState.NEEDS_USER_DECISION
+            and not self._question_wizard_active
+        ):
             self._print_decision_required()
 
     def _print_decision_required(self) -> None:
@@ -934,16 +956,16 @@ class InteractiveSession:
         if not self.workflow.pending_questions:
             return
 
-        self.console.print(self._build_questions_panel(
-            self.workflow.pending_questions,
-            compact=True,
-        ))
         if sys.stdin.isatty() and sys.stdout.isatty():
-            self._cmd_select_question(select_all=False)
+            self._cmd_select_question(select_all=True)
         else:
+            self.console.print(self._build_questions_panel(
+                self.workflow.pending_questions,
+                compact=True,
+            ))
             self.console.print(
-                "[dim]답변을 프롬프트에 그대로 입력하거나 "
-                "/questions --select 를 사용하세요.[/dim]"
+                "[dim]Type an answer at the prompt, or use "
+                "/questions --select.[/dim]"
             )
 
     def _run_with_live(

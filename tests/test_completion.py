@@ -12,7 +12,7 @@ from trinity.completion.hook import HookDetector
 from trinity.completion.idle import IdleDetector
 from trinity.completion.marker import MarkerDetector
 from trinity.completion.prompt import PromptReturnDetector
-from trinity.tmux.pane import TmuxPane
+from trinity.legacy.tmux.pane import TmuxPane
 
 
 def _make_pane(capture_outputs: list[str] | None = None) -> MagicMock:

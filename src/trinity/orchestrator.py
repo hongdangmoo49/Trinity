@@ -23,7 +23,7 @@ from trinity.providers.readiness import (
     ProviderReadinessGate,
     ReadinessResult,
 )
-from trinity.tmux.session import TmuxSessionManager
+from trinity.legacy.tmux.session import TmuxSessionManager
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workspace.isolation import WorkspaceIsolation
 from trinity.workspace.managed_home import ManagedHome

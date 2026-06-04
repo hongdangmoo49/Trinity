@@ -83,6 +83,12 @@
    - `trinity ask -i` 또는 `transport_mode = "tmux"` 사용 시 legacy tmux transport notice를 출력한다.
    - `trinity attach`는 더 이상 기본 one-shot config에서 tmux attach를 시도하지 않고, `transport_mode = "tmux"`일 때만 legacy session attach를 실행한다.
 
+13. tmux legacy namespace 분리
+   - 실제 tmux 구현을 `trinity.legacy.tmux`로 이동했다.
+   - runtime import는 `trinity.legacy.tmux.pane.TmuxPane`과 `trinity.legacy.tmux.session.TmuxSessionManager`를 직접 참조한다.
+   - 기존 `trinity.tmux.*` import는 외부 호환을 위해 얇은 shim으로 유지했다.
+   - `tests/test_tmux.py`는 legacy namespace 구현을 직접 검증하고, shim re-export 호환도 확인한다.
+
 ## 제거/정리
 
 - `PrintModeClaudeAgent._run_subprocess`
@@ -96,7 +102,7 @@
 - `src/trinity/tmux/layout.py`
 - `tests/test_tmux_layout.py`
 
-`TmuxSessionManager`, `TmuxPane`, completion detector, Gemini legacy agent는 제거하지 않았다. interactive/debug 호환, provider bootstrap, legacy Gemini config 지원에 여전히 사용된다.
+`TmuxSessionManager`, `TmuxPane`, completion detector, Gemini legacy agent는 제거하지 않았다. `TmuxSessionManager`와 `TmuxPane`의 실제 구현은 `trinity.legacy.tmux`로 이동했고, interactive/debug 호환, provider bootstrap, legacy Gemini config 지원에 여전히 사용된다.
 
 ## 검증
 
@@ -121,13 +127,16 @@ uv run pytest tests/test_provider_invoker_antigravity.py tests/test_antigravity_
 
 uv run pytest tests/test_cli.py tests/test_cli_v2.py tests/test_tui_session.py tests/test_config.py
 124 passed in 0.81s
+
+uv run pytest tests/test_tmux.py tests/test_completion.py tests/test_interactive_claude.py tests/test_tmux_integration.py tests/test_provider_bootstrap.py tests/test_orchestrator.py tests/test_agent_factory.py
+135 passed in 3.87s
 ```
 
 전체 테스트:
 
 ```text
 uv run pytest
-950 passed, 1 warning in 19.74s
+951 passed, 1 warning in 19.71s
 ```
 
 경고는 기존 테스트 mock coroutine 미await warning이며 이번 변경 실패는 아니다.
@@ -135,4 +144,4 @@ uv run pytest
 ## 남은 작업
 
 - Antigravity CLI 공식 웹 문서에 `--print`/`--prompt` 플래그와 machine-readable output이 추가되는지 지속 확인한다. 현재 구현은 로컬 CLI help/smoke로 검증한 plain stdout path다.
-- tmux legacy/debug transport를 별도 optional namespace로 물리적으로 분리할지 결정한다.
+- Gemini legacy agent를 deprecated/optional namespace로 분리할지 결정한다.

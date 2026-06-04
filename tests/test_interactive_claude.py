@@ -11,7 +11,7 @@ from trinity.completion.hook import HookDetector
 from trinity.completion.idle import IdleDetector
 from trinity.completion.prompt import PromptReturnDetector
 from trinity.models import AgentSpec, ContextUsage, MessageRole, Provider
-from trinity.tmux.pane import TmuxPane
+from trinity.legacy.tmux.pane import TmuxPane
 
 
 @pytest.fixture

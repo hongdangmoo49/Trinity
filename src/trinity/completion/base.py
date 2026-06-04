@@ -8,7 +8,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
-from trinity.tmux.pane import TmuxPane
+from trinity.legacy.tmux.pane import TmuxPane
 
 logger = logging.getLogger(__name__)
 

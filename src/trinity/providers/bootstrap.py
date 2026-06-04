@@ -9,7 +9,7 @@ from pathlib import Path
 
 from trinity.models import AgentSpec
 from trinity.config import TrinityConfig
-from trinity.tmux.session import TmuxSessionManager
+from trinity.legacy.tmux.session import TmuxSessionManager
 from trinity.workspace.isolation import WorkspaceIsolation
 from trinity.workspace.managed_home import ManagedHome
 

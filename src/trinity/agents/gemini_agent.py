@@ -14,7 +14,7 @@ from trinity.models import AgentSpec, ContextUsage, DeliberationMessage, Message
 
 if TYPE_CHECKING:
     from trinity.completion.base import CompletionDetector
-    from trinity.tmux.pane import TmuxPane
+    from trinity.legacy.tmux.pane import TmuxPane
 
 logger = logging.getLogger(__name__)
 

@@ -15,8 +15,8 @@ from trinity.completion.hook import HookDetector
 from trinity.completion.idle import IdleDetector
 from trinity.completion.marker import MarkerDetector
 from trinity.completion.prompt import PromptReturnDetector
+from trinity.legacy.tmux.pane import TmuxPane
 from trinity.models import AgentSpec, Provider
-from trinity.tmux.pane import TmuxPane
 
 logger = logging.getLogger(__name__)
 

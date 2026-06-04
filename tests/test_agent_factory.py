@@ -49,6 +49,16 @@ def gemini_spec():
 
 
 @pytest.fixture
+def antigravity_spec():
+    return AgentSpec(
+        name="antigravity",
+        provider=Provider.ANTIGRAVITY_CLI,
+        cli_command="agy",
+        context_budget=1_000_000,
+    )
+
+
+@pytest.fixture
 def mock_pane():
     return MagicMock()
 
@@ -85,6 +95,10 @@ class TestCreatePrintMode:
         assert isinstance(agent, GeminiAgent)
         assert agent.name == "gemini"
 
+    def test_antigravity_print_is_guarded_until_one_shot_verified(self, antigravity_spec):
+        with pytest.raises(ValueError, match="one-shot"):
+            AgentFactory.create(antigravity_spec, mode="print")
+
     def test_print_is_default_mode(self, claude_spec):
         """mode 파라미터 생략 시 print 모드가 기본."""
         agent = AgentFactory.create(claude_spec)
@@ -117,6 +131,15 @@ class TestCreateInteractiveMode:
         )
         assert isinstance(agent, InteractiveClaudeAgent)
         assert agent.name == "claude"
+
+    def test_antigravity_interactive_is_guarded(self, antigravity_spec, mock_pane, mock_detector):
+        with pytest.raises(ValueError, match="experimental"):
+            AgentFactory.create(
+                antigravity_spec,
+                mode="interactive",
+                pane=mock_pane,
+                detector=mock_detector,
+            )
 
     def test_codex_interactive(self, codex_spec, mock_pane, mock_detector, signal_path):
         agent = AgentFactory.create(

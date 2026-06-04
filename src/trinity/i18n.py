@@ -67,6 +67,11 @@ ROLE_PROMPTS: dict[Lang, dict[str, str]] = {
             "based on architectural decisions. Focus on practical "
             "implementation and edge cases."
         ),
+        "antigravity": (
+            "You are the Reviewer. You explore alternatives, identify "
+            "potential issues, and ensure quality. Think critically "
+            "about trade-offs and propose tests."
+        ),
         "gemini": (
             "You are the Reviewer. You explore alternatives, identify "
             "potential issues, and ensure quality. Think critically "
@@ -84,6 +89,11 @@ ROLE_PROMPTS: dict[Lang, dict[str, str]] = {
             "당신은 구현자입니다. "
             "아키텍처 결정에 기반하여 깔끔하고 효율적인 코드를 작성합니다. "
             "실제 구현과 엣지 케이스에 집중하세요."
+        ),
+        "antigravity": (
+            "당신은 리뷰어입니다. "
+            "대안을 탐색하고 잠재적인 문제를 식별하며 품질을 보장합니다. "
+            "트레이드오프에 대해 비판적으로 생각하고 테스트를 제안하세요."
         ),
         "gemini": (
             "당신은 리뷰어입니다. "
@@ -180,7 +190,7 @@ EN_STRINGS = Strings(
     install_hint="💡 Install missing tools:",
     no_tools=(
         "No AI CLI tools detected. Install at least one of: "
-        "claude, codex, gemini"
+        "claude, codex, agy"
     ),
     step2_title="📋 Step 2: Select agents to enable",
     enable_prompt="Enable {display_name} ({agent_name})?",
@@ -234,7 +244,7 @@ KO_STRINGS = Strings(
     not_found="❌ 없음",
     install_hint="💡 누락된 도구 설치:",
     no_tools=(
-        "AI CLI 도구가 감지되지 않았습니다. claude, codex, gemini 중 "
+        "AI CLI 도구가 감지되지 않았습니다. claude, codex, agy 중 "
         "최소 하나를 설치하세요."
     ),
     step2_title="📋 Step 2: 활성화할 에이전트 선택",
@@ -301,7 +311,7 @@ def role_prompt(agent_name: str, lang: Lang = "en") -> str:
     """Get a single agent's role prompt in the specified language.
 
     Args:
-        agent_name: One of "claude", "codex", "gemini".
+        agent_name: One of "claude", "codex", "antigravity", "gemini".
         lang: "en" or "ko".
 
     Returns:
@@ -423,7 +433,7 @@ def get_agent_prompt(
     """Get an agent's role prompt, optionally with caveman compression rules.
 
     Args:
-        agent_name: One of "claude", "codex", "gemini".
+        agent_name: One of "claude", "codex", "antigravity", "gemini".
         lang: "en" or "ko".
         caveman_mode: Whether to append caveman compression rules.
         caveman_intensity: "lite", "full", or "ultra".

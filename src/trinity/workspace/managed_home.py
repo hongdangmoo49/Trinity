@@ -81,6 +81,7 @@ class ManagedHome:
         provider_dirs = {
             "claude-code": [".claude"],
             "codex": [".codex"],
+            "antigravity-cli": [".gemini", ".gemini/antigravity-cli"],
             "gemini-cli": [".config", ".config/gemini"],
         }
 

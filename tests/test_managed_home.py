@@ -43,6 +43,11 @@ class TestSetup:
         assert (home / ".config").exists()
         assert (home / ".config" / "gemini").exists()
 
+    def test_creates_antigravity_dirs(self, mh):
+        home = mh.setup("antigravity", provider="antigravity-cli")
+        assert (home / ".gemini").exists()
+        assert (home / ".gemini" / "antigravity-cli").exists()
+
     def test_idempotent(self, mh):
         """setup을 두 번 호출해도 에러 없음."""
         mh.setup("claude")

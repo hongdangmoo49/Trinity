@@ -118,7 +118,7 @@ def init(force: bool, non_interactive: bool):
     """Initialize .trinity/ in the current directory.
 
     Runs an interactive setup wizard that:
-    1. Detects installed AI CLI tools (claude, codex, gemini)
+    1. Detects installed AI CLI tools (claude, codex, agy)
     2. Lets you choose which agents to enable
     3. Customizes role prompts and context budgets
     4. Saves the configuration
@@ -253,7 +253,7 @@ def _create_directory_structure(
 ) -> None:
     """Create the .trinity/ directory structure."""
     state.mkdir(exist_ok=True)
-    names = agent_names or ["claude", "codex", "gemini"]
+    names = agent_names or ["claude", "codex", "antigravity"]
     for name in names:
         (state / "agents" / name).mkdir(parents=True, exist_ok=True)
     (state / "history").mkdir(exist_ok=True)

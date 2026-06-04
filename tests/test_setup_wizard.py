@@ -32,6 +32,11 @@ class TestSetupWizard:
                 error="codex not found",
             ),
             CLIDetectionResult(
+                provider=Provider.ANTIGRAVITY_CLI,
+                installed=False,
+                error="agy not found",
+            ),
+            CLIDetectionResult(
                 provider=Provider.GEMINI_CLI,
                 installed=False,
                 error="gemini not found",
@@ -57,6 +62,13 @@ class TestSetupWizard:
                 path="/usr/bin/codex",
             ),
             CLIDetectionResult(
+                provider=Provider.ANTIGRAVITY_CLI,
+                installed=True,
+                version="agy 1.0.0",
+                path="/usr/bin/agy",
+                warning="Experimental in Trinity.",
+            ),
+            CLIDetectionResult(
                 provider=Provider.GEMINI_CLI,
                 installed=True,
                 version="gemini 0.5.0",
@@ -76,13 +88,14 @@ class TestSetupWizard:
         result = wizard._step_detect()
 
         assert result is True  # At least one installed
-        assert len(wizard.detections) == 3
+        assert len(wizard.detections) == 4
 
     def test_step_detect_no_tools_installed(self, console):
         detector = MagicMock()
         detector.detect_all.return_value = [
             CLIDetectionResult(provider=Provider.CLAUDE_CODE, installed=False, error="not found"),
             CLIDetectionResult(provider=Provider.CODEX, installed=False, error="not found"),
+            CLIDetectionResult(provider=Provider.ANTIGRAVITY_CLI, installed=False, error="not found"),
             CLIDetectionResult(provider=Provider.GEMINI_CLI, installed=False, error="not found"),
         ]
 
@@ -113,6 +126,7 @@ class TestSetupWizard:
         assert result is True
         assert "claude" in wizard.selected_agents
         assert "codex" in wizard.selected_agents
+        assert "antigravity" in wizard.selected_agents
         assert "gemini" in wizard.selected_agents
 
     def test_step_select_none_selected(self, console, mock_detector):
@@ -235,7 +249,8 @@ class TestSetupWizard:
         missing = wizard.build_missing_agent_specs()
 
         assert "codex" in missing
-        assert "gemini" in missing
+        assert "antigravity" in missing
+        assert "gemini" not in missing
         assert "claude" not in missing
 
         # All missing should be disabled
@@ -252,6 +267,7 @@ class TestSetupWizard:
 
         assert wizard.selected_agents["claude"].provider == Provider.CLAUDE_CODE
         assert wizard.selected_agents["codex"].provider == Provider.CODEX
+        assert wizard.selected_agents["antigravity"].provider == Provider.ANTIGRAVITY_CLI
         assert wizard.selected_agents["gemini"].provider == Provider.GEMINI_CLI
         assert wizard.selected_agents["claude"].model == "default"
 
@@ -264,4 +280,5 @@ class TestProviderAgentNames:
     def test_names_are_standard(self):
         assert PROVIDER_AGENT_NAMES[Provider.CLAUDE_CODE] == "claude"
         assert PROVIDER_AGENT_NAMES[Provider.CODEX] == "codex"
+        assert PROVIDER_AGENT_NAMES[Provider.ANTIGRAVITY_CLI] == "antigravity"
         assert PROVIDER_AGENT_NAMES[Provider.GEMINI_CLI] == "gemini"

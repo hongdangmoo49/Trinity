@@ -59,6 +59,11 @@ class AgentFactory:
             return PrintModeClaudeAgent(spec)
         elif spec.provider == Provider.CODEX:
             return CodexAgent(spec)
+        elif spec.provider == Provider.ANTIGRAVITY_CLI:
+            raise ValueError(
+                "Antigravity CLI provider is experimental: one-shot/headless "
+                "prompt support has not been verified yet."
+            )
         elif spec.provider == Provider.GEMINI_CLI:
             return GeminiAgent(spec)
         else:
@@ -86,6 +91,11 @@ class AgentFactory:
                     f"Interactive mode requires pane and detector for '{spec.name}'"
                 )
             return CodexAgent(spec, pane=pane, detector=detector)
+        elif spec.provider == Provider.ANTIGRAVITY_CLI:
+            raise ValueError(
+                "Antigravity CLI provider is experimental: interactive tmux "
+                "transport is not enabled by default."
+            )
         elif spec.provider == Provider.GEMINI_CLI:
             if not pane or not detector:
                 raise ValueError(

@@ -12,16 +12,18 @@ class TestTrinityConfig:
         assert len(config.agents) == 3
         assert "claude" in config.agents
         assert "codex" in config.agents
-        assert "gemini" in config.agents
+        assert "antigravity" in config.agents
 
     def test_default_claude_enabled(self):
         config = TrinityConfig.default_config()
         assert config.agents["claude"].enabled
 
-    def test_default_codex_gemini_disabled(self):
+    def test_default_codex_antigravity_disabled(self):
         config = TrinityConfig.default_config()
         assert not config.agents["codex"].enabled
-        assert not config.agents["gemini"].enabled
+        assert not config.agents["antigravity"].enabled
+        assert config.agents["antigravity"].provider == Provider.ANTIGRAVITY_CLI
+        assert config.agents["antigravity"].cli_command == "agy"
 
     def test_active_agents_filters_disabled(self):
         config = TrinityConfig.default_config()

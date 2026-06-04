@@ -205,12 +205,12 @@ class TrinityConfig:
                     role_prompt=roles["codex"],
                     enabled=False,  # Disabled by default until codex CLI is available
                 ),
-                "gemini": AgentSpec(
-                    name="gemini",
-                    provider=Provider.GEMINI_CLI,
-                    cli_command="gemini",
-                    role_prompt=roles["gemini"],
-                    enabled=False,  # Disabled by default until gemini CLI is available
+                "antigravity": AgentSpec(
+                    name="antigravity",
+                    provider=Provider.ANTIGRAVITY_CLI,
+                    cli_command="agy",
+                    role_prompt=roles["antigravity"],
+                    enabled=False,  # Disabled until Antigravity one-shot is verified
                 ),
             },
         )

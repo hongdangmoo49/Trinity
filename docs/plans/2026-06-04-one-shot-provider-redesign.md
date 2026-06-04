@@ -180,6 +180,52 @@ execution:
 - 단발 호출에서 장기 기억을 기대하지 않는다. Trinity가 `shared.md`, response artifacts, synthesis summary를 canonical memory로 관리한다.
 - 엄격한 tool-level audit/control이 필요하면 provider-managed CLI 호출만으로는 부족하다. 그 경우 OpenCode식 `trinity-managed` API/tool-call runtime을 별도 구현해야 한다.
 
+## 서브에이전트 병렬 실행 기준
+
+서브에이전트를 병렬로 스폰하는 것은 가능하다. 다만 이번 redesign의 기본 경로가 `provider-managed` CLI 실행이라는 점 때문에, 병렬성은 작업 성격과 worktree 경계에 따라 제한해야 한다. `claude -p`, `codex exec`, `gemini -p`가 파일 read/edit/write를 수행하면 그 작업은 Trinity의 중앙 tool executor가 아니라 각 provider CLI 내부 도구가 수행한다. 따라서 같은 worktree에서 여러 provider CLI를 `workspace-write` 권한으로 동시에 실행하면 충돌, 중복 수정, 숨은 overwrite가 발생할 수 있다.
+
+권장 분리:
+
+| 작업 유형 | 병렬 허용 여부 | 기준 |
+|---|---:|---|
+| 문서/코드 구조 분석 | 허용 | read-only prompt와 sandbox를 사용한다. |
+| provider별 CLI 옵션 조사 | 허용 | 로컬 파일 수정 권한 없이 실행한다. |
+| 테스트 케이스 설계 | 허용 | 산출물은 artifact로 받고 최종 반영은 coordinator가 한다. |
+| 서로 다른 파일/모듈 구현 | 조건부 허용 | 명확한 파일 소유권 또는 별도 git worktree가 필요하다. |
+| 공유 orchestration/config 구현 | 순차 실행 | `agents/base.py`, provider config, workflow orchestration 같은 경계 파일은 coordinator가 병합한다. |
+| 같은 worktree의 provider CLI execution | 금지에 가깝다 | `workspace-write` provider CLI를 동시에 여러 개 실행하지 않는다. |
+
+권장 실행 모델:
+
+```text
+Coordinator
+  - 전체 설계와 파일 소유권 관리
+  - provider CLI write 권한 부여 여부 결정
+  - 서브에이전트 산출물 검토
+  - 최종 patch 적용과 전체 테스트 실행
+
+Subagent A
+  - Codex exec 전환 조사/구현 초안
+
+Subagent B
+  - Claude/Gemini one-shot 옵션 정리
+
+Subagent C
+  - ExecutionAuthority / ProviderTurnResult interface 설계
+
+Subagent D
+  - 테스트 케이스 작성
+```
+
+운영 규칙:
+
+- read-only deliberation은 병렬 실행해도 된다.
+- write 권한 execution은 기본적으로 순차 실행한다.
+- 병렬 구현이 필요하면 provider별 또는 작업 단위별로 별도 git worktree를 만든다.
+- 같은 파일을 둘 이상의 서브에이전트가 수정하지 않도록 coordinator가 파일 소유권을 먼저 할당한다.
+- 서브에이전트는 직접 merge하지 않고 patch/artifact를 남기며, coordinator가 최종 적용한다.
+- OpenCode식 `trinity-managed` local tool executor가 생기기 전까지는 Trinity가 모든 파일 I/O를 중앙에서 가로채지 못한다고 가정한다.
+
 ## OpenCode 구조 적용 판단
 
 OpenCode는 provider CLI를 실행하지 않는다. TUI와 non-interactive `run` 모두 내부 session prompt를 만들고, 실제 LLM 호출은 AI SDK provider 객체를 통해 `streamText()`로 보낸다. 모델이 파일 읽기/수정을 요청하면 provider가 OS 파일을 직접 만지는 것이 아니라 tool call을 반환하고, OpenCode 프로세스가 로컬 `read`, `edit`, `write`, `apply_patch`, `shell` 도구를 실행한다.
@@ -224,6 +270,7 @@ class ExecutionAuthority(str, Enum):
 5. 인증은 사용자의 실제 PC/WSL 설치와 auth cache를 재사용한다.
 6. 작업 격리는 provider HOME 격리가 아니라 `cwd`, git worktree, sandbox/permission flag, Trinity artifact 디렉터리로 유지한다.
 7. provider 호출과 local tool execution의 책임 경계를 명시한다. 이번 one-shot CLI 경로는 provider-managed 실행으로 시작하고, Trinity-managed local tool runtime은 별도 확장 지점으로 둔다.
+8. 병렬 서브에이전트 실행은 read-only 분석과 분리된 worktree 구현에 우선 적용하고, 같은 worktree의 provider-managed write execution은 순차화한다.
 
 ## 제안 아키텍처
 
@@ -237,6 +284,10 @@ TrinityOrchestrator
     ExecutionAuthorityPolicy
       provider-managed CLI path
       trinity-managed API/tool path
+    ParallelExecutionPolicy
+      file ownership
+      worktree isolation
+      write execution serialization
     LocalToolRuntime
       ToolRegistry
       PermissionGate
@@ -428,6 +479,7 @@ enabled = false
 - `ProviderTurnResult`에 `execution_authority`, `tool_activity_summary`, `artifact_paths` 필드를 추가할지 검토한다.
 - local tool executor는 이번 phase에서 구현하지 않고 interface와 test seam만 둔다.
 - deliberation prompt에는 "분석 전용, 파일 수정 금지"를 명시하고, 실행 phase prompt에서만 수정 권한을 허용한다.
+- 병렬 서브에이전트 실행 정책을 추가한다. read-only 호출은 병렬 허용, 같은 worktree의 provider-managed write 호출은 순차 실행, 병렬 구현은 별도 git worktree 또는 명시적 파일 소유권이 있을 때만 허용한다.
 
 ### Phase 2 - 인증 상태 재사용
 
@@ -460,6 +512,7 @@ enabled = false
 - `tests/test_provider_invoker_claude.py`: command construction, JSON/stream parsing, auth error.
 - `tests/test_provider_invoker_codex.py`: `codex exec --json` JSONL parsing, final message extraction, usage extraction.
 - `tests/test_execution_authority.py`: CLI invoker가 `provider-managed`로 분류되고 deliberation prompt가 수정 금지 정책을 포함하는지 검증.
+- `tests/test_parallel_execution_policy.py`: read-only 병렬 호출은 허용하고, 같은 worktree의 provider-managed write 호출은 거부/순차화하는지 검증.
 - `tests/test_provider_state_mode.py`: user-home 기본값에서 `HOME`/XDG override가 없는지 검증.
 - `tests/test_antigravity_detector.py`: `agy` 탐지, Gemini deprecation warning, migration guidance.
 - `tests/test_round_synthesizer.py`: agent 응답 -> summary/questions/consensus 변환.
@@ -470,6 +523,7 @@ enabled = false
 - Antigravity one-shot 미지원: 공식/로컬 검증 전까지 Antigravity provider를 experimental로 두고, Claude/Codex one-shot부터 전환한다.
 - 사용자 홈 인증 공유: 사용자의 auth를 그대로 쓰는 대신 command sandbox, git worktree, permission flags를 강화한다.
 - provider-managed 실행의 tool 투명성 한계: CLI 내부 도구 호출은 Trinity가 OpenCode처럼 세밀하게 가로채기 어렵다. 엄격한 파일 I/O 통제가 필요하면 API tool-calling 기반 `trinity-managed` runtime을 별도 구현한다.
+- 병렬 provider-managed write 충돌: 같은 worktree에서 여러 provider CLI가 동시에 파일을 수정하지 않도록 write execution을 순차화하고, 병렬 구현은 별도 git worktree 또는 명시적 파일 소유권이 있을 때만 허용한다.
 - 중앙 synthesizer 단일 실패점: provider-backed 호출 실패 시 heuristic fallback을 유지한다.
 - context 증가: 모든 agent에게 전체 transcript가 아니라 synthesis summary와 필요한 raw artifact 링크만 전달한다.
 - provider 출력 포맷 변경: JSON/JSONL parser는 provider별 fixture와 contract test를 둔다.

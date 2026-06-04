@@ -263,6 +263,8 @@ class TestAsk:
                 result = runner.invoke(main, ["ask", "test question", "-i"])
 
         assert result.exit_code == 0
+        assert "Using legacy tmux agent transport" in result.output
+        assert "Mode: legacy tmux" in result.output
         MockOrch.assert_called_once()
         assert MockOrch.call_args.kwargs["interactive"] is True
 

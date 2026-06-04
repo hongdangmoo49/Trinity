@@ -788,6 +788,11 @@ class InteractiveSession:
                 "not on PATH.[/red]"
             )
             return
+        if use_tmux:
+            self.console.print(
+                "[yellow]Using legacy tmux agent transport. "
+                "One-shot remains the default transport.[/yellow]"
+            )
 
         mode_str = self._transport_mode_label()
         self.console.print(Panel.fit(
@@ -1135,5 +1140,5 @@ class InteractiveSession:
     def _transport_mode_label(self) -> str:
         """Human-readable label for the active agent transport."""
         if self._uses_tmux_transport():
-            return "interactive (tmux)"
+            return "legacy tmux"
         return "one-shot"

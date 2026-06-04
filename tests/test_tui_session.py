@@ -69,7 +69,7 @@ class TestInteractiveSession:
         session.config.transport_mode = "tmux"
 
         assert session._uses_tmux_transport() is True
-        assert session._transport_mode_label() == "interactive (tmux)"
+        assert session._transport_mode_label() == "legacy tmux"
 
     def test_run_deliberation_uses_one_shot_even_when_tmux_exists(self, session):
         result = DeliberationResult(

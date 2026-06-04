@@ -513,6 +513,8 @@ enabled = false
 - tmux interactive mode는 legacy/debug mode로 남긴다.
 - 기본 `uv run trinity` deliberation은 one-shot transport를 사용한다.
 - 실제 interactive/debug 경로에서 쓰이지 않는 tmux layout 고아 모듈은 제거한다.
+- CLI/TUI에서 tmux transport label을 `legacy tmux`로 표시하고, 명시적으로 선택했을 때만 notice를 출력한다.
+- `trinity attach`는 기본 one-shot config에서 tmux attach를 시도하지 않도록 guard를 둔다.
 - completion detector와 pane response cleaner는 legacy tmux transport에서 아직 쓰이므로 유지하되, 다음 단계에서 optional namespace 분리 여부를 결정한다.
 
 ## 테스트 전략

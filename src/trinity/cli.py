@@ -370,6 +370,24 @@ def _parse_agent_names(agent_names: str | None) -> list[str] | None:
     return names or None
 
 
+def _uses_legacy_tmux_transport(config: TrinityConfig, force_tmux: bool = False) -> bool:
+    """Whether this invocation should use the legacy tmux agent transport."""
+    return force_tmux or config.transport_mode == "tmux"
+
+
+def _transport_mode_label(use_tmux: bool) -> str:
+    """Human-readable transport label for CLI output."""
+    return "legacy tmux" if use_tmux else "one-shot"
+
+
+def _print_legacy_tmux_notice() -> None:
+    """Show a short notice when the legacy transport is explicitly selected."""
+    console.print(
+        "[yellow]Using legacy tmux agent transport. "
+        "One-shot remains the default transport.[/yellow]"
+    )
+
+
 # ─── trinity ask ─────────────────────────────────────────────────────────
 
 @main.command()
@@ -401,8 +419,10 @@ def ask(prompt: str, max_rounds: int | None, agent_names: str | None, interactiv
 
     # Show header
     active = config.active_agents
-    use_tmux = interactive or config.transport_mode == "tmux"
-    mode_str = "interactive (tmux)" if use_tmux else "one-shot"
+    use_tmux = _uses_legacy_tmux_transport(config, force_tmux=interactive)
+    mode_str = _transport_mode_label(use_tmux)
+    if use_tmux:
+        _print_legacy_tmux_notice()
     console.print(Panel.fit(
         f"[bold]{prompt}[/bold]\n\n"
         f"Agents: {', '.join(active.keys())}\n"
@@ -500,8 +520,16 @@ def status_watch(interval: float):
 
 @main.command()
 def attach():
-    """Attach to the tmux session running Trinity agents."""
+    """Attach to the legacy tmux transport session running Trinity agents."""
     config = load_config()
+
+    if config.transport_mode != "tmux":
+        console.print(
+            "[yellow]Current transport is one-shot; no Trinity tmux transport "
+            "session is expected. Set transport_mode = \"tmux\" to use this "
+            "legacy command.[/yellow]"
+        )
+        return
 
     if not config.session_name:
         console.print("[yellow]No tmux session configured.[/yellow]")

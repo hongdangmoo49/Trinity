@@ -111,12 +111,38 @@ class TestReset:
 # ===========================================================================
 
 class TestAttach:
-    def test_attach_no_session(self, runner, trinity_project):
+    def test_attach_is_guarded_in_one_shot_mode(self, runner, trinity_project):
         with patch("trinity.cli.find_config_path", return_value=trinity_project / ".trinity" / "trinity.config"):
+            with patch("subprocess.run") as mock_run:
+                result = runner.invoke(main, ["attach"])
+                assert result.exit_code == 0
+                assert "Current transport is one-shot" in result.output
+                mock_run.assert_not_called()
+
+    def test_attach_tmux_transport_no_session(self, runner, trinity_project):
+        config_path = trinity_project / ".trinity" / "trinity.config"
+        config_path.write_text(
+            """
+[general]
+session_name = "trinity-test"
+transport_mode = "tmux"
+
+[agents.claude]
+provider = "claude-code"
+cli_command = "claude"
+enabled = true
+""",
+            encoding="utf-8",
+        )
+
+        with patch("trinity.cli.find_config_path", return_value=config_path):
             with patch("subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=1)
                 result = runner.invoke(main, ["attach"])
-                assert result.exit_code == 0
+
+        assert result.exit_code == 0
+        assert "Failed to attach" in result.output
+        mock_run.assert_called_once()
 
 
 # ===========================================================================

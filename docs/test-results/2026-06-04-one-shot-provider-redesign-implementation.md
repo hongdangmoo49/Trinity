@@ -78,6 +78,11 @@
    - current runtime에서 import되지 않고 테스트만 붙잡고 있던 `trinity.tmux.layout.TUILayout`을 고아 컴포넌트로 판단해 제거했다.
    - `tests/test_tmux_layout.py`도 해당 고아 모듈 전용 테스트라 함께 제거했다.
 
+12. tmux legacy transport 명시화
+   - CLI/TUI transport label을 `interactive (tmux)`에서 `legacy tmux`로 바꿔 기본 one-shot 경로와 구분했다.
+   - `trinity ask -i` 또는 `transport_mode = "tmux"` 사용 시 legacy tmux transport notice를 출력한다.
+   - `trinity attach`는 더 이상 기본 one-shot config에서 tmux attach를 시도하지 않고, `transport_mode = "tmux"`일 때만 legacy session attach를 실행한다.
+
 ## 제거/정리
 
 - `PrintModeClaudeAgent._run_subprocess`
@@ -113,13 +118,16 @@ TRINITY_AGY_SANDBOX_SMOKE
 ```text
 uv run pytest tests/test_provider_invoker_antigravity.py tests/test_antigravity_agent.py tests/test_agent_factory.py tests/test_cli_detector.py tests/test_provider_readiness.py tests/test_config.py
 90 passed in 0.15s
+
+uv run pytest tests/test_cli.py tests/test_cli_v2.py tests/test_tui_session.py tests/test_config.py
+124 passed in 0.81s
 ```
 
 전체 테스트:
 
 ```text
 uv run pytest
-949 passed, 1 warning in 19.78s
+950 passed, 1 warning in 19.74s
 ```
 
 경고는 기존 테스트 mock coroutine 미await warning이며 이번 변경 실패는 아니다.
@@ -127,4 +135,4 @@ uv run pytest
 ## 남은 작업
 
 - Antigravity CLI 공식 웹 문서에 `--print`/`--prompt` 플래그와 machine-readable output이 추가되는지 지속 확인한다. 현재 구현은 로컬 CLI help/smoke로 검증한 plain stdout path다.
-- tmux legacy/debug transport를 계속 유지할지, 별도 optional namespace로 분리할지 결정한다.
+- tmux legacy/debug transport를 별도 optional namespace로 물리적으로 분리할지 결정한다.

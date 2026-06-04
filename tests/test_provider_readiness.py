@@ -69,7 +69,7 @@ def test_claude_oauth_screen_is_auth_required():
     assert result.ready is False
     assert result.state == ProviderState.AUTH_REQUIRED
     assert "authentication" in result.reason
-    assert "claude" in result.action_hint
+    assert "trinity bootstrap --agents claude" in result.action_hint
     assert "OAuth" in result.excerpt
 
 
@@ -114,7 +114,7 @@ def test_gemini_auth_picker_is_auth_required():
 
     assert result.ready is False
     assert result.state == ProviderState.AUTH_REQUIRED
-    assert "gemini" in result.action_hint
+    assert "trinity bootstrap --agents gemini" in result.action_hint
 
 
 def test_gemini_auth_env_terms_and_process_variants_are_classified():

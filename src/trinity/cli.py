@@ -29,6 +29,11 @@ from trinity.config import TrinityConfig
 from trinity.context.analytics import TokenAnalytics, analytics_history_path
 from trinity.logging import setup_logging
 from trinity.orchestrator import TrinityOrchestrator
+from trinity.providers.bootstrap import (
+    ProviderBootstrapError,
+    ProviderBootstrapper,
+    attach_to_bootstrap_session,
+)
 
 console = Console()
 
@@ -263,6 +268,106 @@ def _update_gitignore() -> None:
     if ".trinity/" not in gitignore_lines:
         gitignore_lines.append(".trinity/")
         gitignore.write_text("\n".join(gitignore_lines) + "\n", encoding="utf-8")
+
+
+# ─── trinity bootstrap ───────────────────────────────────────────────────
+
+@main.command()
+@click.option(
+    "--agents",
+    "agent_names",
+    default=None,
+    help="Comma-separated agent names to bootstrap. Explicit names may be disabled.",
+)
+@click.option(
+    "--all",
+    "include_disabled",
+    is_flag=True,
+    help="Bootstrap all configured agents, including disabled agents.",
+)
+@click.option("--session-name", default=None, help="Override bootstrap tmux session name")
+@click.option("--force", is_flag=True, help="Recreate an existing bootstrap session")
+@click.option("--no-attach", is_flag=True, help="Start the tmux session without attaching")
+def bootstrap(
+    agent_names: str | None,
+    include_disabled: bool,
+    session_name: str | None,
+    force: bool,
+    no_attach: bool,
+):
+    """Launch provider CLIs for isolated first-run setup and authentication.
+
+    This command keeps Trinity's provider-state isolation intact. Each selected
+    provider is started with the same isolated HOME/XDG paths that normal
+    Trinity sessions use, so completed auth/theme/trust prompts are saved under
+    .trinity/agents/<agent>/provider-state.
+    """
+    config_path = find_config_path()
+    if config_path is None:
+        console.print(
+            "[yellow]No Trinity project found. Run `trinity init` first.[/yellow]"
+        )
+        sys.exit(1)
+    config = TrinityConfig.load(config_path)
+    selected_names = _parse_agent_names(agent_names)
+    bootstrapper = ProviderBootstrapper()
+
+    try:
+        result = bootstrapper.launch_session(
+            config,
+            agent_names=selected_names,
+            include_disabled=include_disabled,
+            session_name=session_name,
+            force=force,
+        )
+    except ProviderBootstrapError as exc:
+        console.print(f"[red]{exc}[/red]")
+        sys.exit(1)
+    except Exception as exc:
+        console.print(f"[red]Failed to start provider bootstrap: {exc}[/red]")
+        _logger = logging.getLogger("trinity")
+        _logger.exception("Provider bootstrap failed")
+        sys.exit(1)
+
+    table = Table(title="Provider Bootstrap")
+    table.add_column("Agent", style="cyan")
+    table.add_column("Provider", style="green")
+    table.add_column("Isolated HOME")
+    table.add_column("CWD")
+    for target in result.targets:
+        table.add_row(
+            target.agent_name,
+            target.spec.provider.value,
+            str(target.managed_home or ""),
+            str(target.cwd),
+        )
+    console.print(table)
+    console.print(
+        f"\n[green]Started tmux session '{result.session_name}'.[/green]\n"
+        "Complete each provider's auth, theme, and workspace trust prompts in "
+        "that session. Normal Trinity runs will reuse the same isolated state."
+    )
+
+    if no_attach:
+        console.print(
+            f"[dim]Attach later with: tmux attach-session -t {result.session_name}[/dim]"
+        )
+        return
+
+    console.print("[dim]Attaching to bootstrap session...[/dim]")
+    exit_code = attach_to_bootstrap_session(result.session_name)
+    if exit_code != 0:
+        console.print(
+            f"[red]Failed to attach to tmux session '{result.session_name}'.[/red]"
+        )
+
+
+def _parse_agent_names(agent_names: str | None) -> list[str] | None:
+    """Parse a comma-separated agent list from CLI input."""
+    if not agent_names:
+        return None
+    names = [part.strip() for part in agent_names.split(",") if part.strip()]
+    return names or None
 
 
 # ─── trinity ask ─────────────────────────────────────────────────────────

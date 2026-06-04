@@ -44,6 +44,31 @@ class TestConfigShow:
             result = runner.invoke(main, ["config", "session_name"])
             assert result.exit_code == 0
 
+    def test_shows_new_transport_and_provider_state_keys(self, runner, trinity_project):
+        config_path = trinity_project / ".trinity" / "trinity.config"
+        config_path.write_text(
+            """
+[general]
+session_name = "test"
+provider_state_mode = "isolated"
+transport_mode = "tmux"
+
+[agents.alpha]
+provider = "claude-code"
+cli_command = "claude"
+enabled = true
+""",
+            encoding="utf-8",
+        )
+        with patch("trinity.cli.find_config_path", return_value=config_path):
+            transport = runner.invoke(main, ["config", "transport_mode"])
+            provider_state = runner.invoke(main, ["config", "provider_state_mode"])
+
+        assert transport.exit_code == 0
+        assert "tmux" in transport.output
+        assert provider_state.exit_code == 0
+        assert "isolated" in provider_state.output
+
     def test_unknown_key(self, runner, trinity_project):
         with patch("trinity.cli.find_config_path", return_value=trinity_project / ".trinity" / "trinity.config"):
             result = runner.invoke(main, ["config", "nonexistent_key_xyz"])

@@ -8,6 +8,7 @@ from trinity.agents.codex_agent import CodexAgent
 from trinity.completion.base import CompletionResult
 from trinity.models import AgentSpec, ContextUsage, MessageRole, Provider, ResponseStatus
 from trinity.providers.invoker import ProviderTurnResult
+from trinity.providers.policy import InvocationAccess
 
 
 @pytest.fixture
@@ -91,6 +92,28 @@ class TestCodexSendAndWait:
         request = agent._invoker.invoke.call_args.args[0]
         assert request.prompt == "Implement auth."
         assert request.role_prompt == "You are the Implementer."
+
+    @pytest.mark.asyncio
+    async def test_print_mode_forwards_invocation_access(self, agent):
+        await agent.start()
+
+        agent._invoker.invoke = AsyncMock(
+            return_value=ProviderTurnResult(
+                agent_name="codex",
+                content="Implemented.",
+                raw_output="raw",
+                status=ResponseStatus.OK,
+                elapsed_seconds=0.2,
+            )
+        )
+
+        await agent.send_and_wait(
+            "Implement auth.",
+            access=InvocationAccess.WORKSPACE_WRITE,
+        )
+
+        request = agent._invoker.invoke.call_args.args[0]
+        assert request.access == InvocationAccess.WORKSPACE_WRITE
 
     @pytest.mark.asyncio
     async def test_timeout(self, agent):

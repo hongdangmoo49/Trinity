@@ -29,7 +29,7 @@ class AntigravityPrintAgent(AgentWrapper):
         logger.info("[%s] Antigravity print-mode agent initialized", self.name)
 
     async def send_and_wait(
-        self, prompt: str, timeout: float = 120.0
+        self, prompt: str, timeout: float = 120.0, access=None
     ) -> DeliberationMessage:
         """Send prompt via `agy --print` and wait for stdout response."""
         if not self._started:
@@ -41,6 +41,7 @@ class AntigravityPrintAgent(AgentWrapper):
             prompt=prompt,
             timeout=timeout,
             context_prompt=self._initial_prompt,
+            access=access,
         )
         result = await self._invoker.invoke(request)
         elapsed = result.elapsed_seconds or (time.time() - start_time)

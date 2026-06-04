@@ -38,7 +38,7 @@ class AgentWrapper(ABC):
 
     @abstractmethod
     async def send_and_wait(
-        self, prompt: str, timeout: float = 120.0
+        self, prompt: str, timeout: float = 120.0, access=None
     ) -> DeliberationMessage:
         """Send a prompt and wait for the agent to respond.
 

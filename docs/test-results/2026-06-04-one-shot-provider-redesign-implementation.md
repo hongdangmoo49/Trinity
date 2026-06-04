@@ -101,6 +101,13 @@
    - `AntigravityPrintInvoker` metadata에 `output_format = "plain-text"`, `machine_readable_output = false`, `usage_source = "unsupported"`를 명시했다.
    - JSON처럼 보이는 stdout도 machine-readable provider result가 아니라 plain text 모델 응답으로 유지하는 테스트를 추가했다.
 
+16. PR 리뷰 후 execution access 회귀 수정
+   - workflow execution은 병렬 정책에서 `workspace-write`로 분류됐지만 실제 agent invocation에는 access가 전달되지 않아 Codex/Antigravity가 read-only sandbox로 실행될 수 있었다.
+   - `ExecutionProtocol`이 work package 실행 시 `InvocationAccess.WORKSPACE_WRITE`를 전달하도록 수정했다.
+   - Codex/Antigravity print agent가 전달받은 invocation access를 `PromptRequest`로 넘기는 테스트를 추가했다.
+   - provider `response_status`가 `ok`가 아니면 execution 결과를 실패로 처리하도록 보강했다.
+   - 새 `transport_mode`, `provider_state_mode` 설정을 `trinity config`에서 조회할 수 있게 했다.
+
 ## 제거/정리
 
 - `PrintModeClaudeAgent._run_subprocess`
@@ -155,7 +162,7 @@ uv run pytest tests/test_provider_invoker_antigravity.py tests/test_antigravity_
 
 ```text
 uv run pytest
-953 passed, 1 warning in 19.82s
+957 passed, 1 warning in 19.69s
 ```
 
 경고는 기존 테스트 mock coroutine 미await warning이며 이번 변경 실패는 아니다.

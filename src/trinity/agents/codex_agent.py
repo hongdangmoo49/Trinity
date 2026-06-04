@@ -67,7 +67,7 @@ class CodexAgent(AgentWrapper):
             logger.info(f"[{self.name}] Codex launched in tmux pane")
 
     async def send_and_wait(
-        self, prompt: str, timeout: float = 120.0
+        self, prompt: str, timeout: float = 120.0, access=None
     ) -> DeliberationMessage:
         if not self._started:
             raise RuntimeError(f"Agent {self.name} not started")
@@ -125,6 +125,7 @@ class CodexAgent(AgentWrapper):
                 prompt=prompt,
                 timeout=timeout,
                 context_prompt=self._initial_prompt,
+                access=access,
             )
             result = await self._invoker.invoke(request)
             elapsed = time.time() - start_time

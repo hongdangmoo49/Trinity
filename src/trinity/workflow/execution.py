@@ -242,7 +242,11 @@ class ExecutionProtocol:
         wrapped_prompt = self._wrap_execution_prompt(prompt, request_id)
 
         try:
-            message = await agent.send_and_wait(wrapped_prompt, timeout=self.timeout)
+            message = await agent.send_and_wait(
+                wrapped_prompt,
+                timeout=self.timeout,
+                access=InvocationAccess.WORKSPACE_WRITE,
+            )
         except asyncio.TimeoutError as exc:
             return self._exception_result(package, request_id, exc, WorkStatus.FAILED)
         except Exception as exc:
@@ -636,10 +640,13 @@ class ExecutionProtocol:
     @staticmethod
     def _message_failed(message: DeliberationMessage) -> bool:
         metadata = message.metadata
+        response_status = metadata.get("response_status")
+        if response_status and str(response_status) != "ok":
+            return True
         return (
             metadata.get("error") == "timeout"
+            or metadata.get("invalid_response") is True
             or metadata.get("completed") is False
-            or metadata.get("response_status") in {"timeout", "process_dead", "invalid"}
         )
 
     def _write_raw_response(

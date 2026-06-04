@@ -47,7 +47,7 @@ class PrintModeClaudeAgent(AgentWrapper):
             self._initial_prompt = ""
 
     async def send_and_wait(
-        self, prompt: str, timeout: float = 120.0
+        self, prompt: str, timeout: float = 120.0, access=None
     ) -> DeliberationMessage:
         """Send prompt via `claude -p` and wait for JSON response."""
         if not self._started:
@@ -59,6 +59,7 @@ class PrintModeClaudeAgent(AgentWrapper):
             prompt=prompt,
             timeout=timeout,
             context_prompt=self._initial_prompt,
+            access=access,
         )
         logger.info(f"[{self.name}] Sending prompt ({len(prompt)} chars)...")
 
@@ -173,7 +174,7 @@ class InteractiveClaudeAgent(AgentWrapper):
         logger.info(f"[{self.name}] Interactive agent ready")
 
     async def send_and_wait(
-        self, prompt: str, timeout: float = 120.0
+        self, prompt: str, timeout: float = 120.0, access=None
     ) -> DeliberationMessage:
         """Send prompt via send-keys and wait for completion."""
         if not self._started:

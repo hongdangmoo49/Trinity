@@ -580,6 +580,7 @@ _SAFE_CONFIG_KEYS = frozenset({
     "consensus_threshold", "round_timeout_seconds",
     "context_rotate_threshold", "health_check_interval_seconds",
     "log_level", "log_file", "caveman_mode", "caveman_intensity",
+    "provider_state_mode", "transport_mode",
 })
 
 

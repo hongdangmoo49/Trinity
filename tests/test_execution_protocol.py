@@ -6,19 +6,20 @@ from unittest.mock import AsyncMock
 import pytest
 
 from trinity.context.shared import SharedContextEngine
-from trinity.models import DeliberationMessage, MessageRole
+from trinity.models import DeliberationMessage, MessageRole, ResponseStatus
+from trinity.providers.policy import InvocationAccess
 from trinity.tui.events import TUIEventType
 from trinity.workflow import ExecutionProtocol, WorkPackage, WorkStatus
 
 
-def _message(content: str) -> DeliberationMessage:
+def _message(content: str, metadata: dict | None = None) -> DeliberationMessage:
     return DeliberationMessage(
         source="codex",
         target="all",
         round_num=0,
         role=MessageRole.TASK,
         content=content,
-        metadata={"raw_output": content},
+        metadata={"raw_output": content, **(metadata or {})},
     )
 
 
@@ -76,6 +77,9 @@ async def test_execution_protocol_dispatches_package_and_records_result(tmp_path
     assert "ID: WP-001" in sent_prompt
     assert "[Subagent Delegation Policy]" in sent_prompt
     assert "## Subtasks" in sent_prompt
+    assert agent.send_and_wait.call_args.kwargs["access"] == (
+        InvocationAccess.WORKSPACE_WRITE
+    )
     task_results = shared.read_section("Task Results")
     assert task_results is not None
     assert "WP-001 / codex" in task_results
@@ -193,6 +197,33 @@ async def test_execution_protocol_skips_design_only_packages(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_execution_protocol_marks_non_ok_provider_status_failed(tmp_path):
+    shared = SharedContextEngine(tmp_path / "shared.md")
+    agent = AsyncMock()
+    agent.send_and_wait.return_value = _message(
+        "[Error: exit code 1]",
+        metadata={"response_status": ResponseStatus.AUTH_REQUIRED.value},
+    )
+    package = WorkPackage(
+        id="WP-001",
+        title="codex package",
+        owner_agent="codex",
+        objective="Implement.",
+    )
+    protocol = ExecutionProtocol(
+        agents={"codex": agent},
+        shared=shared,
+        artifact_dir=tmp_path / "execution",
+    )
+
+    results = await protocol.run([package])
+
+    assert results[0].status == WorkStatus.FAILED
+    assert results[0].summary == "[Error: exit code 1]"
+    assert package.status == WorkStatus.FAILED
+
+
+@pytest.mark.asyncio
 async def test_execution_protocol_runs_independent_packages_in_parallel(tmp_path):
     shared = SharedContextEngine(tmp_path / "shared.md")
     claude = AsyncMock()
@@ -202,13 +233,15 @@ async def test_execution_protocol_runs_independent_packages_in_parallel(tmp_path
     claude_started = asyncio.Event()
     codex_started = asyncio.Event()
 
-    async def _claude_send(prompt: str, timeout: float):
+    async def _claude_send(prompt: str, timeout: float, access=None):
         claude_started.set()
+        assert access == InvocationAccess.WORKSPACE_WRITE
         await asyncio.wait_for(codex_started.wait(), timeout=0.5)
         return _message("## Completed\n- Claude done\n\n## Blockers\n- none\n")
 
-    async def _codex_send(prompt: str, timeout: float):
+    async def _codex_send(prompt: str, timeout: float, access=None):
         codex_started.set()
+        assert access == InvocationAccess.WORKSPACE_WRITE
         await asyncio.wait_for(claude_started.wait(), timeout=0.5)
         return _message("## Completed\n- Codex done\n\n## Blockers\n- none\n")
 
@@ -251,13 +284,15 @@ async def test_execution_protocol_serializes_same_worktree_provider_writes(tmp_p
     codex.launch_cwd = tmp_path
     order: list[str] = []
 
-    async def _claude_send(prompt: str, timeout: float):
+    async def _claude_send(prompt: str, timeout: float, access=None):
+        assert access == InvocationAccess.WORKSPACE_WRITE
         order.append("claude-start")
         await asyncio.sleep(0.01)
         order.append("claude-end")
         return _message("## Completed\n- Claude done\n\n## Blockers\n- none\n")
 
-    async def _codex_send(prompt: str, timeout: float):
+    async def _codex_send(prompt: str, timeout: float, access=None):
+        assert access == InvocationAccess.WORKSPACE_WRITE
         order.append("codex-start")
         await asyncio.sleep(0.01)
         order.append("codex-end")
@@ -301,13 +336,15 @@ async def test_execution_protocol_allows_disjoint_expected_files_same_worktree(t
     claude_started = asyncio.Event()
     codex_started = asyncio.Event()
 
-    async def _claude_send(prompt: str, timeout: float):
+    async def _claude_send(prompt: str, timeout: float, access=None):
         claude_started.set()
+        assert access == InvocationAccess.WORKSPACE_WRITE
         await asyncio.wait_for(codex_started.wait(), timeout=0.5)
         return _message("## Completed\n- Claude done\n\n## Blockers\n- none\n")
 
-    async def _codex_send(prompt: str, timeout: float):
+    async def _codex_send(prompt: str, timeout: float, access=None):
         codex_started.set()
+        assert access == InvocationAccess.WORKSPACE_WRITE
         await asyncio.wait_for(claude_started.wait(), timeout=0.5)
         return _message("## Completed\n- Codex done\n\n## Blockers\n- none\n")
 

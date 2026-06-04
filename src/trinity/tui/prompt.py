@@ -46,6 +46,7 @@ TRINITY_COMMANDS = [
     "/packages",
     "/subtasks",
     "/resume",
+    "/execute",
     "/help",
     "/quit",
 ]

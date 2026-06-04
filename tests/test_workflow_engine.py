@@ -5,6 +5,7 @@ import json
 from trinity.models import ConsensusResult, DeliberationResult
 from trinity.context.shared import SharedContextEngine
 from trinity.workflow import (
+    Blueprint,
     ExecutionResult,
     OpenQuestion,
     SubtaskResult,
@@ -45,7 +46,7 @@ def test_workflow_engine_loads_existing_session(tmp_path):
     assert loaded.state == WorkflowState.DELIBERATING
 
 
-def test_pending_question_requires_explicit_answer(tmp_path):
+def test_pending_question_plain_text_answers_next_question(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
     engine.start("Design a bridge bot", ["claude"])
     original_id = engine.session.id
@@ -61,12 +62,12 @@ def test_pending_question_requires_explicit_answer(tmp_path):
     action = engine.handle_user_input("Use mixed score", ["claude"])
 
     assert engine.session.id == original_id
-    assert action.should_deliberate is False
-    assert action.decision_record is None
-    assert "explicit answer" in action.message
-    assert engine.session.decisions == []
-    assert engine.session.pending_questions[0].status == "open"
-    assert engine.state == WorkflowState.NEEDS_USER_DECISION
+    assert action.should_deliberate is True
+    assert action.decision_record is not None
+    assert action.decision_record.question_id == "q-001"
+    assert action.decision_record.decision == "Use mixed score"
+    assert engine.session.pending_questions[0].status == "answered"
+    assert engine.state == WorkflowState.DELIBERATING
 
 
 def test_answer_question_records_decision_without_new_workflow(tmp_path):
@@ -204,6 +205,52 @@ def test_mark_deliberation_result_applies_structured_blueprint(tmp_path):
     loaded = WorkflowEngine(tmp_path / ".trinity")
     assert loaded.session.blueprint is not None
     assert loaded.session.blueprint.title == "Route Bot"
+
+
+def test_blueprint_ready_plain_text_continues_existing_workflow(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design a route bot", ["claude"])
+    original_id = engine.session.id
+    engine.session.blueprint = Blueprint(
+        title="Route Bot",
+        summary="Find bridge routes.",
+        acceptance_criteria=["rank paths"],
+    )
+    engine.set_state(WorkflowState.BLUEPRINT_READY, reason="test blueprint ready")
+
+    action = engine.handle_user_input("Add Telegram alerts", ["claude"])
+
+    assert engine.session.id == original_id
+    assert action.should_deliberate is True
+    assert action.started_new_workflow is False
+    assert engine.state == WorkflowState.DELIBERATING
+    assert "Continue the existing workflow" in action.prompt
+    assert "Add Telegram alerts" in action.prompt
+
+
+def test_enable_execution_regenerates_current_blueprint_packages(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design a route bot", ["claude"])
+    engine.session.blueprint = Blueprint(
+        title="Route Bot",
+        summary="Find bridge routes.",
+        acceptance_criteria=["rank paths"],
+    )
+    engine.session.work_packages = engine.decomposer.decompose(
+        engine.session.blueprint,
+        ["claude"],
+        requires_execution=False,
+    )
+    engine.set_state(WorkflowState.BLUEPRINT_READY, reason="test blueprint ready")
+
+    action = engine.enable_execution_for_current_blueprint("Implement in Python")
+
+    assert action.should_deliberate is False
+    assert engine.state == WorkflowState.BLUEPRINT_READY
+    assert len(engine.work_packages) == 1
+    assert engine.work_packages[0].requires_execution is True
+    assert engine.work_packages[0].expected_files != ["docs/"]
+    assert engine.decisions[0].decision == "Implement in Python"
 
 
 def test_mark_deliberation_result_waits_on_structured_question(tmp_path):

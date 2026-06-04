@@ -308,10 +308,7 @@ class TrinityOrchestrator:
         logger.info(f"Starting deliberation: {prompt[:100]}...")
         start_time = time.time()
 
-        # Start all agents
-        for name, agent in self.agents.items():
-            role_prompt = agent.spec.role_prompt or ""
-            await agent.start(initial_prompt=role_prompt)
+        await self._ensure_agents_started()
 
         readiness_failure = self._check_provider_readiness(prompt, start_time)
         if readiness_failure is not None:
@@ -340,10 +337,23 @@ class TrinityOrchestrator:
         self._ensure_initialized()
         if not self.execution_protocol:
             raise RuntimeError("Execution protocol was not initialized")
+        await self._ensure_agents_started()
         return await self.execution_protocol.run(
             work_packages,
             decisions=decisions or [],
         )
+
+    async def _ensure_agents_started(self) -> None:
+        """Start active agents before a deliberation or execution-only run."""
+        for name, agent in self.agents.items():
+            try:
+                alive = await agent.is_alive()
+            except Exception:
+                alive = False
+            if alive:
+                continue
+            role_prompt = agent.spec.role_prompt or ""
+            await agent.start(initial_prompt=role_prompt)
 
     async def _rotate_agent_for_lifecycle(self, agent_name: str) -> bool:
         """Rotate one agent when lifecycle guard recommends it."""

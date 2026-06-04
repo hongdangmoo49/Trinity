@@ -281,6 +281,26 @@ class SharedContextEngine:
         """Store a compressed summary for a completed round."""
         self.write_section(f"Round {round_num} Summary", summary)
 
+    def write_synthesis_summary(
+        self,
+        round_num: int,
+        summary: str,
+        *,
+        source: str = "",
+        next_round_prompt: str = "",
+    ) -> None:
+        """Store the central synthesis result for a completed round."""
+        lines: list[str] = []
+        if source:
+            lines.append(f"- source: {self._sanitize_md_heading(source)}")
+        safe_summary = self._sanitize_md_heading(summary)
+        if safe_summary:
+            lines.extend(["", "### Summary", safe_summary])
+        safe_next = self._sanitize_md_heading(next_round_prompt)
+        if safe_next:
+            lines.extend(["", "### Next Round Prompt", safe_next])
+        self.write_section(f"Round {round_num} Synthesis", "\n".join(lines).strip())
+
     def remove_section(self, heading: str) -> None:
         """Remove a ## section entirely from shared.md."""
         full = self.read()

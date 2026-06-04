@@ -11,6 +11,7 @@ from trinity.context.budget import BudgetCheckResult
 from trinity.context.shared import SharedContextEngine
 from trinity.deliberation.consensus import ConsensusEngine
 from trinity.deliberation.protocol import DeliberationProtocol
+from trinity.deliberation.synthesis import SynthesisInput, SynthesisResult
 from trinity.models import (
     AgentSpec,
     ConsensusResult,
@@ -75,6 +76,32 @@ class RecordingBudgetChecker:
             projected_ratio=0.01,
             safe=True,
             recommendation="proceed",
+        )
+
+
+class RecordingSynthesisAgent:
+    """Synthesis test double that records received round input."""
+
+    def __init__(self):
+        self.inputs: list[SynthesisInput] = []
+
+    async def synthesize(self, synthesis_input: SynthesisInput) -> SynthesisResult:
+        self.inputs.append(synthesis_input)
+        consensus = ConsensusResult(
+            reached=True,
+            agreement_count=len(synthesis_input.opinions),
+            total_agents=len(synthesis_input.opinions),
+            opinions=dict(synthesis_input.opinions),
+            summary="Recorded synthesis consensus.",
+        )
+        return SynthesisResult(
+            round_num=synthesis_input.round_num,
+            consensus_reached=True,
+            agreement_count=consensus.agreement_count,
+            total_agents=consensus.total_agents,
+            summary_for_shared_md=consensus.summary,
+            consensus=consensus,
+            source="test-synthesis",
         )
 
 
@@ -569,6 +596,36 @@ VOTE: APPROVE
         assert result.has_consensus
         assert structured["reached"] is True
         assert structured["final_blueprint"]["title"] == "Route Bot"
+
+    @pytest.mark.asyncio
+    async def test_protocol_uses_central_synthesis_agent(self, tmp_path):
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        agents = {"claude": _make_mock_agent("claude")}
+        agents["claude"].send_and_wait = AsyncMock(
+            return_value=_make_opinion("claude", 1, "I agree with the plan.")
+        )
+        synthesis_agent = RecordingSynthesisAgent()
+
+        protocol = DeliberationProtocol(
+            agents=agents,
+            shared=engine,
+            max_rounds=3,
+            synthesis_agent=synthesis_agent,
+        )
+
+        result = await protocol.run("Design route bot")
+
+        assert result.has_consensus
+        assert len(synthesis_agent.inputs) == 1
+        synthesis_input = synthesis_agent.inputs[0]
+        assert synthesis_input.user_prompt == "Design route bot"
+        assert synthesis_input.round_num == 1
+        assert synthesis_input.opinions == {"claude": "I agree with the plan."}
+        assert result.metadata["synthesis"]["source"] == "test-synthesis"
+        synthesis_section = engine.read_section("Round 1 Synthesis")
+        assert synthesis_section is not None
+        assert "Recorded synthesis consensus." in synthesis_section
+        assert "source: test-synthesis" in synthesis_section
 
     @pytest.mark.asyncio
     async def test_structured_open_question_stops_round_loop(self, tmp_path):

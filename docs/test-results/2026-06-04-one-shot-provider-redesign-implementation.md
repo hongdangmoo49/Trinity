@@ -46,6 +46,14 @@
    - `trinity ask -i/--interactive`는 호환을 위해 tmux transport 강제 옵션으로 유지했다.
    - `trinity status`와 TUI `/status`에서 현재 transport를 표시한다.
 
+7. 중앙 synthesis 계약 추가
+   - `SynthesisInput`, `SynthesisResult`, `SynthesisAgent` 계약을 추가했다.
+   - 기존 `StructuredConsensusSynthesizer`와 keyword consensus를 `HeuristicSynthesisAgent` 뒤로 이동했다.
+   - provider-backed synthesizer가 실패할 때 deterministic fallback을 사용할 수 있도록 `FallbackSynthesisAgent`를 추가했다.
+   - `DeliberationProtocol`은 round 응답 수집 직후 중앙 synthesis agent를 호출한다.
+   - 각 라운드 합성 결과는 `shared.md`의 `Round N Synthesis` 섹션에 기록한다.
+   - 기존 workflow 연동을 유지하기 위해 `metadata["structured_consensus"]`를 계속 제공하고, 신규 `metadata["synthesis"]`를 추가했다.
+
 ## 제거/정리
 
 - `PrintModeClaudeAgent._run_subprocess`
@@ -63,14 +71,13 @@ tmux, completion detector, Gemini legacy agent는 아직 제거하지 않았다.
 
 ```text
 uv run pytest
-944 passed, 1 warning in 19.59s
+949 passed, 1 warning in 19.68s
 ```
 
 경고는 기존 테스트 mock coroutine 미await warning이며 이번 변경 실패는 아니다.
 
 ## 남은 작업
 
-- 중앙 `SynthesisAgent`와 `SynthesisResult` schema 추가.
 - `shared.md`를 raw 응답 누적보다 synthesis summary 중심 구조로 재정리.
 - Antigravity CLI가 공식적으로 one-shot/headless prompt와 machine-readable output을 제공하는지 확인 후 `AntigravityInvoker` 구현.
 - provider-managed write execution을 실제 workflow execution scheduler에 연결.

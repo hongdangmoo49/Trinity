@@ -19,6 +19,12 @@ from trinity.context.compressor import PromptCompressor
 from trinity.context.shared import SharedContextEngine
 from trinity.deliberation.consensus import ConsensusEngine
 from trinity.deliberation.distributor import TaskDistributor
+from trinity.deliberation.synthesis import (
+    HeuristicSynthesisAgent,
+    SynthesisAgent,
+    SynthesisInput,
+    SynthesisResult,
+)
 from trinity.models import (
     AgentResponse,
     ConsensusResult,
@@ -87,6 +93,7 @@ class DeliberationProtocol:
         analytics_path: Path | None = None,
         response_artifact_dir: Path | None = None,
         structured_synthesizer: StructuredConsensusSynthesizer | None = None,
+        synthesis_agent: SynthesisAgent | None = None,
         lifecycle_guard: LifecycleGuard | None = None,
         rotation_callback: Callable[[str], object] | None = None,
     ):
@@ -98,6 +105,10 @@ class DeliberationProtocol:
             or StructuredConsensusSynthesizer(
                 required_fraction=self.consensus_engine.required_fraction,
             )
+        )
+        self.synthesis_agent = synthesis_agent or HeuristicSynthesisAgent(
+            consensus_engine=self.consensus_engine,
+            structured_synthesizer=self.structured_synthesizer,
         )
         self.distributor = distributor or TaskDistributor()
         self.max_rounds = max_rounds
@@ -151,6 +162,7 @@ class DeliberationProtocol:
 
         consensus: ConsensusResult | None = None
         structured_consensus: StructuredConsensusResult | None = None
+        synthesis_result: SynthesisResult | None = None
         round_num = 0
 
         for round_num in range(1, self.max_rounds + 1):
@@ -201,9 +213,36 @@ class DeliberationProtocol:
                 for name, msg in opinions.items()
                 if not self._is_unusable_agent_response(msg)
             }
-            structured_consensus = self.structured_synthesizer.evaluate(opinion_texts)
-            if structured_consensus.open_questions:
-                consensus = self._consensus_from_structured(structured_consensus)
+            synthesis_result = await self.synthesis_agent.synthesize(
+                SynthesisInput(
+                    user_prompt=user_prompt,
+                    round_num=round_num,
+                    opinions=opinion_texts,
+                    previous_summary=(
+                        synthesis_result.summary_for_shared_md
+                        if synthesis_result is not None
+                        else ""
+                    ),
+                )
+            )
+            consensus = synthesis_result.consensus
+            structured_consensus = synthesis_result.structured_consensus
+            if consensus is None:
+                consensus = ConsensusResult(
+                    reached=False,
+                    agreement_count=0,
+                    total_agents=0,
+                    opinions={},
+                    summary="No synthesis result was produced.",
+                )
+            self.shared.write_synthesis_summary(
+                round_num=round_num,
+                summary=synthesis_result.summary_for_shared_md,
+                source=synthesis_result.source,
+                next_round_prompt=synthesis_result.next_round_prompt,
+            )
+
+            if synthesis_result.open_questions_for_user:
                 logger.info(
                     "Structured deliberation requires user decision at round %s.",
                     round_num,
@@ -217,11 +256,6 @@ class DeliberationProtocol:
                     round_num=round_num,
                 )
                 break
-
-            if structured_consensus.reached:
-                consensus = self._consensus_from_structured(structured_consensus)
-            else:
-                consensus = self.consensus_engine.evaluate(opinion_texts)
 
             if consensus.reached:
                 logger.info(f"Consensus reached at round {round_num}!")
@@ -307,6 +341,11 @@ class DeliberationProtocol:
                 "structured_consensus": (
                     structured_consensus.to_dict()
                     if structured_consensus is not None
+                    else None
+                ),
+                "synthesis": (
+                    synthesis_result.to_dict()
+                    if synthesis_result is not None
                     else None
                 ),
             },
@@ -793,22 +832,6 @@ class DeliberationProtocol:
             "Risks, and Acceptance Criteria sections.\n"
             "- If user input is required, vote BLOCKED_BY_QUESTION and include "
             "OPEN QUESTIONS with Question, Options, Recommended, and Rationale."
-        )
-
-    @staticmethod
-    def _consensus_from_structured(
-        structured: StructuredConsensusResult,
-    ) -> ConsensusResult:
-        """Convert structured consensus into the legacy result shape."""
-        return ConsensusResult(
-            reached=structured.reached,
-            agreement_count=structured.approval_count,
-            total_agents=structured.total_votes,
-            opinions={
-                name: vote.rationale or vote.vote.value
-                for name, vote in structured.votes.items()
-            },
-            summary=structured.summary,
         )
 
     def _append_caveman(self, prompt: str) -> str:

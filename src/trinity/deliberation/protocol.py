@@ -221,6 +221,11 @@ class DeliberationProtocol:
                         if synthesis_result is not None
                         else ""
                     ),
+                    metadata={
+                        "invalid_response_diagnostics": (
+                            self._invalid_response_diagnostics(opinions)
+                        ),
+                    },
                 )
             )
             consensus = synthesis_result.consensus
@@ -233,10 +238,15 @@ class DeliberationProtocol:
                     opinions={},
                     summary="No synthesis result was produced.",
                 )
+            synthesis_metadata = synthesis_result.metadata
             self.shared.write_synthesis_summary(
                 round_num=round_num,
                 summary=synthesis_result.summary_for_shared_md,
                 source=synthesis_result.source,
+                provider=str(synthesis_metadata.get("provider", "")),
+                model=str(synthesis_metadata.get("model", "")),
+                fallback_used=synthesis_metadata.get("fallback_used"),
+                fallback_reason=str(synthesis_metadata.get("fallback_reason", "")),
                 next_round_prompt=synthesis_result.next_round_prompt,
             )
 
@@ -594,6 +604,36 @@ class DeliberationProtocol:
         msg.metadata["agent_response"] = response.to_metadata()
         msg.metadata["response_status"] = status.value
         return response
+
+    def _invalid_response_diagnostics(
+        self,
+        opinions: dict[str, DeliberationMessage],
+    ) -> list[dict[str, object]]:
+        """Return compact diagnostics for responses excluded from synthesis."""
+        diagnostics: list[dict[str, object]] = []
+        for agent_name, msg in opinions.items():
+            if not self._is_unusable_agent_response(msg):
+                continue
+            validation = msg.metadata.get("response_validation")
+            reasons: list[str] = []
+            classification = self._response_status(msg)
+            if isinstance(validation, dict):
+                classification = str(validation.get("classification") or classification)
+                raw_reasons = validation.get("reasons", [])
+                if isinstance(raw_reasons, list):
+                    reasons = [str(reason) for reason in raw_reasons]
+            provider_diagnostics = msg.metadata.get("diagnostics", [])
+            if isinstance(provider_diagnostics, list):
+                reasons.extend(str(item) for item in provider_diagnostics)
+            diagnostics.append(
+                {
+                    "agent": agent_name,
+                    "status": self._response_status(msg),
+                    "classification": classification,
+                    "reasons": [reason for reason in reasons if reason],
+                }
+            )
+        return diagnostics
 
     def _append_response_reference(
         self,

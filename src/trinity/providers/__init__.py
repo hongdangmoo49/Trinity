@@ -8,6 +8,7 @@ from trinity.providers.policy import (
     ParallelExecutionPolicy,
 )
 from trinity.providers.invoker import (
+    AntigravityPrintInvoker,
     ClaudePrintInvoker,
     CliProviderInvoker,
     CodexExecInvoker,
@@ -24,6 +25,7 @@ from trinity.providers.readiness import (
 
 __all__ = [
     "ExecutionAuthority",
+    "AntigravityPrintInvoker",
     "ExecutionScope",
     "ClaudePrintInvoker",
     "CliProviderInvoker",

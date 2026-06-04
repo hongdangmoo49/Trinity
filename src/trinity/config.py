@@ -10,6 +10,7 @@ from trinity.models import AgentSpec, Provider
 
 PROVIDER_STATE_MODES = {"user-home", "isolated"}
 TRANSPORT_MODES = {"one-shot", "tmux"}
+SYNTHESIS_MODES = {"auto", "model", "heuristic"}
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -46,6 +47,11 @@ class TrinityConfig:
     round_timeout_seconds: float = 120.0
     provider_readiness_mode: str = "strict"  # "strict" | "degraded"
     provider_readiness_timeout_seconds: float = 20.0
+    synthesis_mode: str = "auto"  # "auto" | "model" | "heuristic"
+    synthesis_agent: str = ""
+    synthesis_model: str = "fast"
+    synthesis_timeout_seconds: float = 30.0
+    synthesis_max_input_chars: int = 60_000
 
     # Context management
     context_rotate_threshold: float = 0.60
@@ -163,6 +169,17 @@ class TrinityConfig:
             provider_readiness_timeout_seconds=deliberation.get(
                 "provider_readiness_timeout_seconds", 20.0
             ),
+            synthesis_mode=cls._normalize_synthesis_mode(
+                deliberation.get("synthesis_mode", "auto")
+            ),
+            synthesis_agent=str(deliberation.get("synthesis_agent", "")),
+            synthesis_model=str(deliberation.get("synthesis_model", "fast")),
+            synthesis_timeout_seconds=float(
+                deliberation.get("synthesis_timeout_seconds", 30.0)
+            ),
+            synthesis_max_input_chars=int(
+                deliberation.get("synthesis_max_input_chars", 60_000)
+            ),
             context_rotate_threshold=context.get(
                 "rotate_threshold", general.get("context_rotate_threshold", 0.60)
             ),
@@ -241,6 +258,11 @@ class TrinityConfig:
                 "provider_readiness_timeout_seconds": (
                     self.provider_readiness_timeout_seconds
                 ),
+                "synthesis_mode": self.synthesis_mode,
+                "synthesis_agent": self.synthesis_agent,
+                "synthesis_model": self.synthesis_model,
+                "synthesis_timeout_seconds": self.synthesis_timeout_seconds,
+                "synthesis_max_input_chars": self.synthesis_max_input_chars,
             },
             "context": {
                 "caveman_mode": self.caveman_mode,
@@ -303,6 +325,18 @@ class TrinityConfig:
             allowed = ", ".join(sorted(TRANSPORT_MODES))
             raise ValueError(
                 f"Unsupported transport_mode: {value!r}. "
+                f"Expected one of: {allowed}"
+            )
+        return normalized
+
+    @staticmethod
+    def _normalize_synthesis_mode(value: str) -> str:
+        """Validate central synthesis mode from config."""
+        normalized = (value or "auto").strip().lower()
+        if normalized not in SYNTHESIS_MODES:
+            allowed = ", ".join(sorted(SYNTHESIS_MODES))
+            raise ValueError(
+                f"Unsupported synthesis_mode: {value!r}. "
                 f"Expected one of: {allowed}"
             )
         return normalized

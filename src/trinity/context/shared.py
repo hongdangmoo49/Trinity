@@ -318,12 +318,26 @@ class SharedContextEngine:
         summary: str,
         *,
         source: str = "",
+        provider: str = "",
+        model: str = "",
+        fallback_used: object | None = None,
+        fallback_reason: str = "",
         next_round_prompt: str = "",
     ) -> None:
         """Store the central synthesis result for a completed round."""
         lines: list[str] = []
         if source:
             lines.append(f"- source: {self._sanitize_md_heading(source)}")
+        if provider:
+            lines.append(f"- provider: {self._sanitize_md_heading(provider)}")
+        if model:
+            lines.append(f"- model: {self._sanitize_md_heading(model)}")
+        if fallback_used is not None:
+            fallback_text = "true" if bool(fallback_used) else "false"
+            lines.append(f"- fallback_used: {fallback_text}")
+        if fallback_reason:
+            reason = self._sanitize_md_heading(fallback_reason)
+            lines.append(f"- fallback_reason: {reason}")
         safe_summary = self._sanitize_md_heading(summary)
         if safe_summary:
             lines.extend(["", "### Summary", safe_summary])

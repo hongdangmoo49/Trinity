@@ -217,6 +217,11 @@ enabled = true
         config = TrinityConfig.default_config(project_dir=tmp_path)
         config.provider_readiness_mode = "degraded"
         config.provider_readiness_timeout_seconds = 2.0
+        config.synthesis_mode = "model"
+        config.synthesis_agent = "claude"
+        config.synthesis_model = "sonnet"
+        config.synthesis_timeout_seconds = 9.0
+        config.synthesis_max_input_chars = 12_345
         save_path = tmp_path / "test_config.toml"
         config.save(save_path)
 
@@ -230,6 +235,11 @@ enabled = true
         assert loaded.transport_mode == "one-shot"
         assert loaded.provider_readiness_mode == "degraded"
         assert loaded.provider_readiness_timeout_seconds == 2.0
+        assert loaded.synthesis_mode == "model"
+        assert loaded.synthesis_agent == "claude"
+        assert loaded.synthesis_model == "sonnet"
+        assert loaded.synthesis_timeout_seconds == 9.0
+        assert loaded.synthesis_max_input_chars == 12_345
 
     def test_save_includes_model_field(self, tmp_path):
         config = TrinityConfig.default_config(project_dir=tmp_path)
@@ -252,3 +262,58 @@ enabled = true
         loaded = TrinityConfig.load(config_path)
 
         assert loaded.agents["claude"].role_prompt == config.agents["claude"].role_prompt
+
+    def test_synthesis_config_defaults(self):
+        config = TrinityConfig.default_config()
+        assert config.synthesis_mode == "auto"
+        assert config.synthesis_agent == ""
+        assert config.synthesis_model == "fast"
+        assert config.synthesis_timeout_seconds == 30.0
+        assert config.synthesis_max_input_chars == 60_000
+
+    def test_load_synthesis_config(self, tmp_trinity_dir):
+        config_path = tmp_trinity_dir / "trinity.config"
+        config_path.write_text(
+            """
+[deliberation]
+synthesis_mode = "model"
+synthesis_agent = "codex"
+synthesis_model = "gpt-5.1"
+synthesis_timeout_seconds = 5.5
+synthesis_max_input_chars = 12000
+
+[agents.codex]
+provider = "codex"
+cli_command = "codex"
+enabled = true
+""",
+            encoding="utf-8",
+        )
+
+        config = TrinityConfig.load(config_path)
+
+        assert config.synthesis_mode == "model"
+        assert config.synthesis_agent == "codex"
+        assert config.synthesis_model == "gpt-5.1"
+        assert config.synthesis_timeout_seconds == 5.5
+        assert config.synthesis_max_input_chars == 12_000
+
+    def test_load_rejects_invalid_synthesis_mode(self, tmp_trinity_dir):
+        config_path = tmp_trinity_dir / "trinity.config"
+        config_path.write_text(
+            """
+[deliberation]
+synthesis_mode = "always"
+
+[agents.claude]
+provider = "claude-code"
+cli_command = "claude"
+enabled = true
+""",
+            encoding="utf-8",
+        )
+
+        import pytest
+
+        with pytest.raises(ValueError, match="synthesis_mode"):
+            TrinityConfig.load(config_path)

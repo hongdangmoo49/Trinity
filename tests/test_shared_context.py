@@ -375,3 +375,24 @@ class TestMarkdownHeadingSanitization:
         assert section is not None
         assert "## Injected" not in section
         assert "\\# Injected" in section
+
+
+def test_write_synthesis_summary_includes_model_metadata(shared_engine):
+    shared_engine.initialize(goal="test", agent_names=["codex"])
+
+    shared_engine.write_synthesis_summary(
+        1,
+        "Model synthesis summary.",
+        source="model-backed",
+        provider="codex",
+        model="fast",
+        fallback_used=False,
+        next_round_prompt="Continue.",
+    )
+
+    section = shared_engine.read_section("Round 1 Synthesis")
+    assert section is not None
+    assert "source: model-backed" in section
+    assert "provider: codex" in section
+    assert "model: fast" in section
+    assert "fallback_used: false" in section

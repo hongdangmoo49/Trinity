@@ -1,11 +1,11 @@
 """Tests for trinity.agents.claude_agent — PrintModeClaudeAgent."""
 
-import json
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock
 
 from trinity.agents.claude_agent import PrintModeClaudeAgent
-from trinity.models import AgentSpec, ContextUsage, MessageRole, Provider
+from trinity.models import AgentSpec, ContextUsage, MessageRole, Provider, ResponseStatus
+from trinity.providers.invoker import ProviderTurnResult
 
 
 @pytest.fixture
@@ -70,192 +70,90 @@ class TestSendAndWait:
             await agent.send_and_wait("test")
 
     @pytest.mark.asyncio
-    async def test_sends_correct_command(self, agent):
+    async def test_invokes_provider_request(self, agent):
         await agent.start()
 
-        mock_result = {
-            "result": "I recommend JWT.",
-            "usage": {"input_tokens": 100, "output_tokens": 50},
-            "model": "claude-sonnet-4-6",
-        }
+        mock_result = ProviderTurnResult(
+            agent_name="claude",
+            content="I recommend JWT.",
+            raw_output='{"result":"I recommend JWT."}',
+            status=ResponseStatus.OK,
+            elapsed_seconds=0.25,
+            usage=ContextUsage(used=150, total=0),
+            metadata={"model": "claude-sonnet-4-6"},
+        )
 
-        with patch.object(agent, "_run_subprocess", return_value=mock_result):
-            msg = await agent.send_and_wait("What auth method?")
+        agent._invoker.invoke = AsyncMock(return_value=mock_result)
+        msg = await agent.send_and_wait("What auth method?")
 
-            assert msg.source == "claude"
-            assert msg.target == "all"
-            assert msg.role == MessageRole.OPINION
-            assert msg.content == "I recommend JWT."
-            assert msg.metadata["token_count"] == 150
-            assert msg.metadata["model"] == "claude-sonnet-4-6"
-
-    def test_subprocess_command_includes_model_arg(self, claude_spec):
-        claude_spec.model = "opus[1m]"
-        agent = PrintModeClaudeAgent(claude_spec)
-        proc = MagicMock()
-        proc.returncode = 0
-        proc.stdout = json.dumps({"result": "ok", "usage": {}})
-        proc.stderr = ""
-
-        with patch("trinity.agents.claude_agent.subprocess.run", return_value=proc) as run:
-            agent._run_subprocess(["claude", *agent._model_args(), "-p", "prompt"], 120)
-
-        cmd = run.call_args.args[0]
-        assert "--model" in cmd
-        assert "opus[1m]" in cmd
+        request = agent._invoker.invoke.call_args.args[0]
+        assert request.agent_name == "claude"
+        assert request.role_prompt == "You are the Architect."
+        assert request.context_prompt == ""
+        assert request.extra_args == ("--dangerously-skip-permissions",)
+        assert msg.source == "claude"
+        assert msg.target == "all"
+        assert msg.role == MessageRole.OPINION
+        assert msg.content == "I recommend JWT."
+        assert msg.metadata["token_count"] == 150
+        assert msg.metadata["model"] == "claude-sonnet-4-6"
+        assert msg.metadata["response_status"] == "ok"
 
     @pytest.mark.asyncio
     async def test_updates_context_usage(self, agent):
         await agent.start()
 
-        mock_result = {
-            "result": "Response",
-            "usage": {"input_tokens": 200, "output_tokens": 100},
-        }
+        agent._invoker.invoke = AsyncMock(
+            return_value=ProviderTurnResult(
+                agent_name="claude",
+                content="Response",
+                raw_output="raw",
+                status=ResponseStatus.OK,
+                elapsed_seconds=0.1,
+                usage=ContextUsage(used=300, total=0),
+            )
+        )
+        await agent.send_and_wait("test")
 
-        with patch.object(agent, "_run_subprocess", return_value=mock_result):
-            await agent.send_and_wait("test")
-
-            assert agent.context_usage.used == 300
-            assert agent.context_usage.total == 200_000
+        assert agent.context_usage.used == 300
+        assert agent.context_usage.total == 200_000
 
     @pytest.mark.asyncio
     async def test_timeout_returns_error_message(self, agent):
-        import subprocess
-
         await agent.start()
 
-        with patch.object(
-            agent, "_run_subprocess", side_effect=subprocess.TimeoutExpired("cmd", 120)
-        ):
-            msg = await agent.send_and_wait("test", timeout=120)
+        agent._invoker.invoke = AsyncMock(
+            return_value=ProviderTurnResult(
+                agent_name="claude",
+                content="[Timeout after 120s]",
+                raw_output="",
+                status=ResponseStatus.TIMEOUT,
+                elapsed_seconds=120,
+                diagnostics=["Provider invocation timed out."],
+            )
+        )
+        msg = await agent.send_and_wait("test", timeout=120)
 
-            assert "Timeout" in msg.content
-            assert msg.metadata["error"] == "timeout"
+        assert "Timeout" in msg.content
+        assert msg.metadata["response_status"] == "timeout"
 
     @pytest.mark.asyncio
     async def test_increments_message_count(self, agent):
         await agent.start()
 
-        mock_result = {"result": "ok", "usage": {}}
-
-        with patch.object(agent, "_run_subprocess", return_value=mock_result):
-            await agent.send_and_wait("test1")
-            await agent.send_and_wait("test2")
-
-            assert agent._message_count == 2
-
-
-class TestBuildPrompt:
-    def test_with_role_and_initial(self, agent):
-        agent._initial_prompt = "Welcome."
-        prompt = agent._build_prompt("What should we do?")
-
-        assert "[System Role]" in prompt
-        assert "Architect" in prompt
-        assert "[Context]" in prompt
-        assert "Welcome" in prompt
-        assert "What should we do?" in prompt
-
-    def test_with_role_only(self, agent):
-        agent._initial_prompt = ""
-        prompt = agent._build_prompt("Test question")
-
-        assert "[System Role]" in prompt
-        assert "Test question" in prompt
-        assert "[Context]" not in prompt
-
-    def test_without_role(self):
-        spec = AgentSpec(
-            name="test",
-            provider=Provider.CLAUDE_CODE,
-            cli_command="claude",
-            role_prompt="",
+        agent._invoker.invoke = AsyncMock(
+            return_value=ProviderTurnResult(
+                agent_name="claude",
+                content="ok",
+                raw_output="raw",
+                status=ResponseStatus.OK,
+                elapsed_seconds=0.1,
+            )
         )
-        agent = PrintModeClaudeAgent(spec)
-        agent._initial_prompt = ""
+        await agent.send_and_wait("test1")
+        await agent.send_and_wait("test2")
 
-        prompt = agent._build_prompt("Just a question")
-        assert prompt == "Just a question"
-
-
-class TestRunSubprocess:
-    def test_success_json(self, agent):
-        mock_proc = MagicMock()
-        mock_proc.returncode = 0
-        mock_proc.stdout = json.dumps({
-            "result": "Hello",
-            "usage": {"input_tokens": 10, "output_tokens": 5},
-        })
-
-        with patch("subprocess.run", return_value=mock_proc):
-            result = agent._run_subprocess(["claude", "-p", "test"], 120)
-
-            assert result["result"] == "Hello"
-            assert result["usage"]["input_tokens"] == 10
-
-    def test_nonzero_exit_code(self, agent):
-        mock_proc = MagicMock()
-        mock_proc.returncode = 1
-        mock_proc.stderr = "Error: something went wrong"
-
-        with patch("subprocess.run", return_value=mock_proc):
-            result = agent._run_subprocess(["claude", "-p", "test"], 120)
-
-            assert "Error" in result["result"]
-            assert result["usage"] == {}
-
-    def test_non_json_output(self, agent):
-        mock_proc = MagicMock()
-        mock_proc.returncode = 0
-        mock_proc.stdout = "Plain text response, not JSON"
-
-        with patch("subprocess.run", return_value=mock_proc):
-            result = agent._run_subprocess(["claude", "-p", "test"], 120)
-
-            assert result["result"] == "Plain text response, not JSON"
-
-    def test_subprocess_uses_configured_launch_context(self, agent, tmp_path):
-        mock_proc = MagicMock()
-        mock_proc.returncode = 0
-        mock_proc.stdout = json.dumps({"result": "Hello", "usage": {}})
-        agent.configure_launch(
-            cwd=tmp_path,
-            env_overrides={"HOME": str(tmp_path / "home")},
-        )
-
-        with patch("subprocess.run", return_value=mock_proc) as mock_run:
-            agent._run_subprocess(["claude", "-p", "test"], 120)
-
-        kwargs = mock_run.call_args.kwargs
-        assert kwargs["cwd"] == tmp_path
-        assert kwargs["env"]["HOME"] == str(tmp_path / "home")
-
-
-class TestParseResponse:
-    def test_normal_response(self, agent):
-        data = {
-            "result": "Use JWT for auth.",
-            "usage": {"input_tokens": 100, "output_tokens": 50},
-        }
-        text, usage = agent._parse_response(data)
-
-        assert text == "Use JWT for auth."
-        assert usage["used"] == 150
-        assert usage["total"] == 200_000
-
-    def test_missing_usage(self, agent):
-        data = {"result": "Hello"}
-        text, usage = agent._parse_response(data)
-
-        assert text == "Hello"
-        assert usage["used"] == 0
-
-    def test_empty_usage(self, agent):
-        data = {"result": "Hello", "usage": {}}
-        text, usage = agent._parse_response(data)
-
-        assert usage["used"] == 0
+        assert agent._message_count == 2
 
 
 class TestGetContextUsage:

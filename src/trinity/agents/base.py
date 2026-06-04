@@ -99,6 +99,33 @@ class AgentWrapper(ABC):
         """Build provider command parts with model selection applied."""
         return [self.spec.cli_command, *self._model_args(), *parts]
 
+    def _prompt_request(
+        self,
+        prompt: str,
+        timeout: float,
+        context_prompt: str = "",
+        access=None,
+    ):
+        """Build a one-shot provider request from this agent's launch config."""
+        from trinity.providers.invoker import PromptRequest
+        from trinity.providers.policy import InvocationAccess
+
+        access = access or InvocationAccess.READ_ONLY
+        return PromptRequest(
+            agent_name=self.name,
+            provider=self.spec.provider,
+            cli_command=self.spec.cli_command,
+            role_prompt=self.spec.role_prompt,
+            context_prompt=context_prompt,
+            prompt=prompt,
+            cwd=self.launch_cwd or Path.cwd(),
+            timeout_seconds=timeout,
+            env=dict(self.env_overrides),
+            model=self.spec.model,
+            extra_args=tuple(self.spec.extra_args),
+            access=access,
+        )
+
     def _shell_command(self, args: list[str]) -> str:
         """Build a shell command with per-agent environment overrides."""
         command = " ".join(shlex.quote(str(arg)) for arg in args)

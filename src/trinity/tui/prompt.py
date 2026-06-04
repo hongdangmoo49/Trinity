@@ -14,13 +14,17 @@ import logging
 from pathlib import Path
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.application import Application
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer, Completion, CompleteEvent
 from prompt_toolkit.document import Document
+from prompt_toolkit.formatted_text import StyleAndTextTuples
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.input import DummyInput
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.layout import HSplit, Layout, Window
+from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.output import DummyOutput
-from prompt_toolkit.shortcuts import radiolist_dialog
 from prompt_toolkit.styles import Style
 
 try:  # Windows services/non-console test runners can lack a screen buffer.
@@ -54,6 +58,10 @@ TRINITY_COMMANDS = [
 # prompt_toolkit style mapping
 TRINITY_STYLE = Style.from_dict({
     "prompt": "bold green",
+    "selector-title": "bold cyan",
+    "selector-help": "ansigray",
+    "selector-selected": "reverse",
+    "selector-recommended": "green",
     "": "",  # default
 })
 
@@ -154,7 +162,26 @@ class TrinityPromptSession:
         recommended_option: str | None = None,
         allow_custom: bool = False,
     ) -> str | None:
-        """Select a numbered question option using arrow keys."""
+        """Select a question option inline using arrow keys."""
+        values = self._build_option_values(
+            options=options,
+            recommended_option=recommended_option,
+            allow_custom=allow_custom,
+        )
+        return self._run_inline_option_selector(
+            title=title,
+            question=question,
+            values=values,
+        )
+
+    @staticmethod
+    def _build_option_values(
+        *,
+        options: list[str],
+        recommended_option: str | None = None,
+        allow_custom: bool = False,
+    ) -> list[tuple[str, str]]:
+        """Build selectable values for inline option selection."""
         values = []
         for index, option in enumerate(options, 1):
             label = f"{index}. {option}"
@@ -165,11 +192,70 @@ class TrinityPromptSession:
             values.append(
                 (CUSTOM_OPTION_VALUE, f"{len(options) + 1}. Custom answer...")
             )
+        return values
 
-        return radiolist_dialog(
-            title=title,
-            text=question,
-            values=values,
-            ok_text="Select",
-            cancel_text="Cancel",
-        ).run()
+    def _run_inline_option_selector(
+        self,
+        *,
+        title: str,
+        question: str,
+        values: list[tuple[str, str]],
+    ) -> str | None:
+        """Render an inline terminal selector instead of a full-screen dialog."""
+        if not values:
+            return None
+
+        selected_index = 0
+        bindings = KeyBindings()
+
+        def fragments() -> StyleAndTextTuples:
+            lines: StyleAndTextTuples = [
+                ("class:selector-title", f"{title}\n"),
+                ("", f"{question}\n"),
+                (
+                    "class:selector-help",
+                    "Use Up/Down or j/k, Enter to select, Esc to cancel.\n\n",
+                ),
+            ]
+            for index, (_value, label) in enumerate(values):
+                selected = index == selected_index
+                marker = ">" if selected else " "
+                style = "class:selector-selected" if selected else ""
+                if "(recommended)" in label and not selected:
+                    style = "class:selector-recommended"
+                lines.append((style, f"{marker} {label}\n"))
+            return lines
+
+        control = FormattedTextControl(fragments)
+
+        @bindings.add("up")
+        @bindings.add("k")
+        def _move_up(event) -> None:
+            nonlocal selected_index
+            selected_index = (selected_index - 1) % len(values)
+            event.app.invalidate()
+
+        @bindings.add("down")
+        @bindings.add("j")
+        def _move_down(event) -> None:
+            nonlocal selected_index
+            selected_index = (selected_index + 1) % len(values)
+            event.app.invalidate()
+
+        @bindings.add("enter")
+        def _confirm(event) -> None:
+            event.app.exit(result=values[selected_index][0])
+
+        @bindings.add("escape")
+        @bindings.add("c-c")
+        def _cancel(event) -> None:
+            event.app.exit(result=None)
+
+        app = Application(
+            layout=Layout(HSplit([Window(control, dont_extend_height=True)])),
+            key_bindings=bindings,
+            style=TRINITY_STYLE,
+            full_screen=False,
+            erase_when_done=False,
+        )
+        return app.run()

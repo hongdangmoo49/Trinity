@@ -8,6 +8,8 @@ from pathlib import Path
 
 from trinity.models import AgentSpec, Provider
 
+PROVIDER_STATE_MODES = {"user-home", "isolated"}
+
 if sys.version_info >= (3, 11):
     import tomllib
 else:
@@ -27,6 +29,9 @@ class TrinityConfig:
 
     # Session
     session_name: str = "trinity"
+
+    # Provider state/auth handling
+    provider_state_mode: str = "user-home"  # "user-home" | "isolated"
 
     # Language (affects deliberation prompts + role prompts)
     lang: str = "en"  # "en" | "ko"
@@ -134,6 +139,9 @@ class TrinityConfig:
                 Path(general["state_dir"]) if "state_dir" in general else None
             ),
             session_name=general.get("session_name", "trinity"),
+            provider_state_mode=cls._normalize_provider_state_mode(
+                general.get("provider_state_mode", "user-home")
+            ),
             lang=lang,
             max_deliberation_rounds=deliberation.get(
                 "max_rounds", general.get("max_deliberation_rounds", 5)
@@ -215,6 +223,7 @@ class TrinityConfig:
             "general": {
                 "session_name": self.session_name,
                 "lang": self.lang,
+                "provider_state_mode": self.provider_state_mode,
                 "max_deliberation_rounds": self.max_deliberation_rounds,
                 "consensus_threshold": self.consensus_threshold,
                 "context_rotate_threshold": self.context_rotate_threshold,
@@ -265,3 +274,15 @@ class TrinityConfig:
             if hangul.search(role):
                 return "ko"
         return "en"
+
+    @staticmethod
+    def _normalize_provider_state_mode(value: str) -> str:
+        """Validate provider auth/state handling mode from config."""
+        normalized = (value or "user-home").strip().lower()
+        if normalized not in PROVIDER_STATE_MODES:
+            allowed = ", ".join(sorted(PROVIDER_STATE_MODES))
+            raise ValueError(
+                f"Unsupported provider_state_mode: {value!r}. "
+                f"Expected one of: {allowed}"
+            )
+        return normalized

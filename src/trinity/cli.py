@@ -297,10 +297,10 @@ def bootstrap(
 ):
     """Launch provider CLIs for isolated first-run setup and authentication.
 
-    This command keeps Trinity's provider-state isolation intact. Each selected
-    provider is started with the same isolated HOME/XDG paths that normal
-    Trinity sessions use, so completed auth/theme/trust prompts are saved under
-    .trinity/agents/<agent>/provider-state.
+    This command prepares isolated provider homes under
+    .trinity/agents/<agent>/provider-state. Normal Trinity runs reuse the
+    user's existing CLI auth by default unless provider_state_mode is set to
+    "isolated".
     """
     config_path = find_config_path()
     if config_path is None:
@@ -345,7 +345,7 @@ def bootstrap(
     console.print(
         f"\n[green]Started tmux session '{result.session_name}'.[/green]\n"
         "Complete each provider's auth, theme, and workspace trust prompts in "
-        "that session. Normal Trinity runs will reuse the same isolated state."
+        "that session if this project uses provider_state_mode=\"isolated\"."
     )
 
     if no_attach:

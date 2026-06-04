@@ -107,11 +107,49 @@ class TestTrinityOrchestratorInit:
 class TestWorkspaceHomeIsolation:
     """Test first-stage workspace/home launch metadata wiring."""
 
-    def test_managed_home_created_for_each_active_agent(self, tmp_path):
+    def test_user_home_state_mode_does_not_create_managed_home(self, tmp_path):
         state_dir = tmp_path / ".trinity"
         config = TrinityConfig(
             project_dir=tmp_path,
             state_dir=state_dir,
+            agents={
+                "claude": AgentSpec(
+                    name="claude",
+                    provider=Provider.CLAUDE_CODE,
+                    cli_command="claude",
+                    enabled=True,
+                ),
+                "codex": AgentSpec(
+                    name="codex",
+                    provider=Provider.CODEX,
+                    cli_command="codex",
+                    enabled=True,
+                ),
+            },
+        )
+        orch = TrinityOrchestrator(config)
+        orch._ensure_initialized()
+
+        claude_home = state_dir / "agents" / "claude" / "provider-state"
+        codex_home = state_dir / "agents" / "codex" / "provider-state"
+
+        assert not claude_home.exists()
+        assert not codex_home.exists()
+        assert orch.managed_home is None
+        assert set(orch.agent_launch_contexts) == {"claude", "codex"}
+        assert orch.agent_launch_contexts["claude"].managed_home is None
+        assert orch.agent_launch_contexts["claude"].env_overrides == {}
+        assert orch.get_agent_env_overrides("claude") == {}
+        assert orch.get_agent_cwd("claude") == tmp_path.resolve()
+        assert orch.agents["claude"].launch_cwd == tmp_path.resolve()
+        assert orch.agents["claude"].env_overrides == {}
+
+    def test_isolated_provider_state_mode_creates_managed_home(self, tmp_path):
+        state_dir = tmp_path / ".trinity"
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=state_dir,
+            provider_state_mode="isolated",
             agents={
                 "claude": AgentSpec(
                     name="claude",
@@ -152,11 +190,12 @@ class TestWorkspaceHomeIsolation:
         assert orch.agents["claude"].launch_cwd == tmp_path.resolve()
         assert orch.agents["claude"].env_overrides["HOME"] == str(claude_home)
 
-    def test_env_overrides_exposed_as_copy(self, tmp_path):
+    def test_isolated_env_overrides_exposed_as_copy(self, tmp_path):
         state_dir = tmp_path / ".trinity"
         config = TrinityConfig(
             project_dir=tmp_path,
             state_dir=state_dir,
+            provider_state_mode="isolated",
             agents={
                 "gemini": AgentSpec(
                     name="gemini",

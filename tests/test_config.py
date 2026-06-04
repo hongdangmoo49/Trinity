@@ -104,6 +104,49 @@ role_prompt = "당신은 아키텍트입니다."
         assert config.provider_readiness_mode == "strict"
         assert config.provider_readiness_timeout_seconds == 20.0
 
+    def test_provider_state_mode_defaults_to_user_home(self):
+        config = TrinityConfig.default_config()
+        assert config.provider_state_mode == "user-home"
+
+    def test_load_provider_state_mode(self, tmp_trinity_dir):
+        config_path = tmp_trinity_dir / "trinity.config"
+        config_path.write_text(
+            """
+[general]
+provider_state_mode = "isolated"
+
+[agents.claude]
+provider = "claude-code"
+cli_command = "claude"
+enabled = true
+""",
+            encoding="utf-8",
+        )
+
+        config = TrinityConfig.load(config_path)
+
+        assert config.provider_state_mode == "isolated"
+
+    def test_load_rejects_invalid_provider_state_mode(self, tmp_trinity_dir):
+        config_path = tmp_trinity_dir / "trinity.config"
+        config_path.write_text(
+            """
+[general]
+provider_state_mode = "sandboxed"
+
+[agents.claude]
+provider = "claude-code"
+cli_command = "claude"
+enabled = true
+""",
+            encoding="utf-8",
+        )
+
+        import pytest
+
+        with pytest.raises(ValueError, match="provider_state_mode"):
+            TrinityConfig.load(config_path)
+
     def test_load_provider_readiness_config(self, tmp_trinity_dir):
         config_path = tmp_trinity_dir / "trinity.config"
         config_path.write_text(
@@ -138,6 +181,7 @@ enabled = true
         assert len(loaded.agents) == len(config.agents)
         assert loaded.agents["claude"].provider == Provider.CLAUDE_CODE
         assert loaded.agents["claude"].model == config.agents["claude"].model
+        assert loaded.provider_state_mode == "user-home"
         assert loaded.provider_readiness_mode == "degraded"
         assert loaded.provider_readiness_timeout_seconds == 2.0
 

@@ -346,7 +346,7 @@ class TestAgentFactory:
             },
         )
         orch = TrinityOrchestrator(config)
-        from trinity.agents.gemini_agent import GeminiAgent
+        from trinity.legacy.gemini.agent import GeminiAgent
 
         spec = config.agents["gemini"]
         agent = orch._create_print_agent(spec)

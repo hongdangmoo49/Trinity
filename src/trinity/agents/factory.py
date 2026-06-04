@@ -9,12 +9,12 @@ from trinity.agents.antigravity_agent import AntigravityPrintAgent
 from trinity.agents.base import AgentWrapper
 from trinity.agents.claude_agent import InteractiveClaudeAgent, PrintModeClaudeAgent
 from trinity.agents.codex_agent import CodexAgent
-from trinity.agents.gemini_agent import GeminiAgent
 from trinity.completion.base import CompletionDetector, FallbackChainDetector
 from trinity.completion.hook import HookDetector
 from trinity.completion.idle import IdleDetector
 from trinity.completion.marker import MarkerDetector
 from trinity.completion.prompt import PromptReturnDetector
+from trinity.legacy.gemini.agent import GeminiAgent
 from trinity.legacy.tmux.pane import TmuxPane
 from trinity.models import AgentSpec, Provider
 
@@ -126,7 +126,7 @@ class AgentFactory:
                 IdleDetector(20.0),
             ])
         elif provider == Provider.GEMINI_CLI:
-            from trinity.agents.gemini_agent import COMPLETION_MARKER
+            from trinity.legacy.gemini.agent import COMPLETION_MARKER
 
             return FallbackChainDetector([
                 MarkerDetector(COMPLETION_MARKER),

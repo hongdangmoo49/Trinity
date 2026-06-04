@@ -8,10 +8,10 @@ from trinity.agents.antigravity_agent import AntigravityPrintAgent
 from trinity.agents.claude_agent import InteractiveClaudeAgent, PrintModeClaudeAgent
 from trinity.agents.codex_agent import CodexAgent
 from trinity.agents.factory import AgentFactory
-from trinity.agents.gemini_agent import GeminiAgent
 from trinity.completion.hook import HookDetector
 from trinity.completion.marker import MarkerDetector
 from trinity.completion.prompt import PromptReturnDetector
+from trinity.legacy.gemini.agent import GeminiAgent
 from trinity.models import AgentSpec, Provider
 
 
@@ -95,6 +95,11 @@ class TestCreatePrintMode:
         agent = AgentFactory.create(gemini_spec, mode="print")
         assert isinstance(agent, GeminiAgent)
         assert agent.name == "gemini"
+
+    def test_gemini_compatibility_shim(self):
+        from trinity.agents.gemini_agent import GeminiAgent as ShimGeminiAgent
+
+        assert ShimGeminiAgent is GeminiAgent
 
     def test_antigravity_print(self, antigravity_spec):
         agent = AgentFactory.create(antigravity_spec, mode="print")

@@ -89,6 +89,12 @@
    - 기존 `trinity.tmux.*` import는 외부 호환을 위해 얇은 shim으로 유지했다.
    - `tests/test_tmux.py`는 legacy namespace 구현을 직접 검증하고, shim re-export 호환도 확인한다.
 
+14. Gemini legacy namespace 분리
+   - deprecated `gemini-cli` provider 구현을 `trinity.legacy.gemini.agent`로 이동했다.
+   - factory와 Gemini detector chain은 legacy namespace를 직접 참조한다.
+   - 기존 `trinity.agents.gemini_agent` import는 외부 호환을 위해 얇은 shim으로 유지했다.
+   - `tests/test_gemini_agent.py`와 provider 생성 테스트는 legacy namespace 구현을 직접 검증한다.
+
 ## 제거/정리
 
 - `PrintModeClaudeAgent._run_subprocess`
@@ -99,10 +105,11 @@
 - Codex의 오래된 `codex -q` 실행 경로
 - Antigravity print-mode factory guard
 - Antigravity experimental setup warning
+- `src/trinity/agents/gemini_agent.py`의 실제 구현
 - `src/trinity/tmux/layout.py`
 - `tests/test_tmux_layout.py`
 
-`TmuxSessionManager`, `TmuxPane`, completion detector, Gemini legacy agent는 제거하지 않았다. `TmuxSessionManager`와 `TmuxPane`의 실제 구현은 `trinity.legacy.tmux`로 이동했고, interactive/debug 호환, provider bootstrap, legacy Gemini config 지원에 여전히 사용된다.
+`TmuxSessionManager`, `TmuxPane`, completion detector, Gemini legacy agent는 제거하지 않았다. `TmuxSessionManager`와 `TmuxPane`의 실제 구현은 `trinity.legacy.tmux`로 이동했고, Gemini legacy agent의 실제 구현은 `trinity.legacy.gemini`로 이동했다. 기존 import 경로는 compatibility shim으로 유지한다.
 
 ## 검증
 
@@ -130,13 +137,16 @@ uv run pytest tests/test_cli.py tests/test_cli_v2.py tests/test_tui_session.py t
 
 uv run pytest tests/test_tmux.py tests/test_completion.py tests/test_interactive_claude.py tests/test_tmux_integration.py tests/test_provider_bootstrap.py tests/test_orchestrator.py tests/test_agent_factory.py
 135 passed in 3.87s
+
+uv run pytest tests/test_gemini_agent.py tests/test_agent_factory.py tests/test_orchestrator.py tests/test_multi_provider.py
+96 passed in 0.20s
 ```
 
 전체 테스트:
 
 ```text
 uv run pytest
-951 passed, 1 warning in 19.71s
+952 passed, 1 warning in 19.76s
 ```
 
 경고는 기존 테스트 mock coroutine 미await warning이며 이번 변경 실패는 아니다.
@@ -144,4 +154,3 @@ uv run pytest
 ## 남은 작업
 
 - Antigravity CLI 공식 웹 문서에 `--print`/`--prompt` 플래그와 machine-readable output이 추가되는지 지속 확인한다. 현재 구현은 로컬 CLI help/smoke로 검증한 plain stdout path다.
-- Gemini legacy agent를 deprecated/optional namespace로 분리할지 결정한다.

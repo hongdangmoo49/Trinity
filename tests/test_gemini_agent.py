@@ -1,10 +1,10 @@
-"""Tests for trinity.agents.gemini_agent — GeminiAgent."""
+"""Tests for the legacy Gemini CLI provider."""
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from trinity.agents.gemini_agent import GeminiAgent, COMPLETION_MARKER
 from trinity.completion.base import CompletionResult
+from trinity.legacy.gemini.agent import COMPLETION_MARKER, GeminiAgent
 from trinity.models import AgentSpec, ContextUsage, MessageRole, Provider
 
 
@@ -81,7 +81,7 @@ class TestGeminiSendAndWait:
         proc.stdout = "ok"
         proc.stderr = ""
 
-        with patch("trinity.agents.gemini_agent.subprocess.run", return_value=proc) as run:
+        with patch("trinity.legacy.gemini.agent.subprocess.run", return_value=proc) as run:
             agent._run_subprocess("prompt", 120)
 
         cmd = run.call_args.args[0]

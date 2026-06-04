@@ -1,4 +1,4 @@
-"""Compatibility shim for the legacy Gemini CLI provider."""
+"""Legacy Gemini CLI provider implementation."""
 
 from trinity.legacy.gemini.agent import COMPLETION_MARKER, GeminiAgent
 

@@ -518,6 +518,14 @@ enabled = false
 - tmux pane/session 구현은 `trinity.legacy.tmux`로 이동하고, 기존 `trinity.tmux.*` 경로는 compatibility shim으로 유지한다.
 - completion detector와 pane response cleaner는 legacy tmux transport에서 아직 쓰이므로 유지한다.
 
+### Phase 6 - Gemini legacy namespace 분리
+
+- `gemini-cli` provider는 신규 기본 provider가 아니라 deprecated compatibility provider로만 유지한다.
+- 실제 Gemini 구현은 `trinity.legacy.gemini.agent`로 이동한다.
+- runtime factory와 detector chain은 legacy namespace를 직접 참조한다.
+- 기존 외부 import 호환을 위해 `trinity.agents.gemini_agent`는 얇은 compatibility shim으로 유지한다.
+- Gemini marker detector와 response cleaner는 legacy Gemini/tmux 경로에서 아직 쓰이므로 유지한다.
+
 ## 테스트 전략
 
 - `tests/test_provider_invoker_claude.py`: command construction, JSON/stream parsing, auth error.
@@ -549,6 +557,7 @@ enabled = false
 - provider state 기본값을 user-home으로 바꾸는 작업.
 - `synthesizer` schema와 round 후 mount 구조 추가.
 - Gemini CLI deprecation warning과 `antigravity-cli` provider enum 추가.
+- Gemini CLI legacy namespace 분리.
 
 착수 전 검증이 필요한 작업:
 

@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from trinity.agents.claude_agent import PrintModeClaudeAgent
 from trinity.agents.codex_agent import CodexAgent
 from trinity.agents.factory import AgentFactory
-from trinity.agents.gemini_agent import GeminiAgent
 from trinity.config import TrinityConfig
+from trinity.legacy.gemini.agent import GeminiAgent
 from trinity.models import AgentSpec, Provider
 from trinity.orchestrator import TrinityOrchestrator
 

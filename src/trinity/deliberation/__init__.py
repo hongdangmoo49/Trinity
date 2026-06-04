@@ -6,6 +6,8 @@ from trinity.deliberation.protocol import DeliberationProtocol, RoundBudgetWarni
 from trinity.deliberation.synthesis import (
     FallbackSynthesisAgent,
     HeuristicSynthesisAgent,
+    ModelBackedSynthesisAgent,
+    SynthesisValidationError,
     SynthesisAgent,
     SynthesisInput,
     SynthesisResult,
@@ -16,9 +18,11 @@ __all__ = [
     "DeliberationProtocol",
     "FallbackSynthesisAgent",
     "HeuristicSynthesisAgent",
+    "ModelBackedSynthesisAgent",
     "RoundBudgetWarning",
     "SynthesisAgent",
     "SynthesisInput",
     "SynthesisResult",
+    "SynthesisValidationError",
     "TaskDistributor",
 ]

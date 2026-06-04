@@ -1,14 +1,19 @@
 """Tests for central deliberation synthesis contracts."""
 
+import json
+from pathlib import Path
+
 import pytest
 
 from trinity.deliberation.synthesis import (
     FallbackSynthesisAgent,
     HeuristicSynthesisAgent,
+    ModelBackedSynthesisAgent,
     SynthesisInput,
     SynthesisResult,
 )
-from trinity.models import ConsensusResult
+from trinity.models import ConsensusResult, ContextUsage, Provider, ResponseStatus
+from trinity.providers.invoker import ProviderTurnResult
 
 
 BLUEPRINT_TEXT = """\
@@ -148,3 +153,170 @@ async def test_fallback_synthesis_agent_uses_fallback_on_primary_failure():
     assert result.diagnostics == [
         "primary synthesis failed: provider synthesis unavailable"
     ]
+
+
+class FakeSynthesisInvoker:
+    def __init__(self, result: ProviderTurnResult):
+        self.result = result
+        self.requests = []
+
+    async def invoke(self, request):
+        self.requests.append(request)
+        return self.result
+
+
+def _provider_result(payload: dict | str, status: ResponseStatus = ResponseStatus.OK):
+    content = json.dumps(payload) if isinstance(payload, dict) else payload
+    return ProviderTurnResult(
+        agent_name="codex",
+        content=content,
+        raw_output=content,
+        status=status,
+        elapsed_seconds=0.2,
+        usage=ContextUsage(used=42, total=0),
+        diagnostics=[] if status == ResponseStatus.OK else ["provider failed"],
+    )
+
+
+def _model_synthesis_agent(tmp_path: Path, result: ProviderTurnResult):
+    invoker = FakeSynthesisInvoker(result)
+    agent = ModelBackedSynthesisAgent(
+        invoker=invoker,
+        agent_name="codex",
+        provider=Provider.CODEX,
+        cli_command="codex",
+        cwd=tmp_path,
+        model="default",
+        requested_model="fast",
+        artifact_dir=tmp_path / "synthesis",
+    )
+    return agent, invoker
+
+
+def _valid_model_payload(**overrides):
+    payload = {
+        "consensus_reached": True,
+        "agreement_count": 1,
+        "total_agents": 1,
+        "summary_for_shared_md": "Model selected a bridge route blueprint.",
+        "next_round_prompt": "",
+        "open_questions_for_user": [],
+        "recommended_blueprint": {
+            "title": "Route Bot",
+            "summary": "Finds bridge routes across L2 chains.",
+            "architecture": [
+                {
+                    "name": "Quote Collector",
+                    "responsibility": "Collect bridge quotes.",
+                }
+            ],
+            "data_flow": ["request -> quotes -> ranked routes"],
+            "external_dependencies": ["Bridge APIs"],
+            "risks": ["Provider rate limits"],
+            "acceptance_criteria": ["returns ranked paths"],
+            "open_questions": [],
+        },
+        "votes": {"claude": {"vote": "approve", "rationale": "Solid plan."}},
+        "diagnostics": [],
+    }
+    payload.update(overrides)
+    return payload
+
+
+@pytest.mark.asyncio
+async def test_model_backed_synthesis_parses_valid_json_and_writes_artifacts(tmp_path):
+    agent, invoker = _model_synthesis_agent(
+        tmp_path,
+        _provider_result(_valid_model_payload()),
+    )
+
+    result = await agent.synthesize(
+        SynthesisInput(
+            user_prompt="Design route bot",
+            round_num=1,
+            opinions={"claude": "Approved blueprint."},
+        )
+    )
+
+    assert result.source == "model-backed"
+    assert result.consensus_reached is True
+    assert result.recommended_blueprint is not None
+    assert result.recommended_blueprint.title == "Route Bot"
+    assert result.metadata["provider"] == "codex"
+    assert result.metadata["fallback_used"] is False
+    assert Path(result.metadata["raw_output_path"]).exists()
+    assert Path(result.metadata["json_path"]).exists()
+    assert invoker.requests[0].access.value == "read-only"
+    assert "Return exactly one JSON object" in invoker.requests[0].prompt
+
+
+@pytest.mark.asyncio
+async def test_model_backed_synthesis_normalizes_open_questions_to_no_consensus(tmp_path):
+    payload = _valid_model_payload(
+        consensus_reached=True,
+        open_questions_for_user=[
+            {
+                "id": "q-1",
+                "question": "Optimize for cost or latency?",
+                "options": "cost | latency | mixed",
+                "recommended_option": "mixed",
+                "blocking": True,
+                "raised_by": "codex",
+                "rationale": "Scoring depends on it.",
+            }
+        ],
+    )
+    agent, _ = _model_synthesis_agent(tmp_path, _provider_result(payload))
+
+    result = await agent.synthesize(
+        SynthesisInput(
+            user_prompt="Design route bot",
+            round_num=1,
+            opinions={"claude": "Needs decision."},
+        )
+    )
+
+    assert result.consensus_reached is False
+    assert result.consensus is not None
+    assert result.consensus.reached is False
+    assert result.open_questions_for_user[0].options == ["cost", "latency", "mixed"]
+    assert "open questions" in " ".join(result.diagnostics)
+
+
+@pytest.mark.asyncio
+async def test_model_backed_synthesis_invalid_json_falls_back(tmp_path):
+    primary, _ = _model_synthesis_agent(tmp_path, _provider_result("not json"))
+    agent = FallbackSynthesisAgent(primary=primary, fallback=StaticFallbackAgent())
+
+    result = await agent.synthesize(
+        SynthesisInput(
+            user_prompt="Design route bot",
+            round_num=1,
+            opinions={"claude": "anything"},
+        )
+    )
+
+    assert result.source == "static-fallback"
+    assert result.metadata["fallback_used"] is True
+    assert "no JSON object" in result.metadata["fallback_reason"]
+    assert (tmp_path / "synthesis" / "round-01" / "synthesis.raw.txt").exists()
+
+
+@pytest.mark.asyncio
+async def test_model_backed_synthesis_provider_failure_falls_back(tmp_path):
+    primary, _ = _model_synthesis_agent(
+        tmp_path,
+        _provider_result("", status=ResponseStatus.TIMEOUT),
+    )
+    agent = FallbackSynthesisAgent(primary=primary, fallback=StaticFallbackAgent())
+
+    result = await agent.synthesize(
+        SynthesisInput(
+            user_prompt="Design route bot",
+            round_num=1,
+            opinions={"claude": "anything"},
+        )
+    )
+
+    assert result.metadata["fallback_used"] is True
+    assert "timeout" in result.metadata["fallback_reason"]

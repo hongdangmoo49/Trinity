@@ -209,6 +209,11 @@ class InteractiveSession:
 
         self.console.print(table)
         self.console.print(f"[dim]Transport: {self.config.transport_mode}[/dim]")
+        self.console.print(
+            f"[dim]Synthesis: {self.config.synthesis_mode} "
+            f"{self.config.synthesis_agent or 'auto'}/"
+            f"{self.config.synthesis_model}[/dim]"
+        )
         self._cmd_workflow()
 
     def _cmd_context(self) -> None:

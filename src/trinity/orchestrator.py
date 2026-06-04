@@ -17,8 +17,20 @@ from trinity.context.shared import SharedContextEngine
 from trinity.deliberation.consensus import ConsensusEngine
 from trinity.deliberation.distributor import TaskDistributor
 from trinity.deliberation.protocol import DeliberationProtocol
+from trinity.deliberation.synthesis import (
+    FallbackSynthesisAgent,
+    HeuristicSynthesisAgent,
+    ModelBackedSynthesisAgent,
+    SynthesisAgent,
+)
 from trinity.health.checker import HealthChecker
-from trinity.models import AgentSpec, ConsensusResult, DeliberationResult
+from trinity.models import AgentSpec, ConsensusResult, DeliberationResult, Provider
+from trinity.providers.invoker import (
+    AntigravityPrintInvoker,
+    ClaudePrintInvoker,
+    CodexExecInvoker,
+    ProviderInvoker,
+)
 from trinity.providers.readiness import (
     ProviderReadinessGate,
     ReadinessResult,
@@ -34,6 +46,19 @@ from trinity.workflow.models import DecisionRecord, ExecutionResult, WorkPackage
 logger = logging.getLogger(__name__)
 
 
+SYNTHESIS_PROVIDER_PRIORITY: tuple[Provider, ...] = (
+    Provider.CODEX,
+    Provider.CLAUDE_CODE,
+    Provider.ANTIGRAVITY_CLI,
+)
+
+SYNTHESIS_FAST_MODELS: dict[Provider, str] = {
+    Provider.CODEX: "gpt-5.1",
+    Provider.CLAUDE_CODE: "sonnet",
+    Provider.ANTIGRAVITY_CLI: "default",
+}
+
+
 @dataclass(frozen=True)
 class AgentLaunchContext:
     """Prepared launch paths for a single active agent."""
@@ -43,6 +68,16 @@ class AgentLaunchContext:
     env_overrides: dict[str, str] = field(default_factory=dict)
     managed_home: Path | None = None
     workspace_path: Path | None = None
+
+
+class _UnavailableSynthesisAgent:
+    """Primary synthesis stub that records why model synthesis is unavailable."""
+
+    def __init__(self, reason: str):
+        self.reason = reason
+
+    async def synthesize(self, synthesis_input):
+        raise RuntimeError(self.reason)
 
 
 class TrinityOrchestrator:
@@ -67,6 +102,7 @@ class TrinityOrchestrator:
         self.readiness_gate: ProviderReadinessGate | None = None
         self.lifecycle_guard: LifecycleGuard | None = None
         self.readiness_results: dict[str, ReadinessResult] = {}
+        self.synthesis_status: dict[str, object] = {}
         self.managed_home: ManagedHome | None = None
         self.workspace_isolation: WorkspaceIsolation | None = None
         self.agent_launch_contexts: dict[str, AgentLaunchContext] = {}
@@ -120,12 +156,14 @@ class TrinityOrchestrator:
             rotate_threshold=self.config.context_rotate_threshold,
             check_readiness=False,
         )
+        consensus_engine = ConsensusEngine(
+            required_fraction=self.config.consensus_threshold,
+        )
+        synthesis_agent = self._create_synthesis_agent(state_dir, consensus_engine)
         self.protocol = DeliberationProtocol(
             agents=self.agents,
             shared=self.shared,
-            consensus_engine=ConsensusEngine(
-                required_fraction=self.config.consensus_threshold,
-            ),
+            consensus_engine=consensus_engine,
             distributor=TaskDistributor(),
             max_rounds=self.config.max_deliberation_rounds,
             round_timeout=self.config.round_timeout_seconds,
@@ -139,6 +177,7 @@ class TrinityOrchestrator:
             lang=self.config.lang,
             analytics_path=analytics_history_path(state_dir),
             response_artifact_dir=state_dir / "responses",
+            synthesis_agent=synthesis_agent,
             lifecycle_guard=self.lifecycle_guard,
             rotation_callback=self._rotate_agent_for_lifecycle,
         )
@@ -239,6 +278,123 @@ class TrinityOrchestrator:
         """Return the prepared launch cwd for an agent."""
         context = self.get_agent_launch_context(agent_name)
         return context.cwd if context else None
+
+    def _create_synthesis_agent(
+        self,
+        state_dir: Path,
+        consensus_engine: ConsensusEngine,
+    ) -> SynthesisAgent:
+        """Create the configured central synthesis agent."""
+        heuristic = HeuristicSynthesisAgent(consensus_engine=consensus_engine)
+        mode = self.config.synthesis_mode.lower()
+        self.synthesis_status = {
+            "mode": mode,
+            "source": "heuristic",
+            "fallback_used": mode != "heuristic",
+        }
+        if mode == "heuristic":
+            self.synthesis_status["fallback_used"] = False
+            return heuristic
+
+        try:
+            model_agent = self._create_model_synthesis_agent(state_dir)
+        except RuntimeError as exc:
+            reason = str(exc)
+            self.synthesis_status.update(
+                {
+                    "source": "heuristic",
+                    "fallback_used": True,
+                    "fallback_reason": reason,
+                }
+            )
+            return FallbackSynthesisAgent(
+                primary=_UnavailableSynthesisAgent(reason),
+                fallback=heuristic,
+            )
+
+        self.synthesis_status.update(
+            {
+                "source": "model-backed",
+                "fallback_used": False,
+                "provider": model_agent.provider.value,
+                "provider_agent": model_agent.agent_name,
+                "model": model_agent.model,
+                "requested_model": model_agent.requested_model,
+            }
+        )
+        return FallbackSynthesisAgent(primary=model_agent, fallback=heuristic)
+
+    def _create_model_synthesis_agent(self, state_dir: Path) -> ModelBackedSynthesisAgent:
+        """Build a provider-backed synthesizer from an active agent launch context."""
+        agent_name, spec = self._select_synthesis_provider()
+        invoker = self._invoker_for_provider(spec.provider)
+        context = self.agent_launch_contexts.get(agent_name)
+        cwd = context.cwd if context is not None else self.config.project_dir.resolve()
+        env = dict(context.env_overrides) if context is not None else {}
+        return ModelBackedSynthesisAgent(
+            invoker=invoker,
+            agent_name=agent_name,
+            provider=spec.provider,
+            cli_command=spec.cli_command,
+            cwd=cwd,
+            env=env,
+            model=self._resolve_synthesis_model(spec),
+            requested_model=self.config.synthesis_model,
+            extra_args=tuple(spec.extra_args),
+            timeout_seconds=self.config.synthesis_timeout_seconds,
+            max_input_chars=self.config.synthesis_max_input_chars,
+            artifact_dir=state_dir / "synthesis",
+        )
+
+    def _select_synthesis_provider(self) -> tuple[str, AgentSpec]:
+        """Select an enabled one-shot provider by fixed synthesis priority."""
+        active_specs = (
+            {name: agent.spec for name, agent in self.agents.items()}
+            if self.agents
+            else self.config.active_agents
+        )
+        override = self.config.synthesis_agent.strip()
+        if override:
+            spec = active_specs.get(override)
+            if spec is None:
+                raise RuntimeError(
+                    f"synthesis_agent {override!r} is not an enabled active agent"
+                )
+            if spec.provider not in self._supported_synthesis_providers():
+                raise RuntimeError(
+                    f"synthesis_agent {override!r} uses unsupported provider "
+                    f"{spec.provider.value!r}"
+                )
+            return override, spec
+
+        for provider in SYNTHESIS_PROVIDER_PRIORITY:
+            for name, spec in active_specs.items():
+                if spec.provider == provider:
+                    return name, spec
+        raise RuntimeError("no active provider supports model-backed synthesis")
+
+    def _resolve_synthesis_model(self, spec: AgentSpec) -> str:
+        """Resolve synthesis_model using provider-specific fast defaults."""
+        requested = (self.config.synthesis_model or "fast").strip()
+        if requested == "fast":
+            return SYNTHESIS_FAST_MODELS.get(spec.provider, "default")
+        if requested:
+            return requested
+        return spec.model or "default"
+
+    @staticmethod
+    def _supported_synthesis_providers() -> set[Provider]:
+        return set(SYNTHESIS_PROVIDER_PRIORITY)
+
+    @staticmethod
+    def _invoker_for_provider(provider: Provider) -> ProviderInvoker:
+        if provider == Provider.CLAUDE_CODE:
+            return ClaudePrintInvoker()
+        if provider == Provider.CODEX:
+            return CodexExecInvoker()
+        if provider == Provider.ANTIGRAVITY_CLI:
+            return AntigravityPrintInvoker()
+        raise RuntimeError(f"unsupported synthesis provider: {provider.value}")
 
     def _init_print_mode(self, active_agents: dict[str, AgentSpec] | None = None) -> None:
         """Initialize agents in print mode (Phase 1 — subprocess-based)."""
@@ -413,6 +569,10 @@ class TrinityOrchestrator:
         self.agents = ready_agents
         if self.protocol:
             self.protocol.agents = ready_agents
+            self.protocol.synthesis_agent = self._create_synthesis_agent(
+                self.config.effective_state_dir,
+                self.protocol.consensus_engine,
+            )
         if self.execution_protocol:
             self.execution_protocol.agents = ready_agents
         if self.context_monitor:
@@ -541,6 +701,7 @@ class TrinityOrchestrator:
             "tmux_session": (
                 self.config.session_name if self.tmux_manager else None
             ),
+            "synthesis": dict(self.synthesis_status),
         }
 
     async def shutdown(self) -> None:

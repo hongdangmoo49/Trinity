@@ -22,12 +22,10 @@ from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
 
 from trinity import __version__
 from trinity.config import TrinityConfig
 from trinity.context.analytics import TokenAnalytics, analytics_history_path
-from trinity.logging import setup_logging
 from trinity.orchestrator import TrinityOrchestrator
 from trinity.providers.bootstrap import (
     ProviderBootstrapError,
@@ -128,7 +126,7 @@ def init(force: bool, non_interactive: bool):
     target = Path.cwd() / ".trinity"
 
     if target.exists() and not force:
-        console.print(f"[yellow].trinity/ already exists. Use --force to overwrite.[/yellow]")
+        console.print("[yellow].trinity/ already exists. Use --force to overwrite.[/yellow]")
         return
 
     if non_interactive:
@@ -476,6 +474,17 @@ def status():
     console.print(table)
     console.print(f"\n[dim]Shared context: {status_data['shared_context_path']}[/dim]")
     console.print(f"[dim]Transport: {status_data['transport_mode']}[/dim]")
+    synthesis = status_data.get("synthesis", {})
+    if synthesis:
+        source = synthesis.get("source", "heuristic")
+        provider = synthesis.get("provider") or synthesis.get("provider_agent") or ""
+        model = synthesis.get("model", "")
+        fallback = synthesis.get("fallback_used", False)
+        suffix = f" {provider}/" if provider else " "
+        console.print(
+            f"[dim]Synthesis:{suffix}{model or source} "
+            f"(source={source}, fallback={fallback})[/dim]"
+        )
 
 
 # ─── trinity status-watch ────────────────────────────────────────────────
@@ -581,6 +590,8 @@ _SAFE_CONFIG_KEYS = frozenset({
     "context_rotate_threshold", "health_check_interval_seconds",
     "log_level", "log_file", "caveman_mode", "caveman_intensity",
     "provider_state_mode", "transport_mode",
+    "synthesis_mode", "synthesis_agent", "synthesis_model",
+    "synthesis_timeout_seconds", "synthesis_max_input_chars",
 })
 
 

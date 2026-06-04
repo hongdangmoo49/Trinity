@@ -6,6 +6,11 @@ from unittest.mock import AsyncMock, patch
 from trinity.config import TrinityConfig
 from trinity.models import AgentSpec, DeliberationResult, ConsensusResult, Provider
 from trinity.orchestrator import TrinityOrchestrator
+from trinity.deliberation.synthesis import (
+    FallbackSynthesisAgent,
+    HeuristicSynthesisAgent,
+    ModelBackedSynthesisAgent,
+)
 from trinity.providers.readiness import ProviderState, ReadinessResult
 from trinity.workflow import ExecutionResult, WorkPackage, WorkStatus
 
@@ -652,3 +657,164 @@ class TestAsk:
 
         assert result == expected
         mock_execution.run.assert_called_once_with([package], decisions=[])
+
+
+class TestSynthesisAgentWiring:
+    def test_heuristic_synthesis_mode_skips_model_provider(self, tmp_path):
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=tmp_path / ".trinity",
+            synthesis_mode="heuristic",
+            agents={
+                "claude": AgentSpec(
+                    name="claude",
+                    provider=Provider.CLAUDE_CODE,
+                    cli_command="claude",
+                    enabled=True,
+                ),
+            },
+        )
+        orch = TrinityOrchestrator(config)
+        orch._ensure_initialized()
+
+        assert isinstance(orch.protocol.synthesis_agent, HeuristicSynthesisAgent)
+        assert orch.synthesis_status["source"] == "heuristic"
+        assert orch.synthesis_status["fallback_used"] is False
+
+    def test_auto_synthesis_mode_wraps_model_agent_with_fallback(self, tmp_path):
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=tmp_path / ".trinity",
+            agents={
+                "claude": AgentSpec(
+                    name="claude",
+                    provider=Provider.CLAUDE_CODE,
+                    cli_command="claude",
+                    model="sonnet",
+                    enabled=True,
+                ),
+            },
+        )
+        orch = TrinityOrchestrator(config)
+        orch._ensure_initialized()
+
+        assert isinstance(orch.protocol.synthesis_agent, FallbackSynthesisAgent)
+        assert isinstance(orch.protocol.synthesis_agent.primary, ModelBackedSynthesisAgent)
+        assert orch.protocol.synthesis_agent.primary.agent_name == "claude"
+        assert orch.protocol.synthesis_agent.primary.model == "sonnet"
+        assert orch.synthesis_status["source"] == "model-backed"
+
+    def test_auto_synthesis_prioritizes_codex_over_agent_order(self, tmp_path):
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=tmp_path / ".trinity",
+            agents={
+                "antigravity": AgentSpec(
+                    name="antigravity",
+                    provider=Provider.ANTIGRAVITY_CLI,
+                    cli_command="agy",
+                    enabled=True,
+                ),
+                "claude": AgentSpec(
+                    name="claude",
+                    provider=Provider.CLAUDE_CODE,
+                    cli_command="claude",
+                    enabled=True,
+                ),
+                "codex": AgentSpec(
+                    name="codex",
+                    provider=Provider.CODEX,
+                    cli_command="codex",
+                    enabled=True,
+                ),
+            },
+        )
+        orch = TrinityOrchestrator(config)
+        orch._ensure_initialized()
+
+        primary = orch.protocol.synthesis_agent.primary
+        assert isinstance(primary, ModelBackedSynthesisAgent)
+        assert primary.agent_name == "codex"
+        assert primary.provider == Provider.CODEX
+        assert primary.model == "gpt-5.1"
+
+    def test_auto_synthesis_uses_claude_when_codex_is_not_active(self, tmp_path):
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=tmp_path / ".trinity",
+            agents={
+                "antigravity": AgentSpec(
+                    name="antigravity",
+                    provider=Provider.ANTIGRAVITY_CLI,
+                    cli_command="agy",
+                    enabled=True,
+                ),
+                "claude": AgentSpec(
+                    name="claude",
+                    provider=Provider.CLAUDE_CODE,
+                    cli_command="claude",
+                    enabled=True,
+                ),
+            },
+        )
+        orch = TrinityOrchestrator(config)
+        orch._ensure_initialized()
+
+        primary = orch.protocol.synthesis_agent.primary
+        assert isinstance(primary, ModelBackedSynthesisAgent)
+        assert primary.agent_name == "claude"
+        assert primary.provider == Provider.CLAUDE_CODE
+        assert primary.model == "sonnet"
+
+    def test_auto_synthesis_uses_antigravity_when_it_is_only_active(self, tmp_path):
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=tmp_path / ".trinity",
+            agents={
+                "antigravity": AgentSpec(
+                    name="antigravity",
+                    provider=Provider.ANTIGRAVITY_CLI,
+                    cli_command="agy",
+                    enabled=True,
+                ),
+            },
+        )
+        orch = TrinityOrchestrator(config)
+        orch._ensure_initialized()
+
+        primary = orch.protocol.synthesis_agent.primary
+        assert isinstance(primary, ModelBackedSynthesisAgent)
+        assert primary.agent_name == "antigravity"
+        assert primary.provider == Provider.ANTIGRAVITY_CLI
+        assert primary.model == "default"
+
+    def test_synthesis_agent_override_selects_enabled_provider(self, tmp_path):
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=tmp_path / ".trinity",
+            synthesis_agent="codex",
+            synthesis_model="gpt-5.1",
+            agents={
+                "claude": AgentSpec(
+                    name="claude",
+                    provider=Provider.CLAUDE_CODE,
+                    cli_command="claude",
+                    enabled=True,
+                ),
+                "codex": AgentSpec(
+                    name="codex",
+                    provider=Provider.CODEX,
+                    cli_command="codex",
+                    enabled=True,
+                ),
+            },
+        )
+        orch = TrinityOrchestrator(config)
+        orch._ensure_initialized()
+
+        primary = orch.protocol.synthesis_agent.primary
+        assert isinstance(primary, ModelBackedSynthesisAgent)
+        assert primary.agent_name == "codex"
+        assert primary.provider == Provider.CODEX
+        assert primary.model == "gpt-5.1"
+        assert orch.synthesis_status["provider_agent"] == "codex"

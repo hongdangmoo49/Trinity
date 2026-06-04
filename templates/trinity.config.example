@@ -42,6 +42,13 @@ role_prompt = "You are the Reviewer. You explore alternatives, identify issues, 
 [deliberation]
 max_rounds = 5
 round_timeout_seconds = 120
+synthesis_mode = "auto"
+synthesis_agent = ""
+# Auto synthesis provider priority: codex -> claude -> antigravity.
+# "fast" maps to codex:gpt-5.1, claude:sonnet, antigravity:default.
+synthesis_model = "fast"
+synthesis_timeout_seconds = 30
+synthesis_max_input_chars = 60000
 
 [context]
 keep_sections = ["## Current Goal", "## Agreed Conclusion"]

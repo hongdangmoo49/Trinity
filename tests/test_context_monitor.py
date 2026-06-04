@@ -40,6 +40,7 @@ class TestProviderContextLimits:
         limits = ProviderContextLimits()
         assert limits.get_limit(Provider.CLAUDE_CODE) == 200_000
         assert limits.get_limit(Provider.CODEX) == 128_000
+        assert limits.get_limit(Provider.ANTIGRAVITY_CLI) == 1_000_000
         assert limits.get_limit(Provider.GEMINI_CLI) == 1_000_000
 
     def test_unknown_provider_returns_default(self):

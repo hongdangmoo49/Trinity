@@ -30,6 +30,10 @@ class TestCLIDetectionResult:
         result = CLIDetectionResult(provider=Provider.GEMINI_CLI, installed=True)
         assert result.display_name == "Gemini CLI"
 
+    def test_display_name_antigravity(self):
+        result = CLIDetectionResult(provider=Provider.ANTIGRAVITY_CLI, installed=True)
+        assert result.display_name == "Antigravity CLI"
+
     def test_install_url(self):
         result = CLIDetectionResult(provider=Provider.CLAUDE_CODE, installed=False)
         assert "anthropic" in result.install_url
@@ -41,6 +45,10 @@ class TestCLIDetectionResult:
     def test_install_url_gemini(self):
         result = CLIDetectionResult(provider=Provider.GEMINI_CLI, installed=False)
         assert result.install_url != ""
+
+    def test_install_url_antigravity(self):
+        result = CLIDetectionResult(provider=Provider.ANTIGRAVITY_CLI, installed=False)
+        assert "antigravity.google" in result.install_url
 
     def test_default_values(self):
         result = CLIDetectionResult(provider=Provider.CLAUDE_CODE, installed=False)
@@ -59,6 +67,7 @@ class TestCLIDetector:
         providers = {r.provider for r in results}
         assert Provider.CLAUDE_CODE in providers
         assert Provider.CODEX in providers
+        assert Provider.ANTIGRAVITY_CLI in providers
         assert Provider.GEMINI_CLI in providers
 
     def test_detect_installed_binary(self):
@@ -96,6 +105,21 @@ class TestCLIDetector:
 
         assert result.installed
         assert result.provider == Provider.GEMINI_CLI
+        assert "Deprecated" in result.warning
+
+    def test_detect_antigravity_prefers_agy(self):
+        detector = CLIDetector()
+        with patch("trinity.setup.detector.shutil.which") as mock_which:
+            mock_which.side_effect = lambda binary: (
+                "/usr/bin/agy" if binary == "agy" else None
+            )
+            with patch.object(detector, "_get_version", return_value="agy 1.0.0"):
+                result = detector.detect(Provider.ANTIGRAVITY_CLI)
+
+        assert result.installed
+        assert result.provider == Provider.ANTIGRAVITY_CLI
+        assert result.path == "/usr/bin/agy"
+        assert result.warning == ""
 
     def test_get_version_timeout(self):
         detector = CLIDetector(timeout=0.001)
@@ -186,6 +210,7 @@ class TestProviderConstants:
     def test_budgets_reasonable(self):
         assert PROVIDER_DEFAULT_BUDGETS[Provider.CLAUDE_CODE] == 200_000
         assert PROVIDER_DEFAULT_BUDGETS[Provider.CODEX] == 128_000
+        assert PROVIDER_DEFAULT_BUDGETS[Provider.ANTIGRAVITY_CLI] == 1_000_000
         assert PROVIDER_DEFAULT_BUDGETS[Provider.GEMINI_CLI] == 1_000_000
 
     def test_roles_non_empty(self):

@@ -3,20 +3,19 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import re
-import subprocess
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from trinity.agents.base import AgentWrapper
 from trinity.models import AgentSpec, ContextUsage, DeliberationMessage, MessageRole
+from trinity.providers.invoker import ClaudePrintInvoker
 
 if TYPE_CHECKING:
     from trinity.completion.base import CompletionDetector, CompletionResult
-    from trinity.tmux.pane import TmuxPane
+    from trinity.legacy.tmux.pane import TmuxPane
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +32,7 @@ class PrintModeClaudeAgent(AgentWrapper):
         super().__init__(spec)
         self._started = False
         self._message_count = 0
+        self._invoker = ClaudePrintInvoker()
 
     async def start(self, initial_prompt: str = "") -> None:
         """Mark agent as started. In print mode, there's no persistent process."""
@@ -47,7 +47,7 @@ class PrintModeClaudeAgent(AgentWrapper):
             self._initial_prompt = ""
 
     async def send_and_wait(
-        self, prompt: str, timeout: float = 120.0
+        self, prompt: str, timeout: float = 120.0, access=None
     ) -> DeliberationMessage:
         """Send prompt via `claude -p` and wait for JSON response."""
         if not self._started:
@@ -55,52 +55,38 @@ class PrintModeClaudeAgent(AgentWrapper):
 
         self._message_count += 1
 
-        # Build full prompt with role + initial context
-        full_prompt = self._build_prompt(prompt)
-
-        # Build CLI command
-        cmd = self._command_parts(
-            "-p",
-            "--output-format", "json",
+        request = self._prompt_request(
+            prompt=prompt,
+            timeout=timeout,
+            context_prompt=self._initial_prompt,
+            access=access,
         )
-        cmd.extend(self.spec.extra_args)
-        cmd.append(full_prompt)
-
-        logger.info(f"[{self.name}] Sending prompt ({len(full_prompt)} chars)...")
+        logger.info(f"[{self.name}] Sending prompt ({len(prompt)} chars)...")
 
         start_time = time.time()
-        try:
-            result = await asyncio.to_thread(
-                self._run_subprocess, cmd, timeout
-            )
-        except subprocess.TimeoutExpired:
-            logger.warning(f"[{self.name}] Timeout after {timeout}s")
-            return DeliberationMessage(
-                source=self.name,
-                target="all",
-                round_num=0,
-                role=MessageRole.OPINION,
-                content=f"[Timeout after {timeout}s]",
-                metadata={"error": "timeout"},
-            )
-
-        elapsed = time.time() - start_time
+        result = await self._invoker.invoke(request)
+        elapsed = result.elapsed_seconds or (time.time() - start_time)
         logger.info(f"[{self.name}] Response received in {elapsed:.1f}s")
 
-        # Parse JSON response
-        response_text, usage = self._parse_response(result)
-        self._update_usage(**usage)
+        token_count = 0
+        if result.usage is not None:
+            token_count = result.usage.used
+            self._update_usage(used=token_count, total=self._context_usage.total)
 
         return DeliberationMessage(
             source=self.name,
             target="all",
             round_num=0,  # Set by protocol
             role=MessageRole.OPINION,
-            content=response_text,
+            content=result.content,
             metadata={
                 "elapsed_seconds": elapsed,
-                "token_count": usage.get("used", 0),
-                "model": result.get("model", "unknown"),
+                "token_count": token_count,
+                "model": result.metadata.get("model", "unknown"),
+                "response_status": result.status.value,
+                "raw_output": result.raw_output,
+                "diagnostics": list(result.diagnostics),
+                "execution_authority": result.execution_authority.value,
             },
         )
 
@@ -114,66 +100,6 @@ class PrintModeClaudeAgent(AgentWrapper):
         """No persistent process to shut down in print mode."""
         self._started = False
         logger.info(f"[{self.name}] Print-mode agent stopped")
-
-    def _build_prompt(self, user_prompt: str) -> str:
-        """Build the full prompt with role description."""
-        parts: list[str] = []
-
-        if self.spec.role_prompt:
-            parts.append(f"[System Role]\n{self.spec.role_prompt}\n")
-
-        if self._initial_prompt:
-            parts.append(f"[Context]\n{self._initial_prompt}\n")
-
-        parts.append(user_prompt)
-
-        return "\n\n".join(parts)
-
-    def _run_subprocess(self, cmd: list[str], timeout: float) -> dict:
-        """Run claude -p in a subprocess (blocking). Returns parsed JSON."""
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-            **self._subprocess_kwargs(),
-        )
-
-        if proc.returncode != 0:
-            logger.error(f"[{self.name}] claude exited with code {proc.returncode}")
-            logger.error(f"[{self.name}] stderr: {proc.stderr[:500]}")
-            return {
-                "result": f"[Error: claude exited with code {proc.returncode}]",
-                "usage": {},
-            }
-
-        try:
-            return json.loads(proc.stdout)
-        except json.JSONDecodeError:
-            # If not JSON, treat stdout as plain text response
-            return {
-                "result": proc.stdout,
-                "usage": {},
-            }
-
-    def _parse_response(self, data: dict) -> tuple[str, dict]:
-        """Extract response text and usage from Claude JSON output.
-
-        Returns (response_text, {"used": N, "total": N}).
-        """
-        response_text = data.get("result", str(data))
-
-        usage_data = data.get("usage", {})
-        input_tokens = usage_data.get("input_tokens", 0)
-        output_tokens = usage_data.get("output_tokens", 0)
-        total_used = input_tokens + output_tokens
-
-        # Estimate total from budget
-        total = self._context_usage.total
-
-        return response_text, {"used": total_used, "total": total}
 
 
 class InteractiveClaudeAgent(AgentWrapper):
@@ -248,7 +174,7 @@ class InteractiveClaudeAgent(AgentWrapper):
         logger.info(f"[{self.name}] Interactive agent ready")
 
     async def send_and_wait(
-        self, prompt: str, timeout: float = 120.0
+        self, prompt: str, timeout: float = 120.0, access=None
     ) -> DeliberationMessage:
         """Send prompt via send-keys and wait for completion."""
         if not self._started:

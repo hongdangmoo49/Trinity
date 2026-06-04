@@ -1,12 +1,12 @@
-"""Tests for trinity.tmux — TmuxPane and TmuxSessionManager."""
+"""Tests for legacy tmux transport primitives."""
 
 from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import MagicMock, patch, call
 
 from trinity.models import AgentSpec, Provider
-from trinity.tmux.pane import TmuxPane
-from trinity.tmux.session import TmuxSessionManager
+from trinity.legacy.tmux.pane import TmuxPane
+from trinity.legacy.tmux.session import TmuxSessionManager
 
 
 @dataclass
@@ -34,7 +34,7 @@ class TestTmuxPane:
 
         with (
             patch("subprocess.run") as mock_run,
-            patch("trinity.tmux.pane.time.sleep") as sleep,
+            patch("trinity.legacy.tmux.pane.time.sleep") as sleep,
             patch("tempfile.mkstemp", return_value=(3, "/tmp/x")),
             patch("os.fdopen", MagicMock()),
             patch("os.unlink"),
@@ -248,3 +248,11 @@ class TestTmuxSessionManager:
 
         ids = mgr.get_all_pane_ids()
         assert ids == ["%0", "%1"]
+
+
+def test_tmux_compatibility_shims_export_legacy_classes():
+    from trinity.tmux.pane import TmuxPane as CompatPane
+    from trinity.tmux.session import TmuxSessionManager as CompatSessionManager
+
+    assert CompatPane is TmuxPane
+    assert CompatSessionManager is TmuxSessionManager

@@ -23,11 +23,11 @@ class SharedContextEngine:
         ## Current Goal
         (user's original request)
 
-        ## Round 1 Opinions
-        ### claude
-        ...
-        ### codex
-        ...
+        ## Round 1 Synthesis
+        (central summary and next-round prompt)
+
+        ## Round 1 Responses
+        (artifact paths for raw/clean provider outputs)
 
         ## Agreed Conclusion
         ...
@@ -133,6 +133,37 @@ class SharedContextEngine:
         safe_opinion = self._sanitize_md_heading(opinion)
         entry = f"\n### {safe_agent}\n{safe_opinion}\n"
         self.append_to_section(section_name, entry)
+
+    def append_response_reference(
+        self,
+        *,
+        agent: str,
+        round_num: int,
+        request_id: str,
+        status: str,
+        clean_output_path: Path | str | None = None,
+        raw_output_path: Path | str | None = None,
+        confidence: float | None = None,
+        token_count: int | None = None,
+    ) -> None:
+        """Append provider response artifact references without response body text."""
+        safe_agent = self._sanitize_md_heading(agent)
+        safe_request = self._sanitize_md_heading(request_id)
+        safe_status = self._sanitize_md_heading(status)
+        lines = [
+            f"\n### {safe_agent}",
+            f"- request_id: `{safe_request}`",
+            f"- status: {safe_status}",
+        ]
+        if confidence is not None:
+            lines.append(f"- confidence: {confidence:.2f}")
+        if token_count is not None:
+            lines.append(f"- tokens: {token_count}")
+        if clean_output_path is not None:
+            lines.append(f"- clean_output_path: `{clean_output_path}`")
+        if raw_output_path is not None:
+            lines.append(f"- raw_output_path: `{raw_output_path}`")
+        self.append_to_section(f"Round {round_num} Responses", "\n".join(lines))
 
     def append_invalid_response_diagnostic(
         self,
@@ -281,6 +312,26 @@ class SharedContextEngine:
         """Store a compressed summary for a completed round."""
         self.write_section(f"Round {round_num} Summary", summary)
 
+    def write_synthesis_summary(
+        self,
+        round_num: int,
+        summary: str,
+        *,
+        source: str = "",
+        next_round_prompt: str = "",
+    ) -> None:
+        """Store the central synthesis result for a completed round."""
+        lines: list[str] = []
+        if source:
+            lines.append(f"- source: {self._sanitize_md_heading(source)}")
+        safe_summary = self._sanitize_md_heading(summary)
+        if safe_summary:
+            lines.extend(["", "### Summary", safe_summary])
+        safe_next = self._sanitize_md_heading(next_round_prompt)
+        if safe_next:
+            lines.extend(["", "### Next Round Prompt", safe_next])
+        self.write_section(f"Round {round_num} Synthesis", "\n".join(lines).strip())
+
     def remove_section(self, heading: str) -> None:
         """Remove a ## section entirely from shared.md."""
         full = self.read()
@@ -303,7 +354,10 @@ class SharedContextEngine:
         self.write("\n".join(result))
 
     def get_rounds_for_prompt(
-        self, current_round: int, verbatim_rounds: int = 1
+        self,
+        current_round: int,
+        verbatim_rounds: int = 1,
+        include_compressed_summaries: bool = True,
     ) -> str:
         """Build context for a round prompt with compression.
 
@@ -314,6 +368,8 @@ class SharedContextEngine:
         Args:
             current_round: The round about to start (1-based).
             verbatim_rounds: How many recent rounds to include verbatim.
+            include_compressed_summaries: Whether Round N Summary sections may
+                replace legacy opinion sections.
         """
         full = self.read()
         sections = self._parse_sections(full)
@@ -324,26 +380,59 @@ class SharedContextEngine:
         verbatim_start = max(1, prev_round - verbatim_rounds + 1)
         compress_end = verbatim_start - 1
 
-        # Compressed summaries for old rounds
+        # Compressed summaries for old rounds. Synthesis sections are already
+        # compact canonical summaries, so prefer them over compression output.
         if compress_end >= 1:
             compressed_parts: list[str] = []
             for r in range(1, compress_end + 1):
-                summary_key = self._normalize_heading(f"Round {r} Summary")
-                if summary_key in sections:
-                    compressed_parts.append(sections[summary_key])
+                round_context = self._round_context_for_prompt(
+                    sections,
+                    r,
+                    include_compressed_summary=include_compressed_summaries,
+                )
+                if round_context:
+                    compressed_parts.append(round_context)
                 else:
                     compressed_parts.append(f"(Round {r}: see shared context for details)")
 
             if compressed_parts:
                 parts.append("## Earlier Rounds (summarized)\n" + "\n".join(compressed_parts))
 
-        # Verbatim rounds
+        # Recent rounds. Prefer synthesis summaries over full opinions to keep
+        # prompts stable and bounded; legacy opinions remain a fallback.
         for r in range(verbatim_start, prev_round + 1):
-            section_key = self._normalize_heading(f"Round {r} Opinions")
-            if section_key in sections:
-                parts.append(sections[section_key])
+            round_context = self._round_context_for_prompt(
+                sections,
+                r,
+                include_compressed_summary=include_compressed_summaries,
+            )
+            if round_context:
+                parts.append(round_context)
 
         return "\n\n".join(parts)
+
+    def _round_context_for_prompt(
+        self,
+        sections: dict[str, str],
+        round_num: int,
+        *,
+        include_compressed_summary: bool = True,
+    ) -> str:
+        """Return the best shared.md section for prompting about a prior round."""
+        headings = [f"Round {round_num} Synthesis"]
+        if include_compressed_summary:
+            headings.append(f"Round {round_num} Summary")
+        headings.extend(
+            [
+                f"Round {round_num} Opinions",
+                f"Round {round_num} Responses",
+            ]
+        )
+        for heading in headings:
+            key = self._normalize_heading(heading)
+            if key in sections and sections[key].strip():
+                return sections[key]
+        return ""
 
     def get_context_for_rotation(self, recent_rounds: int = 3) -> str:
         """Get context for session handoff: pinned sections + recent rounds."""

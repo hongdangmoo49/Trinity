@@ -6,17 +6,17 @@ import asyncio
 import json
 import logging
 import re
-import subprocess
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from trinity.agents.base import AgentWrapper
 from trinity.models import AgentSpec, ContextUsage, DeliberationMessage, MessageRole
+from trinity.providers.invoker import CodexExecInvoker
 
 if TYPE_CHECKING:
     from trinity.completion.base import CompletionDetector
-    from trinity.tmux.pane import TmuxPane
+    from trinity.legacy.tmux.pane import TmuxPane
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class CodexAgent(AgentWrapper):
     """Codex CLI agent.
 
-    Print mode: spawns `codex -q "<prompt>"` subprocess and parses JSON output.
+    Print mode: spawns `codex exec --json` and parses JSONL output.
     Interactive mode (Phase 4): uses tmux pane for persistent session.
     """
 
@@ -43,6 +43,7 @@ class CodexAgent(AgentWrapper):
         self._session_dir: Path | None = None
         self._last_response_start_line = 0
         self._sent_text = ""
+        self._invoker = CodexExecInvoker()
 
     @property
     def session_dir(self) -> Path | None:
@@ -66,18 +67,18 @@ class CodexAgent(AgentWrapper):
             logger.info(f"[{self.name}] Codex launched in tmux pane")
 
     async def send_and_wait(
-        self, prompt: str, timeout: float = 120.0
+        self, prompt: str, timeout: float = 120.0, access=None
     ) -> DeliberationMessage:
         if not self._started:
             raise RuntimeError(f"Agent {self.name} not started")
 
         self._message_count += 1
-        full_prompt = self._build_prompt(prompt)
 
         start_time = time.time()
 
         if self._pane and self._detector:
             # Interactive mode
+            full_prompt = self._build_prompt(prompt)
             pre_lines = self._capture_pane_lines()
             self._last_response_start_line = len(pre_lines)
             self._sent_text = full_prompt
@@ -119,29 +120,37 @@ class CodexAgent(AgentWrapper):
                 role=MessageRole.OPINION, content=response_text, metadata=metadata,
             )
         else:
-            # Print mode: subprocess
-            try:
-                raw = await asyncio.to_thread(
-                    self._run_subprocess, full_prompt, timeout
-                )
-            except subprocess.TimeoutExpired:
-                return DeliberationMessage(
-                    source=self.name, target="all", round_num=0,
-                    role=MessageRole.OPINION,
-                    content=f"[Timeout after {timeout}s]",
-                    metadata={"error": "timeout"},
-                )
-
+            # Print mode: one-shot provider invocation.
+            request = self._prompt_request(
+                prompt=prompt,
+                timeout=timeout,
+                context_prompt=self._initial_prompt,
+                access=access,
+            )
+            result = await self._invoker.invoke(request)
             elapsed = time.time() - start_time
-            response_text, usage = self._parse_response(raw)
-            self._update_usage(**usage)
+            if result.elapsed_seconds:
+                elapsed = result.elapsed_seconds
+
+            token_count = 0
+            if result.usage is not None:
+                token_count = result.usage.used
+                self._update_usage(
+                    used=token_count,
+                    total=self._context_usage.total,
+                )
 
             return DeliberationMessage(
                 source=self.name, target="all", round_num=0,
-                role=MessageRole.OPINION, content=response_text,
+                role=MessageRole.OPINION, content=result.content,
                 metadata={
                     "elapsed_seconds": elapsed,
-                    "token_count": usage.get("used", 0),
+                    "token_count": token_count,
+                    "response_status": result.status.value,
+                    "raw_output": result.raw_output,
+                    "diagnostics": list(result.diagnostics),
+                    "execution_authority": result.execution_authority.value,
+                    "tool_activity_summary": list(result.tool_activity_summary),
                 },
             )
 
@@ -176,31 +185,6 @@ class CodexAgent(AgentWrapper):
             parts.append(f"[Context]\n{self._initial_prompt}\n")
         parts.append(user_prompt)
         return "\n\n".join(parts)
-
-    def _run_subprocess(self, prompt: str, timeout: float) -> dict:
-        cmd = self._command_parts("-q", prompt)
-        cmd.extend(self.spec.extra_args)
-
-        proc = subprocess.run(
-            cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
-            timeout=timeout,
-            **self._subprocess_kwargs(),
-        )
-
-        if proc.returncode != 0:
-            logger.error(f"[{self.name}] codex exited with code {proc.returncode}")
-            return {"result": f"[Error: exit code {proc.returncode}]", "usage": {}}
-
-        try:
-            return json.loads(proc.stdout)
-        except json.JSONDecodeError:
-            return {"result": proc.stdout, "usage": {}}
-
-    def _parse_response(self, data: dict) -> tuple[str, dict]:
-        response_text = data.get("result", str(data))
-        usage_data = data.get("usage", {})
-        total_used = usage_data.get("total_tokens", 0)
-        return response_text, {"used": total_used, "total": self._context_usage.total}
 
     def _parse_session_usage(self) -> ContextUsage | None:
         """Try to read usage from Codex session JSON files."""

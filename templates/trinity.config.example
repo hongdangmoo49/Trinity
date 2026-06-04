@@ -4,6 +4,8 @@
 [general]
 session_name = "trinity"
 lang = "en"
+provider_state_mode = "user-home"  # "user-home" reuses local CLI auth; "isolated" uses .trinity provider homes
+transport_mode = "one-shot"  # "one-shot" uses headless CLI calls; "tmux" is legacy/debug transport
 max_deliberation_rounds = 5
 consensus_threshold = 0.6
 context_rotate_threshold = 0.60
@@ -28,10 +30,10 @@ branch_template = "trinity/codex"
 context_budget = 400000
 role_prompt = "You are the Implementer. You write clean, efficient code based on architectural decisions."
 
-[agents.gemini]
-provider = "gemini-cli"
-cli_command = "gemini"
-model = "gemini-2.5-pro"
+[agents.antigravity]
+provider = "antigravity-cli"
+cli_command = "agy"
+model = "default"
 enabled = false
 workspace_mode = "inplace"
 context_budget = 1000000

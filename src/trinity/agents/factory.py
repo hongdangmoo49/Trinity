@@ -5,17 +5,18 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from trinity.agents.antigravity_agent import AntigravityPrintAgent
 from trinity.agents.base import AgentWrapper
 from trinity.agents.claude_agent import InteractiveClaudeAgent, PrintModeClaudeAgent
 from trinity.agents.codex_agent import CodexAgent
-from trinity.agents.gemini_agent import GeminiAgent
 from trinity.completion.base import CompletionDetector, FallbackChainDetector
 from trinity.completion.hook import HookDetector
 from trinity.completion.idle import IdleDetector
 from trinity.completion.marker import MarkerDetector
 from trinity.completion.prompt import PromptReturnDetector
+from trinity.legacy.gemini.agent import GeminiAgent
+from trinity.legacy.tmux.pane import TmuxPane
 from trinity.models import AgentSpec, Provider
-from trinity.tmux.pane import TmuxPane
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,8 @@ class AgentFactory:
             return PrintModeClaudeAgent(spec)
         elif spec.provider == Provider.CODEX:
             return CodexAgent(spec)
+        elif spec.provider == Provider.ANTIGRAVITY_CLI:
+            return AntigravityPrintAgent(spec)
         elif spec.provider == Provider.GEMINI_CLI:
             return GeminiAgent(spec)
         else:
@@ -86,6 +89,11 @@ class AgentFactory:
                     f"Interactive mode requires pane and detector for '{spec.name}'"
                 )
             return CodexAgent(spec, pane=pane, detector=detector)
+        elif spec.provider == Provider.ANTIGRAVITY_CLI:
+            raise ValueError(
+                "Antigravity CLI provider is experimental: interactive tmux "
+                "transport is not enabled by default."
+            )
         elif spec.provider == Provider.GEMINI_CLI:
             if not pane or not detector:
                 raise ValueError(
@@ -118,7 +126,7 @@ class AgentFactory:
                 IdleDetector(20.0),
             ])
         elif provider == Provider.GEMINI_CLI:
-            from trinity.agents.gemini_agent import COMPLETION_MARKER
+            from trinity.legacy.gemini.agent import COMPLETION_MARKER
 
             return FallbackChainDetector([
                 MarkerDetector(COMPLETION_MARKER),

@@ -8,7 +8,7 @@ import logging
 import time
 
 from trinity.completion.base import CompletionDetector, CompletionResult
-from trinity.tmux.pane import TmuxPane
+from trinity.legacy.tmux.pane import TmuxPane
 
 logger = logging.getLogger(__name__)
 

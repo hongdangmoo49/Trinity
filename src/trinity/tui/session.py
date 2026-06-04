@@ -206,6 +206,7 @@ class InteractiveSession:
             )
 
         self.console.print(table)
+        self.console.print(f"[dim]Transport: {self.config.transport_mode}[/dim]")
         self._cmd_workflow()
 
     def _cmd_context(self) -> None:
@@ -780,7 +781,20 @@ class InteractiveSession:
             )
             return
 
-        mode_str = "interactive (tmux)" if self._has_tmux() else "print mode"
+        use_tmux = self._uses_tmux_transport()
+        if use_tmux and not self._has_tmux():
+            self.console.print(
+                "[red]transport_mode is 'tmux', but tmux is not installed or "
+                "not on PATH.[/red]"
+            )
+            return
+        if use_tmux:
+            self.console.print(
+                "[yellow]Using legacy tmux agent transport. "
+                "One-shot remains the default transport.[/yellow]"
+            )
+
+        mode_str = self._transport_mode_label()
         self.console.print(Panel.fit(
             f"[bold]{prompt}[/bold]\n\n"
             f"Agents: {', '.join(active.keys())}\n"
@@ -791,7 +805,7 @@ class InteractiveSession:
         ))
 
         # Create orchestrator
-        orchestrator = TrinityOrchestrator(self.config, interactive=self._has_tmux())
+        orchestrator = TrinityOrchestrator(self.config, interactive=use_tmux)
 
         # Reset TUI state for new deliberation
         self.tui.reset_agents()
@@ -1118,3 +1132,13 @@ class InteractiveSession:
         """Check if tmux is available for interactive mode."""
         import shutil
         return shutil.which("tmux") is not None
+
+    def _uses_tmux_transport(self) -> bool:
+        """Whether agent calls should use the legacy tmux transport."""
+        return self.config.transport_mode == "tmux"
+
+    def _transport_mode_label(self) -> str:
+        """Human-readable label for the active agent transport."""
+        if self._uses_tmux_transport():
+            return "legacy tmux"
+        return "one-shot"

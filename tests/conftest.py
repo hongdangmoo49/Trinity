@@ -15,6 +15,7 @@ def tmp_trinity_dir(tmp_path):
     state.mkdir()
     (state / "agents" / "claude").mkdir(parents=True)
     (state / "agents" / "codex").mkdir(parents=True)
+    (state / "agents" / "antigravity").mkdir(parents=True)
     (state / "agents" / "gemini").mkdir(parents=True)
     (state / "history").mkdir()
     (state / "logs").mkdir()

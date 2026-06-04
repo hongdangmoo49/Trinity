@@ -13,7 +13,7 @@ from trinity.models import AgentSpec, ContextUsage, DeliberationMessage
 class AgentWrapper(ABC):
     """Abstract base for controlling an AI CLI agent.
 
-    Each provider (Claude, Codex, Gemini) implements this interface.
+    Each provider (Claude, Codex, Antigravity, Gemini) implements this interface.
     Phase 1 uses subprocess-based print mode; Phase 2 adds tmux interactive mode.
     """
 
@@ -38,7 +38,7 @@ class AgentWrapper(ABC):
 
     @abstractmethod
     async def send_and_wait(
-        self, prompt: str, timeout: float = 120.0
+        self, prompt: str, timeout: float = 120.0, access=None
     ) -> DeliberationMessage:
         """Send a prompt and wait for the agent to respond.
 
@@ -98,6 +98,33 @@ class AgentWrapper(ABC):
     def _command_parts(self, *parts: str) -> list[str]:
         """Build provider command parts with model selection applied."""
         return [self.spec.cli_command, *self._model_args(), *parts]
+
+    def _prompt_request(
+        self,
+        prompt: str,
+        timeout: float,
+        context_prompt: str = "",
+        access=None,
+    ):
+        """Build a one-shot provider request from this agent's launch config."""
+        from trinity.providers.invoker import PromptRequest
+        from trinity.providers.policy import InvocationAccess
+
+        access = access or InvocationAccess.READ_ONLY
+        return PromptRequest(
+            agent_name=self.name,
+            provider=self.spec.provider,
+            cli_command=self.spec.cli_command,
+            role_prompt=self.spec.role_prompt,
+            context_prompt=context_prompt,
+            prompt=prompt,
+            cwd=self.launch_cwd or Path.cwd(),
+            timeout_seconds=timeout,
+            env=dict(self.env_overrides),
+            model=self.spec.model,
+            extra_args=tuple(self.spec.extra_args),
+            access=access,
+        )
 
     def _shell_command(self, args: list[str]) -> str:
         """Build a shell command with per-agent environment overrides."""

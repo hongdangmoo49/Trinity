@@ -19,6 +19,7 @@ class ProviderContextLimits:
     defaults: dict[str, int] = field(default_factory=lambda: {
         Provider.CLAUDE_CODE: 200_000,
         Provider.CODEX: 128_000,
+        Provider.ANTIGRAVITY_CLI: 1_000_000,
         Provider.GEMINI_CLI: 1_000_000,
     })
 

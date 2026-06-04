@@ -47,6 +47,14 @@ class TestAgentSpec:
         spec = AgentSpec(name="gemini", provider=Provider.GEMINI_CLI, cli_command="gemini")
         assert spec.effective_context_budget == 1_000_000
 
+    def test_effective_context_budget_auto_antigravity(self):
+        spec = AgentSpec(
+            name="antigravity",
+            provider=Provider.ANTIGRAVITY_CLI,
+            cli_command="agy",
+        )
+        assert spec.effective_context_budget == 1_000_000
+
     def test_model_context_budget_overrides_provider_default(self):
         spec = AgentSpec(
             name="claude",
@@ -81,6 +89,7 @@ class TestModelRegistry:
     def test_provider_default_budget_preserves_existing_defaults(self):
         assert provider_default_budget(Provider.CLAUDE_CODE) == 200_000
         assert provider_default_budget(Provider.CODEX) == 128_000
+        assert provider_default_budget(Provider.ANTIGRAVITY_CLI) == 1_000_000
         assert provider_default_budget(Provider.GEMINI_CLI) == 1_000_000
 
 

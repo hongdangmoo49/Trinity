@@ -99,15 +99,15 @@ class TestTrinityTUI:
         tui = TrinityTUI(config)
         assert "claude" in tui.agents
         assert "codex" in tui.agents
-        assert "gemini" in tui.agents
+        assert "antigravity" in tui.agents
 
     def test_agent_states_from_config(self, config):
         tui = TrinityTUI(config)
         # Claude is enabled by default
         assert tui.agents["claude"].state == AgentTUIState.IDLE
-        # Codex/Gemini are disabled by default
+        # Codex/Antigravity are disabled by default
         assert tui.agents["codex"].state == AgentTUIState.DISABLED
-        assert tui.agents["gemini"].state == AgentTUIState.DISABLED
+        assert tui.agents["antigravity"].state == AgentTUIState.DISABLED
 
     def test_build_header(self, tui):
         panel = tui.build_header()
@@ -332,7 +332,7 @@ class TestTrinityTUI:
     def test_reset_agents_preserves_disabled(self, tui):
         tui.reset_agents()
         assert tui.agents["codex"].state == AgentTUIState.DISABLED
-        assert tui.agents["gemini"].state == AgentTUIState.DISABLED
+        assert tui.agents["antigravity"].state == AgentTUIState.DISABLED
 
     def test_multiple_rounds(self, tui):
         for r in range(1, 4):
@@ -598,8 +598,12 @@ class TestAgentTheme:
     def test_get_theme_gemini(self):
         theme = get_theme("gemini")
         assert theme.name == "gemini"
-        assert theme.color == "magenta"
+
+    def test_get_theme_antigravity(self):
+        theme = get_theme("antigravity")
+        assert theme.name == "antigravity"
         assert theme.role_label == "Reviewer"
+        assert theme.color == "bright_magenta"
 
     def test_get_theme_unknown_agent(self):
         theme = get_theme("unknown_agent")

@@ -118,7 +118,7 @@ def init(force: bool, non_interactive: bool):
     """Initialize .trinity/ in the current directory.
 
     Runs an interactive setup wizard that:
-    1. Detects installed AI CLI tools (claude, codex, gemini)
+    1. Detects installed AI CLI tools (claude, codex, agy)
     2. Lets you choose which agents to enable
     3. Customizes role prompts and context budgets
     4. Saves the configuration
@@ -253,7 +253,7 @@ def _create_directory_structure(
 ) -> None:
     """Create the .trinity/ directory structure."""
     state.mkdir(exist_ok=True)
-    names = agent_names or ["claude", "codex", "gemini"]
+    names = agent_names or ["claude", "codex", "antigravity"]
     for name in names:
         (state / "agents" / name).mkdir(parents=True, exist_ok=True)
     (state / "history").mkdir(exist_ok=True)
@@ -297,10 +297,10 @@ def bootstrap(
 ):
     """Launch provider CLIs for isolated first-run setup and authentication.
 
-    This command keeps Trinity's provider-state isolation intact. Each selected
-    provider is started with the same isolated HOME/XDG paths that normal
-    Trinity sessions use, so completed auth/theme/trust prompts are saved under
-    .trinity/agents/<agent>/provider-state.
+    This command prepares isolated provider homes under
+    .trinity/agents/<agent>/provider-state. Normal Trinity runs reuse the
+    user's existing CLI auth by default unless provider_state_mode is set to
+    "isolated".
     """
     config_path = find_config_path()
     if config_path is None:
@@ -345,7 +345,7 @@ def bootstrap(
     console.print(
         f"\n[green]Started tmux session '{result.session_name}'.[/green]\n"
         "Complete each provider's auth, theme, and workspace trust prompts in "
-        "that session. Normal Trinity runs will reuse the same isolated state."
+        "that session if this project uses provider_state_mode=\"isolated\"."
     )
 
     if no_attach:
@@ -370,13 +370,36 @@ def _parse_agent_names(agent_names: str | None) -> list[str] | None:
     return names or None
 
 
+def _uses_legacy_tmux_transport(config: TrinityConfig, force_tmux: bool = False) -> bool:
+    """Whether this invocation should use the legacy tmux agent transport."""
+    return force_tmux or config.transport_mode == "tmux"
+
+
+def _transport_mode_label(use_tmux: bool) -> str:
+    """Human-readable transport label for CLI output."""
+    return "legacy tmux" if use_tmux else "one-shot"
+
+
+def _print_legacy_tmux_notice() -> None:
+    """Show a short notice when the legacy transport is explicitly selected."""
+    console.print(
+        "[yellow]Using legacy tmux agent transport. "
+        "One-shot remains the default transport.[/yellow]"
+    )
+
+
 # ─── trinity ask ─────────────────────────────────────────────────────────
 
 @main.command()
 @click.argument("prompt")
 @click.option("--max-rounds", type=int, default=None, help="Override max deliberation rounds")
 @click.option("--agents", "agent_names", default=None, help="Comma-separated agent names to use")
-@click.option("-i", "--interactive", is_flag=True, help="Use tmux interactive mode (Phase 2)")
+@click.option(
+    "-i",
+    "--interactive",
+    is_flag=True,
+    help="Use legacy tmux agent transport for this request",
+)
 def ask(prompt: str, max_rounds: int | None, agent_names: str | None, interactive: bool):
     """Run deliberation on a prompt.
 
@@ -396,7 +419,10 @@ def ask(prompt: str, max_rounds: int | None, agent_names: str | None, interactiv
 
     # Show header
     active = config.active_agents
-    mode_str = "interactive (tmux)" if interactive else "print mode"
+    use_tmux = _uses_legacy_tmux_transport(config, force_tmux=interactive)
+    mode_str = _transport_mode_label(use_tmux)
+    if use_tmux:
+        _print_legacy_tmux_notice()
     console.print(Panel.fit(
         f"[bold]{prompt}[/bold]\n\n"
         f"Agents: {', '.join(active.keys())}\n"
@@ -406,7 +432,7 @@ def ask(prompt: str, max_rounds: int | None, agent_names: str | None, interactiv
     ))
 
     # Run orchestrator
-    orchestrator = TrinityOrchestrator(config, interactive=interactive)
+    orchestrator = TrinityOrchestrator(config, interactive=use_tmux)
 
     try:
         result = asyncio.run(orchestrator.ask(prompt))
@@ -449,6 +475,7 @@ def status():
 
     console.print(table)
     console.print(f"\n[dim]Shared context: {status_data['shared_context_path']}[/dim]")
+    console.print(f"[dim]Transport: {status_data['transport_mode']}[/dim]")
 
 
 # ─── trinity status-watch ────────────────────────────────────────────────
@@ -493,8 +520,16 @@ def status_watch(interval: float):
 
 @main.command()
 def attach():
-    """Attach to the tmux session running Trinity agents."""
+    """Attach to the legacy tmux transport session running Trinity agents."""
     config = load_config()
+
+    if config.transport_mode != "tmux":
+        console.print(
+            "[yellow]Current transport is one-shot; no Trinity tmux transport "
+            "session is expected. Set transport_mode = \"tmux\" to use this "
+            "legacy command.[/yellow]"
+        )
+        return
 
     if not config.session_name:
         console.print("[yellow]No tmux session configured.[/yellow]")
@@ -545,6 +580,7 @@ _SAFE_CONFIG_KEYS = frozenset({
     "consensus_threshold", "round_timeout_seconds",
     "context_rotate_threshold", "health_check_interval_seconds",
     "log_level", "log_file", "caveman_mode", "caveman_intensity",
+    "provider_state_mode", "transport_mode",
 })
 
 

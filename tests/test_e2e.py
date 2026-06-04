@@ -60,7 +60,7 @@ class TestE2EInit:
 
         assert (project_dir / ".trinity" / "agents" / "claude").exists()
         assert (project_dir / ".trinity" / "agents" / "codex").exists()
-        assert (project_dir / ".trinity" / "agents" / "gemini").exists()
+        assert (project_dir / ".trinity" / "agents" / "antigravity").exists()
 
     def test_init_force_overwrites(self, runner, project_dir):
         with patch("trinity.cli.Path.cwd", return_value=project_dir):

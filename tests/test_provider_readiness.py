@@ -114,7 +114,25 @@ def test_gemini_auth_picker_is_auth_required():
 
     assert result.ready is False
     assert result.state == ProviderState.AUTH_REQUIRED
-    assert "trinity bootstrap --agents gemini" in result.action_hint
+    assert "Gemini CLI is deprecated" in result.action_hint
+    assert "agy plugin import gemini" in result.action_hint
+
+
+def test_antigravity_auth_is_auth_required():
+    gate = ProviderReadinessGate()
+
+    result = gate.classify_pane_state(
+        [
+            "Welcome to Antigravity CLI",
+            "Please sign in with your Google account",
+        ],
+        provider=Provider.ANTIGRAVITY_CLI,
+        agent_name="antigravity",
+    )
+
+    assert result.ready is False
+    assert result.state == ProviderState.AUTH_REQUIRED
+    assert "Run `agy`" in result.action_hint
 
 
 def test_gemini_auth_env_terms_and_process_variants_are_classified():

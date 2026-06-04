@@ -46,6 +46,28 @@ class TestSharedContextEngine:
         assert "codex" in section
         assert "Sessions are better" in section
 
+    def test_append_response_reference(self, shared_engine, tmp_path):
+        shared_engine.initialize("Test", ["claude"])
+        shared_engine.append_response_reference(
+            agent="claude",
+            round_num=1,
+            request_id="round-1-claude-123",
+            status="ok",
+            clean_output_path=tmp_path / "responses" / "clean.txt",
+            raw_output_path=tmp_path / "responses" / "raw.txt",
+            confidence=1.0,
+            token_count=42,
+        )
+
+        section = shared_engine.read_section("Round 1 Responses")
+        assert section is not None
+        assert "claude" in section
+        assert "round-1-claude-123" in section
+        assert "status: ok" in section
+        assert "clean_output_path" in section
+        assert "raw_output_path" in section
+        assert "tokens: 42" in section
+
     def test_update_consensus(self, shared_engine):
         shared_engine.initialize("Test", ["claude"])
         shared_engine.update_consensus("Use JWT + refresh tokens")
@@ -248,6 +270,24 @@ def test_get_rounds_for_prompt_no_compression(shared_engine):
     context = shared_engine.get_rounds_for_prompt(current_round=3, verbatim_rounds=2)
     assert "Opinion 1" in context
     assert "Opinion 2" in context
+
+
+def test_get_rounds_for_prompt_prefers_synthesis_over_opinions(shared_engine):
+    """Round prompts should use synthesis summaries before raw opinions."""
+    shared_engine.initialize(goal="test", agent_names=["claude"])
+    shared_engine.append_opinion("claude", 1, "Full raw opinion should stay out")
+    shared_engine.write_synthesis_summary(
+        1,
+        "Canonical synthesis summary.",
+        source="heuristic",
+        next_round_prompt="Resolve remaining trade-offs.",
+    )
+
+    context = shared_engine.get_rounds_for_prompt(current_round=2, verbatim_rounds=1)
+
+    assert "Canonical synthesis summary." in context
+    assert "Resolve remaining trade-offs." in context
+    assert "Full raw opinion should stay out" not in context
 
 
 def test_remove_section(shared_engine):

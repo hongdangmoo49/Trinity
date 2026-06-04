@@ -61,6 +61,72 @@ class TestInteractiveSession:
         with patch("shutil.which", return_value=None):
             assert session._has_tmux() is False
 
+    def test_default_transport_is_one_shot(self, session):
+        assert session._uses_tmux_transport() is False
+        assert session._transport_mode_label() == "one-shot"
+
+    def test_tmux_transport_requires_explicit_config(self, session):
+        session.config.transport_mode = "tmux"
+
+        assert session._uses_tmux_transport() is True
+        assert session._transport_mode_label() == "legacy tmux"
+
+    def test_run_deliberation_uses_one_shot_even_when_tmux_exists(self, session):
+        result = DeliberationResult(
+            user_prompt="test",
+            rounds_completed=1,
+            consensus=ConsensusResult(
+                reached=True,
+                agreement_count=1,
+                total_agents=1,
+                opinions={"claude": "yes"},
+                summary="Done.",
+            ),
+        )
+
+        with patch("trinity.orchestrator.TrinityOrchestrator") as MockOrch:
+            with patch.object(session, "_run_with_live", return_value=result):
+                with patch.object(session, "_has_tmux", return_value=True):
+                    session.workflow.start("test", ["claude"])
+                    session._run_deliberation("test")
+
+        MockOrch.assert_called_once()
+        assert MockOrch.call_args.kwargs["interactive"] is False
+
+    def test_run_deliberation_uses_tmux_when_configured(self, session):
+        session.config.transport_mode = "tmux"
+        result = DeliberationResult(
+            user_prompt="test",
+            rounds_completed=1,
+            consensus=ConsensusResult(
+                reached=True,
+                agreement_count=1,
+                total_agents=1,
+                opinions={"claude": "yes"},
+                summary="Done.",
+            ),
+        )
+
+        with patch("trinity.orchestrator.TrinityOrchestrator") as MockOrch:
+            with patch.object(session, "_run_with_live", return_value=result):
+                with patch.object(session, "_has_tmux", return_value=True):
+                    session.workflow.start("test", ["claude"])
+                    session._run_deliberation("test")
+
+        MockOrch.assert_called_once()
+        assert MockOrch.call_args.kwargs["interactive"] is True
+
+    def test_run_deliberation_rejects_tmux_mode_when_tmux_missing(self, session):
+        session.config.transport_mode = "tmux"
+
+        with patch("trinity.orchestrator.TrinityOrchestrator") as MockOrch:
+            with patch.object(session, "_run_with_live") as run_with_live:
+                with patch.object(session, "_has_tmux", return_value=False):
+                    session._run_deliberation("test")
+
+        MockOrch.assert_not_called()
+        run_with_live.assert_not_called()
+
     def test_starts_with_new_workflow_and_archives_previous(self, config):
         previous = WorkflowEngine(config.effective_state_dir)
         previous.start("Old whale tracker goal", ["claude"])

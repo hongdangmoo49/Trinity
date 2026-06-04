@@ -23,7 +23,7 @@ from trinity.providers.readiness import (
     ProviderReadinessGate,
     ReadinessResult,
 )
-from trinity.tmux.session import TmuxSessionManager
+from trinity.legacy.tmux.session import TmuxSessionManager
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workspace.isolation import WorkspaceIsolation
 from trinity.workspace.managed_home import ManagedHome
@@ -48,9 +48,14 @@ class AgentLaunchContext:
 class TrinityOrchestrator:
     """Owns all components and drives the deliberation lifecycle."""
 
-    def __init__(self, config: TrinityConfig, interactive: bool = False):
+    def __init__(self, config: TrinityConfig, interactive: bool | None = None):
         self.config = config
-        self.interactive = interactive
+        self.transport_mode = config.transport_mode
+        self.interactive = (
+            self.transport_mode == "tmux" if interactive is None else interactive
+        )
+        if interactive is not None:
+            self.transport_mode = "tmux" if interactive else "one-shot"
         self.agents: dict[str, AgentWrapper] = {}
         self.shared: SharedContextEngine | None = None
         self.protocol: DeliberationProtocol | None = None
@@ -171,8 +176,13 @@ class TrinityOrchestrator:
         self, active_agents: dict[str, AgentSpec], state_dir: Path
     ) -> None:
         """Prepare per-agent cwd/env metadata before wrappers are created."""
-        self.managed_home = ManagedHome(state_dir=state_dir)
         self.agent_launch_contexts = {}
+        provider_state_mode = self.config.provider_state_mode.lower()
+        self.managed_home = (
+            ManagedHome(state_dir=state_dir)
+            if provider_state_mode == "isolated"
+            else None
+        )
 
         needs_worktree = any(
             spec.workspace_mode == "git-worktree" for spec in active_agents.values()
@@ -187,9 +197,12 @@ class TrinityOrchestrator:
         )
 
         for name, spec in active_agents.items():
-            provider_name = getattr(spec.provider, "value", str(spec.provider))
-            managed_home = self.managed_home.setup(name, provider=provider_name)
-            env_overrides = self.managed_home.get_env_overrides(name)
+            managed_home: Path | None = None
+            env_overrides: dict[str, str] = {}
+            if self.managed_home is not None:
+                provider_name = getattr(spec.provider, "value", str(spec.provider))
+                managed_home = self.managed_home.setup(name, provider=provider_name)
+                env_overrides = self.managed_home.get_env_overrides(name)
 
             cwd = self.config.project_dir.resolve()
             workspace_path: Path | None = None
@@ -514,6 +527,7 @@ class TrinityOrchestrator:
             "shared_context_path": str(self.config.shared_context_path),
             "max_rounds": self.config.max_deliberation_rounds,
             "interactive": self.interactive,
+            "transport_mode": self.transport_mode,
             "tmux_session": (
                 self.config.session_name if self.tmux_manager else None
             ),

@@ -2,11 +2,13 @@
 
 import json
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, AsyncMock
 
 from trinity.agents.codex_agent import CodexAgent
 from trinity.completion.base import CompletionResult
-from trinity.models import AgentSpec, ContextUsage, MessageRole, Provider
+from trinity.models import AgentSpec, ContextUsage, MessageRole, Provider, ResponseStatus
+from trinity.providers.invoker import ProviderTurnResult
+from trinity.providers.policy import InvocationAccess
 
 
 @pytest.fixture
@@ -68,56 +70,87 @@ class TestCodexSendAndWait:
     async def test_print_mode_subprocess(self, agent):
         await agent.start()
 
-        mock_output = {
-            "result": "I'll implement the auth module.",
-            "usage": {"total_tokens": 5000},
-        }
-
-        with patch.object(agent, "_run_subprocess", return_value=mock_output):
-            msg = await agent.send_and_wait("Implement auth.")
+        agent._invoker.invoke = AsyncMock(
+            return_value=ProviderTurnResult(
+                agent_name="codex",
+                content="I'll implement the auth module.",
+                raw_output="raw",
+                status=ResponseStatus.OK,
+                elapsed_seconds=0.2,
+                usage=ContextUsage(used=5000, total=0),
+                tool_activity_summary=["command_execution:1"],
+            )
+        )
+        msg = await agent.send_and_wait("Implement auth.")
 
         assert msg.source == "codex"
         assert msg.role == MessageRole.OPINION
         assert "auth" in msg.content
+        assert msg.metadata["token_count"] == 5000
+        assert msg.metadata["response_status"] == "ok"
+        assert msg.metadata["tool_activity_summary"] == ["command_execution:1"]
+        request = agent._invoker.invoke.call_args.args[0]
+        assert request.prompt == "Implement auth."
+        assert request.role_prompt == "You are the Implementer."
 
-    def test_subprocess_command_includes_model_arg(self, codex_spec):
-        codex_spec.model = "gpt-5.1"
-        agent = CodexAgent(codex_spec)
-        proc = MagicMock()
-        proc.returncode = 0
-        proc.stdout = json.dumps({"result": "ok", "usage": {}})
-        proc.stderr = ""
+    @pytest.mark.asyncio
+    async def test_print_mode_forwards_invocation_access(self, agent):
+        await agent.start()
 
-        with patch("trinity.agents.codex_agent.subprocess.run", return_value=proc) as run:
-            agent._run_subprocess("prompt", 120)
+        agent._invoker.invoke = AsyncMock(
+            return_value=ProviderTurnResult(
+                agent_name="codex",
+                content="Implemented.",
+                raw_output="raw",
+                status=ResponseStatus.OK,
+                elapsed_seconds=0.2,
+            )
+        )
 
-        cmd = run.call_args.args[0]
-        assert cmd[:3] == ["codex", "--model", "gpt-5.1"]
+        await agent.send_and_wait(
+            "Implement auth.",
+            access=InvocationAccess.WORKSPACE_WRITE,
+        )
+
+        request = agent._invoker.invoke.call_args.args[0]
+        assert request.access == InvocationAccess.WORKSPACE_WRITE
 
     @pytest.mark.asyncio
     async def test_timeout(self, agent):
-        import subprocess
         await agent.start()
 
-        with patch.object(
-            agent, "_run_subprocess",
-            side_effect=subprocess.TimeoutExpired("cmd", 120)
-        ):
-            msg = await agent.send_and_wait("test", timeout=120)
+        agent._invoker.invoke = AsyncMock(
+            return_value=ProviderTurnResult(
+                agent_name="codex",
+                content="[Timeout after 120s]",
+                raw_output="",
+                status=ResponseStatus.TIMEOUT,
+                elapsed_seconds=120,
+            )
+        )
+        msg = await agent.send_and_wait("test", timeout=120)
 
         assert "Timeout" in msg.content
+        assert msg.metadata["response_status"] == "timeout"
 
     @pytest.mark.asyncio
     async def test_error_exit_code(self, agent):
         await agent.start()
 
-        with patch.object(agent, "_run_subprocess", return_value={
-            "result": "[Error: exit code 1]",
-            "usage": {},
-        }):
-            msg = await agent.send_and_wait("test")
+        agent._invoker.invoke = AsyncMock(
+            return_value=ProviderTurnResult(
+                agent_name="codex",
+                content="[Error: exit code 1]",
+                raw_output="auth required",
+                status=ResponseStatus.AUTH_REQUIRED,
+                elapsed_seconds=0.1,
+                diagnostics=["auth required"],
+            )
+        )
+        msg = await agent.send_and_wait("test")
 
         assert "Error" in msg.content
+        assert msg.metadata["response_status"] == "auth_required"
 
     @pytest.mark.asyncio
     async def test_interactive_mode_sends_prompt_before_waiting(self, codex_spec):
@@ -233,19 +266,6 @@ class TestCodexBuildPrompt:
         assert "[System Role]" in prompt
         assert "Implementer" in prompt
         assert "Implement auth" in prompt
-
-
-class TestCodexParseResponse:
-    def test_normal(self, agent):
-        data = {"result": "Code here.", "usage": {"total_tokens": 3000}}
-        text, usage = agent._parse_response(data)
-        assert text == "Code here."
-        assert usage["used"] == 3000
-
-    def test_missing_usage(self, agent):
-        data = {"result": "Hello"}
-        text, usage = agent._parse_response(data)
-        assert usage["used"] == 0
 
 
 class TestCodexSessionUsage:

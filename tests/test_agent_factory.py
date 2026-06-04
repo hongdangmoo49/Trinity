@@ -4,13 +4,14 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from trinity.agents.antigravity_agent import AntigravityPrintAgent
 from trinity.agents.claude_agent import InteractiveClaudeAgent, PrintModeClaudeAgent
 from trinity.agents.codex_agent import CodexAgent
 from trinity.agents.factory import AgentFactory
-from trinity.agents.gemini_agent import GeminiAgent
 from trinity.completion.hook import HookDetector
 from trinity.completion.marker import MarkerDetector
 from trinity.completion.prompt import PromptReturnDetector
+from trinity.legacy.gemini.agent import GeminiAgent
 from trinity.models import AgentSpec, Provider
 
 
@@ -45,6 +46,16 @@ def gemini_spec():
         provider=Provider.GEMINI_CLI,
         cli_command="gemini",
         context_budget=200_000,
+    )
+
+
+@pytest.fixture
+def antigravity_spec():
+    return AgentSpec(
+        name="antigravity",
+        provider=Provider.ANTIGRAVITY_CLI,
+        cli_command="agy",
+        context_budget=1_000_000,
     )
 
 
@@ -85,6 +96,16 @@ class TestCreatePrintMode:
         assert isinstance(agent, GeminiAgent)
         assert agent.name == "gemini"
 
+    def test_gemini_compatibility_shim(self):
+        from trinity.agents.gemini_agent import GeminiAgent as ShimGeminiAgent
+
+        assert ShimGeminiAgent is GeminiAgent
+
+    def test_antigravity_print(self, antigravity_spec):
+        agent = AgentFactory.create(antigravity_spec, mode="print")
+        assert isinstance(agent, AntigravityPrintAgent)
+        assert agent.name == "antigravity"
+
     def test_print_is_default_mode(self, claude_spec):
         """mode 파라미터 생략 시 print 모드가 기본."""
         agent = AgentFactory.create(claude_spec)
@@ -117,6 +138,15 @@ class TestCreateInteractiveMode:
         )
         assert isinstance(agent, InteractiveClaudeAgent)
         assert agent.name == "claude"
+
+    def test_antigravity_interactive_is_guarded(self, antigravity_spec, mock_pane, mock_detector):
+        with pytest.raises(ValueError, match="experimental"):
+            AgentFactory.create(
+                antigravity_spec,
+                mode="interactive",
+                pane=mock_pane,
+                detector=mock_detector,
+            )
 
     def test_codex_interactive(self, codex_spec, mock_pane, mock_detector, signal_path):
         agent = AgentFactory.create(

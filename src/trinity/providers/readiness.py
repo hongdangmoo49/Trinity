@@ -39,7 +39,7 @@ class ReadinessResult:
 
 
 _PROMPT_RE = re.compile(
-    r"^\s*(?:[>$❯›]|trinity>|claude>|codex>|gemini>)\s*$"
+    r"^\s*(?:[>$❯›]|trinity>|claude>|codex>|agy>|gemini>)\s*$"
 )
 
 
@@ -76,25 +76,32 @@ def _action_hint(provider: Provider, state: ProviderState) -> str:
     if state == ProviderState.AUTH_REQUIRED:
         if provider == Provider.CLAUDE_CODE:
             return (
-                "Run `trinity bootstrap --agents claude` and complete "
-                "login/authentication in the isolated provider state."
+                "Run `claude` in your normal shell and complete login. "
+                "Use `trinity bootstrap --agents claude` only for isolated mode."
             )
         if provider == Provider.CODEX:
             return (
-                "Run `trinity bootstrap --agents codex` and complete "
-                "authentication in the isolated provider state."
+                "Run `codex login` or `codex` in your normal shell and complete "
+                "authentication. Use `trinity bootstrap --agents codex` only "
+                "for isolated mode."
+            )
+        if provider == Provider.ANTIGRAVITY_CLI:
+            return (
+                "Run `agy` in your normal shell and complete auth/workspace trust. "
+                "Trinity uses your existing Antigravity auth through `agy --print` "
+                "in one-shot mode."
             )
         if provider == Provider.GEMINI_CLI:
             return (
-                "Run `trinity bootstrap --agents gemini` and complete the "
-                "authentication flow in the isolated provider state."
+                "Gemini CLI is deprecated. Install Antigravity CLI and run "
+                "`agy plugin import gemini`; use `gemini` only for legacy configs."
             )
     if state == ProviderState.MODEL_LOADING:
         return f"Wait for {provider_name} model initialization to finish, then retry."
     if state == ProviderState.WORKSPACE_TRUST_REQUIRED:
         return (
-            "Run `trinity bootstrap` and accept the workspace trust prompt "
-            "inside the isolated provider session, then retry."
+            "Run the provider CLI in your normal shell and accept the workspace "
+            "trust prompt. Use `trinity bootstrap` only for isolated mode."
         )
     if state == ProviderState.CLI_BANNER_ONLY:
         return f"Wait until {provider_name} shows an input prompt, then retry."
@@ -298,6 +305,13 @@ _AUTH_PATTERNS: dict[Provider, tuple[str, ...]] = {
         r"\bcodex\s+login\b",
         r"openai\s+api\s+key",
     ),
+    Provider.ANTIGRAVITY_CLI: (
+        *_COMMON_AUTH_PATTERNS,
+        r"\bagy\b.*\bauth\b",
+        r"antigravity\b.*\bauth\b",
+        r"google\s+account",
+        r"workspace\s+trust",
+    ),
     Provider.GEMINI_CLI: (
         *_COMMON_AUTH_PATTERNS,
         r"\bauth\b.*\bmethod\b",
@@ -320,6 +334,11 @@ _MODEL_LOADING_PATTERNS: dict[Provider, tuple[str, ...]] = {
         r"\bloading\b.*\bmodel\b",
         r"\bmodel\b.*\bloading\b",
     ),
+    Provider.ANTIGRAVITY_CLI: (
+        r"\bloading\b.*\bmodel\b",
+        r"\binitializing\b.*\bantigravity\b",
+        r"\binitializing\b.*\bagy\b",
+    ),
     Provider.GEMINI_CLI: (
         r"\bloading\b.*\bmodel\b",
         r"\binitializing\b.*\bgemini\b",
@@ -335,6 +354,10 @@ _READY_PROMPT_PATTERNS: dict[Provider, tuple[str, ...]] = {
         r"\buse\s+/skills\b",
         r"\brun\s+/review\b",
     ),
+    Provider.ANTIGRAVITY_CLI: (
+        r"\btype\s+your\s+message\b",
+        r"^\s*›\s+",
+    ),
     Provider.GEMINI_CLI: (
         r"\btype\s+your\s+message\s+or\s+@path/to/file\b",
     ),
@@ -348,6 +371,11 @@ _BANNER_PATTERNS: dict[Provider, tuple[str, ...]] = {
     Provider.CODEX: (
         r"\bcodex\b",
         r"/model\s+to\s+change",
+        r"/help\s+for\s+commands",
+    ),
+    Provider.ANTIGRAVITY_CLI: (
+        r"\bantigravity\b",
+        r"\bagy\b",
         r"/help\s+for\s+commands",
     ),
     Provider.GEMINI_CLI: (

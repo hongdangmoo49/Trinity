@@ -23,7 +23,7 @@ def trinity_project(tmp_path):
     state.mkdir()
     (state / "agents" / "claude").mkdir(parents=True)
     (state / "agents" / "codex").mkdir(parents=True)
-    (state / "agents" / "gemini").mkdir(parents=True)
+    (state / "agents" / "antigravity").mkdir(parents=True)
     (state / "history").mkdir()
     (state / "logs").mkdir()
     (state / "workspace").mkdir()
@@ -57,7 +57,7 @@ class TestInit:
             assert Path(".trinity/shared.md").exists()
             assert Path(".trinity/agents/claude/role.md").exists()
             assert Path(".trinity/agents/codex/role.md").exists()
-            assert Path(".trinity/agents/gemini/role.md").exists()
+            assert Path(".trinity/agents/antigravity/role.md").exists()
             assert Path(".trinity/history").exists()
             assert Path(".trinity/logs").exists()
             assert Path(".trinity/workspace").exists()
@@ -234,6 +234,39 @@ class TestAsk:
                 result = runner.invoke(main, ["ask", "test question"])
                 assert result.exit_code == 0
                 assert "Consensus" in result.output or "consensus" in result.output
+                MockOrch.assert_called_once()
+                assert MockOrch.call_args.kwargs["interactive"] is False
+
+    def test_ask_interactive_flag_forces_tmux_transport(self, runner, trinity_project):
+        from trinity.models import DeliberationResult, ConsensusResult
+
+        mock_result = DeliberationResult(
+            user_prompt="test question",
+            rounds_completed=1,
+            consensus=ConsensusResult(
+                reached=True,
+                agreement_count=1,
+                total_agents=1,
+                opinions={"claude": "I agree."},
+                summary="Done.",
+            ),
+            total_tokens_used=10,
+            duration_seconds=0.5,
+        )
+
+        with patch("trinity.cli.find_config_path", return_value=trinity_project / ".trinity" / "trinity.config"):
+            with patch("trinity.cli.TrinityOrchestrator") as MockOrch:
+                mock_orch_instance = MagicMock()
+                mock_orch_instance.ask = AsyncMock(return_value=mock_result)
+                MockOrch.return_value = mock_orch_instance
+
+                result = runner.invoke(main, ["ask", "test question", "-i"])
+
+        assert result.exit_code == 0
+        assert "Using legacy tmux agent transport" in result.output
+        assert "Mode: legacy tmux" in result.output
+        MockOrch.assert_called_once()
+        assert MockOrch.call_args.kwargs["interactive"] is True
 
     def test_ask_with_max_rounds_override(self, runner, trinity_project):
         from trinity.models import DeliberationResult, ConsensusResult

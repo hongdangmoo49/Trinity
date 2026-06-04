@@ -27,6 +27,7 @@ from trinity.models import (
     provider_model_choices,
 )
 from trinity.setup.detector import (
+    LEGACY_PROVIDERS,
     PROVIDER_DEFAULT_ARGS,
     PROVIDER_DEFAULT_BUDGETS,
     PROVIDER_DISPLAY_NAMES,
@@ -41,6 +42,7 @@ logger = logging.getLogger(__name__)
 PROVIDER_AGENT_NAMES: dict[Provider, str] = {
     Provider.CLAUDE_CODE: "claude",
     Provider.CODEX: "codex",
+    Provider.ANTIGRAVITY_CLI: "antigravity",
     Provider.GEMINI_CLI: "gemini",
 }
 
@@ -147,6 +149,8 @@ class SetupWizard:
             else:
                 status = f"[red]{S.not_found}[/red]"
                 info = f"[dim]{d.error}[/dim]"
+            if d.warning:
+                info = f"{info}\n[yellow]{d.warning}[/yellow]"
 
             table.add_row(d.display_name, status, info)
 
@@ -357,6 +361,8 @@ class SetupWizard:
         roles = localized_roles_with_caveman(self.lang)
 
         for provider in Provider:
+            if provider in LEGACY_PROVIDERS:
+                continue
             if provider not in installed_providers:
                 name = PROVIDER_AGENT_NAMES.get(provider, provider.value)
                 budget = PROVIDER_DEFAULT_BUDGETS.get(provider, 200_000)

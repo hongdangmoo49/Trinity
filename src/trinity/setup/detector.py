@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 PROVIDER_BINARIES: dict[Provider, list[str]] = {
     Provider.CLAUDE_CODE: ["claude"],
     Provider.CODEX: ["codex"],
+    Provider.ANTIGRAVITY_CLI: ["agy", "antigravity"],
     Provider.GEMINI_CLI: ["gemini"],
 }
 
@@ -26,6 +27,7 @@ PROVIDER_BINARIES: dict[Provider, list[str]] = {
 PROVIDER_DISPLAY_NAMES: dict[Provider, str] = {
     Provider.CLAUDE_CODE: "Claude Code",
     Provider.CODEX: "Codex CLI",
+    Provider.ANTIGRAVITY_CLI: "Antigravity CLI",
     Provider.GEMINI_CLI: "Gemini CLI",
 }
 
@@ -47,6 +49,11 @@ PROVIDER_DEFAULT_ROLES: dict[Provider, str] = {
         "based on architectural decisions. Focus on practical "
         "implementation and edge cases."
     ),
+    Provider.ANTIGRAVITY_CLI: (
+        "You are the Reviewer. You explore alternatives, identify "
+        "potential issues, and ensure quality. Think critically "
+        "about trade-offs and propose tests."
+    ),
     Provider.GEMINI_CLI: (
         "You are the Reviewer. You explore alternatives, identify "
         "potential issues, and ensure quality. Think critically "
@@ -58,6 +65,7 @@ PROVIDER_DEFAULT_ROLES: dict[Provider, str] = {
 PROVIDER_DEFAULT_ARGS: dict[Provider, list[str]] = {
     Provider.CLAUDE_CODE: ["--dangerously-skip-permissions"],
     Provider.CODEX: [],
+    Provider.ANTIGRAVITY_CLI: [],
     Provider.GEMINI_CLI: [],
 }
 
@@ -65,14 +73,24 @@ PROVIDER_DEFAULT_ARGS: dict[Provider, list[str]] = {
 PROVIDER_INSTALL_URLS: dict[Provider, str] = {
     Provider.CLAUDE_CODE: "https://docs.anthropic.com/en/docs/claude-code",
     Provider.CODEX: "https://github.com/openai/codex",
-    Provider.GEMINI_CLI: "https://github.com/google-gemini/gemini-cli",
+    Provider.ANTIGRAVITY_CLI: "https://antigravity.google/docs/cli-getting-started",
+    Provider.GEMINI_CLI: "https://antigravity.google/docs/gcli-migration",
 }
 
 # Provider → default agent name (used to look up role prompts in i18n)
 PROVIDER_AGENT_NAMES: dict[Provider, str] = {
     Provider.CLAUDE_CODE: "claude",
     Provider.CODEX: "codex",
+    Provider.ANTIGRAVITY_CLI: "antigravity",
     Provider.GEMINI_CLI: "gemini",
+}
+
+LEGACY_PROVIDERS: set[Provider] = {Provider.GEMINI_CLI}
+
+PROVIDER_WARNINGS: dict[Provider, str] = {
+    Provider.GEMINI_CLI: (
+        "Deprecated: migrate Gemini CLI plugins/settings with `agy plugin import gemini`."
+    ),
 }
 
 
@@ -101,6 +119,7 @@ class CLIDetectionResult:
     version: str = ""
     path: str = ""
     error: str = ""
+    warning: str = ""
 
     @property
     def display_name(self) -> str:
@@ -149,6 +168,7 @@ class CLIDetector:
                 provider=provider,
                 installed=False,
                 error=f"No binary names configured for {provider.value}",
+                warning=PROVIDER_WARNINGS.get(provider, ""),
             )
 
         for binary in binaries:
@@ -160,6 +180,7 @@ class CLIDetector:
             provider=provider,
             installed=False,
             error=f"None of {binaries} found in PATH",
+            warning=PROVIDER_WARNINGS.get(provider, ""),
         )
 
     def _try_detect(self, binary: str, provider: Provider) -> CLIDetectionResult:
@@ -179,6 +200,7 @@ class CLIDetector:
                 provider=provider,
                 installed=False,
                 error=f"'{binary}' not found in PATH",
+                warning=PROVIDER_WARNINGS.get(provider, ""),
             )
 
         # 2. Try to get version
@@ -189,6 +211,7 @@ class CLIDetector:
             installed=True,
             version=version,
             path=binary_path,
+            warning=PROVIDER_WARNINGS.get(provider, ""),
         )
 
     def _get_version(self, binary: str) -> str:

@@ -26,6 +26,7 @@ class Provider(str, Enum):
 
     CLAUDE_CODE = "claude-code"
     CODEX = "codex"
+    ANTIGRAVITY_CLI = "antigravity-cli"
     GEMINI_CLI = "gemini-cli"
 
 
@@ -93,10 +94,18 @@ PROVIDER_MODEL_CONTEXTS: dict[Provider, tuple[ModelContextSpec, ...]] = {
             context_budget=400_000,
         ),
     ),
+    Provider.ANTIGRAVITY_CLI: (
+        ModelContextSpec(
+            model="default",
+            display_name="Antigravity CLI default",
+            context_budget=1_000_000,
+            note="Conservative fallback until Antigravity exposes model metadata",
+        ),
+    ),
     Provider.GEMINI_CLI: (
         ModelContextSpec(
             model="default",
-            display_name="Gemini CLI default",
+            display_name="Gemini CLI default (deprecated)",
             context_budget=1_000_000,
         ),
         ModelContextSpec(
@@ -121,6 +130,7 @@ PROVIDER_MODEL_CONTEXTS: dict[Provider, tuple[ModelContextSpec, ...]] = {
 PROVIDER_DEFAULT_MODELS: dict[Provider, str] = {
     Provider.CLAUDE_CODE: "default",
     Provider.CODEX: "default",
+    Provider.ANTIGRAVITY_CLI: "default",
     Provider.GEMINI_CLI: "default",
 }
 

@@ -57,6 +57,9 @@ trinity init
 
 # 비대화형 실행 (기본 설정값 적용)
 trinity init --non-interactive
+
+# 격리된 provider-state에서 각 CLI의 auth/theme/trust 초기 설정을 완료합니다
+trinity bootstrap
 ```
 
 ### 첫 번째 토론(Deliberation) 실행
@@ -119,7 +122,7 @@ Trinity가 백그라운드에서 다음 단계를 자동으로 수행합니다:
 Trinity는 **Rich 라이브러리 기반의 미려한 터미널 UI(TUI)**를 제공하여, 에이전트 간의 실시간 토론 과정을 시각적으로 보여줍니다.
 
 ```
-  🧠 Trinity v0.7.0  —  세 개의 두뇌, 하나의 컨텍스트
+  🧠 Trinity v0.7.1  —  세 개의 두뇌, 하나의 컨텍스트
 
   🏗️ claude ✅    ⚙️ codex ✅    🔍 gemini ✅
 
@@ -174,6 +177,7 @@ Trinity는 **Rich 라이브러리 기반의 미려한 터미널 UI(TUI)**를 제
 | `trinity` | 대화형 TUI 세션 실행 |
 | `trinity init` | 현재 디렉토리에 Trinity 작업 공간(`.trinity/`) 초기화 |
 | `trinity init --non-interactive` | 사용자 입력 요청 없이 기본값으로 즉시 초기화 |
+| `trinity bootstrap` | 격리된 에이전트별 provider-state에서 CLI 초기 설정/auth/trust 진행 |
 | `trinity ask "질문"` | 입력한 프롬프트에 대해 즉시 단발성(One-shot) 토론 실행 |
 | `trinity status` | 현재 에이전트들의 활성화 및 연결 상태를 표 형태로 표시 |
 | `trinity status-watch` | 실시간으로 상태가 갱신되는 상태 모니터 대시보드 실행 |
@@ -376,8 +380,8 @@ uv publish --token <PYPI_TOKEN>
 
 | 지표 | 수치 |
 | :--- | :--- |
-| **버전** | 0.7.0 |
-| **테스트** | 901개 테스트 통과 |
+| **버전** | 0.7.1 |
+| **테스트** | 909개 테스트 통과 |
 | **커버리지** | 약 87% |
 | **소스 파일** | 50여 개 |
 | **주요 의존성 라이브러리** | `click`, `rich`, `prompt_toolkit`, `tomli` |

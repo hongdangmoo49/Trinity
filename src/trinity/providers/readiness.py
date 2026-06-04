@@ -75,15 +75,27 @@ def _action_hint(provider: Provider, state: ProviderState) -> str:
         return ""
     if state == ProviderState.AUTH_REQUIRED:
         if provider == Provider.CLAUDE_CODE:
-            return "Run `claude` in a terminal and complete login/authentication."
+            return (
+                "Run `trinity bootstrap --agents claude` and complete "
+                "login/authentication in the isolated provider state."
+            )
         if provider == Provider.CODEX:
-            return "Run `codex login` or open `codex` and complete authentication."
+            return (
+                "Run `trinity bootstrap --agents codex` and complete "
+                "authentication in the isolated provider state."
+            )
         if provider == Provider.GEMINI_CLI:
-            return "Run `gemini` and complete the authentication flow."
+            return (
+                "Run `trinity bootstrap --agents gemini` and complete the "
+                "authentication flow in the isolated provider state."
+            )
     if state == ProviderState.MODEL_LOADING:
         return f"Wait for {provider_name} model initialization to finish, then retry."
     if state == ProviderState.WORKSPACE_TRUST_REQUIRED:
-        return "Accept the workspace trust prompt in the provider CLI, then retry."
+        return (
+            "Run `trinity bootstrap` and accept the workspace trust prompt "
+            "inside the isolated provider session, then retry."
+        )
     if state == ProviderState.CLI_BANNER_ONLY:
         return f"Wait until {provider_name} shows an input prompt, then retry."
     if state == ProviderState.PROMPT_NOT_SENT:

@@ -3,10 +3,12 @@
 import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
+from types import SimpleNamespace
 from click.testing import CliRunner
 
 from trinity.cli import main, load_config, find_config_path
 from trinity.context.analytics import RoundRecord, TokenAnalytics, analytics_history_path
+from trinity.models import Provider
 
 
 @pytest.fixture
@@ -111,6 +113,54 @@ class TestStatus:
         with patch("trinity.cli.find_config_path", return_value=trinity_project / ".trinity" / "trinity.config"):
             result = runner.invoke(main, ["status"])
             assert "shared context" in result.output.lower() or "shared.md" in result.output
+
+
+class TestBootstrap:
+    def test_bootstrap_requires_project_config(self, runner):
+        with patch("trinity.cli.find_config_path", return_value=None):
+            result = runner.invoke(main, ["bootstrap", "--no-attach"])
+
+        assert result.exit_code == 1
+        assert "trinity init" in result.output
+
+    def test_bootstrap_starts_session_without_attach(self, runner, trinity_project):
+        mock_target = SimpleNamespace(
+            agent_name="claude",
+            spec=SimpleNamespace(provider=Provider.CLAUDE_CODE),
+            managed_home=trinity_project / ".trinity" / "agents" / "claude" / "provider-state",
+            cwd=trinity_project,
+        )
+        mock_result = SimpleNamespace(
+            session_name="test-bootstrap",
+            targets=(mock_target,),
+            commands={"claude": "env HOME=/tmp claude"},
+        )
+
+        with patch("trinity.cli.find_config_path", return_value=trinity_project / ".trinity" / "trinity.config"):
+            with patch("trinity.cli.ProviderBootstrapper") as MockBootstrapper:
+                with patch("trinity.cli.attach_to_bootstrap_session") as mock_attach:
+                    instance = MockBootstrapper.return_value
+                    instance.launch_session.return_value = mock_result
+
+                    result = runner.invoke(
+                        main,
+                        [
+                            "bootstrap",
+                            "--agents",
+                            "claude,codex",
+                            "--session-name",
+                            "test-bootstrap",
+                            "--no-attach",
+                        ],
+                    )
+
+        assert result.exit_code == 0
+        instance.launch_session.assert_called_once()
+        kwargs = instance.launch_session.call_args.kwargs
+        assert kwargs["agent_names"] == ["claude", "codex"]
+        assert kwargs["session_name"] == "test-bootstrap"
+        assert "test-bootstrap" in result.output
+        mock_attach.assert_not_called()
 
 
 class TestContext:

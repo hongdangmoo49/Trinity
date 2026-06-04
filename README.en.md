@@ -59,6 +59,9 @@ trinity init
 
 # Non-interactive (uses defaults)
 trinity init --non-interactive
+
+# Complete CLI auth/theme/trust setup inside isolated provider-state homes
+trinity bootstrap
 ```
 
 ### Run Your First Deliberation
@@ -121,7 +124,7 @@ That's it. Trinity will:
 Trinity features a **Rich-based terminal UI** with real-time deliberation visualization.
 
 ```
-  🧠 Trinity v0.7.0  —  Three minds, one context
+  🧠 Trinity v0.7.1  —  Three minds, one context
 
   🏗️ claude ✅    ⚙️ codex ✅    🔍 gemini ✅
 
@@ -176,6 +179,7 @@ Trinity features a **Rich-based terminal UI** with real-time deliberation visual
 | `trinity` | Launch interactive TUI session |
 | `trinity init` | Initialize `.trinity/` in current directory |
 | `trinity init --non-interactive` | Initialize with defaults (no prompts) |
+| `trinity bootstrap` | Run provider first-use auth/trust setup in isolated provider-state homes |
 | `trinity ask "question"` | One-shot deliberation on a prompt |
 | `trinity status` | Show agent status table |
 | `trinity status-watch` | Live-updating status dashboard |
@@ -378,8 +382,8 @@ uv publish --token <PYPI_TOKEN>
 
 | Metric | Value |
 | :--- | :--- |
-| **Version** | 0.7.0 |
-| **Tests** | 901 passed |
+| **Version** | 0.7.1 |
+| **Tests** | 909 passed |
 | **Coverage** | ~87% |
 | **Source files** | 50+ |
 | **Dependencies** | `click`, `rich`, `prompt_toolkit`, `tomli` |

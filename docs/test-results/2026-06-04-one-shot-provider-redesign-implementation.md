@@ -37,7 +37,7 @@
    - CLI detector가 `agy`, `antigravity` binary를 탐지한다.
    - Gemini CLI는 legacy provider로 유지하되 deprecation/migration 안내를 표시한다.
    - `agy plugin import gemini` migration 안내를 readiness/setup 경로에 추가했다.
-   - Antigravity one-shot/headless prompt mode는 공식/로컬 검증 전이라 factory guard로 막아두었다.
+   - Antigravity one-shot/headless prompt mode는 로컬 `agy 1.0.5` help와 smoke test로 검증했다.
 
 6. 기본 deliberation transport one-shot 전환
    - `transport_mode = "one-shot"`를 기본 설정으로 추가했다.
@@ -66,6 +66,13 @@
    - 같은 `launch_cwd`의 provider-managed write package는 순차 실행한다.
    - 별도 worktree이거나 `expected_files`가 disjoint file ownership을 제공하면 병렬 실행을 허용한다.
 
+10. Antigravity one-shot provider 구현
+   - `AntigravityPrintInvoker`가 `agy --print-timeout=<N>s --sandbox --print <prompt>`를 호출한다.
+   - print mode는 plain stdout만 제공하므로 `metadata["output_format"] = "plain-text"`로 기록하고 token usage는 비워둔다.
+   - `--dangerously-skip-permissions`는 자동 부여하지 않고 사용자가 agent `extra_args`로 명시한 경우에만 전달한다.
+   - `AntigravityPrintAgent`를 추가하고 factory print mode에서 `antigravity-cli` provider를 생성할 수 있게 했다.
+   - setup detector의 Antigravity experimental warning을 제거하고, readiness 안내를 `agy --print` one-shot 기준으로 갱신했다.
+
 ## 제거/정리
 
 - `PrintModeClaudeAgent._run_subprocess`
@@ -74,20 +81,43 @@
 - `CodexAgent._run_subprocess`
 - `CodexAgent._parse_response`
 - Codex의 오래된 `codex -q` 실행 경로
+- Antigravity print-mode factory guard
+- Antigravity experimental setup warning
 
 tmux, completion detector, Gemini legacy agent는 아직 제거하지 않았다. interactive/debug 호환과 legacy Gemini config 지원에 여전히 사용된다.
 
 ## 검증
 
+Antigravity 로컬 smoke:
+
+```text
+agy --version
+1.0.5
+
+agy --print-timeout=10s --print "Return exactly: TRINITY_AGY_SMOKE"
+TRINITY_AGY_SMOKE
+
+agy --print-timeout=10s --sandbox --print "Return exactly: TRINITY_AGY_SANDBOX_SMOKE"
+TRINITY_AGY_SANDBOX_SMOKE
+```
+
+관련 테스트:
+
+```text
+uv run pytest tests/test_provider_invoker_antigravity.py tests/test_antigravity_agent.py tests/test_agent_factory.py tests/test_cli_detector.py tests/test_provider_readiness.py tests/test_config.py
+90 passed in 0.15s
+```
+
 전체 테스트:
 
 ```text
 uv run pytest
-953 passed, 1 warning in 19.74s
+959 passed, 1 warning in 19.68s
 ```
 
 경고는 기존 테스트 mock coroutine 미await warning이며 이번 변경 실패는 아니다.
 
 ## 남은 작업
 
-- Antigravity CLI가 공식적으로 one-shot/headless prompt와 machine-readable output을 제공하는지 확인 후 `AntigravityInvoker` 구현.
+- Antigravity CLI 공식 웹 문서에 `--print`/`--prompt` 플래그와 machine-readable output이 추가되는지 지속 확인한다. 현재 구현은 로컬 CLI help/smoke로 검증한 plain stdout path다.
+- tmux legacy/debug cleanup audit를 진행한다.

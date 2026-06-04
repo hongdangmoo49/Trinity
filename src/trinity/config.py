@@ -217,7 +217,7 @@ class TrinityConfig:
                     provider=Provider.ANTIGRAVITY_CLI,
                     cli_command="agy",
                     role_prompt=roles["antigravity"],
-                    enabled=False,  # Disabled until Antigravity one-shot is verified
+                    enabled=False,  # Enabled by setup only when agy is selected
                 ),
             },
         )

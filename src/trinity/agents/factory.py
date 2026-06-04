@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from trinity.agents.antigravity_agent import AntigravityPrintAgent
 from trinity.agents.base import AgentWrapper
 from trinity.agents.claude_agent import InteractiveClaudeAgent, PrintModeClaudeAgent
 from trinity.agents.codex_agent import CodexAgent
@@ -60,10 +61,7 @@ class AgentFactory:
         elif spec.provider == Provider.CODEX:
             return CodexAgent(spec)
         elif spec.provider == Provider.ANTIGRAVITY_CLI:
-            raise ValueError(
-                "Antigravity CLI provider is experimental: one-shot/headless "
-                "prompt support has not been verified yet."
-            )
+            return AntigravityPrintAgent(spec)
         elif spec.provider == Provider.GEMINI_CLI:
             return GeminiAgent(spec)
         else:

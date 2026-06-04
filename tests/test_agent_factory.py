@@ -4,6 +4,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from trinity.agents.antigravity_agent import AntigravityPrintAgent
 from trinity.agents.claude_agent import InteractiveClaudeAgent, PrintModeClaudeAgent
 from trinity.agents.codex_agent import CodexAgent
 from trinity.agents.factory import AgentFactory
@@ -95,9 +96,10 @@ class TestCreatePrintMode:
         assert isinstance(agent, GeminiAgent)
         assert agent.name == "gemini"
 
-    def test_antigravity_print_is_guarded_until_one_shot_verified(self, antigravity_spec):
-        with pytest.raises(ValueError, match="one-shot"):
-            AgentFactory.create(antigravity_spec, mode="print")
+    def test_antigravity_print(self, antigravity_spec):
+        agent = AgentFactory.create(antigravity_spec, mode="print")
+        assert isinstance(agent, AntigravityPrintAgent)
+        assert agent.name == "antigravity"
 
     def test_print_is_default_mode(self, claude_spec):
         """mode 파라미터 생략 시 print 모드가 기본."""

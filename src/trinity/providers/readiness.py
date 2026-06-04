@@ -88,8 +88,8 @@ def _action_hint(provider: Provider, state: ProviderState) -> str:
         if provider == Provider.ANTIGRAVITY_CLI:
             return (
                 "Run `agy` in your normal shell and complete auth/workspace trust. "
-                "Trinity keeps Antigravity one-shot support experimental until "
-                "a non-interactive prompt mode is verified."
+                "Trinity uses your existing Antigravity auth through `agy --print` "
+                "in one-shot mode."
             )
         if provider == Provider.GEMINI_CLI:
             return (

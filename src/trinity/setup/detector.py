@@ -88,9 +88,6 @@ PROVIDER_AGENT_NAMES: dict[Provider, str] = {
 LEGACY_PROVIDERS: set[Provider] = {Provider.GEMINI_CLI}
 
 PROVIDER_WARNINGS: dict[Provider, str] = {
-    Provider.ANTIGRAVITY_CLI: (
-        "Experimental in Trinity: Antigravity CLI one-shot output is not verified yet."
-    ),
     Provider.GEMINI_CLI: (
         "Deprecated: migrate Gemini CLI plugins/settings with `agy plugin import gemini`."
     ),

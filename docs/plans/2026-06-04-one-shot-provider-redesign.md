@@ -81,14 +81,21 @@ codex exec --json --ephemeral --cd <project_dir> "<round prompt>"
 - 설정 파일은 `~/.gemini/antigravity-cli/settings.json`.
 - Gemini CLI migration은 `agy plugin import gemini`로 수행한다.
 - conversation resume은 `/resume`, `agy --continue`, `agy --conversation <uuid>`가 문서화되어 있다.
+- permission/sandbox override는 `--sandbox`, `--dangerously-skip-permissions` 같은 CLI flag로 줄 수 있다.
 
-공식 문서에서 아직 확인되지 않은 내용:
+로컬 `agy 1.0.5`에서 추가 확인된 내용:
 
-- `agy --prompt`, `agy -p`, `--output-format` 같은 단발 비대화형 호출.
+- `agy --help`는 `--print`, `-p`, `--prompt`를 "single prompt non-interactively" mode로 표시한다.
+- `--print-timeout`은 print mode wait timeout을 지정한다.
+- smoke test `agy --print-timeout=10s --print "Return exactly: TRINITY_AGY_SMOKE"`가 `TRINITY_AGY_SMOKE`를 반환했다.
+- smoke test `agy --print-timeout=10s --sandbox --print "Return exactly: TRINITY_AGY_SANDBOX_SMOKE"`가 `TRINITY_AGY_SANDBOX_SMOKE`를 반환했다.
+
+아직 확인되지 않은 내용:
+
 - stdout machine-readable response format.
 - auth 상태 확인용 `agy auth status` 같은 명령.
 
-따라서 Antigravity provider는 구현 전 로컬 바이너리 검증이 필요하다. 현재 이 WSL 환경에는 `agy`/`antigravity` 명령이 설치되어 있지 않았다.
+따라서 Antigravity provider는 plain stdout 기반 one-shot provider로 구현한다. JSON/token usage는 제공되지 않으므로 `ProviderTurnResult.usage`는 비워두고, `metadata["output_format"] = "plain-text"`로 기록한다. `--dangerously-skip-permissions`는 Trinity가 자동으로 붙이지 않고 사용자가 agent `extra_args`에 명시한 경우에만 전달한다.
 
 ## 세션 직접 실행 vs 단발 호출 기능 차이
 
@@ -454,16 +461,16 @@ enabled = false
 - setup detector에서 `gemini` 대신 `agy`를 우선 탐지한다.
 - 기존 `gemini-cli` config를 읽으면 deprecation warning을 표시한다.
 - `trinity setup` 또는 `trinity doctor providers`에서 `agy plugin import gemini` 안내를 제공한다.
-- Antigravity official docs에 단발 호출이 확인되기 전까지는 `antigravity-cli` provider를 experimental로 둔다.
+- Antigravity provider는 로컬 `agy --print` smoke 검증을 기준으로 one-shot print mode를 지원한다.
 
 ## 구현 단계
 
 ### Phase 0 - Antigravity 검증
 
-- `agy` 설치 여부 확인 로직 추가.
-- 설치되어 있으면 `agy --help`, `agy --version` capture.
-- `--prompt`/비대화형 출력/JSON 출력 지원 여부를 fixture로 기록.
-- 공식 문서에 없는 플래그는 자동 사용하지 않고 experimental guard를 둔다.
+- `agy` 설치 여부 확인 로직 추가. 완료.
+- 설치되어 있으면 `agy --help`, `agy --version` capture. 로컬 `agy 1.0.5` 확인.
+- `--prompt`/비대화형 출력/JSON 출력 지원 여부를 fixture로 기록. `--print`/`--prompt`는 지원, JSON 출력은 미확인.
+- `--dangerously-skip-permissions`는 자동 사용하지 않고 explicit extra args로만 허용한다.
 
 ### Phase 1 - One-shot 호출 계층
 
@@ -475,7 +482,7 @@ enabled = false
 ### Phase 1.5 - Provider/tool 권한 경계
 
 - `ExecutionAuthority` 개념을 config/model에 추가한다.
-- Claude/Codex/검증 전 Antigravity는 `provider-managed`로 분류한다.
+- Claude/Codex/Antigravity CLI 호출은 `provider-managed`로 분류한다.
 - `ProviderTurnResult`에 `execution_authority`, `tool_activity_summary`, `artifact_paths` 필드를 추가할지 검토한다.
 - local tool executor는 이번 phase에서 구현하지 않고 interface와 test seam만 둔다.
 - deliberation prompt에는 "분석 전용, 파일 수정 금지"를 명시하고, 실행 phase prompt에서만 수정 권한을 허용한다.
@@ -498,8 +505,8 @@ enabled = false
 ### Phase 4 - Antigravity provider
 
 - `ANTIGRAVITY_CLI` provider 추가.
-- `agy` official/verified one-shot command가 확인되면 invoker 구현.
-- 확인 전에는 readiness에서 "installed but one-shot unsupported/unverified"로 표시한다.
+- `agy --print` verified one-shot command 기준으로 invoker 구현.
+- plain stdout output만 파싱하고 machine-readable output/token usage는 미지원으로 기록한다.
 
 ### Phase 5 - tmux 호환 축소
 
@@ -514,13 +521,15 @@ enabled = false
 - `tests/test_execution_authority.py`: CLI invoker가 `provider-managed`로 분류되고 deliberation prompt가 수정 금지 정책을 포함하는지 검증.
 - `tests/test_parallel_execution_policy.py`: read-only 병렬 호출은 허용하고, 같은 worktree의 provider-managed write 호출은 거부/순차화하는지 검증.
 - `tests/test_provider_state_mode.py`: user-home 기본값에서 `HOME`/XDG override가 없는지 검증.
+- `tests/test_provider_invoker_antigravity.py`: `agy --print` command construction, plain stdout parsing, auth error.
+- `tests/test_antigravity_agent.py`: Antigravity print-mode agent lifecycle and response metadata.
 - `tests/test_antigravity_detector.py`: `agy` 탐지, Gemini deprecation warning, migration guidance.
 - `tests/test_round_synthesizer.py`: agent 응답 -> summary/questions/consensus 변환.
 - `tests/test_deliberation_one_shot.py`: fake providers로 N라운드 합의와 사용자 질문 흐름 검증.
 
 ## 리스크와 대응
 
-- Antigravity one-shot 미지원: 공식/로컬 검증 전까지 Antigravity provider를 experimental로 두고, Claude/Codex one-shot부터 전환한다.
+- Antigravity machine-readable output 미지원: 현재는 plain stdout path를 사용하고, JSON/token usage가 CLI에 추가되면 parser를 확장한다.
 - 사용자 홈 인증 공유: 사용자의 auth를 그대로 쓰는 대신 command sandbox, git worktree, permission flags를 강화한다.
 - provider-managed 실행의 tool 투명성 한계: CLI 내부 도구 호출은 Trinity가 OpenCode처럼 세밀하게 가로채기 어렵다. 엄격한 파일 I/O 통제가 필요하면 API tool-calling 기반 `trinity-managed` runtime을 별도 구현한다.
 - 병렬 provider-managed write 충돌: 같은 worktree에서 여러 provider CLI가 동시에 파일을 수정하지 않도록 write execution을 순차화하고, 병렬 구현은 별도 git worktree 또는 명시적 파일 소유권이 있을 때만 허용한다.
@@ -539,7 +548,7 @@ enabled = false
 
 착수 전 검증이 필요한 작업:
 
-- Antigravity CLI의 단발 호출 플래그와 출력 포맷. 현재 환경에는 `agy`가 설치되어 있지 않고, 공식 markdown에는 비대화형 단발 호출이 문서화되어 있지 않다.
+- Antigravity CLI의 machine-readable 출력 포맷. 현재 로컬 `agy 1.0.5`는 `--print` 단발 호출을 지원하지만 JSON 출력은 확인되지 않았다.
 
 ## 참고 출처
 

@@ -119,7 +119,7 @@ class TestCLIDetector:
         assert result.installed
         assert result.provider == Provider.ANTIGRAVITY_CLI
         assert result.path == "/usr/bin/agy"
-        assert "Experimental" in result.warning
+        assert result.warning == ""
 
     def test_get_version_timeout(self):
         detector = CLIDetector(timeout=0.001)

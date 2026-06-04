@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import os
 import subprocess
 import time
@@ -381,3 +382,67 @@ def _parse_codex_usage(data: Any) -> ContextUsage | None:
     output_tokens = int(data.get("output_tokens", 0))
     reasoning_tokens = int(data.get("reasoning_output_tokens", 0))
     return ContextUsage(used=input_tokens + output_tokens + reasoning_tokens, total=0)
+
+
+class AntigravityPrintInvoker(CliProviderInvoker):
+    """Invoke Antigravity CLI with `agy --print` and parse plain stdout."""
+
+    def build_command(self, request: PromptRequest) -> list[str]:
+        timeout_seconds = max(1, math.ceil(request.timeout_seconds))
+        command = [
+            request.cli_command,
+            *self._model_args(request),
+            f"--print-timeout={timeout_seconds}s",
+        ]
+        if request.access == InvocationAccess.READ_ONLY:
+            command.append("--sandbox")
+        command.append("--print")
+        command.extend(request.extra_args)
+        command.append(self._render_prompt(request, include_role=True))
+        return command
+
+    def parse_completed_process(
+        self,
+        request: PromptRequest,
+        command: list[str],
+        completed: subprocess.CompletedProcess[str],
+        elapsed_seconds: float,
+    ) -> ProviderTurnResult:
+        stdout = completed.stdout or ""
+        stderr = completed.stderr or ""
+        raw = stdout if not stderr else f"{stdout}\n{stderr}".strip()
+        diagnostics = [stderr.strip()] if stderr.strip() else []
+
+        if completed.returncode != 0:
+            status = self._failure_status(raw)
+            return ProviderTurnResult(
+                agent_name=request.agent_name,
+                content=f"[Error: exit code {completed.returncode}]",
+                raw_output=raw,
+                status=status,
+                elapsed_seconds=elapsed_seconds,
+                diagnostics=diagnostics,
+                execution_authority=self.execution_authority,
+                metadata={
+                    "command": command,
+                    "returncode": completed.returncode,
+                    "output_format": "plain-text",
+                },
+            )
+
+        content = stdout.strip()
+        status = ResponseStatus.OK if content else ResponseStatus.EMPTY
+        return ProviderTurnResult(
+            agent_name=request.agent_name,
+            content=content,
+            raw_output=raw,
+            status=status,
+            elapsed_seconds=elapsed_seconds,
+            diagnostics=diagnostics,
+            execution_authority=self.execution_authority,
+            metadata={
+                "command": command,
+                "returncode": completed.returncode,
+                "output_format": "plain-text",
+            },
+        )

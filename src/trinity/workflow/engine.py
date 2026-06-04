@@ -564,6 +564,27 @@ class WorkflowEngine:
         )
         self.set_state(WorkflowState.EXECUTING, reason="work package execution started")
 
+    def record_work_package_started(
+        self,
+        package_id: str,
+        agent_name: str = "",
+    ) -> None:
+        """Persist that one work package has started execution."""
+        package = self._work_package_by_id(package_id)
+        if package is None:
+            return
+
+        package.status = WorkStatus.RUNNING
+        self.session.updated_at = time.time()
+        self._persist(
+            "work_package_started",
+            {
+                "package_id": package.id,
+                "agent": agent_name or package.owner_agent,
+                "status": package.status.value,
+            },
+        )
+
     def plan_parallel_groups(self) -> list[list[WorkPackage]]:
         """Preview dependency/file-safe work package groups for the current session."""
         packages_by_id = {
@@ -615,28 +636,61 @@ class WorkflowEngine:
 
         return groups
 
-    def record_execution_results(self, results: list[ExecutionResult]) -> None:
+    def record_execution_results(
+        self,
+        results: list[ExecutionResult],
+        *,
+        finalize: bool = True,
+        emit_events: bool = True,
+    ) -> None:
         """Persist execution results and derive the next workflow state."""
         if not results:
             return
 
-        packages_by_id = {package.id: package for package in self.session.work_packages}
-        existing_by_package = {
-            result.package_id: result for result in self.session.execution_results
-        }
-
         for result in results:
-            package = packages_by_id.get(result.package_id)
-            if package:
-                package.status = result.status
-            existing_by_package[result.package_id] = result
+            self._record_execution_result(result, emit_event=emit_events)
 
-            for decision in result.decisions_made:
-                if not any(existing.id == decision.id for existing in self.session.decisions):
-                    self.session.decisions.append(decision)
-            for subtask in result.subtasks:
-                self._upsert_subtask_result(subtask)
+        if finalize:
+            self._finalize_execution_state()
 
+    def _record_execution_result(
+        self,
+        result: ExecutionResult,
+        *,
+        emit_event: bool,
+    ) -> None:
+        """Upsert one execution result without finalizing the workflow."""
+        package = self._work_package_by_id(result.package_id)
+        if package:
+            package.status = result.status
+
+        existing_by_package = {
+            item.package_id: item for item in self.session.execution_results
+        }
+        existing_by_package[result.package_id] = result
+
+        for decision in result.decisions_made:
+            if not any(existing.id == decision.id for existing in self.session.decisions):
+                self.session.decisions.append(decision)
+        for subtask in result.subtasks:
+            self._upsert_subtask_result(subtask)
+
+        ordered_package_ids = [package.id for package in self.session.work_packages]
+        self.session.execution_results = [
+            existing_by_package[package_id]
+            for package_id in ordered_package_ids
+            if package_id in existing_by_package
+        ]
+        ordered_package_id_set = set(ordered_package_ids)
+        extras = [
+            result
+            for package_id, result in existing_by_package.items()
+            if package_id not in ordered_package_id_set
+        ]
+        self.session.execution_results.extend(extras)
+        self.session.updated_at = time.time()
+
+        if emit_event:
             self._persist(
                 "execution_result_recorded",
                 {
@@ -645,14 +699,11 @@ class WorkflowEngine:
                     "status": result.status.value,
                 },
             )
+        else:
+            self.save()
 
-        ordered_package_ids = [package.id for package in self.session.work_packages]
-        self.session.execution_results = [
-            existing_by_package[package_id]
-            for package_id in ordered_package_ids
-            if package_id in existing_by_package
-        ]
-        self.session.updated_at = time.time()
+    def _finalize_execution_state(self) -> None:
+        """Derive the workflow state after current execution progress."""
 
         executable = [
             package
@@ -684,6 +735,16 @@ class WorkflowEngine:
         self.set_state(
             WorkflowState.EXECUTING,
             reason="work package execution still in progress",
+        )
+
+    def _work_package_by_id(self, package_id: str) -> WorkPackage | None:
+        return next(
+            (
+                package
+                for package in self.session.work_packages
+                if package.id == package_id
+            ),
+            None,
         )
 
     def _plan_review_packages(self) -> None:

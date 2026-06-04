@@ -599,6 +599,79 @@ class TestWorkflowRouting:
         assert session.workflow.decisions[0].decision == "Implement it"
         maybe_run_execution.assert_called_once()
 
+    def test_execution_live_loop_persists_incremental_package_progress(self, session):
+        session.workflow.start("Original goal", ["claude"])
+        session.workflow.session.work_packages = [
+            WorkPackage(
+                id="WP-001",
+                title="claude package",
+                owner_agent="claude",
+                objective="Implement route bot.",
+            )
+        ]
+        session.workflow.begin_execution()
+
+        class FakeOrchestrator:
+            def __init__(self):
+                self.bus = None
+
+            def set_event_bus(self, bus):
+                self.bus = bus
+
+            async def execute_work_packages(
+                self,
+                work_packages,
+                decisions=None,
+                result_callback=None,
+            ):
+                assert self.bus is not None
+                self.bus.emit(
+                    TUIEvent(
+                        type=TUIEventType.WORK_PACKAGE_STARTED,
+                        data={
+                            "package_id": "WP-001",
+                            "agent": "claude",
+                            "status": WorkStatus.RUNNING.value,
+                        },
+                    )
+                )
+                result = ExecutionResult(
+                    package_id="WP-001",
+                    agent_name="claude",
+                    status=WorkStatus.DONE,
+                    summary="Implemented route bot.",
+                    files_changed=["src/routes.py"],
+                )
+                if result_callback:
+                    result_callback(result)
+                self.bus.emit(
+                    TUIEvent(
+                        type=TUIEventType.WORK_PACKAGE_COMPLETED,
+                        data={
+                            "package_id": "WP-001",
+                            "agent": "claude",
+                            "status": WorkStatus.DONE.value,
+                            "summary": "Implemented route bot.",
+                        },
+                    )
+                )
+                self.bus.emit(
+                    TUIEvent(
+                        type=TUIEventType.EXECUTION_DONE,
+                        data={"package_count": len(work_packages)},
+                    )
+                )
+                return [result]
+
+        results = session._run_execution_with_live(FakeOrchestrator())
+
+        assert results[0].status == WorkStatus.DONE
+        assert session.workflow.session.work_packages[0].status == WorkStatus.DONE
+        assert session.workflow.execution_results[0].summary == "Implemented route bot."
+        loaded = WorkflowEngine(session.config.effective_state_dir)
+        assert loaded.session.work_packages[0].status == WorkStatus.DONE
+        assert loaded.execution_results[0].files_changed == ["src/routes.py"]
+
     def test_questions_select_answers_next_option(self, session):
         session.workflow.start("Original goal", ["claude"])
         session.workflow.add_open_question(

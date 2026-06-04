@@ -42,11 +42,13 @@ async def test_execution_protocol_dispatches_package_and_records_result(tmp_path
         "- Review latency thresholds\n"
     )
     events = []
+    progress = []
     protocol = ExecutionProtocol(
         agents={"codex": agent},
         shared=shared,
         artifact_dir=tmp_path / "execution",
         event_callback=events.append,
+        result_callback=progress.append,
     )
     package = WorkPackage(
         id="WP-001",
@@ -62,6 +64,7 @@ async def test_execution_protocol_dispatches_package_and_records_result(tmp_path
 
     assert len(results) == 1
     result = results[0]
+    assert progress == [result]
     assert result.status == WorkStatus.DONE
     assert result.summary == "Added routing service"
     assert result.files_changed == ["src/routes.py", "tests/test_routes.py"]

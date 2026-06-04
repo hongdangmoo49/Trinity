@@ -363,6 +363,78 @@ def test_record_execution_results_moves_to_reviewing(tmp_path):
     assert loaded.review_packages[0]["package_id"] == "WP-001"
 
 
+def test_record_work_package_started_persists_running_status(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement route bot.",
+            requires_execution=True,
+        )
+    ]
+    engine.begin_execution()
+
+    engine.record_work_package_started("WP-001", "codex")
+
+    assert engine.session.work_packages[0].status == WorkStatus.RUNNING
+    events = engine.persistence.load_events()
+    assert events[-1]["event"] == "work_package_started"
+    assert events[-1]["data"]["package_id"] == "WP-001"
+
+    loaded = WorkflowEngine(tmp_path / ".trinity")
+    assert loaded.session.work_packages[0].status == WorkStatus.RUNNING
+
+
+def test_record_execution_results_can_persist_progress_without_finalizing(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement route bot.",
+            requires_execution=True,
+        ),
+        WorkPackage(
+            id="WP-002",
+            title="review package",
+            owner_agent="codex",
+            objective="Review route bot.",
+            requires_execution=True,
+        ),
+    ]
+    engine.begin_execution()
+
+    engine.record_execution_results(
+        [
+            ExecutionResult(
+                package_id="WP-001",
+                agent_name="codex",
+                status=WorkStatus.DONE,
+                summary="Implemented route bot.",
+                files_changed=["src/routes.py"],
+            )
+        ],
+        finalize=False,
+    )
+
+    assert engine.state == WorkflowState.EXECUTING
+    assert engine.session.work_packages[0].status == WorkStatus.DONE
+    assert engine.session.work_packages[1].status == WorkStatus.PENDING
+    assert engine.execution_results[0].summary == "Implemented route bot."
+    events = engine.persistence.load_events()
+    assert events[-1]["event"] == "execution_result_recorded"
+
+    loaded = WorkflowEngine(tmp_path / ".trinity")
+    assert loaded.state == WorkflowState.EXECUTING
+    assert loaded.session.work_packages[0].status == WorkStatus.DONE
+    assert loaded.execution_results[0].files_changed == ["src/routes.py"]
+
+
 def test_record_execution_results_persists_subtasks(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
     engine.start("Implement", ["codex"])

@@ -344,6 +344,7 @@ class TrinityOrchestrator:
             timeout_seconds=self.config.synthesis_timeout_seconds,
             max_input_chars=self.config.synthesis_max_input_chars,
             artifact_dir=state_dir / "synthesis",
+            lang=self.config.lang,
         )
 
     def _select_synthesis_provider(self) -> tuple[str, AgentSpec]:

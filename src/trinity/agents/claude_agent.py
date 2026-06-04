@@ -47,7 +47,7 @@ class PrintModeClaudeAgent(AgentWrapper):
             self._initial_prompt = ""
 
     async def send_and_wait(
-        self, prompt: str, timeout: float = 120.0, access=None
+        self, prompt: str, timeout: float = 300.0, access=None
     ) -> DeliberationMessage:
         """Send prompt via `claude -p` and wait for JSON response."""
         if not self._started:
@@ -174,7 +174,7 @@ class InteractiveClaudeAgent(AgentWrapper):
         logger.info(f"[{self.name}] Interactive agent ready")
 
     async def send_and_wait(
-        self, prompt: str, timeout: float = 120.0, access=None
+        self, prompt: str, timeout: float = 300.0, access=None
     ) -> DeliberationMessage:
         """Send prompt via send-keys and wait for completion."""
         if not self._started:
@@ -296,7 +296,7 @@ class InteractiveClaudeAgent(AgentWrapper):
         logger.warning(f"[{self.name}] Timed out waiting for CLI ready")
 
     async def _send_and_wait_for_response(
-        self, prompt: str, timeout: float = 120.0
+        self, prompt: str, timeout: float = 300.0
     ) -> "CompletionResult":
         """Send a prompt and wait for the completion detector to signal done."""
         from trinity.completion.base import CompletionResult

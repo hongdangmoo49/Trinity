@@ -282,6 +282,7 @@ class SharedLedgerRenderer:
                 lines.append(f"- summary: {summary}")
             raw_response_path = self._text(self._field(result, "raw_response_path"))
             if raw_response_path:
+                raw_response_path = raw_response_path.replace("\\", "/")
                 lines.append(f"- raw_response_path: `{raw_response_path}`")
             self._append_keyed_list(
                 lines,

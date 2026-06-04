@@ -41,7 +41,7 @@ class TestGeminiInit:
         assert not agent._started
 
     def test_hard_timeout_default(self, agent):
-        assert agent._hard_timeout == 120.0
+        assert agent._hard_timeout == 300.0
 
 
 class TestGeminiStart:

@@ -124,7 +124,7 @@ That's it. Trinity will:
 Trinity features a **Rich-based terminal UI** with real-time deliberation visualization.
 
 ```
-  🧠 Trinity v0.7.1  —  Three minds, one context
+  🧠 Trinity v0.7.2  —  Three minds, one context
 
   🏗️ claude ✅    ⚙️ codex ✅    🔍 gemini ✅
 
@@ -202,8 +202,13 @@ Inside the interactive TUI (`trinity` with no args):
 | `/agent <name> on\|off` | Enable/disable an agent |
 | `/history` | Show deliberation history |
 | `/save` | Save session results to file |
+| `/resume [N\|latest\|ID]` | Select and resume a saved workflow session |
 | `/help` | Show help |
 | `/quit` | Exit Trinity |
+
+The TUI starts with a new workflow session by default. The previous active
+workflow is preserved in `.trinity/workflow/history/` and can be resumed
+explicitly with `/resume`.
 
 ---
 
@@ -382,8 +387,8 @@ uv publish --token <PYPI_TOKEN>
 
 | Metric | Value |
 | :--- | :--- |
-| **Version** | 0.7.1 |
-| **Tests** | 909 passed |
+| **Version** | 0.7.2 |
+| **Tests** | 915 passed |
 | **Coverage** | ~87% |
 | **Source files** | 50+ |
 | **Dependencies** | `click`, `rich`, `prompt_toolkit`, `tomli` |

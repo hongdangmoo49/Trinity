@@ -29,7 +29,7 @@ trinity
 
 새 목표를 입력하면 Trinity는 다음 순서로 진행한다.
 
-1. active agent와 workflow session을 만든다.
+1. 새 workflow session을 만든다. 이전 active workflow는 history로 보존된다.
 2. provider readiness를 확인한다.
 3. round 기반 deliberation을 실행한다.
 4. structured consensus가 나오면 blueprint를 저장한다.
@@ -47,6 +47,7 @@ trinity
 | `/decisions` | 사용자 또는 agent가 남긴 decision ledger를 표시한다. |
 | `/packages` | blueprint에서 생성된 work package와 실행 상태를 표시한다. |
 | `/subtasks` | parent agent가 보고한 provider-internal subtask/tool 사용 결과를 표시한다. |
+| `/resume [N\|latest\|ID]` | `.trinity/workflow/history/`에 저장된 workflow를 선택해 재개한다. |
 
 ## 4. Workflow State
 

@@ -15,6 +15,7 @@ import json
 import logging
 import shlex
 import sys
+import time
 from typing import TYPE_CHECKING
 
 from rich.console import Console
@@ -32,6 +33,7 @@ from trinity.workflow import (
     ExecutionResult,
     WorkflowEngine,
     WorkflowInputAction,
+    WorkflowPersistence,
     WorkflowState,
 )
 
@@ -62,6 +64,8 @@ class InteractiveSession:
         self.running = False
         self._history_file = config.effective_state_dir / "history" / "session_history.json"
         self._prompt_session = TrinityPromptSession(config.effective_state_dir)
+        self.workflow_persistence = WorkflowPersistence(config.effective_state_dir)
+        self._startup_archive = self.workflow_persistence.archive_active_session()
         self.workflow = WorkflowEngine(config.effective_state_dir)
         self.tui.set_workflow_session(self.workflow.session)
 
@@ -97,6 +101,11 @@ class InteractiveSession:
     def _show_welcome(self) -> None:
         """Show welcome message."""
         self.console.print(self.tui.get_welcome_text())
+        if self._startup_archive:
+            self.console.print(
+                "[dim]Previous workflow saved to history. "
+                "Use /resume to restore it.[/dim]"
+            )
         self.console.print(
             "[dim]Type a question to start deliberation, or /help for commands.[/dim]\n"
         )
@@ -156,6 +165,8 @@ class InteractiveSession:
             self._cmd_packages()
         elif cmd == "subtasks":
             self._cmd_subtasks()
+        elif cmd == "resume":
+            self._cmd_resume(args)
         else:
             self.console.print(
                 f"[yellow]Unknown command: /{cmd}. "
@@ -541,6 +552,126 @@ class InteractiveSession:
             )
 
         self.console.print(table)
+
+    def _cmd_resume(self, args: list[str]) -> None:
+        """Resume an archived workflow session.
+
+        Usage:
+            /resume
+            /resume latest
+            /resume <index|workflow-id>
+        """
+        archives = self.workflow_persistence.list_archives()
+        if not archives:
+            self.console.print("[dim]No saved workflow sessions to resume.[/dim]")
+            return
+
+        selector = args[0] if args else ""
+        if not selector:
+            if sys.stdin.isatty() and sys.stdout.isatty():
+                labels = [
+                    self._archive_label(archive)
+                    for archive in archives
+                ]
+                selected = self._prompt_session.select_option(
+                    title="Resume Workflow",
+                    question="Select a saved workflow session.",
+                    options=labels,
+                )
+                if selected is None:
+                    self.console.print("[dim]Resume cancelled.[/dim]")
+                    return
+                selector = selected
+            else:
+                self._print_resume_table(archives)
+                self.console.print("[dim]Usage: /resume <index|latest|workflow-id>[/dim]")
+                return
+
+        archive = self._resolve_archive(archives, selector)
+        if archive is None:
+            self.console.print(f"[yellow]No matching workflow session: {selector}[/yellow]")
+            return
+
+        archived_current = self.workflow_persistence.archive_active_session()
+        self.workflow_persistence.restore_archive(archive)
+        self.workflow = WorkflowEngine(self.config.effective_state_dir)
+        self.tui.set_workflow_session(self.workflow.session)
+
+        if archived_current:
+            self.console.print(
+                f"[dim]Current workflow saved as {archived_current.session.id}.[/dim]"
+            )
+        self.console.print(
+            f"[green]Resumed workflow {self.workflow.session.id}.[/green]"
+        )
+        self._cmd_workflow()
+
+    def _print_resume_table(self, archives) -> None:
+        """Print archived workflow sessions for manual selection."""
+        from rich.table import Table
+
+        table = Table(title="Saved Workflow Sessions")
+        table.add_column("#", justify="right", style="cyan")
+        table.add_column("ID")
+        table.add_column("State")
+        table.add_column("Updated")
+        table.add_column("Goal")
+
+        for index, archive in enumerate(archives, 1):
+            session = archive.session
+            table.add_row(
+                str(index),
+                session.id,
+                session.state.value,
+                self._format_timestamp(session.updated_at),
+                self._short_goal(session.goal),
+            )
+
+        self.console.print(table)
+
+    def _resolve_archive(self, archives, selector: str):
+        """Resolve a resume selector to one archive."""
+        normalized = selector.strip().lower()
+        if normalized in {"latest", "last", "newest"}:
+            return archives[0]
+        if normalized.isdigit():
+            index = int(normalized) - 1
+            if 0 <= index < len(archives):
+                return archives[index]
+            return None
+        return next(
+            (
+                archive
+                for archive in archives
+                if archive.session.id.lower() == normalized
+            ),
+            None,
+        )
+
+    def _archive_label(self, archive) -> str:
+        """Build a concise label for interactive resume selection."""
+        session = archive.session
+        return (
+            f"{session.id} · {session.state.value} · "
+            f"{self._format_timestamp(session.updated_at)} · "
+            f"{self._short_goal(session.goal)}"
+        )
+
+    @staticmethod
+    def _format_timestamp(timestamp: float) -> str:
+        """Format a persisted Unix timestamp for the resume list."""
+        try:
+            return time.strftime("%Y-%m-%d %H:%M", time.localtime(timestamp))
+        except (OSError, ValueError):
+            return "unknown"
+
+    @staticmethod
+    def _short_goal(goal: str, limit: int = 60) -> str:
+        """Return a compact single-line workflow goal."""
+        text = " ".join((goal or "(none)").split())
+        if len(text) <= limit:
+            return text
+        return text[: limit - 3] + "..."
 
     # ─── Deliberation ──────────────────────────────────────────────────
 

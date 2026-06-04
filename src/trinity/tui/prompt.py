@@ -15,7 +15,8 @@ from pathlib import Path
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.completion import Completer, Completion, CompleteEvent
+from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.input import DummyInput
 from prompt_toolkit.output import DummyOutput
@@ -44,6 +45,7 @@ TRINITY_COMMANDS = [
     "/decisions",
     "/packages",
     "/subtasks",
+    "/resume",
     "/help",
     "/quit",
 ]
@@ -53,6 +55,27 @@ TRINITY_STYLE = Style.from_dict({
     "prompt": "bold green",
     "": "",  # default
 })
+
+
+class SlashCommandCompleter(Completer):
+    """Complete Trinity commands only when the input begins with slash."""
+
+    def __init__(self, commands: list[str]):
+        self.commands = commands
+
+    def get_completions(
+        self,
+        document: Document,
+        complete_event: CompleteEvent,
+    ):
+        text = document.text_before_cursor
+        if not text.startswith("/") or any(char.isspace() for char in text):
+            return
+
+        normalized = text.lower()
+        for command in self.commands:
+            if command.lower().startswith(normalized):
+                yield Completion(command, start_position=-len(text))
 
 
 class TrinityPromptSession:
@@ -78,7 +101,7 @@ class TrinityPromptSession:
             history=FileHistory(history_path) if history_path else None,
             auto_suggest=AutoSuggestFromHistory(),
             multiline=False,
-            completer=WordCompleter(TRINITY_COMMANDS, ignore_case=True),
+            completer=SlashCommandCompleter(TRINITY_COMMANDS),
             style=TRINITY_STYLE,
         )
         try:

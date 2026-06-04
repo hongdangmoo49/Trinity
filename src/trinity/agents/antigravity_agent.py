@@ -59,6 +59,10 @@ class AntigravityPrintAgent(AgentWrapper):
                 "diagnostics": list(result.diagnostics),
                 "execution_authority": result.execution_authority.value,
                 "output_format": result.metadata.get("output_format", "plain-text"),
+                "machine_readable_output": result.metadata.get(
+                    "machine_readable_output", False
+                ),
+                "usage_source": result.metadata.get("usage_source", "unsupported"),
             },
         )
 

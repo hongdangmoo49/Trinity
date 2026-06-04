@@ -387,6 +387,12 @@ def _parse_codex_usage(data: Any) -> ContextUsage | None:
 class AntigravityPrintInvoker(CliProviderInvoker):
     """Invoke Antigravity CLI with `agy --print` and parse plain stdout."""
 
+    output_metadata = {
+        "output_format": "plain-text",
+        "machine_readable_output": False,
+        "usage_source": "unsupported",
+    }
+
     def build_command(self, request: PromptRequest) -> list[str]:
         timeout_seconds = max(1, math.ceil(request.timeout_seconds))
         command = [
@@ -426,7 +432,7 @@ class AntigravityPrintInvoker(CliProviderInvoker):
                 metadata={
                     "command": command,
                     "returncode": completed.returncode,
-                    "output_format": "plain-text",
+                    **self.output_metadata,
                 },
             )
 
@@ -443,6 +449,6 @@ class AntigravityPrintInvoker(CliProviderInvoker):
             metadata={
                 "command": command,
                 "returncode": completed.returncode,
-                "output_format": "plain-text",
+                **self.output_metadata,
             },
         )

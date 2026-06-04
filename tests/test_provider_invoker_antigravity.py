@@ -82,6 +82,30 @@ async def test_invoke_parses_plain_stdout(tmp_path):
     assert result.usage is None
     assert result.execution_authority == ExecutionAuthority.PROVIDER_MANAGED
     assert result.metadata["output_format"] == "plain-text"
+    assert result.metadata["machine_readable_output"] is False
+    assert result.metadata["usage_source"] == "unsupported"
+
+
+@pytest.mark.asyncio
+async def test_invoke_keeps_json_looking_stdout_as_plain_text(tmp_path):
+    invoker = AntigravityPrintInvoker()
+    stdout = '{"content": "Reviewed.", "usage": {"input_tokens": 10}}\n'
+    completed = subprocess.CompletedProcess(
+        args=["agy"],
+        returncode=0,
+        stdout=stdout,
+        stderr="",
+    )
+
+    with patch("trinity.providers.invoker.subprocess.run", return_value=completed):
+        result = await invoker.invoke(_request(tmp_path))
+
+    assert result.status == ResponseStatus.OK
+    assert result.content == stdout.strip()
+    assert result.usage is None
+    assert result.metadata["output_format"] == "plain-text"
+    assert result.metadata["machine_readable_output"] is False
+    assert result.metadata["usage_source"] == "unsupported"
 
 
 @pytest.mark.asyncio
@@ -100,3 +124,6 @@ async def test_invoke_classifies_antigravity_auth_failure(tmp_path):
     assert result.status == ResponseStatus.AUTH_REQUIRED
     assert "exit code 1" in result.content
     assert result.diagnostics == ["Please sign in with your Google account."]
+    assert result.metadata["output_format"] == "plain-text"
+    assert result.metadata["machine_readable_output"] is False
+    assert result.metadata["usage_source"] == "unsupported"

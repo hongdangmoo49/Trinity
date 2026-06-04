@@ -95,6 +95,12 @@
    - 기존 `trinity.agents.gemini_agent` import는 외부 호환을 위해 얇은 shim으로 유지했다.
    - `tests/test_gemini_agent.py`와 provider 생성 테스트는 legacy namespace 구현을 직접 검증한다.
 
+15. Antigravity output contract 확정
+   - 공식 `CLI Reference`, `Using AGY CLI`, `Getting Started` 문서와 로컬 `agy 1.0.5 --help`를 재확인했다.
+   - 현재 Antigravity CLI는 `--print`/`--prompt` 단발 호출은 지원하지만 `--json`, `--output-format`, token usage 출력 계약은 제공하지 않는다.
+   - `AntigravityPrintInvoker` metadata에 `output_format = "plain-text"`, `machine_readable_output = false`, `usage_source = "unsupported"`를 명시했다.
+   - JSON처럼 보이는 stdout도 machine-readable provider result가 아니라 plain text 모델 응답으로 유지하는 테스트를 추가했다.
+
 ## 제거/정리
 
 - `PrintModeClaudeAgent._run_subprocess`
@@ -140,17 +146,20 @@ uv run pytest tests/test_tmux.py tests/test_completion.py tests/test_interactive
 
 uv run pytest tests/test_gemini_agent.py tests/test_agent_factory.py tests/test_orchestrator.py tests/test_multi_provider.py
 96 passed in 0.20s
+
+uv run pytest tests/test_provider_invoker_antigravity.py tests/test_antigravity_agent.py
+7 passed in 0.05s
 ```
 
 전체 테스트:
 
 ```text
 uv run pytest
-952 passed, 1 warning in 19.76s
+953 passed, 1 warning in 19.82s
 ```
 
 경고는 기존 테스트 mock coroutine 미await warning이며 이번 변경 실패는 아니다.
 
 ## 남은 작업
 
-- Antigravity CLI 공식 웹 문서에 `--print`/`--prompt` 플래그와 machine-readable output이 추가되는지 지속 확인한다. 현재 구현은 로컬 CLI help/smoke로 검증한 plain stdout path다.
+- Antigravity CLI upstream에 machine-readable output/token usage 플래그가 추가되는지 감시한다. 현재 구현 가능한 로컬 작업은 완료됐고, 공식 계약이 생기면 parser를 확장한다.

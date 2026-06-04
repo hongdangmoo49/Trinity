@@ -11,7 +11,7 @@
 단, 세 가지는 설계상 명확히 분리해야 한다.
 
 1. 인증 재사용과 provider 상태 격리는 충돌한다. 현재처럼 `HOME`, `XDG_CONFIG_HOME`, `CODEX_HOME`류를 `.trinity/agents/<agent>/provider-state`로 돌리면 사용자의 기존 로그인 캐시와 OS keyring을 볼 수 없다. 기본값은 사용자 홈 인증을 그대로 쓰고, 격리는 작업 디렉터리/워크트리/Trinity 산출물 단위로 유지해야 한다.
-2. Antigravity CLI는 공식 문서에서 TUI, keyring auth, resume, migration은 확인되지만 `claude -p` 또는 `codex exec`에 대응하는 비대화형 단발 호출 플래그는 문서상 확인되지 않았다. 구현 전 `agy --help` 또는 공식 문서 업데이트로 `--prompt`/출력 포맷 지원을 검증해야 한다.
+2. Antigravity CLI는 공식 문서에서 TUI, keyring auth, resume, migration은 확인된다. 로컬 `agy 1.0.5` 기준으로 `--print`/`--prompt` 단발 호출은 확인됐지만, 공식 문서와 로컬 help 모두 machine-readable output 또는 token usage 출력 포맷은 제공하지 않는다. 따라서 현재 Antigravity 구현은 plain stdout 계약으로 고정한다.
 3. OpenCode처럼 provider 호출과 local tool execution을 분리하는 구조는 장기적으로 유용하지만, 현재 Trinity가 목표로 하는 `claude -p`, `codex exec` 기반 CLI one-shot 인증 재사용과는 같은 방식이 아니다. CLI one-shot은 provider CLI 내부 도구/권한에 맡기는 `provider-managed` 실행이고, OpenCode식 구조는 API model이 tool call을 내면 Trinity가 로컬 도구를 실행하는 `trinity-managed` 실행이다.
 
 ## 현재 구조 분석
@@ -89,8 +89,9 @@ codex exec --json --ephemeral --cd <project_dir> "<round prompt>"
 - `--print-timeout`은 print mode wait timeout을 지정한다.
 - smoke test `agy --print-timeout=10s --print "Return exactly: TRINITY_AGY_SMOKE"`가 `TRINITY_AGY_SMOKE`를 반환했다.
 - smoke test `agy --print-timeout=10s --sandbox --print "Return exactly: TRINITY_AGY_SANDBOX_SMOKE"`가 `TRINITY_AGY_SANDBOX_SMOKE`를 반환했다.
+- 2026-06-04 재확인 기준 공식 `CLI Reference`, `Using AGY CLI`, `Getting Started` 문서는 slash command, settings, TUI launch, auth 흐름을 다루며 `--json`, `--output-format`, token usage 출력 계약을 문서화하지 않는다.
 
-아직 확인되지 않은 내용:
+현재 미지원으로 확인된 내용:
 
 - stdout machine-readable response format.
 - auth 상태 확인용 `agy auth status` 같은 명령.
@@ -469,7 +470,7 @@ enabled = false
 
 - `agy` 설치 여부 확인 로직 추가. 완료.
 - 설치되어 있으면 `agy --help`, `agy --version` capture. 로컬 `agy 1.0.5` 확인.
-- `--prompt`/비대화형 출력/JSON 출력 지원 여부를 fixture로 기록. `--print`/`--prompt`는 지원, JSON 출력은 미확인.
+- `--prompt`/비대화형 출력/JSON 출력 지원 여부를 fixture로 기록. `--print`/`--prompt`는 지원, JSON/token usage 출력은 현재 미지원.
 - `--dangerously-skip-permissions`는 자동 사용하지 않고 explicit extra args로만 허용한다.
 
 ### Phase 1 - One-shot 호출 계층
@@ -507,6 +508,7 @@ enabled = false
 - `ANTIGRAVITY_CLI` provider 추가.
 - `agy --print` verified one-shot command 기준으로 invoker 구현.
 - plain stdout output만 파싱하고 machine-readable output/token usage는 미지원으로 기록한다.
+- stdout이 JSON처럼 보여도 provider usage contract로 해석하지 않고 모델 응답 본문으로 유지한다.
 
 ### Phase 5 - tmux 호환 축소
 
@@ -526,6 +528,12 @@ enabled = false
 - 기존 외부 import 호환을 위해 `trinity.agents.gemini_agent`는 얇은 compatibility shim으로 유지한다.
 - Gemini marker detector와 response cleaner는 legacy Gemini/tmux 경로에서 아직 쓰이므로 유지한다.
 
+### Phase 7 - Antigravity output contract 확정
+
+- 공식 문서와 로컬 `agy --help`를 재확인해 machine-readable output/token usage 플래그가 없음을 기록한다.
+- `AntigravityPrintInvoker` metadata에 `output_format = "plain-text"`, `machine_readable_output = false`, `usage_source = "unsupported"`를 남긴다.
+- JSON처럼 보이는 stdout도 plain text 응답으로 유지하는 contract test를 추가한다.
+
 ## 테스트 전략
 
 - `tests/test_provider_invoker_claude.py`: command construction, JSON/stream parsing, auth error.
@@ -541,7 +549,7 @@ enabled = false
 
 ## 리스크와 대응
 
-- Antigravity machine-readable output 미지원: 현재는 plain stdout path를 사용하고, JSON/token usage가 CLI에 추가되면 parser를 확장한다.
+- Antigravity machine-readable output 미지원: 현재는 plain stdout path를 사용하고, JSON처럼 보이는 stdout도 응답 본문으로 유지한다. JSON/token usage가 CLI에 추가되면 공식 플래그 확인 후 parser를 확장한다.
 - 사용자 홈 인증 공유: 사용자의 auth를 그대로 쓰는 대신 command sandbox, git worktree, permission flags를 강화한다.
 - provider-managed 실행의 tool 투명성 한계: CLI 내부 도구 호출은 Trinity가 OpenCode처럼 세밀하게 가로채기 어렵다. 엄격한 파일 I/O 통제가 필요하면 API tool-calling 기반 `trinity-managed` runtime을 별도 구현한다.
 - 병렬 provider-managed write 충돌: 같은 worktree에서 여러 provider CLI가 동시에 파일을 수정하지 않도록 write execution을 순차화하고, 병렬 구현은 별도 git worktree 또는 명시적 파일 소유권이 있을 때만 허용한다.
@@ -558,10 +566,11 @@ enabled = false
 - `synthesizer` schema와 round 후 mount 구조 추가.
 - Gemini CLI deprecation warning과 `antigravity-cli` provider enum 추가.
 - Gemini CLI legacy namespace 분리.
+- Antigravity plain stdout output contract 고정.
 
-착수 전 검증이 필요한 작업:
+외부 변화 감시가 필요한 작업:
 
-- Antigravity CLI의 machine-readable 출력 포맷. 현재 로컬 `agy 1.0.5`는 `--print` 단발 호출을 지원하지만 JSON 출력은 확인되지 않았다.
+- Antigravity CLI의 machine-readable 출력 포맷. 현재 로컬 `agy 1.0.5`와 공식 문서에는 JSON/token usage 출력 계약이 없다.
 
 ## 참고 출처
 

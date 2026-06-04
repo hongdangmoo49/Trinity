@@ -33,7 +33,11 @@ async def test_send_and_wait_returns_deliberation_message(antigravity_spec):
             status=ResponseStatus.OK,
             elapsed_seconds=1.25,
             execution_authority=ExecutionAuthority.PROVIDER_MANAGED,
-            metadata={"output_format": "plain-text"},
+            metadata={
+                "output_format": "plain-text",
+                "machine_readable_output": False,
+                "usage_source": "unsupported",
+            },
         )
     )
 
@@ -44,6 +48,8 @@ async def test_send_and_wait_returns_deliberation_message(antigravity_spec):
     assert message.content == "Reviewed."
     assert message.metadata["response_status"] == "ok"
     assert message.metadata["output_format"] == "plain-text"
+    assert message.metadata["machine_readable_output"] is False
+    assert message.metadata["usage_source"] == "unsupported"
     agent._invoker.invoke.assert_awaited_once()
 
 

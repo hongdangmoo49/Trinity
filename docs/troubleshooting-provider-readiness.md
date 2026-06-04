@@ -13,10 +13,10 @@ deliberation 시작 전에 상태를 분류해 사용자 조치를 안내한다.
 
 | 증상 | readiness state | 조치 |
 |------|-----------------|------|
-| OAuth URL, login code, invalid code가 보인다. | `auth_required` | provider CLI를 직접 실행해 로그인 완료 |
-| auth picker 또는 API key/Vertex AI 선택 화면이 보인다. | `auth_required` | 인증 방식 선택 및 계정/API key 설정 |
+| OAuth URL, login code, invalid code가 보인다. | `auth_required` | `trinity bootstrap`에서 격리 provider-state 로그인 완료 |
+| auth picker 또는 API key/Vertex AI 선택 화면이 보인다. | `auth_required` | `trinity bootstrap`에서 인증 방식 선택 및 계정/API key 설정 |
 | 모델 이름, loading, initializing, default model banner만 보인다. | `model_loading` 또는 `cli_banner_only` | 초기화 완료까지 대기 후 재시도 |
-| workspace trust/confirm prompt가 보인다. | `workspace_trust_required` | 해당 workspace를 신뢰/승인 |
+| workspace trust/confirm prompt가 보인다. | `workspace_trust_required` | `trinity bootstrap`에서 해당 workspace를 신뢰/승인 |
 | pane/process가 죽었거나 capture가 비어 있다. | `process_dead` 또는 `unknown_not_ready` | provider 재시작 또는 tmux session 재생성 |
 
 ## 3. 공통 진단 순서
@@ -25,6 +25,7 @@ WSL repo 기준으로 실행한다.
 
 ```bash
 cd /home/zaemi/workspace/Trinity
+uv run trinity bootstrap
 uv run trinity status
 uv run trinity
 ```
@@ -49,11 +50,10 @@ uv run trinity
 ### 조치
 
 ```bash
-claude auth
-claude doctor
-claude --version
-claude
+uv run trinity bootstrap --agents claude
 ```
+
+bootstrap tmux pane에서 Claude Code의 theme/auth/workspace prompt를 완료한다.
 
 확인 기준:
 
@@ -74,11 +74,11 @@ claude
 ```bash
 source ~/.nvm/nvm.sh
 which codex
-codex doctor
-codex login
 codex --version
-codex
+uv run trinity bootstrap --agents codex
 ```
+
+bootstrap tmux pane에서 Codex CLI의 login/trust prompt를 완료한다.
 
 확인 기준:
 
@@ -99,10 +99,10 @@ codex
 ```bash
 source ~/.nvm/nvm.sh
 gemini --version
-gemini
+uv run trinity bootstrap --agents gemini
 ```
 
-Gemini CLI 안에서 사용할 인증 방식을 완료한다.
+bootstrap tmux pane의 Gemini CLI 안에서 사용할 인증 방식을 완료한다.
 Vertex AI를 쓸 경우 필요한 environment variable을 WSL shell에 설정한다.
 API key 방식을 쓸 경우 CLI가 기대하는 설정 위치에 key를 등록한다.
 

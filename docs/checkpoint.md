@@ -36,7 +36,7 @@
 ### 검증 기준선
 
 - 패키지/CLI 버전: `0.7.1`
-- `uv run pytest -q` → 909 passed, 1 warning
+- `uv run pytest -q` → 915 passed, 1 warning
 - 변경 파일 대상 ruff check 통과
 - 실제 WSL/tmux/provider smoke는 릴리스 전 별도 수행 필요
 

@@ -202,8 +202,13 @@ Inside the interactive TUI (`trinity` with no args):
 | `/agent <name> on\|off` | Enable/disable an agent |
 | `/history` | Show deliberation history |
 | `/save` | Save session results to file |
+| `/resume [N\|latest\|ID]` | Select and resume a saved workflow session |
 | `/help` | Show help |
 | `/quit` | Exit Trinity |
+
+The TUI starts with a new workflow session by default. The previous active
+workflow is preserved in `.trinity/workflow/history/` and can be resumed
+explicitly with `/resume`.
 
 ---
 
@@ -383,7 +388,7 @@ uv publish --token <PYPI_TOKEN>
 | Metric | Value |
 | :--- | :--- |
 | **Version** | 0.7.1 |
-| **Tests** | 909 passed |
+| **Tests** | 915 passed |
 | **Coverage** | ~87% |
 | **Source files** | 50+ |
 | **Dependencies** | `click`, `rich`, `prompt_toolkit`, `tomli` |

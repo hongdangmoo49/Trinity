@@ -200,8 +200,12 @@ Trinity는 **Rich 라이브러리 기반의 미려한 터미널 UI(TUI)**를 제
 | `/agent <이름> on\|off` | 특정 에이전트를 즉시 활성화하거나 비활성화 |
 | `/history` | 이전 라운드의 토론 히스토리 요약 조회 |
 | `/save` | 현재 토론 세션의 전체 결과를 파일로 영구 저장 |
+| `/resume [N\|latest\|ID]` | 저장된 workflow 세션을 선택해 재개 |
 | `/help` | 사용 가능한 인라인 명령어 도움말 표시 |
 | `/quit` | Trinity 종료 및 백그라운드 리소스 정리 |
+
+TUI는 기본적으로 새 workflow 세션으로 시작한다. 이전 active workflow는
+`.trinity/workflow/history/`에 보존되며 `/resume`으로 명시적으로 재개한다.
 
 ---
 
@@ -381,7 +385,7 @@ uv publish --token <PYPI_TOKEN>
 | 지표 | 수치 |
 | :--- | :--- |
 | **버전** | 0.7.1 |
-| **테스트** | 909개 테스트 통과 |
+| **테스트** | 915개 테스트 통과 |
 | **커버리지** | 약 87% |
 | **소스 파일** | 50여 개 |
 | **주요 의존성 라이브러리** | `click`, `rich`, `prompt_toolkit`, `tomli` |

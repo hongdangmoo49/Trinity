@@ -94,6 +94,25 @@ role_prompt = "당신은 아키텍트입니다."
         config = TrinityConfig.load(config_path)
         assert config.lang == "ko"
 
+    def test_korean_role_prompt_overrides_legacy_explicit_english_lang(self, tmp_trinity_dir):
+        config_path = tmp_trinity_dir / "trinity.config"
+        config_path.write_text(
+            """
+[general]
+lang = "en"
+
+[agents.claude]
+provider = "claude-code"
+cli_command = "claude"
+enabled = true
+role_prompt = "당신은 아키텍트입니다."
+""",
+            encoding="utf-8",
+        )
+
+        config = TrinityConfig.load(config_path)
+        assert config.lang == "ko"
+
     def test_config_compression_defaults(self):
         """TrinityConfig should have prompt compression defaults."""
         config = TrinityConfig.default_config()
@@ -105,6 +124,11 @@ role_prompt = "당신은 아키텍트입니다."
         config = TrinityConfig.default_config()
         assert config.provider_readiness_mode == "strict"
         assert config.provider_readiness_timeout_seconds == 20.0
+
+    def test_default_provider_timeouts_are_five_minutes(self):
+        config = TrinityConfig.default_config()
+        assert config.round_timeout_seconds == 300.0
+        assert config.synthesis_timeout_seconds == 300.0
 
     def test_provider_state_mode_defaults_to_user_home(self):
         config = TrinityConfig.default_config()
@@ -217,6 +241,7 @@ enabled = true
         config = TrinityConfig.default_config(project_dir=tmp_path)
         config.provider_readiness_mode = "degraded"
         config.provider_readiness_timeout_seconds = 2.0
+        config.round_timeout_seconds = 300.0
         config.synthesis_mode = "model"
         config.synthesis_agent = "claude"
         config.synthesis_model = "sonnet"
@@ -235,6 +260,7 @@ enabled = true
         assert loaded.transport_mode == "one-shot"
         assert loaded.provider_readiness_mode == "degraded"
         assert loaded.provider_readiness_timeout_seconds == 2.0
+        assert loaded.round_timeout_seconds == 300.0
         assert loaded.synthesis_mode == "model"
         assert loaded.synthesis_agent == "claude"
         assert loaded.synthesis_model == "sonnet"
@@ -268,7 +294,7 @@ enabled = true
         assert config.synthesis_mode == "auto"
         assert config.synthesis_agent == ""
         assert config.synthesis_model == "fast"
-        assert config.synthesis_timeout_seconds == 30.0
+        assert config.synthesis_timeout_seconds == 300.0
         assert config.synthesis_max_input_chars == 60_000
 
     def test_load_synthesis_config(self, tmp_trinity_dir):

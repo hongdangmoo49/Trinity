@@ -123,9 +123,10 @@ class ModelBackedSynthesisAgent:
         model: str = "default",
         requested_model: str = "fast",
         extra_args: tuple[str, ...] = (),
-        timeout_seconds: float = 30.0,
+        timeout_seconds: float = 300.0,
         max_input_chars: int = 60_000,
         artifact_dir: Path | None = None,
+        lang: str = "en",
     ):
         self.invoker = invoker
         self.agent_name = agent_name
@@ -139,6 +140,7 @@ class ModelBackedSynthesisAgent:
         self.timeout_seconds = timeout_seconds
         self.max_input_chars = max_input_chars
         self.artifact_dir = artifact_dir
+        self.lang = lang
 
     async def synthesize(self, synthesis_input: SynthesisInput) -> SynthesisResult:
         """Call a provider and convert its strict JSON response into SynthesisResult."""
@@ -222,13 +224,20 @@ class ModelBackedSynthesisAgent:
         result.metadata.update(artifacts)
         return result
 
-    @staticmethod
-    def _role_prompt() -> str:
-        return (
+    def _role_prompt(self) -> str:
+        prompt = (
             "You are Trinity's central synthesis coordinator. Normalize the "
             "agent opinions into the requested JSON schema. Return only one "
             "JSON object and no Markdown, prose, or code fences."
         )
+        if self.lang == "ko":
+            prompt += (
+                " All user-facing string values must be Korean, including "
+                "summary_for_shared_md, next_round_prompt, questions, options, "
+                "recommendations, rationales, blueprint fields, risks, and "
+                "acceptance criteria."
+            )
+        return prompt
 
     def _build_prompt(self, synthesis_input: SynthesisInput) -> str:
         schema = {
@@ -296,6 +305,7 @@ class ModelBackedSynthesisAgent:
                 [],
             ),
             "rules": [
+                self._language_rule(),
                 "summary_for_shared_md must be non-empty.",
                 "total_agents must equal the usable_agent_opinions count.",
                 "If open_questions_for_user is non-empty, consensus_reached must be false.",
@@ -308,6 +318,14 @@ class ModelBackedSynthesisAgent:
             "Return exactly one JSON object matching output_schema.\n\n"
             + json.dumps(payload, ensure_ascii=False, indent=2)
         )
+
+    def _language_rule(self) -> str:
+        if self.lang == "ko":
+            return (
+                "All user-facing string values must be Korean. Keep only JSON "
+                "field names and enum values in English."
+            )
+        return "Use English for user-facing string values unless the user requested another language."
 
     def _bounded_opinions(self, opinions: dict[str, str]) -> dict[str, str]:
         if not opinions:

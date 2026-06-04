@@ -193,6 +193,22 @@ def _model_synthesis_agent(tmp_path: Path, result: ProviderTurnResult):
     return agent, invoker
 
 
+def _korean_model_synthesis_agent(tmp_path: Path, result: ProviderTurnResult):
+    invoker = FakeSynthesisInvoker(result)
+    agent = ModelBackedSynthesisAgent(
+        invoker=invoker,
+        agent_name="codex",
+        provider=Provider.CODEX,
+        cli_command="codex",
+        cwd=tmp_path,
+        model="default",
+        requested_model="fast",
+        artifact_dir=tmp_path / "synthesis",
+        lang="ko",
+    )
+    return agent, invoker
+
+
 def _valid_model_payload(**overrides):
     payload = {
         "consensus_reached": True,
@@ -248,6 +264,26 @@ async def test_model_backed_synthesis_parses_valid_json_and_writes_artifacts(tmp
     assert Path(result.metadata["json_path"]).exists()
     assert invoker.requests[0].access.value == "read-only"
     assert "Return exactly one JSON object" in invoker.requests[0].prompt
+
+
+@pytest.mark.asyncio
+async def test_model_backed_synthesis_ko_requests_korean_user_facing_values(tmp_path):
+    agent, invoker = _korean_model_synthesis_agent(
+        tmp_path,
+        _provider_result(_valid_model_payload()),
+    )
+
+    await agent.synthesize(
+        SynthesisInput(
+            user_prompt="레이어2 브릿지 봇을 설계해라",
+            round_num=1,
+            opinions={"codex": "한국어 설계안"},
+        )
+    )
+
+    request = invoker.requests[0]
+    assert "All user-facing string values must be Korean" in request.role_prompt
+    assert "All user-facing string values must be Korean" in request.prompt
 
 
 @pytest.mark.asyncio

@@ -49,7 +49,7 @@ class GeminiAgent(AgentWrapper):
         self._started = False
         self._message_count = 0
         self._initial_prompt = ""
-        self._hard_timeout = 120.0  # seconds
+        self._hard_timeout = 300.0  # seconds
         self._last_response_start_line = 0
         self._sent_text = ""
         self._completion_marker = COMPLETION_MARKER
@@ -66,7 +66,7 @@ class GeminiAgent(AgentWrapper):
             logger.info(f"[{self.name}] Gemini launched in tmux pane")
 
     async def send_and_wait(
-        self, prompt: str, timeout: float = 120.0, access=None
+        self, prompt: str, timeout: float = 300.0, access=None
     ) -> DeliberationMessage:
         if not self._started:
             raise RuntimeError(f"Agent {self.name} not started")

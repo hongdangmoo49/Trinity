@@ -145,6 +145,22 @@ class TestBuildRoundPrompt:
         prompt = protocol._build_round_prompt(2, "Test")
         assert "not available" in prompt
 
+    def test_korean_prompt_requires_korean_user_facing_output(self, tmp_path):
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        agents = {"codex": _make_mock_agent("codex")}
+        protocol = DeliberationProtocol(
+            agents=agents,
+            shared=engine,
+            max_rounds=5,
+            lang="ko",
+        )
+
+        prompt = protocol._build_round_prompt(1, "레이어2 브릿지 봇을 설계해라")
+
+        assert "반드시 한국어" in prompt
+        assert "영어로 된 사용자-facing 문장" in prompt
+        assert "VOTE: APPROVE" in prompt
+
 
 class TestCollectOpinions:
     """Test _collect_opinions parallel collection."""

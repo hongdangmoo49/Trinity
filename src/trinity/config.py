@@ -44,13 +44,13 @@ class TrinityConfig:
     # Deliberation
     max_deliberation_rounds: int = 5
     consensus_threshold: float = 0.6  # fraction of agents required
-    round_timeout_seconds: float = 120.0
+    round_timeout_seconds: float = 300.0
     provider_readiness_mode: str = "strict"  # "strict" | "degraded"
     provider_readiness_timeout_seconds: float = 20.0
     synthesis_mode: str = "auto"  # "auto" | "model" | "heuristic"
     synthesis_agent: str = ""
     synthesis_model: str = "fast"
-    synthesis_timeout_seconds: float = 30.0
+    synthesis_timeout_seconds: float = 300.0
     synthesis_max_input_chars: int = 60_000
 
     # Context management
@@ -118,10 +118,13 @@ class TrinityConfig:
         health = data.get("health", {})
         logging_conf = data.get("logging", {})
 
-        # Detect language: explicit lang field, or infer from role prompts
+        # Detect language: explicit lang field, or infer from role prompts.
+        # Older configs could persist lang="en" while Korean role prompts were
+        # selected; prefer the observable agent language in that legacy mismatch.
+        detected_lang = cls._detect_lang_from_agents(data.get("agents", {}))
         lang = general.get("lang", None)
-        if lang is None:
-            lang = cls._detect_lang_from_agents(data.get("agents", {}))
+        if lang is None or (lang == "en" and detected_lang == "ko"):
+            lang = detected_lang
 
         agents = {}
         for name, agent_data in data.get("agents", {}).items():
@@ -162,7 +165,7 @@ class TrinityConfig:
             consensus_threshold=deliberation.get(
                 "consensus_threshold", general.get("consensus_threshold", 0.6)
             ),
-            round_timeout_seconds=deliberation.get("round_timeout_seconds", 120.0),
+            round_timeout_seconds=deliberation.get("round_timeout_seconds", 300.0),
             provider_readiness_mode=deliberation.get(
                 "provider_readiness_mode", "strict"
             ),
@@ -175,7 +178,7 @@ class TrinityConfig:
             synthesis_agent=str(deliberation.get("synthesis_agent", "")),
             synthesis_model=str(deliberation.get("synthesis_model", "fast")),
             synthesis_timeout_seconds=float(
-                deliberation.get("synthesis_timeout_seconds", 30.0)
+                deliberation.get("synthesis_timeout_seconds", 300.0)
             ),
             synthesis_max_input_chars=int(
                 deliberation.get("synthesis_max_input_chars", 60_000)
@@ -254,6 +257,7 @@ class TrinityConfig:
                 "context_rotate_threshold": self.context_rotate_threshold,
             },
             "deliberation": {
+                "round_timeout_seconds": self.round_timeout_seconds,
                 "provider_readiness_mode": self.provider_readiness_mode,
                 "provider_readiness_timeout_seconds": (
                     self.provider_readiness_timeout_seconds

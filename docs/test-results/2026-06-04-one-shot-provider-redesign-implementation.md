@@ -73,6 +73,11 @@
    - `AntigravityPrintAgent`를 추가하고 factory print mode에서 `antigravity-cli` provider를 생성할 수 있게 했다.
    - setup detector의 Antigravity experimental warning을 제거하고, readiness 안내를 `agy --print` one-shot 기준으로 갱신했다.
 
+11. tmux legacy/debug cleanup audit
+   - 실제 legacy tmux transport는 `TmuxSessionManager`, `TmuxPane`, completion detector chain, provider bootstrap 경로에서 계속 사용되므로 유지했다.
+   - current runtime에서 import되지 않고 테스트만 붙잡고 있던 `trinity.tmux.layout.TUILayout`을 고아 컴포넌트로 판단해 제거했다.
+   - `tests/test_tmux_layout.py`도 해당 고아 모듈 전용 테스트라 함께 제거했다.
+
 ## 제거/정리
 
 - `PrintModeClaudeAgent._run_subprocess`
@@ -83,8 +88,10 @@
 - Codex의 오래된 `codex -q` 실행 경로
 - Antigravity print-mode factory guard
 - Antigravity experimental setup warning
+- `src/trinity/tmux/layout.py`
+- `tests/test_tmux_layout.py`
 
-tmux, completion detector, Gemini legacy agent는 아직 제거하지 않았다. interactive/debug 호환과 legacy Gemini config 지원에 여전히 사용된다.
+`TmuxSessionManager`, `TmuxPane`, completion detector, Gemini legacy agent는 제거하지 않았다. interactive/debug 호환, provider bootstrap, legacy Gemini config 지원에 여전히 사용된다.
 
 ## 검증
 
@@ -112,7 +119,7 @@ uv run pytest tests/test_provider_invoker_antigravity.py tests/test_antigravity_
 
 ```text
 uv run pytest
-959 passed, 1 warning in 19.68s
+949 passed, 1 warning in 19.78s
 ```
 
 경고는 기존 테스트 mock coroutine 미await warning이며 이번 변경 실패는 아니다.
@@ -120,4 +127,4 @@ uv run pytest
 ## 남은 작업
 
 - Antigravity CLI 공식 웹 문서에 `--print`/`--prompt` 플래그와 machine-readable output이 추가되는지 지속 확인한다. 현재 구현은 로컬 CLI help/smoke로 검증한 plain stdout path다.
-- tmux legacy/debug cleanup audit를 진행한다.
+- tmux legacy/debug transport를 계속 유지할지, 별도 optional namespace로 분리할지 결정한다.

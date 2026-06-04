@@ -84,8 +84,17 @@ class _UnavailableSynthesisAgent:
 class TrinityOrchestrator:
     """Owns all components and drives the deliberation lifecycle."""
 
-    def __init__(self, config: TrinityConfig, interactive: bool | None = None):
+    def __init__(
+        self,
+        config: TrinityConfig,
+        interactive: bool | None = None,
+        *,
+        target_workspace: Path | None = None,
+        allow_control_repo_writes: bool = False,
+    ):
         self.config = config
+        self.target_workspace = target_workspace.resolve() if target_workspace else None
+        self.allow_control_repo_writes = allow_control_repo_writes
         self.transport_mode = config.transport_mode
         self.interactive = (
             self.transport_mode == "tmux" if interactive is None else interactive
@@ -190,6 +199,9 @@ class TrinityOrchestrator:
             event_callback=event_callback,
             lifecycle_guard=self.lifecycle_guard,
             rotation_callback=self._rotate_agent_for_lifecycle,
+            target_workspace=self.target_workspace,
+            control_repo=self.config.project_dir,
+            allow_control_repo_writes=self.allow_control_repo_writes,
         )
 
         # Create context monitor and session rotator
@@ -217,6 +229,11 @@ class TrinityOrchestrator:
     ) -> None:
         """Prepare per-agent cwd/env metadata before wrappers are created."""
         self.agent_launch_contexts = {}
+        workspace_root = (
+            self.target_workspace
+            if self.target_workspace is not None
+            else self.config.project_dir.resolve()
+        )
         provider_state_mode = self.config.provider_state_mode.lower()
         self.managed_home = (
             ManagedHome(state_dir=state_dir)
@@ -227,10 +244,15 @@ class TrinityOrchestrator:
         needs_worktree = any(
             spec.workspace_mode == "git-worktree" for spec in active_agents.values()
         )
+        workspace_state_dir = (
+            workspace_root / ".trinity" / "workspace"
+            if self.target_workspace is not None
+            else state_dir / "workspace"
+        )
         self.workspace_isolation = (
             WorkspaceIsolation(
-                project_root=self.config.project_dir,
-                state_dir=state_dir / "workspace",
+                project_root=workspace_root,
+                state_dir=workspace_state_dir,
             )
             if needs_worktree
             else None
@@ -244,7 +266,7 @@ class TrinityOrchestrator:
                 managed_home = self.managed_home.setup(name, provider=provider_name)
                 env_overrides = self.managed_home.get_env_overrides(name)
 
-            cwd = self.config.project_dir.resolve()
+            cwd = workspace_root.resolve()
             workspace_path: Path | None = None
             if spec.workspace_mode == "git-worktree":
                 if self.workspace_isolation is None:
@@ -704,6 +726,7 @@ class TrinityOrchestrator:
             "max_rounds": self.config.max_deliberation_rounds,
             "interactive": self.interactive,
             "transport_mode": self.transport_mode,
+            "target_workspace": str(self.target_workspace) if self.target_workspace else "",
             "tmux_session": (
                 self.config.session_name if self.tmux_manager else None
             ),

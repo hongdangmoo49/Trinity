@@ -13,9 +13,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import shlex
 import sys
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from rich.console import Console
@@ -171,6 +173,8 @@ class InteractiveSession:
             self._cmd_resume(args)
         elif cmd == "execute":
             self._cmd_execute(args)
+        elif cmd == "target":
+            self._cmd_target(args)
         else:
             self.console.print(
                 f"[yellow]Unknown command: /{cmd}. "
@@ -350,10 +354,13 @@ class InteractiveSession:
         session = self.workflow.session
         self.tui.set_workflow_session(session)
         parallel_groups = self.workflow.plan_parallel_groups()
+        target_workspace = (
+            str(session.target_workspace) if session.target_workspace else "(not set)"
+        )
         next_action = ""
         if session.state == WorkflowState.BLUEPRINT_READY and session.blueprint:
             next_action = (
-                "\n[bold]Next action[/bold]: /execute, 구현해라, "
+                "\n[bold]Next action[/bold]: /target, /execute, 구현해라, "
                 "설계 다듬기, or /workflow"
             )
         self.console.print(Panel.fit(
@@ -362,6 +369,7 @@ class InteractiveSession:
             f"[bold]Goal[/bold]: {session.goal or '(none)'}\n"
             f"[bold]Round[/bold]: {session.current_round}\n"
             f"[bold]Active agents[/bold]: {', '.join(session.active_agents) or '(none)'}\n"
+            f"[bold]Target workspace[/bold]: {escape(target_workspace)}\n"
             f"[bold]Pending questions[/bold]: {len(session.open_questions)}\n"
             f"[bold]Decisions[/bold]: {len(session.decisions)}\n"
             f"[bold]Work packages[/bold]: {len(session.work_packages)}\n"
@@ -658,6 +666,30 @@ class InteractiveSession:
         """Execute the current approved blueprint work packages."""
         instruction = " ".join(args).strip()
         self._execute_current_blueprint(instruction=instruction)
+
+    def _cmd_target(self, args: list[str]) -> None:
+        """Show, set, or clear the implementation target workspace."""
+        if not args:
+            current = self.workflow.session.target_workspace
+            default = self._default_target_workspace()
+            self.console.print(Panel.fit(
+                f"[bold]Current[/bold]: {current or '(not set)'}\n"
+                f"[bold]Default[/bold]: {default}\n\n"
+                "Usage: /target <path> or /target clear",
+                title="Target Workspace",
+                border_style="cyan",
+            ))
+            return
+
+        action = args[0].strip().lower()
+        if action in {"clear", "reset", "none"}:
+            self.workflow.clear_target_workspace()
+            self.tui.set_workflow_session(self.workflow.session)
+            self.console.print("[yellow]Target workspace cleared.[/yellow]")
+            return
+
+        path = self._resolve_user_path(" ".join(args))
+        self._set_target_workspace(path, create=True, require_existing=False)
 
     def _print_resume_table(self, archives) -> None:
         """Print archived workflow sessions for manual selection."""
@@ -990,6 +1022,178 @@ class InteractiveSession:
                 "/questions --select.[/dim]"
             )
 
+    def _ensure_target_workspace_for_execution(self) -> bool:
+        """Ensure implementation has an explicit writable target workspace."""
+        target = self.workflow.session.target_workspace
+        if target is not None:
+            return self._validate_existing_target_workspace(target)
+
+        default = self._default_target_workspace()
+        if not sys.stdin.isatty() or not sys.stdout.isatty():
+            self.console.print(Panel.fit(
+                "Implementation requires a target workspace before provider "
+                "workspace-write can start.\n\n"
+                f"Recommended default:\n{default}\n\n"
+                "Use /target <path>, then run /execute again.",
+                title="Target Workspace Required",
+                border_style="yellow",
+            ))
+            return False
+
+        selected = self._prompt_session.select_option(
+            title="Target Workspace",
+            question="구현 산출물을 어느 경로에 만들까요?",
+            options=[
+                f"새 프로젝트 디렉터리 만들기: {default}",
+                "기존 프로젝트 디렉터리 사용",
+                f"현재 경로 사용: {Path.cwd().resolve()}",
+                "구현 취소",
+            ],
+            recommended_option=f"새 프로젝트 디렉터리 만들기: {default}",
+        )
+        if selected is None or selected == "4":
+            self.console.print("[dim]Implementation cancelled.[/dim]")
+            return False
+        if selected == "1":
+            return self._set_target_workspace(
+                default,
+                create=True,
+                require_existing=False,
+            )
+        if selected == "2":
+            value = self._prompt_session.get_path_input(
+                label="target workspace",
+            ).strip()
+            if not value:
+                self.console.print("[dim]Implementation cancelled.[/dim]")
+                return False
+            return self._set_target_workspace(
+                self._resolve_user_path(value),
+                create=False,
+                require_existing=True,
+            )
+        if selected == "3":
+            return self._set_target_workspace(
+                Path.cwd(),
+                create=False,
+                require_existing=True,
+            )
+        return False
+
+    def _validate_existing_target_workspace(self, target: Path) -> bool:
+        """Validate a persisted target workspace before execution resumes."""
+        resolved = target.expanduser().resolve()
+        if not resolved.exists() or not resolved.is_dir():
+            self.console.print(
+                f"[yellow]Target workspace does not exist: {resolved}[/yellow]"
+            )
+            return False
+        if (
+            self._is_inside_control_repo(resolved)
+            and not self.workflow.session.control_repo_target_confirmed
+        ):
+            return self._confirm_and_store_control_repo_target(resolved)
+        return True
+
+    def _set_target_workspace(
+        self,
+        path: Path,
+        *,
+        create: bool,
+        require_existing: bool,
+    ) -> bool:
+        """Persist a target workspace path after validation."""
+        resolved = path.expanduser().resolve()
+        if require_existing and (not resolved.exists() or not resolved.is_dir()):
+            self.console.print(
+                f"[yellow]Target workspace does not exist: {resolved}[/yellow]"
+            )
+            return False
+        if create:
+            resolved.mkdir(parents=True, exist_ok=True)
+        if not resolved.is_dir():
+            self.console.print(
+                f"[yellow]Target workspace is not a directory: {resolved}[/yellow]"
+            )
+            return False
+
+        control_repo_confirmed = False
+        if self._is_inside_control_repo(resolved):
+            control_repo_confirmed = self._confirm_control_repo_target(resolved)
+            if not control_repo_confirmed:
+                self.console.print("[dim]Target workspace selection cancelled.[/dim]")
+                return False
+
+        self.workflow.set_target_workspace(
+            resolved,
+            control_repo_confirmed=control_repo_confirmed,
+        )
+        self.tui.set_workflow_session(self.workflow.session)
+        self.console.print(
+            f"[green]Target workspace set to {resolved}[/green]"
+        )
+        return True
+
+    def _confirm_and_store_control_repo_target(self, path: Path) -> bool:
+        """Ask for confirmation when a persisted target points at the control repo."""
+        if not self._confirm_control_repo_target(path):
+            return False
+        self.workflow.set_target_workspace(path, control_repo_confirmed=True)
+        self.tui.set_workflow_session(self.workflow.session)
+        return True
+
+    def _confirm_control_repo_target(self, path: Path) -> bool:
+        """Return whether the user explicitly accepts writing inside control repo."""
+        message = (
+            "현재 경로는 Trinity 제어 저장소 내부입니다. 여기에 사용자 "
+            "프로젝트 파일을 만들면 Trinity 코드와 산출물이 섞입니다. "
+            "그래도 계속할까요?\n\n"
+            f"{path}"
+        )
+        if not sys.stdin.isatty() or not sys.stdout.isatty():
+            self.console.print(Panel.fit(
+                message + "\n\nUse a target workspace outside the Trinity repo.",
+                title="Target Workspace Warning",
+                border_style="red",
+            ))
+            return False
+
+        selected = self._prompt_session.select_option(
+            title="Target Workspace Warning",
+            question=message,
+            options=["취소", "그래도 현재 경로 사용"],
+            recommended_option="취소",
+        )
+        return selected == "2"
+
+    def _default_target_workspace(self) -> Path:
+        """Return the recommended new project path outside the control repo."""
+        session = self.workflow.session
+        title = (
+            session.blueprint.title
+            if session.blueprint and session.blueprint.title.strip()
+            else session.goal
+        )
+        slug = self._slugify_workspace_name(title) or "trinity-project"
+        return self.config.project_dir.resolve().parent / slug
+
+    @staticmethod
+    def _slugify_workspace_name(value: str) -> str:
+        normalized = re.sub(r"[^a-z0-9가-힣]+", "-", value.lower()).strip("-")
+        normalized = re.sub(r"-{2,}", "-", normalized)
+        return normalized[:80].strip("-")
+
+    def _resolve_user_path(self, value: str) -> Path:
+        path = Path(value).expanduser()
+        if path.is_absolute():
+            return path
+        return self.config.project_dir / path
+
+    def _is_inside_control_repo(self, path: Path) -> bool:
+        control_repo = self.config.project_dir.resolve()
+        resolved = path.expanduser().resolve()
+        return resolved == control_repo or control_repo in resolved.parents
+
     def _run_with_live(
         self, orchestrator: "TrinityOrchestrator", prompt: str,
     ) -> DeliberationResult:
@@ -1086,9 +1290,19 @@ class InteractiveSession:
             return
         if not self.workflow.has_pending_execution:
             return
+        if not self._ensure_target_workspace_for_execution():
+            return
+
+        orchestrator = self._execution_orchestrator(orchestrator)
+        target_workspace = self.workflow.session.target_workspace
 
         self.workflow.begin_execution()
         self.tui.set_workflow_session(self.workflow.session)
+        self.console.print(Panel.fit(
+            f"[bold]Target workspace[/bold]\n{target_workspace}",
+            title="Execution Starting",
+            border_style="green",
+        ))
 
         try:
             results = self._run_execution_with_live(orchestrator)
@@ -1110,11 +1324,15 @@ class InteractiveSession:
                 "[yellow]No blueprint is ready. Finish deliberation before execution.[/yellow]"
             )
             return
+        if not self._ensure_target_workspace_for_execution():
+            return
 
         action = self.workflow.enable_execution_for_current_blueprint(instruction)
         self.tui.set_workflow_session(self.workflow.session)
         if action.message:
             self.console.print(f"[yellow]{action.message}[/yellow]")
+        if action.target_workspace_required:
+            return
         if not self.workflow.has_pending_execution:
             self._cmd_workflow()
             return
@@ -1126,6 +1344,8 @@ class InteractiveSession:
         """Run already-enabled executable work packages for the current blueprint."""
         if not self.workflow.has_pending_execution:
             self._cmd_workflow()
+            return
+        if not self._ensure_target_workspace_for_execution():
             return
 
         from trinity.orchestrator import TrinityOrchestrator
@@ -1143,8 +1363,40 @@ class InteractiveSession:
                 "One-shot remains the default transport.[/yellow]"
             )
 
-        orchestrator = TrinityOrchestrator(self.config, interactive=use_tmux)
+        orchestrator = TrinityOrchestrator(
+            self.config,
+            interactive=use_tmux,
+            target_workspace=self.workflow.session.target_workspace,
+            allow_control_repo_writes=(
+                self.workflow.session.control_repo_target_confirmed
+            ),
+        )
         self._maybe_run_execution(orchestrator)
+
+    def _execution_orchestrator(
+        self,
+        orchestrator: "TrinityOrchestrator",
+    ) -> "TrinityOrchestrator":
+        """Return an orchestrator whose providers launch in target workspace."""
+        target = self.workflow.session.target_workspace
+        if (
+            target is not None
+            and getattr(orchestrator, "target_workspace", None) == target.resolve()
+            and getattr(orchestrator, "allow_control_repo_writes", False)
+            == self.workflow.session.control_repo_target_confirmed
+        ):
+            return orchestrator
+
+        from trinity.orchestrator import TrinityOrchestrator
+
+        return TrinityOrchestrator(
+            self.config,
+            interactive=self._uses_tmux_transport(),
+            target_workspace=target,
+            allow_control_repo_writes=(
+                self.workflow.session.control_repo_target_confirmed
+            ),
+        )
 
     def _run_execution_with_live(
         self,
@@ -1205,7 +1457,6 @@ class InteractiveSession:
 
         thread = threading.Thread(target=_run_async, daemon=True)
         thread.start()
-        done_received = False
 
         try:
             with Live(
@@ -1216,14 +1467,7 @@ class InteractiveSession:
             ) as live:
                 while thread.is_alive():
                     thread.join(timeout=0.25)
-                    done_received = _consume_events() or done_received
-
-                    if done_received:
-                        _consume_events()
-                        live.update(self.tui.build_layout())
-                        thread.join(timeout=2.0)
-                        break
-
+                    _consume_events()
                     live.update(self.tui.build_layout())
 
                 _consume_events()

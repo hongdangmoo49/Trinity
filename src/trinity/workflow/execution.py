@@ -32,6 +32,17 @@ from trinity.workflow.lifecycle import LifecycleDecision, LifecycleGuard
 
 logger = logging.getLogger(__name__)
 
+EXECUTION_FALLBACK_PRIORITY: tuple[str, ...] = (
+    "codex",
+    "claude",
+    "antigravity",
+    "gemini",
+)
+
+
+class ExecutionWorkspaceError(RuntimeError):
+    """Raised when provider workspace-write would violate workspace boundaries."""
+
 
 class ExecutionProtocol:
     """Dispatch approved work packages to their owner agents."""
@@ -47,6 +58,9 @@ class ExecutionProtocol:
         rotation_callback: Callable[[str], object] | None = None,
         parallel_policy: ParallelExecutionPolicy | None = None,
         result_callback: Callable[[ExecutionResult], None] | None = None,
+        target_workspace: Path | None = None,
+        control_repo: Path | None = None,
+        allow_control_repo_writes: bool = False,
     ):
         self.agents = agents
         self.shared = shared
@@ -57,6 +71,9 @@ class ExecutionProtocol:
         self._rotation_callback = rotation_callback
         self.parallel_policy = parallel_policy or ParallelExecutionPolicy()
         self.result_callback = result_callback
+        self.target_workspace = target_workspace.resolve() if target_workspace else None
+        self.control_repo = control_repo.resolve() if control_repo else None
+        self.allow_control_repo_writes = allow_control_repo_writes
 
     async def run(
         self,
@@ -68,6 +85,7 @@ class ExecutionProtocol:
         packages = [package for package in work_packages if package.requires_execution]
         if not packages:
             return []
+        self._validate_workspace_boundary()
 
         on_result = result_callback or self.result_callback
         self._emit(TUIEventType.EXECUTION_START, package_count=len(packages))
@@ -128,6 +146,41 @@ class ExecutionProtocol:
             for package in packages
             if package.id in results_by_id
         ]
+
+    def _validate_workspace_boundary(self) -> None:
+        """Refuse provider writes without an approved implementation workspace."""
+        if self.control_repo is None:
+            return
+        if self.target_workspace is None:
+            raise ExecutionWorkspaceError(
+                "Target workspace is required before provider workspace-write."
+            )
+        if (
+            self._is_inside_control_repo(self.target_workspace)
+            and not self.allow_control_repo_writes
+        ):
+            raise ExecutionWorkspaceError(
+                "Refusing provider workspace-write in the Trinity control repo "
+                "without explicit confirmation."
+            )
+        for agent_name, agent in self.agents.items():
+            cwd = getattr(agent, "launch_cwd", None)
+            if not isinstance(cwd, Path):
+                continue
+            if (
+                self._is_inside_control_repo(cwd.resolve())
+                and not self.allow_control_repo_writes
+            ):
+                raise ExecutionWorkspaceError(
+                    f"Refusing provider workspace-write for {agent_name} in "
+                    "the Trinity control repo."
+                )
+
+    def _is_inside_control_repo(self, path: Path) -> bool:
+        if self.control_repo is None:
+            return False
+        resolved = path.resolve()
+        return resolved == self.control_repo or self.control_repo in resolved.parents
 
     def _plan_ready_batches(
         self,
@@ -231,19 +284,46 @@ class ExecutionProtocol:
         decisions: Iterable[DecisionRecord] = (),
     ) -> ExecutionResult:
         """Send one work package to its owner agent and collect the result."""
-        agent = self.agents.get(package.owner_agent)
-        if agent is None:
-            return self._missing_agent_result(package)
+        failed_attempts: list[ExecutionResult] = []
+        for agent_name in self._agent_attempt_order(package.owner_agent):
+            agent = self.agents.get(agent_name)
+            if agent is None:
+                failed_attempts.append(self._missing_agent_result(package, agent_name))
+                continue
 
+            result = await self._dispatch_package_to_agent(
+                package,
+                agent_name,
+                agent,
+                decisions,
+            )
+            if result.status != WorkStatus.FAILED:
+                return result
+            failed_attempts.append(result)
+
+        return self._failed_fallback_result(package, failed_attempts)
+
+    async def _dispatch_package_to_agent(
+        self,
+        package: WorkPackage,
+        agent_name: str,
+        agent: AgentWrapper,
+        decisions: Iterable[DecisionRecord],
+    ) -> ExecutionResult:
+        """Dispatch one package attempt to a concrete agent."""
         package.status = WorkStatus.RUNNING
         self._emit(
             TUIEventType.WORK_PACKAGE_STARTED,
             package_id=package.id,
-            agent=package.owner_agent,
+            agent=agent_name,
             status=package.status.value,
         )
 
-        prompt = self._build_execution_prompt(package, decisions)
+        prompt = self._build_execution_prompt(
+            package,
+            decisions,
+            execution_agent=agent_name,
+        )
         request_id = self._new_request_id(package)
         wrapped_prompt = self._wrap_execution_prompt(prompt, request_id)
 
@@ -254,27 +334,51 @@ class ExecutionProtocol:
                 access=InvocationAccess.WORKSPACE_WRITE,
             )
         except asyncio.TimeoutError as exc:
-            return self._exception_result(package, request_id, exc, WorkStatus.FAILED)
+            return self._exception_result(
+                package,
+                request_id,
+                exc,
+                WorkStatus.FAILED,
+                agent_name=agent_name,
+            )
         except Exception as exc:
-            logger.error("[%s] execution failed: %s", package.owner_agent, exc)
-            return self._exception_result(package, request_id, exc, WorkStatus.FAILED)
+            logger.error("[%s] execution failed: %s", agent_name, exc)
+            return self._exception_result(
+                package,
+                request_id,
+                exc,
+                WorkStatus.FAILED,
+                agent_name=agent_name,
+            )
 
-        return self.collect_result(package, request_id, message)
+        return self.collect_result(
+            package,
+            request_id,
+            message,
+            agent_name=agent_name,
+        )
 
     def collect_result(
         self,
         package: WorkPackage,
         request_id: str,
         message: DeliberationMessage,
+        agent_name: str | None = None,
     ) -> ExecutionResult:
         """Parse a package execution response into an ExecutionResult."""
+        actual_agent = agent_name or package.owner_agent
         raw_content = str(message.metadata.get("raw_output") or message.content or "")
-        raw_path = self._write_raw_response(package, request_id, raw_content)
+        raw_path = self._write_raw_response(
+            package,
+            request_id,
+            raw_content,
+            agent_name=actual_agent,
+        )
 
         if self._message_failed(message):
             return ExecutionResult(
                 package_id=package.id,
-                agent_name=package.owner_agent,
+                agent_name=actual_agent,
                 status=WorkStatus.FAILED,
                 summary=message.content or "Agent response failed.",
                 raw_response_path=raw_path,
@@ -287,14 +391,14 @@ class ExecutionProtocol:
             DecisionRecord(
                 id=f"{package.id.lower()}-dec-{idx:03d}",
                 decision=decision,
-                decided_by=package.owner_agent,
+                decided_by=actual_agent,
                 rationale=f"Execution decision from {package.id}.",
             )
             for idx, decision in enumerate(parsed["decisions_made"], start=1)
         ]
         return ExecutionResult(
             package_id=package.id,
-            agent_name=package.owner_agent,
+            agent_name=actual_agent,
             status=status,
             summary=parsed["summary"],
             files_changed=parsed["files_changed"],
@@ -357,13 +461,18 @@ class ExecutionProtocol:
         if callback:
             callback(result)
 
-    def _missing_agent_result(self, package: WorkPackage) -> ExecutionResult:
+    def _missing_agent_result(
+        self,
+        package: WorkPackage,
+        agent_name: str | None = None,
+    ) -> ExecutionResult:
+        attempted_agent = agent_name or package.owner_agent
         return ExecutionResult(
             package_id=package.id,
-            agent_name=package.owner_agent,
+            agent_name=attempted_agent,
             status=WorkStatus.FAILED,
-            summary=f"Owner agent '{package.owner_agent}' is not available.",
-            blockers=[f"Owner agent '{package.owner_agent}' is not available."],
+            summary=f"Execution agent '{attempted_agent}' is not available.",
+            blockers=[f"Execution agent '{attempted_agent}' is not available."],
         )
 
     def _dependency_blocked_result(
@@ -387,22 +496,60 @@ class ExecutionProtocol:
         request_id: str,
         exc: BaseException,
         status: WorkStatus,
+        agent_name: str | None = None,
     ) -> ExecutionResult:
-        raw_path = self._write_raw_response(package, request_id, f"[Error: {exc}]")
+        actual_agent = agent_name or package.owner_agent
+        raw_path = self._write_raw_response(
+            package,
+            request_id,
+            f"[Error: {exc}]",
+            agent_name=actual_agent,
+        )
         return ExecutionResult(
             package_id=package.id,
-            agent_name=package.owner_agent,
+            agent_name=actual_agent,
             status=status,
             summary=f"Execution failed: {exc}",
             blockers=[str(exc)],
             raw_response_path=raw_path,
         )
 
+    def _failed_fallback_result(
+        self,
+        package: WorkPackage,
+        attempts: list[ExecutionResult],
+    ) -> ExecutionResult:
+        """Return a single failed result after all available attempts failed."""
+        if not attempts:
+            return self._missing_agent_result(package)
+        if len(attempts) == 1:
+            return attempts[0]
+
+        summary = "All execution attempts failed: " + "; ".join(
+            f"{attempt.agent_name}: {attempt.summary or attempt.status.value}"
+            for attempt in attempts
+        )
+        blockers: list[str] = []
+        for attempt in attempts:
+            blockers.extend(attempt.blockers or [attempt.summary])
+        last = attempts[-1]
+        return ExecutionResult(
+            package_id=package.id,
+            agent_name=last.agent_name,
+            status=WorkStatus.FAILED,
+            summary=summary,
+            blockers=[item for item in blockers if item],
+            raw_response_path=last.raw_response_path,
+        )
+
     def _build_execution_prompt(
         self,
         package: WorkPackage,
         decisions: Iterable[DecisionRecord],
+        *,
+        execution_agent: str | None = None,
     ) -> str:
+        execution_agent = execution_agent or package.owner_agent
         decisions_text = "\n".join(
             f"- {decision.id}: {decision.decision}" for decision in decisions
         ) or "- none"
@@ -411,14 +558,25 @@ class ExecutionProtocol:
         acceptance = self._format_list(package.acceptance_criteria)
         expected_files = self._format_list(package.expected_files)
         shared_decisions = self.shared.read_section("Agreed Conclusion") or ""
+        fallback_note = ""
+        if execution_agent != package.owner_agent:
+            fallback_note = (
+                "[Fallback Assignment]\n"
+                f"Original owner: {package.owner_agent}\n"
+                f"Current executor: {execution_agent}\n"
+                "The original owner failed or is unavailable. Complete the same "
+                "work package without expanding scope.\n\n"
+            )
 
         return (
             "[Work Package]\n"
             f"ID: {package.id}\n"
             f"Owner: {package.owner_agent}\n"
+            f"Executor: {execution_agent}\n"
             f"Objective: {package.objective}\n"
             f"Title: {package.title}\n"
             f"Estimated Weight: {package.estimated_weight}\n\n"
+            f"{fallback_note}"
             "Scope:\n"
             f"{scope}\n\n"
             "Out of Scope:\n"
@@ -426,6 +584,7 @@ class ExecutionProtocol:
             "Expected Files:\n"
             f"{expected_files}\n\n"
             "[Workspace Boundary]\n"
+            f"Target Workspace: {self.target_workspace or '(not configured)'}\n"
             "Only modify files required by this package. Treat Expected Files "
             "as your ownership boundary unless a blocker requires escalation. "
             "Do not switch branches, merge, commit, or push; Trinity's "
@@ -674,9 +833,15 @@ class ExecutionProtocol:
         package: WorkPackage,
         request_id: str,
         raw_content: str,
+        *,
+        agent_name: str | None = None,
     ) -> Path:
         safe_package = re.sub(r"[^A-Za-z0-9_.-]+", "-", package.id).strip("-")
-        safe_agent = re.sub(r"[^A-Za-z0-9_.-]+", "-", package.owner_agent).strip("-")
+        safe_agent = re.sub(
+            r"[^A-Za-z0-9_.-]+",
+            "-",
+            agent_name or package.owner_agent,
+        ).strip("-")
         safe_request = re.sub(r"[^A-Za-z0-9_.-]+", "-", request_id).strip("-")
         package_dir = self.artifact_dir / safe_package
         package_dir.mkdir(parents=True, exist_ok=True)
@@ -702,6 +867,25 @@ class ExecutionProtocol:
     def _emit(self, event_type: TUIEventType, **kwargs) -> None:
         if self._event_callback:
             self._event_callback(TUIEvent(type=event_type, data=kwargs))
+
+    def _agent_attempt_order(self, owner_agent: str) -> tuple[str, ...]:
+        """Return owner-first execution attempts with deterministic fallback order."""
+        attempts: list[str] = []
+        if owner_agent:
+            attempts.append(owner_agent)
+        fallbacks = sorted(
+            (name for name in self.agents if name != owner_agent),
+            key=lambda name: (self._fallback_priority_index(name), name),
+        )
+        attempts.extend(fallbacks)
+        return tuple(dict.fromkeys(attempts))
+
+    @staticmethod
+    def _fallback_priority_index(agent_name: str) -> int:
+        try:
+            return EXECUTION_FALLBACK_PRIORITY.index(agent_name)
+        except ValueError:
+            return len(EXECUTION_FALLBACK_PRIORITY)
 
 
 def _is_substantive_line(line: str) -> bool:

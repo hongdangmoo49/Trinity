@@ -55,6 +55,7 @@ class TestCommandCompletion:
             "/subtasks",
             "/resume",
             "/execute",
+            "/target",
             "/help",
             "/quit",
         }

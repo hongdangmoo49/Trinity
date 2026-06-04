@@ -355,67 +355,133 @@ class BlueprintDecomposer:
         return expected_by_kind.get(kind, ["src/", "tests/", "docs/"])
 
 
+DESIGN_ONLY_MARKERS: tuple[str, ...] = (
+    "design only",
+    "plan only",
+    "proposal only",
+    "spec only",
+    "architecture only",
+    "do not implement",
+    "don't implement",
+    "no code changes",
+    "without code changes",
+    "설계만",
+    "계획만",
+    "구현하지",
+    "개발하지",
+    "코드 변경 없이",
+    "파일을 바꾸지",
+)
+
+DESIGN_REQUEST_MARKERS: tuple[str, ...] = (
+    "design",
+    "plan",
+    "proposal",
+    "spec",
+    "architecture",
+    "설계",
+    "계획",
+    "기획",
+    "구조",
+    "아키텍처",
+)
+
+ASPIRATIONAL_IMPLEMENTATION_MARKERS: tuple[str, ...] = (
+    "want to build",
+    "want to implement",
+    "would like to build",
+    "would like to implement",
+    "개발하고 싶",
+    "구현하고 싶",
+    "만들고 싶",
+)
+
+EXPLICIT_EXECUTION_COMMAND_MARKERS: tuple[str, ...] = (
+    "/execute",
+    "execute it",
+    "implement it",
+    "implement this",
+    "go ahead",
+    "make it",
+    "ship it",
+    "start implementation",
+    "start development",
+    "이 설계대로 구현",
+    "이대로 구현",
+    "이대로 만들어",
+    "개발 시작",
+    "구현 시작",
+    "개발해",
+    "개발하라",
+    "구현해",
+    "구현하라",
+    "진행해",
+    "진행하라",
+    "수정해",
+    "수정하라",
+    "추가해",
+    "추가하라",
+    "작성해",
+    "작성하라",
+    "만들어",
+    "만들라",
+    "실행해",
+    "실행하라",
+)
+
+GENERAL_EXECUTION_MARKERS: tuple[str, ...] = (
+    "add",
+    "build",
+    "change",
+    "edit",
+    "execute",
+    "fix",
+    "implement",
+    "integrate",
+    "modify",
+    "refactor",
+    "write code",
+    "개발",
+    "구현",
+    "진행",
+    "수정",
+    "추가",
+    "작성",
+    "만들",
+    "실행",
+)
+
+
 def classify_execution_intent(text: str) -> bool:
-    """Return whether a goal/result appears to request implementation work."""
-    normalized = " ".join(text.lower().split())
-    design_only_markers = (
-        "design only",
-        "plan only",
-        "proposal only",
-        "spec only",
-        "architecture only",
-        "do not implement",
-        "don't implement",
-        "no code changes",
-        "without code changes",
-        "설계만",
-        "계획만",
-        "구현하지",
-        "개발하지",
-        "코드 변경 없이",
-        "파일을 바꾸지",
-    )
-    execution_markers = (
-        "add",
-        "build",
-        "change",
-        "edit",
-        "execute",
-        "fix",
-        "implement",
-        "integrate",
-        "modify",
-        "refactor",
-        "write code",
-        "go ahead",
-        "make it",
-        "ship it",
-        "개발",
-        "구현",
-        "진행",
-        "수정",
-        "추가",
-        "작성",
-        "만들",
-        "이대로",
-        "실행",
-    )
-    if any(marker in normalized for marker in design_only_markers):
+    """Return whether a goal/result explicitly requests implementation work."""
+    normalized = _normalize_intent_text(text)
+    if _contains_any(normalized, DESIGN_ONLY_MARKERS):
         return False
-    for marker in execution_markers:
-        if marker.isascii():
-            if re.search(rf"\b{re.escape(marker)}\b", normalized):
-                return True
-        elif marker in normalized:
-            return True
-    return False
+
+    has_design_request = _contains_any(normalized, DESIGN_REQUEST_MARKERS)
+    has_aspirational_implementation = _contains_any(
+        normalized,
+        ASPIRATIONAL_IMPLEMENTATION_MARKERS,
+    )
+    has_explicit_execution = _contains_any(
+        normalized,
+        EXPLICIT_EXECUTION_COMMAND_MARKERS,
+    )
+
+    if has_design_request and not has_explicit_execution:
+        return False
+    if has_aspirational_implementation and not has_explicit_execution:
+        return False
+    if has_explicit_execution:
+        return True
+    return _contains_any(normalized, GENERAL_EXECUTION_MARKERS)
 
 
 def classify_blueprint_followup_action(
     text: str,
 ) -> BlueprintFollowupAction | None:
     """Classify follow-up text when a blueprint is already ready."""
-    normalized = " ".join(text.lower().split())
+    normalized = _normalize_intent_text(text)
     if not normalized:
         return None
 
@@ -436,48 +502,38 @@ def classify_blueprint_followup_action(
         "새로 시작",
         "처음부터",
     )
-    continue_markers = (
-        "revise blueprint",
-        "refine blueprint",
-        "review alternatives",
-        "design only",
-        "plan only",
-        "do not implement",
-        "don't implement",
-        "no code changes",
-        "설계만",
-        "계획만",
-        "설계를 더",
-        "설계 수정",
-        "다듬",
-        "대안",
-        "검토",
-        "구현하지",
-        "개발하지",
-        "파일을 바꾸지",
-        "코드 변경 없이",
-    )
-    execute_markers = (
-        "/execute",
-        "execute it",
-        "implement it",
-        "go ahead",
-        "make it",
-        "ship it",
-        "개발",
-        "구현",
-        "진행",
-        "이대로",
-        "만들",
-        "실행",
-    )
-
     if any(marker in normalized for marker in cancel_markers):
         return "cancel"
     if any(marker in normalized for marker in new_markers):
         return "new"
-    if any(marker in normalized for marker in continue_markers):
+
+    has_explicit_execution = _contains_any(
+        normalized,
+        EXPLICIT_EXECUTION_COMMAND_MARKERS,
+    )
+    if _contains_any(normalized, DESIGN_ONLY_MARKERS):
         return "continue"
-    if any(marker in normalized for marker in execute_markers):
+    if _contains_any(normalized, DESIGN_REQUEST_MARKERS) and not has_explicit_execution:
+        return "continue"
+    if (
+        _contains_any(normalized, ASPIRATIONAL_IMPLEMENTATION_MARKERS)
+        and not has_explicit_execution
+    ):
+        return None
+    if has_explicit_execution:
         return "execute"
     return None
+
+
+def _normalize_intent_text(text: str) -> str:
+    return " ".join(text.lower().split())
+
+
+def _contains_any(text: str, markers: tuple[str, ...]) -> bool:
+    return any(_contains_marker(text, marker) for marker in markers)
+
+
+def _contains_marker(text: str, marker: str) -> bool:
+    if marker.isascii() and re.fullmatch(r"[a-z0-9 _/-]+", marker):
+        return bool(re.search(rf"(?<![a-z0-9]){re.escape(marker)}(?![a-z0-9])", text))
+    return marker in text

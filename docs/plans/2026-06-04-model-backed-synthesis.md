@@ -1,5 +1,8 @@
 # Model-backed Central Synthesis 리팩터링 설계
 
+Status: implemented.
+Result doc: [`docs/test-results/2026-06-04-model-backed-synthesis.md`](../test-results/2026-06-04-model-backed-synthesis.md)
+
 ## 배경
 
 현재 중앙 synthesis는 `HeuristicSynthesisAgent`가 에이전트 응답에서 `VOTE`, `BLUEPRINT`, `OPEN QUESTIONS`를 규칙 기반으로 파싱해 합의 여부와 다음 질문을 만든다. 이 방식은 빠르고 비용이 없지만, 에이전트 응답 형식이 조금만 흔들려도 다음 대화 상태가 불안정해진다.
@@ -15,12 +18,12 @@
 - provider auth는 기존 사용자 PC의 CLI 로그인 상태를 그대로 사용한다.
 - 실패해도 workflow가 멈추지 않도록 deterministic fallback과 diagnostics를 남긴다.
 
-## 비목표
+## Non-goals
 
-- provider별 최신 fastest model 이름을 코드에 강하게 박지 않는다.
-- Claude/Codex/Antigravity의 내부 성능 순위를 Trinity가 임의 추정하지 않는다.
-- 기존 agent 응답 계약을 완전히 제거하지 않는다.
-- 실행 work package dispatch 구조는 이번 리팩터링 범위에 포함하지 않는다.
+- Do not change the general agent default models or role-specific model choices in this change.
+- Do not force undocumented Antigravity CLI model slugs from Trinity.
+- Do not remove the existing agent response contract.
+- Do not include execution work package dispatch changes in this refactor.
 
 ## 제안 구조
 
@@ -86,13 +89,13 @@ synthesis_max_input_chars = 60000
 
 ### 3. Provider 선택 정책
 
-선택 우선순위:
+Selection priority:
 
-1. `synthesis_agent`가 지정되어 있고 enabled이면 해당 agent 사용
-2. active agents 중 one-shot provider 사용 가능 여부 확인
-3. provider readiness가 ready인 agent 우선
-4. `synthesis_model = "fast"`이면 provider별 fast profile 사용
-5. fast profile이 없으면 해당 agent의 configured model 또는 provider default 사용
+1. If `synthesis_agent` is configured and enabled, use that agent.
+2. Without override, scan active agents by `codex -> claude -> antigravity`.
+3. In readiness degraded mode, reselect with the same priority after active agents are narrowed.
+4. If `synthesis_model = "fast"`, use provider-specific fast profiles.
+5. Fast profiles: `codex:gpt-5.1`, `claude-code:sonnet`, `antigravity-cli:default`.
 
 중요한 원칙:
 
@@ -182,7 +185,7 @@ synthesis_max_input_chars = 60000
 ## Round 1 Synthesis
 - source: model-backed
 - provider: codex
-- model: fast
+- model: gpt-5.1
 - fallback_used: false
 
 ### Summary
@@ -212,7 +215,7 @@ fallback 사용 시:
 상태 패널에는 다음 정도만 표시한다.
 
 ```text
-Synthesis: model-backed codex/fast
+Synthesis: model-backed codex/gpt-5.1
 Fallback: no
 ```
 
@@ -278,3 +281,12 @@ Fallback: no
 중앙 synthesis는 모델 기반으로 바꾸는 것이 세션형 UI와 잘 맞는다. 다만 parser를 제거하면 provider 실패 시 workflow가 멈출 수 있으므로, 기존 `HeuristicSynthesisAgent`는 fallback으로 유지해야 한다.
 
 권장 기본값은 `synthesis_mode="auto"`다. 사용자가 이미 구독/인증한 provider의 빠른 one-shot 모델을 먼저 사용하고, 실패하면 deterministic parser로 계속 진행한다.
+
+## Implementation Result
+
+- Added `ModelBackedSynthesisAgent` while keeping heuristic fallback through `FallbackSynthesisAgent`.
+- Added `[deliberation]` synthesis config and orchestrator wire-up.
+- Fixed automatic synthesis provider priority to `codex -> claude -> antigravity`.
+- Mapped `synthesis_model="fast"` to `codex:gpt-5.1`, `claude-code:sonnet`, and `antigravity-cli:default`.
+- Added `.trinity/synthesis/round-XX/` artifacts and `Round N Synthesis` metadata.
+- Validation is recorded in [`docs/test-results/2026-06-04-model-backed-synthesis.md`](../test-results/2026-06-04-model-backed-synthesis.md).

@@ -25,10 +25,13 @@
 - `/questions --select --all` decision wizard
 - 한국어/번호형 open question parser 보강
 
+- Model-backed central synthesis with heuristic fallback, fixed provider priority, and fast model defaults
+
 ### 운영 문서
 
 - [v0.7.0 Workflow Guide](workflow-v0.7.0-guide.md)
 - [v0.7.0 후속 구현 후보](plans/2026-06-04-v0.7.0-follow-up-implementation-candidates.md)
+- [Model-backed Central Synthesis implementation result](test-results/2026-06-04-model-backed-synthesis.md)
 - [Provider Readiness Troubleshooting](troubleshooting-provider-readiness.md)
 - [v0.7.0 Workflow Engine 테스트 결과](test-results/v0.7.0-workflow-engine.md)
 - [v0.7.0 WSL/tmux Smoke Test Checklist](test-results/v070-smoke-checklist.md)
@@ -36,7 +39,7 @@
 ### 검증 기준선
 
 - 패키지/CLI 버전: `0.8.0`
-- `uv run pytest -q` → 915 passed, 1 warning
+- `uv run pytest -q` -> 976 passed, 1 warning
 - 변경 파일 대상 ruff check 통과
 - 실제 WSL/tmux/provider smoke는 릴리스 전 별도 수행 필요
 

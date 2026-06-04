@@ -230,6 +230,80 @@ async def test_execution_protocol_marks_non_ok_provider_status_failed(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_execution_protocol_falls_back_after_owner_failure(tmp_path):
+    shared = SharedContextEngine(tmp_path / "shared.md")
+    gemini = AsyncMock()
+    codex = AsyncMock()
+    gemini.send_and_wait.return_value = _message(
+        "[Timeout after 300.0s]",
+        metadata={"error": "timeout"},
+    )
+    codex.send_and_wait.return_value = _message(
+        "## Completed\n"
+        "- Fallback implementation complete\n\n"
+        "## Files Changed\n"
+        "- src/routes.py\n\n"
+        "## Blockers\n"
+        "- none\n"
+    )
+    events = []
+    package = WorkPackage(
+        id="WP-001",
+        title="fallback package",
+        owner_agent="gemini",
+        objective="Implement with fallback.",
+    )
+    protocol = ExecutionProtocol(
+        agents={"gemini": gemini, "codex": codex},
+        shared=shared,
+        artifact_dir=tmp_path / "execution",
+        event_callback=events.append,
+    )
+
+    results = await protocol.run([package])
+
+    assert results[0].status == WorkStatus.DONE
+    assert results[0].agent_name == "codex"
+    assert results[0].summary == "Fallback implementation complete"
+    assert gemini.send_and_wait.call_count == 1
+    assert codex.send_and_wait.call_count == 1
+    fallback_prompt = codex.send_and_wait.call_args.args[0]
+    assert "Original owner: gemini" in fallback_prompt
+    assert "Current executor: codex" in fallback_prompt
+    assert [
+        event.data.get("agent")
+        for event in events
+        if event.type == TUIEventType.WORK_PACKAGE_STARTED
+    ] == ["gemini", "codex"]
+
+
+@pytest.mark.asyncio
+async def test_execution_protocol_falls_back_when_owner_missing(tmp_path):
+    shared = SharedContextEngine(tmp_path / "shared.md")
+    codex = AsyncMock()
+    codex.send_and_wait.return_value = _message(
+        "## Completed\n- Missing owner recovered\n\n## Blockers\n- none\n"
+    )
+    package = WorkPackage(
+        id="WP-001",
+        title="missing owner package",
+        owner_agent="gemini",
+        objective="Recover with available agent.",
+    )
+    protocol = ExecutionProtocol(
+        agents={"codex": codex},
+        shared=shared,
+        artifact_dir=tmp_path / "execution",
+    )
+
+    results = await protocol.run([package])
+
+    assert results[0].status == WorkStatus.DONE
+    assert results[0].agent_name == "codex"
+    codex.send_and_wait.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_execution_protocol_runs_independent_packages_in_parallel(tmp_path):
     shared = SharedContextEngine(tmp_path / "shared.md")
     claude = AsyncMock()
@@ -389,6 +463,10 @@ async def test_execution_protocol_allows_disjoint_expected_files_same_worktree(t
 async def test_execution_protocol_blocks_unfinished_dependencies(tmp_path):
     shared = SharedContextEngine(tmp_path / "shared.md")
     agent = AsyncMock()
+    agent.send_and_wait.return_value = _message(
+        "[Error: exit code 1]",
+        metadata={"response_status": ResponseStatus.INVALID.value},
+    )
     first = WorkPackage(
         id="WP-001",
         title="first",
@@ -413,4 +491,4 @@ async def test_execution_protocol_blocks_unfinished_dependencies(tmp_path):
     assert results[0].status == WorkStatus.FAILED
     assert results[1].status == WorkStatus.BLOCKED
     assert "WP-001" in results[1].blockers[0]
-    agent.send_and_wait.assert_not_called()
+    agent.send_and_wait.assert_called_once()

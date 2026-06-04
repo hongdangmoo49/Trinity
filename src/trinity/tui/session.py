@@ -1205,7 +1205,6 @@ class InteractiveSession:
 
         thread = threading.Thread(target=_run_async, daemon=True)
         thread.start()
-        done_received = False
 
         try:
             with Live(
@@ -1216,14 +1215,7 @@ class InteractiveSession:
             ) as live:
                 while thread.is_alive():
                     thread.join(timeout=0.25)
-                    done_received = _consume_events() or done_received
-
-                    if done_received:
-                        _consume_events()
-                        live.update(self.tui.build_layout())
-                        thread.join(timeout=2.0)
-                        break
-
+                    _consume_events()
                     live.update(self.tui.build_layout())
 
                 _consume_events()

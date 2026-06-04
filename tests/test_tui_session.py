@@ -1,5 +1,6 @@
 """Tests for trinity.tui.session — interactive session and commands."""
 
+import asyncio
 import json
 from unittest.mock import patch
 
@@ -671,6 +672,66 @@ class TestWorkflowRouting:
         loaded = WorkflowEngine(session.config.effective_state_dir)
         assert loaded.session.work_packages[0].status == WorkStatus.DONE
         assert loaded.execution_results[0].files_changed == ["src/routes.py"]
+
+    def test_execution_live_loop_waits_for_thread_after_done_event(self, session):
+        session.workflow.start("Original goal", ["claude"])
+        session.workflow.session.work_packages = [
+            WorkPackage(
+                id="WP-001",
+                title="claude package",
+                owner_agent="claude",
+                objective="Implement route bot.",
+            )
+        ]
+        session.workflow.begin_execution()
+
+        class FakeOrchestrator:
+            def __init__(self):
+                self.bus = None
+
+            def set_event_bus(self, bus):
+                self.bus = bus
+
+            async def execute_work_packages(
+                self,
+                work_packages,
+                decisions=None,
+                result_callback=None,
+            ):
+                assert self.bus is not None
+                self.bus.emit(
+                    TUIEvent(
+                        type=TUIEventType.EXECUTION_DONE,
+                        data={"package_count": len(work_packages)},
+                    )
+                )
+                await asyncio.sleep(0.05)
+                self.bus.emit(
+                    TUIEvent(
+                        type=TUIEventType.WORK_PACKAGE_STARTED,
+                        data={
+                            "package_id": "WP-001",
+                            "agent": "claude",
+                            "status": WorkStatus.RUNNING.value,
+                        },
+                    )
+                )
+                result = ExecutionResult(
+                    package_id="WP-001",
+                    agent_name="claude",
+                    status=WorkStatus.DONE,
+                    summary="Finished after done event.",
+                )
+                if result_callback:
+                    result_callback(result)
+                return [result]
+
+        results = session._run_execution_with_live(FakeOrchestrator())
+
+        assert results[0].status == WorkStatus.DONE
+        assert session.workflow.execution_results[0].summary == (
+            "Finished after done event."
+        )
 
     def test_questions_select_answers_next_option(self, session):
         session.workflow.start("Original goal", ["claude"])

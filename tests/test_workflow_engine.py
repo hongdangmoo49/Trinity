@@ -13,6 +13,8 @@ from trinity.workflow import (
     WorkStatus,
     WorkflowEngine,
     WorkflowState,
+    classify_blueprint_followup_action,
+    classify_execution_intent,
 )
 
 
@@ -228,6 +230,32 @@ def test_blueprint_ready_plain_text_continues_existing_workflow(tmp_path):
     assert "Add Telegram alerts" in action.prompt
 
 
+def test_blueprint_ready_execute_text_requests_execution_without_new_deliberation(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design a route bot", ["claude", "codex"])
+    original_id = engine.session.id
+    engine.session.blueprint = Blueprint(
+        title="Route Bot",
+        summary="Find bridge routes.",
+        acceptance_criteria=["rank paths"],
+    )
+    engine.session.work_packages = engine.decomposer.decompose(
+        engine.session.blueprint,
+        ["claude", "codex"],
+        requires_execution=False,
+    )
+    engine.set_state(WorkflowState.BLUEPRINT_READY, reason="test blueprint ready")
+
+    action = engine.handle_user_input("개발해라", ["claude", "codex"])
+
+    assert engine.session.id == original_id
+    assert action.should_deliberate is False
+    assert action.execution_requested is True
+    assert engine.state == WorkflowState.BLUEPRINT_READY
+    assert all(package.requires_execution for package in engine.work_packages)
+    assert engine.decisions[0].decision == "개발해라"
+
+
 def test_enable_execution_regenerates_current_blueprint_packages(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
     engine.start("Design a route bot", ["claude"])
@@ -246,11 +274,22 @@ def test_enable_execution_regenerates_current_blueprint_packages(tmp_path):
     action = engine.enable_execution_for_current_blueprint("Implement in Python")
 
     assert action.should_deliberate is False
+    assert action.execution_requested is True
     assert engine.state == WorkflowState.BLUEPRINT_READY
     assert len(engine.work_packages) == 1
     assert engine.work_packages[0].requires_execution is True
     assert engine.work_packages[0].expected_files != ["docs/"]
     assert engine.decisions[0].decision == "Implement in Python"
+    artifact_path = (
+        tmp_path
+        / ".trinity"
+        / "workflow"
+        / "blueprints"
+        / f"{engine.session.id}.json"
+    )
+    assert artifact_path.exists()
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert payload["blueprint"]["title"] == "Route Bot"
 
 
 def test_mark_deliberation_result_waits_on_structured_question(tmp_path):
@@ -414,6 +453,53 @@ def test_record_execution_results_marks_blocked_as_user_decision(tmp_path):
 
     assert engine.state == WorkflowState.NEEDS_USER_DECISION
     assert engine.session.work_packages[0].status == WorkStatus.BLOCKED
+
+
+def test_plan_parallel_groups_respects_dependencies_and_file_ownership(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement", ["claude", "codex", "antigravity"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="config",
+            owner_agent="codex",
+            objective="Config.",
+            expected_files=["src/trinity/config.py"],
+            estimated_weight=2,
+        ),
+        WorkPackage(
+            id="WP-002",
+            title="config tests",
+            owner_agent="claude",
+            objective="Tests.",
+            expected_files=["src/trinity/config.py"],
+            estimated_weight=1,
+        ),
+        WorkPackage(
+            id="WP-003",
+            title="docs",
+            owner_agent="antigravity",
+            objective="Docs.",
+            expected_files=["docs/"],
+            dependencies=["WP-001"],
+        ),
+    ]
+
+    groups = engine.plan_parallel_groups()
+
+    assert [[package.id for package in group] for group in groups] == [
+        ["WP-001"],
+        ["WP-002", "WP-003"],
+    ]
+
+
+def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
+    assert classify_execution_intent("개발해라") is True
+    assert classify_blueprint_followup_action("이대로 만들어라") == "execute"
+    assert classify_blueprint_followup_action("설계를 더 다듬어라") == "continue"
+    assert classify_blueprint_followup_action("새 요청으로 시작") == "new"
+    assert classify_blueprint_followup_action("취소") == "cancel"
+    assert classify_blueprint_followup_action("텔레그램 알림은?") is None
 
 
 def test_sync_shared_ledger_restores_from_structured_session(tmp_path):

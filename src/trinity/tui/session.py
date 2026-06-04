@@ -35,6 +35,7 @@ from trinity.workflow import (
     WorkflowInputAction,
     WorkflowPersistence,
     WorkflowState,
+    classify_blueprint_followup_action,
 )
 
 logger = logging.getLogger(__name__)
@@ -348,6 +349,13 @@ class InteractiveSession:
         """Show current workflow state."""
         session = self.workflow.session
         self.tui.set_workflow_session(session)
+        parallel_groups = self.workflow.plan_parallel_groups()
+        next_action = ""
+        if session.state == WorkflowState.BLUEPRINT_READY and session.blueprint:
+            next_action = (
+                "\n[bold]Next action[/bold]: /execute, 구현해라, "
+                "설계 다듬기, or /workflow"
+            )
         self.console.print(Panel.fit(
             f"[bold]ID[/bold]: {session.id}\n"
             f"[bold]State[/bold]: {session.state.value}\n"
@@ -357,8 +365,10 @@ class InteractiveSession:
             f"[bold]Pending questions[/bold]: {len(session.open_questions)}\n"
             f"[bold]Decisions[/bold]: {len(session.decisions)}\n"
             f"[bold]Work packages[/bold]: {len(session.work_packages)}\n"
+            f"[bold]Parallel groups[/bold]: {len(parallel_groups)}\n"
             f"[bold]Subtasks[/bold]: {len(session.subtask_results)}\n"
-            f"[bold]Review packages[/bold]: {len(session.review_packages)}",
+            f"[bold]Review packages[/bold]: {len(session.review_packages)}"
+            f"{next_action}",
             title="Workflow",
             border_style="magenta",
         ))
@@ -538,6 +548,9 @@ class InteractiveSession:
         table.add_column("Owner")
         table.add_column("Status")
         table.add_column("Exec")
+        table.add_column("Deps")
+        table.add_column("Files")
+        table.add_column("Weight", justify="right")
         table.add_column("Objective")
 
         for package in packages:
@@ -551,6 +564,9 @@ class InteractiveSession:
                 package.owner_agent,
                 status,
                 "yes" if package.requires_execution else "no",
+                ", ".join(package.dependencies) or "-",
+                ", ".join(package.expected_files) or "-",
+                str(package.estimated_weight),
                 package.objective,
             )
 
@@ -746,6 +762,8 @@ class InteractiveSession:
 
         if action.should_deliberate:
             self._run_deliberation(action.prompt)
+        elif action.execution_requested:
+            self._run_enabled_execution()
         elif (
             self.workflow.state == WorkflowState.NEEDS_USER_DECISION
             and not self._question_wizard_active
@@ -915,6 +933,10 @@ class InteractiveSession:
 
     def _select_blueprint_followup_action(self, text: str) -> str:
         """Return execute, continue, new, or cancel for blueprint-ready text."""
+        classified = classify_blueprint_followup_action(text)
+        if classified is not None:
+            return classified
+
         if not sys.stdin.isatty() or not sys.stdout.isatty():
             return "continue"
 
@@ -925,12 +947,12 @@ class InteractiveSession:
                 f"{text}"
             ),
             options=[
-                "현재 설계 실행",
-                "현재 설계 수정",
+                "이 설계도로 구현 시작",
+                "이 설계를 더 다듬기",
                 "새 workflow 시작",
                 "취소",
             ],
-            recommended_option="현재 설계 수정",
+            recommended_option="이 설계도로 구현 시작",
         )
         return {
             "1": "execute",
@@ -1097,6 +1119,15 @@ class InteractiveSession:
             self._cmd_workflow()
             return
 
+        self._run_enabled_execution()
+        self._cmd_workflow()
+
+    def _run_enabled_execution(self) -> None:
+        """Run already-enabled executable work packages for the current blueprint."""
+        if not self.workflow.has_pending_execution:
+            self._cmd_workflow()
+            return
+
         from trinity.orchestrator import TrinityOrchestrator
 
         use_tmux = self._uses_tmux_transport()
@@ -1114,7 +1145,6 @@ class InteractiveSession:
 
         orchestrator = TrinityOrchestrator(self.config, interactive=use_tmux)
         self._maybe_run_execution(orchestrator)
-        self._cmd_workflow()
 
     def _run_execution_with_live(
         self,

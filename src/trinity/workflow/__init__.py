@@ -1,6 +1,10 @@
 """Workflow state engine."""
 
-from trinity.workflow.decomposer import BlueprintDecomposer, classify_execution_intent
+from trinity.workflow.decomposer import (
+    BlueprintDecomposer,
+    classify_blueprint_followup_action,
+    classify_execution_intent,
+)
 from trinity.workflow.engine import WorkflowEngine, WorkflowInputAction
 from trinity.workflow.execution import ExecutionProtocol
 from trinity.workflow.ledger import (
@@ -70,6 +74,7 @@ __all__ = [
     "WorkflowPersistence",
     "WorkflowSession",
     "WorkflowState",
+    "classify_blueprint_followup_action",
     "classify_execution_intent",
     "LifecycleAction",
     "LifecycleActionKind",

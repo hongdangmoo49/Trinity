@@ -2,6 +2,9 @@
 
 from unittest.mock import MagicMock, patch
 
+from prompt_toolkit.completion import CompleteEvent
+from prompt_toolkit.document import Document
+
 from trinity.tui.prompt import TRINITY_COMMANDS, TrinityPromptSession
 
 
@@ -46,6 +49,7 @@ class TestCommandCompletion:
             "/decisions",
             "/packages",
             "/subtasks",
+            "/resume",
             "/help",
             "/quit",
         }
@@ -55,6 +59,25 @@ class TestCommandCompletion:
         """The prompt session has a WordCompleter configured."""
         session = TrinityPromptSession(tmp_path)
         assert session.session.completer is not None
+
+    def test_completion_only_appears_for_slash_prefix(self, tmp_path):
+        session = TrinityPromptSession(tmp_path)
+        completer = session.session.completer
+
+        assert completer is not None
+        slash_matches = list(
+            completer.get_completions(Document("/sta"), CompleteEvent())
+        )
+        space_matches = list(
+            completer.get_completions(Document(" "), CompleteEvent())
+        )
+        text_matches = list(
+            completer.get_completions(Document("hello /sta"), CompleteEvent())
+        )
+
+        assert any(match.text == "/status" for match in slash_matches)
+        assert space_matches == []
+        assert text_matches == []
 
 
 class TestGetInput:

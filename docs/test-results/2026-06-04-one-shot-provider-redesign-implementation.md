@@ -54,6 +54,12 @@
    - 각 라운드 합성 결과는 `shared.md`의 `Round N Synthesis` 섹션에 기록한다.
    - 기존 workflow 연동을 유지하기 위해 `metadata["structured_consensus"]`를 계속 제공하고, 신규 `metadata["synthesis"]`를 추가했다.
 
+8. `shared.md` synthesis 중심 구조 전환
+   - protocol 경로에서 clean 응답 본문 전체를 `Round N Opinions`에 누적하지 않도록 변경했다.
+   - `Round N Responses`에는 agent별 `request_id`, status, token, confidence, raw/clean artifact path만 기록한다.
+   - 다음 라운드 prompt context는 `Round N Synthesis`를 우선 사용하고, legacy `Round N Opinions`는 fallback으로만 사용한다.
+   - 압축 비활성 경로에서는 기존 `Round N Summary` 압축 결과를 잘못 재사용하지 않도록 `include_compressed_summaries` 옵션을 추가했다.
+
 ## 제거/정리
 
 - `PrintModeClaudeAgent._run_subprocess`
@@ -71,13 +77,12 @@ tmux, completion detector, Gemini legacy agent는 아직 제거하지 않았다.
 
 ```text
 uv run pytest
-949 passed, 1 warning in 19.68s
+951 passed, 1 warning in 19.67s
 ```
 
 경고는 기존 테스트 mock coroutine 미await warning이며 이번 변경 실패는 아니다.
 
 ## 남은 작업
 
-- `shared.md`를 raw 응답 누적보다 synthesis summary 중심 구조로 재정리.
 - Antigravity CLI가 공식적으로 one-shot/headless prompt와 machine-readable output을 제공하는지 확인 후 `AntigravityInvoker` 구현.
 - provider-managed write execution을 실제 workflow execution scheduler에 연결.

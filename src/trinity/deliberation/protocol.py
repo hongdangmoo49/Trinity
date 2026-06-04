@@ -182,12 +182,6 @@ class DeliberationProtocol:
             opinions = await self._collect_opinions(round_num, round_prompt)
             await self._after_round_lifecycle()
 
-            # Write opinions to shared.md
-            for name, msg in opinions.items():
-                if self._is_unusable_agent_response(msg):
-                    continue
-                self.shared.append_opinion(name, round_num, msg.content)
-
             # Record token analytics for this round
             round_agent_tokens = {name: msg.token_count for name, msg in opinions.items()}
             round_prompt_tokens = (
@@ -204,6 +198,10 @@ class DeliberationProtocol:
             # Update message round_num (it was set to 0 in agent)
             for name, msg in opinions.items():
                 msg.round_num = round_num
+
+            # Keep shared.md compact: store response artifact links, not bodies.
+            for name, msg in opinions.items():
+                self._append_response_reference(name, round_num, msg)
 
             # Check consensus
             self._emit(TUIEventType.CONSENSUS_CHECKING, round_num=round_num)
@@ -597,6 +595,34 @@ class DeliberationProtocol:
         msg.metadata["response_status"] = status.value
         return response
 
+    def _append_response_reference(
+        self,
+        agent_name: str,
+        round_num: int,
+        msg: DeliberationMessage,
+    ) -> None:
+        """Write response artifact references to shared.md without response bodies."""
+        contract = msg.metadata.get("agent_response")
+        if not isinstance(contract, dict):
+            return
+
+        token_usage = contract.get("token_usage")
+        token_count = None
+        if isinstance(token_usage, dict) and token_usage.get("used") is not None:
+            token_count = int(token_usage["used"])
+
+        confidence = contract.get("confidence")
+        self.shared.append_response_reference(
+            agent=agent_name,
+            round_num=round_num,
+            request_id=str(contract.get("request_id") or msg.metadata.get("request_id") or ""),
+            status=str(contract.get("status") or self._response_status(msg)),
+            clean_output_path=contract.get("clean_output_path"),
+            raw_output_path=contract.get("raw_output_path"),
+            confidence=float(confidence) if confidence is not None else None,
+            token_count=token_count,
+        )
+
     def _write_response_artifacts(
         self,
         agent_name: str,
@@ -801,8 +827,13 @@ class DeliberationProtocol:
             if not prev_context.strip():
                 prev_context = "(previous round opinions not available)"
         else:
-            prev_section = self.shared.read_section(f"Round {round_num - 1} Opinions")
-            prev_context = prev_section or "(previous round opinions not available)"
+            prev_context = self.shared.get_rounds_for_prompt(
+                current_round=round_num,
+                verbatim_rounds=max(1, round_num - 1),
+                include_compressed_summaries=False,
+            )
+            if not prev_context.strip():
+                prev_context = "(previous round opinions not available)"
 
         round2_prefix = get_round_prompt("round2_plus_prefix", self.lang)
 

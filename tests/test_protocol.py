@@ -288,10 +288,12 @@ class TestCollectOpinions:
         assert result.consensus.total_agents == 1
         assert result.consensus.opinions == {"claude": "I agree with the plan."}
 
-        round_opinions = engine.read_section("Round 1 Opinions")
-        assert round_opinions is not None
-        assert "claude" in round_opinions
-        assert "gemini" not in round_opinions
+        assert engine.read_section("Round 1 Opinions") is None
+        round_responses = engine.read_section("Round 1 Responses")
+        assert round_responses is not None
+        assert "claude" in round_responses
+        assert "gemini" in round_responses
+        assert "clean_output_path" in round_responses
 
     @pytest.mark.asyncio
     async def test_budget_checker_runs_before_agent_sends(self, tmp_path):
@@ -536,7 +538,10 @@ class TestProtocolRun:
         # shared.md should have been populated
         content = engine.read()
         assert "What framework?" in content
-        assert "I agree" in content
+        assert "Round 1 Synthesis" in content
+        assert "Round 1 Responses" in content
+        assert "clean_output_path" in content
+        assert engine.read_section("Round 1 Opinions") is None
         assert "Task Assignment" in content
 
     @pytest.mark.asyncio

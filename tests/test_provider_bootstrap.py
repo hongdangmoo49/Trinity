@@ -70,7 +70,7 @@ def test_build_provider_command_includes_isolated_env_and_args():
         name="codex",
         provider=Provider.CODEX,
         cli_command="codex",
-        model="gpt-5.1",
+        model="gpt-5.4-mini",
         extra_args=["--flag"],
     )
 
@@ -83,7 +83,7 @@ def test_build_provider_command_includes_isolated_env_and_args():
     )
 
     assert command.startswith("env HOME=/tmp/home XDG_CONFIG_HOME=/tmp/home/.config ")
-    assert "codex --model gpt-5.1 --flag" in command
+    assert "codex --model gpt-5.4-mini --flag" in command
 
 
 def test_launch_session_sends_commands_to_tmux_panes(tmp_path):

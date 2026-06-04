@@ -84,8 +84,8 @@ PROVIDER_MODEL_CONTEXTS: dict[Provider, tuple[ModelContextSpec, ...]] = {
             note="Conservative fallback when local Codex config owns model choice",
         ),
         ModelContextSpec(
-            model="gpt-5.1",
-            display_name="GPT-5.1",
+            model="gpt-5.4-mini",
+            display_name="GPT-5.4 mini",
             context_budget=400_000,
         ),
         ModelContextSpec(

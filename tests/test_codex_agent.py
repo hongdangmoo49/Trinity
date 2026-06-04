@@ -35,7 +35,7 @@ class TestCodexInit:
         assert agent.context_usage.total == 128_000
 
     def test_context_budget_uses_selected_model_budget(self, codex_spec):
-        codex_spec.model = "gpt-5.1"
+        codex_spec.model = "gpt-5.4-mini"
         codex_spec.context_budget = 0
         agent = CodexAgent(codex_spec)
         assert agent.context_usage.total == 400_000

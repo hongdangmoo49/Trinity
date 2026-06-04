@@ -53,7 +53,7 @@ SYNTHESIS_PROVIDER_PRIORITY: tuple[Provider, ...] = (
 )
 
 SYNTHESIS_FAST_MODELS: dict[Provider, str] = {
-    Provider.CODEX: "gpt-5.1",
+    Provider.CODEX: "gpt-5.4-mini",
     Provider.CLAUDE_CODE: "sonnet",
     Provider.ANTIGRAVITY_CLI: "default",
 }

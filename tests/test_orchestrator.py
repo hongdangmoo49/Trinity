@@ -736,7 +736,7 @@ class TestSynthesisAgentWiring:
         assert isinstance(primary, ModelBackedSynthesisAgent)
         assert primary.agent_name == "codex"
         assert primary.provider == Provider.CODEX
-        assert primary.model == "gpt-5.1"
+        assert primary.model == "gpt-5.4-mini"
 
     def test_auto_synthesis_uses_claude_when_codex_is_not_active(self, tmp_path):
         config = TrinityConfig(
@@ -793,7 +793,7 @@ class TestSynthesisAgentWiring:
             project_dir=tmp_path,
             state_dir=tmp_path / ".trinity",
             synthesis_agent="codex",
-            synthesis_model="gpt-5.1",
+            synthesis_model="gpt-5.4-mini",
             agents={
                 "claude": AgentSpec(
                     name="claude",
@@ -816,5 +816,5 @@ class TestSynthesisAgentWiring:
         assert isinstance(primary, ModelBackedSynthesisAgent)
         assert primary.agent_name == "codex"
         assert primary.provider == Provider.CODEX
-        assert primary.model == "gpt-5.1"
+        assert primary.model == "gpt-5.4-mini"
         assert orch.synthesis_status["provider_agent"] == "codex"

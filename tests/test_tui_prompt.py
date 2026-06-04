@@ -1,6 +1,6 @@
 """Tests for TrinityPromptSession — prompt_toolkit-backed input."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from prompt_toolkit.completion import CompleteEvent
 from prompt_toolkit.document import Document
@@ -124,12 +124,14 @@ class TestGetInput:
             except EOFError:
                 pass
 
-    def test_select_option_returns_dialog_selection(self, tmp_path):
-        """select_option delegates to prompt_toolkit radiolist dialog."""
+    def test_select_option_runs_inline_selector(self, tmp_path):
+        """select_option delegates to the inline terminal selector."""
         session = TrinityPromptSession(tmp_path)
-        dialog = MagicMock()
-        dialog.run.return_value = "2"
-        with patch("trinity.tui.prompt.radiolist_dialog", return_value=dialog):
+        with patch.object(
+            session,
+            "_run_inline_option_selector",
+            return_value="2",
+        ) as selector:
             result = session.select_option(
                 title="q-001",
                 question="Which API?",
@@ -138,14 +140,20 @@ class TestGetInput:
             )
 
         assert result == "2"
-        dialog.run.assert_called_once()
+        selector.assert_called_once_with(
+            title="q-001",
+            question="Which API?",
+            values=[("1", "1. LI.FI"), ("2", "2. Socket (recommended)")],
+        )
 
     def test_select_option_can_add_custom_answer_choice(self, tmp_path):
-        """select_option can expose a custom-answer radio choice."""
+        """select_option can expose a custom-answer inline choice."""
         session = TrinityPromptSession(tmp_path)
-        dialog = MagicMock()
-        dialog.run.return_value = CUSTOM_OPTION_VALUE
-        with patch("trinity.tui.prompt.radiolist_dialog", return_value=dialog) as radio:
+        with patch.object(
+            session,
+            "_run_inline_option_selector",
+            return_value=CUSTOM_OPTION_VALUE,
+        ) as selector:
             result = session.select_option(
                 title="q-001",
                 question="Which API?",
@@ -154,5 +162,5 @@ class TestGetInput:
             )
 
         assert result == CUSTOM_OPTION_VALUE
-        values = radio.call_args.kwargs["values"]
+        values = selector.call_args.kwargs["values"]
         assert values[-1] == (CUSTOM_OPTION_VALUE, "3. Custom answer...")

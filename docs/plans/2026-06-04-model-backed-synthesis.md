@@ -95,7 +95,7 @@ Selection priority:
 2. Without override, scan active agents by `codex -> claude -> antigravity`.
 3. In readiness degraded mode, reselect with the same priority after active agents are narrowed.
 4. If `synthesis_model = "fast"`, use provider-specific fast profiles.
-5. Fast profiles: `codex:gpt-5.1`, `claude-code:sonnet`, `antigravity-cli:default`.
+5. Fast profiles: `codex:gpt-5.4-mini`, `claude-code:sonnet`, `antigravity-cli:default`.
 
 중요한 원칙:
 
@@ -185,7 +185,7 @@ Selection priority:
 ## Round 1 Synthesis
 - source: model-backed
 - provider: codex
-- model: gpt-5.1
+- model: gpt-5.4-mini
 - fallback_used: false
 
 ### Summary
@@ -215,7 +215,7 @@ fallback 사용 시:
 상태 패널에는 다음 정도만 표시한다.
 
 ```text
-Synthesis: model-backed codex/gpt-5.1
+Synthesis: model-backed codex/gpt-5.4-mini
 Fallback: no
 ```
 
@@ -287,6 +287,6 @@ Fallback: no
 - Added `ModelBackedSynthesisAgent` while keeping heuristic fallback through `FallbackSynthesisAgent`.
 - Added `[deliberation]` synthesis config and orchestrator wire-up.
 - Fixed automatic synthesis provider priority to `codex -> claude -> antigravity`.
-- Mapped `synthesis_model="fast"` to `codex:gpt-5.1`, `claude-code:sonnet`, and `antigravity-cli:default`.
+- Mapped `synthesis_model="fast"` to `codex:gpt-5.4-mini`, `claude-code:sonnet`, and `antigravity-cli:default`.
 - Added `.trinity/synthesis/round-XX/` artifacts and `Round N Synthesis` metadata.
 - Validation is recorded in [`docs/test-results/2026-06-04-model-backed-synthesis.md`](../test-results/2026-06-04-model-backed-synthesis.md).

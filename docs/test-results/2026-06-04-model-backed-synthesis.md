@@ -33,7 +33,7 @@
    - `synthesis_agent` override must point to an enabled active agent and bypasses
      automatic priority.
    - `synthesis_model="fast"` maps to provider-specific synthesis defaults:
-     `codex:gpt-5.1`, `claude-code:sonnet`, `antigravity-cli:default`.
+     `codex:gpt-5.4-mini`, `claude-code:sonnet`, `antigravity-cli:default`.
    - Readiness degraded mode refreshes the synthesis provider after narrowing agents.
 
 5. Artifacts and shared.md
@@ -52,7 +52,7 @@
 
 ## Model Default Rationale
 
-- Codex uses `gpt-5.1`, matching Trinity's known Codex model context and the
+- Codex uses `gpt-5.4-mini`, matching Trinity's known Codex model context and the
   existing project template.
 - Claude Code uses `sonnet`, the documented fast/intelligent alias accepted by
   Claude Code `--model`.

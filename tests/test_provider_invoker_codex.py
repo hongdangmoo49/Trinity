@@ -21,7 +21,7 @@ def _request(tmp_path: Path) -> PromptRequest:
         role_prompt="You are the Implementer.",
         prompt="Summarize the repo.",
         cwd=tmp_path,
-        model="gpt-5.1",
+        model="gpt-5.4-mini",
         extra_args=("--ignore-rules",),
     )
 
@@ -37,7 +37,7 @@ def test_build_command_uses_codex_exec_json_ephemeral(tmp_path):
     assert command[command.index("--sandbox") + 1] == "read-only"
     assert command[command.index("--cd") + 1] == str(tmp_path)
     assert "--model" in command
-    assert "gpt-5.1" in command
+    assert "gpt-5.4-mini" in command
     assert "--ignore-rules" in command
     assert "[System Role]" in command[-1]
     assert "Summarize the repo." in command[-1]

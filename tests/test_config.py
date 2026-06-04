@@ -278,7 +278,7 @@ enabled = true
 [deliberation]
 synthesis_mode = "model"
 synthesis_agent = "codex"
-synthesis_model = "gpt-5.1"
+synthesis_model = "gpt-5.4-mini"
 synthesis_timeout_seconds = 5.5
 synthesis_max_input_chars = 12000
 
@@ -294,7 +294,7 @@ enabled = true
 
         assert config.synthesis_mode == "model"
         assert config.synthesis_agent == "codex"
-        assert config.synthesis_model == "gpt-5.1"
+        assert config.synthesis_model == "gpt-5.4-mini"
         assert config.synthesis_timeout_seconds == 5.5
         assert config.synthesis_max_input_chars == 12_000
 

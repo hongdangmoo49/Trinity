@@ -81,7 +81,7 @@ class TestModelRegistry:
         assert any(choice.model == "opus[1m]" for choice in choices)
 
     def test_model_context_budget_known_model(self):
-        assert model_context_budget(Provider.CODEX, "gpt-5.1") == 400_000
+        assert model_context_budget(Provider.CODEX, "gpt-5.4-mini") == 400_000
 
     def test_model_context_budget_unknown_model(self):
         assert model_context_budget(Provider.CODEX, "custom-model") is None

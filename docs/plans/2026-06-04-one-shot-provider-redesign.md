@@ -8,10 +8,11 @@
 
 요구사항은 대체로 타당하다. Trinity의 라운드 기반 합의 구조는 provider별 상시 TUI 세션보다 단발 호출과 더 잘 맞는다. 각 라운드에서 동일한 공유 요약과 질의를 모든 에이전트에게 전달하면 provider 내부 세션 상태에 덜 의존하고, tmux pane 캡처/완료 감지/초기 auth 화면 문제도 줄일 수 있다.
 
-단, 두 가지는 설계상 명확히 분리해야 한다.
+단, 세 가지는 설계상 명확히 분리해야 한다.
 
 1. 인증 재사용과 provider 상태 격리는 충돌한다. 현재처럼 `HOME`, `XDG_CONFIG_HOME`, `CODEX_HOME`류를 `.trinity/agents/<agent>/provider-state`로 돌리면 사용자의 기존 로그인 캐시와 OS keyring을 볼 수 없다. 기본값은 사용자 홈 인증을 그대로 쓰고, 격리는 작업 디렉터리/워크트리/Trinity 산출물 단위로 유지해야 한다.
 2. Antigravity CLI는 공식 문서에서 TUI, keyring auth, resume, migration은 확인되지만 `claude -p` 또는 `codex exec`에 대응하는 비대화형 단발 호출 플래그는 문서상 확인되지 않았다. 구현 전 `agy --help` 또는 공식 문서 업데이트로 `--prompt`/출력 포맷 지원을 검증해야 한다.
+3. OpenCode처럼 provider 호출과 local tool execution을 분리하는 구조는 장기적으로 유용하지만, 현재 Trinity가 목표로 하는 `claude -p`, `codex exec` 기반 CLI one-shot 인증 재사용과는 같은 방식이 아니다. CLI one-shot은 provider CLI 내부 도구/권한에 맡기는 `provider-managed` 실행이고, OpenCode식 구조는 API model이 tool call을 내면 Trinity가 로컬 도구를 실행하는 `trinity-managed` 실행이다.
 
 ## 현재 구조 분석
 
@@ -89,6 +90,131 @@ codex exec --json --ephemeral --cd <project_dir> "<round prompt>"
 
 따라서 Antigravity provider는 구현 전 로컬 바이너리 검증이 필요하다. 현재 이 WSL 환경에는 `agy`/`antigravity` 명령이 설치되어 있지 않았다.
 
+## 세션 직접 실행 vs 단발 호출 기능 차이
+
+여기서 말하는 단발 호출은 OpenCode식 API/tool-call runtime이 아니라 provider CLI의 headless/non-interactive mode다. 즉 `claude -p`, `gemini -p`, `codex exec` 모두 provider CLI가 자체 도구와 권한 체계를 유지한다. Trinity가 직접 read/edit/write tool을 실행하는 구조가 아니다.
+
+공통 차이:
+
+| 항목 | 직접 세션 열기 | 단발 호출 |
+| --- | --- | --- |
+| 컨텍스트 | 같은 TUI 세션 안에서 자연스럽게 누적된다. | 기본은 한 번 실행 후 종료된다. 라운드마다 `shared.md` 요약과 질의를 다시 주입해야 한다. |
+| 세션 재개 | resume/continue picker와 대화형 흐름에 적합하다. | provider별 resume 플래그나 session id를 쓸 수 있지만, Trinity 기본 흐름은 stateless 재주입이 더 안정적이다. |
+| 권한 승인 | 사용자가 TUI에서 승인/거절하기 쉽다. | 승인 정책을 호출 전에 정해야 한다. 자동화에서는 read-only/plan 또는 명시적 workspace-write가 필요하다. |
+| 출력 | 화면 repaint, status line, prompt echo, progress UI가 섞인다. | stdout/json/jsonl/stream-json 중심이라 artifact 저장과 parser 작성이 쉽다. |
+| 파일 수정 | provider CLI 내부 도구로 가능하다. | provider CLI 내부 도구로 가능하지만 sandbox/permission mode를 명시해야 한다. |
+| 자동화 안정성 | tmux capture와 완료 감지에 취약하다. | 프로세스 종료, exit code, stdout/stderr 기준으로 처리할 수 있다. |
+
+### Claude Code
+
+| 구분 | 직접 세션 `claude` | 단발 호출 `claude -p` |
+| --- | --- | --- |
+| 기본 동작 | interactive session을 시작한다. | prompt를 실행하고 종료한다. |
+| 세션 유지 | `--continue`, `--resume`, `/resume` 흐름이 자연스럽다. | `-c -p`, `-r <session> -p` 조합은 가능하지만, Trinity에서는 canonical context 재주입을 기본으로 둔다. |
+| 출력 형식 | TUI 중심이다. | `--output-format text/json/stream-json`을 지원한다. |
+| 도구/권한 | 승인 UI와 장기 탐색에 적합하다. | `--tools`, `--allowedTools`, `--disallowedTools`, `--permission-mode`, `--add-dir`로 호출별 통제가 가능하다. |
+| 자동화 옵션 | 사람 개입과 background/remote/IDE 흐름에 강하다. | `--no-session-persistence`, `--json-schema`, `--max-budget-usd`, `--bare`가 자동화에 유리하다. |
+| 주의점 | 화면 캡처가 응답 추출을 어렵게 만든다. | print mode는 workspace trust dialog를 건너뛰므로 신뢰한 디렉터리에서만 써야 한다. |
+
+Trinity 적용:
+
+- deliberation: `claude -p --output-format json --permission-mode plan` 또는 도구 제한.
+- execution: 파일 수정이 필요한 work package에서만 edit/bash 권한을 허용한다.
+- 세션 기억보다 `shared.md` 요약과 prompt preamble을 신뢰한다.
+
+### Codex CLI
+
+| 구분 | 직접 세션 `codex` | 단발 호출 `codex exec` |
+| --- | --- | --- |
+| 기본 동작 | interactive TUI를 시작한다. | non-interactive agent run을 실행한다. |
+| 세션 유지 | `codex resume`, `fork`, TUI thread 흐름에 적합하다. | `codex exec resume --last` 또는 session id로 이어갈 수 있다. |
+| 출력 형식 | TUI 중심이다. | 기본 stdout은 최종 메시지이고 progress는 stderr다. `--json`은 JSONL event stream을 출력한다. |
+| 도구/권한 | interactive approval과 sandbox 조정에 적합하다. | 기본은 read-only sandbox다. 수정하려면 `--sandbox workspace-write`가 필요하다. |
+| 자동화 옵션 | 사람이 로컬에서 작업하기 좋다. | `--ephemeral`, `--output-schema`, `--output-last-message`, `--ignore-user-config`, `--ignore-rules`, `--cd`가 CI/Trinity에 유리하다. |
+| 이벤트 관측 | TUI 화면에서 사람이 본다. | JSONL event에 command execution, file changes, MCP tool calls, web search, usage 등이 포함될 수 있어 parser 작성이 쉽다. |
+
+Trinity 적용:
+
+- deliberation: `codex exec --json --ephemeral --sandbox read-only --cd <repo> "<prompt>"`.
+- execution: `codex exec --json --sandbox workspace-write --cd <repo> "<work package prompt>"`.
+- Codex는 `--json` contract test를 우선 작성한다.
+
+### Gemini CLI
+
+| 구분 | 직접 세션 `gemini` | 단발 호출 `gemini -p/--prompt` |
+| --- | --- | --- |
+| 기본 동작 | interactive mode를 시작한다. | headless mode로 prompt를 실행한다. |
+| 세션 유지 | `--resume`, session list/delete, interactive history에 적합하다. | `--resume latest/<id>`와 조합할 수 있지만, Trinity에서는 context 재주입을 기본으로 둔다. |
+| 출력 형식 | TUI/REPL 중심이다. | `--output-format text/json/stream-json`을 지원한다. |
+| 도구/권한 | approval prompt, extensions, MCP, skills, hooks를 interactive하게 다룬다. | `--approval-mode default/auto_edit/yolo/plan`, `--sandbox`, `--include-directories`로 호출별 정책을 정한다. |
+| 하이브리드 | initial prompt 후 계속 대화하기 쉽다. | `--prompt-interactive`는 prompt 실행 후 interactive로 전환되므로 Trinity 기본 transport에는 맞지 않는다. |
+| 리스크 | 기존 Gemini CLI 유지 여부와 전환 일정이 문제다. | headless 기능은 있으나 신규 기본 provider로는 Antigravity 전환 검증이 우선이다. |
+
+Trinity 적용:
+
+- deprecated 호환: `gemini -p "<prompt>" --output-format json --approval-mode plan`.
+- execution 단계에서는 `auto_edit` 또는 명시 policy를 쓰되, 신규 기본 provider로 승격하지 않는다.
+- Antigravity one-shot 지원이 확인되면 `gemini-cli`는 legacy provider로만 유지한다.
+
+## Trinity 선택 기준
+
+라운드 기반 합의와 중앙 synthesizer에는 단발 호출이 더 적합하다. 각 라운드마다 같은 canonical context를 모든 provider에 주입하면 provider 내부 세션 기억, TUI 화면 상태, auth/trust 초기 화면에 덜 의존한다.
+
+권장 기본값:
+
+```text
+deliberation:
+  claude -p ... --permission-mode plan
+  codex exec ... --sandbox read-only
+  gemini -p ... --approval-mode plan  # deprecated compatibility only
+
+execution:
+  claude -p ... with explicit edit/bash permission
+  codex exec ... --sandbox workspace-write
+  gemini -p ... --approval-mode auto_edit  # deprecated compatibility only
+```
+
+중요한 판단:
+
+- 단발 호출은 기능 축소가 아니라 transport 안정화다. 파일 read/edit/write는 여전히 provider CLI 내부 도구로 가능하다.
+- 단발 호출에서 장기 기억을 기대하지 않는다. Trinity가 `shared.md`, response artifacts, synthesis summary를 canonical memory로 관리한다.
+- 엄격한 tool-level audit/control이 필요하면 provider-managed CLI 호출만으로는 부족하다. 그 경우 OpenCode식 `trinity-managed` API/tool-call runtime을 별도 구현해야 한다.
+
+## OpenCode 구조 적용 판단
+
+OpenCode는 provider CLI를 실행하지 않는다. TUI와 non-interactive `run` 모두 내부 session prompt를 만들고, 실제 LLM 호출은 AI SDK provider 객체를 통해 `streamText()`로 보낸다. 모델이 파일 읽기/수정을 요청하면 provider가 OS 파일을 직접 만지는 것이 아니라 tool call을 반환하고, OpenCode 프로세스가 로컬 `read`, `edit`, `write`, `apply_patch`, `shell` 도구를 실행한다.
+
+이 구조에서 분리되는 것은 두 가지다.
+
+- model transport: Anthropic/OpenAI/Google/OpenAI-compatible API 호출, streaming, provider options, auth header.
+- local tool runtime: 파일 읽기/쓰기, shell, permission prompt, diff 기록, LSP diagnostics, tool result 반환.
+
+Trinity에 바로 적용 가능한 부분은 "호출 계층과 실행 권한 계층을 분리해서 모델링하는 것"이다. 하지만 OpenCode식 구현을 그대로 쓰려면 Claude/Codex/Gemini CLI 인증 재사용이 아니라 API key/OAuth 기반 provider 인증과 Trinity 자체 tool executor가 필요하다. 따라서 이번 redesign에서는 구조를 다음처럼 나누는 것이 맞다.
+
+```python
+class ExecutionAuthority(str, Enum):
+    PROVIDER_MANAGED = "provider-managed"  # claude/codex/agy CLI가 자체 도구와 권한으로 실행
+    TRINITY_MANAGED = "trinity-managed"    # API model은 tool call만 내고 Trinity가 로컬 도구 실행
+```
+
+즉시 구현 범위:
+
+- Claude/Codex one-shot invoker는 `PROVIDER_MANAGED`로 둔다.
+- deliberation round는 기본적으로 "분석 전용/read-only" prompt와 provider sandbox flag를 사용한다.
+- execution 단계에서 파일 수정을 허용할 때는 provider CLI의 permission/sandbox flag와 git worktree 경계로 통제한다.
+
+장기 확장 범위:
+
+- `TRINITY_MANAGED` runtime을 별도 추가한다.
+- Anthropic/OpenAI/Gemini API provider는 tool schema를 받아 tool call event를 내고, Trinity `ToolExecutor`가 read/edit/write/shell을 로컬에서 실행한다.
+- 이 경로에서는 provider HOME/auth cache가 아니라 API key/OAuth 저장소가 필요하므로 CLI one-shot 인증 재사용과 별도 설정으로 둔다.
+
+중요한 설계 결론:
+
+- `ProviderInvoker`는 단순히 "CLI subprocess를 실행하는 클래스"가 아니라 "모델 호출 결과를 Trinity가 이해하는 event/result로 정규화하는 계층"이어야 한다.
+- `ProviderTurnResult`는 CLI one-shot의 최종 응답용으로 충분하지만, `TRINITY_MANAGED` runtime을 지원하려면 tool call/result를 표현하는 stream event 모델이 추가로 필요하다.
+- CLI provider에서 local tool execution을 강제로 분리하려고 하면 안정성이 떨어진다. `claude -p`와 `codex exec`가 내부에서 도구를 실행하는 경우 Trinity는 stdout/event를 해석할 수 있을 뿐, tool call protocol을 표준화해서 가로채기 어렵다. 엄격한 tool 통제를 원하면 API tool-calling runtime을 별도로 구현해야 한다.
+
 ## 재설계 목표
 
 1. tmux pane을 provider 호출의 기본 transport에서 제거한다.
@@ -97,6 +223,7 @@ codex exec --json --ephemeral --cd <project_dir> "<round prompt>"
 4. `shared.md`는 provider 세션 메모리가 아니라 모든 에이전트에 다시 전달되는 canonical context가 된다.
 5. 인증은 사용자의 실제 PC/WSL 설치와 auth cache를 재사용한다.
 6. 작업 격리는 provider HOME 격리가 아니라 `cwd`, git worktree, sandbox/permission flag, Trinity artifact 디렉터리로 유지한다.
+7. provider 호출과 local tool execution의 책임 경계를 명시한다. 이번 one-shot CLI 경로는 provider-managed 실행으로 시작하고, Trinity-managed local tool runtime은 별도 확장 지점으로 둔다.
 
 ## 제안 아키텍처
 
@@ -107,6 +234,13 @@ TrinityOrchestrator
       ClaudePrintInvoker
       CodexExecInvoker
       AntigravityInvoker
+    ExecutionAuthorityPolicy
+      provider-managed CLI path
+      trinity-managed API/tool path
+    LocalToolRuntime
+      ToolRegistry
+      PermissionGate
+      ArtifactRecorder
     SynthesisAgent
       Provider-backed synthesizer
       Heuristic fallback
@@ -144,6 +278,29 @@ class ProviderInvoker(Protocol):
 ```
 
 기존 `AgentWrapper.start()`, `is_alive()`, `graceful_shutdown()`은 상시 프로세스 기준이므로 one-shot 경로에서는 의미가 약하다. 새 구조에서는 provider lifecycle을 process lifecycle이 아니라 invocation lifecycle로 본다.
+
+OpenCode식 확장까지 고려한 추가 interface:
+
+```python
+@dataclass
+class ProviderToolCall:
+    call_id: str
+    tool_name: str
+    arguments: dict[str, object]
+    provider_metadata: dict[str, object]
+
+@dataclass
+class ProviderToolResult:
+    call_id: str
+    output: str
+    metadata: dict[str, object]
+    attachments: list[Path]
+
+class LocalToolExecutor(Protocol):
+    async def execute(self, call: ProviderToolCall) -> ProviderToolResult: ...
+```
+
+이 interface는 Phase 1의 Claude/Codex CLI one-shot 구현에 필수는 아니다. 하지만 이후 API-native provider를 붙일 때 `ProviderInvoker`를 다시 찢지 않기 위한 경계로 문서화한다.
 
 ## 라운드 흐름
 
@@ -264,6 +421,14 @@ enabled = false
 - `AgentWrapper` 기반 start/alive/shutdown 의존을 deliberation path에서 제거한다.
 - fake CLI fixture로 timeout, stderr, JSONL parsing, auth-required parsing 테스트.
 
+### Phase 1.5 - Provider/tool 권한 경계
+
+- `ExecutionAuthority` 개념을 config/model에 추가한다.
+- Claude/Codex/검증 전 Antigravity는 `provider-managed`로 분류한다.
+- `ProviderTurnResult`에 `execution_authority`, `tool_activity_summary`, `artifact_paths` 필드를 추가할지 검토한다.
+- local tool executor는 이번 phase에서 구현하지 않고 interface와 test seam만 둔다.
+- deliberation prompt에는 "분석 전용, 파일 수정 금지"를 명시하고, 실행 phase prompt에서만 수정 권한을 허용한다.
+
 ### Phase 2 - 인증 상태 재사용
 
 - `ManagedHome` 적용을 기본 비활성화한다.
@@ -294,6 +459,7 @@ enabled = false
 
 - `tests/test_provider_invoker_claude.py`: command construction, JSON/stream parsing, auth error.
 - `tests/test_provider_invoker_codex.py`: `codex exec --json` JSONL parsing, final message extraction, usage extraction.
+- `tests/test_execution_authority.py`: CLI invoker가 `provider-managed`로 분류되고 deliberation prompt가 수정 금지 정책을 포함하는지 검증.
 - `tests/test_provider_state_mode.py`: user-home 기본값에서 `HOME`/XDG override가 없는지 검증.
 - `tests/test_antigravity_detector.py`: `agy` 탐지, Gemini deprecation warning, migration guidance.
 - `tests/test_round_synthesizer.py`: agent 응답 -> summary/questions/consensus 변환.
@@ -303,6 +469,7 @@ enabled = false
 
 - Antigravity one-shot 미지원: 공식/로컬 검증 전까지 Antigravity provider를 experimental로 두고, Claude/Codex one-shot부터 전환한다.
 - 사용자 홈 인증 공유: 사용자의 auth를 그대로 쓰는 대신 command sandbox, git worktree, permission flags를 강화한다.
+- provider-managed 실행의 tool 투명성 한계: CLI 내부 도구 호출은 Trinity가 OpenCode처럼 세밀하게 가로채기 어렵다. 엄격한 파일 I/O 통제가 필요하면 API tool-calling 기반 `trinity-managed` runtime을 별도 구현한다.
 - 중앙 synthesizer 단일 실패점: provider-backed 호출 실패 시 heuristic fallback을 유지한다.
 - context 증가: 모든 agent에게 전체 transcript가 아니라 synthesis summary와 필요한 raw artifact 링크만 전달한다.
 - provider 출력 포맷 변경: JSON/JSONL parser는 provider별 fixture와 contract test를 둔다.
@@ -325,6 +492,8 @@ enabled = false
 - Claude Code CLI reference: https://code.claude.com/docs/en/cli-usage
 - Claude Code environment variables: https://code.claude.com/docs/en/env-vars
 - Codex manual: https://developers.openai.com/codex/codex-manual.md
+- Gemini CLI headless mode: https://google-gemini.github.io/gemini-cli/docs/cli/headless.html
+- Gemini CLI reference: https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/cli-reference.md
 - Antigravity CLI Getting Started: https://antigravity.google/assets/docs/cli/cli-getting-started.md
 - Antigravity CLI Installation & Auth: https://antigravity.google/assets/docs/cli/cli-install.md
 - Antigravity CLI Using AGY CLI: https://antigravity.google/assets/docs/cli/cli-using.md
@@ -332,4 +501,3 @@ enabled = false
 - Antigravity Gemini migration: https://antigravity.google/assets/docs/cli/gcli-migration.md
 - Antigravity CLI conversations: https://antigravity.google/assets/docs/cli/cli-conversations.md
 - Google Developers Blog - Transitioning Gemini CLI to Antigravity CLI: https://developers.googleblog.com/en/an-important-update-transitioning-gemini-cli-to-antigravity-cli/
-

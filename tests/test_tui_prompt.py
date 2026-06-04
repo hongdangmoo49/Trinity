@@ -50,6 +50,7 @@ class TestCommandCompletion:
             "/packages",
             "/subtasks",
             "/resume",
+            "/execute",
             "/help",
             "/quit",
         }

@@ -167,6 +167,8 @@ class InteractiveSession:
             self._cmd_subtasks()
         elif cmd == "resume":
             self._cmd_resume(args)
+        elif cmd == "execute":
+            self._cmd_execute(args)
         else:
             self.console.print(
                 f"[yellow]Unknown command: /{cmd}. "
@@ -515,10 +517,15 @@ class InteractiveSession:
         table.add_column("Objective")
 
         for package in packages:
+            status = (
+                package.status.value
+                if package.requires_execution
+                else "planning_only"
+            )
             table.add_row(
                 package.id,
                 package.owner_agent,
-                package.status.value,
+                status,
                 "yes" if package.requires_execution else "no",
                 package.objective,
             )
@@ -607,6 +614,11 @@ class InteractiveSession:
         )
         self._cmd_workflow()
 
+    def _cmd_execute(self, args: list[str]) -> None:
+        """Execute the current approved blueprint work packages."""
+        instruction = " ".join(args).strip()
+        self._execute_current_blueprint(instruction=instruction)
+
     def _print_resume_table(self, archives) -> None:
         """Print archived workflow sessions for manual selection."""
         from rich.table import Table
@@ -685,6 +697,13 @@ class InteractiveSession:
             )
             return
 
+        if (
+            self.workflow.state == WorkflowState.BLUEPRINT_READY
+            and self.workflow.work_packages
+        ):
+            self._handle_blueprint_ready_text(text, list(active.keys()))
+            return
+
         action = self.workflow.handle_user_input(text, list(active.keys()))
         self._apply_workflow_action(action)
 
@@ -735,16 +754,17 @@ class InteractiveSession:
                         f"    {option_index}. {escape(option)}{suffix}"
                     )
                 lines.append(
-                    f"    답변: /answer {index} <값> 또는 "
+                    f"    답변: 직접 입력 또는 /answer {index} <값> 또는 "
                     f"/answer {question.id} <값>"
                 )
                 if index == 1:
                     lines.append("    선택 UI: /questions --select")
+                    lines.append("    직접 답변: 프롬프트에 답변을 그대로 입력")
                     if len(questions) > 1:
                         lines.append("    전체 선택 UI: /questions --select --all")
             else:
                 lines.append(
-                    f"    답변: /answer {index} <값> 또는 "
+                    f"    답변: 직접 입력 또는 /answer {index} <값> 또는 "
                     f"/answer {question.id} <값>"
                 )
             if question.rationale:
@@ -839,8 +859,87 @@ class InteractiveSession:
         # Display results BEFORE resetting (agents store full_response)
         self._display_result(result)
 
+        self._offer_pending_questions()
+
         # Now reset agent states for next deliberation
         self.tui.reset_agents()
+
+    def _handle_blueprint_ready_text(
+        self,
+        text: str,
+        active_agents: list[str],
+    ) -> None:
+        """Handle session-like follow-up text after a blueprint is ready."""
+        action = self._select_blueprint_followup_action(text)
+        if action == "cancel":
+            self.console.print("[dim]Workflow action cancelled.[/dim]")
+            return
+        if action == "execute":
+            self._execute_current_blueprint(instruction=text)
+            return
+        if action == "new":
+            self._archive_current_workflow_for_new_goal()
+            workflow_action = self.workflow.start(text, active_agents)
+            self._apply_workflow_action(workflow_action)
+            return
+
+        workflow_action = self.workflow.continue_from_blueprint(text, active_agents)
+        self._apply_workflow_action(workflow_action)
+
+    def _select_blueprint_followup_action(self, text: str) -> str:
+        """Return execute, continue, new, or cancel for blueprint-ready text."""
+        if not sys.stdin.isatty() or not sys.stdout.isatty():
+            return "continue"
+
+        selected = self._prompt_session.select_option(
+            title="Workflow",
+            question=(
+                "현재 승인된 설계가 있습니다. 방금 입력한 내용을 어떻게 처리할까요?\n\n"
+                f"{text}"
+            ),
+            options=[
+                "현재 설계 실행",
+                "현재 설계 수정",
+                "새 workflow 시작",
+                "취소",
+            ],
+            recommended_option="현재 설계 수정",
+        )
+        return {
+            "1": "execute",
+            "2": "continue",
+            "3": "new",
+            "4": "cancel",
+        }.get(str(selected), "cancel")
+
+    def _archive_current_workflow_for_new_goal(self) -> None:
+        """Archive the current workflow before intentionally starting a new goal."""
+        archived = self.workflow_persistence.archive_active_session(force=True)
+        self.workflow = WorkflowEngine(self.config.effective_state_dir)
+        self.tui.set_workflow_session(self.workflow.session)
+        if archived:
+            self.console.print(
+                f"[dim]Current workflow saved as {archived.session.id}.[/dim]"
+            )
+
+    def _offer_pending_questions(self) -> None:
+        """Prompt for synthesized user decisions after a deliberation round."""
+        if self.workflow.state != WorkflowState.NEEDS_USER_DECISION:
+            return
+        if not self.workflow.pending_questions:
+            return
+
+        self.console.print(self._build_questions_panel(
+            self.workflow.pending_questions,
+            compact=True,
+        ))
+        if sys.stdin.isatty() and sys.stdout.isatty():
+            self._cmd_select_question(select_all=False)
+        else:
+            self.console.print(
+                "[dim]답변을 프롬프트에 그대로 입력하거나 "
+                "/questions --select 를 사용하세요.[/dim]"
+            )
 
     def _run_with_live(
         self, orchestrator: "TrinityOrchestrator", prompt: str,
@@ -954,6 +1053,41 @@ class InteractiveSession:
 
         self.workflow.record_execution_results(results)
         self.tui.set_workflow_session(self.workflow.session)
+
+    def _execute_current_blueprint(self, *, instruction: str = "") -> None:
+        """Mark current blueprint executable and run pending execution packages."""
+        if self.workflow.state != WorkflowState.BLUEPRINT_READY:
+            self.console.print(
+                "[yellow]No blueprint is ready. Finish deliberation before execution.[/yellow]"
+            )
+            return
+
+        action = self.workflow.enable_execution_for_current_blueprint(instruction)
+        self.tui.set_workflow_session(self.workflow.session)
+        if action.message:
+            self.console.print(f"[yellow]{action.message}[/yellow]")
+        if not self.workflow.has_pending_execution:
+            self._cmd_workflow()
+            return
+
+        from trinity.orchestrator import TrinityOrchestrator
+
+        use_tmux = self._uses_tmux_transport()
+        if use_tmux and not self._has_tmux():
+            self.console.print(
+                "[red]transport_mode is 'tmux', but tmux is not installed or "
+                "not on PATH.[/red]"
+            )
+            return
+        if use_tmux:
+            self.console.print(
+                "[yellow]Using legacy tmux agent transport. "
+                "One-shot remains the default transport.[/yellow]"
+            )
+
+        orchestrator = TrinityOrchestrator(self.config, interactive=use_tmux)
+        self._maybe_run_execution(orchestrator)
+        self._cmd_workflow()
 
     def _run_execution_with_live(
         self,
@@ -1075,9 +1209,14 @@ class InteractiveSession:
         if self.workflow.work_packages:
             self.console.print("\n[bold]📦 Work Packages[/bold]")
             for package in self.workflow.work_packages:
+                status = (
+                    package.status.value
+                    if package.requires_execution
+                    else "planning_only"
+                )
                 self.console.print(
                     f"  [cyan]{package.id}[/cyan] {package.owner_agent}: "
-                    f"{package.title} ({package.status.value})"
+                    f"{package.title} ({status})"
                 )
 
         if self.workflow.execution_results:

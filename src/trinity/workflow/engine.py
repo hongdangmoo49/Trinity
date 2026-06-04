@@ -111,15 +111,14 @@ class WorkflowEngine:
         text: str,
         active_agents: list[str],
     ) -> WorkflowInputAction:
-        """Route a user input as a new goal or a pending-question answer."""
+        """Route plain session text through the current workflow state."""
         if self.session.state == WorkflowState.NEEDS_USER_DECISION:
-            return WorkflowInputAction(
-                should_deliberate=False,
-                message=(
-                    "Workflow is waiting for an explicit answer. "
-                    "Use /answer <question-id|index|next> <answer>."
-                ),
-            )
+            return self.answer_pending_question(text)
+        if (
+            self.session.state == WorkflowState.BLUEPRINT_READY
+            and self.session.blueprint is not None
+        ):
+            return self.continue_from_blueprint(text, active_agents)
         return self.start(text, active_agents)
 
     def start(
@@ -265,6 +264,92 @@ class WorkflowEngine:
             replace=replace,
         )
 
+    def continue_from_blueprint(
+        self,
+        instruction: str,
+        active_agents: list[str],
+    ) -> WorkflowInputAction:
+        """Continue an existing blueprint workflow with additional user text."""
+        instruction = instruction.strip()
+        if not instruction:
+            return WorkflowInputAction(
+                should_deliberate=False,
+                message="Instruction cannot be empty.",
+            )
+        if self.session.blueprint is None:
+            return self.start(instruction, active_agents)
+
+        if active_agents:
+            self.session.active_agents = list(active_agents)
+        self.set_state(
+            WorkflowState.DELIBERATING,
+            reason="user continued from blueprint-ready state",
+        )
+        self._persist(
+            "workflow_continued",
+            {
+                "instruction": instruction,
+                "source_state": WorkflowState.BLUEPRINT_READY.value,
+            },
+        )
+        return WorkflowInputAction(
+            should_deliberate=True,
+            prompt=self._build_blueprint_continuation_prompt(instruction),
+        )
+
+    def enable_execution_for_current_blueprint(
+        self,
+        instruction: str = "",
+    ) -> WorkflowInputAction:
+        """Regenerate current blueprint packages as executable work packages."""
+        if self.session.blueprint is None:
+            return WorkflowInputAction(
+                should_deliberate=False,
+                message="No approved blueprint is available to execute.",
+            )
+        if not self.session.active_agents:
+            return WorkflowInputAction(
+                should_deliberate=False,
+                message="No active agents are attached to this workflow.",
+            )
+
+        instruction = instruction.strip()
+        if instruction:
+            self.session.decisions.append(
+                DecisionRecord(
+                    id=self._next_decision_id(),
+                    decision=instruction,
+                    decided_by="user",
+                    rationale="Execution instruction from session input.",
+                )
+            )
+
+        self.session.work_packages = self.decomposer.decompose(
+            self.session.blueprint,
+            self.session.active_agents,
+            requires_execution=True,
+        )
+        self.session.execution_results = []
+        self.session.subtask_results = []
+        self.session.review_packages = []
+        self.session.review_results = []
+        self.session.updated_at = time.time()
+        self._persist(
+            "execution_enabled",
+            {
+                "instruction": instruction,
+                "work_packages": [package.id for package in self.session.work_packages],
+            },
+        )
+        self.set_state(
+            WorkflowState.BLUEPRINT_READY,
+            reason="current blueprint marked executable",
+        )
+        return WorkflowInputAction(
+            should_deliberate=False,
+            message="Current blueprint work packages are ready for execution.",
+        )
+
     def resolve_question(
         self,
         selector: str,
@@ -316,6 +401,9 @@ class WorkflowEngine:
             ),
             None,
         )
+
+    def _next_decision_id(self) -> str:
+        return f"dec-{len(self.session.decisions) + 1:03d}"
 
     def add_open_question(self, question: OpenQuestion) -> None:
         """Add a pending question and move workflow to waiting state."""
@@ -638,4 +726,31 @@ class WorkflowEngine:
             f"Latest decision ({decision.id}):\n{decision.decision}\n\n"
             f"All decisions:\n{decisions}\n\n"
             "Update the design based on these decisions and continue deliberation."
+        )
+
+    def _build_blueprint_continuation_prompt(self, instruction: str) -> str:
+        blueprint = self.session.blueprint
+        blueprint_title = blueprint.title if blueprint else "(none)"
+        blueprint_summary = blueprint.summary if blueprint else "(none)"
+        criteria = (
+            "\n".join(f"- {item}" for item in blueprint.acceptance_criteria)
+            if blueprint and blueprint.acceptance_criteria
+            else "- none"
+        )
+        decisions = "\n".join(
+            f"- {item.id}: {item.decision}" for item in self.session.decisions
+        ) or "- none"
+        return (
+            "Continue the existing workflow instead of starting a new one.\n\n"
+            f"Original goal:\n{self.session.goal}\n\n"
+            "Current approved blueprint:\n"
+            f"- Title: {blueprint_title}\n"
+            f"- Summary: {blueprint_summary}\n"
+            f"- Acceptance Criteria:\n{criteria}\n\n"
+            f"User follow-up instruction:\n{instruction}\n\n"
+            f"Recorded decisions:\n{decisions}\n\n"
+            "Revise or confirm the blueprint using the user's follow-up. "
+            "If the user is asking for implementation, produce an executable "
+            "final blueprint and approve it. If more user input is required, "
+            "raise OPEN QUESTIONS."
         )

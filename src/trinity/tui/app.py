@@ -726,6 +726,7 @@ class TrinityTUI:
             "  [cyan]/packages[/cyan]   — Show workflow work packages\n"
             "  [cyan]/subtasks[/cyan]   — Show delegated subtask reports\n"
             "  [cyan]/resume [n|latest|id][/cyan] — Resume a saved workflow session\n"
+            "  [cyan]/execute [text][/cyan] — Execute the current approved blueprint\n"
             "  [cyan]/help[/cyan]       — Show this help\n"
             "  [cyan]/quit[/cyan]       — Exit Trinity\n"
         )

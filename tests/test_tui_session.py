@@ -15,6 +15,7 @@ from trinity.models import (
 from trinity.tui.events import TUIEvent, TUIEventBus, TUIEventType
 from trinity.tui.session import InteractiveSession
 from trinity.workflow import (
+    Blueprint,
     ExecutionResult,
     OpenQuestion,
     SubtaskResult,
@@ -421,7 +422,7 @@ class TestWorkflowRouting:
         assert session.workflow.session.goal == "Design a system"
         assert session.tui.workflow_state == WorkflowState.DELIBERATING
 
-    def test_pending_question_text_requires_explicit_answer(self, session):
+    def test_pending_question_text_answers_next_question(self, session):
         session.workflow.start("Original goal", ["claude"])
         original_id = session.workflow.session.id
         session.workflow.add_open_question(
@@ -436,9 +437,11 @@ class TestWorkflowRouting:
             session._handle_user_text("Use mixed score")
 
         assert session.workflow.session.id == original_id
-        assert session.workflow.decisions == []
-        assert session.workflow.state == WorkflowState.NEEDS_USER_DECISION
-        run_deliberation.assert_not_called()
+        assert len(session.workflow.decisions) == 1
+        assert session.workflow.decisions[0].decision == "Use mixed score"
+        continuation_prompt = run_deliberation.call_args.args[0]
+        assert "Original goal" in continuation_prompt
+        assert "Use mixed score" in continuation_prompt
 
     def test_answer_command_does_not_start_new_workflow(self, session):
         session.workflow.start("Original goal", ["claude"])
@@ -472,6 +475,100 @@ class TestWorkflowRouting:
 
         assert len(session.workflow.decisions) == 1
         assert session.workflow.decisions[0].decision == "Socket"
+
+    def test_blueprint_ready_text_can_continue_existing_workflow(self, session):
+        session.workflow.start("Original goal", ["claude"])
+        original_id = session.workflow.session.id
+        session.workflow.session.blueprint = Blueprint(
+            title="Route Bot",
+            summary="Find bridge routes.",
+            acceptance_criteria=["rank paths"],
+        )
+        session.workflow.session.work_packages = [
+            WorkPackage(
+                id="WP-001",
+                title="claude package",
+                owner_agent="claude",
+                objective="Plan route bot.",
+                requires_execution=False,
+            )
+        ]
+        session.workflow.set_state(
+            WorkflowState.BLUEPRINT_READY,
+            reason="test blueprint ready",
+        )
+
+        with patch.object(
+            session,
+            "_select_blueprint_followup_action",
+            return_value="continue",
+        ):
+            with patch.object(session, "_run_deliberation") as run_deliberation:
+                session._handle_user_text("Add Telegram alerts")
+
+        assert session.workflow.session.id == original_id
+        continuation_prompt = run_deliberation.call_args.args[0]
+        assert "Continue the existing workflow" in continuation_prompt
+        assert "Add Telegram alerts" in continuation_prompt
+
+    def test_blueprint_ready_text_can_execute_current_blueprint(self, session):
+        session.workflow.start("Original goal", ["claude"])
+        session.workflow.session.blueprint = Blueprint(
+            title="Route Bot",
+            summary="Find bridge routes.",
+            acceptance_criteria=["rank paths"],
+        )
+        session.workflow.session.work_packages = [
+            WorkPackage(
+                id="WP-001",
+                title="claude package",
+                owner_agent="claude",
+                objective="Plan route bot.",
+                requires_execution=False,
+            )
+        ]
+        session.workflow.set_state(
+            WorkflowState.BLUEPRINT_READY,
+            reason="test blueprint ready",
+        )
+
+        with patch.object(
+            session,
+            "_select_blueprint_followup_action",
+            return_value="execute",
+        ):
+            with patch.object(session, "_execute_current_blueprint") as execute:
+                session._handle_user_text("Implement it")
+
+        execute.assert_called_once_with(instruction="Implement it")
+
+    def test_execute_command_marks_current_blueprint_executable(self, session):
+        session.workflow.start("Original goal", ["claude"])
+        session.workflow.session.blueprint = Blueprint(
+            title="Route Bot",
+            summary="Find bridge routes.",
+            acceptance_criteria=["rank paths"],
+        )
+        session.workflow.session.work_packages = [
+            WorkPackage(
+                id="WP-001",
+                title="claude package",
+                owner_agent="claude",
+                objective="Plan route bot.",
+                requires_execution=False,
+            )
+        ]
+        session.workflow.set_state(
+            WorkflowState.BLUEPRINT_READY,
+            reason="test blueprint ready",
+        )
+
+        with patch.object(session, "_maybe_run_execution") as maybe_run_execution:
+            session._handle_command("/execute Implement it")
+
+        assert session.workflow.work_packages[0].requires_execution is True
+        assert session.workflow.decisions[0].decision == "Implement it"
+        maybe_run_execution.assert_called_once()
 
     def test_questions_select_answers_next_option(self, session):
         session.workflow.start("Original goal", ["claude"])

@@ -110,6 +110,10 @@ role_prompt = "당신은 아키텍트입니다."
         config = TrinityConfig.default_config()
         assert config.provider_state_mode == "user-home"
 
+    def test_transport_mode_defaults_to_one_shot(self):
+        config = TrinityConfig.default_config()
+        assert config.transport_mode == "one-shot"
+
     def test_load_provider_state_mode(self, tmp_trinity_dir):
         config_path = tmp_trinity_dir / "trinity.config"
         config_path.write_text(
@@ -129,6 +133,25 @@ enabled = true
 
         assert config.provider_state_mode == "isolated"
 
+    def test_load_transport_mode(self, tmp_trinity_dir):
+        config_path = tmp_trinity_dir / "trinity.config"
+        config_path.write_text(
+            """
+[general]
+transport_mode = "tmux"
+
+[agents.claude]
+provider = "claude-code"
+cli_command = "claude"
+enabled = true
+""",
+            encoding="utf-8",
+        )
+
+        config = TrinityConfig.load(config_path)
+
+        assert config.transport_mode == "tmux"
+
     def test_load_rejects_invalid_provider_state_mode(self, tmp_trinity_dir):
         config_path = tmp_trinity_dir / "trinity.config"
         config_path.write_text(
@@ -147,6 +170,26 @@ enabled = true
         import pytest
 
         with pytest.raises(ValueError, match="provider_state_mode"):
+            TrinityConfig.load(config_path)
+
+    def test_load_rejects_invalid_transport_mode(self, tmp_trinity_dir):
+        config_path = tmp_trinity_dir / "trinity.config"
+        config_path.write_text(
+            """
+[general]
+transport_mode = "interactive"
+
+[agents.claude]
+provider = "claude-code"
+cli_command = "claude"
+enabled = true
+""",
+            encoding="utf-8",
+        )
+
+        import pytest
+
+        with pytest.raises(ValueError, match="transport_mode"):
             TrinityConfig.load(config_path)
 
     def test_load_provider_readiness_config(self, tmp_trinity_dir):
@@ -184,6 +227,7 @@ enabled = true
         assert loaded.agents["claude"].provider == Provider.CLAUDE_CODE
         assert loaded.agents["claude"].model == config.agents["claude"].model
         assert loaded.provider_state_mode == "user-home"
+        assert loaded.transport_mode == "one-shot"
         assert loaded.provider_readiness_mode == "degraded"
         assert loaded.provider_readiness_timeout_seconds == 2.0
 

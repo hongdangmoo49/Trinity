@@ -20,6 +20,29 @@ class TestTrinityOrchestratorInit:
         assert orch.shared is None
         assert orch.protocol is None
 
+    def test_default_transport_uses_one_shot_mode(self, tmp_path):
+        config = TrinityConfig.default_config(project_dir=tmp_path)
+        orch = TrinityOrchestrator(config)
+
+        assert orch.transport_mode == "one-shot"
+        assert orch.interactive is False
+
+    def test_transport_mode_tmux_enables_interactive_mode(self, tmp_path):
+        config = TrinityConfig.default_config(project_dir=tmp_path)
+        config.transport_mode = "tmux"
+        orch = TrinityOrchestrator(config)
+
+        assert orch.transport_mode == "tmux"
+        assert orch.interactive is True
+
+    def test_explicit_interactive_argument_overrides_transport_mode(self, tmp_path):
+        config = TrinityConfig.default_config(project_dir=tmp_path)
+        config.transport_mode = "tmux"
+        orch = TrinityOrchestrator(config, interactive=False)
+
+        assert orch.transport_mode == "one-shot"
+        assert orch.interactive is False
+
     def test_ensure_initializes_creates_components(self, tmp_path):
         config = TrinityConfig(
             project_dir=tmp_path,

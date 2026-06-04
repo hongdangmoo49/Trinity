@@ -39,6 +39,13 @@
    - `agy plugin import gemini` migration 안내를 readiness/setup 경로에 추가했다.
    - Antigravity one-shot/headless prompt mode는 공식/로컬 검증 전이라 factory guard로 막아두었다.
 
+6. 기본 deliberation transport one-shot 전환
+   - `transport_mode = "one-shot"`를 기본 설정으로 추가했다.
+   - `uv run trinity` TUI 경로는 더 이상 `tmux` 설치 여부만으로 에이전트 tmux 세션을 만들지 않는다.
+   - `transport_mode = "tmux"`를 명시한 경우에만 legacy tmux agent transport를 사용한다.
+   - `trinity ask -i/--interactive`는 호환을 위해 tmux transport 강제 옵션으로 유지했다.
+   - `trinity status`와 TUI `/status`에서 현재 transport를 표시한다.
+
 ## 제거/정리
 
 - `PrintModeClaudeAgent._run_subprocess`
@@ -56,7 +63,7 @@ tmux, completion detector, Gemini legacy agent는 아직 제거하지 않았다.
 
 ```text
 uv run pytest
-932 passed, 1 warning in 19.69s
+944 passed, 1 warning in 19.59s
 ```
 
 경고는 기존 테스트 mock coroutine 미await warning이며 이번 변경 실패는 아니다.
@@ -64,7 +71,6 @@ uv run pytest
 ## 남은 작업
 
 - 중앙 `SynthesisAgent`와 `SynthesisResult` schema 추가.
-- 기본 deliberation transport의 one-shot 전환 범위를 TUI interactive 실행 경로까지 확장.
 - `shared.md`를 raw 응답 누적보다 synthesis summary 중심 구조로 재정리.
 - Antigravity CLI가 공식적으로 one-shot/headless prompt와 machine-readable output을 제공하는지 확인 후 `AntigravityInvoker` 구현.
 - provider-managed write execution을 실제 workflow execution scheduler에 연결.

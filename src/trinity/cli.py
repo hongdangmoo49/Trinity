@@ -376,7 +376,12 @@ def _parse_agent_names(agent_names: str | None) -> list[str] | None:
 @click.argument("prompt")
 @click.option("--max-rounds", type=int, default=None, help="Override max deliberation rounds")
 @click.option("--agents", "agent_names", default=None, help="Comma-separated agent names to use")
-@click.option("-i", "--interactive", is_flag=True, help="Use tmux interactive mode (Phase 2)")
+@click.option(
+    "-i",
+    "--interactive",
+    is_flag=True,
+    help="Use legacy tmux agent transport for this request",
+)
 def ask(prompt: str, max_rounds: int | None, agent_names: str | None, interactive: bool):
     """Run deliberation on a prompt.
 
@@ -396,7 +401,8 @@ def ask(prompt: str, max_rounds: int | None, agent_names: str | None, interactiv
 
     # Show header
     active = config.active_agents
-    mode_str = "interactive (tmux)" if interactive else "print mode"
+    use_tmux = interactive or config.transport_mode == "tmux"
+    mode_str = "interactive (tmux)" if use_tmux else "one-shot"
     console.print(Panel.fit(
         f"[bold]{prompt}[/bold]\n\n"
         f"Agents: {', '.join(active.keys())}\n"
@@ -406,7 +412,7 @@ def ask(prompt: str, max_rounds: int | None, agent_names: str | None, interactiv
     ))
 
     # Run orchestrator
-    orchestrator = TrinityOrchestrator(config, interactive=interactive)
+    orchestrator = TrinityOrchestrator(config, interactive=use_tmux)
 
     try:
         result = asyncio.run(orchestrator.ask(prompt))
@@ -449,6 +455,7 @@ def status():
 
     console.print(table)
     console.print(f"\n[dim]Shared context: {status_data['shared_context_path']}[/dim]")
+    console.print(f"[dim]Transport: {status_data['transport_mode']}[/dim]")
 
 
 # ─── trinity status-watch ────────────────────────────────────────────────

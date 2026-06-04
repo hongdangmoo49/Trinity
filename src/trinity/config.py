@@ -9,6 +9,7 @@ from pathlib import Path
 from trinity.models import AgentSpec, Provider
 
 PROVIDER_STATE_MODES = {"user-home", "isolated"}
+TRANSPORT_MODES = {"one-shot", "tmux"}
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -32,6 +33,9 @@ class TrinityConfig:
 
     # Provider state/auth handling
     provider_state_mode: str = "user-home"  # "user-home" | "isolated"
+
+    # Agent invocation transport
+    transport_mode: str = "one-shot"  # "one-shot" | "tmux"
 
     # Language (affects deliberation prompts + role prompts)
     lang: str = "en"  # "en" | "ko"
@@ -142,6 +146,9 @@ class TrinityConfig:
             provider_state_mode=cls._normalize_provider_state_mode(
                 general.get("provider_state_mode", "user-home")
             ),
+            transport_mode=cls._normalize_transport_mode(
+                general.get("transport_mode", "one-shot")
+            ),
             lang=lang,
             max_deliberation_rounds=deliberation.get(
                 "max_rounds", general.get("max_deliberation_rounds", 5)
@@ -224,6 +231,7 @@ class TrinityConfig:
                 "session_name": self.session_name,
                 "lang": self.lang,
                 "provider_state_mode": self.provider_state_mode,
+                "transport_mode": self.transport_mode,
                 "max_deliberation_rounds": self.max_deliberation_rounds,
                 "consensus_threshold": self.consensus_threshold,
                 "context_rotate_threshold": self.context_rotate_threshold,
@@ -283,6 +291,18 @@ class TrinityConfig:
             allowed = ", ".join(sorted(PROVIDER_STATE_MODES))
             raise ValueError(
                 f"Unsupported provider_state_mode: {value!r}. "
+                f"Expected one of: {allowed}"
+            )
+        return normalized
+
+    @staticmethod
+    def _normalize_transport_mode(value: str) -> str:
+        """Validate agent invocation transport mode from config."""
+        normalized = (value or "one-shot").strip().lower()
+        if normalized not in TRANSPORT_MODES:
+            allowed = ", ".join(sorted(TRANSPORT_MODES))
+            raise ValueError(
+                f"Unsupported transport_mode: {value!r}. "
                 f"Expected one of: {allowed}"
             )
         return normalized

@@ -48,9 +48,14 @@ class AgentLaunchContext:
 class TrinityOrchestrator:
     """Owns all components and drives the deliberation lifecycle."""
 
-    def __init__(self, config: TrinityConfig, interactive: bool = False):
+    def __init__(self, config: TrinityConfig, interactive: bool | None = None):
         self.config = config
-        self.interactive = interactive
+        self.transport_mode = config.transport_mode
+        self.interactive = (
+            self.transport_mode == "tmux" if interactive is None else interactive
+        )
+        if interactive is not None:
+            self.transport_mode = "tmux" if interactive else "one-shot"
         self.agents: dict[str, AgentWrapper] = {}
         self.shared: SharedContextEngine | None = None
         self.protocol: DeliberationProtocol | None = None
@@ -522,6 +527,7 @@ class TrinityOrchestrator:
             "shared_context_path": str(self.config.shared_context_path),
             "max_rounds": self.config.max_deliberation_rounds,
             "interactive": self.interactive,
+            "transport_mode": self.transport_mode,
             "tmux_session": (
                 self.config.session_name if self.tmux_manager else None
             ),

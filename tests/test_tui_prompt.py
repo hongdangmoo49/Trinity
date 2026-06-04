@@ -5,7 +5,11 @@ from unittest.mock import MagicMock, patch
 from prompt_toolkit.completion import CompleteEvent
 from prompt_toolkit.document import Document
 
-from trinity.tui.prompt import TRINITY_COMMANDS, TrinityPromptSession
+from trinity.tui.prompt import (
+    CUSTOM_OPTION_VALUE,
+    TRINITY_COMMANDS,
+    TrinityPromptSession,
+)
 
 
 class TestTrinityPromptSession:
@@ -135,3 +139,20 @@ class TestGetInput:
 
         assert result == "2"
         dialog.run.assert_called_once()
+
+    def test_select_option_can_add_custom_answer_choice(self, tmp_path):
+        """select_option can expose a custom-answer radio choice."""
+        session = TrinityPromptSession(tmp_path)
+        dialog = MagicMock()
+        dialog.run.return_value = CUSTOM_OPTION_VALUE
+        with patch("trinity.tui.prompt.radiolist_dialog", return_value=dialog) as radio:
+            result = session.select_option(
+                title="q-001",
+                question="Which API?",
+                options=["LI.FI", "Socket"],
+                allow_custom=True,
+            )
+
+        assert result == CUSTOM_OPTION_VALUE
+        values = radio.call_args.kwargs["values"]
+        assert values[-1] == (CUSTOM_OPTION_VALUE, "3. Custom answer...")

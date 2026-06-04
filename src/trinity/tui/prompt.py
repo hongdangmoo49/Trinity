@@ -57,6 +57,8 @@ TRINITY_STYLE = Style.from_dict({
     "": "",  # default
 })
 
+CUSTOM_OPTION_VALUE = "__custom__"
+
 
 class SlashCommandCompleter(Completer):
     """Complete Trinity commands only when the input begins with slash."""
@@ -150,6 +152,7 @@ class TrinityPromptSession:
         question: str,
         options: list[str],
         recommended_option: str | None = None,
+        allow_custom: bool = False,
     ) -> str | None:
         """Select a numbered question option using arrow keys."""
         values = []
@@ -158,6 +161,10 @@ class TrinityPromptSession:
             if option == recommended_option:
                 label += " (recommended)"
             values.append((str(index), label))
+        if allow_custom:
+            values.append(
+                (CUSTOM_OPTION_VALUE, f"{len(options) + 1}. Custom answer...")
+            )
 
         return radiolist_dialog(
             title=title,

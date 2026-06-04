@@ -592,6 +592,9 @@ class TestWorkflowRouting:
             WorkflowState.BLUEPRINT_READY,
             reason="test blueprint ready",
         )
+        target = session.config.project_dir.parent / "route-bot"
+        target.mkdir(exist_ok=True)
+        session.workflow.set_target_workspace(target)
 
         with patch.object(session, "_maybe_run_execution") as maybe_run_execution:
             session._handle_command("/execute Implement it")
@@ -599,6 +602,72 @@ class TestWorkflowRouting:
         assert session.workflow.work_packages[0].requires_execution is True
         assert session.workflow.decisions[0].decision == "Implement it"
         maybe_run_execution.assert_called_once()
+
+    def test_execute_command_without_target_workspace_waits_for_target(self, session):
+        session.workflow.start("Original goal", ["claude"])
+        session.workflow.session.blueprint = Blueprint(
+            title="Route Bot",
+            summary="Find bridge routes.",
+            acceptance_criteria=["rank paths"],
+        )
+        session.workflow.session.work_packages = [
+            WorkPackage(
+                id="WP-001",
+                title="claude package",
+                owner_agent="claude",
+                objective="Plan route bot.",
+                requires_execution=False,
+            )
+        ]
+        session.workflow.set_state(
+            WorkflowState.BLUEPRINT_READY,
+            reason="test blueprint ready",
+        )
+
+        with patch("sys.stdin.isatty", return_value=False):
+            with patch("sys.stdout.isatty", return_value=False):
+                session._handle_command("/execute Implement it")
+
+        assert session.workflow.session.target_workspace is None
+        assert session.workflow.work_packages[0].requires_execution is False
+        assert session.workflow.decisions == []
+
+    def test_execute_command_can_select_default_target_workspace(self, session):
+        session.workflow.start("Original goal", ["claude"])
+        session.workflow.session.blueprint = Blueprint(
+            title="Route Bot",
+            summary="Find bridge routes.",
+            acceptance_criteria=["rank paths"],
+        )
+        session.workflow.session.work_packages = [
+            WorkPackage(
+                id="WP-001",
+                title="claude package",
+                owner_agent="claude",
+                objective="Plan route bot.",
+                requires_execution=False,
+            )
+        ]
+        session.workflow.set_state(
+            WorkflowState.BLUEPRINT_READY,
+            reason="test blueprint ready",
+        )
+
+        with patch("sys.stdin.isatty", return_value=True):
+            with patch("sys.stdout.isatty", return_value=True):
+                with patch.object(
+                    session._prompt_session,
+                    "select_option",
+                    return_value="1",
+                ):
+                    with patch.object(session, "_maybe_run_execution") as execute:
+                        session._handle_command("/execute Implement it")
+
+        expected = session.config.project_dir.parent / "route-bot"
+        assert session.workflow.session.target_workspace == expected.resolve()
+        assert expected.is_dir()
+        assert session.workflow.work_packages[0].requires_execution is True
+        execute.assert_called_once()
 
     def test_execution_live_loop_persists_incremental_package_progress(self, session):
         session.workflow.start("Original goal", ["claude"])
@@ -610,6 +679,9 @@ class TestWorkflowRouting:
                 objective="Implement route bot.",
             )
         ]
+        target = session.config.project_dir.parent / "route-bot"
+        target.mkdir(exist_ok=True)
+        session.workflow.set_target_workspace(target)
         session.workflow.begin_execution()
 
         class FakeOrchestrator:
@@ -683,6 +755,9 @@ class TestWorkflowRouting:
                 objective="Implement route bot.",
             )
         ]
+        target = session.config.project_dir.parent / "route-bot"
+        target.mkdir(exist_ok=True)
+        session.workflow.set_target_workspace(target)
         session.workflow.begin_execution()
 
         class FakeOrchestrator:
@@ -990,6 +1065,9 @@ class TestWorkflowRouting:
             ) as run_execution:
                 with patch.object(session, "_has_tmux", return_value=False):
                     session.workflow.start("Implement route bot", ["claude"])
+                    target = session.config.project_dir.parent / "route-bot"
+                    target.mkdir(exist_ok=True)
+                    session.workflow.set_target_workspace(target)
                     session._run_deliberation("Implement route bot")
 
         run_execution.assert_called_once()

@@ -413,6 +413,8 @@ class WorkflowSession:
     state: WorkflowState
     active_agents: list[str] = field(default_factory=list)
     current_round: int = 0
+    target_workspace: Path | None = None
+    control_repo_target_confirmed: bool = False
     pending_questions: list[OpenQuestion] = field(default_factory=list)
     blueprint: Blueprint | None = None
     work_packages: list[WorkPackage] = field(default_factory=list)
@@ -436,6 +438,10 @@ class WorkflowSession:
             "state": self.state.value,
             "active_agents": list(self.active_agents),
             "current_round": self.current_round,
+            "target_workspace": (
+                str(self.target_workspace) if self.target_workspace else None
+            ),
+            "control_repo_target_confirmed": self.control_repo_target_confirmed,
             "pending_questions": [q.to_dict() for q in self.pending_questions],
             "blueprint": self.blueprint.to_dict() if self.blueprint else None,
             "work_packages": [package.to_dict() for package in self.work_packages],
@@ -461,6 +467,14 @@ class WorkflowSession:
             state=WorkflowState(state_value),
             active_agents=[str(item) for item in data.get("active_agents", [])],
             current_round=int(data.get("current_round", 0)),
+            target_workspace=(
+                Path(str(data["target_workspace"]))
+                if data.get("target_workspace") is not None
+                else None
+            ),
+            control_repo_target_confirmed=bool(
+                data.get("control_repo_target_confirmed", False)
+            ),
             pending_questions=[
                 OpenQuestion.from_dict(item)
                 for item in data.get("pending_questions", [])

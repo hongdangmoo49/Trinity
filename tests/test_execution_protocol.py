@@ -9,7 +9,12 @@ from trinity.context.shared import SharedContextEngine
 from trinity.models import DeliberationMessage, MessageRole, ResponseStatus
 from trinity.providers.policy import InvocationAccess
 from trinity.tui.events import TUIEventType
-from trinity.workflow import ExecutionProtocol, WorkPackage, WorkStatus
+from trinity.workflow import (
+    ExecutionProtocol,
+    ExecutionWorkspaceError,
+    WorkPackage,
+    WorkStatus,
+)
 
 
 def _message(content: str, metadata: dict | None = None) -> DeliberationMessage:
@@ -96,6 +101,92 @@ async def test_execution_protocol_dispatches_package_and_records_result(tmp_path
         TUIEventType.WORK_PACKAGE_COMPLETED,
         TUIEventType.EXECUTION_DONE,
     ]
+
+
+@pytest.mark.asyncio
+async def test_execution_protocol_requires_target_workspace_when_guarded(tmp_path):
+    shared = SharedContextEngine(tmp_path / "shared.md")
+    agent = AsyncMock()
+    package = WorkPackage(
+        id="WP-001",
+        title="codex package",
+        owner_agent="codex",
+        objective="Implement route service.",
+    )
+    protocol = ExecutionProtocol(
+        agents={"codex": agent},
+        shared=shared,
+        artifact_dir=tmp_path / "execution",
+        control_repo=tmp_path / "Trinity",
+    )
+
+    with pytest.raises(ExecutionWorkspaceError, match="Target workspace"):
+        await protocol.run([package])
+
+    agent.send_and_wait.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_execution_protocol_rejects_unconfirmed_control_repo_target(tmp_path):
+    control_repo = tmp_path / "Trinity"
+    control_repo.mkdir()
+    shared = SharedContextEngine(tmp_path / "shared.md")
+    agent = AsyncMock()
+    agent.launch_cwd = control_repo
+    package = WorkPackage(
+        id="WP-001",
+        title="codex package",
+        owner_agent="codex",
+        objective="Implement route service.",
+    )
+    protocol = ExecutionProtocol(
+        agents={"codex": agent},
+        shared=shared,
+        artifact_dir=tmp_path / "execution",
+        target_workspace=control_repo,
+        control_repo=control_repo,
+    )
+
+    with pytest.raises(ExecutionWorkspaceError, match="control repo"):
+        await protocol.run([package])
+
+    agent.send_and_wait.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_execution_protocol_allows_external_target_workspace(tmp_path):
+    control_repo = tmp_path / "Trinity"
+    target_workspace = tmp_path / "route-bot"
+    control_repo.mkdir()
+    target_workspace.mkdir()
+    shared = SharedContextEngine(tmp_path / "shared.md")
+    agent = AsyncMock()
+    agent.launch_cwd = target_workspace
+    agent.send_and_wait.return_value = _message(
+        "## Completed\n"
+        "- Implemented in target workspace\n\n"
+        "## Blockers\n"
+        "- none\n"
+    )
+    package = WorkPackage(
+        id="WP-001",
+        title="codex package",
+        owner_agent="codex",
+        objective="Implement route service.",
+    )
+    protocol = ExecutionProtocol(
+        agents={"codex": agent},
+        shared=shared,
+        artifact_dir=tmp_path / "execution",
+        target_workspace=target_workspace,
+        control_repo=control_repo,
+    )
+
+    results = await protocol.run([package])
+
+    assert results[0].status == WorkStatus.DONE
+    sent_prompt = agent.send_and_wait.call_args.args[0]
+    assert f"Target Workspace: {target_workspace.resolve()}" in sent_prompt
 
 
 @pytest.mark.asyncio

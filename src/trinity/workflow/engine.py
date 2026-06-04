@@ -43,6 +43,7 @@ class WorkflowInputAction:
     started_new_workflow: bool = False
     replaced_decision: bool = False
     execution_requested: bool = False
+    target_workspace_required: bool = False
     message: str = ""
 
 
@@ -87,6 +88,10 @@ class WorkflowEngine:
     @property
     def execution_results(self) -> list[ExecutionResult]:
         return list(self.session.execution_results)
+
+    @property
+    def target_workspace(self) -> Path | None:
+        return self.session.target_workspace
 
     @property
     def subtask_results(self) -> list[SubtaskResult]:
@@ -329,6 +334,12 @@ class WorkflowEngine:
                 should_deliberate=False,
                 message="No active agents are attached to this workflow.",
             )
+        if self.session.target_workspace is None:
+            return WorkflowInputAction(
+                should_deliberate=False,
+                target_workspace_required=True,
+                message="Target workspace is required before implementation.",
+            )
 
         instruction = instruction.strip()
         blueprint_path = self._freeze_current_blueprint()
@@ -446,6 +457,32 @@ class WorkflowEngine:
     def _next_decision_id(self) -> str:
         return f"dec-{len(self.session.decisions) + 1:03d}"
 
+    def set_target_workspace(
+        self,
+        path: Path,
+        *,
+        control_repo_confirmed: bool = False,
+    ) -> None:
+        """Persist the workspace where provider implementation may write files."""
+        resolved = path.expanduser().resolve()
+        self.session.target_workspace = resolved
+        self.session.control_repo_target_confirmed = control_repo_confirmed
+        self.session.updated_at = time.time()
+        self._persist(
+            "target_workspace_selected",
+            {
+                "target_workspace": str(resolved),
+                "control_repo_target_confirmed": control_repo_confirmed,
+            },
+        )
+
+    def clear_target_workspace(self) -> None:
+        """Clear the selected implementation workspace."""
+        self.session.target_workspace = None
+        self.session.control_repo_target_confirmed = False
+        self.session.updated_at = time.time()
+        self._persist("target_workspace_cleared", {})
+
     def add_open_question(self, question: OpenQuestion) -> None:
         """Add a pending question and move workflow to waiting state."""
         self.session.pending_questions.append(question)
@@ -552,9 +589,12 @@ class WorkflowEngine:
         """Move the workflow into execution before dispatching work packages."""
         if not self.session.work_packages:
             return
+        if self.session.target_workspace is None:
+            raise RuntimeError("Target workspace is required before implementation.")
         self._persist(
             "implementation_requested",
             {
+                "target_workspace": str(self.session.target_workspace),
                 "work_packages": [
                     package.id
                     for package in self.session.work_packages

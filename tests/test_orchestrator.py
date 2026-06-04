@@ -293,6 +293,66 @@ class TestWorkspaceHomeIsolation:
         assert orch.get_agent_cwd("builder") == worktree_path
         assert orch.agents["builder"].launch_cwd == worktree_path
 
+    def test_target_workspace_overrides_inplace_launch_cwd(self, tmp_path):
+        control_repo = tmp_path / "Trinity"
+        target_workspace = tmp_path / "route-bot"
+        state_dir = control_repo / ".trinity"
+        target_workspace.mkdir(parents=True)
+        config = TrinityConfig(
+            project_dir=control_repo,
+            state_dir=state_dir,
+            agents={
+                "claude": AgentSpec(
+                    name="claude",
+                    provider=Provider.CLAUDE_CODE,
+                    cli_command="claude",
+                    workspace_mode="inplace",
+                    enabled=True,
+                ),
+            },
+        )
+
+        orch = TrinityOrchestrator(config, target_workspace=target_workspace)
+        orch._ensure_initialized()
+
+        assert orch.get_agent_cwd("claude") == target_workspace.resolve()
+        assert orch.agents["claude"].launch_cwd == target_workspace.resolve()
+        assert config.effective_state_dir == state_dir
+
+    def test_git_worktree_workspace_mode_uses_target_workspace_root(self, tmp_path):
+        control_repo = tmp_path / "Trinity"
+        target_workspace = tmp_path / "route-bot"
+        state_dir = control_repo / ".trinity"
+        worktree_path = target_workspace / ".trinity" / "workspace" / "builder"
+        target_workspace.mkdir(parents=True)
+        config = TrinityConfig(
+            project_dir=control_repo,
+            state_dir=state_dir,
+            agents={
+                "builder": AgentSpec(
+                    name="builder",
+                    provider=Provider.CODEX,
+                    cli_command="codex",
+                    workspace_mode="git-worktree",
+                    enabled=True,
+                ),
+            },
+        )
+
+        with patch("trinity.orchestrator.WorkspaceIsolation") as MockWorkspace:
+            workspace = MockWorkspace.return_value
+            workspace.create.return_value = worktree_path
+
+            orch = TrinityOrchestrator(config, target_workspace=target_workspace)
+            orch._ensure_initialized()
+
+        MockWorkspace.assert_called_once_with(
+            project_root=target_workspace.resolve(),
+            state_dir=target_workspace.resolve() / ".trinity" / "workspace",
+        )
+        workspace.create.assert_called_once_with("builder")
+        assert orch.agents["builder"].launch_cwd == worktree_path
+
 
 class TestAgentFactory:
     """Test _create_print_agent dispatches to correct agent class."""

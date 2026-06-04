@@ -1,7 +1,7 @@
 # Target Workspace Boundary
 
 Date: 2026-06-04
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -162,3 +162,11 @@ Trinity workflow fixes and documentation changes are not product artifacts.
 - The default target workspace is outside the Trinity control repo.
 - Provider execution writes only inside the selected target workspace.
 - The Trinity control repo remains clean after designing a user product.
+
+## Implementation Result
+
+Implemented on 2026-06-05.
+
+Result document:
+
+- [Target Workspace Boundary result](../test-results/2026-06-05-target-workspace-boundary.md)

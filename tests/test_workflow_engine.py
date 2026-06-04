@@ -244,6 +244,7 @@ def test_blueprint_ready_execute_text_requests_execution_without_new_deliberatio
         ["claude", "codex"],
         requires_execution=False,
     )
+    engine.set_target_workspace(tmp_path / "route-bot")
     engine.set_state(WorkflowState.BLUEPRINT_READY, reason="test blueprint ready")
 
     action = engine.handle_user_input("개발해라", ["claude", "codex"])
@@ -269,6 +270,7 @@ def test_enable_execution_regenerates_current_blueprint_packages(tmp_path):
         ["claude"],
         requires_execution=False,
     )
+    engine.set_target_workspace(tmp_path / "route-bot")
     engine.set_state(WorkflowState.BLUEPRINT_READY, reason="test blueprint ready")
 
     action = engine.enable_execution_for_current_blueprint("Implement in Python")
@@ -290,6 +292,40 @@ def test_enable_execution_regenerates_current_blueprint_packages(tmp_path):
     assert artifact_path.exists()
     payload = json.loads(artifact_path.read_text(encoding="utf-8"))
     assert payload["blueprint"]["title"] == "Route Bot"
+
+
+def test_enable_execution_requires_target_workspace(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design a route bot", ["claude"])
+    engine.session.blueprint = Blueprint(
+        title="Route Bot",
+        summary="Find bridge routes.",
+        acceptance_criteria=["rank paths"],
+    )
+    engine.session.work_packages = engine.decomposer.decompose(
+        engine.session.blueprint,
+        ["claude"],
+        requires_execution=False,
+    )
+    engine.set_state(WorkflowState.BLUEPRINT_READY, reason="test blueprint ready")
+
+    action = engine.enable_execution_for_current_blueprint("Implement in Python")
+
+    assert action.should_deliberate is False
+    assert action.execution_requested is False
+    assert action.target_workspace_required is True
+    assert all(not package.requires_execution for package in engine.work_packages)
+
+
+def test_target_workspace_persists_with_session(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design a route bot", ["claude"])
+    target = tmp_path / "route-bot"
+
+    engine.set_target_workspace(target)
+
+    loaded = WorkflowEngine(tmp_path / ".trinity")
+    assert loaded.session.target_workspace == target.resolve()
 
 
 def test_mark_deliberation_result_waits_on_structured_question(tmp_path):
@@ -338,6 +374,7 @@ def test_record_execution_results_moves_to_reviewing(tmp_path):
             requires_execution=True,
         )
     ]
+    engine.set_target_workspace(tmp_path / "route-bot")
     engine.begin_execution()
 
     engine.record_execution_results([
@@ -375,6 +412,7 @@ def test_record_work_package_started_persists_running_status(tmp_path):
             requires_execution=True,
         )
     ]
+    engine.set_target_workspace(tmp_path / "route-bot")
     engine.begin_execution()
 
     engine.record_work_package_started("WP-001", "codex")
@@ -407,6 +445,7 @@ def test_record_execution_results_can_persist_progress_without_finalizing(tmp_pa
             requires_execution=True,
         ),
     ]
+    engine.set_target_workspace(tmp_path / "route-bot")
     engine.begin_execution()
 
     engine.record_execution_results(
@@ -567,7 +606,12 @@ def test_plan_parallel_groups_respects_dependencies_and_file_ownership(tmp_path)
 
 def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_execution_intent("개발해라") is True
+    assert classify_execution_intent("개발하고 싶다. 설계해라") is False
+    assert classify_execution_intent("만들고 싶다. 구조를 잡아라") is False
+    assert classify_execution_intent("구현하지 말고 설계만 해라") is False
+    assert classify_execution_intent("이 설계대로 구현해라") is True
     assert classify_blueprint_followup_action("이대로 만들어라") == "execute"
+    assert classify_blueprint_followup_action("개발하고 싶다. 설계해라") == "continue"
     assert classify_blueprint_followup_action("설계를 더 다듬어라") == "continue"
     assert classify_blueprint_followup_action("새 요청으로 시작") == "new"
     assert classify_blueprint_followup_action("취소") == "cancel"

@@ -6,7 +6,7 @@ from trinity.workflow.decomposer import (
     classify_execution_intent,
 )
 from trinity.workflow.engine import WorkflowEngine, WorkflowInputAction
-from trinity.workflow.execution import ExecutionProtocol
+from trinity.workflow.execution import ExecutionProtocol, ExecutionWorkspaceError
 from trinity.workflow.ledger import (
     ReadinessInput,
     SharedLedgerRenderer,
@@ -53,6 +53,7 @@ __all__ = [
     "BlueprintDecomposer",
     "DecisionRecord",
     "ExecutionProtocol",
+    "ExecutionWorkspaceError",
     "ExecutionResult",
     "OpenQuestion",
     "PeerReviewPlanner",

@@ -51,6 +51,7 @@ TRINITY_COMMANDS = [
     "/subtasks",
     "/resume",
     "/execute",
+    "/target",
     "/help",
     "/quit",
 ]
@@ -152,6 +153,14 @@ class TrinityPromptSession:
         return self.session.prompt(
             [("class:prompt", f"❓ {question_id}> ")],
         )
+
+    def get_path_input(self, *, label: str, default: str = "") -> str:
+        """Read a filesystem path with an optional default hint."""
+        prompt = f"📁 {label}"
+        if default:
+            prompt += f" [{default}]"
+        prompt += "> "
+        return self.session.prompt([("class:prompt", prompt)])
 
     def select_option(
         self,

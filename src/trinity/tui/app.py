@@ -727,6 +727,7 @@ class TrinityTUI:
             "  [cyan]/subtasks[/cyan]   — Show delegated subtask reports\n"
             "  [cyan]/resume [n|latest|id][/cyan] — Resume a saved workflow session\n"
             "  [cyan]/execute [text][/cyan] — Execute the current approved blueprint\n"
+            "  [cyan]/target [path|clear][/cyan] — Show or set implementation workspace\n"
             "  [cyan]/help[/cyan]       — Show this help\n"
             "  [cyan]/quit[/cyan]       — Exit Trinity\n"
         )

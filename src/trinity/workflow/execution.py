@@ -40,6 +40,10 @@ EXECUTION_FALLBACK_PRIORITY: tuple[str, ...] = (
 )
 
 
+class ExecutionWorkspaceError(RuntimeError):
+    """Raised when provider workspace-write would violate workspace boundaries."""
+
+
 class ExecutionProtocol:
     """Dispatch approved work packages to their owner agents."""
 
@@ -54,6 +58,9 @@ class ExecutionProtocol:
         rotation_callback: Callable[[str], object] | None = None,
         parallel_policy: ParallelExecutionPolicy | None = None,
         result_callback: Callable[[ExecutionResult], None] | None = None,
+        target_workspace: Path | None = None,
+        control_repo: Path | None = None,
+        allow_control_repo_writes: bool = False,
     ):
         self.agents = agents
         self.shared = shared
@@ -64,6 +71,9 @@ class ExecutionProtocol:
         self._rotation_callback = rotation_callback
         self.parallel_policy = parallel_policy or ParallelExecutionPolicy()
         self.result_callback = result_callback
+        self.target_workspace = target_workspace.resolve() if target_workspace else None
+        self.control_repo = control_repo.resolve() if control_repo else None
+        self.allow_control_repo_writes = allow_control_repo_writes
 
     async def run(
         self,
@@ -75,6 +85,7 @@ class ExecutionProtocol:
         packages = [package for package in work_packages if package.requires_execution]
         if not packages:
             return []
+        self._validate_workspace_boundary()
 
         on_result = result_callback or self.result_callback
         self._emit(TUIEventType.EXECUTION_START, package_count=len(packages))
@@ -135,6 +146,41 @@ class ExecutionProtocol:
             for package in packages
             if package.id in results_by_id
         ]
+
+    def _validate_workspace_boundary(self) -> None:
+        """Refuse provider writes without an approved implementation workspace."""
+        if self.control_repo is None:
+            return
+        if self.target_workspace is None:
+            raise ExecutionWorkspaceError(
+                "Target workspace is required before provider workspace-write."
+            )
+        if (
+            self._is_inside_control_repo(self.target_workspace)
+            and not self.allow_control_repo_writes
+        ):
+            raise ExecutionWorkspaceError(
+                "Refusing provider workspace-write in the Trinity control repo "
+                "without explicit confirmation."
+            )
+        for agent_name, agent in self.agents.items():
+            cwd = getattr(agent, "launch_cwd", None)
+            if not isinstance(cwd, Path):
+                continue
+            if (
+                self._is_inside_control_repo(cwd.resolve())
+                and not self.allow_control_repo_writes
+            ):
+                raise ExecutionWorkspaceError(
+                    f"Refusing provider workspace-write for {agent_name} in "
+                    "the Trinity control repo."
+                )
+
+    def _is_inside_control_repo(self, path: Path) -> bool:
+        if self.control_repo is None:
+            return False
+        resolved = path.resolve()
+        return resolved == self.control_repo or self.control_repo in resolved.parents
 
     def _plan_ready_batches(
         self,
@@ -538,6 +584,7 @@ class ExecutionProtocol:
             "Expected Files:\n"
             f"{expected_files}\n\n"
             "[Workspace Boundary]\n"
+            f"Target Workspace: {self.target_workspace or '(not configured)'}\n"
             "Only modify files required by this package. Treat Expected Files "
             "as your ownership boundary unless a blocker requires escalation. "
             "Do not switch branches, merge, commit, or push; Trinity's "

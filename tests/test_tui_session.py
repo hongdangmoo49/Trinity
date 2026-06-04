@@ -20,6 +20,7 @@ from trinity.workflow import (
     SubtaskResult,
     WorkPackage,
     WorkStatus,
+    WorkflowEngine,
     WorkflowState,
 )
 
@@ -59,6 +60,23 @@ class TestInteractiveSession:
             assert session._has_tmux() is True
         with patch("shutil.which", return_value=None):
             assert session._has_tmux() is False
+
+    def test_starts_with_new_workflow_and_archives_previous(self, config):
+        previous = WorkflowEngine(config.effective_state_dir)
+        previous.start("Old whale tracker goal", ["claude"])
+        previous_id = previous.session.id
+
+        console = Console(force_terminal=True, width=120)
+        session = InteractiveSession(config, console)
+
+        assert session.workflow.session.id != previous_id
+        assert session.workflow.state == WorkflowState.IDLE
+        assert session.workflow.session.goal == ""
+
+        archives = session.workflow_persistence.list_archives()
+        assert len(archives) == 1
+        assert archives[0].session.id == previous_id
+        assert archives[0].session.goal == "Old whale tracker goal"
 
 
 class TestSessionCommands:
@@ -248,6 +266,30 @@ class TestSessionHandleCommand:
     def test_subtasks_command(self, session):
         session._handle_command("/subtasks")
         # Should print subtasks
+
+    def test_resume_command_restores_latest_workflow(self, config):
+        previous = WorkflowEngine(config.effective_state_dir)
+        previous.start("Resume this workflow", ["claude"])
+        previous_id = previous.session.id
+
+        console = Console(force_terminal=True, width=120)
+        session = InteractiveSession(config, console)
+
+        session._handle_command("/resume latest")
+
+        assert session.workflow.session.id == previous_id
+        assert session.workflow.session.goal == "Resume this workflow"
+
+    def test_resume_command_lists_sessions_without_selector(self, config):
+        previous = WorkflowEngine(config.effective_state_dir)
+        previous.start("List this workflow", ["claude"])
+
+        console = Console(force_terminal=True, width=120)
+        session = InteractiveSession(config, console)
+
+        with patch("trinity.tui.session.sys.stdin.isatty", return_value=False):
+            session._handle_command("/resume")
+        # Should print saved workflow table and not raise.
 
     def test_unknown_command(self, session):
         session._handle_command("/unknown")

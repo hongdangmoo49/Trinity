@@ -51,3 +51,41 @@ def test_workflow_persistence_appends_and_loads_events(tmp_path):
     persistence.clear()
     assert persistence.load() is None
     assert persistence.load_events() == []
+
+
+def test_workflow_persistence_archives_and_restores_active_session(tmp_path):
+    persistence = WorkflowPersistence(tmp_path / ".trinity")
+    session = WorkflowSession(
+        id="wf-archive",
+        goal="Keep whale tracker design",
+        state=WorkflowState.FAILED,
+    )
+    persistence.save(session)
+    persistence.append_event({"event": "failed", "workflow_id": "wf-archive"})
+
+    archive = persistence.archive_active_session()
+
+    assert archive is not None
+    assert archive.session.id == "wf-archive"
+    assert persistence.load() is None
+    assert persistence.load_events() == []
+
+    archives = persistence.list_archives()
+    assert len(archives) == 1
+    restored = persistence.restore_archive(archives[0])
+
+    assert restored.id == "wf-archive"
+    assert persistence.load() is not None
+    assert persistence.load().goal == "Keep whale tracker design"
+    assert persistence.load_events() == [{"event": "failed", "workflow_id": "wf-archive"}]
+
+
+def test_workflow_persistence_does_not_archive_empty_idle_session(tmp_path):
+    persistence = WorkflowPersistence(tmp_path / ".trinity")
+    persistence.save(WorkflowSession(id="wf-idle", goal="", state=WorkflowState.IDLE))
+
+    archive = persistence.archive_active_session()
+
+    assert archive is None
+    assert persistence.load() is None
+    assert persistence.list_archives() == []

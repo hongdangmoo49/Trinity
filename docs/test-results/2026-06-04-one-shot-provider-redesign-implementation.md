@@ -60,6 +60,12 @@
    - 다음 라운드 prompt context는 `Round N Synthesis`를 우선 사용하고, legacy `Round N Opinions`는 fallback으로만 사용한다.
    - 압축 비활성 경로에서는 기존 `Round N Summary` 압축 결과를 잘못 재사용하지 않도록 `include_compressed_summaries` 옵션을 추가했다.
 
+9. Workflow execution scheduler 병렬 정책 연결
+   - `ExecutionProtocol`이 dependency-ready work package를 바로 전체 병렬 실행하지 않고 `ParallelExecutionPolicy` batch 단위로 실행한다.
+   - 실행 work package는 provider-managed `workspace-write` invocation으로 분류한다.
+   - 같은 `launch_cwd`의 provider-managed write package는 순차 실행한다.
+   - 별도 worktree이거나 `expected_files`가 disjoint file ownership을 제공하면 병렬 실행을 허용한다.
+
 ## 제거/정리
 
 - `PrintModeClaudeAgent._run_subprocess`
@@ -77,7 +83,7 @@ tmux, completion detector, Gemini legacy agent는 아직 제거하지 않았다.
 
 ```text
 uv run pytest
-951 passed, 1 warning in 19.67s
+953 passed, 1 warning in 19.74s
 ```
 
 경고는 기존 테스트 mock coroutine 미await warning이며 이번 변경 실패는 아니다.
@@ -85,4 +91,3 @@ uv run pytest
 ## 남은 작업
 
 - Antigravity CLI가 공식적으로 one-shot/headless prompt와 machine-readable output을 제공하는지 확인 후 `AntigravityInvoker` 구현.
-- provider-managed write execution을 실제 workflow execution scheduler에 연결.

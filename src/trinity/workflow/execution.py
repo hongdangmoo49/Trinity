@@ -14,6 +14,12 @@ from uuid import uuid4
 from trinity.agents.base import AgentWrapper
 from trinity.context.shared import SharedContextEngine
 from trinity.models import DeliberationMessage
+from trinity.providers.policy import (
+    ExecutionAuthority,
+    ExecutionScope,
+    InvocationAccess,
+    ParallelExecutionPolicy,
+)
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workflow.models import (
     DecisionRecord,
@@ -39,6 +45,7 @@ class ExecutionProtocol:
         event_callback: Callable[[TUIEvent], None] | None = None,
         lifecycle_guard: LifecycleGuard | None = None,
         rotation_callback: Callable[[str], object] | None = None,
+        parallel_policy: ParallelExecutionPolicy | None = None,
     ):
         self.agents = agents
         self.shared = shared
@@ -47,6 +54,7 @@ class ExecutionProtocol:
         self._event_callback = event_callback
         self.lifecycle_guard = lifecycle_guard
         self._rotation_callback = rotation_callback
+        self.parallel_policy = parallel_policy or ParallelExecutionPolicy()
 
     async def run(
         self,
@@ -85,27 +93,28 @@ class ExecutionProtocol:
                     remaining.pop(package.id, None)
                 break
 
-            batch_results = await asyncio.gather(
-                *[
-                    self._run_ready_package(package, decisions)
-                    for package in ready_packages
-                ],
-                return_exceptions=True,
-            )
-            for package, item in zip(ready_packages, batch_results):
-                if isinstance(item, ExecutionResult):
-                    result = item
-                else:
-                    result = self._exception_result(
-                        package,
-                        self._new_request_id(package),
-                        item,
-                        WorkStatus.FAILED,
-                    )
-                    package.status = result.status
-                results_by_id[package.id] = result
-                self._record_result(result)
-                remaining.pop(package.id, None)
+            for ready_batch in self._plan_ready_batches(ready_packages):
+                batch_results = await asyncio.gather(
+                    *[
+                        self._run_ready_package(package, decisions)
+                        for package in ready_batch
+                    ],
+                    return_exceptions=True,
+                )
+                for package, item in zip(ready_batch, batch_results):
+                    if isinstance(item, ExecutionResult):
+                        result = item
+                    else:
+                        result = self._exception_result(
+                            package,
+                            self._new_request_id(package),
+                            item,
+                            WorkStatus.FAILED,
+                        )
+                        package.status = result.status
+                    results_by_id[package.id] = result
+                    self._record_result(result)
+                    remaining.pop(package.id, None)
 
         self._emit(TUIEventType.EXECUTION_DONE, package_count=len(packages))
         return [
@@ -113,6 +122,41 @@ class ExecutionProtocol:
             for package in packages
             if package.id in results_by_id
         ]
+
+    def _plan_ready_batches(
+        self,
+        ready_packages: Iterable[WorkPackage],
+    ) -> tuple[tuple[WorkPackage, ...], ...]:
+        """Group dependency-ready packages into safe parallel batches."""
+        packages = tuple(ready_packages)
+        scope_by_id: dict[int, ExecutionScope] = {
+            id(package): self._execution_scope_for_package(package)
+            for package in packages
+        }
+        package_by_scope_id = {
+            id(scope): package
+            for package in packages
+            for scope in (scope_by_id[id(package)],)
+        }
+        scope_batches = self.parallel_policy.plan_batches(scope_by_id.values())
+        return tuple(
+            tuple(package_by_scope_id[id(scope)] for scope in scope_batch)
+            for scope_batch in scope_batches
+        )
+
+    def _execution_scope_for_package(self, package: WorkPackage) -> ExecutionScope:
+        """Build scheduling metadata for a work package invocation."""
+        agent = self.agents.get(package.owner_agent)
+        cwd = getattr(agent, "launch_cwd", None) if agent is not None else None
+        return ExecutionScope(
+            agent_name=package.owner_agent,
+            authority=ExecutionAuthority.PROVIDER_MANAGED,
+            access=InvocationAccess.WORKSPACE_WRITE,
+            cwd=cwd if isinstance(cwd, Path) else None,
+            file_ownership=frozenset(
+                item.strip() for item in package.expected_files if item.strip()
+            ),
+        )
 
     async def _run_ready_package(
         self,

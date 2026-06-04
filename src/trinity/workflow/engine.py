@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import time
 from dataclasses import dataclass
@@ -10,7 +11,11 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from trinity.models import DeliberationResult
-from trinity.workflow.decomposer import BlueprintDecomposer, classify_execution_intent
+from trinity.workflow.decomposer import (
+    BlueprintDecomposer,
+    classify_blueprint_followup_action,
+    classify_execution_intent,
+)
 from trinity.workflow.models import (
     Blueprint,
     DecisionRecord,
@@ -37,6 +42,7 @@ class WorkflowInputAction:
     decision_record: DecisionRecord | None = None
     started_new_workflow: bool = False
     replaced_decision: bool = False
+    execution_requested: bool = False
     message: str = ""
 
 
@@ -279,6 +285,17 @@ class WorkflowEngine:
         if self.session.blueprint is None:
             return self.start(instruction, active_agents)
 
+        followup_action = classify_blueprint_followup_action(instruction)
+        if followup_action == "execute":
+            return self.enable_execution_for_current_blueprint(instruction)
+        if followup_action == "cancel":
+            return WorkflowInputAction(
+                should_deliberate=False,
+                message="Workflow action cancelled.",
+            )
+        if followup_action == "new":
+            return self.start(instruction, active_agents)
+
         if active_agents:
             self.session.active_agents = list(active_agents)
         self.set_state(
@@ -314,6 +331,7 @@ class WorkflowEngine:
             )
 
         instruction = instruction.strip()
+        blueprint_path = self._freeze_current_blueprint()
         if instruction:
             self.session.decisions.append(
                 DecisionRecord(
@@ -338,6 +356,7 @@ class WorkflowEngine:
             "execution_enabled",
             {
                 "instruction": instruction,
+                "blueprint_path": str(blueprint_path) if blueprint_path else "",
                 "work_packages": [package.id for package in self.session.work_packages],
             },
         )
@@ -347,8 +366,30 @@ class WorkflowEngine:
         )
         return WorkflowInputAction(
             should_deliberate=False,
+            execution_requested=True,
             message="Current blueprint work packages are ready for execution.",
         )
+
+    def _freeze_current_blueprint(self) -> Path | None:
+        """Persist the approved blueprint as an immutable execution artifact."""
+        if self.session.blueprint is None:
+            return None
+        artifact_dir = self.state_dir / "workflow" / "blueprints"
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        artifact_path = artifact_dir / f"{self.session.id}.json"
+        if artifact_path.exists():
+            return artifact_path
+        payload = {
+            "workflow_id": self.session.id,
+            "goal": self.session.goal,
+            "frozen_at": time.time(),
+            "blueprint": self.session.blueprint.to_dict(),
+        }
+        artifact_path.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        return artifact_path
 
     def resolve_question(
         self,
@@ -511,7 +552,68 @@ class WorkflowEngine:
         """Move the workflow into execution before dispatching work packages."""
         if not self.session.work_packages:
             return
+        self._persist(
+            "implementation_requested",
+            {
+                "work_packages": [
+                    package.id
+                    for package in self.session.work_packages
+                    if package.requires_execution
+                ],
+            },
+        )
         self.set_state(WorkflowState.EXECUTING, reason="work package execution started")
+
+    def plan_parallel_groups(self) -> list[list[WorkPackage]]:
+        """Preview dependency/file-safe work package groups for the current session."""
+        packages_by_id = {
+            package.id: package
+            for package in self.session.work_packages
+            if package.requires_execution
+        }
+        remaining = dict(packages_by_id)
+        completed = {
+            package.id
+            for package in self.session.work_packages
+            if package.status == WorkStatus.DONE
+        }
+        groups: list[list[WorkPackage]] = []
+
+        while remaining:
+            ready = [
+                package
+                for package in remaining.values()
+                if all(
+                    dep_id in completed or dep_id not in packages_by_id
+                    for dep_id in package.dependencies
+                )
+            ]
+            if not ready:
+                groups.extend([package] for package in remaining.values())
+                break
+
+            batch: list[WorkPackage] = []
+            owned_files: set[str] = set()
+            deferred: list[WorkPackage] = []
+            for package in sorted(
+                ready,
+                key=lambda item: (-item.estimated_weight, item.id),
+            ):
+                files = {item for item in package.expected_files if item}
+                if files and owned_files.intersection(files):
+                    deferred.append(package)
+                    continue
+                batch.append(package)
+                owned_files.update(files)
+
+            if not batch:
+                batch.append(deferred.pop(0))
+            groups.append(batch)
+            for package in batch:
+                completed.add(package.id)
+                remaining.pop(package.id, None)
+
+        return groups
 
     def record_execution_results(self, results: list[ExecutionResult]) -> None:
         """Persist execution results and derive the next workflow state."""

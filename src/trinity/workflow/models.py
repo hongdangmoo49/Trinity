@@ -258,6 +258,7 @@ class WorkPackage:
     acceptance_criteria: list[str] = field(default_factory=list)
     status: WorkStatus = WorkStatus.PENDING
     requires_execution: bool = True
+    estimated_weight: int = 1
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -272,6 +273,7 @@ class WorkPackage:
             "acceptance_criteria": list(self.acceptance_criteria),
             "status": self.status.value,
             "requires_execution": self.requires_execution,
+            "estimated_weight": self.estimated_weight,
         }
 
     @classmethod
@@ -291,6 +293,7 @@ class WorkPackage:
             ],
             status=WorkStatus(status_value),
             requires_execution=bool(data.get("requires_execution", True)),
+            estimated_weight=max(1, int(data.get("estimated_weight", 1))),
         )
 
 

@@ -543,6 +543,34 @@ class TestWorkflowRouting:
 
         execute.assert_called_once_with(instruction="Implement it")
 
+    def test_blueprint_ready_korean_execute_intent_skips_followup_picker(self, session):
+        session.workflow.start("Original goal", ["claude"])
+        session.workflow.session.blueprint = Blueprint(
+            title="Route Bot",
+            summary="Find bridge routes.",
+            acceptance_criteria=["rank paths"],
+        )
+        session.workflow.session.work_packages = [
+            WorkPackage(
+                id="WP-001",
+                title="claude package",
+                owner_agent="claude",
+                objective="Plan route bot.",
+                requires_execution=False,
+            )
+        ]
+        session.workflow.set_state(
+            WorkflowState.BLUEPRINT_READY,
+            reason="test blueprint ready",
+        )
+
+        with patch.object(session._prompt_session, "select_option") as select_option:
+            with patch.object(session, "_execute_current_blueprint") as execute:
+                session._handle_user_text("개발해라")
+
+        select_option.assert_not_called()
+        execute.assert_called_once_with(instruction="개발해라")
+
     def test_execute_command_marks_current_blueprint_executable(self, session):
         session.workflow.start("Original goal", ["claude"])
         session.workflow.session.blueprint = Blueprint(

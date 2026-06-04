@@ -1,7 +1,7 @@
 # Blueprint Ready -> Parallel Implementation 전환 설계
 
 작성일: 2026-06-04
-상태: 설계/정책 문서
+상태: 1차 구현 완료
 관련 코드:
 
 - `src/trinity/workflow/models.py`
@@ -418,3 +418,34 @@ WP-F. TUI display
 - provider priority는 tie-breaker와 fallback으로만 사용한다.
 - 병렬 구현은 provider별 isolated worktree를 기본 전제로 한다.
 - 병합, 검증, 커밋은 orchestrator가 중앙에서 순차적으로 관리한다.
+
+---
+
+## 15. 1차 구현 기록
+
+구현 브랜치: `codex/blueprint-parallel-implementation`
+
+완료 범위:
+
+- `blueprint_ready` 상태에서 명확한 구현 의도(`개발해라`, `구현해라`,
+  `진행해라`, `이대로 만들어라`, `/execute`)는 기존 blueprint를 실행 대상으로 사용한다.
+- 애매한 blueprint-ready 입력은 기존 blueprint를 폐기하지 않는다.
+  TTY에서는 선택 UI로 처리하고, non-TTY에서는 설계 보강으로 이어간다.
+- 실행 승인 시 원본 blueprint를
+  `.trinity/workflow/blueprints/<workflow_id>.json` artifact로 고정한다.
+- work package는 활성 provider 수에 맞춰 먼저 자르는 대신 blueprint deliverable
+  단위로 생성한다.
+- provider assignment는 현재 load balance를 우선하고, provider 적합도와
+  `codex -> claude -> antigravity -> gemini` priority는 tie-break에 사용한다.
+- `WorkPackage.estimated_weight`를 추가해 분배와 parallel group preview에 사용한다.
+- `/workflow`는 parallel group 수와 blueprint-ready next action을 표시한다.
+- `/packages`는 dependencies, expected files, weight를 표시한다.
+- execution prompt는 workspace boundary를 명시하고 provider가 branch/merge/commit/push를
+  직접 수행하지 않도록 지시한다.
+
+검증:
+
+- `uv run pytest tests/test_blueprint_decomposer.py tests/test_workflow_engine.py tests/test_tui_session.py tests/test_execution_protocol.py tests/test_parallel_execution_policy.py -q`
+  -> 114 passed
+- `uvx ruff check ...` -> All checks passed
+- `uv run pytest -q` -> 989 passed, 1 warning

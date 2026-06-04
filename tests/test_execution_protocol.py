@@ -75,6 +75,9 @@ async def test_execution_protocol_dispatches_package_and_records_result(tmp_path
     assert "TRINITY_EXECUTION_START" in sent_prompt
     assert "[Work Package]" in sent_prompt
     assert "ID: WP-001" in sent_prompt
+    assert "Estimated Weight: 1" in sent_prompt
+    assert "[Workspace Boundary]" in sent_prompt
+    assert "Do not switch branches, merge, commit, or push" in sent_prompt
     assert "[Subagent Delegation Policy]" in sent_prompt
     assert "## Subtasks" in sent_prompt
     assert agent.send_and_wait.call_args.kwargs["access"] == (

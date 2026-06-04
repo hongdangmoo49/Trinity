@@ -46,6 +46,7 @@ class ExecutionProtocol:
         lifecycle_guard: LifecycleGuard | None = None,
         rotation_callback: Callable[[str], object] | None = None,
         parallel_policy: ParallelExecutionPolicy | None = None,
+        result_callback: Callable[[ExecutionResult], None] | None = None,
     ):
         self.agents = agents
         self.shared = shared
@@ -55,17 +56,20 @@ class ExecutionProtocol:
         self.lifecycle_guard = lifecycle_guard
         self._rotation_callback = rotation_callback
         self.parallel_policy = parallel_policy or ParallelExecutionPolicy()
+        self.result_callback = result_callback
 
     async def run(
         self,
         work_packages: Iterable[WorkPackage],
         decisions: Iterable[DecisionRecord] = (),
+        result_callback: Callable[[ExecutionResult], None] | None = None,
     ) -> list[ExecutionResult]:
         """Execute all executable work packages and return their results."""
         packages = [package for package in work_packages if package.requires_execution]
         if not packages:
             return []
 
+        on_result = result_callback or self.result_callback
         self._emit(TUIEventType.EXECUTION_START, package_count=len(packages))
         results_by_id: dict[str, ExecutionResult] = {}
         packages_by_id = {package.id: package for package in packages}
@@ -90,6 +94,7 @@ class ExecutionProtocol:
                     package.status = result.status
                     results_by_id[package.id] = result
                     self._record_result(result)
+                    self._notify_result(result, on_result)
                     remaining.pop(package.id, None)
                 break
 
@@ -114,6 +119,7 @@ class ExecutionProtocol:
                         package.status = result.status
                     results_by_id[package.id] = result
                     self._record_result(result)
+                    self._notify_result(result, on_result)
                     remaining.pop(package.id, None)
 
         self._emit(TUIEventType.EXECUTION_DONE, package_count=len(packages))
@@ -342,6 +348,14 @@ class ExecutionProtocol:
             status=result.status.value,
             summary=result.summary,
         )
+
+    @staticmethod
+    def _notify_result(
+        result: ExecutionResult,
+        callback: Callable[[ExecutionResult], None] | None,
+    ) -> None:
+        if callback:
+            callback(result)
 
     def _missing_agent_result(self, package: WorkPackage) -> ExecutionResult:
         return ExecutionResult(

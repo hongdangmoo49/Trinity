@@ -1100,7 +1100,7 @@ class InteractiveSession:
             logger.exception("Execution failed")
             return
 
-        self.workflow.record_execution_results(results)
+        self.workflow.record_execution_results(results, emit_events=False)
         self.tui.set_workflow_session(self.workflow.session)
 
     def _execute_current_blueprint(self, *, instruction: str = "") -> None:
@@ -1160,6 +1160,36 @@ class InteractiveSession:
 
         result_holder: list[list[ExecutionResult] | None] = [None]
         error_holder: list[Exception | None] = [None]
+        progress_lock = threading.Lock()
+        progress_results: list[ExecutionResult] = []
+
+        def _record_progress(result: ExecutionResult) -> None:
+            with progress_lock:
+                progress_results.append(result)
+
+        def _drain_progress() -> None:
+            with progress_lock:
+                results = list(progress_results)
+                progress_results.clear()
+            if not results:
+                return
+            self.workflow.record_execution_results(results, finalize=False)
+            self.tui.set_workflow_session(self.workflow.session)
+
+        def _consume_events() -> bool:
+            execution_done = False
+            for event in bus.poll():
+                self.tui.consume_event(event)
+                if event.type == TUIEventType.WORK_PACKAGE_STARTED:
+                    self.workflow.record_work_package_started(
+                        str(event.data.get("package_id") or ""),
+                        str(event.data.get("agent") or ""),
+                    )
+                    self.tui.set_workflow_session(self.workflow.session)
+                if event.type == TUIEventType.EXECUTION_DONE:
+                    execution_done = True
+            _drain_progress()
+            return execution_done
 
         def _run_async():
             try:
@@ -1167,6 +1197,7 @@ class InteractiveSession:
                     orchestrator.execute_work_packages(
                         self.workflow.session.work_packages,
                         decisions=self.workflow.decisions,
+                        result_callback=_record_progress,
                     )
                 )
             except Exception as exc:
@@ -1185,22 +1216,17 @@ class InteractiveSession:
             ) as live:
                 while thread.is_alive():
                     thread.join(timeout=0.25)
-                    for event in bus.poll():
-                        self.tui.consume_event(event)
-                        if event.type == TUIEventType.EXECUTION_DONE:
-                            done_received = True
+                    done_received = _consume_events() or done_received
 
                     if done_received:
-                        for event in bus.poll():
-                            self.tui.consume_event(event)
+                        _consume_events()
                         live.update(self.tui.build_layout())
                         thread.join(timeout=2.0)
                         break
 
                     live.update(self.tui.build_layout())
 
-                for event in bus.poll():
-                    self.tui.consume_event(event)
+                _consume_events()
                 live.update(self.tui.build_layout())
         except KeyboardInterrupt:
             raise

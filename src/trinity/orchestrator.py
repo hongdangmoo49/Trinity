@@ -6,6 +6,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
 
 from trinity.agents.base import AgentWrapper
 from trinity.agents.factory import AgentFactory
@@ -489,15 +490,19 @@ class TrinityOrchestrator:
         self,
         work_packages: list[WorkPackage],
         decisions: list[DecisionRecord] | None = None,
+        result_callback: Callable[[ExecutionResult], None] | None = None,
     ) -> list[ExecutionResult]:
         """Execute approved workflow work packages with active agents."""
         self._ensure_initialized()
         if not self.execution_protocol:
             raise RuntimeError("Execution protocol was not initialized")
         await self._ensure_agents_started()
+        run_kwargs = {"decisions": decisions or []}
+        if result_callback is not None:
+            run_kwargs["result_callback"] = result_callback
         return await self.execution_protocol.run(
             work_packages,
-            decisions=decisions or [],
+            **run_kwargs,
         )
 
     async def _ensure_agents_started(self) -> None:

@@ -41,7 +41,7 @@ class ExecutionProtocol:
         agents: dict[str, AgentWrapper],
         shared: SharedContextEngine,
         artifact_dir: Path,
-        timeout: float = 120.0,
+        timeout: float = 300.0,
         event_callback: Callable[[TUIEvent], None] | None = None,
         lifecycle_guard: LifecycleGuard | None = None,
         rotation_callback: Callable[[str], object] | None = None,

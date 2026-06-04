@@ -171,7 +171,7 @@ class TestCodexSendAndWait:
         assert "[System Role]" in sent_prompt
         assert "Welcome." in sent_prompt
         assert "Implement auth." in sent_prompt
-        detector.wait_for_completion.assert_awaited_once_with(pane, timeout=120.0)
+        detector.wait_for_completion.assert_awaited_once_with(pane, timeout=300.0)
         assert msg.content == "Codex response"
 
     @pytest.mark.asyncio

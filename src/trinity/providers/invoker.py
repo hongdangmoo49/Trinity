@@ -25,7 +25,7 @@ class PromptRequest:
     cli_command: str
     prompt: str
     cwd: Path
-    timeout_seconds: float = 120.0
+    timeout_seconds: float = 300.0
     request_id: str = ""
     role_prompt: str = ""
     context_prompt: str = ""

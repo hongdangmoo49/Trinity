@@ -60,6 +60,7 @@ class NexusScreen(Screen[None]):
         self.initial_prompt: str = ""
         self.follow_ups: list[str] = []
         self.snapshot: WorkflowNexusSnapshot | None = None
+        self._activity_frame = 0
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -113,6 +114,7 @@ class NexusScreen(Screen[None]):
             )
         self._refresh_central()
         self._refresh_inspector()
+        self._apply_activity_frame()
 
     def on_central_agent_view_question_answered(
         self,
@@ -132,7 +134,10 @@ class NexusScreen(Screen[None]):
         if spec is None:
             return
         panel = self.query_one(f"#provider-{name}", ProviderPanel)
-        panel.update_state(self._state_from_spec(name, spec, status=status, summary=summary))
+        panel.update_state(
+            self._state_from_spec(name, spec, status=status, summary=summary)
+        )
+        panel.set_activity_frame(self._activity_frame)
 
     def on_prompt_composer_submitted(self, event: PromptComposer.Submitted) -> None:
         event.stop()
@@ -164,6 +169,11 @@ class NexusScreen(Screen[None]):
         self.query_one("#nexus-composer", PromptComposer).clear()
         self._refresh_central()
         self.post_message(self.FollowUpSubmitted(cleaned))
+
+    def advance_activity_frame(self) -> None:
+        """Advance running indicators for provider and central-agent surfaces."""
+        self._activity_frame = (self._activity_frame + 1) % 4
+        self._apply_activity_frame()
 
     def _initial_provider_states(self) -> list[ProviderPanelState]:
         return [
@@ -207,3 +217,10 @@ class NexusScreen(Screen[None]):
                 f"follow-up: {item}" for item in self.follow_ups[-3:]
             ],
         )
+
+    def _apply_activity_frame(self) -> None:
+        if not self.is_mounted:
+            return
+        for panel in self.query(ProviderPanel):
+            panel.set_activity_frame(self._activity_frame)
+        self.query_one(CentralAgentView).set_activity_frame(self._activity_frame)

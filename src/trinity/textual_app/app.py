@@ -22,8 +22,13 @@ from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import NexusSnapshotAdapter, WorkflowNexusSnapshot
+from trinity.textual_app.workflow_controller import TextualWorkflowController, TextualWorkflowOutcome
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
-from trinity.textual_app.widgets.workspace_picker import WorkspacePicker, WorkspacePreflight
+from trinity.textual_app.widgets.workspace_picker import (
+    WorkspacePicker,
+    WorkspacePreflight,
+    default_workspace_tree_root,
+)
 from trinity.tui.kitty_compat import install_textual_parser_patch
 
 WorkbenchRoute = Literal["start", "nexus", "execution", "settings", "report"]
@@ -156,6 +161,10 @@ class TrinityTextualApp(App[None]):
         border: round $accent;
     }
 
+    .provider-running {
+        border: round $warning;
+    }
+
     .provider-disabled {
         color: $text-muted;
     }
@@ -182,6 +191,10 @@ class TrinityTextualApp(App[None]):
         border: heavy white;
         padding: 1 2;
         overflow-y: auto;
+    }
+
+    #central-agent.central-running {
+        border: heavy $warning;
     }
 
     #nexus-main {
@@ -338,7 +351,7 @@ class TrinityTextualApp(App[None]):
     #workspace-picker {
         width: 96;
         max-width: 94%;
-        height: 34;
+        height: 36;
         max-height: 94%;
         border: round $accent;
         background: $surface;
@@ -362,6 +375,16 @@ class TrinityTextualApp(App[None]):
         border: round $primary;
     }
 
+    #workspace-picker-bottom {
+        height: auto;
+        margin-top: 1;
+    }
+
+    #workspace-tree-actions {
+        width: 1fr;
+        height: auto;
+    }
+
     #workspace-preflight {
         width: 38;
         height: 1fr;
@@ -370,10 +393,23 @@ class TrinityTextualApp(App[None]):
         padding: 1;
     }
 
+    #workspace-create-prompt {
+        width: 64;
+        border: round $accent;
+        background: $surface;
+        padding: 1 2;
+    }
+
     #workspace-picker-actions {
+        width: 38;
         height: auto;
-        margin-top: 1;
+        margin-left: 1;
         align-horizontal: right;
+    }
+
+    #workspace-picker-status {
+        height: 1;
+        margin-top: 1;
     }
 
     #execution-screen {
@@ -477,7 +513,11 @@ class TrinityTextualApp(App[None]):
     }
     """
 
-    def __init__(self, config: TrinityConfig) -> None:
+    def __init__(
+        self,
+        config: TrinityConfig,
+        workflow_controller: TextualWorkflowController | None = None,
+    ) -> None:
         install_textual_parser_patch()
         super().__init__()
         self.config = config
@@ -488,7 +528,9 @@ class TrinityTextualApp(App[None]):
         self.active_snapshot: WorkflowNexusSnapshot | None = None
         self.settings_store = UISettingsStore(config.effective_state_dir)
         self.confirmed_preflight: WorkspacePreflight | None = None
+        self.workflow_controller = workflow_controller or TextualWorkflowController(config)
         self._screens_installed = False
+        self._workflow_polling_started = False
 
     def on_mount(self) -> None:
         self._install_workbench_screens()
@@ -511,24 +553,37 @@ class TrinityTextualApp(App[None]):
         event.stop()
         self.initial_prompt = event.prompt
         self.workspace_candidate = event.workspace_candidate
-        snapshot = self.snapshot_adapter.new_session_snapshot(event.prompt)
-        self.active_snapshot = snapshot
         nexus = self.get_screen("nexus", NexusScreen)
         nexus.set_initial_prompt(event.prompt)
-        nexus.apply_snapshot(snapshot)
+        outcome = self.workflow_controller.start_prompt(event.prompt)
+        self._apply_workflow_outcome(outcome)
         self.switch_to("nexus")
+
+    def on_start_screen_workspace_requested(
+        self,
+        event: StartScreen.WorkspaceRequested,
+    ) -> None:
+        event.stop()
+        snapshot = self.active_snapshot or self.workflow_controller.snapshot()
+        self._open_workspace_picker(snapshot, self._on_workspace_candidate_selected)
 
     def on_nexus_screen_follow_up_submitted(
         self,
         event: NexusScreen.FollowUpSubmitted,
     ) -> None:
         event.stop()
+        outcome = self.workflow_controller.submit_follow_up(event.text)
+        self._apply_workflow_outcome(outcome)
+        if outcome.target_workspace_required:
+            self._open_execute_workspace_picker(outcome.snapshot)
 
     def on_nexus_screen_question_answered(
         self,
         event: NexusScreen.QuestionAnswered,
     ) -> None:
         event.stop()
+        outcome = self.workflow_controller.answer_question(event.answer.question_id, event.answer.answer)
+        self._apply_workflow_outcome(outcome)
 
     def on_nexus_screen_inspector_requested(
         self,
@@ -538,6 +593,7 @@ class TrinityTextualApp(App[None]):
         snapshot = (
             event.snapshot
             or self.active_snapshot
+            or self.workflow_controller.snapshot()
             or self.snapshot_adapter.load_snapshot()
         )
         self.push_screen(ProviderInspector(snapshot.providers))
@@ -547,34 +603,91 @@ class TrinityTextualApp(App[None]):
         event: NexusScreen.ExecuteRequested,
     ) -> None:
         event.stop()
-        snapshot = (
-            event.snapshot
-            or self.active_snapshot
-            or self.snapshot_adapter.load_snapshot()
-        )
+        outcome = self.workflow_controller.request_execution()
+        self._apply_workflow_outcome(outcome)
+        if outcome.target_workspace_required:
+            self._open_execute_workspace_picker(outcome.snapshot)
+
+    def _open_execute_workspace_picker(self, snapshot: WorkflowNexusSnapshot) -> None:
+        self._open_workspace_picker(snapshot, self._on_workspace_preflight)
+
+    def _open_workspace_picker(
+        self,
+        snapshot: WorkflowNexusSnapshot,
+        callback,
+    ) -> None:
         self.push_screen(
             WorkspacePicker(
                 candidate=self.workspace_candidate,
                 snapshot=snapshot,
                 cwd=self.config.project_dir,
+                tree_root=default_workspace_tree_root(self.config.project_dir),
             ),
-            self._on_workspace_preflight,
+            callback,
         )
+
+    def _on_workspace_candidate_selected(
+        self,
+        preflight: WorkspacePreflight | None,
+    ) -> None:
+        if preflight is None:
+            return
+        self.workspace_candidate = preflight.path
+        start = self.get_screen("start", StartScreen)
+        start.set_workspace_candidate(preflight.path)
 
     def _on_workspace_preflight(self, preflight: WorkspacePreflight | None) -> None:
         if preflight is None:
             return
         self.confirmed_preflight = preflight
-        snapshot = self.active_snapshot or self.snapshot_adapter.load_snapshot()
+        self.workflow_controller.set_target_workspace(preflight.path)
+        outcome = self.workflow_controller.request_execution()
+        self._apply_workflow_outcome(outcome)
+        snapshot = outcome.snapshot
         execution = self.get_screen("execution", ExecutionMatrixScreen)
         execution.apply_execution_state(preflight, snapshot)
         self.switch_to("execution")
+
+    def _ensure_workflow_polling(self) -> None:
+        if self._workflow_polling_started:
+            return
+        self._workflow_polling_started = True
+        self.set_interval(0.25, self._poll_workflow_controller, name="workflow-poll")
+
+    def _poll_workflow_controller(self) -> None:
+        outcome = self.workflow_controller.drain_updates()
+        if outcome is not None:
+            self._apply_workflow_outcome(outcome)
+        elif getattr(self.workflow_controller, "is_running", False):
+            self._advance_activity_frame()
+
+    def _apply_workflow_outcome(self, outcome: TextualWorkflowOutcome) -> None:
+        self.active_snapshot = outcome.snapshot
+        if self._screens_installed:
+            nexus = self.get_screen("nexus", NexusScreen)
+            nexus.apply_snapshot(outcome.snapshot)
+            if outcome.running:
+                nexus.advance_activity_frame()
+        if self.current_route == "execution" and self.confirmed_preflight is not None:
+            execution = self.get_screen("execution", ExecutionMatrixScreen)
+            execution.apply_execution_state(self.confirmed_preflight, outcome.snapshot)
+        if outcome.message:
+            self.notify(outcome.message)
+        if outcome.running:
+            self._ensure_workflow_polling()
+
+    def _advance_activity_frame(self) -> None:
+        if self.current_route == "nexus" and self._screens_installed:
+            nexus = self.get_screen("nexus", NexusScreen)
+            nexus.advance_activity_frame()
 
     def switch_to(self, route: WorkbenchRoute) -> None:
         if route == "nexus" and self._screens_installed:
             nexus = self.get_screen("nexus", NexusScreen)
             nexus.apply_snapshot(
-                self.active_snapshot or self.snapshot_adapter.load_snapshot()
+                self.active_snapshot
+                or self.workflow_controller.snapshot()
+                or self.snapshot_adapter.load_snapshot()
             )
         if route == "report" and self._screens_installed:
             report = self.get_screen("report", ReportScreen)
@@ -599,6 +712,8 @@ class TrinityTextualApp(App[None]):
     def action_go_start(self) -> None:
         self.active_snapshot = None
         self.initial_prompt = None
+        outcome = self.workflow_controller.new_session()
+        self.active_snapshot = outcome.snapshot
         self.switch_to("start")
 
     def action_go_nexus(self) -> None:

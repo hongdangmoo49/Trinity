@@ -267,6 +267,12 @@ class DeliberationProtocol:
                     total_agents=consensus.total_agents,
                     summary=consensus.summary,
                     round_num=round_num,
+                    synthesis_source=synthesis_result.source,
+                    fallback_used=synthesis_metadata.get("fallback_used"),
+                    fallback_reason=str(
+                        synthesis_metadata.get("fallback_reason", "")
+                    ),
+                    next_round_prompt=synthesis_result.next_round_prompt,
                 )
                 break
 
@@ -282,6 +288,12 @@ class DeliberationProtocol:
                     total_agents=consensus.total_agents,
                     summary=consensus.summary,
                     round_num=round_num,
+                    synthesis_source=synthesis_result.source,
+                    fallback_used=synthesis_metadata.get("fallback_used"),
+                    fallback_reason=str(
+                        synthesis_metadata.get("fallback_reason", "")
+                    ),
+                    next_round_prompt=synthesis_result.next_round_prompt,
                 )
                 break
 
@@ -294,6 +306,12 @@ class DeliberationProtocol:
                 total_agents=consensus.total_agents,
                 summary=consensus.summary,
                 round_num=round_num,
+                synthesis_source=synthesis_result.source,
+                fallback_used=synthesis_metadata.get("fallback_used"),
+                fallback_reason=str(
+                    synthesis_metadata.get("fallback_reason", "")
+                ),
+                next_round_prompt=synthesis_result.next_round_prompt,
             )
 
         # Update pane titles for task distribution phase

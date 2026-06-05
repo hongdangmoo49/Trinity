@@ -41,8 +41,16 @@ class NexusScreen(Screen[None]):
             super().__init__()
             self.snapshot = snapshot
 
+    class ExecuteRequested(Message):
+        """Posted when the user wants to move from planning to execution."""
+
+        def __init__(self, snapshot: WorkflowNexusSnapshot | None) -> None:
+            super().__init__()
+            self.snapshot = snapshot
+
     BINDINGS = [
         ("ctrl+enter", "submit_follow_up", "Send"),
+        ("ctrl+e", "request_execute", "Execute"),
         ("i", "open_inspector", "Inspector"),
     ]
 
@@ -59,7 +67,9 @@ class NexusScreen(Screen[None]):
             with Horizontal(id="provider-strip"):
                 for state in self._initial_provider_states():
                     yield ProviderPanel(state, id=f"provider-{state.name}")
-            yield Button("Open Provider Inspector", id="open-provider-inspector")
+            with Horizontal(id="nexus-action-bar"):
+                yield Button("Open Provider Inspector", id="open-provider-inspector")
+                yield Button("Execute", id="request-execute", variant="primary")
             with Horizontal(id="nexus-main"):
                 yield CentralAgentView(id="central-agent")
                 yield WorkflowInspector(id="workflow-inspector")
@@ -131,6 +141,9 @@ class NexusScreen(Screen[None]):
         if event.button.id == "open-provider-inspector":
             event.stop()
             self.action_open_inspector()
+        elif event.button.id == "request-execute":
+            event.stop()
+            self.action_request_execute()
 
     def action_submit_follow_up(self) -> None:
         composer = self.query_one("#nexus-composer", PromptComposer)
@@ -138,6 +151,9 @@ class NexusScreen(Screen[None]):
 
     def action_open_inspector(self) -> None:
         self.post_message(self.InspectorRequested(self.snapshot))
+
+    def action_request_execute(self) -> None:
+        self.post_message(self.ExecuteRequested(self.snapshot))
 
     def _submit_follow_up(self, text: str) -> None:
         cleaned = text.strip()

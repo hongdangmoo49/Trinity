@@ -18,6 +18,7 @@ from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import NexusSnapshotAdapter
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
+from trinity.textual_app.widgets.workspace_picker import WorkspacePicker, WorkspacePreflight
 
 WorkbenchRoute = Literal["start", "nexus", "execution", "settings"]
 
@@ -228,9 +229,18 @@ class TrinityTextualApp(App[None]):
         margin-bottom: 1;
     }
 
+    #nexus-action-bar {
+        height: auto;
+        margin-top: 1;
+    }
+
     #open-provider-inspector {
         width: 28;
-        margin-top: 1;
+    }
+
+    #request-execute {
+        width: 16;
+        margin-left: 1;
     }
 
     ProviderInspector {
@@ -291,6 +301,51 @@ class TrinityTextualApp(App[None]):
         padding: 1 2;
     }
 
+    WorkspacePicker {
+        align: center middle;
+    }
+
+    #workspace-picker {
+        width: 96;
+        max-width: 94%;
+        height: 34;
+        max-height: 94%;
+        border: round $accent;
+        background: $surface;
+        padding: 1 2;
+    }
+
+    #workspace-picker-title {
+        text-style: bold;
+        color: $accent;
+        margin-bottom: 1;
+    }
+
+    #workspace-picker-body {
+        height: 1fr;
+        margin-top: 1;
+    }
+
+    #workspace-directory-tree {
+        width: 1fr;
+        height: 1fr;
+        border: round $primary;
+    }
+
+    #workspace-preflight {
+        width: 38;
+        height: 1fr;
+        margin-left: 1;
+        border: round $secondary;
+        padding: 1;
+    }
+
+    #workspace-picker-actions {
+        height: auto;
+        margin-top: 1;
+        align-horizontal: right;
+    }
+
     #nexus-composer {
         width: 100%;
         height: 7;
@@ -307,6 +362,7 @@ class TrinityTextualApp(App[None]):
         self.workspace_candidate: Path | None = None
         self.snapshot_adapter = NexusSnapshotAdapter(config)
         self.settings_store = UISettingsStore(config.effective_state_dir)
+        self.confirmed_preflight: WorkspacePreflight | None = None
         self._screens_installed = False
 
     def on_mount(self) -> None:
@@ -357,6 +413,26 @@ class TrinityTextualApp(App[None]):
         event.stop()
         snapshot = event.snapshot or self.snapshot_adapter.load_snapshot()
         self.push_screen(ProviderInspector(snapshot.providers))
+
+    def on_nexus_screen_execute_requested(
+        self,
+        event: NexusScreen.ExecuteRequested,
+    ) -> None:
+        event.stop()
+        snapshot = event.snapshot or self.snapshot_adapter.load_snapshot()
+        self.push_screen(
+            WorkspacePicker(
+                candidate=self.workspace_candidate,
+                snapshot=snapshot,
+                cwd=self.config.project_dir,
+            ),
+            self._on_workspace_preflight,
+        )
+
+    def _on_workspace_preflight(self, preflight: WorkspacePreflight | None) -> None:
+        if preflight is None:
+            return
+        self.confirmed_preflight = preflight
 
     def switch_to(self, route: WorkbenchRoute) -> None:
         if route == "nexus" and self._screens_installed:

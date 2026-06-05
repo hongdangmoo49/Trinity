@@ -14,6 +14,7 @@ from trinity.textual_app.widgets.composer import PromptComposer
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
+from trinity.textual_app.widgets.workspace_picker import WorkspacePicker
 
 
 @pytest.mark.asyncio
@@ -168,6 +169,22 @@ async def test_provider_inspector_modal_opens_from_nexus(tmp_path) -> None:
 
         assert isinstance(app.screen, ProviderInspector)
         assert app.screen.query_one("#inspect-claude")
+
+
+@pytest.mark.asyncio
+async def test_workspace_picker_opens_from_nexus_execute(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        screen.action_request_execute()
+        await pilot.pause()
+
+        assert isinstance(app.screen, WorkspacePicker)
+        assert str(tmp_path) in str(app.screen.query_one("#workspace-preflight").content)
 
 
 @pytest.mark.asyncio

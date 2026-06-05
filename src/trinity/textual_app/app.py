@@ -12,6 +12,7 @@ from textual.widgets import Footer, Header, Static
 
 from trinity import __version__
 from trinity.config import TrinityConfig
+from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.start import StartScreen
 
 WorkbenchRoute = Literal["start", "nexus", "execution", "settings"]
@@ -111,6 +112,83 @@ class TrinityTextualApp(App[None]):
         color: $text-muted;
         content-align: left middle;
     }
+
+    #nexus-screen {
+        width: 100%;
+        height: 1fr;
+        padding: 1;
+    }
+
+    #provider-strip {
+        width: 100%;
+        height: 8;
+        layout: grid;
+        grid-size: 3 1;
+        grid-gutter: 1;
+    }
+
+    .provider-panel {
+        height: 8;
+        border: round $accent;
+        padding: 0 1;
+    }
+
+    .provider-claude {
+        border: round $secondary;
+    }
+
+    .provider-codex {
+        border: round $success;
+    }
+
+    .provider-antigravity {
+        border: round $accent;
+    }
+
+    .provider-disabled {
+        color: $text-muted;
+    }
+
+    .provider-name {
+        text-style: bold;
+    }
+
+    .provider-meta {
+        color: $text-muted;
+    }
+
+    .provider-status {
+        margin-top: 1;
+    }
+
+    .provider-summary {
+        color: $text-muted;
+    }
+
+    #central-agent {
+        width: 100%;
+        height: 1fr;
+        border: heavy white;
+        margin: 1 0;
+        padding: 1 2;
+    }
+
+    #central-title {
+        text-style: bold;
+        color: $text;
+    }
+
+    #central-body {
+        height: 1fr;
+        color: $text;
+    }
+
+    #nexus-composer {
+        width: 100%;
+        height: 7;
+        border: round $accent;
+        padding: 0 1;
+    }
     """
 
     def __init__(self, config: TrinityConfig) -> None:
@@ -131,9 +209,9 @@ class TrinityTextualApp(App[None]):
             return
 
         self.install_screen(StartScreen(self.workspace_candidate), "start")
+        self.install_screen(NexusScreen(self.config), "nexus")
 
         screens: list[tuple[WorkbenchRoute, str, str]] = [
-            ("nexus", "Nexus", "Provider brainstorming dashboard."),
             ("execution", "Execution Matrix", "Work package execution monitor."),
             ("settings", "Settings", "Theme preferences."),
         ]
@@ -145,7 +223,15 @@ class TrinityTextualApp(App[None]):
         event.stop()
         self.initial_prompt = event.prompt
         self.workspace_candidate = event.workspace_candidate
+        nexus = self.get_screen("nexus", NexusScreen)
+        nexus.set_initial_prompt(event.prompt)
         self.switch_to("nexus")
+
+    def on_nexus_screen_follow_up_submitted(
+        self,
+        event: NexusScreen.FollowUpSubmitted,
+    ) -> None:
+        event.stop()
 
     def switch_to(self, route: WorkbenchRoute) -> None:
         self.current_route = route

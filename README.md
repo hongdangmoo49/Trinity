@@ -58,7 +58,7 @@ trinity init
 # 비대화형 실행 (기본 설정값 적용)
 trinity init --non-interactive
 
-# 격리된 provider-state에서 각 CLI의 auth/theme/trust 초기 설정을 완료합니다
+# 현재 터미널에서 각 provider CLI의 auth/trust 초기 설정을 확인합니다
 trinity bootstrap
 ```
 
@@ -68,8 +68,11 @@ trinity bootstrap
 # 단발성(One-shot) 질의 실행
 trinity ask "인증 시스템 아키텍처를 설계해줘"
 
-# 대화형 TUI 모드 실행 (에이전트 간 실시간 토론 관전 및 참여)
+# Textual Workbench 실행 (기본)
 trinity
+
+# 기존 Rich/prompt_toolkit TUI fallback
+trinity --plain
 ```
 
 Trinity가 백그라운드에서 다음 단계를 자동으로 수행합니다:
@@ -119,52 +122,34 @@ Trinity가 백그라운드에서 다음 단계를 자동으로 수행합니다:
 
 ## 💬 대화형 TUI
 
-Trinity는 **Rich 라이브러리 기반의 미려한 터미널 UI(TUI)**를 제공하여, 에이전트 간의 실시간 토론 과정을 시각적으로 보여줍니다.
+Trinity는 기본 실행 화면으로 **Textual 기반 Workbench TUI**를 제공합니다.
+긴 요구사항을 multi-line으로 작성하고, Claude/Codex/Antigravity 상태를
+분리해서 보며, 중앙 synthesis가 질문과 합의 상태를 정리합니다. 실제 파일
+변경은 `Execute`를 누른 뒤 workspace preflight를 승인해야 시작됩니다.
 
 ```
-  🧠 Trinity v0.10.0  —  세 개의 두뇌, 하나의 컨텍스트
-
-  🏗️ claude ✅    ⚙️ codex ✅    🔍 antigravity ✅
-
-  📊 에이전트 상태
-  ┌────────────────────────────────────────────────────────────────┐
-  │  🏗️ claude    설계자      ✅ 응답 완료     12%    pytest 추천... │
-  │  ⚙️ codex     구현자      ✅ 응답 완료      8%    동의함...      │
-  │  🔍 antigravity    검토자      ✅ 응답 완료     15%    대안 제시...   │
-  └────────────────────────────────────────────────────────────────┘
-
-  💬 토론 진행 현황
-  ─── 1라운드 ─────────────────────────────────────────────────────
-    ✅ claude (설계자)
-    ┌──────────────────────────────────────────────────────────┐
-    │  인증 시스템은 JWT(RS256) 방식을 추천합니다. 미들웨어     │
-    │  패턴으로 아키텍처를 설계하면 확장성에 매우 유리합니다...  │
-    └──────────────────────────────────────────────────────────┘
-
-    ✅ codex (구현자)
-    ┌──────────────────────────────────────────────────────────┐
-    │  Claude의 의견에 동의합니다. 여기에 리프레시 토큰        │
-    │  회전(Rotation)을 추가 구현하면 보안성을 극대화할 수...   │
-    └──────────────────────────────────────────────────────────┘
-
-    ✅ antigravity (검토자)
-    ┌──────────────────────────────────────────────────────────┐
-    │  OAuth 2.0도 대안으로 고려해 보세요. 토큰 회전 아이디어는│
-    │  훌륭하지만, 예외 상황(Edge Case)에 대한 처리가 필요...  │
-    └──────────────────────────────────────────────────────────┘
-
-    🔍 합의 평가 중...  2/3 동의 (67%)
-
-  💬 trinity>
+  ┌ Trinity v0.10.0 ─ Nexus ─ workflow: planning ┐
+  │ Claude              │ Codex              │ Antigravity │
+  │ Ready               │ Running            │ Ready       │
+  ├───────────────────────────────────────────────────────────┤
+  │ Central Agent                                              │
+  │ - synthesis summary                                        │
+  │ - questions for the user                                   │
+  │ - blueprint/work package status                            │
+  ├───────────────────────────────────────────────────────────┤
+  │ Workflow Inspector  │ Provider Inspector modal │ Composer │
+  └───────────────────────────────────────────────────────────┘
 ```
 
 ### TUI 주요 기능
 
-- **실시간 스트리밍** — 모든 에이전트가 답변을 마칠 때까지 기다리지 않고, 실시간으로 출력이 도착하는 즉시 화면에 렌더링합니다.
-- **에이전트별 전용 테마** — 에이전트별 고유의 테마 색상을 적용해 시인성을 높였습니다. [Claude(청록색/Cyan), Codex(초록색/Green), Antigravity(자주색/Magenta)]
-- **마크다운(Markdown) 실시간 렌더링** — 에이전트들의 답변에 포함된 각종 서식과 코드 구문 강조(Syntax Highlighting)를 터미널에 미려하게 표현합니다.
-- **합의 진행률 게이지 바** — 에이전트 간의 동의 및 합의 도달 비중을 시각적인 게이지로 실시간 보여줍니다.
-- **트리 기반 작업 분배** — 최종 합의 후 각각 어떤 에이전트가 어떤 모듈을 개발하는지 명확한 계층형 트리 구조로 시각화합니다.
+- **Start Screen** — workspace를 필수로 묻지 않고 큰 multi-line prompt로 planning을 시작합니다.
+- **Nexus Screen** — provider별 상태 패널, 중앙 synthesis, workflow inspector를 한 화면에 보여줍니다.
+- **Provider Inspector** — Claude/Codex/Antigravity 원문 output을 탭 modal에서 확인합니다.
+- **Execution Preflight** — `Execute` 시점에만 workspace picker와 경로/git/write 권한 preflight를 보여줍니다.
+- **Execution Matrix** — work package DataTable과 execution log를 모니터링 화면으로 표시합니다.
+- **Theme Settings** — 앱 안에서 theme mode, density, motion, Unicode rendering preference를 저장합니다.
+- **Plain fallback** — `trinity --plain` 또는 `TRINITY_TUI=plain`으로 기존 Rich/prompt_toolkit TUI를 사용할 수 있습니다.
 
 ---
 
@@ -174,7 +159,8 @@ Trinity는 **Rich 라이브러리 기반의 미려한 터미널 UI(TUI)**를 제
 
 | 명령어 | 설명 |
 | :--- | :--- |
-| `trinity` | 대화형 TUI 세션 실행 |
+| `trinity` | Textual Workbench TUI 실행 |
+| `trinity --plain` | 기존 Rich/prompt_toolkit TUI fallback 실행 |
 | `trinity init` | 현재 디렉토리에 Trinity 작업 공간(`.trinity/`) 초기화 |
 | `trinity init --non-interactive` | 사용자 입력 요청 없이 기본값으로 즉시 초기화 |
 | `trinity bootstrap` | 현재 터미널에서 provider CLI 초기 설정/auth/trust를 순차 실행 |
@@ -304,7 +290,14 @@ trinity/
 │   ├── idle.py             #   텍스트 출력의 무변화(Idle) 상태 감지기
 │   └── prompt.py           #   CLI 프롬프트 재출현 여부 감지기
 │
-├── tui/                    # 대화형 터미널 UI (TUI)
+├── textual_app/            # Textual Workbench UI
+│   ├── app.py              #   TrinityTextualApp — screen router와 app shell
+│   ├── screens/            #   Start, Nexus, Execution Matrix, Settings
+│   ├── widgets/            #   composer, provider panels, inspector, workspace picker
+│   ├── snapshot.py         #   workflow/shared.md read-only projection
+│   └── settings.py         #   사용자 UI theme preference 저장소
+│
+├── tui/                    # legacy/plain 대화형 터미널 UI
 │   ├── app.py              #   TrinityTUI — Rich Live 라이브러리를 활용한 렌더링 엔진
 │   ├── session.py          #   InteractiveSession — 사용자 입력 처리 루프 및 이벤트 기반 UI 갱신
 │   ├── events.py           #   TUIEventBus — 스레드 안전한 이벤트 전달 브릿지
@@ -336,7 +329,8 @@ trinity/
 | :--- | :--- |
 | **공유 마크다운 파일** | 에이전트들이 단일 마크다운 파일(`shared.md`)에 직접 의견을 쓰고 읽습니다. 구현이 매우 직관적이고 구조가 투명하여 디버깅에 큰 이점을 제공합니다. |
 | **라운드 기반 프로토콜** | 구조화된 토론 방식을 도입하여 의견 차이로 인한 끝없는 무한 루프(순환 논쟁)를 원천 차단하고 확실한 논의 진행을 강제합니다. |
-| **이벤트 구동형 TUI** | 비동기 `asyncio` 이벤트 루프와 큐(`Queue`)를 활용해 대기 시간 없이 각 에이전트의 응답을 실시간 스트리밍 방식으로 렌더링합니다. |
+| **Textual Workbench 기본 UI** | Start/Nexus/Execution Matrix 화면으로 planning과 execute를 분리하고, provider별 output은 Inspector에서 확인합니다. |
+| **이벤트 구동형 fallback TUI** | 비동기 `asyncio` 이벤트 루프와 큐(`Queue`)를 활용해 legacy/plain TUI에서도 각 에이전트의 응답을 렌더링합니다. |
 | **키워드 기반 합의 감지** | 키워드 매칭 방식을 도입하여 빠르고 결정론적으로 합의를 판정하며, 부정 표현 필터링을 통해 오심율을 크게 낮췄습니다. |
 | **제공자 비의존성 에이전트** | 추상 클래스 `AgentWrapper` 설계로 인터페이스를 표준화하여 향후 새로운 AI CLI 도구(예: 타사 모델 CLI)도 매우 손쉽게 통합할 수 있습니다. |
 | **듀얼 실행 모드 지원** | 기본 one-shot provider 호출과 legacy/debug용 tmux transport를 분리하여 Windows/macOS/Linux 기본 경로를 안정화합니다. |

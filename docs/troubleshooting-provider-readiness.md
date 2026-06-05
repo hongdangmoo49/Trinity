@@ -13,6 +13,20 @@ Use this order when startup fails:
 4. Use `trinity bootstrap` only when you want Trinity to launch those setup
    prompts sequentially for selected configured agents.
 
+## Textual Workbench Startup
+
+`trinity` opens the Textual Workbench by default. If the terminal cannot run the
+Textual UI, use the legacy fallback:
+
+```bash
+trinity --plain
+TRINITY_TUI=plain trinity
+```
+
+Planning does not require a target workspace. Trinity asks for the workspace
+only when you select `Execute`, then shows a preflight with path existence,
+write permission, git repository state, and work package count.
+
 ## Common States
 
 | Symptom | Likely state | Action |

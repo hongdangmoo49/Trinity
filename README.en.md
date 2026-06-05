@@ -60,7 +60,7 @@ trinity init
 # Non-interactive (uses defaults)
 trinity init --non-interactive
 
-# Complete CLI auth/theme/trust setup inside isolated provider-state homes
+# Check provider CLI auth/trust setup in the current terminal
 trinity bootstrap
 ```
 
@@ -70,8 +70,11 @@ trinity bootstrap
 # One-shot question
 trinity ask "Design the authentication system architecture"
 
-# Interactive TUI mode (real-time agent discussion)
+# Textual Workbench (default)
 trinity
+
+# Legacy Rich/prompt_toolkit fallback
+trinity --plain
 ```
 
 That's it. Trinity will:
@@ -121,52 +124,34 @@ That's it. Trinity will:
 
 ## 💬 Interactive TUI
 
-Trinity features a **Rich-based terminal UI** with real-time deliberation visualization.
+Trinity now launches a **Textual-based Workbench TUI** by default. You can write
+long multi-line prompts, compare Claude/Codex/Antigravity status panels, and let
+the central synthesis view organize questions and consensus. File changes only
+start after you choose `Execute` and approve the workspace preflight.
 
 ```
-  🧠 Trinity v0.10.0  —  Three minds, one context
-
-  🏗️ claude ✅    ⚙️ codex ✅    🔍 antigravity ✅
-
-  📊 Agent Status
-  ┌────────────────────────────────────────────────────────────────┐
-  │  🏗️ claude    Architect    ✅ responded    12%    I recommend... │
-  │  ⚙️ codex     Implementer  ✅ responded    8%     Agreed with... │
-  │  🔍 antigravity    Reviewer     ✅ responded    15%    I suggest...   │
-  └────────────────────────────────────────────────────────────────┘
-
-  💬 Deliberation
-  ─── Round 1 ──────────────────────────────────────────────────────
-    ✅ claude (Architect)
-    ┌──────────────────────────────────────────────────────────┐
-    │  I recommend using JWT with RS256 for the auth system.    │
-    │  The architecture should follow a middleware pattern...   │
-    └──────────────────────────────────────────────────────────┘
-
-    ✅ codex (Implementer)
-    ┌──────────────────────────────────────────────────────────┐
-    │  I AGREE with claude. Additionally, we should add         │
-    │  refresh token rotation for security...                   │
-    └──────────────────────────────────────────────────────────┘
-
-    ✅ antigravity (Reviewer)
-    ┌──────────────────────────────────────────────────────────┐
-    │  I suggest considering OAuth2 as an alternative. The      │
-    │  token rotation idea is good, but we need edge case...    │
-    └──────────────────────────────────────────────────────────┘
-
-    🔍 Evaluating consensus...  2/3 agree (67%)
-
-  💬 trinity>
+  ┌ Trinity v0.10.0 ─ Nexus ─ workflow: planning ┐
+  │ Claude              │ Codex              │ Antigravity │
+  │ Ready               │ Running            │ Ready       │
+  ├───────────────────────────────────────────────────────────┤
+  │ Central Agent                                              │
+  │ - synthesis summary                                        │
+  │ - questions for the user                                   │
+  │ - blueprint/work package status                            │
+  ├───────────────────────────────────────────────────────────┤
+  │ Workflow Inspector  │ Provider Inspector modal │ Composer │
+  └───────────────────────────────────────────────────────────┘
 ```
 
 ### TUI Features
 
-- **Real-time streaming** — Agent opinions appear as they arrive, not after all finish
-- **Per-agent colors** — Claude (cyan), Codex (green), Antigravity (magenta)
-- **Markdown rendering** — Agent responses rendered with formatting and syntax highlighting
-- **Consensus progress bar** — Visual indicator of agreement fraction
-- **Tree task distribution** — Clear view of who does what
+- **Start Screen** — begin planning with a large multi-line prompt; workspace is optional.
+- **Nexus Screen** — provider status panels, central synthesis, and workflow inspector.
+- **Provider Inspector** — tabbed modal for raw Claude/Codex/Antigravity output.
+- **Execution Preflight** — workspace picker and path/git/write checks only when `Execute` is selected.
+- **Execution Matrix** — work package DataTable plus execution log.
+- **Theme Settings** — save theme mode, density, motion, and Unicode rendering preferences.
+- **Plain fallback** — use `trinity --plain` or `TRINITY_TUI=plain` for the legacy Rich/prompt_toolkit UI.
 
 ---
 
@@ -176,7 +161,8 @@ Trinity features a **Rich-based terminal UI** with real-time deliberation visual
 
 | Command | Description |
 | :--- | :--- |
-| `trinity` | Launch interactive TUI session |
+| `trinity` | Launch Textual Workbench TUI |
+| `trinity --plain` | Launch legacy Rich/prompt_toolkit TUI fallback |
 | `trinity init` | Initialize `.trinity/` in current directory |
 | `trinity init --non-interactive` | Initialize with defaults (no prompts) |
 | `trinity bootstrap` | Run provider first-use auth/trust setup sequentially in the current terminal |
@@ -307,7 +293,14 @@ trinity/
 │   ├── idle.py             #   Output stops changing detector
 │   └── prompt.py           #   CLI prompt reappears detector
 │
-├── tui/                    # Interactive terminal UI
+├── textual_app/            # Textual Workbench UI
+│   ├── app.py              #   TrinityTextualApp — screen router and app shell
+│   ├── screens/            #   Start, Nexus, Execution Matrix, Settings
+│   ├── widgets/            #   composer, provider panels, inspector, workspace picker
+│   ├── snapshot.py         #   read-only workflow/shared.md projection
+│   └── settings.py         #   user UI theme preferences
+│
+├── tui/                    # Legacy/plain interactive terminal UI
 │   ├── app.py              #   TrinityTUI — Rich Live rendering engine
 │   ├── session.py          #   InteractiveSession — input loop + event-driven updates
 │   ├── events.py           #   TUIEventBus — thread-safe event bridge
@@ -339,7 +332,8 @@ trinity/
 | :--- | :--- |
 | **Shared markdown file** | Agents read/write `shared.md` — simple, transparent, debuggable |
 | **Round-based protocol** | Structured debate prevents circular arguments; forces progression |
-| **Event-driven TUI** | `asyncio.wait(FIRST_COMPLETED)` + `Queue` enables real-time streaming |
+| **Textual Workbench default UI** | Start/Nexus/Execution Matrix screens separate planning from execute; provider output is inspected on demand |
+| **Event-driven fallback TUI** | `asyncio.wait(FIRST_COMPLETED)` + `Queue` keeps the legacy/plain UI responsive |
 | **Keyword consensus** | Fast, deterministic agreement detection with negation filtering |
 | **Provider-agnostic agents** | `AgentWrapper` ABC — easy to add new AI providers |
 | **Two execution modes** | Default one-shot provider calls plus legacy/debug tmux transport |

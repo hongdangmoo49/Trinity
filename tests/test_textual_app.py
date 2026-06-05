@@ -395,6 +395,48 @@ async def test_central_agent_view_renders_question_options(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_central_agent_view_renders_only_next_question(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                state="needs_user_decision",
+                questions=[
+                    QuestionSnapshot(
+                        id="q-1",
+                        question="Engine?",
+                        options=["Godot", "Unity"],
+                    ),
+                    QuestionSnapshot(
+                        id="q-2",
+                        question="Monetization?",
+                        options=["F2P", "Paid"],
+                    ),
+                ],
+            )
+        )
+        await pilot.pause()
+
+        central = screen.query_one(CentralAgentView)
+        assert "Question for you (1 of 2)" in str(
+            central.query_one("#central-question-title").content
+        )
+        assert central.query_one("#answer-q-1-1")
+        assert central.query_one("#answer-q-1-2")
+        assert not central.query("#answer-q-2-1")
+        rendered_questions = [
+            str(item.content) for item in central.query(".question-text")
+        ]
+        assert rendered_questions == ["1. Engine?"]
+
+
+@pytest.mark.asyncio
 async def test_central_agent_question_options_use_two_column_grid(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 
 import pytest
 
@@ -23,6 +24,12 @@ class FakeOrchestrator:
         assert self.bus is not None
         self.bus.emit(
             TUIEvent(
+                type=TUIEventType.ROUND_START,
+                data={"round_num": 1},
+            )
+        )
+        self.bus.emit(
+            TUIEvent(
                 type=TUIEventType.AGENT_THINKING,
                 data={"agent": "claude", "round_num": 1},
             )
@@ -38,7 +45,25 @@ class FakeOrchestrator:
                 },
             )
         )
+        self.bus.emit(
+            TUIEvent(
+                type=TUIEventType.CONSENSUS_CHECKING,
+                data={"round_num": 1},
+            )
+        )
         await asyncio.sleep(0.05)
+        self.bus.emit(
+            TUIEvent(
+                type=TUIEventType.CONSENSUS_RESULT,
+                data={
+                    "round_num": 1,
+                    "reached": True,
+                    "agreement_count": 1,
+                    "total_agents": 1,
+                    "summary": "Build the requested app.",
+                },
+            )
+        )
         return DeliberationResult(
             user_prompt=prompt,
             rounds_completed=1,
@@ -77,6 +102,30 @@ def test_textual_workflow_controller_starts_real_workflow_session(tmp_path) -> N
     provider = next(item for item in final.snapshot.providers if item.name == "claude")
     assert provider.status == "Ready"
     assert provider.raw_output == "claude plan"
+
+
+def test_textual_workflow_controller_reports_active_synthesis(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    controller = TextualWorkflowController(
+        config,
+        orchestrator_factory=FakeOrchestrator,
+        archive_active_session=False,
+    )
+
+    controller.start_prompt("모바일 퍼즐 게임 설계")
+    mid = None
+    for _ in range(20):
+        mid = controller.drain_updates()
+        if mid and mid.snapshot.synthesis.status == "running":
+            break
+        time.sleep(0.01)
+
+    assert mid is not None
+    assert mid.snapshot.round_num == 1
+    assert mid.snapshot.synthesis.status == "running"
+    assert mid.snapshot.synthesis.consensus_progress == "round 1 synthesizing"
+    assert "Central agent is synthesizing round 1" in mid.snapshot.synthesis.summary
+    assert controller.wait_until_idle(timeout=2.0)
 
 
 def test_textual_workflow_controller_routes_question_answers(tmp_path) -> None:

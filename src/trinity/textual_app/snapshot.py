@@ -34,6 +34,7 @@ class SynthesisSnapshot:
     summary: str = ""
     consensus_progress: str = ""
     source: str = "none"
+    status: str = "idle"
 
 
 @dataclass(frozen=True)
@@ -85,16 +86,18 @@ class NexusSnapshotAdapter:
     ) -> WorkflowNexusSnapshot:
         """Load a snapshot without mutating workflow/session state."""
         session = self.persistence.load()
+        recent = list(recent_events)
         provider_states = self._provider_states(session)
-        self._fold_recent_events(provider_states, recent_events)
+        self._fold_recent_events(provider_states, recent)
+        round_num = self._round_num(session, recent)
 
         return WorkflowNexusSnapshot(
             session_id=session.id if session else "",
             goal=session.goal if session else "",
             state=session.state.value if session else "idle",
-            round_num=session.current_round if session else 0,
+            round_num=round_num,
             providers=list(provider_states.values()),
-            synthesis=self._synthesis(session),
+            synthesis=self._synthesis(session, recent, round_num),
             questions=[
                 QuestionSnapshot(
                     id=q.id,
@@ -185,15 +188,24 @@ class NexusSnapshotAdapter:
                     readiness_reason=str(data.get("reason", "")),
                 )
 
-    def _synthesis(self, session: WorkflowSession | None) -> SynthesisSnapshot:
+    def _synthesis(
+        self,
+        session: WorkflowSession | None,
+        recent_events: list[TUIEvent],
+        round_num: int,
+    ) -> SynthesisSnapshot:
         if session and session.blueprint:
             return SynthesisSnapshot(
                 summary=session.blueprint.summary,
                 consensus_progress="blueprint ready",
                 source="workflow",
+                status="ready",
             )
 
-        round_num = session.current_round if session else 0
+        event_synthesis = self._synthesis_from_events(recent_events)
+        if event_synthesis is not None:
+            return event_synthesis
+
         if round_num:
             section = self.shared.read_section(f"Round {round_num} Synthesis")
             if section:
@@ -201,6 +213,7 @@ class NexusSnapshotAdapter:
                     summary=section.strip(),
                     consensus_progress=f"round {round_num}",
                     source="shared.md",
+                    status="ready",
                 )
 
         agreed = self.shared.read_section("Agreed Conclusion")
@@ -209,9 +222,100 @@ class NexusSnapshotAdapter:
                 summary=agreed.strip(),
                 consensus_progress="agreed",
                 source="shared.md",
+                status="ready",
+            )
+
+        if session and session.state.value == "deliberating":
+            active_round = round_num or 1
+            return SynthesisSnapshot(
+                summary=f"Collecting provider responses for round {active_round}.",
+                consensus_progress=f"round {active_round} collecting",
+                source="runtime",
+                status="waiting",
             )
 
         return SynthesisSnapshot()
+
+    def _round_num(
+        self,
+        session: WorkflowSession | None,
+        recent_events: list[TUIEvent],
+    ) -> int:
+        current = session.current_round if session else 0
+        for event in recent_events:
+            value = event.data.get("round_num")
+            try:
+                current = max(current, int(value))
+            except (TypeError, ValueError):
+                continue
+        if current == 0 and session and session.state.value == "deliberating":
+            current = 1
+        return current
+
+    def _synthesis_from_events(
+        self,
+        recent_events: list[TUIEvent],
+    ) -> SynthesisSnapshot | None:
+        synthesis: SynthesisSnapshot | None = None
+        for event in recent_events:
+            data = event.data
+            if event.type == TUIEventType.ROUND_START:
+                round_num = self._event_round(data)
+                synthesis = SynthesisSnapshot(
+                    summary=f"Collecting provider responses for round {round_num}.",
+                    consensus_progress=f"round {round_num} collecting",
+                    source="runtime",
+                    status="waiting",
+                )
+            elif event.type == TUIEventType.CONSENSUS_CHECKING:
+                round_num = self._event_round(data)
+                synthesis = SynthesisSnapshot(
+                    summary=(
+                        f"Central agent is synthesizing round {round_num} "
+                        "provider responses."
+                    ),
+                    consensus_progress=f"round {round_num} synthesizing",
+                    source="runtime",
+                    status="running",
+                )
+            elif event.type == TUIEventType.CONSENSUS_RESULT:
+                round_num = self._event_round(data)
+                summary = str(data.get("summary", "")).strip()
+                reached = bool(data.get("reached", False))
+                agreement = self._event_int(data.get("agreement_count"))
+                total = self._event_int(data.get("total_agents"))
+                vote_text = f"{agreement}/{total}" if total else "0/0"
+                state_text = "reached" if reached else "not reached"
+                if not summary:
+                    summary = (
+                        f"Round {round_num} consensus {state_text} "
+                        f"({vote_text})."
+                    )
+                fallback_reason = str(data.get("fallback_reason", "")).strip()
+                if fallback_reason:
+                    summary = f"{summary}\n\nSynthesis fallback: {fallback_reason}"
+                source = str(data.get("synthesis_source", "runtime")) or "runtime"
+                progress = f"round {round_num} consensus {state_text} ({vote_text})"
+                if bool(data.get("fallback_used", False)):
+                    progress = f"{progress}; fallback used"
+                synthesis = SynthesisSnapshot(
+                    summary=summary,
+                    consensus_progress=progress,
+                    source=source,
+                    status="ready",
+                )
+        return synthesis
+
+    @staticmethod
+    def _event_round(data: dict[str, object]) -> int:
+        return NexusSnapshotAdapter._event_int(data.get("round_num")) or 1
+
+    @staticmethod
+    def _event_int(value: object) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
 
     def _execution_log(self, session: WorkflowSession | None) -> list[str]:
         if session is None:

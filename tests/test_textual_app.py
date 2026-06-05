@@ -11,7 +11,12 @@ from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.settings import UISettingsStore
-from trinity.textual_app.snapshot import ProviderSnapshot, QuestionSnapshot, WorkflowNexusSnapshot
+from trinity.textual_app.snapshot import (
+    ProviderSnapshot,
+    QuestionSnapshot,
+    SynthesisSnapshot,
+    WorkflowNexusSnapshot,
+)
 from trinity.textual_app.workflow_controller import TextualWorkflowOutcome
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.composer import COMMAND_LIMIT, PromptComposer
@@ -419,6 +424,46 @@ async def test_central_agent_question_options_use_two_column_grid(tmp_path) -> N
         assert grid.styles.layout.name == "grid"
         assert grid.styles.grid_size_columns == 2
 
+
+@pytest.mark.asyncio
+async def test_nexus_running_surfaces_show_activity(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                state="deliberating",
+                round_num=1,
+                providers=[
+                    ProviderSnapshot(
+                        name="claude",
+                        provider="claude-code",
+                        enabled=True,
+                        status="Running",
+                    )
+                ],
+                synthesis=SynthesisSnapshot(
+                    summary="Central agent is synthesizing round 1 provider responses.",
+                    consensus_progress="round 1 synthesizing",
+                    source="runtime",
+                    status="running",
+                ),
+            )
+        )
+        screen.advance_activity_frame()
+        await pilot.pause()
+
+        panel = screen.query_one("#provider-claude", ProviderPanel)
+        central = screen.query_one(CentralAgentView)
+        assert panel.has_class("provider-running")
+        assert "Running" in str(panel.query_one(".provider-status").content)
+        assert central.has_class("central-running")
+        assert "Central Agent" in str(central.query_one("#central-title").content)
+        assert "round 1 synthesizing" in central._markdown()
 
 @pytest.mark.asyncio
 async def test_workflow_inspector_renders_snapshot_counts(tmp_path) -> None:

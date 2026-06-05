@@ -164,6 +164,10 @@ class TrinityTextualApp(App[None]):
         border: round $accent;
     }
 
+    .provider-running {
+        border: round $warning;
+    }
+
     .provider-disabled {
         color: $text-muted;
     }
@@ -190,6 +194,10 @@ class TrinityTextualApp(App[None]):
         border: heavy white;
         padding: 1 2;
         overflow-y: auto;
+    }
+
+    #central-agent.central-running {
+        border: heavy $warning;
     }
 
     #nexus-main {
@@ -602,12 +610,16 @@ class TrinityTextualApp(App[None]):
         outcome = self.workflow_controller.drain_updates()
         if outcome is not None:
             self._apply_workflow_outcome(outcome)
+        elif getattr(self.workflow_controller, "is_running", False):
+            self._advance_activity_frame()
 
     def _apply_workflow_outcome(self, outcome: TextualWorkflowOutcome) -> None:
         self.active_snapshot = outcome.snapshot
         if self._screens_installed:
             nexus = self.get_screen("nexus", NexusScreen)
             nexus.apply_snapshot(outcome.snapshot)
+            if outcome.running:
+                nexus.advance_activity_frame()
         if self.current_route == "execution" and self.confirmed_preflight is not None:
             execution = self.get_screen("execution", ExecutionMatrixScreen)
             execution.apply_execution_state(self.confirmed_preflight, outcome.snapshot)
@@ -615,6 +627,11 @@ class TrinityTextualApp(App[None]):
             self.notify(outcome.message)
         if outcome.running:
             self._ensure_workflow_polling()
+
+    def _advance_activity_frame(self) -> None:
+        if self.current_route == "nexus" and self._screens_installed:
+            nexus = self.get_screen("nexus", NexusScreen)
+            nexus.advance_activity_frame()
 
     def switch_to(self, route: WorkbenchRoute) -> None:
         if route == "nexus" and self._screens_installed:

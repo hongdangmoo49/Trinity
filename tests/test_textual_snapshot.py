@@ -110,3 +110,154 @@ def test_snapshot_folds_recent_provider_events(tmp_path) -> None:
     assert claude.status == "Ready"
     assert claude.summary == "Use a compact dashboard."
     assert claude.raw_output == "Use a compact dashboard."
+
+
+def test_snapshot_projects_active_round_and_synthesis_from_events(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-runtime",
+            goal="Build game",
+            state=WorkflowState.DELIBERATING,
+            active_agents=["claude"],
+            current_round=0,
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot(
+        [
+            TUIEvent(type=TUIEventType.ROUND_START, data={"round_num": 1}),
+            TUIEvent(
+                type=TUIEventType.AGENT_RESPONDED,
+                data={
+                    "agent": "claude",
+                    "content": "Build a compact game.",
+                    "round_num": 1,
+                },
+            ),
+            TUIEvent(
+                type=TUIEventType.CONSENSUS_CHECKING,
+                data={"round_num": 1},
+            ),
+        ]
+    )
+
+    assert snapshot.round_num == 1
+    assert snapshot.synthesis.status == "running"
+    assert snapshot.synthesis.consensus_progress == "round 1 synthesizing"
+    assert "Central agent is synthesizing round 1" in snapshot.synthesis.summary
+    assert snapshot.providers[0].status == "Ready"
+
+
+def test_snapshot_projects_consensus_result_from_events(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-runtime",
+            goal="Build game",
+            state=WorkflowState.DELIBERATING,
+            active_agents=["claude"],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot(
+        [
+            TUIEvent(
+                type=TUIEventType.CONSENSUS_RESULT,
+                data={
+                    "round_num": 1,
+                    "reached": False,
+                    "agreement_count": 1,
+                    "total_agents": 3,
+                    "summary": "Need another round to resolve scope.",
+                },
+            )
+        ]
+    )
+
+    assert snapshot.round_num == 1
+    assert snapshot.synthesis.status == "ready"
+    assert snapshot.synthesis.summary == "Need another round to resolve scope."
+    assert snapshot.synthesis.consensus_progress == (
+        "round 1 consensus not reached (1/3)"
+    )
+
+
+def test_snapshot_projects_synthesis_fallback_reason_from_events(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-runtime",
+            goal="Build game",
+            state=WorkflowState.DELIBERATING,
+            active_agents=["claude"],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot(
+        [
+            TUIEvent(
+                type=TUIEventType.CONSENSUS_RESULT,
+                data={
+                    "round_num": 1,
+                    "reached": False,
+                    "agreement_count": 0,
+                    "total_agents": 3,
+                    "summary": "No consensus yet.",
+                    "synthesis_source": "heuristic",
+                    "fallback_used": True,
+                    "fallback_reason": "model synthesis provider returned timeout",
+                },
+            )
+        ]
+    )
+
+    assert snapshot.synthesis.source == "heuristic"
+    assert "fallback used" in snapshot.synthesis.consensus_progress
+    assert "model synthesis provider returned timeout" in snapshot.synthesis.summary
+
+
+def test_snapshot_projects_new_round_collection_after_previous_result(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-runtime",
+            goal="Build game",
+            state=WorkflowState.DELIBERATING,
+            active_agents=["claude"],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot(
+        [
+            TUIEvent(
+                type=TUIEventType.CONSENSUS_RESULT,
+                data={
+                    "round_num": 1,
+                    "reached": False,
+                    "agreement_count": 1,
+                    "total_agents": 3,
+                    "summary": "Need another round to resolve scope.",
+                },
+            ),
+            TUIEvent(
+                type=TUIEventType.ROUND_START,
+                data={
+                    "round_num": 2,
+                },
+            ),
+        ]
+    )
+
+    assert snapshot.round_num == 2
+    assert snapshot.synthesis.status == "waiting"
+    assert snapshot.synthesis.consensus_progress == "round 2 collecting"
+    assert snapshot.synthesis.summary == (
+        "Collecting provider responses for round 2."
+    )

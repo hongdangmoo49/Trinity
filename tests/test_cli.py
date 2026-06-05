@@ -50,6 +50,56 @@ class TestVersion:
         assert __import__("trinity").__version__ in result.output
 
 
+class TestInteractiveEntrypoint:
+    def test_default_launches_textual_workbench(self, runner, trinity_project):
+        config_path = trinity_project / ".trinity" / "trinity.config"
+        with patch("trinity.cli.find_config_path", return_value=config_path):
+            with patch("trinity.textual_app.app.run_textual_app") as run_textual:
+                result = runner.invoke(main, [])
+
+        assert result.exit_code == 0
+        run_textual.assert_called_once()
+
+    def test_plain_flag_launches_legacy_tui(self, runner, trinity_project):
+        config_path = trinity_project / ".trinity" / "trinity.config"
+        with patch("trinity.cli.find_config_path", return_value=config_path):
+            with patch("trinity.tui.session.InteractiveSession") as session_cls:
+                result = runner.invoke(main, ["--plain"])
+
+        assert result.exit_code == 0
+        session_cls.assert_called_once()
+        session_cls.return_value.run.assert_called_once()
+
+    def test_plain_environment_launches_legacy_tui(self, runner, trinity_project):
+        config_path = trinity_project / ".trinity" / "trinity.config"
+        with patch("trinity.cli.find_config_path", return_value=config_path):
+            with patch("trinity.tui.session.InteractiveSession") as session_cls:
+                result = runner.invoke(main, [], env={"TRINITY_TUI": "plain"})
+
+        assert result.exit_code == 0
+        session_cls.assert_called_once()
+        session_cls.return_value.run.assert_called_once()
+
+    def test_textual_unavailable_falls_back_to_legacy_tui(self, runner, trinity_project):
+        from trinity.textual_app.runtime import TuiRuntimeMode
+
+        config_path = trinity_project / ".trinity" / "trinity.config"
+        runtime = TuiRuntimeMode(
+            requested="auto",
+            selected="plain",
+            textual_available=False,
+            reason="textual-unavailable",
+        )
+        with patch("trinity.cli.find_config_path", return_value=config_path):
+            with patch("trinity.cli.resolve_tui_runtime", return_value=runtime):
+                with patch("trinity.tui.session.InteractiveSession") as session_cls:
+                    result = runner.invoke(main, [])
+
+        assert result.exit_code == 0
+        session_cls.assert_called_once()
+        session_cls.return_value.run.assert_called_once()
+
+
 class TestOutputEncoding:
     def test_configure_stdio_encoding_errors_uses_replacement(self):
         class FakeStream:

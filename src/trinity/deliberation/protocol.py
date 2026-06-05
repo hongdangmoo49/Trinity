@@ -165,6 +165,8 @@ class DeliberationProtocol:
         synthesis_result: SynthesisResult | None = None
         round_num = 0
 
+        self._emit(TUIEventType.DELIBERATION_STARTED, prompt=user_prompt)
+
         for round_num in range(1, self.max_rounds + 1):
             logger.info(f"=== Round {round_num}/{self.max_rounds} ===")
 
@@ -179,6 +181,7 @@ class DeliberationProtocol:
             await self._before_round_lifecycle(round_prompt)
 
             # Collect opinions from all agents (with per-agent streaming)
+            self._emit(TUIEventType.DELIBERATION_PHASE, phase="opinions", round_num=round_num)
             opinions = await self._collect_opinions(round_num, round_prompt)
             await self._after_round_lifecycle()
 
@@ -204,6 +207,7 @@ class DeliberationProtocol:
                 self._append_response_reference(name, round_num, msg)
 
             # Check consensus
+            self._emit(TUIEventType.DELIBERATION_PHASE, phase="consensus", round_num=round_num)
             self._emit(TUIEventType.CONSENSUS_CHECKING, round_num=round_num)
 
             opinion_texts = {
@@ -211,6 +215,7 @@ class DeliberationProtocol:
                 for name, msg in opinions.items()
                 if not self._is_unusable_agent_response(msg)
             }
+            self._emit(TUIEventType.DELIBERATION_PHASE, phase="synthesis", round_num=round_num)
             synthesis_result = await self.synthesis_agent.synthesize(
                 SynthesisInput(
                     user_prompt=user_prompt,
@@ -432,6 +437,14 @@ class DeliberationProtocol:
                             error=str(exc),
                             round_num=round_num,
                         )
+                        completed = len(opinions)
+                        total = len(task_to_name)
+                        self._emit(
+                            TUIEventType.DELIBERATION_PROGRESS,
+                            completed=completed,
+                            total=total,
+                            round_num=round_num,
+                        )
                         continue
 
                     if isinstance(result, DeliberationMessage):
@@ -445,6 +458,14 @@ class DeliberationProtocol:
                             content=result.content,
                             metadata=dict(result.metadata),
                             response_status=self._response_status(result),
+                            round_num=round_num,
+                        )
+                        completed = len(opinions)
+                        total = len(task_to_name)
+                        self._emit(
+                            TUIEventType.DELIBERATION_PROGRESS,
+                            completed=completed,
+                            total=total,
                             round_num=round_num,
                         )
                     else:

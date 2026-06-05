@@ -20,6 +20,9 @@ class QuestionAnswer:
     answer: str
 
 
+ACTIVITY_FRAMES = ("|", "/", "-", "\\")
+
+
 class CentralAgentView(VerticalScroll):
     """Render synthesis summary, workflow status, and interactive questions."""
 
@@ -34,6 +37,7 @@ class CentralAgentView(VerticalScroll):
         super().__init__(id=id)
         self.snapshot: WorkflowNexusSnapshot | None = None
         self._button_answers: dict[str, QuestionAnswer] = {}
+        self._activity_frame = 0
 
     def compose(self) -> ComposeResult:
         yield Static("Central Agent", id="central-title")
@@ -46,6 +50,8 @@ class CentralAgentView(VerticalScroll):
         self.snapshot = snapshot
         if not self.is_mounted:
             return
+        self.set_class(self._is_running(), "central-running")
+        self._refresh_title()
         self.query_one("#central-markdown", Markdown).update(self._markdown())
         self.query_one("#central-question-title", Static).update(
             self._question_title(snapshot.questions)
@@ -60,6 +66,10 @@ class CentralAgentView(VerticalScroll):
         event.stop()
         self.post_message(self.QuestionAnswered(answer))
 
+    def set_activity_frame(self, frame: int) -> None:
+        self._activity_frame = frame % len(ACTIVITY_FRAMES)
+        self._refresh_title()
+
     def _markdown(self) -> str:
         snapshot = self.snapshot
         if snapshot is None:
@@ -73,6 +83,8 @@ class CentralAgentView(VerticalScroll):
             f"**State:** `{snapshot.state}`",
             f"**Round:** `{snapshot.round_num}`",
         ]
+        if snapshot.synthesis.consensus_progress:
+            lines.append(f"**Synthesis:** `{snapshot.synthesis.consensus_progress}`")
         if snapshot.goal:
             lines.extend(["", "### Goal", snapshot.goal])
         if snapshot.synthesis.summary:
@@ -119,3 +131,18 @@ class CentralAgentView(VerticalScroll):
         if not questions:
             return ""
         return "Questions for you"
+
+    def _refresh_title(self) -> None:
+        if not self.is_mounted:
+            return
+        title = "Central Agent"
+        if self._is_running():
+            title = f"{title} {ACTIVITY_FRAMES[self._activity_frame]}"
+        self.query_one("#central-title", Static).update(title)
+
+    def _is_running(self) -> bool:
+        snapshot = self.snapshot
+        return bool(
+            snapshot
+            and snapshot.synthesis.status == "running"
+        )

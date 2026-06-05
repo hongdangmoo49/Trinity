@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
+from uuid import uuid4
 
 from trinity.config import TrinityConfig
 from trinity.context.shared import SharedContextEngine
@@ -68,6 +69,15 @@ class NexusSnapshotAdapter:
         self.config = config
         self.persistence = WorkflowPersistence(config.effective_state_dir)
         self.shared = SharedContextEngine(config.shared_context_path)
+
+    def new_session_snapshot(self, goal: str) -> WorkflowNexusSnapshot:
+        """Create a fresh in-memory snapshot for a newly submitted UI prompt."""
+        return WorkflowNexusSnapshot(
+            session_id=f"wf-{uuid4().hex[:12]}",
+            goal=goal.strip(),
+            state="preflight",
+            providers=list(self._provider_states(None).values()),
+        )
 
     def load_snapshot(
         self,
@@ -204,8 +214,16 @@ class NexusSnapshotAdapter:
         return SynthesisSnapshot()
 
     def _execution_log(self, session: WorkflowSession | None) -> list[str]:
+        if session is None:
+            return []
+
         lines: list[str] = []
-        for event in self.persistence.load_events()[-20:]:
+        session_events = [
+            event
+            for event in self.persistence.load_events()
+            if str(event.get("workflow_id", "")) == session.id
+        ]
+        for event in session_events[-20:]:
             event_name = str(event.get("event", "event"))
             state = str(event.get("state", ""))
             if state:

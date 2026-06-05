@@ -18,6 +18,7 @@ from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
 from trinity.textual_app.widgets.workspace_picker import WorkspacePicker, build_preflight
+from trinity.workflow import WorkflowPersistence, WorkflowSession, WorkflowState
 
 
 @pytest.mark.asyncio
@@ -193,6 +194,42 @@ async def test_prompt_composer_scrolls_slash_command_window(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_start_submission_uses_fresh_snapshot(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-previous",
+            goal="old question",
+            state=WorkflowState.NEEDS_USER_DECISION,
+            active_agents=["claude"],
+            current_round=1,
+        )
+    )
+    response_dir = config.effective_state_dir / "responses" / "round-01"
+    response_dir.mkdir(parents=True)
+    (response_dir / "claude-round-1-claude-old.clean.txt").write_text(
+        "previous answer",
+        encoding="utf-8",
+    )
+
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+        composer.set_text("new question")
+        composer.action_submit()
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        assert screen.snapshot is not None
+        assert screen.snapshot.goal == "new question"
+        assert screen.snapshot.session_id != "wf-previous"
+        assert all(provider.raw_output == "" for provider in screen.snapshot.providers)
+
+
+@pytest.mark.asyncio
 async def test_start_screen_shell_is_centered(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
@@ -357,7 +394,7 @@ async def test_provider_inspector_all_tab_uses_soft_wrapped_output(tmp_path) -> 
                         provider="claude-code",
                         enabled=True,
                         status="Ready",
-                        raw_output="\n".join(f"line {index}" for index in range(200)),
+                        raw_output="\\n".join(f"line {index}" for index in range(200)),
                     )
                 ]
             )

@@ -17,7 +17,7 @@ from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.settings import UISettingsStore
-from trinity.textual_app.snapshot import NexusSnapshotAdapter
+from trinity.textual_app.snapshot import NexusSnapshotAdapter, WorkflowNexusSnapshot
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.workspace_picker import WorkspacePicker, WorkspacePreflight
 
@@ -457,6 +457,7 @@ class TrinityTextualApp(App[None]):
         self.initial_prompt: str | None = None
         self.workspace_candidate: Path | None = None
         self.snapshot_adapter = NexusSnapshotAdapter(config)
+        self.active_snapshot: WorkflowNexusSnapshot | None = None
         self.settings_store = UISettingsStore(config.effective_state_dir)
         self.confirmed_preflight: WorkspacePreflight | None = None
         self._screens_installed = False
@@ -485,9 +486,11 @@ class TrinityTextualApp(App[None]):
         event.stop()
         self.initial_prompt = event.prompt
         self.workspace_candidate = event.workspace_candidate
+        snapshot = self.snapshot_adapter.new_session_snapshot(event.prompt)
+        self.active_snapshot = snapshot
         nexus = self.get_screen("nexus", NexusScreen)
         nexus.set_initial_prompt(event.prompt)
-        nexus.apply_snapshot(self.snapshot_adapter.load_snapshot())
+        nexus.apply_snapshot(snapshot)
         self.switch_to("nexus")
 
     def on_nexus_screen_follow_up_submitted(
@@ -507,7 +510,11 @@ class TrinityTextualApp(App[None]):
         event: NexusScreen.InspectorRequested,
     ) -> None:
         event.stop()
-        snapshot = event.snapshot or self.snapshot_adapter.load_snapshot()
+        snapshot = (
+            event.snapshot
+            or self.active_snapshot
+            or self.snapshot_adapter.load_snapshot()
+        )
         self.push_screen(ProviderInspector(snapshot.providers))
 
     def on_nexus_screen_execute_requested(
@@ -515,7 +522,11 @@ class TrinityTextualApp(App[None]):
         event: NexusScreen.ExecuteRequested,
     ) -> None:
         event.stop()
-        snapshot = event.snapshot or self.snapshot_adapter.load_snapshot()
+        snapshot = (
+            event.snapshot
+            or self.active_snapshot
+            or self.snapshot_adapter.load_snapshot()
+        )
         self.push_screen(
             WorkspacePicker(
                 candidate=self.workspace_candidate,
@@ -529,7 +540,7 @@ class TrinityTextualApp(App[None]):
         if preflight is None:
             return
         self.confirmed_preflight = preflight
-        snapshot = self.snapshot_adapter.load_snapshot()
+        snapshot = self.active_snapshot or self.snapshot_adapter.load_snapshot()
         execution = self.get_screen("execution", ExecutionMatrixScreen)
         execution.apply_execution_state(preflight, snapshot)
         self.switch_to("execution")
@@ -537,11 +548,15 @@ class TrinityTextualApp(App[None]):
     def switch_to(self, route: WorkbenchRoute) -> None:
         if route == "nexus" and self._screens_installed:
             nexus = self.get_screen("nexus", NexusScreen)
-            nexus.apply_snapshot(self.snapshot_adapter.load_snapshot())
+            nexus.apply_snapshot(
+                self.active_snapshot or self.snapshot_adapter.load_snapshot()
+            )
         self.current_route = route
         self.switch_screen(route)
 
     def action_go_start(self) -> None:
+        self.active_snapshot = None
+        self.initial_prompt = None
         self.switch_to("start")
 
     def action_go_nexus(self) -> None:

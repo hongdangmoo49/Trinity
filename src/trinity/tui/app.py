@@ -723,6 +723,8 @@ class TrinityTUI:
             "  [cyan]/questions [--select --all][/cyan] — Show/answer workflow questions\n"
             "  [cyan]/answer <id|n|next> <text>[/cyan] — Answer a workflow question\n"
             "  [cyan]/decisions[/cyan]  — Show recorded workflow decisions\n"
+            "  [cyan]/report[/cyan]          — 협의 결과 개괄 보고서\n"
+            "  [cyan]/report save[/cyan]     — 보고서를 Markdown 파일로 저장\n"
             "  [cyan]/packages[/cyan]   — Show workflow work packages\n"
             "  [cyan]/subtasks[/cyan]   — Show delegated subtask reports\n"
             "  [cyan]/resume [n|latest|id][/cyan] — Resume a saved workflow session\n"

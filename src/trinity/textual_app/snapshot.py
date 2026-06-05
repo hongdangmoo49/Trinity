@@ -328,12 +328,7 @@ class NexusSnapshotAdapter:
             if str(event.get("workflow_id", "")) == session.id
         ]
         for event in session_events[-20:]:
-            event_name = str(event.get("event", "event"))
-            state = str(event.get("state", ""))
-            if state:
-                lines.append(f"{event_name}: {state}")
-            else:
-                lines.append(event_name)
+            lines.append(self._format_execution_event(event))
 
         if session:
             for result in session.execution_results[-10:]:
@@ -341,6 +336,46 @@ class NexusSnapshotAdapter:
                     f"{result.package_id} {result.agent_name}: {result.status.value}"
                 )
         return lines
+
+    @staticmethod
+    def _format_execution_event(event: dict[str, object]) -> str:
+        event_name = str(event.get("event", "event"))
+        state = str(event.get("state", ""))
+        data = event.get("data", {})
+        data = data if isinstance(data, dict) else {}
+
+        if event_name == "work_package_started":
+            package_id = str(data.get("package_id", "")).strip()
+            agent = str(data.get("agent", "")).strip()
+            status = str(data.get("status", "")).strip()
+            details = " ".join(part for part in (package_id, agent, status) if part)
+            return f"{event_name}: {details}" if details else event_name
+
+        if event_name == "work_package_completed":
+            package_id = str(data.get("package_id", "")).strip()
+            agent = str(data.get("agent", "")).strip()
+            status = str(data.get("status", "")).strip()
+            summary = str(data.get("summary", "")).strip()
+            details = " ".join(part for part in (package_id, agent, status) if part)
+            if summary:
+                details = f"{details} - {summary}" if details else summary
+            return f"{event_name}: {details}" if details else event_name
+
+        if event_name in {"execution_enabled", "implementation_requested"}:
+            packages = data.get("work_packages", [])
+            package_count = len(packages) if isinstance(packages, list) else 0
+            target = str(data.get("target_workspace", "")).strip()
+            if target:
+                return f"{event_name}: {package_count} packages -> {target}"
+            return f"{event_name}: {package_count} packages"
+
+        if event_name == "target_workspace_selected":
+            target = str(data.get("target_workspace", "")).strip()
+            return f"{event_name}: {target}" if target else event_name
+
+        if state:
+            return f"{event_name}: {state}"
+        return event_name
 
     def _latest_response_artifacts(
         self,

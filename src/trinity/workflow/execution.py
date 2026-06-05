@@ -300,7 +300,7 @@ class ExecutionProtocol:
                 agent,
                 decisions,
             )
-            if result.status != WorkStatus.FAILED:
+            if result.status not in {WorkStatus.FAILED, WorkStatus.BLOCKED}:
                 return result
             failed_attempts.append(result)
 
@@ -528,7 +528,12 @@ class ExecutionProtocol:
         if len(attempts) == 1:
             return attempts[0]
 
-        summary = "All execution attempts failed: " + "; ".join(
+        aggregate_status = (
+            WorkStatus.FAILED
+            if any(attempt.status == WorkStatus.FAILED for attempt in attempts)
+            else WorkStatus.BLOCKED
+        )
+        summary = "All execution attempts failed or blocked: " + "; ".join(
             f"{attempt.agent_name}: {attempt.summary or attempt.status.value}"
             for attempt in attempts
         )
@@ -539,7 +544,7 @@ class ExecutionProtocol:
         return ExecutionResult(
             package_id=package.id,
             agent_name=last.agent_name,
-            status=WorkStatus.FAILED,
+            status=aggregate_status,
             summary=summary,
             blockers=[item for item in blockers if item],
             raw_response_path=last.raw_response_path,
@@ -900,7 +905,19 @@ class ExecutionProtocol:
 
 def _is_substantive_line(line: str) -> bool:
     normalized = re.sub(r"^\s*[-*]\s*", "", line).strip().lower()
-    return bool(normalized) and normalized not in {"none", "n/a", "na", "(none)"}
+    normalized = normalized.rstrip(".")
+    return bool(normalized) and normalized not in {
+        "none",
+        "n/a",
+        "na",
+        "(none)",
+        "no blocker",
+        "no blockers",
+        "no blocking issue",
+        "no blocking issues",
+        "no unresolved issue",
+        "no unresolved issues",
+    }
 
 
 def _normalize_field_name(value: str) -> str:

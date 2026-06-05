@@ -15,20 +15,22 @@ from trinity.models import Provider, provider_default_budget
 
 logger = logging.getLogger(__name__)
 
+LEGACY_GEMINI_CLI = "gemini-cli"
+
 # Provider → CLI binary names to probe (in order of preference)
-PROVIDER_BINARIES: dict[Provider, list[str]] = {
+PROVIDER_BINARIES: dict[Provider | str, list[str]] = {
     Provider.CLAUDE_CODE: ["claude"],
     Provider.CODEX: ["codex"],
     Provider.ANTIGRAVITY_CLI: ["agy", "antigravity"],
-    Provider.GEMINI_CLI: ["gemini"],
+    LEGACY_GEMINI_CLI: ["gemini"],
 }
 
 # Human-readable names for display
-PROVIDER_DISPLAY_NAMES: dict[Provider, str] = {
+PROVIDER_DISPLAY_NAMES: dict[Provider | str, str] = {
     Provider.CLAUDE_CODE: "Claude Code",
     Provider.CODEX: "Codex CLI",
     Provider.ANTIGRAVITY_CLI: "Antigravity CLI",
-    Provider.GEMINI_CLI: "Gemini CLI",
+    LEGACY_GEMINI_CLI: "Gemini CLI",
 }
 
 # Provider → default context budget (tokens)
@@ -54,11 +56,6 @@ PROVIDER_DEFAULT_ROLES: dict[Provider, str] = {
         "potential issues, and ensure quality. Think critically "
         "about trade-offs and propose tests."
     ),
-    Provider.GEMINI_CLI: (
-        "You are the Reviewer. You explore alternatives, identify "
-        "potential issues, and ensure quality. Think critically "
-        "about trade-offs and propose tests."
-    ),
 }
 
 # Provider → default extra CLI args
@@ -66,15 +63,14 @@ PROVIDER_DEFAULT_ARGS: dict[Provider, list[str]] = {
     Provider.CLAUDE_CODE: ["--dangerously-skip-permissions"],
     Provider.CODEX: [],
     Provider.ANTIGRAVITY_CLI: [],
-    Provider.GEMINI_CLI: [],
 }
 
 # Provider → installation instructions URL
-PROVIDER_INSTALL_URLS: dict[Provider, str] = {
+PROVIDER_INSTALL_URLS: dict[Provider | str, str] = {
     Provider.CLAUDE_CODE: "https://docs.anthropic.com/en/docs/claude-code",
     Provider.CODEX: "https://github.com/openai/codex",
     Provider.ANTIGRAVITY_CLI: "https://antigravity.google/docs/cli-getting-started",
-    Provider.GEMINI_CLI: "https://antigravity.google/docs/gcli-migration",
+    LEGACY_GEMINI_CLI: "https://antigravity.google/docs/gcli-migration",
 }
 
 # Provider → default agent name (used to look up role prompts in i18n)
@@ -82,13 +78,12 @@ PROVIDER_AGENT_NAMES: dict[Provider, str] = {
     Provider.CLAUDE_CODE: "claude",
     Provider.CODEX: "codex",
     Provider.ANTIGRAVITY_CLI: "antigravity",
-    Provider.GEMINI_CLI: "gemini",
 }
 
-LEGACY_PROVIDERS: set[Provider] = {Provider.GEMINI_CLI}
+LEGACY_PROVIDERS: set[str] = {LEGACY_GEMINI_CLI}
 
-PROVIDER_WARNINGS: dict[Provider, str] = {
-    Provider.GEMINI_CLI: (
+PROVIDER_WARNINGS: dict[Provider | str, str] = {
+    LEGACY_GEMINI_CLI: (
         "Deprecated: migrate Gemini CLI plugins/settings with `agy plugin import gemini`."
     ),
 }
@@ -114,7 +109,7 @@ def get_provider_role(provider: Provider, lang: str = "en") -> str:
 class CLIDetectionResult:
     """Result of detecting a single CLI tool."""
 
-    provider: Provider
+    provider: Provider | str
     installed: bool
     version: str = ""
     path: str = ""
@@ -123,7 +118,7 @@ class CLIDetectionResult:
 
     @property
     def display_name(self) -> str:
-        return PROVIDER_DISPLAY_NAMES.get(self.provider, self.provider.value)
+        return PROVIDER_DISPLAY_NAMES.get(self.provider, str(self.provider))
 
     @property
     def install_url(self) -> str:
@@ -148,12 +143,12 @@ class CLIDetector:
             List of detection results, one per known provider.
         """
         results = []
-        for provider in Provider:
+        for provider in (*Provider, LEGACY_GEMINI_CLI):
             result = self.detect(provider)
             results.append(result)
         return results
 
-    def detect(self, provider: Provider) -> CLIDetectionResult:
+    def detect(self, provider: Provider | str) -> CLIDetectionResult:
         """Detect a single CLI tool.
 
         Args:
@@ -167,7 +162,7 @@ class CLIDetector:
             return CLIDetectionResult(
                 provider=provider,
                 installed=False,
-                error=f"No binary names configured for {provider.value}",
+                error=f"No binary names configured for {provider}",
                 warning=PROVIDER_WARNINGS.get(provider, ""),
             )
 
@@ -183,7 +178,7 @@ class CLIDetector:
             warning=PROVIDER_WARNINGS.get(provider, ""),
         )
 
-    def _try_detect(self, binary: str, provider: Provider) -> CLIDetectionResult:
+    def _try_detect(self, binary: str, provider: Provider | str) -> CLIDetectionResult:
         """Try to detect a single binary.
 
         Args:
@@ -253,5 +248,5 @@ class CLIDetector:
         return {
             r.provider: r
             for r in self.detect_all()
-            if r.installed
+            if r.installed and isinstance(r.provider, Provider)
         }

@@ -6,7 +6,7 @@ import pytest
 from rich.console import Console
 
 from trinity.models import AgentSpec, Provider
-from trinity.setup.detector import CLIDetectionResult
+from trinity.setup.detector import CLIDetectionResult, LEGACY_GEMINI_CLI
 from trinity.setup.wizard import SetupWizard, PROVIDER_AGENT_NAMES
 
 
@@ -37,7 +37,7 @@ class TestSetupWizard:
                 error="agy not found",
             ),
             CLIDetectionResult(
-                provider=Provider.GEMINI_CLI,
+                provider=LEGACY_GEMINI_CLI,
                 installed=False,
                 error="gemini not found",
             ),
@@ -69,7 +69,7 @@ class TestSetupWizard:
                 warning="Experimental in Trinity.",
             ),
             CLIDetectionResult(
-                provider=Provider.GEMINI_CLI,
+                provider=LEGACY_GEMINI_CLI,
                 installed=True,
                 version="gemini 0.5.0",
                 path="/usr/bin/gemini",
@@ -96,7 +96,7 @@ class TestSetupWizard:
             CLIDetectionResult(provider=Provider.CLAUDE_CODE, installed=False, error="not found"),
             CLIDetectionResult(provider=Provider.CODEX, installed=False, error="not found"),
             CLIDetectionResult(provider=Provider.ANTIGRAVITY_CLI, installed=False, error="not found"),
-            CLIDetectionResult(provider=Provider.GEMINI_CLI, installed=False, error="not found"),
+            CLIDetectionResult(provider=LEGACY_GEMINI_CLI, installed=False, error="not found"),
         ]
 
         wizard = SetupWizard(console=console, detector=detector)
@@ -127,7 +127,7 @@ class TestSetupWizard:
         assert "claude" in wizard.selected_agents
         assert "codex" in wizard.selected_agents
         assert "antigravity" in wizard.selected_agents
-        assert "gemini" in wizard.selected_agents
+        assert "gemini" not in wizard.selected_agents
 
     def test_step_select_none_selected(self, console, mock_detector):
         """Test when user declines all agents."""
@@ -268,7 +268,6 @@ class TestSetupWizard:
         assert wizard.selected_agents["claude"].provider == Provider.CLAUDE_CODE
         assert wizard.selected_agents["codex"].provider == Provider.CODEX
         assert wizard.selected_agents["antigravity"].provider == Provider.ANTIGRAVITY_CLI
-        assert wizard.selected_agents["gemini"].provider == Provider.GEMINI_CLI
         assert wizard.selected_agents["claude"].model == "default"
 
 
@@ -281,4 +280,3 @@ class TestProviderAgentNames:
         assert PROVIDER_AGENT_NAMES[Provider.CLAUDE_CODE] == "claude"
         assert PROVIDER_AGENT_NAMES[Provider.CODEX] == "codex"
         assert PROVIDER_AGENT_NAMES[Provider.ANTIGRAVITY_CLI] == "antigravity"
-        assert PROVIDER_AGENT_NAMES[Provider.GEMINI_CLI] == "gemini"

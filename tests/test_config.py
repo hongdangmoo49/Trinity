@@ -94,6 +94,98 @@ role_prompt = "당신은 아키텍트입니다."
         config = TrinityConfig.load(config_path)
         assert config.lang == "ko"
 
+    def test_load_migrates_legacy_gemini_agent_to_antigravity(self, tmp_trinity_dir):
+        config_path = tmp_trinity_dir / "trinity.config"
+        config_path.write_text(
+            """
+[agents.gemini]
+provider = "gemini-cli"
+cli_command = "gemini"
+enabled = true
+workspace_mode = "inplace"
+context_budget = 1000000
+role_prompt = "You are the Reviewer. You explore alternatives, identify potential issues, and ensure quality. Think critically about trade-offs and propose tests."
+""",
+            encoding="utf-8",
+        )
+
+        config = TrinityConfig.load(config_path)
+
+        assert "gemini" not in config.agents
+        antigravity = config.agents["antigravity"]
+        assert antigravity.name == "antigravity"
+        assert antigravity.provider == Provider.ANTIGRAVITY_CLI
+        assert antigravity.cli_command == "agy"
+        assert antigravity.enabled is True
+        assert antigravity.context_budget == 1_000_000
+
+    def test_save_after_legacy_gemini_migration_is_canonical(self, tmp_trinity_dir, tmp_path):
+        config_path = tmp_trinity_dir / "trinity.config"
+        config_path.write_text(
+            """
+[agents.gemini]
+provider = "gemini-cli"
+cli_command = "gemini"
+enabled = true
+role_prompt = "custom reviewer prompt"
+""",
+            encoding="utf-8",
+        )
+
+        config = TrinityConfig.load(config_path)
+        save_path = tmp_path / "trinity.config"
+        config.save(save_path)
+        saved = save_path.read_text(encoding="utf-8")
+
+        assert "[agents.antigravity]" in saved
+        assert "gemini-cli" not in saved
+        assert 'cli_command = "agy"' in saved
+        assert "custom reviewer prompt" in saved
+
+    def test_load_prefers_existing_antigravity_over_legacy_gemini(self, tmp_trinity_dir):
+        config_path = tmp_trinity_dir / "trinity.config"
+        config_path.write_text(
+            """
+[agents.antigravity]
+provider = "antigravity-cli"
+cli_command = "agy"
+enabled = true
+role_prompt = "antigravity reviewer"
+
+[agents.gemini]
+provider = "gemini-cli"
+cli_command = "gemini"
+enabled = true
+role_prompt = "old gemini reviewer"
+""",
+            encoding="utf-8",
+        )
+
+        config = TrinityConfig.load(config_path)
+
+        assert list(config.agents) == ["antigravity"]
+        assert config.agents["antigravity"].role_prompt == "antigravity reviewer"
+
+    def test_load_migrates_custom_gemini_cli_provider_key(self, tmp_trinity_dir):
+        config_path = tmp_trinity_dir / "trinity.config"
+        config_path.write_text(
+            """
+[agents.reviewer]
+provider = "gemini-cli"
+cli_command = "gemini"
+enabled = true
+role_prompt = "custom reviewer"
+""",
+            encoding="utf-8",
+        )
+
+        config = TrinityConfig.load(config_path)
+
+        reviewer = config.agents["reviewer"]
+        assert reviewer.provider == Provider.ANTIGRAVITY_CLI
+        assert reviewer.cli_command == "agy"
+        assert reviewer.role_prompt == "custom reviewer"
+
     def test_korean_role_prompt_overrides_legacy_explicit_english_lang(self, tmp_trinity_dir):
         config_path = tmp_trinity_dir / "trinity.config"
         config_path.write_text(

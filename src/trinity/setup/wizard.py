@@ -43,7 +43,6 @@ PROVIDER_AGENT_NAMES: dict[Provider, str] = {
     Provider.CLAUDE_CODE: "claude",
     Provider.CODEX: "codex",
     Provider.ANTIGRAVITY_CLI: "antigravity",
-    Provider.GEMINI_CLI: "gemini",
 }
 
 
@@ -165,7 +164,10 @@ class SetupWizard:
                 self.console.print(f"[dim]   {d.display_name}: {d.install_url}[/dim]")
             self.console.print()
 
-        installed = [d for d in self.detections if d.installed]
+        installed = [
+            d for d in self.detections
+            if d.installed and isinstance(d.provider, Provider)
+        ]
         if not installed:
             self.console.print(f"[red]{S.no_tools}[/red]")
             return False
@@ -175,7 +177,12 @@ class SetupWizard:
     def _step_select(self) -> bool:
         """Step 2: Select which agents to enable."""
         S = get_strings(self.lang)
-        installed = [d for d in self.detections if d.installed]
+        installed = [
+            d for d in self.detections
+            if d.installed
+            and isinstance(d.provider, Provider)
+            and d.provider.value not in LEGACY_PROVIDERS
+        ]
 
         self.console.print(f"[bold]{S.step2_title}[/bold]")
         self.console.print()
@@ -183,6 +190,7 @@ class SetupWizard:
         roles = localized_roles_with_caveman(self.lang)
 
         for d in installed:
+            assert isinstance(d.provider, Provider)
             agent_name = PROVIDER_AGENT_NAMES.get(d.provider, d.provider.value)
             display = PROVIDER_DISPLAY_NAMES.get(d.provider, d.provider.value)
             default = d.provider == Provider.CLAUDE_CODE
@@ -355,14 +363,14 @@ class SetupWizard:
             Dict of agent_name → AgentSpec for missing providers (all disabled).
         """
         installed_providers = {
-            d.provider for d in self.detections if d.installed
+            d.provider
+            for d in self.detections
+            if d.installed and isinstance(d.provider, Provider)
         }
         missing_specs: dict[str, AgentSpec] = {}
         roles = localized_roles_with_caveman(self.lang)
 
         for provider in Provider:
-            if provider in LEGACY_PROVIDERS:
-                continue
             if provider not in installed_providers:
                 name = PROVIDER_AGENT_NAMES.get(provider, provider.value)
                 budget = PROVIDER_DEFAULT_BUDGETS.get(provider, 200_000)

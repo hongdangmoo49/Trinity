@@ -7,6 +7,7 @@ import pytest
 
 from trinity.models import Provider
 from trinity.setup.detector import (
+    LEGACY_GEMINI_CLI,
     PROVIDER_DEFAULT_ARGS,
     PROVIDER_DEFAULT_BUDGETS,
     PROVIDER_DEFAULT_ROLES,
@@ -27,7 +28,7 @@ class TestCLIDetectionResult:
         assert result.display_name == "Codex CLI"
 
     def test_display_name_gemini(self):
-        result = CLIDetectionResult(provider=Provider.GEMINI_CLI, installed=True)
+        result = CLIDetectionResult(provider=LEGACY_GEMINI_CLI, installed=True)
         assert result.display_name == "Gemini CLI"
 
     def test_display_name_antigravity(self):
@@ -43,7 +44,7 @@ class TestCLIDetectionResult:
         assert result.install_url != ""
 
     def test_install_url_gemini(self):
-        result = CLIDetectionResult(provider=Provider.GEMINI_CLI, installed=False)
+        result = CLIDetectionResult(provider=LEGACY_GEMINI_CLI, installed=False)
         assert result.install_url != ""
 
     def test_install_url_antigravity(self):
@@ -63,12 +64,12 @@ class TestCLIDetector:
         with patch("trinity.setup.detector.shutil.which", return_value=None):
             results = detector.detect_all()
 
-        assert len(results) == len(Provider)
+        assert len(results) == len(Provider) + 1
         providers = {r.provider for r in results}
         assert Provider.CLAUDE_CODE in providers
         assert Provider.CODEX in providers
         assert Provider.ANTIGRAVITY_CLI in providers
-        assert Provider.GEMINI_CLI in providers
+        assert LEGACY_GEMINI_CLI in providers
 
     def test_detect_installed_binary(self):
         detector = CLIDetector()
@@ -97,14 +98,14 @@ class TestCLIDetector:
         assert result.installed
         assert result.provider == Provider.CODEX
 
-    def test_detect_gemini(self):
+    def test_detect_legacy_gemini(self):
         detector = CLIDetector()
         with patch("trinity.setup.detector.shutil.which", return_value="/usr/bin/gemini"):
             with patch.object(detector, "_get_version", return_value="gemini 0.5.0"):
-                result = detector.detect(Provider.GEMINI_CLI)
+                result = detector.detect(LEGACY_GEMINI_CLI)
 
         assert result.installed
-        assert result.provider == Provider.GEMINI_CLI
+        assert result.provider == LEGACY_GEMINI_CLI
         assert "Deprecated" in result.warning
 
     def test_detect_antigravity_prefers_agy(self):
@@ -179,7 +180,7 @@ class TestCLIDetector:
 
         assert Provider.CLAUDE_CODE in installed
         assert Provider.CODEX not in installed
-        assert Provider.GEMINI_CLI not in installed
+        assert Provider.ANTIGRAVITY_CLI not in installed
 
     def test_custom_timeout(self):
         detector = CLIDetector(timeout=10.0)
@@ -211,7 +212,6 @@ class TestProviderConstants:
         assert PROVIDER_DEFAULT_BUDGETS[Provider.CLAUDE_CODE] == 200_000
         assert PROVIDER_DEFAULT_BUDGETS[Provider.CODEX] == 128_000
         assert PROVIDER_DEFAULT_BUDGETS[Provider.ANTIGRAVITY_CLI] == 1_000_000
-        assert PROVIDER_DEFAULT_BUDGETS[Provider.GEMINI_CLI] == 1_000_000
 
     def test_roles_non_empty(self):
         for provider in Provider:

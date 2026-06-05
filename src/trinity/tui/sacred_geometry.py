@@ -7,7 +7,7 @@ symbolising the three-agent deliberation architecture ("Three minds, one context
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -15,7 +15,6 @@ class _GlyphSet:
     """Character palette for a given render mode."""
 
     circle: str
-    diamond: str
     vline: str
     bslash: str
     fslash: str
@@ -29,7 +28,6 @@ class _GlyphSet:
 _GLYPH_MODES: dict[str, _GlyphSet] = {
     "modern": _GlyphSet(
         circle="○",
-        diamond="◆",
         vline="│",
         bslash="╲",
         fslash="╱",
@@ -41,7 +39,6 @@ _GLYPH_MODES: dict[str, _GlyphSet] = {
     ),
     "unicode": _GlyphSet(
         circle="○",
-        diamond="◆",
         vline="│",
         bslash="╲",
         fslash="╱",
@@ -53,7 +50,6 @@ _GLYPH_MODES: dict[str, _GlyphSet] = {
     ),
     "ascii": _GlyphSet(
         circle="o",
-        diamond="+",
         vline="|",
         bslash="\\",
         fslash="/",
@@ -86,6 +82,10 @@ class SacredGeometryAnimator:
     """
 
     def __init__(self, width: int = 40, height: int = 13, mode: str = "modern") -> None:
+        if width < 1 or height < 1:
+            raise ValueError(f"Dimensions must be >= 1, got width={width}, height={height}")
+        if mode not in _GLYPH_MODES:
+            raise ValueError(f"Unsupported render mode: {mode!r}. Valid modes: {sorted(_GLYPH_MODES)}")
         self._width = width
         self._height = height
         self._mode = mode
@@ -151,7 +151,12 @@ class SacredGeometryAnimator:
 
         Args:
             mode: One of ``"modern"``, ``"unicode"``, or ``"ascii"``.
+
+        Raises:
+            ValueError: If *mode* is not a recognised glyph mode.
         """
+        if mode not in _GLYPH_MODES:
+            raise ValueError(f"Unsupported render mode: {mode!r}. Valid modes: {sorted(_GLYPH_MODES)}")
         self._mode = mode
         self._glyphs = _GLYPH_MODES[mode]
 

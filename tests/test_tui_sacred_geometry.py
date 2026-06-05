@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from trinity.tui.sacred_geometry import SacredGeometryAnimator
 
 
@@ -18,6 +20,8 @@ def test_animator_frame_has_expected_dimensions() -> None:
     frame = anim.render(angle=0.0)
     lines = frame.splitlines()
     assert len(lines) == 13, f"expected 13 lines, got {len(lines)}"
+    for line in lines:
+        assert len(line) == 40, f"Line length mismatch: {len(line)} != 40"
 
 
 def test_animator_different_angles_produce_different_frames() -> None:
@@ -61,3 +65,22 @@ def test_animator_update_mode_changes_glyphs() -> None:
     anim.update_mode("ascii")
     frame_ascii = anim.render(angle=0.0)
     assert frame_modern != frame_ascii, "mode switch should change rendered glyphs"
+
+
+def test_animator_rejects_invalid_mode() -> None:
+    """Constructing with an unsupported mode should raise ValueError."""
+    with pytest.raises(ValueError, match="Unsupported render mode"):
+        SacredGeometryAnimator(mode="nonexistent")
+
+
+def test_animator_update_mode_rejects_invalid() -> None:
+    """Switching to an unsupported mode should raise ValueError."""
+    animator = SacredGeometryAnimator()
+    with pytest.raises(ValueError, match="Unsupported render mode"):
+        animator.update_mode("bad")
+
+
+def test_animator_rejects_zero_dimensions() -> None:
+    """Constructing with zero or negative dimensions should raise ValueError."""
+    with pytest.raises(ValueError, match="Dimensions must be >= 1"):
+        SacredGeometryAnimator(width=0, height=0)

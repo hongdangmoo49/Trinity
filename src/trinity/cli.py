@@ -41,6 +41,7 @@ from trinity.providers.bootstrap import (
     render_provider_command,
 )
 from trinity.setup.detector import CLIDetector
+from trinity.textual_app.runtime import resolve_tui_runtime
 
 
 def _configure_stdio_encoding_errors(*streams) -> None:
@@ -97,8 +98,9 @@ def load_config(silent: bool = False) -> TrinityConfig:
 @click.group(invoke_without_command=True)
 @click.version_option(version=__version__, prog_name="trinity")
 @click.option("--interactive/--no-interactive", default=None, help="Force interactive TUI mode")
+@click.option("--plain", is_flag=True, help="Use the legacy Rich/prompt_toolkit TUI")
 @click.pass_context
-def main(ctx: click.Context, interactive: bool | None):
+def main(ctx: click.Context, interactive: bool | None, plain: bool):
     """Trinity — Three minds, one context.
 
     Multi-agent AI orchestrator that unifies Claude Code, Codex, and Antigravity
@@ -111,13 +113,11 @@ def main(ctx: click.Context, interactive: bool | None):
 
     if ctx.invoked_subcommand is None:
         # No subcommand → enter interactive TUI mode
-        _run_interactive_tui()
+        _run_interactive_tui(plain=plain)
 
 
-def _run_interactive_tui() -> None:
-    """Launch the interactive TUI session."""
-    from trinity.tui.session import InteractiveSession
-
+def _run_interactive_tui(*, plain: bool = False) -> None:
+    """Launch the selected interactive TUI session."""
     config = load_config(silent=True)
 
     # If no .trinity/ directory exists, suggest running init first
@@ -129,6 +129,34 @@ def _run_interactive_tui() -> None:
             title="Trinity",
         ))
         sys.exit(1)
+
+    try:
+        runtime = resolve_tui_runtime("plain" if plain else None)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if runtime.use_textual:
+        try:
+            _run_textual_interactive_tui(config)
+            return
+        except ImportError:
+            console.print(
+                "[yellow]Textual is unavailable; falling back to plain TUI.[/yellow]"
+            )
+
+    _run_plain_interactive_tui(config)
+
+
+def _run_textual_interactive_tui(config: TrinityConfig) -> None:
+    """Launch the Textual workbench."""
+    from trinity.textual_app.app import run_textual_app
+
+    run_textual_app(config)
+
+
+def _run_plain_interactive_tui(config: TrinityConfig) -> None:
+    """Launch the legacy Rich/prompt_toolkit interactive session."""
+    from trinity.tui.session import InteractiveSession
 
     session = InteractiveSession(config, console)
     try:

@@ -13,7 +13,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/hongdangmoo49/Trinity/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/badge/PyPI-trinity--agent-blue)](https://pypi.org/project/trinity-agent/)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-yellow)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-758%20passed-brightgreen)](https://github.com/hongdangmoo49/Trinity)
+[![Tests](https://img.shields.io/badge/tests-pytest-brightgreen)](https://github.com/hongdangmoo49/Trinity)
 
 [English](./README.en.md) · [빠른 시작](#-빠른-시작) · [왜 Trinity인가](#-왜-trinity인가) · [작동 원리](#-작동-원리) · [TUI](#-대화형-tui) · [명령어](#-명령어) · [아키텍처](#-아키텍처)
 
@@ -122,7 +122,7 @@ Trinity가 백그라운드에서 다음 단계를 자동으로 수행합니다:
 Trinity는 **Rich 라이브러리 기반의 미려한 터미널 UI(TUI)**를 제공하여, 에이전트 간의 실시간 토론 과정을 시각적으로 보여줍니다.
 
 ```
-  🧠 Trinity v0.7.2  —  세 개의 두뇌, 하나의 컨텍스트
+  🧠 Trinity v0.9.1  —  세 개의 두뇌, 하나의 컨텍스트
 
   🏗️ claude ✅    ⚙️ codex ✅    🔍 antigravity ✅
 
@@ -177,15 +177,18 @@ Trinity는 **Rich 라이브러리 기반의 미려한 터미널 UI(TUI)**를 제
 | `trinity` | 대화형 TUI 세션 실행 |
 | `trinity init` | 현재 디렉토리에 Trinity 작업 공간(`.trinity/`) 초기화 |
 | `trinity init --non-interactive` | 사용자 입력 요청 없이 기본값으로 즉시 초기화 |
-| `trinity bootstrap` | 격리된 에이전트별 provider-state에서 CLI 초기 설정/auth/trust 진행 |
+| `trinity bootstrap` | 현재 터미널에서 provider CLI 초기 설정/auth/trust를 순차 실행 |
+| `trinity bootstrap --check-only` | provider CLI 설치 상태만 확인하고 실행하지 않음 |
 | `trinity ask "질문"` | 입력한 프롬프트에 대해 즉시 단발성(One-shot) 토론 실행 |
 | `trinity status` | 현재 에이전트들의 활성화 및 연결 상태를 표 형태로 표시 |
+| `trinity doctor` | OS/터미널/provider CLI/transport 상태를 진단 |
 | `trinity status-watch` | 실시간으로 상태가 갱신되는 상태 모니터 대시보드 실행 |
 | `trinity context` | 공유 컨텍스트(shared.md) 파일 내용 확인 |
 | `trinity config [키]` | 지정한 키에 해당하는 환경 설정값 조회 |
-| `trinity logs` | 오케스트레이터의 세부 동작 로그 확인 |
+| `trinity logs` | 오케스트레이터의 세부 동작 로그 확인 (`--follow`는 Python 구현 사용) |
 | `trinity reset --keep-context` | 현재 세션 정보는 초기화하되, 기존 공유 컨텍스트 파일은 보존 |
-| `trinity attach` | 백그라운드에서 실행 중인 tmux 에이전트 세션에 다시 연결(Attach) |
+| `trinity bootstrap --legacy-tmux` | legacy/debug용 tmux bootstrap 세션 실행 |
+| `trinity attach` | legacy `transport_mode = "tmux"` 세션에 연결 |
 
 ### TUI 인라인 명령어
 
@@ -336,7 +339,7 @@ trinity/
 | **이벤트 구동형 TUI** | 비동기 `asyncio` 이벤트 루프와 큐(`Queue`)를 활용해 대기 시간 없이 각 에이전트의 응답을 실시간 스트리밍 방식으로 렌더링합니다. |
 | **키워드 기반 합의 감지** | 키워드 매칭 방식을 도입하여 빠르고 결정론적으로 합의를 판정하며, 부정 표현 필터링을 통해 오심율을 크게 낮췄습니다. |
 | **제공자 비의존성 에이전트** | 추상 클래스 `AgentWrapper` 설계로 인터페이스를 표준화하여 향후 새로운 AI CLI 도구(예: 타사 모델 CLI)도 매우 손쉽게 통합할 수 있습니다. |
-| **듀얼 실행 모드 지원** | 자동화 파이프라인 및 CI/CD 스크립트 실행을 위한 Print 모드와 실시간 터미널 시각화를 위한 tmux 기반 대화형 모드를 분리하여 유연하게 대처합니다. |
+| **듀얼 실행 모드 지원** | 기본 one-shot provider 호출과 legacy/debug용 tmux transport를 분리하여 Windows/macOS/Linux 기본 경로를 안정화합니다. |
 
 ---
 
@@ -348,7 +351,7 @@ trinity/
 | **Claude Code CLI** | 설계자(Architect) 에이전트 구동 | 선택 사항 |
 | **Codex CLI** | 구현자(Implementer) 에이전트 구동 | 선택 사항 |
 | **Antigravity CLI** | 검토자(Reviewer) 에이전트 구동 | 선택 사항 |
-| **tmux** | 대화형 모드(Interactive Layout) 구동 | 선택 사항 |
+| **tmux** | legacy/debug transport 또는 `bootstrap --legacy-tmux` | 선택 사항 |
 
 > 정상적으로 오케스트레이션을 진행하려면 최소 **한 개** 이상의 AI CLI 도구가 설치되어 있어야 합니다. `trinity init` 명령 실행 시 현재 호스트 시스템에 설치되어 동작 가능한 CLI 도구를 자동으로 탐지하여 구성합니다.
 
@@ -362,7 +365,7 @@ git clone https://github.com/hongdangmoo49/Trinity.git
 cd Trinity
 uv sync
 
-# 테스트 스위트 실행 (총 758개 테스트 케이스)
+# 테스트 스위트 실행
 uv run pytest tests/ -v
 
 # 코드 커버리지 리포트와 함께 테스트 실행
@@ -372,8 +375,7 @@ uv run pytest tests/ --cov=trinity --cov-report=term-missing
 ### 빌드 및 패키지 배포
 
 ```bash
-# pyproject.toml 및 src/trinity/__init__.py 버전 업그레이드
-rm -rf dist/
+# pyproject.toml 및 src/trinity/__init__.py 버전 업그레이드 후
 uv build
 uv publish --token <PYPI_TOKEN>
 ```
@@ -384,8 +386,8 @@ uv publish --token <PYPI_TOKEN>
 
 | 지표 | 수치 |
 | :--- | :--- |
-| **버전** | 0.7.2 |
-| **테스트** | 915개 테스트 통과 |
+| **버전** | 0.9.1 |
+| **테스트** | `uv run pytest` 기준 |
 | **커버리지** | 약 87% |
 | **소스 파일** | 50여 개 |
 | **주요 의존성 라이브러리** | `click`, `rich`, `prompt_toolkit`, `tomli` |

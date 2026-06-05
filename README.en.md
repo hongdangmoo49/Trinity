@@ -12,7 +12,7 @@ through shared context, round-based deliberation, and intelligent task distribut
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/hongdangmoo49/Trinity/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/badge/PyPI-trinity--agent-blue)](https://pypi.org/project/trinity-agent/)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-yellow)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-758%20passed-brightgreen)](https://github.com/hongdangmoo49/Trinity)
+[![Tests](https://img.shields.io/badge/tests-pytest-brightgreen)](https://github.com/hongdangmoo49/Trinity)
 
 [한국어](./README.md) · [Quick Start](#-quick-start) · [Why Trinity](#-why-trinity) · [How It Works](#-how-it-works) · [TUI](#-interactive-tui) · [Commands](#-commands) · [Architecture](#-architecture)
 
@@ -124,7 +124,7 @@ That's it. Trinity will:
 Trinity features a **Rich-based terminal UI** with real-time deliberation visualization.
 
 ```
-  🧠 Trinity v0.7.2  —  Three minds, one context
+  🧠 Trinity v0.9.1  —  Three minds, one context
 
   🏗️ claude ✅    ⚙️ codex ✅    🔍 antigravity ✅
 
@@ -179,15 +179,18 @@ Trinity features a **Rich-based terminal UI** with real-time deliberation visual
 | `trinity` | Launch interactive TUI session |
 | `trinity init` | Initialize `.trinity/` in current directory |
 | `trinity init --non-interactive` | Initialize with defaults (no prompts) |
-| `trinity bootstrap` | Run provider first-use auth/trust setup in isolated provider-state homes |
+| `trinity bootstrap` | Run provider first-use auth/trust setup sequentially in the current terminal |
+| `trinity bootstrap --check-only` | Check provider CLI installation without launching providers |
 | `trinity ask "question"` | One-shot deliberation on a prompt |
 | `trinity status` | Show agent status table |
+| `trinity doctor` | Diagnose OS, terminal, provider CLI, and transport state |
 | `trinity status-watch` | Live-updating status dashboard |
 | `trinity context` | Display shared context |
 | `trinity config [key]` | Show configuration values |
-| `trinity logs` | View orchestrator logs |
+| `trinity logs` | View orchestrator logs (`--follow` uses Python, not POSIX tail) |
 | `trinity reset --keep-context` | Reset session (preserve context) |
-| `trinity attach` | Attach to tmux session |
+| `trinity bootstrap --legacy-tmux` | Start a legacy/debug tmux bootstrap session |
+| `trinity attach` | Attach to a legacy `transport_mode = "tmux"` session |
 
 ### TUI Inline Commands
 
@@ -339,7 +342,7 @@ trinity/
 | **Event-driven TUI** | `asyncio.wait(FIRST_COMPLETED)` + `Queue` enables real-time streaming |
 | **Keyword consensus** | Fast, deterministic agreement detection with negation filtering |
 | **Provider-agnostic agents** | `AgentWrapper` ABC — easy to add new AI providers |
-| **Two execution modes** | Print mode (CI/scripts) + Interactive mode (tmux/live) |
+| **Two execution modes** | Default one-shot provider calls plus legacy/debug tmux transport |
 
 ---
 
@@ -351,7 +354,7 @@ trinity/
 | **Claude Code CLI** | Architect agent | Optional |
 | **Codex CLI** | Implementer agent | Optional |
 | **Antigravity CLI** | Reviewer agent | Optional |
-| **tmux** | Interactive mode | Optional |
+| **tmux** | Legacy/debug transport or `bootstrap --legacy-tmux` | Optional |
 
 > You need at least **one** AI CLI installed. Trinity auto-detects what's available during `trinity init`.
 
@@ -365,7 +368,7 @@ git clone https://github.com/hongdangmoo49/Trinity.git
 cd Trinity
 uv sync
 
-# Run tests (758 tests)
+# Run tests
 uv run pytest tests/ -v
 
 # Run with coverage
@@ -375,8 +378,7 @@ uv run pytest tests/ --cov=trinity --cov-report=term-missing
 ### Publishing
 
 ```bash
-# Bump version in pyproject.toml + src/trinity/__init__.py
-rm -rf dist/
+# After bumping pyproject.toml + src/trinity/__init__.py
 uv build
 uv publish --token <PYPI_TOKEN>
 ```
@@ -387,8 +389,8 @@ uv publish --token <PYPI_TOKEN>
 
 | Metric | Value |
 | :--- | :--- |
-| **Version** | 0.7.2 |
-| **Tests** | 915 passed |
+| **Version** | 0.9.1 |
+| **Tests** | `uv run pytest` |
 | **Coverage** | ~87% |
 | **Source files** | 50+ |
 | **Dependencies** | `click`, `rich`, `prompt_toolkit`, `tomli` |

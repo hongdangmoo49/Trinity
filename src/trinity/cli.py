@@ -27,6 +27,12 @@ from trinity import __version__
 from trinity.config import TrinityConfig
 from trinity.context.analytics import TokenAnalytics, analytics_history_path
 from trinity.orchestrator import TrinityOrchestrator
+from trinity.platform import (
+    detect_platform_info,
+    detect_terminal_capabilities,
+    has_command,
+    legacy_tmux_hint,
+)
 from trinity.providers.bootstrap import (
     ProviderBootstrapError,
     ProviderBootstrapRunResult,
@@ -34,6 +40,7 @@ from trinity.providers.bootstrap import (
     attach_to_bootstrap_session,
     render_provider_command,
 )
+from trinity.setup.detector import CLIDetector
 
 console = Console()
 
@@ -592,6 +599,71 @@ def status():
             f"[dim]Synthesis:{suffix}{model or source} "
             f"(source={source}, fallback={fallback})[/dim]"
         )
+
+
+# ─── trinity doctor ──────────────────────────────────────────────────────
+
+@main.command()
+def doctor():
+    """Show cross-platform runtime diagnostics."""
+    config_path = find_config_path()
+    config = (
+        TrinityConfig.load(config_path)
+        if config_path
+        else TrinityConfig.default_config()
+    )
+    info = detect_platform_info()
+    caps = detect_terminal_capabilities(info)
+    detector = CLIDetector()
+
+    table = Table(title="Trinity Doctor")
+    table.add_column("Area", style="cyan")
+    table.add_column("Value")
+    table.add_column("Status")
+
+    table.add_row("Trinity", __version__, "ok")
+    table.add_row("Python", sys.version.split()[0], "ok")
+    table.add_row("OS", info.os_name, "ok")
+    table.add_row(
+        "Shell",
+        info.shell_name,
+        "ok" if info.shell_name != "unknown" else "unknown",
+    )
+    table.add_row(
+        "Terminal",
+        info.terminal_name,
+        "ok" if info.terminal_name != "unknown" else "unknown",
+    )
+    table.add_row("TTY", str(info.is_tty), "ok" if info.is_tty else "plain")
+    table.add_row("CI", str(info.is_ci), "plain" if info.is_ci else "ok")
+    table.add_row("Render Mode", caps.render_mode, "ok")
+    table.add_row(
+        "Live Render",
+        str(caps.supports_live_render),
+        "ok" if caps.supports_live_render else "plain",
+    )
+    table.add_row(
+        "Config",
+        str(config_path or "not found"),
+        "ok" if config_path else "default",
+    )
+    table.add_row("State Dir", str(config.effective_state_dir), "ok")
+    table.add_row(
+        "Transport",
+        config.transport_mode,
+        "ok" if config.transport_mode == "one-shot" else "legacy",
+    )
+    table.add_row("Provider State", config.provider_state_mode, "ok")
+    table.add_row("tmux", "available" if has_command("tmux") else "not found", "legacy")
+
+    for name, spec in config.agents.items():
+        result = detector.detect(spec.provider)
+        status = "ok" if result.installed else "missing"
+        value = result.path or result.error or spec.cli_command
+        table.add_row(f"Provider {name}", value, status)
+
+    console.print(table)
+    console.print(f"[dim]{legacy_tmux_hint(info)}[/dim]")
 
 
 # ─── trinity status-watch ────────────────────────────────────────────────

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import sys
 from unittest.mock import patch
 
+import pytest
 from click.testing import CliRunner
 
 from trinity.cli import main
@@ -40,6 +42,10 @@ def test_follow_log_polls_appended_lines(tmp_path):
         events.close()
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Windows does not reliably rename open log files.",
+)
 def test_follow_log_reports_rotation_and_reads_new_file(tmp_path):
     log_path = tmp_path / "trinity.log"
     rotated_path = tmp_path / "trinity.log.1"
@@ -59,6 +65,10 @@ def test_follow_log_reports_rotation_and_reads_new_file(tmp_path):
         events.close()
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Windows does not reliably delete open log files.",
+)
 def test_follow_log_reports_delete_and_recreate(tmp_path):
     log_path = tmp_path / "trinity.log"
     log_path.write_text("old\n", encoding="utf-8")
@@ -81,6 +91,10 @@ def test_follow_log_reports_delete_and_recreate(tmp_path):
         events.close()
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Windows does not reliably truncate open log files.",
+)
 def test_follow_log_reports_truncate_and_reads_from_start(tmp_path):
     log_path = tmp_path / "trinity.log"
     log_path.write_text("old line\n", encoding="utf-8")

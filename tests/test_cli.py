@@ -115,6 +115,49 @@ class TestStatus:
             assert "shared context" in result.output.lower() or "shared.md" in result.output
 
 
+class TestDoctor:
+    def test_doctor_shows_platform_config_and_provider_rows(self, runner, trinity_project):
+        with (
+            patch("trinity.cli.find_config_path", return_value=trinity_project / ".trinity" / "trinity.config"),
+            patch("trinity.cli.has_command", return_value=False),
+            patch("trinity.cli.CLIDetector") as MockDetector,
+        ):
+            detector = MockDetector.return_value
+            detector.detect.return_value = SimpleNamespace(
+                installed=False,
+                path="",
+                error="'claude' not found in PATH",
+            )
+
+            result = runner.invoke(main, ["doctor"])
+
+        assert result.exit_code == 0
+        assert "Trinity Doctor" in result.output
+        assert "Render Mode" in result.output
+        assert "Transport" in result.output
+        assert "Provider claude" in result.output
+        assert "one-shot" in result.output
+
+    def test_doctor_works_without_project_config(self, runner):
+        with (
+            patch("trinity.cli.find_config_path", return_value=None),
+            patch("trinity.cli.has_command", return_value=False),
+            patch("trinity.cli.CLIDetector") as MockDetector,
+        ):
+            detector = MockDetector.return_value
+            detector.detect.return_value = SimpleNamespace(
+                installed=False,
+                path="",
+                error="not found",
+            )
+
+            result = runner.invoke(main, ["doctor"])
+
+        assert result.exit_code == 0
+        assert "default" in result.output
+        assert "Provider claude" in result.output
+
+
 class TestBootstrap:
     def test_bootstrap_requires_project_config(self, runner):
         with patch("trinity.cli.find_config_path", return_value=None):

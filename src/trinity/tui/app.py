@@ -129,6 +129,14 @@ class TrinityTUI:
         self.work_package_statuses: dict[str, str] = {}
         self.subtask_result_count: int = 0
 
+        # Deliberation progress state
+        self.deliberation_active: bool = False
+        self.deliberation_prompt: str = ""
+        self.current_phase: str = ""       # opinions | counter | consensus | synthesis
+        self.phase_started_at: float = 0.0
+        self.progress_completed: int = 0
+        self.progress_total: int = 0
+
         # Callbacks for commands
         self.on_ask: Callable[[str], Any] | None = None
         self.on_command: Callable[[str, list[str]], Any] | None = None
@@ -227,6 +235,20 @@ class TrinityTUI:
                 elif event.data.get("summary"):
                     self.rounds[-1].consensus_detail = event.data["summary"]
 
+        elif event.type == TUIEventType.DELIBERATION_STARTED:
+            self.deliberation_active = True
+            self.deliberation_prompt = event.data.get("prompt", "")
+            self.current_phase = "opinions"
+            self.phase_started_at = time.time()
+
+        elif event.type == TUIEventType.DELIBERATION_PHASE:
+            self.current_phase = event.data.get("phase", "")
+            self.phase_started_at = time.time()
+
+        elif event.type == TUIEventType.DELIBERATION_PROGRESS:
+            self.progress_completed = event.data.get("completed", 0)
+            self.progress_total = event.data.get("total", 0)
+
         elif event.type == TUIEventType.EXECUTION_START:
             self.work_package_count = int(
                 event.data.get("package_count", self.work_package_count)
@@ -250,7 +272,10 @@ class TrinityTUI:
             pass
 
         elif event.type == TUIEventType.DELIBERATION_DONE:
-            pass  # No special action needed
+            self.deliberation_active = False
+            self.current_phase = ""
+            self.progress_completed = 0
+            self.progress_total = 0
 
     # ─── Layout Builders ───────────────────────────────────────────────
 

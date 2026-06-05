@@ -122,7 +122,12 @@ def test_before_agent_call_recommends_wait_when_readiness_unavailable():
 
 def test_after_agent_call_uses_supplied_token_usage():
     guard = LifecycleGuard(rotate_threshold=0.60)
-    agent = FakeAgent("gemini", provider=Provider.GEMINI_CLI, used=10, total=1_000)
+    agent = FakeAgent(
+        "antigravity",
+        provider=Provider.ANTIGRAVITY_CLI,
+        used=10,
+        total=1_000,
+    )
 
     decision = guard.after_agent_call(
         agent,
@@ -194,7 +199,7 @@ def test_before_work_package_reports_missing_owner():
     package = WorkPackage(
         id="WP-404",
         title="Missing owner",
-        owner_agent="gemini",
+        owner_agent="antigravity",
         objective="Run missing owner work.",
     )
 
@@ -203,7 +208,7 @@ def test_before_work_package_reports_missing_owner():
     assert decision.can_continue is False
     assert decision.actions[0].kind == LifecycleActionKind.SKIP_AGENT
     assert decision.actions[0].reason == LifecycleReason.AGENT_UNAVAILABLE
-    assert decision.metadata["owner_agent"] == "gemini"
+    assert decision.metadata["owner_agent"] == "antigravity"
 
 
 def test_after_work_package_returns_structured_serializable_decision():

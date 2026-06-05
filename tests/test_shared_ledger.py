@@ -23,7 +23,7 @@ def test_shared_ledger_renders_workflow_state_and_provider_readiness():
         id="session-001",
         goal="Implement provider readiness ledger",
         state=WorkflowState.EXECUTING,
-        active_agents=["codex", "gemini"],
+        active_agents=["codex", "antigravity"],
         current_round=3,
     )
     readiness = {
@@ -36,12 +36,12 @@ def test_shared_ledger_renders_workflow_state_and_provider_readiness():
             action_hint="",
             excerpt="Codex\n>",
         ),
-        "gemini": {
-            "provider": Provider.GEMINI_CLI,
+        "antigravity": {
+            "provider": Provider.ANTIGRAVITY_CLI,
             "ready": False,
             "state": ProviderState.AUTH_REQUIRED,
             "reason": "authentication required",
-            "action_hint": "Run `gemini` and complete the authentication flow.",
+            "action_hint": "Run `agy` and complete the authentication flow.",
         },
     }
 
@@ -53,15 +53,15 @@ def test_shared_ledger_renders_workflow_state_and_provider_readiness():
     assert "- id: session-001" in markdown
     assert "- state: executing" in markdown
     assert "- current_round: 3" in markdown
-    assert "- active_agents: codex, gemini" in markdown
+    assert "- active_agents: codex, antigravity" in markdown
     assert "## Provider Readiness" in markdown
     assert "### codex" in markdown
     assert "- provider: codex" in markdown
     assert "- ready: yes" in markdown
     assert "- state: ready" in markdown
     assert "```text\nCodex\n>\n```" in markdown
-    assert "### gemini" in markdown
-    assert "- provider: gemini-cli" in markdown
+    assert "### antigravity" in markdown
+    assert "- provider: antigravity-cli" in markdown
     assert "- ready: no" in markdown
     assert "- state: auth_required" in markdown
     assert "complete the authentication flow" in markdown

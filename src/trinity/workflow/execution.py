@@ -36,8 +36,11 @@ EXECUTION_FALLBACK_PRIORITY: tuple[str, ...] = (
     "codex",
     "claude",
     "antigravity",
-    "gemini",
 )
+
+LEGACY_OWNER_ALIASES: dict[str, str] = {
+    "gemini": "antigravity",
+}
 
 
 class ExecutionWorkspaceError(RuntimeError):
@@ -871,10 +874,11 @@ class ExecutionProtocol:
     def _agent_attempt_order(self, owner_agent: str) -> tuple[str, ...]:
         """Return owner-first execution attempts with deterministic fallback order."""
         attempts: list[str] = []
-        if owner_agent:
-            attempts.append(owner_agent)
+        normalized_owner = self._normalize_owner_agent(owner_agent)
+        if normalized_owner:
+            attempts.append(normalized_owner)
         fallbacks = sorted(
-            (name for name in self.agents if name != owner_agent),
+            (name for name in self.agents if name != normalized_owner),
             key=lambda name: (self._fallback_priority_index(name), name),
         )
         attempts.extend(fallbacks)
@@ -886,6 +890,12 @@ class ExecutionProtocol:
             return EXECUTION_FALLBACK_PRIORITY.index(agent_name)
         except ValueError:
             return len(EXECUTION_FALLBACK_PRIORITY)
+
+    def _normalize_owner_agent(self, owner_agent: str) -> str:
+        alias = LEGACY_OWNER_ALIASES.get(owner_agent)
+        if alias and alias in self.agents:
+            return alias
+        return owner_agent
 
 
 def _is_substantive_line(line: str) -> bool:

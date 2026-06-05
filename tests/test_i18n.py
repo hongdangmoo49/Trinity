@@ -32,13 +32,13 @@ class TestGetStrings:
 
 
 class TestRolePrompt:
-    @pytest.mark.parametrize("agent", ["claude", "codex", "antigravity", "gemini"])
+    @pytest.mark.parametrize("agent", ["claude", "codex", "antigravity"])
     def test_english_role_prompts(self, agent):
         prompt = role_prompt(agent, "en")
         assert isinstance(prompt, str)
         assert len(prompt) > 20
 
-    @pytest.mark.parametrize("agent", ["claude", "codex", "antigravity", "gemini"])
+    @pytest.mark.parametrize("agent", ["claude", "codex", "antigravity"])
     def test_korean_role_prompts(self, agent):
         prompt = role_prompt(agent, "ko")
         assert isinstance(prompt, str)
@@ -52,9 +52,6 @@ class TestRolePrompt:
     def test_codex_english_is_implementer(self):
         assert "Implementer" in role_prompt("codex", "en")
 
-    def test_gemini_english_is_reviewer(self):
-        assert "Reviewer" in role_prompt("gemini", "en")
-
     def test_antigravity_english_is_reviewer(self):
         assert "Reviewer" in role_prompt("antigravity", "en")
 
@@ -63,9 +60,6 @@ class TestRolePrompt:
 
     def test_codex_korean_is_implementer(self):
         assert "구현자" in role_prompt("codex", "ko")
-
-    def test_gemini_korean_is_reviewer(self):
-        assert "리뷰어" in role_prompt("gemini", "ko")
 
     def test_antigravity_korean_is_reviewer(self):
         assert "리뷰어" in role_prompt("antigravity", "ko")
@@ -76,13 +70,13 @@ class TestRolePrompt:
 
 
 class TestLocalizedRoles:
-    def test_english_returns_four(self):
+    def test_english_returns_three(self):
         roles = localized_roles("en")
-        assert set(roles.keys()) == {"claude", "codex", "antigravity", "gemini"}
+        assert set(roles.keys()) == {"claude", "codex", "antigravity"}
 
-    def test_korean_returns_four(self):
+    def test_korean_returns_three(self):
         roles = localized_roles("ko")
-        assert set(roles.keys()) == {"claude", "codex", "antigravity", "gemini"}
+        assert set(roles.keys()) == {"claude", "codex", "antigravity"}
 
     def test_returns_copy(self):
         """localized_roles should return a copy, not the original dict."""

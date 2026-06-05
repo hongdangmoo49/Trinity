@@ -103,7 +103,7 @@ def test_disjoint_file_ownership_allows_same_worktree_writes(tmp_path):
 
 def test_plan_batches_splits_colliding_provider_managed_writes(tmp_path):
     policy = ParallelExecutionPolicy()
-    read_only = _scope("gemini", cwd=tmp_path)
+    read_only = _scope("antigravity", cwd=tmp_path)
     claude_write = _scope(
         "claude",
         access=InvocationAccess.WORKSPACE_WRITE,
@@ -118,6 +118,6 @@ def test_plan_batches_splits_colliding_provider_managed_writes(tmp_path):
     batches = policy.plan_batches([read_only, claude_write, codex_write])
 
     assert [[scope.agent_name for scope in batch] for batch in batches] == [
-        ["gemini", "claude"],
+        ["antigravity", "claude"],
         ["codex"],
     ]

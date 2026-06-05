@@ -72,11 +72,6 @@ ROLE_PROMPTS: dict[Lang, dict[str, str]] = {
             "potential issues, and ensure quality. Think critically "
             "about trade-offs and propose tests."
         ),
-        "gemini": (
-            "You are the Reviewer. You explore alternatives, identify "
-            "potential issues, and ensure quality. Think critically "
-            "about trade-offs and propose tests."
-        ),
     },
     "ko": {
         "claude": (
@@ -91,11 +86,6 @@ ROLE_PROMPTS: dict[Lang, dict[str, str]] = {
             "실제 구현과 엣지 케이스에 집중하세요."
         ),
         "antigravity": (
-            "당신은 리뷰어입니다. "
-            "대안을 탐색하고 잠재적인 문제를 식별하며 품질을 보장합니다. "
-            "트레이드오프에 대해 비판적으로 생각하고 테스트를 제안하세요."
-        ),
-        "gemini": (
             "당신은 리뷰어입니다. "
             "대안을 탐색하고 잠재적인 문제를 식별하며 품질을 보장합니다. "
             "트레이드오프에 대해 비판적으로 생각하고 테스트를 제안하세요."
@@ -311,7 +301,7 @@ def role_prompt(agent_name: str, lang: Lang = "en") -> str:
     """Get a single agent's role prompt in the specified language.
 
     Args:
-        agent_name: One of "claude", "codex", "antigravity", "gemini".
+        agent_name: One of "claude", "codex", "antigravity".
         lang: "en" or "ko".
 
     Returns:
@@ -433,7 +423,7 @@ def get_agent_prompt(
     """Get an agent's role prompt, optionally with caveman compression rules.
 
     Args:
-        agent_name: One of "claude", "codex", "antigravity", "gemini".
+        agent_name: One of "claude", "codex", "antigravity".
         lang: "en" or "ko".
         caveman_mode: Whether to append caveman compression rules.
         caveman_intensity: "lite", "full", or "ultra".

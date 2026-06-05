@@ -2,16 +2,14 @@
 
 import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from trinity.agents.antigravity_agent import AntigravityPrintAgent
 from trinity.agents.claude_agent import InteractiveClaudeAgent, PrintModeClaudeAgent
 from trinity.agents.codex_agent import CodexAgent
 from trinity.agents.factory import AgentFactory
 from trinity.completion.hook import HookDetector
-from trinity.completion.marker import MarkerDetector
 from trinity.completion.prompt import PromptReturnDetector
-from trinity.legacy.gemini.agent import GeminiAgent
 from trinity.models import AgentSpec, Provider
 
 
@@ -36,16 +34,6 @@ def codex_spec():
         provider=Provider.CODEX,
         cli_command="codex",
         context_budget=80_000,
-    )
-
-
-@pytest.fixture
-def gemini_spec():
-    return AgentSpec(
-        name="gemini",
-        provider=Provider.GEMINI_CLI,
-        cli_command="gemini",
-        context_budget=200_000,
     )
 
 
@@ -90,16 +78,6 @@ class TestCreatePrintMode:
         agent = AgentFactory.create(codex_spec, mode="print")
         assert isinstance(agent, CodexAgent)
         assert agent.name == "codex"
-
-    def test_gemini_print(self, gemini_spec):
-        agent = AgentFactory.create(gemini_spec, mode="print")
-        assert isinstance(agent, GeminiAgent)
-        assert agent.name == "gemini"
-
-    def test_gemini_compatibility_shim(self):
-        from trinity.agents.gemini_agent import GeminiAgent as ShimGeminiAgent
-
-        assert ShimGeminiAgent is GeminiAgent
 
     def test_antigravity_print(self, antigravity_spec):
         agent = AgentFactory.create(antigravity_spec, mode="print")
@@ -159,17 +137,6 @@ class TestCreateInteractiveMode:
         assert isinstance(agent, CodexAgent)
         assert agent.name == "codex"
 
-    def test_gemini_interactive(self, gemini_spec, mock_pane, mock_detector, signal_path):
-        agent = AgentFactory.create(
-            gemini_spec,
-            mode="interactive",
-            pane=mock_pane,
-            detector=mock_detector,
-            signal_path=signal_path,
-        )
-        assert isinstance(agent, GeminiAgent)
-        assert agent.name == "gemini"
-
     def test_interactive_without_pane_raises(self, claude_spec, mock_detector, signal_path):
         """interactive 모드에서 pane이 없으면 ValueError."""
         with pytest.raises(ValueError, match="requires pane and detector"):
@@ -228,13 +195,6 @@ class TestCreateDetectorChain:
         assert len(chain.detectors) == 2
         assert isinstance(chain.detectors[0], PromptReturnDetector)
 
-    def test_gemini_chain_structure(self, signal_path):
-        """Gemini: Marker → PromptReturn → IdleDetector."""
-        chain = AgentFactory.create_detector_chain(signal_path, Provider.GEMINI_CLI)
-        assert len(chain.detectors) == 3
-        assert isinstance(chain.detectors[0], MarkerDetector)
-        assert isinstance(chain.detectors[1], PromptReturnDetector)
-
     def test_unknown_provider_default_chain(self, signal_path):
         """알 수 없는 provider는 기본 PromptReturn → IdleDetector 체인."""
         chain = AgentFactory.create_detector_chain(signal_path, "unknown")
@@ -256,9 +216,9 @@ def test_claude_chain_includes_idle_detector():
     assert any("IdleDetector" in n for n in names)
 
 
-def test_gemini_chain_includes_idle_detector():
+def test_antigravity_chain_includes_idle_detector():
     from pathlib import Path
-    chain = AgentFactory.create_detector_chain(Path("/tmp/signal.json"), Provider.GEMINI_CLI)
+    chain = AgentFactory.create_detector_chain(Path("/tmp/signal.json"), Provider.ANTIGRAVITY_CLI)
     names = [d.name for d in chain.detectors]
     assert any("IdleDetector" in n for n in names)
 
@@ -276,7 +236,10 @@ def test_idle_timeouts_differ_by_provider():
 
     claude_chain = AgentFactory.create_detector_chain(Path("/tmp/s.json"), Provider.CLAUDE_CODE)
     codex_chain = AgentFactory.create_detector_chain(Path("/tmp/s.json"), Provider.CODEX)
-    gemini_chain = AgentFactory.create_detector_chain(Path("/tmp/s.json"), Provider.GEMINI_CLI)
+    antigravity_chain = AgentFactory.create_detector_chain(
+        Path("/tmp/s.json"),
+        Provider.ANTIGRAVITY_CLI,
+    )
 
     def get_idle_timeout(chain):
         for d in chain.detectors:
@@ -286,4 +249,4 @@ def test_idle_timeouts_differ_by_provider():
 
     assert get_idle_timeout(claude_chain) == 15.0
     assert get_idle_timeout(codex_chain) == 20.0
-    assert get_idle_timeout(gemini_chain) == 25.0
+    assert get_idle_timeout(antigravity_chain) == 20.0

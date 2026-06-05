@@ -13,7 +13,7 @@ from trinity.models import AgentSpec, ContextUsage, DeliberationMessage
 class AgentWrapper(ABC):
     """Abstract base for controlling an AI CLI agent.
 
-    Each provider (Claude, Codex, Antigravity, Gemini) implements this interface.
+    Each provider (Claude, Codex, Antigravity) implements this interface.
     Phase 1 uses subprocess-based print mode; Phase 2 adds tmux interactive mode.
     """
 

@@ -103,7 +103,7 @@ class TestCreate:
             mock_git.return_value = _mock_git_failure("fatal: not a git repo")
 
             with pytest.raises(WorkspaceError, match="Failed to create branch"):
-                wi.create("gemini")
+                wi.create("antigravity")
 
     def test_raises_on_worktree_failure(self, wi):
         """worktree add 실패 시 WorkspaceError."""

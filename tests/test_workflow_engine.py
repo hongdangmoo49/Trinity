@@ -330,7 +330,7 @@ def test_target_workspace_persists_with_session(tmp_path):
 
 def test_mark_deliberation_result_waits_on_structured_question(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
-    engine.start("Design", ["gemini"])
+    engine.start("Design", ["antigravity"])
     result = DeliberationResult(
         user_prompt="Design",
         rounds_completed=1,
@@ -341,12 +341,12 @@ def test_mark_deliberation_result_waits_on_structured_question(tmp_path):
                 "final_blueprint": None,
                 "open_questions": [
                     {
-                        "id": "q-gemini-001",
+                        "id": "q-antigravity-001",
                         "question": "Optimize for cost or latency?",
                         "options": ["cost", "latency", "mixed"],
                         "recommended_option": "mixed",
                         "blocking": True,
-                        "raised_by": ["gemini"],
+                        "raised_by": ["antigravity"],
                         "rationale": "Scoring depends on this choice.",
                         "status": "open",
                     }

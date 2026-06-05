@@ -36,7 +36,7 @@ class TaskDistributor:
             "fixing",
             "testing",
         ],
-        "gemini": [
+        "antigravity": [
             "testing",
             "research",
             "alternative exploration",

@@ -71,7 +71,7 @@ def load_config(silent: bool = False) -> TrinityConfig:
 def main(ctx: click.Context, interactive: bool | None):
     """Trinity — Three minds, one context.
 
-    Multi-agent AI orchestrator that unifies Claude Code, Codex, and Gemini
+    Multi-agent AI orchestrator that unifies Claude Code, Codex, and Antigravity
     through shared context, round-based deliberation, and task distribution.
 
     Run without arguments to enter interactive TUI mode.

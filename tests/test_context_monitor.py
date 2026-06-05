@@ -41,7 +41,6 @@ class TestProviderContextLimits:
         assert limits.get_limit(Provider.CLAUDE_CODE) == 200_000
         assert limits.get_limit(Provider.CODEX) == 128_000
         assert limits.get_limit(Provider.ANTIGRAVITY_CLI) == 1_000_000
-        assert limits.get_limit(Provider.GEMINI_CLI) == 1_000_000
 
     def test_unknown_provider_returns_default(self):
         limits = ProviderContextLimits()
@@ -169,22 +168,22 @@ class TestContextMonitorParseUsage:
         })
         assert agents["codex"].context_usage.used == 5000
 
-    def test_parse_gemini_output(self):
-        agents = {"gemini": _make_agent("gemini", 0)}
+    def test_parse_plain_output(self):
+        agents = {"antigravity": _make_agent("antigravity", 0)}
         monitor = ContextMonitor(agents=agents)
 
-        monitor.parse_usage_from_gemini_output(
-            "gemini",
+        monitor.parse_usage_from_plain_output(
+            "antigravity",
             "Response text\nToken count: 8000",
         )
-        assert agents["gemini"].context_usage.used == 8000
+        assert agents["antigravity"].context_usage.used == 8000
 
-    def test_parse_gemini_output_no_tokens(self):
-        agents = {"gemini": _make_agent("gemini", 0)}
+    def test_parse_plain_output_no_tokens(self):
+        agents = {"antigravity": _make_agent("antigravity", 0)}
         monitor = ContextMonitor(agents=agents)
 
-        monitor.parse_usage_from_gemini_output(
-            "gemini",
+        monitor.parse_usage_from_plain_output(
+            "antigravity",
             "Just a response with no token info",
         )
-        assert agents["gemini"].context_usage.used == 0
+        assert agents["antigravity"].context_usage.used == 0

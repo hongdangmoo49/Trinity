@@ -13,7 +13,7 @@ class TestConsensusEngine:
         opinions = {
             "claude": "I agree with the JWT approach.",
             "codex": "I agree, JWT is the way.",
-            "gemini": "Agreed, let's go with JWT.",
+            "antigravity": "Agreed, let's go with JWT.",
         }
         result = engine.evaluate(opinions)
         assert result.reached
@@ -24,7 +24,7 @@ class TestConsensusEngine:
         opinions = {
             "claude": "I agree with this plan.",
             "codex": "I disagree, sessions are better.",
-            "gemini": "I approve the JWT approach.",
+            "antigravity": "I approve the JWT approach.",
         }
         result = engine.evaluate(opinions)
         assert result.reached  # 2/3 = 0.67 >= 0.6
@@ -36,7 +36,7 @@ class TestConsensusEngine:
         opinions = {
             "claude": "I think we should use JWT.",
             "codex": "Sessions are superior here.",
-            "gemini": "OAuth is the modern standard.",
+            "antigravity": "OAuth is the modern standard.",
         }
         result = engine.evaluate(opinions)
         assert not result.reached

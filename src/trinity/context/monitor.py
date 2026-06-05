@@ -20,7 +20,6 @@ class ProviderContextLimits:
         Provider.CLAUDE_CODE: 200_000,
         Provider.CODEX: 128_000,
         Provider.ANTIGRAVITY_CLI: 1_000_000,
-        Provider.GEMINI_CLI: 1_000_000,
     })
 
     def get_limit(self, provider: str) -> int:
@@ -110,8 +109,8 @@ class ContextMonitor:
         if total_tokens > 0:
             self.update_usage(agent_name, used=total_tokens)
 
-    def parse_usage_from_gemini_output(self, agent_name: str, output: str) -> None:
-        """Parse token usage from Gemini CLI output.
+    def parse_usage_from_plain_output(self, agent_name: str, output: str) -> None:
+        """Parse token usage from plain CLI output.
 
         Tries multiple patterns:
             - "Token count: N"
@@ -137,4 +136,4 @@ class ContextMonitor:
                     self.update_usage(agent_name, used=total_used)
                     return
 
-        logger.debug(f"[{agent_name}] No token usage found in Gemini output")
+        logger.debug(f"[{agent_name}] No token usage found in plain CLI output")

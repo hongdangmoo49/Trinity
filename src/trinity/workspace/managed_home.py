@@ -1,7 +1,7 @@
 """Managed Home — per-agent isolated home directories.
 
 Each agent gets its own "home" directory for provider-specific state,
-preventing config file collisions between Claude, Codex, and Gemini.
+preventing config file collisions between Claude, Codex, and Antigravity.
 
 Directory layout:
     .trinity/agents/
@@ -9,7 +9,7 @@ Directory layout:
             provider-state/      ← isolated home (HOME env override)
                 .claude/         ← Claude Code config/state
                 .codex/          ← Codex config/state
-                .config/         ← Gemini CLI config
+                .gemini/         ← Antigravity CLI config namespace
 """
 
 from __future__ import annotations
@@ -82,7 +82,6 @@ class ManagedHome:
             "claude-code": [".claude"],
             "codex": [".codex"],
             "antigravity-cli": [".gemini", ".gemini/antigravity-cli"],
-            "gemini-cli": [".config", ".config/gemini"],
         }
 
         dirs = provider_dirs.get(provider, [])

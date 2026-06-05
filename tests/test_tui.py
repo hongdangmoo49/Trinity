@@ -522,7 +522,7 @@ class TestConsumeEvent:
                 reached=True,
                 agreement_count=2,
                 total_agents=3,
-                opinions={"claude": "yes", "codex": "yes", "gemini": "no"},
+                opinions={"claude": "yes", "codex": "yes", "antigravity": "no"},
                 summary="## Decision\n\nUse pytest with fixtures.",
             ),
             tasks=[
@@ -594,10 +594,6 @@ class TestAgentTheme:
         assert theme.name == "codex"
         assert theme.color == "green"
         assert theme.role_label == "Implementer"
-
-    def test_get_theme_gemini(self):
-        theme = get_theme("gemini")
-        assert theme.name == "gemini"
 
     def test_get_theme_antigravity(self):
         theme = get_theme("antigravity")

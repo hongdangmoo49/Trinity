@@ -124,7 +124,7 @@ That's it. Trinity will:
 Trinity features a **Rich-based terminal UI** with real-time deliberation visualization.
 
 ```
-  🧠 Trinity v0.9.1  —  Three minds, one context
+  🧠 Trinity v0.9.2  —  Three minds, one context
 
   🏗️ claude ✅    ⚙️ codex ✅    🔍 antigravity ✅
 
@@ -389,7 +389,7 @@ uv publish --token <PYPI_TOKEN>
 
 | Metric | Value |
 | :--- | :--- |
-| **Version** | 0.9.1 |
+| **Version** | 0.9.2 |
 | **Tests** | `uv run pytest` |
 | **Coverage** | ~87% |
 | **Source files** | 50+ |

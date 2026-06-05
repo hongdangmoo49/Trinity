@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal
 
 from textual.app import App, ComposeResult
@@ -11,6 +12,7 @@ from textual.widgets import Footer, Header, Static
 
 from trinity import __version__
 from trinity.config import TrinityConfig
+from trinity.textual_app.screens.start import StartScreen
 
 WorkbenchRoute = Literal["start", "nexus", "execution", "settings"]
 
@@ -59,12 +61,64 @@ class TrinityTextualApp(App[None]):
         text-align: center;
         color: $text;
     }
+
+    #start-screen {
+        width: 100%;
+        height: 1fr;
+        align: center middle;
+        padding: 1 2;
+    }
+
+    #start-title {
+        width: 100%;
+        content-align: center middle;
+        text-style: bold;
+        text-align: center;
+        color: $accent;
+    }
+
+    #start-subtitle {
+        width: 100%;
+        content-align: center middle;
+        text-align: center;
+        color: $text-muted;
+        margin-bottom: 1;
+    }
+
+    #start-composer {
+        width: 72;
+        max-width: 90%;
+        height: 10;
+        border: round $accent;
+        padding: 0 1;
+    }
+
+    #prompt-textarea {
+        height: 1fr;
+        border: none;
+    }
+
+    #start-actions {
+        width: 72;
+        max-width: 90%;
+        height: auto;
+        margin-top: 1;
+        align-horizontal: right;
+    }
+
+    #workspace-candidate {
+        width: 1fr;
+        color: $text-muted;
+        content-align: left middle;
+    }
     """
 
     def __init__(self, config: TrinityConfig) -> None:
         super().__init__()
         self.config = config
         self.current_route: WorkbenchRoute = "start"
+        self.initial_prompt: str | None = None
+        self.workspace_candidate: Path | None = None
         self._screens_installed = False
 
     def on_mount(self) -> None:
@@ -76,8 +130,9 @@ class TrinityTextualApp(App[None]):
         if self._screens_installed:
             return
 
+        self.install_screen(StartScreen(self.workspace_candidate), "start")
+
         screens: list[tuple[WorkbenchRoute, str, str]] = [
-            ("start", "TRINITY", "Start screen will collect the first prompt."),
             ("nexus", "Nexus", "Provider brainstorming dashboard."),
             ("execution", "Execution Matrix", "Work package execution monitor."),
             ("settings", "Settings", "Theme preferences."),
@@ -85,6 +140,12 @@ class TrinityTextualApp(App[None]):
         for route, title, subtitle in screens:
             self.install_screen(PlaceholderScreen(route, title, subtitle), route)
         self._screens_installed = True
+
+    def on_start_screen_submitted(self, event: StartScreen.Submitted) -> None:
+        event.stop()
+        self.initial_prompt = event.prompt
+        self.workspace_candidate = event.workspace_candidate
+        self.switch_to("nexus")
 
     def switch_to(self, route: WorkbenchRoute) -> None:
         self.current_route = route

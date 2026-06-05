@@ -35,6 +35,16 @@ class SynthesisSnapshot:
 
 
 @dataclass(frozen=True)
+class QuestionSnapshot:
+    """Projected user question for interactive synthesis."""
+
+    id: str
+    question: str
+    options: list[str] = field(default_factory=list)
+    recommended_option: str = ""
+
+
+@dataclass(frozen=True)
 class WorkflowNexusSnapshot:
     """Read-only UI projection of the current workflow."""
 
@@ -44,7 +54,7 @@ class WorkflowNexusSnapshot:
     round_num: int = 0
     providers: list[ProviderSnapshot] = field(default_factory=list)
     synthesis: SynthesisSnapshot = field(default_factory=SynthesisSnapshot)
-    questions: list[str] = field(default_factory=list)
+    questions: list[QuestionSnapshot] = field(default_factory=list)
     decisions: list[str] = field(default_factory=list)
     work_packages: list[str] = field(default_factory=list)
     execution_log: list[str] = field(default_factory=list)
@@ -74,7 +84,17 @@ class NexusSnapshotAdapter:
             round_num=session.current_round if session else 0,
             providers=list(provider_states.values()),
             synthesis=self._synthesis(session),
-            questions=[q.question for q in session.open_questions] if session else [],
+            questions=[
+                QuestionSnapshot(
+                    id=q.id,
+                    question=q.question,
+                    options=list(q.options),
+                    recommended_option=q.recommended_option or "",
+                )
+                for q in session.open_questions
+            ]
+            if session
+            else [],
             decisions=[d.decision for d in session.decisions] if session else [],
             work_packages=[
                 f"{package.id} {package.owner_agent}: {package.title} ({package.status.value})"

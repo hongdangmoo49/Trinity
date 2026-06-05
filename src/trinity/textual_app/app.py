@@ -184,6 +184,28 @@ class TrinityTextualApp(App[None]):
         color: $text;
     }
 
+    #central-markdown {
+        height: 1fr;
+    }
+
+    #central-question-title {
+        text-style: bold;
+        color: $warning;
+    }
+
+    #central-questions {
+        height: auto;
+    }
+
+    .question-text {
+        margin-top: 1;
+    }
+
+    .question-options {
+        height: auto;
+        margin-bottom: 1;
+    }
+
     #nexus-composer {
         width: 100%;
         height: 7;
@@ -233,6 +255,12 @@ class TrinityTextualApp(App[None]):
     def on_nexus_screen_follow_up_submitted(
         self,
         event: NexusScreen.FollowUpSubmitted,
+    ) -> None:
+        event.stop()
+
+    def on_nexus_screen_question_answered(
+        self,
+        event: NexusScreen.QuestionAnswered,
     ) -> None:
         event.stop()
 

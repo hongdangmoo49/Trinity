@@ -6,6 +6,8 @@ from trinity.config import TrinityConfig
 from trinity.textual_app.app import TrinityTextualApp
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.start import StartScreen
+from trinity.textual_app.snapshot import QuestionSnapshot, WorkflowNexusSnapshot
+from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.composer import PromptComposer
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
 
@@ -87,3 +89,35 @@ async def test_nexus_follow_up_stays_in_current_workflow(tmp_path) -> None:
 
         assert app.current_route == "nexus"
         assert screen.follow_ups == ["이어서 검토해줘"]
+
+
+@pytest.mark.asyncio
+async def test_central_agent_view_renders_question_options(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                session_id="wf-ui",
+                goal="Build UI",
+                state="needs_user_decision",
+                questions=[
+                    QuestionSnapshot(
+                        id="q-1",
+                        question="Theme?",
+                        options=["dark", "light"],
+                        recommended_option="dark",
+                    )
+                ],
+            )
+        )
+        await pilot.pause()
+
+        central = screen.query_one(CentralAgentView)
+        assert central.query_one("#answer-q-1-1")
+        assert central.query_one("#answer-q-1-2")

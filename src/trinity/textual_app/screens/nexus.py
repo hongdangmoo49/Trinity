@@ -6,12 +6,13 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.screen import Screen
-from textual.widgets import Footer, Header, Static
+from textual.widgets import Footer, Header
 
 from trinity.config import TrinityConfig
 from trinity.models import AgentSpec
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.composer import PromptComposer
+from trinity.textual_app.widgets.central_agent import CentralAgentView, QuestionAnswer
 from trinity.textual_app.widgets.provider_panel import ProviderPanel, ProviderPanelState
 
 
@@ -24,6 +25,13 @@ class NexusScreen(Screen[None]):
         def __init__(self, text: str) -> None:
             super().__init__()
             self.text = text
+
+    class QuestionAnswered(Message):
+        """Posted when the user selects a synthesized question answer."""
+
+        def __init__(self, answer: QuestionAnswer) -> None:
+            super().__init__()
+            self.answer = answer
 
     BINDINGS = [
         ("ctrl+enter", "submit_follow_up", "Send"),
@@ -42,9 +50,7 @@ class NexusScreen(Screen[None]):
             with Horizontal(id="provider-strip"):
                 for state in self._initial_provider_states():
                     yield ProviderPanel(state, id=f"provider-{state.name}")
-            with Vertical(id="central-agent"):
-                yield Static("Central Agent", id="central-title")
-                yield Static(self._central_body(), id="central-body")
+            yield CentralAgentView(id="central-agent")
             yield PromptComposer(
                 placeholder="Reply, refine direction, or type / for commands",
                 id="nexus-composer",
@@ -54,7 +60,7 @@ class NexusScreen(Screen[None]):
     def set_initial_prompt(self, prompt: str) -> None:
         self.initial_prompt = prompt.strip()
         if self.is_mounted:
-            self.query_one("#central-body", Static).update(self._central_body())
+            self._refresh_central()
 
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
         self.snapshot = snapshot
@@ -75,7 +81,14 @@ class NexusScreen(Screen[None]):
                     summary=provider.summary,
                 )
             )
-        self.query_one("#central-body", Static).update(self._central_body())
+        self._refresh_central()
+
+    def on_central_agent_view_question_answered(
+        self,
+        event: CentralAgentView.QuestionAnswered,
+    ) -> None:
+        event.stop()
+        self.post_message(self.QuestionAnswered(event.answer))
 
     def update_provider(
         self,
@@ -104,7 +117,7 @@ class NexusScreen(Screen[None]):
             return
         self.follow_ups.append(cleaned)
         self.query_one("#nexus-composer", PromptComposer).clear()
-        self.query_one("#central-body", Static).update(self._central_body())
+        self._refresh_central()
         self.post_message(self.FollowUpSubmitted(cleaned))
 
     def _initial_provider_states(self) -> list[ProviderPanelState]:
@@ -130,40 +143,17 @@ class NexusScreen(Screen[None]):
             summary=summary,
         )
 
-    def _central_body(self) -> str:
+    def _refresh_central(self) -> None:
+        central = self.query_one(CentralAgentView)
         if self.snapshot is not None:
-            lines = [
-                f"Workflow: {self.snapshot.session_id or '(new)'}",
-                f"State: {self.snapshot.state}",
-                f"Round: {self.snapshot.round_num}",
-            ]
-            if self.snapshot.goal:
-                lines.extend(["", "Goal:", self.snapshot.goal])
-            if self.snapshot.synthesis.summary:
-                lines.extend(["", "Synthesis:", self.snapshot.synthesis.summary])
-            if self.snapshot.questions:
-                lines.extend(["", "Questions:"])
-                lines.extend(f"- {item}" for item in self.snapshot.questions[:3])
-            if self.snapshot.work_packages:
-                lines.extend(["", "Work packages:"])
-                lines.extend(f"- {item}" for item in self.snapshot.work_packages[:5])
-            if not self.snapshot.synthesis.summary and not self.snapshot.goal:
-                lines.extend(
-                    [
-                        "",
-                        "Waiting for synthesis.",
-                        "Planning does not require a workspace.",
-                    ]
-                )
-            return "\n".join(lines)
-
-        lines = [
-            "Waiting for synthesis.",
-            "Planning does not require a workspace. Execute will ask for one.",
-        ]
-        if self.initial_prompt:
-            lines.extend(["", "Current prompt:", self.initial_prompt])
-        if self.follow_ups:
-            lines.extend(["", "Follow-ups:"])
-            lines.extend(f"- {item}" for item in self.follow_ups[-3:])
-        return "\n".join(lines)
+            central.apply_snapshot(self.snapshot)
+            return
+        central.apply_snapshot(
+            WorkflowNexusSnapshot(
+                goal=self.initial_prompt,
+                questions=[],
+                work_packages=[
+                    f"follow-up: {item}" for item in self.follow_ups[-3:]
+                ],
+            )
+        )

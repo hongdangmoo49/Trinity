@@ -53,6 +53,12 @@ AGENT_THEMES: dict[str, AgentTheme] = {
     ),
 }
 
+AGENT_ASCII_GLYPHS: dict[str, str] = {
+    "claude": "C",
+    "codex": "X",
+    "antigravity": "A",
+}
+
 # Fallback palette for unknown agents
 _FALLBACK_PALETTE = [
     "bright_blue",
@@ -76,8 +82,8 @@ def get_theme(agent_name: str) -> AgentTheme:
     if agent_name in AGENT_THEMES:
         return AGENT_THEMES[agent_name]
 
-    # Deterministic fallback based on name hash
-    idx = hash(agent_name) % len(_FALLBACK_PALETTE)
+    # Deterministic fallback independent from Python's per-process hash seed.
+    idx = sum(agent_name.encode("utf-8")) % len(_FALLBACK_PALETTE)
     color = _FALLBACK_PALETTE[idx]
     return AgentTheme(
         name=agent_name,
@@ -86,3 +92,16 @@ def get_theme(agent_name: str) -> AgentTheme:
         role_label=agent_name.title(),
         border_style=color,
     )
+
+
+def get_agent_glyph(agent_name: str, *, emoji: bool = True) -> str:
+    """Return an agent glyph that can be downgraded for ASCII render modes."""
+    if emoji:
+        return get_theme(agent_name).icon
+
+    normalized = agent_name.strip().lower()
+    if normalized in AGENT_ASCII_GLYPHS:
+        return AGENT_ASCII_GLYPHS[normalized]
+    if normalized:
+        return normalized[0].upper()
+    return "?"

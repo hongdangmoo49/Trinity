@@ -4,6 +4,7 @@ import pytest
 
 from trinity.config import TrinityConfig
 from trinity.textual_app.app import TrinityTextualApp
+from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import StartScreen
@@ -14,7 +15,7 @@ from trinity.textual_app.widgets.composer import PromptComposer
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
-from trinity.textual_app.widgets.workspace_picker import WorkspacePicker
+from trinity.textual_app.widgets.workspace_picker import WorkspacePicker, build_preflight
 
 
 @pytest.mark.asyncio
@@ -185,6 +186,28 @@ async def test_workspace_picker_opens_from_nexus_execute(tmp_path) -> None:
 
         assert isinstance(app.screen, WorkspacePicker)
         assert str(tmp_path) in str(app.screen.query_one("#workspace-preflight").content)
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_renders_preflight_and_packages(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            build_preflight(tmp_path, WorkflowNexusSnapshot()),
+            WorkflowNexusSnapshot(
+                work_packages=["WP-001 codex: Build Textual shell (pending)"],
+                execution_log=["package WP-001 queued"],
+            ),
+        )
+        await pilot.pause()
+
+        assert str(tmp_path) in str(screen.query_one("#execution-header").content)
+        assert screen.query_one("#execution-table").row_count == 1
 
 
 @pytest.mark.asyncio

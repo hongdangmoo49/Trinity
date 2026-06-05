@@ -12,6 +12,7 @@ from textual.widgets import Footer, Header, Static
 
 from trinity import __version__
 from trinity.config import TrinityConfig
+from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import StartScreen
@@ -346,6 +347,30 @@ class TrinityTextualApp(App[None]):
         align-horizontal: right;
     }
 
+    #execution-screen {
+        width: 100%;
+        height: 1fr;
+        padding: 1;
+    }
+
+    #execution-header {
+        height: 1;
+        text-style: bold;
+        color: $accent;
+    }
+
+    #execution-table {
+        height: 11;
+        margin-top: 1;
+    }
+
+    #execution-log {
+        height: 1fr;
+        border: round $primary;
+        margin-top: 1;
+        padding: 0 1;
+    }
+
     #nexus-composer {
         width: 100%;
         height: 7;
@@ -377,9 +402,9 @@ class TrinityTextualApp(App[None]):
         self.install_screen(StartScreen(self.workspace_candidate), "start")
         self.install_screen(NexusScreen(self.config), "nexus")
         self.install_screen(SettingsScreen(self.settings_store), "settings")
+        self.install_screen(ExecutionMatrixScreen(), "execution")
 
         screens: list[tuple[WorkbenchRoute, str, str]] = [
-            ("execution", "Execution Matrix", "Work package execution monitor."),
         ]
         for route, title, subtitle in screens:
             self.install_screen(PlaceholderScreen(route, title, subtitle), route)
@@ -433,6 +458,10 @@ class TrinityTextualApp(App[None]):
         if preflight is None:
             return
         self.confirmed_preflight = preflight
+        snapshot = self.snapshot_adapter.load_snapshot()
+        execution = self.get_screen("execution", ExecutionMatrixScreen)
+        execution.apply_execution_state(preflight, snapshot)
+        self.switch_to("execution")
 
     def switch_to(self, route: WorkbenchRoute) -> None:
         if route == "nexus" and self._screens_installed:

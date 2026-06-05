@@ -61,25 +61,16 @@ def test_build_preflight_respects_creatable_override(tmp_path) -> None:
     )
 
     assert preflight.exists is False
-    assert preflight.create_supported is True
     assert preflight.creatable is False
     assert preflight.can_create is False
     assert "Creatable: False" in preflight.render()
-    assert "Create supported: True" in preflight.render()
+    assert "Create supported" not in preflight.render()
 
 
 def test_build_preflight_supports_nested_missing_directories(tmp_path) -> None:
     preflight = build_preflight(tmp_path / "new-app" / "src", WorkflowNexusSnapshot())
 
-    assert preflight.create_supported is True
     assert preflight.can_create is True
-
-
-def test_build_preflight_marks_existing_path_creation_as_not_needed(tmp_path) -> None:
-    preflight = build_preflight(tmp_path, WorkflowNexusSnapshot())
-
-    assert preflight.create_supported is False
-    assert "Create supported: not needed" in preflight.render()
 
 
 def test_default_workspace_tree_root_uses_control_repo_parent(tmp_path) -> None:
@@ -211,15 +202,11 @@ async def test_workspace_picker_new_folder_flow_targets_tree_root_from_control_r
         assert Path(path_input.value) == target_workspace
         assert picker.create_missing is True
         assert picker.preflight.path == target_workspace
-        assert picker.preflight.can_create is True
-        assert str(target_workspace) in str(preflight_panel.content)
-        assert "New folder selected" in str(status.content)
-
-        picker.action_confirm()
-        await pilot.pause()
-
         assert target_workspace.exists()
         assert target_workspace.is_dir()
+        assert picker.preflight.can_execute is True
+        assert str(target_workspace) in str(preflight_panel.content)
+        assert "New folder created" in str(status.content)
 
 
 @pytest.mark.asyncio

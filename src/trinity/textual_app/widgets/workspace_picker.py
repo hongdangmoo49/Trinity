@@ -26,7 +26,6 @@ class WorkspacePreflight:
     branch: str
     package_count: int
     creatable: bool = False
-    create_supported: bool = False
 
     @property
     def can_execute(self) -> bool:
@@ -35,16 +34,11 @@ class WorkspacePreflight:
     @property
     def can_create(self) -> bool:
         """Return whether the target directory can be created before execution."""
-        return not self.exists and self.creatable and self.create_supported
-
-    @property
-    def create_supported_label(self) -> str:
-        """Return a user-facing creation support state."""
-        if self.exists:
-            return "not needed"
-        if self.create_supported:
-            return "True"
-        return "False"
+        return (
+            not self.exists
+            and self.creatable
+            and _path_creation_supported(self.path)
+        )
 
     def render(self) -> str:
         return "\n".join(
@@ -55,7 +49,6 @@ class WorkspacePreflight:
                 f"Writable: {self.writable}",
                 f"Git repo: {self.git_repo}",
                 f"Creatable: {self.creatable}",
-                f"Create supported: {self.create_supported_label}",
                 f"Branch: {self.branch}",
                 "Dirty worktree: unknown",
                 "Provider readiness: current session snapshot",
@@ -173,14 +166,14 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
                 id="workspace-path-input",
             )
             with Horizontal(id="workspace-picker-body"):
-                with Vertical(id="workspace-tree-panel"):
-                    yield DirectoryTree(self.tree_root, id="workspace-directory-tree")
-                    with Horizontal(id="workspace-tree-actions"):
-                        yield Button("New Folder", id="new-workspace-folder")
+                yield DirectoryTree(self.tree_root, id="workspace-directory-tree")
                 yield Static(self.preflight.render(), id="workspace-preflight")
-            with Horizontal(id="workspace-picker-actions"):
-                yield Button("Cancel", id="cancel-execute")
-                yield Button("Confirm Execute", id="confirm-execute", variant="primary")
+            with Horizontal(id="workspace-picker-bottom"):
+                with Horizontal(id="workspace-tree-actions"):
+                    yield Button("New Folder", id="new-workspace-folder")
+                with Horizontal(id="workspace-picker-actions"):
+                    yield Button("Cancel", id="cancel-execute")
+                    yield Button("Confirm Execute", id="confirm-execute", variant="primary")
             yield Static("", id="workspace-picker-status")
         yield Footer()
 
@@ -239,9 +232,25 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
             self._set_status("Enter a single folder name.")
             return
         target = self._folder_creation_base() / clean_name
+        try:
+            if target.exists():
+                if not target.is_dir():
+                    self._set_status(
+                        f"Path already exists and is not a directory: {target}"
+                    )
+                    return
+                status = f"Folder already exists: {target}"
+            else:
+                target.mkdir(parents=True, exist_ok=False)
+                status = f"New folder created: {target}"
+        except OSError as exc:
+            self._set_status(f"Could not create directory: {exc}")
+            return
+
         self.query_one("#workspace-path-input", Input).value = str(target)
         self._update_preflight(target)
-        self._set_status(f"New folder selected: {target}")
+        self._reload_tree()
+        self._set_status(status)
 
     def action_confirm(self) -> None:
         path = self._input_path()
@@ -294,13 +303,22 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         if self.is_mounted:
             self.query_one("#workspace-picker-status", Static).update(message)
 
+    def _reload_tree(self) -> None:
+        if not self.is_mounted:
+            return
+        tree = self.query_one("#workspace-directory-tree", DirectoryTree)
+        tree.reload()
+
     def _show_invalid_preflight(self) -> None:
         if not self.preflight.exists and not self.preflight.creatable:
             message = (
                 "Enable Create missing directory or select an existing writable "
                 "directory."
             )
-        elif not self.preflight.exists and not self.preflight.create_supported:
+        elif (
+            not self.preflight.exists
+            and not _path_creation_supported(self.preflight.path)
+        ):
             message = (
                 "Choose a path under a writable existing parent before creating it."
             )
@@ -348,7 +366,6 @@ def build_preflight(
         branch=_git_branch(resolved) if git_repo else "(none)",
         package_count=len(snapshot.work_packages),
         creatable=create_requested,
-        create_supported=create_supported,
     )
 
 

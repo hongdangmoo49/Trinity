@@ -5,10 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from textual.app import App, ComposeResult
+from textual.app import App
 from textual.binding import Binding
-from textual.screen import Screen
-from textual.widgets import Footer, Header, Static
 
 from trinity import __version__
 from trinity.config import TrinityConfig
@@ -24,24 +22,6 @@ from trinity.textual_app.widgets.workspace_picker import WorkspacePicker, Worksp
 from trinity.tui.kitty_compat import install_textual_parser_patch
 
 WorkbenchRoute = Literal["start", "nexus", "execution", "settings", "report"]
-
-
-class PlaceholderScreen(Screen[None]):
-    """Temporary route placeholder until the concrete screen is mounted."""
-
-    def __init__(self, route: WorkbenchRoute, title: str, subtitle: str) -> None:
-        super().__init__(name=route)
-        self.route = route
-        self.placeholder_title = title
-        self.placeholder_subtitle = subtitle
-
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=False)
-        yield Static(
-            f"{self.placeholder_title}\n{self.placeholder_subtitle}",
-            id="route-placeholder",
-        )
-        yield Footer()
 
 
 class TrinityTextualApp(App[None]):
@@ -87,7 +67,7 @@ class TrinityTextualApp(App[None]):
 
     #start-geometry {
         width: 100%;
-        height: 9;
+        height: 14;
         content-align: center middle;
         text-align: center;
         color: $accent;
@@ -592,6 +572,18 @@ class TrinityTextualApp(App[None]):
             report.apply_snapshot(
                 self.active_snapshot or self.snapshot_adapter.load_snapshot()
             )
+            # Build a structured DeliberationReport for richer rendering
+            try:
+                from trinity.tui.report import DeliberationReportBuilder
+                from trinity.workflow import WorkflowPersistence
+
+                persistence = WorkflowPersistence(self.config.effective_state_dir)
+                session = persistence.load()
+                if session and session.goal:
+                    structured = DeliberationReportBuilder(session, result=None).build()
+                    report.apply_report(structured)
+            except Exception:
+                pass  # Fallback to snapshot rendering
         self.current_route = route
         self.switch_screen(route)
 

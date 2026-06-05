@@ -8,7 +8,6 @@ Markdown string for persistence and sharing.
 
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -35,13 +34,7 @@ if TYPE_CHECKING:
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
-
-def _format_timestamp(timestamp: float) -> str:
-    """Format a Unix timestamp as a human-readable string."""
-    try:
-        return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
-    except (OSError, ValueError):
-        return "unknown"
+from trinity.tui.formatting import format_timestamp
 
 
 def _truncate(text: str, limit: int) -> str:
@@ -421,7 +414,7 @@ class DeliberationReportBuilder:
         return ReportMeta(
             session_id=s.id,
             goal=s.goal or "(none)",
-            created_at=_format_timestamp(s.created_at),
+            created_at=format_timestamp(s.created_at, "%Y-%m-%d %H:%M:%S"),
             agents=tuple(s.active_agents),
             rounds=r.rounds_completed if r else s.current_round,
             duration=f"{r.duration_seconds:.1f}s" if r else "N/A",

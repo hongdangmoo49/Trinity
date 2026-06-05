@@ -846,12 +846,13 @@ class InteractiveSession:
         )
 
     @staticmethod
-    def _format_timestamp(timestamp: float) -> str:
-        """Format a persisted Unix timestamp for the resume list."""
-        try:
-            return time.strftime("%Y-%m-%d %H:%M", time.localtime(timestamp))
-        except (OSError, ValueError):
-            return "unknown"
+    def _format_timestamp(
+        timestamp: float,
+        fmt: str = "%Y-%m-%d %H:%M",
+    ) -> str:
+        """Format a persisted Unix timestamp for display."""
+        from trinity.tui.formatting import format_timestamp
+        return format_timestamp(timestamp, fmt)
 
     @staticmethod
     def _short_goal(goal: str, limit: int = 60) -> str:

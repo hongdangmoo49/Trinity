@@ -10,6 +10,15 @@ from trinity.textual_app.runtime import (
 
 __all__ = [
     "TRINITY_TUI_ENV",
+    "TrinityTextualApp",
     "TuiRuntimeMode",
     "resolve_tui_runtime",
 ]
+
+
+def __getattr__(name: str):
+    if name == "TrinityTextualApp":
+        from trinity.textual_app.app import TrinityTextualApp
+
+        return TrinityTextualApp
+    raise AttributeError(name)

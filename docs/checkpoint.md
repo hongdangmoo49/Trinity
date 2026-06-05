@@ -6,9 +6,53 @@
 
 ---
 
-## v0.7.0 Workflow Engine Redesign — 진행 중
+## Current Baseline — v0.10.2
+
+작성일: 2026-06-05
+
+현재 `main` 기준 최신 패키지/CLI 버전은 `0.10.2`다. v0.7.0 workflow engine
+재설계 이후 target workspace boundary, Gemini 제거 및 Antigravity 전환,
+cross-platform 안정화, Textual Workbench 기본 UI, Textual execution wiring까지
+반영되어 있다.
+
+### 현재 동작 모델
+
+- 기본 대화형 실행은 Textual Workbench다. `trinity --plain` 또는 `TRINITY_TUI=plain`은
+  기존 Rich/prompt_toolkit TUI fallback을 사용한다.
+- 기본 provider transport는 one-shot CLI invocation이다. legacy tmux transport는
+  `transport_mode = "tmux"` 또는 legacy bootstrap/debug 용도로 유지된다.
+- planning 단계는 `WorkflowEngine`과 `TrinityOrchestrator.ask()`가 수행하며,
+  provider readiness, 라운드 기반 deliberation, central synthesis, open question,
+  blueprint 생성을 처리한다.
+- execution 단계는 blueprint가 준비된 뒤 target workspace preflight를 통과해야 시작된다.
+  provider workspace-write는 Trinity control repo 밖의 명시적 target workspace로 제한된다.
+- Textual Workbench는 `TextualWorkflowController`를 통해 기존 workflow/orchestrator를
+  background thread에서 실행하고, persisted workflow state와 runtime event를 snapshot으로
+  화면에 투영한다.
+
+### 최신 운영 문서
+
+- [v0.10.2 Workflow and Runtime Guide](workflow-v0.10.2-guide.md)
+- [Textual Workbench Execution Branch Report](test-results/2026-06-05-textual-workbench-execution-branch-report.md)
+- [Textual Workbench UI Screen Report](test-results/2026-06-05-textual-workbench-ui-screen-report.md)
+- [Cross-platform Stability Implementation](test-results/2026-06-05-cross-platform-stability-implementation.md)
+- [Target Workspace Boundary result](test-results/2026-06-05-target-workspace-boundary.md)
+
+### 검증 기준선
+
+- 패키지/CLI 버전: `0.10.2`
+- WSL 최신 기록: `/home/zaemi/.local/bin/uv run trinity --version` -> `trinity, version 0.10.2`
+- WSL 최신 전체 회귀 기록: `/home/zaemi/.local/bin/uv run pytest -q` -> `1092 passed, 1 warning in 46.65s`
+- 남은 경고: 기존 `AsyncMock` runtime warning이며 Textual execution wiring에서 새로 도입된 것은 아님
+
+---
+
+## v0.7.0 Workflow Engine Redesign — 이력 기록
 
 작성일: 2026-06-03
+
+> 이 섹션은 v0.7.0 재설계 당시의 구현 기준선과 후속 smoke 이력을 보존한다.
+> 현재 릴리스 기준선은 위의 `Current Baseline — v0.10.2` 섹션을 우선한다.
 
 ### 구현된 기준선
 
@@ -44,7 +88,7 @@
 
 ### 검증 기준선
 
-- 패키지/CLI 버전: `0.9.1`
+- 당시 패키지/CLI 버전: `0.9.1`
 - `uv run pytest -q` -> 1012 passed, 1 warning
 - 변경 파일 대상 ruff check 통과
 - 실제 WSL/tmux/provider smoke는 릴리스 전 별도 수행 필요

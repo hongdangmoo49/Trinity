@@ -14,6 +14,7 @@ from trinity import __version__
 from trinity.config import TrinityConfig
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.screens.nexus import NexusScreen
+from trinity.textual_app.screens.report import ReportScreen
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.settings import UISettingsStore
@@ -21,7 +22,7 @@ from trinity.textual_app.snapshot import NexusSnapshotAdapter, WorkflowNexusSnap
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.workspace_picker import WorkspacePicker, WorkspacePreflight
 
-WorkbenchRoute = Literal["start", "nexus", "execution", "settings"]
+WorkbenchRoute = Literal["start", "nexus", "execution", "settings", "report"]
 
 
 class PlaceholderScreen(Screen[None]):
@@ -53,6 +54,7 @@ class TrinityTextualApp(App[None]):
         Binding("ctrl+1", "go_start", "Start"),
         Binding("ctrl+2", "go_nexus", "Nexus"),
         Binding("ctrl+3", "go_execution", "Execute"),
+        Binding("ctrl+4", "go_report", "Report"),
         Binding("ctrl+comma", "go_settings", "Settings"),
     ]
 
@@ -403,6 +405,32 @@ class TrinityTextualApp(App[None]):
         padding: 0 1;
     }
 
+    #report-screen {
+        width: 100%;
+        height: 1fr;
+        padding: 1 2;
+    }
+
+    #report-header {
+        height: 3;
+        margin-bottom: 1;
+    }
+
+    #report-title {
+        text-style: bold;
+        color: $accent;
+    }
+
+    #report-export-btn {
+        margin-top: 1;
+    }
+
+    #report-body {
+        height: 1fr;
+        border: round $primary;
+        padding: 1 2;
+    }
+
     #nexus-composer {
         width: 100%;
         height: 7;
@@ -475,6 +503,7 @@ class TrinityTextualApp(App[None]):
         self.install_screen(NexusScreen(self.config), "nexus")
         self.install_screen(SettingsScreen(self.settings_store), "settings")
         self.install_screen(ExecutionMatrixScreen(), "execution")
+        self.install_screen(ReportScreen(), "report")
 
         screens: list[tuple[WorkbenchRoute, str, str]] = [
         ]
@@ -551,6 +580,11 @@ class TrinityTextualApp(App[None]):
             nexus.apply_snapshot(
                 self.active_snapshot or self.snapshot_adapter.load_snapshot()
             )
+        if route == "report" and self._screens_installed:
+            report = self.get_screen("report", ReportScreen)
+            report.apply_snapshot(
+                self.active_snapshot or self.snapshot_adapter.load_snapshot()
+            )
         self.current_route = route
         self.switch_screen(route)
 
@@ -567,6 +601,70 @@ class TrinityTextualApp(App[None]):
 
     def action_go_settings(self) -> None:
         self.switch_to("settings")
+
+    def action_go_report(self) -> None:
+        self.switch_to("report")
+
+    def on_report_screen_export_requested(
+        self,
+        event: ReportScreen.ExportRequested,
+    ) -> None:
+        event.stop()
+        snapshot = (
+            event.snapshot
+            or self.active_snapshot
+            or self.snapshot_adapter.load_snapshot()
+        )
+        self._export_report_markdown(snapshot)
+
+    def _export_report_markdown(self, snapshot: WorkflowNexusSnapshot) -> None:
+        """Save a snapshot-based report as Markdown."""
+        import time as _time
+
+        report_dir = self.config.effective_state_dir / "reports"
+        report_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = _time.strftime("%Y%m%d-%H%M%S")
+        sid = snapshot.session_id[:8] if snapshot.session_id else "unknown"
+        filename = f"report-{sid}-{timestamp}.md"
+        filepath = report_dir / filename
+
+        lines: list[str] = [
+            "# Deliberation Report",
+            "",
+            f"**Session**: {snapshot.session_id or '(none)'}  ",
+            f"**Goal**: {snapshot.goal or '(none)'}  ",
+            f"**State**: {snapshot.state}  ",
+            f"**Round**: {snapshot.round_num}  ",
+            f"**Created**: {_time.strftime('%Y-%m-%d %H:%M:%S')}  ",
+            "",
+        ]
+        if snapshot.synthesis.summary:
+            lines.extend([
+                "## Consensus",
+                "",
+                f"**Progress**: {snapshot.synthesis.consensus_progress}  ",
+                f"**Source**: {snapshot.synthesis.source}  ",
+                f"**Summary**: {snapshot.synthesis.summary}",
+                "",
+            ])
+        if snapshot.decisions:
+            lines.extend(["## Decisions", ""])
+            for i, d in enumerate(snapshot.decisions, 1):
+                lines.append(f"{i}. {d}")
+            lines.append("")
+        if snapshot.work_packages:
+            lines.extend(["## Work Packages", ""])
+            for pkg in snapshot.work_packages:
+                lines.append(f"- {pkg}")
+            lines.append("")
+        if snapshot.execution_log:
+            lines.extend(["## Execution Log", ""])
+            for entry in snapshot.execution_log[-20:]:
+                lines.append(f"- {entry}")
+            lines.append("")
+
+        filepath.write_text("\n".join(lines), encoding="utf-8")
+        self.notify(f"Report saved: {filepath}", title="Export Complete")
 
 
 def run_textual_app(config: TrinityConfig) -> None:

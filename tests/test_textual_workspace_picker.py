@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 from textual.app import App
-from textual.widgets import DirectoryTree, Input, Static
+from textual.widgets import Checkbox, DirectoryTree, Input, Static
 
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.workspace_picker import (
@@ -49,6 +49,30 @@ def test_build_preflight_marks_missing_child_as_creatable(tmp_path) -> None:
     assert preflight.can_execute is False
     assert preflight.can_create is True
     assert "Creatable: True" in preflight.render()
+
+
+def test_build_preflight_respects_creatable_override(tmp_path) -> None:
+    target = tmp_path / "new-app"
+
+    preflight = build_preflight(
+        target,
+        WorkflowNexusSnapshot(),
+        creatable=False,
+    )
+
+    assert preflight.exists is False
+    assert preflight.create_supported is True
+    assert preflight.creatable is False
+    assert preflight.can_create is False
+    assert "Creatable: False" in preflight.render()
+    assert "Create supported: True" in preflight.render()
+
+
+def test_build_preflight_supports_nested_missing_directories(tmp_path) -> None:
+    preflight = build_preflight(tmp_path / "new-app" / "src", WorkflowNexusSnapshot())
+
+    assert preflight.create_supported is True
+    assert preflight.can_create is True
 
 
 def test_default_workspace_tree_root_uses_control_repo_parent(tmp_path) -> None:
@@ -146,3 +170,45 @@ async def test_workspace_picker_confirm_creates_missing_directory(tmp_path) -> N
         assert target_workspace.is_dir()
         assert picker.preflight.path == target_workspace
         assert picker.preflight.can_execute is True
+
+
+@pytest.mark.asyncio
+async def test_workspace_picker_create_toggle_controls_missing_directory(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "Trinity"
+    target_workspace = tmp_path / "new-project"
+    control_repo.mkdir()
+
+    picker = WorkspacePicker(
+        candidate=target_workspace,
+        snapshot=WorkflowNexusSnapshot(),
+        cwd=control_repo,
+        tree_root=tmp_path,
+    )
+    app = WorkspacePickerHarness()
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.push_screen(picker)
+        await pilot.pause()
+
+        checkbox = app.screen.query_one("#workspace-creatable", Checkbox)
+        checkbox.post_message(Checkbox.Changed(checkbox, False))
+        await pilot.pause()
+
+        picker.action_confirm()
+        await pilot.pause()
+
+        status = app.screen.query_one("#workspace-picker-status", Static)
+        assert target_workspace.exists() is False
+        assert "Enable Create missing directory" in str(status.content)
+        assert picker.preflight.creatable is False
+
+        checkbox.post_message(Checkbox.Changed(checkbox, True))
+        await pilot.pause()
+
+        picker.action_confirm()
+        await pilot.pause()
+
+        assert target_workspace.exists()
+        assert target_workspace.is_dir()

@@ -367,6 +367,11 @@ class TrinityTextualApp(App[None]):
         margin-bottom: 1;
     }
 
+    #workspace-creatable {
+        height: 1;
+        margin-top: 1;
+    }
+
     #workspace-picker-body {
         height: 1fr;
         margin-top: 1;

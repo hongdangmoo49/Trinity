@@ -9,7 +9,7 @@ from pathlib import Path
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, DirectoryTree, Footer, Input, Static
+from textual.widgets import Button, Checkbox, DirectoryTree, Footer, Input, Static
 
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 
@@ -26,6 +26,7 @@ class WorkspacePreflight:
     branch: str
     package_count: int
     creatable: bool = False
+    create_supported: bool = False
 
     @property
     def can_execute(self) -> bool:
@@ -34,7 +35,7 @@ class WorkspacePreflight:
     @property
     def can_create(self) -> bool:
         """Return whether the target directory can be created before execution."""
-        return not self.exists and self.creatable
+        return not self.exists and self.creatable and self.create_supported
 
     def render(self) -> str:
         return "\n".join(
@@ -45,6 +46,7 @@ class WorkspacePreflight:
                 f"Writable: {self.writable}",
                 f"Git repo: {self.git_repo}",
                 f"Creatable: {self.creatable}",
+                f"Create supported: {self.create_supported}",
                 f"Branch: {self.branch}",
                 "Dirty worktree: unknown",
                 "Provider readiness: current session snapshot",
@@ -75,6 +77,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         self.cwd = cwd or Path.cwd()
         self.tree_root = tree_root or self.cwd
         self.preflight = build_preflight(candidate or self.cwd, snapshot)
+        self.create_missing = self.preflight.creatable
 
     def compose(self) -> ComposeResult:
         with Vertical(id="workspace-picker"):
@@ -83,6 +86,11 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
                 value=str(self.preflight.path),
                 placeholder="Target workspace path",
                 id="workspace-path-input",
+            )
+            yield Checkbox(
+                "Create missing directory",
+                value=self.create_missing,
+                id="workspace-creatable",
             )
             with Horizontal(id="workspace-picker-body"):
                 yield DirectoryTree(self.tree_root, id="workspace-directory-tree")
@@ -97,6 +105,13 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         if event.input.id != "workspace-path-input":
             return
         self._update_preflight(Path(event.value).expanduser())
+
+    def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
+        if event.checkbox.id != "workspace-creatable":
+            return
+        event.stop()
+        self.create_missing = bool(event.value)
+        self._update_preflight(self._input_path())
 
     def on_directory_tree_directory_selected(
         self, event: DirectoryTree.DirectorySelected
@@ -118,7 +133,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         self.dismiss(None)
 
     def action_confirm(self) -> None:
-        path = Path(self.query_one("#workspace-path-input", Input).value).expanduser()
+        path = self._input_path()
         self._update_preflight(path)
         if self.preflight.can_create:
             try:
@@ -131,16 +146,37 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
             self._update_preflight(self.preflight.path)
 
         if not self.preflight.can_execute:
-            self.query_one("#workspace-picker-status", Static).update(
-                "Select an existing writable directory or a creatable new path."
-            )
+            self._show_invalid_preflight()
             return
         self.dismiss(self.preflight)
 
     def _update_preflight(self, path: Path) -> None:
-        self.preflight = build_preflight(path, self.snapshot)
+        self.preflight = build_preflight(
+            path,
+            self.snapshot,
+            creatable=self.create_missing,
+        )
         if self.is_mounted:
             self.query_one("#workspace-preflight", Static).update(self.preflight.render())
+
+    def _input_path(self) -> Path:
+        return Path(self.query_one("#workspace-path-input", Input).value).expanduser()
+
+    def _show_invalid_preflight(self) -> None:
+        if not self.preflight.exists and not self.preflight.creatable:
+            message = (
+                "Enable Create missing directory or select an existing writable "
+                "directory."
+            )
+        elif not self.preflight.exists and not self.preflight.create_supported:
+            message = (
+                "Choose a path under a writable existing parent before creating it."
+            )
+        else:
+            message = (
+                "Select an existing writable directory or a creatable new path."
+            )
+        self.query_one("#workspace-picker-status", Static).update(message)
 
 
 def default_workspace_tree_root(control_repo_path: Path) -> Path:
@@ -150,19 +186,19 @@ def default_workspace_tree_root(control_repo_path: Path) -> Path:
     return parent if parent != control_repo else control_repo
 
 
-def build_preflight(path: Path, snapshot: WorkflowNexusSnapshot) -> WorkspacePreflight:
+def build_preflight(
+    path: Path,
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    creatable: bool | None = None,
+) -> WorkspacePreflight:
     """Build a conservative cross-platform workspace preflight."""
     resolved = path.expanduser()
     exists = resolved.exists()
     is_dir = resolved.is_dir()
     writable = exists and is_dir and os.access(resolved, os.W_OK)
-    parent = resolved.parent
-    creatable = (
-        not exists
-        and parent.exists()
-        and parent.is_dir()
-        and os.access(parent, os.W_OK)
-    )
+    create_supported = not exists and _path_creation_supported(resolved)
+    create_requested = create_supported if creatable is None else bool(creatable)
     git_repo = (resolved / ".git").exists()
     return WorkspacePreflight(
         path=resolved,
@@ -172,8 +208,24 @@ def build_preflight(path: Path, snapshot: WorkflowNexusSnapshot) -> WorkspacePre
         git_repo=git_repo,
         branch=_git_branch(resolved) if git_repo else "(none)",
         package_count=len(snapshot.work_packages),
-        creatable=creatable,
+        creatable=create_requested,
+        create_supported=create_supported,
     )
+
+
+def _path_creation_supported(path: Path) -> bool:
+    """Return whether mkdir(parents=True) has a writable ancestor to start from."""
+    current = path
+    seen: set[Path] = set()
+    while not current.exists():
+        if current in seen:
+            return False
+        seen.add(current)
+        parent = current.parent
+        if parent == current:
+            return False
+        current = parent
+    return current.is_dir() and os.access(current, os.W_OK)
 
 
 def _git_branch(path: Path) -> str:

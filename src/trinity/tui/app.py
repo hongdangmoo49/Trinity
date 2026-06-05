@@ -26,6 +26,7 @@ from trinity import __version__
 from trinity.config import TrinityConfig
 from trinity.models import DeliberationResult
 from trinity.tui.events import TUIEvent, TUIEventType
+from trinity.tui.sacred_geometry import SacredGeometryAnimator
 from trinity.tui.theme import get_theme
 from trinity.workflow.models import WorkflowSession, WorkflowState
 
@@ -108,6 +109,8 @@ class TrinityTUI:
         self,
         config: TrinityConfig,
         console: Console | None = None,
+        *,
+        show_geometry: bool = True,
     ):
         self.config = config
         self.console = console or Console()
@@ -126,6 +129,14 @@ class TrinityTUI:
         self.work_package_statuses: dict[str, str] = {}
         self.subtask_result_count: int = 0
 
+        # Deliberation progress state
+        self.deliberation_active: bool = False
+        self.deliberation_prompt: str = ""
+        self.current_phase: str = ""       # opinions | counter | consensus | synthesis
+        self.phase_started_at: float = 0.0
+        self.progress_completed: int = 0
+        self.progress_total: int = 0
+
         # Callbacks for commands
         self.on_ask: Callable[[str], Any] | None = None
         self.on_command: Callable[[str, list[str]], Any] | None = None
@@ -138,6 +149,19 @@ class TrinityTUI:
                 role=spec.role_prompt.split(".")[0] if spec.role_prompt else "",
                 state=AgentTUIState.DISABLED if not spec.enabled else AgentTUIState.IDLE,
             )
+
+        # Sacred geometry animation
+        self._animation_tick: float = 0.0
+        self._geometry_animator: SacredGeometryAnimator | None = None
+        if show_geometry:
+            term_height = self.console.size.height or 40  # Default for non-tty
+            if term_height >= 20:
+                term_width = self.console.size.width or 80
+                self._geometry_animator = SacredGeometryAnimator(
+                    width=min(term_width - 4, 50),
+                    height=11,
+                    mode="modern",
+                )
 
     # ─── Event Consumption ─────────────────────────────────────────────
 
@@ -211,6 +235,20 @@ class TrinityTUI:
                 elif event.data.get("summary"):
                     self.rounds[-1].consensus_detail = event.data["summary"]
 
+        elif event.type == TUIEventType.DELIBERATION_STARTED:
+            self.deliberation_active = True
+            self.deliberation_prompt = event.data.get("prompt", "")
+            self.current_phase = "opinions"
+            self.phase_started_at = time.time()
+
+        elif event.type == TUIEventType.DELIBERATION_PHASE:
+            self.current_phase = event.data.get("phase", "")
+            self.phase_started_at = time.time()
+
+        elif event.type == TUIEventType.DELIBERATION_PROGRESS:
+            self.progress_completed = event.data.get("completed", 0)
+            self.progress_total = event.data.get("total", 0)
+
         elif event.type == TUIEventType.EXECUTION_START:
             self.work_package_count = int(
                 event.data.get("package_count", self.work_package_count)
@@ -234,7 +272,10 @@ class TrinityTUI:
             pass
 
         elif event.type == TUIEventType.DELIBERATION_DONE:
-            pass  # No special action needed
+            self.deliberation_active = False
+            self.current_phase = ""
+            self.progress_completed = 0
+            self.progress_total = 0
 
     # ─── Layout Builders ───────────────────────────────────────────────
 
@@ -256,8 +297,25 @@ class TrinityTUI:
         elapsed = time.time() - self.session_start
         mins, secs = divmod(int(elapsed), 60)
 
-        content = Group(
-            Text(),
+        # Build header content parts
+        header_parts: list = []
+
+        # Sacred geometry mandala
+        if self._geometry_animator is not None:
+            self._animation_tick += 0.15  # Advance rotation
+            agent_colors = [
+                get_theme(name).color
+                for name, status in self.agents.items()
+                if status.state != AgentTUIState.DISABLED
+            ]
+            geo_text = self._geometry_animator.render_rich(
+                angle=self._animation_tick,
+                colors=agent_colors[:3] or ["cyan", "green", "magenta"],
+            )
+            header_parts.append(geo_text)
+            header_parts.append(Text())
+
+        header_parts.extend([
             Text.assemble(
                 Text("🧠 ", style=""),
                 Text(f"Trinity v{__version__}", style="bold cyan"),
@@ -288,7 +346,9 @@ class TrinityTUI:
                 self._caveman_badge(),
             ),
             Text(),
-        )
+        ])
+
+        content = Group(*header_parts)
 
         return Panel.fit(
             content,
@@ -707,7 +767,7 @@ class TrinityTUI:
         return Text()
 
     def get_welcome_text(self) -> str:
-        """Get the welcome/help text for the TUI."""
+        """Get the welcome/help text for the TUI (markdown string)."""
         return (
             f"[bold cyan]🧠 Trinity v{__version__}[/bold cyan]\n\n"
             "[bold]Commands:[/bold]\n"
@@ -723,6 +783,8 @@ class TrinityTUI:
             "  [cyan]/questions [--select --all][/cyan] — Show/answer workflow questions\n"
             "  [cyan]/answer <id|n|next> <text>[/cyan] — Answer a workflow question\n"
             "  [cyan]/decisions[/cyan]  — Show recorded workflow decisions\n"
+            "  [cyan]/report[/cyan]          — 협의 결과 개괄 보고서\n"
+            "  [cyan]/report save[/cyan]     — 보고서를 Markdown 파일로 저장\n"
             "  [cyan]/packages[/cyan]   — Show workflow work packages\n"
             "  [cyan]/subtasks[/cyan]   — Show delegated subtask reports\n"
             "  [cyan]/resume [n|latest|id][/cyan] — Resume a saved workflow session\n"
@@ -731,3 +793,55 @@ class TrinityTUI:
             "  [cyan]/help[/cyan]       — Show this help\n"
             "  [cyan]/quit[/cyan]       — Exit Trinity\n"
         )
+
+    def get_welcome_renderable(self) -> Group:
+        """Get the full welcome display with sacred geometry mandala.
+
+        Returns a Rich renderable combining the geometry animation
+        with the welcome text and agent status.
+        """
+        parts: list = []
+
+        # Sacred geometry mandala (static frame for welcome screen)
+        if self._geometry_animator is not None:
+            agent_colors = [
+                get_theme(name).color
+                for name, status in self.agents.items()
+                if status.state != AgentTUIState.DISABLED
+            ]
+            geo_text = self._geometry_animator.render_rich(
+                angle=0.0,
+                colors=agent_colors[:3] or ["cyan", "green", "magenta"],
+            )
+            parts.append(geo_text)
+            parts.append(Text())
+
+        # Branding
+        parts.append(
+            Text.assemble(
+                Text("🧠 ", style=""),
+                Text(f"Trinity v{__version__}", style="bold cyan"),
+                Text("  —  ", style="dim"),
+                Text("Three minds, one context", style="dim italic"),
+            ),
+        )
+        parts.append(Text())
+
+        # Agent status pills
+        agent_parts: list[Text] = []
+        for name, status in self.agents.items():
+            theme = get_theme(name)
+            if status.state == AgentTUIState.DISABLED:
+                pill = Text(f"  {name} ⏸  ", style="dim")
+            else:
+                icon = status.state_icon
+                pill = Text(f"  {theme.icon} {name} {icon}  ", style=f"bold {theme.color}")
+            agent_parts.append(pill)
+        if agent_parts:
+            parts.append(Text.assemble(*agent_parts))
+            parts.append(Text())
+
+        # Welcome text (commands)
+        parts.append(Text.from_markup(self.get_welcome_text()))
+
+        return Group(*parts)

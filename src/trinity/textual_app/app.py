@@ -5,15 +5,19 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from textual.app import App, ComposeResult
+from textual.app import App
 from textual.binding import Binding
-from textual.screen import Screen
-from textual.widgets import Footer, Header, Static
 
 from trinity import __version__
 from trinity.config import TrinityConfig
+from trinity.textual_app.report_export import (
+    snapshot_has_report_data,
+    snapshot_report_markdown,
+    unique_report_path,
+)
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.screens.nexus import NexusScreen
+from trinity.textual_app.screens.report import ReportScreen
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.settings import UISettingsStore
@@ -29,26 +33,9 @@ from trinity.textual_app.widgets.workspace_picker import (
     WorkspacePreflight,
     default_workspace_tree_root,
 )
+from trinity.tui.kitty_compat import install_textual_parser_patch
 
-WorkbenchRoute = Literal["start", "nexus", "execution", "settings"]
-
-
-class PlaceholderScreen(Screen[None]):
-    """Temporary route placeholder until the concrete screen is mounted."""
-
-    def __init__(self, route: WorkbenchRoute, title: str, subtitle: str) -> None:
-        super().__init__(name=route)
-        self.route = route
-        self.placeholder_title = title
-        self.placeholder_subtitle = subtitle
-
-    def compose(self) -> ComposeResult:
-        yield Header(show_clock=False)
-        yield Static(
-            f"{self.placeholder_title}\n{self.placeholder_subtitle}",
-            id="route-placeholder",
-        )
-        yield Footer()
+WorkbenchRoute = Literal["start", "nexus", "execution", "settings", "report"]
 
 
 class TrinityTextualApp(App[None]):
@@ -62,6 +49,7 @@ class TrinityTextualApp(App[None]):
         Binding("ctrl+1", "go_start", "Start"),
         Binding("ctrl+2", "go_nexus", "Nexus"),
         Binding("ctrl+3", "go_execution", "Execute"),
+        Binding("ctrl+4", "go_report", "Report"),
         Binding("ctrl+comma", "go_settings", "Settings"),
     ]
 
@@ -99,6 +87,15 @@ class TrinityTextualApp(App[None]):
         width: 72;
         max-width: 90%;
         height: auto;
+    }
+
+    #start-geometry {
+        width: 100%;
+        height: 14;
+        content-align: center middle;
+        text-align: center;
+        color: $accent;
+        margin-bottom: 1;
     }
 
     #start-title {
@@ -453,6 +450,36 @@ class TrinityTextualApp(App[None]):
         padding: 0 1;
     }
 
+    #report-screen {
+        width: 100%;
+        height: 1fr;
+        padding: 1 2;
+    }
+
+    #report-header {
+        height: 4;
+        margin-bottom: 1;
+    }
+
+    #report-title {
+        text-style: bold;
+        color: $accent;
+    }
+
+    #report-export-btn {
+        margin-top: 1;
+    }
+
+    #report-export-status {
+        color: $text-muted;
+    }
+
+    #report-body {
+        height: 1fr;
+        border: round $primary;
+        padding: 1 2;
+    }
+
     #nexus-composer {
         width: 100%;
         height: 7;
@@ -505,6 +532,7 @@ class TrinityTextualApp(App[None]):
         config: TrinityConfig,
         workflow_controller: TextualWorkflowController | None = None,
     ) -> None:
+        install_textual_parser_patch()
         super().__init__()
         localize_bindings(self._bindings, config.lang, self.LOCALIZED_BINDINGS)
         self.config = config
@@ -538,11 +566,8 @@ class TrinityTextualApp(App[None]):
             "settings",
         )
         self.install_screen(ExecutionMatrixScreen(), "execution")
+        self.install_screen(ReportScreen(), "report")
 
-        screens: list[tuple[WorkbenchRoute, str, str]] = [
-        ]
-        for route, title, subtitle in screens:
-            self.install_screen(PlaceholderScreen(route, title, subtitle), route)
         self._screens_installed = True
 
     def on_start_screen_submitted(self, event: StartScreen.Submitted) -> None:
@@ -688,6 +713,23 @@ class TrinityTextualApp(App[None]):
                 or self.workflow_controller.snapshot()
                 or self.snapshot_adapter.load_snapshot()
             )
+        if route == "report" and self._screens_installed:
+            report = self.get_screen("report", ReportScreen)
+            report.apply_snapshot(
+                self.active_snapshot or self.snapshot_adapter.load_snapshot()
+            )
+            # Build a structured DeliberationReport for richer rendering
+            try:
+                from trinity.tui.report import DeliberationReportBuilder
+                from trinity.workflow import WorkflowPersistence
+
+                persistence = WorkflowPersistence(self.config.effective_state_dir)
+                session = persistence.load()
+                if session and session.goal:
+                    structured = DeliberationReportBuilder(session, result=None).build()
+                    report.apply_report(structured)
+            except Exception:
+                pass  # Fallback to snapshot rendering
         self.current_route = route
         self.switch_screen(route)
 
@@ -706,6 +748,51 @@ class TrinityTextualApp(App[None]):
 
     def action_go_settings(self) -> None:
         self.switch_to("settings")
+
+    def action_go_report(self) -> None:
+        self.switch_to("report")
+
+    def on_report_screen_export_requested(
+        self,
+        event: ReportScreen.ExportRequested,
+    ) -> None:
+        event.stop()
+        snapshot = (
+            event.snapshot
+            or self.active_snapshot
+            or self.snapshot_adapter.load_snapshot()
+        )
+        self._export_report_markdown(snapshot)
+
+    def _export_report_markdown(self, snapshot: WorkflowNexusSnapshot) -> None:
+        """Save a report as Markdown using the shared DeliberationReport builder."""
+        from trinity.tui.report import DeliberationReportBuilder
+        from trinity.workflow import WorkflowPersistence
+
+        report_dir = self.config.effective_state_dir / "reports"
+        filepath = unique_report_path(report_dir, snapshot.session_id)
+
+        # Build from the full WorkflowSession for richer output
+        persistence = WorkflowPersistence(self.config.effective_state_dir)
+        session = persistence.load()
+        if session is not None:
+            builder = DeliberationReportBuilder(session, result=None)
+            report = builder.build()
+            markdown = report.to_markdown()
+        elif snapshot_has_report_data(snapshot):
+            markdown = snapshot_report_markdown(snapshot)
+        else:
+            self.notify(
+                "No workflow data available to export.",
+                title="Export Unavailable",
+                severity="warning",
+            )
+            return
+
+        filepath.write_text(markdown, encoding="utf-8")
+        if self._screens_installed:
+            self.get_screen("report", ReportScreen).show_export_path(filepath)
+        self.notify(f"Report saved: {filepath}", title="Export Complete")
 
 
 def run_textual_app(config: TrinityConfig) -> None:

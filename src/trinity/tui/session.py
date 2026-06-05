@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import re
 import shlex
 import sys
@@ -29,6 +30,7 @@ from trinity.config import TrinityConfig
 from trinity.models import DeliberationResult
 from trinity.tui.app import AgentTUIState, TrinityTUI
 from trinity.tui.events import TUIEventBus
+from trinity.tui.kitty_compat import install_prompt_toolkit_parser_patch
 from trinity.tui.prompt import CUSTOM_OPTION_VALUE, TrinityPromptSession
 from trinity.tui.theme import get_theme
 from trinity.workflow import (
@@ -44,6 +46,56 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from trinity.orchestrator import TrinityOrchestrator
+
+
+# ─── Kitty Keyboard Protocol Management ──────────────────────────────
+
+
+def _is_kitty_keyboard_capable() -> bool:
+    """Return True when the terminal likely supports the Kitty keyboard protocol.
+
+    The Kitty keyboard protocol sends key events as CSI escape sequences
+    (``CSI code-point ; modifiers u``).  On terminals such as Ghostty or
+    Kitty this is enabled by default.  While the protocol itself works
+    fine for Latin input, it can interfere with CJK IME composition
+    because prompt_toolkit receives raw key codes for each individual
+    keystroke instead of the final composed character.
+    """
+    if not sys.stdout.isatty():
+        return False
+    term_program = os.environ.get("TERM_PROGRAM", "").lower()
+    term = os.environ.get("TERM", "").lower()
+    return "ghostty" in term_program or "kitty" in term
+
+
+def _push_kitty_keyboard_mode() -> None:
+    """Disable the Kitty keyboard protocol for CJK IME compatibility.
+
+    Pushes the current keyboard mode onto the terminal's internal stack
+    and sets mode 0 (disabled).  This forces the terminal to report key
+    events via the legacy xterm protocol, which correctly delivers
+    IME-composed text to prompt_toolkit.
+    """
+    if not _is_kitty_keyboard_capable():
+        return
+    # CSI < 0 u  →  push current mode and set mode 0 (disabled)
+    try:
+        fd = sys.stdout.fileno()
+        os.write(fd, b"\x1b[<0u")
+    except (OSError, ValueError, AttributeError):
+        pass
+
+
+def _pop_kitty_keyboard_mode() -> None:
+    """Restore the previously saved Kitty keyboard protocol mode."""
+    if not _is_kitty_keyboard_capable():
+        return
+    # CSI = u  →  pop saved keyboard mode
+    try:
+        fd = sys.stdout.fileno()
+        os.write(fd, b"\x1b[=u")
+    except (OSError, ValueError, AttributeError):
+        pass
 
 
 class InteractiveSession:
@@ -78,33 +130,40 @@ class InteractiveSession:
 
         This is the main entry point for `trinity` without arguments.
         """
-        self.running = True
-        self._show_welcome()
+        # Disable Kitty keyboard protocol to prevent CJK IME input issues
+        # on Ghostty/Kitty terminals.  See _push_kitty_keyboard_mode().
+        install_prompt_toolkit_parser_patch()
+        _push_kitty_keyboard_mode()
+        try:
+            self.running = True
+            self._show_welcome()
 
-        while self.running:
-            try:
-                user_input = self._get_input()
-                if not user_input or not user_input.strip():
-                    continue
+            while self.running:
+                try:
+                    user_input = self._get_input()
+                    if not user_input or not user_input.strip():
+                        continue
 
-                user_input = user_input.strip()
+                    user_input = user_input.strip()
 
-                # Command mode
-                if user_input.startswith("/"):
-                    self._handle_command(user_input)
-                else:
-                    self._handle_user_text(user_input)
+                    # Command mode
+                    if user_input.startswith("/"):
+                        self._handle_command(user_input)
+                    else:
+                        self._handle_user_text(user_input)
 
-            except KeyboardInterrupt:
-                self.console.print("\n[dim]Use /quit to exit.[/dim]")
-            except EOFError:
-                break
+                except KeyboardInterrupt:
+                    self.console.print("\n[dim]Use /quit to exit.[/dim]")
+                except EOFError:
+                    break
 
-        self._show_goodbye()
+            self._show_goodbye()
+        finally:
+            _pop_kitty_keyboard_mode()
 
     def _show_welcome(self) -> None:
-        """Show welcome message."""
-        self.console.print(self.tui.get_welcome_text())
+        """Show welcome message with sacred geometry mandala."""
+        self.console.print(self.tui.get_welcome_renderable())
         if self._startup_archive:
             self.console.print(
                 "[dim]Previous workflow saved to history. "
@@ -169,6 +228,8 @@ class InteractiveSession:
             self._cmd_packages()
         elif cmd == "subtasks":
             self._cmd_subtasks()
+        elif cmd == "report":
+            self._cmd_report(args)
         elif cmd == "resume":
             self._cmd_resume(args)
         elif cmd == "execute":
@@ -609,6 +670,48 @@ class InteractiveSession:
 
         self.console.print(table)
 
+    def _cmd_report(self, args: list[str]) -> None:
+        """협의 결과를 개괄 Report 형식으로 표시.
+
+        Usage:
+            /report          — TUI에 Rich 형식으로 표시
+            /report save     — Markdown 파일로 저장
+        """
+        from trinity.tui.report import DeliberationReportBuilder
+
+        result = self.tui.last_result
+        session = self.workflow.session
+        if not session.goal and result is None:
+            self.console.print(
+                "[yellow]아직 협의 결과가 없습니다. "
+                "먼저 질문을 입력해 협의를 시작하세요.[/yellow]"
+            )
+            return
+
+        builder = DeliberationReportBuilder(session, result)
+        report = builder.build()
+
+        save_requested = args and args[0].lower() in ("save", "s")
+        if save_requested:
+            self._save_report_markdown(report)
+        else:
+            self.console.print(report.render())
+            self.console.print(
+                "\n[dim]/report save 로 Markdown 파일로 저장할 수 있습니다.[/dim]"
+            )
+
+    def _save_report_markdown(self, report) -> None:
+        """Report를 Markdown 파일로 저장."""
+        report_dir = self.config.effective_state_dir / "reports"
+        report_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        filename = f"report-{report.meta.session_id[:8]}-{timestamp}.md"
+        filepath = report_dir / filename
+        filepath.write_text(report.to_markdown(), encoding="utf-8")
+        self.console.print(
+            f"[green]📋 Report 저장 완료: {filepath}[/green]"
+        )
+
     def _cmd_resume(self, args: list[str]) -> None:
         """Resume an archived workflow session.
 
@@ -743,12 +846,13 @@ class InteractiveSession:
         )
 
     @staticmethod
-    def _format_timestamp(timestamp: float) -> str:
-        """Format a persisted Unix timestamp for the resume list."""
-        try:
-            return time.strftime("%Y-%m-%d %H:%M", time.localtime(timestamp))
-        except (OSError, ValueError):
-            return "unknown"
+    def _format_timestamp(
+        timestamp: float,
+        fmt: str = "%Y-%m-%d %H:%M",
+    ) -> str:
+        """Format a persisted Unix timestamp for display."""
+        from trinity.tui.formatting import format_timestamp
+        return format_timestamp(timestamp, fmt)
 
     @staticmethod
     def _short_goal(goal: str, limit: int = 60) -> str:
@@ -1573,6 +1677,10 @@ class InteractiveSession:
             f"\n[dim]Duration: {result.duration_seconds:.1f}s | "
             f"Tokens: {result.total_tokens_used:,} | "
             f"Rounds: {result.rounds_completed}[/dim]\n"
+        )
+        self.console.print(
+            "[dim]/report 로 전체 협의 결과 개괄 보기, "
+            "/report save 로 파일 저장[/dim]"
         )
 
     # ─── Persistence ────────────────────────────────────────────────────

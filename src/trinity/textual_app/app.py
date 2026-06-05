@@ -10,6 +10,11 @@ from textual.binding import Binding
 
 from trinity import __version__
 from trinity.config import TrinityConfig
+from trinity.textual_app.report_export import (
+    snapshot_has_report_data,
+    snapshot_report_markdown,
+    unique_report_path,
+)
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.report import ReportScreen
@@ -402,7 +407,7 @@ class TrinityTextualApp(App[None]):
     }
 
     #report-header {
-        height: 3;
+        height: 4;
         margin-bottom: 1;
     }
 
@@ -413,6 +418,10 @@ class TrinityTextualApp(App[None]):
 
     #report-export-btn {
         margin-top: 1;
+    }
+
+    #report-export-status {
+        color: $text-muted;
     }
 
     #report-body {
@@ -618,24 +627,32 @@ class TrinityTextualApp(App[None]):
 
     def _export_report_markdown(self, snapshot: WorkflowNexusSnapshot) -> None:
         """Save a report as Markdown using the shared DeliberationReport builder."""
-        import time as _time
-
         from trinity.tui.report import DeliberationReportBuilder
         from trinity.workflow import WorkflowPersistence
 
         report_dir = self.config.effective_state_dir / "reports"
-        report_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = _time.strftime("%Y%m%d-%H%M%S")
-        sid = snapshot.session_id[:8] if snapshot.session_id else "unknown"
-        filename = f"report-{sid}-{timestamp}.md"
-        filepath = report_dir / filename
+        filepath = unique_report_path(report_dir, snapshot.session_id)
 
         # Build from the full WorkflowSession for richer output
         persistence = WorkflowPersistence(self.config.effective_state_dir)
         session = persistence.load()
-        builder = DeliberationReportBuilder(session, result=None)
-        report = builder.build()
-        filepath.write_text(report.to_markdown(), encoding="utf-8")
+        if session is not None:
+            builder = DeliberationReportBuilder(session, result=None)
+            report = builder.build()
+            markdown = report.to_markdown()
+        elif snapshot_has_report_data(snapshot):
+            markdown = snapshot_report_markdown(snapshot)
+        else:
+            self.notify(
+                "No workflow data available to export.",
+                title="Export Unavailable",
+                severity="warning",
+            )
+            return
+
+        filepath.write_text(markdown, encoding="utf-8")
+        if self._screens_installed:
+            self.get_screen("report", ReportScreen).show_export_path(filepath)
         self.notify(f"Report saved: {filepath}", title="Export Complete")
 
 

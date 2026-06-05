@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from textual.app import ComposeResult
@@ -55,6 +57,7 @@ class ReportScreen(Screen[None]):
                     id="report-export-btn",
                     variant="primary",
                 )
+                yield Static("", id="report-export-status")
             with VerticalScroll(id="report-body"):
                 yield Static(
                     "워크플로우 데이터를 불러오는 중…",
@@ -79,6 +82,14 @@ class ReportScreen(Screen[None]):
         if not self.is_mounted:
             return
         self._render_report()
+
+    def show_export_path(self, path: Path) -> None:
+        """Show the last Markdown export destination in the report header."""
+        if not self.is_mounted:
+            return
+        self.query_one("#report-export-status", Static).update(
+            f"[dim]Saved: {escape(str(path))}[/dim]"
+        )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "report-export-btn":
@@ -114,11 +125,11 @@ class ReportScreen(Screen[None]):
 
     def _compute_render_id(self) -> str:
         if self._report is not None:
-            r = self._report.meta
-            return f"report:{r.session_id}:{r.state}:{r.rounds}"
+            digest = hashlib.sha1(repr(self._report).encode("utf-8")).hexdigest()
+            return f"report:{digest}"
         if self.snapshot is not None:
-            s = self.snapshot
-            return f"snap:{s.session_id}:{s.state}:{s.round_num}"
+            digest = hashlib.sha1(repr(self.snapshot).encode("utf-8")).hexdigest()
+            return f"snap:{digest}"
         return ""
 
     # ── Structured report path (preferred) ──────────────────────────────

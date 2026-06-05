@@ -6,19 +6,36 @@ from textual.widgets import RichLog, TabbedContent, TextArea
 
 from trinity.config import TrinityConfig
 from trinity.textual_app.app import TrinityTextualApp
+from trinity.textual_app.report_export import (
+    snapshot_report_markdown,
+    unique_report_path,
+)
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.screens.nexus import NexusScreen
+from trinity.textual_app.screens.report import ReportScreen
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import SacredGeometryAnimation, StartScreen
 from trinity.textual_app.settings import UISettingsStore
-from trinity.textual_app.snapshot import ProviderSnapshot, QuestionSnapshot, WorkflowNexusSnapshot
+from trinity.textual_app.snapshot import (
+    ProviderSnapshot,
+    QuestionSnapshot,
+    SynthesisSnapshot,
+    WorkflowNexusSnapshot,
+)
+from trinity.tui.report import DeliberationReportBuilder
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.composer import COMMAND_LIMIT, PromptComposer
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
 from trinity.textual_app.widgets.workspace_picker import WorkspacePicker, build_preflight
-from trinity.workflow import WorkflowPersistence, WorkflowSession, WorkflowState
+from trinity.workflow import (
+    WorkPackage,
+    WorkflowPersistence,
+    WorkflowSession,
+    WorkflowState,
+    WorkStatus,
+)
 
 
 @pytest.mark.asyncio
@@ -48,6 +65,241 @@ async def test_textual_app_switches_named_routes(tmp_path) -> None:
         assert app.current_route == "settings"
         assert app.screen.name == "settings"
         assert isinstance(app.screen, SettingsScreen)
+
+
+@pytest.mark.asyncio
+async def test_textual_app_switches_to_report_screen_without_render_crash(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("report")
+        await pilot.pause()
+
+        assert app.current_route == "report"
+        assert app.screen.name == "report"
+        assert isinstance(app.screen, ReportScreen)
+        assert app.screen.query_one("#report-body")
+
+
+@pytest.mark.asyncio
+async def test_report_screen_escapes_snapshot_markup(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.active_snapshot = WorkflowNexusSnapshot(
+            session_id="wf-[/bold]",
+            goal="fix [/bold] crash",
+            state="idle[/bold]",
+            synthesis=SynthesisSnapshot(
+                summary="summary [/bold]",
+                consensus_progress="round [/bold]",
+                source="shared[/bold]",
+            ),
+            decisions=["decision [/bold]"],
+            work_packages=["WP [/bold]"],
+            execution_log=["log [/bold]"],
+            questions=[
+                QuestionSnapshot(
+                    id="q[/bold]",
+                    question="question [/bold]",
+                    options=["option [/bold]"],
+                    recommended_option="option [/bold]",
+                )
+            ],
+        )
+
+        app.switch_to("report")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ReportScreen)
+        assert app.screen.query_one("#report-body")
+
+
+@pytest.mark.asyncio
+async def test_report_screen_rerenders_when_report_content_changes(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    def report_for(title: str):
+        session = WorkflowSession(
+            id="same-session",
+            goal="same goal",
+            state=WorkflowState.BLUEPRINT_READY,
+            current_round=1,
+            work_packages=[
+                WorkPackage(
+                    id="wp-1",
+                    title=title,
+                    owner_agent="codex",
+                    objective="same objective",
+                    status=WorkStatus.PENDING,
+                ),
+            ],
+        )
+        return DeliberationReportBuilder(session, result=None).build()
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("report")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, ReportScreen)
+
+        screen.apply_report(report_for("First package"))
+        await pilot.pause()
+        body = screen.query_one("#report-body")
+        first_render = "\n".join(str(child.render()) for child in body.children)
+        assert "First package" in first_render
+
+        screen.apply_report(report_for("Second package"))
+        await pilot.pause()
+        second_render = "\n".join(str(child.render()) for child in body.children)
+        assert "Second package" in second_render
+        assert "First package" not in second_render
+
+
+@pytest.mark.asyncio
+async def test_report_screen_escapes_export_status_path(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("report")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, ReportScreen)
+        screen.show_export_path(tmp_path / "report-[/dim].md")
+        await pilot.pause()
+
+        status = screen.query_one("#report-export-status")
+        assert "Saved:" in str(status.render())
+        assert "report-" in str(status.render())
+
+
+@pytest.mark.asyncio
+async def test_textual_export_uses_snapshot_when_session_is_not_persisted(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-memory-only",
+        goal="memory only report",
+        state="preflight",
+        synthesis=SynthesisSnapshot(
+            summary="snapshot summary",
+            consensus_progress="in progress",
+            source="memory",
+        ),
+        decisions=["use snapshot fallback"],
+        work_packages=["wp-1 codex: implement fallback (pending)"],
+        execution_log=["no execution yet"],
+    )
+
+    async with app.run_test(size=(100, 30)):
+        app._export_report_markdown(snapshot)
+
+    reports = list((app.config.effective_state_dir / "reports").glob("report-*.md"))
+    assert len(reports) == 1
+    md = reports[0].read_text(encoding="utf-8")
+    assert "memory only report" in md
+    assert "snapshot summary" in md
+    assert "use snapshot fallback" in md
+
+
+@pytest.mark.asyncio
+async def test_textual_export_uses_persisted_session_when_available(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="persisted-session",
+            goal="persisted report",
+            state=WorkflowState.BLUEPRINT_READY,
+            work_packages=[
+                WorkPackage(
+                    id="wp-persisted",
+                    title="Persisted package",
+                    owner_agent="codex",
+                    objective="export from persisted workflow",
+                    status=WorkStatus.PENDING,
+                )
+            ],
+        )
+    )
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("report")
+        await pilot.pause()
+        app._export_report_markdown(WorkflowNexusSnapshot(session_id="persisted-session"))
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, ReportScreen)
+        status = screen.query_one("#report-export-status")
+        assert "Saved:" in str(status.render())
+
+    reports = list((config.effective_state_dir / "reports").glob("report-*.md"))
+    assert len(reports) == 1
+    md = reports[0].read_text(encoding="utf-8")
+    assert "persisted report" in md
+    assert "wp-persisted" in md
+    assert "export from persisted workflow" in md
+
+
+@pytest.mark.asyncio
+async def test_textual_export_empty_snapshot_does_not_create_report(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)):
+        app._export_report_markdown(WorkflowNexusSnapshot())
+
+    report_dir = app.config.effective_state_dir / "reports"
+    assert not list(report_dir.glob("report-*.md"))
+
+
+def test_snapshot_report_markdown_escapes_user_markdown() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-#1",
+        goal="# injected heading",
+        state="idle",
+        synthesis=SynthesisSnapshot(
+            summary="# summary heading\n- summary item",
+            consensus_progress="- progress",
+            source="[source](url)",
+        ),
+        decisions=["- injected list", "**bold** decision"],
+        work_packages=["wp | table"],
+        execution_log=["log # heading"],
+        questions=[
+            QuestionSnapshot(
+                id="q#1",
+                question="- choose me",
+            )
+        ],
+    )
+
+    md = snapshot_report_markdown(snapshot)
+
+    assert "**Goal**: \\# injected heading" in md
+    assert "**Progress**: \\- progress" in md
+    assert "**Source**: \\[source\\]\\(url\\)" in md
+    assert "- \\- injected list" in md
+    assert "- \\*\\*bold\\*\\* decision" in md
+    assert "- wp \\| table" in md
+    assert "- **q\\#1**: \\- choose me" in md
+    assert "```\n# summary heading\n- summary item\n```" in md
+
+
+def test_unique_report_path_avoids_existing_file_and_sanitizes_session_id(
+    tmp_path,
+) -> None:
+    report_dir = tmp_path / "reports"
+    first = unique_report_path(report_dir, "wf/unsafe")
+    first.write_text("existing", encoding="utf-8")
+
+    second = unique_report_path(report_dir, "wf/unsafe")
+
+    assert second != first
+    assert "/" not in second.name
+    assert second.name.startswith("report-wf-unsaf")
 
 
 @pytest.mark.asyncio

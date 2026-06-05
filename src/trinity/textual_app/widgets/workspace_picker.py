@@ -25,10 +25,16 @@ class WorkspacePreflight:
     git_repo: bool
     branch: str
     package_count: int
+    creatable: bool = False
 
     @property
     def can_execute(self) -> bool:
         return self.exists and self.is_dir and self.writable
+
+    @property
+    def can_create(self) -> bool:
+        """Return whether the target directory can be created before execution."""
+        return not self.exists and self.creatable
 
     def render(self) -> str:
         return "\n".join(
@@ -38,6 +44,7 @@ class WorkspacePreflight:
                 f"Directory: {self.is_dir}",
                 f"Writable: {self.writable}",
                 f"Git repo: {self.git_repo}",
+                f"Creatable: {self.creatable}",
                 f"Branch: {self.branch}",
                 "Dirty worktree: unknown",
                 "Provider readiness: current session snapshot",
@@ -113,9 +120,19 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
     def action_confirm(self) -> None:
         path = Path(self.query_one("#workspace-path-input", Input).value).expanduser()
         self._update_preflight(path)
+        if self.preflight.can_create:
+            try:
+                self.preflight.path.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                self.query_one("#workspace-picker-status", Static).update(
+                    f"Could not create directory: {exc}"
+                )
+                return
+            self._update_preflight(self.preflight.path)
+
         if not self.preflight.can_execute:
             self.query_one("#workspace-picker-status", Static).update(
-                "Select an existing writable directory."
+                "Select an existing writable directory or a creatable new path."
             )
             return
         self.dismiss(self.preflight)
@@ -139,6 +156,13 @@ def build_preflight(path: Path, snapshot: WorkflowNexusSnapshot) -> WorkspacePre
     exists = resolved.exists()
     is_dir = resolved.is_dir()
     writable = exists and is_dir and os.access(resolved, os.W_OK)
+    parent = resolved.parent
+    creatable = (
+        not exists
+        and parent.exists()
+        and parent.is_dir()
+        and os.access(parent, os.W_OK)
+    )
     git_repo = (resolved / ".git").exists()
     return WorkspacePreflight(
         path=resolved,
@@ -148,6 +172,7 @@ def build_preflight(path: Path, snapshot: WorkflowNexusSnapshot) -> WorkspacePre
         git_repo=git_repo,
         branch=_git_branch(resolved) if git_repo else "(none)",
         package_count=len(snapshot.work_packages),
+        creatable=creatable,
     )
 
 

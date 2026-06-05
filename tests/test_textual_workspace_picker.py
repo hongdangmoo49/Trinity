@@ -40,6 +40,17 @@ def test_build_preflight_detects_git_branch(tmp_path) -> None:
     assert preflight.branch == "feature/ui"
 
 
+def test_build_preflight_marks_missing_child_as_creatable(tmp_path) -> None:
+    target = tmp_path / "new-app"
+
+    preflight = build_preflight(target, WorkflowNexusSnapshot())
+
+    assert preflight.exists is False
+    assert preflight.can_execute is False
+    assert preflight.can_create is True
+    assert "Creatable: True" in preflight.render()
+
+
 def test_default_workspace_tree_root_uses_control_repo_parent(tmp_path) -> None:
     control_repo = tmp_path / "Trinity"
 
@@ -108,3 +119,30 @@ async def test_workspace_picker_tree_selection_updates_input_and_preflight(tmp_p
         assert picker.preflight.path == selected_workspace
         assert picker.preflight.can_execute is True
         assert str(selected_workspace) in str(preflight_panel.content)
+
+
+@pytest.mark.asyncio
+async def test_workspace_picker_confirm_creates_missing_directory(tmp_path) -> None:
+    control_repo = tmp_path / "Trinity"
+    target_workspace = tmp_path / "new-project"
+    control_repo.mkdir()
+
+    picker = WorkspacePicker(
+        candidate=target_workspace,
+        snapshot=WorkflowNexusSnapshot(),
+        cwd=control_repo,
+        tree_root=tmp_path,
+    )
+    app = WorkspacePickerHarness()
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.push_screen(picker)
+        await pilot.pause()
+
+        picker.action_confirm()
+        await pilot.pause()
+
+        assert target_workspace.exists()
+        assert target_workspace.is_dir()
+        assert picker.preflight.path == target_workspace
+        assert picker.preflight.can_execute is True

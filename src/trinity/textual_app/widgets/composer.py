@@ -48,7 +48,7 @@ class ComposerTextArea(TextArea):
         ),
         Binding("up", "command_palette_up", "Previous command", show=False, priority=True),
         Binding("down", "command_palette_down", "Next command", show=False, priority=True),
-        Binding("shift+enter,alt+enter", "insert_newline", "New line", show=False),
+        Binding("shift+enter,alt+enter,ctrl+j", "insert_newline", "New line", show=False),
     ]
 
     def action_submit_or_accept(self) -> None:
@@ -106,7 +106,7 @@ class PromptComposer(Vertical):
 
     BINDINGS = [
         Binding("enter,ctrl+enter,super+enter", "submit", "Send", priority=True),
-        Binding("shift+enter,alt+enter", "insert_newline", "New line", show=False),
+        Binding("shift+enter,alt+enter,ctrl+j", "insert_newline", "New line", show=False),
     ]
 
     def __init__(

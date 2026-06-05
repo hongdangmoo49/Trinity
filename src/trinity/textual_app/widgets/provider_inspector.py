@@ -7,7 +7,7 @@ import json
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, Footer, Static, TabbedContent, TabPane, TextArea
+from textual.widgets import Button, Footer, RichLog, Static, TabbedContent, TabPane
 
 from trinity.textual_app.snapshot import ProviderSnapshot
 
@@ -47,15 +47,17 @@ class ProviderInspector(ModalScreen[None]):
         yield Static(self._provider_meta(provider), classes="provider-inspector-meta")
         yield self._output_area(self._provider_output(provider))
 
-    def _output_area(self, text: str) -> TextArea:
-        return TextArea(
-            text,
-            read_only=True,
-            soft_wrap=True,
-            show_line_numbers=False,
-            highlight_cursor_line=False,
+    def _output_area(self, text: str) -> RichLog:
+        output = RichLog(
+            wrap=True,
+            min_width=1,
+            markup=False,
+            highlight=False,
+            auto_scroll=False,
             classes="provider-inspector-output",
         )
+        output.write(text)
+        return output
 
     def _provider_output(self, provider: ProviderSnapshot) -> str:
         output = provider.raw_output or provider.summary or "No raw output captured yet."

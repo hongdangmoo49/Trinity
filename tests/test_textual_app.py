@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 from textual import events
-from textual.widgets import TextArea
+from textual.widgets import RichLog, TabbedContent, TextArea
 
 from trinity.config import TrinityConfig
 from trinity.textual_app.app import TrinityTextualApp
@@ -114,7 +114,7 @@ async def test_prompt_composer_shows_slash_command_palette(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_prompt_composer_shift_enter_inserts_newline(tmp_path) -> None:
+async def test_prompt_composer_modified_enter_inserts_newline(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
     async with app.run_test(size=(100, 30)) as pilot:
@@ -125,8 +125,11 @@ async def test_prompt_composer_shift_enter_inserts_newline(tmp_path) -> None:
         await pilot.press("shift+enter")
         await pilot.pause()
 
+        await pilot.press("ctrl+j")
+        await pilot.pause()
+
         assert app.current_route == "start"
-        assert composer.text == "line one\n"
+        assert composer.text == "line one\n\n"
 
 
 @pytest.mark.asyncio
@@ -382,10 +385,10 @@ async def test_provider_inspector_modal_opens_from_nexus(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_provider_inspector_all_tab_uses_soft_wrapped_output(tmp_path) -> None:
+async def test_provider_inspector_all_tab_wraps_long_output(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
-    async with app.run_test(size=(120, 40)) as pilot:
+    async with app.run_test(size=(80, 40)) as pilot:
         app.push_screen(
             ProviderInspector(
                 [
@@ -394,17 +397,24 @@ async def test_provider_inspector_all_tab_uses_soft_wrapped_output(tmp_path) -> 
                         provider="claude-code",
                         enabled=True,
                         status="Ready",
-                        raw_output="\\n".join(f"line {index}" for index in range(200)),
+                        raw_output="x" * 180,
                     )
                 ]
             )
         )
         await pilot.pause()
 
-        output = app.screen.query_one("#inspect-all .provider-inspector-output", TextArea)
-        assert output.soft_wrap is True
-        assert output.read_only is True
+        tabs = app.screen.query_one("#provider-inspector-tabs", TabbedContent)
+        tabs.active = "inspect-all"
+        await pilot.pause()
+
+        output = app.screen.query_one("#inspect-all .provider-inspector-output", RichLog)
+        content_width = output.scrollable_content_region.width
+        assert output.wrap is True
+        assert output.min_width == 1
         assert output.styles.height.value == 1
+        assert len(output.lines) > 1
+        assert max(line.cell_length for line in output.lines) <= content_width
 
 
 @pytest.mark.asyncio
@@ -427,8 +437,8 @@ async def test_provider_inspector_pretty_prints_json_output(tmp_path) -> None:
         )
         await pilot.pause()
 
-        output = app.screen.query_one("#inspect-codex .provider-inspector-output", TextArea)
-        assert output.text == (
+        output = app.screen.query_one("#inspect-codex .provider-inspector-output", RichLog)
+        assert "\n".join(line.text for line in output.lines) == (
             '{\n'
             '  "name": "Trinity",\n'
             '  "items": [\n'

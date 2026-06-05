@@ -26,6 +26,7 @@ from trinity import __version__
 from trinity.config import TrinityConfig
 from trinity.models import DeliberationResult
 from trinity.tui.events import TUIEvent, TUIEventType
+from trinity.tui.sacred_geometry import SacredGeometryAnimator
 from trinity.tui.theme import get_theme
 from trinity.workflow.models import WorkflowSession, WorkflowState
 
@@ -108,6 +109,8 @@ class TrinityTUI:
         self,
         config: TrinityConfig,
         console: Console | None = None,
+        *,
+        show_geometry: bool = True,
     ):
         self.config = config
         self.console = console or Console()
@@ -138,6 +141,18 @@ class TrinityTUI:
                 role=spec.role_prompt.split(".")[0] if spec.role_prompt else "",
                 state=AgentTUIState.DISABLED if not spec.enabled else AgentTUIState.IDLE,
             )
+
+        # Sacred geometry animation
+        self._animation_tick: float = 0.0
+        self._geometry_animator: SacredGeometryAnimator | None = None
+        if show_geometry:
+            term_height = self.console.size.height
+            if term_height >= 20:
+                self._geometry_animator = SacredGeometryAnimator(
+                    width=min(self.console.size.width - 4, 50),
+                    height=11,
+                    mode="modern",
+                )
 
     # ─── Event Consumption ─────────────────────────────────────────────
 
@@ -256,8 +271,17 @@ class TrinityTUI:
         elapsed = time.time() - self.session_start
         mins, secs = divmod(int(elapsed), 60)
 
-        content = Group(
-            Text(),
+        # Build header content parts
+        header_parts: list = []
+
+        # Sacred geometry mandala
+        if self._geometry_animator is not None:
+            self._animation_tick += 0.15  # Advance rotation
+            geo_frame = self._geometry_animator.render(angle=self._animation_tick)
+            header_parts.append(Text(geo_frame, style="dim cyan"))
+            header_parts.append(Text())
+
+        header_parts.extend([
             Text.assemble(
                 Text("🧠 ", style=""),
                 Text(f"Trinity v{__version__}", style="bold cyan"),
@@ -288,7 +312,9 @@ class TrinityTUI:
                 self._caveman_badge(),
             ),
             Text(),
-        )
+        ])
+
+        content = Group(*header_parts)
 
         return Panel.fit(
             content,

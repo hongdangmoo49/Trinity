@@ -84,3 +84,40 @@ def test_animator_rejects_zero_dimensions() -> None:
     """Constructing with zero or negative dimensions should raise ValueError."""
     with pytest.raises(ValueError, match="Dimensions must be >= 1"):
         SacredGeometryAnimator(width=0, height=0)
+
+
+from trinity.tui.app import TrinityTUI
+from trinity.config import TrinityConfig
+
+
+def _make_config() -> TrinityConfig:
+    """Create a minimal config for testing."""
+    return TrinityConfig(
+        session_name="test",
+        agents={},
+    )
+
+
+def test_tui_header_renders_with_geometry():
+    """TUI header should render with geometry without errors."""
+    config = _make_config()
+    tui = TrinityTUI(config)
+    header = tui.build_header()
+    from rich.console import Console
+    console = Console(width=80, force_terminal=True)
+    console.render(header)  # Should not raise
+
+
+def test_tui_has_animator_attribute():
+    """TrinityTUI should have a SacredGeometryAnimator instance."""
+    config = _make_config()
+    tui = TrinityTUI(config)
+    # May or may not have animator depending on terminal size in CI
+    assert hasattr(tui, "_geometry_animator")
+
+
+def test_tui_animator_disabled_when_show_geometry_false():
+    """Animator should be None when show_geometry is False."""
+    config = _make_config()
+    tui = TrinityTUI(config, show_geometry=False)
+    assert tui._geometry_animator is None

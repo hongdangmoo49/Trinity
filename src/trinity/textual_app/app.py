@@ -246,9 +246,16 @@ class TrinityTextualApp(App[None]):
         height: 1fr;
     }
 
-    .provider-inspector-markdown {
+    .provider-inspector-meta {
+        height: auto;
+        color: $text-muted;
+        margin-bottom: 1;
+    }
+
+    .provider-inspector-output {
         height: 1fr;
-        overflow-y: auto;
+        border: round $primary;
+        padding: 0 1;
     }
 
     #nexus-action-bar {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from textual.widgets import TextArea
 
 from trinity.config import TrinityConfig
 from trinity.textual_app.app import TrinityTextualApp
@@ -288,7 +289,7 @@ async def test_provider_inspector_modal_opens_from_nexus(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_provider_inspector_all_tab_uses_scrollable_markdown(tmp_path) -> None:
+async def test_provider_inspector_all_tab_uses_soft_wrapped_output(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
     async with app.run_test(size=(120, 40)) as pilot:
@@ -300,16 +301,51 @@ async def test_provider_inspector_all_tab_uses_scrollable_markdown(tmp_path) -> 
                         provider="claude-code",
                         enabled=True,
                         status="Ready",
-                        raw_output="\\n".join(f"line {index}" for index in range(200)),
+                        raw_output="\n".join(f"line {index}" for index in range(200)),
                     )
                 ]
             )
         )
         await pilot.pause()
 
-        markdown = app.screen.query_one("#inspect-all .provider-inspector-markdown")
-        assert markdown.styles.height.value == 1
-        assert markdown.styles.overflow_y == "auto"
+        output = app.screen.query_one("#inspect-all .provider-inspector-output", TextArea)
+        assert output.soft_wrap is True
+        assert output.read_only is True
+        assert output.styles.height.value == 1
+
+
+@pytest.mark.asyncio
+async def test_provider_inspector_pretty_prints_json_output(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.push_screen(
+            ProviderInspector(
+                [
+                    ProviderSnapshot(
+                        name="codex",
+                        provider="codex",
+                        enabled=True,
+                        status="Ready",
+                        raw_output='{"name":"Trinity","items":[{"id":1,"label":"alpha"}]}',
+                    )
+                ]
+            )
+        )
+        await pilot.pause()
+
+        output = app.screen.query_one("#inspect-codex .provider-inspector-output", TextArea)
+        assert output.text == (
+            '{\n'
+            '  "name": "Trinity",\n'
+            '  "items": [\n'
+            '    {\n'
+            '      "id": 1,\n'
+            '      "label": "alpha"\n'
+            '    }\n'
+            '  ]\n'
+            '}'
+        )
 
 
 @pytest.mark.asyncio

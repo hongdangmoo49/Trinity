@@ -42,6 +42,27 @@ from trinity.providers.bootstrap import (
 )
 from trinity.setup.detector import CLIDetector
 
+
+def _configure_stdio_encoding_errors(*streams) -> None:
+    """Avoid UnicodeEncodeError on legacy Windows code pages.
+
+    Some Windows CI shells expose stdout/stderr as cp1252. Rich can then fail
+    when a command prints symbols such as check marks. Replacing unsupported
+    characters is better than crashing during non-interactive smoke commands.
+    """
+    target_streams = streams or (sys.stdout, sys.stderr)
+    for stream in target_streams:
+        reconfigure = getattr(stream, "reconfigure", None)
+        if not callable(reconfigure):
+            continue
+        try:
+            reconfigure(errors="replace")
+        except (OSError, TypeError, ValueError):
+            continue
+
+
+_configure_stdio_encoding_errors()
+
 console = Console()
 
 

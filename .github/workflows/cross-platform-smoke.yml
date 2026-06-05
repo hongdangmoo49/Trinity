@@ -44,20 +44,22 @@ jobs:
           tests/test_cli.py
 
       - name: Build wheel
-        run: uv build
+        run: |
+          uv run python -c "import shutil; shutil.rmtree('dist-smoke', ignore_errors=True)"
+          uv build --out-dir dist-smoke
 
       - name: Install wheel and smoke console script
         shell: bash
         run: |
           uv run python -m venv .venv-smoke
           if [ "$RUNNER_OS" = "Windows" ]; then
-            .venv-smoke/Scripts/python -m pip install dist/*.whl
+            .venv-smoke/Scripts/python -m pip install dist-smoke/*.whl
             .venv-smoke/Scripts/trinity.exe --version
             .venv-smoke/Scripts/trinity.exe init --non-interactive
             .venv-smoke/Scripts/trinity.exe doctor
             .venv-smoke/Scripts/trinity.exe bootstrap --check-only --agents claude
           else
-            .venv-smoke/bin/python -m pip install dist/*.whl
+            .venv-smoke/bin/python -m pip install dist-smoke/*.whl
             .venv-smoke/bin/trinity --version
             .venv-smoke/bin/trinity init --non-interactive
             .venv-smoke/bin/trinity doctor

@@ -6,7 +6,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from types import SimpleNamespace
 from click.testing import CliRunner
 
-from trinity.cli import main, load_config, find_config_path
+from trinity.cli import (
+    _configure_stdio_encoding_errors,
+    main,
+    load_config,
+    find_config_path,
+)
 from trinity.context.analytics import RoundRecord, TokenAnalytics, analytics_history_path
 from trinity.models import Provider
 
@@ -43,6 +48,27 @@ class TestVersion:
         result = runner.invoke(main, ["--version"])
         assert result.exit_code == 0
         assert __import__("trinity").__version__ in result.output
+
+
+class TestOutputEncoding:
+    def test_configure_stdio_encoding_errors_uses_replacement(self):
+        class FakeStream:
+            def __init__(self):
+                self.kwargs = None
+
+            def reconfigure(self, **kwargs):
+                self.kwargs = kwargs
+
+        stdout = FakeStream()
+        stderr = FakeStream()
+
+        _configure_stdio_encoding_errors(stdout, stderr)
+
+        assert stdout.kwargs == {"errors": "replace"}
+        assert stderr.kwargs == {"errors": "replace"}
+
+    def test_configure_stdio_encoding_errors_ignores_unsupported_streams(self):
+        _configure_stdio_encoding_errors(object())
 
 
 class TestInit:

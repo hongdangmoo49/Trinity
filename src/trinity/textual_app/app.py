@@ -513,7 +513,10 @@ class TrinityTextualApp(App[None]):
         if self._screens_installed:
             return
 
-        self.install_screen(StartScreen(self.workspace_candidate), "start")
+        self.install_screen(
+            StartScreen(self.workspace_candidate, lang=self.config.lang),
+            "start",
+        )
         self.install_screen(NexusScreen(self.config), "nexus")
         self.install_screen(SettingsScreen(self.settings_store), "settings")
         self.install_screen(ExecutionMatrixScreen(), "execution")

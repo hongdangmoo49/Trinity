@@ -31,9 +31,15 @@ class StartScreen(Screen[None]):
         ("ctrl+enter", "submit", "Plan"),
     ]
 
-    def __init__(self, workspace_candidate: Path | None = None) -> None:
+    def __init__(
+        self,
+        workspace_candidate: Path | None = None,
+        *,
+        lang: str = "en",
+    ) -> None:
         super().__init__(name="start")
         self.workspace_candidate = workspace_candidate
+        self.lang = lang
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -44,6 +50,7 @@ class StartScreen(Screen[None]):
                 yield PromptComposer(
                     placeholder="What should Trinity work on?",
                     id="start-composer",
+                    lang=self.lang,
                 )
                 with Horizontal(id="start-actions"):
                     yield Static(self._workspace_label(), id="workspace-candidate")

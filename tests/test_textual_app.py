@@ -192,6 +192,57 @@ async def test_prompt_composer_shows_slash_command_palette(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_prompt_composer_localizes_slash_command_palette_in_korean(tmp_path) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+
+        composer.set_text("/")
+        await pilot.pause()
+        options = [str(option.content) for option in composer.query(".command-option")]
+        more = str(composer.query_one("#command-option-more").content)
+
+        assert any("/status" in option for option in options)
+        assert any("제공자와 워크플로우 상태 보기" in option for option in options)
+        assert not any(
+            "show provider and workflow status" in option for option in options
+        )
+        assert "명령 더 있음" in more
+
+        composer.set_text("/missing")
+        await pilot.pause()
+
+        empty = str(composer.query_one("#command-option-0").content)
+        assert empty == "일치하는 명령이 없습니다"
+
+
+@pytest.mark.asyncio
+async def test_nexus_composer_uses_configured_slash_command_language(tmp_path) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/ex")
+        await pilot.pause()
+
+        options = [str(option.content) for option in composer.query(".command-option")]
+
+        assert any("/execute" in option for option in options)
+        assert any("실행 사전 점검 열기" in option for option in options)
+        assert not any("open execution preflight" in option for option in options)
+
+
+@pytest.mark.asyncio
 async def test_prompt_composer_modified_enter_inserts_newline(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

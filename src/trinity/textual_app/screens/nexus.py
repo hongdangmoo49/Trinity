@@ -77,6 +77,7 @@ class NexusScreen(Screen[None]):
             yield PromptComposer(
                 placeholder="Reply, refine direction, or type / for commands",
                 id="nexus-composer",
+                lang=self.config.lang,
             )
         yield Footer()
 

@@ -568,14 +568,22 @@ def logs(follow: bool, lines: int):
     config = load_config()
     log_path = config.effective_state_dir / "logs" / "trinity.log"
 
-    if not log_path.exists():
-        console.print("[yellow]No log file found. Run 'trinity ask' first.[/yellow]")
-        return
-
     if follow:
-        import subprocess
-        subprocess.run(["tail", "-f", "-n", str(lines), str(log_path)])
+        from trinity.platform.log_tail import follow_log
+
+        try:
+            for event in follow_log(log_path, lines=lines):
+                if event.kind == "line":
+                    console.print(event.message)
+                else:
+                    console.print(event.message, style="yellow", markup=False)
+        except KeyboardInterrupt:
+            console.print("\n[dim]Stopped.[/dim]")
     else:
+        if not log_path.exists():
+            console.print("[yellow]No log file found. Run 'trinity ask' first.[/yellow]")
+            return
+
         content = log_path.read_text(encoding="utf-8")
         log_lines = content.splitlines()
         for line in log_lines[-lines:]:

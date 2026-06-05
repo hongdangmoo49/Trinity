@@ -12,6 +12,7 @@ from trinity.platform.capabilities import (
     legacy_tmux_hint,
     normalize_os_name,
 )
+from trinity.platform.log_tail import LogTailEvent, follow_log
 from trinity.platform.process import CommandSpec, ProcessRunner, render_command
 
 __all__ = [
@@ -25,6 +26,8 @@ __all__ = [
     "has_command",
     "legacy_tmux_hint",
     "normalize_os_name",
+    "LogTailEvent",
+    "follow_log",
     "CommandSpec",
     "ProcessRunner",
     "render_command",

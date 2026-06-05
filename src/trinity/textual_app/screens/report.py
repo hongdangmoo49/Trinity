@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import time
-from dataclasses import dataclass
-
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical, VerticalScroll
@@ -13,13 +10,6 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Static
 
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
-
-
-@dataclass(frozen=True)
-class ReportExportRequested:
-    """Carries the current snapshot when the user requests a Markdown export."""
-
-    snapshot: WorkflowNexusSnapshot
 
 
 class ReportScreen(Screen[None]):
@@ -55,8 +45,16 @@ class ReportScreen(Screen[None]):
                     id="report-export-btn",
                     variant="primary",
                 )
-            yield VerticalScroll(id="report-body")
+            with VerticalScroll(id="report-body"):
+                yield Static(
+                    "워크플로우 데이터를 불러오는 중…",
+                    id="report-placeholder",
+                )
         yield Footer()
+
+    def on_mount(self) -> None:
+        if self.snapshot is not None:
+            self._render()
 
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
         """Render report content from a workflow snapshot."""
@@ -64,10 +62,6 @@ class ReportScreen(Screen[None]):
         if not self.is_mounted:
             return
         self._render()
-
-    def on_mount(self) -> None:
-        if self.snapshot is not None:
-            self._render()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "report-export-btn":
@@ -82,13 +76,14 @@ class ReportScreen(Screen[None]):
 
     def _render(self) -> None:
         body = self.query_one("#report-body", VerticalScroll)
-        # Remove old content
+
+        # Remove all existing children safely
         for child in list(body.children):
             child.remove()
 
         snap = self.snapshot
         if snap is None:
-            body.mount(Static("[dim]No workflow data available.[/dim]"))
+            body.mount(Static("No workflow data available."))
             return
 
         sections: list[str] = []
@@ -167,21 +162,21 @@ class ReportScreen(Screen[None]):
         lines: list[str] = []
         for i, decision in enumerate(decisions, 1):
             lines.append(f"  {i}. {decision}")
-        return "\n".join(lines) if lines else "[dim](none)[/dim]"
+        return "\n".join(lines) if lines else "(none)"
 
     @staticmethod
     def _render_packages(packages: list[str]) -> str:
         lines: list[str] = []
         for pkg in packages:
             lines.append(f"  • {pkg}")
-        return "\n".join(lines) if lines else "[dim](none)[/dim]"
+        return "\n".join(lines) if lines else "(none)"
 
     @staticmethod
     def _render_execution_log(log: list[str]) -> str:
         lines: list[str] = []
         for entry in log[-20:]:
             lines.append(f"  {entry}")
-        return "\n".join(lines) if lines else "[dim](none)[/dim]"
+        return "\n".join(lines) if lines else "(none)"
 
     @staticmethod
     def _render_questions(questions) -> str:
@@ -192,7 +187,7 @@ class ReportScreen(Screen[None]):
                 for i, opt in enumerate(q.options, 1):
                     marker = " (recommended)" if opt == q.recommended_option else ""
                     lines.append(f"    {i}. {opt}{marker}")
-        return "\n".join(lines) if lines else "[dim](none)[/dim]"
+        return "\n".join(lines) if lines else "(none)"
 
     @staticmethod
     def _section(title: str, body: str) -> str:

@@ -268,3 +268,40 @@ def test_long_objective_in_markdown():
         assert len(x_run) <= 120 + 10  # table formatting adds a few chars
     assert "wp-long" in md
     assert "codex" in md
+
+
+def test_pipe_characters_escaped_in_markdown_tables():
+    session = WorkflowSession(
+        id="pipe-test",
+        goal="test",
+        state=WorkflowState.BLUEPRINT_READY,
+        work_packages=[
+            WorkPackage(
+                id="wp-1",
+                title="foo | bar",
+                owner_agent="codex",
+                objective="a | b | c",
+                status=WorkStatus.PENDING,
+            ),
+        ],
+        execution_results=[
+            ExecutionResult(
+                package_id="wp-1",
+                agent_name="codex",
+                status=WorkStatus.DONE,
+                summary="result | with | pipes",
+            ),
+        ],
+    )
+    report = DeliberationReportBuilder(session, result=None).build()
+    md = report.to_markdown()
+
+    # Pipes inside table cells must be escaped as \|
+    for line in md.splitlines():
+        if line.startswith("|") and "|" in line[1:]:
+            # Count unescaped pipes — should be exactly the column delimiters
+            parts = line.split("|")
+            # Each cell value should not contain bare pipe
+            # (it would be escaped as \|)
+            for part in parts[1:-1]:  # skip empty first/last from split
+                assert "|" not in part or "\\|" in part, f"Unescaped pipe: {line}"

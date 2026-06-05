@@ -21,6 +21,7 @@ from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import NexusSnapshotAdapter, WorkflowNexusSnapshot
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.workspace_picker import WorkspacePicker, WorkspacePreflight
+from trinity.tui.kitty_compat import install_textual_parser_patch
 
 WorkbenchRoute = Literal["start", "nexus", "execution", "settings", "report"]
 
@@ -82,6 +83,15 @@ class TrinityTextualApp(App[None]):
         width: 72;
         max-width: 90%;
         height: auto;
+    }
+
+    #start-geometry {
+        width: 100%;
+        height: 9;
+        content-align: center middle;
+        text-align: center;
+        color: $accent;
+        margin-bottom: 1;
     }
 
     #start-title {
@@ -479,6 +489,7 @@ class TrinityTextualApp(App[None]):
     """
 
     def __init__(self, config: TrinityConfig) -> None:
+        install_textual_parser_patch()
         super().__init__()
         self.config = config
         self.current_route: WorkbenchRoute = "start"
@@ -505,10 +516,6 @@ class TrinityTextualApp(App[None]):
         self.install_screen(ExecutionMatrixScreen(), "execution")
         self.install_screen(ReportScreen(), "report")
 
-        screens: list[tuple[WorkbenchRoute, str, str]] = [
-        ]
-        for route, title, subtitle in screens:
-            self.install_screen(PlaceholderScreen(route, title, subtitle), route)
         self._screens_installed = True
 
     def on_start_screen_submitted(self, event: StartScreen.Submitted) -> None:
@@ -618,8 +625,11 @@ class TrinityTextualApp(App[None]):
         self._export_report_markdown(snapshot)
 
     def _export_report_markdown(self, snapshot: WorkflowNexusSnapshot) -> None:
-        """Save a snapshot-based report as Markdown."""
+        """Save a report as Markdown using the shared DeliberationReport builder."""
         import time as _time
+
+        from trinity.tui.report import DeliberationReportBuilder
+        from trinity.workflow import WorkflowPersistence
 
         report_dir = self.config.effective_state_dir / "reports"
         report_dir.mkdir(parents=True, exist_ok=True)
@@ -628,42 +638,12 @@ class TrinityTextualApp(App[None]):
         filename = f"report-{sid}-{timestamp}.md"
         filepath = report_dir / filename
 
-        lines: list[str] = [
-            "# Deliberation Report",
-            "",
-            f"**Session**: {snapshot.session_id or '(none)'}  ",
-            f"**Goal**: {snapshot.goal or '(none)'}  ",
-            f"**State**: {snapshot.state}  ",
-            f"**Round**: {snapshot.round_num}  ",
-            f"**Created**: {_time.strftime('%Y-%m-%d %H:%M:%S')}  ",
-            "",
-        ]
-        if snapshot.synthesis.summary:
-            lines.extend([
-                "## Consensus",
-                "",
-                f"**Progress**: {snapshot.synthesis.consensus_progress}  ",
-                f"**Source**: {snapshot.synthesis.source}  ",
-                f"**Summary**: {snapshot.synthesis.summary}",
-                "",
-            ])
-        if snapshot.decisions:
-            lines.extend(["## Decisions", ""])
-            for i, d in enumerate(snapshot.decisions, 1):
-                lines.append(f"{i}. {d}")
-            lines.append("")
-        if snapshot.work_packages:
-            lines.extend(["## Work Packages", ""])
-            for pkg in snapshot.work_packages:
-                lines.append(f"- {pkg}")
-            lines.append("")
-        if snapshot.execution_log:
-            lines.extend(["## Execution Log", ""])
-            for entry in snapshot.execution_log[-20:]:
-                lines.append(f"- {entry}")
-            lines.append("")
-
-        filepath.write_text("\n".join(lines), encoding="utf-8")
+        # Build from the full WorkflowSession for richer output
+        persistence = WorkflowPersistence(self.config.effective_state_dir)
+        session = persistence.load()
+        builder = DeliberationReportBuilder(session, result=None)
+        report = builder.build()
+        filepath.write_text(report.to_markdown(), encoding="utf-8")
         self.notify(f"Report saved: {filepath}", title="Export Complete")
 
 

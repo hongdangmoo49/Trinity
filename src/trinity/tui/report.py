@@ -27,7 +27,6 @@ from trinity.workflow.models import (
     WorkPackage,
     WorkflowSession,
     WorkflowState,
-    WorkStatus,
 )
 
 if TYPE_CHECKING:
@@ -52,32 +51,9 @@ def _truncate(text: str, limit: int) -> str:
     return text[: limit - 3] + "..."
 
 
-def _status_style(status: WorkStatus) -> str:
-    """Return a Rich style string for a work status value."""
-    _MAP: dict[str, str] = {
-        "pending": "dim",
-        "running": "cyan",
-        "waiting_on_decision": "yellow",
-        "blocked": "red",
-        "done": "green",
-        "failed": "bold red",
-        "needs_review": "magenta",
-    }
-    return _MAP.get(status.value, "")
-
-
-def _status_icon(status: WorkStatus) -> str:
-    """Return a short icon for a work status value."""
-    _MAP: dict[str, str] = {
-        "pending": "⏳",
-        "running": "🔄",
-        "waiting_on_decision": "⚠️",
-        "blocked": "🚫",
-        "done": "✅",
-        "failed": "❌",
-        "needs_review": "🔍",
-    }
-    return _MAP.get(status.value, "•")
+def _escape_md_table(text: str) -> str:
+    """Escape pipe characters for safe inclusion in Markdown tables."""
+    return text.replace("|", "\\|")
 
 
 # ─── Frozen report section dataclasses ──────────────────────────────────────
@@ -380,8 +356,10 @@ class DeliberationReport:
             if pkg.requires_execution:
                 status_label = f"{status_label} (exec)"
             lines.append(
-                f"| {pkg.id} | {pkg.title} | {pkg.owner_agent} "
-                f"| {status_label} | {_truncate(pkg.objective, 120)} |"
+                f"| {_escape_md_table(pkg.id)} | {_escape_md_table(pkg.title)} "
+                f"| {_escape_md_table(pkg.owner_agent)} "
+                f"| {_escape_md_table(status_label)} "
+                f"| {_escape_md_table(_truncate(pkg.objective, 120))} |"
             )
         lines.append("")
         return "\n".join(lines)
@@ -394,9 +372,10 @@ class DeliberationReport:
         ]
         for ex in self.executions:
             lines.append(
-                f"| {ex.package_id} | {ex.agent_name} "
-                f"| {ex.status} | {ex.files_count} "
-                f"| {_truncate(ex.summary, 120)} |"
+                f"| {_escape_md_table(ex.package_id)} "
+                f"| {_escape_md_table(ex.agent_name)} "
+                f"| {_escape_md_table(ex.status)} | {ex.files_count} "
+                f"| {_escape_md_table(_truncate(ex.summary, 120))} |"
             )
         lines.append("")
         return "\n".join(lines)

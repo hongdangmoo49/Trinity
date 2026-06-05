@@ -9,6 +9,8 @@ from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Static
 
+from rich.markup import escape
+
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 
 
@@ -34,6 +36,7 @@ class ReportScreen(Screen[None]):
     def __init__(self) -> None:
         super().__init__(name="report")
         self.snapshot: WorkflowNexusSnapshot | None = None
+        self._last_rendered_id: str = ""
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -54,14 +57,14 @@ class ReportScreen(Screen[None]):
 
     def on_mount(self) -> None:
         if self.snapshot is not None:
-            self._render()
+            self._render_report()
 
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
         """Render report content from a workflow snapshot."""
         self.snapshot = snapshot
         if not self.is_mounted:
             return
-        self._render()
+        self._render_report()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "report-export-btn":
@@ -74,7 +77,13 @@ class ReportScreen(Screen[None]):
     def action_go_back(self) -> None:
         self.app.switch_to("nexus")  # type: ignore[attr-defined]
 
-    def _render(self) -> None:
+    def _render_report(self) -> None:
+        # Skip re-render if the snapshot hasn't changed
+        render_id = f"{self.snapshot.session_id}:{self.snapshot.state}:{self.snapshot.round_num}" if self.snapshot else ""
+        if render_id == self._last_rendered_id:
+            return
+        self._last_rendered_id = render_id
+
         body = self.query_one("#report-body", VerticalScroll)
 
         # Remove all existing children safely
@@ -139,9 +148,9 @@ class ReportScreen(Screen[None]):
     @staticmethod
     def _render_overview(snap: WorkflowNexusSnapshot) -> str:
         lines = [
-            f"[bold]Session[/bold]: {snap.session_id or '(none)'}",
-            f"[bold]Goal[/bold]: {snap.goal or '(none)'}",
-            f"[bold]State[/bold]: {snap.state}",
+            f"[bold]Session[/bold]: {escape(snap.session_id or '(none)')}",
+            f"[bold]Goal[/bold]: {escape(snap.goal or '(none)')}",
+            f"[bold]State[/bold]: {escape(snap.state)}",
             f"[bold]Round[/bold]: {snap.round_num}",
             f"[bold]Providers[/bold]: {len(snap.providers)}",
         ]
@@ -151,9 +160,9 @@ class ReportScreen(Screen[None]):
     def _render_consensus(synthesis) -> str:
         icon = "✅" if "blueprint" in synthesis.consensus_progress else "🔄"
         lines = [
-            f"{icon} [bold]{synthesis.consensus_progress}[/bold]",
-            f"[bold]Source[/bold]: {synthesis.source}",
-            f"\n{synthesis.summary}",
+            f"{icon} [bold]{escape(synthesis.consensus_progress)}[/bold]",
+            f"[bold]Source[/bold]: {escape(synthesis.source)}",
+            f"\n{escape(synthesis.summary)}",
         ]
         return "\n".join(lines)
 
@@ -161,32 +170,32 @@ class ReportScreen(Screen[None]):
     def _render_decisions(decisions: list[str]) -> str:
         lines: list[str] = []
         for i, decision in enumerate(decisions, 1):
-            lines.append(f"  {i}. {decision}")
+            lines.append(f"  {i}. {escape(decision)}")
         return "\n".join(lines) if lines else "(none)"
 
     @staticmethod
     def _render_packages(packages: list[str]) -> str:
         lines: list[str] = []
         for pkg in packages:
-            lines.append(f"  • {pkg}")
+            lines.append(f"  • {escape(pkg)}")
         return "\n".join(lines) if lines else "(none)"
 
     @staticmethod
     def _render_execution_log(log: list[str]) -> str:
         lines: list[str] = []
         for entry in log[-20:]:
-            lines.append(f"  {entry}")
+            lines.append(f"  {escape(entry)}")
         return "\n".join(lines) if lines else "(none)"
 
     @staticmethod
     def _render_questions(questions) -> str:
         lines: list[str] = []
         for q in questions:
-            lines.append(f"  [bold]{q.id}[/bold]: {q.question}")
+            lines.append(f"  [bold]{escape(q.id)}[/bold]: {escape(q.question)}")
             if q.options:
                 for i, opt in enumerate(q.options, 1):
                     marker = " (recommended)" if opt == q.recommended_option else ""
-                    lines.append(f"    {i}. {opt}{marker}")
+                    lines.append(f"    {i}. {escape(opt)}{marker}")
         return "\n".join(lines) if lines else "(none)"
 
     @staticmethod

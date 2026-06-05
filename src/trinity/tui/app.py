@@ -146,10 +146,11 @@ class TrinityTUI:
         self._animation_tick: float = 0.0
         self._geometry_animator: SacredGeometryAnimator | None = None
         if show_geometry:
-            term_height = self.console.size.height
+            term_height = self.console.size.height or 40  # Default for non-tty
             if term_height >= 20:
+                term_width = self.console.size.width or 80
                 self._geometry_animator = SacredGeometryAnimator(
-                    width=min(self.console.size.width - 4, 50),
+                    width=min(term_width - 4, 50),
                     height=11,
                     mode="modern",
                 )
@@ -741,7 +742,7 @@ class TrinityTUI:
         return Text()
 
     def get_welcome_text(self) -> str:
-        """Get the welcome/help text for the TUI."""
+        """Get the welcome/help text for the TUI (markdown string)."""
         return (
             f"[bold cyan]🧠 Trinity v{__version__}[/bold cyan]\n\n"
             "[bold]Commands:[/bold]\n"
@@ -767,3 +768,55 @@ class TrinityTUI:
             "  [cyan]/help[/cyan]       — Show this help\n"
             "  [cyan]/quit[/cyan]       — Exit Trinity\n"
         )
+
+    def get_welcome_renderable(self) -> Group:
+        """Get the full welcome display with sacred geometry mandala.
+
+        Returns a Rich renderable combining the geometry animation
+        with the welcome text and agent status.
+        """
+        parts: list = []
+
+        # Sacred geometry mandala (static frame for welcome screen)
+        if self._geometry_animator is not None:
+            agent_colors = [
+                get_theme(name).color
+                for name, status in self.agents.items()
+                if status.state != AgentTUIState.DISABLED
+            ]
+            geo_text = self._geometry_animator.render_rich(
+                angle=0.0,
+                colors=agent_colors[:3] or ["cyan", "green", "magenta"],
+            )
+            parts.append(geo_text)
+            parts.append(Text())
+
+        # Branding
+        parts.append(
+            Text.assemble(
+                Text("🧠 ", style=""),
+                Text(f"Trinity v{__version__}", style="bold cyan"),
+                Text("  —  ", style="dim"),
+                Text("Three minds, one context", style="dim italic"),
+            ),
+        )
+        parts.append(Text())
+
+        # Agent status pills
+        agent_parts: list[Text] = []
+        for name, status in self.agents.items():
+            theme = get_theme(name)
+            if status.state == AgentTUIState.DISABLED:
+                pill = Text(f"  {name} ⏸  ", style="dim")
+            else:
+                icon = status.state_icon
+                pill = Text(f"  {theme.icon} {name} {icon}  ", style=f"bold {theme.color}")
+            agent_parts.append(pill)
+        if agent_parts:
+            parts.append(Text.assemble(*agent_parts))
+            parts.append(Text())
+
+        # Welcome text (commands)
+        parts.append(Text.from_markup(self.get_welcome_text()))
+
+        return Group(*parts)

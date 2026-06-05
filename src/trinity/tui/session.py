@@ -30,6 +30,7 @@ from trinity.config import TrinityConfig
 from trinity.models import DeliberationResult
 from trinity.tui.app import AgentTUIState, TrinityTUI
 from trinity.tui.events import TUIEventBus
+from trinity.tui.kitty_compat import install_prompt_toolkit_parser_patch
 from trinity.tui.prompt import CUSTOM_OPTION_VALUE, TrinityPromptSession
 from trinity.tui.theme import get_theme
 from trinity.workflow import (
@@ -131,6 +132,7 @@ class InteractiveSession:
         """
         # Disable Kitty keyboard protocol to prevent CJK IME input issues
         # on Ghostty/Kitty terminals.  See _push_kitty_keyboard_mode().
+        install_prompt_toolkit_parser_patch()
         _push_kitty_keyboard_mode()
         try:
             self.running = True
@@ -160,8 +162,8 @@ class InteractiveSession:
             _pop_kitty_keyboard_mode()
 
     def _show_welcome(self) -> None:
-        """Show welcome message."""
-        self.console.print(self.tui.get_welcome_text())
+        """Show welcome message with sacred geometry mandala."""
+        self.console.print(self.tui.get_welcome_renderable())
         if self._startup_archive:
             self.console.print(
                 "[dim]Previous workflow saved to history. "

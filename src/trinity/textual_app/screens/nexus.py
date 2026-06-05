@@ -13,6 +13,7 @@ from trinity.models import AgentSpec
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.composer import PromptComposer
 from trinity.textual_app.widgets.central_agent import CentralAgentView, QuestionAnswer
+from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel, ProviderPanelState
 
 
@@ -59,12 +60,21 @@ class NexusScreen(Screen[None]):
                 for state in self._initial_provider_states():
                     yield ProviderPanel(state, id=f"provider-{state.name}")
             yield Button("Open Provider Inspector", id="open-provider-inspector")
-            yield CentralAgentView(id="central-agent")
+            with Horizontal(id="nexus-main"):
+                yield CentralAgentView(id="central-agent")
+                yield WorkflowInspector(id="workflow-inspector")
             yield PromptComposer(
                 placeholder="Reply, refine direction, or type / for commands",
                 id="nexus-composer",
             )
         yield Footer()
+
+    def on_mount(self) -> None:
+        if self.snapshot is not None:
+            self.apply_snapshot(self.snapshot)
+        else:
+            self._refresh_central()
+            self._refresh_inspector()
 
     def set_initial_prompt(self, prompt: str) -> None:
         self.initial_prompt = prompt.strip()
@@ -91,6 +101,7 @@ class NexusScreen(Screen[None]):
                 )
             )
         self._refresh_central()
+        self._refresh_inspector()
 
     def on_central_agent_view_question_answered(
         self,
@@ -165,12 +176,17 @@ class NexusScreen(Screen[None]):
         if self.snapshot is not None:
             central.apply_snapshot(self.snapshot)
             return
-        central.apply_snapshot(
-            WorkflowNexusSnapshot(
-                goal=self.initial_prompt,
-                questions=[],
-                work_packages=[
-                    f"follow-up: {item}" for item in self.follow_ups[-3:]
-                ],
-            )
+        central.apply_snapshot(self._fallback_snapshot())
+
+    def _refresh_inspector(self) -> None:
+        inspector = self.query_one(WorkflowInspector)
+        inspector.apply_snapshot(self.snapshot or self._fallback_snapshot())
+
+    def _fallback_snapshot(self) -> WorkflowNexusSnapshot:
+        return WorkflowNexusSnapshot(
+            goal=self.initial_prompt,
+            questions=[],
+            work_packages=[
+                f"follow-up: {item}" for item in self.follow_ups[-3:]
+            ],
         )

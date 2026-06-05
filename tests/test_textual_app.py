@@ -9,6 +9,7 @@ from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.snapshot import QuestionSnapshot, WorkflowNexusSnapshot
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.composer import PromptComposer
+from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
 
@@ -122,6 +123,32 @@ async def test_central_agent_view_renders_question_options(tmp_path) -> None:
         central = screen.query_one(CentralAgentView)
         assert central.query_one("#answer-q-1-1")
         assert central.query_one("#answer-q-1-2")
+
+
+@pytest.mark.asyncio
+async def test_workflow_inspector_renders_snapshot_counts(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(140, 42)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                session_id="wf-inspector",
+                state="blueprint_ready",
+                round_num=1,
+                decisions=["Use Textual"],
+                work_packages=["WP-001 codex: UI shell (pending)"],
+                execution_log=["state_changed: blueprint_ready"],
+            )
+        )
+        await pilot.pause()
+
+        inspector = screen.query_one(WorkflowInspector)
+        assert "wf-inspector" in str(inspector.query_one("#inspector-workflow").content)
+        assert "Use Textual" in str(inspector.query_one("#inspector-decisions").content)
 
 
 @pytest.mark.asyncio

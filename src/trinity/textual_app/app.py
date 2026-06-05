@@ -168,11 +168,30 @@ class TrinityTextualApp(App[None]):
     }
 
     #central-agent {
-        width: 100%;
+        width: 1fr;
         height: 1fr;
         border: heavy white;
-        margin: 1 0;
         padding: 1 2;
+    }
+
+    #nexus-main {
+        height: 1fr;
+        margin: 1 0;
+    }
+
+    #workflow-inspector {
+        width: 32;
+        min-width: 26;
+        height: 1fr;
+        border: round $primary;
+        margin-left: 1;
+        padding: 0 1;
+    }
+
+    .inspector-title {
+        text-style: bold;
+        color: $accent;
+        margin-top: 1;
     }
 
     #central-title {

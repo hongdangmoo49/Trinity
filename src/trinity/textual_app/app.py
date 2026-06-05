@@ -15,6 +15,7 @@ from trinity.config import TrinityConfig
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.snapshot import NexusSnapshotAdapter
+from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 
 WorkbenchRoute = Literal["start", "nexus", "execution", "settings"]
 
@@ -206,6 +207,35 @@ class TrinityTextualApp(App[None]):
         margin-bottom: 1;
     }
 
+    #open-provider-inspector {
+        width: 28;
+        margin-top: 1;
+    }
+
+    ProviderInspector {
+        align: center middle;
+    }
+
+    #provider-inspector {
+        width: 88;
+        max-width: 92%;
+        height: 30;
+        max-height: 92%;
+        border: round $accent;
+        background: $surface;
+        padding: 1 2;
+    }
+
+    #provider-inspector-title {
+        text-style: bold;
+        color: $accent;
+        margin-bottom: 1;
+    }
+
+    #provider-inspector-tabs {
+        height: 1fr;
+    }
+
     #nexus-composer {
         width: 100%;
         height: 7;
@@ -263,6 +293,14 @@ class TrinityTextualApp(App[None]):
         event: NexusScreen.QuestionAnswered,
     ) -> None:
         event.stop()
+
+    def on_nexus_screen_inspector_requested(
+        self,
+        event: NexusScreen.InspectorRequested,
+    ) -> None:
+        event.stop()
+        snapshot = event.snapshot or self.snapshot_adapter.load_snapshot()
+        self.push_screen(ProviderInspector(snapshot.providers))
 
     def switch_to(self, route: WorkbenchRoute) -> None:
         if route == "nexus" and self._screens_installed:

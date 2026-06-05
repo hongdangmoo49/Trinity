@@ -9,6 +9,7 @@ from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.snapshot import QuestionSnapshot, WorkflowNexusSnapshot
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.composer import PromptComposer
+from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
 
 
@@ -121,3 +122,19 @@ async def test_central_agent_view_renders_question_options(tmp_path) -> None:
         central = screen.query_one(CentralAgentView)
         assert central.query_one("#answer-q-1-1")
         assert central.query_one("#answer-q-1-2")
+
+
+@pytest.mark.asyncio
+async def test_provider_inspector_modal_opens_from_nexus(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        screen.action_open_inspector()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProviderInspector)
+        assert app.screen.query_one("#inspect-claude")

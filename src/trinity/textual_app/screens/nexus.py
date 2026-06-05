@@ -6,7 +6,7 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.screen import Screen
-from textual.widgets import Footer, Header
+from textual.widgets import Button, Footer, Header
 
 from trinity.config import TrinityConfig
 from trinity.models import AgentSpec
@@ -33,8 +33,16 @@ class NexusScreen(Screen[None]):
             super().__init__()
             self.answer = answer
 
+    class InspectorRequested(Message):
+        """Posted when the user wants to inspect provider raw output."""
+
+        def __init__(self, snapshot: WorkflowNexusSnapshot | None) -> None:
+            super().__init__()
+            self.snapshot = snapshot
+
     BINDINGS = [
         ("ctrl+enter", "submit_follow_up", "Send"),
+        ("i", "open_inspector", "Inspector"),
     ]
 
     def __init__(self, config: TrinityConfig) -> None:
@@ -50,6 +58,7 @@ class NexusScreen(Screen[None]):
             with Horizontal(id="provider-strip"):
                 for state in self._initial_provider_states():
                     yield ProviderPanel(state, id=f"provider-{state.name}")
+            yield Button("Open Provider Inspector", id="open-provider-inspector")
             yield CentralAgentView(id="central-agent")
             yield PromptComposer(
                 placeholder="Reply, refine direction, or type / for commands",
@@ -107,9 +116,17 @@ class NexusScreen(Screen[None]):
         event.stop()
         self._submit_follow_up(event.text)
 
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "open-provider-inspector":
+            event.stop()
+            self.action_open_inspector()
+
     def action_submit_follow_up(self) -> None:
         composer = self.query_one("#nexus-composer", PromptComposer)
         self._submit_follow_up(composer.text)
+
+    def action_open_inspector(self) -> None:
+        self.post_message(self.InspectorRequested(self.snapshot))
 
     def _submit_follow_up(self, text: str) -> None:
         cleaned = text.strip()

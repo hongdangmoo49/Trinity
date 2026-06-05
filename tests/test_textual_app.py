@@ -19,7 +19,7 @@ from trinity.textual_app.snapshot import (
 )
 from trinity.textual_app.workflow_controller import TextualWorkflowOutcome
 from trinity.textual_app.widgets.central_agent import CentralAgentView
-from trinity.textual_app.widgets.composer import COMMAND_LIMIT, PromptComposer
+from trinity.textual_app.widgets.composer import COMMAND_LIMIT, ComposerTextArea, PromptComposer
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
@@ -95,6 +95,28 @@ class FakeWorkflowController:
         return None
 
 
+def _binding_description(bindings_map, key: str, action: str) -> str:
+    for binding in bindings_map.key_to_bindings.get(key, []):
+        if binding.action == action:
+            return binding.description
+    raise AssertionError(f"missing binding {key} -> {action}")
+
+
+def _binding_tooltip(bindings_map, key: str, action: str) -> str:
+    for binding in bindings_map.key_to_bindings.get(key, []):
+        if binding.action == action:
+            return binding.tooltip
+    raise AssertionError(f"missing binding {key} -> {action}")
+
+
+def test_textual_app_localizes_command_palette_bindings_in_korean(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
+
+    assert _binding_description(app._bindings, "ctrl+q", "quit") == "종료"
+    assert _binding_description(app._bindings, "ctrl+p", "command_palette") == "팔레트"
+    assert _binding_tooltip(app._bindings, "ctrl+p", "command_palette") == "명령 팔레트 열기"
+
+
 @pytest.mark.asyncio
 async def test_textual_app_boots_to_start_screen(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
@@ -148,7 +170,10 @@ async def test_start_screen_submission_moves_to_nexus(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_start_composer_enter_key_submits_prompt(tmp_path) -> None:
-    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), FakeWorkflowController())
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        FakeWorkflowController(),
+    )
 
     async with app.run_test(size=(100, 30)) as pilot:
         screen = app.screen
@@ -189,6 +214,82 @@ async def test_prompt_composer_shows_slash_command_palette(tmp_path) -> None:
         composer.set_text("hello /status")
         await pilot.pause()
         assert palette.display is False
+
+
+@pytest.mark.asyncio
+async def test_prompt_composer_localizes_slash_command_palette_in_korean(tmp_path) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+
+        composer.set_text("/")
+        await pilot.pause()
+        options = [str(option.content) for option in composer.query(".command-option")]
+        more = str(composer.query_one("#command-option-more").content)
+
+        assert any("/status" in option for option in options)
+        assert any("제공자와 워크플로우 상태 보기" in option for option in options)
+        assert not any(
+            "show provider and workflow status" in option for option in options
+        )
+        assert "명령 더 있음" in more
+
+        composer.set_text("/missing")
+        await pilot.pause()
+
+        empty = str(composer.query_one("#command-option-0").content)
+        assert empty == "일치하는 명령이 없습니다"
+
+
+@pytest.mark.asyncio
+async def test_nexus_composer_uses_configured_slash_command_language(tmp_path) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/ex")
+        await pilot.pause()
+
+        options = [str(option.content) for option in composer.query(".command-option")]
+
+        assert any("/execute" in option for option in options)
+        assert any("실행 사전 점검 열기" in option for option in options)
+        assert not any("open execution preflight" in option for option in options)
+
+
+@pytest.mark.asyncio
+async def test_screen_and_composer_bindings_use_configured_language(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        assert _binding_description(start._bindings, "ctrl+enter", "submit") == "계획"
+
+        composer = start.query_one(PromptComposer)
+        textarea = composer.query_one(ComposerTextArea)
+        assert _binding_description(composer._bindings, "enter", "submit") == "보내기"
+        assert _binding_description(
+            textarea._bindings, "shift+enter", "insert_newline"
+        ) == "새 줄"
+
+        app.switch_to("nexus")
+        await pilot.pause()
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        assert _binding_description(
+            nexus._bindings, "ctrl+e", "request_execute"
+        ) == "실행"
 
 
 @pytest.mark.asyncio
@@ -392,6 +493,48 @@ async def test_central_agent_view_renders_question_options(tmp_path) -> None:
         central = screen.query_one(CentralAgentView)
         assert central.query_one("#answer-q-1-1")
         assert central.query_one("#answer-q-1-2")
+
+
+@pytest.mark.asyncio
+async def test_central_agent_view_renders_only_next_question(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                state="needs_user_decision",
+                questions=[
+                    QuestionSnapshot(
+                        id="q-1",
+                        question="Engine?",
+                        options=["Godot", "Unity"],
+                    ),
+                    QuestionSnapshot(
+                        id="q-2",
+                        question="Monetization?",
+                        options=["F2P", "Paid"],
+                    ),
+                ],
+            )
+        )
+        await pilot.pause()
+
+        central = screen.query_one(CentralAgentView)
+        assert "Question for you (1 of 2)" in str(
+            central.query_one("#central-question-title").content
+        )
+        assert central.query_one("#answer-q-1-1")
+        assert central.query_one("#answer-q-1-2")
+        assert not central.query("#answer-q-2-1")
+        rendered_questions = [
+            str(item.content) for item in central.query(".question-text")
+        ]
+        assert rendered_questions == ["1. Engine?"]
 
 
 @pytest.mark.asyncio

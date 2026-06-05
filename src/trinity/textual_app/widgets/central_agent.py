@@ -110,10 +110,14 @@ class CentralAgentView(VerticalScroll):
         container = self.query_one("#central-questions", Vertical)
         container.remove_children()
         self._button_answers = {}
-        for index, question in enumerate(questions[:3], start=1):
-            container.mount(Static(f"{index}. {question.question}", classes="question-text"))
-            if not question.options:
-                continue
+        if not questions:
+            return
+
+        question = questions[0]
+        container.mount(
+            Static(f"1. {question.question}", classes="question-text")
+        )
+        if question.options:
             row = Grid(classes="question-options")
             container.mount(row)
             for option_index, option in enumerate(question.options, start=1):
@@ -126,11 +130,12 @@ class CentralAgentView(VerticalScroll):
                 self._button_answers[button_id] = QuestionAnswer(question.id, option)
                 row.mount(Button(label, id=button_id, variant="default", tooltip=label))
 
-    @staticmethod
-    def _question_title(questions: list[QuestionSnapshot]) -> str:
+    def _question_title(self, questions: list[QuestionSnapshot]) -> str:
         if not questions:
             return ""
-        return "Questions for you"
+        if len(questions) == 1:
+            return "Question for you"
+        return f"Question for you (1 of {len(questions)})"
 
     def _refresh_title(self) -> None:
         if not self.is_mounted:

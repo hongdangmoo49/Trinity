@@ -10,6 +10,7 @@ from textual.widgets import Button, Footer, Header
 
 from trinity.config import TrinityConfig
 from trinity.models import AgentSpec
+from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.composer import PromptComposer
 from trinity.textual_app.widgets.central_agent import CentralAgentView, QuestionAnswer
@@ -54,10 +55,19 @@ class NexusScreen(Screen[None]):
         ("i", "open_inspector", "Inspector"),
     ]
 
+    LOCALIZED_BINDINGS = {
+        ("ctrl+enter", "submit_follow_up"): ("binding_send", None),
+        ("ctrl+e", "request_execute"): ("binding_execute", None),
+        ("i", "open_inspector"): ("binding_inspector", None),
+    }
+
     def __init__(self, config: TrinityConfig) -> None:
         super().__init__(name="nexus")
         self.config = config
         self.initial_prompt: str = ""
+        localize_bindings(
+            self._bindings, self.config.lang, self.LOCALIZED_BINDINGS
+        )
         self.follow_ups: list[str] = []
         self.snapshot: WorkflowNexusSnapshot | None = None
         self._activity_frame = 0
@@ -77,6 +87,7 @@ class NexusScreen(Screen[None]):
             yield PromptComposer(
                 placeholder="Reply, refine direction, or type / for commands",
                 id="nexus-composer",
+                lang=self.config.lang,
             )
         yield Footer()
 

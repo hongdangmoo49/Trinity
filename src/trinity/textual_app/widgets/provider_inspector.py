@@ -9,6 +9,7 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, RichLog, Static, TabbedContent, TabPane
 
+from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import ProviderSnapshot
 
 
@@ -19,9 +20,15 @@ class ProviderInspector(ModalScreen[None]):
         ("escape", "close", "Close"),
     ]
 
-    def __init__(self, providers: list[ProviderSnapshot]) -> None:
+    LOCALIZED_BINDINGS = {
+        ("escape", "close"): ("binding_close", None),
+    }
+
+    def __init__(self, providers: list[ProviderSnapshot], *, lang: str = "en") -> None:
         super().__init__()
         self.providers = providers
+        self.lang = lang
+        localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
         with Vertical(id="provider-inspector"):

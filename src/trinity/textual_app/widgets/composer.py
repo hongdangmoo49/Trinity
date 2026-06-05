@@ -10,30 +10,15 @@ from textual.message import Message
 from textual.widgets import Static, TextArea
 
 from trinity.tui.prompt import TRINITY_COMMANDS
+from trinity.textual_app.i18n import (
+    command_description,
+    command_palette_text,
+    localize_bindings,
+)
 
 
 COMMAND_LIMIT = 6
 PASTE_SUMMARY_THRESHOLD = 1_000
-COMMAND_DESCRIPTIONS = {
-    "/status": "show provider and workflow status",
-    "/context": "show shared context summary",
-    "/rounds": "show deliberation rounds",
-    "/agent": "inspect or focus an agent",
-    "/history": "show recent session history",
-    "/save": "save current workflow state",
-    "/caveman": "toggle concise reasoning mode",
-    "/workflow": "show workflow ledger",
-    "/questions": "show pending questions",
-    "/answer": "answer a pending question",
-    "/decisions": "show agreed decisions",
-    "/packages": "show work packages",
-    "/subtasks": "show decomposed subtasks",
-    "/resume": "resume a saved workflow",
-    "/execute": "open execution preflight",
-    "/target": "set target workspace candidate",
-    "/help": "show available commands",
-    "/quit": "exit Trinity",
-}
 
 
 class ComposerTextArea(TextArea):
@@ -50,6 +35,22 @@ class ComposerTextArea(TextArea):
         Binding("down", "command_palette_down", "Next command", show=False, priority=True),
         Binding("shift+enter,alt+enter,ctrl+j", "insert_newline", "New line", show=False),
     ]
+
+    LOCALIZED_BINDINGS = {
+        ("enter", "submit_or_accept"): ("binding_send", None),
+        ("ctrl+enter", "submit_or_accept"): ("binding_send", None),
+        ("super+enter", "submit_or_accept"): ("binding_send", None),
+        ("up", "command_palette_up"): ("binding_previous_command", None),
+        ("down", "command_palette_down"): ("binding_next_command", None),
+        ("shift+enter", "insert_newline"): ("binding_new_line", None),
+        ("alt+enter", "insert_newline"): ("binding_new_line", None),
+        ("ctrl+j", "insert_newline"): ("binding_new_line", None),
+    }
+
+    def __init__(self, *args, lang: str = "en", **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.lang = lang
+        localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def action_submit_or_accept(self) -> None:
         parent = self.parent
@@ -109,11 +110,21 @@ class PromptComposer(Vertical):
         Binding("shift+enter,alt+enter,ctrl+j", "insert_newline", "New line", show=False),
     ]
 
+    LOCALIZED_BINDINGS = {
+        ("enter", "submit"): ("binding_send", None),
+        ("ctrl+enter", "submit"): ("binding_send", None),
+        ("super+enter", "submit"): ("binding_send", None),
+        ("shift+enter", "insert_newline"): ("binding_new_line", None),
+        ("alt+enter", "insert_newline"): ("binding_new_line", None),
+        ("ctrl+j", "insert_newline"): ("binding_new_line", None),
+    }
+
     def __init__(
         self,
         *,
         placeholder: str = "",
         id: str | None = None,
+        lang: str = "en",
     ) -> None:
         super().__init__(id=id)
         self.placeholder = placeholder
@@ -123,12 +134,15 @@ class PromptComposer(Vertical):
         self._last_slash_query: str | None = None
         self._ignore_next_submit = False
         self._pasted_content: list[tuple[str, str]] = []
+        self.lang = lang
+        localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
         yield ComposerTextArea(
             "",
             placeholder=self.placeholder,
             soft_wrap=True,
+            lang=self.lang,
             show_line_numbers=False,
             id="prompt-textarea",
         )
@@ -225,7 +239,7 @@ class PromptComposer(Vertical):
         visible_matches = self._visible_command_matches()
         if not visible_matches and self._slash_query() is not None:
             first = self.query_one("#command-option-0", Static)
-            first.update("No matching commands")
+            first.update(command_palette_text("command_no_matches", self.lang))
             first.display = True
             first.set_class(True, "command-option-empty")
             first.set_class(False, "command-option-selected")
@@ -249,7 +263,7 @@ class PromptComposer(Vertical):
 
             command_index = self._command_window_start + index
             command = visible_matches[index]
-            description = COMMAND_DESCRIPTIONS.get(command, "")
+            description = command_description(command, self.lang)
             label = f"{command:<12} {description}" if description else command
             option.update(label)
             option.display = True
@@ -269,7 +283,8 @@ class PromptComposer(Vertical):
                 parts.append(f"↑ {hidden_above}")
             if hidden_below:
                 parts.append(f"↓ {hidden_below}")
-            more.update(" / ".join(parts) + " more commands")
+            suffix = command_palette_text("command_more", self.lang)
+            more.update(" / ".join(parts) + f" {suffix}")
             more.display = True
         else:
             more.update("")

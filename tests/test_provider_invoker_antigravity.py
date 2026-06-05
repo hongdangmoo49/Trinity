@@ -74,7 +74,7 @@ async def test_invoke_parses_plain_stdout(tmp_path):
         stderr="",
     )
 
-    with patch("trinity.providers.invoker.subprocess.run", return_value=completed):
+    with patch("trinity.platform.process.subprocess.run", return_value=completed):
         result = await invoker.invoke(_request(tmp_path))
 
     assert result.status == ResponseStatus.OK
@@ -97,7 +97,7 @@ async def test_invoke_keeps_json_looking_stdout_as_plain_text(tmp_path):
         stderr="",
     )
 
-    with patch("trinity.providers.invoker.subprocess.run", return_value=completed):
+    with patch("trinity.platform.process.subprocess.run", return_value=completed):
         result = await invoker.invoke(_request(tmp_path))
 
     assert result.status == ResponseStatus.OK
@@ -118,7 +118,7 @@ async def test_invoke_classifies_antigravity_auth_failure(tmp_path):
         stderr="Please sign in with your Google account.",
     )
 
-    with patch("trinity.providers.invoker.subprocess.run", return_value=completed):
+    with patch("trinity.platform.process.subprocess.run", return_value=completed):
         result = await invoker.invoke(_request(tmp_path))
 
     assert result.status == ResponseStatus.AUTH_REQUIRED

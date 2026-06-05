@@ -12,6 +12,7 @@ from trinity.platform.capabilities import (
     legacy_tmux_hint,
     normalize_os_name,
 )
+from trinity.platform.process import CommandSpec, ProcessRunner, render_command
 
 __all__ = [
     "ColorSystem",
@@ -24,4 +25,7 @@ __all__ = [
     "has_command",
     "legacy_tmux_hint",
     "normalize_os_name",
+    "CommandSpec",
+    "ProcessRunner",
+    "render_command",
 ]

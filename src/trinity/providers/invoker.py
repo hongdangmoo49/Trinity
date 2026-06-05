@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import json
 import math
-import os
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -13,6 +12,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from trinity.models import ContextUsage, Provider, ResponseStatus
+from trinity.platform.process import CommandSpec, ProcessRunner
 from trinity.providers.policy import ExecutionAuthority, InvocationAccess
 
 
@@ -66,6 +66,9 @@ class CliProviderInvoker:
 
     execution_authority = ExecutionAuthority.PROVIDER_MANAGED
 
+    def __init__(self, runner: ProcessRunner | None = None):
+        self.runner = runner or ProcessRunner()
+
     async def invoke(self, request: PromptRequest) -> ProviderTurnResult:
         """Run the provider command in a subprocess."""
         command = self.build_command(request)
@@ -110,19 +113,13 @@ class CliProviderInvoker:
         command: list[str],
         request: PromptRequest,
     ) -> subprocess.CompletedProcess[str]:
-        kwargs: dict[str, Any] = {"cwd": request.cwd}
-        if request.env:
-            env = os.environ.copy()
-            env.update(request.env)
-            kwargs["env"] = env
-        return subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=request.timeout_seconds,
-            **kwargs,
+        return self.runner.run(
+            CommandSpec(
+                argv=tuple(command),
+                cwd=request.cwd,
+                env=request.env,
+                timeout_seconds=request.timeout_seconds,
+            )
         )
 
     @staticmethod

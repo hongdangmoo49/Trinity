@@ -277,8 +277,16 @@ class TrinityTUI:
         # Sacred geometry mandala
         if self._geometry_animator is not None:
             self._animation_tick += 0.15  # Advance rotation
-            geo_frame = self._geometry_animator.render(angle=self._animation_tick)
-            header_parts.append(Text(geo_frame, style="dim cyan"))
+            agent_colors = [
+                get_theme(name).color
+                for name, status in self.agents.items()
+                if status.state != AgentTUIState.DISABLED
+            ]
+            geo_text = self._geometry_animator.render_rich(
+                angle=self._animation_tick,
+                colors=agent_colors[:3] or ["cyan", "green", "magenta"],
+            )
+            header_parts.append(geo_text)
             header_parts.append(Text())
 
         header_parts.extend([

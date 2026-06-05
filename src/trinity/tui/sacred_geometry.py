@@ -9,6 +9,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from rich.text import Text
+
 
 @dataclass(frozen=True)
 class _GlyphSet:
@@ -145,6 +147,93 @@ class SacredGeometryAnimator:
 
         lines = ["".join(row) for row in canvas]
         return "\n".join(lines)
+
+    def render_rich(self, angle: float = 0.0, colors: list[str] | None = None) -> Text:
+        """Return a Rich Text frame with per-layer colors.
+
+        Each of the three circles is colored with the corresponding agent color.
+        Triangles and center mark use neutral bright colors.
+        """
+        if colors is None:
+            colors = ["cyan", "green", "magenta"]
+
+        cx = self._width / 2.0
+        cy = self._height / 2.0
+        radius = min(cx, cy) * 0.65
+        angle_rad = math.radians(angle)
+
+        # Render each circle as a separate layer
+        circle_layers: list[list[str]] = []
+        for k in range(3):
+            canvas = [[" "] * self._width for _ in range(self._height)]
+            offset = math.radians(120 * k) + angle_rad
+            ocx = cx + radius * 0.38 * math.cos(offset)
+            ocy = cy + radius * 0.38 * math.sin(offset) * _ASPECT
+            self._trace_circle(canvas, ocx, ocy, radius * 0.72)
+            circle_layers.append(["".join(row) for row in canvas])
+
+        # Render triangles + center as a separate layer
+        tri_canvas = [[" "] * self._width for _ in range(self._height)]
+        for sign in (1, -1):
+            verts = []
+            for k in range(3):
+                a = math.radians(120 * k + sign * 30) + angle_rad
+                vx = cx + radius * 0.95 * math.cos(a)
+                vy = cy + radius * 0.95 * math.sin(a) * _ASPECT
+                verts.append((vx, vy))
+            for i in range(3):
+                self._trace_line(
+                    tri_canvas,
+                    verts[i][0], verts[i][1],
+                    verts[(i + 1) % 3][0], verts[(i + 1) % 3][1],
+                )
+
+        # Cardinal dots
+        for k in range(6):
+            a = math.radians(60 * k) + angle_rad
+            dx = cx + radius * 0.85 * math.cos(a)
+            dy = cy + radius * 0.85 * math.sin(a) * _ASPECT
+            self._put(tri_canvas, dx, dy, self._glyphs.bullet)
+
+        # Center mark
+        self._put(tri_canvas, cx, cy, self._glyphs.center)
+        tri_layer = ["".join(row) for row in tri_canvas]
+
+        # Build Rich Text by compositing layers
+        center_ix = int(round(cx))
+        center_iy = int(round(cy))
+
+        result = Text()
+        for y in range(self._height):
+            for x in range(self._width):
+                ch = " "
+                style = None
+
+                # Check triangle layer first (lower priority background)
+                tri_ch = tri_layer[y][x] if x < len(tri_layer[y]) else " "
+                if tri_ch != " ":
+                    ch = tri_ch
+                    style = "bright_cyan"
+                    # Center mark gets special color
+                    if x == center_ix and y == center_iy:
+                        style = "bright_white"
+
+                # Check circle layers (higher priority)
+                for k, layer in enumerate(circle_layers):
+                    layer_ch = layer[y][x] if x < len(layer[y]) else " "
+                    if layer_ch != " ":
+                        ch = layer_ch
+                        style = colors[k % len(colors)]
+
+                if style:
+                    result.append(ch, style=style)
+                else:
+                    result.append(ch)
+
+            if y < self._height - 1:
+                result.append("\n")
+
+        return result
 
     def update_mode(self, mode: str) -> None:
         """Switch the glyph set used for rendering.

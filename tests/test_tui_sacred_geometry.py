@@ -121,3 +121,31 @@ def test_tui_animator_disabled_when_show_geometry_false():
     config = _make_config()
     tui = TrinityTUI(config, show_geometry=False)
     assert tui._geometry_animator is None
+
+
+from rich.text import Text
+
+
+def test_animator_render_rich_returns_text():
+    """render_rich should return a Rich Text object."""
+    animator = SacredGeometryAnimator(width=40, height=13)
+    text = animator.render_rich(angle=0.0, colors=["red", "green", "blue"])
+    assert isinstance(text, Text)
+    assert len(text) > 0
+
+
+def test_animator_render_rich_has_style_spans():
+    """Rich output should contain styled spans for colors."""
+    animator = SacredGeometryAnimator(width=40, height=13)
+    text = animator.render_rich(angle=0.0, colors=["red", "green", "blue"])
+    # Should have at least some styled spans
+    assert len(text._spans) > 0
+
+
+def test_animator_render_rich_uses_custom_colors():
+    """Custom colors should appear in the style spans."""
+    animator = SacredGeometryAnimator(width=40, height=13)
+    text = animator.render_rich(angle=0.0, colors=["red1", "green1", "blue1"])
+    # At least one span should use one of our colors
+    span_styles = [str(s.style) for s in text._spans if s.style]
+    assert any("red1" in s or "green1" in s or "blue1" in s for s in span_styles)

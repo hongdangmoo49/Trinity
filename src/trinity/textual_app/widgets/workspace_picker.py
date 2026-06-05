@@ -178,6 +178,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         self.cwd = cwd or Path.cwd()
         self.tree_root = tree_root or self.cwd
         self.lang = lang
+        self._tree_mounted = False
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
         self.preflight = build_preflight(candidate or self.cwd, snapshot)
         self.create_missing = self.preflight.creatable
@@ -191,7 +192,11 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
                 id="workspace-path-input",
             )
             with Horizontal(id="workspace-picker-body"):
-                yield DirectoryTree(self.tree_root, id="workspace-directory-tree")
+                with Vertical(id="workspace-tree-pane"):
+                    yield Static(
+                        f"Loading folders from {self.tree_root}...",
+                        id="workspace-directory-tree-placeholder",
+                    )
                 yield Static(self.preflight.render(), id="workspace-preflight")
             with Horizontal(id="workspace-picker-bottom"):
                 with Horizontal(id="workspace-tree-actions"):
@@ -201,6 +206,21 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
                     yield Button("Confirm Execute", id="confirm-execute", variant="primary")
             yield Static("", id="workspace-picker-status")
         yield Footer()
+
+    def on_mount(self) -> None:
+        self.set_timer(0.20, self._mount_directory_tree)
+
+    def _mount_directory_tree(self) -> None:
+        if self._tree_mounted or not self.is_mounted:
+            return
+        pane = self.query_one("#workspace-tree-pane", Vertical)
+        placeholder = self.query_one(
+            "#workspace-directory-tree-placeholder",
+            Static,
+        )
+        placeholder.remove()
+        pane.mount(DirectoryTree(self.tree_root, id="workspace-directory-tree"))
+        self._tree_mounted = True
 
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id != "workspace-path-input":
@@ -330,6 +350,8 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
 
     def _reload_tree(self) -> None:
         if not self.is_mounted:
+            return
+        if not self._tree_mounted:
             return
         tree = self.query_one("#workspace-directory-tree", DirectoryTree)
         tree.reload()

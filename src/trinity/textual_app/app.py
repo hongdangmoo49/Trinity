@@ -585,8 +585,10 @@ class TrinityTextualApp(App[None]):
         event: StartScreen.WorkspaceRequested,
     ) -> None:
         event.stop()
-        snapshot = self.active_snapshot or self.workflow_controller.snapshot()
-        self._open_workspace_picker(snapshot, self._on_workspace_candidate_selected)
+        self._open_workspace_picker(
+            WorkflowNexusSnapshot(),
+            self._on_workspace_candidate_selected,
+        )
 
     def on_nexus_screen_follow_up_submitted(
         self,

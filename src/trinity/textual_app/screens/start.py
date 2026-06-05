@@ -11,6 +11,7 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Static
 
 from trinity.textual_app.widgets.composer import PromptComposer
+from trinity.textual_app.i18n import localize_bindings
 
 
 class StartScreen(Screen[None]):
@@ -31,6 +32,10 @@ class StartScreen(Screen[None]):
         ("ctrl+enter", "submit", "Plan"),
     ]
 
+    LOCALIZED_BINDINGS = {
+        ("ctrl+enter", "submit"): ("binding_plan", None),
+    }
+
     def __init__(
         self,
         workspace_candidate: Path | None = None,
@@ -40,6 +45,7 @@ class StartScreen(Screen[None]):
         super().__init__(name="start")
         self.workspace_candidate = workspace_candidate
         self.lang = lang
+        localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)

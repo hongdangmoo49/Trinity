@@ -10,7 +10,11 @@ from textual.message import Message
 from textual.widgets import Static, TextArea
 
 from trinity.tui.prompt import TRINITY_COMMANDS
-from trinity.textual_app.i18n import command_description, command_palette_text
+from trinity.textual_app.i18n import (
+    command_description,
+    command_palette_text,
+    localize_bindings,
+)
 
 
 COMMAND_LIMIT = 6
@@ -31,6 +35,22 @@ class ComposerTextArea(TextArea):
         Binding("down", "command_palette_down", "Next command", show=False, priority=True),
         Binding("shift+enter,alt+enter,ctrl+j", "insert_newline", "New line", show=False),
     ]
+
+    LOCALIZED_BINDINGS = {
+        ("enter", "submit_or_accept"): ("binding_send", None),
+        ("ctrl+enter", "submit_or_accept"): ("binding_send", None),
+        ("super+enter", "submit_or_accept"): ("binding_send", None),
+        ("up", "command_palette_up"): ("binding_previous_command", None),
+        ("down", "command_palette_down"): ("binding_next_command", None),
+        ("shift+enter", "insert_newline"): ("binding_new_line", None),
+        ("alt+enter", "insert_newline"): ("binding_new_line", None),
+        ("ctrl+j", "insert_newline"): ("binding_new_line", None),
+    }
+
+    def __init__(self, *args, lang: str = "en", **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.lang = lang
+        localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def action_submit_or_accept(self) -> None:
         parent = self.parent
@@ -90,6 +110,15 @@ class PromptComposer(Vertical):
         Binding("shift+enter,alt+enter,ctrl+j", "insert_newline", "New line", show=False),
     ]
 
+    LOCALIZED_BINDINGS = {
+        ("enter", "submit"): ("binding_send", None),
+        ("ctrl+enter", "submit"): ("binding_send", None),
+        ("super+enter", "submit"): ("binding_send", None),
+        ("shift+enter", "insert_newline"): ("binding_new_line", None),
+        ("alt+enter", "insert_newline"): ("binding_new_line", None),
+        ("ctrl+j", "insert_newline"): ("binding_new_line", None),
+    }
+
     def __init__(
         self,
         *,
@@ -106,12 +135,14 @@ class PromptComposer(Vertical):
         self._ignore_next_submit = False
         self._pasted_content: list[tuple[str, str]] = []
         self.lang = lang
+        localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
         yield ComposerTextArea(
             "",
             placeholder=self.placeholder,
             soft_wrap=True,
+            lang=self.lang,
             show_line_numbers=False,
             id="prompt-textarea",
         )

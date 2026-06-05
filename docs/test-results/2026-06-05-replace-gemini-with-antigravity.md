@@ -2,7 +2,7 @@
 
 - Date: 2026-06-05
 - Branch: `codex/replace-gemini-with-antigravity`
-- Version: `0.9.0`
+- Version: `0.9.1`
 
 ## 구현 요약
 

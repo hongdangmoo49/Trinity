@@ -123,7 +123,53 @@ class TestBootstrap:
         assert result.exit_code == 1
         assert "trinity init" in result.output
 
-    def test_bootstrap_starts_session_without_attach(self, runner, trinity_project):
+    def test_bootstrap_runs_sequential_by_default(self, runner, trinity_project):
+        mock_target = SimpleNamespace(
+            agent_name="claude",
+            spec=SimpleNamespace(
+                provider=Provider.CLAUDE_CODE,
+                cli_command="claude",
+                model="default",
+                extra_args=[],
+            ),
+            managed_home=trinity_project / ".trinity" / "agents" / "claude" / "provider-state",
+            cwd=trinity_project,
+        )
+        mock_check = SimpleNamespace(installed=True)
+        mock_result = SimpleNamespace(
+            targets=(mock_target,),
+            commands={"claude": ("claude",)},
+            checks={"claude": mock_check},
+            exit_codes={"claude": 0},
+            check_only=False,
+            failed_agents=(),
+        )
+
+        with patch("trinity.cli.find_config_path", return_value=trinity_project / ".trinity" / "trinity.config"):
+            with patch("trinity.cli.ProviderBootstrapper") as MockBootstrapper:
+                instance = MockBootstrapper.return_value
+                instance.run_sequential.return_value = mock_result
+
+                result = runner.invoke(
+                    main,
+                    [
+                        "bootstrap",
+                        "--agents",
+                        "claude,codex",
+                        "--check-only",
+                        "--continue-on-error",
+                    ],
+                )
+
+        assert result.exit_code == 0
+        instance.run_sequential.assert_called_once()
+        kwargs = instance.run_sequential.call_args.kwargs
+        assert kwargs["agent_names"] == ["claude", "codex"]
+        assert kwargs["check_only"] is True
+        assert kwargs["continue_on_error"] is True
+        assert instance.launch_legacy_tmux_session.call_count == 0
+
+    def test_bootstrap_legacy_tmux_starts_session_without_attach(self, runner, trinity_project):
         mock_target = SimpleNamespace(
             agent_name="claude",
             spec=SimpleNamespace(provider=Provider.CLAUDE_CODE),
@@ -140,12 +186,13 @@ class TestBootstrap:
             with patch("trinity.cli.ProviderBootstrapper") as MockBootstrapper:
                 with patch("trinity.cli.attach_to_bootstrap_session") as mock_attach:
                     instance = MockBootstrapper.return_value
-                    instance.launch_session.return_value = mock_result
+                    instance.launch_legacy_tmux_session.return_value = mock_result
 
                     result = runner.invoke(
                         main,
                         [
                             "bootstrap",
+                            "--legacy-tmux",
                             "--agents",
                             "claude,codex",
                             "--session-name",
@@ -155,8 +202,8 @@ class TestBootstrap:
                     )
 
         assert result.exit_code == 0
-        instance.launch_session.assert_called_once()
-        kwargs = instance.launch_session.call_args.kwargs
+        instance.launch_legacy_tmux_session.assert_called_once()
+        kwargs = instance.launch_legacy_tmux_session.call_args.kwargs
         assert kwargs["agent_names"] == ["claude", "codex"]
         assert kwargs["session_name"] == "test-bootstrap"
         assert "test-bootstrap" in result.output

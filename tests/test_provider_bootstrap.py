@@ -10,6 +10,7 @@ from trinity.models import AgentSpec, Provider
 from trinity.providers.bootstrap import (
     ProviderBootstrapError,
     ProviderBootstrapper,
+    build_provider_argv,
     build_provider_command,
 )
 
@@ -84,6 +85,120 @@ def test_build_provider_command_includes_isolated_env_and_args():
 
     assert command.startswith("env HOME=/tmp/home XDG_CONFIG_HOME=/tmp/home/.config ")
     assert "codex --model gpt-5.4-mini --flag" in command
+
+
+def test_build_provider_argv_uses_argv_not_shell_string():
+    spec = AgentSpec(
+        name="codex",
+        provider=Provider.CODEX,
+        cli_command="codex",
+        model="gpt-5.4-mini",
+        extra_args=["--flag", "value with spaces"],
+    )
+
+    argv = build_provider_argv(spec)
+
+    assert argv == (
+        "codex",
+        "--model",
+        "gpt-5.4-mini",
+        "--flag",
+        "value with spaces",
+    )
+
+
+def test_run_sequential_streams_commands_without_tmux(tmp_path):
+    config = _config(tmp_path)
+    runner = MagicMock()
+    runner.stream_interactive.return_value = 0
+
+    with patch("trinity.providers.bootstrap.shutil.which", return_value="/bin/claude"):
+        result = ProviderBootstrapper(runner=runner).run_sequential(
+            config,
+            agent_names=["claude"],
+        )
+
+    runner.stream_interactive.assert_called_once()
+    command = runner.stream_interactive.call_args.args[0]
+    assert command.argv == ("claude", "--dangerously-skip-permissions")
+    assert command.cwd == tmp_path
+    assert command.env["HOME"] == str(
+        tmp_path / ".trinity" / "agents" / "claude" / "provider-state"
+    )
+    assert result.exit_codes == {"claude": 0}
+    assert result.failed_agents == ()
+
+
+def test_run_sequential_check_only_does_not_launch(tmp_path):
+    runner = MagicMock()
+
+    with patch("trinity.providers.bootstrap.shutil.which", return_value=None):
+        result = ProviderBootstrapper(runner=runner).run_sequential(
+            _config(tmp_path),
+            agent_names=["claude"],
+            check_only=True,
+        )
+
+    runner.stream_interactive.assert_not_called()
+    assert result.check_only is True
+    assert result.checks["claude"].installed is False
+    assert result.exit_codes == {}
+
+
+def test_run_sequential_rejects_missing_cli_without_skip_ready(tmp_path):
+    runner = MagicMock()
+
+    with patch("trinity.providers.bootstrap.shutil.which", return_value=None):
+        with pytest.raises(ProviderBootstrapError, match="not found"):
+            ProviderBootstrapper(runner=runner).run_sequential(
+                _config(tmp_path),
+                agent_names=["claude"],
+            )
+
+    runner.stream_interactive.assert_not_called()
+
+
+def test_run_sequential_skip_ready_runs_even_when_cli_missing(tmp_path):
+    runner = MagicMock()
+    runner.stream_interactive.return_value = 0
+
+    with patch("trinity.providers.bootstrap.shutil.which", return_value=None):
+        result = ProviderBootstrapper(runner=runner).run_sequential(
+            _config(tmp_path),
+            agent_names=["claude"],
+            skip_ready=True,
+        )
+
+    runner.stream_interactive.assert_called_once()
+    assert result.checks["claude"].installed is False
+    assert result.exit_codes == {"claude": 0}
+
+
+def test_run_sequential_stops_on_first_failure_by_default(tmp_path):
+    runner = MagicMock()
+    runner.stream_interactive.return_value = 2
+
+    with patch("trinity.providers.bootstrap.shutil.which", return_value="/bin/claude"):
+        with pytest.raises(ProviderBootstrapError, match="exited with code 2"):
+            ProviderBootstrapper(runner=runner).run_sequential(
+                _config(tmp_path),
+                agent_names=["claude"],
+            )
+
+
+def test_run_sequential_continue_on_error_records_failure(tmp_path):
+    runner = MagicMock()
+    runner.stream_interactive.return_value = 2
+
+    with patch("trinity.providers.bootstrap.shutil.which", return_value="/bin/claude"):
+        result = ProviderBootstrapper(runner=runner).run_sequential(
+            _config(tmp_path),
+            agent_names=["claude"],
+            continue_on_error=True,
+        )
+
+    assert result.exit_codes == {"claude": 2}
+    assert result.failed_agents == ("claude",)
 
 
 def test_launch_session_sends_commands_to_tmux_panes(tmp_path):

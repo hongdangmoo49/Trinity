@@ -29,8 +29,10 @@ from trinity.context.analytics import TokenAnalytics, analytics_history_path
 from trinity.orchestrator import TrinityOrchestrator
 from trinity.providers.bootstrap import (
     ProviderBootstrapError,
+    ProviderBootstrapRunResult,
     ProviderBootstrapper,
     attach_to_bootstrap_session,
+    render_provider_command,
 )
 
 console = Console()
@@ -283,12 +285,20 @@ def _update_gitignore() -> None:
     is_flag=True,
     help="Bootstrap all configured agents, including disabled agents.",
 )
-@click.option("--session-name", default=None, help="Override bootstrap tmux session name")
-@click.option("--force", is_flag=True, help="Recreate an existing bootstrap session")
-@click.option("--no-attach", is_flag=True, help="Start the tmux session without attaching")
+@click.option("--check-only", is_flag=True, help="Only check selected provider CLIs")
+@click.option("--skip-ready", is_flag=True, help="Skip provider CLI availability checks")
+@click.option("--continue-on-error", is_flag=True, help="Continue after a provider exits non-zero")
+@click.option("--legacy-tmux", is_flag=True, help="Use legacy tmux bootstrap session")
+@click.option("--session-name", default=None, help="Override legacy bootstrap tmux session name")
+@click.option("--force", is_flag=True, help="Recreate an existing legacy bootstrap session")
+@click.option("--no-attach", is_flag=True, help="Start the legacy tmux session without attaching")
 def bootstrap(
     agent_names: str | None,
     include_disabled: bool,
+    check_only: bool,
+    skip_ready: bool,
+    continue_on_error: bool,
+    legacy_tmux: bool,
     session_name: str | None,
     force: bool,
     no_attach: bool,
@@ -310,8 +320,58 @@ def bootstrap(
     selected_names = _parse_agent_names(agent_names)
     bootstrapper = ProviderBootstrapper()
 
+    if legacy_tmux:
+        _bootstrap_legacy_tmux(
+            bootstrapper,
+            config,
+            selected_names=selected_names,
+            include_disabled=include_disabled,
+            session_name=session_name,
+            force=force,
+            no_attach=no_attach,
+        )
+        return
+
+    if session_name or force or no_attach:
+        console.print(
+            "[yellow]--session-name, --force, and --no-attach are legacy tmux "
+            "bootstrap options. Pass --legacy-tmux to use them.[/yellow]"
+        )
+
     try:
-        result = bootstrapper.launch_session(
+        result = bootstrapper.run_sequential(
+            config,
+            agent_names=selected_names,
+            include_disabled=include_disabled,
+            check_only=check_only,
+            skip_ready=skip_ready,
+            continue_on_error=continue_on_error,
+        )
+    except ProviderBootstrapError as exc:
+        console.print(f"[red]{exc}[/red]")
+        sys.exit(1)
+    except Exception as exc:
+        console.print(f"[red]Failed to start provider bootstrap: {exc}[/red]")
+        _logger = logging.getLogger("trinity")
+        _logger.exception("Provider bootstrap failed")
+        sys.exit(1)
+
+    _display_bootstrap_run_result(result)
+
+
+def _bootstrap_legacy_tmux(
+    bootstrapper: ProviderBootstrapper,
+    config: TrinityConfig,
+    *,
+    selected_names: list[str] | None,
+    include_disabled: bool,
+    session_name: str | None,
+    force: bool,
+    no_attach: bool,
+) -> None:
+    """Run the legacy tmux bootstrap path."""
+    try:
+        result = bootstrapper.launch_legacy_tmux_session(
             config,
             agent_names=selected_names,
             include_disabled=include_disabled,
@@ -357,6 +417,53 @@ def bootstrap(
     if exit_code != 0:
         console.print(
             f"[red]Failed to attach to tmux session '{result.session_name}'.[/red]"
+        )
+
+
+def _display_bootstrap_run_result(result: ProviderBootstrapRunResult) -> None:
+    """Display sequential bootstrap status."""
+    table = Table(title="Provider Bootstrap")
+    table.add_column("Agent", style="cyan")
+    table.add_column("Provider", style="green")
+    table.add_column("Command")
+    table.add_column("Installed")
+    table.add_column("State")
+    table.add_column("CWD")
+
+    for target in result.targets:
+        check = result.checks[target.agent_name]
+        exit_code = result.exit_codes.get(target.agent_name)
+        if result.check_only:
+            state = "check only"
+        elif exit_code is None:
+            state = "not run"
+        elif exit_code == 0:
+            state = "completed"
+        else:
+            state = f"exit {exit_code}"
+        table.add_row(
+            target.agent_name,
+            target.spec.provider.value,
+            render_provider_command(target.spec),
+            "yes" if check.installed else "no",
+            state,
+            str(target.cwd),
+        )
+
+    console.print(table)
+    if result.check_only:
+        console.print("[dim]Check only; no provider CLI was launched.[/dim]")
+        return
+
+    failed = result.failed_agents
+    if failed:
+        console.print(
+            "[yellow]Provider bootstrap finished with failures: "
+            f"{', '.join(failed)}[/yellow]"
+        )
+    else:
+        console.print(
+            "[green]Provider bootstrap finished in the current terminal.[/green]"
         )
 
 

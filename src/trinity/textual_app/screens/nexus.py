@@ -10,6 +10,7 @@ from textual.widgets import Footer, Header, Static
 
 from trinity.config import TrinityConfig
 from trinity.models import AgentSpec
+from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.composer import PromptComposer
 from trinity.textual_app.widgets.provider_panel import ProviderPanel, ProviderPanelState
 
@@ -33,6 +34,7 @@ class NexusScreen(Screen[None]):
         self.config = config
         self.initial_prompt: str = ""
         self.follow_ups: list[str] = []
+        self.snapshot: WorkflowNexusSnapshot | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -53,6 +55,27 @@ class NexusScreen(Screen[None]):
         self.initial_prompt = prompt.strip()
         if self.is_mounted:
             self.query_one("#central-body", Static).update(self._central_body())
+
+    def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
+        self.snapshot = snapshot
+        if not self.is_mounted:
+            return
+        for provider in snapshot.providers:
+            panel_id = f"#provider-{provider.name}"
+            matches = self.query(panel_id)
+            if not matches:
+                continue
+            panel = matches.first(ProviderPanel)
+            panel.update_state(
+                ProviderPanelState(
+                    name=provider.name,
+                    provider=provider.provider,
+                    enabled=provider.enabled,
+                    status=provider.status,
+                    summary=provider.summary,
+                )
+            )
+        self.query_one("#central-body", Static).update(self._central_body())
 
     def update_provider(
         self,
@@ -108,6 +131,32 @@ class NexusScreen(Screen[None]):
         )
 
     def _central_body(self) -> str:
+        if self.snapshot is not None:
+            lines = [
+                f"Workflow: {self.snapshot.session_id or '(new)'}",
+                f"State: {self.snapshot.state}",
+                f"Round: {self.snapshot.round_num}",
+            ]
+            if self.snapshot.goal:
+                lines.extend(["", "Goal:", self.snapshot.goal])
+            if self.snapshot.synthesis.summary:
+                lines.extend(["", "Synthesis:", self.snapshot.synthesis.summary])
+            if self.snapshot.questions:
+                lines.extend(["", "Questions:"])
+                lines.extend(f"- {item}" for item in self.snapshot.questions[:3])
+            if self.snapshot.work_packages:
+                lines.extend(["", "Work packages:"])
+                lines.extend(f"- {item}" for item in self.snapshot.work_packages[:5])
+            if not self.snapshot.synthesis.summary and not self.snapshot.goal:
+                lines.extend(
+                    [
+                        "",
+                        "Waiting for synthesis.",
+                        "Planning does not require a workspace.",
+                    ]
+                )
+            return "\n".join(lines)
+
         lines = [
             "Waiting for synthesis.",
             "Planning does not require a workspace. Execute will ask for one.",

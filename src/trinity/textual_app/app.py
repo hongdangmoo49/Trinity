@@ -14,6 +14,7 @@ from trinity import __version__
 from trinity.config import TrinityConfig
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.start import StartScreen
+from trinity.textual_app.snapshot import NexusSnapshotAdapter
 
 WorkbenchRoute = Literal["start", "nexus", "execution", "settings"]
 
@@ -197,6 +198,7 @@ class TrinityTextualApp(App[None]):
         self.current_route: WorkbenchRoute = "start"
         self.initial_prompt: str | None = None
         self.workspace_candidate: Path | None = None
+        self.snapshot_adapter = NexusSnapshotAdapter(config)
         self._screens_installed = False
 
     def on_mount(self) -> None:
@@ -225,6 +227,7 @@ class TrinityTextualApp(App[None]):
         self.workspace_candidate = event.workspace_candidate
         nexus = self.get_screen("nexus", NexusScreen)
         nexus.set_initial_prompt(event.prompt)
+        nexus.apply_snapshot(self.snapshot_adapter.load_snapshot())
         self.switch_to("nexus")
 
     def on_nexus_screen_follow_up_submitted(
@@ -234,6 +237,9 @@ class TrinityTextualApp(App[None]):
         event.stop()
 
     def switch_to(self, route: WorkbenchRoute) -> None:
+        if route == "nexus" and self._screens_installed:
+            nexus = self.get_screen("nexus", NexusScreen)
+            nexus.apply_snapshot(self.snapshot_adapter.load_snapshot())
         self.current_route = route
         self.switch_screen(route)
 

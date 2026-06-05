@@ -9,7 +9,7 @@ from pathlib import Path
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, Checkbox, DirectoryTree, Footer, Input, Static
+from textual.widgets import Button, DirectoryTree, Footer, Input, Static
 
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 
@@ -37,6 +37,15 @@ class WorkspacePreflight:
         """Return whether the target directory can be created before execution."""
         return not self.exists and self.creatable and self.create_supported
 
+    @property
+    def create_supported_label(self) -> str:
+        """Return a user-facing creation support state."""
+        if self.exists:
+            return "not needed"
+        if self.create_supported:
+            return "True"
+        return "False"
+
     def render(self) -> str:
         return "\n".join(
             [
@@ -46,13 +55,89 @@ class WorkspacePreflight:
                 f"Writable: {self.writable}",
                 f"Git repo: {self.git_repo}",
                 f"Creatable: {self.creatable}",
-                f"Create supported: {self.create_supported}",
+                f"Create supported: {self.create_supported_label}",
                 f"Branch: {self.branch}",
                 "Dirty worktree: unknown",
                 "Provider readiness: current session snapshot",
                 f"Work packages: {self.package_count}",
             ]
         )
+
+
+class CreateMissingDirectoryPrompt(ModalScreen[bool]):
+    """Ask whether the preflight should enable missing-directory creation."""
+
+    BINDINGS = [("escape", "cancel", "Cancel")]
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="workspace-create-prompt"):
+            yield Static("Enable directory creation?", id="workspace-create-title")
+            yield Static(
+                "The selected path is not currently marked creatable.",
+                id="workspace-create-copy",
+            )
+            with Horizontal(id="workspace-create-actions"):
+                yield Button("Cancel", id="cancel-create-folder")
+                yield Button(
+                    "Enable",
+                    id="enable-create-folder",
+                    variant="primary",
+                )
+        yield Footer()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "cancel-create-folder":
+            event.stop()
+            self.dismiss(False)
+        elif event.button.id == "enable-create-folder":
+            event.stop()
+            self.dismiss(True)
+
+    def action_cancel(self) -> None:
+        self.dismiss(False)
+
+
+class FolderNamePrompt(ModalScreen[str | None]):
+    """Collect a child folder name for the target workspace."""
+
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+        ("enter", "submit", "Create"),
+    ]
+
+    def __init__(self, parent: Path) -> None:
+        super().__init__()
+        self.folder_parent = parent
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="workspace-create-prompt"):
+            yield Static("New Folder", id="workspace-create-title")
+            yield Static(f"Parent: {self.folder_parent}", id="workspace-create-copy")
+            yield Input(placeholder="Folder name", id="workspace-folder-name")
+            with Horizontal(id="workspace-create-actions"):
+                yield Button("Cancel", id="cancel-folder-name")
+                yield Button("Use Folder", id="confirm-folder-name", variant="primary")
+        yield Footer()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "cancel-folder-name":
+            event.stop()
+            self.dismiss(None)
+        elif event.button.id == "confirm-folder-name":
+            event.stop()
+            self.action_submit()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id != "workspace-folder-name":
+            return
+        event.stop()
+        self.action_submit()
+
+    def action_submit(self) -> None:
+        self.dismiss(self.query_one("#workspace-folder-name", Input).value)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
 
 
 class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
@@ -87,13 +172,11 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
                 placeholder="Target workspace path",
                 id="workspace-path-input",
             )
-            yield Checkbox(
-                "Create missing directory",
-                value=self.create_missing,
-                id="workspace-creatable",
-            )
             with Horizontal(id="workspace-picker-body"):
-                yield DirectoryTree(self.tree_root, id="workspace-directory-tree")
+                with Vertical(id="workspace-tree-panel"):
+                    yield DirectoryTree(self.tree_root, id="workspace-directory-tree")
+                    with Horizontal(id="workspace-tree-actions"):
+                        yield Button("New Folder", id="new-workspace-folder")
                 yield Static(self.preflight.render(), id="workspace-preflight")
             with Horizontal(id="workspace-picker-actions"):
                 yield Button("Cancel", id="cancel-execute")
@@ -105,13 +188,6 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         if event.input.id != "workspace-path-input":
             return
         self._update_preflight(Path(event.value).expanduser())
-
-    def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
-        if event.checkbox.id != "workspace-creatable":
-            return
-        event.stop()
-        self.create_missing = bool(event.value)
-        self._update_preflight(self._input_path())
 
     def on_directory_tree_directory_selected(
         self, event: DirectoryTree.DirectorySelected
@@ -128,9 +204,44 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         elif event.button.id == "confirm-execute":
             event.stop()
             self.action_confirm()
+        elif event.button.id == "new-workspace-folder":
+            event.stop()
+            self.action_new_folder()
 
     def action_cancel(self) -> None:
         self.dismiss(None)
+
+    def action_new_folder(self) -> None:
+        if not self.create_missing:
+            self.app.push_screen(
+                CreateMissingDirectoryPrompt(),
+                self._on_create_missing_confirmed,
+            )
+            return
+        self._open_folder_name_prompt()
+
+    def _on_create_missing_confirmed(self, confirmed: bool) -> None:
+        if not confirmed:
+            return
+        self.create_missing = True
+        self._update_preflight(self._input_path())
+        self._open_folder_name_prompt()
+
+    def _open_folder_name_prompt(self) -> None:
+        self.app.push_screen(
+            FolderNamePrompt(self._folder_creation_base()),
+            self._on_folder_name_submitted,
+        )
+
+    def _on_folder_name_submitted(self, folder_name: str | None) -> None:
+        clean_name = self._clean_folder_name(folder_name or "")
+        if not clean_name:
+            self._set_status("Enter a single folder name.")
+            return
+        target = self._folder_creation_base() / clean_name
+        self.query_one("#workspace-path-input", Input).value = str(target)
+        self._update_preflight(target)
+        self._set_status(f"New folder selected: {target}")
 
     def action_confirm(self) -> None:
         path = self._input_path()
@@ -162,6 +273,27 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
     def _input_path(self) -> Path:
         return Path(self.query_one("#workspace-path-input", Input).value).expanduser()
 
+    def _folder_creation_base(self) -> Path:
+        path = self._input_path()
+        if _same_resolved_path(path, self.cwd) and self.tree_root.exists():
+            return self.tree_root
+        if path.exists() and path.is_dir():
+            return path
+        return path.parent
+
+    @staticmethod
+    def _clean_folder_name(value: str) -> str:
+        folder_name = value.strip()
+        if not folder_name or folder_name in {".", ".."}:
+            return ""
+        if "/" in folder_name or "\\" in folder_name:
+            return ""
+        return folder_name
+
+    def _set_status(self, message: str) -> None:
+        if self.is_mounted:
+            self.query_one("#workspace-picker-status", Static).update(message)
+
     def _show_invalid_preflight(self) -> None:
         if not self.preflight.exists and not self.preflight.creatable:
             message = (
@@ -177,6 +309,13 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
                 "Select an existing writable directory or a creatable new path."
             )
         self.query_one("#workspace-picker-status", Static).update(message)
+
+
+def _same_resolved_path(left: Path, right: Path) -> bool:
+    try:
+        return left.resolve() == right.resolve()
+    except OSError:
+        return left.expanduser().absolute() == right.expanduser().absolute()
 
 
 def default_workspace_tree_root(control_repo_path: Path) -> Path:

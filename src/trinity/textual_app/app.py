@@ -367,11 +367,6 @@ class TrinityTextualApp(App[None]):
         margin-bottom: 1;
     }
 
-    #workspace-creatable {
-        height: 1;
-        margin-top: 1;
-    }
-
     #workspace-picker-body {
         height: 1fr;
         margin-top: 1;
@@ -383,12 +378,29 @@ class TrinityTextualApp(App[None]):
         border: round $primary;
     }
 
+    #workspace-tree-panel {
+        width: 1fr;
+        height: 1fr;
+    }
+
+    #workspace-tree-actions {
+        height: auto;
+        margin-top: 1;
+    }
+
     #workspace-preflight {
         width: 38;
         height: 1fr;
         margin-left: 1;
         border: round $secondary;
         padding: 1;
+    }
+
+    #workspace-create-prompt {
+        width: 64;
+        border: round $accent;
+        background: $surface;
+        padding: 1 2;
     }
 
     #workspace-picker-actions {

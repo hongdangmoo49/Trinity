@@ -9,7 +9,7 @@ from trinity.textual_app.app import TrinityTextualApp
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.settings import SettingsScreen
-from trinity.textual_app.screens.start import StartScreen
+from trinity.textual_app.screens.start import SacredGeometryAnimation, StartScreen
 from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import ProviderSnapshot, QuestionSnapshot, WorkflowNexusSnapshot
 from trinity.textual_app.widgets.central_agent import CentralAgentView
@@ -29,6 +29,8 @@ async def test_textual_app_boots_to_start_screen(tmp_path) -> None:
         assert app.current_route == "start"
         assert app.screen.name == "start"
         assert app.screen.query_one(PromptComposer)
+        geometry = app.screen.query_one("#start-geometry", SacredGeometryAnimation)
+        assert str(geometry.render()).strip()
 
 
 @pytest.mark.asyncio

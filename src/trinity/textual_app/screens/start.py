@@ -11,6 +11,27 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Static
 
 from trinity.textual_app.widgets.composer import PromptComposer
+from trinity.tui.sacred_geometry import SacredGeometryAnimator
+
+
+class SacredGeometryAnimation(Static):
+    """Textual wrapper for the Trinity ASCII geometry animation."""
+
+    def __init__(self) -> None:
+        super().__init__("", id="start-geometry")
+        self._angle = 0.0
+        self._animator = SacredGeometryAnimator(width=56, height=14, mode="ascii")
+
+    def on_mount(self) -> None:
+        self._render_frame()
+        self.set_interval(0.12, self._tick)
+
+    def _tick(self) -> None:
+        self._angle = (self._angle + 8.0) % 360.0
+        self._render_frame()
+
+    def _render_frame(self) -> None:
+        self.update(self._animator.render(angle=self._angle))
 
 
 class StartScreen(Screen[None]):
@@ -39,6 +60,7 @@ class StartScreen(Screen[None]):
         yield Header(show_clock=False)
         with Vertical(id="start-screen"):
             with Vertical(id="start-shell"):
+                yield SacredGeometryAnimation()
                 yield Static("TRINITY", id="start-title")
                 yield Static("Three minds, one context", id="start-subtitle")
                 yield PromptComposer(

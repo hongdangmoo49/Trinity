@@ -1,4 +1,4 @@
-"""Tests for SacredGeometryAnimator — sacred geometry ASCII mandala frames."""
+"""Tests for SacredGeometryAnimator — rotating 3D geometric wireframe frames."""
 
 from __future__ import annotations
 
@@ -49,13 +49,20 @@ def test_animator_center_mark_present() -> None:
     assert "✦" in frame, "centre mark glyph should be present in modern mode"
 
 
-def test_animator_traces_overlapping_circles() -> None:
-    """The three overlapping circles should produce substantial non-space content."""
+def test_animator_traces_3d_wireframe() -> None:
+    """The projected 3D form should produce substantial non-space content."""
     anim = SacredGeometryAnimator(width=60, height=20)
     frame = anim.render(angle=0.0)
     non_space = sum(1 for ch in frame if ch not in (" ", "\n"))
-    # With three circles and a hexagram we expect significant content
     assert non_space > 20, f"expected substantial content, got {non_space} non-space chars"
+
+
+def test_animator_compact_textual_size_remains_visible() -> None:
+    """The Textual start-screen size should still render a recognizable wireframe."""
+    anim = SacredGeometryAnimator(width=56, height=14, mode="ascii")
+    frame = anim.render(angle=30.0)
+    non_space = sum(1 for ch in frame if ch not in (" ", "\n"))
+    assert non_space > 16, f"expected compact wireframe content, got {non_space} non-space chars"
 
 
 def test_animator_update_mode_changes_glyphs() -> None:

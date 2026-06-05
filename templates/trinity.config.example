@@ -4,8 +4,11 @@
 [general]
 session_name = "trinity"
 lang = "en"
-provider_state_mode = "user-home"  # "user-home" reuses local CLI auth; "isolated" uses .trinity provider homes
-transport_mode = "one-shot"  # "one-shot" uses headless CLI calls; "tmux" is legacy/debug transport
+# "user-home" reuses OS user CLI auth; "isolated" uses .trinity provider homes
+# with HOME/USERPROFILE/APPDATA/XDG overrides.
+provider_state_mode = "user-home"
+# Cross-platform default; "tmux" is legacy/debug transport for tmux-capable environments.
+transport_mode = "one-shot"
 max_deliberation_rounds = 5
 consensus_threshold = 0.6
 context_rotate_threshold = 0.60

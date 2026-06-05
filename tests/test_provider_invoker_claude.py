@@ -65,7 +65,7 @@ async def test_invoke_parses_claude_json_response(tmp_path):
         stderr="",
     )
 
-    with patch("trinity.providers.invoker.subprocess.run", return_value=completed):
+    with patch("trinity.platform.process.subprocess.run", return_value=completed):
         result = await invoker.invoke(_request(tmp_path))
 
     assert result.status == ResponseStatus.OK
@@ -86,7 +86,7 @@ async def test_invoke_classifies_claude_auth_failure(tmp_path):
         stderr="Please sign in to continue.",
     )
 
-    with patch("trinity.providers.invoker.subprocess.run", return_value=completed):
+    with patch("trinity.platform.process.subprocess.run", return_value=completed):
         result = await invoker.invoke(_request(tmp_path))
 
     assert result.status == ResponseStatus.AUTH_REQUIRED
@@ -99,7 +99,7 @@ async def test_invoke_returns_timeout_status(tmp_path):
     invoker = ClaudePrintInvoker()
 
     with patch(
-        "trinity.providers.invoker.subprocess.run",
+        "trinity.platform.process.subprocess.run",
         side_effect=subprocess.TimeoutExpired("claude", 1),
     ):
         result = await invoker.invoke(

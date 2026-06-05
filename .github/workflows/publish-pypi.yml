@@ -11,8 +11,15 @@ permissions:
 
 jobs:
   test:
-    name: Test
-    runs-on: ubuntu-latest
+    name: Test / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
 
     steps:
       - name: Check out repository
@@ -24,8 +31,15 @@ jobs:
       - name: Set up Python
         run: uv python install 3.12
 
-      - name: Run tests
-        run: uv run pytest
+      - name: Run cross-platform smoke tests
+        run: >
+          uv run pytest
+          tests/test_platform_capabilities.py
+          tests/test_platform_process.py
+          tests/test_log_tail.py
+          tests/test_provider_bootstrap.py
+          tests/test_tui_rendering.py
+          tests/test_cli.py
 
   publish:
     name: Publish

@@ -114,6 +114,26 @@ class TestEnvOverrides:
         env = mh.get_env_overrides("claude")
         assert env["XDG_CONFIG_HOME"] == str(home / ".config")
 
+    def test_xdg_directories_are_created(self, mh):
+        home = mh.setup("claude")
+        env = mh.get_env_overrides("claude", os_name="linux")
+        assert Path(env["XDG_CONFIG_HOME"]).exists()
+        assert Path(env["XDG_DATA_HOME"]).exists()
+        assert Path(env["XDG_CACHE_HOME"]).exists()
+        assert Path(env["XDG_CONFIG_HOME"]).is_relative_to(home)
+
+    def test_windows_env_includes_profile_and_appdata(self, mh):
+        home = mh.setup("claude")
+        env = mh.get_env_overrides("claude", os_name="windows")
+
+        assert env["HOME"] == str(home)
+        assert env["USERPROFILE"] == str(home)
+        assert env["APPDATA"] == str(home / "AppData" / "Roaming")
+        assert env["LOCALAPPDATA"] == str(home / "AppData" / "Local")
+        assert Path(env["APPDATA"]).exists()
+        assert Path(env["LOCALAPPDATA"]).exists()
+        assert "XDG_CONFIG_HOME" not in env
+
 
 # ===========================================================================
 # Config file operations

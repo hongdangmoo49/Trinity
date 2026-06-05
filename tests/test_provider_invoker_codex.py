@@ -94,7 +94,7 @@ async def test_invoke_parses_codex_jsonl_response(tmp_path):
         stderr="",
     )
 
-    with patch("trinity.providers.invoker.subprocess.run", return_value=completed):
+    with patch("trinity.platform.process.subprocess.run", return_value=completed):
         result = await invoker.invoke(_request(tmp_path))
 
     assert result.status == ResponseStatus.OK
@@ -114,7 +114,7 @@ async def test_invoke_classifies_codex_auth_failure(tmp_path):
         stderr="Authentication required. Run codex login.",
     )
 
-    with patch("trinity.providers.invoker.subprocess.run", return_value=completed):
+    with patch("trinity.platform.process.subprocess.run", return_value=completed):
         result = await invoker.invoke(_request(tmp_path))
 
     assert result.status == ResponseStatus.AUTH_REQUIRED

@@ -20,6 +20,8 @@ import os
 import shutil
 from pathlib import Path
 
+from trinity.platform.capabilities import OSName, normalize_os_name
+
 logger = logging.getLogger(__name__)
 
 
@@ -37,13 +39,15 @@ class ManagedHome:
         # Set HOME=home when spawning the agent process
     """
 
-    def __init__(self, state_dir: Path):
+    def __init__(self, state_dir: Path, os_name: OSName | None = None):
         """
         Args:
             state_dir: The .trinity state directory.
+            os_name: Optional OS override used by tests and cross-platform callers.
         """
         self.state_dir = state_dir.resolve()
         self.agents_dir = self.state_dir / "agents"
+        self.os_name = os_name
 
     def _agent_home(self, agent_name: str) -> Path:
         """Return the managed home path for an agent."""
@@ -93,7 +97,12 @@ class ManagedHome:
         home = self._agent_home(agent_name)
         return home if home.exists() else None
 
-    def get_env_overrides(self, agent_name: str) -> dict[str, str]:
+    def get_env_overrides(
+        self,
+        agent_name: str,
+        *,
+        os_name: OSName | None = None,
+    ) -> dict[str, str]:
         """Return environment variable overrides for the agent.
 
         These should be merged into the agent process environment.
@@ -105,12 +114,28 @@ class ManagedHome:
         if not home.exists():
             return {}
 
+        target_os = normalize_os_name(os_name or self.os_name)
         env = {"HOME": str(home)}
 
-        # Add XDG directories for Linux compatibility
-        env["XDG_CONFIG_HOME"] = str(home / ".config")
-        env["XDG_DATA_HOME"] = str(home / ".local" / "share")
-        env["XDG_CACHE_HOME"] = str(home / ".cache")
+        if target_os == "windows":
+            roaming = home / "AppData" / "Roaming"
+            local = home / "AppData" / "Local"
+            roaming.mkdir(parents=True, exist_ok=True)
+            local.mkdir(parents=True, exist_ok=True)
+            env["USERPROFILE"] = str(home)
+            env["APPDATA"] = str(roaming)
+            env["LOCALAPPDATA"] = str(local)
+            return env
+
+        xdg_config = home / ".config"
+        xdg_data = home / ".local" / "share"
+        xdg_cache = home / ".cache"
+        xdg_config.mkdir(parents=True, exist_ok=True)
+        xdg_data.mkdir(parents=True, exist_ok=True)
+        xdg_cache.mkdir(parents=True, exist_ok=True)
+        env["XDG_CONFIG_HOME"] = str(xdg_config)
+        env["XDG_DATA_HOME"] = str(xdg_data)
+        env["XDG_CACHE_HOME"] = str(xdg_cache)
 
         return env
 

@@ -27,11 +27,41 @@ from trinity import __version__
 from trinity.config import TrinityConfig
 from trinity.context.analytics import TokenAnalytics, analytics_history_path
 from trinity.orchestrator import TrinityOrchestrator
+from trinity.platform import (
+    detect_platform_info,
+    detect_terminal_capabilities,
+    has_command,
+    legacy_tmux_hint,
+)
 from trinity.providers.bootstrap import (
     ProviderBootstrapError,
+    ProviderBootstrapRunResult,
     ProviderBootstrapper,
     attach_to_bootstrap_session,
+    render_provider_command,
 )
+from trinity.setup.detector import CLIDetector
+
+
+def _configure_stdio_encoding_errors(*streams) -> None:
+    """Avoid UnicodeEncodeError on legacy Windows code pages.
+
+    Some Windows CI shells expose stdout/stderr as cp1252. Rich can then fail
+    when a command prints symbols such as check marks. Replacing unsupported
+    characters is better than crashing during non-interactive smoke commands.
+    """
+    target_streams = streams or (sys.stdout, sys.stderr)
+    for stream in target_streams:
+        reconfigure = getattr(stream, "reconfigure", None)
+        if not callable(reconfigure):
+            continue
+        try:
+            reconfigure(errors="replace")
+        except (OSError, TypeError, ValueError):
+            continue
+
+
+_configure_stdio_encoding_errors()
 
 console = Console()
 
@@ -283,12 +313,20 @@ def _update_gitignore() -> None:
     is_flag=True,
     help="Bootstrap all configured agents, including disabled agents.",
 )
-@click.option("--session-name", default=None, help="Override bootstrap tmux session name")
-@click.option("--force", is_flag=True, help="Recreate an existing bootstrap session")
-@click.option("--no-attach", is_flag=True, help="Start the tmux session without attaching")
+@click.option("--check-only", is_flag=True, help="Only check selected provider CLIs")
+@click.option("--skip-ready", is_flag=True, help="Skip provider CLI availability checks")
+@click.option("--continue-on-error", is_flag=True, help="Continue after a provider exits non-zero")
+@click.option("--legacy-tmux", is_flag=True, help="Use legacy tmux bootstrap session")
+@click.option("--session-name", default=None, help="Override legacy bootstrap tmux session name")
+@click.option("--force", is_flag=True, help="Recreate an existing legacy bootstrap session")
+@click.option("--no-attach", is_flag=True, help="Start the legacy tmux session without attaching")
 def bootstrap(
     agent_names: str | None,
     include_disabled: bool,
+    check_only: bool,
+    skip_ready: bool,
+    continue_on_error: bool,
+    legacy_tmux: bool,
     session_name: str | None,
     force: bool,
     no_attach: bool,
@@ -310,8 +348,58 @@ def bootstrap(
     selected_names = _parse_agent_names(agent_names)
     bootstrapper = ProviderBootstrapper()
 
+    if legacy_tmux:
+        _bootstrap_legacy_tmux(
+            bootstrapper,
+            config,
+            selected_names=selected_names,
+            include_disabled=include_disabled,
+            session_name=session_name,
+            force=force,
+            no_attach=no_attach,
+        )
+        return
+
+    if session_name or force or no_attach:
+        console.print(
+            "[yellow]--session-name, --force, and --no-attach are legacy tmux "
+            "bootstrap options. Pass --legacy-tmux to use them.[/yellow]"
+        )
+
     try:
-        result = bootstrapper.launch_session(
+        result = bootstrapper.run_sequential(
+            config,
+            agent_names=selected_names,
+            include_disabled=include_disabled,
+            check_only=check_only,
+            skip_ready=skip_ready,
+            continue_on_error=continue_on_error,
+        )
+    except ProviderBootstrapError as exc:
+        console.print(f"[red]{exc}[/red]")
+        sys.exit(1)
+    except Exception as exc:
+        console.print(f"[red]Failed to start provider bootstrap: {exc}[/red]")
+        _logger = logging.getLogger("trinity")
+        _logger.exception("Provider bootstrap failed")
+        sys.exit(1)
+
+    _display_bootstrap_run_result(result)
+
+
+def _bootstrap_legacy_tmux(
+    bootstrapper: ProviderBootstrapper,
+    config: TrinityConfig,
+    *,
+    selected_names: list[str] | None,
+    include_disabled: bool,
+    session_name: str | None,
+    force: bool,
+    no_attach: bool,
+) -> None:
+    """Run the legacy tmux bootstrap path."""
+    try:
+        result = bootstrapper.launch_legacy_tmux_session(
             config,
             agent_names=selected_names,
             include_disabled=include_disabled,
@@ -357,6 +445,53 @@ def bootstrap(
     if exit_code != 0:
         console.print(
             f"[red]Failed to attach to tmux session '{result.session_name}'.[/red]"
+        )
+
+
+def _display_bootstrap_run_result(result: ProviderBootstrapRunResult) -> None:
+    """Display sequential bootstrap status."""
+    table = Table(title="Provider Bootstrap")
+    table.add_column("Agent", style="cyan")
+    table.add_column("Provider", style="green")
+    table.add_column("Command")
+    table.add_column("Installed")
+    table.add_column("State")
+    table.add_column("CWD")
+
+    for target in result.targets:
+        check = result.checks[target.agent_name]
+        exit_code = result.exit_codes.get(target.agent_name)
+        if result.check_only:
+            state = "check only"
+        elif exit_code is None:
+            state = "not run"
+        elif exit_code == 0:
+            state = "completed"
+        else:
+            state = f"exit {exit_code}"
+        table.add_row(
+            target.agent_name,
+            target.spec.provider.value,
+            render_provider_command(target.spec),
+            "yes" if check.installed else "no",
+            state,
+            str(target.cwd),
+        )
+
+    console.print(table)
+    if result.check_only:
+        console.print("[dim]Check only; no provider CLI was launched.[/dim]")
+        return
+
+    failed = result.failed_agents
+    if failed:
+        console.print(
+            "[yellow]Provider bootstrap finished with failures: "
+            f"{', '.join(failed)}[/yellow]"
+        )
+    else:
+        console.print(
+            "[green]Provider bootstrap finished in the current terminal.[/green]"
         )
 
 
@@ -487,6 +622,71 @@ def status():
         )
 
 
+# ─── trinity doctor ──────────────────────────────────────────────────────
+
+@main.command()
+def doctor():
+    """Show cross-platform runtime diagnostics."""
+    config_path = find_config_path()
+    config = (
+        TrinityConfig.load(config_path)
+        if config_path
+        else TrinityConfig.default_config()
+    )
+    info = detect_platform_info()
+    caps = detect_terminal_capabilities(info)
+    detector = CLIDetector()
+
+    table = Table(title="Trinity Doctor")
+    table.add_column("Area", style="cyan")
+    table.add_column("Value")
+    table.add_column("Status")
+
+    table.add_row("Trinity", __version__, "ok")
+    table.add_row("Python", sys.version.split()[0], "ok")
+    table.add_row("OS", info.os_name, "ok")
+    table.add_row(
+        "Shell",
+        info.shell_name,
+        "ok" if info.shell_name != "unknown" else "unknown",
+    )
+    table.add_row(
+        "Terminal",
+        info.terminal_name,
+        "ok" if info.terminal_name != "unknown" else "unknown",
+    )
+    table.add_row("TTY", str(info.is_tty), "ok" if info.is_tty else "plain")
+    table.add_row("CI", str(info.is_ci), "plain" if info.is_ci else "ok")
+    table.add_row("Render Mode", caps.render_mode, "ok")
+    table.add_row(
+        "Live Render",
+        str(caps.supports_live_render),
+        "ok" if caps.supports_live_render else "plain",
+    )
+    table.add_row(
+        "Config",
+        str(config_path or "not found"),
+        "ok" if config_path else "default",
+    )
+    table.add_row("State Dir", str(config.effective_state_dir), "ok")
+    table.add_row(
+        "Transport",
+        config.transport_mode,
+        "ok" if config.transport_mode == "one-shot" else "legacy",
+    )
+    table.add_row("Provider State", config.provider_state_mode, "ok")
+    table.add_row("tmux", "available" if has_command("tmux") else "not found", "legacy")
+
+    for name, spec in config.agents.items():
+        result = detector.detect(spec.provider)
+        status = "ok" if result.installed else "missing"
+        value = result.path or result.error or spec.cli_command
+        table.add_row(f"Provider {name}", value, status)
+
+    console.print(table)
+    console.print(f"[dim]{legacy_tmux_hint(info)}[/dim]")
+
+
 # ─── trinity status-watch ────────────────────────────────────────────────
 
 @main.command(name="status-watch")
@@ -568,14 +768,22 @@ def logs(follow: bool, lines: int):
     config = load_config()
     log_path = config.effective_state_dir / "logs" / "trinity.log"
 
-    if not log_path.exists():
-        console.print("[yellow]No log file found. Run 'trinity ask' first.[/yellow]")
-        return
-
     if follow:
-        import subprocess
-        subprocess.run(["tail", "-f", "-n", str(lines), str(log_path)])
+        from trinity.platform.log_tail import follow_log
+
+        try:
+            for event in follow_log(log_path, lines=lines):
+                if event.kind == "line":
+                    console.print(event.message)
+                else:
+                    console.print(event.message, style="yellow", markup=False)
+        except KeyboardInterrupt:
+            console.print("\n[dim]Stopped.[/dim]")
     else:
+        if not log_path.exists():
+            console.print("[yellow]No log file found. Run 'trinity ask' first.[/yellow]")
+            return
+
         content = log_path.read_text(encoding="utf-8")
         log_lines = content.splitlines()
         for line in log_lines[-lines:]:

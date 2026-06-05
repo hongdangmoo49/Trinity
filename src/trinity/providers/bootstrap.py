@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shlex
+import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -10,6 +11,7 @@ from pathlib import Path
 from trinity.models import AgentSpec
 from trinity.config import TrinityConfig
 from trinity.legacy.tmux.session import TmuxSessionManager
+from trinity.platform.process import CommandSpec, ProcessRunner, render_command
 from trinity.workspace.isolation import WorkspaceIsolation
 from trinity.workspace.managed_home import ManagedHome
 
@@ -39,8 +41,40 @@ class ProviderBootstrapResult:
     commands: dict[str, str]
 
 
+@dataclass(frozen=True)
+class ProviderBootstrapCheck:
+    """Install/readiness check for one bootstrap target."""
+
+    agent_name: str
+    cli_command: str
+    installed: bool
+    path: str = ""
+    error: str = ""
+
+
+@dataclass(frozen=True)
+class ProviderBootstrapRunResult:
+    """Summary of sequential current-terminal bootstrap execution."""
+
+    targets: tuple[ProviderBootstrapTarget, ...]
+    commands: dict[str, tuple[str, ...]]
+    checks: dict[str, ProviderBootstrapCheck]
+    exit_codes: dict[str, int]
+    check_only: bool = False
+
+    @property
+    def failed_agents(self) -> tuple[str, ...]:
+        return tuple(
+            name for name, code in self.exit_codes.items()
+            if code != 0
+        )
+
+
 class ProviderBootstrapper:
     """Launch provider CLIs in the same isolated homes Trinity normally uses."""
+
+    def __init__(self, runner: ProcessRunner | None = None):
+        self.runner = runner or ProcessRunner()
 
     def select_agent_specs(
         self,
@@ -131,7 +165,92 @@ class ProviderBootstrapper:
 
         return tuple(targets)
 
-    def launch_session(
+    def run_sequential(
+        self,
+        config: TrinityConfig,
+        agent_names: list[str] | None = None,
+        include_disabled: bool = False,
+        check_only: bool = False,
+        skip_ready: bool = False,
+        continue_on_error: bool = False,
+    ) -> ProviderBootstrapRunResult:
+        """Run provider CLIs one by one in the current terminal."""
+        targets = self.prepare_targets(
+            config,
+            agent_names=agent_names,
+            include_disabled=include_disabled,
+        )
+        checks = self.check_targets(targets)
+        commands = {
+            target.agent_name: build_provider_argv(target.spec)
+            for target in targets
+        }
+
+        if check_only:
+            return ProviderBootstrapRunResult(
+                targets=targets,
+                commands=commands,
+                checks=checks,
+                exit_codes={},
+                check_only=True,
+            )
+
+        if not skip_ready:
+            missing = [
+                check for check in checks.values()
+                if not check.installed
+            ]
+            if missing:
+                details = ", ".join(
+                    f"{check.agent_name} ({check.cli_command})"
+                    for check in missing
+                )
+                raise ProviderBootstrapError(
+                    "Provider CLI command not found: "
+                    f"{details}. Install the provider CLI or pass --skip-ready "
+                    "to run anyway."
+                )
+
+        exit_codes: dict[str, int] = {}
+        for target in targets:
+            command = CommandSpec(
+                argv=commands[target.agent_name],
+                cwd=target.cwd,
+                env=target.env_overrides,
+            )
+            exit_code = self.runner.stream_interactive(command)
+            exit_codes[target.agent_name] = exit_code
+            if exit_code != 0 and not continue_on_error:
+                raise ProviderBootstrapError(
+                    f"Provider bootstrap for '{target.agent_name}' exited with "
+                    f"code {exit_code}. Pass --continue-on-error to continue."
+                )
+
+        return ProviderBootstrapRunResult(
+            targets=targets,
+            commands=commands,
+            checks=checks,
+            exit_codes=exit_codes,
+        )
+
+    def check_targets(
+        self,
+        targets: tuple[ProviderBootstrapTarget, ...],
+    ) -> dict[str, ProviderBootstrapCheck]:
+        """Check whether selected provider CLI commands are available."""
+        checks: dict[str, ProviderBootstrapCheck] = {}
+        for target in targets:
+            path = shutil.which(target.spec.cli_command)
+            checks[target.agent_name] = ProviderBootstrapCheck(
+                agent_name=target.agent_name,
+                cli_command=target.spec.cli_command,
+                installed=path is not None,
+                path=path or "",
+                error="" if path else f"'{target.spec.cli_command}' not found in PATH",
+            )
+        return checks
+
+    def launch_legacy_tmux_session(
         self,
         config: TrinityConfig,
         agent_names: list[str] | None = None,
@@ -178,15 +297,41 @@ class ProviderBootstrapper:
             commands=commands,
         )
 
+    def launch_session(
+        self,
+        config: TrinityConfig,
+        agent_names: list[str] | None = None,
+        include_disabled: bool = False,
+        session_name: str | None = None,
+        force: bool = False,
+    ) -> ProviderBootstrapResult:
+        """Backward-compatible legacy tmux bootstrap entry point."""
+        return self.launch_legacy_tmux_session(
+            config,
+            agent_names=agent_names,
+            include_disabled=include_disabled,
+            session_name=session_name,
+            force=force,
+        )
 
-def build_provider_command(spec: AgentSpec, env_overrides: dict[str, str]) -> str:
-    """Build the shell command used to launch one provider CLI."""
-    args = [spec.cli_command]
+
+def build_provider_argv(spec: AgentSpec) -> tuple[str, ...]:
+    """Build argv used to launch one provider CLI."""
+    args: list[str] = [spec.cli_command]
     if spec.model and spec.model != "default":
         args.extend(["--model", spec.model])
-    args.extend(spec.extra_args)
+    args.extend(str(arg) for arg in spec.extra_args)
+    return tuple(args)
 
-    command = " ".join(shlex.quote(str(arg)) for arg in args)
+
+def render_provider_command(spec: AgentSpec) -> str:
+    """Render a provider command for display only."""
+    return render_command(build_provider_argv(spec))
+
+
+def build_provider_command(spec: AgentSpec, env_overrides: dict[str, str]) -> str:
+    """Build the legacy shell command used to launch one provider CLI in tmux."""
+    command = " ".join(shlex.quote(str(arg)) for arg in build_provider_argv(spec))
     if not env_overrides:
         return command
 

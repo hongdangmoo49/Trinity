@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Grid, Vertical, VerticalScroll
 from textual.message import Message
 from textual.widgets import Button, Markdown, Static
 
@@ -20,7 +20,7 @@ class QuestionAnswer:
     answer: str
 
 
-class CentralAgentView(Vertical):
+class CentralAgentView(VerticalScroll):
     """Render synthesis summary, workflow status, and interactive questions."""
 
     class QuestionAnswered(Message):
@@ -102,7 +102,7 @@ class CentralAgentView(Vertical):
             container.mount(Static(f"{index}. {question.question}", classes="question-text"))
             if not question.options:
                 continue
-            row = Horizontal(classes="question-options")
+            row = Grid(classes="question-options")
             container.mount(row)
             for option_index, option in enumerate(question.options, start=1):
                 button_id = f"answer-{question.id}-{option_index}"
@@ -112,7 +112,7 @@ class CentralAgentView(Vertical):
                     else option
                 )
                 self._button_answers[button_id] = QuestionAnswer(question.id, option)
-                row.mount(Button(label, id=button_id, variant="default"))
+                row.mount(Button(label, id=button_id, variant="default", tooltip=label))
 
     @staticmethod
     def _question_title(questions: list[QuestionSnapshot]) -> str:

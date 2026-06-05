@@ -27,9 +27,9 @@ class ProviderInspector(ModalScreen[None]):
             with TabbedContent(id="provider-inspector-tabs"):
                 for provider in self.providers:
                     with TabPane(provider.name.title(), id=f"inspect-{provider.name}"):
-                        yield Markdown(self._provider_markdown(provider))
+                        yield Markdown(self._provider_markdown(provider), classes="provider-inspector-markdown")
                 with TabPane("All", id="inspect-all"):
-                    yield Markdown(self._all_markdown())
+                    yield Markdown(self._all_markdown(), classes="provider-inspector-markdown")
             yield Button("Close", id="close-provider-inspector", variant="primary")
         yield Footer()
 

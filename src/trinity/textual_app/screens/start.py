@@ -38,17 +38,21 @@ class StartScreen(Screen[None]):
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
         with Vertical(id="start-screen"):
-            yield Static("TRINITY", id="start-title")
-            yield Static("Three minds, one context", id="start-subtitle")
-            yield PromptComposer(
-                placeholder="What should Trinity work on?",
-                id="start-composer",
-            )
-            with Horizontal(id="start-actions"):
-                yield Static(self._workspace_label(), id="workspace-candidate")
-                yield Button("Choose now", id="choose-workspace", variant="default")
-                yield Button("Plan first", id="plan-first", variant="primary")
+            with Vertical(id="start-shell"):
+                yield Static("TRINITY", id="start-title")
+                yield Static("Three minds, one context", id="start-subtitle")
+                yield PromptComposer(
+                    placeholder="What should Trinity work on?",
+                    id="start-composer",
+                )
+                with Horizontal(id="start-actions"):
+                    yield Static(self._workspace_label(), id="workspace-candidate")
+                    yield Button("Choose now", id="choose-workspace", variant="default")
+                    yield Button("Plan first", id="plan-first", variant="primary")
         yield Footer()
+
+    def on_mount(self) -> None:
+        self.query_one("#start-composer", PromptComposer).focus_text_area()
 
     def on_prompt_composer_submitted(self, event: PromptComposer.Submitted) -> None:
         event.stop()

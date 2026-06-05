@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Iterable
 
 from trinity.config import TrinityConfig
@@ -110,16 +111,30 @@ class NexusSnapshotAdapter:
         session: WorkflowSession | None,
     ) -> dict[str, ProviderSnapshot]:
         active = set(session.active_agents) if session else set()
+        artifacts = self._latest_response_artifacts(session)
         states: dict[str, ProviderSnapshot] = {}
         for name, spec in self.config.agents.items():
             enabled = spec.enabled
             if session and session.active_agents:
                 enabled = name in active
+            artifact = artifacts.get(name)
+            summary = ""
+            raw_output = ""
+            status = "Queued" if enabled else "Disabled"
+            if enabled and artifact is not None:
+                clean_output = self._read_artifact_text(artifact[0])
+                raw_output = self._read_artifact_text(artifact[1]) or clean_output
+                summary = self._short_summary(clean_output or raw_output)
+                status = "Ready"
+            elif enabled and session and session.state.value == "deliberating":
+                status = "Running"
             states[name] = ProviderSnapshot(
                 name=name,
                 provider=spec.provider.value,
                 enabled=enabled,
-                status="Queued" if enabled else "Disabled",
+                status=status,
+                summary=summary,
+                raw_output=raw_output,
             )
         return states
 
@@ -204,6 +219,57 @@ class NexusSnapshotAdapter:
                     f"{result.package_id} {result.agent_name}: {result.status.value}"
                 )
         return lines
+
+    def _latest_response_artifacts(
+        self,
+        session: WorkflowSession | None,
+    ) -> dict[str, tuple[Path, Path | None]]:
+        if session is None or session.current_round <= 0:
+            return {}
+
+        round_dir = (
+            self.config.effective_state_dir
+            / "responses"
+            / f"round-{session.current_round:02d}"
+        )
+        if not round_dir.exists():
+            return {}
+
+        cutoff = max(0.0, session.created_at - 1.0)
+        artifacts: dict[str, tuple[Path, Path | None]] = {}
+        for name in self.config.agents:
+            candidates = sorted(
+                round_dir.glob(f"{name}-*.clean.txt"),
+                key=lambda path: self._mtime(path),
+                reverse=True,
+            )
+            for clean_path in candidates:
+                if self._mtime(clean_path) < cutoff:
+                    continue
+                raw_path = Path(str(clean_path).removesuffix(".clean.txt") + ".raw.txt")
+                artifacts[name] = (
+                    clean_path,
+                    raw_path if raw_path.exists() else None,
+                )
+                break
+        return artifacts
+
+    @staticmethod
+    def _mtime(path: Path) -> float:
+        try:
+            return path.stat().st_mtime
+        except OSError:
+            return 0.0
+
+    @staticmethod
+    def _read_artifact_text(path: Path | None, limit: int = 120_000) -> str:
+        if path is None:
+            return ""
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return ""
+        return text if len(text) <= limit else text[:limit].rstrip() + "\n..."
 
     @staticmethod
     def _replace(snapshot: ProviderSnapshot, **updates: object) -> ProviderSnapshot:

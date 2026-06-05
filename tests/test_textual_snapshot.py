@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from trinity.config import TrinityConfig
 from trinity.textual_app.snapshot import NexusSnapshotAdapter
 from trinity.tui.events import TUIEvent, TUIEventType
@@ -60,6 +62,36 @@ def test_snapshot_projects_persisted_workflow(tmp_path) -> None:
     assert snapshot.execution_log == ["state_changed: blueprint_ready"]
     assert snapshot.providers[0].enabled is True
     assert snapshot.providers[1].enabled is False
+
+
+def test_snapshot_restores_provider_status_from_response_artifacts(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-artifacts",
+            goal="Build UI",
+            state=WorkflowState.NEEDS_USER_DECISION,
+            active_agents=["claude"],
+            current_round=1,
+            created_at=0,
+        )
+    )
+    response_dir = config.effective_state_dir / "responses" / "round-01"
+    response_dir.mkdir(parents=True)
+    clean_path = response_dir / "claude-round-1-claude-abc.clean.txt"
+    raw_path = response_dir / "claude-round-1-claude-abc.raw.txt"
+    clean_path.write_text("Use a compact dashboard.", encoding="utf-8")
+    raw_path.write_text("RAW: Use a compact dashboard.", encoding="utf-8")
+    os.utime(clean_path, (10, 10))
+    os.utime(raw_path, (10, 10))
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    claude = snapshot.providers[0]
+    assert claude.status == "Ready"
+    assert claude.summary == "Use a compact dashboard."
+    assert claude.raw_output == "RAW: Use a compact dashboard."
 
 
 def test_snapshot_folds_recent_provider_events(tmp_path) -> None:

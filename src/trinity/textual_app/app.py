@@ -76,6 +76,12 @@ class TrinityTextualApp(App[None]):
         padding: 1 2;
     }
 
+    #start-shell {
+        width: 72;
+        max-width: 90%;
+        height: auto;
+    }
+
     #start-title {
         width: 100%;
         content-align: center middle;
@@ -93,8 +99,7 @@ class TrinityTextualApp(App[None]):
     }
 
     #start-composer {
-        width: 72;
-        max-width: 90%;
+        width: 100%;
         height: 10;
         border: round $accent;
         padding: 0 1;
@@ -106,8 +111,7 @@ class TrinityTextualApp(App[None]):
     }
 
     #start-actions {
-        width: 72;
-        max-width: 90%;
+        width: 100%;
         height: auto;
         margin-top: 1;
         align-horizontal: right;
@@ -176,6 +180,7 @@ class TrinityTextualApp(App[None]):
         height: 1fr;
         border: heavy white;
         padding: 1 2;
+        overflow-y: auto;
     }
 
     #nexus-main {
@@ -209,7 +214,7 @@ class TrinityTextualApp(App[None]):
     }
 
     #central-markdown {
-        height: 1fr;
+        height: auto;
     }
 
     #central-question-title {
@@ -226,8 +231,24 @@ class TrinityTextualApp(App[None]):
     }
 
     .question-options {
+        layout: grid;
+        grid-size: 2;
+        grid-gutter: 1;
         height: auto;
         margin-bottom: 1;
+    }
+
+    .question-options Button {
+        width: 100%;
+    }
+
+    #provider-inspector TabPane {
+        height: 1fr;
+    }
+
+    .provider-inspector-markdown {
+        height: 1fr;
+        overflow-y: auto;
     }
 
     #nexus-action-bar {
@@ -376,6 +397,41 @@ class TrinityTextualApp(App[None]):
         height: 7;
         border: round $accent;
         padding: 0 1;
+    }
+
+    #prompt-command-palette {
+        display: none;
+        width: 100%;
+        max-height: 8;
+        height: auto;
+        border: round $primary;
+        margin-top: 1;
+        padding: 0 1;
+        background: $surface;
+    }
+
+    .command-option {
+        height: 1;
+        color: $text-muted;
+    }
+
+    .command-option-selected {
+        color: $accent;
+        text-style: bold reverse;
+    }
+
+    .command-option-first {
+        color: $accent;
+        text-style: bold;
+    }
+
+    .command-option-empty {
+        color: $warning;
+    }
+
+    .command-option-more {
+        color: $text-muted;
+        text-style: italic;
     }
     """
 

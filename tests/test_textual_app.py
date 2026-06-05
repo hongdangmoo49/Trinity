@@ -9,7 +9,7 @@ from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.settings import UISettingsStore
-from trinity.textual_app.snapshot import QuestionSnapshot, WorkflowNexusSnapshot
+from trinity.textual_app.snapshot import ProviderSnapshot, QuestionSnapshot, WorkflowNexusSnapshot
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.composer import PromptComposer
 from trinity.textual_app.widgets.inspector import WorkflowInspector
@@ -63,6 +63,90 @@ async def test_start_screen_submission_moves_to_nexus(tmp_path) -> None:
         assert app.screen.name == "nexus"
         assert isinstance(app.screen, NexusScreen)
         assert app.screen.initial_prompt == "설계해줘"
+
+
+@pytest.mark.asyncio
+async def test_start_composer_enter_key_submits_prompt(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("enter should submit")
+        composer.focus_text_area()
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert app.current_route == "nexus"
+        assert isinstance(app.screen, NexusScreen)
+        assert app.screen.initial_prompt == "enter should submit"
+
+
+@pytest.mark.asyncio
+async def test_prompt_composer_shows_slash_command_palette(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+
+        composer.set_text("/")
+        await pilot.pause()
+        palette = composer.query_one("#prompt-command-palette")
+        options = [str(option.content) for option in composer.query(".command-option")]
+
+        assert palette.display is True
+        assert any("/status" in option for option in options)
+
+        composer.set_text("/ex")
+        await pilot.pause()
+        filtered_options = [str(option.content) for option in composer.query(".command-option")]
+
+        assert any("/execute" in option for option in filtered_options)
+
+        composer.set_text("hello /status")
+        await pilot.pause()
+        assert palette.display is False
+
+
+@pytest.mark.asyncio
+async def test_prompt_composer_arrow_selects_slash_command(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+        composer.set_text("/")
+        composer.focus_text_area()
+        await pilot.pause()
+
+        await pilot.press("down")
+        await pilot.pause()
+        selected = [
+            str(option.content)
+            for option in composer.query(".command-option-selected")
+        ]
+
+        assert any("/context" in option for option in selected)
+
+        await pilot.press("enter")
+        await pilot.pause()
+        assert app.current_route == "start"
+        assert composer.text == "/context "
+
+
+@pytest.mark.asyncio
+async def test_start_screen_shell_is_centered(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        await pilot.pause()
+        shell = app.screen.query_one("#start-shell")
+        left_margin = shell.region.x
+        right_margin = app.screen.size.width - shell.region.right
+
+        assert left_margin > 0
+        assert abs(left_margin - right_margin) <= 1
 
 
 @pytest.mark.asyncio
@@ -131,6 +215,37 @@ async def test_central_agent_view_renders_question_options(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_central_agent_question_options_use_two_column_grid(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                questions=[
+                    QuestionSnapshot(
+                        id="q-grid",
+                        question="Direction?",
+                        options=["match three plus story", "physics puzzle"],
+                    )
+                ],
+            )
+        )
+        await pilot.pause()
+
+        central = screen.query_one(CentralAgentView)
+        grid = central.query_one(".question-options")
+        buttons = list(grid.query("Button"))
+
+        assert len(buttons) == 2
+        assert grid.styles.layout.name == "grid"
+        assert grid.styles.grid_size_columns == 2
+
+
+@pytest.mark.asyncio
 async def test_workflow_inspector_renders_snapshot_counts(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
@@ -170,6 +285,31 @@ async def test_provider_inspector_modal_opens_from_nexus(tmp_path) -> None:
 
         assert isinstance(app.screen, ProviderInspector)
         assert app.screen.query_one("#inspect-claude")
+
+
+@pytest.mark.asyncio
+async def test_provider_inspector_all_tab_uses_scrollable_markdown(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.push_screen(
+            ProviderInspector(
+                [
+                    ProviderSnapshot(
+                        name="claude",
+                        provider="claude-code",
+                        enabled=True,
+                        status="Ready",
+                        raw_output="\\n".join(f"line {index}" for index in range(200)),
+                    )
+                ]
+            )
+        )
+        await pilot.pause()
+
+        markdown = app.screen.query_one("#inspect-all .provider-inspector-markdown")
+        assert markdown.styles.height.value == 1
+        assert markdown.styles.overflow_y == "auto"
 
 
 @pytest.mark.asyncio

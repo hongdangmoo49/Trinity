@@ -85,6 +85,7 @@ class NexusScreen(Screen[None]):
         else:
             self._refresh_central()
             self._refresh_inspector()
+        self.query_one("#nexus-composer", PromptComposer).focus_text_area()
 
     def set_initial_prompt(self, prompt: str) -> None:
         self.initial_prompt = prompt.strip()

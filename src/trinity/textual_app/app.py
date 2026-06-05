@@ -13,7 +13,9 @@ from textual.widgets import Footer, Header, Static
 from trinity import __version__
 from trinity.config import TrinityConfig
 from trinity.textual_app.screens.nexus import NexusScreen
+from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import StartScreen
+from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import NexusSnapshotAdapter
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 
@@ -255,6 +257,40 @@ class TrinityTextualApp(App[None]):
         height: 1fr;
     }
 
+    #settings-screen {
+        width: 100%;
+        height: 1fr;
+        padding: 1 2;
+    }
+
+    #settings-title {
+        text-style: bold;
+        color: $accent;
+        margin-bottom: 1;
+    }
+
+    .settings-row {
+        width: 72;
+        height: 3;
+    }
+
+    .settings-row Label {
+        width: 22;
+        content-align: left middle;
+    }
+
+    .settings-row Select {
+        width: 32;
+    }
+
+    #theme-preview {
+        width: 72;
+        height: 7;
+        border: round $accent;
+        margin-top: 1;
+        padding: 1 2;
+    }
+
     #nexus-composer {
         width: 100%;
         height: 7;
@@ -270,6 +306,7 @@ class TrinityTextualApp(App[None]):
         self.initial_prompt: str | None = None
         self.workspace_candidate: Path | None = None
         self.snapshot_adapter = NexusSnapshotAdapter(config)
+        self.settings_store = UISettingsStore(config.effective_state_dir)
         self._screens_installed = False
 
     def on_mount(self) -> None:
@@ -283,10 +320,10 @@ class TrinityTextualApp(App[None]):
 
         self.install_screen(StartScreen(self.workspace_candidate), "start")
         self.install_screen(NexusScreen(self.config), "nexus")
+        self.install_screen(SettingsScreen(self.settings_store), "settings")
 
         screens: list[tuple[WorkbenchRoute, str, str]] = [
             ("execution", "Execution Matrix", "Work package execution monitor."),
-            ("settings", "Settings", "Theme preferences."),
         ]
         for route, title, subtitle in screens:
             self.install_screen(PlaceholderScreen(route, title, subtitle), route)

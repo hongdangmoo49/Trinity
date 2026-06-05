@@ -5,7 +5,9 @@ import pytest
 from trinity.config import TrinityConfig
 from trinity.textual_app.app import TrinityTextualApp
 from trinity.textual_app.screens.nexus import NexusScreen
+from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import StartScreen
+from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import QuestionSnapshot, WorkflowNexusSnapshot
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.composer import PromptComposer
@@ -38,6 +40,7 @@ async def test_textual_app_switches_named_routes(tmp_path) -> None:
         await pilot.pause()
         assert app.current_route == "settings"
         assert app.screen.name == "settings"
+        assert isinstance(app.screen, SettingsScreen)
 
 
 @pytest.mark.asyncio
@@ -165,3 +168,23 @@ async def test_provider_inspector_modal_opens_from_nexus(tmp_path) -> None:
 
         assert isinstance(app.screen, ProviderInspector)
         assert app.screen.query_one("#inspect-claude")
+
+
+@pytest.mark.asyncio
+async def test_settings_screen_saves_theme_preferences(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        screen.query_one("#theme-mode").value = "dark"
+        screen.query_one("#density").value = "compact"
+        screen.action_apply()
+        await pilot.pause()
+
+    saved = UISettingsStore(tmp_path / ".trinity").load()
+    assert saved.theme_mode == "dark"
+    assert saved.density == "compact"

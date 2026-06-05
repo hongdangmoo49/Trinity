@@ -32,6 +32,12 @@ def test_animator_different_angles_produce_different_frames() -> None:
     assert frame_0 != frame_90, "different angles should produce different frames"
 
 
+def test_animator_loop_endpoint_matches_start_frame() -> None:
+    """A full 360-degree cycle should return to the exact starting frame."""
+    anim = SacredGeometryAnimator(width=56, height=14, mode="ascii")
+    assert anim.render(angle=0.0) == anim.render(angle=360.0)
+
+
 def test_animator_ascii_mode_uses_only_ascii_chars() -> None:
     """In ascii mode every character in the frame should have ordinal < 128."""
     anim = SacredGeometryAnimator(mode="ascii")
@@ -139,6 +145,16 @@ def test_animator_render_rich_returns_text():
     text = animator.render_rich(angle=0.0, colors=["red", "green", "blue"])
     assert isinstance(text, Text)
     assert len(text) > 0
+
+
+def test_animator_rich_loop_endpoint_matches_start_frame():
+    """Rich rendering should use the same seamless 360-degree cycle."""
+    animator = SacredGeometryAnimator(width=40, height=13)
+    colors = ["red", "green", "blue"]
+    assert animator.render_rich(angle=0.0, colors=colors) == animator.render_rich(
+        angle=360.0,
+        colors=colors,
+    )
 
 
 def test_animator_render_rich_has_style_spans():

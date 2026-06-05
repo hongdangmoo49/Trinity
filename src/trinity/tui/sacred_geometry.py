@@ -131,7 +131,7 @@ class SacredGeometryAnimator:
         previous: _Point3 | None = None
         for sample in range(samples + 1):
             t = math.tau * sample / samples
-            pulse = 1.0 + 0.045 * math.sin(t * 3.0 + math.radians(angle) * 1.7)
+            pulse = 1.0 + 0.045 * math.sin(t * 3.0 + math.radians(angle))
             point = (
                 radius * pulse * (math.cos(t) * u[0] + math.sin(t) * v[0]),
                 radius * pulse * (math.cos(t) * u[1] + math.sin(t) * v[1]),
@@ -149,9 +149,10 @@ class SacredGeometryAnimator:
 
     def _rotate(self, point: _Point3, angle: float) -> _Point3:
         x, y, z = point
-        yaw = math.radians(angle)
-        pitch = math.radians(angle * 0.42 + 18.0)
-        roll = math.radians(angle * 0.18)
+        phase = math.radians(angle)
+        yaw = phase
+        pitch = math.radians(18.0 + 8.0 * math.sin(phase))
+        roll = math.radians(6.0 * math.sin(phase * 2.0))
 
         x, z = (
             x * math.cos(yaw) - z * math.sin(yaw),

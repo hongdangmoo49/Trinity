@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 from textual import events
-from textual.widgets import RichLog, TabbedContent, TextArea
+from textual.widgets import Button, RichLog, TabbedContent, TextArea
 
 from trinity.config import TrinityConfig
 from trinity.textual_app.app import TrinityTextualApp
@@ -12,6 +12,7 @@ from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import ProviderSnapshot, QuestionSnapshot, WorkflowNexusSnapshot
+from trinity.textual_app.workflow_controller import TextualWorkflowOutcome
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.composer import COMMAND_LIMIT, PromptComposer
 from trinity.textual_app.widgets.inspector import WorkflowInspector
@@ -19,6 +20,74 @@ from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
 from trinity.textual_app.widgets.workspace_picker import WorkspacePicker, build_preflight
 from trinity.workflow import WorkflowPersistence, WorkflowSession, WorkflowState
+
+
+class FakeWorkflowController:
+    def __init__(self, snapshot: WorkflowNexusSnapshot | None = None) -> None:
+        self.current_snapshot = snapshot or WorkflowNexusSnapshot()
+        self.started_prompts: list[str] = []
+        self.follow_ups: list[str] = []
+        self.answers: list[tuple[str, str]] = []
+        self.execution_requests = 0
+        self.target_workspace = None
+
+    def snapshot(self) -> WorkflowNexusSnapshot:
+        return self.current_snapshot
+
+    def start_prompt(self, prompt: str) -> TextualWorkflowOutcome:
+        self.started_prompts.append(prompt)
+        self.current_snapshot = WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            goal=prompt,
+            state="deliberating",
+            providers=[
+                ProviderSnapshot(
+                    name="claude",
+                    provider="claude-code",
+                    enabled=True,
+                    status="Running",
+                )
+            ],
+        )
+        return TextualWorkflowOutcome(self.current_snapshot, running=False)
+
+    def submit_follow_up(self, text: str) -> TextualWorkflowOutcome:
+        self.follow_ups.append(text)
+        self.current_snapshot = WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            goal=self.current_snapshot.goal,
+            state="deliberating",
+            work_packages=[f"follow-up: {text}"],
+        )
+        return TextualWorkflowOutcome(self.current_snapshot)
+
+    def answer_question(self, question_id: str, answer: str) -> TextualWorkflowOutcome:
+        self.answers.append((question_id, answer))
+        self.current_snapshot = WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            goal=self.current_snapshot.goal,
+            state="deliberating",
+            decisions=[answer],
+        )
+        return TextualWorkflowOutcome(self.current_snapshot)
+
+    def request_execution(self, instruction: str = "") -> TextualWorkflowOutcome:
+        self.execution_requests += 1
+        return TextualWorkflowOutcome(
+            self.current_snapshot,
+            target_workspace_required=True,
+        )
+
+    def set_target_workspace(self, path, *, control_repo_confirmed: bool = False):
+        self.target_workspace = path
+        return TextualWorkflowOutcome(self.current_snapshot)
+
+    def new_session(self) -> TextualWorkflowOutcome:
+        self.current_snapshot = WorkflowNexusSnapshot()
+        return TextualWorkflowOutcome(self.current_snapshot)
+
+    def drain_updates(self):
+        return None
 
 
 @pytest.mark.asyncio
@@ -50,7 +119,8 @@ async def test_textual_app_switches_named_routes(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_start_screen_submission_moves_to_nexus(tmp_path) -> None:
-    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
 
     async with app.run_test(size=(100, 30)) as pilot:
         screen = app.screen
@@ -66,11 +136,14 @@ async def test_start_screen_submission_moves_to_nexus(tmp_path) -> None:
         assert app.screen.name == "nexus"
         assert isinstance(app.screen, NexusScreen)
         assert app.screen.initial_prompt == "설계해줘"
+        assert controller.started_prompts == ["설계해줘"]
+        assert app.screen.snapshot is not None
+        assert app.screen.snapshot.state == "deliberating"
 
 
 @pytest.mark.asyncio
 async def test_start_composer_enter_key_submits_prompt(tmp_path) -> None:
-    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), FakeWorkflowController())
 
     async with app.run_test(size=(100, 30)) as pilot:
         screen = app.screen
@@ -216,7 +289,8 @@ async def test_start_submission_uses_fresh_snapshot(tmp_path) -> None:
         encoding="utf-8",
     )
 
-    app = TrinityTextualApp(config)
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(config, controller)
 
     async with app.run_test(size=(100, 30)) as pilot:
         composer = app.screen.query_one(PromptComposer)
@@ -262,7 +336,8 @@ async def test_nexus_screen_renders_provider_panels(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_nexus_follow_up_stays_in_current_workflow(tmp_path) -> None:
-    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
 
     async with app.run_test(size=(120, 40)) as pilot:
         app.switch_to("nexus")
@@ -277,6 +352,9 @@ async def test_nexus_follow_up_stays_in_current_workflow(tmp_path) -> None:
 
         assert app.current_route == "nexus"
         assert screen.follow_ups == ["이어서 검토해줘"]
+        assert controller.follow_ups == ["이어서 검토해줘"]
+        assert screen.snapshot is not None
+        assert "follow-up: 이어서 검토해줘" in screen.snapshot.work_packages
 
 
 @pytest.mark.asyncio
@@ -452,8 +530,64 @@ async def test_provider_inspector_pretty_prints_json_output(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_start_choose_now_opens_workspace_picker(tmp_path) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        FakeWorkflowController(),
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#choose-workspace")
+        await pilot.pause()
+
+        assert isinstance(app.screen, WorkspacePicker)
+
+
+@pytest.mark.asyncio
+async def test_start_choose_now_updates_workspace_candidate(tmp_path) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        FakeWorkflowController(),
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#choose-workspace")
+        await pilot.pause()
+        picker = app.screen
+        assert isinstance(picker, WorkspacePicker)
+
+        picker.action_confirm()
+        await pilot.pause()
+
+        start = app.get_screen("start", StartScreen)
+        assert app.workspace_candidate == tmp_path
+        assert str(tmp_path) in str(start.query_one("#workspace-candidate").content)
+
+
+@pytest.mark.asyncio
+async def test_nexus_question_answer_routes_to_controller(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            questions=[QuestionSnapshot(id="q-1", question="Theme?", options=["dark"])]
+        )
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        app.screen.query_one(CentralAgentView).apply_snapshot(controller.snapshot())
+        button = app.screen.query_one("#answer-q-1-1", Button)
+        button.press()
+        await pilot.pause()
+
+        assert controller.answers == [("q-1", "dark")]
+
+
+@pytest.mark.asyncio
 async def test_workspace_picker_opens_from_nexus_execute(tmp_path) -> None:
-    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
 
     async with app.run_test(size=(140, 44)) as pilot:
         app.switch_to("nexus")
@@ -464,6 +598,7 @@ async def test_workspace_picker_opens_from_nexus_execute(tmp_path) -> None:
         await pilot.pause()
 
         assert isinstance(app.screen, WorkspacePicker)
+        assert controller.execution_requests == 1
         assert str(tmp_path) in str(app.screen.query_one("#workspace-preflight").content)
 
 

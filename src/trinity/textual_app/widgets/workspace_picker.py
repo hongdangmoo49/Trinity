@@ -60,11 +60,13 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         candidate: Path | None,
         snapshot: WorkflowNexusSnapshot,
         cwd: Path | None = None,
+        tree_root: Path | None = None,
     ) -> None:
         super().__init__()
         self.candidate = candidate
         self.snapshot = snapshot
         self.cwd = cwd or Path.cwd()
+        self.tree_root = tree_root or self.cwd
         self.preflight = build_preflight(candidate or self.cwd, snapshot)
 
     def compose(self) -> ComposeResult:
@@ -76,7 +78,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
                 id="workspace-path-input",
             )
             with Horizontal(id="workspace-picker-body"):
-                yield DirectoryTree(self.cwd, id="workspace-directory-tree")
+                yield DirectoryTree(self.tree_root, id="workspace-directory-tree")
                 yield Static(self.preflight.render(), id="workspace-preflight")
             with Horizontal(id="workspace-picker-actions"):
                 yield Button("Cancel", id="cancel-execute")
@@ -88,6 +90,14 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         if event.input.id != "workspace-path-input":
             return
         self._update_preflight(Path(event.value).expanduser())
+
+    def on_directory_tree_directory_selected(
+        self, event: DirectoryTree.DirectorySelected
+    ) -> None:
+        event.stop()
+        path = event.path.expanduser()
+        self.query_one("#workspace-path-input", Input).value = str(path)
+        self._update_preflight(path)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "cancel-execute":
@@ -114,6 +124,13 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         self.preflight = build_preflight(path, self.snapshot)
         if self.is_mounted:
             self.query_one("#workspace-preflight", Static).update(self.preflight.render())
+
+
+def default_workspace_tree_root(control_repo_path: Path) -> Path:
+    """Choose a browsing root broad enough to see sibling workspaces."""
+    control_repo = control_repo_path.expanduser()
+    parent = control_repo.parent
+    return parent if parent != control_repo else control_repo
 
 
 def build_preflight(path: Path, snapshot: WorkflowNexusSnapshot) -> WorkspacePreflight:

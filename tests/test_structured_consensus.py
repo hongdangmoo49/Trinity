@@ -48,7 +48,7 @@ def test_approve_with_changes_counts_toward_threshold():
         {
             "claude": BLUEPRINT_TEXT,
             "codex": "VOTE: APPROVE_WITH_CHANGES\nUse adapter interfaces.",
-            "gemini": "VOTE: REJECT\nBlocker: provider risk matrix missing.",
+            "antigravity": "VOTE: REJECT\nBlocker: provider risk matrix missing.",
         }
     )
 
@@ -69,7 +69,7 @@ OPEN QUESTIONS:
   Rationale: Bridge UX depends on fee, speed, and failure rate.
 """
 
-    result = synthesizer.evaluate({"gemini": text})
+    result = synthesizer.evaluate({"antigravity": text})
 
     assert result.reached is False
     assert result.vote_count[VoteType.BLOCKED_BY_QUESTION] == 1
@@ -78,7 +78,7 @@ OPEN QUESTIONS:
     assert question.question == "Optimize routes for cost, latency, or mixed score?"
     assert question.options == ["cost", "latency", "mixed"]
     assert question.recommended_option == "mixed"
-    assert question.raised_by == ["gemini"]
+    assert question.raised_by == ["antigravity"]
 
 
 def test_extracts_korean_question_fields_and_recommendation():
@@ -130,7 +130,7 @@ OPEN QUESTIONS:
   Rationale: Most practical bridge paths use Ethereum as a fallback.
 """
 
-    result = synthesizer.evaluate({"gemini": text})
+    result = synthesizer.evaluate({"antigravity": text})
 
     assert len(result.open_questions) == 1
     question = result.open_questions[0]

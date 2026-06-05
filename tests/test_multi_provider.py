@@ -4,11 +4,11 @@ import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from trinity.agents.antigravity_agent import AntigravityPrintAgent
 from trinity.agents.claude_agent import PrintModeClaudeAgent
 from trinity.agents.codex_agent import CodexAgent
 from trinity.agents.factory import AgentFactory
 from trinity.config import TrinityConfig
-from trinity.legacy.gemini.agent import GeminiAgent
 from trinity.models import AgentSpec, Provider
 from trinity.orchestrator import TrinityOrchestrator
 
@@ -38,10 +38,10 @@ def multi_provider_config(tmp_path):
                 role_prompt="You are an implementer.",
                 enabled=True,
             ),
-            "gemini-agent": AgentSpec(
-                name="gemini-agent",
-                provider=Provider.GEMINI_CLI,
-                cli_command="gemini",
+            "antigravity-agent": AgentSpec(
+                name="antigravity-agent",
+                provider=Provider.ANTIGRAVITY_CLI,
+                cli_command="agy",
                 role_prompt="You are a tester.",
                 enabled=True,
             ),
@@ -76,22 +76,22 @@ class TestMultiProviderCreation:
         agent = orchestrator.agents["codex-agent"]
         assert isinstance(agent, CodexAgent)
 
-    def test_gemini_agent_type(self, orchestrator):
+    def test_antigravity_agent_type(self, orchestrator):
         orchestrator._ensure_initialized()
-        agent = orchestrator.agents["gemini-agent"]
-        assert isinstance(agent, GeminiAgent)
+        agent = orchestrator.agents["antigravity-agent"]
+        assert isinstance(agent, AntigravityPrintAgent)
 
     def test_each_agent_has_correct_provider(self, orchestrator):
         orchestrator._ensure_initialized()
         assert orchestrator.agents["claude-agent"].spec.provider == Provider.CLAUDE_CODE
         assert orchestrator.agents["codex-agent"].spec.provider == Provider.CODEX
-        assert orchestrator.agents["gemini-agent"].spec.provider == Provider.GEMINI_CLI
+        assert orchestrator.agents["antigravity-agent"].spec.provider == Provider.ANTIGRAVITY_CLI
 
     def test_each_agent_has_correct_role_prompt(self, orchestrator):
         orchestrator._ensure_initialized()
         assert orchestrator.agents["claude-agent"].spec.role_prompt == "You are a code reviewer."
         assert orchestrator.agents["codex-agent"].spec.role_prompt == "You are an implementer."
-        assert orchestrator.agents["gemini-agent"].spec.role_prompt == "You are a tester."
+        assert orchestrator.agents["antigravity-agent"].spec.role_prompt == "You are a tester."
 
 
 # ===========================================================================
@@ -138,7 +138,7 @@ class TestMultiProviderStatus:
         orchestrator._ensure_initialized()
         status = orchestrator.get_status()
         assert set(status["agents"].keys()) == {
-            "claude-agent", "codex-agent", "gemini-agent",
+            "claude-agent", "codex-agent", "antigravity-agent",
         }
 
     def test_status_provider_values(self, orchestrator):
@@ -146,7 +146,7 @@ class TestMultiProviderStatus:
         status = orchestrator.get_status()
         assert status["agents"]["claude-agent"]["provider"] == "claude-code"
         assert status["agents"]["codex-agent"]["provider"] == "codex"
-        assert status["agents"]["gemini-agent"]["provider"] == "gemini-cli"
+        assert status["agents"]["antigravity-agent"]["provider"] == "antigravity-cli"
 
     def test_status_interactive_false(self, orchestrator):
         orchestrator._ensure_initialized()
@@ -177,9 +177,9 @@ class TestMultiProviderContextBudgets:
         agent = orchestrator.agents["codex-agent"]
         assert agent.context_usage.total == 128_000
 
-    def test_gemini_budget(self, orchestrator):
+    def test_antigravity_budget(self, orchestrator):
         orchestrator._ensure_initialized()
-        agent = orchestrator.agents["gemini-agent"]
+        agent = orchestrator.agents["antigravity-agent"]
         assert agent.context_usage.total == 1_000_000
 
 
@@ -221,8 +221,8 @@ class TestDisabledAgentHandling:
             agents={
                 "solo": AgentSpec(
                     name="solo",
-                    provider=Provider.GEMINI_CLI,
-                    cli_command="gemini",
+                    provider=Provider.ANTIGRAVITY_CLI,
+                    cli_command="agy",
                     enabled=True,
                 ),
             },
@@ -230,7 +230,7 @@ class TestDisabledAgentHandling:
         orch = TrinityOrchestrator(config=config, interactive=False)
         orch._ensure_initialized()
         assert len(orch.agents) == 1
-        assert isinstance(orch.agents["solo"], GeminiAgent)
+        assert isinstance(orch.agents["solo"], AntigravityPrintAgent)
 
 
 # ===========================================================================
@@ -244,24 +244,20 @@ class TestFactoryMultiProvider:
         specs = [
             AgentSpec(name="c", provider=Provider.CLAUDE_CODE, cli_command="claude"),
             AgentSpec(name="x", provider=Provider.CODEX, cli_command="codex"),
-            AgentSpec(name="g", provider=Provider.GEMINI_CLI, cli_command="gemini"),
+            AgentSpec(name="a", provider=Provider.ANTIGRAVITY_CLI, cli_command="agy"),
         ]
         agents = [AgentFactory.create(s, mode="print") for s in specs]
         assert isinstance(agents[0], PrintModeClaudeAgent)
         assert isinstance(agents[1], CodexAgent)
-        assert isinstance(agents[2], GeminiAgent)
+        assert isinstance(agents[2], AntigravityPrintAgent)
 
     def test_each_detector_chain_differs(self, tmp_path):
         """각 provider의 detector chain 구조가 다름."""
         chains = {
             p: AgentFactory.create_detector_chain(tmp_path / "sig.json", p)
-            for p in [Provider.CLAUDE_CODE, Provider.CODEX, Provider.GEMINI_CLI]
+            for p in [Provider.CLAUDE_CODE, Provider.CODEX, Provider.ANTIGRAVITY_CLI]
         }
-        # Claude: hook + prompt + idle, Codex: prompt + idle, Gemini: marker + prompt + idle.
+        # Claude: hook + prompt + idle, Codex/Antigravity: prompt + idle.
         assert len(chains[Provider.CLAUDE_CODE].detectors) == 3
         assert len(chains[Provider.CODEX].detectors) == 2
-        assert len(chains[Provider.GEMINI_CLI].detectors) == 3
-
-        # Gemini chain starts with explicit marker detection, not idle.
-        from trinity.completion.marker import MarkerDetector
-        assert isinstance(chains[Provider.GEMINI_CLI].detectors[0], MarkerDetector)
+        assert len(chains[Provider.ANTIGRAVITY_CLI].detectors) == 2

@@ -5,12 +5,15 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+import logging
 
 from trinity.models import AgentSpec, Provider
 
 PROVIDER_STATE_MODES = {"user-home", "isolated"}
 TRANSPORT_MODES = {"one-shot", "tmux"}
 SYNTHESIS_MODES = {"auto", "model", "heuristic"}
+
+logger = logging.getLogger(__name__)
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -112,16 +115,18 @@ class TrinityConfig:
     @classmethod
     def _from_dict(cls, data: dict, project_dir: Path) -> "TrinityConfig":
         """Parse config from a deserialized TOML dict."""
+        # Detect language: explicit lang field, or infer from role prompts.
+        # Older configs could persist lang="en" while Korean role prompts were
+        # selected; prefer the observable agent language in that legacy mismatch.
+        detected_lang = cls._detect_lang_from_agents(data.get("agents", {}))
+        data = cls._normalize_legacy_agents(data, detected_lang)
+
         general = data.get("general", {})
         deliberation = data.get("deliberation", {})
         context = data.get("context", {})
         health = data.get("health", {})
         logging_conf = data.get("logging", {})
 
-        # Detect language: explicit lang field, or infer from role prompts.
-        # Older configs could persist lang="en" while Korean role prompts were
-        # selected; prefer the observable agent language in that legacy mismatch.
-        detected_lang = cls._detect_lang_from_agents(data.get("agents", {}))
         lang = general.get("lang", None)
         if lang is None or (lang == "en" and detected_lang == "ko"):
             lang = detected_lang
@@ -308,6 +313,103 @@ class TrinityConfig:
             if hangul.search(role):
                 return "ko"
         return "en"
+
+    @staticmethod
+    def _normalize_legacy_agents(data: dict, lang: str) -> dict:
+        """Normalize deprecated Gemini agent config to Antigravity.
+
+        The raw TOML dict must be normalized before Provider enum parsing so old
+        user configs remain loadable after the Gemini runtime provider is
+        removed.
+        """
+        agents_data = data.get("agents")
+        if not isinstance(agents_data, dict):
+            return data
+
+        normalized = dict(data)
+        normalized_agents: dict[str, dict] = {
+            name: dict(agent_data)
+            for name, agent_data in agents_data.items()
+            if isinstance(agent_data, dict)
+        }
+
+        has_antigravity = "antigravity" in normalized_agents
+        legacy_gemini = normalized_agents.get("gemini")
+        if legacy_gemini and legacy_gemini.get("provider") == "gemini-cli":
+            if has_antigravity:
+                logger.warning(
+                    "Ignoring deprecated [agents.gemini] config because "
+                    "[agents.antigravity] is already present."
+                )
+                normalized_agents.pop("gemini", None)
+            else:
+                normalized_agents.pop("gemini", None)
+                normalized_agents["antigravity"] = TrinityConfig._as_antigravity_agent(
+                    legacy_gemini,
+                    lang,
+                )
+                logger.warning(
+                    "Migrated deprecated [agents.gemini] gemini-cli config to "
+                    "[agents.antigravity] antigravity-cli."
+                )
+
+        for name, agent_data in list(normalized_agents.items()):
+            if agent_data.get("provider") == "gemini-cli":
+                normalized_agents[name] = TrinityConfig._as_antigravity_agent(
+                    agent_data,
+                    lang,
+                    preserve_name=True,
+                )
+                logger.warning(
+                    "Migrated deprecated gemini-cli provider for agent '%s' to "
+                    "antigravity-cli.",
+                    name,
+                )
+
+        normalized["agents"] = normalized_agents
+        return normalized
+
+    @staticmethod
+    def _as_antigravity_agent(
+        agent_data: dict,
+        lang: str,
+        preserve_name: bool = False,
+    ) -> dict:
+        """Return a copied agent dict using the Antigravity CLI provider."""
+        migrated = dict(agent_data)
+        migrated["provider"] = "antigravity-cli"
+        migrated["cli_command"] = "agy"
+        if not preserve_name:
+            migrated["name"] = "antigravity"
+
+        role_prompt = migrated.get("role_prompt", "")
+        if TrinityConfig._is_default_gemini_role_prompt(role_prompt):
+            from trinity.i18n import localized_roles
+
+            roles = localized_roles(lang if lang in {"en", "ko"} else "en")
+            migrated["role_prompt"] = roles["antigravity"]
+
+        return migrated
+
+    @staticmethod
+    def _is_default_gemini_role_prompt(role_prompt: str) -> bool:
+        """Return True when a role prompt is Trinity's old Gemini default."""
+        if not role_prompt:
+            return False
+
+        legacy_prompts = (
+            (
+                "You are the Reviewer. You explore alternatives, identify "
+                "potential issues, and ensure quality. Think critically "
+                "about trade-offs and propose tests."
+            ),
+            (
+                "당신은 리뷰어입니다. "
+                "대안을 탐색하고 잠재적인 문제를 식별하며 품질을 보장합니다. "
+                "트레이드오프에 대해 비판적으로 생각하고 테스트를 제안하세요."
+            ),
+        )
+        return role_prompt in legacy_prompts
 
     @staticmethod
     def _normalize_provider_state_mode(value: str) -> str:

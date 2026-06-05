@@ -98,26 +98,6 @@ def test_claude_auth_and_trust_variants_are_classified():
     assert result.state == ProviderState.WORKSPACE_TRUST_REQUIRED
 
 
-def test_gemini_auth_picker_is_auth_required():
-    gate = ProviderReadinessGate()
-
-    result = gate.classify_pane_state(
-        [
-            "Welcome to Gemini CLI",
-            "Select authentication method:",
-            "1. Sign in with Google",
-            "2. Use API key",
-        ],
-        provider=Provider.GEMINI_CLI,
-        agent_name="gemini",
-    )
-
-    assert result.ready is False
-    assert result.state == ProviderState.AUTH_REQUIRED
-    assert "Gemini CLI is deprecated" in result.action_hint
-    assert "agy plugin import gemini" in result.action_hint
-
-
 def test_antigravity_auth_is_auth_required():
     gate = ProviderReadinessGate()
 
@@ -133,30 +113,6 @@ def test_antigravity_auth_is_auth_required():
     assert result.ready is False
     assert result.state == ProviderState.AUTH_REQUIRED
     assert "Run `agy`" in result.action_hint
-
-
-def test_gemini_auth_env_terms_and_process_variants_are_classified():
-    gate = ProviderReadinessGate()
-
-    for line in (
-        "Please choose authentication method:",
-        "Error: VERTEX_AI_PROJECT not set",
-        "vertex env missing, cannot proceed",
-        "Please accept terms & privacy policy to continue",
-    ):
-        result = gate.classify_pane_state(
-            ["Gemini CLI", line],
-            provider=Provider.GEMINI_CLI,
-            agent_name="gemini",
-        )
-        assert result.state == ProviderState.AUTH_REQUIRED
-
-    result = gate.classify_pane_state(
-        ["no such process"],
-        provider=Provider.GEMINI_CLI,
-        agent_name="gemini",
-    )
-    assert result.state == ProviderState.PROCESS_DEAD
 
 
 def test_codex_model_loading_banner_is_model_loading():
@@ -217,25 +173,6 @@ def test_codex_ready_prompt_wins_over_stale_loading_scrollback():
         ],
         provider=Provider.CODEX,
         agent_name="codex",
-    )
-
-    assert result.ready is True
-    assert result.state == ProviderState.READY
-
-
-def test_gemini_type_message_prompt_is_ready():
-    gate = ProviderReadinessGate()
-
-    result = gate.classify_pane_state(
-        [
-            "Gemini CLI v0.45.0",
-            "Signed in with Google /auth",
-            "Shift+Tab to accept edits",
-            ">   Type your message or @path/to/file",
-            "workspace (/directory)      branch      sandbox",
-        ],
-        provider=Provider.GEMINI_CLI,
-        agent_name="gemini",
     )
 
     assert result.ready is True

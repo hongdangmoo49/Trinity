@@ -124,8 +124,8 @@ class ResponseCleaner:
         re.compile(r"^## Agreed Conclusion\s*$", re.IGNORECASE),
         re.compile(r"^## Task Assignment\s*$", re.IGNORECASE),
         re.compile(r"^## Session History\s*$", re.IGNORECASE),
-        re.compile(r"^### (?:claude|codex|gemini)\b", re.IGNORECASE),
-        re.compile(r"^\*\*(?:claude|codex|gemini)\*\*:", re.IGNORECASE),
+        re.compile(r"^### (?:claude|codex|antigravity)\b", re.IGNORECASE),
+        re.compile(r"^\*\*(?:claude|codex|antigravity)\*\*:", re.IGNORECASE),
     ]
 
     @classmethod
@@ -403,8 +403,8 @@ class ResponseValidator:
         re.compile(r"^## Agreed Conclusion\s*$", re.IGNORECASE),
         re.compile(r"^## Task Assignment\s*$", re.IGNORECASE),
         re.compile(r"^## Session History\s*$", re.IGNORECASE),
-        re.compile(r"^### (?:claude|codex|gemini)\b", re.IGNORECASE),
-        re.compile(r"^\*\*(?:claude|codex|gemini)\*\*:", re.IGNORECASE),
+        re.compile(r"^### (?:claude|codex|antigravity)\b", re.IGNORECASE),
+        re.compile(r"^\*\*(?:claude|codex|antigravity)\*\*:", re.IGNORECASE),
     ]
 
     @classmethod

@@ -38,11 +38,6 @@ class TestSetup:
         home = mh.setup("codex", provider="codex")
         assert (home / ".codex").exists()
 
-    def test_creates_gemini_dirs(self, mh):
-        home = mh.setup("gemini", provider="gemini-cli")
-        assert (home / ".config").exists()
-        assert (home / ".config" / "gemini").exists()
-
     def test_creates_antigravity_dirs(self, mh):
         home = mh.setup("antigravity", provider="antigravity-cli")
         assert (home / ".gemini").exists()
@@ -89,8 +84,8 @@ class TestQuery:
     def test_list_agents_returns_names(self, mh):
         mh.setup("claude")
         mh.setup("codex")
-        mh.setup("gemini")
-        assert sorted(mh.list_agents()) == ["claude", "codex", "gemini"]
+        mh.setup("antigravity")
+        assert sorted(mh.list_agents()) == ["antigravity", "claude", "codex"]
 
 
 # ===========================================================================
@@ -144,10 +139,10 @@ class TestConfigIO:
         assert path.read_text() == "key = 'value'"
 
     def test_overwrites_existing(self, mh):
-        mh.setup("gemini")
-        mh.write_config("gemini", "config.txt", "old")
-        mh.write_config("gemini", "config.txt", "new")
-        assert mh.read_config("gemini", "config.txt") == "new"
+        mh.setup("antigravity")
+        mh.write_config("antigravity", "config.txt", "old")
+        mh.write_config("antigravity", "config.txt", "new")
+        assert mh.read_config("antigravity", "config.txt") == "new"
 
 
 # ===========================================================================

@@ -6,7 +6,7 @@
 
 **Three minds, one context.**
 
-Multi-agent AI orchestrator that unifies **Claude Code**, **Codex**, and **Gemini CLI**
+Multi-agent AI orchestrator that unifies **Claude Code**, **Codex**, and **Antigravity CLI**
 through shared context, round-based deliberation, and intelligent task distribution.
 
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/hongdangmoo49/Trinity/blob/main/LICENSE)
@@ -23,7 +23,7 @@ through shared context, round-based deliberation, and intelligent task distribut
 > **Trinity transforms three AI coding agents into a single collaborative intelligence.**
 >
 > Instead of asking one AI to do everything, Trinity orchestrates a structured debate
-> between Claude (Architect), Codex (Implementer), and Gemini (Reviewer).
+> between Claude (Architect), Codex (Implementer), and Antigravity (Reviewer).
 > They share context, discuss in rounds, reach consensus, and distribute tasks
 > based on each agent's strengths.
 
@@ -36,7 +36,7 @@ Single-agent AI is powerful, but it has blind spots.
 | Problem | What Happens | Trinity Fix |
 | :--- | :--- | :--- |
 | **Tunnel Vision** | One AI explores only one approach | Three agents debate alternatives before deciding |
-| **No Peer Review** | Architectural flaws go unchecked | Gemini reviews and challenges Claude's designs |
+| **No Peer Review** | Architectural flaws go unchecked | Antigravity reviews and challenges Claude's designs |
 | **Context Loss** | Each agent works in isolation | Shared context file keeps everyone on the same page |
 | **Uneven Quality** | Code quality depends on one model | Consensus mechanism ensures cross-verification |
 | **Manual Delegation** | You decide who does what | Tasks auto-distribute based on agent strengths |
@@ -75,7 +75,7 @@ trinity
 ```
 
 That's it. Trinity will:
-1. 🔍 Detect installed AI CLIs (Claude Code, Codex, Gemini CLI)
+1. 🔍 Detect installed AI CLIs (Claude Code, Codex, Antigravity CLI)
 2. 🧠 Start a round-based deliberation between available agents
 3. 📊 Display results with consensus, task distribution, and reasoning
 
@@ -85,7 +85,7 @@ That's it. Trinity will:
 
 ```
   ┌───────────────┐     ┌───────────────┐     ┌───────────────┐
-  │   🏗️ Claude   │     │   ⚙️ Codex    │     │   🔍 Gemini   │
+  │   🏗️ Claude   │     │   ⚙️ Codex    │     │   🔍 Antigravity   │
   │  (Architect)  │     │ (Implementer) │     │  (Reviewer)   │
   └───────┬───────┘     └───────┬───────┘     └───────┬───────┘
           │                     │                     │
@@ -115,7 +115,7 @@ That's it. Trinity will:
 | :--- | :--- | :--- |
 | 🏗️ **Claude** | Architect | Architecture, design, code review, complex logic, planning |
 | ⚙️ **Codex** | Implementer | Implementation, coding, prototyping, refactoring, testing |
-| 🔍 **Gemini** | Reviewer | Testing, research, alternative exploration, edge cases, QA |
+| 🔍 **Antigravity** | Reviewer | Testing, research, alternative exploration, edge cases, QA |
 
 ---
 
@@ -126,13 +126,13 @@ Trinity features a **Rich-based terminal UI** with real-time deliberation visual
 ```
   🧠 Trinity v0.7.2  —  Three minds, one context
 
-  🏗️ claude ✅    ⚙️ codex ✅    🔍 gemini ✅
+  🏗️ claude ✅    ⚙️ codex ✅    🔍 antigravity ✅
 
   📊 Agent Status
   ┌────────────────────────────────────────────────────────────────┐
   │  🏗️ claude    Architect    ✅ responded    12%    I recommend... │
   │  ⚙️ codex     Implementer  ✅ responded    8%     Agreed with... │
-  │  🔍 gemini    Reviewer     ✅ responded    15%    I suggest...   │
+  │  🔍 antigravity    Reviewer     ✅ responded    15%    I suggest...   │
   └────────────────────────────────────────────────────────────────┘
 
   💬 Deliberation
@@ -149,7 +149,7 @@ Trinity features a **Rich-based terminal UI** with real-time deliberation visual
     │  refresh token rotation for security...                   │
     └──────────────────────────────────────────────────────────┘
 
-    ✅ gemini (Reviewer)
+    ✅ antigravity (Reviewer)
     ┌──────────────────────────────────────────────────────────┐
     │  I suggest considering OAuth2 as an alternative. The      │
     │  token rotation idea is good, but we need edge case...    │
@@ -163,7 +163,7 @@ Trinity features a **Rich-based terminal UI** with real-time deliberation visual
 ### TUI Features
 
 - **Real-time streaming** — Agent opinions appear as they arrive, not after all finish
-- **Per-agent colors** — Claude (cyan), Codex (green), Gemini (magenta)
+- **Per-agent colors** — Claude (cyan), Codex (green), Antigravity (magenta)
 - **Markdown rendering** — Agent responses rendered with formatting and syntax highlighting
 - **Consensus progress bar** — Visual indicator of agreement fraction
 - **Tree task distribution** — Clear view of who does what
@@ -261,10 +261,10 @@ context_budget = 400000
 role_prompt = "You are the Implementer. You write clean, efficient code..."
 enabled = false                    # Disabled by default
 
-[agents.gemini]
-provider = "gemini-cli"
-cli_command = "gemini"
-model = "gemini-2.5-pro"
+[agents.antigravity]
+provider = "antigravity-cli"
+cli_command = "agy"
+model = "default"
 context_budget = 1000000
 role_prompt = "You are the Reviewer. You explore alternatives..."
 enabled = false                    # Disabled by default
@@ -285,7 +285,7 @@ trinity/
 │   ├── base.py             #   AgentWrapper ABC
 │   ├── claude_agent.py     #   Claude Code (print mode + interactive tmux)
 │   ├── codex_agent.py      #   Codex (print mode + interactive tmux)
-│   ├── gemini_agent.py     #   Gemini CLI (print mode + interactive tmux)
+│   ├── antigravity_agent.py #   Antigravity CLI (one-shot print mode)
 │   └── factory.py          #   AgentFactory — creates agents by provider
 │
 ├── deliberation/           # The debate engine
@@ -350,7 +350,7 @@ trinity/
 | **Python 3.10+** | Runtime | ✅ Yes |
 | **Claude Code CLI** | Architect agent | Optional |
 | **Codex CLI** | Implementer agent | Optional |
-| **Gemini CLI** | Reviewer agent | Optional |
+| **Antigravity CLI** | Reviewer agent | Optional |
 | **tmux** | Interactive mode | Optional |
 
 > You need at least **one** AI CLI installed. Trinity auto-detects what's available during `trinity init`.

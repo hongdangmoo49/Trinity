@@ -113,15 +113,15 @@ async def test_collect_opinions_wraps_request_and_writes_response_artifacts(tmp_
 @pytest.mark.asyncio
 async def test_invalid_response_contract_status_excludes_shared_opinion(tmp_path):
     shared = SharedContextEngine(path=tmp_path / "shared.md")
-    agent = _agent("gemini")
+    agent = _agent("antigravity")
     agent.send_and_wait = AsyncMock(
         return_value=_message(
-            "gemini",
+            "antigravity",
             "Waiting for authentication.\nOpen the following URL to login.",
         )
     )
     protocol = DeliberationProtocol(
-        agents={"gemini": agent},
+        agents={"antigravity": agent},
         shared=shared,
         max_rounds=1,
         response_artifact_dir=tmp_path / "responses",

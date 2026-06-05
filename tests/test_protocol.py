@@ -237,12 +237,12 @@ class TestCollectOpinions:
     @pytest.mark.asyncio
     async def test_invalid_response_goes_to_diagnostics_not_opinions(self, tmp_path):
         engine = SharedContextEngine(path=tmp_path / "shared.md")
-        engine.initialize("Test goal", ["gemini"])
-        agents = {"gemini": _make_mock_agent("gemini")}
+        engine.initialize("Test goal", ["antigravity"])
+        agents = {"antigravity": _make_mock_agent("antigravity")}
 
-        agents["gemini"].send_and_wait = AsyncMock(
+        agents["antigravity"].send_and_wait = AsyncMock(
             return_value=_make_opinion(
-                "gemini",
+                "antigravity",
                 0,
                 "Waiting for authentication...\nOpen the following URL to login.",
             )
@@ -276,15 +276,15 @@ class TestCollectOpinions:
         engine = SharedContextEngine(path=tmp_path / "shared.md")
         agents = {
             "claude": _make_mock_agent("claude"),
-            "gemini": _make_mock_agent("gemini"),
+            "antigravity": _make_mock_agent("antigravity"),
         }
 
         agents["claude"].send_and_wait = AsyncMock(
             return_value=_make_opinion("claude", 1, "I agree with the plan.")
         )
-        agents["gemini"].send_and_wait = AsyncMock(
+        agents["antigravity"].send_and_wait = AsyncMock(
             return_value=_make_opinion(
-                "gemini",
+                "antigravity",
                 1,
                 "Waiting for authentication...\nOpen the following URL to login.",
             )
@@ -308,7 +308,7 @@ class TestCollectOpinions:
         round_responses = engine.read_section("Round 1 Responses")
         assert round_responses is not None
         assert "claude" in round_responses
-        assert "gemini" in round_responses
+        assert "antigravity" in round_responses
         assert "clean_output_path" in round_responses
 
     @pytest.mark.asyncio
@@ -651,10 +651,10 @@ VOTE: APPROVE
     @pytest.mark.asyncio
     async def test_structured_open_question_stops_round_loop(self, tmp_path):
         engine = SharedContextEngine(path=tmp_path / "shared.md")
-        agents = {"gemini": _make_mock_agent("gemini")}
-        agents["gemini"].send_and_wait = AsyncMock(
+        agents = {"antigravity": _make_mock_agent("antigravity")}
+        agents["antigravity"].send_and_wait = AsyncMock(
             return_value=_make_opinion(
-                "gemini",
+                "antigravity",
                 1,
                 """\
 VOTE: BLOCKED_BY_QUESTION

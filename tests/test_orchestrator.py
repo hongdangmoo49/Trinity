@@ -193,8 +193,8 @@ class TestWorkspaceHomeIsolation:
                 ),
                 "disabled": AgentSpec(
                     name="disabled",
-                    provider=Provider.GEMINI_CLI,
-                    cli_command="gemini",
+                    provider=Provider.ANTIGRAVITY_CLI,
+                    cli_command="agy",
                     enabled=False,
                 ),
             },
@@ -225,10 +225,10 @@ class TestWorkspaceHomeIsolation:
             state_dir=state_dir,
             provider_state_mode="isolated",
             agents={
-                "gemini": AgentSpec(
-                    name="gemini",
-                    provider=Provider.GEMINI_CLI,
-                    cli_command="gemini",
+                "antigravity": AgentSpec(
+                    name="antigravity",
+                    provider=Provider.ANTIGRAVITY_CLI,
+                    cli_command="agy",
                     enabled=True,
                 ),
             },
@@ -236,13 +236,13 @@ class TestWorkspaceHomeIsolation:
         orch = TrinityOrchestrator(config)
         orch._ensure_initialized()
 
-        env = orch.get_agent_env_overrides("gemini")
-        expected_home = state_dir / "agents" / "gemini" / "provider-state"
+        env = orch.get_agent_env_overrides("antigravity")
+        expected_home = state_dir / "agents" / "antigravity" / "provider-state"
         assert env["HOME"] == str(expected_home)
         assert env["XDG_CONFIG_HOME"] == str(expected_home / ".config")
 
         env["HOME"] = "changed"
-        assert orch.agent_launch_contexts["gemini"].env_overrides["HOME"] == str(
+        assert orch.agent_launch_contexts["antigravity"].env_overrides["HOME"] == str(
             expected_home
         )
 
@@ -397,25 +397,25 @@ class TestAgentFactory:
         agent = orch._create_print_agent(spec)
         assert isinstance(agent, CodexAgent)
 
-    def test_gemini_creates_gemini_agent(self, tmp_path):
+    def test_antigravity_creates_antigravity_agent(self, tmp_path):
         config = TrinityConfig(
             project_dir=tmp_path,
             state_dir=tmp_path / ".trinity",
             agents={
-                "gemini": AgentSpec(
-                    name="gemini",
-                    provider=Provider.GEMINI_CLI,
-                    cli_command="gemini",
+                "antigravity": AgentSpec(
+                    name="antigravity",
+                    provider=Provider.ANTIGRAVITY_CLI,
+                    cli_command="agy",
                     enabled=True,
                 ),
             },
         )
         orch = TrinityOrchestrator(config)
-        from trinity.legacy.gemini.agent import GeminiAgent
+        from trinity.agents.antigravity_agent import AntigravityPrintAgent
 
-        spec = config.agents["gemini"]
+        spec = config.agents["antigravity"]
         agent = orch._create_print_agent(spec)
-        assert isinstance(agent, GeminiAgent)
+        assert isinstance(agent, AntigravityPrintAgent)
 
     def test_unknown_provider_raises(self, tmp_path):
         config = TrinityConfig(

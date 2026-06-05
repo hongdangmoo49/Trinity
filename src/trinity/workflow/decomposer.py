@@ -30,7 +30,7 @@ class _PackageSeed:
 class BlueprintDecomposer:
     """Create top-level work packages from a finalized blueprint."""
 
-    PROVIDER_PRIORITY: tuple[str, ...] = ("codex", "claude", "antigravity", "gemini")
+    PROVIDER_PRIORITY: tuple[str, ...] = ("codex", "claude", "antigravity")
 
     AGENT_FOCUS: dict[str, tuple[str, tuple[str, ...]]] = {
         "codex": (
@@ -61,20 +61,6 @@ class BlueprintDecomposer:
             ),
         ),
         "antigravity": (
-            "validation and exploration",
-            (
-                "edge",
-                "external",
-                "quality",
-                "reliability",
-                "research",
-                "review",
-                "risk",
-                "test",
-                "validation",
-            ),
-        ),
-        "gemini": (
             "validation and exploration",
             (
                 "edge",
@@ -191,7 +177,7 @@ class BlueprintDecomposer:
             score += 2
         if agent_name == "claude" and seed.kind in {"component", "planning"}:
             score += 1
-        if agent_name in {"antigravity", "gemini"} and seed.kind == "validation":
+        if agent_name == "antigravity" and seed.kind == "validation":
             score += 2
         return score
 
@@ -320,7 +306,7 @@ class BlueprintDecomposer:
     def _out_of_scope_for(agent_name: str, requires_execution: bool) -> list[str]:
         if not requires_execution:
             return ["Do not edit files; produce planning/specification output only."]
-        if agent_name == "gemini":
+        if agent_name == "antigravity":
             return ["Do not merge or finalize implementation without review sign-off."]
         if agent_name == "claude":
             return ["Avoid bulk implementation unless required to unblock architecture."]
@@ -333,11 +319,11 @@ class BlueprintDecomposer:
         agent = agent_names[index - 1]
         if agent == "codex" and "claude" in agent_names:
             return [f"WP-{agent_names.index('claude') + 1:03d}"]
-        if agent == "gemini" and len(agent_names) > 1:
+        if agent == "antigravity" and len(agent_names) > 1:
             return [
                 f"WP-{idx + 1:03d}"
                 for idx, name in enumerate(agent_names)
-                if name != "gemini"
+                if name != "antigravity"
             ]
         return []
 

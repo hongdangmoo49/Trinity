@@ -29,16 +29,20 @@ def test_peer_review_planner_assigns_non_owner_reviewer_per_work_package():
     packages = [
         _package("WP-001", "claude", ["Tests pass"]),
         _package("WP-002", "codex"),
-        _package("WP-003", "gemini"),
+        _package("WP-003", "antigravity"),
     ]
 
     reviews = PeerReviewPlanner().plan_reviews(
         packages,
-        active_agents=["claude", "codex", "gemini"],
+        active_agents=["claude", "codex", "antigravity"],
     )
 
     assert [review.package_id for review in reviews] == ["WP-001", "WP-002", "WP-003"]
-    assert [review.target_agent for review in reviews] == ["claude", "codex", "gemini"]
+    assert [review.target_agent for review in reviews] == [
+        "claude",
+        "codex",
+        "antigravity",
+    ]
     assert all(review.reviewer_agent != review.target_agent for review in reviews)
     assert all(review.self_review is False for review in reviews)
     assert "Tests pass" in reviews[0].criteria

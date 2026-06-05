@@ -19,7 +19,7 @@ class IdleDetector(CompletionDetector):
     Polls capture-pane at regular intervals. If the output hash
     hasn't changed for `idle_timeout` seconds, considers the agent done.
 
-    This is the least reliable detector (fallback for Gemini CLI)
+    This is the least reliable detector (generic fallback)
     and should be used last in the fallback chain.
     """
 

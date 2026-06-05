@@ -323,9 +323,9 @@ async def test_execution_protocol_marks_non_ok_provider_status_failed(tmp_path):
 @pytest.mark.asyncio
 async def test_execution_protocol_falls_back_after_owner_failure(tmp_path):
     shared = SharedContextEngine(tmp_path / "shared.md")
-    gemini = AsyncMock()
+    antigravity = AsyncMock()
     codex = AsyncMock()
-    gemini.send_and_wait.return_value = _message(
+    antigravity.send_and_wait.return_value = _message(
         "[Timeout after 300.0s]",
         metadata={"error": "timeout"},
     )
@@ -341,11 +341,11 @@ async def test_execution_protocol_falls_back_after_owner_failure(tmp_path):
     package = WorkPackage(
         id="WP-001",
         title="fallback package",
-        owner_agent="gemini",
+        owner_agent="antigravity",
         objective="Implement with fallback.",
     )
     protocol = ExecutionProtocol(
-        agents={"gemini": gemini, "codex": codex},
+        agents={"antigravity": antigravity, "codex": codex},
         shared=shared,
         artifact_dir=tmp_path / "execution",
         event_callback=events.append,
@@ -356,16 +356,16 @@ async def test_execution_protocol_falls_back_after_owner_failure(tmp_path):
     assert results[0].status == WorkStatus.DONE
     assert results[0].agent_name == "codex"
     assert results[0].summary == "Fallback implementation complete"
-    assert gemini.send_and_wait.call_count == 1
+    assert antigravity.send_and_wait.call_count == 1
     assert codex.send_and_wait.call_count == 1
     fallback_prompt = codex.send_and_wait.call_args.args[0]
-    assert "Original owner: gemini" in fallback_prompt
+    assert "Original owner: antigravity" in fallback_prompt
     assert "Current executor: codex" in fallback_prompt
     assert [
         event.data.get("agent")
         for event in events
         if event.type == TUIEventType.WORK_PACKAGE_STARTED
-    ] == ["gemini", "codex"]
+    ] == ["antigravity", "codex"]
 
 
 @pytest.mark.asyncio

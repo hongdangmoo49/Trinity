@@ -51,13 +51,6 @@ AGENT_THEMES: dict[str, AgentTheme] = {
         role_label="Reviewer",
         border_style="bright_magenta",
     ),
-    "gemini": AgentTheme(
-        name="gemini",
-        color="magenta",
-        icon="🔍",
-        role_label="Reviewer",
-        border_style="magenta",
-    ),
 }
 
 # Fallback palette for unknown agents

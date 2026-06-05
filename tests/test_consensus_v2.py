@@ -134,7 +134,7 @@ class TestConsensusWithNegationInMultiAgent:
         opinions = {
             "claude": "I think we should use JWT.",
             "codex": "I disagree, sessions are better.",
-            "gemini": "OAuth is the modern standard.",
+            "antigravity": "OAuth is the modern standard.",
         }
         result = engine.evaluate(opinions)
         # codex's "disagree" should NOT count → 0/3 → no consensus
@@ -145,7 +145,7 @@ class TestConsensusWithNegationInMultiAgent:
         opinions = {
             "claude": "I agree with the plan.",
             "codex": "I agree too.",
-            "gemini": "I disagree with the timeline.",
+            "antigravity": "I disagree with the timeline.",
         }
         result = engine.evaluate(opinions)
         assert result.reached  # 2/3 = 0.67 ≥ 0.6
@@ -155,7 +155,7 @@ class TestConsensusWithNegationInMultiAgent:
         opinions = {
             "claude": "I disagree with option A.",
             "codex": "I don't agree either.",
-            "gemini": "I oppose this plan.",
+            "antigravity": "I oppose this plan.",
         }
         result = engine.evaluate(opinions)
         assert not result.reached
@@ -169,7 +169,7 @@ class TestUnusableOpinionFiltering:
         engine = ConsensusEngine(required_fraction=1.0)
         opinions = {
             "claude": "I agree with the plan.",
-            "gemini": "[Invalid response omitted: auth_wait]",
+            "antigravity": "[Invalid response omitted: auth_wait]",
         }
 
         result = engine.evaluate(opinions)
@@ -183,7 +183,7 @@ class TestUnusableOpinionFiltering:
         engine = ConsensusEngine(required_fraction=0.6)
         opinions = {
             "codex": "[Timeout after 120s]",
-            "gemini": "[Invalid response omitted: auth_wait]",
+            "antigravity": "[Invalid response omitted: auth_wait]",
         }
 
         result = engine.evaluate(opinions)

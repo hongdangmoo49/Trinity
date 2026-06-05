@@ -26,7 +26,7 @@ class TestPromptCompressorHeuristic:
         opinions = {
             "claude": "I suggest using FastAPI for the backend. It provides automatic OpenAPI docs.",
             "codex": "I agree with FastAPI. Additionally, consider SQLAlchemy for ORM.",
-            "gemini": "I recommend comparing FastAPI with Django REST first.",
+            "antigravity": "I recommend comparing FastAPI with Django REST first.",
         }
         compressor = PromptCompressor(max_summary_tokens=20)
         result = compressor.compress_opinions_heuristic(opinions)

@@ -4,9 +4,10 @@
 
 ## 1. 개요
 
-Trinity interactive mode는 Claude Code, Codex, Gemini CLI를 tmux pane에서 지속 실행한다.
-이 provider들은 인증 화면, 모델 선택 화면, banner, trust prompt를 일반 출력으로 보여줄 수 있다.
-v0.7.0의 `ProviderReadinessGate`는 이런 출력을 agent 답변으로 취급하지 않고,
+Trinity의 기본 transport는 one-shot이다. Claude Code, Codex, Antigravity CLI를
+사용자 PC에 설치된 CLI와 기존 auth 상태로 호출한다. tmux transport를 사용할 때는
+provider들이 인증 화면, 모델 선택 화면, banner, trust prompt를 일반 출력으로
+보여줄 수 있다. `ProviderReadinessGate`는 이런 출력을 agent 답변으로 취급하지 않고,
 deliberation 시작 전에 상태를 분류해 사용자 조치를 안내한다.
 
 ## 2. 증상별 빠른 판단
@@ -14,7 +15,7 @@ deliberation 시작 전에 상태를 분류해 사용자 조치를 안내한다.
 | 증상 | readiness state | 조치 |
 |------|-----------------|------|
 | OAuth URL, login code, invalid code가 보인다. | `auth_required` | `trinity bootstrap`에서 격리 provider-state 로그인 완료 |
-| auth picker 또는 API key/Vertex AI 선택 화면이 보인다. | `auth_required` | `trinity bootstrap`에서 인증 방식 선택 및 계정/API key 설정 |
+| auth picker 또는 API key 선택 화면이 보인다. | `auth_required` | provider CLI에서 인증 방식 선택 및 계정/API key 설정 |
 | 모델 이름, loading, initializing, default model banner만 보인다. | `model_loading` 또는 `cli_banner_only` | 초기화 완료까지 대기 후 재시도 |
 | workspace trust/confirm prompt가 보인다. | `workspace_trust_required` | `trinity bootstrap`에서 해당 workspace를 신뢰/승인 |
 | pane/process가 죽었거나 capture가 비어 있다. | `process_dead` 또는 `unknown_not_ready` | provider 재시작 또는 tmux session 재생성 |
@@ -86,30 +87,34 @@ bootstrap tmux pane에서 Codex CLI의 login/trust prompt를 완료한다.
 - login이 완료되어 시작 시 auth prompt가 뜨지 않는다.
 - 모델 초기화 또는 default model 선택 화면이 사라진 뒤 입력 가능한 prompt가 뜬다.
 
-## 6. Gemini CLI
+## 6. Antigravity CLI
 
 ### 흔한 문제
 
-- auth picker가 pane에 남아 있다.
-- Vertex AI env missing, API key missing 화면이 보인다.
-- 인증 방식을 선택하지 못해 prompt가 반환되지 않는다.
+- `agy --print`가 auth/workspace trust 오류를 반환한다.
+- Antigravity CLI 첫 실행의 브라우저/SSH OAuth 흐름이 완료되지 않았다.
+- workspace trust prompt가 완료되지 않아 one-shot 호출이 실패한다.
 
 ### 조치
 
 ```bash
 source ~/.nvm/nvm.sh
-gemini --version
-uv run trinity bootstrap --agents gemini
+agy --version
+agy
 ```
 
-bootstrap tmux pane의 Gemini CLI 안에서 사용할 인증 방식을 완료한다.
-Vertex AI를 쓸 경우 필요한 environment variable을 WSL shell에 설정한다.
-API key 방식을 쓸 경우 CLI가 기대하는 설정 위치에 key를 등록한다.
+Antigravity CLI의 auth/workspace trust를 사용자 shell에서 먼저 완료한다.
+Trinity는 `agy --print`를 통해 기존 사용자의 인증 상태를 그대로 사용한다.
+기존 Gemini CLI 플러그인/설정을 옮겨야 하면 다음 명령으로 migration을 수행한다.
+
+```bash
+agy plugin import gemini
+```
 
 확인 기준:
 
-- `gemini` 시작 시 auth picker가 더 이상 나타나지 않는다.
-- prompt 입력이 가능한 상태로 진입한다.
+- `agy --print "hello"`가 auth prompt 없이 응답한다.
+- `uv run trinity status`에서 세 번째 agent가 `antigravity / antigravity-cli`로 표시된다.
 
 ## 7. strict/degraded mode
 
@@ -178,8 +183,8 @@ uv run trinity
 
 필수 확인:
 
-- Claude/Codex/Gemini 모두 인증 완료 상태에서 설계 요청이 시작된다.
-- Gemini만 auth required 상태에서는 strict mode가 중단 이유를 표시한다.
+- Claude/Codex/Antigravity 모두 인증 완료 상태에서 설계 요청이 시작된다.
+- Antigravity만 auth required 상태에서는 strict mode가 중단 이유를 표시한다.
 - degraded mode에서는 ready agent만으로 workflow가 진행된다.
 - Pending question이 생기면 다음 사용자 입력이 decision으로 기록된다.
 - Execution intent 요청에서 work package가 dispatch되고 Task Results가 기록된다.

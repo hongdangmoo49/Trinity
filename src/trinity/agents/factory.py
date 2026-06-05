@@ -12,9 +12,7 @@ from trinity.agents.codex_agent import CodexAgent
 from trinity.completion.base import CompletionDetector, FallbackChainDetector
 from trinity.completion.hook import HookDetector
 from trinity.completion.idle import IdleDetector
-from trinity.completion.marker import MarkerDetector
 from trinity.completion.prompt import PromptReturnDetector
-from trinity.legacy.gemini.agent import GeminiAgent
 from trinity.legacy.tmux.pane import TmuxPane
 from trinity.models import AgentSpec, Provider
 
@@ -62,8 +60,6 @@ class AgentFactory:
             return CodexAgent(spec)
         elif spec.provider == Provider.ANTIGRAVITY_CLI:
             return AntigravityPrintAgent(spec)
-        elif spec.provider == Provider.GEMINI_CLI:
-            return GeminiAgent(spec)
         else:
             raise ValueError(f"Unknown provider: {spec.provider}")
 
@@ -94,12 +90,6 @@ class AgentFactory:
                 "Antigravity CLI provider is experimental: interactive tmux "
                 "transport is not enabled by default."
             )
-        elif spec.provider == Provider.GEMINI_CLI:
-            if not pane or not detector:
-                raise ValueError(
-                    f"Interactive mode requires pane and detector for '{spec.name}'"
-                )
-            return GeminiAgent(spec, pane=pane, detector=detector)
         else:
             raise ValueError(f"Unknown provider: {spec.provider}")
 
@@ -109,7 +99,7 @@ class AgentFactory:
 
         Claude: Hook → PromptReturn → IdleDetector(15s)
         Codex: PromptReturn → IdleDetector(20s)
-        Gemini: Marker → PromptReturn → IdleDetector(25s)
+        Antigravity: PromptReturn → IdleDetector(20s) when a tmux debug chain is requested
         Default: PromptReturn → IdleDetector(20s)
         """
         if provider == Provider.CLAUDE_CODE:
@@ -124,14 +114,6 @@ class AgentFactory:
                     prompt_patterns=[r"^\s*\$\s*$", r"^\s*>\s*$", r"^\s*›\s*$"]
                 ),
                 IdleDetector(20.0),
-            ])
-        elif provider == Provider.GEMINI_CLI:
-            from trinity.legacy.gemini.agent import COMPLETION_MARKER
-
-            return FallbackChainDetector([
-                MarkerDetector(COMPLETION_MARKER),
-                PromptReturnDetector(),
-                IdleDetector(25.0),
             ])
         else:
             # Default: wait for an explicit prompt return, then idle fallback.

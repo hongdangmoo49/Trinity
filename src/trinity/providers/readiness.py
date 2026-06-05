@@ -39,7 +39,7 @@ class ReadinessResult:
 
 
 _PROMPT_RE = re.compile(
-    r"^\s*(?:[>$❯›]|trinity>|claude>|codex>|agy>|gemini>)\s*$"
+    r"^\s*(?:[>$❯›]|trinity>|claude>|codex>|agy>)\s*$"
 )
 
 
@@ -90,11 +90,6 @@ def _action_hint(provider: Provider, state: ProviderState) -> str:
                 "Run `agy` in your normal shell and complete auth/workspace trust. "
                 "Trinity uses your existing Antigravity auth through `agy --print` "
                 "in one-shot mode."
-            )
-        if provider == Provider.GEMINI_CLI:
-            return (
-                "Gemini CLI is deprecated. Install Antigravity CLI and run "
-                "`agy plugin import gemini`; use `gemini` only for legacy configs."
             )
     if state == ProviderState.MODEL_LOADING:
         return f"Wait for {provider_name} model initialization to finish, then retry."
@@ -312,17 +307,6 @@ _AUTH_PATTERNS: dict[Provider, tuple[str, ...]] = {
         r"google\s+account",
         r"workspace\s+trust",
     ),
-    Provider.GEMINI_CLI: (
-        *_COMMON_AUTH_PATTERNS,
-        r"\bauth\b.*\bmethod\b",
-        r"select\s+(?:auth|authentication)\s+method",
-        r"choose\s+(?:auth|authentication)",
-        r"google\s+account",
-        r"vertex_ai_project.*not\s+set",
-        r"vertex.*env.*missing",
-        r"vertex\s+ai.*(?:missing|required|not\s+configured)",
-        r"terms.*privacy",
-    ),
 }
 
 _MODEL_LOADING_PATTERNS: dict[Provider, tuple[str, ...]] = {
@@ -339,10 +323,6 @@ _MODEL_LOADING_PATTERNS: dict[Provider, tuple[str, ...]] = {
         r"\binitializing\b.*\bantigravity\b",
         r"\binitializing\b.*\bagy\b",
     ),
-    Provider.GEMINI_CLI: (
-        r"\bloading\b.*\bmodel\b",
-        r"\binitializing\b.*\bgemini\b",
-    ),
 }
 
 _READY_PROMPT_PATTERNS: dict[Provider, tuple[str, ...]] = {
@@ -357,9 +337,6 @@ _READY_PROMPT_PATTERNS: dict[Provider, tuple[str, ...]] = {
     Provider.ANTIGRAVITY_CLI: (
         r"\btype\s+your\s+message\b",
         r"^\s*›\s+",
-    ),
-    Provider.GEMINI_CLI: (
-        r"\btype\s+your\s+message\s+or\s+@path/to/file\b",
     ),
 }
 
@@ -377,10 +354,6 @@ _BANNER_PATTERNS: dict[Provider, tuple[str, ...]] = {
         r"\bantigravity\b",
         r"\bagy\b",
         r"/help\s+for\s+commands",
-    ),
-    Provider.GEMINI_CLI: (
-        r"\bgemini\b",
-        r"\bgoogle\s+gemini\b",
     ),
 }
 

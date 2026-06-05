@@ -86,23 +86,6 @@ def test_decompose_three_agents_balances_independent_slices():
     )
 
 
-def test_decompose_legacy_gemini_still_gets_validation_scope():
-    packages = BlueprintDecomposer().decompose(
-        _blueprint(),
-        ["claude", "codex", "gemini"],
-    )
-
-    gemini_packages = [
-        package for package in packages if package.owner_agent == "gemini"
-    ]
-    assert gemini_packages
-    assert any(
-        "risk" in item.lower() or "reliability" in item.lower()
-        for package in gemini_packages
-        for item in package.scope
-    )
-
-
 def test_decompose_accepts_blueprint_dict():
     packages = BlueprintDecomposer().decompose(
         _blueprint().to_dict(),

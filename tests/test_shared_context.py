@@ -210,21 +210,21 @@ class TestSharedContextEngine:
 
     def test_append_invalid_response_diagnostic_outside_round_opinions(self, shared_engine):
         """Invalid response diagnostics must not contaminate Round N Opinions."""
-        shared_engine.initialize("Test", ["gemini"])
+        shared_engine.initialize("Test", ["antigravity"])
         shared_engine.append_invalid_response_diagnostic(
-            agent="gemini",
+            agent="antigravity",
             round_num=1,
             classification="auth_wait",
             reasons=("matched auth UI", "no substantive response"),
-            excerpt="```Gemini CLI\n? Select Auth Method\n```",
+            excerpt="```Antigravity CLI\n? Select Auth Method\n```",
         )
 
         diagnostics = shared_engine.read_section("Response Diagnostics")
         assert diagnostics is not None
-        assert "Round 1 / gemini" in diagnostics
+        assert "Round 1 / antigravity" in diagnostics
         assert "auth_wait" in diagnostics
         assert "matched auth UI" in diagnostics
-        assert "'''Gemini CLI" in diagnostics
+        assert "'''Antigravity CLI" in diagnostics
         assert shared_engine.read_section("Round 1 Opinions") is None
 
 

@@ -261,7 +261,7 @@ class TestCompletionMarkerAndInteractiveUiRemoval:
     def test_validation_preserves_answer_tail_after_prompt_echo(self):
         raw = (
             "Read the shared context below for background.\n"
-            "User's request: fix the Gemini response cleaner\n"
+            "User's request: fix the response cleaner\n"
             "Share your initial opinion. Be specific and concise.\n"
             "State your recommendation and key reasoning.\n"
             "Keep your response under 500 words.\n"

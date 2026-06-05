@@ -15,7 +15,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-yellow)](https://www.python.org/)
 [![Tests](https://img.shields.io/badge/tests-pytest-brightgreen)](https://github.com/hongdangmoo49/Trinity)
 
-[English](./README.en.md) · [빠른 시작](#-빠른-시작) · [왜 Trinity인가](#-왜-trinity인가) · [작동 원리](#-작동-원리) · [TUI](#-대화형-tui) · [명령어](#-명령어) · [아키텍처](#-아키텍처)
+[English](./README.en.md) · [빠른 시작](#-빠른-시작) · [왜 Trinity인가](#-왜-trinity인가) · [작동 원리](#-작동-원리) · [워크플로우](#-워크플로우와-실행-모델) · [TUI](#-대화형-tui) · [명령어](#-명령어) · [아키텍처](#-아키텍처)
 
 </div>
 
@@ -117,6 +117,50 @@ Trinity가 백그라운드에서 다음 단계를 자동으로 수행합니다:
 | 🏗️ **Claude** | 설계자 (Architect) | 전체 아키텍처 및 시스템 설계, 설계 검토(코드 리뷰), 복잡한 비즈니스 로직 설계, 개발 기획 |
 | ⚙️ **Codex** | 구현자 (Implementer) | 실제 코드 구현 및 프로토타이핑, 코드 리팩토링, 단위 테스트 코드 작성 |
 | 🔍 **Antigravity** | 검토자 (Reviewer) | 코드 동작 검증, 기술 스택 연구, 대안 탐색, 경계 조건(Edge Case) 분석, 품질 보증(QA) |
+
+---
+
+## 🧭 워크플로우와 실행 모델
+
+Trinity `0.10.2`의 핵심은 **planning과 execution을 분리한 persisted workflow**입니다.
+사용자의 요구사항은 먼저 라운드 기반 deliberation과 central synthesis를 거쳐
+질문, 결정, blueprint, work package로 정리됩니다. 실제 파일 변경은 blueprint가
+준비된 뒤 사용자가 `Execute`를 선택하고 target workspace preflight를 통과해야
+시작됩니다.
+
+```text
+Prompt
+  → WorkflowEngine.start()
+  → TrinityOrchestrator.ask()
+  → ProviderReadinessGate
+  → DeliberationProtocol rounds
+  → Central synthesis
+  → NEEDS_USER_DECISION 또는 BLUEPRINT_READY
+  → Execute preflight
+  → ExecutionProtocol.run()
+  → REVIEWING / DONE
+```
+
+주요 동작 규칙:
+
+- **상태 저장** — `.trinity/workflow/session.json`과 `events.jsonl`에 workflow 상태,
+  open question, user decision, blueprint, work package, 실행 결과를 저장합니다.
+- **Provider 호출** — 기본 transport는 one-shot입니다. Claude는 `claude -p`,
+  Codex는 `codex exec --json`, Antigravity는 `agy --print`로 호출되고,
+  raw/clean response artifact가 `.trinity/responses/`에 남습니다.
+- **질문 루프** — synthesis가 blocking question을 만들면 workflow는
+  `NEEDS_USER_DECISION`에서 멈추고, 답변이 기록되면 decision continuation prompt로
+  다시 deliberation을 이어갑니다.
+- **실행 경계** — provider가 파일을 쓰려면 target workspace가 필요합니다. Trinity
+  control repo 내부 쓰기는 명시적 확인 없이는 차단됩니다.
+- **병렬 실행** — work package dependency와 예상 파일 소유권을 기준으로 안전한
+  병렬 batch만 실행합니다.
+- **UI 역할** — Textual Workbench는 workflow/orchestrator를 새로 구현하지 않고,
+  `TextualWorkflowController`가 기존 engine을 background thread에서 실행한 뒤
+  snapshot으로 투영합니다.
+
+상세한 상태 전이와 런타임 경로는
+[`docs/workflow-v0.10.2-guide.md`](docs/workflow-v0.10.2-guide.md)를 참고하세요.
 
 ---
 
@@ -279,6 +323,19 @@ trinity/
 │   ├── consensus.py        #   키워드 기반 합의 감지 및 부정어 필터링
 │   └── distributor.py      #   최종 합의안 도출 후 에이전트 강점별 작업 분배
 │
+├── workflow/               # persisted workflow state machine
+│   ├── engine.py           #   질문/결정/blueprint/execution 상태 전이
+│   ├── execution.py        #   dependency-safe work package dispatch와 workspace guard
+│   ├── decomposer.py       #   blueprint를 실행 가능한 work package로 분해
+│   ├── ledger.py           #   workflow state를 shared.md ledger로 렌더링
+│   └── review.py           #   peer review package planning
+│
+├── providers/              # one-shot provider invocation 계층
+│   ├── invoker.py          #   Claude/Codex/Antigravity CLI 호출 정규화
+│   ├── readiness.py        #   auth/model-loading/prompt readiness 판정
+│   ├── policy.py           #   read-only/workspace-write access와 병렬 실행 정책
+│   └── bootstrap.py        #   provider auth/trust 초기 설정 지원
+│
 ├── context/                # 공유 두뇌 (Shared Context)
 │   ├── shared.py           #   SharedContextEngine — shared.md 파일 생성 및 관리
 │   ├── monitor.py          #   각 에이전트별 토큰 사용 현황 모니터링
@@ -316,6 +373,9 @@ trinity/
 │   ├── isolation.py        #   Git Worktree를 활용한 에이전트별 독립된 병렬 편집 환경 구축
 │   └── managed_home.py     #   에이전트 간 설정 충돌 방지를 위한 격리된 HOME 디렉토리 관리
 │
+├── platform/               # cross-platform terminal/process/log helpers
+├── bridge/                 # L2 bridge routing 예시/도메인 모듈
+│
 ├── health/
 │   └── checker.py          #   에이전트 헬스 모니터링 (상태 체크)
 │
@@ -330,6 +390,8 @@ trinity/
 | **공유 마크다운 파일** | 에이전트들이 단일 마크다운 파일(`shared.md`)에 직접 의견을 쓰고 읽습니다. 구현이 매우 직관적이고 구조가 투명하여 디버깅에 큰 이점을 제공합니다. |
 | **라운드 기반 프로토콜** | 구조화된 토론 방식을 도입하여 의견 차이로 인한 끝없는 무한 루프(순환 논쟁)를 원천 차단하고 확실한 논의 진행을 강제합니다. |
 | **Textual Workbench 기본 UI** | Start/Nexus/Execution Matrix 화면으로 planning과 execute를 분리하고, provider별 output은 Inspector에서 확인합니다. |
+| **Persisted workflow state** | 질문, 결정, blueprint, target workspace, 실행 결과를 JSON/JSONL에 저장하여 중단 후 재개와 디버깅이 가능하게 합니다. |
+| **Target workspace guard** | 실제 구현 실행 전에 control repo와 사용자 프로젝트 경계를 분리해 provider workspace-write 사고를 줄입니다. |
 | **이벤트 구동형 fallback TUI** | 비동기 `asyncio` 이벤트 루프와 큐(`Queue`)를 활용해 legacy/plain TUI에서도 각 에이전트의 응답을 렌더링합니다. |
 | **키워드 기반 합의 감지** | 키워드 매칭 방식을 도입하여 빠르고 결정론적으로 합의를 판정하며, 부정 표현 필터링을 통해 오심율을 크게 낮췄습니다. |
 | **제공자 비의존성 에이전트** | 추상 클래스 `AgentWrapper` 설계로 인터페이스를 표준화하여 향후 새로운 AI CLI 도구(예: 타사 모델 CLI)도 매우 손쉽게 통합할 수 있습니다. |
@@ -381,10 +443,11 @@ uv publish --token <PYPI_TOKEN>
 | 지표 | 수치 |
 | :--- | :--- |
 | **버전** | 0.10.2 |
-| **테스트** | `uv run pytest` 기준 |
+| **테스트** | `1092 passed, 1 warning` (WSL 최신 0.10.2 검증 기준) |
 | **커버리지** | 약 87% |
-| **소스 파일** | 50여 개 |
-| **주요 의존성 라이브러리** | `click`, `rich`, `prompt_toolkit`, `tomli` |
+| **소스 파일** | 100여 개 |
+| **테스트 파일** | 70여 개 |
+| **주요 의존성 라이브러리** | `click`, `rich`, `prompt_toolkit`, `textual`, `tomli`, `tomli-w` |
 | **권장 Python 버전** | 3.10+ |
 
 ---

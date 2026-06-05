@@ -38,9 +38,190 @@
    - 첫 구현 범위에서 Settings는 theme 설정을 중심으로 시작한다.
    - provider, workspace, execution policy 같은 위험한 설정은 별도 단계에서 추가한다.
 
+## Screen Architecture
+
+Trinity의 Textual UI는 세 개의 주요 화면과 하나의 상세 모달로 구성한다.
+
+1. Start Screen: 첫 요구사항 작성과 선택적 workspace preview
+2. Nexus Screen: provider brainstorming, synthesis, 사용자 질의응답
+3. Execution Matrix Screen: work package 실행과 실시간 로그
+4. Provider Inspector Modal: provider 원문 응답 상세 보기
+
+이 구조는 planning과 execute를 시각적으로 분리한다. 사용자는 앱 시작 직후 요구사항 작성에 집중하고, 실제 파일 변경은 Execution Matrix 진입 전에 명시적으로 승인한다.
+
+## 1. Start Screen
+
+Start Screen은 프로그램 시작 시 사용자가 첫 프롬프트를 작성하는 화면이다.
+
+디자인 컨셉:
+
+- 미니멀하고 중앙에 집중되는 구조
+- 터미널의 어수선함을 줄이고 시작의 몰입감을 제공
+- workspace 선택은 가능하지만 필수 절차처럼 보이지 않게 처리
+
+레이아웃:
+
+```text
+┌───────────────────────────────────────────────────────────────────────────┐
+│                                                                           │
+│                      T R I N I T Y                                        │
+│               Three minds, one context                                    │
+│                                                                           │
+│        ┌────────────────────────────────────────────────────────┐         │
+│        │ What should Trinity work on?                           │         │
+│        │                                                        │         │
+│        │ multi-line TextArea                                    │         │
+│        │                                                        │         │
+│        └────────────────────────────────────────────────────────┘         │
+│                                                                           │
+│        Target workspace: Not selected                                     │
+│        [Choose now] [Plan first]                                          │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+Workspace preview:
+
+- `Choose now`를 누르면 DirectoryTree 기반 picker를 열 수 있다.
+- 사용자가 선택하지 않아도 `Plan first`로 planning을 시작할 수 있다.
+- 선택된 workspace는 "후보 target"일 뿐이며, execute 시점 preflight에서 다시 확정한다.
+- Start Screen에서 workspace 선택을 요구하지 않는다.
+
+DirectoryTree 사용 원칙:
+
+- 초기 화면에 항상 큰 DirectoryTree를 노출하지 않는다.
+- workspace를 미리 선택하고 싶은 사용자를 위해 modal 또는 접이식 side panel로 제공한다.
+- DirectoryTree는 execute 대상 확정이 아니라 candidate selection으로 취급한다.
+
+## 2. Nexus Screen
+
+Nexus Screen은 Trinity의 핵심 화면이다. 3개 provider가 각자 사고하고, 중앙 synthesis agent가 이를 요약하여 사용자와 소통한다.
+
+디자인 컨셉:
+
+- Dashboard 형태
+- 3개의 provider가 동시에 돌아가는 느낌을 시각적으로 제공
+- 사용자가 "각 provider의 상태"와 "중앙 결론"을 동시에 파악하게 함
+
+레이아웃:
+
+```text
+┌ Trinity v0.10.0 ─ Nexus ─ workflow: planning ─ transport: one-shot ┐
+│ Claude                     │ Codex                     │ Antigravity │
+│ Running / Ready / Error    │ Running / Ready / Error   │ Ready       │
+│ short summary or keywords  │ short summary or keywords │ keywords    │
+├────────────────────────────┴───────────────────────────┴────────────┤
+│ Central Agent                                                        │
+│ - synthesis summary                                                  │
+│ - consensus progress                                                 │
+│ - questions for the user                                             │
+│ - blueprint status                                                   │
+├──────────────────────────────────────────────────────────────────────┤
+│ Prompt Composer                                                      │
+│ Enter: newline | Ctrl+Enter: send | /: command palette               │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+Provider panels:
+
+- 각 provider panel은 status board 역할을 한다.
+- 응답 생성 중에는 LoadingIndicator를 표시한다.
+- 완료되면 `Ready` 상태와 아주 짧은 요약 또는 키워드만 표시한다.
+- 원문 응답은 화면을 혼잡하게 만들지 않고 Provider Inspector Modal에서 확인한다.
+
+Central Agent:
+
+- RichLog 또는 Markdown 기반으로 synthesis summary를 렌더링한다.
+- 합의 진행률, 남은 질문, 핵심 결정, blueprint readiness를 표시한다.
+- synthesis가 사용자에게 묻는 질문은 선택지와 직접 입력을 모두 지원한다.
+
+하단 Prompt Composer:
+
+- Nexus Screen의 composer는 follow-up, 질문 답변, 방향 수정에 사용된다.
+- 일반 텍스트 입력은 새 workflow를 시작하지 않고 현재 workflow의 follow-up으로 분류한다.
+- 새 workflow는 명시적인 `New Session` 액션으로만 시작한다.
+
+## 3. Execution Matrix Screen
+
+Execution Matrix Screen은 consensus가 이루어지고 사용자가 execute를 승인한 뒤 진입하는 화면이다. 3개 provider 또는 실행 agent가 역할을 분담하여 실제 코드를 작성하거나 파일을 조작하는 과정을 보여준다.
+
+디자인 컨셉:
+
+- Monitoring room
+- 구조화된 작업 표와 실시간 로그가 함께 보이는 실행 화면
+- "지금 무엇이 어디서 실행되고 있는지"를 명확히 보여줌
+
+진입 조건:
+
+- blueprint ready
+- 사용자가 `Execute` 선택
+- workspace picker에서 target workspace 확정
+- preflight 승인
+
+레이아웃:
+
+```text
+┌ Trinity v0.10.0 ─ Execution Matrix ─ workspace: /path/to/repo ┐
+│ Task                          │ Assignee     │ Status │ Risk   │
+│ DB schema update              │ Claude       │ Done   │ Medium │
+│ API integration               │ Codex        │ Run    │ Low    │
+│ Review and validation         │ Antigravity  │ Queue  │ Low    │
+├────────────────────────────────────────────────────────────────┤
+│ Execution Log                                                   │
+│ > package WP-001 started                                        │
+│ > writing src/...                                               │
+│ > running tests                                                 │
+│ > package WP-001 done                                           │
+└────────────────────────────────────────────────────────────────┘
+```
+
+상단 DataTable:
+
+- `Task`
+- `Assignee`
+- `Status`
+- `Risk`
+- `Started`
+- `Duration`
+
+하단 RichLog:
+
+- 선택된 task 또는 전체 execution log를 실시간 스트리밍한다.
+- 파일 생성, 명령 실행, 테스트 결과, provider 응답 요약을 시간순으로 표시한다.
+- 실패 시 blocker와 retry 가능 여부를 별도 강조한다.
+
+## Provider Inspector Modal
+
+Provider Inspector는 Nexus Screen에서 provider 원문 응답을 확인하는 상세 보기 modal이다.
+
+사용 시점:
+
+- 중앙 synthesis 요약만으로 충분하지 않을 때
+- 특정 provider가 어떤 근거로 판단했는지 확인하고 싶을 때
+- provider 원문 output을 비교하고 싶을 때
+
+레이아웃:
+
+```text
+┌ Provider Inspector ─ Round 1 ───────────────────────────────────┐
+│ [Claude] [Codex] [Antigravity] [All]                            │
+├─────────────────────────────────────────────────────────────────┤
+│ Raw provider output                                              │
+│ Markdown rendered or plain raw view                              │
+│ independent scroll                                               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+동작:
+
+- TabbedContent 기반 modal로 제공한다.
+- 각 provider output은 독립 scroll을 가진다.
+- `Raw`, `Cleaned`, `Summary` view toggle을 제공할 수 있다.
+- modal은 읽기 전용이다.
+
 ## 정보 구조
 
-기본 화면은 4개 영역으로 구성한다.
+Nexus Screen의 기본 workbench는 4개 영역으로 구성한다.
 
 ```text
 ┌ Trinity v0.10.0 ─ workflow: planning ─ transport: one-shot ─ agents: 3/3 ┐
@@ -50,9 +231,8 @@
 │ - Workflows       │ - round timeline                       │ - Packages   │
 │ - History         │                                       │ - Context    │
 ├───────────────────┴───────────────────────────────────────┴──────────────┤
-│ Agent Responses                                                           │
-│ [Claude] [Codex] [Antigravity] [All]                                      │
-│ 각 agent 응답을 독립 스크롤 가능한 pane/tab으로 표시                       │
+│ Agent Summary / Inspector Entry                                           │
+│ [Open Provider Inspector] [Compare Summaries]                             │
 ├───────────────────────────────────────────────────────────────────────────┤
 │ Prompt Composer                                                           │
 │ multi-line TextArea                                                       │
@@ -85,7 +265,7 @@ Main 영역은 사용자와 중앙 synthesis의 대화면이다.
 
 ### Agent Responses
 
-Agent Responses 영역은 tabbed view로 시작한다.
+Agent Responses 원문은 기본 화면에 항상 펼쳐두지 않고 Provider Inspector Modal로 제공한다. 기본 Nexus Screen에서는 provider별 짧은 summary/status panel만 유지한다.
 
 - `Claude`
 - `Codex`
@@ -104,6 +284,8 @@ Agent Responses 영역은 tabbed view로 시작한다.
 - skipped
 
 각 agent 응답에는 원문 보기와 요약 보기를 둔다. 요약은 synthesis 결과와 구분한다.
+
+넓은 화면에서는 Provider Inspector를 modal 대신 docked panel로 열 수 있다. 좁은 화면에서는 반드시 modal/tabs를 사용한다.
 
 ### Inspector
 
@@ -143,7 +325,7 @@ Prompt Composer는 Textual `TextArea` 기반으로 설계한다.
 
 ### 1. Prompt 입력
 
-사용자는 요구사항을 composer에 작성한다. 이 단계에서는 작업 디렉토리를 묻지 않는다.
+사용자는 Start Screen 또는 Nexus Screen의 composer에 요구사항을 작성한다. 이 단계에서는 작업 디렉토리를 묻지 않는다.
 
 결과:
 
@@ -151,6 +333,7 @@ Prompt Composer는 Textual `TextArea` 기반으로 설계한다.
 - active agents 확인
 - one-shot provider 호출 준비
 - shared context 초기화
+- 선택된 workspace candidate가 있으면 session metadata로만 보관
 
 ### 2. Round 실행
 
@@ -158,9 +341,10 @@ Prompt Composer는 Textual `TextArea` 기반으로 설계한다.
 
 UI:
 
-- Agent tab별 running 상태 표시
+- Nexus 상단 provider panel별 running 상태 표시
 - Round timeline 업데이트
-- 응답 도착 시 해당 tab에 append
+- 응답 도착 시 provider panel에 짧은 summary/keyword 표시
+- 원문 응답은 Provider Inspector Modal에 저장
 - synthesis가 전체 응답을 요약하고 질문/결론/다음 행동을 생성
 
 ### 3. 대화형 질문
@@ -198,9 +382,11 @@ UI:
 
 Workspace picker:
 
+- Start Screen에서 선택한 workspace candidate
 - 현재 shell cwd
 - 최근 선택 workspace
 - git repo 후보
+- DirectoryTree 탐색
 - 직접 경로 입력
 - 폴더 유효성 검사
 
@@ -216,6 +402,50 @@ Preflight:
 - 병렬 실행 가능 여부
 
 사용자가 승인하면 execution protocol을 시작한다.
+
+Execution Matrix Screen으로 전환한 뒤에는 work package DataTable과 execution RichLog가 주 화면이 된다.
+
+## Visual Identity
+
+Textual CSS를 사용해 Trinity의 시각적 정체성을 구성한다. 목표는 화려한 장식보다 provider별 역할과 상태가 즉시 읽히는 workbench다.
+
+### Provider colors
+
+각 provider에는 고유한 border와 accent color를 부여한다.
+
+- Claude: soft violet / magenta 계열
+- Codex: terminal green / success 계열
+- Antigravity: blue / cyan 계열
+- Central Agent: bright gray / white 계열의 굵은 border
+
+색상은 식별 보조 수단이다. 접근성을 위해 상태 텍스트와 아이콘 또는 badge를 항상 함께 표시한다.
+
+상태 badge 후보:
+
+- `Queued`
+- `Running`
+- `Ready`
+- `Needs Answer`
+- `Error`
+- `Timed Out`
+
+### Consensus effect
+
+합의가 도달하면 Central Agent 영역과 전체 app frame에 짧은 gold accent 효과를 줄 수 있다.
+
+원칙:
+
+- 기본 연출은 500ms 이하로 짧게 유지한다.
+- `Motion: reduced` 설정에서는 애니메이션을 비활성화한다.
+- 색상 변화만으로 의미를 전달하지 않고 `Consensus Reached` 텍스트를 함께 표시한다.
+
+### Density
+
+Trinity는 반복적으로 쓰는 개발 도구이므로 과한 hero/card 구성은 피한다.
+
+- Start Screen만 중앙 집중형으로 둔다.
+- Nexus와 Execution Matrix는 정보 밀도가 있는 dashboard 형태로 둔다.
+- panel 안의 heading은 작고 명확하게 유지한다.
 
 ## Settings와 Theme
 
@@ -299,12 +529,16 @@ Settings 화면에는 작은 preview panel을 둔다.
 신규 후보 패키지:
 
 - `src/trinity/textual_app/app.py`
-- `src/trinity/textual_app/screens/main.py`
+- `src/trinity/textual_app/screens/start.py`
+- `src/trinity/textual_app/screens/nexus.py`
+- `src/trinity/textual_app/screens/execution_matrix.py`
 - `src/trinity/textual_app/screens/settings.py`
 - `src/trinity/textual_app/widgets/composer.py`
-- `src/trinity/textual_app/widgets/agent_tabs.py`
+- `src/trinity/textual_app/widgets/provider_panel.py`
+- `src/trinity/textual_app/widgets/provider_inspector.py`
 - `src/trinity/textual_app/widgets/inspector.py`
 - `src/trinity/textual_app/widgets/workspace_picker.py`
+- `src/trinity/textual_app/widgets/execution_table.py`
 - `src/trinity/textual_app/theme.py`
 - `src/trinity/textual_app/settings.py`
 
@@ -317,27 +551,33 @@ Settings 화면에는 작은 preview panel을 둔다.
 ## 구현 순서
 
 1. Textual 의존성 추가와 feature flag 도입
-2. Textual app shell 생성
-3. Prompt Composer 구현
-4. Workflow event bridge 구현
-5. Agent Responses tabs 구현
-6. Main synthesis view 구현
-7. Inspector 구현
-8. Settings theme 화면 구현
-9. Execute workspace picker 구현
-10. CLI 기본 진입점을 Textual로 전환하고 plain fallback 유지
-11. 스냅샷/단위 테스트와 cross-platform smoke 갱신
-12. README와 troubleshooting 문서 갱신
+2. Textual app shell과 screen router 생성
+3. Start Screen과 Prompt Composer 구현
+4. Nexus Screen의 provider status panels 구현
+5. Workflow event bridge 구현
+6. Central Agent synthesis view 구현
+7. Provider Inspector Modal 구현
+8. Inspector와 workflow side surfaces 구현
+9. Settings theme 화면 구현
+10. Execute workspace picker와 preflight modal 구현
+11. Execution Matrix Screen과 execution log stream 구현
+12. CLI 기본 진입점을 Textual로 전환하고 plain fallback 유지
+13. 스냅샷/단위 테스트와 cross-platform smoke 갱신
+14. README와 troubleshooting 문서 갱신
 
 ## Acceptance Criteria
 
 - `trinity` 실행 시 Textual workbench가 기본으로 열린다.
+- Start Screen에서 큰 prompt composer를 중심으로 첫 요구사항을 입력할 수 있다.
+- Start Screen workspace 선택은 optional이며 선택하지 않아도 planning이 진행된다.
 - 긴 프롬프트를 multi-line으로 작성하고 `Ctrl+Enter`로 보낼 수 있다.
 - `/` completion은 slash command 입력에서만 열린다.
-- 각 agent 응답은 독립적으로 스크롤할 수 있다.
+- Nexus Screen에서 Claude, Codex, Antigravity provider panel이 상태와 짧은 summary를 보여준다.
+- Provider Inspector Modal에서 각 agent 원문 응답을 독립적으로 스크롤할 수 있다.
 - synthesis 질문은 선택지와 자유 입력을 모두 지원한다.
 - planning 단계에서는 작업 디렉토리를 묻지 않는다.
 - `Execute` 시점에 workspace picker와 preflight가 열린다.
+- Execution Matrix Screen에서 work package DataTable과 execution log를 볼 수 있다.
 - Settings에서 theme 설정을 변경하고 저장할 수 있다.
 - plain fallback으로 기존 TUI를 사용할 수 있다.
 
@@ -345,5 +585,6 @@ Settings 화면에는 작은 preview panel을 둔다.
 
 - Textual clipboard 기능이 Windows Terminal, PowerShell, macOS Terminal에서 어느 수준까지 일관적인지 smoke가 필요하다.
 - Theme preference를 global user config에 둘지 project-local state에 둘지 최종 결정이 필요하다.
-- Agent Responses의 3-column compare mode를 0.10.0에 포함할지, tabs만 먼저 구현할지 결정이 필요하다.
+- Provider Inspector의 docked compare mode를 0.10.0에 포함할지, modal/tabs만 먼저 구현할지 결정이 필요하다.
 - `Ctrl+Enter`가 일부 terminal에서 구분되지 않을 경우 대체 전송 키를 무엇으로 둘지 검증이 필요하다.
+- Start Screen의 DirectoryTree 후보 선택을 modal로만 둘지, wide layout에서 side panel로도 노출할지 결정이 필요하다.

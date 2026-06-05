@@ -113,6 +113,7 @@ class CentralAgentView(VerticalScroll):
         if not questions:
             return
 
+        question_number = 1
         question = questions[0]
         container.mount(
             Static(f"1. {question.question}", classes="question-text")
@@ -121,7 +122,7 @@ class CentralAgentView(VerticalScroll):
             row = Grid(classes="question-options")
             container.mount(row)
             for option_index, option in enumerate(question.options, start=1):
-                button_id = f"answer-{question.id}-{option_index}"
+                button_id = self._answer_button_id(question_number, option_index)
                 label = (
                     f"{option} (recommended)"
                     if option == question.recommended_option
@@ -129,6 +130,10 @@ class CentralAgentView(VerticalScroll):
                 )
                 self._button_answers[button_id] = QuestionAnswer(question.id, option)
                 row.mount(Button(label, id=button_id, variant="default", tooltip=label))
+
+    @staticmethod
+    def _answer_button_id(question_number: int, option_index: int) -> str:
+        return f"answer-q-{question_number}-{option_index}"
 
     def _question_title(self, questions: list[QuestionSnapshot]) -> str:
         if not questions:

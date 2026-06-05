@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from textual import events
 from textual.widgets import TextArea
 
 from trinity.config import TrinityConfig
@@ -12,7 +13,7 @@ from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import ProviderSnapshot, QuestionSnapshot, WorkflowNexusSnapshot
 from trinity.textual_app.widgets.central_agent import CentralAgentView
-from trinity.textual_app.widgets.composer import PromptComposer
+from trinity.textual_app.widgets.composer import COMMAND_LIMIT, PromptComposer
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
@@ -112,6 +113,37 @@ async def test_prompt_composer_shows_slash_command_palette(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_prompt_composer_shift_enter_inserts_newline(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+        composer.set_text("line one")
+        composer.focus_text_area()
+
+        await pilot.press("shift+enter")
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert composer.text == "line one\n"
+
+
+@pytest.mark.asyncio
+async def test_prompt_composer_summarizes_large_paste_for_display(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)):
+        composer = app.screen.query_one(PromptComposer)
+        text_area = composer.query_one(TextArea)
+        pasted = "a" * 1200
+
+        await text_area._on_paste(events.Paste(pasted))
+
+        assert composer.text == "[Pasted Content 1200 chars]"
+        assert composer.submission_text == pasted
+
+
+@pytest.mark.asyncio
 async def test_prompt_composer_arrow_selects_slash_command(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
@@ -134,6 +166,30 @@ async def test_prompt_composer_arrow_selects_slash_command(tmp_path) -> None:
         await pilot.pause()
         assert app.current_route == "start"
         assert composer.text == "/context "
+
+
+@pytest.mark.asyncio
+async def test_prompt_composer_scrolls_slash_command_window(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+        composer.set_text("/")
+        composer.focus_text_area()
+        await pilot.pause()
+
+        for _ in range(COMMAND_LIMIT + 1):
+            await pilot.press("down")
+        await pilot.pause()
+
+        selected = [
+            str(option.content)
+            for option in composer.query(".command-option-selected")
+        ]
+        visible = [str(option.content) for option in composer.query(".command-option")]
+
+        assert any("/workflow" in option for option in selected)
+        assert any("/workflow" in option for option in visible)
 
 
 @pytest.mark.asyncio

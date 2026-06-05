@@ -105,6 +105,10 @@ class TrinityTextualApp(App[None]):
         padding: 0 1;
     }
 
+    #start-composer.-commands-open {
+        height: 13;
+    }
+
     #prompt-textarea {
         height: 1fr;
         border: none;
@@ -406,10 +410,14 @@ class TrinityTextualApp(App[None]):
         padding: 0 1;
     }
 
+    #nexus-composer.-commands-open {
+        height: 13;
+    }
+
     #prompt-command-palette {
         display: none;
         width: 100%;
-        max-height: 8;
+        max-height: 9;
         height: auto;
         border: round $primary;
         margin-top: 1;

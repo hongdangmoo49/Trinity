@@ -63,14 +63,14 @@ class StartScreen(Screen[None]):
         if button_id == "plan-first":
             event.stop()
             composer = self.query_one("#start-composer", PromptComposer)
-            self._submit(composer.text)
+            self._submit(composer.submission_text)
         elif button_id == "choose-workspace":
             event.stop()
             self.post_message(self.WorkspaceRequested())
 
     def action_submit(self) -> None:
         composer = self.query_one("#start-composer", PromptComposer)
-        self._submit(composer.text)
+        self._submit(composer.submission_text)
 
     def set_workspace_candidate(self, path: Path | None) -> None:
         self.workspace_candidate = path

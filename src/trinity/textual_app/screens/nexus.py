@@ -148,7 +148,7 @@ class NexusScreen(Screen[None]):
 
     def action_submit_follow_up(self) -> None:
         composer = self.query_one("#nexus-composer", PromptComposer)
-        self._submit_follow_up(composer.text)
+        self._submit_follow_up(composer.submission_text)
 
     def action_open_inspector(self) -> None:
         self.post_message(self.InspectorRequested(self.snapshot))

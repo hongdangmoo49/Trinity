@@ -143,6 +143,27 @@ OPEN QUESTIONS:
     assert question.recommended_option == "L2 plus Ethereum mainnet"
 
 
+def test_extracts_inline_vs_options_from_numbered_questions():
+    synthesizer = StructuredConsensusSynthesizer()
+    text = """\
+VOTE: BLOCKED_BY_QUESTION
+
+OPEN QUESTIONS:
+- 1. **엔진 선택** - Godot vs Unity vs 자체 엔진?
+- 2. **과금 모델** - F2P+광고 vs 유료 vs 하이브리드?
+"""
+
+    result = synthesizer.evaluate({"claude": text})
+
+    assert result.reached is False
+    assert len(result.open_questions) == 2
+    first, second = result.open_questions
+    assert first.question == "엔진 선택?"
+    assert first.options == ["Godot", "Unity", "자체 엔진"]
+    assert second.question == "과금 모델?"
+    assert second.options == ["F2P+광고", "유료", "하이브리드"]
+
+
 def test_reject_extracts_blocker():
     synthesizer = StructuredConsensusSynthesizer()
 

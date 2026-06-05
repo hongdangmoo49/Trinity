@@ -22,7 +22,11 @@ from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import NexusSnapshotAdapter, WorkflowNexusSnapshot
-from trinity.textual_app.workflow_controller import TextualWorkflowController, TextualWorkflowOutcome
+from trinity.textual_app.i18n import localize_bindings
+from trinity.textual_app.workflow_controller import (
+    TextualWorkflowController,
+    TextualWorkflowOutcome,
+)
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.workspace_picker import (
     WorkspacePicker,
@@ -48,6 +52,16 @@ class TrinityTextualApp(App[None]):
         Binding("ctrl+4", "go_report", "Report"),
         Binding("ctrl+comma", "go_settings", "Settings"),
     ]
+
+    LOCALIZED_BINDINGS = {
+        ("ctrl+q", "quit"): ("binding_quit", None),
+        ("ctrl+n", "go_start"): ("binding_new_session", None),
+        ("ctrl+1", "go_start"): ("binding_start", None),
+        ("ctrl+2", "go_nexus"): ("binding_nexus", None),
+        ("ctrl+3", "go_execution"): ("binding_execute", None),
+        ("ctrl+comma", "go_settings"): ("binding_settings", None),
+        ("ctrl+p", "command_palette"): ("binding_palette", "binding_palette_tooltip"),
+    }
 
     CSS = """
     Screen {
@@ -520,6 +534,7 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         install_textual_parser_patch()
         super().__init__()
+        localize_bindings(self._bindings, config.lang, self.LOCALIZED_BINDINGS)
         self.config = config
         self.current_route: WorkbenchRoute = "start"
         self.initial_prompt: str | None = None
@@ -541,9 +556,15 @@ class TrinityTextualApp(App[None]):
         if self._screens_installed:
             return
 
-        self.install_screen(StartScreen(self.workspace_candidate), "start")
+        self.install_screen(
+            StartScreen(self.workspace_candidate, lang=self.config.lang),
+            "start",
+        )
         self.install_screen(NexusScreen(self.config), "nexus")
-        self.install_screen(SettingsScreen(self.settings_store), "settings")
+        self.install_screen(
+            SettingsScreen(self.settings_store, lang=self.config.lang),
+            "settings",
+        )
         self.install_screen(ExecutionMatrixScreen(), "execution")
         self.install_screen(ReportScreen(), "report")
 
@@ -582,7 +603,9 @@ class TrinityTextualApp(App[None]):
         event: NexusScreen.QuestionAnswered,
     ) -> None:
         event.stop()
-        outcome = self.workflow_controller.answer_question(event.answer.question_id, event.answer.answer)
+        outcome = self.workflow_controller.answer_question(
+            event.answer.question_id, event.answer.answer
+        )
         self._apply_workflow_outcome(outcome)
 
     def on_nexus_screen_inspector_requested(
@@ -596,7 +619,7 @@ class TrinityTextualApp(App[None]):
             or self.workflow_controller.snapshot()
             or self.snapshot_adapter.load_snapshot()
         )
-        self.push_screen(ProviderInspector(snapshot.providers))
+        self.push_screen(ProviderInspector(snapshot.providers, lang=self.config.lang))
 
     def on_nexus_screen_execute_requested(
         self,
@@ -619,6 +642,7 @@ class TrinityTextualApp(App[None]):
         self.push_screen(
             WorkspacePicker(
                 candidate=self.workspace_candidate,
+                lang=self.config.lang,
                 snapshot=snapshot,
                 cwd=self.config.project_dir,
                 tree_root=default_workspace_tree_root(self.config.project_dir),

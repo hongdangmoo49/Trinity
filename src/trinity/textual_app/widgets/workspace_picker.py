@@ -11,6 +11,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, DirectoryTree, Footer, Input, Static
 
+from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 
 
@@ -62,6 +63,15 @@ class CreateMissingDirectoryPrompt(ModalScreen[bool]):
 
     BINDINGS = [("escape", "cancel", "Cancel")]
 
+    LOCALIZED_BINDINGS = {
+        ("escape", "cancel"): ("binding_cancel", None),
+    }
+
+    def __init__(self, *, lang: str = "en") -> None:
+        super().__init__()
+        self.lang = lang
+        localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
+
     def compose(self) -> ComposeResult:
         with Vertical(id="workspace-create-prompt"):
             yield Static("Enable directory creation?", id="workspace-create-title")
@@ -98,9 +108,16 @@ class FolderNamePrompt(ModalScreen[str | None]):
         ("enter", "submit", "Create"),
     ]
 
-    def __init__(self, parent: Path) -> None:
+    LOCALIZED_BINDINGS = {
+        ("escape", "cancel"): ("binding_cancel", None),
+        ("enter", "submit"): ("binding_create", None),
+    }
+
+    def __init__(self, parent: Path, *, lang: str = "en") -> None:
         super().__init__()
         self.folder_parent = parent
+        self.lang = lang
+        localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
         with Vertical(id="workspace-create-prompt"):
@@ -141,6 +158,11 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         ("ctrl+enter", "confirm", "Execute"),
     ]
 
+    LOCALIZED_BINDINGS = {
+        ("escape", "cancel"): ("binding_cancel", None),
+        ("ctrl+enter", "confirm"): ("binding_execute", None),
+    }
+
     def __init__(
         self,
         *,
@@ -148,12 +170,15 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         snapshot: WorkflowNexusSnapshot,
         cwd: Path | None = None,
         tree_root: Path | None = None,
+        lang: str = "en",
     ) -> None:
         super().__init__()
         self.candidate = candidate
         self.snapshot = snapshot
         self.cwd = cwd or Path.cwd()
         self.tree_root = tree_root or self.cwd
+        self.lang = lang
+        localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
         self.preflight = build_preflight(candidate or self.cwd, snapshot)
         self.create_missing = self.preflight.creatable
 
@@ -207,7 +232,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
     def action_new_folder(self) -> None:
         if not self.create_missing:
             self.app.push_screen(
-                CreateMissingDirectoryPrompt(),
+                CreateMissingDirectoryPrompt(lang=self.lang),
                 self._on_create_missing_confirmed,
             )
             return
@@ -222,7 +247,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
 
     def _open_folder_name_prompt(self) -> None:
         self.app.push_screen(
-            FolderNamePrompt(self._folder_creation_base()),
+            FolderNamePrompt(self._folder_creation_base(), lang=self.lang),
             self._on_folder_name_submitted,
         )
 

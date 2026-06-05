@@ -7,6 +7,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Label, Select, Static
 
+from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.settings import UISettings, UISettingsStore
 
 
@@ -17,9 +18,15 @@ class SettingsScreen(Screen[None]):
         ("ctrl+s", "apply", "Apply"),
     ]
 
-    def __init__(self, settings_store: UISettingsStore) -> None:
+    LOCALIZED_BINDINGS = {
+        ("ctrl+s", "apply"): ("binding_apply", None),
+    }
+
+    def __init__(self, settings_store: UISettingsStore, *, lang: str = "en") -> None:
         super().__init__(name="settings")
         self.settings_store = settings_store
+        self.lang = lang
+        localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
         self.settings = settings_store.load()
 
     def compose(self) -> ComposeResult:

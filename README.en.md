@@ -14,7 +14,7 @@ through shared context, round-based deliberation, and intelligent task distribut
 [![Python](https://img.shields.io/badge/Python-3.10%2B-yellow)](https://www.python.org/)
 [![Tests](https://img.shields.io/badge/tests-pytest-brightgreen)](https://github.com/hongdangmoo49/Trinity)
 
-[한국어](./README.md) · [Quick Start](#-quick-start) · [Why Trinity](#-why-trinity) · [How It Works](#-how-it-works) · [TUI](#-interactive-tui) · [Commands](#-commands) · [Architecture](#-architecture)
+[한국어](./README.md) · [Quick Start](#-quick-start) · [Why Trinity](#-why-trinity) · [How It Works](#-how-it-works) · [Workflow](#-workflow-and-execution-model) · [TUI](#-interactive-tui) · [Commands](#-commands) · [Architecture](#-architecture)
 
 </div>
 
@@ -122,6 +122,48 @@ That's it. Trinity will:
 
 ---
 
+## 🧭 Workflow and Execution Model
+
+Trinity `0.10.2` is built around a **persisted workflow** that separates planning
+from execution. A user request first goes through round-based deliberation and
+central synthesis. Only after a blueprint is ready does Trinity ask for an
+execution workspace and allow provider-managed file writes.
+
+```text
+Prompt
+  -> WorkflowEngine.start()
+  -> TrinityOrchestrator.ask()
+  -> ProviderReadinessGate
+  -> DeliberationProtocol rounds
+  -> Central synthesis
+  -> NEEDS_USER_DECISION or BLUEPRINT_READY
+  -> Execute preflight
+  -> ExecutionProtocol.run()
+  -> REVIEWING / DONE
+```
+
+Important runtime rules:
+
+- **Persisted state** - `.trinity/workflow/session.json` and `events.jsonl` store
+  workflow state, open questions, user decisions, blueprints, work packages, and
+  execution results.
+- **Provider invocation** - one-shot transport is the default. Claude uses
+  `claude -p`, Codex uses `codex exec --json`, and Antigravity uses `agy --print`.
+  Raw and cleaned response artifacts are stored under `.trinity/responses/`.
+- **Question loop** - blocking questions move the workflow to
+  `NEEDS_USER_DECISION`; answers are recorded and used to continue deliberation.
+- **Execution boundary** - provider writes require a target workspace. Writing
+  inside the Trinity control repo is refused unless explicitly confirmed.
+- **Safe parallelism** - work packages run only when dependencies and expected
+  file ownership make parallel execution safe.
+- **UI boundary** - Textual Workbench is a projection layer. The runtime remains
+  in `WorkflowEngine`, `TrinityOrchestrator`, and `ExecutionProtocol`.
+
+For the detailed Korean runtime guide, see
+[`docs/workflow-v0.10.2-guide.md`](docs/workflow-v0.10.2-guide.md).
+
+---
+
 ## 💬 Interactive TUI
 
 Trinity now launches a **Textual-based Workbench TUI** by default. You can write
@@ -130,7 +172,7 @@ the central synthesis view organize questions and consensus. File changes only
 start after you choose `Execute` and approve the workspace preflight.
 
 ```
-  ┌ Trinity v0.10.0 ─ Nexus ─ workflow: planning ┐
+  ┌ Trinity v0.10.2 ─ Nexus ─ workflow: planning ┐
   │ Claude              │ Codex              │ Antigravity │
   │ Ready               │ Running            │ Ready       │
   ├───────────────────────────────────────────────────────────┤
@@ -282,6 +324,19 @@ trinity/
 │   ├── consensus.py        #   Keyword-based agreement detection + negation filter
 │   └── distributor.py      #   Maps consensus → agent tasks by strengths
 │
+├── workflow/               # Persisted workflow state machine
+│   ├── engine.py           #   Questions, decisions, blueprints, and state transitions
+│   ├── execution.py        #   Dependency-safe dispatch and workspace guards
+│   ├── decomposer.py       #   Blueprint to executable work-package decomposition
+│   ├── ledger.py           #   Renders workflow state back into shared.md
+│   └── review.py           #   Peer review package planning
+│
+├── providers/              # One-shot provider invocation layer
+│   ├── invoker.py          #   Normalizes Claude/Codex/Antigravity CLI calls
+│   ├── readiness.py        #   Auth/model-loading/prompt readiness checks
+│   ├── policy.py           #   Read-only/workspace-write access and parallel policy
+│   └── bootstrap.py        #   Provider auth/trust setup helpers
+│
 ├── context/                # Shared brain
 │   ├── shared.py           #   SharedContextEngine — manages shared.md
 │   ├── monitor.py          #   Token usage tracking per agent
@@ -319,6 +374,9 @@ trinity/
 │   ├── isolation.py        #   Git worktree per agent (parallel editing)
 │   └── managed_home.py     #   Per-agent isolated HOME directories
 │
+├── platform/               # Cross-platform terminal/process/log helpers
+├── bridge/                 # L2 bridge routing example/domain module
+│
 ├── health/
 │   └── checker.py          #   Agent health monitoring
 │
@@ -333,6 +391,8 @@ trinity/
 | **Shared markdown file** | Agents read/write `shared.md` — simple, transparent, debuggable |
 | **Round-based protocol** | Structured debate prevents circular arguments; forces progression |
 | **Textual Workbench default UI** | Start/Nexus/Execution Matrix screens separate planning from execute; provider output is inspected on demand |
+| **Persisted workflow state** | Questions, decisions, blueprints, target workspace, and execution results are stored for resume and debugging |
+| **Target workspace guard** | Provider workspace-write is separated from the Trinity control repo unless explicitly confirmed |
 | **Event-driven fallback TUI** | `asyncio.wait(FIRST_COMPLETED)` + `Queue` keeps the legacy/plain UI responsive |
 | **Keyword consensus** | Fast, deterministic agreement detection with negation filtering |
 | **Provider-agnostic agents** | `AgentWrapper` ABC — easy to add new AI providers |
@@ -383,11 +443,12 @@ uv publish --token <PYPI_TOKEN>
 
 | Metric | Value |
 | :--- | :--- |
-| **Version** | 0.10.0 |
-| **Tests** | `uv run pytest` |
+| **Version** | 0.10.2 |
+| **Tests** | `1092 passed, 1 warning` in the latest WSL 0.10.2 verification run |
 | **Coverage** | ~87% |
-| **Source files** | 50+ |
-| **Dependencies** | `click`, `rich`, `prompt_toolkit`, `tomli` |
+| **Source files** | 100+ |
+| **Test files** | 70+ |
+| **Dependencies** | `click`, `rich`, `prompt_toolkit`, `textual`, `tomli`, `tomli-w` |
 | **Python** | 3.10+ |
 
 ---

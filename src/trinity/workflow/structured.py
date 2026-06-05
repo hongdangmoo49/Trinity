@@ -429,10 +429,14 @@ class StructuredConsensusSynthesizer:
         for idx, line in enumerate(text.splitlines(), start=1):
             match = self.QUESTION_PATTERN.match(line)
             if match:
+                question_text, options = self._question_and_inline_options(
+                    match.group(1)
+                )
                 fallback_questions.append(
                     OpenQuestion(
                         id=f"q-{agent_name}-{idx:03d}",
-                        question=match.group(1).strip(),
+                        question=question_text,
+                        options=options,
                         raised_by=[agent_name],
                     )
                 )
@@ -482,12 +486,20 @@ class StructuredConsensusSynthesizer:
             question_match = self.QUESTION_FIELD_PATTERN.match(stripped)
             if question_match:
                 flush()
-                current["question"] = question_match.group(1).strip()
+                question_text, options = self._question_and_inline_options(
+                    question_match.group(1)
+                )
+                current["question"] = question_text
+                current["option_items"] = options
                 continue
             plain_question = self.QUESTION_PATTERN.match(stripped)
             if plain_question and "question" not in current:
                 flush()
-                current["question"] = plain_question.group(1).strip()
+                question_text, options = self._question_and_inline_options(
+                    plain_question.group(1)
+                )
+                current["question"] = question_text
+                current["option_items"] = options
                 continue
             options_match = self.OPTIONS_PATTERN.match(stripped)
             if options_match:
@@ -509,7 +521,9 @@ class StructuredConsensusSynthesizer:
                 continue
             if stripped.endswith("?"):
                 flush()
-                current["question"] = self._clean_list_item(stripped)
+                question_text, options = self._question_and_inline_options(stripped)
+                current["question"] = question_text
+                current["option_items"] = options
         flush()
         return questions
 
@@ -669,8 +683,46 @@ class StructuredConsensusSynthesizer:
     def _split_options(raw: str) -> list[str]:
         if not raw.strip():
             return []
-        parts = re.split(r"\s*(?:\||,|/|、|，)\s*", raw.strip())
+        cleaned = raw.strip().rstrip("?").strip()
+        parts = re.split(
+            r"\s*(?:\||,|/|、|，|\bvs\b)\s*",
+            cleaned,
+            flags=re.IGNORECASE,
+        )
         return [part.strip() for part in parts if part.strip()]
+
+    @classmethod
+    def _question_and_inline_options(cls, raw: str) -> tuple[str, list[str]]:
+        cleaned = cls._clean_question_text(raw)
+        question = cleaned
+        options: list[str] = []
+
+        for separator in (" - ", " – ", " — ", ": ", "："):
+            if separator not in cleaned:
+                continue
+            before, after = cleaned.split(separator, 1)
+            inline_options = cls._dedupe_options(cls._split_options(after))
+            if len(inline_options) >= 2:
+                question = before.strip()
+                options = inline_options
+                break
+
+        question = question.strip().rstrip("?").strip()
+        if question and not question.endswith("?"):
+            question = f"{question}?"
+        return question, options
+
+    @classmethod
+    def _clean_question_text(cls, raw: str) -> str:
+        text = raw.strip()
+        text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
+        text = re.sub(r"`([^`]+)`", r"\1", text)
+        previous = None
+        while text and text != previous:
+            previous = text
+            text = cls._clean_list_item(text)
+        text = re.sub(r"\s+", " ", text)
+        return text.strip()
 
     @staticmethod
     def _dedupe_options(options: list[str]) -> list[str]:

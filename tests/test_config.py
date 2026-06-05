@@ -220,7 +220,7 @@ role_prompt = "당신은 아키텍트입니다."
     def test_default_provider_timeouts(self):
         config = TrinityConfig.default_config()
         assert config.round_timeout_seconds == 300.0
-        assert config.execution_timeout_seconds == 900.0
+        assert config.execution_timeout_seconds == 1800.0
         assert config.synthesis_timeout_seconds == 300.0
 
     def test_provider_state_mode_defaults_to_user_home(self):

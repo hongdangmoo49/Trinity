@@ -48,6 +48,7 @@ class TrinityConfig:
     max_deliberation_rounds: int = 5
     consensus_threshold: float = 0.6  # fraction of agents required
     round_timeout_seconds: float = 300.0
+    execution_timeout_seconds: float = 900.0
     provider_readiness_mode: str = "strict"  # "strict" | "degraded"
     provider_readiness_timeout_seconds: float = 20.0
     synthesis_mode: str = "auto"  # "auto" | "model" | "heuristic"
@@ -171,6 +172,9 @@ class TrinityConfig:
                 "consensus_threshold", general.get("consensus_threshold", 0.6)
             ),
             round_timeout_seconds=deliberation.get("round_timeout_seconds", 300.0),
+            execution_timeout_seconds=float(
+                deliberation.get("execution_timeout_seconds", 900.0)
+            ),
             provider_readiness_mode=deliberation.get(
                 "provider_readiness_mode", "strict"
             ),
@@ -263,6 +267,7 @@ class TrinityConfig:
             },
             "deliberation": {
                 "round_timeout_seconds": self.round_timeout_seconds,
+                "execution_timeout_seconds": self.execution_timeout_seconds,
                 "provider_readiness_mode": self.provider_readiness_mode,
                 "provider_readiness_timeout_seconds": (
                     self.provider_readiness_timeout_seconds

@@ -7,11 +7,13 @@ from trinity.textual_app.snapshot import NexusSnapshotAdapter
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workflow import (
     Blueprint,
+    ExecutionResult,
     OpenQuestion,
     WorkflowPersistence,
     WorkflowSession,
     WorkflowState,
     WorkPackage,
+    WorkStatus,
 )
 
 
@@ -119,6 +121,51 @@ def test_snapshot_formats_execution_events_with_runtime_details(tmp_path) -> Non
     assert snapshot.execution_log == [
         "implementation_requested: 1 packages -> /workspace/game",
         "work_package_started: WP-001 claude running",
+    ]
+
+
+def test_snapshot_formats_execution_result_failure_reason(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-execution-result",
+            goal="Build game",
+            state=WorkflowState.FAILED,
+            active_agents=["codex"],
+            work_packages=[
+                WorkPackage(
+                    id="WP-004",
+                    title="Enhancement tree",
+                    owner_agent="codex",
+                    objective="Build enhancement tree.",
+                    status=WorkStatus.FAILED,
+                )
+            ],
+            execution_results=[
+                ExecutionResult(
+                    package_id="WP-004",
+                    agent_name="codex",
+                    status=WorkStatus.FAILED,
+                    summary="All execution attempts failed.",
+                    blockers=[
+                        (
+                            "Not inside a trusted directory and "
+                            "--skip-git-repo-check was not specified."
+                        )
+                    ],
+                )
+            ],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert snapshot.execution_log == [
+        (
+            "WP-004 codex: failed - Not inside a trusted directory and "
+            "--skip-git-repo-check was not specified."
+        )
     ]
 
 

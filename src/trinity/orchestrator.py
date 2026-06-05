@@ -195,7 +195,7 @@ class TrinityOrchestrator:
             agents=self.agents,
             shared=self.shared,
             artifact_dir=state_dir / "execution",
-            timeout=self.config.round_timeout_seconds,
+            timeout=self.config.execution_timeout_seconds,
             event_callback=event_callback,
             lifecycle_guard=self.lifecycle_guard,
             rotation_callback=self._rotate_agent_for_lifecycle,

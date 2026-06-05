@@ -34,6 +34,7 @@ def test_build_command_uses_codex_exec_json_ephemeral(tmp_path):
     assert command[:2] == ["codex", "exec"]
     assert "--json" in command
     assert "--ephemeral" in command
+    assert "--skip-git-repo-check" in command
     assert command[command.index("--sandbox") + 1] == "read-only"
     assert command[command.index("--cd") + 1] == str(tmp_path)
     assert "--model" in command

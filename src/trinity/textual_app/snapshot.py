@@ -332,10 +332,27 @@ class NexusSnapshotAdapter:
 
         if session:
             for result in session.execution_results[-10:]:
-                lines.append(
-                    f"{result.package_id} {result.agent_name}: {result.status.value}"
-                )
+                lines.append(self._format_execution_result(result))
         return lines
+
+    @staticmethod
+    def _format_execution_result(result: object) -> str:
+        package_id = str(getattr(result, "package_id", "")).strip()
+        agent = str(getattr(result, "agent_name", "")).strip()
+        status = str(getattr(getattr(result, "status", ""), "value", "")).strip()
+        if not status:
+            status = str(getattr(result, "status", "")).strip()
+        details = " ".join(part for part in (package_id, agent) if part)
+        line = f"{details}: {status}" if details else status
+        blockers = getattr(result, "blockers", []) or []
+        reason = ""
+        if blockers:
+            reason = str(blockers[0]).strip()
+        if not reason:
+            reason = str(getattr(result, "summary", "")).strip()
+        if reason and status in {"failed", "blocked"}:
+            line = f"{line} - {NexusSnapshotAdapter._short_summary(reason, limit=120)}"
+        return line
 
     @staticmethod
     def _format_execution_event(event: dict[str, object]) -> str:

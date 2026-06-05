@@ -103,12 +103,14 @@ Provider 호출은 `PromptRequest`와 `ProviderTurnResult`로 정규화된다.
 | Provider | 호출 방식 | 출력 처리 |
 | :--- | :--- | :--- |
 | Claude Code | `claude -p --output-format json` | JSON의 `result`/`content`와 usage를 파싱한다. |
-| Codex | `codex exec --json --ephemeral --sandbox ... --cd ...` | JSONL event에서 `agent_message`, usage, tool activity를 파싱한다. |
+| Codex | `codex exec --json --ephemeral --skip-git-repo-check --sandbox ... --cd ...` | JSONL event에서 `agent_message`, usage, tool activity를 파싱한다. |
 | Antigravity CLI | `agy --print --print-timeout=...` | plain stdout을 응답으로 사용한다. read-only 요청에는 `--sandbox`를 붙인다. |
 
 응답은 auth error, model loading, timeout, prompt echo, cli noise, empty output 같은
 상태로 분류된다. raw/clean artifact를 남기기 때문에 provider UI가 섞여 들어온
 경우에도 원문과 정제본을 추적할 수 있다.
+Antigravity가 exit code 0으로 빈 stdout을 반환하면 `empty_response` 진단과 함께 raw
+artifact에 원인을 남긴다.
 
 ## Execution 흐름
 

@@ -127,3 +127,24 @@ async def test_invoke_classifies_antigravity_auth_failure(tmp_path):
     assert result.metadata["output_format"] == "plain-text"
     assert result.metadata["machine_readable_output"] is False
     assert result.metadata["usage_source"] == "unsupported"
+
+
+@pytest.mark.asyncio
+async def test_invoke_marks_empty_antigravity_output_with_diagnostic(tmp_path):
+    invoker = AntigravityPrintInvoker()
+    completed = subprocess.CompletedProcess(
+        args=["agy"],
+        returncode=0,
+        stdout="",
+        stderr="",
+    )
+
+    with patch("trinity.platform.process.subprocess.run", return_value=completed):
+        result = await invoker.invoke(_request(tmp_path))
+
+    assert result.status == ResponseStatus.EMPTY
+    assert result.content == "[Empty response from Antigravity CLI]"
+    assert result.raw_output == "[Empty response from Antigravity CLI]"
+    assert result.diagnostics == [
+        "empty_response: Antigravity CLI returned empty output."
+    ]

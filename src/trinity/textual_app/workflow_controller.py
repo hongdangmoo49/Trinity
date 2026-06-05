@@ -193,7 +193,6 @@ class TextualWorkflowController:
 
         return self._outcome(
             message=message,
-            running=self.is_running,
             execution_requested=action.execution_requested,
             target_workspace_required=action.target_workspace_required,
         )
@@ -318,10 +317,15 @@ class TextualWorkflowController:
         return TextualWorkflowOutcome(
             snapshot=self.snapshot(),
             message=message,
-            running=self.is_running if running is None else running,
+            running=self._has_active_or_pending_work() if running is None else running,
             execution_requested=execution_requested,
             target_workspace_required=target_workspace_required,
         )
+
+    def _has_active_or_pending_work(self) -> bool:
+        with self._lock:
+            pending = self._completion_pending
+        return self.is_running or pending
 
     def _active_agent_names(self) -> list[str]:
         return list(self.config.active_agents.keys())

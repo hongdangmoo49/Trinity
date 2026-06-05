@@ -2,6 +2,8 @@
 
 import time
 
+import pytest
+
 from trinity.models import ConsensusResult, DeliberationResult
 from trinity.tui.report import DeliberationReportBuilder, DeliberationReport
 from trinity.workflow.models import (
@@ -153,6 +155,40 @@ def test_report_blueprint():
     assert report.blueprint.acceptance_criteria_count == 1
 
 
+def test_report_markdown_includes_blueprint_details():
+    session = _sample_session()
+    session.blueprint.architecture[0].dependencies = ["TokenService"]
+    session.blueprint.external_dependencies = ["PyJWT"]
+    report = DeliberationReportBuilder(session, _sample_result()).build()
+    md = report.to_markdown()
+
+    assert "### Architecture" in md
+    assert "AuthController \\[codex\\]: 인증 요청 처리 deps: TokenService" in md
+    assert "### Data Flow" in md
+    assert "Client → AuthController → TokenService" in md
+    assert "### External Dependencies" in md
+    assert "PyJWT" in md
+    assert "### Risks" in md
+    assert "high: 토큰 만료 처리 누락 mitigation: 자동 갱신 로직 추가" in md
+    assert "### Acceptance Criteria" in md
+    assert "로그인/로그아웃 동작" in md
+
+
+def test_report_markdown_escapes_blueprint_detail_structure():
+    session = _sample_session()
+    session.blueprint.architecture[0].name = "# Auth | Controller"
+    session.blueprint.architecture[0].responsibility = "- owns [auth](url)"
+    session.blueprint.data_flow = ["# client | server"]
+    session.blueprint.acceptance_criteria = ["- must not become a list"]
+    report = DeliberationReportBuilder(session, _sample_result()).build()
+    md = report.to_markdown()
+
+    assert "\\# Auth \\| Controller" in md
+    assert "\\- owns \\[auth\\]\\(url\\)" in md
+    assert "\\# client \\| server" in md
+    assert "\\- must not become a list" in md
+
+
 def test_report_packages():
     report = DeliberationReportBuilder(
         _sample_session(), _sample_result(),
@@ -244,6 +280,11 @@ def test_report_frozen():
         pass
 
 
+def test_report_builder_rejects_missing_session():
+    with pytest.raises(ValueError, match="WorkflowSession"):
+        DeliberationReportBuilder(None).build()  # type: ignore[arg-type]
+
+
 def test_long_objective_in_markdown():
     session = WorkflowSession(
         id="trunc-session",
@@ -305,3 +346,36 @@ def test_pipe_characters_escaped_in_markdown_tables():
             # (it would be escaped as \|)
             for part in parts[1:-1]:  # skip empty first/last from split
                 assert "|" not in part or "\\|" in part, f"Unescaped pipe: {line}"
+
+
+def test_multiline_markdown_table_cells_are_normalized():
+    session = WorkflowSession(
+        id="multiline-test",
+        goal="test",
+        state=WorkflowState.BLUEPRINT_READY,
+        work_packages=[
+            WorkPackage(
+                id="wp-1",
+                title="foo\nbar",
+                owner_agent="codex",
+                objective="line one\nline two\r\nline three",
+                status=WorkStatus.PENDING,
+            ),
+        ],
+        execution_results=[
+            ExecutionResult(
+                package_id="wp-1",
+                agent_name="codex",
+                status=WorkStatus.DONE,
+                summary="summary line one\nsummary line two",
+            ),
+        ],
+    )
+    report = DeliberationReportBuilder(session, result=None).build()
+    md = report.to_markdown()
+
+    assert "foo bar" in md
+    assert "line one line two line three" in md
+    assert "summary line one summary line two" in md
+    assert "foo\nbar" not in md
+    assert "line one\nline two" not in md

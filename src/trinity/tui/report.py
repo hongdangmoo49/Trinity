@@ -36,6 +36,8 @@ if TYPE_CHECKING:
 
 from trinity.tui.formatting import format_timestamp
 
+_MD_SPECIAL_CHARS = "\\`*_{}[]<>()#+-.!|"
+
 
 def _truncate(text: str, limit: int) -> str:
     """Truncate text to *limit* characters, appending ellipsis when needed."""
@@ -45,8 +47,26 @@ def _truncate(text: str, limit: int) -> str:
 
 
 def _escape_md_table(text: str) -> str:
-    """Escape pipe characters for safe inclusion in Markdown tables."""
-    return text.replace("|", "\\|")
+    """Normalize and escape text for safe inclusion in Markdown tables."""
+    normalized = " ".join(str(text).split())
+    return normalized.replace("|", "\\|")
+
+
+def _escape_md_inline(text: str) -> str:
+    """Normalize and escape Markdown inline syntax from user-controlled text."""
+    normalized = " ".join(str(text).split())
+    return "".join(
+        f"\\{char}" if char in _MD_SPECIAL_CHARS else char
+        for char in normalized
+    )
+
+
+def _md_list_section(title: str, items: tuple[str, ...]) -> list[str]:
+    if not items:
+        return []
+    lines = ["", f"### {title}", ""]
+    lines.extend(f"- {_escape_md_inline(item)}" for item in items)
+    return lines
 
 
 # ─── Frozen report section dataclasses ──────────────────────────────────────
@@ -81,6 +101,11 @@ class ReportBlueprint:
 
     title: str
     summary: str
+    architecture: tuple[str, ...]
+    data_flow: tuple[str, ...]
+    external_dependencies: tuple[str, ...]
+    risks: tuple[str, ...]
+    acceptance_criteria: tuple[str, ...]
     architecture_count: int
     risk_count: int
     data_flow_count: int
@@ -320,16 +345,22 @@ class DeliberationReport:
 
     def _md_blueprint(self) -> str:
         bp = self.blueprint
-        return (
-            f"\n## Blueprint\n"
-            f"\n"
-            f"**Title**: {bp.title}  \n"
-            f"**Summary**: {bp.summary}  \n"
-            f"**Components**: {bp.architecture_count}  \n"
-            f"**Risks**: {bp.risk_count}  \n"
-            f"**Data flows**: {bp.data_flow_count}  \n"
-            f"**Acceptance criteria**: {bp.acceptance_criteria_count}\n"
-        )
+        lines = [
+            "\n## Blueprint\n",
+            f"**Title**: {bp.title}  ",
+            f"**Summary**: {bp.summary}  ",
+            f"**Components**: {bp.architecture_count}  ",
+            f"**Risks**: {bp.risk_count}  ",
+            f"**Data flows**: {bp.data_flow_count}  ",
+            f"**Acceptance criteria**: {bp.acceptance_criteria_count}",
+        ]
+        lines.extend(_md_list_section("Architecture", bp.architecture))
+        lines.extend(_md_list_section("Data Flow", bp.data_flow))
+        lines.extend(_md_list_section("External Dependencies", bp.external_dependencies))
+        lines.extend(_md_list_section("Risks", bp.risks))
+        lines.extend(_md_list_section("Acceptance Criteria", bp.acceptance_criteria))
+        lines.append("")
+        return "\n".join(lines)
 
     def _md_decisions(self) -> str:
         lines = ["\n## Decisions\n"]
@@ -392,6 +423,8 @@ class DeliberationReportBuilder:
         session: WorkflowSession,
         result: DeliberationResult | None = None,
     ) -> None:
+        if not isinstance(session, WorkflowSession):
+            raise ValueError("DeliberationReportBuilder requires a WorkflowSession.")
         self._session = session
         self._result = result
 
@@ -444,11 +477,35 @@ class DeliberationReportBuilder:
         return ReportBlueprint(
             title=bp.title or "(untitled)",
             summary=bp.summary or "(no summary)",
+            architecture=tuple(
+                self._format_architecture_component(component)
+                for component in bp.architecture
+            ),
+            data_flow=tuple(bp.data_flow),
+            external_dependencies=tuple(bp.external_dependencies),
+            risks=tuple(self._format_risk(risk) for risk in bp.risks),
+            acceptance_criteria=tuple(bp.acceptance_criteria),
             architecture_count=len(bp.architecture),
             risk_count=len(bp.risks),
             data_flow_count=len(bp.data_flow),
             acceptance_criteria_count=len(bp.acceptance_criteria),
         )
+
+    @staticmethod
+    def _format_architecture_component(component) -> str:
+        owner = f" [{component.owner_agent}]" if component.owner_agent else ""
+        dependencies = (
+            f" deps: {', '.join(component.dependencies)}"
+            if component.dependencies
+            else ""
+        )
+        return f"{component.name}{owner}: {component.responsibility}{dependencies}"
+
+    @staticmethod
+    def _format_risk(risk) -> str:
+        mitigation = f" mitigation: {risk.mitigation}" if risk.mitigation else ""
+        owner = f" owner: {risk.owner_agent}" if risk.owner_agent else ""
+        return f"{risk.severity}: {risk.description}{mitigation}{owner}"
 
     def _build_decisions(self) -> tuple[ReportDecision, ...]:
         return tuple(

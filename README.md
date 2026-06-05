@@ -128,7 +128,7 @@ Trinity는 기본 실행 화면으로 **Textual 기반 Workbench TUI**를 제공
 변경은 `Execute`를 누른 뒤 workspace preflight를 승인해야 시작됩니다.
 
 ```
-  ┌ Trinity v0.10.0 ─ Nexus ─ workflow: planning ┐
+  ┌ Trinity v0.10.1 ─ Nexus ─ workflow: planning ┐
   │ Claude              │ Codex              │ Antigravity │
   │ Ready               │ Running            │ Ready       │
   ├───────────────────────────────────────────────────────────┤
@@ -380,7 +380,7 @@ uv publish --token <PYPI_TOKEN>
 
 | 지표 | 수치 |
 | :--- | :--- |
-| **버전** | 0.10.0 |
+| **버전** | 0.10.1 |
 | **테스트** | `uv run pytest` 기준 |
 | **커버리지** | 약 87% |
 | **소스 파일** | 50여 개 |

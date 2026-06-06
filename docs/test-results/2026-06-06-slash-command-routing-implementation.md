@@ -72,6 +72,8 @@
 /home/zaemi/.local/bin/uv run pytest tests/test_textual_workflow_controller.py tests/test_textual_app.py -q
 /home/zaemi/.local/bin/uvx ruff check src/trinity/tui/session.py tests/test_tui_prompt.py
 /home/zaemi/.local/bin/uv run pytest tests/test_tui_prompt.py tests/test_tui_session.py -q
+/home/zaemi/.local/bin/uvx ruff check tests/test_slash_command_docs.py
+/home/zaemi/.local/bin/uv run pytest tests/test_slash_command_docs.py -q
 git diff --check
 /home/zaemi/.local/bin/uv run pytest -q
 ```
@@ -86,9 +88,10 @@ git diff --check
 - Textual controller/slash routing 보강: `60 passed in 30.89s`
 - Textual/controller/prompt 대상 회귀: `76 passed in 32.59s`
 - Plain TUI registry dispatch 대상 회귀: `95 passed in 2.17s`
+- Slash command 문서 정합성 검증: `4 passed in 0.03s`
 - Ruff 대상 파일 검사 통과
 - `git diff --check` 통과
-- 전체 회귀: `1212 passed, 1 warning in 54.28s`
+- 전체 회귀: `1216 passed, 1 warning in 58.14s`
 
 ## 남은 작업
 

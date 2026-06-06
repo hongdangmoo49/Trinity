@@ -204,13 +204,14 @@ registry는 다음을 생성하는 단일 source of truth가 되어야 한다.
 7. `/answer`, `/target clear`, `/resume`, `/execute`의 Textual side effect는
    `TextualWorkflowController` public API 또는 기존 execution API로 연결했다.
 8. `/questions --select`는 Textual 중앙 질문 option button과 `/answer` 안내를 사용한다.
+9. command registry와 핵심 문서 표의 command set/policy가 어긋나지 않도록
+   `tests/test_slash_command_docs.py` 정합성 테스트를 추가했다.
 
 ## 남은 구현 항목
 
 1. 조회 명령의 Textual render target은 현재 중앙 Markdown 중심이며, table/panel/inspector
    수준의 구조화 위젯으로 더 확장할 수 있다.
 2. `/resume`은 latest/index/id 선택을 지원하지만 archive 목록 modal/selector는 남아 있다.
-3. command registry 기반 문서 table 자동 검증은 남아 있다.
 
 ## 결정
 

@@ -15,7 +15,6 @@ import json
 import logging
 import os
 import re
-import shlex
 import sys
 import time
 from pathlib import Path
@@ -28,6 +27,7 @@ from rich.panel import Panel
 
 from trinity.config import TrinityConfig
 from trinity.models import DeliberationResult
+from trinity.slash_commands import parse_slash_command
 from trinity.tui.app import AgentTUIState, TrinityTUI
 from trinity.tui.events import TUIEvent, TUIEventBus
 from trinity.tui.kitty_compat import install_prompt_toolkit_parser_patch
@@ -43,6 +43,42 @@ from trinity.workflow import (
 )
 
 logger = logging.getLogger(__name__)
+
+PLAIN_TUI_COMMAND_HANDLERS: dict[str, str] = {
+    "quit": "_cmd_quit",
+    "help": "_cmd_help",
+    "status": "_cmd_status",
+    "context": "_cmd_context",
+    "rounds": "_cmd_rounds",
+    "agent": "_cmd_agent",
+    "history": "_cmd_history",
+    "save": "_cmd_save",
+    "caveman": "_cmd_caveman",
+    "workflow": "_cmd_workflow",
+    "questions": "_cmd_questions",
+    "answer": "_cmd_answer",
+    "decisions": "_cmd_decisions",
+    "packages": "_cmd_packages",
+    "subtasks": "_cmd_subtasks",
+    "report": "_cmd_report",
+    "resume": "_cmd_resume",
+    "execute": "_cmd_execute",
+    "target": "_cmd_target",
+}
+
+PLAIN_TUI_COMMANDS_WITH_ARGS = frozenset(
+    {
+        "rounds",
+        "agent",
+        "caveman",
+        "questions",
+        "answer",
+        "report",
+        "resume",
+        "execute",
+        "target",
+    }
+)
 
 if TYPE_CHECKING:
     from trinity.orchestrator import TrinityOrchestrator
@@ -187,60 +223,44 @@ class InteractiveSession:
         Args:
             command: The command string including the leading /.
         """
-        try:
-            parts = shlex.split(command[1:])
-        except ValueError as exc:
-            self.console.print(f"[yellow]Invalid command syntax: {exc}[/yellow]")
+        parsed = parse_slash_command(command)
+        if parsed is None:
             return
-        if not parts:
+        if parsed.error:
+            self.console.print(f"[yellow]{parsed.error}[/yellow]")
             return
-
-        cmd = parts[0].lower()
-        args = parts[1:]
-
-        if cmd in ("quit", "exit", "q"):
-            self.running = False
-        elif cmd == "help":
-            self.console.print(self.tui.get_welcome_text())
-        elif cmd == "status":
-            self._cmd_status()
-        elif cmd == "context":
-            self._cmd_context()
-        elif cmd == "rounds":
-            self._cmd_rounds(args)
-        elif cmd == "agent":
-            self._cmd_agent(args)
-        elif cmd == "history":
-            self._cmd_history()
-        elif cmd == "save":
-            self._cmd_save()
-        elif cmd == "caveman":
-            self._cmd_caveman(args)
-        elif cmd == "workflow":
-            self._cmd_workflow()
-        elif cmd == "questions":
-            self._cmd_questions(args)
-        elif cmd == "answer":
-            self._cmd_answer(args)
-        elif cmd == "decisions":
-            self._cmd_decisions()
-        elif cmd == "packages":
-            self._cmd_packages()
-        elif cmd == "subtasks":
-            self._cmd_subtasks()
-        elif cmd == "report":
-            self._cmd_report(args)
-        elif cmd == "resume":
-            self._cmd_resume(args)
-        elif cmd == "execute":
-            self._cmd_execute(args)
-        elif cmd == "target":
-            self._cmd_target(args)
-        else:
+        if not parsed.token:
+            return
+        if parsed.spec is None:
             self.console.print(
-                f"[yellow]Unknown command: /{cmd}. "
+                f"[yellow]Unknown command: {parsed.token}. "
                 f"Type /help for available commands.[/yellow]"
             )
+            return
+
+        command_id = parsed.command_id
+        handler_name = PLAIN_TUI_COMMAND_HANDLERS.get(command_id)
+        if handler_name is None:
+            self.console.print(
+                f"[yellow]Command {parsed.spec.name} is not available "
+                "in the plain TUI.[/yellow]"
+            )
+            return
+
+        handler = getattr(self, handler_name)
+        args = list(parsed.args)
+        if command_id in PLAIN_TUI_COMMANDS_WITH_ARGS:
+            handler(args)
+        else:
+            handler()
+
+    def _cmd_quit(self) -> None:
+        """Exit the interactive plain TUI loop."""
+        self.running = False
+
+    def _cmd_help(self) -> None:
+        """Show available command help."""
+        self.console.print(self.tui.get_welcome_text())
 
     def _cmd_status(self) -> None:
         """Show agent status table."""

@@ -10,6 +10,7 @@ from trinity.tui.prompt import (
     TRINITY_COMMANDS,
     TrinityPromptSession,
 )
+from trinity.tui.session import PLAIN_TUI_COMMAND_HANDLERS
 from trinity.slash_commands import (
     AgentCallPolicy,
     COMMAND_SPECS,
@@ -102,6 +103,11 @@ class TestSlashCommandRegistry:
             for name in spec.names
         ]
         assert TRINITY_COMMANDS == registry_names
+
+    def test_plain_tui_dispatch_covers_registry_commands(self):
+        canonical_names = {spec.command_id for spec in COMMAND_SPECS}
+
+        assert set(PLAIN_TUI_COMMAND_HANDLERS) == canonical_names
 
     def test_registry_agent_call_policies(self):
         policies = {spec.name: spec.agent_call for spec in COMMAND_SPECS}

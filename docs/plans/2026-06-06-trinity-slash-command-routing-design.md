@@ -196,20 +196,21 @@ registry는 다음을 생성하는 단일 source of truth가 되어야 한다.
 
 1. 공통 `SlashCommandSpec` registry를 추가했다.
 2. 기존 `TRINITY_COMMANDS`와 Textual `COMMAND_DESCRIPTIONS`는 registry 기반으로 생성한다.
-3. Textual Start/Nexus 제출 핸들러 앞에 slash command router를 추가했다.
-4. 조회/unknown 명령은 `start_prompt()` 또는 `submit_follow_up()`으로 넘어가지 않는다.
-5. Textual 로컬 명령 결과는 Nexus 중앙 영역의 `Local Command Results`에 누적 표시한다.
-6. `/answer`, `/target clear`, `/resume`, `/execute`의 Textual side effect는
+3. plain TUI `_handle_command()`는 registry parser로 alias/unknown/syntax를 정규화하고,
+   canonical command id를 dispatch table로 실행한다.
+4. Textual Start/Nexus 제출 핸들러 앞에 slash command router를 추가했다.
+5. 조회/unknown 명령은 `start_prompt()` 또는 `submit_follow_up()`으로 넘어가지 않는다.
+6. Textual 로컬 명령 결과는 Nexus 중앙 영역의 `Local Command Results`에 누적 표시한다.
+7. `/answer`, `/target clear`, `/resume`, `/execute`의 Textual side effect는
    `TextualWorkflowController` public API 또는 기존 execution API로 연결했다.
-7. `/questions --select`는 Textual 중앙 질문 option button과 `/answer` 안내를 사용한다.
+8. `/questions --select`는 Textual 중앙 질문 option button과 `/answer` 안내를 사용한다.
 
 ## 남은 구현 항목
 
-1. plain TUI `_handle_command()`를 registry dispatch로 옮기는 작업은 아직 남아 있다.
-2. 조회 명령의 Textual render target은 현재 중앙 Markdown 중심이며, table/panel/inspector
+1. 조회 명령의 Textual render target은 현재 중앙 Markdown 중심이며, table/panel/inspector
    수준의 구조화 위젯으로 더 확장할 수 있다.
-3. `/resume`은 latest/index/id 선택을 지원하지만 archive 목록 modal/selector는 남아 있다.
-4. command registry 기반 문서 table 자동 검증은 남아 있다.
+2. `/resume`은 latest/index/id 선택을 지원하지만 archive 목록 modal/selector는 남아 있다.
+3. command registry 기반 문서 table 자동 검증은 남아 있다.
 
 ## 결정
 

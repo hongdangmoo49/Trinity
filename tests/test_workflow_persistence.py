@@ -1,6 +1,12 @@
 """Tests for workflow persistence helpers."""
 
-from trinity.workflow import Blueprint, WorkflowPersistence, WorkflowSession, WorkflowState
+from trinity.workflow import (
+    Blueprint,
+    WorkPackage,
+    WorkflowPersistence,
+    WorkflowSession,
+    WorkflowState,
+)
 
 
 def test_workflow_persistence_round_trips_typed_blueprint(tmp_path):
@@ -24,6 +30,36 @@ def test_workflow_persistence_round_trips_typed_blueprint(tmp_path):
     assert loaded.blueprint is not None
     assert loaded.blueprint.title == "Route Bot"
     assert loaded.blueprint.data_flow == ["request -> route"]
+
+
+def test_workflow_persistence_round_trips_work_package_repair_notes(tmp_path):
+    persistence = WorkflowPersistence(tmp_path / ".trinity")
+    session = WorkflowSession(
+        id="wf-repairs",
+        goal="Implement",
+        state=WorkflowState.BLUEPRINT_READY,
+        work_packages=[
+            WorkPackage(
+                id="WP-001",
+                title="Shared setup",
+                owner_agent="codex",
+                objective="Prepare shared setup.",
+                repair_notes=[
+                    "owner reassigned from 'missing' to 'codex'",
+                    "expected_files missing; using unknown write scope",
+                ],
+            )
+        ],
+    )
+
+    persistence.save(session)
+    loaded = persistence.load()
+
+    assert loaded is not None
+    assert loaded.work_packages[0].repair_notes == [
+        "owner reassigned from 'missing' to 'codex'",
+        "expected_files missing; using unknown write scope",
+    ]
 
 
 def test_workflow_persistence_appends_and_loads_events(tmp_path):

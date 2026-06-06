@@ -8,6 +8,10 @@ from pathlib import Path
 import logging
 
 from trinity.models import AgentSpec, Provider
+from trinity.providers.policy import (
+    DEFAULT_BROAD_WRITE_PATHS,
+    DEFAULT_SHARED_WRITE_PATHS,
+)
 
 PROVIDER_STATE_MODES = {"user-home", "isolated"}
 TRANSPORT_MODES = {"one-shot", "tmux"}
@@ -53,9 +57,17 @@ class TrinityConfig:
     provider_readiness_timeout_seconds: float = 20.0
     synthesis_mode: str = "auto"  # "auto" | "model" | "heuristic"
     synthesis_agent: str = ""
-    synthesis_model: str = "fast"
+    synthesis_model: str = "strong"
     synthesis_timeout_seconds: float = 300.0
     synthesis_max_input_chars: int = 60_000
+
+    # Execution policy
+    parallel_shared_write_paths: list[str] = field(
+        default_factory=lambda: sorted(DEFAULT_SHARED_WRITE_PATHS)
+    )
+    parallel_broad_write_paths: list[str] = field(
+        default_factory=lambda: sorted(DEFAULT_BROAD_WRITE_PATHS)
+    )
 
     # Context management
     context_rotate_threshold: float = 0.60
@@ -124,6 +136,7 @@ class TrinityConfig:
 
         general = data.get("general", {})
         deliberation = data.get("deliberation", {})
+        execution = data.get("execution", {})
         context = data.get("context", {})
         health = data.get("health", {})
         logging_conf = data.get("logging", {})
@@ -185,12 +198,24 @@ class TrinityConfig:
                 deliberation.get("synthesis_mode", "auto")
             ),
             synthesis_agent=str(deliberation.get("synthesis_agent", "")),
-            synthesis_model=str(deliberation.get("synthesis_model", "fast")),
+            synthesis_model=str(deliberation.get("synthesis_model", "strong")),
             synthesis_timeout_seconds=float(
                 deliberation.get("synthesis_timeout_seconds", 300.0)
             ),
             synthesis_max_input_chars=int(
                 deliberation.get("synthesis_max_input_chars", 60_000)
+            ),
+            parallel_shared_write_paths=cls._string_list(
+                execution.get(
+                    "parallel_shared_write_paths",
+                    sorted(DEFAULT_SHARED_WRITE_PATHS),
+                )
+            ),
+            parallel_broad_write_paths=cls._string_list(
+                execution.get(
+                    "parallel_broad_write_paths",
+                    sorted(DEFAULT_BROAD_WRITE_PATHS),
+                )
             ),
             context_rotate_threshold=context.get(
                 "rotate_threshold", general.get("context_rotate_threshold", 0.60)
@@ -281,6 +306,10 @@ class TrinityConfig:
             "context": {
                 "caveman_mode": self.caveman_mode,
                 "caveman_intensity": self.caveman_intensity,
+            },
+            "execution": {
+                "parallel_shared_write_paths": list(self.parallel_shared_write_paths),
+                "parallel_broad_write_paths": list(self.parallel_broad_write_paths),
             },
             "agents": {},
         }
@@ -451,3 +480,13 @@ class TrinityConfig:
                 f"Expected one of: {allowed}"
             )
         return normalized
+
+    @staticmethod
+    def _string_list(value: object) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, list):
+            return [str(item) for item in value if str(item).strip()]
+        return [str(value)]

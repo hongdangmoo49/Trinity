@@ -101,9 +101,20 @@ class CentralAgentView(VerticalScroll):
         if snapshot.decisions:
             lines.extend(["", "### Decisions"])
             lines.extend(f"- {item}" for item in snapshot.decisions)
+        if snapshot.central_work_packages:
+            lines.extend(["", "### Central WP Graph"])
+            lines.extend(f"- {item}" for item in snapshot.central_work_packages)
         if snapshot.work_packages:
-            lines.extend(["", "### Work Packages"])
+            heading = (
+                "### Local WP Graph"
+                if snapshot.central_work_packages
+                else "### Work Packages"
+            )
+            lines.extend(["", heading])
             lines.extend(f"- {item}" for item in snapshot.work_packages)
+        if snapshot.work_package_repairs:
+            lines.extend(["", "### Local Policy Repairs"])
+            lines.extend(f"- {item}" for item in snapshot.work_package_repairs)
         return "\n".join(lines)
 
     def _render_questions(self, questions: list[QuestionSnapshot]) -> None:

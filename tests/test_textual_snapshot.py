@@ -75,6 +75,62 @@ def test_snapshot_projects_persisted_workflow(tmp_path) -> None:
     assert snapshot.providers[1].enabled is False
 
 
+def test_snapshot_projects_central_and_repaired_work_package_graph(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    missing_dependency_note = (
+        "dependency 'shared-contract' removed because no package matched"
+    )
+    persistence.save(
+        WorkflowSession(
+            id="wf-graph",
+            goal="Build UI",
+            state=WorkflowState.BLUEPRINT_READY,
+            active_agents=["claude", "codex"],
+            blueprint=Blueprint(
+                title="Workbench",
+                summary="Use Textual screens.",
+                work_packages=[
+                    WorkPackage(
+                        id="frontend",
+                        title="Frontend shell",
+                        owner_agent="missing",
+                        objective="Build the shell.",
+                        dependencies=["shared-contract"],
+                        expected_files=[],
+                    )
+                ],
+            ),
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="Frontend shell",
+                    owner_agent="claude",
+                    objective="Build the shell.",
+                    expected_files=["__trinity_unknown_write_scope__"],
+                    repair_notes=[
+                        "id normalized from 'frontend' to 'WP-001'",
+                        "owner reassigned from 'missing' to 'claude'",
+                        missing_dependency_note,
+                    ],
+                )
+            ],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert snapshot.central_work_packages == [
+        "frontend missing: Frontend shell (deps=shared-contract; files=-)"
+    ]
+    assert snapshot.work_packages == ["WP-001 claude: Frontend shell (pending)"]
+    assert snapshot.work_package_repairs == [
+        "WP-001: id normalized from 'frontend' to 'WP-001'",
+        "WP-001: owner reassigned from 'missing' to 'claude'",
+        f"WP-001: {missing_dependency_note}",
+    ]
+
+
 def test_snapshot_keeps_answered_question_history(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     persistence = WorkflowPersistence(config.effective_state_dir)
@@ -169,6 +225,22 @@ def test_snapshot_formats_execution_events_with_runtime_details(tmp_path) -> Non
     )
     persistence.append_event(
         {
+            "event": "execution_batch_planned",
+            "state": "executing",
+            "workflow_id": "wf-execution",
+            "data": {
+                "batches": [["WP-001"], ["WP-002"]],
+                "notices": [
+                    {
+                        "reason": "high-risk package serialized",
+                        "serialized_agents": ["claude", "codex"],
+                    }
+                ],
+            },
+        }
+    )
+    persistence.append_event(
+        {
             "event": "work_package_completed",
             "state": "executing",
             "workflow_id": "wf-execution",
@@ -199,6 +271,10 @@ def test_snapshot_formats_execution_events_with_runtime_details(tmp_path) -> Non
     assert snapshot.execution_log == [
         "implementation_requested: 1 packages -> /workspace/game",
         f"{started_prefix} work_package_started: WP-001 claude running",
+        (
+            "execution_batch_planned: 2 batches; 1 policy notices - "
+            "high-risk package serialized"
+        ),
         (
             f"{completed_prefix} work_package_completed: "
             "WP-001 claude done - Implemented input controller."

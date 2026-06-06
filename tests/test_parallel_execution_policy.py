@@ -17,6 +17,9 @@ def _scope(
     cwd: Path | None = None,
     workspace_id: str | None = None,
     file_ownership: set[str] | None = None,
+    parallelizable: bool = True,
+    risk: str = "medium",
+    parallel_group: int | None = None,
 ) -> ExecutionScope:
     return ExecutionScope(
         agent_name=agent,
@@ -25,6 +28,9 @@ def _scope(
         cwd=cwd,
         workspace_id=workspace_id,
         file_ownership=frozenset(file_ownership or set()),
+        parallelizable=parallelizable,
+        risk=risk,
+        parallel_group=parallel_group,
     )
 
 
@@ -101,6 +107,176 @@ def test_disjoint_file_ownership_allows_same_worktree_writes(tmp_path):
     assert decision.allowed is True
 
 
+def test_parent_child_file_ownership_serializes_same_worktree(tmp_path):
+    policy = ParallelExecutionPolicy()
+
+    decision = policy.can_run_together(
+        [
+            _scope(
+                "claude",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"src/trinity/"},
+            ),
+            _scope(
+                "codex",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"src/trinity/config.py"},
+            ),
+        ]
+    )
+
+    assert decision.allowed is False
+    assert "disjoint file ownership" in decision.reason
+
+
+def test_broad_root_directory_serializes_same_worktree(tmp_path):
+    policy = ParallelExecutionPolicy()
+
+    decision = policy.can_run_together(
+        [
+            _scope(
+                "claude",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"src/"},
+            ),
+            _scope(
+                "codex",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"tests/test_config.py"},
+            ),
+        ]
+    )
+
+    assert decision.allowed is False
+    assert "shared workspace files" in decision.reason
+
+
+def test_configured_broad_write_path_serializes_same_worktree(tmp_path):
+    policy = ParallelExecutionPolicy(broad_write_paths={"docs"})
+
+    decision = policy.can_run_together(
+        [
+            _scope(
+                "claude",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"docs/"},
+            ),
+            _scope(
+                "codex",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"src/feature.py"},
+            ),
+        ]
+    )
+
+    assert decision.allowed is False
+    assert "shared workspace files" in decision.reason
+
+
+def test_configured_shared_write_path_serializes_same_worktree(tmp_path):
+    policy = ParallelExecutionPolicy(shared_write_paths={"docs/guide.md"})
+
+    decision = policy.can_run_together(
+        [
+            _scope(
+                "claude",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"docs/guide.md"},
+            ),
+            _scope(
+                "codex",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"src/feature.py"},
+            ),
+        ]
+    )
+
+    assert decision.allowed is False
+    assert "shared workspace files" in decision.reason
+
+
+def test_non_parallelizable_write_serializes_same_worktree(tmp_path):
+    policy = ParallelExecutionPolicy()
+
+    decision = policy.can_run_together(
+        [
+            _scope(
+                "claude",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"src/a.py"},
+                parallelizable=False,
+            ),
+            _scope(
+                "codex",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"src/b.py"},
+            ),
+        ]
+    )
+
+    assert decision.allowed is False
+    assert "non-parallelizable" in decision.reason
+
+
+def test_high_risk_write_serializes_same_worktree(tmp_path):
+    policy = ParallelExecutionPolicy()
+
+    decision = policy.can_run_together(
+        [
+            _scope(
+                "claude",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"src/a.py"},
+                risk="high",
+            ),
+            _scope(
+                "codex",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"src/b.py"},
+            ),
+        ]
+    )
+
+    assert decision.allowed is False
+    assert "high-risk" in decision.reason
+
+
+def test_shared_workspace_file_serializes_same_worktree(tmp_path):
+    policy = ParallelExecutionPolicy()
+
+    decision = policy.can_run_together(
+        [
+            _scope(
+                "claude",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"pyproject.toml"},
+            ),
+            _scope(
+                "codex",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"tests/test_config.py"},
+            ),
+        ]
+    )
+
+    assert decision.allowed is False
+    assert "shared workspace files" in decision.reason
+
+
 def test_plan_batches_splits_colliding_provider_managed_writes(tmp_path):
     policy = ParallelExecutionPolicy()
     read_only = _scope("antigravity", cwd=tmp_path)
@@ -121,3 +297,38 @@ def test_plan_batches_splits_colliding_provider_managed_writes(tmp_path):
         ["antigravity", "claude"],
         ["codex"],
     ]
+
+
+def test_plan_prefers_parallel_group_order_and_keeps_policy_notices(tmp_path):
+    policy = ParallelExecutionPolicy()
+    later = _scope(
+        "claude",
+        access=InvocationAccess.WORKSPACE_WRITE,
+        cwd=tmp_path,
+        file_ownership={"src/later.py"},
+        parallel_group=2,
+    )
+    first = _scope(
+        "codex",
+        access=InvocationAccess.WORKSPACE_WRITE,
+        cwd=tmp_path,
+        file_ownership={"src/first.py"},
+        parallel_group=1,
+    )
+    high_risk = _scope(
+        "antigravity",
+        access=InvocationAccess.WORKSPACE_WRITE,
+        cwd=tmp_path,
+        file_ownership={"tests/high_risk.py"},
+        risk="high",
+        parallel_group=1,
+    )
+
+    plan = policy.plan([later, first, high_risk])
+
+    assert [[scope.agent_name for scope in batch] for batch in plan.batches] == [
+        ["codex"],
+        ["antigravity"],
+        ["claude"],
+    ]
+    assert any("high-risk" in notice.reason for notice in plan.notices)

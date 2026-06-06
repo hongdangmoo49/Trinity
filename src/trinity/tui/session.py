@@ -1543,10 +1543,35 @@ class InteractiveSession:
             except (TypeError, ValueError):
                 return None
 
+        def _event_batches(event: TUIEvent) -> list[list[str]]:
+            batches = event.data.get("batches", [])
+            if not isinstance(batches, list):
+                return []
+            normalized: list[list[str]] = []
+            for batch in batches:
+                if isinstance(batch, list):
+                    normalized.append(
+                        [str(item) for item in batch if str(item).strip()]
+                    )
+            return normalized
+
+        def _event_notices(event: TUIEvent) -> list[dict[str, object]]:
+            notices = event.data.get("notices", [])
+            if not isinstance(notices, list):
+                return []
+            return [item for item in notices if isinstance(item, dict)]
+
         def _consume_events() -> bool:
             execution_done = False
             for event in bus.poll():
                 self.tui.consume_event(event)
+                if event.type == TUIEventType.EXECUTION_BATCH_PLANNED:
+                    self.workflow.record_execution_batch_planned(
+                        _event_batches(event),
+                        _event_notices(event),
+                        _event_occurred_at(event),
+                    )
+                    self.tui.set_workflow_session(self.workflow.session)
                 if event.type == TUIEventType.WORK_PACKAGE_STARTED:
                     self.workflow.record_work_package_started(
                         str(event.data.get("package_id") or ""),

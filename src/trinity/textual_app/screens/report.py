@@ -182,8 +182,22 @@ class ReportScreen(Screen[None]):
         if snap.decisions:
             sections.append(_section("Decisions", _render_list(snap.decisions)))
 
+        if snap.central_work_packages:
+            sections.append(
+                _section("Central WP Graph", _render_bullets(snap.central_work_packages))
+            )
+
         if snap.work_packages:
-            sections.append(_section("Work Packages", _render_bullets(snap.work_packages)))
+            title = "Local WP Graph" if snap.central_work_packages else "Work Packages"
+            sections.append(_section(title, _render_bullets(snap.work_packages)))
+
+        if snap.work_package_repairs:
+            sections.append(
+                _section(
+                    "Local Policy Repairs",
+                    _render_bullets(snap.work_package_repairs),
+                )
+            )
 
         if snap.execution_log:
             sections.append(_section("Execution Log", _render_list(snap.execution_log[-20:])))

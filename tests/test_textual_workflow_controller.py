@@ -226,6 +226,21 @@ def test_textual_workflow_controller_persists_work_package_runtime_events(tmp_pa
 
     controller._consume_runtime_event(
         TUIEvent(
+            type=TUIEventType.EXECUTION_BATCH_PLANNED,
+            data={
+                "batches": [["WP-001"]],
+                "notices": [
+                    {
+                        "reason": "non-parallelizable package serialized",
+                        "serialized_agents": ["claude"],
+                    }
+                ],
+                "occurred_at": 1200.0,
+            },
+        )
+    )
+    controller._consume_runtime_event(
+        TUIEvent(
             type=TUIEventType.WORK_PACKAGE_STARTED,
             data={
                 "package_id": "WP-001",
@@ -249,6 +264,12 @@ def test_textual_workflow_controller_persists_work_package_runtime_events(tmp_pa
     )
 
     events = controller.workflow.persistence.load_events()
+    assert events[-3]["event"] == "execution_batch_planned"
+    assert events[-3]["timestamp"] == 1200.0
+    assert events[-3]["data"]["batches"] == [["WP-001"]]
+    assert events[-3]["data"]["notices"][0]["reason"] == (
+        "non-parallelizable package serialized"
+    )
     assert events[-2]["event"] == "work_package_started"
     assert events[-2]["timestamp"] == 1234.5
     assert events[-1]["event"] == "work_package_completed"

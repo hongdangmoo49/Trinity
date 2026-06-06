@@ -35,6 +35,8 @@ cross-platform 안정화, Textual Workbench 기본 UI, Textual execution wiring�
 - [v0.10.3 Workflow and Runtime Guide](workflow-v0.10.2-guide.md)
 - [Slash Command Reference](slash-command-reference.md)
 - [Slash Command Analysis Documentation](test-results/2026-06-06-slash-command-analysis.md)
+- [WP Graph Synthesis Hardening Plan](plans/2026-06-06-wp-graph-synthesis.md)
+- [WP Graph Synthesis Hardening Result](test-results/2026-06-06-wp-graph-synthesis.md)
 - [Textual Workbench Execution Branch Report](test-results/2026-06-05-textual-workbench-execution-branch-report.md)
 - [Execution Matrix Hardening](test-results/2026-06-05-execution-matrix-hardening.md)
 - [Execution Timeline Logging](test-results/2026-06-06-execution-timeline-logging.md)
@@ -51,8 +53,8 @@ cross-platform 안정화, Textual Workbench 기본 UI, Textual execution wiring�
 
 - 패키지/CLI 버전: `0.10.3`
 - WSL 최신 기록: `/home/zaemi/.local/bin/uv run trinity --version` -> `trinity, version 0.10.3`
-- WSL 최신 전체 회귀 기록: `/home/zaemi/.local/bin/uv run pytest -q` -> `1173 passed, 1 warning in 61.24s`
-- 남은 경고: 기존 `AsyncMock` runtime warning이며 Textual execution wiring에서 새로 도입된 것은 아님
+- WSL 최신 전체 회귀 기록: `/home/zaemi/.local/bin/uv run pytest -q` -> `1196 passed, 1 warning in 55.53s`
+- 남은 경고: 기존 계열의 `AsyncMock` runtime warning이며 WP graph synthesis 보강에서 새로 도입된 것은 아님
 
 ---
 

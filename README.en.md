@@ -124,7 +124,7 @@ That's it. Trinity will:
 
 ## 🧭 Workflow and Execution Model
 
-Trinity `0.10.2` is built around a **persisted workflow** that separates planning
+Trinity `0.10.3` is built around a **persisted workflow** that separates planning
 from execution. A user request first goes through round-based deliberation and
 central synthesis. Only after a blueprint is ready does Trinity ask for an
 execution workspace and allow provider-managed file writes.
@@ -160,7 +160,7 @@ Important runtime rules:
   in `WorkflowEngine`, `TrinityOrchestrator`, and `ExecutionProtocol`.
 
 For the detailed Korean runtime guide, see
-[`docs/workflow-v0.10.2-guide.md`](docs/workflow-v0.10.2-guide.md).
+[the workflow runtime guide](docs/workflow-v0.10.2-guide.md).
 
 ---
 
@@ -172,7 +172,7 @@ the central synthesis view organize questions and consensus. File changes only
 start after you choose `Execute` and approve the workspace preflight.
 
 ```
-  ┌ Trinity v0.10.2 ─ Nexus ─ workflow: planning ┐
+  ┌ Trinity v0.10.3 ─ Nexus ─ workflow: planning ┐
   │ Claude              │ Codex              │ Antigravity │
   │ Ready               │ Running            │ Ready       │
   ├───────────────────────────────────────────────────────────┤
@@ -444,8 +444,8 @@ uv publish --token <PYPI_TOKEN>
 
 | Metric | Value |
 | :--- | :--- |
-| **Version** | 0.10.2 |
-| **Tests** | `1092 passed, 1 warning` in the latest WSL 0.10.2 verification run |
+| **Version** | 0.10.3 |
+| **Tests** | `1173 passed, 1 warning` in the latest WSL 0.10.3 verification run |
 | **Coverage** | ~87% |
 | **Source files** | 100+ |
 | **Test files** | 70+ |

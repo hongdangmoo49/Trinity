@@ -122,7 +122,7 @@ Trinity가 백그라운드에서 다음 단계를 자동으로 수행합니다:
 
 ## 🧭 워크플로우와 실행 모델
 
-Trinity `0.10.2`의 핵심은 **planning과 execution을 분리한 persisted workflow**입니다.
+Trinity `0.10.3`의 핵심은 **planning과 execution을 분리한 persisted workflow**입니다.
 사용자의 요구사항은 먼저 라운드 기반 deliberation과 central synthesis를 거쳐
 질문, 결정, blueprint, work package로 정리됩니다. 실제 파일 변경은 blueprint가
 준비된 뒤 사용자가 `Execute`를 선택하고 target workspace preflight를 통과해야
@@ -160,7 +160,7 @@ Prompt
   snapshot으로 투영합니다.
 
 상세한 상태 전이와 런타임 경로는
-[`docs/workflow-v0.10.2-guide.md`](docs/workflow-v0.10.2-guide.md)를 참고하세요.
+[workflow runtime guide](docs/workflow-v0.10.2-guide.md)를 참고하세요.
 
 ---
 
@@ -172,7 +172,7 @@ Trinity는 기본 실행 화면으로 **Textual 기반 Workbench TUI**를 제공
 변경은 `Execute`를 누른 뒤 workspace preflight를 승인해야 시작됩니다.
 
 ```
-  ┌ Trinity v0.10.2 ─ Nexus ─ workflow: planning ┐
+  ┌ Trinity v0.10.3 ─ Nexus ─ workflow: planning ┐
   │ Claude              │ Codex              │ Antigravity │
   │ Ready               │ Running            │ Ready       │
   ├───────────────────────────────────────────────────────────┤
@@ -443,8 +443,8 @@ uv publish --token <PYPI_TOKEN>
 
 | 지표 | 수치 |
 | :--- | :--- |
-| **버전** | 0.10.2 |
-| **테스트** | `1092 passed, 1 warning` (WSL 최신 0.10.2 검증 기준) |
+| **버전** | 0.10.3 |
+| **테스트** | `1173 passed, 1 warning` (WSL 최신 0.10.3 검증 기준) |
 | **커버리지** | 약 87% |
 | **소스 파일** | 100여 개 |
 | **테스트 파일** | 70여 개 |

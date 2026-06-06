@@ -161,6 +161,7 @@ class TrinityTextualApp(App[None]):
         height: 8;
         border: round $accent;
         padding: 0 1;
+        overflow-y: auto;
     }
 
     .provider-claude {
@@ -197,6 +198,7 @@ class TrinityTextualApp(App[None]):
 
     .provider-summary {
         color: $text-muted;
+        height: auto;
     }
 
     #central-agent {
@@ -256,6 +258,12 @@ class TrinityTextualApp(App[None]):
 
     .question-text {
         margin-top: 1;
+    }
+
+    .question-answer {
+        color: $success;
+        margin-left: 2;
+        margin-bottom: 1;
     }
 
     .question-options {

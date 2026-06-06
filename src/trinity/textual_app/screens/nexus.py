@@ -121,6 +121,7 @@ class NexusScreen(Screen[None]):
                     enabled=provider.enabled,
                     status=provider.status,
                     summary=provider.summary,
+                    details=provider.raw_output,
                 )
             )
         self._refresh_central()

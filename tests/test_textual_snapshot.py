@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 
 from trinity.config import TrinityConfig
 from trinity.textual_app.snapshot import NexusSnapshotAdapter
@@ -14,6 +15,7 @@ from trinity.workflow import (
     WorkflowState,
     WorkPackage,
     WorkStatus,
+    DecisionRecord,
 )
 
 
@@ -73,9 +75,58 @@ def test_snapshot_projects_persisted_workflow(tmp_path) -> None:
     assert snapshot.providers[1].enabled is False
 
 
+def test_snapshot_keeps_answered_question_history(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-questions",
+            goal="Build game",
+            state=WorkflowState.BLUEPRINT_READY,
+            active_agents=["claude"],
+            pending_questions=[
+                OpenQuestion(
+                    id="q-1",
+                    question="Engine?",
+                    options=["Godot", "Unity"],
+                    status="answered",
+                ),
+                OpenQuestion(
+                    id="q-2",
+                    question="Platform?",
+                    options=["PC", "Mobile"],
+                ),
+            ],
+            decisions=[
+                DecisionRecord(
+                    id="dec-001",
+                    question_id="q-1",
+                    decision="Godot",
+                    decided_by="user",
+                )
+            ],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert [question.question for question in snapshot.questions] == [
+        "Engine?",
+        "Platform?",
+    ]
+    assert snapshot.questions[0].status == "answered"
+    assert snapshot.questions[0].answer == "Godot"
+    assert snapshot.questions[1].status == "open"
+    assert snapshot.questions[1].answer == ""
+
+
 def test_snapshot_formats_execution_events_with_runtime_details(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     persistence = WorkflowPersistence(config.effective_state_dir)
+    started_at = 1710000000.0
+    completed_at = 1710000060.0
+    started_prefix = datetime.fromtimestamp(started_at).strftime("[%H:%M:%S]")
+    completed_prefix = datetime.fromtimestamp(completed_at).strftime("[%H:%M:%S]")
     persistence.save(
         WorkflowSession(
             id="wf-execution",
@@ -113,6 +164,33 @@ def test_snapshot_formats_execution_events_with_runtime_details(tmp_path) -> Non
                 "agent": "claude",
                 "status": "running",
             },
+            "timestamp": started_at,
+        }
+    )
+    persistence.append_event(
+        {
+            "event": "work_package_completed",
+            "state": "executing",
+            "workflow_id": "wf-execution",
+            "data": {
+                "package_id": "WP-001",
+                "agent": "claude",
+                "status": "done",
+                "summary": "Implemented input controller.",
+            },
+            "timestamp": completed_at,
+        }
+    )
+    persistence.append_event(
+        {
+            "event": "execution_result_recorded",
+            "state": "executing",
+            "workflow_id": "wf-execution",
+            "data": {
+                "package_id": "WP-001",
+                "agent": "claude",
+                "status": "done",
+            },
         }
     )
 
@@ -120,7 +198,80 @@ def test_snapshot_formats_execution_events_with_runtime_details(tmp_path) -> Non
 
     assert snapshot.execution_log == [
         "implementation_requested: 1 packages -> /workspace/game",
-        "work_package_started: WP-001 claude running",
+        f"{started_prefix} work_package_started: WP-001 claude running",
+        (
+            f"{completed_prefix} work_package_completed: "
+            "WP-001 claude done - Implemented input controller."
+        ),
+    ]
+
+
+def test_snapshot_formats_legacy_execution_result_event(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-legacy-result",
+            goal="Build game",
+            state=WorkflowState.EXECUTING,
+            active_agents=["codex"],
+        )
+    )
+    persistence.append_event(
+        {
+            "event": "execution_result_recorded",
+            "state": "executing",
+            "workflow_id": "wf-legacy-result",
+            "data": {
+                "package_id": "WP-002",
+                "agent": "codex",
+                "status": "done",
+            },
+        }
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert snapshot.execution_log == ["work_package_completed: WP-002 codex done"]
+
+
+def test_snapshot_hides_session_result_when_finished_event_is_visible(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-duplicate-result",
+            goal="Build game",
+            state=WorkflowState.EXECUTING,
+            active_agents=["codex"],
+            execution_results=[
+                ExecutionResult(
+                    package_id="WP-002",
+                    agent_name="codex",
+                    status=WorkStatus.DONE,
+                    summary="Implemented storage.",
+                )
+            ],
+        )
+    )
+    persistence.append_event(
+        {
+            "event": "work_package_completed",
+            "state": "executing",
+            "workflow_id": "wf-duplicate-result",
+            "data": {
+                "package_id": "WP-002",
+                "agent": "codex",
+                "status": "done",
+                "summary": "Implemented storage.",
+            },
+        }
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert snapshot.execution_log == [
+        "work_package_completed: WP-002 codex done - Implemented storage."
     ]
 
 

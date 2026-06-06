@@ -29,7 +29,7 @@ from rich.panel import Panel
 from trinity.config import TrinityConfig
 from trinity.models import DeliberationResult
 from trinity.tui.app import AgentTUIState, TrinityTUI
-from trinity.tui.events import TUIEventBus
+from trinity.tui.events import TUIEvent, TUIEventBus
 from trinity.tui.kitty_compat import install_prompt_toolkit_parser_patch
 from trinity.tui.prompt import CUSTOM_OPTION_VALUE, TrinityPromptSession
 from trinity.tui.theme import get_theme
@@ -1529,8 +1529,19 @@ class InteractiveSession:
                 progress_results.clear()
             if not results:
                 return
-            self.workflow.record_execution_results(results, finalize=False)
+            self.workflow.record_execution_results(
+                results,
+                finalize=False,
+                emit_events=False,
+            )
             self.tui.set_workflow_session(self.workflow.session)
+
+        def _event_occurred_at(event: TUIEvent) -> float | None:
+            value = event.data.get("occurred_at")
+            try:
+                return float(value) if value is not None else None
+            except (TypeError, ValueError):
+                return None
 
         def _consume_events() -> bool:
             execution_done = False
@@ -1540,6 +1551,16 @@ class InteractiveSession:
                     self.workflow.record_work_package_started(
                         str(event.data.get("package_id") or ""),
                         str(event.data.get("agent") or ""),
+                        _event_occurred_at(event),
+                    )
+                    self.tui.set_workflow_session(self.workflow.session)
+                if event.type == TUIEventType.WORK_PACKAGE_COMPLETED:
+                    self.workflow.record_work_package_completed(
+                        str(event.data.get("package_id") or ""),
+                        str(event.data.get("agent") or ""),
+                        str(event.data.get("status") or ""),
+                        str(event.data.get("summary") or ""),
+                        _event_occurred_at(event),
                     )
                     self.tui.set_workflow_session(self.workflow.session)
                 if event.type == TUIEventType.EXECUTION_DONE:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from textual.app import ComposeResult
-from textual.containers import Vertical
+from textual.containers import VerticalScroll
 from textual.widgets import Static
 
 
@@ -18,12 +18,13 @@ class ProviderPanelState:
     enabled: bool
     status: str
     summary: str = ""
+    details: str = ""
 
 
 ACTIVITY_FRAMES = ("|", "/", "-", "\\")
 
 
-class ProviderPanel(Vertical):
+class ProviderPanel(VerticalScroll):
     """Compact status surface for a provider."""
 
     def __init__(self, state: ProviderPanelState, *, id: str | None = None) -> None:
@@ -61,7 +62,7 @@ class ProviderPanel(Vertical):
         return f"{prefix}{self.state.status} · {state}"
 
     def _summary_line(self) -> str:
-        return self.state.summary or "No response yet"
+        return self.state.details or self.state.summary or "No response yet"
 
     @staticmethod
     def _classes_for(state: ProviderPanelState) -> str:

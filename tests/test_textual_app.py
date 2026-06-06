@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from textual import events
+from textual.containers import VerticalScroll
 from textual.widgets import Button, RichLog, TabbedContent, TextArea
 
 from trinity.config import TrinityConfig
@@ -745,7 +746,7 @@ async def test_central_agent_view_renders_question_options(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_central_agent_view_renders_only_next_question(tmp_path) -> None:
+async def test_central_agent_view_renders_all_questions(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
     async with app.run_test(size=(120, 40)) as pilot:
@@ -774,16 +775,62 @@ async def test_central_agent_view_renders_only_next_question(tmp_path) -> None:
         await pilot.pause()
 
         central = screen.query_one(CentralAgentView)
-        assert "Question for you (1 of 2)" in str(
+        assert "Questions for you (2)" in str(
             central.query_one("#central-question-title").content
         )
         assert central.query_one("#answer-q-1-1")
         assert central.query_one("#answer-q-1-2")
-        assert not central.query("#answer-q-2-1")
+        assert central.query_one("#answer-q-2-1")
+        assert central.query_one("#answer-q-2-2")
         rendered_questions = [
             str(item.content) for item in central.query(".question-text")
         ]
-        assert rendered_questions == ["1. Engine?"]
+        assert rendered_questions == [
+            "1. [open] Engine?",
+            "2. [open] Monetization?",
+        ]
+
+
+@pytest.mark.asyncio
+async def test_central_agent_view_keeps_answered_question_history(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                state="blueprint_ready",
+                questions=[
+                    QuestionSnapshot(
+                        id="q-1",
+                        question="Engine?",
+                        options=["Godot", "Unity"],
+                        status="answered",
+                        answer="Godot",
+                    ),
+                    QuestionSnapshot(
+                        id="q-2",
+                        question="Platform?",
+                        options=["PC", "Mobile"],
+                    ),
+                ],
+            )
+        )
+        await pilot.pause()
+
+        central = screen.query_one(CentralAgentView)
+        assert "1. [answered] Engine?" in [
+            str(item.content) for item in central.query(".question-text")
+        ]
+        assert "Answer: Godot" in [
+            str(item.content) for item in central.query(".question-answer")
+        ]
+        assert not central.query("#answer-q-1-1")
+        assert central.query_one("#answer-q-2-1")
 
 
 @pytest.mark.asyncio
@@ -851,11 +898,43 @@ async def test_nexus_running_surfaces_show_activity(tmp_path) -> None:
 
         panel = screen.query_one("#provider-claude", ProviderPanel)
         central = screen.query_one(CentralAgentView)
+        assert isinstance(panel, VerticalScroll)
         assert panel.has_class("provider-running")
         assert "Running" in str(panel.query_one(".provider-status").content)
         assert central.has_class("central-running")
         assert "Central Agent" in str(central.query_one("#central-title").content)
         assert "round 1 synthesizing" in central._markdown()
+
+
+@pytest.mark.asyncio
+async def test_provider_panel_renders_scrollable_raw_output(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+    long_output = "\n".join(f"line {index}" for index in range(30))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                providers=[
+                    ProviderSnapshot(
+                        name="claude",
+                        provider="claude-code",
+                        enabled=True,
+                        status="Ready",
+                        summary="short summary",
+                        raw_output=long_output,
+                    )
+                ]
+            )
+        )
+        await pilot.pause()
+
+        panel = screen.query_one("#provider-claude", ProviderPanel)
+        assert isinstance(panel, VerticalScroll)
+        assert "line 29" in str(panel.query_one(".provider-summary").content)
 
 @pytest.mark.asyncio
 async def test_workflow_inspector_renders_snapshot_counts(tmp_path) -> None:

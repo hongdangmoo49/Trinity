@@ -53,11 +53,14 @@ class TestCommandCompletion:
             "/decisions",
             "/packages",
             "/subtasks",
+            "/report",
             "/resume",
             "/execute",
             "/target",
             "/help",
             "/quit",
+            "/exit",
+            "/q",
         }
         assert expected.issubset(set(TRINITY_COMMANDS))
 

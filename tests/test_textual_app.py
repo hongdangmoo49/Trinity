@@ -457,9 +457,28 @@ async def test_prompt_composer_shows_slash_command_palette(tmp_path) -> None:
 
         composer.set_text("/ex")
         await pilot.pause()
-        filtered_options = [str(option.content) for option in composer.query(".command-option")]
+        filtered_options = [
+            str(option.content) for option in composer.query(".command-option")
+        ]
 
         assert any("/execute" in option for option in filtered_options)
+
+        composer.set_text("/rep")
+        await pilot.pause()
+        report_options = [
+            str(option.content) for option in composer.query(".command-option")
+        ]
+
+        assert any("/report" in option for option in report_options)
+
+        composer.set_text("/q")
+        await pilot.pause()
+        quit_options = [
+            str(option.content) for option in composer.query(".command-option")
+        ]
+
+        assert any("/q" in option for option in quit_options)
+        assert any("/quit" in option for option in quit_options)
 
         composer.set_text("hello /status")
         await pilot.pause()

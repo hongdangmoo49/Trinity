@@ -49,11 +49,14 @@ TRINITY_COMMANDS = [
     "/decisions",
     "/packages",
     "/subtasks",
+    "/report",
     "/resume",
     "/execute",
     "/target",
     "/help",
     "/quit",
+    "/exit",
+    "/q",
 ]
 
 # prompt_toolkit style mapping

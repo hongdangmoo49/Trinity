@@ -7,7 +7,8 @@ Branch: `codex/slash-command-docs`
 ## Scope
 
 The task was documentation-first analysis of Trinity slash commands before
-adding new convenience features. No runtime command behavior was changed.
+adding new convenience features. Runtime command execution behavior was not
+changed; the follow-up patch only improved slash command discoverability.
 
 ## Code Paths Reviewed
 
@@ -47,6 +48,15 @@ adding new convenience features. No runtime command behavior was changed.
 - `docs/checkpoint.md`
   - Added the new reference to the current operating documentation list.
 
+## Discoverability Follow-up
+
+- Added `/report`, `/exit`, and `/q` to `TRINITY_COMMANDS` so prompt_toolkit
+  completion and the Textual slash palette expose the plain TUI commands that
+  already worked.
+- Added localized Textual descriptions for `/report`, `/exit`, and `/q`.
+- Updated command reference notes so the remaining gap list reflects the current
+  branch state.
+
 ## Findings
 
 1. Plain TUI is the only complete slash command execution router today.
@@ -63,9 +73,9 @@ adding new convenience features. No runtime command behavior was changed.
 
 ## Validation
 
-This was a documentation-only change. Validation focused on file references,
-Markdown consistency, diff cleanliness, and command-related tests that confirm
-the documented router and palette paths still pass.
+Validation focused on file references, Markdown consistency, diff cleanliness,
+and command-related tests that confirm the documented router and palette paths
+still pass.
 
 Commands run:
 
@@ -78,4 +88,4 @@ uv run pytest tests/test_tui_prompt.py tests/test_tui_session.py::TestSessionHan
 Results:
 
 - `git diff --check` passed.
-- Slash command focused tests passed: `29 passed in 2.33s`.
+- Slash command focused tests passed: `29 passed in 2.68s`.

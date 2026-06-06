@@ -27,37 +27,14 @@ from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.output import DummyOutput
 from prompt_toolkit.styles import Style
 
+from trinity.slash_commands import TRINITY_COMMANDS
+
 try:  # Windows services/non-console test runners can lack a screen buffer.
     from prompt_toolkit.output.win32 import NoConsoleScreenBufferError
 except Exception:  # pragma: no cover - platform-specific import guard
     NoConsoleScreenBufferError = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
-
-# Trinity /commands for tab-completion
-TRINITY_COMMANDS = [
-    "/status",
-    "/context",
-    "/rounds",
-    "/agent",
-    "/history",
-    "/save",
-    "/caveman",
-    "/workflow",
-    "/questions",
-    "/answer",
-    "/decisions",
-    "/packages",
-    "/subtasks",
-    "/report",
-    "/resume",
-    "/execute",
-    "/target",
-    "/help",
-    "/quit",
-    "/exit",
-    "/q",
-]
 
 # prompt_toolkit style mapping
 TRINITY_STYLE = Style.from_dict({

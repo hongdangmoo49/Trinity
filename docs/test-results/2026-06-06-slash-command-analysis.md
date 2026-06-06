@@ -10,6 +10,13 @@ The task was documentation-first analysis of Trinity slash commands before
 adding new convenience features. Runtime command execution behavior was not
 changed; the follow-up patch only improved slash command discoverability.
 
+Update: the follow-up implementation in
+`docs/test-results/2026-06-06-slash-command-routing-implementation.md` now adds
+a shared Trinity command registry and Textual Start/Nexus slash routing guard.
+The findings below remain useful as the original problem analysis, but the
+Textual follow-up leakage described here is no longer the current branch state
+for Trinity-owned slash commands.
+
 ## Code Paths Reviewed
 
 | Area | Files |

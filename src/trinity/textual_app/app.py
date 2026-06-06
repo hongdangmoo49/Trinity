@@ -10,6 +10,11 @@ from textual.binding import Binding
 
 from trinity import __version__
 from trinity.config import TrinityConfig
+from trinity.i18n import VALID_CAVEMAN_INTENSITIES
+from trinity.slash_commands import (
+    TRINITY_COMMANDS,
+    parse_slash_command,
+)
 from trinity.textual_app.report_export import (
     snapshot_has_report_data,
     snapshot_report_markdown,
@@ -588,6 +593,13 @@ class TrinityTextualApp(App[None]):
         self._apply_workflow_outcome(outcome)
         self.switch_to("nexus")
 
+    def on_start_screen_slash_command_submitted(
+        self,
+        event: StartScreen.SlashCommandSubmitted,
+    ) -> None:
+        event.stop()
+        self._handle_textual_slash_command(event.text)
+
     def on_start_screen_workspace_requested(
         self,
         event: StartScreen.WorkspaceRequested,
@@ -607,6 +619,13 @@ class TrinityTextualApp(App[None]):
         self._apply_workflow_outcome(outcome)
         if outcome.target_workspace_required:
             self._open_execute_workspace_picker(outcome.snapshot)
+
+    def on_nexus_screen_slash_command_submitted(
+        self,
+        event: NexusScreen.SlashCommandSubmitted,
+    ) -> None:
+        event.stop()
+        self._handle_textual_slash_command(event.text)
 
     def on_nexus_screen_question_answered(
         self,
@@ -709,6 +728,342 @@ class TrinityTextualApp(App[None]):
             self.notify(outcome.message)
         if outcome.running:
             self._ensure_workflow_polling()
+
+    def _handle_textual_slash_command(self, text: str) -> None:
+        """Execute a Trinity slash command without routing it as model input."""
+        parsed = parse_slash_command(text)
+        if parsed is None:
+            return
+        if parsed.error:
+            self.notify(parsed.error, title="Slash Command", severity="warning")
+            return
+        if not parsed.token:
+            return
+        if parsed.spec is None:
+            self.notify(
+                f"Unknown command: {parsed.token}",
+                title="Slash Command",
+                severity="warning",
+            )
+            return
+
+        command = parsed.command_id
+        args = list(parsed.args)
+
+        if command in {"quit", "exit", "q"}:
+            self.exit()
+            return
+        if command == "help":
+            self.notify(
+                ", ".join(TRINITY_COMMANDS),
+                title="Trinity Commands",
+                timeout=8,
+            )
+            return
+        if command == "status":
+            snapshot = self._refresh_textual_snapshot()
+            self.notify(
+                self._snapshot_status_text(snapshot),
+                title="Status",
+                timeout=6,
+            )
+            return
+        if command == "workflow":
+            snapshot = self._refresh_textual_snapshot()
+            self.notify(
+                self._snapshot_workflow_text(snapshot),
+                title="Workflow",
+                timeout=6,
+            )
+            return
+        if command == "questions":
+            snapshot = self._refresh_textual_snapshot()
+            count = len(snapshot.questions)
+            self.notify(
+                f"{count} pending question(s). Use the central panel buttons or /answer.",
+                title="Questions",
+            )
+            return
+        if command == "decisions":
+            snapshot = self._refresh_textual_snapshot()
+            self.notify(
+                f"{len(snapshot.decisions)} decision(s) recorded.",
+                title="Decisions",
+            )
+            return
+        if command == "packages":
+            snapshot = self._refresh_textual_snapshot()
+            self.notify(
+                f"{len(snapshot.work_packages)} work package(s).",
+                title="Packages",
+            )
+            return
+        if command == "subtasks":
+            snapshot = self._refresh_textual_snapshot()
+            self.notify(
+                "Subtask details are available in workflow reports when recorded.",
+                title="Subtasks",
+            )
+            return
+        if command == "context":
+            self._notify_shared_context()
+            return
+        if command == "history":
+            self.notify(
+                "Textual session history is shown in the central agent timeline.",
+                title="History",
+            )
+            return
+        if command == "report":
+            self._handle_textual_report_command(args)
+            return
+        if command == "rounds":
+            self._handle_textual_rounds_command(args)
+            return
+        if command == "agent":
+            self._handle_textual_agent_command(args)
+            return
+        if command == "caveman":
+            self._handle_textual_caveman_command(args)
+            return
+        if command == "save":
+            self.notify(
+                "Textual workflows are persisted automatically. Use /report save for Markdown export.",
+                title="Save",
+            )
+            return
+        if command == "target":
+            self._handle_textual_target_command(args)
+            return
+        if command == "resume":
+            self._handle_textual_resume_command(args)
+            return
+        if command == "answer":
+            self._handle_textual_answer_command(args)
+            return
+        if command == "execute":
+            outcome = self.workflow_controller.request_execution(" ".join(args))
+            self._apply_workflow_outcome(outcome)
+            if outcome.target_workspace_required:
+                self._open_execute_workspace_picker(outcome.snapshot)
+            return
+
+    def _refresh_textual_snapshot(self) -> WorkflowNexusSnapshot:
+        """Load and apply the current workflow snapshot."""
+        snapshot = (
+            self.active_snapshot
+            or self.workflow_controller.snapshot()
+            or self.snapshot_adapter.load_snapshot()
+        )
+        self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
+        return snapshot
+
+    @staticmethod
+    def _snapshot_status_text(snapshot: WorkflowNexusSnapshot) -> str:
+        state = snapshot.state or "idle"
+        goal = snapshot.goal or "(none)"
+        providers = len(snapshot.providers)
+        return f"state={state}, providers={providers}, goal={goal}"
+
+    @staticmethod
+    def _snapshot_workflow_text(snapshot: WorkflowNexusSnapshot) -> str:
+        state = snapshot.state or "idle"
+        goal = snapshot.goal or "(none)"
+        return (
+            f"id={snapshot.session_id}, state={state}, "
+            f"questions={len(snapshot.questions)}, "
+            f"packages={len(snapshot.work_packages)}, goal={goal}"
+        )
+
+    def _notify_shared_context(self) -> None:
+        try:
+            content = self.config.shared_context_path.read_text(encoding="utf-8")
+        except OSError:
+            content = ""
+        message = content.strip() or "Shared context is empty."
+        self.notify(message[:500], title="Shared Context", timeout=8)
+
+    def _handle_textual_report_command(self, args: list[str]) -> None:
+        snapshot = self._refresh_textual_snapshot()
+        if args and args[0].lower() in {"save", "s"}:
+            self._export_report_markdown(snapshot)
+            return
+        if not snapshot_has_report_data(snapshot):
+            self.notify(
+                "No workflow data available for a report.",
+                title="Report",
+                severity="warning",
+            )
+            return
+        self.switch_to("report")
+
+    def _handle_textual_rounds_command(self, args: list[str]) -> None:
+        if not args:
+            self.notify(
+                f"Current max rounds: {self.config.max_deliberation_rounds}",
+                title="Rounds",
+            )
+            return
+        try:
+            rounds = int(args[0])
+        except ValueError:
+            self.notify("Invalid number.", title="Rounds", severity="warning")
+            return
+        if rounds < 1 or rounds > 20:
+            self.notify(
+                "Rounds must be between 1 and 20.",
+                title="Rounds",
+                severity="warning",
+            )
+            return
+        self.config.max_deliberation_rounds = rounds
+        self.notify(f"Max rounds set to {rounds}.", title="Rounds")
+
+    def _handle_textual_agent_command(self, args: list[str]) -> None:
+        if len(args) < 2:
+            self.notify("Usage: /agent <name> on|off", title="Agent", severity="warning")
+            return
+        name, action = args[0].lower(), args[1].lower()
+        spec = self.config.agents.get(name)
+        if spec is None:
+            self.notify(f"Unknown agent: {name}", title="Agent", severity="warning")
+            return
+        if action not in {"on", "off"}:
+            self.notify("Usage: /agent <name> on|off", title="Agent", severity="warning")
+            return
+        spec.enabled = action == "on"
+        self._refresh_textual_snapshot()
+        self.notify(f"Agent '{name}' {'enabled' if spec.enabled else 'disabled'}.", title="Agent")
+
+    def _handle_textual_caveman_command(self, args: list[str]) -> None:
+        if not args:
+            mode = "on" if self.config.caveman_mode else "off"
+            self.notify(
+                f"Caveman: {mode} ({self.config.caveman_intensity})",
+                title="Caveman",
+            )
+            return
+        action = args[0].lower()
+        if action in {"off", "disable"}:
+            self.config.caveman_mode = False
+        elif action in {"on", "enable"}:
+            self.config.caveman_mode = True
+        elif action in VALID_CAVEMAN_INTENSITIES:
+            self.config.caveman_mode = True
+            self.config.caveman_intensity = action
+        else:
+            self.notify(
+                "Use: /caveman [on|off|lite|full|ultra]",
+                title="Caveman",
+                severity="warning",
+            )
+            return
+        mode = "on" if self.config.caveman_mode else "off"
+        self.notify(f"Caveman: {mode} ({self.config.caveman_intensity})", title="Caveman")
+
+    def _handle_textual_target_command(self, args: list[str]) -> None:
+        if not args:
+            target = getattr(self.workflow_controller, "workflow", None)
+            current = None
+            if target is not None:
+                current = target.session.target_workspace
+            self.notify(f"Current target: {current or '(not set)'}", title="Target")
+            return
+        action = args[0].lower()
+        workflow = getattr(self.workflow_controller, "workflow", None)
+        if action in {"clear", "reset", "none"}:
+            if workflow is not None:
+                workflow.clear_target_workspace()
+            self._refresh_textual_snapshot()
+            self.notify("Target workspace cleared.", title="Target")
+            return
+        path = Path(" ".join(args)).expanduser()
+        if not path.is_absolute():
+            path = self.config.project_dir / path
+        path.mkdir(parents=True, exist_ok=True)
+        outcome = self.workflow_controller.set_target_workspace(path)
+        if isinstance(outcome, TextualWorkflowOutcome):
+            self._apply_workflow_outcome(outcome)
+        self.notify(f"Target workspace: {path.resolve()}", title="Target")
+
+    def _handle_textual_resume_command(self, args: list[str]) -> None:
+        persistence = getattr(self.workflow_controller, "persistence", None)
+        if persistence is None:
+            self.notify("Resume is unavailable in this controller.", title="Resume")
+            return
+        archives = persistence.list_archives()
+        if not archives:
+            self.notify("No saved workflow sessions to resume.", title="Resume")
+            return
+        selector = args[0].lower() if args else "latest"
+        archive = archives[0]
+        if selector not in {"latest", "last", "newest"}:
+            if selector.isdigit() and 1 <= int(selector) <= len(archives):
+                archive = archives[int(selector) - 1]
+            else:
+                found = next(
+                    (
+                        item
+                        for item in archives
+                        if item.session.id.lower() == selector
+                    ),
+                    None,
+                )
+                if found is None:
+                    self.notify(
+                        f"No matching workflow session: {selector}",
+                        title="Resume",
+                        severity="warning",
+                    )
+                    return
+                archive = found
+        persistence.archive_active_session()
+        persistence.restore_archive(archive)
+        from trinity.workflow import WorkflowEngine
+
+        self.workflow_controller.workflow = WorkflowEngine(self.config.effective_state_dir)
+        snapshot = self.workflow_controller.snapshot()
+        self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
+        self.notify(f"Resumed workflow {archive.session.id}.", title="Resume")
+
+    def _handle_textual_answer_command(self, args: list[str]) -> None:
+        if not args:
+            self.notify(
+                "Usage: /answer <question-id|index|next> <answer>",
+                title="Answer",
+                severity="warning",
+            )
+            return
+        workflow = getattr(self.workflow_controller, "workflow", None)
+        if workflow is None:
+            self.notify("Answer is unavailable in this controller.", title="Answer")
+            return
+        replace = False
+        filtered: list[str] = []
+        for arg in args:
+            if arg in {"--replace", "-r"}:
+                replace = True
+            else:
+                filtered.append(arg)
+        if not filtered:
+            self.notify(
+                "Usage: /answer <question-id|index|next> <answer>",
+                title="Answer",
+                severity="warning",
+            )
+            return
+        if len(filtered) == 1 and filtered[0].isdigit():
+            action = workflow.answer_question_option(filtered[0], replace=replace)
+        elif len(filtered) == 1:
+            action = workflow.answer_question("next", filtered[0], replace=replace)
+        else:
+            action = workflow.answer_question(
+                filtered[0],
+                " ".join(filtered[1:]),
+                replace=replace,
+            )
+        outcome = self.workflow_controller._apply_action(action)
+        self._apply_workflow_outcome(outcome)
 
     def _advance_activity_frame(self) -> None:
         if self.current_route == "nexus" and self._screens_installed:

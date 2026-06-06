@@ -441,6 +441,93 @@ async def test_start_composer_enter_key_submits_prompt(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_start_slash_status_does_not_start_workflow(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/status ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert isinstance(app.screen, StartScreen)
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert composer.text == ""
+
+
+@pytest.mark.asyncio
+async def test_start_unknown_slash_does_not_start_workflow(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/not-a-command")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert composer.text == ""
+
+
+@pytest.mark.asyncio
+async def test_nexus_slash_workflow_does_not_submit_followup(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", goal="game", state="blueprint_ready")
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/workflow ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert app.current_route == "nexus"
+        assert controller.follow_ups == []
+        assert screen.follow_ups == []
+        assert composer.text == ""
+
+
+@pytest.mark.asyncio
+async def test_nexus_unknown_slash_does_not_submit_followup(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/not-a-command")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert app.current_route == "nexus"
+        assert controller.follow_ups == []
+        assert screen.follow_ups == []
+        assert composer.text == ""
+
+
+@pytest.mark.asyncio
 async def test_prompt_composer_shows_slash_command_palette(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

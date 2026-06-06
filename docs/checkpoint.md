@@ -36,6 +36,7 @@ cross-platform 안정화, Textual Workbench 기본 UI, Textual execution wiring�
 - [Slash Command Reference](slash-command-reference.md)
 - [Trinity Slash Command Routing Design](plans/2026-06-06-trinity-slash-command-routing-design.md)
 - [Provider CLI Slash Command Backlog](plans/2026-06-06-provider-cli-slash-command-backlog.md)
+- [Slash Command Routing Implementation](test-results/2026-06-06-slash-command-routing-implementation.md)
 - [Slash Command Analysis Documentation](test-results/2026-06-06-slash-command-analysis.md)
 - [WP Graph Synthesis Hardening Plan](plans/2026-06-06-wp-graph-synthesis.md)
 - [WP Graph Synthesis Hardening Result](test-results/2026-06-06-wp-graph-synthesis.md)
@@ -55,7 +56,7 @@ cross-platform 안정화, Textual Workbench 기본 UI, Textual execution wiring�
 
 - 패키지/CLI 버전: `0.10.3`
 - WSL 최신 기록: `/home/zaemi/.local/bin/uv run trinity --version` -> `trinity, version 0.10.3`
-- WSL 최신 전체 회귀 기록: `/home/zaemi/.local/bin/uv run pytest -q` -> `1196 passed, 1 warning in 55.53s`
+- WSL 최신 전체 회귀 기록: `/home/zaemi/.local/bin/uv run pytest -q` -> `1204 passed, 1 warning in 61.38s`
 - 남은 경고: 기존 계열의 `AsyncMock` runtime warning이며 WP graph synthesis 보강에서 새로 도입된 것은 아님
 
 ---

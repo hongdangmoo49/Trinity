@@ -328,7 +328,20 @@ class ModelBackedSynthesisAgent:
                 "If open_questions_for_user is non-empty, consensus_reached must be false.",
                 "If there is no valid recommended_blueprint, consensus_reached must be false.",
                 "Do not invent provider names outside usable_agent_opinions.",
+                "Build recommended_blueprint.work_packages as an executable DAG "
+                "when a blueprint is valid.",
+                "Use dependencies only for true sequencing constraints; independent "
+                "packages should have no dependency.",
+                "Set expected_files to the narrowest relative files or directories "
+                "each package may write.",
+                "Use parallel_group as execution waves; lower groups are planned "
+                "before higher groups, but local policy can still serialize work.",
+                "Set parallelizable=false for shared config, global refactors, "
+                "migrations, or work that cannot safely run with another writer.",
+                "Set risk=high for broad write scopes, shared files, data migration, "
+                "or destructive behavior.",
             ],
+            "wp_graph_guidance": self._wp_graph_guidance(),
             "output_schema": schema,
         }
         return (
@@ -343,6 +356,58 @@ class ModelBackedSynthesisAgent:
                 "field names and enum values in English."
             )
         return "Use English for user-facing string values unless the user requested another language."
+
+    @staticmethod
+    def _wp_graph_guidance() -> dict[str, object]:
+        return {
+            "purpose": (
+                "The central agent proposes the semantic work-package graph; "
+                "Trinity local policy validates and may repair it before execution."
+            ),
+            "expected_files": (
+                "Use narrow relative paths such as src/ui/input.py or tests/input/. "
+                "Include shared files like pyproject.toml, package.json, lockfiles, "
+                "shared schemas, or root config when a package may edit them. Leave "
+                "empty only when the write scope is unknown so local policy can "
+                "serialize conservatively."
+            ),
+            "parallel_group": (
+                "Packages in the same group are candidates for the same execution "
+                "wave. Use different groups for planned phases such as contract "
+                "first, implementation second, validation third."
+            ),
+            "good_parallel_example": [
+                {
+                    "id": "WP-001",
+                    "title": "Input controller",
+                    "dependencies": [],
+                    "expected_files": ["src/game/input.py", "tests/test_input.py"],
+                    "parallel_group": 1,
+                    "parallelizable": True,
+                    "risk": "low",
+                },
+                {
+                    "id": "WP-002",
+                    "title": "Wave spawner",
+                    "dependencies": [],
+                    "expected_files": ["src/game/waves.py", "tests/test_waves.py"],
+                    "parallel_group": 1,
+                    "parallelizable": True,
+                    "risk": "low",
+                },
+            ],
+            "serial_example": [
+                {
+                    "id": "WP-003",
+                    "title": "Shared package configuration",
+                    "dependencies": [],
+                    "expected_files": ["pyproject.toml", "uv.lock"],
+                    "parallel_group": 1,
+                    "parallelizable": False,
+                    "risk": "high",
+                }
+            ],
+        }
 
     def _bounded_opinions(self, opinions: dict[str, str]) -> dict[str, str]:
         if not opinions:

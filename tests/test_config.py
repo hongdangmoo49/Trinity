@@ -223,6 +223,48 @@ role_prompt = "당신은 아키텍트입니다."
         assert config.execution_timeout_seconds == 1800.0
         assert config.synthesis_timeout_seconds == 300.0
 
+    def test_parallel_policy_path_defaults(self):
+        config = TrinityConfig.default_config()
+        assert "pyproject.toml" in config.parallel_shared_write_paths
+        assert "src" in config.parallel_broad_write_paths
+
+    def test_load_execution_parallel_policy_paths(self, tmp_trinity_dir):
+        config_path = tmp_trinity_dir / "trinity.config"
+        config_path.write_text(
+            """
+[execution]
+parallel_shared_write_paths = ["docs/guide.md"]
+parallel_broad_write_paths = ["docs"]
+
+[agents.claude]
+provider = "claude-code"
+cli_command = "claude"
+enabled = true
+""",
+            encoding="utf-8",
+        )
+
+        config = TrinityConfig.load(config_path)
+
+        assert config.parallel_shared_write_paths == ["docs/guide.md"]
+        assert config.parallel_broad_write_paths == ["docs"]
+
+    def test_save_persists_execution_parallel_policy_paths(self, tmp_path):
+        config = TrinityConfig.default_config(project_dir=tmp_path)
+        config.parallel_shared_write_paths = ["docs/guide.md"]
+        config.parallel_broad_write_paths = ["docs"]
+        config_path = tmp_path / ".trinity" / "trinity.config"
+
+        config.save(config_path)
+        saved = config_path.read_text(encoding="utf-8")
+        loaded = TrinityConfig.load(config_path)
+
+        assert "[execution]" in saved
+        assert "parallel_shared_write_paths" in saved
+        assert "parallel_broad_write_paths" in saved
+        assert loaded.parallel_shared_write_paths == ["docs/guide.md"]
+        assert loaded.parallel_broad_write_paths == ["docs"]
+
     def test_provider_state_mode_defaults_to_user_home(self):
         config = TrinityConfig.default_config()
         assert config.provider_state_mode == "user-home"

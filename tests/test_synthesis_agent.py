@@ -318,6 +318,9 @@ async def test_model_backed_synthesis_parses_central_work_package_graph(tmp_path
     assert packages[1].dependencies == ["WP-010"]
     assert packages[1].parallel_group == 2
     assert "work_packages" in invoker.requests[0].prompt
+    assert "wp_graph_guidance" in invoker.requests[0].prompt
+    assert "narrowest relative files" in invoker.requests[0].prompt
+    assert "serial_example" in invoker.requests[0].prompt
 
 
 @pytest.mark.asyncio

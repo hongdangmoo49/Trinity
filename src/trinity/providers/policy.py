@@ -7,6 +7,43 @@ from enum import Enum
 from pathlib import Path
 from typing import Iterable
 
+DEFAULT_BROAD_WRITE_PATHS: frozenset[str] = frozenset(
+    {
+        ".",
+        "app",
+        "lib",
+        "packages",
+        "src",
+        "tests",
+    }
+)
+
+DEFAULT_SHARED_WRITE_PATHS: frozenset[str] = frozenset(
+    {
+        ".",
+        "./",
+        "Cargo.lock",
+        "Cargo.toml",
+        "go.mod",
+        "go.sum",
+        "package-lock.json",
+        "package.json",
+        "pnpm-lock.yaml",
+        "poetry.lock",
+        "pyproject.toml",
+        "requirements.txt",
+        "ruff.toml",
+        "setup.cfg",
+        "setup.py",
+        "tox.ini",
+        "tsconfig.json",
+        "uv.lock",
+        "vite.config.js",
+        "vite.config.ts",
+        "yarn.lock",
+    }
+)
+
 
 class ExecutionAuthority(str, Enum):
     """Who executes local tools and file changes for a model request."""
@@ -79,41 +116,25 @@ class ParallelBatchPlan:
 class ParallelExecutionPolicy:
     """Decide whether provider invocations may run in the same batch."""
 
-    BROAD_WRITE_PATHS: frozenset[str] = frozenset(
-        {
-            ".",
-            "app",
-            "lib",
-            "packages",
-            "src",
-            "tests",
-        }
-    )
-    SHARED_WRITE_PATHS: frozenset[str] = frozenset(
-        {
-            ".",
-            "./",
-            "Cargo.lock",
-            "Cargo.toml",
-            "go.mod",
-            "go.sum",
-            "package-lock.json",
-            "package.json",
-            "pnpm-lock.yaml",
-            "poetry.lock",
-            "pyproject.toml",
-            "requirements.txt",
-            "ruff.toml",
-            "setup.cfg",
-            "setup.py",
-            "tox.ini",
-            "tsconfig.json",
-            "uv.lock",
-            "vite.config.js",
-            "vite.config.ts",
-            "yarn.lock",
-        }
-    )
+    BROAD_WRITE_PATHS: frozenset[str] = DEFAULT_BROAD_WRITE_PATHS
+    SHARED_WRITE_PATHS: frozenset[str] = DEFAULT_SHARED_WRITE_PATHS
+
+    def __init__(
+        self,
+        *,
+        shared_write_paths: Iterable[str] | None = None,
+        broad_write_paths: Iterable[str] | None = None,
+    ) -> None:
+        self.shared_write_paths = self._normalized_file_ownership(
+            shared_write_paths
+            if shared_write_paths is not None
+            else self.SHARED_WRITE_PATHS
+        )
+        self.broad_write_paths = self._normalized_file_ownership(
+            broad_write_paths
+            if broad_write_paths is not None
+            else self.BROAD_WRITE_PATHS
+        )
 
     def can_run_together(
         self,
@@ -242,12 +263,11 @@ class ParallelExecutionPolicy:
     def _is_high_risk(scope: ExecutionScope) -> bool:
         return scope.risk.strip().lower() == "high"
 
-    @classmethod
-    def _has_shared_write_path(cls, scope: ExecutionScope) -> bool:
-        for normalized in cls._normalized_file_ownership(scope.file_ownership):
-            if normalized in cls.SHARED_WRITE_PATHS:
+    def _has_shared_write_path(self, scope: ExecutionScope) -> bool:
+        for normalized in self._normalized_file_ownership(scope.file_ownership):
+            if normalized in self.shared_write_paths:
                 return True
-            if normalized in cls.BROAD_WRITE_PATHS:
+            if normalized in self.broad_write_paths:
                 return True
         return False
 

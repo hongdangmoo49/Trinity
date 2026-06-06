@@ -155,6 +155,54 @@ def test_broad_root_directory_serializes_same_worktree(tmp_path):
     assert "shared workspace files" in decision.reason
 
 
+def test_configured_broad_write_path_serializes_same_worktree(tmp_path):
+    policy = ParallelExecutionPolicy(broad_write_paths={"docs"})
+
+    decision = policy.can_run_together(
+        [
+            _scope(
+                "claude",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"docs/"},
+            ),
+            _scope(
+                "codex",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"src/feature.py"},
+            ),
+        ]
+    )
+
+    assert decision.allowed is False
+    assert "shared workspace files" in decision.reason
+
+
+def test_configured_shared_write_path_serializes_same_worktree(tmp_path):
+    policy = ParallelExecutionPolicy(shared_write_paths={"docs/guide.md"})
+
+    decision = policy.can_run_together(
+        [
+            _scope(
+                "claude",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"docs/guide.md"},
+            ),
+            _scope(
+                "codex",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"src/feature.py"},
+            ),
+        ]
+    )
+
+    assert decision.allowed is False
+    assert "shared workspace files" in decision.reason
+
+
 def test_non_parallelizable_write_serializes_same_worktree(tmp_path):
     policy = ParallelExecutionPolicy()
 

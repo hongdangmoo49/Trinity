@@ -53,6 +53,8 @@ class TestTrinityOrchestratorInit:
             project_dir=tmp_path,
             state_dir=tmp_path / ".trinity",
             execution_timeout_seconds=1234.0,
+            parallel_shared_write_paths=["docs/guide.md"],
+            parallel_broad_write_paths=["docs"],
             agents={
                 "claude": AgentSpec(
                     name="claude",
@@ -71,6 +73,10 @@ class TestTrinityOrchestratorInit:
         assert orch.protocol is not None
         assert orch.execution_protocol is not None
         assert orch.execution_protocol.timeout == 1234.0
+        assert orch.execution_protocol.parallel_policy.shared_write_paths == {
+            "docs/guide.md"
+        }
+        assert orch.execution_protocol.parallel_policy.broad_write_paths == {"docs"}
 
     def test_ensure_initializes_idempotent(self, tmp_path):
         config = TrinityConfig(

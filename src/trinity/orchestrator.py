@@ -32,6 +32,7 @@ from trinity.providers.invoker import (
     CodexExecInvoker,
     ProviderInvoker,
 )
+from trinity.providers.policy import ParallelExecutionPolicy
 from trinity.providers.readiness import (
     ProviderReadinessGate,
     ReadinessResult,
@@ -205,6 +206,10 @@ class TrinityOrchestrator:
             event_callback=event_callback,
             lifecycle_guard=self.lifecycle_guard,
             rotation_callback=self._rotate_agent_for_lifecycle,
+            parallel_policy=ParallelExecutionPolicy(
+                shared_write_paths=self.config.parallel_shared_write_paths,
+                broad_write_paths=self.config.parallel_broad_write_paths,
+            ),
             target_workspace=self.target_workspace,
             control_repo=self.config.project_dir,
             allow_control_repo_writes=self.allow_control_repo_writes,

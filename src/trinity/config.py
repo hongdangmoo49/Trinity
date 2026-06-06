@@ -53,7 +53,7 @@ class TrinityConfig:
     provider_readiness_timeout_seconds: float = 20.0
     synthesis_mode: str = "auto"  # "auto" | "model" | "heuristic"
     synthesis_agent: str = ""
-    synthesis_model: str = "fast"
+    synthesis_model: str = "strong"
     synthesis_timeout_seconds: float = 300.0
     synthesis_max_input_chars: int = 60_000
 
@@ -185,7 +185,7 @@ class TrinityConfig:
                 deliberation.get("synthesis_mode", "auto")
             ),
             synthesis_agent=str(deliberation.get("synthesis_agent", "")),
-            synthesis_model=str(deliberation.get("synthesis_model", "fast")),
+            synthesis_model=str(deliberation.get("synthesis_model", "strong")),
             synthesis_timeout_seconds=float(
                 deliberation.get("synthesis_timeout_seconds", 300.0)
             ),

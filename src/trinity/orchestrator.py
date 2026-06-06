@@ -59,6 +59,12 @@ SYNTHESIS_FAST_MODELS: dict[Provider, str] = {
     Provider.ANTIGRAVITY_CLI: "default",
 }
 
+SYNTHESIS_STRONG_MODELS: dict[Provider, str] = {
+    Provider.CODEX: "gpt-5.4",
+    Provider.CLAUDE_CODE: "opus",
+    Provider.ANTIGRAVITY_CLI: "default",
+}
+
 
 @dataclass(frozen=True)
 class AgentLaunchContext:
@@ -398,10 +404,12 @@ class TrinityOrchestrator:
         raise RuntimeError("no active provider supports model-backed synthesis")
 
     def _resolve_synthesis_model(self, spec: AgentSpec) -> str:
-        """Resolve synthesis_model using provider-specific fast defaults."""
-        requested = (self.config.synthesis_model or "fast").strip()
+        """Resolve synthesis_model using provider-specific quality tiers."""
+        requested = (self.config.synthesis_model or "strong").strip()
         if requested == "fast":
             return SYNTHESIS_FAST_MODELS.get(spec.provider, "default")
+        if requested == "strong":
+            return SYNTHESIS_STRONG_MODELS.get(spec.provider, "default")
         if requested:
             return requested
         return spec.model or "default"

@@ -388,7 +388,7 @@ enabled = true
         config = TrinityConfig.default_config()
         assert config.synthesis_mode == "auto"
         assert config.synthesis_agent == ""
-        assert config.synthesis_model == "fast"
+        assert config.synthesis_model == "strong"
         assert config.synthesis_timeout_seconds == 300.0
         assert config.synthesis_max_input_chars == 60_000
 

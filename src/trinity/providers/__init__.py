@@ -4,6 +4,7 @@ from trinity.providers.policy import (
     ExecutionAuthority,
     ExecutionScope,
     InvocationAccess,
+    ParallelBatchPlan,
     ParallelExecutionDecision,
     ParallelExecutionPolicy,
 )
@@ -31,6 +32,7 @@ __all__ = [
     "CliProviderInvoker",
     "CodexExecInvoker",
     "InvocationAccess",
+    "ParallelBatchPlan",
     "ParallelExecutionDecision",
     "ParallelExecutionPolicy",
     "PromptRequest",

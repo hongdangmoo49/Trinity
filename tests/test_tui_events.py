@@ -8,6 +8,7 @@ def test_new_event_types_exist():
     assert TUIEventType.DELIBERATION_STARTED.value == "deliberation_started"
     assert TUIEventType.DELIBERATION_PHASE.value == "deliberation_phase"
     assert TUIEventType.DELIBERATION_PROGRESS.value == "deliberation_progress"
+    assert TUIEventType.EXECUTION_BATCH_PLANNED.value == "execution_batch_planned"
 
 
 def test_deliberation_phase_event():

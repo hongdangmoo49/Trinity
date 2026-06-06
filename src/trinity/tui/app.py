@@ -254,6 +254,9 @@ class TrinityTUI:
                 event.data.get("package_count", self.work_package_count)
             )
 
+        elif event.type == TUIEventType.EXECUTION_BATCH_PLANNED:
+            pass
+
         elif event.type == TUIEventType.WORK_PACKAGE_STARTED:
             package_id = str(event.data.get("package_id", ""))
             if package_id:

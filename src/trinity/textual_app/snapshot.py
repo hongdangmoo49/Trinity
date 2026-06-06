@@ -421,6 +421,20 @@ class NexusSnapshotAdapter:
                 return f"{prefix}{event_name}: {package_count} packages -> {target}"
             return f"{prefix}{event_name}: {package_count} packages"
 
+        if event_name == "execution_batch_planned":
+            batches = data.get("batches", [])
+            batch_count = len(batches) if isinstance(batches, list) else 0
+            notices = data.get("notices", [])
+            notice_count = len(notices) if isinstance(notices, list) else 0
+            detail = f"{batch_count} batches"
+            if notice_count:
+                first_notice = notices[0] if isinstance(notices[0], dict) else {}
+                reason = str(first_notice.get("reason", "")).strip()
+                detail = f"{detail}; {notice_count} policy notices"
+                if reason:
+                    detail = f"{detail} - {reason}"
+            return f"{prefix}{event_name}: {detail}"
+
         if event_name == "target_workspace_selected":
             target = str(data.get("target_workspace", "")).strip()
             line = f"{event_name}: {target}" if target else event_name

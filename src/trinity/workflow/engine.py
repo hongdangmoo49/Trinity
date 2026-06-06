@@ -743,6 +743,24 @@ class WorkflowEngine:
             ),
             parallelizable=package.parallelizable,
             risk=package.risk,
+            parallel_group=package.parallel_group,
+        )
+
+    def record_execution_batch_planned(
+        self,
+        batches: list[list[str]],
+        notices: list[dict[str, object]] | None = None,
+        occurred_at: float | None = None,
+    ) -> None:
+        """Persist execution scheduling batches and policy notices."""
+        self.session.updated_at = time.time()
+        self._persist(
+            "execution_batch_planned",
+            {
+                "batches": batches,
+                "notices": notices or [],
+            },
+            timestamp=occurred_at,
         )
 
     def record_execution_results(

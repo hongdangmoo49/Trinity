@@ -728,6 +728,72 @@ def test_plan_parallel_groups_serializes_high_risk_work(tmp_path):
     ]
 
 
+def test_plan_parallel_groups_respects_path_prefix_collisions(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement", ["claude", "codex"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="module",
+            owner_agent="claude",
+            objective="Change module.",
+            expected_files=["src/trinity/"],
+        ),
+        WorkPackage(
+            id="WP-002",
+            title="module file",
+            owner_agent="codex",
+            objective="Change module file.",
+            expected_files=["src/trinity/config.py"],
+        ),
+    ]
+
+    groups = engine.plan_parallel_groups()
+
+    assert [[package.id for package in group] for group in groups] == [
+        ["WP-001"],
+        ["WP-002"],
+    ]
+
+
+def test_plan_parallel_groups_prefers_central_parallel_group_order(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement", ["claude", "codex", "antigravity"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="later",
+            owner_agent="claude",
+            objective="Later group.",
+            expected_files=["src/later.py"],
+            parallel_group=2,
+        ),
+        WorkPackage(
+            id="WP-002",
+            title="first",
+            owner_agent="codex",
+            objective="First group.",
+            expected_files=["src/first.py"],
+            parallel_group=1,
+        ),
+        WorkPackage(
+            id="WP-003",
+            title="first tests",
+            owner_agent="antigravity",
+            objective="First group tests.",
+            expected_files=["tests/first.py"],
+            parallel_group=1,
+        ),
+    ]
+
+    groups = engine.plan_parallel_groups()
+
+    assert [[package.id for package in group] for group in groups] == [
+        ["WP-002", "WP-003"],
+        ["WP-001"],
+    ]
+
+
 def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_execution_intent("개발해라") is True
     assert classify_execution_intent("개발하고 싶다. 설계해라") is False

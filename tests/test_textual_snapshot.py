@@ -169,6 +169,22 @@ def test_snapshot_formats_execution_events_with_runtime_details(tmp_path) -> Non
     )
     persistence.append_event(
         {
+            "event": "execution_batch_planned",
+            "state": "executing",
+            "workflow_id": "wf-execution",
+            "data": {
+                "batches": [["WP-001"], ["WP-002"]],
+                "notices": [
+                    {
+                        "reason": "high-risk package serialized",
+                        "serialized_agents": ["claude", "codex"],
+                    }
+                ],
+            },
+        }
+    )
+    persistence.append_event(
+        {
             "event": "work_package_completed",
             "state": "executing",
             "workflow_id": "wf-execution",
@@ -199,6 +215,10 @@ def test_snapshot_formats_execution_events_with_runtime_details(tmp_path) -> Non
     assert snapshot.execution_log == [
         "implementation_requested: 1 packages -> /workspace/game",
         f"{started_prefix} work_package_started: WP-001 claude running",
+        (
+            "execution_batch_planned: 2 batches; 1 policy notices - "
+            "high-risk package serialized"
+        ),
         (
             f"{completed_prefix} work_package_completed: "
             "WP-001 claude done - Implemented input controller."

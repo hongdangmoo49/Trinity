@@ -97,12 +97,14 @@ async def test_execution_protocol_dispatches_package_and_records_result(tmp_path
     assert "src/routes.py" in task_results
     assert [event.type for event in events] == [
         TUIEventType.EXECUTION_START,
+        TUIEventType.EXECUTION_BATCH_PLANNED,
         TUIEventType.WORK_PACKAGE_STARTED,
         TUIEventType.WORK_PACKAGE_COMPLETED,
         TUIEventType.EXECUTION_DONE,
     ]
-    started_at = events[1].data.get("occurred_at")
-    completed_at = events[2].data.get("occurred_at")
+    assert events[1].data["batches"] == [["WP-001"]]
+    started_at = events[2].data.get("occurred_at")
+    completed_at = events[3].data.get("occurred_at")
     assert isinstance(started_at, float)
     assert isinstance(completed_at, float)
     assert completed_at >= started_at
@@ -638,6 +640,7 @@ async def test_execution_protocol_serializes_high_risk_same_worktree_package(tmp
     claude.launch_cwd = tmp_path
     codex.launch_cwd = tmp_path
     order: list[str] = []
+    events = []
 
     async def _claude_send(prompt: str, timeout: float, access=None):
         order.append("claude-start")
@@ -674,12 +677,18 @@ async def test_execution_protocol_serializes_high_risk_same_worktree_package(tmp
         agents={"claude": claude, "codex": codex},
         shared=shared,
         artifact_dir=tmp_path / "execution",
+        event_callback=events.append,
     )
 
     results = await protocol.run(packages)
 
     assert [result.status for result in results] == [WorkStatus.DONE, WorkStatus.DONE]
     assert order == ["claude-start", "claude-end", "codex-start", "codex-end"]
+    batch_event = next(
+        event for event in events if event.type == TUIEventType.EXECUTION_BATCH_PLANNED
+    )
+    assert batch_event.data["batches"] == [["WP-001"], ["WP-002"]]
+    assert "high-risk" in batch_event.data["notices"][0]["reason"]
 
 
 @pytest.mark.asyncio

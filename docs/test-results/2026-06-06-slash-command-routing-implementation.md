@@ -33,10 +33,14 @@
   - 조회/unknown command가 `start_prompt()` 또는 `submit_follow_up()`으로 넘어가지 않게 처리
   - `/execute`는 기존 `TextualWorkflowController.request_execution()` 경로로 연결
   - `/answer`, `/target`, `/resume`, `/rounds`, `/agent`, `/caveman`, `/report`의 Textual 1차 처리 추가
+  - `/questions --select`는 Textual 중앙 질문 영역의 option button과 `/answer` 안내로 처리
 - `src/trinity/textual_app/snapshot.py`
   - `LocalCommandSnapshot`과 `WorkflowNexusSnapshot.local_commands` 추가
 - `src/trinity/textual_app/widgets/central_agent.py`
   - 로컬 slash command 결과를 Nexus 중앙 영역의 `Local Command Results` 섹션에 표시
+- `src/trinity/textual_app/workflow_controller.py`
+  - `/answer` option/replace, `/target clear`, `/resume`을 앱이 private method에 기대지 않도록
+    public Textual controller API로 제공
 
 ## 에이전트 호출 정책 반영
 
@@ -45,7 +49,7 @@
 | 로컬/UI 조회 | Nexus 중앙 영역의 `Local Command Results`에 누적 표시하고 에이전트 호출 금지 |
 | 로컬 파일 기록 | `/report save`는 Markdown export, `/save`는 Textual 자동 persistence 안내 |
 | 세션 설정 변경 | `/rounds`, `/agent`, `/caveman`은 현재 프로세스 config를 변경 |
-| workflow 로컬 변경 | `/target`, `/resume`은 가능한 경우 workflow/session을 직접 갱신 |
+| workflow 로컬 변경 | `/target`, `/resume`은 `TextualWorkflowController` public API를 통해 workflow/session을 갱신 |
 | 조건부 재협의 | `/answer`는 workflow action 결과가 요구할 때만 deliberation으로 연결 |
 | 명시 실행 | `/execute`만 execution request 경로로 연결 |
 | unknown slash | notification 오류 후 입력 폐기, workflow prompt/follow-up 전달 금지 |
@@ -60,6 +64,8 @@
 /home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py tests/test_tui_prompt.py tests/test_textual_snapshot.py -q
 /home/zaemi/.local/bin/uvx ruff check src/trinity/slash_commands.py src/trinity/tui/prompt.py src/trinity/textual_app/i18n.py src/trinity/textual_app/app.py src/trinity/textual_app/screens/start.py src/trinity/textual_app/screens/nexus.py tests/test_tui_prompt.py tests/test_textual_app.py
 /home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/app.py src/trinity/textual_app/snapshot.py src/trinity/textual_app/widgets/central_agent.py tests/test_textual_app.py
+/home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/app.py src/trinity/textual_app/workflow_controller.py tests/test_textual_app.py tests/test_textual_workflow_controller.py
+/home/zaemi/.local/bin/uv run pytest tests/test_textual_workflow_controller.py tests/test_textual_app.py -q
 git diff --check
 /home/zaemi/.local/bin/uv run pytest -q
 ```
@@ -71,14 +77,15 @@ git diff --check
 - Textual/prompt/plain command 관련 테스트: `77 passed in 29.58s`
 - Textual/prompt/snapshot 관련 테스트: `77 passed in 28.70s`
 - Central local command result 회귀: `4 passed in 3.00s`
+- Textual controller/slash routing 보강: `60 passed in 30.89s`
+- Textual/controller/prompt 대상 회귀: `76 passed in 32.59s`
 - Ruff 대상 파일 검사 통과
 - `git diff --check` 통과
-- 전체 회귀: `1204 passed, 2 warnings in 62.12s`
+- 전체 회귀: `1211 passed, 1 warning in 63.76s`
 
 ## 남은 작업
 
 - Textual 조회 명령의 표현을 notification에서 central/inspector/report 영역의 구조화된
   panel/table로 확장
-- `/questions --select`, `/resume` interactive selector의 Textual-native UI 구현
-- `/answer` 처리에서 private controller method 의존 제거 및 public controller API 정리
+- `/resume` archive 목록을 Textual-native selector/modal로 표시
 - command registry 기반 문서 table 자동 검증 추가

@@ -791,10 +791,13 @@ class TrinityTextualApp(App[None]):
             return
         if command == "questions":
             snapshot = self._refresh_textual_snapshot()
+            select_requested = any(arg.lower() in {"--select", "-s"} for arg in args)
             self._record_slash_command_result(
                 parsed.spec.name,
                 "Questions",
-                self._questions_markdown(snapshot),
+                self._questions_select_markdown(snapshot)
+                if select_requested
+                else self._questions_markdown(snapshot),
             )
             return
         if command == "decisions":
@@ -969,6 +972,29 @@ class TrinityTextualApp(App[None]):
         lines.append("Use central panel buttons or `/answer <id|index|next> <answer>`.")
         return "\n".join(lines)
 
+    @staticmethod
+    def _questions_select_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+        if not snapshot.questions:
+            return "No pending workflow questions to select."
+        question = snapshot.questions[0]
+        lines = [
+            f"Selected question: **{question.id}**",
+            question.question,
+        ]
+        if question.options:
+            lines.append("")
+            lines.append(
+                "Use the option buttons in the central panel, "
+                "or run `/answer <option-number>`."
+            )
+            for index, option in enumerate(question.options, start=1):
+                lines.append(f"- {index}. {option}")
+        else:
+            lines.append("")
+            lines.append("This question has no predefined options.")
+            lines.append("Use `/answer <id|index|next> <answer>`.")
+        return "\n".join(lines)
+
     def _notify_shared_context(self) -> None:
         try:
             content = self.config.shared_context_path.read_text(encoding="utf-8")
@@ -1064,11 +1090,9 @@ class TrinityTextualApp(App[None]):
             self.notify(f"Current target: {current or '(not set)'}", title="Target")
             return
         action = args[0].lower()
-        workflow = getattr(self.workflow_controller, "workflow", None)
         if action in {"clear", "reset", "none"}:
-            if workflow is not None:
-                workflow.clear_target_workspace()
-            self._refresh_textual_snapshot()
+            outcome = self.workflow_controller.clear_target_workspace()
+            self._apply_workflow_outcome(outcome)
             self.notify("Target workspace cleared.", title="Target")
             return
         path = Path(" ".join(args)).expanduser()
@@ -1081,44 +1105,13 @@ class TrinityTextualApp(App[None]):
         self.notify(f"Target workspace: {path.resolve()}", title="Target")
 
     def _handle_textual_resume_command(self, args: list[str]) -> None:
-        persistence = getattr(self.workflow_controller, "persistence", None)
-        if persistence is None:
-            self.notify("Resume is unavailable in this controller.", title="Resume")
-            return
-        archives = persistence.list_archives()
-        if not archives:
-            self.notify("No saved workflow sessions to resume.", title="Resume")
-            return
         selector = args[0].lower() if args else "latest"
-        archive = archives[0]
-        if selector not in {"latest", "last", "newest"}:
-            if selector.isdigit() and 1 <= int(selector) <= len(archives):
-                archive = archives[int(selector) - 1]
-            else:
-                found = next(
-                    (
-                        item
-                        for item in archives
-                        if item.session.id.lower() == selector
-                    ),
-                    None,
-                )
-                if found is None:
-                    self.notify(
-                        f"No matching workflow session: {selector}",
-                        title="Resume",
-                        severity="warning",
-                    )
-                    return
-                archive = found
-        persistence.archive_active_session()
-        persistence.restore_archive(archive)
-        from trinity.workflow import WorkflowEngine
-
-        self.workflow_controller.workflow = WorkflowEngine(self.config.effective_state_dir)
-        snapshot = self.workflow_controller.snapshot()
-        self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
-        self.notify(f"Resumed workflow {archive.session.id}.", title="Resume")
+        outcome = self.workflow_controller.resume_workflow(selector)
+        if outcome.message:
+            severity = "warning" if outcome.message.startswith("No ") else "information"
+            self.notify(outcome.message, title="Resume", severity=severity)
+            outcome = replace(outcome, message="")
+        self._apply_workflow_outcome(outcome)
 
     def _handle_textual_answer_command(self, args: list[str]) -> None:
         if not args:
@@ -1127,10 +1120,6 @@ class TrinityTextualApp(App[None]):
                 title="Answer",
                 severity="warning",
             )
-            return
-        workflow = getattr(self.workflow_controller, "workflow", None)
-        if workflow is None:
-            self.notify("Answer is unavailable in this controller.", title="Answer")
             return
         replace = False
         filtered: list[str] = []
@@ -1147,16 +1136,22 @@ class TrinityTextualApp(App[None]):
             )
             return
         if len(filtered) == 1 and filtered[0].isdigit():
-            action = workflow.answer_question_option(filtered[0], replace=replace)
+            outcome = self.workflow_controller.answer_question_option(
+                filtered[0],
+                replace=replace,
+            )
         elif len(filtered) == 1:
-            action = workflow.answer_question("next", filtered[0], replace=replace)
+            outcome = self.workflow_controller.answer_question(
+                "next",
+                filtered[0],
+                replace=replace,
+            )
         else:
-            action = workflow.answer_question(
+            outcome = self.workflow_controller.answer_question(
                 filtered[0],
                 " ".join(filtered[1:]),
                 replace=replace,
             )
-        outcome = self.workflow_controller._apply_action(action)
         self._apply_workflow_outcome(outcome)
 
     def _advance_activity_frame(self) -> None:

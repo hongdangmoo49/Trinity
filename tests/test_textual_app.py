@@ -45,9 +45,12 @@ class FakeWorkflowController:
         self.current_snapshot = snapshot or WorkflowNexusSnapshot()
         self.started_prompts: list[str] = []
         self.follow_ups: list[str] = []
-        self.answers: list[tuple[str, str]] = []
+        self.answers: list[tuple[str, str, bool]] = []
+        self.option_answers: list[tuple[str, str, bool]] = []
+        self.resumes: list[str] = []
         self.execution_requests = 0
         self.target_workspace = None
+        self.target_cleared = False
 
     def snapshot(self) -> WorkflowNexusSnapshot:
         return self.current_snapshot
@@ -79,13 +82,35 @@ class FakeWorkflowController:
         )
         return TextualWorkflowOutcome(self.current_snapshot)
 
-    def answer_question(self, question_id: str, answer: str) -> TextualWorkflowOutcome:
-        self.answers.append((question_id, answer))
+    def answer_question(
+        self,
+        question_id: str,
+        answer: str,
+        *,
+        replace: bool = False,
+    ) -> TextualWorkflowOutcome:
+        self.answers.append((question_id, answer, replace))
         self.current_snapshot = WorkflowNexusSnapshot(
             session_id="wf-fake",
             goal=self.current_snapshot.goal,
             state="deliberating",
             decisions=[answer],
+        )
+        return TextualWorkflowOutcome(self.current_snapshot)
+
+    def answer_question_option(
+        self,
+        option_index: str,
+        *,
+        question_selector: str = "next",
+        replace: bool = False,
+    ) -> TextualWorkflowOutcome:
+        self.option_answers.append((option_index, question_selector, replace))
+        self.current_snapshot = WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            goal=self.current_snapshot.goal,
+            state="deliberating",
+            decisions=[f"option {option_index}"],
         )
         return TextualWorkflowOutcome(self.current_snapshot)
 
@@ -99,6 +124,23 @@ class FakeWorkflowController:
     def set_target_workspace(self, path, *, control_repo_confirmed: bool = False):
         self.target_workspace = path
         return TextualWorkflowOutcome(self.current_snapshot)
+
+    def clear_target_workspace(self) -> TextualWorkflowOutcome:
+        self.target_cleared = True
+        self.target_workspace = None
+        return TextualWorkflowOutcome(self.current_snapshot)
+
+    def resume_workflow(self, selector: str = "latest") -> TextualWorkflowOutcome:
+        self.resumes.append(selector)
+        self.current_snapshot = WorkflowNexusSnapshot(
+            session_id=f"wf-resumed-{selector}",
+            goal="resumed",
+            state="blueprint_ready",
+        )
+        return TextualWorkflowOutcome(
+            self.current_snapshot,
+            message=f"Resumed workflow wf-resumed-{selector}.",
+        )
 
     def new_session(self) -> TextualWorkflowOutcome:
         self.current_snapshot = WorkflowNexusSnapshot()
@@ -543,6 +585,102 @@ async def test_nexus_unknown_slash_does_not_submit_followup(tmp_path) -> None:
         assert central.snapshot.local_commands[-1].title == "Unknown Command"
         assert "Local Command Results" in central._markdown()
         assert "`/not-a-command`" in central._markdown()
+
+
+@pytest.mark.asyncio
+async def test_nexus_questions_select_uses_local_question_ui(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            goal="game",
+            state="needs_user_decision",
+            questions=[
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Theme?",
+                    options=["dark", "light"],
+                )
+            ],
+        )
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/questions --select")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_ups == []
+        assert screen.follow_ups == []
+        central = screen.query_one(CentralAgentView)
+        assert central.snapshot is not None
+        assert central.snapshot.local_commands[-1].command == "/questions"
+        assert "Use the option buttons in the central panel" in (
+            central.snapshot.local_commands[-1].body
+        )
+        assert central.query_one("#answer-q-1-1")
+
+
+@pytest.mark.asyncio
+async def test_nexus_slash_answer_option_routes_to_controller(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            goal="game",
+            state="needs_user_decision",
+            questions=[
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Theme?",
+                    options=["dark", "light"],
+                )
+            ],
+        )
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/answer 1")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_ups == []
+        assert controller.option_answers == [("1", "next", False)]
+        assert screen.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_nexus_slash_resume_routes_to_controller(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/resume latest")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_ups == []
+        assert controller.resumes == ["latest"]
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.session_id == "wf-resumed-latest"
 
 
 @pytest.mark.asyncio
@@ -1221,7 +1359,7 @@ async def test_nexus_question_answer_routes_to_controller(tmp_path) -> None:
         button.press()
         await pilot.pause()
 
-        assert controller.answers == [("q-1", "dark")]
+        assert controller.answers == [("q-1", "dark", False)]
 
 
 @pytest.mark.asyncio
@@ -1248,7 +1386,7 @@ async def test_nexus_question_answer_handles_non_ascii_question_id(tmp_path) -> 
         await pilot.pause()
 
         assert button.id == "answer-q-1-1"
-        assert controller.answers == [("메타플레이", "정적 전용으로 시작한다")]
+        assert controller.answers == [("메타플레이", "정적 전용으로 시작한다", False)]
 
 
 @pytest.mark.asyncio

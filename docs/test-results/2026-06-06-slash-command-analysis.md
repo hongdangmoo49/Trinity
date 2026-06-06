@@ -71,6 +71,43 @@ changed; the follow-up patch only improved slash command discoverability.
 6. `/rounds`, `/agent`, and `/caveman` mutate the in-memory session config only;
    they do not persist settings to disk.
 
+## Textual Slash Routing Follow-up
+
+Observed symptom:
+
+- On the first Textual page, typing `/status`, `/workflow`, or another slash
+  command can move the app to Nexus and start agent deliberation.
+- On the Nexus page, submitting a slash command can be treated as a follow-up and
+  can call agents depending on the workflow state.
+
+Root cause:
+
+- `PromptComposer` only shows and inserts slash command candidates.
+- `StartScreen` posts every non-empty composer submission as
+  `StartScreen.Submitted`.
+- `NexusScreen` posts every non-empty composer submission as
+  `NexusScreen.FollowUpSubmitted`.
+- `TrinityTextualApp` then calls `TextualWorkflowController.start_prompt()` or
+  `submit_follow_up()` without first checking whether the text is a local slash
+  command.
+
+Required routing policy:
+
+| Command class | Agent call allowed | Examples |
+| :--- | :--- | :--- |
+| Local/UI read-only | No | `/help`, `/status`, `/context`, `/history`, `/workflow`, `/questions`, `/decisions`, `/packages`, `/subtasks`, `/report` |
+| Local file write | No | `/save`, `/report save` |
+| Session setting mutation | No | `/rounds`, `/agent`, `/caveman` |
+| Workflow local mutation | No by default | `/target`, `/resume` |
+| Conditional re-deliberation | Only after workflow action requests it | `/answer` |
+| Explicit execution | Yes | `/execute` |
+| Unknown slash command | No | `/anything-else` |
+
+Next implementation should add a Textual slash command router before
+`start_prompt()` and `submit_follow_up()`. Tests should prove that `/status`,
+`/workflow`, `/questions`, and unknown slash commands do not invoke the
+orchestrator from either Start or Nexus.
+
 ## Validation
 
 Validation focused on file references, Markdown consistency, diff cleanliness,

@@ -35,6 +35,7 @@ cross-platform 안정화, Textual Workbench 기본 UI, Textual execution wiring�
 - [v0.10.2 Workflow and Runtime Guide](workflow-v0.10.2-guide.md)
 - [Textual Workbench Execution Branch Report](test-results/2026-06-05-textual-workbench-execution-branch-report.md)
 - [Execution Matrix Hardening](test-results/2026-06-05-execution-matrix-hardening.md)
+- [Execution Timeline Logging](test-results/2026-06-06-execution-timeline-logging.md)
 - [Workspace Picker Latency Follow-up](test-results/2026-06-06-workspace-picker-latency.md)
 - [Textual Question ID Hardening](test-results/2026-06-06-textual-question-id-hardening.md)
 - [Execution Failure Hardening](test-results/2026-06-06-execution-failure-hardening.md)
@@ -46,7 +47,7 @@ cross-platform 안정화, Textual Workbench 기본 UI, Textual execution wiring�
 
 - 패키지/CLI 버전: `0.10.2`
 - WSL 최신 기록: `/home/zaemi/.local/bin/uv run trinity --version` -> `trinity, version 0.10.2`
-- WSL 최신 전체 회귀 기록: `/home/zaemi/.local/bin/uv run pytest -q` -> `1163 passed, 1 warning in 52.31s`
+- WSL 최신 전체 회귀 기록: `/home/zaemi/.local/bin/uv run pytest -q` -> `1167 passed, 1 warning in 45.87s`
 - 남은 경고: 기존 `AsyncMock` runtime warning이며 Textual execution wiring에서 새로 도입된 것은 아님
 
 ---

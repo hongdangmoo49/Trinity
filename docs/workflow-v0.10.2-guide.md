@@ -139,6 +139,12 @@ Nexus Execute
 - dependency가 끝나지 않은 work package는 실행하지 않는다.
 - 같은 workspace를 provider가 관리하며 파일 소유권이 겹치는 package는 병렬 실행하지 않는다.
 
+실행 중에는 각 package의 시작과 종료가 workflow event로 남는다. Textual Execution
+Matrix는 이 이벤트를 `[HH:MM:SS] work_package_started: ...`와
+`[HH:MM:SS] work_package_completed: ...` 형식으로 표시한다. 같은 정보는
+`.trinity/workflow/events.jsonl`의 `timestamp`, `event`, `data.package_id`,
+`data.agent`, `data.status`, `data.summary` 필드에서도 확인할 수 있다.
+
 ## Textual Workbench의 역할
 
 Textual 앱은 별도 workflow 엔진이 아니다. `TextualWorkflowController`가 기존

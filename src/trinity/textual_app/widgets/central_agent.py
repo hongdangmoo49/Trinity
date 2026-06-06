@@ -98,6 +98,15 @@ class CentralAgentView(VerticalScroll):
                     "Planning does not require a workspace.",
                 ]
             )
+        if snapshot.local_commands:
+            lines.extend(["", "### Local Command Results"])
+            for item in snapshot.local_commands:
+                lines.extend(
+                    [
+                        f"#### `{item.command}` · {item.title}",
+                        item.body,
+                    ]
+                )
         if snapshot.decisions:
             lines.extend(["", "### Decisions"])
             lines.extend(f"- {item}" for item in snapshot.decisions)

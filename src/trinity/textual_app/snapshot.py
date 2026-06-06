@@ -51,6 +51,16 @@ class QuestionSnapshot:
 
 
 @dataclass(frozen=True)
+class LocalCommandSnapshot:
+    """A locally handled slash command result for Textual display."""
+
+    command: str
+    title: str
+    body: str
+    severity: str = "info"
+
+
+@dataclass(frozen=True)
 class WorkflowNexusSnapshot:
     """Read-only UI projection of the current workflow."""
 
@@ -66,6 +76,7 @@ class WorkflowNexusSnapshot:
     work_packages: list[str] = field(default_factory=list)
     work_package_repairs: list[str] = field(default_factory=list)
     execution_log: list[str] = field(default_factory=list)
+    local_commands: list[LocalCommandSnapshot] = field(default_factory=list)
 
 
 class NexusSnapshotAdapter:

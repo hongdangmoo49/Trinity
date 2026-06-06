@@ -459,6 +459,9 @@ async def test_start_slash_status_does_not_start_workflow(tmp_path) -> None:
         assert controller.started_prompts == []
         assert controller.follow_ups == []
         assert composer.text == ""
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.local_commands[-1].command == "/status"
+        assert app.active_snapshot.local_commands[-1].title == "Status"
 
 
 @pytest.mark.asyncio
@@ -479,6 +482,9 @@ async def test_start_unknown_slash_does_not_start_workflow(tmp_path) -> None:
         assert controller.started_prompts == []
         assert controller.follow_ups == []
         assert composer.text == ""
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.local_commands[-1].command == "/not-a-command"
+        assert app.active_snapshot.local_commands[-1].title == "Unknown Command"
 
 
 @pytest.mark.asyncio
@@ -503,6 +509,12 @@ async def test_nexus_slash_workflow_does_not_submit_followup(tmp_path) -> None:
         assert controller.follow_ups == []
         assert screen.follow_ups == []
         assert composer.text == ""
+        central = screen.query_one(CentralAgentView)
+        assert central.snapshot is not None
+        assert central.snapshot.local_commands[-1].command == "/workflow"
+        assert central.snapshot.local_commands[-1].title == "Workflow"
+        assert "Local Command Results" in central._markdown()
+        assert "`/workflow`" in central._markdown()
 
 
 @pytest.mark.asyncio
@@ -525,6 +537,12 @@ async def test_nexus_unknown_slash_does_not_submit_followup(tmp_path) -> None:
         assert controller.follow_ups == []
         assert screen.follow_ups == []
         assert composer.text == ""
+        central = screen.query_one(CentralAgentView)
+        assert central.snapshot is not None
+        assert central.snapshot.local_commands[-1].command == "/not-a-command"
+        assert central.snapshot.local_commands[-1].title == "Unknown Command"
+        assert "Local Command Results" in central._markdown()
+        assert "`/not-a-command`" in central._markdown()
 
 
 @pytest.mark.asyncio

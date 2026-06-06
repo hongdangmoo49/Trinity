@@ -2,6 +2,8 @@
 
 작성일: 2026-06-06
 
+갱신일: 2026-06-07
+
 브랜치: `codex/slash-command-docs`
 
 ## 목적
@@ -31,12 +33,16 @@
   - 조회/unknown command가 `start_prompt()` 또는 `submit_follow_up()`으로 넘어가지 않게 처리
   - `/execute`는 기존 `TextualWorkflowController.request_execution()` 경로로 연결
   - `/answer`, `/target`, `/resume`, `/rounds`, `/agent`, `/caveman`, `/report`의 Textual 1차 처리 추가
+- `src/trinity/textual_app/snapshot.py`
+  - `LocalCommandSnapshot`과 `WorkflowNexusSnapshot.local_commands` 추가
+- `src/trinity/textual_app/widgets/central_agent.py`
+  - 로컬 slash command 결과를 Nexus 중앙 영역의 `Local Command Results` 섹션에 표시
 
 ## 에이전트 호출 정책 반영
 
 | 명령 분류 | 이번 구현 상태 |
 | :--- | :--- |
-| 로컬/UI 조회 | notification 또는 snapshot 갱신으로 처리하고 에이전트 호출 금지 |
+| 로컬/UI 조회 | Nexus 중앙 영역의 `Local Command Results`에 누적 표시하고 에이전트 호출 금지 |
 | 로컬 파일 기록 | `/report save`는 Markdown export, `/save`는 Textual 자동 persistence 안내 |
 | 세션 설정 변경 | `/rounds`, `/agent`, `/caveman`은 현재 프로세스 config를 변경 |
 | workflow 로컬 변경 | `/target`, `/resume`은 가능한 경우 workflow/session을 직접 갱신 |
@@ -51,7 +57,9 @@
 ```bash
 /home/zaemi/.local/bin/uv run pytest tests/test_tui_prompt.py tests/test_textual_app.py::test_start_slash_status_does_not_start_workflow tests/test_textual_app.py::test_start_unknown_slash_does_not_start_workflow tests/test_textual_app.py::test_nexus_slash_workflow_does_not_submit_followup tests/test_textual_app.py::test_nexus_unknown_slash_does_not_submit_followup tests/test_textual_app.py::test_prompt_composer_shows_slash_command_palette tests/test_textual_app.py::test_prompt_composer_localizes_slash_command_palette_in_korean tests/test_textual_app.py::test_nexus_composer_uses_configured_slash_command_language -q
 /home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py tests/test_tui_prompt.py -q
+/home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py tests/test_tui_prompt.py tests/test_textual_snapshot.py -q
 /home/zaemi/.local/bin/uvx ruff check src/trinity/slash_commands.py src/trinity/tui/prompt.py src/trinity/textual_app/i18n.py src/trinity/textual_app/app.py src/trinity/textual_app/screens/start.py src/trinity/textual_app/screens/nexus.py tests/test_tui_prompt.py tests/test_textual_app.py
+/home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/app.py src/trinity/textual_app/snapshot.py src/trinity/textual_app/widgets/central_agent.py tests/test_textual_app.py
 git diff --check
 /home/zaemi/.local/bin/uv run pytest -q
 ```
@@ -61,9 +69,11 @@ git diff --check
 - Slash command 대상 테스트: `23 passed in 4.51s`
 - Textual/prompt 관련 전체 테스트: `63 passed in 27.58s`
 - Textual/prompt/plain command 관련 테스트: `77 passed in 29.58s`
+- Textual/prompt/snapshot 관련 테스트: `77 passed in 28.70s`
+- Central local command result 회귀: `4 passed in 3.00s`
 - Ruff 대상 파일 검사 통과
 - `git diff --check` 통과
-- 전체 회귀: `1204 passed, 1 warning in 61.38s`
+- 전체 회귀: `1204 passed, 2 warnings in 62.12s`
 
 ## 남은 작업
 

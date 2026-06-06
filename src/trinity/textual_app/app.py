@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Literal
 
@@ -26,7 +27,11 @@ from trinity.textual_app.screens.report import ReportScreen
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.settings import UISettingsStore
-from trinity.textual_app.snapshot import NexusSnapshotAdapter, WorkflowNexusSnapshot
+from trinity.textual_app.snapshot import (
+    LocalCommandSnapshot,
+    NexusSnapshotAdapter,
+    WorkflowNexusSnapshot,
+)
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.workflow_controller import (
     TextualWorkflowController,
@@ -559,6 +564,7 @@ class TrinityTextualApp(App[None]):
         self.workflow_controller = workflow_controller or TextualWorkflowController(config)
         self._screens_installed = False
         self._workflow_polling_started = False
+        self._local_command_results: list[LocalCommandSnapshot] = []
 
     def on_mount(self) -> None:
         self._install_workbench_screens()
@@ -715,15 +721,16 @@ class TrinityTextualApp(App[None]):
             self._advance_activity_frame()
 
     def _apply_workflow_outcome(self, outcome: TextualWorkflowOutcome) -> None:
-        self.active_snapshot = outcome.snapshot
+        snapshot = self._with_local_command_results(outcome.snapshot)
+        self.active_snapshot = snapshot
         if self._screens_installed:
             nexus = self.get_screen("nexus", NexusScreen)
-            nexus.apply_snapshot(outcome.snapshot)
+            nexus.apply_snapshot(snapshot)
             if outcome.running:
                 nexus.advance_activity_frame()
         if self.current_route == "execution" and self.confirmed_preflight is not None:
             execution = self.get_screen("execution", ExecutionMatrixScreen)
-            execution.apply_execution_state(self.confirmed_preflight, outcome.snapshot)
+            execution.apply_execution_state(self.confirmed_preflight, snapshot)
         if outcome.message:
             self.notify(outcome.message)
         if outcome.running:
@@ -735,14 +742,20 @@ class TrinityTextualApp(App[None]):
         if parsed is None:
             return
         if parsed.error:
-            self.notify(parsed.error, title="Slash Command", severity="warning")
+            self._record_slash_command_result(
+                text,
+                "Syntax Error",
+                parsed.error,
+                severity="warning",
+            )
             return
         if not parsed.token:
             return
         if parsed.spec is None:
-            self.notify(
-                f"Unknown command: {parsed.token}",
-                title="Slash Command",
+            self._record_slash_command_result(
+                parsed.token,
+                "Unknown Command",
+                f"`{parsed.token}` is not a Trinity slash command.",
                 severity="warning",
             )
             return
@@ -754,55 +767,59 @@ class TrinityTextualApp(App[None]):
             self.exit()
             return
         if command == "help":
-            self.notify(
-                ", ".join(TRINITY_COMMANDS),
-                title="Trinity Commands",
-                timeout=8,
+            self._record_slash_command_result(
+                parsed.spec.name,
+                "Trinity Commands",
+                "\n".join(f"- `{name}`" for name in TRINITY_COMMANDS),
             )
             return
         if command == "status":
             snapshot = self._refresh_textual_snapshot()
-            self.notify(
-                self._snapshot_status_text(snapshot),
-                title="Status",
-                timeout=6,
+            self._record_slash_command_result(
+                parsed.spec.name,
+                "Status",
+                self._snapshot_status_markdown(snapshot),
             )
             return
         if command == "workflow":
             snapshot = self._refresh_textual_snapshot()
-            self.notify(
-                self._snapshot_workflow_text(snapshot),
-                title="Workflow",
-                timeout=6,
+            self._record_slash_command_result(
+                parsed.spec.name,
+                "Workflow",
+                self._snapshot_workflow_markdown(snapshot),
             )
             return
         if command == "questions":
             snapshot = self._refresh_textual_snapshot()
-            count = len(snapshot.questions)
-            self.notify(
-                f"{count} pending question(s). Use the central panel buttons or /answer.",
-                title="Questions",
+            self._record_slash_command_result(
+                parsed.spec.name,
+                "Questions",
+                self._questions_markdown(snapshot),
             )
             return
         if command == "decisions":
             snapshot = self._refresh_textual_snapshot()
-            self.notify(
-                f"{len(snapshot.decisions)} decision(s) recorded.",
-                title="Decisions",
+            body = "\n".join(f"- {item}" for item in snapshot.decisions)
+            self._record_slash_command_result(
+                parsed.spec.name,
+                "Decisions",
+                body or "No workflow decisions recorded.",
             )
             return
         if command == "packages":
             snapshot = self._refresh_textual_snapshot()
-            self.notify(
-                f"{len(snapshot.work_packages)} work package(s).",
-                title="Packages",
+            body = "\n".join(f"- {item}" for item in snapshot.work_packages)
+            self._record_slash_command_result(
+                parsed.spec.name,
+                "Packages",
+                body or "No workflow work packages generated.",
             )
             return
         if command == "subtasks":
-            snapshot = self._refresh_textual_snapshot()
-            self.notify(
+            self._record_slash_command_result(
+                parsed.spec.name,
+                "Subtasks",
                 "Subtask details are available in workflow reports when recorded.",
-                title="Subtasks",
             )
             return
         if command == "context":
@@ -856,24 +873,101 @@ class TrinityTextualApp(App[None]):
             or self.snapshot_adapter.load_snapshot()
         )
         self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
-        return snapshot
+        return self.active_snapshot or snapshot
 
-    @staticmethod
-    def _snapshot_status_text(snapshot: WorkflowNexusSnapshot) -> str:
-        state = snapshot.state or "idle"
-        goal = snapshot.goal or "(none)"
-        providers = len(snapshot.providers)
-        return f"state={state}, providers={providers}, goal={goal}"
-
-    @staticmethod
-    def _snapshot_workflow_text(snapshot: WorkflowNexusSnapshot) -> str:
-        state = snapshot.state or "idle"
-        goal = snapshot.goal or "(none)"
-        return (
-            f"id={snapshot.session_id}, state={state}, "
-            f"questions={len(snapshot.questions)}, "
-            f"packages={len(snapshot.work_packages)}, goal={goal}"
+    def _with_local_command_results(
+        self,
+        snapshot: WorkflowNexusSnapshot,
+    ) -> WorkflowNexusSnapshot:
+        """Attach recent local slash command results to a snapshot."""
+        return replace(
+            snapshot,
+            local_commands=list(self._local_command_results[-8:]),
         )
+
+    def _record_slash_command_result(
+        self,
+        command: str,
+        title: str,
+        body: str,
+        *,
+        severity: str = "info",
+    ) -> None:
+        """Record a local slash command result in the central Textual view."""
+        result = LocalCommandSnapshot(
+            command=command,
+            title=title,
+            body=body.strip() or "(no output)",
+            severity=severity,
+        )
+        self._local_command_results.append(result)
+        snapshot = (
+            self.workflow_controller.snapshot()
+            or self.snapshot_adapter.load_snapshot()
+        )
+        self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
+        notify_severity = "warning" if severity in {"warning", "error"} else "information"
+        self.notify(title, title="Slash Command", severity=notify_severity)
+
+    @staticmethod
+    def _snapshot_status_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+        state = snapshot.state or "idle"
+        goal = snapshot.goal or "(none)"
+        lines = [
+            f"- Workflow: `{snapshot.session_id or '(new)'}`",
+            f"- State: `{state}`",
+            f"- Round: `{snapshot.round_num}`",
+            f"- Goal: {goal}",
+            "",
+            "| Provider | Enabled | Status | Readiness |",
+            "| :--- | :--- | :--- | :--- |",
+        ]
+        if snapshot.providers:
+            lines.extend(
+                (
+                    f"| {provider.name} | {'yes' if provider.enabled else 'no'} "
+                    f"| {provider.status} | {provider.readiness} |"
+                )
+                for provider in snapshot.providers
+            )
+        else:
+            lines.append("| - | - | - | - |")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _snapshot_workflow_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+        state = snapshot.state or "idle"
+        goal = snapshot.goal or "(none)"
+        return "\n".join(
+            [
+                f"- ID: `{snapshot.session_id or '(new)'}`",
+                f"- State: `{state}`",
+                f"- Goal: {goal}",
+                f"- Round: `{snapshot.round_num}`",
+                f"- Pending questions: `{len(snapshot.questions)}`",
+                f"- Decisions: `{len(snapshot.decisions)}`",
+                f"- Work packages: `{len(snapshot.work_packages)}`",
+                f"- Local policy repairs: `{len(snapshot.work_package_repairs)}`",
+                f"- Execution log entries: `{len(snapshot.execution_log)}`",
+            ]
+        )
+
+    @staticmethod
+    def _questions_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+        if not snapshot.questions:
+            return "No pending workflow questions."
+        lines: list[str] = []
+        for index, question in enumerate(snapshot.questions, start=1):
+            lines.append(f"{index}. **{question.id}** [{question.status}] {question.question}")
+            if question.answer:
+                lines.append(f"   - Answer: {question.answer}")
+            if question.recommended_option:
+                lines.append(f"   - Recommended: {question.recommended_option}")
+            for option_index, option in enumerate(question.options, start=1):
+                lines.append(f"   - {option_index}. {option}")
+        lines.append("")
+        lines.append("Use central panel buttons or `/answer <id|index|next> <answer>`.")
+        return "\n".join(lines)
 
     def _notify_shared_context(self) -> None:
         try:

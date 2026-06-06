@@ -18,7 +18,9 @@ def snapshot_has_report_data(snapshot: WorkflowNexusSnapshot) -> bool:
             snapshot.goal,
             snapshot.synthesis.summary,
             snapshot.decisions,
+            snapshot.central_work_packages,
             snapshot.work_packages,
+            snapshot.work_package_repairs,
             snapshot.execution_log,
             snapshot.questions,
         )
@@ -52,9 +54,22 @@ def snapshot_report_markdown(snapshot: WorkflowNexusSnapshot) -> str:
     if snapshot.decisions:
         lines.extend(["", "## Decisions", ""])
         lines.extend(f"- {_md_inline(decision)}" for decision in snapshot.decisions)
+    if snapshot.central_work_packages:
+        lines.extend(["", "## Central WP Graph", ""])
+        lines.extend(
+            f"- {_md_inline(package)}" for package in snapshot.central_work_packages
+        )
     if snapshot.work_packages:
-        lines.extend(["", "## Work Packages", ""])
+        heading = (
+            "## Local WP Graph"
+            if snapshot.central_work_packages
+            else "## Work Packages"
+        )
+        lines.extend(["", heading, ""])
         lines.extend(f"- {_md_inline(package)}" for package in snapshot.work_packages)
+    if snapshot.work_package_repairs:
+        lines.extend(["", "## Local Policy Repairs", ""])
+        lines.extend(f"- {_md_inline(note)}" for note in snapshot.work_package_repairs)
     if snapshot.execution_log:
         lines.extend(["", "## Execution Log", ""])
         lines.extend(f"- {_md_inline(entry)}" for entry in snapshot.execution_log)

@@ -32,6 +32,7 @@ from trinity.providers.invoker import (
     CodexExecInvoker,
     ProviderInvoker,
 )
+from trinity.providers.policy import ParallelExecutionPolicy
 from trinity.providers.readiness import (
     ProviderReadinessGate,
     ReadinessResult,
@@ -56,6 +57,12 @@ SYNTHESIS_PROVIDER_PRIORITY: tuple[Provider, ...] = (
 SYNTHESIS_FAST_MODELS: dict[Provider, str] = {
     Provider.CODEX: "gpt-5.4-mini",
     Provider.CLAUDE_CODE: "sonnet",
+    Provider.ANTIGRAVITY_CLI: "default",
+}
+
+SYNTHESIS_STRONG_MODELS: dict[Provider, str] = {
+    Provider.CODEX: "gpt-5.4",
+    Provider.CLAUDE_CODE: "opus",
     Provider.ANTIGRAVITY_CLI: "default",
 }
 
@@ -199,6 +206,10 @@ class TrinityOrchestrator:
             event_callback=event_callback,
             lifecycle_guard=self.lifecycle_guard,
             rotation_callback=self._rotate_agent_for_lifecycle,
+            parallel_policy=ParallelExecutionPolicy(
+                shared_write_paths=self.config.parallel_shared_write_paths,
+                broad_write_paths=self.config.parallel_broad_write_paths,
+            ),
             target_workspace=self.target_workspace,
             control_repo=self.config.project_dir,
             allow_control_repo_writes=self.allow_control_repo_writes,
@@ -398,10 +409,12 @@ class TrinityOrchestrator:
         raise RuntimeError("no active provider supports model-backed synthesis")
 
     def _resolve_synthesis_model(self, spec: AgentSpec) -> str:
-        """Resolve synthesis_model using provider-specific fast defaults."""
-        requested = (self.config.synthesis_model or "fast").strip()
+        """Resolve synthesis_model using provider-specific quality tiers."""
+        requested = (self.config.synthesis_model or "strong").strip()
         if requested == "fast":
             return SYNTHESIS_FAST_MODELS.get(spec.provider, "default")
+        if requested == "strong":
+            return SYNTHESIS_STRONG_MODELS.get(spec.provider, "default")
         if requested:
             return requested
         return spec.model or "default"

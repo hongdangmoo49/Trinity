@@ -28,6 +28,7 @@ class TUIEventType(str, Enum):
     DELIBERATION_PHASE = "deliberation_phase"
     DELIBERATION_PROGRESS = "deliberation_progress"
     EXECUTION_START = "execution_start"
+    EXECUTION_BATCH_PLANNED = "execution_batch_planned"
     WORK_PACKAGE_STARTED = "work_package_started"
     WORK_PACKAGE_COMPLETED = "work_package_completed"
     EXECUTION_DONE = "execution_done"

@@ -280,6 +280,23 @@ class ModelBackedSynthesisAgent:
                 ],
                 "acceptance_criteria": ["string"],
                 "open_questions": [],
+                "work_packages": [
+                    {
+                        "id": "WP-001",
+                        "title": "string",
+                        "owner_agent": "agent name or null",
+                        "objective": "string",
+                        "scope": ["string"],
+                        "out_of_scope": ["string"],
+                        "dependencies": ["WP id or package title"],
+                        "expected_files": ["relative path"],
+                        "acceptance_criteria": ["string"],
+                        "estimated_weight": "integer >= 1",
+                        "parallel_group": "integer or null",
+                        "parallelizable": "boolean",
+                        "risk": "low|medium|high",
+                    }
+                ],
             },
             "votes": {
                 "agent_name": {
@@ -311,7 +328,20 @@ class ModelBackedSynthesisAgent:
                 "If open_questions_for_user is non-empty, consensus_reached must be false.",
                 "If there is no valid recommended_blueprint, consensus_reached must be false.",
                 "Do not invent provider names outside usable_agent_opinions.",
+                "Build recommended_blueprint.work_packages as an executable DAG "
+                "when a blueprint is valid.",
+                "Use dependencies only for true sequencing constraints; independent "
+                "packages should have no dependency.",
+                "Set expected_files to the narrowest relative files or directories "
+                "each package may write.",
+                "Use parallel_group as execution waves; lower groups are planned "
+                "before higher groups, but local policy can still serialize work.",
+                "Set parallelizable=false for shared config, global refactors, "
+                "migrations, or work that cannot safely run with another writer.",
+                "Set risk=high for broad write scopes, shared files, data migration, "
+                "or destructive behavior.",
             ],
+            "wp_graph_guidance": self._wp_graph_guidance(),
             "output_schema": schema,
         }
         return (
@@ -326,6 +356,58 @@ class ModelBackedSynthesisAgent:
                 "field names and enum values in English."
             )
         return "Use English for user-facing string values unless the user requested another language."
+
+    @staticmethod
+    def _wp_graph_guidance() -> dict[str, object]:
+        return {
+            "purpose": (
+                "The central agent proposes the semantic work-package graph; "
+                "Trinity local policy validates and may repair it before execution."
+            ),
+            "expected_files": (
+                "Use narrow relative paths such as src/ui/input.py or tests/input/. "
+                "Include shared files like pyproject.toml, package.json, lockfiles, "
+                "shared schemas, or root config when a package may edit them. Leave "
+                "empty only when the write scope is unknown so local policy can "
+                "serialize conservatively."
+            ),
+            "parallel_group": (
+                "Packages in the same group are candidates for the same execution "
+                "wave. Use different groups for planned phases such as contract "
+                "first, implementation second, validation third."
+            ),
+            "good_parallel_example": [
+                {
+                    "id": "WP-001",
+                    "title": "Input controller",
+                    "dependencies": [],
+                    "expected_files": ["src/game/input.py", "tests/test_input.py"],
+                    "parallel_group": 1,
+                    "parallelizable": True,
+                    "risk": "low",
+                },
+                {
+                    "id": "WP-002",
+                    "title": "Wave spawner",
+                    "dependencies": [],
+                    "expected_files": ["src/game/waves.py", "tests/test_waves.py"],
+                    "parallel_group": 1,
+                    "parallelizable": True,
+                    "risk": "low",
+                },
+            ],
+            "serial_example": [
+                {
+                    "id": "WP-003",
+                    "title": "Shared package configuration",
+                    "dependencies": [],
+                    "expected_files": ["pyproject.toml", "uv.lock"],
+                    "parallel_group": 1,
+                    "parallelizable": False,
+                    "risk": "high",
+                }
+            ],
+        }
 
     def _bounded_opinions(self, opinions: dict[str, str]) -> dict[str, str]:
         if not opinions:
@@ -550,6 +632,7 @@ class ModelBackedSynthesisAgent:
             for item in data.get("open_questions", [])
             if isinstance(item, dict)
         ]
+        data["work_packages"] = cls._normalize_work_packages(data.get("work_packages", []))
         return Blueprint.from_dict(data)
 
     @staticmethod
@@ -563,6 +646,68 @@ class ModelBackedSynthesisAgent:
                 text = str(item).strip()
                 normalized.append({"name": text, "responsibility": text})
         return normalized
+
+    @classmethod
+    def _normalize_work_packages(cls, payload: Any) -> list[dict[str, Any]]:
+        items = payload if isinstance(payload, list) else []
+        normalized: list[dict[str, Any]] = []
+        for index, item in enumerate(items, start=1):
+            if not isinstance(item, dict):
+                continue
+            data = dict(item)
+            data["id"] = str(data.get("id") or f"WP-{index:03d}")
+            data["title"] = str(data.get("title") or data["id"]).strip()
+            data["owner_agent"] = str(data.get("owner_agent") or "").strip()
+            data["objective"] = str(
+                data.get("objective") or data.get("summary") or data["title"]
+            ).strip()
+            data["scope"] = cls._string_list(data.get("scope", []))
+            data["out_of_scope"] = cls._string_list(data.get("out_of_scope", []))
+            data["dependencies"] = cls._string_list(data.get("dependencies", []))
+            data["expected_files"] = cls._string_list(data.get("expected_files", []))
+            data["acceptance_criteria"] = cls._string_list(
+                data.get("acceptance_criteria", [])
+            )
+            data["status"] = "pending"
+            data["requires_execution"] = cls._coerce_bool(
+                data.get("requires_execution", True)
+            )
+            data["estimated_weight"] = max(
+                1,
+                cls._optional_int(data.get("estimated_weight")) or 1,
+            )
+            data["parallel_group"] = cls._optional_int(data.get("parallel_group"))
+            data["parallelizable"] = cls._coerce_bool(
+                data.get("parallelizable", True)
+            )
+            data["risk"] = cls._normalize_risk_value(data.get("risk"))
+            if data["title"] and data["objective"]:
+                normalized.append(data)
+        return normalized
+
+    @staticmethod
+    def _string_list(value: Any) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value] if value.strip() else []
+        if not isinstance(value, list):
+            value = [value]
+        return [str(item).strip() for item in value if str(item).strip()]
+
+    @staticmethod
+    def _optional_int(value: Any) -> int | None:
+        if value in (None, ""):
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _normalize_risk_value(value: Any) -> str:
+        normalized = str(value or "medium").strip().lower()
+        return normalized if normalized in {"low", "medium", "high"} else "medium"
 
     @staticmethod
     def _normalize_risks(payload: Any) -> list[dict[str, Any]]:

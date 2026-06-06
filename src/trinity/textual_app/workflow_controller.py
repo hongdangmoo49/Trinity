@@ -300,6 +300,12 @@ class TextualWorkflowController:
         return events
 
     def _consume_runtime_event(self, event: TUIEvent) -> None:
+        if event.type == TUIEventType.EXECUTION_BATCH_PLANNED:
+            self.workflow.record_execution_batch_planned(
+                self._event_batches(event),
+                self._event_notices(event),
+                self._event_occurred_at(event),
+            )
         if event.type == TUIEventType.WORK_PACKAGE_STARTED:
             self.workflow.record_work_package_started(
                 str(event.data.get("package_id") or ""),
@@ -322,6 +328,24 @@ class TextualWorkflowController:
             return float(value) if value is not None else None
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _event_batches(event: TUIEvent) -> list[list[str]]:
+        batches = event.data.get("batches", [])
+        if not isinstance(batches, list):
+            return []
+        normalized: list[list[str]] = []
+        for batch in batches:
+            if isinstance(batch, list):
+                normalized.append([str(item) for item in batch if str(item).strip()])
+        return normalized
+
+    @staticmethod
+    def _event_notices(event: TUIEvent) -> list[dict[str, object]]:
+        notices = event.data.get("notices", [])
+        if not isinstance(notices, list):
+            return []
+        return [item for item in notices if isinstance(item, dict)]
 
     def _outcome(
         self,

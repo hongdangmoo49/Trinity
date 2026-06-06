@@ -267,6 +267,63 @@ async def test_model_backed_synthesis_parses_valid_json_and_writes_artifacts(tmp
 
 
 @pytest.mark.asyncio
+async def test_model_backed_synthesis_parses_central_work_package_graph(tmp_path):
+    payload = _valid_model_payload()
+    payload["recommended_blueprint"]["work_packages"] = [
+        {
+            "id": "WP-010",
+            "title": "Shared type contract",
+            "owner_agent": "claude",
+            "objective": "Define the shared interface before implementation.",
+            "scope": "Document DTOs and ownership boundaries.",
+            "dependencies": [],
+            "expected_files": ["src/types/contracts.py"],
+            "acceptance_criteria": ["contract is documented"],
+            "estimated_weight": 2,
+            "parallel_group": 1,
+            "parallelizable": False,
+            "risk": "high",
+        },
+        {
+            "id": "WP-020",
+            "title": "Adapter implementation",
+            "owner_agent": "codex",
+            "objective": "Implement the adapter against the shared contract.",
+            "scope": ["Add adapter", "Add tests"],
+            "dependencies": ["WP-010"],
+            "expected_files": ["src/adapters/route_adapter.py"],
+            "acceptance_criteria": ["adapter tests pass"],
+            "estimated_weight": 3,
+            "parallel_group": 2,
+            "parallelizable": True,
+            "risk": "medium",
+        },
+    ]
+    agent, invoker = _model_synthesis_agent(tmp_path, _provider_result(payload))
+
+    result = await agent.synthesize(
+        SynthesisInput(
+            user_prompt="Design route bot",
+            round_num=1,
+            opinions={"claude": "Approved blueprint."},
+        )
+    )
+
+    assert result.recommended_blueprint is not None
+    packages = result.recommended_blueprint.work_packages
+    assert [package.id for package in packages] == ["WP-010", "WP-020"]
+    assert packages[0].scope == ["Document DTOs and ownership boundaries."]
+    assert packages[0].parallelizable is False
+    assert packages[0].risk == "high"
+    assert packages[1].dependencies == ["WP-010"]
+    assert packages[1].parallel_group == 2
+    assert "work_packages" in invoker.requests[0].prompt
+    assert "wp_graph_guidance" in invoker.requests[0].prompt
+    assert "narrowest relative files" in invoker.requests[0].prompt
+    assert "serial_example" in invoker.requests[0].prompt
+
+
+@pytest.mark.asyncio
 async def test_model_backed_synthesis_ko_requests_korean_user_facing_values(tmp_path):
     agent, invoker = _korean_model_synthesis_agent(
         tmp_path,

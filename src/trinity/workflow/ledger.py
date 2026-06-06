@@ -259,6 +259,11 @@ class SharedLedgerRenderer:
             )
             self._append_keyed_list(
                 lines,
+                "repair_notes",
+                self._field(package, "repair_notes", []),
+            )
+            self._append_keyed_list(
+                lines,
                 "acceptance",
                 self._field(package, "acceptance_criteria", []),
             )

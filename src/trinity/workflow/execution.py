@@ -201,7 +201,9 @@ class ExecutionProtocol:
             for package in packages
             for scope in (scope_by_id[id(package)],)
         }
-        scope_batches = self.parallel_policy.plan_batches(scope_by_id.values())
+        batch_plan = self.parallel_policy.plan(scope_by_id.values())
+        scope_batches = batch_plan.batches
+        self._emit_batch_plan(scope_batches, package_by_scope_id, batch_plan.notices)
         return tuple(
             tuple(package_by_scope_id[id(scope)] for scope in scope_batch)
             for scope_batch in scope_batches
@@ -219,6 +221,35 @@ class ExecutionProtocol:
             file_ownership=frozenset(
                 item.strip() for item in package.expected_files if item.strip()
             ),
+            parallelizable=package.parallelizable,
+            risk=package.risk,
+            parallel_group=package.parallel_group,
+        )
+
+    def _emit_batch_plan(
+        self,
+        scope_batches: tuple[tuple[ExecutionScope, ...], ...],
+        package_by_scope_id: dict[int, WorkPackage],
+        notices: tuple[object, ...],
+    ) -> None:
+        """Emit safe scheduling groups and conservative policy reasons."""
+        batches = [
+            [package_by_scope_id[id(scope)].id for scope in scope_batch]
+            for scope_batch in scope_batches
+        ]
+        self._emit(
+            TUIEventType.EXECUTION_BATCH_PLANNED,
+            batches=batches,
+            notices=[
+                {
+                    "reason": str(getattr(notice, "reason", "")),
+                    "serialized_agents": list(
+                        getattr(notice, "serialized_agents", ()) or ()
+                    ),
+                }
+                for notice in notices
+                if str(getattr(notice, "reason", "")).strip()
+            ],
         )
 
     async def _run_ready_package(

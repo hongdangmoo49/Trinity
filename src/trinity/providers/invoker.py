@@ -253,6 +253,7 @@ class CodexExecInvoker(CliProviderInvoker):
             "exec",
             "--json",
             "--ephemeral",
+            "--skip-git-repo-check",
             "--sandbox",
             request.access.value,
             "--cd",
@@ -435,6 +436,10 @@ class AntigravityPrintInvoker(CliProviderInvoker):
 
         content = stdout.strip()
         status = ResponseStatus.OK if content else ResponseStatus.EMPTY
+        if not content:
+            content = "[Empty response from Antigravity CLI]"
+            raw = raw or content
+            diagnostics.append("empty_response: Antigravity CLI returned empty output.")
         return ProviderTurnResult(
             agent_name=request.agent_name,
             content=content,

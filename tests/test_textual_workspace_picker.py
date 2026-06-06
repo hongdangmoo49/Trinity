@@ -96,7 +96,7 @@ async def test_workspace_picker_tree_root_can_differ_from_selected_path(tmp_path
 
     async with app.run_test(size=(100, 30)) as pilot:
         app.push_screen(picker)
-        await pilot.pause()
+        await pilot.pause(0.25)
 
         tree = app.screen.query_one("#workspace-directory-tree", DirectoryTree)
         path_input = app.screen.query_one("#workspace-path-input", Input)
@@ -126,7 +126,7 @@ async def test_workspace_picker_tree_selection_updates_input_and_preflight(tmp_p
 
     async with app.run_test(size=(100, 30)) as pilot:
         app.push_screen(picker)
-        await pilot.pause()
+        await pilot.pause(0.25)
 
         tree = app.screen.query_one("#workspace-directory-tree", DirectoryTree)
         tree.post_message(

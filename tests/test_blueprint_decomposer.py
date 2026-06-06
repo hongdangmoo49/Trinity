@@ -108,3 +108,67 @@ def test_decompose_component_dependencies_resolve_to_package_ids():
     scoring = next(package for package in packages if package.title == "Route Scoring Model")
     adapter = next(package for package in packages if package.title == "Bridge Adapter Interface")
     assert adapter.dependencies == [scoring.id]
+
+
+def test_decompose_filters_markdown_artifacts_and_scopes_expected_files():
+    blueprint = Blueprint(
+        title="Mobile Shooting Game",
+        summary="Build a 1945-style mobile shooter.",
+        architecture=[
+            ArchitectureComponent(name="*게임 엔진", responsibility="** Unity 2D (권장)"),
+            ArchitectureComponent(name="이유", responsibility="2D mobile pipeline"),
+            ArchitectureComponent(name="*핵심 모듈", responsibility="**"),
+            ArchitectureComponent(name="```", responsibility="```"),
+            ArchitectureComponent(name="GameCore/", responsibility="GameCore/"),
+            ArchitectureComponent(
+                name="├── InputController    # 터치/드래그 입력 처리",
+                responsibility="├── InputController    # 터치/드래그 입력 처리",
+            ),
+            ArchitectureComponent(
+                name="├── EntityManager      # 플레이어/적/탄환 풀링",
+                responsibility="├── EntityManager      # 플레이어/적/탄환 풀링",
+            ),
+        ],
+        data_flow=["```", "Touch Input -> PlayerMovement", "```"],
+        external_dependencies=[
+            "| 항목 | 용도 |",
+            "|------|------|",
+            "| Unity 2D | 게임 엔진 |",
+        ],
+        risks=[
+            RiskItem(description="| 리스크 | 완화책 |"),
+            RiskItem(description="모바일 성능 병목"),
+        ],
+        acceptance_criteria=[
+            "60 FPS 유지",
+            "## 사용자 결정 필요",
+            "*Q1. 게임 엔진 선택?**",
+            "(A) Unity 2D",
+            "VOTE: BLOCKED_BY_QUESTION",
+        ],
+    )
+
+    packages = BlueprintDecomposer().decompose(
+        blueprint,
+        ["claude", "codex", "antigravity"],
+    )
+
+    titles = [package.title for package in packages]
+    assert "InputController" in titles
+    assert "EntityManager" in titles
+    assert "```" not in titles
+    assert "GameCore/" not in titles
+    assert "게임 엔진" not in titles
+    assert "이유" not in titles
+    assert all(package.expected_files != ["src/", "tests/"] for package in packages)
+    assert all(
+        "blocked_by_question" not in criterion.lower()
+        for package in packages
+        for criterion in package.acceptance_criteria
+    )
+    component_packages = [
+        package
+        for package in packages
+        if package.title in {"InputController", "EntityManager"}
+    ]
+    assert len({tuple(package.expected_files) for package in component_packages}) == 2

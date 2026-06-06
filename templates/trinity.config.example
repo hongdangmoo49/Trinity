@@ -45,6 +45,8 @@ role_prompt = "You are the Reviewer. You explore alternatives, identify issues, 
 [deliberation]
 max_rounds = 5
 round_timeout_seconds = 300
+# Implementation packages are often longer than planning turns.
+execution_timeout_seconds = 1800
 synthesis_mode = "auto"
 synthesis_agent = ""
 # Auto synthesis provider priority: codex -> claude -> antigravity.

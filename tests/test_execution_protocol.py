@@ -369,6 +369,81 @@ async def test_execution_protocol_falls_back_after_owner_failure(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_execution_protocol_falls_back_after_owner_blocked(tmp_path):
+    shared = SharedContextEngine(tmp_path / "shared.md")
+    claude = AsyncMock()
+    codex = AsyncMock()
+    claude.send_and_wait.return_value = _message(
+        "## Completed\n"
+        "- Could not proceed\n\n"
+        "## Blockers\n"
+        "- Missing local SDK\n"
+    )
+    codex.send_and_wait.return_value = _message(
+        "## Completed\n"
+        "- Fallback implementation complete\n\n"
+        "## Blockers\n"
+        "- No blockers.\n"
+    )
+    package = WorkPackage(
+        id="WP-001",
+        title="fallback package",
+        owner_agent="claude",
+        objective="Implement with fallback.",
+    )
+    protocol = ExecutionProtocol(
+        agents={"claude": claude, "codex": codex},
+        shared=shared,
+        artifact_dir=tmp_path / "execution",
+    )
+
+    results = await protocol.run([package])
+
+    assert results[0].status == WorkStatus.DONE
+    assert results[0].agent_name == "codex"
+    assert results[0].blockers == []
+    claude.send_and_wait.assert_called_once()
+    codex.send_and_wait.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_execution_protocol_treats_korean_no_blockers_as_done(tmp_path):
+    shared = SharedContextEngine(tmp_path / "shared.md")
+    agent = AsyncMock()
+    agent.send_and_wait.return_value = _message(
+        "## Completed\n"
+        "- 구현 완료\n\n"
+        "## Blockers\n"
+        "- 없음.\n\n"
+        "## Subtasks\n"
+        "### ST-001\n"
+        "- delegated_to: local implementation\n"
+        "- objective: 결과 파싱 검증\n"
+        "- result_summary: 정상 처리\n"
+        "- status: done\n"
+        "- unresolved_issues: 없음\n"
+    )
+    package = WorkPackage(
+        id="WP-001",
+        title="korean blockers",
+        owner_agent="antigravity",
+        objective="Handle Korean no blockers.",
+    )
+    protocol = ExecutionProtocol(
+        agents={"antigravity": agent},
+        shared=shared,
+        artifact_dir=tmp_path / "execution",
+    )
+
+    results = await protocol.run([package])
+
+    assert results[0].status == WorkStatus.DONE
+    assert results[0].blockers == []
+    assert len(results[0].subtasks) == 1
+    assert results[0].subtasks[0].unresolved_issues == []
+
+
+@pytest.mark.asyncio
 async def test_execution_protocol_falls_back_when_owner_missing(tmp_path):
     shared = SharedContextEngine(tmp_path / "shared.md")
     codex = AsyncMock()

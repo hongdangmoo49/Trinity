@@ -5,7 +5,16 @@ import os
 from trinity.config import TrinityConfig
 from trinity.textual_app.snapshot import NexusSnapshotAdapter
 from trinity.tui.events import TUIEvent, TUIEventType
-from trinity.workflow import Blueprint, OpenQuestion, WorkflowPersistence, WorkflowSession, WorkflowState
+from trinity.workflow import (
+    Blueprint,
+    ExecutionResult,
+    OpenQuestion,
+    WorkflowPersistence,
+    WorkflowSession,
+    WorkflowState,
+    WorkPackage,
+    WorkStatus,
+)
 
 
 def test_snapshot_loads_provider_defaults_without_workflow(tmp_path) -> None:
@@ -62,6 +71,102 @@ def test_snapshot_projects_persisted_workflow(tmp_path) -> None:
     assert snapshot.execution_log == ["state_changed: blueprint_ready"]
     assert snapshot.providers[0].enabled is True
     assert snapshot.providers[1].enabled is False
+
+
+def test_snapshot_formats_execution_events_with_runtime_details(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-execution",
+            goal="Build game",
+            state=WorkflowState.EXECUTING,
+            active_agents=["claude", "codex"],
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="InputController",
+                    owner_agent="claude",
+                    objective="Build input controller.",
+                )
+            ],
+        )
+    )
+    persistence.append_event(
+        {
+            "event": "implementation_requested",
+            "state": "blueprint_ready",
+            "workflow_id": "wf-execution",
+            "data": {
+                "target_workspace": "/workspace/game",
+                "work_packages": ["WP-001"],
+            },
+        }
+    )
+    persistence.append_event(
+        {
+            "event": "work_package_started",
+            "state": "executing",
+            "workflow_id": "wf-execution",
+            "data": {
+                "package_id": "WP-001",
+                "agent": "claude",
+                "status": "running",
+            },
+        }
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert snapshot.execution_log == [
+        "implementation_requested: 1 packages -> /workspace/game",
+        "work_package_started: WP-001 claude running",
+    ]
+
+
+def test_snapshot_formats_execution_result_failure_reason(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-execution-result",
+            goal="Build game",
+            state=WorkflowState.FAILED,
+            active_agents=["codex"],
+            work_packages=[
+                WorkPackage(
+                    id="WP-004",
+                    title="Enhancement tree",
+                    owner_agent="codex",
+                    objective="Build enhancement tree.",
+                    status=WorkStatus.FAILED,
+                )
+            ],
+            execution_results=[
+                ExecutionResult(
+                    package_id="WP-004",
+                    agent_name="codex",
+                    status=WorkStatus.FAILED,
+                    summary="All execution attempts failed.",
+                    blockers=[
+                        (
+                            "Not inside a trusted directory and "
+                            "--skip-git-repo-check was not specified."
+                        )
+                    ],
+                )
+            ],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert snapshot.execution_log == [
+        (
+            "WP-004 codex: failed - Not inside a trusted directory and "
+            "--skip-git-repo-check was not specified."
+        )
+    ]
 
 
 def test_snapshot_restores_provider_status_from_response_artifacts(tmp_path) -> None:

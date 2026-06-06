@@ -5,8 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Literal
-from typing import Any
+from typing import Any, Literal
 
 from trinity.workflow.models import Blueprint, WorkPackage, WorkStatus
 
@@ -24,6 +23,7 @@ class _PackageSeed:
     scope: list[str]
     kind: str
     dependency_keys: list[str] = field(default_factory=list)
+    expected_files: list[str] = field(default_factory=list)
     estimated_weight: int = 1
 
 
@@ -94,7 +94,7 @@ class BlueprintDecomposer:
             Blueprint.from_dict(blueprint) if isinstance(blueprint, dict) else blueprint
         )
         seeds = self._package_seeds(normalized)
-        criteria = normalized.acceptance_criteria or [
+        criteria = self._clean_acceptance_criteria(normalized.acceptance_criteria) or [
             f"Deliver package output aligned with {normalized.title}.",
         ]
         owners_by_seed = self._assign_owners(agent_names, seeds)
@@ -115,7 +115,7 @@ class BlueprintDecomposer:
                     scope=list(seed.scope),
                     out_of_scope=self._out_of_scope_for(agent_name, requires_execution),
                     expected_files=self._expected_files_for(
-                        seed.kind,
+                        seed,
                         requires_execution,
                     ),
                     acceptance_criteria=list(criteria),
@@ -191,66 +191,69 @@ class BlueprintDecomposer:
         seeds: list[_PackageSeed] = []
         known_keys: set[str] = set()
         for index, component in enumerate(blueprint.architecture, start=1):
-            title = component.name.strip() or f"Architecture Component {index}"
-            scope_item = f"{title}: {component.responsibility}".strip()
-            key = self._seed_key(title, known_keys)
-            seeds.append(
-                _PackageSeed(
-                    key=key,
-                    title=title,
-                    objective=(
-                        component.responsibility
-                        or f"Deliver the {title} component."
-                    ),
-                    scope=[scope_item] if scope_item and scope_item != ":" else [title],
-                    kind="component",
-                    dependency_keys=[
-                        self._normalize_key(dependency)
-                        for dependency in component.dependencies
-                    ],
-                    estimated_weight=self._estimate_weight(
-                        title,
-                        component.responsibility,
-                    ),
-                )
-            )
+            seed = self._component_seed(component, index, known_keys)
+            if seed is not None:
+                seeds.append(seed)
 
         if blueprint.data_flow:
-            seeds.append(
-                _PackageSeed(
-                    key=self._seed_key("data-flow", known_keys),
-                    title="Data flow and integration",
-                    objective="Implement the approved end-to-end data flow.",
-                    scope=[f"Data flow: {item}" for item in blueprint.data_flow],
-                    kind="integration",
-                    estimated_weight=max(1, len(blueprint.data_flow)),
+            data_flow = self._clean_list_items(blueprint.data_flow)
+            if data_flow:
+                data_flow_key = self._seed_key("data-flow", known_keys)
+                seeds.append(
+                    _PackageSeed(
+                        key=data_flow_key,
+                        title="Data flow and integration",
+                        objective="Implement the approved end-to-end data flow.",
+                        scope=[f"Data flow: {item}" for item in data_flow],
+                        kind="integration",
+                        expected_files=self._scoped_expected_files(
+                            "integration",
+                            data_flow_key,
+                        ),
+                        estimated_weight=max(1, len(data_flow)),
+                    )
                 )
-            )
 
-        if blueprint.external_dependencies:
+        external_dependencies = self._clean_list_items(blueprint.external_dependencies)
+        if external_dependencies:
+            dependency_key = self._seed_key("external-dependencies", known_keys)
             seeds.append(
                 _PackageSeed(
-                    key=self._seed_key("external-dependencies", known_keys),
+                    key=dependency_key,
                     title="External dependency adapters",
                     objective="Integrate and guard the approved external dependencies.",
                     scope=[
                         f"External dependency: {item}"
-                        for item in blueprint.external_dependencies
+                        for item in external_dependencies
                     ],
                     kind="dependency",
-                    estimated_weight=max(1, len(blueprint.external_dependencies)),
+                    expected_files=self._scoped_expected_files(
+                        "dependencies",
+                        dependency_key,
+                    ),
+                    estimated_weight=max(1, len(external_dependencies)),
                 )
             )
 
-        if blueprint.risks:
+        risks = [
+            risk
+            for risk in blueprint.risks
+            if not self._is_noise_line(risk.description)
+        ]
+        if risks:
+            risk_key = self._seed_key("risk-validation", known_keys)
             seeds.append(
                 _PackageSeed(
-                    key=self._seed_key("risk-validation", known_keys),
+                    key=risk_key,
                     title="Risk and validation coverage",
                     objective="Cover the blueprint risks with tests, checks, or docs.",
-                    scope=[f"Risk: {risk.description}" for risk in blueprint.risks],
+                    scope=[f"Risk: {risk.description}" for risk in risks],
                     kind="validation",
-                    estimated_weight=max(1, len(blueprint.risks)),
+                    expected_files=[
+                        f"tests/validation/{risk_key}/",
+                        f"docs/validation/{risk_key}.md",
+                    ],
+                    estimated_weight=max(1, len(risks)),
                 )
             )
 
@@ -267,6 +270,155 @@ class BlueprintDecomposer:
                 )
             )
         return seeds
+
+    def _component_seed(
+        self,
+        component: Any,
+        index: int,
+        known_keys: set[str],
+    ) -> _PackageSeed | None:
+        title, responsibility = self._clean_component(
+            component.name,
+            component.responsibility,
+        )
+        if not title and not responsibility:
+            return None
+        if not title:
+            title = f"Architecture Component {index}"
+        if self._is_non_deliverable_component(title, responsibility):
+            return None
+
+        key = self._seed_key(title, known_keys)
+        objective = responsibility or f"Deliver the {title} component."
+        scope_item = f"{title}: {objective}".strip()
+        return _PackageSeed(
+            key=key,
+            title=title,
+            objective=objective,
+            scope=[scope_item] if scope_item and scope_item != ":" else [title],
+            kind="component",
+            dependency_keys=[
+                self._normalize_key(dependency)
+                for dependency in component.dependencies
+                if not self._is_noise_line(dependency)
+            ],
+            expected_files=self._scoped_expected_files("components", key),
+            estimated_weight=self._estimate_weight(title, responsibility),
+        )
+
+    @classmethod
+    def _clean_component(cls, name: str, responsibility: str) -> tuple[str, str]:
+        parsed = cls._parse_tree_component(name) or cls._parse_tree_component(
+            responsibility
+        )
+        if parsed is not None:
+            title, inline_responsibility = parsed
+            cleaned_responsibility = cls._clean_text(responsibility)
+            if cls._looks_like_same_component_line(title, cleaned_responsibility):
+                cleaned_responsibility = ""
+            return title, inline_responsibility or cleaned_responsibility
+        return cls._clean_text(name), cls._clean_text(responsibility)
+
+    @staticmethod
+    def _parse_tree_component(value: str) -> tuple[str, str] | None:
+        text = str(value).strip()
+        match = re.match(
+            r"^[\s│|]*(?:[├└]\s*──|[-*+])\s*"
+            r"(?P<name>[A-Za-z_][A-Za-z0-9_./-]*)"
+            r"(?:\s*#\s*(?P<comment>.+))?\s*$",
+            text,
+        )
+        if not match:
+            return None
+        name = match.group("name").strip().strip("/")
+        comment = (match.group("comment") or "").strip()
+        return name, comment
+
+    @staticmethod
+    def _clean_text(value: str) -> str:
+        text = str(value).strip()
+        text = re.sub(r"^`{3,}\w*\s*$", "", text)
+        text = re.sub(r"^\s*#{1,6}\s*", "", text)
+        text = re.sub(r"^\s*[-*+]\s*", "", text)
+        text = re.sub(r"^\*+|\*+$", "", text).strip()
+        text = re.sub(r"\*\*", "", text).strip()
+        text = re.sub(r"\s+", " ", text)
+        return text
+
+    @classmethod
+    def _clean_list_items(cls, values: Iterable[str]) -> list[str]:
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for value in values:
+            item = cls._clean_text(value)
+            if cls._is_noise_line(item):
+                continue
+            if item in seen:
+                continue
+            cleaned.append(item)
+            seen.add(item)
+        return cleaned
+
+    @classmethod
+    def _clean_acceptance_criteria(cls, values: Iterable[str]) -> list[str]:
+        cleaned: list[str] = []
+        for item in cls._clean_list_items(values):
+            normalized = item.lower()
+            if normalized.startswith("vote:"):
+                continue
+            if "blocked_by_question" in normalized:
+                continue
+            if re.match(r"q\d+[\).:]", normalized):
+                continue
+            if normalized.startswith(("(", "->", "→")):
+                continue
+            if "사용자 결정 필요" in item:
+                continue
+            cleaned.append(item)
+        return cleaned
+
+    @classmethod
+    def _is_non_deliverable_component(cls, title: str, responsibility: str) -> bool:
+        if cls._is_noise_line(title):
+            return True
+        if responsibility and cls._is_noise_line(responsibility):
+            return True
+        normalized = cls._normalize_key(title)
+        if normalized in {
+            "reason",
+            "rationale",
+            "alternative",
+            "alternatives",
+            "options",
+            "core-modules",
+            "gamecore",
+            "게임-엔진",
+            "이유",
+            "대안",
+            "핵심-모듈",
+        }:
+            return True
+        if title.endswith("/") and title.rstrip("/") == responsibility.rstrip("/"):
+            return True
+        return False
+
+    @staticmethod
+    def _is_noise_line(value: str) -> bool:
+        text = str(value).strip()
+        if not text:
+            return True
+        stripped = text.strip("`*_-=| ")
+        if not stripped:
+            return True
+        if text.startswith("|") and text.endswith("|"):
+            return True
+        if re.fullmatch(r"[\s\-\|:]+", text):
+            return True
+        return False
+
+    @staticmethod
+    def _looks_like_same_component_line(title: str, value: str) -> bool:
+        return bool(title and value and value.startswith(title))
 
     def _seed_key(self, value: str, known_keys: set[str]) -> str:
         base = self._normalize_key(value) or "package"
@@ -328,17 +480,28 @@ class BlueprintDecomposer:
         return []
 
     @staticmethod
-    def _expected_files_for(kind: str, requires_execution: bool) -> list[str]:
+    def _scoped_expected_files(category: str, key: str) -> list[str]:
+        return [
+            f"src/{category}/{key}/",
+            f"tests/{category}/{key}/",
+        ]
+
+    def _expected_files_for(self, seed: _PackageSeed, requires_execution: bool) -> list[str]:
         if not requires_execution:
             return ["docs/"]
+        if seed.expected_files:
+            return list(seed.expected_files)
         expected_by_kind = {
-            "component": ["src/", "tests/"],
-            "integration": ["src/", "tests/"],
-            "dependency": ["src/", "tests/"],
-            "validation": ["tests/", "docs/"],
-            "planning": ["src/", "tests/", "docs/"],
+            "component": self._scoped_expected_files("components", seed.key),
+            "integration": self._scoped_expected_files("integration", seed.key),
+            "dependency": self._scoped_expected_files("dependencies", seed.key),
+            "validation": [
+                f"tests/validation/{seed.key}/",
+                f"docs/validation/{seed.key}.md",
+            ],
+            "planning": [f"docs/plans/{seed.key}.md"],
         }
-        return expected_by_kind.get(kind, ["src/", "tests/", "docs/"])
+        return expected_by_kind.get(seed.kind, self._scoped_expected_files("work", seed.key))
 
 
 DESIGN_ONLY_MARKERS: tuple[str, ...] = (

@@ -262,6 +262,7 @@ consensus_threshold = 0.6
 max_rounds = 5
 consensus_threshold = 0.6
 round_timeout_seconds = 120
+execution_timeout_seconds = 1800
 
 [context]
 rotate_threshold = 0.6

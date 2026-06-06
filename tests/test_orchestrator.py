@@ -52,6 +52,7 @@ class TestTrinityOrchestratorInit:
         config = TrinityConfig(
             project_dir=tmp_path,
             state_dir=tmp_path / ".trinity",
+            execution_timeout_seconds=1234.0,
             agents={
                 "claude": AgentSpec(
                     name="claude",
@@ -68,6 +69,8 @@ class TestTrinityOrchestratorInit:
         assert "claude" in orch.agents
         assert orch.shared is not None
         assert orch.protocol is not None
+        assert orch.execution_protocol is not None
+        assert orch.execution_protocol.timeout == 1234.0
 
     def test_ensure_initializes_idempotent(self, tmp_path):
         config = TrinityConfig(

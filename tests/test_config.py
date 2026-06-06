@@ -217,9 +217,10 @@ role_prompt = "당신은 아키텍트입니다."
         assert config.provider_readiness_mode == "strict"
         assert config.provider_readiness_timeout_seconds == 20.0
 
-    def test_default_provider_timeouts_are_five_minutes(self):
+    def test_default_provider_timeouts(self):
         config = TrinityConfig.default_config()
         assert config.round_timeout_seconds == 300.0
+        assert config.execution_timeout_seconds == 1800.0
         assert config.synthesis_timeout_seconds == 300.0
 
     def test_provider_state_mode_defaults_to_user_home(self):
@@ -334,6 +335,7 @@ enabled = true
         config.provider_readiness_mode = "degraded"
         config.provider_readiness_timeout_seconds = 2.0
         config.round_timeout_seconds = 300.0
+        config.execution_timeout_seconds = 1200.0
         config.synthesis_mode = "model"
         config.synthesis_agent = "claude"
         config.synthesis_model = "sonnet"
@@ -353,6 +355,7 @@ enabled = true
         assert loaded.provider_readiness_mode == "degraded"
         assert loaded.provider_readiness_timeout_seconds == 2.0
         assert loaded.round_timeout_seconds == 300.0
+        assert loaded.execution_timeout_seconds == 1200.0
         assert loaded.synthesis_mode == "model"
         assert loaded.synthesis_agent == "claude"
         assert loaded.synthesis_model == "sonnet"

@@ -1022,6 +1022,33 @@ async def test_nexus_question_answer_routes_to_controller(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_nexus_question_answer_handles_non_ascii_question_id(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            questions=[
+                QuestionSnapshot(
+                    id="메타플레이",
+                    question="실시간 메타플레이가 필요한가?",
+                    options=["정적 전용으로 시작한다"],
+                )
+            ]
+        )
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        app.screen.query_one(CentralAgentView).apply_snapshot(controller.snapshot())
+        button = app.screen.query_one("#answer-q-1-1", Button)
+        button.press()
+        await pilot.pause()
+
+        assert button.id == "answer-q-1-1"
+        assert controller.answers == [("메타플레이", "정적 전용으로 시작한다")]
+
+
+@pytest.mark.asyncio
 async def test_workspace_picker_opens_from_nexus_execute(tmp_path) -> None:
     controller = FakeWorkflowController()
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)

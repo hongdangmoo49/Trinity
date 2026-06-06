@@ -32,6 +32,15 @@ changed; the follow-up patch only improved slash command discoverability.
     and side effects.
   - Records persistence paths and event files affected by workflow commands.
   - Captures current inconsistencies and recommended next implementation direction.
+- `docs/plans/2026-06-06-trinity-slash-command-routing-design.md`
+  - Defines the target routing contract for Trinity-owned slash commands.
+  - Classifies every Trinity command by agent invocation policy.
+  - Specifies expected Start/Nexus/plain TUI behavior and implementation order.
+- `docs/plans/2026-06-06-provider-cli-slash-command-backlog.md`
+  - Leaves Claude/Codex/Antigravity internal slash commands and provider cache
+    plugin commands as a separate follow-up.
+  - Defines inventory, collision analysis, pass-through policy, and acceptance
+    criteria for that future work.
 
 ## Documentation Updated
 
@@ -107,6 +116,13 @@ Next implementation should add a Textual slash command router before
 `start_prompt()` and `submit_follow_up()`. Tests should prove that `/status`,
 `/workflow`, `/questions`, and unknown slash commands do not invoke the
 orchestrator from either Start or Nexus.
+
+Follow-up documentation now separates this work into two tracks:
+
+- Trinity app slash command execution design:
+  `docs/plans/2026-06-06-trinity-slash-command-routing-design.md`
+- Provider CLI/internal plugin slash command backlog:
+  `docs/plans/2026-06-06-provider-cli-slash-command-backlog.md`
 
 ## Validation
 

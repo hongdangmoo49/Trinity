@@ -280,6 +280,23 @@ class ModelBackedSynthesisAgent:
                 ],
                 "acceptance_criteria": ["string"],
                 "open_questions": [],
+                "work_packages": [
+                    {
+                        "id": "WP-001",
+                        "title": "string",
+                        "owner_agent": "agent name or null",
+                        "objective": "string",
+                        "scope": ["string"],
+                        "out_of_scope": ["string"],
+                        "dependencies": ["WP id or package title"],
+                        "expected_files": ["relative path"],
+                        "acceptance_criteria": ["string"],
+                        "estimated_weight": "integer >= 1",
+                        "parallel_group": "integer or null",
+                        "parallelizable": "boolean",
+                        "risk": "low|medium|high",
+                    }
+                ],
             },
             "votes": {
                 "agent_name": {
@@ -550,6 +567,7 @@ class ModelBackedSynthesisAgent:
             for item in data.get("open_questions", [])
             if isinstance(item, dict)
         ]
+        data["work_packages"] = cls._normalize_work_packages(data.get("work_packages", []))
         return Blueprint.from_dict(data)
 
     @staticmethod
@@ -563,6 +581,68 @@ class ModelBackedSynthesisAgent:
                 text = str(item).strip()
                 normalized.append({"name": text, "responsibility": text})
         return normalized
+
+    @classmethod
+    def _normalize_work_packages(cls, payload: Any) -> list[dict[str, Any]]:
+        items = payload if isinstance(payload, list) else []
+        normalized: list[dict[str, Any]] = []
+        for index, item in enumerate(items, start=1):
+            if not isinstance(item, dict):
+                continue
+            data = dict(item)
+            data["id"] = str(data.get("id") or f"WP-{index:03d}")
+            data["title"] = str(data.get("title") or data["id"]).strip()
+            data["owner_agent"] = str(data.get("owner_agent") or "").strip()
+            data["objective"] = str(
+                data.get("objective") or data.get("summary") or data["title"]
+            ).strip()
+            data["scope"] = cls._string_list(data.get("scope", []))
+            data["out_of_scope"] = cls._string_list(data.get("out_of_scope", []))
+            data["dependencies"] = cls._string_list(data.get("dependencies", []))
+            data["expected_files"] = cls._string_list(data.get("expected_files", []))
+            data["acceptance_criteria"] = cls._string_list(
+                data.get("acceptance_criteria", [])
+            )
+            data["status"] = "pending"
+            data["requires_execution"] = cls._coerce_bool(
+                data.get("requires_execution", True)
+            )
+            data["estimated_weight"] = max(
+                1,
+                cls._optional_int(data.get("estimated_weight")) or 1,
+            )
+            data["parallel_group"] = cls._optional_int(data.get("parallel_group"))
+            data["parallelizable"] = cls._coerce_bool(
+                data.get("parallelizable", True)
+            )
+            data["risk"] = cls._normalize_risk_value(data.get("risk"))
+            if data["title"] and data["objective"]:
+                normalized.append(data)
+        return normalized
+
+    @staticmethod
+    def _string_list(value: Any) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value] if value.strip() else []
+        if not isinstance(value, list):
+            value = [value]
+        return [str(item).strip() for item in value if str(item).strip()]
+
+    @staticmethod
+    def _optional_int(value: Any) -> int | None:
+        if value in (None, ""):
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _normalize_risk_value(value: Any) -> str:
+        normalized = str(value or "medium").strip().lower()
+        return normalized if normalized in {"low", "medium", "high"} else "medium"
 
     @staticmethod
     def _normalize_risks(payload: Any) -> list[dict[str, Any]]:

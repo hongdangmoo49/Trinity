@@ -187,6 +187,7 @@ class Blueprint:
     risks: list[RiskItem] = field(default_factory=list)
     acceptance_criteria: list[str] = field(default_factory=list)
     open_questions: list[OpenQuestion] = field(default_factory=list)
+    work_packages: list[WorkPackage] = field(default_factory=list)
 
     @property
     def is_valid(self) -> bool:
@@ -211,6 +212,7 @@ class Blueprint:
             "risks": [item.to_dict() for item in self.risks],
             "acceptance_criteria": list(self.acceptance_criteria),
             "open_questions": [item.to_dict() for item in self.open_questions],
+            "work_packages": [item.to_dict() for item in self.work_packages],
         }
 
     @classmethod
@@ -240,6 +242,11 @@ class Blueprint:
                 for item in data.get("open_questions", [])
                 if isinstance(item, dict)
             ],
+            work_packages=[
+                WorkPackage.from_dict(item)
+                for item in data.get("work_packages", [])
+                if isinstance(item, dict)
+            ],
         )
 
 
@@ -259,6 +266,9 @@ class WorkPackage:
     status: WorkStatus = WorkStatus.PENDING
     requires_execution: bool = True
     estimated_weight: int = 1
+    parallel_group: int | None = None
+    parallelizable: bool = True
+    risk: str = "medium"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -274,6 +284,9 @@ class WorkPackage:
             "status": self.status.value,
             "requires_execution": self.requires_execution,
             "estimated_weight": self.estimated_weight,
+            "parallel_group": self.parallel_group,
+            "parallelizable": self.parallelizable,
+            "risk": self.risk,
         }
 
     @classmethod
@@ -294,6 +307,13 @@ class WorkPackage:
             status=WorkStatus(status_value),
             requires_execution=bool(data.get("requires_execution", True)),
             estimated_weight=max(1, int(data.get("estimated_weight", 1))),
+            parallel_group=(
+                int(data["parallel_group"])
+                if data.get("parallel_group") is not None
+                else None
+            ),
+            parallelizable=bool(data.get("parallelizable", True)),
+            risk=str(data.get("risk", "medium") or "medium"),
         )
 
 

@@ -608,6 +608,7 @@ class WorkflowEngine:
         self,
         package_id: str,
         agent_name: str = "",
+        occurred_at: object = None,
     ) -> None:
         """Persist that one work package has started execution."""
         package = self._work_package_by_id(package_id)
@@ -623,6 +624,40 @@ class WorkflowEngine:
                 "agent": agent_name or package.owner_agent,
                 "status": package.status.value,
             },
+            timestamp=occurred_at,
+        )
+
+    def record_work_package_completed(
+        self,
+        package_id: str,
+        agent_name: str = "",
+        status: str = "",
+        summary: str = "",
+        occurred_at: object = None,
+    ) -> None:
+        """Persist that one work package attempt has finished execution."""
+        package = self._work_package_by_id(package_id)
+        if package is None:
+            return
+
+        normalized_status = status.strip()
+        if normalized_status:
+            try:
+                package.status = WorkStatus(normalized_status)
+            except ValueError:
+                pass
+        self.session.updated_at = time.time()
+        data = {
+            "package_id": package.id,
+            "agent": agent_name or package.owner_agent,
+            "status": package.status.value,
+        }
+        if summary.strip():
+            data["summary"] = summary.strip()
+        self._persist(
+            "work_package_completed",
+            data,
+            timestamp=occurred_at,
         )
 
     def plan_parallel_groups(self) -> list[list[WorkPackage]]:
@@ -898,16 +933,30 @@ class WorkflowEngine:
         """Persist session.json."""
         self.persistence.save(self.session)
 
-    def _persist(self, event_type: str, data: dict) -> None:
+    def _persist(
+        self,
+        event_type: str,
+        data: dict,
+        *,
+        timestamp: object = None,
+    ) -> None:
         self.save()
         event = {
-            "timestamp": time.time(),
+            "timestamp": self._event_timestamp(timestamp),
             "workflow_id": self.session.id,
             "event": event_type,
             "state": self.session.state.value,
             "data": data,
         }
         self.persistence.append_event(event)
+
+    @staticmethod
+    def _event_timestamp(value: object = None) -> float:
+        try:
+            timestamp = float(value) if value is not None else time.time()
+        except (TypeError, ValueError):
+            return time.time()
+        return timestamp if timestamp > 0 else time.time()
 
     def _load_or_create(self) -> WorkflowSession:
         session = self.persistence.load()

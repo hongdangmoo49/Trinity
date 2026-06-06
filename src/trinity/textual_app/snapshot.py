@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Iterable
 from uuid import uuid4
@@ -327,13 +328,45 @@ class NexusSnapshotAdapter:
             for event in self.persistence.load_events()
             if str(event.get("workflow_id", "")) == session.id
         ]
-        for event in session_events[-20:]:
+        completed_event_packages: set[str] = set()
+        finished_event_packages: set[str] = set()
+        for event in session_events:
+            event_name = str(event.get("event", ""))
+            if event_name not in {"work_package_completed", "execution_result_recorded"}:
+                continue
+            data = event.get("data", {})
+            if not isinstance(data, dict):
+                continue
+            package_id = str(data.get("package_id", "")).strip()
+            if package_id:
+                finished_event_packages.add(package_id)
+                if event_name == "work_package_completed":
+                    completed_event_packages.add(package_id)
+        for event in session_events[-80:]:
+            if self._is_duplicate_result_event(event, completed_event_packages):
+                continue
             lines.append(self._format_execution_event(event))
 
         if session:
             for result in session.execution_results[-10:]:
+                package_id = str(getattr(result, "package_id", "")).strip()
+                if package_id in finished_event_packages:
+                    continue
                 lines.append(self._format_execution_result(result))
         return lines
+
+    @staticmethod
+    def _is_duplicate_result_event(
+        event: dict[str, object],
+        completed_event_packages: set[str],
+    ) -> bool:
+        if str(event.get("event", "")) != "execution_result_recorded":
+            return False
+        data = event.get("data", {})
+        if not isinstance(data, dict):
+            return False
+        package_id = str(data.get("package_id", "")).strip()
+        return bool(package_id and package_id in completed_event_packages)
 
     @staticmethod
     def _format_execution_result(result: object) -> str:
@@ -360,15 +393,17 @@ class NexusSnapshotAdapter:
         state = str(event.get("state", ""))
         data = event.get("data", {})
         data = data if isinstance(data, dict) else {}
+        timestamp = NexusSnapshotAdapter._format_event_time(event)
 
         if event_name == "work_package_started":
             package_id = str(data.get("package_id", "")).strip()
             agent = str(data.get("agent", "")).strip()
             status = str(data.get("status", "")).strip()
             details = " ".join(part for part in (package_id, agent, status) if part)
-            return f"{event_name}: {details}" if details else event_name
+            line = f"{event_name}: {details}" if details else event_name
+            return f"{timestamp} {line}" if timestamp else line
 
-        if event_name == "work_package_completed":
+        if event_name in {"work_package_completed", "execution_result_recorded"}:
             package_id = str(data.get("package_id", "")).strip()
             agent = str(data.get("agent", "")).strip()
             status = str(data.get("status", "")).strip()
@@ -376,23 +411,45 @@ class NexusSnapshotAdapter:
             details = " ".join(part for part in (package_id, agent, status) if part)
             if summary:
                 details = f"{details} - {summary}" if details else summary
-            return f"{event_name}: {details}" if details else event_name
+            label = (
+                "work_package_completed"
+                if event_name == "execution_result_recorded"
+                else event_name
+            )
+            line = f"{label}: {details}" if details else label
+            return f"{timestamp} {line}" if timestamp else line
 
         if event_name in {"execution_enabled", "implementation_requested"}:
             packages = data.get("work_packages", [])
             package_count = len(packages) if isinstance(packages, list) else 0
             target = str(data.get("target_workspace", "")).strip()
             if target:
-                return f"{event_name}: {package_count} packages -> {target}"
-            return f"{event_name}: {package_count} packages"
+                line = f"{event_name}: {package_count} packages -> {target}"
+            else:
+                line = f"{event_name}: {package_count} packages"
+            return f"{timestamp} {line}" if timestamp else line
 
         if event_name == "target_workspace_selected":
             target = str(data.get("target_workspace", "")).strip()
-            return f"{event_name}: {target}" if target else event_name
+            line = f"{event_name}: {target}" if target else event_name
+            return f"{timestamp} {line}" if timestamp else line
 
         if state:
-            return f"{event_name}: {state}"
-        return event_name
+            line = f"{event_name}: {state}"
+        else:
+            line = event_name
+        return f"{timestamp} {line}" if timestamp else line
+
+    @staticmethod
+    def _format_event_time(event: dict[str, object]) -> str:
+        value = event.get("timestamp")
+        try:
+            timestamp = float(value)
+        except (TypeError, ValueError):
+            return ""
+        if timestamp <= 0:
+            return ""
+        return f"[{datetime.fromtimestamp(timestamp).strftime('%H:%M:%S')}]"
 
     def _latest_response_artifacts(
         self,

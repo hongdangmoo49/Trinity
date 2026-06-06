@@ -88,6 +88,15 @@ def test_snapshot_formats_execution_events_with_runtime_details(tmp_path) -> Non
                     title="InputController",
                     owner_agent="claude",
                     objective="Build input controller.",
+                    status=WorkStatus.DONE,
+                )
+            ],
+            execution_results=[
+                ExecutionResult(
+                    package_id="WP-001",
+                    agent_name="claude",
+                    status=WorkStatus.DONE,
+                    summary="Implemented input handling.",
                 )
             ],
         )
@@ -106,6 +115,7 @@ def test_snapshot_formats_execution_events_with_runtime_details(tmp_path) -> Non
     persistence.append_event(
         {
             "event": "work_package_started",
+            "timestamp": 1_700_000_000.0,
             "state": "executing",
             "workflow_id": "wf-execution",
             "data": {
@@ -115,12 +125,49 @@ def test_snapshot_formats_execution_events_with_runtime_details(tmp_path) -> Non
             },
         }
     )
+    persistence.append_event(
+        {
+            "event": "work_package_completed",
+            "timestamp": 1_700_000_005.0,
+            "state": "executing",
+            "workflow_id": "wf-execution",
+            "data": {
+                "package_id": "WP-001",
+                "agent": "claude",
+                "status": "done",
+                "summary": "Implemented input handling.",
+            },
+        }
+    )
+    persistence.append_event(
+        {
+            "event": "execution_result_recorded",
+            "timestamp": 1_700_000_006.0,
+            "state": "executing",
+            "workflow_id": "wf-execution",
+            "data": {
+                "package_id": "WP-001",
+                "agent": "claude",
+                "status": "done",
+            },
+        }
+    )
 
     snapshot = NexusSnapshotAdapter(config).load_snapshot()
+    start_time = NexusSnapshotAdapter._format_event_time(
+        {"timestamp": 1_700_000_000.0}
+    )
+    end_time = NexusSnapshotAdapter._format_event_time(
+        {"timestamp": 1_700_000_005.0}
+    )
 
     assert snapshot.execution_log == [
         "implementation_requested: 1 packages -> /workspace/game",
-        "work_package_started: WP-001 claude running",
+        f"{start_time} work_package_started: WP-001 claude running",
+        (
+            f"{end_time} work_package_completed: WP-001 claude done - "
+            "Implemented input handling."
+        ),
     ]
 
 

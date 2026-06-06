@@ -1540,6 +1540,16 @@ class InteractiveSession:
                     self.workflow.record_work_package_started(
                         str(event.data.get("package_id") or ""),
                         str(event.data.get("agent") or ""),
+                        event.data.get("occurred_at"),
+                    )
+                    self.tui.set_workflow_session(self.workflow.session)
+                if event.type == TUIEventType.WORK_PACKAGE_COMPLETED:
+                    self.workflow.record_work_package_completed(
+                        str(event.data.get("package_id") or ""),
+                        str(event.data.get("agent") or ""),
+                        str(event.data.get("status") or ""),
+                        str(event.data.get("summary") or ""),
+                        event.data.get("occurred_at"),
                     )
                     self.tui.set_workflow_session(self.workflow.session)
                 if event.type == TUIEventType.EXECUTION_DONE:

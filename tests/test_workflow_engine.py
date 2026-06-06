@@ -415,15 +415,55 @@ def test_record_work_package_started_persists_running_status(tmp_path):
     engine.set_target_workspace(tmp_path / "route-bot")
     engine.begin_execution()
 
-    engine.record_work_package_started("WP-001", "codex")
+    engine.record_work_package_started("WP-001", "codex", occurred_at=123.0)
 
     assert engine.session.work_packages[0].status == WorkStatus.RUNNING
     events = engine.persistence.load_events()
     assert events[-1]["event"] == "work_package_started"
+    assert events[-1]["timestamp"] == 123.0
     assert events[-1]["data"]["package_id"] == "WP-001"
 
     loaded = WorkflowEngine(tmp_path / ".trinity")
     assert loaded.session.work_packages[0].status == WorkStatus.RUNNING
+
+
+def test_record_work_package_completed_persists_finished_event(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement route bot.",
+            requires_execution=True,
+        )
+    ]
+    engine.set_target_workspace(tmp_path / "route-bot")
+    engine.begin_execution()
+    engine.record_work_package_started("WP-001", "codex", occurred_at=123.0)
+
+    engine.record_work_package_completed(
+        "WP-001",
+        "codex",
+        WorkStatus.DONE.value,
+        "Implemented route bot.",
+        occurred_at=456.0,
+    )
+
+    assert engine.session.work_packages[0].status == WorkStatus.DONE
+    events = engine.persistence.load_events()
+    assert events[-1]["event"] == "work_package_completed"
+    assert events[-1]["timestamp"] == 456.0
+    assert events[-1]["data"] == {
+        "package_id": "WP-001",
+        "agent": "codex",
+        "status": "done",
+        "summary": "Implemented route bot.",
+    }
+
+    loaded = WorkflowEngine(tmp_path / ".trinity")
+    assert loaded.session.work_packages[0].status == WorkStatus.DONE
 
 
 def test_record_execution_results_can_persist_progress_without_finalizing(tmp_path):

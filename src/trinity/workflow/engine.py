@@ -11,6 +11,12 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from trinity.models import DeliberationResult
+from trinity.providers.policy import (
+    ExecutionAuthority,
+    ExecutionScope,
+    InvocationAccess,
+    ParallelExecutionPolicy,
+)
 from trinity.workflow.decomposer import (
     BlueprintDecomposer,
     classify_blueprint_followup_action,
@@ -682,6 +688,7 @@ class WorkflowEngine:
             if package.status == WorkStatus.DONE
         }
         groups: list[list[WorkPackage]] = []
+        policy = ParallelExecutionPolicy()
 
         while remaining:
             ready = [
@@ -696,28 +703,47 @@ class WorkflowEngine:
                 groups.extend([package] for package in remaining.values())
                 break
 
-            batch: list[WorkPackage] = []
-            owned_files: set[str] = set()
-            deferred: list[WorkPackage] = []
-            for package in sorted(
+            ordered_ready = sorted(
                 ready,
                 key=lambda item: (-item.estimated_weight, item.id),
-            ):
-                files = {item for item in package.expected_files if item}
-                if files and owned_files.intersection(files):
-                    deferred.append(package)
-                    continue
-                batch.append(package)
-                owned_files.update(files)
-
+            )
+            scope_by_package_id = {
+                id(package): self._preview_execution_scope(package)
+                for package in ordered_ready
+            }
+            package_by_scope_id = {
+                id(scope): package
+                for package in ordered_ready
+                for scope in (scope_by_package_id[id(package)],)
+            }
+            scope_batches = policy.plan_batches(scope_by_package_id.values())
+            batch = [
+                package_by_scope_id[id(scope)]
+                for scope in (scope_batches[0] if scope_batches else ())
+            ]
             if not batch:
-                batch.append(deferred.pop(0))
+                batch.append(ordered_ready[0])
             groups.append(batch)
             for package in batch:
                 completed.add(package.id)
                 remaining.pop(package.id, None)
 
         return groups
+
+    @staticmethod
+    def _preview_execution_scope(package: WorkPackage) -> ExecutionScope:
+        """Build scheduling metadata for TUI parallel-group previews."""
+        return ExecutionScope(
+            agent_name=package.owner_agent,
+            authority=ExecutionAuthority.PROVIDER_MANAGED,
+            access=InvocationAccess.WORKSPACE_WRITE,
+            workspace_id="workflow-preview",
+            file_ownership=frozenset(
+                item.strip() for item in package.expected_files if item.strip()
+            ),
+            parallelizable=package.parallelizable,
+            risk=package.risk,
+        )
 
     def record_execution_results(
         self,

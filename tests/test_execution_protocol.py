@@ -631,6 +631,58 @@ async def test_execution_protocol_allows_disjoint_expected_files_same_worktree(t
 
 
 @pytest.mark.asyncio
+async def test_execution_protocol_serializes_high_risk_same_worktree_package(tmp_path):
+    shared = SharedContextEngine(tmp_path / "shared.md")
+    claude = AsyncMock()
+    codex = AsyncMock()
+    claude.launch_cwd = tmp_path
+    codex.launch_cwd = tmp_path
+    order: list[str] = []
+
+    async def _claude_send(prompt: str, timeout: float, access=None):
+        order.append("claude-start")
+        await asyncio.sleep(0.01)
+        order.append("claude-end")
+        return _message("## Completed\n- Claude done\n\n## Blockers\n- none\n")
+
+    async def _codex_send(prompt: str, timeout: float, access=None):
+        order.append("codex-start")
+        await asyncio.sleep(0.01)
+        order.append("codex-end")
+        return _message("## Completed\n- Codex done\n\n## Blockers\n- none\n")
+
+    claude.send_and_wait.side_effect = _claude_send
+    codex.send_and_wait.side_effect = _codex_send
+    packages = [
+        WorkPackage(
+            id="WP-001",
+            title="high risk config",
+            owner_agent="claude",
+            objective="Change risky config.",
+            expected_files=["src/risky_config.py"],
+            risk="high",
+        ),
+        WorkPackage(
+            id="WP-002",
+            title="disjoint tests",
+            owner_agent="codex",
+            objective="Change tests.",
+            expected_files=["tests/test_risky_config.py"],
+        ),
+    ]
+    protocol = ExecutionProtocol(
+        agents={"claude": claude, "codex": codex},
+        shared=shared,
+        artifact_dir=tmp_path / "execution",
+    )
+
+    results = await protocol.run(packages)
+
+    assert [result.status for result in results] == [WorkStatus.DONE, WorkStatus.DONE]
+    assert order == ["claude-start", "claude-end", "codex-start", "codex-end"]
+
+
+@pytest.mark.asyncio
 async def test_execution_protocol_blocks_unfinished_dependencies(tmp_path):
     shared = SharedContextEngine(tmp_path / "shared.md")
     agent = AsyncMock()

@@ -219,6 +219,8 @@ class ExecutionProtocol:
             file_ownership=frozenset(
                 item.strip() for item in package.expected_files if item.strip()
             ),
+            parallelizable=package.parallelizable,
+            risk=package.risk,
         )
 
     async def _run_ready_package(

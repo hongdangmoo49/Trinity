@@ -699,6 +699,35 @@ def test_plan_parallel_groups_respects_dependencies_and_file_ownership(tmp_path)
     ]
 
 
+def test_plan_parallel_groups_serializes_high_risk_work(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement", ["claude", "codex"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="risky config",
+            owner_agent="claude",
+            objective="Risky change.",
+            expected_files=["src/risky.py"],
+            risk="high",
+        ),
+        WorkPackage(
+            id="WP-002",
+            title="independent tests",
+            owner_agent="codex",
+            objective="Independent change.",
+            expected_files=["tests/test_risky.py"],
+        ),
+    ]
+
+    groups = engine.plan_parallel_groups()
+
+    assert [[package.id for package in group] for group in groups] == [
+        ["WP-001"],
+        ["WP-002"],
+    ]
+
+
 def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_execution_intent("개발해라") is True
     assert classify_execution_intent("개발하고 싶다. 설계해라") is False

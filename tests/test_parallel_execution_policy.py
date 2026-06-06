@@ -17,6 +17,8 @@ def _scope(
     cwd: Path | None = None,
     workspace_id: str | None = None,
     file_ownership: set[str] | None = None,
+    parallelizable: bool = True,
+    risk: str = "medium",
 ) -> ExecutionScope:
     return ExecutionScope(
         agent_name=agent,
@@ -25,6 +27,8 @@ def _scope(
         cwd=cwd,
         workspace_id=workspace_id,
         file_ownership=frozenset(file_ownership or set()),
+        parallelizable=parallelizable,
+        risk=risk,
     )
 
 
@@ -99,6 +103,80 @@ def test_disjoint_file_ownership_allows_same_worktree_writes(tmp_path):
     )
 
     assert decision.allowed is True
+
+
+def test_non_parallelizable_write_serializes_same_worktree(tmp_path):
+    policy = ParallelExecutionPolicy()
+
+    decision = policy.can_run_together(
+        [
+            _scope(
+                "claude",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"src/a.py"},
+                parallelizable=False,
+            ),
+            _scope(
+                "codex",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"src/b.py"},
+            ),
+        ]
+    )
+
+    assert decision.allowed is False
+    assert "non-parallelizable" in decision.reason
+
+
+def test_high_risk_write_serializes_same_worktree(tmp_path):
+    policy = ParallelExecutionPolicy()
+
+    decision = policy.can_run_together(
+        [
+            _scope(
+                "claude",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"src/a.py"},
+                risk="high",
+            ),
+            _scope(
+                "codex",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"src/b.py"},
+            ),
+        ]
+    )
+
+    assert decision.allowed is False
+    assert "high-risk" in decision.reason
+
+
+def test_shared_workspace_file_serializes_same_worktree(tmp_path):
+    policy = ParallelExecutionPolicy()
+
+    decision = policy.can_run_together(
+        [
+            _scope(
+                "claude",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"pyproject.toml"},
+            ),
+            _scope(
+                "codex",
+                access=InvocationAccess.WORKSPACE_WRITE,
+                cwd=tmp_path,
+                file_ownership={"tests/test_config.py"},
+            ),
+        ]
+    )
+
+    assert decision.allowed is False
+    assert "shared workspace files" in decision.reason
 
 
 def test_plan_batches_splits_colliding_provider_managed_writes(tmp_path):

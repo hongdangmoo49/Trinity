@@ -32,6 +32,8 @@ class ExecutionScope:
     cwd: Path | None = None
     workspace_id: str | None = None
     file_ownership: frozenset[str] = field(default_factory=frozenset)
+    parallelizable: bool = True
+    risk: str = "medium"
 
     @property
     def writes_workspace(self) -> bool:
@@ -68,6 +70,32 @@ class ParallelExecutionDecision:
 class ParallelExecutionPolicy:
     """Decide whether provider invocations may run in the same batch."""
 
+    SHARED_WRITE_PATHS: frozenset[str] = frozenset(
+        {
+            ".",
+            "./",
+            "Cargo.lock",
+            "Cargo.toml",
+            "go.mod",
+            "go.sum",
+            "package-lock.json",
+            "package.json",
+            "pnpm-lock.yaml",
+            "poetry.lock",
+            "pyproject.toml",
+            "requirements.txt",
+            "ruff.toml",
+            "setup.cfg",
+            "setup.py",
+            "tox.ini",
+            "tsconfig.json",
+            "uv.lock",
+            "vite.config.js",
+            "vite.config.ts",
+            "yarn.lock",
+        }
+    )
+
     def can_run_together(
         self,
         scopes: Iterable[ExecutionScope],
@@ -90,6 +118,36 @@ class ParallelExecutionPolicy:
         for workspace, writers in by_workspace.items():
             if len(writers) < 2:
                 continue
+            if any(not scope.parallelizable for scope in writers):
+                agents = tuple(scope.agent_name for scope in writers)
+                return ParallelExecutionDecision(
+                    allowed=False,
+                    reason=(
+                        "Provider-managed workspace-write invocations include a "
+                        f"non-parallelizable package in workspace {workspace!r}."
+                    ),
+                    serialized_agents=agents,
+                )
+            if any(self._is_high_risk(scope) for scope in writers):
+                agents = tuple(scope.agent_name for scope in writers)
+                return ParallelExecutionDecision(
+                    allowed=False,
+                    reason=(
+                        "Provider-managed workspace-write invocations include a "
+                        f"high-risk package in workspace {workspace!r}."
+                    ),
+                    serialized_agents=agents,
+                )
+            if any(self._has_shared_write_path(scope) for scope in writers):
+                agents = tuple(scope.agent_name for scope in writers)
+                return ParallelExecutionDecision(
+                    allowed=False,
+                    reason=(
+                        "Provider-managed workspace-write invocations include "
+                        f"shared workspace files in workspace {workspace!r}."
+                    ),
+                    serialized_agents=agents,
+                )
             if self._has_disjoint_file_ownership(writers):
                 continue
             agents = tuple(scope.agent_name for scope in writers)
@@ -147,3 +205,19 @@ class ParallelExecutionPolicy:
                 return False
             seen.update(owned)
         return True
+
+    @staticmethod
+    def _is_high_risk(scope: ExecutionScope) -> bool:
+        return scope.risk.strip().lower() == "high"
+
+    @classmethod
+    def _has_shared_write_path(cls, scope: ExecutionScope) -> bool:
+        for path in scope.file_ownership:
+            normalized = path.strip().replace("\\", "/").strip("/")
+            if not normalized:
+                return True
+            if normalized in cls.SHARED_WRITE_PATHS:
+                return True
+            if "/" not in normalized and normalized in cls.SHARED_WRITE_PATHS:
+                return True
+        return False

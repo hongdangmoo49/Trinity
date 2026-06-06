@@ -31,6 +31,7 @@ class BlueprintDecomposer:
     """Create top-level work packages from a finalized blueprint."""
 
     PROVIDER_PRIORITY: tuple[str, ...] = ("codex", "claude", "antigravity")
+    UNKNOWN_WRITE_SCOPE = "__trinity_unknown_write_scope__"
 
     AGENT_FOCUS: dict[str, tuple[str, tuple[str, ...]]] = {
         "codex": (
@@ -93,10 +94,19 @@ class BlueprintDecomposer:
         normalized = (
             Blueprint.from_dict(blueprint) if isinstance(blueprint, dict) else blueprint
         )
-        seeds = self._package_seeds(normalized)
         criteria = self._clean_acceptance_criteria(normalized.acceptance_criteria) or [
             f"Deliver package output aligned with {normalized.title}.",
         ]
+        central_packages = self._packages_from_central_graph(
+            normalized.work_packages,
+            agent_names,
+            criteria,
+            requires_execution,
+        )
+        if central_packages:
+            return central_packages
+
+        seeds = self._package_seeds(normalized)
         owners_by_seed = self._assign_owners(agent_names, seeds)
 
         packages: list[WorkPackage] = []
@@ -131,6 +141,169 @@ class BlueprintDecomposer:
                 if key in seed_to_package_id and seed_to_package_id[key] != package.id
             ]
         return packages
+
+    def _packages_from_central_graph(
+        self,
+        proposed_packages: Iterable[WorkPackage],
+        agent_names: list[str],
+        fallback_criteria: list[str],
+        requires_execution: bool,
+    ) -> list[WorkPackage]:
+        """Validate and conservatively normalize model-authored work packages."""
+        seeds: list[_PackageSeed] = []
+        source_by_key: dict[str, WorkPackage] = {}
+        known_keys: set[str] = set()
+        for index, package in enumerate(proposed_packages, start=1):
+            title = self._clean_text(package.title) or f"Work Package {index}"
+            objective = self._clean_text(package.objective) or f"Deliver {title}."
+            if self._is_noise_line(title) or self._is_noise_line(objective):
+                continue
+            key_source = package.id or title
+            key = self._seed_key(key_source, known_keys)
+            scope = self._clean_list_items(package.scope) or [objective]
+            seed = _PackageSeed(
+                key=key,
+                title=title,
+                objective=objective,
+                scope=scope,
+                kind=self._central_seed_kind(package),
+                expected_files=self._clean_expected_files(package.expected_files),
+                estimated_weight=max(1, package.estimated_weight),
+            )
+            seeds.append(seed)
+            source_by_key[key] = package
+
+        if not seeds:
+            return []
+
+        owners_by_seed = self._assign_owners(agent_names, seeds)
+        packages: list[WorkPackage] = []
+        alias_to_package_id: dict[str, str] = {}
+        for index, seed in enumerate(seeds, start=1):
+            package_id = f"WP-{index:03d}"
+            source = source_by_key[seed.key]
+            owner = source.owner_agent.strip()
+            if owner not in agent_names:
+                owner = owners_by_seed[seed.key]
+            criteria = (
+                self._clean_acceptance_criteria(source.acceptance_criteria)
+                or fallback_criteria
+            )
+            packages.append(
+                WorkPackage(
+                    id=package_id,
+                    title=seed.title,
+                    owner_agent=owner,
+                    objective=seed.objective,
+                    scope=list(seed.scope),
+                    out_of_scope=self._central_out_of_scope(source, requires_execution),
+                    expected_files=self._central_expected_files(
+                        source,
+                        seed,
+                        requires_execution,
+                    ),
+                    acceptance_criteria=list(criteria),
+                    status=WorkStatus.PENDING,
+                    requires_execution=requires_execution,
+                    estimated_weight=seed.estimated_weight,
+                    parallel_group=source.parallel_group,
+                    parallelizable=source.parallelizable,
+                    risk=self._normalize_risk_value(source.risk),
+                )
+            )
+            self._register_package_aliases(alias_to_package_id, source, seed, package_id)
+
+        for package, seed in zip(packages, seeds):
+            source = source_by_key[seed.key]
+            package.dependencies = self._central_dependencies_for(
+                source.dependencies,
+                package.id,
+                alias_to_package_id,
+            )
+        return packages
+
+    @staticmethod
+    def _central_seed_kind(package: WorkPackage) -> str:
+        text = " ".join([package.title, package.objective, *package.scope]).lower()
+        if any(term in text for term in ("risk", "test", "validation", "검증", "위험")):
+            return "validation"
+        if any(term in text for term in ("api", "adapter", "dependency", "연동", "통합")):
+            return "dependency"
+        return "component"
+
+    def _clean_expected_files(self, values: Iterable[str]) -> list[str]:
+        cleaned = self._clean_list_items(values)
+        return [item for item in cleaned if item not in {".", "./"}]
+
+    def _central_expected_files(
+        self,
+        source: WorkPackage,
+        seed: _PackageSeed,
+        requires_execution: bool,
+    ) -> list[str]:
+        if not requires_execution:
+            return ["docs/"]
+        if seed.expected_files:
+            return list(seed.expected_files)
+        return [self.UNKNOWN_WRITE_SCOPE]
+
+    def _central_out_of_scope(
+        self,
+        source: WorkPackage,
+        requires_execution: bool,
+    ) -> list[str]:
+        out_of_scope = self._clean_list_items(source.out_of_scope)
+        if out_of_scope:
+            return out_of_scope
+        return self._out_of_scope_for(source.owner_agent, requires_execution)
+
+    def _register_package_aliases(
+        self,
+        aliases: dict[str, str],
+        source: WorkPackage,
+        seed: _PackageSeed,
+        package_id: str,
+    ) -> None:
+        candidates = {
+            package_id,
+            source.id,
+            seed.key,
+            seed.title,
+            self._normalize_key(source.id),
+            self._normalize_key(seed.title),
+        }
+        for candidate in candidates:
+            value = str(candidate).strip()
+            if value:
+                aliases[value] = package_id
+
+    def _central_dependencies_for(
+        self,
+        dependencies: Iterable[str],
+        package_id: str,
+        alias_to_package_id: dict[str, str],
+    ) -> list[str]:
+        resolved: list[str] = []
+        seen: set[str] = set()
+        for dependency in dependencies:
+            raw = str(dependency).strip()
+            if not raw:
+                continue
+            dep_id = alias_to_package_id.get(raw) or alias_to_package_id.get(
+                self._normalize_key(raw)
+            )
+            if not dep_id or dep_id == package_id or dep_id in seen:
+                continue
+            resolved.append(dep_id)
+            seen.add(dep_id)
+        return resolved
+
+    @staticmethod
+    def _normalize_risk_value(value: str) -> str:
+        normalized = str(value or "medium").strip().lower()
+        if normalized in {"low", "medium", "high"}:
+            return normalized
+        return "medium"
 
     def _normalize_agents(self, active_agents: Iterable[str]) -> list[str]:
         seen: set[str] = set()

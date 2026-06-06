@@ -1,6 +1,6 @@
 """Tests for blueprint decomposition into work packages."""
 
-from trinity.workflow import Blueprint, BlueprintDecomposer, WorkStatus
+from trinity.workflow import Blueprint, BlueprintDecomposer, WorkPackage, WorkStatus
 from trinity.workflow.structured import ArchitectureComponent, RiskItem
 
 
@@ -172,3 +172,81 @@ def test_decompose_filters_markdown_artifacts_and_scopes_expected_files():
         if package.title in {"InputController", "EntityManager"}
     ]
     assert len({tuple(package.expected_files) for package in component_packages}) == 2
+
+
+def test_decompose_prefers_central_work_package_graph():
+    blueprint = _blueprint()
+    blueprint.work_packages = [
+        WorkPackage(
+            id="frontend",
+            title="Frontend shell",
+            owner_agent="claude",
+            objective="Build the interactive shell.",
+            scope=["UI state", "layout"],
+            expected_files=["src/frontend/"],
+            acceptance_criteria=["UI smoke test passes"],
+            parallel_group=1,
+            parallelizable=True,
+            risk="low",
+        ),
+        WorkPackage(
+            id="api",
+            title="API bridge",
+            owner_agent="codex",
+            objective="Connect UI events to the API.",
+            dependencies=["frontend"],
+            scope=["API adapter"],
+            expected_files=["src/api/"],
+            parallel_group=2,
+            parallelizable=False,
+            risk="high",
+        ),
+    ]
+
+    packages = BlueprintDecomposer().decompose(
+        blueprint,
+        ["claude", "codex", "antigravity"],
+    )
+
+    assert [package.title for package in packages] == ["Frontend shell", "API bridge"]
+    assert [package.id for package in packages] == ["WP-001", "WP-002"]
+    assert packages[0].owner_agent == "claude"
+    assert packages[0].acceptance_criteria == ["UI smoke test passes"]
+    assert packages[1].dependencies == ["WP-001"]
+    assert packages[1].parallel_group == 2
+    assert packages[1].parallelizable is False
+    assert packages[1].risk == "high"
+
+
+def test_decompose_repairs_invalid_central_graph_fields_conservatively():
+    blueprint = _blueprint()
+    blueprint.work_packages = [
+        WorkPackage(
+            id="shared",
+            title="Shared setup",
+            owner_agent="missing",
+            objective="Prepare shared setup.",
+            dependencies=["Shared setup", "missing-dependency"],
+            scope=[],
+            expected_files=[],
+            risk="extreme",
+        ),
+        WorkPackage(
+            id="tests",
+            title="Validation pass",
+            owner_agent="antigravity",
+            objective="Validate the setup.",
+            dependencies=["shared", "tests"],
+            expected_files=["tests/validation/"],
+        ),
+    ]
+
+    packages = BlueprintDecomposer().decompose(blueprint, ["codex", "antigravity"])
+
+    assert [package.id for package in packages] == ["WP-001", "WP-002"]
+    assert packages[0].owner_agent in {"codex", "antigravity"}
+    assert packages[0].scope == ["Prepare shared setup."]
+    assert packages[0].expected_files == [BlueprintDecomposer.UNKNOWN_WRITE_SCOPE]
+    assert packages[0].risk == "medium"
+    assert packages[1].owner_agent == "antigravity"
+    assert packages[1].dependencies == ["WP-001"]

@@ -125,12 +125,22 @@ class WorkflowEngine:
         """Route plain session text through the current workflow state."""
         if self.session.state == WorkflowState.NEEDS_USER_DECISION:
             return self.answer_pending_question(text)
-        if (
-            self.session.state == WorkflowState.BLUEPRINT_READY
-            and self.session.blueprint is not None
-        ):
+        if self._can_continue_existing_blueprint():
             return self.continue_from_blueprint(text, active_agents)
         return self.start(text, active_agents)
+
+    def _can_continue_existing_blueprint(self) -> bool:
+        """Return whether free text should stay attached to this workflow."""
+        return (
+            self.session.blueprint is not None
+            and self.session.state
+            in {
+                WorkflowState.BLUEPRINT_READY,
+                WorkflowState.REVIEWING,
+                WorkflowState.DONE,
+                WorkflowState.FAILED,
+            }
+        )
 
     def start(
         self,
@@ -303,15 +313,16 @@ class WorkflowEngine:
 
         if active_agents:
             self.session.active_agents = list(active_agents)
+        source_state = self.session.state
         self.set_state(
             WorkflowState.DELIBERATING,
-            reason="user continued from blueprint-ready state",
+            reason="user continued from existing blueprint",
         )
         self._persist(
             "workflow_continued",
             {
                 "instruction": instruction,
-                "source_state": WorkflowState.BLUEPRINT_READY.value,
+                "source_state": source_state.value,
             },
         )
         return WorkflowInputAction(

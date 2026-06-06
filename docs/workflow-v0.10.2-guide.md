@@ -70,6 +70,9 @@ IDLE
   남은 질문이 없으면 decision continuation prompt로 다시 deliberation을 실행한다.
 - blueprint가 준비되면 `BLUEPRINT_READY`가 된다. 이 상태에서 일반 follow-up은
   blueprint 보강으로, 실행 의도는 execution 준비로 라우팅된다.
+- 실행 후 `REVIEWING`/`DONE` 상태에서도 기존 blueprint가 있으면 같은 workflow의
+  follow-up으로 라우팅된다. 따라서 같은 Nexus session에서 `테스트를 해라` 같은
+  후속 명령을 입력하면 직전에 선택한 target workspace를 유지한다.
 - target workspace가 없으면 실행은 시작되지 않는다.
 - 실행 결과가 모두 끝나면 peer review package가 계획되고 `REVIEWING`으로 전이된다.
 

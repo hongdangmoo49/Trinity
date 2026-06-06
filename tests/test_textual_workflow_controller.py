@@ -8,7 +8,7 @@ from trinity.models import ConsensusResult, DeliberationResult
 from trinity.textual_app.workflow_controller import TextualWorkflowController
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workflow import WorkflowEngine, WorkflowState
-from trinity.workflow.models import OpenQuestion, WorkPackage, WorkStatus
+from trinity.workflow.models import Blueprint, OpenQuestion, WorkPackage, WorkStatus
 
 
 class FakeOrchestrator:
@@ -169,6 +169,38 @@ def test_textual_workflow_controller_requests_workspace_before_execution(tmp_pat
 
     assert outcome.target_workspace_required is True
     assert controller.workflow.state == WorkflowState.BLUEPRINT_READY
+
+
+def test_textual_workflow_controller_reuses_target_for_review_followup(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 만들기", ["claude"])
+    target = tmp_path / "testfolder"
+    workflow.session.blueprint = Blueprint(
+        title="Game",
+        summary="Build the game project.",
+        acceptance_criteria=["runs"],
+    )
+    workflow.set_target_workspace(target)
+    workflow.set_state(WorkflowState.REVIEWING, reason="implementation completed")
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeOrchestrator,
+        archive_active_session=False,
+    )
+
+    outcome = controller.submit_follow_up("테스트를 해라")
+
+    assert outcome.running is True
+    assert controller.workflow.session.target_workspace == target.resolve()
+    assert controller.wait_until_idle(timeout=2.0)
+    final = controller.drain_updates()
+    assert final is not None
+    assert final.snapshot.state == "blueprint_ready"
+    execute = controller.request_execution("테스트 실행")
+    assert execute.execution_requested is True
+    assert execute.target_workspace_required is False
 
 
 def test_textual_workflow_controller_persists_work_package_runtime_events(tmp_path) -> None:

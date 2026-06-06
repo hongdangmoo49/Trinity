@@ -230,6 +230,62 @@ def test_blueprint_ready_plain_text_continues_existing_workflow(tmp_path):
     assert "Add Telegram alerts" in action.prompt
 
 
+def test_reviewing_followup_keeps_existing_workflow_and_target_workspace(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Build a game", ["claude", "codex"])
+    original_id = engine.session.id
+    target = tmp_path / "testfolder"
+    engine.session.blueprint = Blueprint(
+        title="Game",
+        summary="Build the game project.",
+        acceptance_criteria=["runs"],
+    )
+    engine.set_target_workspace(target)
+    engine.set_state(WorkflowState.REVIEWING, reason="implementation completed")
+
+    action = engine.handle_user_input("테스트를 해라", ["claude", "codex"])
+
+    assert engine.session.id == original_id
+    assert engine.session.target_workspace == target.resolve()
+    assert action.should_deliberate is True
+    assert action.started_new_workflow is False
+    assert engine.state == WorkflowState.DELIBERATING
+    assert "테스트를 해라" in action.prompt
+
+
+def test_followup_result_can_execute_without_reselecting_target_workspace(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Build a game", ["claude"])
+    target = tmp_path / "testfolder"
+    engine.session.blueprint = Blueprint(
+        title="Game",
+        summary="Build the game project.",
+        acceptance_criteria=["runs"],
+    )
+    engine.set_target_workspace(target)
+    engine.set_state(WorkflowState.REVIEWING, reason="implementation completed")
+    action = engine.handle_user_input("테스트를 해라", ["claude"])
+    assert action.should_deliberate is True
+    result = DeliberationResult(
+        user_prompt="테스트를 해라",
+        rounds_completed=1,
+        consensus=ConsensusResult(
+            reached=True,
+            agreement_count=1,
+            total_agents=1,
+            opinions={"claude": "agree"},
+            summary="Add and run project tests.",
+        ),
+    )
+
+    engine.mark_deliberation_result(result)
+    execute = engine.enable_execution_for_current_blueprint("테스트 실행")
+
+    assert engine.session.target_workspace == target.resolve()
+    assert execute.execution_requested is True
+    assert execute.target_workspace_required is False
+
+
 def test_blueprint_ready_execute_text_requests_execution_without_new_deliberation(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
     engine.start("Design a route bot", ["claude", "codex"])

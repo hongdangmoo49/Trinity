@@ -91,10 +91,11 @@ WP graph item 초안:
 - 비어 있는 owner는 기존 focus/load-balance 로직으로 배정한다.
 - id가 없거나 중복되면 `WP-001` 형식으로 재번호화한다.
 - dependencies는 최종 package id로 정규화한다.
-- 자기 자신 dependency와 존재하지 않는 dependency는 제거하거나 diagnostic scope에 남긴다.
+- 자기 자신 dependency와 존재하지 않는 dependency는 제거하고 `repair_notes`에 남긴다.
 - `expected_files`가 비어 있는 workspace-write package는 보수적 placeholder를 붙여
   병렬 policy가 무분별하게 병렬화하지 못하게 한다.
 - 위험도가 높은 package나 shared/global file을 건드리는 package는 더 보수적으로 직렬화한다.
+- 중앙 원본 graph와 로컬 보수 graph는 Nexus/Report snapshot에서 분리해 보여준다.
 
 ### 4. 로컬 병렬 policy 강화
 
@@ -105,9 +106,11 @@ WP graph item 초안:
 - `file_ownership`이 directory root처럼 너무 넓거나 비어 있으면 직렬화한다.
 - central graph가 `parallelizable=false` 또는 high risk marker를 제공하면 같은 workspace
   writer와 병렬 실행하지 않는다.
+- shared/broad path 목록은 `[execution]` config의
+  `parallel_shared_write_paths`, `parallel_broad_write_paths`로 조정한다.
 
-초기 구현은 `WorkPackage`에 최소 메타데이터를 추가하거나, `ExecutionScope`로 보수 flag를
-전달하는 방식 중 코드 변경 폭이 작은 쪽을 선택한다.
+구현은 `WorkPackage`에 `parallel_group`, `parallelizable`, `risk`, `repair_notes`를 두고
+실제 scheduling 단계에서는 `ExecutionScope`로 필요한 메타데이터를 전달하는 방식으로 정리한다.
 
 ## 작업 단위
 
@@ -117,7 +120,9 @@ WP graph item 초안:
 4. `ModelBackedSynthesisAgent` output schema와 parser 확장
 5. `BlueprintDecomposer`가 central WP graph를 우선 사용하고 로컬 검증/보수화
 6. 병렬 policy에 global/shared file 보수 규칙 추가
-7. 테스트와 운영 문서 갱신
+7. 중앙 synthesis prompt에 WP graph 작성 지침과 예시 추가
+8. smoke test로 request -> blueprint -> execute log 투영 경로 검증
+9. 테스트와 운영 문서 갱신
 
 ## 검증 계획
 

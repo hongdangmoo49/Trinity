@@ -415,6 +415,13 @@ enabled = true
         text = save_path.read_text(encoding="utf-8")
         assert 'model = "opus[1m]"' in text
 
+    def test_template_config_uses_current_synthesis_and_execution_defaults(self):
+        config = TrinityConfig.load(Path("templates/trinity.config.example"))
+
+        assert config.synthesis_model == "strong"
+        assert "pyproject.toml" in config.parallel_shared_write_paths
+        assert "src" in config.parallel_broad_write_paths
+
     def test_save_load_roundtrip_with_special_chars(self, tmp_path):
         """Verify special characters in role_prompt survive save/load."""
         config = TrinityConfig.default_config()

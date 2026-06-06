@@ -99,6 +99,22 @@ Planning 단계에서 provider는 기본적으로 read-only request로 호출된
 목표는 코드를 수정하는 것이 아니라 요구사항을 분석하고, open question과 blueprint를
 만드는 것이다.
 
+Central synthesis는 기본적으로 `strong` synthesis 모델을 사용한다. 명시적으로
+`synthesis_model = "fast"`를 설정한 경우에만 경량 모델을 사용한다. Model-backed
+synthesis가 성공하면 `recommended_blueprint` 안에 실행 후보 `work_packages` graph를
+함께 만들 수 있다. 각 work package는 owner, dependency, 예상 파일 범위,
+parallel group, `parallelizable`, `risk`를 포함한다.
+
+`BlueprintDecomposer`는 central work package graph가 있으면 이를 우선 사용한다. 다만
+모델 출력을 그대로 실행하지 않고 다음 로컬 보수화를 거친다.
+
+- active agent가 아닌 owner는 현재 세션의 active agent로 재배정한다.
+- package id는 `WP-001` 형식으로 재번호화하고 dependency도 최종 id로 정규화한다.
+- 자기 자신 dependency와 존재하지 않는 dependency는 제거한다.
+- `expected_files`가 비어 있는 실행 package는 unknown write scope로 표시해 병렬 실행을
+  무분별하게 허용하지 않는다.
+- per-package acceptance criteria가 없으면 blueprint 기준 criteria를 상속한다.
+
 ## Provider 호출 방식
 
 Provider 호출은 `PromptRequest`와 `ProviderTurnResult`로 정규화된다.
@@ -141,6 +157,10 @@ Nexus Execute
 - agent launch cwd가 control repo 내부인데 확인이 없으면 provider write를 거부한다.
 - dependency가 끝나지 않은 work package는 실행하지 않는다.
 - 같은 workspace를 provider가 관리하며 파일 소유권이 겹치는 package는 병렬 실행하지 않는다.
+- `parallelizable=false` 또는 `risk=high` package는 같은 workspace의 다른 writer와
+  병렬 실행하지 않는다.
+- `pyproject.toml`, `uv.lock`, `package.json`, lockfile, root config 같은 공유 workspace
+  파일 변경은 파일 범위가 겹치지 않아도 같은 workspace에서 직렬화한다.
 
 실행 중에는 각 package의 시작과 종료가 workflow event로 남는다. Textual Execution
 Matrix는 이 이벤트를 `[HH:MM:SS] work_package_started: ...`와

@@ -3,14 +3,12 @@ from __future__ import annotations
 import asyncio
 import time
 
-import pytest
-
 from trinity.config import TrinityConfig
 from trinity.models import ConsensusResult, DeliberationResult
 from trinity.textual_app.workflow_controller import TextualWorkflowController
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workflow import WorkflowEngine, WorkflowState
-from trinity.workflow.models import OpenQuestion
+from trinity.workflow.models import OpenQuestion, WorkPackage, WorkStatus
 
 
 class FakeOrchestrator:
@@ -171,3 +169,57 @@ def test_textual_workflow_controller_requests_workspace_before_execution(tmp_pat
 
     assert outcome.target_workspace_required is True
     assert controller.workflow.state == WorkflowState.BLUEPRINT_READY
+
+
+def test_textual_workflow_controller_persists_work_package_runtime_events(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 구현", ["claude"])
+    workflow.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="client",
+            owner_agent="claude",
+            objective="Build client.",
+        )
+    ]
+    workflow.set_target_workspace(tmp_path / "game")
+    workflow.begin_execution()
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeOrchestrator,
+        archive_active_session=False,
+    )
+
+    controller._consume_runtime_event(
+        TUIEvent(
+            type=TUIEventType.WORK_PACKAGE_STARTED,
+            data={
+                "package_id": "WP-001",
+                "agent": "claude",
+                "status": WorkStatus.RUNNING.value,
+                "occurred_at": 1234.5,
+            },
+        )
+    )
+    controller._consume_runtime_event(
+        TUIEvent(
+            type=TUIEventType.WORK_PACKAGE_COMPLETED,
+            data={
+                "package_id": "WP-001",
+                "agent": "claude",
+                "status": WorkStatus.DONE.value,
+                "summary": "Built client.",
+                "occurred_at": 1300.25,
+            },
+        )
+    )
+
+    events = controller.workflow.persistence.load_events()
+    assert events[-2]["event"] == "work_package_started"
+    assert events[-2]["timestamp"] == 1234.5
+    assert events[-1]["event"] == "work_package_completed"
+    assert events[-1]["timestamp"] == 1300.25
+    assert events[-1]["data"]["summary"] == "Built client."
+    assert controller.workflow.session.work_packages[0].status == WorkStatus.DONE

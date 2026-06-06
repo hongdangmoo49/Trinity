@@ -6,6 +6,7 @@ import asyncio
 import inspect
 import logging
 import re
+import time
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Callable
@@ -874,6 +875,7 @@ class ExecutionProtocol:
 
     def _emit(self, event_type: TUIEventType, **kwargs) -> None:
         if self._event_callback:
+            kwargs.setdefault("occurred_at", time.time())
             self._event_callback(TUIEvent(type=event_type, data=kwargs))
 
     def _agent_attempt_order(self, owner_agent: str) -> tuple[str, ...]:

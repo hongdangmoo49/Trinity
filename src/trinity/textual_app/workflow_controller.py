@@ -8,7 +8,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Literal
+from typing import Callable, Literal
 
 from trinity.config import TrinityConfig
 from trinity.models import DeliberationResult
@@ -304,7 +304,24 @@ class TextualWorkflowController:
             self.workflow.record_work_package_started(
                 str(event.data.get("package_id") or ""),
                 str(event.data.get("agent") or ""),
+                self._event_occurred_at(event),
             )
+        if event.type == TUIEventType.WORK_PACKAGE_COMPLETED:
+            self.workflow.record_work_package_completed(
+                str(event.data.get("package_id") or ""),
+                str(event.data.get("agent") or ""),
+                str(event.data.get("status") or ""),
+                str(event.data.get("summary") or ""),
+                self._event_occurred_at(event),
+            )
+
+    @staticmethod
+    def _event_occurred_at(event: TUIEvent) -> float | None:
+        value = event.data.get("occurred_at")
+        try:
+            return float(value) if value is not None else None
+        except (TypeError, ValueError):
+            return None
 
     def _outcome(
         self,

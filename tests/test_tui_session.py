@@ -705,6 +705,7 @@ class TestWorkflowRouting:
                             "package_id": "WP-001",
                             "agent": "claude",
                             "status": WorkStatus.RUNNING.value,
+                            "occurred_at": 1234.5,
                         },
                     )
                 )
@@ -725,6 +726,7 @@ class TestWorkflowRouting:
                             "agent": "claude",
                             "status": WorkStatus.DONE.value,
                             "summary": "Implemented route bot.",
+                            "occurred_at": 1300.25,
                         },
                     )
                 )
@@ -744,6 +746,20 @@ class TestWorkflowRouting:
         loaded = WorkflowEngine(session.config.effective_state_dir)
         assert loaded.session.work_packages[0].status == WorkStatus.DONE
         assert loaded.execution_results[0].files_changed == ["src/routes.py"]
+        events = loaded.persistence.load_events()
+        started = [
+            event
+            for event in events
+            if event["event"] == "work_package_started"
+        ][-1]
+        completed = [
+            event
+            for event in events
+            if event["event"] == "work_package_completed"
+        ][-1]
+        assert started["timestamp"] == 1234.5
+        assert completed["timestamp"] == 1300.25
+        assert completed["data"]["summary"] == "Implemented route bot."
 
     def test_execution_live_loop_waits_for_thread_after_done_event(self, session):
         session.workflow.start("Original goal", ["claude"])

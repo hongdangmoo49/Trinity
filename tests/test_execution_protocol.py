@@ -101,6 +101,11 @@ async def test_execution_protocol_dispatches_package_and_records_result(tmp_path
         TUIEventType.WORK_PACKAGE_COMPLETED,
         TUIEventType.EXECUTION_DONE,
     ]
+    started_at = events[1].data.get("occurred_at")
+    completed_at = events[2].data.get("occurred_at")
+    assert isinstance(started_at, float)
+    assert isinstance(completed_at, float)
+    assert completed_at >= started_at
 
 
 @pytest.mark.asyncio

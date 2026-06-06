@@ -248,5 +248,10 @@ def test_decompose_repairs_invalid_central_graph_fields_conservatively():
     assert packages[0].scope == ["Prepare shared setup."]
     assert packages[0].expected_files == [BlueprintDecomposer.UNKNOWN_WRITE_SCOPE]
     assert packages[0].risk == "medium"
+    assert "owner reassigned from 'missing'" in " ".join(packages[0].repair_notes)
+    assert "expected_files missing" in " ".join(packages[0].repair_notes)
+    assert "risk normalized from 'extreme'" in " ".join(packages[0].repair_notes)
+    assert "missing-dependency" in " ".join(packages[0].repair_notes)
+    assert "self dependency" in " ".join(packages[0].repair_notes)
     assert packages[1].owner_agent == "antigravity"
     assert packages[1].dependencies == ["WP-001"]

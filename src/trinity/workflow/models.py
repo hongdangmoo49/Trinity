@@ -269,6 +269,7 @@ class WorkPackage:
     parallel_group: int | None = None
     parallelizable: bool = True
     risk: str = "medium"
+    repair_notes: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -287,6 +288,7 @@ class WorkPackage:
             "parallel_group": self.parallel_group,
             "parallelizable": self.parallelizable,
             "risk": self.risk,
+            "repair_notes": list(self.repair_notes),
         }
 
     @classmethod
@@ -314,6 +316,7 @@ class WorkPackage:
             ),
             parallelizable=bool(data.get("parallelizable", True)),
             risk=str(data.get("risk", "medium") or "medium"),
+            repair_notes=[str(item) for item in data.get("repair_notes", [])],
         )
 
 

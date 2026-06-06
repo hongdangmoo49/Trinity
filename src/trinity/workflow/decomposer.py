@@ -182,13 +182,39 @@ class BlueprintDecomposer:
         for index, seed in enumerate(seeds, start=1):
             package_id = f"WP-{index:03d}"
             source = source_by_key[seed.key]
+            repair_notes: list[str] = []
+            source_id = source.id.strip()
+            if source_id and source_id != package_id:
+                repair_notes.append(
+                    f"id normalized from {source_id!r} to {package_id!r}"
+                )
             owner = source.owner_agent.strip()
             if owner not in agent_names:
+                repair_notes.append(
+                    f"owner reassigned from {owner or '(empty)'!r} "
+                    f"to {owners_by_seed[seed.key]!r} because owner is not active"
+                )
                 owner = owners_by_seed[seed.key]
             criteria = (
                 self._clean_acceptance_criteria(source.acceptance_criteria)
                 or fallback_criteria
             )
+            expected_files = self._central_expected_files(
+                source,
+                seed,
+                requires_execution,
+            )
+            if (
+                requires_execution
+                and expected_files == [self.UNKNOWN_WRITE_SCOPE]
+                and not seed.expected_files
+            ):
+                repair_notes.append("expected_files missing; using unknown write scope")
+            risk = self._normalize_risk_value(source.risk)
+            if risk != str(source.risk or "medium").strip().lower():
+                repair_notes.append(
+                    f"risk normalized from {source.risk!r} to {risk!r}"
+                )
             packages.append(
                 WorkPackage(
                     id=package_id,
@@ -197,29 +223,29 @@ class BlueprintDecomposer:
                     objective=seed.objective,
                     scope=list(seed.scope),
                     out_of_scope=self._central_out_of_scope(source, requires_execution),
-                    expected_files=self._central_expected_files(
-                        source,
-                        seed,
-                        requires_execution,
-                    ),
+                    expected_files=expected_files,
                     acceptance_criteria=list(criteria),
                     status=WorkStatus.PENDING,
                     requires_execution=requires_execution,
                     estimated_weight=seed.estimated_weight,
                     parallel_group=source.parallel_group,
                     parallelizable=source.parallelizable,
-                    risk=self._normalize_risk_value(source.risk),
+                    risk=risk,
+                    repair_notes=repair_notes,
                 )
             )
             self._register_package_aliases(alias_to_package_id, source, seed, package_id)
 
         for package, seed in zip(packages, seeds):
             source = source_by_key[seed.key]
+            repair_notes = list(package.repair_notes)
             package.dependencies = self._central_dependencies_for(
                 source.dependencies,
                 package.id,
                 alias_to_package_id,
+                repair_notes,
             )
+            package.repair_notes = repair_notes
         return packages
 
     @staticmethod
@@ -282,6 +308,7 @@ class BlueprintDecomposer:
         dependencies: Iterable[str],
         package_id: str,
         alias_to_package_id: dict[str, str],
+        repair_notes: list[str],
     ) -> list[str]:
         resolved: list[str] = []
         seen: set[str] = set()
@@ -292,7 +319,15 @@ class BlueprintDecomposer:
             dep_id = alias_to_package_id.get(raw) or alias_to_package_id.get(
                 self._normalize_key(raw)
             )
-            if not dep_id or dep_id == package_id or dep_id in seen:
+            if not dep_id:
+                repair_notes.append(
+                    f"dependency {raw!r} removed because no package matched"
+                )
+                continue
+            if dep_id == package_id:
+                repair_notes.append(f"self dependency {raw!r} removed")
+                continue
+            if dep_id in seen:
                 continue
             resolved.append(dep_id)
             seen.add(dep_id)

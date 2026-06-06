@@ -62,7 +62,9 @@ class WorkflowNexusSnapshot:
     synthesis: SynthesisSnapshot = field(default_factory=SynthesisSnapshot)
     questions: list[QuestionSnapshot] = field(default_factory=list)
     decisions: list[str] = field(default_factory=list)
+    central_work_packages: list[str] = field(default_factory=list)
     work_packages: list[str] = field(default_factory=list)
+    work_package_repairs: list[str] = field(default_factory=list)
     execution_log: list[str] = field(default_factory=list)
 
 
@@ -103,14 +105,57 @@ class NexusSnapshotAdapter:
             synthesis=self._synthesis(session, recent, round_num),
             questions=self._questions(session),
             decisions=[d.decision for d in session.decisions] if session else [],
+            central_work_packages=self._central_work_packages(session),
             work_packages=[
                 f"{package.id} {package.owner_agent}: {package.title} ({package.status.value})"
                 for package in session.work_packages
             ]
             if session
             else [],
+            work_package_repairs=self._work_package_repairs(session),
             execution_log=self._execution_log(session),
         )
+
+    @staticmethod
+    def _central_work_packages(session: WorkflowSession | None) -> list[str]:
+        if session is None or session.blueprint is None:
+            return []
+        return [
+            NexusSnapshotAdapter._format_central_package(package)
+            for package in session.blueprint.work_packages
+        ]
+
+    @staticmethod
+    def _work_package_repairs(session: WorkflowSession | None) -> list[str]:
+        if session is None:
+            return []
+        repairs: list[str] = []
+        for package in session.work_packages:
+            for note in package.repair_notes:
+                repairs.append(f"{package.id}: {note}")
+        return repairs
+
+    @staticmethod
+    def _format_central_package(package: object) -> str:
+        package_id = str(getattr(package, "id", "")).strip()
+        owner = str(getattr(package, "owner_agent", "")).strip() or "unassigned"
+        title = str(getattr(package, "title", "")).strip() or "Untitled package"
+        dependencies = [
+            str(item).strip()
+            for item in getattr(package, "dependencies", [])
+            if str(item).strip()
+        ]
+        expected_files = [
+            str(item).strip()
+            for item in getattr(package, "expected_files", [])
+            if str(item).strip()
+        ]
+        details = [
+            f"deps={','.join(dependencies) if dependencies else '-'}",
+            f"files={','.join(expected_files) if expected_files else '-'}",
+        ]
+        prefix = f"{package_id} " if package_id else ""
+        return f"{prefix}{owner}: {title} ({'; '.join(details)})"
 
     @staticmethod
     def _questions(session: WorkflowSession | None) -> list[QuestionSnapshot]:

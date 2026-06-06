@@ -114,6 +114,8 @@ parallel group, `parallelizable`, `risk`를 포함한다.
 - `expected_files`가 비어 있는 실행 package는 unknown write scope로 표시해 병렬 실행을
   무분별하게 허용하지 않는다.
 - per-package acceptance criteria가 없으면 blueprint 기준 criteria를 상속한다.
+- `parallel_group`이 있으면 같은 group을 먼저 계획하되, dependency/file/risk 정책이
+  더 우선한다.
 
 ## Provider 호출 방식
 
@@ -157,10 +159,13 @@ Nexus Execute
 - agent launch cwd가 control repo 내부인데 확인이 없으면 provider write를 거부한다.
 - dependency가 끝나지 않은 work package는 실행하지 않는다.
 - 같은 workspace를 provider가 관리하며 파일 소유권이 겹치는 package는 병렬 실행하지 않는다.
+- `src/module/`과 `src/module/file.py`처럼 부모/자식 경로 관계인 파일 소유권도 충돌로 본다.
 - `parallelizable=false` 또는 `risk=high` package는 같은 workspace의 다른 writer와
   병렬 실행하지 않는다.
 - `pyproject.toml`, `uv.lock`, `package.json`, lockfile, root config 같은 공유 workspace
   파일 변경은 파일 범위가 겹치지 않아도 같은 workspace에서 직렬화한다.
+- batch 계획은 `execution_batch_planned` 이벤트로 남으며, 직렬화 사유는 policy notice로
+  Execution Matrix log와 report export에서 확인할 수 있다.
 
 실행 중에는 각 package의 시작과 종료가 workflow event로 남는다. Textual Execution
 Matrix는 이 이벤트를 `[HH:MM:SS] work_package_started: ...`와

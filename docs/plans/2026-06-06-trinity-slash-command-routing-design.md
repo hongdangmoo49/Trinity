@@ -208,11 +208,13 @@ registry는 다음을 생성하는 단일 source of truth가 되어야 한다.
    `tests/test_slash_command_docs.py` 정합성 테스트를 추가했다.
 10. Textual `/resume` 무인자는 archive 목록 modal을 열고, 선택된 archive selector를
     `TextualWorkflowController.resume_workflow()`로 전달한다.
+11. Textual local slash command 결과는 Markdown fallback을 유지하면서, table data가 있는
+    조회 결과를 중앙 영역의 `DataTable` 위젯으로도 렌더링한다.
 
 ## 남은 구현 항목
 
-1. 조회 명령의 Textual render target은 현재 중앙 Markdown 중심이며, table/panel/inspector
-   수준의 구조화 위젯으로 더 확장할 수 있다.
+1. 세션 메모리 변경 명령과 config persistence 명령을 분리해 사용자에게 저장 여부를
+   명확히 보여준다.
 
 ## 결정
 

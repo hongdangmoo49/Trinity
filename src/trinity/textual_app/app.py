@@ -258,6 +258,22 @@ class TrinityTextualApp(App[None]):
         height: auto;
     }
 
+    #central-local-command-tables {
+        height: auto;
+        margin-top: 1;
+    }
+
+    .local-command-table-title {
+        text-style: bold;
+        color: $accent;
+        margin-top: 1;
+    }
+
+    .local-command-table {
+        height: auto;
+        margin-bottom: 1;
+    }
+
     #central-question-title {
         text-style: bold;
         color: $warning;
@@ -780,6 +796,8 @@ class TrinityTextualApp(App[None]):
                 parsed.spec.name,
                 "Status",
                 self._snapshot_status_markdown(snapshot),
+                table_columns=("Item", "Value"),
+                table_rows=self._snapshot_status_rows(snapshot),
             )
             return
         if command == "workflow":
@@ -788,6 +806,8 @@ class TrinityTextualApp(App[None]):
                 parsed.spec.name,
                 "Workflow",
                 self._snapshot_workflow_markdown(snapshot),
+                table_columns=("Item", "Value"),
+                table_rows=self._snapshot_workflow_rows(snapshot),
             )
             return
         if command == "questions":
@@ -896,6 +916,8 @@ class TrinityTextualApp(App[None]):
         body: str,
         *,
         severity: str = "info",
+        table_columns: tuple[str, ...] = (),
+        table_rows: tuple[tuple[str, ...], ...] = (),
     ) -> None:
         """Record a local slash command result in the central Textual view."""
         result = LocalCommandSnapshot(
@@ -903,6 +925,8 @@ class TrinityTextualApp(App[None]):
             title=title,
             body=body.strip() or "(no output)",
             severity=severity,
+            table_columns=table_columns,
+            table_rows=table_rows,
         )
         self._local_command_results.append(result)
         snapshot = (
@@ -939,6 +963,29 @@ class TrinityTextualApp(App[None]):
         return "\n".join(lines)
 
     @staticmethod
+    def _snapshot_status_rows(
+        snapshot: WorkflowNexusSnapshot,
+    ) -> tuple[tuple[str, str], ...]:
+        rows = [
+            ("Workflow", snapshot.session_id or "(new)"),
+            ("State", snapshot.state or "idle"),
+            ("Round", str(snapshot.round_num)),
+            ("Goal", snapshot.goal or "(none)"),
+        ]
+        for provider in snapshot.providers:
+            rows.append(
+                (
+                    f"Provider: {provider.name}",
+                    (
+                        f"{provider.status}; enabled="
+                        f"{'yes' if provider.enabled else 'no'}; "
+                        f"readiness={provider.readiness}"
+                    ),
+                )
+            )
+        return tuple(rows)
+
+    @staticmethod
     def _snapshot_workflow_markdown(snapshot: WorkflowNexusSnapshot) -> str:
         state = snapshot.state or "idle"
         goal = snapshot.goal or "(none)"
@@ -954,6 +1001,22 @@ class TrinityTextualApp(App[None]):
                 f"- Local policy repairs: `{len(snapshot.work_package_repairs)}`",
                 f"- Execution log entries: `{len(snapshot.execution_log)}`",
             ]
+        )
+
+    @staticmethod
+    def _snapshot_workflow_rows(
+        snapshot: WorkflowNexusSnapshot,
+    ) -> tuple[tuple[str, str], ...]:
+        return (
+            ("ID", snapshot.session_id or "(new)"),
+            ("State", snapshot.state or "idle"),
+            ("Goal", snapshot.goal or "(none)"),
+            ("Round", str(snapshot.round_num)),
+            ("Pending questions", str(len(snapshot.questions))),
+            ("Decisions", str(len(snapshot.decisions))),
+            ("Work packages", str(len(snapshot.work_packages))),
+            ("Local policy repairs", str(len(snapshot.work_package_repairs))),
+            ("Execution log entries", str(len(snapshot.execution_log))),
         )
 
     @staticmethod

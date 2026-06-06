@@ -58,6 +58,8 @@ class LocalCommandSnapshot:
     title: str
     body: str
     severity: str = "info"
+    table_columns: tuple[str, ...] = ()
+    table_rows: tuple[tuple[str, ...], ...] = ()
 
 
 @dataclass(frozen=True)

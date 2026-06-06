@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from textual import events
 from textual.containers import VerticalScroll
-from textual.widgets import Button, RichLog, TabbedContent, TextArea
+from textual.widgets import Button, DataTable, RichLog, TabbedContent, TextArea
 
 from trinity.config import TrinityConfig
 from trinity.textual_app.app import TrinityTextualApp
@@ -18,6 +18,7 @@ from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import SacredGeometryAnimation, StartScreen
 from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import (
+    LocalCommandSnapshot,
     ProviderSnapshot,
     QuestionSnapshot,
     SynthesisSnapshot,
@@ -512,6 +513,8 @@ async def test_start_slash_status_does_not_start_workflow(tmp_path) -> None:
         assert app.active_snapshot is not None
         assert app.active_snapshot.local_commands[-1].command == "/status"
         assert app.active_snapshot.local_commands[-1].title == "Status"
+        assert app.active_snapshot.local_commands[-1].table_columns == ("Item", "Value")
+        assert ("State", "idle") in app.active_snapshot.local_commands[-1].table_rows
 
 
 @pytest.mark.asyncio
@@ -1095,6 +1098,41 @@ async def test_central_agent_view_renders_all_questions(tmp_path) -> None:
             "1. [open] Engine?",
             "2. [open] Monetization?",
         ]
+
+
+@pytest.mark.asyncio
+async def test_central_agent_view_renders_local_command_tables(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                local_commands=[
+                    LocalCommandSnapshot(
+                        command="/workflow",
+                        title="Workflow",
+                        body="- State: `blueprint_ready`",
+                        table_columns=("Item", "Value"),
+                        table_rows=(
+                            ("State", "blueprint_ready"),
+                            ("Work packages", "3"),
+                        ),
+                    )
+                ]
+            )
+        )
+        await pilot.pause()
+
+        central = screen.query_one(CentralAgentView)
+        table = central.query_one("#local-command-table-1", DataTable)
+
+        assert table.row_count == 2
+        assert "Local Command Results" in central._markdown()
 
 
 @pytest.mark.asyncio

@@ -13,6 +13,7 @@ from trinity import __version__
 from trinity.config import TrinityConfig
 from trinity.i18n import VALID_CAVEMAN_INTENSITIES
 from trinity.slash_commands import (
+    SESSION_ONLY_SETTING_NOTICE,
     TRINITY_COMMANDS,
     parse_slash_command,
 )
@@ -859,13 +860,13 @@ class TrinityTextualApp(App[None]):
             self._handle_textual_report_command(args)
             return
         if command == "rounds":
-            self._handle_textual_rounds_command(args)
+            self._handle_textual_rounds_command(parsed.spec.name, args)
             return
         if command == "agent":
-            self._handle_textual_agent_command(args)
+            self._handle_textual_agent_command(parsed.spec.name, args)
             return
         if command == "caveman":
-            self._handle_textual_caveman_command(args)
+            self._handle_textual_caveman_command(parsed.spec.name, args)
             return
         if command == "save":
             self.notify(
@@ -1081,50 +1082,105 @@ class TrinityTextualApp(App[None]):
             return
         self.switch_to("report")
 
-    def _handle_textual_rounds_command(self, args: list[str]) -> None:
+    @staticmethod
+    def _session_setting_body(message: str) -> str:
+        return f"{message}\n\n{SESSION_ONLY_SETTING_NOTICE}"
+
+    def _handle_textual_rounds_command(
+        self,
+        command_name: str,
+        args: list[str],
+    ) -> None:
         if not args:
-            self.notify(
-                f"Current max rounds: {self.config.max_deliberation_rounds}",
-                title="Rounds",
+            self._record_slash_command_result(
+                command_name,
+                "Rounds",
+                self._session_setting_body(
+                    f"Current max rounds: `{self.config.max_deliberation_rounds}`."
+                ),
             )
             return
         try:
             rounds = int(args[0])
         except ValueError:
-            self.notify("Invalid number.", title="Rounds", severity="warning")
+            self._record_slash_command_result(
+                command_name,
+                "Rounds",
+                "Invalid number.",
+                severity="warning",
+            )
             return
         if rounds < 1 or rounds > 20:
-            self.notify(
+            self._record_slash_command_result(
+                command_name,
+                "Rounds",
                 "Rounds must be between 1 and 20.",
-                title="Rounds",
                 severity="warning",
             )
             return
         self.config.max_deliberation_rounds = rounds
-        self.notify(f"Max rounds set to {rounds}.", title="Rounds")
+        self._record_slash_command_result(
+            command_name,
+            "Rounds",
+            self._session_setting_body(
+                f"Max rounds set to `{rounds}` for this session only."
+            ),
+        )
 
-    def _handle_textual_agent_command(self, args: list[str]) -> None:
+    def _handle_textual_agent_command(
+        self,
+        command_name: str,
+        args: list[str],
+    ) -> None:
         if len(args) < 2:
-            self.notify("Usage: /agent <name> on|off", title="Agent", severity="warning")
+            self._record_slash_command_result(
+                command_name,
+                "Agent",
+                "Usage: `/agent <name> on|off`",
+                severity="warning",
+            )
             return
         name, action = args[0].lower(), args[1].lower()
         spec = self.config.agents.get(name)
         if spec is None:
-            self.notify(f"Unknown agent: {name}", title="Agent", severity="warning")
+            self._record_slash_command_result(
+                command_name,
+                "Agent",
+                f"Unknown agent: `{name}`",
+                severity="warning",
+            )
             return
         if action not in {"on", "off"}:
-            self.notify("Usage: /agent <name> on|off", title="Agent", severity="warning")
+            self._record_slash_command_result(
+                command_name,
+                "Agent",
+                "Usage: `/agent <name> on|off`",
+                severity="warning",
+            )
             return
         spec.enabled = action == "on"
-        self._refresh_textual_snapshot()
-        self.notify(f"Agent '{name}' {'enabled' if spec.enabled else 'disabled'}.", title="Agent")
+        status = "enabled" if spec.enabled else "disabled"
+        self._record_slash_command_result(
+            command_name,
+            "Agent",
+            self._session_setting_body(
+                f"Agent `{name}` {status} for this session only."
+            ),
+        )
 
-    def _handle_textual_caveman_command(self, args: list[str]) -> None:
+    def _handle_textual_caveman_command(
+        self,
+        command_name: str,
+        args: list[str],
+    ) -> None:
         if not args:
             mode = "on" if self.config.caveman_mode else "off"
-            self.notify(
-                f"Caveman: {mode} ({self.config.caveman_intensity})",
-                title="Caveman",
+            self._record_slash_command_result(
+                command_name,
+                "Caveman",
+                self._session_setting_body(
+                    f"Caveman: `{mode}` (`{self.config.caveman_intensity}`)."
+                ),
             )
             return
         action = args[0].lower()
@@ -1136,14 +1192,22 @@ class TrinityTextualApp(App[None]):
             self.config.caveman_mode = True
             self.config.caveman_intensity = action
         else:
-            self.notify(
+            self._record_slash_command_result(
+                command_name,
+                "Caveman",
                 "Use: /caveman [on|off|lite|full|ultra]",
-                title="Caveman",
                 severity="warning",
             )
             return
         mode = "on" if self.config.caveman_mode else "off"
-        self.notify(f"Caveman: {mode} ({self.config.caveman_intensity})", title="Caveman")
+        self._record_slash_command_result(
+            command_name,
+            "Caveman",
+            self._session_setting_body(
+                f"Caveman set to `{mode}` (`{self.config.caveman_intensity}`) "
+                "for this session only."
+            ),
+        )
 
     def _handle_textual_target_command(self, args: list[str]) -> None:
         if not args:

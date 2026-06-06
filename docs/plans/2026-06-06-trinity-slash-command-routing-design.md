@@ -144,7 +144,7 @@ Nexus 화면은 active workflow가 있을 수 있다. slash command는 follow-up
 | 명령 분류 | Nexus 동작 |
 | :--- | :--- |
 | 로컬/UI 조회 | central agent history, inspector, report screen, notification 중 적절한 surface를 갱신한다. |
-| 세션 설정 변경 | 설정 변경 후 provider strip/snapshot을 갱신한다. |
+| 세션 설정 변경 | 설정 변경 후 `Local Command Results`에 세션 전용 적용과 config 파일 미저장 안내를 남긴다. |
 | workflow 로컬 변경 | `WorkflowEngine`을 갱신하고 `NexusSnapshotAdapter` projection을 다시 적용한다. |
 | `/answer` | decision 기록 후 남은 질문이 있으면 질문 UI만 갱신한다. 재협의가 필요할 때만 background deliberation을 시작한다. |
 | `/execute` | `TextualWorkflowController.request_execution()`과 같은 실행 경로를 사용한다. target이 없으면 workspace picker를 연다. |
@@ -210,11 +210,15 @@ registry는 다음을 생성하는 단일 source of truth가 되어야 한다.
     `TextualWorkflowController.resume_workflow()`로 전달한다.
 11. Textual local slash command 결과는 Markdown fallback을 유지하면서, table data가 있는
     조회 결과를 중앙 영역의 `DataTable` 위젯으로도 렌더링한다.
+12. `/rounds`, `/agent`, `/caveman`은 plain TUI 출력과 Textual 중앙 로그 모두에서
+    현재 세션에만 적용되고 config 파일은 바꾸지 않았다는 안내를 표시한다.
 
-## 남은 구현 항목
+## 완료된 구현 항목
 
-1. 세션 메모리 변경 명령과 config persistence 명령을 분리해 사용자에게 저장 여부를
-   명확히 보여준다.
+- 세션 메모리 변경 명령과 config persistence 저장은 분리했다. 현재 `/rounds`,
+  `/agent`, `/caveman`은 process-local config object만 바꾸고, 결과 메시지에
+  config 파일 미저장을 명확히 표시한다. 영구 저장 명령은 아직 Trinity 앱 자체
+  slash command로 정의하지 않는다.
 
 ## 결정
 

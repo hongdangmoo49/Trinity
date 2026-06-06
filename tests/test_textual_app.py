@@ -6,6 +6,7 @@ from textual.containers import VerticalScroll
 from textual.widgets import Button, DataTable, RichLog, TabbedContent, TextArea
 
 from trinity.config import TrinityConfig
+from trinity.slash_commands import SESSION_ONLY_SETTING_NOTICE
 from trinity.textual_app.app import TrinityTextualApp
 from trinity.textual_app.report_export import (
     snapshot_report_markdown,
@@ -596,6 +597,49 @@ async def test_nexus_unknown_slash_does_not_submit_followup(tmp_path) -> None:
         assert central.snapshot.local_commands[-1].title == "Unknown Command"
         assert "Local Command Results" in central._markdown()
         assert "`/not-a-command`" in central._markdown()
+
+
+@pytest.mark.asyncio
+async def test_textual_session_setting_commands_are_local_session_only_results(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config, controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/rounds 7")
+        await pilot.pause()
+        assert config.max_deliberation_rounds == 7
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/rounds"
+        assert result.title == "Rounds"
+        assert "for this session only" in result.body
+        assert SESSION_ONLY_SETTING_NOTICE in result.body
+
+        app._handle_textual_slash_command("/agent claude off")
+        await pilot.pause()
+        assert config.agents["claude"].enabled is False
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/agent"
+        assert result.title == "Agent"
+        assert SESSION_ONLY_SETTING_NOTICE in result.body
+
+        app._handle_textual_slash_command("/caveman lite")
+        await pilot.pause()
+        assert config.caveman_mode is True
+        assert config.caveman_intensity == "lite"
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/caveman"
+        assert result.title == "Caveman"
+        assert SESSION_ONLY_SETTING_NOTICE in result.body
+
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
 
 
 @pytest.mark.asyncio

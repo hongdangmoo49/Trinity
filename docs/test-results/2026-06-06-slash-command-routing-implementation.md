@@ -18,12 +18,14 @@
   - Trinity 앱 자체 top-level slash command registry 추가
   - command category, agent call policy, usage, localized summary 정의
   - plain TUI와 호환되는 `shlex.split()` 기반 parser 추가
+  - 세션 전용 설정 명령의 공통 안내 문구 추가
 - `src/trinity/tui/prompt.py`
   - `TRINITY_COMMANDS`를 공통 registry에서 가져오도록 변경
 - `src/trinity/tui/session.py`
   - plain TUI `_handle_command()`가 `parse_slash_command()`와 registry 기반 dispatch table을
     사용하도록 변경
   - registry alias(`/exit`, `/q`)가 `/quit` canonical command로 정규화된 뒤 실행됨
+  - `/rounds`, `/agent`, `/caveman` 결과 출력에 세션 전용 적용과 config 파일 미저장 안내 추가
 - `src/trinity/textual_app/i18n.py`
   - Textual slash palette 설명을 공통 registry에서 가져오도록 변경
 - `src/trinity/textual_app/screens/start.py`
@@ -38,6 +40,7 @@
   - `/execute`는 기존 `TextualWorkflowController.request_execution()` 경로로 연결
   - `/answer`, `/target`, `/resume`, `/rounds`, `/agent`, `/caveman`, `/report`의 Textual 1차 처리 추가
   - `/questions --select`는 Textual 중앙 질문 영역의 option button과 `/answer` 안내로 처리
+  - `/rounds`, `/agent`, `/caveman` 결과를 notification에만 띄우지 않고 중앙 `Local Command Results`에 기록
 - `src/trinity/textual_app/snapshot.py`
   - `LocalCommandSnapshot`과 `WorkflowNexusSnapshot.local_commands` 추가
   - 조회 명령 결과의 구조화 렌더링을 위한 optional table column/row data 추가
@@ -57,7 +60,7 @@
 | :--- | :--- |
 | 로컬/UI 조회 | Nexus 중앙 영역의 `Local Command Results`에 누적 표시하고 에이전트 호출 금지 |
 | 로컬 파일 기록 | `/report save`는 Markdown export, `/save`는 Textual 자동 persistence 안내 |
-| 세션 설정 변경 | `/rounds`, `/agent`, `/caveman`은 현재 프로세스 config를 변경 |
+| 세션 설정 변경 | `/rounds`, `/agent`, `/caveman`은 현재 프로세스 config만 변경하고 config 파일 미저장을 표시 |
 | workflow 로컬 변경 | `/target`, `/resume`은 `TextualWorkflowController` public API를 통해 workflow/session을 갱신 |
 | 조건부 재협의 | `/answer`는 workflow action 결과가 요구할 때만 deliberation으로 연결 |
 | 명시 실행 | `/execute`만 execution request 경로로 연결 |
@@ -83,6 +86,9 @@
 /home/zaemi/.local/bin/uv run pytest tests/test_textual_workflow_controller.py tests/test_textual_app.py -q
 /home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/app.py src/trinity/textual_app/snapshot.py src/trinity/textual_app/widgets/central_agent.py tests/test_textual_app.py
 /home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py -q
+/home/zaemi/.local/bin/uvx ruff check src/trinity/slash_commands.py src/trinity/tui/session.py src/trinity/textual_app/app.py tests/test_tui_session.py tests/test_textual_app.py
+/home/zaemi/.local/bin/uv run pytest tests/test_tui_session.py::TestSessionCommands::test_session_setting_commands_show_session_only_notice tests/test_textual_app.py::test_textual_session_setting_commands_are_local_session_only_results -q
+/home/zaemi/.local/bin/uv run pytest tests/test_tui_session.py tests/test_textual_app.py tests/test_slash_command_docs.py -q
 git diff --check
 /home/zaemi/.local/bin/uv run pytest -q
 ```
@@ -100,9 +106,11 @@ git diff --check
 - Slash command 문서 정합성 검증: `4 passed in 0.03s`
 - Textual resume modal/controller 회귀: `62 passed in 30.98s`
 - Textual local command table 렌더링 회귀: `52 passed in 24.32s`
+- 세션 전용 설정 명령 안내 회귀: `2 passed in 1.19s`
+- Plain/Textual/docs 대상 회귀: `136 passed in 26.22s`
 - Ruff 대상 파일 검사 통과
 - `git diff --check` 통과
-- 전체 회귀: `1219 passed, 1 warning in 55.03s`
+- 전체 회귀: `1221 passed, 1 warning in 53.58s`
 
 ## 남은 작업
 

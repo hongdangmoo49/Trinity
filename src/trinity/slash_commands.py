@@ -27,6 +27,11 @@ class AgentCallPolicy(str, Enum):
     EXECUTION = "execution"
 
 
+SESSION_ONLY_SETTING_NOTICE = (
+    "Session-only setting. Config file was not changed."
+)
+
+
 @dataclass(frozen=True)
 class SlashCommandSpec:
     """A Trinity-owned slash command definition."""

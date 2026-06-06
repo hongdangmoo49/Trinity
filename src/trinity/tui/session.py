@@ -27,7 +27,7 @@ from rich.panel import Panel
 
 from trinity.config import TrinityConfig
 from trinity.models import DeliberationResult
-from trinity.slash_commands import parse_slash_command
+from trinity.slash_commands import SESSION_ONLY_SETTING_NOTICE, parse_slash_command
 from trinity.tui.app import AgentTUIState, TrinityTUI
 from trinity.tui.events import TUIEvent, TUIEventBus
 from trinity.tui.kitty_compat import install_prompt_toolkit_parser_patch
@@ -321,7 +321,8 @@ class InteractiveSession:
         """
         if not args:
             self.console.print(
-                f"Current max rounds: [cyan]{self.config.max_deliberation_rounds}[/cyan]"
+                f"Current max rounds: [cyan]{self.config.max_deliberation_rounds}[/cyan]\n"
+                f"[dim]{SESSION_ONLY_SETTING_NOTICE}[/dim]"
             )
             return
 
@@ -332,7 +333,10 @@ class InteractiveSession:
                 return
             self.config.max_deliberation_rounds = n
             self.tui.max_rounds = n
-            self.console.print(f"[green]Max rounds set to {n}[/green]")
+            self.console.print(
+                f"[green]Max rounds set to {n} for this session only.[/green]\n"
+                f"[dim]{SESSION_ONLY_SETTING_NOTICE}[/dim]"
+            )
         except ValueError:
             self.console.print("[yellow]Invalid number.[/yellow]")
 
@@ -353,11 +357,17 @@ class InteractiveSession:
         if action == "on":
             self.config.agents[name].enabled = True
             self.tui.update_agent_status(name, AgentTUIState.IDLE)
-            self.console.print(f"[green]Agent '{name}' enabled.[/green]")
+            self.console.print(
+                f"[green]Agent '{name}' enabled for this session only.[/green]\n"
+                f"[dim]{SESSION_ONLY_SETTING_NOTICE}[/dim]"
+            )
         elif action == "off":
             self.config.agents[name].enabled = False
             self.tui.update_agent_status(name, AgentTUIState.DISABLED)
-            self.console.print(f"[yellow]Agent '{name}' disabled.[/yellow]")
+            self.console.print(
+                f"[yellow]Agent '{name}' disabled for this session only.[/yellow]\n"
+                f"[dim]{SESSION_ONLY_SETTING_NOTICE}[/dim]"
+            )
         else:
             self.console.print("[dim]Usage: /agent <name> on|off[/dim]")
 
@@ -408,6 +418,7 @@ class InteractiveSession:
             self.console.print(
                 f"  🦴 Caveman: [cyan]{mode}[/cyan] "
                 f"(intensity: [cyan]{intensity}[/cyan])\n"
+                f"  [dim]{SESSION_ONLY_SETTING_NOTICE}[/dim]\n"
                 f"  [dim]Usage: /caveman [on|off|lite|full|ultra][/dim]"
             )
             return
@@ -416,14 +427,25 @@ class InteractiveSession:
 
         if action in ("off", "disable"):
             self.config.caveman_mode = False
-            self.console.print("[yellow]🦴 Caveman compression disabled.[/yellow]")
+            self.console.print(
+                "[yellow]🦴 Caveman compression disabled for this session only.[/yellow]\n"
+                f"[dim]{SESSION_ONLY_SETTING_NOTICE}[/dim]"
+            )
         elif action in ("on", "enable"):
             self.config.caveman_mode = True
-            self.console.print(f"[green]🦴 Caveman compression enabled ({self.config.caveman_intensity}).[/green]")
+            self.console.print(
+                "[green]🦴 Caveman compression enabled "
+                f"({self.config.caveman_intensity}) for this session only.[/green]\n"
+                f"[dim]{SESSION_ONLY_SETTING_NOTICE}[/dim]"
+            )
         elif action in VALID_CAVEMAN_INTENSITIES:
             self.config.caveman_mode = True
             self.config.caveman_intensity = action
-            self.console.print(f"[green]🦴 Caveman set to [bold]{action}[/bold].[/green]")
+            self.console.print(
+                f"[green]🦴 Caveman set to [bold]{action}[/bold] "
+                "for this session only.[/green]\n"
+                f"[dim]{SESSION_ONLY_SETTING_NOTICE}[/dim]"
+            )
         else:
             self.console.print(
                 f"[yellow]Unknown option: {action}. "

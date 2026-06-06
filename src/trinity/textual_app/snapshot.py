@@ -46,6 +46,8 @@ class QuestionSnapshot:
     question: str
     options: list[str] = field(default_factory=list)
     recommended_option: str = ""
+    status: str = "open"
+    answer: str = ""
 
 
 @dataclass(frozen=True)
@@ -99,17 +101,7 @@ class NexusSnapshotAdapter:
             round_num=round_num,
             providers=list(provider_states.values()),
             synthesis=self._synthesis(session, recent, round_num),
-            questions=[
-                QuestionSnapshot(
-                    id=q.id,
-                    question=q.question,
-                    options=list(q.options),
-                    recommended_option=q.recommended_option or "",
-                )
-                for q in session.open_questions
-            ]
-            if session
-            else [],
+            questions=self._questions(session),
             decisions=[d.decision for d in session.decisions] if session else [],
             work_packages=[
                 f"{package.id} {package.owner_agent}: {package.title} ({package.status.value})"
@@ -119,6 +111,27 @@ class NexusSnapshotAdapter:
             else [],
             execution_log=self._execution_log(session),
         )
+
+    @staticmethod
+    def _questions(session: WorkflowSession | None) -> list[QuestionSnapshot]:
+        if session is None:
+            return []
+        answer_by_question_id = {
+            str(decision.question_id): decision.decision
+            for decision in session.decisions
+            if decision.question_id
+        }
+        return [
+            QuestionSnapshot(
+                id=q.id,
+                question=q.question,
+                options=list(q.options),
+                recommended_option=q.recommended_option or "",
+                status=q.status,
+                answer=answer_by_question_id.get(q.id, ""),
+            )
+            for q in session.pending_questions
+        ]
 
     def _provider_states(
         self,

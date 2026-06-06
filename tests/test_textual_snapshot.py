@@ -15,6 +15,7 @@ from trinity.workflow import (
     WorkflowState,
     WorkPackage,
     WorkStatus,
+    DecisionRecord,
 )
 
 
@@ -72,6 +73,51 @@ def test_snapshot_projects_persisted_workflow(tmp_path) -> None:
     assert snapshot.execution_log == ["state_changed: blueprint_ready"]
     assert snapshot.providers[0].enabled is True
     assert snapshot.providers[1].enabled is False
+
+
+def test_snapshot_keeps_answered_question_history(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-questions",
+            goal="Build game",
+            state=WorkflowState.BLUEPRINT_READY,
+            active_agents=["claude"],
+            pending_questions=[
+                OpenQuestion(
+                    id="q-1",
+                    question="Engine?",
+                    options=["Godot", "Unity"],
+                    status="answered",
+                ),
+                OpenQuestion(
+                    id="q-2",
+                    question="Platform?",
+                    options=["PC", "Mobile"],
+                ),
+            ],
+            decisions=[
+                DecisionRecord(
+                    id="dec-001",
+                    question_id="q-1",
+                    decision="Godot",
+                    decided_by="user",
+                )
+            ],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert [question.question for question in snapshot.questions] == [
+        "Engine?",
+        "Platform?",
+    ]
+    assert snapshot.questions[0].status == "answered"
+    assert snapshot.questions[0].answer == "Godot"
+    assert snapshot.questions[1].status == "open"
+    assert snapshot.questions[1].answer == ""
 
 
 def test_snapshot_formats_execution_events_with_runtime_details(tmp_path) -> None:

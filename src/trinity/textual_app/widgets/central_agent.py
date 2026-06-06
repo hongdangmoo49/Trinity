@@ -100,10 +100,10 @@ class CentralAgentView(VerticalScroll):
             )
         if snapshot.decisions:
             lines.extend(["", "### Decisions"])
-            lines.extend(f"- {item}" for item in snapshot.decisions[:5])
+            lines.extend(f"- {item}" for item in snapshot.decisions)
         if snapshot.work_packages:
             lines.extend(["", "### Work Packages"])
-            lines.extend(f"- {item}" for item in snapshot.work_packages[:5])
+            lines.extend(f"- {item}" for item in snapshot.work_packages)
         return "\n".join(lines)
 
     def _render_questions(self, questions: list[QuestionSnapshot]) -> None:
@@ -113,23 +113,31 @@ class CentralAgentView(VerticalScroll):
         if not questions:
             return
 
-        question_number = 1
-        question = questions[0]
-        container.mount(
-            Static(f"1. {question.question}", classes="question-text")
-        )
-        if question.options:
+        for question_number, question in enumerate(questions, start=1):
             row = Grid(classes="question-options")
-            container.mount(row)
-            for option_index, option in enumerate(question.options, start=1):
-                button_id = self._answer_button_id(question_number, option_index)
-                label = (
-                    f"{option} (recommended)"
-                    if option == question.recommended_option
-                    else option
+            status = question.status or "open"
+            container.mount(
+                Static(
+                    f"{question_number}. [{status}] {question.question}",
+                    classes="question-text",
                 )
-                self._button_answers[button_id] = QuestionAnswer(question.id, option)
-                row.mount(Button(label, id=button_id, variant="default", tooltip=label))
+            )
+            if question.answer:
+                container.mount(
+                    Static(f"Answer: {question.answer}", classes="question-answer")
+                )
+                continue
+            if question.options and status == "open":
+                container.mount(row)
+                for option_index, option in enumerate(question.options, start=1):
+                    button_id = self._answer_button_id(question_number, option_index)
+                    label = (
+                        f"{option} (recommended)"
+                        if option == question.recommended_option
+                        else option
+                    )
+                    self._button_answers[button_id] = QuestionAnswer(question.id, option)
+                    row.mount(Button(label, id=button_id, variant="default", tooltip=label))
 
     @staticmethod
     def _answer_button_id(question_number: int, option_index: int) -> str:
@@ -140,7 +148,7 @@ class CentralAgentView(VerticalScroll):
             return ""
         if len(questions) == 1:
             return "Question for you"
-        return f"Question for you (1 of {len(questions)})"
+        return f"Questions for you ({len(questions)})"
 
     def _refresh_title(self) -> None:
         if not self.is_mounted:

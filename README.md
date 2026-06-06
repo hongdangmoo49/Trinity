@@ -222,7 +222,9 @@ Trinity는 기본 실행 화면으로 **Textual 기반 Workbench TUI**를 제공
 
 ### TUI 인라인 명령어
 
-대화형 TUI 내부 명령 (인자 없이 `trinity` 실행 후 프롬프트 상에서 입력):
+대화형 TUI 내부 명령 (인자 없이 `trinity` 실행 후 프롬프트 상에서 입력).
+세부 동작 방식과 Textual Workbench 팔레트의 현재 한계는
+[Slash Command Reference](docs/slash-command-reference.md)를 기준으로 한다.
 
 | 명령어 | 설명 |
 | :--- | :--- |
@@ -233,9 +235,19 @@ Trinity는 기본 실행 화면으로 **Textual 기반 Workbench TUI**를 제공
 | `/agent <이름> on\|off` | 특정 에이전트를 즉시 활성화하거나 비활성화 |
 | `/history` | 이전 라운드의 토론 히스토리 요약 조회 |
 | `/save` | 현재 토론 세션의 전체 결과를 파일로 영구 저장 |
+| `/caveman [on\|off\|lite\|full\|ultra]` | 출력 압축 모드 조회 또는 변경 |
+| `/workflow` | 현재 workflow 상태, target workspace, package 요약 조회 |
+| `/questions [--select --all]` | 대기 중인 사용자 질문 표시 또는 선택 UI 실행 |
+| `/answer <id\|n\|next> <텍스트>` | workflow 질문에 답변하고 필요 시 협의 재개 |
+| `/decisions` | 기록된 사용자/시스템 결정 목록 조회 |
+| `/packages` | 생성된 work package 목록 조회 |
+| `/subtasks` | provider 내부 위임 subtask 결과 조회 |
+| `/report [save]` | 협의 결과 개괄 보고서 표시 또는 Markdown 저장 |
 | `/resume [N\|latest\|ID]` | 저장된 workflow 세션을 선택해 재개 |
+| `/execute [텍스트]` | 준비된 blueprint를 target workspace에서 실행 |
+| `/target [경로\|clear]` | 구현 산출물을 쓸 target workspace 조회, 설정, 초기화 |
 | `/help` | 사용 가능한 인라인 명령어 도움말 표시 |
-| `/quit` | Trinity 종료 및 백그라운드 리소스 정리 |
+| `/quit`, `/exit`, `/q` | Trinity 종료 및 백그라운드 리소스 정리 |
 
 TUI는 기본적으로 새 workflow 세션으로 시작한다. 이전 active workflow는
 `.trinity/workflow/history/`에 보존되며 `/resume`으로 명시적으로 재개한다.

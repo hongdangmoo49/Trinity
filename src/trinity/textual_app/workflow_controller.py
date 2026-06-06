@@ -38,6 +38,17 @@ class TextualWorkflowOutcome:
     target_workspace_required: bool = False
 
 
+@dataclass(frozen=True)
+class TextualWorkflowArchiveOption:
+    """A saved workflow summary suitable for Textual resume selection."""
+
+    selector: str
+    session_id: str
+    goal: str
+    state: str
+    updated_at: float
+
+
 class TextualWorkflowController:
     """Bridge Textual screen events to Trinity's workflow/orchestrator runtime."""
 
@@ -167,6 +178,19 @@ class TextualWorkflowController:
             return self._outcome(message="Workflow is still running.", running=True)
         self.workflow.clear_target_workspace()
         return self._outcome()
+
+    def list_resume_options(self) -> list[TextualWorkflowArchiveOption]:
+        """Return archived workflows ordered the same way /resume selectors resolve."""
+        return [
+            TextualWorkflowArchiveOption(
+                selector=str(index),
+                session_id=archive.session.id,
+                goal=archive.session.goal,
+                state=archive.session.state.value,
+                updated_at=archive.session.updated_at,
+            )
+            for index, archive in enumerate(self.persistence.list_archives(), start=1)
+        ]
 
     def resume_workflow(self, selector: str = "latest") -> TextualWorkflowOutcome:
         """Restore an archived workflow into the active Textual session."""

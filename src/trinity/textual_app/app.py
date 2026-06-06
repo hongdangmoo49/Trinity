@@ -38,6 +38,7 @@ from trinity.textual_app.workflow_controller import (
     TextualWorkflowOutcome,
 )
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
+from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
 from trinity.textual_app.widgets.workspace_picker import (
     WorkspacePicker,
     WorkspacePreflight,
@@ -1105,7 +1106,25 @@ class TrinityTextualApp(App[None]):
         self.notify(f"Target workspace: {path.resolve()}", title="Target")
 
     def _handle_textual_resume_command(self, args: list[str]) -> None:
-        selector = args[0].lower() if args else "latest"
+        if not args:
+            archives = self.workflow_controller.list_resume_options()
+            if not archives:
+                self.notify("No saved workflow sessions to resume.", title="Resume")
+                return
+            self.push_screen(
+                ResumeWorkflowPicker(archives, lang=self.config.lang),
+                self._on_resume_archive_selected,
+            )
+            return
+        selector = args[0].lower()
+        self._resume_textual_workflow(selector)
+
+    def _on_resume_archive_selected(self, selector: str | None) -> None:
+        if selector is None:
+            return
+        self._resume_textual_workflow(selector)
+
+    def _resume_textual_workflow(self, selector: str) -> None:
         outcome = self.workflow_controller.resume_workflow(selector)
         if outcome.message:
             severity = "warning" if outcome.message.startswith("No ") else "information"

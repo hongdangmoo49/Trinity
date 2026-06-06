@@ -240,6 +240,33 @@ def test_textual_workflow_controller_resumes_latest_workflow(tmp_path) -> None:
     assert outcome.message == "Resumed workflow wf-archived."
 
 
+def test_textual_workflow_controller_lists_resume_options(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    controller = TextualWorkflowController(
+        config,
+        orchestrator_factory=FakeOrchestrator,
+        archive_active_session=False,
+    )
+    controller.persistence.save(
+        WorkflowSession(
+            id="wf-archived",
+            goal="archived goal",
+            state=WorkflowState.BLUEPRINT_READY,
+            updated_at=1234.0,
+        )
+    )
+    controller.persistence.archive_active_session(force=True)
+
+    options = controller.list_resume_options()
+
+    assert len(options) == 1
+    assert options[0].selector == "1"
+    assert options[0].session_id == "wf-archived"
+    assert options[0].goal == "archived goal"
+    assert options[0].state == "blueprint_ready"
+    assert options[0].updated_at == 1234.0
+
+
 def test_textual_workflow_controller_clears_target_workspace(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     workflow = WorkflowEngine(config.effective_state_dir)

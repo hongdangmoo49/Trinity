@@ -23,13 +23,17 @@ from trinity.textual_app.snapshot import (
     SynthesisSnapshot,
     WorkflowNexusSnapshot,
 )
-from trinity.textual_app.workflow_controller import TextualWorkflowOutcome
+from trinity.textual_app.workflow_controller import (
+    TextualWorkflowArchiveOption,
+    TextualWorkflowOutcome,
+)
 from trinity.tui.report import DeliberationReportBuilder
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.composer import COMMAND_LIMIT, ComposerTextArea, PromptComposer
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
+from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
 from trinity.textual_app.widgets.workspace_picker import WorkspacePicker, build_preflight
 from trinity.workflow import (
     WorkPackage,
@@ -48,6 +52,7 @@ class FakeWorkflowController:
         self.answers: list[tuple[str, str, bool]] = []
         self.option_answers: list[tuple[str, str, bool]] = []
         self.resumes: list[str] = []
+        self.resume_options: list[TextualWorkflowArchiveOption] = []
         self.execution_requests = 0
         self.target_workspace = None
         self.target_cleared = False
@@ -129,6 +134,9 @@ class FakeWorkflowController:
         self.target_cleared = True
         self.target_workspace = None
         return TextualWorkflowOutcome(self.current_snapshot)
+
+    def list_resume_options(self) -> list[TextualWorkflowArchiveOption]:
+        return list(self.resume_options)
 
     def resume_workflow(self, selector: str = "latest") -> TextualWorkflowOutcome:
         self.resumes.append(selector)
@@ -681,6 +689,42 @@ async def test_nexus_slash_resume_routes_to_controller(tmp_path) -> None:
         assert controller.resumes == ["latest"]
         assert app.active_snapshot is not None
         assert app.active_snapshot.session_id == "wf-resumed-latest"
+
+
+@pytest.mark.asyncio
+async def test_nexus_slash_resume_without_selector_opens_archive_picker(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    controller.resume_options = [
+        TextualWorkflowArchiveOption(
+            selector="1",
+            session_id="wf-archived",
+            goal="archived goal",
+            state="blueprint_ready",
+            updated_at=1000.0,
+        )
+    ]
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/resume ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_ups == []
+        assert isinstance(app.screen, ResumeWorkflowPicker)
+        button = app.screen.query_one("#resume-archive-1", Button)
+        button.press()
+        await pilot.pause()
+
+        assert controller.resumes == ["1"]
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.session_id == "wf-resumed-1"
 
 
 @pytest.mark.asyncio

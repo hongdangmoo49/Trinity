@@ -45,6 +45,9 @@
 - `src/trinity/textual_app/workflow_controller.py`
   - `/answer` option/replace, `/target clear`, `/resume`을 앱이 private method에 기대지 않도록
     public Textual controller API로 제공
+  - Textual `/resume` modal을 위한 archive option projection 제공
+- `src/trinity/textual_app/widgets/resume_picker.py`
+  - Textual-native workflow archive selector modal 추가
 
 ## 에이전트 호출 정책 반영
 
@@ -74,6 +77,8 @@
 /home/zaemi/.local/bin/uv run pytest tests/test_tui_prompt.py tests/test_tui_session.py -q
 /home/zaemi/.local/bin/uvx ruff check tests/test_slash_command_docs.py
 /home/zaemi/.local/bin/uv run pytest tests/test_slash_command_docs.py -q
+/home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/app.py src/trinity/textual_app/workflow_controller.py src/trinity/textual_app/widgets/resume_picker.py tests/test_textual_app.py tests/test_textual_workflow_controller.py
+/home/zaemi/.local/bin/uv run pytest tests/test_textual_workflow_controller.py tests/test_textual_app.py -q
 git diff --check
 /home/zaemi/.local/bin/uv run pytest -q
 ```
@@ -89,9 +94,10 @@ git diff --check
 - Textual/controller/prompt 대상 회귀: `76 passed in 32.59s`
 - Plain TUI registry dispatch 대상 회귀: `95 passed in 2.17s`
 - Slash command 문서 정합성 검증: `4 passed in 0.03s`
+- Textual resume modal/controller 회귀: `62 passed in 30.98s`
 - Ruff 대상 파일 검사 통과
 - `git diff --check` 통과
-- 전체 회귀: `1216 passed, 1 warning in 58.14s`
+- 전체 회귀: `1218 passed, 1 warning in 62.55s`
 
 ## 남은 작업
 

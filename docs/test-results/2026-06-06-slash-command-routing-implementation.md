@@ -56,8 +56,10 @@
   - 같은 로컬 slash command는 이전 결과를 교체해 반복 `/status`가 동일한 표를 계속
     쌓지 않게 처리
   - 로컬 command 제목은 inline-code 스타일을 제거해 클릭 가능한 버튼처럼 보이지 않게 렌더링
+  - 로컬 command table은 read-only이므로 cursor/selection 표시를 비활성화
 - `src/trinity/textual_app/widgets/status_modal.py`
   - Start 화면에서 쓰는 Textual-native status modal 추가
+  - modal을 화면 중앙에 정렬하고 status table cursor/selection 표시를 비활성화
 - `src/trinity/textual_app/workflow_controller.py`
   - `/answer` option/replace, `/target clear`, `/resume`을 앱이 private method에 기대지 않도록
     public Textual controller API로 제공
@@ -108,6 +110,9 @@
 /home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py tests/test_textual_snapshot.py -q
 /home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/app.py src/trinity/textual_app/snapshot.py src/trinity/textual_app/widgets/central_agent.py src/trinity/textual_app/widgets/status_modal.py tests/test_textual_app.py tests/test_textual_snapshot.py tests/test_slash_command_docs.py
 /home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py tests/test_textual_snapshot.py tests/test_slash_command_docs.py -q
+/home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/widgets/status_modal.py src/trinity/textual_app/widgets/central_agent.py tests/test_textual_app.py
+/home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py::test_status_modal_centers_and_uses_read_only_table tests/test_textual_app.py::test_start_slash_status_does_not_start_workflow tests/test_textual_app.py::test_central_agent_view_renders_local_command_tables tests/test_textual_app.py::test_textual_status_refresh_replaces_existing_local_command_table -q
+/home/zaemi/.local/bin/uv run pytest tests/test_slash_command_docs.py -q
 git diff --check
 /home/zaemi/.local/bin/uv run pytest -q
 ```
@@ -131,10 +136,12 @@ git diff --check
 - Textual 전체 회귀: `54 passed in 26.02s`
 - Status UX/stale synthesis 대상 회귀: `5 passed in 2.53s`
 - Textual app/snapshot 회귀: `69 passed in 32.80s`
-- Textual/docs 회귀: `73 passed in 26.25s`
+- Status modal/read-only table 회귀: `4 passed in 2.45s`
+- Textual/docs 회귀: `74 passed in 28.82s`
+- Slash command 문서 정합성 재검증: `4 passed in 0.04s`
 - Ruff 대상 파일 검사 통과
 - `git diff --check` 통과
-- 전체 회귀: `1223 passed, 1 warning in 54.41s`
+- 전체 회귀: `1224 passed, 1 warning in 57.78s`
 
 ## 남은 작업
 

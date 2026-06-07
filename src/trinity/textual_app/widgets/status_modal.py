@@ -13,6 +13,12 @@ from trinity.textual_app.snapshot import LocalCommandSnapshot
 class StatusCommandModal(ModalScreen[None]):
     """Show the current Trinity status without starting a workflow."""
 
+    DEFAULT_CSS = """
+    StatusCommandModal {
+        align: center middle;
+    }
+    """
+
     BINDINGS = [
         ("escape", "close", "Close"),
     ]
@@ -28,7 +34,12 @@ class StatusCommandModal(ModalScreen[None]):
                 "Current local status. No workflow or provider call was started.",
                 id="status-command-body",
             )
-            table = DataTable(id="status-command-table", show_header=True)
+            table = DataTable(
+                id="status-command-table",
+                show_header=True,
+                show_cursor=False,
+                cursor_type="none",
+            )
             yield table
             yield Button("Close", id="close-status-command")
         yield Footer()

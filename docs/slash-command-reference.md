@@ -146,6 +146,11 @@ Textual Start 화면에서는 workflow를 시작하거나 Nexus로 이동하지 
 결과를 갱신한다. active workflow가 없는 idle 상태에서는 이전 `shared.md`의
 `Agreed Conclusion`을 현재 synthesis로 표시하지 않는다.
 
+Status table의 row는 현재 snapshot에서 만든다. 공통 row는 `Workflow`, `State`,
+`Round`, `Goal`이며, 이후 `Provider: <name>` row에는 provider runtime status,
+enabled flag, readiness 표시를 합쳐 보여준다. 이 table은 action 목록이 아니라
+read-only 요약이므로 Textual에서는 row cursor와 선택 동작을 표시하지 않는다.
+
 Readiness가 `not checked`로 보이면 아직 이번 UI 세션에서 provider readiness event를
 받지 않았다는 뜻이다. 이 값은 provider가 실패했다는 뜻이 아니라, 현재 status 조회가
 새 readiness probe를 실행하지 않았다는 뜻이다.

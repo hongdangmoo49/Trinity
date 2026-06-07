@@ -157,6 +157,8 @@ class CentralAgentView(VerticalScroll):
             table = DataTable(
                 classes="local-command-table",
                 show_header=True,
+                show_cursor=False,
+                cursor_type="none",
             )
             container.mount(table)
             table.add_columns(*command.table_columns)

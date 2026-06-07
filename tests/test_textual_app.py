@@ -183,6 +183,10 @@ def test_textual_app_localizes_command_palette_bindings_in_korean(tmp_path) -> N
     assert _binding_tooltip(app._bindings, "ctrl+p", "command_palette") == "명령 팔레트 열기"
 
 
+def test_status_modal_centers_and_uses_read_only_table() -> None:
+    assert "align: center middle" in StatusCommandModal.DEFAULT_CSS
+
+
 @pytest.mark.asyncio
 async def test_textual_app_boots_to_start_screen(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
@@ -535,6 +539,8 @@ async def test_start_slash_status_does_not_start_workflow(tmp_path) -> None:
         )
         table = app.screen.query_one("#status-command-table", DataTable)
         assert table.row_count > 0
+        assert table.show_cursor is False
+        assert table.cursor_type == "none"
 
 
 @pytest.mark.asyncio
@@ -1207,6 +1213,8 @@ async def test_central_agent_view_renders_local_command_tables(tmp_path) -> None
         table = central.query_one(".local-command-table", DataTable)
 
         assert table.row_count == 2
+        assert table.show_cursor is False
+        assert table.cursor_type == "none"
         assert "Local Command Results" in central._markdown()
 
 

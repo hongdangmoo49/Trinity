@@ -13,6 +13,7 @@ from trinity.models import (
     DeliberationResult,
     TaskAssignment,
 )
+from trinity.slash_commands import SESSION_ONLY_SETTING_NOTICE
 from trinity.tui.events import TUIEvent, TUIEventBus, TUIEventType
 from trinity.tui.prompt import CUSTOM_OPTION_VALUE
 from trinity.tui.session import InteractiveSession
@@ -155,7 +156,22 @@ class TestSessionCommands:
 
     def test_cmd_context(self, session):
         session._cmd_context()
-        # Should not raise — displays shared context
+        # Should not raise — displays current session context state
+
+    def test_cmd_context_uses_current_session_not_shared_file(self, config):
+        config.shared_context_path.write_text(
+            "# Shared Context\n\n## Agreed Conclusion\nOld session summary.\n",
+            encoding="utf-8",
+        )
+        console = Console(force_terminal=True, width=120, record=True)
+        session = InteractiveSession(config, console)
+        session.workflow.start("Current session goal", ["claude"])
+
+        session._cmd_context()
+
+        output = console.export_text()
+        assert "Current session goal" in output
+        assert "Old session summary" not in output
 
     def test_cmd_rounds_show(self, session):
         session._cmd_rounds([])
@@ -198,6 +214,18 @@ class TestSessionCommands:
     def test_cmd_agent_invalid_action(self, session):
         session._cmd_agent(["claude", "maybe"])
         # Should print usage — no crash
+
+    def test_session_setting_commands_show_session_only_notice(self, config):
+        console = Console(force_terminal=True, width=120, record=True)
+        session = InteractiveSession(config, console)
+
+        session._cmd_rounds(["3"])
+        session._cmd_agent(["claude", "off"])
+        session._cmd_caveman(["lite"])
+
+        output = console.export_text()
+        assert SESSION_ONLY_SETTING_NOTICE in output
+        assert output.count(SESSION_ONLY_SETTING_NOTICE) == 3
 
     def test_cmd_history_empty(self, session):
         session._cmd_history()

@@ -10,6 +10,12 @@ from trinity.tui.prompt import (
     TRINITY_COMMANDS,
     TrinityPromptSession,
 )
+from trinity.tui.session import PLAIN_TUI_COMMAND_HANDLERS
+from trinity.slash_commands import (
+    AgentCallPolicy,
+    COMMAND_SPECS,
+    parse_slash_command,
+)
 
 
 class TestTrinityPromptSession:
@@ -53,11 +59,14 @@ class TestCommandCompletion:
             "/decisions",
             "/packages",
             "/subtasks",
+            "/report",
             "/resume",
             "/execute",
             "/target",
             "/help",
             "/quit",
+            "/exit",
+            "/q",
         }
         assert expected.issubset(set(TRINITY_COMMANDS))
 
@@ -84,6 +93,44 @@ class TestCommandCompletion:
         assert any(match.text == "/status" for match in slash_matches)
         assert space_matches == []
         assert text_matches == []
+
+
+class TestSlashCommandRegistry:
+    def test_completion_list_comes_from_registry(self):
+        registry_names = [
+            name
+            for spec in COMMAND_SPECS
+            for name in spec.names
+        ]
+        assert TRINITY_COMMANDS == registry_names
+
+    def test_plain_tui_dispatch_covers_registry_commands(self):
+        canonical_names = {spec.command_id for spec in COMMAND_SPECS}
+
+        assert set(PLAIN_TUI_COMMAND_HANDLERS) == canonical_names
+
+    def test_registry_agent_call_policies(self):
+        policies = {spec.name: spec.agent_call for spec in COMMAND_SPECS}
+
+        assert policies["/execute"] == AgentCallPolicy.EXECUTION
+        assert policies["/answer"] == AgentCallPolicy.CONDITIONAL
+        assert policies["/status"] == AgentCallPolicy.NONE
+        assert policies["/workflow"] == AgentCallPolicy.NONE
+        assert policies["/questions"] == AgentCallPolicy.NONE
+
+    def test_parse_slash_command_resolves_aliases(self):
+        parsed = parse_slash_command("/q")
+
+        assert parsed is not None
+        assert parsed.is_known
+        assert parsed.command_id == "quit"
+
+    def test_parse_unknown_slash_command_is_not_known(self):
+        parsed = parse_slash_command("/does-not-exist")
+
+        assert parsed is not None
+        assert not parsed.is_known
+        assert parsed.command_id == "does-not-exist"
 
 
 class TestGetInput:

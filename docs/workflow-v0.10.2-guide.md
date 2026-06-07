@@ -223,6 +223,13 @@ output을 카드 안에서 계속 확인할 수 있다.
 plain TUI는 `InteractiveSession`이 사용자 입력을 받고 `WorkflowEngine`과
 `TrinityOrchestrator`를 직접 호출한다. slash command는 `/status`, `/context`,
 `/questions`, `/answer`, `/target`, `/execute`, `/resume` 같은 workflow 조작에 사용된다.
+명령별 사용법, 상태 변경, 저장 파일, Textual 팔레트와의 차이는
+[Slash Command Reference](slash-command-reference.md)를 기준으로 한다.
+
+Textual Workbench의 `/` 팔레트는 현재 command execution router가 아니라
+입력 보조 UI다. `/status` 같은 명령을 Textual composer에서 제출하면 별도 상태 명령이
+아니라 Nexus follow-up 텍스트로 들어간다. Textual에서 안정적으로 실행을 시작하는
+경로는 Execute 버튼 또는 `Ctrl+E`가 호출하는 `TextualWorkflowController.request_execution()`이다.
 
 tmux transport는 기본 경로가 아니며 legacy/debug 목적으로 유지된다. `transport_mode =
 "tmux"` 또는 관련 CLI 옵션을 사용할 때만 pane-backed interactive agent를 만든다.

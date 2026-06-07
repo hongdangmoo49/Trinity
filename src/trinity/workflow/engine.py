@@ -578,6 +578,7 @@ class WorkflowEngine:
             saw_valid_question = True
             if normalized in existing:
                 continue
+            question.id = self._unique_question_id(question.id)
             self.session.pending_questions.append(question)
             existing.add(normalized)
             added = True
@@ -586,6 +587,23 @@ class WorkflowEngine:
     @staticmethod
     def _normalize_question(question: str) -> str:
         return " ".join(question.strip().lower().split())
+
+    def _unique_question_id(self, question_id: str) -> str:
+        """Return a question id that does not collide with session history."""
+        base = question_id.strip() or "oq"
+        existing = {question.id for question in self.session.pending_questions}
+        existing.update(
+            decision.question_id
+            for decision in self.session.decisions
+            if decision.question_id
+        )
+        if base not in existing:
+            return base
+
+        index = 2
+        while f"{base}-{index}" in existing:
+            index += 1
+        return f"{base}-{index}"
 
     def _requires_execution(self, result: DeliberationResult) -> bool:
         if any(task.requires_execution for task in result.tasks):

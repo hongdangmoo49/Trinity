@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 
 from trinity.config import TrinityConfig
+from trinity.context.shared import SharedContextEngine
 from trinity.textual_app.snapshot import NexusSnapshotAdapter
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workflow import (
@@ -32,6 +33,21 @@ def test_snapshot_loads_provider_defaults_without_workflow(tmp_path) -> None:
     ]
     assert snapshot.providers[0].status == "Queued"
     assert snapshot.providers[1].status == "Disabled"
+
+
+def test_snapshot_does_not_project_stale_agreed_conclusion_without_workflow(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    SharedContextEngine(config.shared_context_path).update_consensus(
+        "Old agreed conclusion from a previous run."
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert snapshot.state == "idle"
+    assert snapshot.synthesis.summary == ""
+    assert snapshot.synthesis.consensus_progress == ""
 
 
 def test_snapshot_projects_persisted_workflow(tmp_path) -> None:
@@ -172,6 +188,49 @@ def test_snapshot_keeps_answered_question_history(tmp_path) -> None:
     ]
     assert snapshot.questions[0].status == "answered"
     assert snapshot.questions[0].answer == "Godot"
+    assert snapshot.questions[1].status == "open"
+    assert snapshot.questions[1].answer == ""
+
+
+def test_snapshot_does_not_attach_stale_answer_to_open_duplicate_question(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-questions",
+            goal="Build bot",
+            state=WorkflowState.NEEDS_USER_DECISION,
+            active_agents=["codex"],
+            pending_questions=[
+                OpenQuestion(
+                    id="oq-001",
+                    question="Capital range?",
+                    options=["small", "medium"],
+                    status="answered",
+                ),
+                OpenQuestion(
+                    id="oq-001",
+                    question="Broker API style?",
+                    options=["REST", "COM/OCX"],
+                    status="open",
+                ),
+            ],
+            decisions=[
+                DecisionRecord(
+                    id="dec-001",
+                    question_id="oq-001",
+                    decision="medium",
+                    decided_by="user",
+                )
+            ],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert snapshot.questions[0].answer == "medium"
     assert snapshot.questions[1].status == "open"
     assert snapshot.questions[1].answer == ""
 

@@ -776,7 +776,7 @@ class TrinityTUI:
             "[bold]Commands:[/bold]\n"
             "  [cyan]<text>[/cyan]       — Ask agents to deliberate on a topic\n"
             "  [cyan]/status[/cyan]     — Show agent status table\n"
-            "  [cyan]/context[/cyan]    — Show shared context\n"
+            "  [cyan]/context[/cyan]    — Show current session context\n"
             "  [cyan]/rounds [N][/cyan] — Set max deliberation rounds\n"
             "  [cyan]/agent <n> on/off[/cyan] — Enable/disable an agent\n"
             "  [cyan]/history[/cyan]    — Show deliberation history\n"

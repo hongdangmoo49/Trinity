@@ -1,11 +1,23 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from textual import events
 from textual.containers import VerticalScroll
-from textual.widgets import Button, RichLog, TabbedContent, TextArea
+from textual.widgets import (
+    Button,
+    DataTable,
+    Markdown,
+    RichLog,
+    Static,
+    TabbedContent,
+    TextArea,
+)
 
 from trinity.config import TrinityConfig
+from trinity.context.shared import SharedContextEngine
+from trinity.slash_commands import SESSION_ONLY_SETTING_NOTICE
 from trinity.textual_app.app import TrinityTextualApp
 from trinity.textual_app.report_export import (
     snapshot_report_markdown,
@@ -18,18 +30,31 @@ from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import SacredGeometryAnimation, StartScreen
 from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import (
+    LocalCommandSnapshot,
     ProviderSnapshot,
     QuestionSnapshot,
+    SubtaskSnapshot,
     SynthesisSnapshot,
     WorkflowNexusSnapshot,
 )
-from trinity.textual_app.workflow_controller import TextualWorkflowOutcome
+from trinity.textual_app.workflow_controller import (
+    TextualWorkflowArchiveOption,
+    TextualWorkflowOutcome,
+)
 from trinity.tui.report import DeliberationReportBuilder
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.composer import COMMAND_LIMIT, ComposerTextArea, PromptComposer
+from trinity.textual_app.widgets.confirm_quit_modal import ConfirmQuitModal
+from trinity.textual_app.widgets.context_modal import ContextCommandModal
 from trinity.textual_app.widgets.inspector import WorkflowInspector
+from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
+from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
+from trinity.textual_app.widgets.status_modal import StatusCommandModal
+from trinity.textual_app.widgets.target_workspace_confirm_modal import (
+    TargetWorkspaceConfirmModal,
+)
 from trinity.textual_app.widgets.workspace_picker import WorkspacePicker, build_preflight
 from trinity.workflow import (
     WorkPackage,
@@ -45,9 +70,15 @@ class FakeWorkflowController:
         self.current_snapshot = snapshot or WorkflowNexusSnapshot()
         self.started_prompts: list[str] = []
         self.follow_ups: list[str] = []
-        self.answers: list[tuple[str, str]] = []
+        self.answers: list[tuple[str, str, bool]] = []
+        self.option_answers: list[tuple[str, str, bool]] = []
+        self.resumes: list[str] = []
+        self.resume_options: list[TextualWorkflowArchiveOption] = []
+        self.execution_outcome: TextualWorkflowOutcome | None = None
         self.execution_requests = 0
         self.target_workspace = None
+        self.target_control_confirmed = False
+        self.target_cleared = False
 
     def snapshot(self) -> WorkflowNexusSnapshot:
         return self.current_snapshot
@@ -79,8 +110,14 @@ class FakeWorkflowController:
         )
         return TextualWorkflowOutcome(self.current_snapshot)
 
-    def answer_question(self, question_id: str, answer: str) -> TextualWorkflowOutcome:
-        self.answers.append((question_id, answer))
+    def answer_question(
+        self,
+        question_id: str,
+        answer: str,
+        *,
+        replace: bool = False,
+    ) -> TextualWorkflowOutcome:
+        self.answers.append((question_id, answer, replace))
         self.current_snapshot = WorkflowNexusSnapshot(
             session_id="wf-fake",
             goal=self.current_snapshot.goal,
@@ -89,8 +126,26 @@ class FakeWorkflowController:
         )
         return TextualWorkflowOutcome(self.current_snapshot)
 
+    def answer_question_option(
+        self,
+        option_index: str,
+        *,
+        question_selector: str = "next",
+        replace: bool = False,
+    ) -> TextualWorkflowOutcome:
+        self.option_answers.append((option_index, question_selector, replace))
+        self.current_snapshot = WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            goal=self.current_snapshot.goal,
+            state="deliberating",
+            decisions=[f"option {option_index}"],
+        )
+        return TextualWorkflowOutcome(self.current_snapshot)
+
     def request_execution(self, instruction: str = "") -> TextualWorkflowOutcome:
         self.execution_requests += 1
+        if self.execution_outcome is not None:
+            return self.execution_outcome
         return TextualWorkflowOutcome(
             self.current_snapshot,
             target_workspace_required=True,
@@ -98,7 +153,28 @@ class FakeWorkflowController:
 
     def set_target_workspace(self, path, *, control_repo_confirmed: bool = False):
         self.target_workspace = path
+        self.target_control_confirmed = control_repo_confirmed
         return TextualWorkflowOutcome(self.current_snapshot)
+
+    def clear_target_workspace(self) -> TextualWorkflowOutcome:
+        self.target_cleared = True
+        self.target_workspace = None
+        return TextualWorkflowOutcome(self.current_snapshot)
+
+    def list_resume_options(self) -> list[TextualWorkflowArchiveOption]:
+        return list(self.resume_options)
+
+    def resume_workflow(self, selector: str = "latest") -> TextualWorkflowOutcome:
+        self.resumes.append(selector)
+        self.current_snapshot = WorkflowNexusSnapshot(
+            session_id=f"wf-resumed-{selector}",
+            goal="resumed",
+            state="blueprint_ready",
+        )
+        return TextualWorkflowOutcome(
+            self.current_snapshot,
+            message=f"Resumed workflow wf-resumed-{selector}.",
+        )
 
     def new_session(self) -> TextualWorkflowOutcome:
         self.current_snapshot = WorkflowNexusSnapshot()
@@ -128,6 +204,23 @@ def test_textual_app_localizes_command_palette_bindings_in_korean(tmp_path) -> N
     assert _binding_description(app._bindings, "ctrl+q", "quit") == "종료"
     assert _binding_description(app._bindings, "ctrl+p", "command_palette") == "팔레트"
     assert _binding_tooltip(app._bindings, "ctrl+p", "command_palette") == "명령 팔레트 열기"
+
+
+def test_status_modal_centers_and_uses_read_only_table() -> None:
+    assert "align: center middle" in StatusCommandModal.DEFAULT_CSS
+    result = LocalCommandSnapshot(
+        command="/status",
+        title="Status",
+        body="status",
+        table_columns=("Item", "Value"),
+        table_rows=(("Workflow", "(new)"),),
+    )
+
+    text = StatusCommandModal(result)._status_table_text()
+
+    assert "Item" in text
+    assert "Value" in text
+    assert "Workflow" in text
 
 
 @pytest.mark.asyncio
@@ -441,6 +534,977 @@ async def test_start_composer_enter_key_submits_prompt(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_start_slash_status_does_not_start_workflow(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            providers=[
+                ProviderSnapshot(
+                    name="claude",
+                    provider="claude-code",
+                    enabled=True,
+                    status="Queued",
+                    readiness="unknown",
+                )
+            ]
+        )
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/status ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert isinstance(app.screen, StatusCommandModal)
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert composer.text == ""
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.local_commands[-1].command == "/status"
+        assert app.active_snapshot.local_commands[-1].title == "Status"
+        assert app.active_snapshot.local_commands[-1].table_columns == ("Item", "Value")
+        assert ("State", "idle") in app.active_snapshot.local_commands[-1].table_rows
+        assert any(
+            value.endswith("readiness=not checked")
+            for _, value in app.active_snapshot.local_commands[-1].table_rows
+        )
+        table = app.screen.query_one("#status-command-table", Static)
+        table_text = str(table.render())
+        assert "Item" in table_text
+        assert "Workflow" in table_text
+        assert "readiness=not checked" in table_text
+
+
+@pytest.mark.asyncio
+async def test_start_unknown_slash_does_not_start_workflow(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/not-a-command")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert composer.text == ""
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.local_commands[-1].command == "/not-a-command"
+        assert app.active_snapshot.local_commands[-1].title == "Unknown Command"
+
+
+@pytest.mark.asyncio
+async def test_start_slash_context_without_session_only_notifies(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/context ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert isinstance(app.screen, StartScreen)
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert composer.text == ""
+        assert app.active_snapshot is None
+
+
+@pytest.mark.asyncio
+async def test_start_slash_context_with_current_snapshot_shows_modal(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-current",
+            goal="Current session goal",
+            state="blueprint_ready",
+            synthesis=SynthesisSnapshot(
+                summary="Current session summary.",
+                consensus_progress="blueprint ready",
+            ),
+        )
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/context ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert isinstance(app.screen, ContextCommandModal)
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.local_commands[-1].command == "/context"
+        assert "Current session goal" in app.active_snapshot.local_commands[-1].body
+        body = app.screen.query_one("#context-command-body", Markdown)
+        assert body is not None
+
+
+@pytest.mark.asyncio
+async def test_nexus_slash_workflow_does_not_submit_followup(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", goal="game", state="blueprint_ready")
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/workflow ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert app.current_route == "nexus"
+        assert controller.follow_ups == []
+        assert screen.follow_ups == []
+        assert composer.text == ""
+        central = screen.query_one(CentralAgentView)
+        assert central.snapshot is not None
+        assert central.snapshot.local_commands[-1].command == "/workflow"
+        assert central.snapshot.local_commands[-1].title == "Workflow"
+        assert "Local Command Results" in central._markdown()
+        assert "#### /workflow - Workflow" in central._markdown()
+
+
+@pytest.mark.asyncio
+async def test_start_slash_workflow_uses_generic_local_command_modal(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", goal="game", state="blueprint_ready")
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/workflow ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert isinstance(app.screen, LocalCommandModal)
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert composer.text == ""
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/workflow"
+        assert result.title == "Workflow"
+        assert result.table_columns == ("Item", "Value")
+        body = app.screen.query_one("#local-command-body", Markdown)
+        assert body is not None
+        assert "Goal: game" in result.body
+        table = app.screen.query_one("#local-command-table", Static)
+        assert "Workflow" not in str(table.render())
+        assert "State" in str(table.render())
+
+
+@pytest.mark.asyncio
+async def test_nexus_unknown_slash_does_not_submit_followup(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/not-a-command")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert app.current_route == "nexus"
+        assert controller.follow_ups == []
+        assert screen.follow_ups == []
+        assert composer.text == ""
+        central = screen.query_one(CentralAgentView)
+        assert central.snapshot is not None
+        assert central.snapshot.local_commands[-1].command == "/not-a-command"
+        assert central.snapshot.local_commands[-1].title == "Unknown Command"
+        assert "Local Command Results" in central._markdown()
+        assert "#### /not-a-command - Unknown Command" in central._markdown()
+
+
+@pytest.mark.asyncio
+async def test_nexus_save_and_target_commands_record_local_results(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/save ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_ups == []
+        central = screen.query_one(CentralAgentView)
+        assert central.snapshot is not None
+        save_result = central.snapshot.local_commands[-1]
+        assert save_result.command == "/save"
+        assert save_result.title == "Save"
+        assert "persisted automatically" in save_result.body
+
+        composer.set_text("/target ")
+        composer.action_submit()
+        await pilot.pause()
+
+        target_result = central.snapshot.local_commands[-1]
+        assert target_result.command == "/target"
+        assert target_result.title == "Target"
+        assert "Current target" in target_result.body
+        assert "Use `/target <path>`" in central._markdown()
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_nexus_target_path_inside_control_repo_requires_confirmation(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        inside_target = tmp_path / "inside-control-repo"
+        app._handle_textual_slash_command(f"/target {inside_target}")
+        await pilot.pause()
+
+        assert isinstance(app.screen, TargetWorkspaceConfirmModal)
+        assert controller.target_workspace is None
+
+        app.screen.query_one("#cancel-target-confirm", Button).press()
+        await pilot.pause()
+        assert controller.target_workspace is None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/target"
+        assert "cancelled" in result.body
+
+        app._handle_textual_slash_command(f"/target {inside_target}")
+        await pilot.pause()
+        assert isinstance(app.screen, TargetWorkspaceConfirmModal)
+        app.screen.query_one("#confirm-target", Button).press()
+        await pilot.pause()
+
+        assert controller.target_workspace == inside_target.resolve()
+        assert controller.target_control_confirmed is True
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/target"
+        assert ("Control repo confirmed", "yes") in result.table_rows
+
+
+@pytest.mark.asyncio
+async def test_nexus_target_path_outside_control_repo_sets_without_confirmation(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        outside_target = tmp_path.parent / f"{tmp_path.name}-target"
+        app._handle_textual_slash_command(f"/target {outside_target}")
+        await pilot.pause()
+
+        assert app.current_route == "nexus"
+        assert not isinstance(app.screen, TargetWorkspaceConfirmModal)
+        assert controller.target_workspace == outside_target.resolve()
+        assert controller.target_control_confirmed is False
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/target"
+        assert ("Inside control repo", "no") in result.table_rows
+
+
+@pytest.mark.asyncio
+async def test_workspace_preflight_inside_control_repo_requires_confirmation(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController(WorkflowNexusSnapshot(state="blueprint_ready"))
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+    preflight = build_preflight(tmp_path, WorkflowNexusSnapshot(state="blueprint_ready"))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._on_workspace_preflight(preflight)
+        await pilot.pause()
+
+        assert isinstance(app.screen, TargetWorkspaceConfirmModal)
+        assert controller.target_workspace is None
+
+        app.screen.query_one("#confirm-target", Button).press()
+        await pilot.pause()
+
+        assert controller.target_workspace == tmp_path
+        assert controller.target_control_confirmed is True
+
+
+@pytest.mark.asyncio
+async def test_start_slash_help_uses_registry_backed_local_modal(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/help ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert isinstance(app.screen, LocalCommandModal)
+        assert controller.started_prompts == []
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/help"
+        assert result.title == "Trinity Commands"
+        assert result.table_columns == (
+            "Command",
+            "Category",
+            "Agent Call",
+            "Summary",
+        )
+        assert any(row[0] == "/status" for row in result.table_rows)
+        assert "handled before provider prompts" in result.body
+
+
+@pytest.mark.asyncio
+async def test_nexus_lookup_commands_record_tables_from_current_snapshot(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-current",
+            goal="Build game",
+            state="reviewing",
+            questions=[
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Choose style?",
+                    options=["pixel", "flat"],
+                    status="open",
+                )
+            ],
+            decisions=["Use pixel art."],
+            central_work_packages=["WP-001 claude: Plan systems (deps=-; files=-)"],
+            work_packages=["WP-001 claude: Plan systems (done)"],
+            subtasks=[
+                SubtaskSnapshot(
+                    id="ST-001",
+                    parent_package_id="WP-001",
+                    parent_agent="claude",
+                    delegated_to="code-search",
+                    objective="Find patterns.",
+                    result_summary="Found registry.",
+                    status="done",
+                )
+            ],
+        )
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        for command in ("/questions", "/decisions", "/packages", "/subtasks"):
+            app._handle_textual_slash_command(command)
+            await pilot.pause()
+            result = app.active_snapshot.local_commands[-1]
+            assert result.command == command
+            assert result.table_columns
+            assert result.table_rows
+            assert result.empty is False
+
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert app.active_snapshot.local_commands[-1].table_rows[0][0] == "ST-001"
+
+
+@pytest.mark.asyncio
+async def test_nexus_empty_lookup_commands_record_empty_states(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/history")
+        await pilot.pause()
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/history"
+        assert result.empty is True
+        assert "No local history" in result.body
+
+        for command in ("/questions", "/decisions", "/packages", "/subtasks"):
+            app._handle_textual_slash_command(command)
+            await pilot.pause()
+            result = app.active_snapshot.local_commands[-1]
+            assert result.command == command
+            assert result.empty is True
+            assert result.table_rows == ()
+
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_nexus_report_without_data_records_empty_result(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/report")
+        await pilot.pause()
+
+        assert app.current_route == "nexus"
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/report"
+        assert result.title == "Report"
+        assert result.empty is True
+        assert "No workflow data available" in result.body
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_nexus_report_save_records_export_path(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-current",
+            goal="Build game",
+            state="done",
+            decisions=["Ship it."],
+        )
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/report save")
+        await pilot.pause()
+
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/report"
+        assert result.result_kind == "path"
+        assert result.table_rows
+        path = Path(result.table_rows[0][1])
+        assert path.exists()
+        assert path.read_text(encoding="utf-8").startswith("# Deliberation Report")
+
+
+@pytest.mark.asyncio
+async def test_nexus_setting_commands_show_current_tables(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config, controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        for command in ("/rounds", "/agent", "/caveman"):
+            app._handle_textual_slash_command(command)
+            await pilot.pause()
+            result = app.active_snapshot.local_commands[-1]
+            assert result.command == command
+            assert result.table_columns
+            assert result.table_rows
+            assert SESSION_ONLY_SETTING_NOTICE in result.body
+
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_nexus_resume_answer_and_execute_errors_record_local_results(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    controller.execution_outcome = TextualWorkflowOutcome(
+        controller.current_snapshot,
+        message="No blueprint is ready. Finish planning before execution.",
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        for command in ("/resume", "/answer", "/execute"):
+            app._handle_textual_slash_command(command)
+            await pilot.pause()
+            result = app.active_snapshot.local_commands[-1]
+            assert result.command == command
+            assert result.empty is True
+
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert controller.execution_requests == 1
+
+
+@pytest.mark.asyncio
+async def test_nexus_unknown_slash_suggests_close_commands(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/stats")
+        await pilot.pause()
+
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/stats"
+        assert result.title == "Unknown Command"
+        assert any(row[0] == "/status" for row in result.table_rows)
+        assert "/status" in result.body
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_start_quit_slash_uses_confirmation_modal(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/quit")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ConfirmQuitModal)
+        assert controller.started_prompts == []
+        app.screen.query_one("#cancel-quit", Button).press()
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert isinstance(app.screen, StartScreen)
+
+
+@pytest.mark.asyncio
+async def test_nexus_context_without_session_records_empty_message(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/context ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_ups == []
+        assert screen.follow_ups == []
+        assert composer.text == ""
+        central = screen.query_one(CentralAgentView)
+        assert central.snapshot is not None
+        result = central.snapshot.local_commands[-1]
+        assert result.command == "/context"
+        assert result.title == "Context"
+        assert "No current session context" in result.body
+
+
+@pytest.mark.asyncio
+async def test_nexus_exact_context_enter_executes_without_palette_accept(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/context")
+        composer.focus_text_area()
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert controller.follow_ups == []
+        assert screen.follow_ups == []
+        assert composer.text == ""
+        central = screen.query_one(CentralAgentView)
+        assert central.snapshot is not None
+        result = central.snapshot.local_commands[-1]
+        assert result.command == "/context"
+        assert "No current session context" in result.body
+
+
+@pytest.mark.asyncio
+async def test_nexus_context_uses_current_snapshot_not_shared_file(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    SharedContextEngine(config.shared_context_path).write(
+        "# Shared Context\n\n## Agreed Conclusion\nOld session summary.\n"
+    )
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-current",
+            goal="Current session goal",
+            state="blueprint_ready",
+            synthesis=SynthesisSnapshot(
+                summary="Current session summary.",
+                consensus_progress="blueprint ready",
+            ),
+            decisions=["Use the current session only."],
+        )
+    )
+    app = TrinityTextualApp(config, controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/context ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_ups == []
+        central = screen.query_one(CentralAgentView)
+        assert central.snapshot is not None
+        result = central.snapshot.local_commands[-1]
+        assert result.command == "/context"
+        assert "Current session goal" in result.body
+        assert "Current session summary." in result.body
+        assert "Use the current session only." in result.body
+        assert "Old session summary." not in result.body
+
+
+@pytest.mark.asyncio
+async def test_textual_session_setting_commands_are_local_session_only_results(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            providers=[
+                ProviderSnapshot(
+                    name="claude",
+                    provider="claude-code",
+                    enabled=True,
+                    status="Queued",
+                    readiness="unknown",
+                )
+            ]
+        )
+    )
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config, controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/rounds 7")
+        await pilot.pause()
+        assert config.max_deliberation_rounds == 7
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/rounds"
+        assert result.title == "Rounds"
+        assert "for this session only" in result.body
+        assert SESSION_ONLY_SETTING_NOTICE in result.body
+
+        app._handle_textual_slash_command("/agent claude off")
+        await pilot.pause()
+        assert config.agents["claude"].enabled is False
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/agent"
+        assert result.title == "Agent"
+        assert SESSION_ONLY_SETTING_NOTICE in result.body
+
+        app._handle_textual_slash_command("/caveman lite")
+        await pilot.pause()
+        assert config.caveman_mode is True
+        assert config.caveman_intensity == "lite"
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/caveman"
+        assert result.title == "Caveman"
+        assert SESSION_ONLY_SETTING_NOTICE in result.body
+
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_nexus_questions_select_uses_local_question_ui(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            goal="game",
+            state="needs_user_decision",
+            questions=[
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Theme?",
+                    options=["dark", "light"],
+                )
+            ],
+        )
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/questions --select")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_ups == []
+        assert screen.follow_ups == []
+        central = screen.query_one(CentralAgentView)
+        assert central.snapshot is not None
+        assert central.snapshot.local_commands[-1].command == "/questions"
+        assert "Use the option buttons in the central panel" in (
+            central.snapshot.local_commands[-1].body
+        )
+        assert central.query_one("#answer-q-1-1")
+
+
+@pytest.mark.asyncio
+async def test_nexus_slash_answer_option_routes_to_controller(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            goal="game",
+            state="needs_user_decision",
+            questions=[
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Theme?",
+                    options=["dark", "light"],
+                )
+            ],
+        )
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/answer 1")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_ups == []
+        assert controller.option_answers == [("1", "next", False)]
+        assert screen.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_nexus_slash_resume_routes_to_controller(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/resume latest")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_ups == []
+        assert controller.resumes == ["latest"]
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.session_id == "wf-resumed-latest"
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/resume"
+        assert result.title == "Resume"
+        assert ("Workflow", "wf-resumed-latest") in result.table_rows
+
+
+@pytest.mark.asyncio
+async def test_start_slash_resume_picker_selection_switches_to_nexus(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    controller.resume_options = [
+        TextualWorkflowArchiveOption(
+            selector="1",
+            session_id="wf-archived",
+            goal="archived goal",
+            state="blueprint_ready",
+            updated_at=1000.0,
+        )
+    ]
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        assert isinstance(app.screen, StartScreen)
+
+        composer = app.screen.query_one(PromptComposer)
+        composer.set_text("/resume")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ResumeWorkflowPicker)
+        app.screen.query_one("#resume-archive-1", Button).press()
+        await pilot.pause()
+        await pilot.pause()
+
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert controller.resumes == ["1"]
+        assert app.current_route == "nexus"
+        assert isinstance(app.screen, NexusScreen)
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.session_id == "wf-resumed-1"
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/resume"
+        assert result.title == "Resume"
+        assert ("Workflow", "wf-resumed-1") in result.table_rows
+
+
+@pytest.mark.asyncio
+async def test_nexus_slash_resume_without_selector_opens_archive_picker(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    controller.resume_options = [
+        TextualWorkflowArchiveOption(
+            selector="1",
+            session_id="wf-archived",
+            goal="archived goal",
+            state="blueprint_ready",
+            updated_at=1000.0,
+        )
+    ]
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/resume ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_ups == []
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/resume"
+        assert result.table_columns == ("Selector", "Workflow", "State", "Goal")
+        assert result.table_rows[0][:3] == ("1", "wf-archived", "blueprint_ready")
+        assert isinstance(app.screen, ResumeWorkflowPicker)
+        button = app.screen.query_one("#resume-archive-1", Button)
+        button.press()
+        await pilot.pause()
+
+        assert controller.resumes == ["1"]
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.session_id == "wf-resumed-1"
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/resume"
+        assert ("Workflow", "wf-resumed-1") in result.table_rows
+
+
+@pytest.mark.asyncio
+async def test_nexus_slash_resume_picker_cancel_records_result(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    controller.resume_options = [
+        TextualWorkflowArchiveOption(
+            selector="1",
+            session_id="wf-archived",
+            goal="archived goal",
+            state="blueprint_ready",
+            updated_at=1000.0,
+        )
+    ]
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/resume")
+        await pilot.pause()
+        assert isinstance(app.screen, ResumeWorkflowPicker)
+
+        app.screen.query_one("#cancel-resume-picker", Button).press()
+        await pilot.pause()
+
+        assert controller.resumes == []
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/resume"
+        assert "cancelled" in result.body
+        assert result.empty is True
+
+
+@pytest.mark.asyncio
 async def test_prompt_composer_shows_slash_command_palette(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
@@ -457,9 +1521,28 @@ async def test_prompt_composer_shows_slash_command_palette(tmp_path) -> None:
 
         composer.set_text("/ex")
         await pilot.pause()
-        filtered_options = [str(option.content) for option in composer.query(".command-option")]
+        filtered_options = [
+            str(option.content) for option in composer.query(".command-option")
+        ]
 
         assert any("/execute" in option for option in filtered_options)
+
+        composer.set_text("/rep")
+        await pilot.pause()
+        report_options = [
+            str(option.content) for option in composer.query(".command-option")
+        ]
+
+        assert any("/report" in option for option in report_options)
+
+        composer.set_text("/q")
+        await pilot.pause()
+        quit_options = [
+            str(option.content) for option in composer.query(".command-option")
+        ]
+
+        assert any("/q" in option for option in quit_options)
+        assert any("/quit" in option for option in quit_options)
 
         composer.set_text("hello /status")
         await pilot.pause()
@@ -599,6 +1682,46 @@ async def test_prompt_composer_arrow_selects_slash_command(tmp_path) -> None:
         await pilot.pause()
         assert app.current_route == "start"
         assert composer.text == "/context "
+
+
+@pytest.mark.asyncio
+async def test_prompt_composer_tab_accepts_slash_command(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+        composer.set_text("/con")
+        composer.focus_text_area()
+        await pilot.pause()
+
+        await pilot.press("tab")
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert composer.text == "/context "
+
+
+@pytest.mark.asyncio
+async def test_prompt_composer_tab_completes_exact_slash_without_running(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+        composer.set_text("/context")
+        composer.focus_text_area()
+        await pilot.pause()
+
+        await pilot.press("tab")
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert composer.text == "/context "
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert app.active_snapshot is None
 
 
 @pytest.mark.asyncio
@@ -789,6 +1912,91 @@ async def test_central_agent_view_renders_all_questions(tmp_path) -> None:
             "1. [open] Engine?",
             "2. [open] Monetization?",
         ]
+
+
+@pytest.mark.asyncio
+async def test_central_agent_view_renders_local_command_tables(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                local_commands=[
+                    LocalCommandSnapshot(
+                        command="/workflow",
+                        title="Workflow",
+                        body="- State: `blueprint_ready`",
+                        table_columns=("Item", "Value"),
+                        table_rows=(
+                            ("State", "blueprint_ready"),
+                            ("Work packages", "3"),
+                        ),
+                    )
+                ]
+            )
+        )
+        await pilot.pause()
+
+        central = screen.query_one(CentralAgentView)
+        table = central.query_one(".local-command-table", DataTable)
+
+        assert table.row_count == 2
+        assert table.show_cursor is False
+        assert table.cursor_type == "none"
+        assert "Local Command Results" in central._markdown()
+
+
+@pytest.mark.asyncio
+async def test_textual_status_refresh_replaces_existing_local_command_table(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            providers=[
+                ProviderSnapshot(
+                    name="claude",
+                    provider="claude-code",
+                    enabled=True,
+                    status="Queued",
+                    readiness="unknown",
+                )
+            ]
+        )
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/status")
+        await pilot.pause()
+        app._handle_textual_slash_command("/status")
+        await pilot.pause()
+        app._handle_textual_slash_command("/status")
+        await pilot.pause()
+
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.local_commands[-1].command == "/status"
+        assert any(
+            value.endswith("readiness=not checked")
+            for _, value in app.active_snapshot.local_commands[-1].table_rows
+        )
+        assert [
+            command.command for command in app.active_snapshot.local_commands
+        ].count("/status") == 1
+
+        central = app.screen.query_one(CentralAgentView)
+        tables = list(central.query(".local-command-table"))
+        assert len(tables) == 1
+        assert tables[-1].row_count > 0
 
 
 @pytest.mark.asyncio
@@ -1097,7 +2305,7 @@ async def test_nexus_question_answer_routes_to_controller(tmp_path) -> None:
         button.press()
         await pilot.pause()
 
-        assert controller.answers == [("q-1", "dark")]
+        assert controller.answers == [("q-1", "dark", False)]
 
 
 @pytest.mark.asyncio
@@ -1124,7 +2332,7 @@ async def test_nexus_question_answer_handles_non_ascii_question_id(tmp_path) -> 
         await pilot.pause()
 
         assert button.id == "answer-q-1-1"
-        assert controller.answers == [("메타플레이", "정적 전용으로 시작한다")]
+        assert controller.answers == [("메타플레이", "정적 전용으로 시작한다", False)]
 
 
 @pytest.mark.asyncio

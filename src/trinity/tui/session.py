@@ -15,7 +15,6 @@ import json
 import logging
 import os
 import re
-import shlex
 import sys
 import time
 from pathlib import Path
@@ -28,6 +27,7 @@ from rich.panel import Panel
 
 from trinity.config import TrinityConfig
 from trinity.models import DeliberationResult
+from trinity.slash_commands import SESSION_ONLY_SETTING_NOTICE, parse_slash_command
 from trinity.tui.app import AgentTUIState, TrinityTUI
 from trinity.tui.events import TUIEvent, TUIEventBus
 from trinity.tui.kitty_compat import install_prompt_toolkit_parser_patch
@@ -43,6 +43,42 @@ from trinity.workflow import (
 )
 
 logger = logging.getLogger(__name__)
+
+PLAIN_TUI_COMMAND_HANDLERS: dict[str, str] = {
+    "quit": "_cmd_quit",
+    "help": "_cmd_help",
+    "status": "_cmd_status",
+    "context": "_cmd_context",
+    "rounds": "_cmd_rounds",
+    "agent": "_cmd_agent",
+    "history": "_cmd_history",
+    "save": "_cmd_save",
+    "caveman": "_cmd_caveman",
+    "workflow": "_cmd_workflow",
+    "questions": "_cmd_questions",
+    "answer": "_cmd_answer",
+    "decisions": "_cmd_decisions",
+    "packages": "_cmd_packages",
+    "subtasks": "_cmd_subtasks",
+    "report": "_cmd_report",
+    "resume": "_cmd_resume",
+    "execute": "_cmd_execute",
+    "target": "_cmd_target",
+}
+
+PLAIN_TUI_COMMANDS_WITH_ARGS = frozenset(
+    {
+        "rounds",
+        "agent",
+        "caveman",
+        "questions",
+        "answer",
+        "report",
+        "resume",
+        "execute",
+        "target",
+    }
+)
 
 if TYPE_CHECKING:
     from trinity.orchestrator import TrinityOrchestrator
@@ -187,60 +223,44 @@ class InteractiveSession:
         Args:
             command: The command string including the leading /.
         """
-        try:
-            parts = shlex.split(command[1:])
-        except ValueError as exc:
-            self.console.print(f"[yellow]Invalid command syntax: {exc}[/yellow]")
+        parsed = parse_slash_command(command)
+        if parsed is None:
             return
-        if not parts:
+        if parsed.error:
+            self.console.print(f"[yellow]{parsed.error}[/yellow]")
             return
-
-        cmd = parts[0].lower()
-        args = parts[1:]
-
-        if cmd in ("quit", "exit", "q"):
-            self.running = False
-        elif cmd == "help":
-            self.console.print(self.tui.get_welcome_text())
-        elif cmd == "status":
-            self._cmd_status()
-        elif cmd == "context":
-            self._cmd_context()
-        elif cmd == "rounds":
-            self._cmd_rounds(args)
-        elif cmd == "agent":
-            self._cmd_agent(args)
-        elif cmd == "history":
-            self._cmd_history()
-        elif cmd == "save":
-            self._cmd_save()
-        elif cmd == "caveman":
-            self._cmd_caveman(args)
-        elif cmd == "workflow":
-            self._cmd_workflow()
-        elif cmd == "questions":
-            self._cmd_questions(args)
-        elif cmd == "answer":
-            self._cmd_answer(args)
-        elif cmd == "decisions":
-            self._cmd_decisions()
-        elif cmd == "packages":
-            self._cmd_packages()
-        elif cmd == "subtasks":
-            self._cmd_subtasks()
-        elif cmd == "report":
-            self._cmd_report(args)
-        elif cmd == "resume":
-            self._cmd_resume(args)
-        elif cmd == "execute":
-            self._cmd_execute(args)
-        elif cmd == "target":
-            self._cmd_target(args)
-        else:
+        if not parsed.token:
+            return
+        if parsed.spec is None:
             self.console.print(
-                f"[yellow]Unknown command: /{cmd}. "
+                f"[yellow]Unknown command: {parsed.token}. "
                 f"Type /help for available commands.[/yellow]"
             )
+            return
+
+        command_id = parsed.command_id
+        handler_name = PLAIN_TUI_COMMAND_HANDLERS.get(command_id)
+        if handler_name is None:
+            self.console.print(
+                f"[yellow]Command {parsed.spec.name} is not available "
+                "in the plain TUI.[/yellow]"
+            )
+            return
+
+        handler = getattr(self, handler_name)
+        args = list(parsed.args)
+        if command_id in PLAIN_TUI_COMMANDS_WITH_ARGS:
+            handler(args)
+        else:
+            handler()
+
+    def _cmd_quit(self) -> None:
+        """Exit the interactive plain TUI loop."""
+        self.running = False
+
+    def _cmd_help(self) -> None:
+        """Show available command help."""
+        self.console.print(self.tui.get_welcome_text())
 
     def _cmd_status(self) -> None:
         """Show agent status table."""
@@ -284,15 +304,43 @@ class InteractiveSession:
         self._cmd_workflow()
 
     def _cmd_context(self) -> None:
-        """Show shared context."""
-        from trinity.context.shared import SharedContextEngine
+        """Show current workflow session context."""
+        session = self.workflow.session
+        if not self._session_has_context():
+            self.console.print("[yellow]No current session context.[/yellow]")
+            return
 
-        engine = SharedContextEngine(path=self.config.shared_context_path)
-        content = engine.read()
-        if content.strip():
-            self.console.print(Panel(content, title="Shared Context"))
-        else:
-            self.console.print("[yellow]Shared context is empty.[/yellow]")
+        lines = [
+            f"[bold]ID[/bold]: {session.id}",
+            f"[bold]State[/bold]: {session.state.value}",
+            f"[bold]Goal[/bold]: {session.goal or '(none)'}",
+            f"[bold]Round[/bold]: {session.current_round}",
+            f"[bold]Pending questions[/bold]: {len(session.open_questions)}",
+            f"[bold]Decisions[/bold]: {len(session.decisions)}",
+            f"[bold]Work packages[/bold]: {len(session.work_packages)}",
+            f"[bold]Subtasks[/bold]: {len(session.subtask_results)}",
+        ]
+        if session.blueprint and session.blueprint.summary:
+            lines.extend(["", "[bold]Synthesis[/bold]:", session.blueprint.summary])
+        self.console.print(Panel("\n".join(lines), title="Current Session Context"))
+
+    def _session_has_context(self) -> bool:
+        """Return whether the plain TUI has meaningful current workflow context."""
+        session = self.workflow.session
+        return bool(
+            session.goal
+            or session.current_round
+            or session.active_agents
+            or session.target_workspace
+            or session.blueprint
+            or session.open_questions
+            or session.decisions
+            or session.work_packages
+            or session.execution_results
+            or session.subtask_results
+            or session.review_packages
+            or session.review_results
+        )
 
     def _cmd_rounds(self, args: list[str]) -> None:
         """Set max deliberation rounds.
@@ -301,7 +349,8 @@ class InteractiveSession:
         """
         if not args:
             self.console.print(
-                f"Current max rounds: [cyan]{self.config.max_deliberation_rounds}[/cyan]"
+                f"Current max rounds: [cyan]{self.config.max_deliberation_rounds}[/cyan]\n"
+                f"[dim]{SESSION_ONLY_SETTING_NOTICE}[/dim]"
             )
             return
 
@@ -312,7 +361,10 @@ class InteractiveSession:
                 return
             self.config.max_deliberation_rounds = n
             self.tui.max_rounds = n
-            self.console.print(f"[green]Max rounds set to {n}[/green]")
+            self.console.print(
+                f"[green]Max rounds set to {n} for this session only.[/green]\n"
+                f"[dim]{SESSION_ONLY_SETTING_NOTICE}[/dim]"
+            )
         except ValueError:
             self.console.print("[yellow]Invalid number.[/yellow]")
 
@@ -333,11 +385,17 @@ class InteractiveSession:
         if action == "on":
             self.config.agents[name].enabled = True
             self.tui.update_agent_status(name, AgentTUIState.IDLE)
-            self.console.print(f"[green]Agent '{name}' enabled.[/green]")
+            self.console.print(
+                f"[green]Agent '{name}' enabled for this session only.[/green]\n"
+                f"[dim]{SESSION_ONLY_SETTING_NOTICE}[/dim]"
+            )
         elif action == "off":
             self.config.agents[name].enabled = False
             self.tui.update_agent_status(name, AgentTUIState.DISABLED)
-            self.console.print(f"[yellow]Agent '{name}' disabled.[/yellow]")
+            self.console.print(
+                f"[yellow]Agent '{name}' disabled for this session only.[/yellow]\n"
+                f"[dim]{SESSION_ONLY_SETTING_NOTICE}[/dim]"
+            )
         else:
             self.console.print("[dim]Usage: /agent <name> on|off[/dim]")
 
@@ -388,6 +446,7 @@ class InteractiveSession:
             self.console.print(
                 f"  🦴 Caveman: [cyan]{mode}[/cyan] "
                 f"(intensity: [cyan]{intensity}[/cyan])\n"
+                f"  [dim]{SESSION_ONLY_SETTING_NOTICE}[/dim]\n"
                 f"  [dim]Usage: /caveman [on|off|lite|full|ultra][/dim]"
             )
             return
@@ -396,14 +455,25 @@ class InteractiveSession:
 
         if action in ("off", "disable"):
             self.config.caveman_mode = False
-            self.console.print("[yellow]🦴 Caveman compression disabled.[/yellow]")
+            self.console.print(
+                "[yellow]🦴 Caveman compression disabled for this session only.[/yellow]\n"
+                f"[dim]{SESSION_ONLY_SETTING_NOTICE}[/dim]"
+            )
         elif action in ("on", "enable"):
             self.config.caveman_mode = True
-            self.console.print(f"[green]🦴 Caveman compression enabled ({self.config.caveman_intensity}).[/green]")
+            self.console.print(
+                "[green]🦴 Caveman compression enabled "
+                f"({self.config.caveman_intensity}) for this session only.[/green]\n"
+                f"[dim]{SESSION_ONLY_SETTING_NOTICE}[/dim]"
+            )
         elif action in VALID_CAVEMAN_INTENSITIES:
             self.config.caveman_mode = True
             self.config.caveman_intensity = action
-            self.console.print(f"[green]🦴 Caveman set to [bold]{action}[/bold].[/green]")
+            self.console.print(
+                f"[green]🦴 Caveman set to [bold]{action}[/bold] "
+                "for this session only.[/green]\n"
+                f"[dim]{SESSION_ONLY_SETTING_NOTICE}[/dim]"
+            )
         else:
             self.console.print(
                 f"[yellow]Unknown option: {action}. "

@@ -222,20 +222,32 @@ start after you choose `Execute` and approve the workspace preflight.
 
 ### TUI Inline Commands
 
-Inside the interactive TUI (`trinity` with no args):
+Inside the interactive TUI (`trinity` with no args). For detailed behavior and
+the current Textual Workbench palette limitations, use the
+[Slash Command Reference](docs/slash-command-reference.md).
 
 | Command | Description |
 | :--- | :--- |
 | `<text>` | Ask agents to deliberate on a topic |
 | `/status` | Show agent status |
-| `/context` | Show shared context |
+| `/context` | Show current-session goal, synthesis, questions, decisions, and work package summary |
 | `/rounds [N]` | Set max deliberation rounds (1–20) |
 | `/agent <name> on\|off` | Enable/disable an agent |
 | `/history` | Show deliberation history |
 | `/save` | Save session results to file |
+| `/caveman [on\|off\|lite\|full\|ultra]` | Inspect or change concise output compression |
+| `/workflow` | Show workflow state, target workspace, and package summary |
+| `/questions [--select --all]` | Show pending questions or open the selection wizard |
+| `/answer <id\|n\|next> <text>` | Answer a workflow question and continue when needed |
+| `/decisions` | Show recorded workflow decisions |
+| `/packages` | Show generated work packages |
+| `/subtasks` | Show provider-internal subtask results |
+| `/report [save]` | Show the deliberation report or save it as Markdown |
 | `/resume [N\|latest\|ID]` | Select and resume a saved workflow session |
+| `/execute [text]` | Execute the ready blueprint in the target workspace |
+| `/target [path\|clear]` | Show, set, or clear the implementation target workspace |
 | `/help` | Show help |
-| `/quit` | Exit Trinity |
+| `/quit`, `/exit`, `/q` | Exit Trinity |
 
 The TUI starts with a new workflow session by default. The previous active
 workflow is preserved in `.trinity/workflow/history/` and can be resumed

@@ -7,9 +7,13 @@ from dataclasses import dataclass
 from textual.app import ComposeResult
 from textual.containers import Grid, Vertical, VerticalScroll
 from textual.message import Message
-from textual.widgets import Button, Markdown, Static
+from textual.widgets import Button, DataTable, Markdown, Static
 
-from trinity.textual_app.snapshot import QuestionSnapshot, WorkflowNexusSnapshot
+from trinity.textual_app.snapshot import (
+    LocalCommandSnapshot,
+    QuestionSnapshot,
+    WorkflowNexusSnapshot,
+)
 
 
 @dataclass(frozen=True)
@@ -42,6 +46,8 @@ class CentralAgentView(VerticalScroll):
     def compose(self) -> ComposeResult:
         yield Static("Central Agent", id="central-title")
         yield Markdown(self._markdown(), id="central-markdown")
+        with Vertical(id="central-local-command-tables"):
+            pass
         yield Static("", id="central-question-title")
         with Vertical(id="central-questions"):
             pass
@@ -53,6 +59,7 @@ class CentralAgentView(VerticalScroll):
         self.set_class(self._is_running(), "central-running")
         self._refresh_title()
         self.query_one("#central-markdown", Markdown).update(self._markdown())
+        self._render_local_command_tables(snapshot.local_commands)
         self.query_one("#central-question-title", Static).update(
             self._question_title(snapshot.questions)
         )
@@ -98,6 +105,17 @@ class CentralAgentView(VerticalScroll):
                     "Planning does not require a workspace.",
                 ]
             )
+        if snapshot.local_commands:
+            lines.extend(["", "### Local Command Results"])
+            for item in snapshot.local_commands:
+                lines.extend(
+                    [
+                        f"#### {item.command} - {item.title}",
+                        item.body,
+                    ]
+                )
+                if item.action_hint:
+                    lines.append(f"_Next:_ {item.action_hint}")
         if snapshot.decisions:
             lines.extend(["", "### Decisions"])
             lines.extend(f"- {item}" for item in snapshot.decisions)
@@ -112,10 +130,51 @@ class CentralAgentView(VerticalScroll):
             )
             lines.extend(["", heading])
             lines.extend(f"- {item}" for item in snapshot.work_packages)
+        if snapshot.subtasks:
+            lines.extend(["", "### Subtasks"])
+            for subtask in snapshot.subtasks:
+                summary = subtask.result_summary or subtask.objective
+                lines.append(
+                    f"- **{subtask.id or '(unnamed)'}** "
+                    f"[{subtask.status}] "
+                    f"{subtask.parent_package_id or '(no package)'} -> "
+                    f"{subtask.delegated_to or '(unknown)'}: {summary}"
+                )
         if snapshot.work_package_repairs:
             lines.extend(["", "### Local Policy Repairs"])
             lines.extend(f"- {item}" for item in snapshot.work_package_repairs)
         return "\n".join(lines)
+
+    def _render_local_command_tables(
+        self,
+        commands: list[LocalCommandSnapshot],
+    ) -> None:
+        container = self.query_one("#central-local-command-tables", Vertical)
+        container.remove_children()
+        table_commands = [
+            command
+            for command in commands
+            if command.table_columns and command.table_rows
+        ]
+        if not table_commands:
+            return
+
+        for command in table_commands:
+            container.mount(
+                Static(
+                    f"{command.command} - {command.title}",
+                    classes="local-command-table-title",
+                )
+            )
+            table = DataTable(
+                classes="local-command-table",
+                show_header=True,
+                show_cursor=False,
+                cursor_type="none",
+            )
+            container.mount(table)
+            table.add_columns(*command.table_columns)
+            table.add_rows(command.table_rows)
 
     def _render_questions(self, questions: list[QuestionSnapshot]) -> None:
         container = self.query_one("#central-questions", Vertical)

@@ -10,6 +10,7 @@ from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Static
 
+from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.widgets.composer import PromptComposer
 from trinity.tui.sacred_geometry import SacredGeometryAnimator
@@ -45,6 +46,13 @@ class StartScreen(Screen[None]):
             super().__init__()
             self.prompt = prompt
             self.workspace_candidate = workspace_candidate
+
+    class SlashCommandSubmitted(Message):
+        """Posted when the first prompt is a Trinity slash command."""
+
+        def __init__(self, text: str) -> None:
+            super().__init__()
+            self.text = text
 
     class WorkspaceRequested(Message):
         """Posted when the user wants to choose a workspace candidate early."""
@@ -117,6 +125,10 @@ class StartScreen(Screen[None]):
         if not text:
             composer = self.query_one("#start-composer", PromptComposer)
             composer.focus_text_area()
+            return
+        if is_slash_command_text(text):
+            self.query_one("#start-composer", PromptComposer).clear()
+            self.post_message(self.SlashCommandSubmitted(text))
             return
         self.post_message(self.Submitted(text, self.workspace_candidate))
 

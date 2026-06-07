@@ -10,6 +10,7 @@ from textual.widgets import Button, Footer, Header
 
 from trinity.config import TrinityConfig
 from trinity.models import AgentSpec
+from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.composer import PromptComposer
@@ -23,6 +24,13 @@ class NexusScreen(Screen[None]):
 
     class FollowUpSubmitted(Message):
         """Posted when the user sends a follow-up in the active workflow."""
+
+        def __init__(self, text: str) -> None:
+            super().__init__()
+            self.text = text
+
+    class SlashCommandSubmitted(Message):
+        """Posted when the Nexus composer submits a Trinity slash command."""
 
         def __init__(self, text: str) -> None:
             super().__init__()
@@ -176,6 +184,10 @@ class NexusScreen(Screen[None]):
     def _submit_follow_up(self, text: str) -> None:
         cleaned = text.strip()
         if not cleaned:
+            return
+        if is_slash_command_text(cleaned):
+            self.query_one("#nexus-composer", PromptComposer).clear()
+            self.post_message(self.SlashCommandSubmitted(cleaned))
             return
         self.follow_ups.append(cleaned)
         self.query_one("#nexus-composer", PromptComposer).clear()

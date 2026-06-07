@@ -208,7 +208,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         yield Footer()
 
     def on_mount(self) -> None:
-        self.set_timer(0.20, self._mount_directory_tree)
+        self.set_timer(0.05, self._mount_directory_tree)
 
     def _mount_directory_tree(self) -> None:
         if self._tree_mounted or not self.is_mounted:

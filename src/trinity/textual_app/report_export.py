@@ -20,6 +20,7 @@ def snapshot_has_report_data(snapshot: WorkflowNexusSnapshot) -> bool:
             snapshot.decisions,
             snapshot.central_work_packages,
             snapshot.work_packages,
+            snapshot.subtasks,
             snapshot.work_package_repairs,
             snapshot.execution_log,
             snapshot.questions,
@@ -67,6 +68,18 @@ def snapshot_report_markdown(snapshot: WorkflowNexusSnapshot) -> str:
         )
         lines.extend(["", heading, ""])
         lines.extend(f"- {_md_inline(package)}" for package in snapshot.work_packages)
+    if snapshot.subtasks:
+        lines.extend(["", "## Subtasks", ""])
+        lines.extend(
+            (
+                f"- **{_md_inline(subtask.id or '(unnamed)')}** "
+                f"[{_md_inline(subtask.status)}] "
+                f"{_md_inline(subtask.parent_package_id or '(no package)')} -> "
+                f"{_md_inline(subtask.delegated_to or '(unknown)')}: "
+                f"{_md_inline(subtask.result_summary or subtask.objective)}"
+            )
+            for subtask in snapshot.subtasks
+        )
     if snapshot.work_package_repairs:
         lines.extend(["", "## Local Policy Repairs", ""])
         lines.extend(f"- {_md_inline(note)}" for note in snapshot.work_package_repairs)

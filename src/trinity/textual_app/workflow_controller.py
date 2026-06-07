@@ -38,6 +38,17 @@ class TextualWorkflowOutcome:
     target_workspace_required: bool = False
 
 
+@dataclass(frozen=True)
+class TextualWorkflowArchiveOption:
+    """A saved workflow summary suitable for Textual resume selection."""
+
+    selector: str
+    session_id: str
+    goal: str
+    state: str
+    updated_at: float
+
+
 class TextualWorkflowController:
     """Bridge Textual screen events to Trinity's workflow/orchestrator runtime."""
 
@@ -111,11 +122,30 @@ class TextualWorkflowController:
         self,
         question_id: str,
         answer: str,
+        *,
+        replace: bool = False,
     ) -> TextualWorkflowOutcome:
         """Record a central-agent question answer and continue when possible."""
         if self.is_running:
             return self._outcome(message="Workflow is still running.", running=True)
-        action = self.workflow.answer_question(question_id, answer)
+        action = self.workflow.answer_question(question_id, answer, replace=replace)
+        return self._apply_action(action)
+
+    def answer_question_option(
+        self,
+        option_index: str,
+        *,
+        question_selector: str = "next",
+        replace: bool = False,
+    ) -> TextualWorkflowOutcome:
+        """Record a numbered option answer and continue when possible."""
+        if self.is_running:
+            return self._outcome(message="Workflow is still running.", running=True)
+        action = self.workflow.answer_question_option(
+            option_index,
+            question_selector=question_selector,
+            replace=replace,
+        )
         return self._apply_action(action)
 
     def request_execution(self, instruction: str = "") -> TextualWorkflowOutcome:
@@ -141,6 +171,60 @@ class TextualWorkflowController:
             control_repo_confirmed=control_repo_confirmed,
         )
         return self._outcome()
+
+    def clear_target_workspace(self) -> TextualWorkflowOutcome:
+        """Clear the selected implementation workspace."""
+        if self.is_running:
+            return self._outcome(message="Workflow is still running.", running=True)
+        self.workflow.clear_target_workspace()
+        return self._outcome()
+
+    def list_resume_options(self) -> list[TextualWorkflowArchiveOption]:
+        """Return archived workflows ordered the same way /resume selectors resolve."""
+        return [
+            TextualWorkflowArchiveOption(
+                selector=str(index),
+                session_id=archive.session.id,
+                goal=archive.session.goal,
+                state=archive.session.state.value,
+                updated_at=archive.session.updated_at,
+            )
+            for index, archive in enumerate(self.persistence.list_archives(), start=1)
+        ]
+
+    def resume_workflow(self, selector: str = "latest") -> TextualWorkflowOutcome:
+        """Restore an archived workflow into the active Textual session."""
+        if self.is_running:
+            return self._outcome(message="Workflow is still running.", running=True)
+        archives = self.persistence.list_archives()
+        if not archives:
+            return self._outcome(message="No saved workflow sessions to resume.")
+
+        archive = archives[0]
+        normalized = selector.lower().strip() or "latest"
+        if normalized not in {"latest", "last", "newest"}:
+            if normalized.isdigit() and 1 <= int(normalized) <= len(archives):
+                archive = archives[int(normalized) - 1]
+            else:
+                found = next(
+                    (
+                        item
+                        for item in archives
+                        if item.session.id.lower() == normalized
+                    ),
+                    None,
+                )
+                if found is None:
+                    return self._outcome(
+                        message=f"No matching workflow session: {selector}"
+                    )
+                archive = found
+
+        self.persistence.archive_active_session()
+        self.persistence.restore_archive(archive)
+        self.workflow = WorkflowEngine(self.config.effective_state_dir)
+        self._recent_events = []
+        return self._outcome(message=f"Resumed workflow {archive.session.id}.")
 
     def drain_updates(self) -> TextualWorkflowOutcome | None:
         """Consume runtime events and complete finished background work."""

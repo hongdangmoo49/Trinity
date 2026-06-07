@@ -8,7 +8,13 @@ from trinity.models import ConsensusResult, DeliberationResult
 from trinity.textual_app.workflow_controller import TextualWorkflowController
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workflow import WorkflowEngine, WorkflowState
-from trinity.workflow.models import Blueprint, OpenQuestion, WorkPackage, WorkStatus
+from trinity.workflow.models import (
+    Blueprint,
+    OpenQuestion,
+    WorkPackage,
+    WorkflowSession,
+    WorkStatus,
+)
 
 
 class FakeOrchestrator:
@@ -152,6 +158,129 @@ def test_textual_workflow_controller_routes_question_answers(tmp_path) -> None:
     assert final is not None
     assert final.snapshot.state == "blueprint_ready"
     assert final.snapshot.decisions == ["dark"]
+
+
+def test_textual_workflow_controller_answers_question_options(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 설계", ["claude"])
+    workflow.add_open_question(
+        OpenQuestion(
+            id="q-1",
+            question="Which theme?",
+            options=["dark", "light"],
+        )
+    )
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeOrchestrator,
+        archive_active_session=False,
+    )
+
+    outcome = controller.answer_question_option("2")
+
+    assert outcome.running is True
+    assert controller.wait_until_idle(timeout=2.0)
+    final = controller.drain_updates()
+    assert final is not None
+    assert final.snapshot.state == "blueprint_ready"
+    assert final.snapshot.decisions == ["light"]
+
+
+def test_textual_workflow_controller_replaces_question_answer(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 설계", ["claude"])
+    workflow.add_open_question(
+        OpenQuestion(
+            id="q-1",
+            question="Which theme?",
+            options=["dark", "light"],
+        )
+    )
+    workflow.answer_question("q-1", "dark")
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeOrchestrator,
+        archive_active_session=False,
+    )
+
+    outcome = controller.answer_question("q-1", "light", replace=True)
+
+    assert outcome.running is True
+    assert len(controller.workflow.session.decisions) == 1
+    assert controller.workflow.session.decisions[0].decision == "light"
+    assert controller.wait_until_idle(timeout=2.0)
+    controller.drain_updates()
+
+
+def test_textual_workflow_controller_resumes_latest_workflow(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    controller = TextualWorkflowController(
+        config,
+        orchestrator_factory=FakeOrchestrator,
+        archive_active_session=False,
+    )
+    controller.persistence.save(
+        WorkflowSession(
+            id="wf-archived",
+            goal="archived goal",
+            state=WorkflowState.BLUEPRINT_READY,
+        )
+    )
+    controller.persistence.archive_active_session(force=True)
+
+    outcome = controller.resume_workflow("latest")
+
+    assert outcome.snapshot.session_id == "wf-archived"
+    assert outcome.snapshot.goal == "archived goal"
+    assert outcome.snapshot.state == "blueprint_ready"
+    assert outcome.message == "Resumed workflow wf-archived."
+
+
+def test_textual_workflow_controller_lists_resume_options(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    controller = TextualWorkflowController(
+        config,
+        orchestrator_factory=FakeOrchestrator,
+        archive_active_session=False,
+    )
+    controller.persistence.save(
+        WorkflowSession(
+            id="wf-archived",
+            goal="archived goal",
+            state=WorkflowState.BLUEPRINT_READY,
+            updated_at=1234.0,
+        )
+    )
+    controller.persistence.archive_active_session(force=True)
+
+    options = controller.list_resume_options()
+
+    assert len(options) == 1
+    assert options[0].selector == "1"
+    assert options[0].session_id == "wf-archived"
+    assert options[0].goal == "archived goal"
+    assert options[0].state == "blueprint_ready"
+    assert options[0].updated_at == 1234.0
+
+
+def test_textual_workflow_controller_clears_target_workspace(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.set_target_workspace(tmp_path / "game")
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeOrchestrator,
+        archive_active_session=False,
+    )
+
+    controller.clear_target_workspace()
+
+    assert controller.workflow.session.target_workspace is None
 
 
 def test_textual_workflow_controller_requests_workspace_before_execution(tmp_path) -> None:

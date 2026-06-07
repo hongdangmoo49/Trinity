@@ -33,6 +33,7 @@ class ComposerTextArea(TextArea):
         ),
         Binding("up", "command_palette_up", "Previous command", show=False, priority=True),
         Binding("down", "command_palette_down", "Next command", show=False, priority=True),
+        Binding("tab", "accept_command", "Complete command", show=False, priority=True),
         Binding("shift+enter,alt+enter,ctrl+j", "insert_newline", "New line", show=False),
     ]
 
@@ -71,6 +72,11 @@ class ComposerTextArea(TextArea):
         if isinstance(parent, PromptComposer) and parent.move_command_selection(1):
             return
         self.action_cursor_down()
+
+    def action_accept_command(self) -> None:
+        parent = self.parent
+        if isinstance(parent, PromptComposer):
+            parent.accept_selected_command(allow_exact=True)
 
     action_submit = action_submit_or_accept
 
@@ -192,6 +198,10 @@ class PromptComposer(Vertical):
         if self._ignore_next_submit:
             self._ignore_next_submit = False
             return
+        if self._is_exact_command_input():
+            self._set_command_palette_visible(False)
+            self.post_message(self.Submitted(self.submission_text))
+            return
         if self.accept_selected_command():
             return
         self._set_command_palette_visible(False)
@@ -307,8 +317,10 @@ class PromptComposer(Vertical):
         self._render_command_options()
         return True
 
-    def accept_selected_command(self) -> bool:
+    def accept_selected_command(self, *, allow_exact: bool = False) -> bool:
         if not self.command_palette_open or not self._command_matches:
+            return False
+        if not allow_exact and self._is_exact_command_input():
             return False
         command = self._command_matches[self._command_selection]
         self.set_text(f"{command} ")
@@ -363,3 +375,9 @@ class PromptComposer(Vertical):
             for command in TRINITY_COMMANDS
             if command.lower().startswith(query)
         ]
+
+    def _is_exact_command_input(self) -> bool:
+        query = self._slash_query()
+        if query is None:
+            return False
+        return any(command.lower() == query for command in TRINITY_COMMANDS)

@@ -418,6 +418,50 @@ def test_mark_deliberation_result_waits_on_structured_question(tmp_path):
     assert engine.pending_questions[0].question == "Optimize for cost or latency?"
 
 
+def test_mark_deliberation_result_renumbers_duplicate_question_ids(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design", ["codex"])
+    engine.add_open_question(
+        OpenQuestion(
+            id="oq-001",
+            question="Capital range?",
+            options=["small", "medium"],
+        )
+    )
+    engine.answer_question("oq-001", "medium")
+    result = DeliberationResult(
+        user_prompt="Design",
+        rounds_completed=1,
+        consensus=None,
+        metadata={
+            "structured_consensus": {
+                "reached": False,
+                "final_blueprint": None,
+                "open_questions": [
+                    {
+                        "id": "oq-001",
+                        "question": "Broker API style?",
+                        "options": ["REST", "COM/OCX"],
+                        "recommended_option": "REST",
+                        "blocking": True,
+                        "raised_by": ["codex"],
+                        "rationale": "Execution path depends on the broker API.",
+                        "status": "open",
+                    }
+                ],
+            }
+        },
+    )
+
+    engine.mark_deliberation_result(result)
+
+    assert engine.state == WorkflowState.NEEDS_USER_DECISION
+    open_questions = engine.pending_questions
+    assert len(open_questions) == 1
+    assert open_questions[0].id == "oq-001-2"
+    assert open_questions[0].question == "Broker API style?"
+
+
 def test_record_execution_results_moves_to_reviewing(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
     engine.start("Implement route bot", ["codex"])

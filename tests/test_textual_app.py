@@ -1173,10 +1173,37 @@ async def test_central_agent_view_renders_local_command_tables(tmp_path) -> None
         await pilot.pause()
 
         central = screen.query_one(CentralAgentView)
-        table = central.query_one("#local-command-table-1", DataTable)
+        table = central.query_one(".local-command-table", DataTable)
 
         assert table.row_count == 2
         assert "Local Command Results" in central._markdown()
+
+
+@pytest.mark.asyncio
+async def test_textual_status_can_refresh_existing_local_command_table(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/status")
+        await pilot.pause()
+        app._handle_textual_slash_command("/status")
+        await pilot.pause()
+
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.local_commands[-1].command == "/status"
+
+        central = app.screen.query_one(CentralAgentView)
+        tables = list(central.query(".local-command-table"))
+        assert tables
+        assert tables[-1].row_count > 0
 
 
 @pytest.mark.asyncio

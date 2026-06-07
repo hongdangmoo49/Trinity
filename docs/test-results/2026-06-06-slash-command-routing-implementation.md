@@ -47,6 +47,8 @@
 - `src/trinity/textual_app/widgets/central_agent.py`
   - 로컬 slash command 결과를 Nexus 중앙 영역의 `Local Command Results` 섹션에 표시
   - table data가 포함된 로컬 명령 결과를 중앙 영역의 `DataTable` 위젯으로 렌더링
+  - `/status`처럼 같은 table command를 반복 실행해도 동적 table id가 충돌하지 않도록
+    테이블 위젯은 class 기반으로 렌더링
 - `src/trinity/textual_app/workflow_controller.py`
   - `/answer` option/replace, `/target clear`, `/resume`을 앱이 private method에 기대지 않도록
     public Textual controller API로 제공
@@ -89,6 +91,9 @@
 /home/zaemi/.local/bin/uvx ruff check src/trinity/slash_commands.py src/trinity/tui/session.py src/trinity/textual_app/app.py tests/test_tui_session.py tests/test_textual_app.py
 /home/zaemi/.local/bin/uv run pytest tests/test_tui_session.py::TestSessionCommands::test_session_setting_commands_show_session_only_notice tests/test_textual_app.py::test_textual_session_setting_commands_are_local_session_only_results -q
 /home/zaemi/.local/bin/uv run pytest tests/test_tui_session.py tests/test_textual_app.py tests/test_slash_command_docs.py -q
+/home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/widgets/central_agent.py tests/test_textual_app.py
+/home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py::test_central_agent_view_renders_local_command_tables tests/test_textual_app.py::test_textual_status_can_refresh_existing_local_command_table -q
+/home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py -q
 git diff --check
 /home/zaemi/.local/bin/uv run pytest -q
 ```
@@ -108,9 +113,11 @@ git diff --check
 - Textual local command table 렌더링 회귀: `52 passed in 24.32s`
 - 세션 전용 설정 명령 안내 회귀: `2 passed in 1.19s`
 - Plain/Textual/docs 대상 회귀: `136 passed in 26.22s`
+- Local command table 반복 렌더링 회귀: `2 passed in 2.04s`
+- Textual 전체 회귀: `54 passed in 38.14s`
 - Ruff 대상 파일 검사 통과
 - `git diff --check` 통과
-- 전체 회귀: `1221 passed, 1 warning in 53.58s`
+- 전체 회귀: `1222 passed, 1 warning in 55.76s`
 
 ## 남은 작업
 

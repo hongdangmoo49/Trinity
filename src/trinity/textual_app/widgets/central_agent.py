@@ -147,7 +147,7 @@ class CentralAgentView(VerticalScroll):
         if not table_commands:
             return
 
-        for index, command in enumerate(table_commands, start=1):
+        for command in table_commands:
             container.mount(
                 Static(
                     f"{command.command} - {command.title}",
@@ -155,7 +155,6 @@ class CentralAgentView(VerticalScroll):
                 )
             )
             table = DataTable(
-                id=f"local-command-table-{index}",
                 classes="local-command-table",
                 show_header=True,
             )

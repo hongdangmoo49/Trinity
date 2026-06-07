@@ -246,7 +246,9 @@ class NexusSnapshotAdapter:
                 options=list(q.options),
                 recommended_option=q.recommended_option or "",
                 status=q.status,
-                answer=answer_by_question_id.get(q.id, ""),
+                answer=answer_by_question_id.get(q.id, "")
+                if q.status != "open"
+                else "",
             )
             for q in session.pending_questions
         ]

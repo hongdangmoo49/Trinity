@@ -52,6 +52,9 @@ from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
 from trinity.textual_app.widgets.status_modal import StatusCommandModal
+from trinity.textual_app.widgets.target_workspace_confirm_modal import (
+    TargetWorkspaceConfirmModal,
+)
 from trinity.textual_app.widgets.workspace_picker import WorkspacePicker, build_preflight
 from trinity.workflow import (
     WorkPackage,
@@ -74,6 +77,7 @@ class FakeWorkflowController:
         self.execution_outcome: TextualWorkflowOutcome | None = None
         self.execution_requests = 0
         self.target_workspace = None
+        self.target_control_confirmed = False
         self.target_cleared = False
 
     def snapshot(self) -> WorkflowNexusSnapshot:
@@ -149,6 +153,7 @@ class FakeWorkflowController:
 
     def set_target_workspace(self, path, *, control_repo_confirmed: bool = False):
         self.target_workspace = path
+        self.target_control_confirmed = control_repo_confirmed
         return TextualWorkflowOutcome(self.current_snapshot)
 
     def clear_target_workspace(self) -> TextualWorkflowOutcome:
@@ -789,6 +794,93 @@ async def test_nexus_save_and_target_commands_record_local_results(
 
 
 @pytest.mark.asyncio
+async def test_nexus_target_path_inside_control_repo_requires_confirmation(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        inside_target = tmp_path / "inside-control-repo"
+        app._handle_textual_slash_command(f"/target {inside_target}")
+        await pilot.pause()
+
+        assert isinstance(app.screen, TargetWorkspaceConfirmModal)
+        assert controller.target_workspace is None
+
+        app.screen.query_one("#cancel-target-confirm", Button).press()
+        await pilot.pause()
+        assert controller.target_workspace is None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/target"
+        assert "cancelled" in result.body
+
+        app._handle_textual_slash_command(f"/target {inside_target}")
+        await pilot.pause()
+        assert isinstance(app.screen, TargetWorkspaceConfirmModal)
+        app.screen.query_one("#confirm-target", Button).press()
+        await pilot.pause()
+
+        assert controller.target_workspace == inside_target.resolve()
+        assert controller.target_control_confirmed is True
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/target"
+        assert ("Control repo confirmed", "yes") in result.table_rows
+
+
+@pytest.mark.asyncio
+async def test_nexus_target_path_outside_control_repo_sets_without_confirmation(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        outside_target = tmp_path.parent / f"{tmp_path.name}-target"
+        app._handle_textual_slash_command(f"/target {outside_target}")
+        await pilot.pause()
+
+        assert app.current_route == "nexus"
+        assert not isinstance(app.screen, TargetWorkspaceConfirmModal)
+        assert controller.target_workspace == outside_target.resolve()
+        assert controller.target_control_confirmed is False
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/target"
+        assert ("Inside control repo", "no") in result.table_rows
+
+
+@pytest.mark.asyncio
+async def test_workspace_preflight_inside_control_repo_requires_confirmation(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController(WorkflowNexusSnapshot(state="blueprint_ready"))
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+    preflight = build_preflight(tmp_path, WorkflowNexusSnapshot(state="blueprint_ready"))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._on_workspace_preflight(preflight)
+        await pilot.pause()
+
+        assert isinstance(app.screen, TargetWorkspaceConfirmModal)
+        assert controller.target_workspace is None
+
+        app.screen.query_one("#confirm-target", Button).press()
+        await pilot.pause()
+
+        assert controller.target_workspace == tmp_path
+        assert controller.target_control_confirmed is True
+
+
+@pytest.mark.asyncio
 async def test_start_slash_help_uses_registry_backed_local_modal(tmp_path) -> None:
     controller = FakeWorkflowController()
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
@@ -1290,6 +1382,10 @@ async def test_nexus_slash_resume_routes_to_controller(tmp_path) -> None:
         assert controller.resumes == ["latest"]
         assert app.active_snapshot is not None
         assert app.active_snapshot.session_id == "wf-resumed-latest"
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/resume"
+        assert result.title == "Resume"
+        assert ("Workflow", "wf-resumed-latest") in result.table_rows
 
 
 @pytest.mark.asyncio
@@ -1318,6 +1414,11 @@ async def test_nexus_slash_resume_without_selector_opens_archive_picker(tmp_path
         await pilot.pause()
 
         assert controller.follow_ups == []
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/resume"
+        assert result.table_columns == ("Selector", "Workflow", "State", "Goal")
+        assert result.table_rows[0][:3] == ("1", "wf-archived", "blueprint_ready")
         assert isinstance(app.screen, ResumeWorkflowPicker)
         button = app.screen.query_one("#resume-archive-1", Button)
         button.press()
@@ -1326,6 +1427,41 @@ async def test_nexus_slash_resume_without_selector_opens_archive_picker(tmp_path
         assert controller.resumes == ["1"]
         assert app.active_snapshot is not None
         assert app.active_snapshot.session_id == "wf-resumed-1"
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/resume"
+        assert ("Workflow", "wf-resumed-1") in result.table_rows
+
+
+@pytest.mark.asyncio
+async def test_nexus_slash_resume_picker_cancel_records_result(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    controller.resume_options = [
+        TextualWorkflowArchiveOption(
+            selector="1",
+            session_id="wf-archived",
+            goal="archived goal",
+            state="blueprint_ready",
+            updated_at=1000.0,
+        )
+    ]
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/resume")
+        await pilot.pause()
+        assert isinstance(app.screen, ResumeWorkflowPicker)
+
+        app.screen.query_one("#cancel-resume-picker", Button).press()
+        await pilot.pause()
+
+        assert controller.resumes == []
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/resume"
+        assert "cancelled" in result.body
+        assert result.empty is True
 
 
 @pytest.mark.asyncio

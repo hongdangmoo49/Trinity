@@ -178,6 +178,12 @@ cache command는 이 UX 계약의 범위가 아니다.
 - `/target`, `/resume`, `/questions --select`를 picker/modal 중심으로 정리한다.
 - `/answer`는 질문 영역과 decision ledger를 함께 갱신한다.
 
+진행 상태: 구현 완료. `/target <path>` 또는 실행 전 workspace preflight가 Trinity
+control repo 내부를 가리키면 즉시 설정하지 않고 `TargetWorkspaceConfirmModal`로 확인을
+요구한다. 확인 시 `control_repo_confirmed=True`가 controller로 전달되고, 취소 시 local
+result에 취소 상태가 남는다. `/resume`은 archive 목록을 local result table로 남긴 뒤
+picker를 열고, picker 취소/selector 복원 결과도 local result로 남긴다.
+
 ### 7. 실행/종료/unknown 마감
 
 - `/execute`의 blueprint/target/running state별 메시지를 고정한다.
@@ -188,8 +194,8 @@ cache command는 이 UX 계약의 범위가 아니다.
 toast-only가 아니라 local command result로 남는다. unknown command는 가까운 Trinity command
 후보를 제안한다. Textual `/quit`, `/exit`, `/q`는 `ConfirmQuitModal`을 통해 확인 후 종료한다.
 
-남은 보강: `/target <path>`의 control repo guardrail 확인 UI와 `/resume` 상세 UX는 별도 단계에서
-더 세밀하게 정의한다.
+남은 보강: 현재 UX 계약의 Textual slash command 범위에서는 없음. Provider CLI 내부 slash
+command와 외부 plugin cache command는 별도 backlog 범위다.
 
 ## 회귀 테스트 기준
 

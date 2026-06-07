@@ -12,6 +12,9 @@
 - `/rounds`, `/agent`, `/caveman` no-arg/arg 결과를 현재 값 table과 세션 전용 안내로 통일했다.
 - `/resume`, `/answer`, `/execute` 오류/준비 실패와 unknown slash를 toast-only가 아닌 local command result로 남긴다.
 - Textual `/quit`, `/exit`, `/q`는 즉시 종료 대신 confirmation modal을 사용한다.
+- `/target <path>`와 실행 전 workspace preflight가 Trinity control repo 내부를 가리키면 확인 modal을 요구하고, 확인 여부를 target 설정 결과 table에 남긴다.
+- `/resume` archive 목록, picker 취소, selector 복원 결과를 local command result로 남긴다.
+- Workspace picker directory tree 마운트 지연을 줄여 preflight modal의 폴더 목록 표시를 더 빠르게 했다.
 
 ## 실행한 검증
 
@@ -33,13 +36,25 @@ uv run pytest tests/test_textual_app.py::test_nexus_setting_commands_show_curren
 
 결과: `4 passed`
 
+```text
+uv run pytest tests/test_textual_app.py::test_nexus_target_path_inside_control_repo_requires_confirmation tests/test_textual_app.py::test_nexus_target_path_outside_control_repo_sets_without_confirmation tests/test_textual_app.py::test_workspace_preflight_inside_control_repo_requires_confirmation tests/test_textual_app.py::test_nexus_slash_resume_routes_to_controller tests/test_textual_app.py::test_nexus_slash_resume_without_selector_opens_archive_picker tests/test_textual_app.py::test_nexus_slash_resume_picker_cancel_records_result -q
+```
+
+결과: `6 passed`
+
+```text
+uv run pytest tests/test_textual_workspace_picker.py::test_workspace_picker_tree_root_can_differ_from_selected_path -q
+```
+
+결과: `1 passed`
+
 ## 남은 확인
 
 ```text
 uv run pytest tests/test_textual_app.py tests/test_slash_command_docs.py -q
 ```
 
-결과: `77 passed`
+결과: `81 passed`
 
 ```text
 git diff --check
@@ -51,7 +66,7 @@ git diff --check
 uv run pytest -q
 ```
 
-결과: `1243 passed, 1 warning`
+결과: `1247 passed, 1 warning`
 
-경고: 기존 `tests/test_e2e.py::TestE2EContext::test_context_shows_shared`의
+경고: 기존 `tests/test_error_handling.py::TestHandleCrash::test_disables_after_max_crashes`의
 `AsyncMockMixin._execute_mock_call was never awaited` RuntimeWarning.

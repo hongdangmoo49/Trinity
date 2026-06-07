@@ -45,6 +45,9 @@ from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
 from trinity.textual_app.widgets.status_modal import StatusCommandModal
+from trinity.textual_app.widgets.target_workspace_confirm_modal import (
+    TargetWorkspaceConfirmModal,
+)
 from trinity.textual_app.widgets.workspace_picker import (
     WorkspacePicker,
     WorkspacePreflight,
@@ -803,8 +806,54 @@ class TrinityTextualApp(App[None]):
     def _on_workspace_preflight(self, preflight: WorkspacePreflight | None) -> None:
         if preflight is None:
             return
+        if self._is_control_repo_target(preflight.path):
+            self.push_screen(
+                TargetWorkspaceConfirmModal(
+                    target_path=preflight.path,
+                    control_repo=self.config.project_dir,
+                ),
+                lambda confirmed: self._on_workspace_preflight_confirmed(
+                    preflight,
+                    confirmed,
+                ),
+            )
+            return
+        self._continue_workspace_preflight(
+            preflight,
+            control_repo_confirmed=False,
+        )
+
+    def _on_workspace_preflight_confirmed(
+        self,
+        preflight: WorkspacePreflight,
+        confirmed: bool | None,
+    ) -> None:
+        if confirmed:
+            self._continue_workspace_preflight(
+                preflight,
+                control_repo_confirmed=True,
+            )
+            return
+        self._record_slash_command_result(
+            "/target",
+            "Target",
+            "Workspace preflight cancelled.",
+            severity="warning",
+            empty=True,
+            action_hint="Choose a workspace outside the Trinity control repo.",
+        )
+
+    def _continue_workspace_preflight(
+        self,
+        preflight: WorkspacePreflight,
+        *,
+        control_repo_confirmed: bool,
+    ) -> None:
         self.confirmed_preflight = preflight
-        self.workflow_controller.set_target_workspace(preflight.path)
+        self.workflow_controller.set_target_workspace(
+            preflight.path,
+            control_repo_confirmed=control_repo_confirmed,
+        )
         outcome = self.workflow_controller.request_execution()
         self._apply_workflow_outcome(outcome)
         snapshot = outcome.snapshot
@@ -1855,18 +1904,107 @@ class TrinityTextualApp(App[None]):
                 "Target workspace cleared.",
             )
             return
-        path = Path(" ".join(args)).expanduser()
-        if not path.is_absolute():
-            path = self.config.project_dir / path
-        path.mkdir(parents=True, exist_ok=True)
-        outcome = self.workflow_controller.set_target_workspace(path)
+        path = self._resolve_target_path(" ".join(args))
+        if self._is_control_repo_target(path):
+            self.push_screen(
+                TargetWorkspaceConfirmModal(
+                    target_path=path,
+                    control_repo=self.config.project_dir,
+                ),
+                lambda confirmed: self._on_target_workspace_confirmed(
+                    path,
+                    confirmed,
+                ),
+            )
+            return
+        self._set_textual_target_workspace(path, control_repo_confirmed=False)
+
+    def _on_target_workspace_confirmed(
+        self,
+        path: Path,
+        confirmed: bool | None,
+    ) -> None:
+        if confirmed:
+            self._set_textual_target_workspace(path, control_repo_confirmed=True)
+            return
+        self._record_slash_command_result(
+            "/target",
+            "Target",
+            "Target workspace selection cancelled.",
+            severity="warning",
+            empty=True,
+            action_hint="Choose a workspace outside the Trinity control repo.",
+        )
+
+    def _set_textual_target_workspace(
+        self,
+        path: Path,
+        *,
+        control_repo_confirmed: bool,
+    ) -> None:
+        try:
+            if path.exists() and not path.is_dir():
+                self._record_slash_command_result(
+                    "/target",
+                    "Target",
+                    f"Target path exists but is not a directory: `{path}`",
+                    severity="warning",
+                    empty=True,
+                )
+                return
+            path.mkdir(parents=True, exist_ok=True)
+            resolved = path.resolve()
+        except OSError as exc:
+            self._record_slash_command_result(
+                "/target",
+                "Target",
+                f"Could not prepare target workspace: {exc}",
+                severity="warning",
+                empty=True,
+            )
+            return
+
+        outcome = self.workflow_controller.set_target_workspace(
+            resolved,
+            control_repo_confirmed=control_repo_confirmed,
+        )
         if isinstance(outcome, TextualWorkflowOutcome):
             self._apply_workflow_outcome(outcome)
         self._record_slash_command_result(
             "/target",
             "Target",
-            f"Target workspace: `{path.resolve()}`",
+            f"Target workspace: `{resolved}`",
+            table_columns=("Item", "Value"),
+            table_rows=(
+                ("Path", str(resolved)),
+                (
+                    "Inside control repo",
+                    "yes" if self._is_control_repo_target(resolved) else "no",
+                ),
+                (
+                    "Control repo confirmed",
+                    "yes" if control_repo_confirmed else "no",
+                ),
+            ),
         )
+
+    def _resolve_target_path(self, value: str) -> Path:
+        path = Path(value).expanduser()
+        if not path.is_absolute():
+            path = self.config.project_dir / path
+        return path
+
+    def _is_control_repo_target(self, path: Path) -> bool:
+        target = self._absolute_path(path)
+        control_repo = self._absolute_path(self.config.project_dir)
+        return target == control_repo or control_repo in target.parents
+
+    @staticmethod
+    def _absolute_path(path: Path) -> Path:
+        try:
+            return path.expanduser().resolve(strict=False)
+        except OSError:
+            return path.expanduser().absolute()
 
     def _handle_textual_resume_command(self, args: list[str]) -> None:
         if not args:
@@ -1880,6 +2018,15 @@ class TrinityTextualApp(App[None]):
                     action_hint="Start and archive a workflow before using `/resume`.",
                 )
                 return
+            self._record_slash_command_result(
+                "/resume",
+                "Resume",
+                self._resume_archives_markdown(archives),
+                table_columns=("Selector", "Workflow", "State", "Goal"),
+                table_rows=self._resume_archive_rows(archives),
+                action_hint="Pick a workflow from the resume modal.",
+                start_modal=False,
+            )
             self.push_screen(
                 ResumeWorkflowPicker(archives, lang=self.config.lang),
                 self._on_resume_archive_selected,
@@ -1890,6 +2037,13 @@ class TrinityTextualApp(App[None]):
 
     def _on_resume_archive_selected(self, selector: str | None) -> None:
         if selector is None:
+            self._record_slash_command_result(
+                "/resume",
+                "Resume",
+                "Resume selection cancelled.",
+                empty=True,
+                action_hint="Run `/resume` again to choose an archived workflow.",
+            )
             return
         self._resume_textual_workflow(selector)
 
@@ -1907,7 +2061,47 @@ class TrinityTextualApp(App[None]):
                 message,
                 severity="warning" if failed else "info",
                 empty=failed,
+                table_columns=("Item", "Value"),
+                table_rows=self._resume_result_rows(outcome.snapshot),
             )
+
+    @staticmethod
+    def _resume_archives_markdown(
+        archives: list[object],
+    ) -> str:
+        lines = ["Saved workflow sessions available to resume."]
+        for archive in archives:
+            selector = str(getattr(archive, "selector", ""))
+            session_id = str(getattr(archive, "session_id", ""))
+            state = str(getattr(archive, "state", ""))
+            goal = str(getattr(archive, "goal", "")).strip() or "(no goal)"
+            lines.append(f"- `{selector}` {session_id} [{state}] {goal}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _resume_archive_rows(
+        archives: list[object],
+    ) -> tuple[tuple[str, str, str, str], ...]:
+        return tuple(
+            (
+                str(getattr(archive, "selector", "")),
+                str(getattr(archive, "session_id", "")),
+                str(getattr(archive, "state", "")),
+                str(getattr(archive, "goal", "")).strip() or "(no goal)",
+            )
+            for archive in archives
+        )
+
+    @staticmethod
+    def _resume_result_rows(
+        snapshot: WorkflowNexusSnapshot,
+    ) -> tuple[tuple[str, str], ...]:
+        return (
+            ("Workflow", snapshot.session_id or "(new)"),
+            ("State", snapshot.state or "idle"),
+            ("Goal", snapshot.goal or "(none)"),
+            ("Round", str(snapshot.round_num)),
+        )
 
     def _handle_textual_answer_command(self, args: list[str]) -> None:
         if not args:

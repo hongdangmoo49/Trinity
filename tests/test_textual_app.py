@@ -1180,7 +1180,7 @@ async def test_central_agent_view_renders_local_command_tables(tmp_path) -> None
 
 
 @pytest.mark.asyncio
-async def test_textual_status_can_refresh_existing_local_command_table(
+async def test_textual_status_refresh_replaces_existing_local_command_table(
     tmp_path,
 ) -> None:
     controller = FakeWorkflowController()
@@ -1194,15 +1194,20 @@ async def test_textual_status_can_refresh_existing_local_command_table(
         await pilot.pause()
         app._handle_textual_slash_command("/status")
         await pilot.pause()
+        app._handle_textual_slash_command("/status")
+        await pilot.pause()
 
         assert controller.started_prompts == []
         assert controller.follow_ups == []
         assert app.active_snapshot is not None
         assert app.active_snapshot.local_commands[-1].command == "/status"
+        assert [
+            command.command for command in app.active_snapshot.local_commands
+        ].count("/status") == 1
 
         central = app.screen.query_one(CentralAgentView)
         tables = list(central.query(".local-command-table"))
-        assert tables
+        assert len(tables) == 1
         assert tables[-1].row_count > 0
 
 

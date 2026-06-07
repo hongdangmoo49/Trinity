@@ -929,6 +929,9 @@ class TrinityTextualApp(App[None]):
             table_columns=table_columns,
             table_rows=table_rows,
         )
+        self._local_command_results = [
+            item for item in self._local_command_results if item.command != command
+        ]
         self._local_command_results.append(result)
         snapshot = (
             self.workflow_controller.snapshot()

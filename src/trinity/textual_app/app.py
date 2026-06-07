@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from difflib import get_close_matches
 from pathlib import Path
 from typing import Literal
 
@@ -13,8 +14,8 @@ from trinity import __version__
 from trinity.config import TrinityConfig
 from trinity.i18n import VALID_CAVEMAN_INTENSITIES
 from trinity.slash_commands import (
+    COMMAND_SPECS,
     SESSION_ONLY_SETTING_NOTICE,
-    TRINITY_COMMANDS,
     parse_slash_command,
 )
 from trinity.textual_app.report_export import (
@@ -38,6 +39,7 @@ from trinity.textual_app.workflow_controller import (
     TextualWorkflowController,
     TextualWorkflowOutcome,
 )
+from trinity.textual_app.widgets.confirm_quit_modal import ConfirmQuitModal
 from trinity.textual_app.widgets.context_modal import ContextCommandModal
 from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
@@ -855,11 +857,14 @@ class TrinityTextualApp(App[None]):
         if not parsed.token:
             return
         if parsed.spec is None:
+            suggestions = self._slash_command_suggestions(parsed.token)
             self._record_slash_command_result(
                 parsed.token,
                 "Unknown Command",
-                f"`{parsed.token}` is not a Trinity slash command.",
+                self._unknown_command_markdown(parsed.token, suggestions),
                 severity="warning",
+                table_columns=("Suggestion", "Summary"),
+                table_rows=self._unknown_command_rows(suggestions),
             )
             return
 
@@ -867,13 +872,20 @@ class TrinityTextualApp(App[None]):
         args = list(parsed.args)
 
         if command in {"quit", "exit", "q"}:
-            self.exit()
+            self.push_screen(
+                ConfirmQuitModal(
+                    running=bool(getattr(self.workflow_controller, "is_running", False))
+                ),
+                self._on_quit_confirmed,
+            )
             return
         if command == "help":
             self._record_slash_command_result(
                 parsed.spec.name,
                 "Trinity Commands",
-                "\n".join(f"- `{name}`" for name in TRINITY_COMMANDS),
+                self._help_markdown(),
+                table_columns=("Command", "Category", "Agent Call", "Summary"),
+                table_rows=self._help_rows(),
             )
             return
         if command == "status":
@@ -893,48 +905,92 @@ class TrinityTextualApp(App[None]):
         if command == "questions":
             snapshot = self._refresh_textual_snapshot()
             select_requested = any(arg.lower() in {"--select", "-s"} for arg in args)
+            has_questions = bool(snapshot.questions)
             self._record_slash_command_result(
                 parsed.spec.name,
                 "Questions",
                 self._questions_select_markdown(snapshot)
                 if select_requested
                 else self._questions_markdown(snapshot),
+                empty=not has_questions,
+                action_hint=(
+                    "Use central panel buttons or `/answer <id|index|next> <answer>`."
+                    if has_questions
+                    else "Continue planning until the central agent raises a question."
+                ),
+                table_columns=("ID", "Status", "Question", "Options"),
+                table_rows=self._questions_rows(snapshot),
             )
             return
         if command == "decisions":
             snapshot = self._refresh_textual_snapshot()
-            body = "\n".join(f"- {item}" for item in snapshot.decisions)
+            has_decisions = bool(snapshot.decisions)
             self._record_slash_command_result(
                 parsed.spec.name,
                 "Decisions",
-                body or "No workflow decisions recorded.",
+                self._decisions_markdown(snapshot),
+                empty=not has_decisions,
+                action_hint=(
+                    "Answer pending questions with `/answer` to add decisions."
+                    if not has_decisions
+                    else ""
+                ),
+                table_columns=("#", "Decision"),
+                table_rows=self._decisions_rows(snapshot),
             )
             return
         if command == "packages":
             snapshot = self._refresh_textual_snapshot()
-            body = "\n".join(f"- {item}" for item in snapshot.work_packages)
+            has_packages = bool(snapshot.work_packages or snapshot.central_work_packages)
             self._record_slash_command_result(
                 parsed.spec.name,
                 "Packages",
-                body or "No workflow work packages generated.",
+                self._packages_markdown(snapshot),
+                empty=not has_packages,
+                action_hint=(
+                    "Finish planning until a blueprint or local WP graph is generated."
+                    if not has_packages
+                    else ""
+                ),
+                table_columns=("#", "Source", "Package"),
+                table_rows=self._packages_rows(snapshot),
             )
             return
         if command == "subtasks":
+            snapshot = self._refresh_textual_snapshot()
+            has_subtasks = bool(snapshot.subtasks)
             self._record_slash_command_result(
                 parsed.spec.name,
                 "Subtasks",
-                "Subtask details are available in workflow reports when recorded.",
+                self._subtasks_markdown(snapshot),
+                empty=not has_subtasks,
+                action_hint=(
+                    "Subtasks appear after an executing provider reports delegated work."
+                    if not has_subtasks
+                    else ""
+                ),
+                table_columns=("ID", "Package", "Delegated To", "Status", "Summary"),
+                table_rows=self._subtasks_rows(snapshot),
             )
             return
         if command == "context":
             self._handle_textual_context_command(parsed.spec.name)
             return
         if command == "history":
+            snapshot = self._refresh_textual_snapshot()
+            history_rows = self._history_rows(snapshot)
             self._record_slash_command_result(
                 parsed.spec.name,
                 "History",
-                "Textual session history is shown in the central agent timeline.",
-                empty=True,
+                self._history_markdown(snapshot, history_rows),
+                empty=not history_rows,
+                action_hint=(
+                    "Run a prompt, execute a workflow, or use local slash commands first."
+                    if not history_rows
+                    else ""
+                ),
+                table_columns=("Kind", "Item"),
+                table_rows=history_rows,
             )
             return
         if command == "report":
@@ -967,10 +1023,28 @@ class TrinityTextualApp(App[None]):
             return
         if command == "execute":
             outcome = self.workflow_controller.request_execution(" ".join(args))
+            message = outcome.message
+            if message:
+                outcome = replace(outcome, message="")
             self._apply_workflow_outcome(outcome)
+            if message:
+                self._record_slash_command_result(
+                    parsed.spec.name,
+                    "Execute",
+                    message,
+                    severity="warning",
+                    empty=True,
+                    action_hint=(
+                        "Finish planning first, then run `/execute` from Nexus."
+                    ),
+                )
             if outcome.target_workspace_required:
                 self._open_execute_workspace_picker(outcome.snapshot)
             return
+
+    def _on_quit_confirmed(self, confirmed: bool | None) -> None:
+        if confirmed:
+            self.exit()
 
     def _refresh_textual_snapshot(self) -> WorkflowNexusSnapshot:
         """Load and apply the current workflow snapshot."""
@@ -1166,6 +1240,75 @@ class TrinityTextualApp(App[None]):
         return readiness
 
     @staticmethod
+    def _slash_command_suggestions(token: str) -> tuple[str, ...]:
+        names = tuple(name for spec in COMMAND_SPECS for name in spec.names)
+        return tuple(get_close_matches(token.lower(), names, n=3, cutoff=0.45))
+
+    @staticmethod
+    def _unknown_command_markdown(token: str, suggestions: tuple[str, ...]) -> str:
+        lines = [f"`{token}` is not a Trinity slash command."]
+        if suggestions:
+            lines.extend(["", "Did you mean:"])
+            lines.extend(f"- `{name}`" for name in suggestions)
+        else:
+            lines.extend(["", "Run `/help` to see Trinity-owned commands."])
+        return "\n".join(lines)
+
+    @staticmethod
+    def _unknown_command_rows(
+        suggestions: tuple[str, ...],
+    ) -> tuple[tuple[str, str], ...]:
+        summary_by_name = {
+            name: spec.summary
+            for spec in COMMAND_SPECS
+            for name in spec.names
+        }
+        return tuple((name, summary_by_name.get(name, "")) for name in suggestions)
+
+    def _help_markdown(self) -> str:
+        """Return registry-backed help text for Trinity-owned slash commands."""
+        category_counts: dict[str, int] = {}
+        for spec in COMMAND_SPECS:
+            category = spec.category.value
+            category_counts[category] = category_counts.get(category, 0) + 1
+        lines = [
+            "Trinity-owned slash commands are handled before provider prompts.",
+            "Local UI, settings, and file commands do not call agents.",
+            "",
+            "### Categories",
+        ]
+        lines.extend(
+            f"- `{category}`: {count}"
+            for category, count in sorted(category_counts.items())
+        )
+        lines.extend(
+            [
+                "",
+                "Use Tab to complete a command without running it. "
+                "Use Enter to run an exact command.",
+            ]
+        )
+        return "\n".join(lines)
+
+    def _help_rows(self) -> tuple[tuple[str, str, str, str], ...]:
+        """Return slash command registry rows for read-only help tables."""
+        rows: list[tuple[str, str, str, str]] = []
+        use_korean = self.config.lang == "ko"
+        for spec in COMMAND_SPECS:
+            command = spec.name
+            if spec.aliases:
+                command = f"{command} ({', '.join(spec.aliases)})"
+            rows.append(
+                (
+                    command,
+                    spec.category.value,
+                    spec.agent_call.value,
+                    spec.summary_ko if use_korean else spec.summary,
+                )
+            )
+        return tuple(rows)
+
+    @staticmethod
     def _snapshot_workflow_markdown(snapshot: WorkflowNexusSnapshot) -> str:
         state = snapshot.state or "idle"
         goal = snapshot.goal or "(none)"
@@ -1178,6 +1321,7 @@ class TrinityTextualApp(App[None]):
                 f"- Pending questions: `{len(snapshot.questions)}`",
                 f"- Decisions: `{len(snapshot.decisions)}`",
                 f"- Work packages: `{len(snapshot.work_packages)}`",
+                f"- Subtasks: `{len(snapshot.subtasks)}`",
                 f"- Local policy repairs: `{len(snapshot.work_package_repairs)}`",
                 f"- Execution log entries: `{len(snapshot.execution_log)}`",
             ]
@@ -1195,6 +1339,7 @@ class TrinityTextualApp(App[None]):
             ("Pending questions", str(len(snapshot.questions))),
             ("Decisions", str(len(snapshot.decisions))),
             ("Work packages", str(len(snapshot.work_packages))),
+            ("Subtasks", str(len(snapshot.subtasks))),
             ("Local policy repairs", str(len(snapshot.work_package_repairs))),
             ("Execution log entries", str(len(snapshot.execution_log))),
         )
@@ -1211,6 +1356,7 @@ class TrinityTextualApp(App[None]):
             or snapshot.decisions
             or snapshot.central_work_packages
             or snapshot.work_packages
+            or snapshot.subtasks
             or snapshot.work_package_repairs
             or snapshot.execution_log
         )
@@ -1246,6 +1392,16 @@ class TrinityTextualApp(App[None]):
         if packages:
             lines.extend(["", "### Work Packages"])
             lines.extend(f"- {item}" for item in packages)
+        if snapshot.subtasks:
+            lines.extend(["", "### Subtasks"])
+            for subtask in snapshot.subtasks:
+                summary = subtask.result_summary or subtask.objective
+                lines.append(
+                    f"- **{subtask.id or '(unnamed)'}** "
+                    f"[{subtask.status}] "
+                    f"{subtask.parent_package_id or '(no package)'} -> "
+                    f"{subtask.delegated_to or '(unknown)'}: {summary}"
+                )
         if snapshot.work_package_repairs:
             lines.extend(["", "### Local Policy Repairs"])
             lines.extend(f"- {item}" for item in snapshot.work_package_repairs)
@@ -1294,6 +1450,128 @@ class TrinityTextualApp(App[None]):
             lines.append("Use `/answer <id|index|next> <answer>`.")
         return "\n".join(lines)
 
+    @staticmethod
+    def _questions_rows(
+        snapshot: WorkflowNexusSnapshot,
+    ) -> tuple[tuple[str, str, str, str], ...]:
+        return tuple(
+            (
+                question.id,
+                question.status or "open",
+                question.question,
+                ", ".join(question.options) if question.options else "(free text)",
+            )
+            for question in snapshot.questions
+        )
+
+    @staticmethod
+    def _decisions_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+        if not snapshot.decisions:
+            return "No workflow decisions recorded in the current session."
+        return "\n".join(
+            f"{index}. {decision}"
+            for index, decision in enumerate(snapshot.decisions, start=1)
+        )
+
+    @staticmethod
+    def _decisions_rows(
+        snapshot: WorkflowNexusSnapshot,
+    ) -> tuple[tuple[str, str], ...]:
+        return tuple(
+            (str(index), decision)
+            for index, decision in enumerate(snapshot.decisions, start=1)
+        )
+
+    @staticmethod
+    def _packages_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+        rows = TrinityTextualApp._packages_rows(snapshot)
+        if not rows:
+            return "No workflow work packages generated in the current session."
+        lines = []
+        for index, source, package in rows:
+            lines.append(f"{index}. **{source}** {package}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _packages_rows(
+        snapshot: WorkflowNexusSnapshot,
+    ) -> tuple[tuple[str, str, str], ...]:
+        rows: list[tuple[str, str, str]] = []
+        for package in snapshot.central_work_packages:
+            rows.append((str(len(rows) + 1), "central", package))
+        for package in snapshot.work_packages:
+            rows.append((str(len(rows) + 1), "local", package))
+        return tuple(rows)
+
+    @staticmethod
+    def _subtasks_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+        if not snapshot.subtasks:
+            return "No provider delegation subtasks recorded in the current session."
+        lines = []
+        for index, subtask in enumerate(snapshot.subtasks, start=1):
+            summary = subtask.result_summary or subtask.objective
+            lines.append(
+                f"{index}. **{subtask.id or '(unnamed)'}** "
+                f"[{subtask.status}] "
+                f"{subtask.parent_package_id or '(no package)'} -> "
+                f"{subtask.delegated_to or '(unknown)'}: {summary}"
+            )
+        return "\n".join(lines)
+
+    @staticmethod
+    def _subtasks_rows(
+        snapshot: WorkflowNexusSnapshot,
+    ) -> tuple[tuple[str, str, str, str, str], ...]:
+        return tuple(
+            (
+                subtask.id or "(unnamed)",
+                subtask.parent_package_id or "(none)",
+                subtask.delegated_to or "(unknown)",
+                subtask.status,
+                subtask.result_summary or subtask.objective or "(none)",
+            )
+            for subtask in snapshot.subtasks
+        )
+
+    def _history_rows(
+        self,
+        snapshot: WorkflowNexusSnapshot,
+    ) -> tuple[tuple[str, str], ...]:
+        rows: list[tuple[str, str]] = []
+        if snapshot.session_id or snapshot.goal:
+            rows.append(("Workflow", snapshot.session_id or "(new)"))
+            rows.append(("State", snapshot.state or "idle"))
+            rows.append(("Round", str(snapshot.round_num)))
+            if snapshot.goal:
+                rows.append(("Goal", snapshot.goal))
+        for command in self._local_command_results[-10:]:
+            rows.append(("Local command", f"{command.command} - {command.title}"))
+        for entry in snapshot.execution_log[-10:]:
+            rows.append(("Execution", entry))
+        return tuple(rows)
+
+    @staticmethod
+    def _history_markdown(
+        snapshot: WorkflowNexusSnapshot,
+        rows: tuple[tuple[str, str], ...],
+    ) -> str:
+        if not rows:
+            return "No local history recorded in this Textual session."
+        lines = [
+            f"- Workflow: `{snapshot.session_id or '(new)'}`",
+            f"- State: `{snapshot.state or 'idle'}`",
+            f"- Round: `{snapshot.round_num}`",
+        ]
+        if snapshot.goal:
+            lines.append(f"- Goal: {snapshot.goal}")
+        if snapshot.execution_log:
+            lines.extend(["", "### Recent Execution Log"])
+            lines.extend(f"- {entry}" for entry in snapshot.execution_log[-10:])
+        if rows:
+            lines.extend(["", "### Recent Local Items"])
+            lines.extend(f"- **{kind}**: {item}" for kind, item in rows[-12:])
+        return "\n".join(lines)
+
     def _handle_textual_context_command(self, command: str) -> None:
         """Show the current session context without reading stale shared.md state."""
         snapshot = self._current_textual_snapshot()
@@ -1321,20 +1599,69 @@ class TrinityTextualApp(App[None]):
     def _handle_textual_report_command(self, args: list[str]) -> None:
         snapshot = self._refresh_textual_snapshot()
         if args and args[0].lower() in {"save", "s"}:
-            self._export_report_markdown(snapshot)
-            return
-        if not snapshot_has_report_data(snapshot):
-            self.notify(
-                "No workflow data available for a report.",
-                title="Report",
-                severity="warning",
+            path = self._export_report_markdown(snapshot)
+            if path is None:
+                self._record_slash_command_result(
+                    "/report",
+                    "Report",
+                    "No workflow data available to export.",
+                    severity="warning",
+                    empty=True,
+                    action_hint="Start or resume a workflow before exporting a report.",
+                )
+                return
+            self._record_slash_command_result(
+                "/report",
+                "Report",
+                f"Report saved: `{path}`",
+                result_kind="path",
+                table_columns=("Item", "Value"),
+                table_rows=(("Path", str(path)),),
             )
             return
+        if not snapshot_has_report_data(snapshot):
+            self._record_slash_command_result(
+                "/report",
+                "Report",
+                "No workflow data available for a report.",
+                severity="warning",
+                empty=True,
+                action_hint="Start or resume a workflow before opening a report.",
+            )
+            return
+        self._record_slash_command_result(
+            "/report",
+            "Report",
+            "Report screen opened.",
+            table_columns=("Item", "Value"),
+            table_rows=(
+                ("Workflow", snapshot.session_id or "(new)"),
+                ("State", snapshot.state or "idle"),
+                ("Questions", str(len(snapshot.questions))),
+                ("Decisions", str(len(snapshot.decisions))),
+                (
+                    "Work packages",
+                    str(len(snapshot.central_work_packages) + len(snapshot.work_packages)),
+                ),
+                ("Subtasks", str(len(snapshot.subtasks))),
+            ),
+            start_modal=False,
+        )
         self.switch_to("report")
 
     @staticmethod
     def _session_setting_body(message: str) -> str:
         return f"{message}\n\n{SESSION_ONLY_SETTING_NOTICE}"
+
+    def _agent_rows(self) -> tuple[tuple[str, str, str], ...]:
+        return tuple(
+            (
+                name,
+                "yes" if spec.enabled else "no",
+                spec.provider.value if hasattr(spec.provider, "value") else str(spec.provider),
+            )
+            for name, spec in sorted(self.config.agents.items())
+        )
 
     def _handle_textual_rounds_command(
         self,
@@ -1348,6 +1675,12 @@ class TrinityTextualApp(App[None]):
                 self._session_setting_body(
                     f"Current max rounds: `{self.config.max_deliberation_rounds}`."
                 ),
+                table_columns=("Item", "Value"),
+                table_rows=(
+                    ("Current max rounds", str(self.config.max_deliberation_rounds)),
+                    ("Allowed range", "1..20"),
+                ),
+                action_hint="Use `/rounds <1..20>` to change it for this session.",
             )
             return
         try:
@@ -1358,6 +1691,7 @@ class TrinityTextualApp(App[None]):
                 "Rounds",
                 "Invalid number.",
                 severity="warning",
+                action_hint="Use `/rounds <1..20>`.",
             )
             return
         if rounds < 1 or rounds > 20:
@@ -1366,6 +1700,7 @@ class TrinityTextualApp(App[None]):
                 "Rounds",
                 "Rounds must be between 1 and 20.",
                 severity="warning",
+                action_hint="Use `/rounds <1..20>`.",
             )
             return
         self.config.max_deliberation_rounds = rounds
@@ -1375,6 +1710,11 @@ class TrinityTextualApp(App[None]):
             self._session_setting_body(
                 f"Max rounds set to `{rounds}` for this session only."
             ),
+            table_columns=("Item", "Value"),
+            table_rows=(
+                ("Current max rounds", str(self.config.max_deliberation_rounds)),
+                ("Allowed range", "1..20"),
+            ),
         )
 
     def _handle_textual_agent_command(
@@ -1382,12 +1722,24 @@ class TrinityTextualApp(App[None]):
         command_name: str,
         args: list[str],
     ) -> None:
+        if not args:
+            self._record_slash_command_result(
+                command_name,
+                "Agent",
+                self._session_setting_body("Current agent session settings."),
+                table_columns=("Agent", "Enabled", "Provider"),
+                table_rows=self._agent_rows(),
+                action_hint="Use `/agent <name> on|off` to change one agent.",
+            )
+            return
         if len(args) < 2:
             self._record_slash_command_result(
                 command_name,
                 "Agent",
                 "Usage: `/agent <name> on|off`",
                 severity="warning",
+                table_columns=("Agent", "Enabled", "Provider"),
+                table_rows=self._agent_rows(),
             )
             return
         name, action = args[0].lower(), args[1].lower()
@@ -1398,6 +1750,8 @@ class TrinityTextualApp(App[None]):
                 "Agent",
                 f"Unknown agent: `{name}`",
                 severity="warning",
+                table_columns=("Agent", "Enabled", "Provider"),
+                table_rows=self._agent_rows(),
             )
             return
         if action not in {"on", "off"}:
@@ -1406,6 +1760,8 @@ class TrinityTextualApp(App[None]):
                 "Agent",
                 "Usage: `/agent <name> on|off`",
                 severity="warning",
+                table_columns=("Agent", "Enabled", "Provider"),
+                table_rows=self._agent_rows(),
             )
             return
         spec.enabled = action == "on"
@@ -1416,6 +1772,8 @@ class TrinityTextualApp(App[None]):
             self._session_setting_body(
                 f"Agent `{name}` {status} for this session only."
             ),
+            table_columns=("Agent", "Enabled", "Provider"),
+            table_rows=self._agent_rows(),
         )
 
     def _handle_textual_caveman_command(
@@ -1431,6 +1789,13 @@ class TrinityTextualApp(App[None]):
                 self._session_setting_body(
                     f"Caveman: `{mode}` (`{self.config.caveman_intensity}`)."
                 ),
+                table_columns=("Item", "Value"),
+                table_rows=(
+                    ("Mode", mode),
+                    ("Intensity", self.config.caveman_intensity),
+                    ("Allowed", "on, off, lite, full, ultra"),
+                ),
+                action_hint="Use `/caveman <mode>` to change it for this session.",
             )
             return
         action = args[0].lower()
@@ -1447,6 +1812,7 @@ class TrinityTextualApp(App[None]):
                 "Caveman",
                 "Use: /caveman [on|off|lite|full|ultra]",
                 severity="warning",
+                action_hint="Allowed modes: on, off, lite, full, ultra.",
             )
             return
         mode = "on" if self.config.caveman_mode else "off"
@@ -1456,6 +1822,12 @@ class TrinityTextualApp(App[None]):
             self._session_setting_body(
                 f"Caveman set to `{mode}` (`{self.config.caveman_intensity}`) "
                 "for this session only."
+            ),
+            table_columns=("Item", "Value"),
+            table_rows=(
+                ("Mode", mode),
+                ("Intensity", self.config.caveman_intensity),
+                ("Allowed", "on, off, lite, full, ultra"),
             ),
         )
 
@@ -1500,7 +1872,13 @@ class TrinityTextualApp(App[None]):
         if not args:
             archives = self.workflow_controller.list_resume_options()
             if not archives:
-                self.notify("No saved workflow sessions to resume.", title="Resume")
+                self._record_slash_command_result(
+                    "/resume",
+                    "Resume",
+                    "No saved workflow sessions to resume.",
+                    empty=True,
+                    action_hint="Start and archive a workflow before using `/resume`.",
+                )
                 return
             self.push_screen(
                 ResumeWorkflowPicker(archives, lang=self.config.lang),
@@ -1517,18 +1895,29 @@ class TrinityTextualApp(App[None]):
 
     def _resume_textual_workflow(self, selector: str) -> None:
         outcome = self.workflow_controller.resume_workflow(selector)
+        message = outcome.message
         if outcome.message:
-            severity = "warning" if outcome.message.startswith("No ") else "information"
-            self.notify(outcome.message, title="Resume", severity=severity)
             outcome = replace(outcome, message="")
         self._apply_workflow_outcome(outcome)
+        if message:
+            failed = message.startswith("No ")
+            self._record_slash_command_result(
+                "/resume",
+                "Resume",
+                message,
+                severity="warning" if failed else "info",
+                empty=failed,
+            )
 
     def _handle_textual_answer_command(self, args: list[str]) -> None:
         if not args:
-            self.notify(
+            self._record_slash_command_result(
+                "/answer",
+                "Answer",
                 "Usage: /answer <question-id|index|next> <answer>",
-                title="Answer",
                 severity="warning",
+                empty=True,
+                action_hint="Run `/questions` to inspect pending questions first.",
             )
             return
         replace = False
@@ -1539,10 +1928,13 @@ class TrinityTextualApp(App[None]):
             else:
                 filtered.append(arg)
         if not filtered:
-            self.notify(
+            self._record_slash_command_result(
+                "/answer",
+                "Answer",
                 "Usage: /answer <question-id|index|next> <answer>",
-                title="Answer",
                 severity="warning",
+                empty=True,
+                action_hint="Run `/questions` to inspect pending questions first.",
             )
             return
         if len(filtered) == 1 and filtered[0].isdigit():
@@ -1562,7 +1954,18 @@ class TrinityTextualApp(App[None]):
                 " ".join(filtered[1:]),
                 replace=replace,
             )
+        message = outcome.message
+        if message:
+            outcome = replace(outcome, message="")
         self._apply_workflow_outcome(outcome)
+        if message:
+            self._record_slash_command_result(
+                "/answer",
+                "Answer",
+                message,
+                severity="warning" if message.startswith("No ") else "info",
+                empty=message.startswith("No "),
+            )
 
     def _advance_activity_frame(self) -> None:
         if self.current_route == "nexus" and self._screens_installed:
@@ -1628,7 +2031,7 @@ class TrinityTextualApp(App[None]):
         )
         self._export_report_markdown(snapshot)
 
-    def _export_report_markdown(self, snapshot: WorkflowNexusSnapshot) -> None:
+    def _export_report_markdown(self, snapshot: WorkflowNexusSnapshot) -> Path | None:
         """Save a report as Markdown using the shared DeliberationReport builder."""
         from trinity.tui.report import DeliberationReportBuilder
         from trinity.workflow import WorkflowPersistence
@@ -1651,12 +2054,13 @@ class TrinityTextualApp(App[None]):
                 title="Export Unavailable",
                 severity="warning",
             )
-            return
+            return None
 
         filepath.write_text(markdown, encoding="utf-8")
         if self._screens_installed:
             self.get_screen("report", ReportScreen).show_export_path(filepath)
         self.notify(f"Report saved: {filepath}", title="Export Complete")
+        return filepath
 
 
 def run_textual_app(config: TrinityConfig) -> None:

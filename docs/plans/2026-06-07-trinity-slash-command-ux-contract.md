@@ -4,7 +4,7 @@
 
 대상 버전: Trinity v0.10.3+
 
-상태: 구현 전 UX 계약 초안
+상태: 구현 진행 중
 
 ## 목적
 
@@ -137,6 +137,12 @@ cache command는 이 UX 계약의 범위가 아니다.
 일반 조회 명령은 Start에서 modal로 표시되고, `/save`, `/target` 같은 기존 toast-only
 명령은 Nexus central result에 기록된다.
 
+2026-06-07 추가 진행: 조회 명령과 설정/오류 명령을 같은 result model에 맞췄다.
+`/help`, `/questions`, `/decisions`, `/packages`, `/subtasks`, `/history`, `/report`는
+본문, empty state, action hint, read-only table을 함께 남긴다. `/subtasks`는
+`WorkflowSession.subtask_results`와 execution result 내부 `subtasks`를 snapshot에 투영한다.
+`/report save`는 저장 경로를 result table에도 남긴다.
+
 ### 2. Start modal 표준화
 
 - `/help`, `/workflow`, `/decisions`, `/packages`, `/subtasks`, `/history`용 generic local command modal을 만든다.
@@ -154,10 +160,18 @@ cache command는 이 UX 계약의 범위가 아니다.
 - `/help`, `/workflow`, `/questions`, `/decisions`, `/packages`, `/subtasks`, `/history`, `/report`를 먼저 정리한다.
 - 모든 조회 명령은 Start/Nexus에서 에이전트 호출이 없어야 한다.
 
+진행 상태: 구현 완료. `/history`는 현재 Textual 세션의 workflow/local command/execution log만
+표시하며, 이전 archive 복원은 `/resume`으로 분리했다. report data가 없거나 subtask가 없는
+경우도 조용히 실패하지 않고 empty result를 남긴다.
+
 ### 5. 설정 명령 일괄 보강
 
 - `/rounds`, `/agent`, `/caveman`의 no-arg 상태 표시와 arg 변경 결과를 같은 UI 계약으로 맞춘다.
 - config 파일 미저장 안내를 공통 문구로 유지한다.
+
+진행 상태: 구현 완료. 세 명령 모두 no-arg 조회와 변경 결과에서 현재 값 table을 보여주며,
+`SESSION_ONLY_SETTING_NOTICE`를 유지한다. `/agent` no-arg는 usage 오류가 아니라 agent 목록을
+표시한다.
 
 ### 6. workflow-local 명령 보강
 
@@ -169,6 +183,13 @@ cache command는 이 UX 계약의 범위가 아니다.
 - `/execute`의 blueprint/target/running state별 메시지를 고정한다.
 - `/quit` alias는 종료 확인 UX를 통일한다.
 - unknown command는 후보 추천을 추가한다.
+
+진행 상태: 1차 구현 완료. `/execute` 준비 실패, `/answer` usage 오류, `/resume` empty/failure는
+toast-only가 아니라 local command result로 남는다. unknown command는 가까운 Trinity command
+후보를 제안한다. Textual `/quit`, `/exit`, `/q`는 `ConfirmQuitModal`을 통해 확인 후 종료한다.
+
+남은 보강: `/target <path>`의 control repo guardrail 확인 UI와 `/resume` 상세 UX는 별도 단계에서
+더 세밀하게 정의한다.
 
 ## 회귀 테스트 기준
 

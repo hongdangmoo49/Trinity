@@ -130,6 +130,16 @@ class CentralAgentView(VerticalScroll):
             )
             lines.extend(["", heading])
             lines.extend(f"- {item}" for item in snapshot.work_packages)
+        if snapshot.subtasks:
+            lines.extend(["", "### Subtasks"])
+            for subtask in snapshot.subtasks:
+                summary = subtask.result_summary or subtask.objective
+                lines.append(
+                    f"- **{subtask.id or '(unnamed)'}** "
+                    f"[{subtask.status}] "
+                    f"{subtask.parent_package_id or '(no package)'} -> "
+                    f"{subtask.delegated_to or '(unknown)'}: {summary}"
+                )
         if snapshot.work_package_repairs:
             lines.extend(["", "### Local Policy Repairs"])
             lines.extend(f"- {item}" for item in snapshot.work_package_repairs)

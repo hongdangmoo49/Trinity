@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from textual import events
 from textual.containers import VerticalScroll
@@ -31,6 +33,7 @@ from trinity.textual_app.snapshot import (
     LocalCommandSnapshot,
     ProviderSnapshot,
     QuestionSnapshot,
+    SubtaskSnapshot,
     SynthesisSnapshot,
     WorkflowNexusSnapshot,
 )
@@ -41,6 +44,7 @@ from trinity.textual_app.workflow_controller import (
 from trinity.tui.report import DeliberationReportBuilder
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.composer import COMMAND_LIMIT, ComposerTextArea, PromptComposer
+from trinity.textual_app.widgets.confirm_quit_modal import ConfirmQuitModal
 from trinity.textual_app.widgets.context_modal import ContextCommandModal
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
@@ -67,6 +71,7 @@ class FakeWorkflowController:
         self.option_answers: list[tuple[str, str, bool]] = []
         self.resumes: list[str] = []
         self.resume_options: list[TextualWorkflowArchiveOption] = []
+        self.execution_outcome: TextualWorkflowOutcome | None = None
         self.execution_requests = 0
         self.target_workspace = None
         self.target_cleared = False
@@ -135,6 +140,8 @@ class FakeWorkflowController:
 
     def request_execution(self, instruction: str = "") -> TextualWorkflowOutcome:
         self.execution_requests += 1
+        if self.execution_outcome is not None:
+            return self.execution_outcome
         return TextualWorkflowOutcome(
             self.current_snapshot,
             target_workspace_required=True,
@@ -779,6 +786,261 @@ async def test_nexus_save_and_target_commands_record_local_results(
         assert "Use `/target <path>`" in central._markdown()
         assert controller.started_prompts == []
         assert controller.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_start_slash_help_uses_registry_backed_local_modal(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/help ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert isinstance(app.screen, LocalCommandModal)
+        assert controller.started_prompts == []
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/help"
+        assert result.title == "Trinity Commands"
+        assert result.table_columns == (
+            "Command",
+            "Category",
+            "Agent Call",
+            "Summary",
+        )
+        assert any(row[0] == "/status" for row in result.table_rows)
+        assert "handled before provider prompts" in result.body
+
+
+@pytest.mark.asyncio
+async def test_nexus_lookup_commands_record_tables_from_current_snapshot(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-current",
+            goal="Build game",
+            state="reviewing",
+            questions=[
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Choose style?",
+                    options=["pixel", "flat"],
+                    status="open",
+                )
+            ],
+            decisions=["Use pixel art."],
+            central_work_packages=["WP-001 claude: Plan systems (deps=-; files=-)"],
+            work_packages=["WP-001 claude: Plan systems (done)"],
+            subtasks=[
+                SubtaskSnapshot(
+                    id="ST-001",
+                    parent_package_id="WP-001",
+                    parent_agent="claude",
+                    delegated_to="code-search",
+                    objective="Find patterns.",
+                    result_summary="Found registry.",
+                    status="done",
+                )
+            ],
+        )
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        for command in ("/questions", "/decisions", "/packages", "/subtasks"):
+            app._handle_textual_slash_command(command)
+            await pilot.pause()
+            result = app.active_snapshot.local_commands[-1]
+            assert result.command == command
+            assert result.table_columns
+            assert result.table_rows
+            assert result.empty is False
+
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert app.active_snapshot.local_commands[-1].table_rows[0][0] == "ST-001"
+
+
+@pytest.mark.asyncio
+async def test_nexus_empty_lookup_commands_record_empty_states(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/history")
+        await pilot.pause()
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/history"
+        assert result.empty is True
+        assert "No local history" in result.body
+
+        for command in ("/questions", "/decisions", "/packages", "/subtasks"):
+            app._handle_textual_slash_command(command)
+            await pilot.pause()
+            result = app.active_snapshot.local_commands[-1]
+            assert result.command == command
+            assert result.empty is True
+            assert result.table_rows == ()
+
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_nexus_report_without_data_records_empty_result(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/report")
+        await pilot.pause()
+
+        assert app.current_route == "nexus"
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/report"
+        assert result.title == "Report"
+        assert result.empty is True
+        assert "No workflow data available" in result.body
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_nexus_report_save_records_export_path(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-current",
+            goal="Build game",
+            state="done",
+            decisions=["Ship it."],
+        )
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/report save")
+        await pilot.pause()
+
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/report"
+        assert result.result_kind == "path"
+        assert result.table_rows
+        path = Path(result.table_rows[0][1])
+        assert path.exists()
+        assert path.read_text(encoding="utf-8").startswith("# Deliberation Report")
+
+
+@pytest.mark.asyncio
+async def test_nexus_setting_commands_show_current_tables(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config, controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        for command in ("/rounds", "/agent", "/caveman"):
+            app._handle_textual_slash_command(command)
+            await pilot.pause()
+            result = app.active_snapshot.local_commands[-1]
+            assert result.command == command
+            assert result.table_columns
+            assert result.table_rows
+            assert SESSION_ONLY_SETTING_NOTICE in result.body
+
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_nexus_resume_answer_and_execute_errors_record_local_results(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    controller.execution_outcome = TextualWorkflowOutcome(
+        controller.current_snapshot,
+        message="No blueprint is ready. Finish planning before execution.",
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        for command in ("/resume", "/answer", "/execute"):
+            app._handle_textual_slash_command(command)
+            await pilot.pause()
+            result = app.active_snapshot.local_commands[-1]
+            assert result.command == command
+            assert result.empty is True
+
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert controller.execution_requests == 1
+
+
+@pytest.mark.asyncio
+async def test_nexus_unknown_slash_suggests_close_commands(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/stats")
+        await pilot.pause()
+
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/stats"
+        assert result.title == "Unknown Command"
+        assert any(row[0] == "/status" for row in result.table_rows)
+        assert "/status" in result.body
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_start_quit_slash_uses_confirmation_modal(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/quit")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ConfirmQuitModal)
+        assert controller.started_prompts == []
+        app.screen.query_one("#cancel-quit", Button).press()
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert isinstance(app.screen, StartScreen)
 
 
 @pytest.mark.asyncio

@@ -51,6 +51,19 @@ class QuestionSnapshot:
 
 
 @dataclass(frozen=True)
+class SubtaskSnapshot:
+    """Projected provider-internal delegation result."""
+
+    id: str
+    parent_package_id: str
+    parent_agent: str
+    delegated_to: str
+    objective: str
+    result_summary: str
+    status: str
+
+
+@dataclass(frozen=True)
 class LocalCommandSnapshot:
     """A locally handled slash command result for Textual display."""
 
@@ -79,6 +92,7 @@ class WorkflowNexusSnapshot:
     decisions: list[str] = field(default_factory=list)
     central_work_packages: list[str] = field(default_factory=list)
     work_packages: list[str] = field(default_factory=list)
+    subtasks: list[SubtaskSnapshot] = field(default_factory=list)
     work_package_repairs: list[str] = field(default_factory=list)
     execution_log: list[str] = field(default_factory=list)
     local_commands: list[LocalCommandSnapshot] = field(default_factory=list)
@@ -128,6 +142,7 @@ class NexusSnapshotAdapter:
             ]
             if session
             else [],
+            subtasks=self._subtasks(session),
             work_package_repairs=self._work_package_repairs(session),
             execution_log=self._execution_log(session),
         )
@@ -150,6 +165,48 @@ class NexusSnapshotAdapter:
             for note in package.repair_notes:
                 repairs.append(f"{package.id}: {note}")
         return repairs
+
+    @staticmethod
+    def _subtasks(session: WorkflowSession | None) -> list[SubtaskSnapshot]:
+        if session is None:
+            return []
+
+        subtasks: list[SubtaskSnapshot] = []
+        seen: set[tuple[str, str, str]] = set()
+
+        def add(subtask: object) -> None:
+            subtask_id = str(getattr(subtask, "id", "")).strip()
+            parent_package_id = str(
+                getattr(subtask, "parent_package_id", "")
+            ).strip()
+            parent_agent = str(getattr(subtask, "parent_agent", "")).strip()
+            key = (subtask_id, parent_package_id, parent_agent)
+            if key in seen:
+                return
+            seen.add(key)
+            status = getattr(getattr(subtask, "status", ""), "value", "")
+            if not status:
+                status = getattr(subtask, "status", "")
+            subtasks.append(
+                SubtaskSnapshot(
+                    id=subtask_id,
+                    parent_package_id=parent_package_id,
+                    parent_agent=parent_agent,
+                    delegated_to=str(getattr(subtask, "delegated_to", "")).strip(),
+                    objective=str(getattr(subtask, "objective", "")).strip(),
+                    result_summary=str(
+                        getattr(subtask, "result_summary", "")
+                    ).strip(),
+                    status=str(status).strip() or "unknown",
+                )
+            )
+
+        for subtask in session.subtask_results:
+            add(subtask)
+        for result in session.execution_results:
+            for subtask in result.subtasks:
+                add(subtask)
+        return subtasks
 
     @staticmethod
     def _format_central_package(package: object) -> str:

@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 
 from trinity.config import TrinityConfig
+from trinity.context.shared import SharedContextEngine
 from trinity.textual_app.snapshot import NexusSnapshotAdapter
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workflow import (
@@ -32,6 +33,21 @@ def test_snapshot_loads_provider_defaults_without_workflow(tmp_path) -> None:
     ]
     assert snapshot.providers[0].status == "Queued"
     assert snapshot.providers[1].status == "Disabled"
+
+
+def test_snapshot_does_not_project_stale_agreed_conclusion_without_workflow(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    SharedContextEngine(config.shared_context_path).update_consensus(
+        "Old agreed conclusion from a previous run."
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert snapshot.state == "idle"
+    assert snapshot.synthesis.summary == ""
+    assert snapshot.synthesis.consensus_progress == ""
 
 
 def test_snapshot_projects_persisted_workflow(tmp_path) -> None:

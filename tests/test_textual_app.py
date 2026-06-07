@@ -36,6 +36,7 @@ from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
+from trinity.textual_app.widgets.status_modal import StatusCommandModal
 from trinity.textual_app.widgets.workspace_picker import WorkspacePicker, build_preflight
 from trinity.workflow import (
     WorkPackage,
@@ -494,7 +495,19 @@ async def test_start_composer_enter_key_submits_prompt(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_start_slash_status_does_not_start_workflow(tmp_path) -> None:
-    controller = FakeWorkflowController()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            providers=[
+                ProviderSnapshot(
+                    name="claude",
+                    provider="claude-code",
+                    enabled=True,
+                    status="Queued",
+                    readiness="unknown",
+                )
+            ]
+        )
+    )
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
 
     async with app.run_test(size=(100, 30)) as pilot:
@@ -507,7 +520,7 @@ async def test_start_slash_status_does_not_start_workflow(tmp_path) -> None:
         await pilot.pause()
 
         assert app.current_route == "start"
-        assert isinstance(app.screen, StartScreen)
+        assert isinstance(app.screen, StatusCommandModal)
         assert controller.started_prompts == []
         assert controller.follow_ups == []
         assert composer.text == ""
@@ -516,6 +529,12 @@ async def test_start_slash_status_does_not_start_workflow(tmp_path) -> None:
         assert app.active_snapshot.local_commands[-1].title == "Status"
         assert app.active_snapshot.local_commands[-1].table_columns == ("Item", "Value")
         assert ("State", "idle") in app.active_snapshot.local_commands[-1].table_rows
+        assert any(
+            value.endswith("readiness=not checked")
+            for _, value in app.active_snapshot.local_commands[-1].table_rows
+        )
+        table = app.screen.query_one("#status-command-table", DataTable)
+        assert table.row_count > 0
 
 
 @pytest.mark.asyncio
@@ -568,7 +587,7 @@ async def test_nexus_slash_workflow_does_not_submit_followup(tmp_path) -> None:
         assert central.snapshot.local_commands[-1].command == "/workflow"
         assert central.snapshot.local_commands[-1].title == "Workflow"
         assert "Local Command Results" in central._markdown()
-        assert "`/workflow`" in central._markdown()
+        assert "#### /workflow - Workflow" in central._markdown()
 
 
 @pytest.mark.asyncio
@@ -596,14 +615,26 @@ async def test_nexus_unknown_slash_does_not_submit_followup(tmp_path) -> None:
         assert central.snapshot.local_commands[-1].command == "/not-a-command"
         assert central.snapshot.local_commands[-1].title == "Unknown Command"
         assert "Local Command Results" in central._markdown()
-        assert "`/not-a-command`" in central._markdown()
+        assert "#### /not-a-command - Unknown Command" in central._markdown()
 
 
 @pytest.mark.asyncio
 async def test_textual_session_setting_commands_are_local_session_only_results(
     tmp_path,
 ) -> None:
-    controller = FakeWorkflowController()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            providers=[
+                ProviderSnapshot(
+                    name="claude",
+                    provider="claude-code",
+                    enabled=True,
+                    status="Queued",
+                    readiness="unknown",
+                )
+            ]
+        )
+    )
     config = TrinityConfig.default_config(project_dir=tmp_path)
     app = TrinityTextualApp(config, controller)
 
@@ -1183,7 +1214,19 @@ async def test_central_agent_view_renders_local_command_tables(tmp_path) -> None
 async def test_textual_status_refresh_replaces_existing_local_command_table(
     tmp_path,
 ) -> None:
-    controller = FakeWorkflowController()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            providers=[
+                ProviderSnapshot(
+                    name="claude",
+                    provider="claude-code",
+                    enabled=True,
+                    status="Queued",
+                    readiness="unknown",
+                )
+            ]
+        )
+    )
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
 
     async with app.run_test(size=(120, 40)) as pilot:
@@ -1201,6 +1244,10 @@ async def test_textual_status_refresh_replaces_existing_local_command_table(
         assert controller.follow_ups == []
         assert app.active_snapshot is not None
         assert app.active_snapshot.local_commands[-1].command == "/status"
+        assert any(
+            value.endswith("readiness=not checked")
+            for _, value in app.active_snapshot.local_commands[-1].table_rows
+        )
         assert [
             command.command for command in app.active_snapshot.local_commands
         ].count("/status") == 1

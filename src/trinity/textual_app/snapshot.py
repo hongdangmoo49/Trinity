@@ -278,6 +278,9 @@ class NexusSnapshotAdapter:
         if event_synthesis is not None:
             return event_synthesis
 
+        if session is None or not self._has_workflow_context(session):
+            return SynthesisSnapshot()
+
         if round_num:
             section = self.shared.read_section(f"Round {round_num} Synthesis")
             if section:
@@ -307,6 +310,21 @@ class NexusSnapshotAdapter:
             )
 
         return SynthesisSnapshot()
+
+    @staticmethod
+    def _has_workflow_context(session: WorkflowSession) -> bool:
+        """Return whether a persisted session should project shared synthesis."""
+        return bool(
+            session.goal
+            or session.current_round
+            or session.active_agents
+            or session.blueprint
+            or session.open_questions
+            or session.decisions
+            or session.work_packages
+            or session.subtask_results
+            or session.review_packages
+        )
 
     def _round_num(
         self,

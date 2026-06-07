@@ -41,9 +41,13 @@
   - `/answer`, `/target`, `/resume`, `/rounds`, `/agent`, `/caveman`, `/report`의 Textual 1차 처리 추가
   - `/questions --select`는 Textual 중앙 질문 영역의 option button과 `/answer` 안내로 처리
   - `/rounds`, `/agent`, `/caveman` 결과를 notification에만 띄우지 않고 중앙 `Local Command Results`에 기록
+  - Start 화면의 `/status`는 toast 대신 status modal로 표시하고 workflow/Nexus 이동은 하지 않음
+  - Status readiness `unknown`은 사용자에게 `not checked`로 표시
 - `src/trinity/textual_app/snapshot.py`
   - `LocalCommandSnapshot`과 `WorkflowNexusSnapshot.local_commands` 추가
   - 조회 명령 결과의 구조화 렌더링을 위한 optional table column/row data 추가
+  - active workflow가 없는 idle snapshot에서는 이전 `shared.md`의 `Agreed Conclusion`을
+    현재 synthesis로 투영하지 않음
 - `src/trinity/textual_app/widgets/central_agent.py`
   - 로컬 slash command 결과를 Nexus 중앙 영역의 `Local Command Results` 섹션에 표시
   - table data가 포함된 로컬 명령 결과를 중앙 영역의 `DataTable` 위젯으로 렌더링
@@ -51,6 +55,9 @@
     테이블 위젯은 class 기반으로 렌더링
   - 같은 로컬 slash command는 이전 결과를 교체해 반복 `/status`가 동일한 표를 계속
     쌓지 않게 처리
+  - 로컬 command 제목은 inline-code 스타일을 제거해 클릭 가능한 버튼처럼 보이지 않게 렌더링
+- `src/trinity/textual_app/widgets/status_modal.py`
+  - Start 화면에서 쓰는 Textual-native status modal 추가
 - `src/trinity/textual_app/workflow_controller.py`
   - `/answer` option/replace, `/target clear`, `/resume`을 앱이 private method에 기대지 않도록
     public Textual controller API로 제공
@@ -96,6 +103,11 @@
 /home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/widgets/central_agent.py tests/test_textual_app.py
 /home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py::test_central_agent_view_renders_local_command_tables tests/test_textual_app.py::test_textual_status_refresh_replaces_existing_local_command_table -q
 /home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py -q
+/home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/app.py src/trinity/textual_app/snapshot.py src/trinity/textual_app/widgets/central_agent.py src/trinity/textual_app/widgets/status_modal.py tests/test_textual_app.py tests/test_textual_snapshot.py
+/home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py::test_start_slash_status_does_not_start_workflow tests/test_textual_app.py::test_nexus_slash_workflow_does_not_submit_followup tests/test_textual_app.py::test_nexus_unknown_slash_does_not_submit_followup tests/test_textual_app.py::test_textual_status_refresh_replaces_existing_local_command_table tests/test_textual_snapshot.py::test_snapshot_does_not_project_stale_agreed_conclusion_without_workflow -q
+/home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py tests/test_textual_snapshot.py -q
+/home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/app.py src/trinity/textual_app/snapshot.py src/trinity/textual_app/widgets/central_agent.py src/trinity/textual_app/widgets/status_modal.py tests/test_textual_app.py tests/test_textual_snapshot.py tests/test_slash_command_docs.py
+/home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py tests/test_textual_snapshot.py tests/test_slash_command_docs.py -q
 git diff --check
 /home/zaemi/.local/bin/uv run pytest -q
 ```
@@ -117,9 +129,12 @@ git diff --check
 - Plain/Textual/docs 대상 회귀: `136 passed in 26.22s`
 - Local command table 반복 렌더링 회귀: `2 passed in 2.06s`
 - Textual 전체 회귀: `54 passed in 26.02s`
+- Status UX/stale synthesis 대상 회귀: `5 passed in 2.53s`
+- Textual app/snapshot 회귀: `69 passed in 32.80s`
+- Textual/docs 회귀: `73 passed in 26.25s`
 - Ruff 대상 파일 검사 통과
 - `git diff --check` 통과
-- 전체 회귀: `1222 passed, 1 warning in 58.09s`
+- 전체 회귀: `1223 passed, 1 warning in 54.41s`
 
 ## 남은 작업
 

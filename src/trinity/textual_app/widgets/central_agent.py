@@ -110,7 +110,7 @@ class CentralAgentView(VerticalScroll):
             for item in snapshot.local_commands:
                 lines.extend(
                     [
-                        f"#### `{item.command}` · {item.title}",
+                        f"#### {item.command} - {item.title}",
                         item.body,
                     ]
                 )

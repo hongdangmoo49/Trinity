@@ -40,6 +40,7 @@ from trinity.textual_app.workflow_controller import (
 )
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
+from trinity.textual_app.widgets.status_modal import StatusCommandModal
 from trinity.textual_app.widgets.workspace_picker import (
     WorkspacePicker,
     WorkspacePreflight,
@@ -271,6 +272,31 @@ class TrinityTextualApp(App[None]):
     }
 
     .local-command-table {
+        height: auto;
+        margin-bottom: 1;
+    }
+
+    #status-command-modal {
+        width: 88;
+        max-width: 95%;
+        height: auto;
+        max-height: 85%;
+        border: round $primary;
+        background: $surface;
+        padding: 1 2;
+    }
+
+    #status-command-title {
+        text-style: bold;
+        color: $accent;
+        margin-bottom: 1;
+    }
+
+    #status-command-body {
+        margin-bottom: 1;
+    }
+
+    #status-command-table {
         height: auto;
         margin-bottom: 1;
     }
@@ -792,14 +818,8 @@ class TrinityTextualApp(App[None]):
             )
             return
         if command == "status":
-            snapshot = self._refresh_textual_snapshot()
-            self._record_slash_command_result(
-                parsed.spec.name,
-                "Status",
-                self._snapshot_status_markdown(snapshot),
-                table_columns=("Item", "Value"),
-                table_rows=self._snapshot_status_rows(snapshot),
-            )
+            snapshot = self._current_textual_snapshot()
+            self._show_textual_status(parsed.spec.name, snapshot)
             return
         if command == "workflow":
             snapshot = self._refresh_textual_snapshot()
@@ -892,13 +912,17 @@ class TrinityTextualApp(App[None]):
 
     def _refresh_textual_snapshot(self) -> WorkflowNexusSnapshot:
         """Load and apply the current workflow snapshot."""
-        snapshot = (
+        snapshot = self._current_textual_snapshot()
+        self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
+        return self.active_snapshot or snapshot
+
+    def _current_textual_snapshot(self) -> WorkflowNexusSnapshot:
+        """Return the current workflow snapshot without rendering it."""
+        return (
             self.active_snapshot
             or self.workflow_controller.snapshot()
             or self.snapshot_adapter.load_snapshot()
         )
-        self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
-        return self.active_snapshot or snapshot
 
     def _with_local_command_results(
         self,
@@ -921,18 +945,15 @@ class TrinityTextualApp(App[None]):
         table_rows: tuple[tuple[str, ...], ...] = (),
     ) -> None:
         """Record a local slash command result in the central Textual view."""
-        result = LocalCommandSnapshot(
-            command=command,
-            title=title,
-            body=body.strip() or "(no output)",
+        result = self._local_command_snapshot(
+            command,
+            title,
+            body,
             severity=severity,
             table_columns=table_columns,
             table_rows=table_rows,
         )
-        self._local_command_results = [
-            item for item in self._local_command_results if item.command != command
-        ]
-        self._local_command_results.append(result)
+        self._replace_local_command_result(result)
         snapshot = (
             self.workflow_controller.snapshot()
             or self.snapshot_adapter.load_snapshot()
@@ -940,6 +961,59 @@ class TrinityTextualApp(App[None]):
         self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
         notify_severity = "warning" if severity in {"warning", "error"} else "information"
         self.notify(title, title="Slash Command", severity=notify_severity)
+
+    def _show_textual_status(
+        self,
+        command: str,
+        snapshot: WorkflowNexusSnapshot,
+    ) -> None:
+        """Show status in the surface appropriate for the current Textual route."""
+        result = self._local_command_snapshot(
+            command,
+            "Status",
+            self._snapshot_status_markdown(snapshot),
+            table_columns=("Item", "Value"),
+            table_rows=self._snapshot_status_rows(snapshot),
+        )
+        self._replace_local_command_result(result)
+        snapshot = self._with_local_command_results(snapshot)
+        self.active_snapshot = snapshot
+        if self.current_route == "start":
+            self.push_screen(StatusCommandModal(result))
+            return
+        self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
+
+    def _local_command_snapshot(
+        self,
+        command: str,
+        title: str,
+        body: str,
+        *,
+        severity: str = "info",
+        table_columns: tuple[str, ...] = (),
+        table_rows: tuple[tuple[str, ...], ...] = (),
+    ) -> LocalCommandSnapshot:
+        """Build a local slash command result snapshot."""
+        return LocalCommandSnapshot(
+            command=command,
+            title=title,
+            body=body.strip() or "(no output)",
+            severity=severity,
+            table_columns=table_columns,
+            table_rows=table_rows,
+        )
+
+    def _replace_local_command_result(
+        self,
+        result: LocalCommandSnapshot,
+    ) -> None:
+        """Keep only the latest result for each local slash command."""
+        self._local_command_results = [
+            item
+            for item in self._local_command_results
+            if item.command != result.command
+        ]
+        self._local_command_results.append(result)
 
     @staticmethod
     def _snapshot_status_markdown(snapshot: WorkflowNexusSnapshot) -> str:
@@ -958,7 +1032,8 @@ class TrinityTextualApp(App[None]):
             lines.extend(
                 (
                     f"| {provider.name} | {'yes' if provider.enabled else 'no'} "
-                    f"| {provider.status} | {provider.readiness} |"
+                    f"| {provider.status} | "
+                    f"{TrinityTextualApp._readiness_label(provider.readiness)} |"
                 )
                 for provider in snapshot.providers
             )
@@ -983,11 +1058,17 @@ class TrinityTextualApp(App[None]):
                     (
                         f"{provider.status}; enabled="
                         f"{'yes' if provider.enabled else 'no'}; "
-                        f"readiness={provider.readiness}"
+                        f"readiness={TrinityTextualApp._readiness_label(provider.readiness)}"
                     ),
                 )
             )
         return tuple(rows)
+
+    @staticmethod
+    def _readiness_label(readiness: str) -> str:
+        if readiness == "unknown":
+            return "not checked"
+        return readiness
 
     @staticmethod
     def _snapshot_workflow_markdown(snapshot: WorkflowNexusSnapshot) -> str:

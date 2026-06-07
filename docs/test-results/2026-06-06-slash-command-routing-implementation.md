@@ -43,6 +43,9 @@
   - `/rounds`, `/agent`, `/caveman` 결과를 notification에만 띄우지 않고 중앙 `Local Command Results`에 기록
   - Start 화면의 `/status`는 toast 대신 status modal로 표시하고 workflow/Nexus 이동은 하지 않음
   - Status readiness `unknown`은 사용자에게 `not checked`로 표시
+  - `/context`는 더 이상 `.trinity/shared.md`를 읽지 않고 현재 `WorkflowNexusSnapshot`만 요약한다
+  - Start 화면의 `/context`는 현재 session 정보가 없으면 empty 안내만 표시하고, 정보가 있으면 중앙 modal로 표시한다
+  - Nexus 화면의 `/context`는 중앙 `Local Command Results`에 현재 session 요약 또는 empty 안내를 남긴다
 - `src/trinity/textual_app/snapshot.py`
   - `LocalCommandSnapshot`과 `WorkflowNexusSnapshot.local_commands` 추가
   - 조회 명령 결과의 구조화 렌더링을 위한 optional table column/row data 추가
@@ -60,12 +63,18 @@
 - `src/trinity/textual_app/widgets/status_modal.py`
   - Start 화면에서 쓰는 Textual-native status modal 추가
   - modal을 화면 중앙에 정렬하고 status rows를 선택 상태가 없는 plain text block으로 표시
+- `src/trinity/textual_app/widgets/context_modal.py`
+  - Start 화면에서 현재 session context를 표시하는 Textual-native modal 추가
+  - `/status` modal과 같은 중앙 정렬 원칙을 사용하고, workflow/Nexus 이동 없이 닫을 수 있게 처리
 - `src/trinity/textual_app/workflow_controller.py`
   - `/answer` option/replace, `/target clear`, `/resume`을 앱이 private method에 기대지 않도록
     public Textual controller API로 제공
   - Textual `/resume` modal을 위한 archive option projection 제공
 - `src/trinity/textual_app/widgets/resume_picker.py`
   - Textual-native workflow archive selector modal 추가
+- `src/trinity/tui/session.py`
+  - plain TUI `/context`도 shared context 파일 대신 현재 `workflow.session`의 goal/state/round/question/decision/package 요약을 표시
+  - 현재 session 정보가 없으면 panel 대신 empty 안내만 출력
 
 ## 에이전트 호출 정책 반영
 
@@ -115,6 +124,11 @@
 /home/zaemi/.local/bin/uv run pytest tests/test_slash_command_docs.py -q
 /home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/widgets/status_modal.py src/trinity/textual_app/widgets/central_agent.py tests/test_textual_app.py tests/test_slash_command_docs.py
 /home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py tests/test_slash_command_docs.py -q
+/home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/app.py src/trinity/textual_app/widgets/context_modal.py src/trinity/tui/session.py tests/test_textual_app.py tests/test_tui_session.py
+/home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py::test_start_slash_context_without_session_only_notifies tests/test_textual_app.py::test_start_slash_context_with_current_snapshot_shows_modal tests/test_textual_app.py::test_nexus_context_without_session_records_empty_message tests/test_textual_app.py::test_nexus_context_uses_current_snapshot_not_shared_file tests/test_tui_session.py::TestSessionCommands::test_cmd_context_uses_current_session_not_shared_file -q
+/home/zaemi/.local/bin/uvx ruff check src/trinity/slash_commands.py src/trinity/tui/app.py src/trinity/tui/session.py src/trinity/textual_app/app.py src/trinity/textual_app/widgets/context_modal.py tests/test_textual_app.py tests/test_tui_session.py tests/test_slash_command_docs.py
+/home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py::test_start_slash_context_without_session_only_notifies tests/test_textual_app.py::test_start_slash_context_with_current_snapshot_shows_modal tests/test_textual_app.py::test_nexus_context_without_session_records_empty_message tests/test_textual_app.py::test_nexus_context_uses_current_snapshot_not_shared_file tests/test_tui_session.py::TestSessionCommands::test_cmd_context_uses_current_session_not_shared_file tests/test_slash_command_docs.py -q
+/home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py tests/test_tui_session.py tests/test_slash_command_docs.py -q
 git diff --check
 /home/zaemi/.local/bin/uv run pytest -q
 ```
@@ -142,9 +156,12 @@ git diff --check
 - Textual/docs 회귀: `74 passed in 28.82s`
 - Slash command 문서 정합성 재검증: `4 passed in 0.04s`
 - Textual/docs 최신 회귀: `59 passed in 29.09s`
+- Context 현재 세션 요약 회귀: `5 passed in 2.35s`
+- Context/docs 대상 회귀: `9 passed in 3.05s`
+- Textual/plain slash/docs 회귀: `143 passed in 33.89s`
 - Ruff 대상 파일 검사 통과
 - `git diff --check` 통과
-- 전체 회귀: `1224 passed, 1 warning in 55.31s`
+- 전체 회귀: `1229 passed, 1 warning in 69.16s`
 
 ## 남은 작업
 

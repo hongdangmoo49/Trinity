@@ -230,7 +230,7 @@ the current Textual Workbench palette limitations, use the
 | :--- | :--- |
 | `<text>` | Ask agents to deliberate on a topic |
 | `/status` | Show agent status |
-| `/context` | Show shared context |
+| `/context` | Show current-session goal, synthesis, questions, decisions, and work package summary |
 | `/rounds [N]` | Set max deliberation rounds (1–20) |
 | `/agent <name> on\|off` | Enable/disable an agent |
 | `/history` | Show deliberation history |

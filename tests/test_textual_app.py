@@ -3,9 +3,18 @@ from __future__ import annotations
 import pytest
 from textual import events
 from textual.containers import VerticalScroll
-from textual.widgets import Button, DataTable, RichLog, Static, TabbedContent, TextArea
+from textual.widgets import (
+    Button,
+    DataTable,
+    Markdown,
+    RichLog,
+    Static,
+    TabbedContent,
+    TextArea,
+)
 
 from trinity.config import TrinityConfig
+from trinity.context.shared import SharedContextEngine
 from trinity.slash_commands import SESSION_ONLY_SETTING_NOTICE
 from trinity.textual_app.app import TrinityTextualApp
 from trinity.textual_app.report_export import (
@@ -32,6 +41,7 @@ from trinity.textual_app.workflow_controller import (
 from trinity.tui.report import DeliberationReportBuilder
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.composer import COMMAND_LIMIT, ComposerTextArea, PromptComposer
+from trinity.textual_app.widgets.context_modal import ContextCommandModal
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
@@ -581,6 +591,63 @@ async def test_start_unknown_slash_does_not_start_workflow(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_start_slash_context_without_session_only_notifies(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/context ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert isinstance(app.screen, StartScreen)
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert composer.text == ""
+        assert app.active_snapshot is None
+
+
+@pytest.mark.asyncio
+async def test_start_slash_context_with_current_snapshot_shows_modal(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-current",
+            goal="Current session goal",
+            state="blueprint_ready",
+            synthesis=SynthesisSnapshot(
+                summary="Current session summary.",
+                consensus_progress="blueprint ready",
+            ),
+        )
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/context ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert isinstance(app.screen, ContextCommandModal)
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.local_commands[-1].command == "/context"
+        assert "Current session goal" in app.active_snapshot.local_commands[-1].body
+        body = app.screen.query_one("#context-command-body", Markdown)
+        assert body is not None
+
+
+@pytest.mark.asyncio
 async def test_nexus_slash_workflow_does_not_submit_followup(tmp_path) -> None:
     controller = FakeWorkflowController(
         WorkflowNexusSnapshot(session_id="wf-fake", goal="game", state="blueprint_ready")
@@ -636,6 +703,75 @@ async def test_nexus_unknown_slash_does_not_submit_followup(tmp_path) -> None:
         assert central.snapshot.local_commands[-1].title == "Unknown Command"
         assert "Local Command Results" in central._markdown()
         assert "#### /not-a-command - Unknown Command" in central._markdown()
+
+
+@pytest.mark.asyncio
+async def test_nexus_context_without_session_records_empty_message(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/context ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_ups == []
+        assert screen.follow_ups == []
+        assert composer.text == ""
+        central = screen.query_one(CentralAgentView)
+        assert central.snapshot is not None
+        result = central.snapshot.local_commands[-1]
+        assert result.command == "/context"
+        assert result.title == "Context"
+        assert "No current session context" in result.body
+
+
+@pytest.mark.asyncio
+async def test_nexus_context_uses_current_snapshot_not_shared_file(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    SharedContextEngine(config.shared_context_path).write(
+        "# Shared Context\n\n## Agreed Conclusion\nOld session summary.\n"
+    )
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-current",
+            goal="Current session goal",
+            state="blueprint_ready",
+            synthesis=SynthesisSnapshot(
+                summary="Current session summary.",
+                consensus_progress="blueprint ready",
+            ),
+            decisions=["Use the current session only."],
+        )
+    )
+    app = TrinityTextualApp(config, controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/context ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_ups == []
+        central = screen.query_one(CentralAgentView)
+        assert central.snapshot is not None
+        result = central.snapshot.local_commands[-1]
+        assert result.command == "/context"
+        assert "Current session goal" in result.body
+        assert "Current session summary." in result.body
+        assert "Use the current session only." in result.body
+        assert "Old session summary." not in result.body
 
 
 @pytest.mark.asyncio

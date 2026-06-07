@@ -304,15 +304,43 @@ class InteractiveSession:
         self._cmd_workflow()
 
     def _cmd_context(self) -> None:
-        """Show shared context."""
-        from trinity.context.shared import SharedContextEngine
+        """Show current workflow session context."""
+        session = self.workflow.session
+        if not self._session_has_context():
+            self.console.print("[yellow]No current session context.[/yellow]")
+            return
 
-        engine = SharedContextEngine(path=self.config.shared_context_path)
-        content = engine.read()
-        if content.strip():
-            self.console.print(Panel(content, title="Shared Context"))
-        else:
-            self.console.print("[yellow]Shared context is empty.[/yellow]")
+        lines = [
+            f"[bold]ID[/bold]: {session.id}",
+            f"[bold]State[/bold]: {session.state.value}",
+            f"[bold]Goal[/bold]: {session.goal or '(none)'}",
+            f"[bold]Round[/bold]: {session.current_round}",
+            f"[bold]Pending questions[/bold]: {len(session.open_questions)}",
+            f"[bold]Decisions[/bold]: {len(session.decisions)}",
+            f"[bold]Work packages[/bold]: {len(session.work_packages)}",
+            f"[bold]Subtasks[/bold]: {len(session.subtask_results)}",
+        ]
+        if session.blueprint and session.blueprint.summary:
+            lines.extend(["", "[bold]Synthesis[/bold]:", session.blueprint.summary])
+        self.console.print(Panel("\n".join(lines), title="Current Session Context"))
+
+    def _session_has_context(self) -> bool:
+        """Return whether the plain TUI has meaningful current workflow context."""
+        session = self.workflow.session
+        return bool(
+            session.goal
+            or session.current_round
+            or session.active_agents
+            or session.target_workspace
+            or session.blueprint
+            or session.open_questions
+            or session.decisions
+            or session.work_packages
+            or session.execution_results
+            or session.subtask_results
+            or session.review_packages
+            or session.review_results
+        )
 
     def _cmd_rounds(self, args: list[str]) -> None:
         """Set max deliberation rounds.

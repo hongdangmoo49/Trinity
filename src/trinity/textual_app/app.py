@@ -38,6 +38,7 @@ from trinity.textual_app.workflow_controller import (
     TextualWorkflowController,
     TextualWorkflowOutcome,
 )
+from trinity.textual_app.widgets.context_modal import ContextCommandModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
 from trinity.textual_app.widgets.status_modal import StatusCommandModal
@@ -49,6 +50,9 @@ from trinity.textual_app.widgets.workspace_picker import (
 from trinity.tui.kitty_compat import install_textual_parser_patch
 
 WorkbenchRoute = Literal["start", "nexus", "execution", "settings", "report"]
+NO_CURRENT_CONTEXT_MESSAGE = (
+    "No current session context. Start a prompt or resume a workflow first."
+)
 
 
 class TrinityTextualApp(App[None]):
@@ -298,6 +302,28 @@ class TrinityTextualApp(App[None]):
 
     #status-command-table {
         height: auto;
+        margin-bottom: 1;
+    }
+
+    #context-command-modal {
+        width: 88;
+        max-width: 95%;
+        height: auto;
+        max-height: 85%;
+        border: round $primary;
+        background: $surface;
+        padding: 1 2;
+    }
+
+    #context-command-title {
+        text-style: bold;
+        color: $accent;
+        margin-bottom: 1;
+    }
+
+    #context-command-body {
+        height: auto;
+        max-height: 24;
         margin-bottom: 1;
     }
 
@@ -868,7 +894,7 @@ class TrinityTextualApp(App[None]):
             )
             return
         if command == "context":
-            self._notify_shared_context()
+            self._handle_textual_context_command(parsed.spec.name)
             return
         if command == "history":
             self.notify(
@@ -1105,6 +1131,61 @@ class TrinityTextualApp(App[None]):
         )
 
     @staticmethod
+    def _snapshot_has_current_context(snapshot: WorkflowNexusSnapshot) -> bool:
+        return bool(
+            snapshot.session_id
+            or snapshot.goal
+            or snapshot.round_num
+            or snapshot.synthesis.summary
+            or snapshot.synthesis.consensus_progress
+            or snapshot.questions
+            or snapshot.decisions
+            or snapshot.central_work_packages
+            or snapshot.work_packages
+            or snapshot.work_package_repairs
+            or snapshot.execution_log
+        )
+
+    @staticmethod
+    def _snapshot_context_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+        if not TrinityTextualApp._snapshot_has_current_context(snapshot):
+            return NO_CURRENT_CONTEXT_MESSAGE
+
+        lines = [
+            f"- Workflow: `{snapshot.session_id or '(new)'}`",
+            f"- State: `{snapshot.state or 'idle'}`",
+            f"- Goal: {snapshot.goal or '(none)'}",
+            f"- Round: `{snapshot.round_num}`",
+        ]
+        if snapshot.synthesis.consensus_progress:
+            lines.append(
+                f"- Synthesis: `{snapshot.synthesis.consensus_progress}`"
+            )
+        if snapshot.synthesis.summary:
+            lines.extend(["", "### Synthesis", snapshot.synthesis.summary])
+        if snapshot.questions:
+            lines.extend(["", "### Questions"])
+            for question in snapshot.questions:
+                status = question.status or "open"
+                lines.append(f"- **{question.id}** [{status}] {question.question}")
+                if question.answer:
+                    lines.append(f"  - Answer: {question.answer}")
+        if snapshot.decisions:
+            lines.extend(["", "### Decisions"])
+            lines.extend(f"- {item}" for item in snapshot.decisions)
+        packages = snapshot.work_packages or snapshot.central_work_packages
+        if packages:
+            lines.extend(["", "### Work Packages"])
+            lines.extend(f"- {item}" for item in packages)
+        if snapshot.work_package_repairs:
+            lines.extend(["", "### Local Policy Repairs"])
+            lines.extend(f"- {item}" for item in snapshot.work_package_repairs)
+        if snapshot.execution_log:
+            lines.extend(["", "### Recent Execution Log"])
+            lines.extend(f"- {item}" for item in snapshot.execution_log[-8:])
+        return "\n".join(lines)
+
+    @staticmethod
     def _questions_markdown(snapshot: WorkflowNexusSnapshot) -> str:
         if not snapshot.questions:
             return "No pending workflow questions."
@@ -1144,13 +1225,29 @@ class TrinityTextualApp(App[None]):
             lines.append("Use `/answer <id|index|next> <answer>`.")
         return "\n".join(lines)
 
-    def _notify_shared_context(self) -> None:
-        try:
-            content = self.config.shared_context_path.read_text(encoding="utf-8")
-        except OSError:
-            content = ""
-        message = content.strip() or "Shared context is empty."
-        self.notify(message[:500], title="Shared Context", timeout=8)
+    def _handle_textual_context_command(self, command: str) -> None:
+        """Show the current session context without reading stale shared.md state."""
+        snapshot = self._current_textual_snapshot()
+        body = self._snapshot_context_markdown(snapshot)
+        if not self._snapshot_has_current_context(snapshot):
+            if self.current_route == "start":
+                self.notify(
+                    NO_CURRENT_CONTEXT_MESSAGE,
+                    title="Context",
+                    severity="warning",
+                )
+                return
+            self._record_slash_command_result(command, "Context", body)
+            return
+
+        result = self._local_command_snapshot(command, "Context", body)
+        self._replace_local_command_result(result)
+        snapshot = self._with_local_command_results(snapshot)
+        self.active_snapshot = snapshot
+        if self.current_route == "start":
+            self.push_screen(ContextCommandModal(result))
+            return
+        self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
 
     def _handle_textual_report_command(self, args: list[str]) -> None:
         snapshot = self._refresh_textual_snapshot()

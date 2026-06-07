@@ -91,8 +91,8 @@ COMMAND_SPECS: tuple[SlashCommandSpec, ...] = (
     SlashCommandSpec(
         name="/context",
         usage="/context",
-        summary="show shared context summary",
-        summary_ko="공유 컨텍스트 요약 보기",
+        summary="show current session context",
+        summary_ko="현재 세션 컨텍스트 보기",
         category=SlashCommandCategory.LOCAL_UI,
     ),
     SlashCommandSpec(

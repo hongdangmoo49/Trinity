@@ -156,7 +156,22 @@ class TestSessionCommands:
 
     def test_cmd_context(self, session):
         session._cmd_context()
-        # Should not raise — displays shared context
+        # Should not raise — displays current session context state
+
+    def test_cmd_context_uses_current_session_not_shared_file(self, config):
+        config.shared_context_path.write_text(
+            "# Shared Context\n\n## Agreed Conclusion\nOld session summary.\n",
+            encoding="utf-8",
+        )
+        console = Console(force_terminal=True, width=120, record=True)
+        session = InteractiveSession(config, console)
+        session.workflow.start("Current session goal", ["claude"])
+
+        session._cmd_context()
+
+        output = console.export_text()
+        assert "Current session goal" in output
+        assert "Old session summary" not in output
 
     def test_cmd_rounds_show(self, session):
         session._cmd_rounds([])

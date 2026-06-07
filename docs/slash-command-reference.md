@@ -11,7 +11,9 @@ Trinity slash command를 workflow prompt와 분리해 처리한다.
 
 Trinity 앱 자체 slash command의 목표 라우팅 계약과 명령별 설계는
 [Trinity Slash Command Routing Design](plans/2026-06-06-trinity-slash-command-routing-design.md)을
-기준으로 한다. Claude, Codex, Antigravity 같은 provider CLI 내부 slash command와
+기준으로 하며, Textual Start/Nexus에서 실제로 어떤 UI surface에 표시할지는
+[Trinity Slash Command UX Contract](plans/2026-06-07-trinity-slash-command-ux-contract.md)를
+따른다. Claude, Codex, Antigravity 같은 provider CLI 내부 slash command와
 `.trinity/agents/*/provider-state` 아래 외부 plugin cache command는 Trinity 앱
 명령이 아니며,
 [Provider CLI Slash Command Backlog](plans/2026-06-06-provider-cli-slash-command-backlog.md)의

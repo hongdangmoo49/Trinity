@@ -598,6 +598,10 @@ Phase 4에서 추가된 다중 Provider 지원, 헬스체크, 워크스페이스
 
 ### TUI 명령어 모드
 
+최신 Textual Start/Nexus slash command UX 기준은
+[`docs/plans/2026-06-07-trinity-slash-command-ux-contract.md`](plans/2026-06-07-trinity-slash-command-ux-contract.md)를
+따른다.
+
 | 명령어 | 설명 |
 |--------|------|
 | `질문 텍스트` | 에이전트에게 토론 주제 전달 |

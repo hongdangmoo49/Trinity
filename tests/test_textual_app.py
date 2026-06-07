@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from textual import events
 from textual.containers import VerticalScroll
-from textual.widgets import Button, DataTable, RichLog, TabbedContent, TextArea
+from textual.widgets import Button, DataTable, RichLog, Static, TabbedContent, TextArea
 
 from trinity.config import TrinityConfig
 from trinity.slash_commands import SESSION_ONLY_SETTING_NOTICE
@@ -185,6 +185,19 @@ def test_textual_app_localizes_command_palette_bindings_in_korean(tmp_path) -> N
 
 def test_status_modal_centers_and_uses_read_only_table() -> None:
     assert "align: center middle" in StatusCommandModal.DEFAULT_CSS
+    result = LocalCommandSnapshot(
+        command="/status",
+        title="Status",
+        body="status",
+        table_columns=("Item", "Value"),
+        table_rows=(("Workflow", "(new)"),),
+    )
+
+    text = StatusCommandModal(result)._status_table_text()
+
+    assert "Item" in text
+    assert "Value" in text
+    assert "Workflow" in text
 
 
 @pytest.mark.asyncio
@@ -537,10 +550,11 @@ async def test_start_slash_status_does_not_start_workflow(tmp_path) -> None:
             value.endswith("readiness=not checked")
             for _, value in app.active_snapshot.local_commands[-1].table_rows
         )
-        table = app.screen.query_one("#status-command-table", DataTable)
-        assert table.row_count > 0
-        assert table.show_cursor is False
-        assert table.cursor_type == "none"
+        table = app.screen.query_one("#status-command-table", Static)
+        table_text = str(table.render())
+        assert "Item" in table_text
+        assert "Workflow" in table_text
+        assert "readiness=not checked" in table_text
 
 
 @pytest.mark.asyncio

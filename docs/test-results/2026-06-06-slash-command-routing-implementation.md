@@ -59,7 +59,7 @@
   - 로컬 command table은 read-only이므로 cursor/selection 표시를 비활성화
 - `src/trinity/textual_app/widgets/status_modal.py`
   - Start 화면에서 쓰는 Textual-native status modal 추가
-  - modal을 화면 중앙에 정렬하고 status table cursor/selection 표시를 비활성화
+  - modal을 화면 중앙에 정렬하고 status rows를 선택 상태가 없는 plain text block으로 표시
 - `src/trinity/textual_app/workflow_controller.py`
   - `/answer` option/replace, `/target clear`, `/resume`을 앱이 private method에 기대지 않도록
     public Textual controller API로 제공
@@ -111,8 +111,10 @@
 /home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/app.py src/trinity/textual_app/snapshot.py src/trinity/textual_app/widgets/central_agent.py src/trinity/textual_app/widgets/status_modal.py tests/test_textual_app.py tests/test_textual_snapshot.py tests/test_slash_command_docs.py
 /home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py tests/test_textual_snapshot.py tests/test_slash_command_docs.py -q
 /home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/widgets/status_modal.py src/trinity/textual_app/widgets/central_agent.py tests/test_textual_app.py
-/home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py::test_status_modal_centers_and_uses_read_only_table tests/test_textual_app.py::test_start_slash_status_does_not_start_workflow tests/test_textual_app.py::test_central_agent_view_renders_local_command_tables tests/test_textual_app.py::test_textual_status_refresh_replaces_existing_local_command_table -q
+/home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py::test_status_modal_centers_and_uses_read_only_table tests/test_textual_app.py::test_start_slash_status_does_not_start_workflow -q
 /home/zaemi/.local/bin/uv run pytest tests/test_slash_command_docs.py -q
+/home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/widgets/status_modal.py src/trinity/textual_app/widgets/central_agent.py tests/test_textual_app.py tests/test_slash_command_docs.py
+/home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py tests/test_slash_command_docs.py -q
 git diff --check
 /home/zaemi/.local/bin/uv run pytest -q
 ```
@@ -136,12 +138,13 @@ git diff --check
 - Textual 전체 회귀: `54 passed in 26.02s`
 - Status UX/stale synthesis 대상 회귀: `5 passed in 2.53s`
 - Textual app/snapshot 회귀: `69 passed in 32.80s`
-- Status modal/read-only table 회귀: `4 passed in 2.45s`
+- Status modal plain text table 회귀: `2 passed in 0.79s`
 - Textual/docs 회귀: `74 passed in 28.82s`
 - Slash command 문서 정합성 재검증: `4 passed in 0.04s`
+- Textual/docs 최신 회귀: `59 passed in 29.09s`
 - Ruff 대상 파일 검사 통과
 - `git diff --check` 통과
-- 전체 회귀: `1224 passed, 1 warning in 57.78s`
+- 전체 회귀: `1224 passed, 1 warning in 55.31s`
 
 ## 남은 작업
 

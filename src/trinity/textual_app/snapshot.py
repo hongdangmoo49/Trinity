@@ -58,6 +58,9 @@ class LocalCommandSnapshot:
     title: str
     body: str
     severity: str = "info"
+    result_kind: str = "markdown"
+    empty: bool = False
+    action_hint: str = ""
     table_columns: tuple[str, ...] = ()
     table_rows: tuple[tuple[str, ...], ...] = ()
 

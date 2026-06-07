@@ -131,6 +131,12 @@ cache command는 이 UX 계약의 범위가 아니다.
 - message, markdown, table, path, action hint를 같은 구조로 전달한다.
 - Start modal과 Nexus central result가 같은 snapshot을 다르게 렌더링하게 만든다.
 
+진행 상태: 2026-06-07에 1차 구현을 시작했다. `LocalCommandSnapshot`에
+`result_kind`, `empty`, `action_hint`를 추가했고, Start 화면용 generic
+`LocalCommandModal`과 Nexus central result 공통 renderer를 연결했다. `/workflow` 같은
+일반 조회 명령은 Start에서 modal로 표시되고, `/save`, `/target` 같은 기존 toast-only
+명령은 Nexus central result에 기록된다.
+
 ### 2. Start modal 표준화
 
 - `/help`, `/workflow`, `/decisions`, `/packages`, `/subtasks`, `/history`용 generic local command modal을 만든다.

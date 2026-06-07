@@ -43,6 +43,7 @@ from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.composer import COMMAND_LIMIT, ComposerTextArea, PromptComposer
 from trinity.textual_app.widgets.context_modal import ContextCommandModal
 from trinity.textual_app.widgets.inspector import WorkflowInspector
+from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
@@ -678,6 +679,42 @@ async def test_nexus_slash_workflow_does_not_submit_followup(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_start_slash_workflow_uses_generic_local_command_modal(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", goal="game", state="blueprint_ready")
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/workflow ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert isinstance(app.screen, LocalCommandModal)
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert composer.text == ""
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/workflow"
+        assert result.title == "Workflow"
+        assert result.table_columns == ("Item", "Value")
+        body = app.screen.query_one("#local-command-body", Markdown)
+        assert body is not None
+        assert "Goal: game" in result.body
+        table = app.screen.query_one("#local-command-table", Static)
+        assert "Workflow" not in str(table.render())
+        assert "State" in str(table.render())
+
+
+@pytest.mark.asyncio
 async def test_nexus_unknown_slash_does_not_submit_followup(tmp_path) -> None:
     controller = FakeWorkflowController()
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
@@ -703,6 +740,45 @@ async def test_nexus_unknown_slash_does_not_submit_followup(tmp_path) -> None:
         assert central.snapshot.local_commands[-1].title == "Unknown Command"
         assert "Local Command Results" in central._markdown()
         assert "#### /not-a-command - Unknown Command" in central._markdown()
+
+
+@pytest.mark.asyncio
+async def test_nexus_save_and_target_commands_record_local_results(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/save ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_ups == []
+        central = screen.query_one(CentralAgentView)
+        assert central.snapshot is not None
+        save_result = central.snapshot.local_commands[-1]
+        assert save_result.command == "/save"
+        assert save_result.title == "Save"
+        assert "persisted automatically" in save_result.body
+
+        composer.set_text("/target ")
+        composer.action_submit()
+        await pilot.pause()
+
+        target_result = central.snapshot.local_commands[-1]
+        assert target_result.command == "/target"
+        assert target_result.title == "Target"
+        assert "Current target" in target_result.body
+        assert "Use `/target <path>`" in central._markdown()
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
 
 
 @pytest.mark.asyncio

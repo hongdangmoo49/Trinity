@@ -114,6 +114,8 @@ class CentralAgentView(VerticalScroll):
                         item.body,
                     ]
                 )
+                if item.action_hint:
+                    lines.append(f"_Next:_ {item.action_hint}")
         if snapshot.decisions:
             lines.extend(["", "### Decisions"])
             lines.extend(f"- {item}" for item in snapshot.decisions)

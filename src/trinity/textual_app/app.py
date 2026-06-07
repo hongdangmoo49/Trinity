@@ -39,6 +39,7 @@ from trinity.textual_app.workflow_controller import (
     TextualWorkflowOutcome,
 )
 from trinity.textual_app.widgets.context_modal import ContextCommandModal
+from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
 from trinity.textual_app.widgets.status_modal import StatusCommandModal
@@ -324,6 +325,38 @@ class TrinityTextualApp(App[None]):
     #context-command-body {
         height: auto;
         max-height: 24;
+        margin-bottom: 1;
+    }
+
+    #local-command-modal {
+        width: 92;
+        max-width: 95%;
+        height: auto;
+        max-height: 85%;
+        border: round $primary;
+        background: $surface;
+        padding: 1 2;
+    }
+
+    #local-command-title {
+        text-style: bold;
+        color: $accent;
+        margin-bottom: 1;
+    }
+
+    #local-command-body {
+        height: auto;
+        max-height: 22;
+        margin-bottom: 1;
+    }
+
+    #local-command-table {
+        height: auto;
+        margin-bottom: 1;
+    }
+
+    #local-command-hint {
+        color: $text-muted;
         margin-bottom: 1;
     }
 
@@ -897,9 +930,11 @@ class TrinityTextualApp(App[None]):
             self._handle_textual_context_command(parsed.spec.name)
             return
         if command == "history":
-            self.notify(
+            self._record_slash_command_result(
+                parsed.spec.name,
+                "History",
                 "Textual session history is shown in the central agent timeline.",
-                title="History",
+                empty=True,
             )
             return
         if command == "report":
@@ -915,9 +950,10 @@ class TrinityTextualApp(App[None]):
             self._handle_textual_caveman_command(parsed.spec.name, args)
             return
         if command == "save":
-            self.notify(
+            self._record_slash_command_result(
+                parsed.spec.name,
+                "Save",
                 "Textual workflows are persisted automatically. Use /report save for Markdown export.",
-                title="Save",
             )
             return
         if command == "target":
@@ -967,8 +1003,12 @@ class TrinityTextualApp(App[None]):
         body: str,
         *,
         severity: str = "info",
+        result_kind: str = "markdown",
+        empty: bool = False,
+        action_hint: str = "",
         table_columns: tuple[str, ...] = (),
         table_rows: tuple[tuple[str, ...], ...] = (),
+        start_modal: bool = True,
     ) -> None:
         """Record a local slash command result in the central Textual view."""
         result = self._local_command_snapshot(
@@ -976,17 +1016,40 @@ class TrinityTextualApp(App[None]):
             title,
             body,
             severity=severity,
+            result_kind=result_kind,
+            empty=empty,
+            action_hint=action_hint,
             table_columns=table_columns,
             table_rows=table_rows,
         )
-        self._replace_local_command_result(result)
-        snapshot = (
-            self.workflow_controller.snapshot()
-            or self.snapshot_adapter.load_snapshot()
+        self._present_local_command_result(
+            result,
+            start_modal=start_modal,
+            notify=True,
         )
-        self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
-        notify_severity = "warning" if severity in {"warning", "error"} else "information"
-        self.notify(title, title="Slash Command", severity=notify_severity)
+
+    def _present_local_command_result(
+        self,
+        result: LocalCommandSnapshot,
+        *,
+        start_modal: bool = True,
+        notify: bool = True,
+    ) -> None:
+        """Render a local slash command result on the active Textual surface."""
+        self._replace_local_command_result(result)
+        snapshot = self._with_local_command_results(self._current_textual_snapshot())
+        self.active_snapshot = snapshot
+        if self.current_route == "start" and start_modal:
+            self.push_screen(LocalCommandModal(result))
+        else:
+            self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
+        if notify and self.current_route != "start":
+            notify_severity = (
+                "warning"
+                if result.severity in {"warning", "error"}
+                else "information"
+            )
+            self.notify(result.title, title="Slash Command", severity=notify_severity)
 
     def _show_textual_status(
         self,
@@ -1016,6 +1079,9 @@ class TrinityTextualApp(App[None]):
         body: str,
         *,
         severity: str = "info",
+        result_kind: str = "markdown",
+        empty: bool = False,
+        action_hint: str = "",
         table_columns: tuple[str, ...] = (),
         table_rows: tuple[tuple[str, ...], ...] = (),
     ) -> LocalCommandSnapshot:
@@ -1025,6 +1091,9 @@ class TrinityTextualApp(App[None]):
             title=title,
             body=body.strip() or "(no output)",
             severity=severity,
+            result_kind=result_kind,
+            empty=empty,
+            action_hint=action_hint,
             table_columns=table_columns,
             table_rows=table_rows,
         )
@@ -1396,13 +1465,23 @@ class TrinityTextualApp(App[None]):
             current = None
             if target is not None:
                 current = target.session.target_workspace
-            self.notify(f"Current target: {current or '(not set)'}", title="Target")
+            self._record_slash_command_result(
+                "/target",
+                "Target",
+                f"Current target: `{current or '(not set)'}`",
+                empty=current is None,
+                action_hint="Use `/target <path>` or Choose now before execution.",
+            )
             return
         action = args[0].lower()
         if action in {"clear", "reset", "none"}:
             outcome = self.workflow_controller.clear_target_workspace()
             self._apply_workflow_outcome(outcome)
-            self.notify("Target workspace cleared.", title="Target")
+            self._record_slash_command_result(
+                "/target",
+                "Target",
+                "Target workspace cleared.",
+            )
             return
         path = Path(" ".join(args)).expanduser()
         if not path.is_absolute():
@@ -1411,7 +1490,11 @@ class TrinityTextualApp(App[None]):
         outcome = self.workflow_controller.set_target_workspace(path)
         if isinstance(outcome, TextualWorkflowOutcome):
             self._apply_workflow_outcome(outcome)
-        self.notify(f"Target workspace: {path.resolve()}", title="Target")
+        self._record_slash_command_result(
+            "/target",
+            "Target",
+            f"Target workspace: `{path.resolve()}`",
+        )
 
     def _handle_textual_resume_command(self, args: list[str]) -> None:
         if not args:

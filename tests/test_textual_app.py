@@ -733,6 +733,35 @@ async def test_nexus_context_without_session_records_empty_message(tmp_path) -> 
 
 
 @pytest.mark.asyncio
+async def test_nexus_exact_context_enter_executes_without_palette_accept(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/context")
+        composer.focus_text_area()
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert controller.follow_ups == []
+        assert screen.follow_ups == []
+        assert composer.text == ""
+        central = screen.query_one(CentralAgentView)
+        assert central.snapshot is not None
+        result = central.snapshot.local_commands[-1]
+        assert result.command == "/context"
+        assert "No current session context" in result.body
+
+
+@pytest.mark.asyncio
 async def test_nexus_context_uses_current_snapshot_not_shared_file(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     SharedContextEngine(config.shared_context_path).write(

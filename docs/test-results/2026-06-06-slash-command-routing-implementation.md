@@ -34,6 +34,10 @@
 - `src/trinity/textual_app/screens/nexus.py`
   - Nexus composer가 slash command이면 `FollowUpSubmitted`로 기록하지 않고
     `NexusScreen.SlashCommandSubmitted`를 발생시킴
+- `src/trinity/textual_app/widgets/composer.py`
+  - 부분 slash 입력의 Enter는 기존처럼 palette 후보를 수락한다
+  - `/context`, `/status`처럼 등록 command와 정확히 일치하는 입력의 Enter는 후보 수락으로
+    멈추지 않고 바로 submit해 command router를 실행한다
 - `src/trinity/textual_app/app.py`
   - Start/Nexus slash command handler 추가
   - 조회/unknown command가 `start_prompt()` 또는 `submit_follow_up()`으로 넘어가지 않게 처리
@@ -129,6 +133,10 @@
 /home/zaemi/.local/bin/uvx ruff check src/trinity/slash_commands.py src/trinity/tui/app.py src/trinity/tui/session.py src/trinity/textual_app/app.py src/trinity/textual_app/widgets/context_modal.py tests/test_textual_app.py tests/test_tui_session.py tests/test_slash_command_docs.py
 /home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py::test_start_slash_context_without_session_only_notifies tests/test_textual_app.py::test_start_slash_context_with_current_snapshot_shows_modal tests/test_textual_app.py::test_nexus_context_without_session_records_empty_message tests/test_textual_app.py::test_nexus_context_uses_current_snapshot_not_shared_file tests/test_tui_session.py::TestSessionCommands::test_cmd_context_uses_current_session_not_shared_file tests/test_slash_command_docs.py -q
 /home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py tests/test_tui_session.py tests/test_slash_command_docs.py -q
+/home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/widgets/composer.py tests/test_textual_app.py
+/home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py::test_nexus_exact_context_enter_executes_without_palette_accept tests/test_textual_app.py::test_nexus_context_without_session_records_empty_message tests/test_textual_app.py::test_prompt_composer_arrow_selects_slash_command -q
+/home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/widgets/composer.py tests/test_textual_app.py tests/test_slash_command_docs.py
+/home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py tests/test_slash_command_docs.py -q
 git diff --check
 /home/zaemi/.local/bin/uv run pytest -q
 ```
@@ -159,9 +167,11 @@ git diff --check
 - Context 현재 세션 요약 회귀: `5 passed in 2.35s`
 - Context/docs 대상 회귀: `9 passed in 3.05s`
 - Textual/plain slash/docs 회귀: `143 passed in 33.89s`
+- Nexus exact `/context` Enter 회귀: `3 passed in 3.20s`
+- Textual slash/docs 회귀: `64 passed in 48.39s`
 - Ruff 대상 파일 검사 통과
 - `git diff --check` 통과
-- 전체 회귀: `1229 passed, 1 warning in 69.16s`
+- 전체 회귀: `1230 passed, 1 warning in 83.25s`
 
 ## 남은 작업
 

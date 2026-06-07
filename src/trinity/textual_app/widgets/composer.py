@@ -192,6 +192,10 @@ class PromptComposer(Vertical):
         if self._ignore_next_submit:
             self._ignore_next_submit = False
             return
+        if self._is_exact_command_input():
+            self._set_command_palette_visible(False)
+            self.post_message(self.Submitted(self.submission_text))
+            return
         if self.accept_selected_command():
             return
         self._set_command_palette_visible(False)
@@ -310,6 +314,8 @@ class PromptComposer(Vertical):
     def accept_selected_command(self) -> bool:
         if not self.command_palette_open or not self._command_matches:
             return False
+        if self._is_exact_command_input():
+            return False
         command = self._command_matches[self._command_selection]
         self.set_text(f"{command} ")
         self.focus_text_area()
@@ -363,3 +369,9 @@ class PromptComposer(Vertical):
             for command in TRINITY_COMMANDS
             if command.lower().startswith(query)
         ]
+
+    def _is_exact_command_input(self) -> bool:
+        query = self._slash_query()
+        if query is None:
+            return False
+        return any(command.lower() == query for command in TRINITY_COMMANDS)

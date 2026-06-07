@@ -1389,6 +1389,46 @@ async def test_nexus_slash_resume_routes_to_controller(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_start_slash_resume_picker_selection_switches_to_nexus(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    controller.resume_options = [
+        TextualWorkflowArchiveOption(
+            selector="1",
+            session_id="wf-archived",
+            goal="archived goal",
+            state="blueprint_ready",
+            updated_at=1000.0,
+        )
+    ]
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        assert isinstance(app.screen, StartScreen)
+
+        composer = app.screen.query_one(PromptComposer)
+        composer.set_text("/resume")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ResumeWorkflowPicker)
+        app.screen.query_one("#resume-archive-1", Button).press()
+        await pilot.pause()
+        await pilot.pause()
+
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert controller.resumes == ["1"]
+        assert app.current_route == "nexus"
+        assert isinstance(app.screen, NexusScreen)
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.session_id == "wf-resumed-1"
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/resume"
+        assert result.title == "Resume"
+        assert ("Workflow", "wf-resumed-1") in result.table_rows
+
+
+@pytest.mark.asyncio
 async def test_nexus_slash_resume_without_selector_opens_archive_picker(tmp_path) -> None:
     controller = FakeWorkflowController()
     controller.resume_options = [

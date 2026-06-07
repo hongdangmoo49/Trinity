@@ -2053,8 +2053,8 @@ class TrinityTextualApp(App[None]):
         if outcome.message:
             outcome = replace(outcome, message="")
         self._apply_workflow_outcome(outcome)
+        failed = bool(message and message.startswith("No "))
         if message:
-            failed = message.startswith("No ")
             self._record_slash_command_result(
                 "/resume",
                 "Resume",
@@ -2063,7 +2063,10 @@ class TrinityTextualApp(App[None]):
                 empty=failed,
                 table_columns=("Item", "Value"),
                 table_rows=self._resume_result_rows(outcome.snapshot),
+                start_modal=failed,
             )
+        if not failed:
+            self.switch_to("nexus")
 
     @staticmethod
     def _resume_archives_markdown(

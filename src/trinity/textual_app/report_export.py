@@ -23,6 +23,7 @@ def snapshot_has_report_data(snapshot: WorkflowNexusSnapshot) -> bool:
             snapshot.subtasks,
             snapshot.work_package_repairs,
             snapshot.execution_log,
+            snapshot.execution_recovery,
             snapshot.questions,
         )
     )
@@ -57,15 +58,9 @@ def snapshot_report_markdown(snapshot: WorkflowNexusSnapshot) -> str:
         lines.extend(f"- {_md_inline(decision)}" for decision in snapshot.decisions)
     if snapshot.central_work_packages:
         lines.extend(["", "## Central WP Graph", ""])
-        lines.extend(
-            f"- {_md_inline(package)}" for package in snapshot.central_work_packages
-        )
+        lines.extend(f"- {_md_inline(package)}" for package in snapshot.central_work_packages)
     if snapshot.work_packages:
-        heading = (
-            "## Local WP Graph"
-            if snapshot.central_work_packages
-            else "## Work Packages"
-        )
+        heading = "## Local WP Graph" if snapshot.central_work_packages else "## Work Packages"
         lines.extend(["", heading, ""])
         lines.extend(f"- {_md_inline(package)}" for package in snapshot.work_packages)
     if snapshot.subtasks:
@@ -86,11 +81,32 @@ def snapshot_report_markdown(snapshot: WorkflowNexusSnapshot) -> str:
     if snapshot.execution_log:
         lines.extend(["", "## Execution Log", ""])
         lines.extend(f"- {_md_inline(entry)}" for entry in snapshot.execution_log)
+    if snapshot.execution_recovery is not None:
+        recovery = snapshot.execution_recovery
+        lines.extend(
+            [
+                "",
+                "## Execution Recovery",
+                "",
+                f"- Execution: {_md_inline(recovery.state)}",
+                f"- Run: {_md_inline(recovery.run_id or '(unknown)')}",
+                f"- Target: {_md_inline(recovery.target_workspace or '(not set)')}",
+                (
+                    "- Running packages: "
+                    f"{_md_inline(', '.join(recovery.running_packages) or '(none)')}"
+                ),
+                (
+                    "- Retry candidates: "
+                    f"{_md_inline(', '.join(recovery.retry_candidates) or '(none)')}"
+                ),
+                f"- Done packages: {_md_inline(', '.join(recovery.done_packages) or '(none)')}",
+                f"- Last event: {_md_inline(recovery.last_event or '(none)')}",
+            ]
+        )
     if snapshot.questions:
         lines.extend(["", "## Open Questions", ""])
         lines.extend(
-            f"- **{_md_inline(q.id)}**: {_md_inline(q.question)}"
-            for q in snapshot.questions
+            f"- **{_md_inline(q.id)}**: {_md_inline(q.question)}" for q in snapshot.questions
         )
 
     return "\n".join(lines).rstrip() + "\n"

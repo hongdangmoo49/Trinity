@@ -4,7 +4,7 @@
 
 브랜치: `codex/execution-resume-recovery-design`
 
-상태: 설계
+상태: 구현 완료
 
 ## 목적
 
@@ -261,16 +261,28 @@ Fallback이면 `Executor`에 `claude (fallback)`처럼 표시한다.
 
 ## 구현 단계
 
-1. 설계 문서 작성
-2. `WorkflowSession` execution run metadata 추가
-3. `WorkflowEngine` stale execution detector 추가
-4. execution run started/heartbeat/interrupted event 기록
-5. Textual resume 후 recovery result/modal 표시
-6. `/execute` stale guard와 retry action 추가
-7. Execution Matrix owner/executor 분리
-8. fallback blocker classification 1차 적용
-9. report/status/workflow 문서와 UI 갱신
-10. tests와 smoke 문서 추가
+1. 설계 문서 작성 - 완료
+2. `WorkflowSession` execution run metadata 추가 - 완료
+3. `WorkflowEngine` stale execution detector 추가 - 완료
+4. execution run started/interrupted/recovery action event 기록 - 완료
+5. Textual resume 후 recovery result 표시 - 완료
+6. `/execute` stale guard와 retry/mark/abort action 추가 - 완료
+7. Execution Matrix owner/executor 분리 - 완료
+8. fallback blocker classification 1차 적용 - 완료
+9. report/status/workflow 문서와 UI 갱신 - 완료
+10. tests와 smoke 문서 추가 - 완료
+
+## 구현 결과
+
+- `WorkflowSession.execution_run` metadata에 run id, started/heartbeat, 상태, target workspace를 저장한다.
+- `WorkPackage.current_executor`와 `last_executor`를 저장해 owner와 실제 executor/fallback executor를 구분한다.
+- `WorkflowEngine.detect_interrupted_execution()`은 persisted `executing` workflow에 현재 worker가 없으면
+  `interrupted` metadata와 `execution_interrupted_detected` event를 남긴다.
+- `/resume`과 `/execute`는 stale execution을 발견하면 provider 재호출을 바로 시작하지 않고 recovery 결과를 표시한다.
+- 명시 action은 `/execute retry`, `/execute mark-interrupted`, `/execute abort`로 노출한다.
+- `ExecutionProtocol.run()`은 이미 `done` 또는 `needs_review`인 package를 재실행하지 않는다.
+- 환경 검증 blocker(`cargo`/`rustc` 등 local tool 미설치)는 자동 fallback하지 않고 `needs_review`로 남긴다.
+- `/status`, `/workflow`, `/report` export와 Execution Matrix에 recovery 정보를 표시한다.
 
 ## 테스트 계획
 
@@ -305,7 +317,7 @@ Fallback이면 `Executor`에 `claude (fallback)`처럼 표시한다.
 
 ## 남은 결정
 
-1. `WorkStatus.INTERRUPTED`를 새 enum으로 추가할지, 1차는 `blocked`와 metadata로 표현할지.
-2. retry action을 `/execute retry` 같은 slash command로 노출할지, modal button으로만 둘지.
-3. fallback confirmation을 모든 fallback에 요구할지, 검증 blocker에만 요구할지.
-4. target workspace diff preview를 non-git workspace에서 어느 깊이까지 보여줄지.
+1. `WorkStatus.INTERRUPTED` 새 enum은 아직 추가하지 않는다. 1차 구현은 `execution_run.state=interrupted` metadata로 표현한다.
+2. retry action은 `/execute retry`, `/execute mark-interrupted`, `/execute abort` slash command로 노출한다.
+3. fallback confirmation은 아직 전면 도입하지 않고, 환경 검증 blocker만 자동 fallback을 막는다.
+4. target workspace diff preview는 후속 과제로 남긴다.

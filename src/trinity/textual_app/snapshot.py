@@ -79,6 +79,34 @@ class LocalCommandSnapshot:
 
 
 @dataclass(frozen=True)
+class WorkPackageSnapshot:
+    """Projected work package state for execution UIs."""
+
+    id: str
+    title: str
+    owner_agent: str
+    status: str
+    risk: str = "unknown"
+    current_executor: str = ""
+    last_executor: str = ""
+
+
+@dataclass(frozen=True)
+class ExecutionRecoverySnapshot:
+    """Projected execution run/recovery state."""
+
+    run_id: str = ""
+    state: str = ""
+    target_workspace: str = ""
+    running_packages: tuple[str, ...] = ()
+    done_packages: tuple[str, ...] = ()
+    retry_candidates: tuple[str, ...] = ()
+    last_event: str = ""
+    last_event_at: float | None = None
+    interrupted_reason: str = ""
+
+
+@dataclass(frozen=True)
 class WorkflowNexusSnapshot:
     """Read-only UI projection of the current workflow."""
 
@@ -92,9 +120,11 @@ class WorkflowNexusSnapshot:
     decisions: list[str] = field(default_factory=list)
     central_work_packages: list[str] = field(default_factory=list)
     work_packages: list[str] = field(default_factory=list)
+    work_package_details: list[WorkPackageSnapshot] = field(default_factory=list)
     subtasks: list[SubtaskSnapshot] = field(default_factory=list)
     work_package_repairs: list[str] = field(default_factory=list)
     execution_log: list[str] = field(default_factory=list)
+    execution_recovery: ExecutionRecoverySnapshot | None = None
     local_commands: list[LocalCommandSnapshot] = field(default_factory=list)
 
 
@@ -142,9 +172,75 @@ class NexusSnapshotAdapter:
             ]
             if session
             else [],
+            work_package_details=self._work_package_details(session),
             subtasks=self._subtasks(session),
             work_package_repairs=self._work_package_repairs(session),
             execution_log=self._execution_log(session),
+            execution_recovery=self._execution_recovery(session),
+        )
+
+    @staticmethod
+    def _work_package_details(
+        session: WorkflowSession | None,
+    ) -> list[WorkPackageSnapshot]:
+        if session is None:
+            return []
+        return [
+            WorkPackageSnapshot(
+                id=package.id,
+                title=package.title,
+                owner_agent=package.owner_agent,
+                status=package.status.value,
+                risk=package.risk or "unknown",
+                current_executor=package.current_executor,
+                last_executor=package.last_executor,
+            )
+            for package in session.work_packages
+        ]
+
+    def _execution_recovery(
+        self,
+        session: WorkflowSession | None,
+    ) -> ExecutionRecoverySnapshot | None:
+        if session is None or not isinstance(session.execution_run, dict):
+            return None
+        run = session.execution_run
+        state = str(run.get("state", "") or "")
+        if state not in {"running", "interrupted", "aborted"}:
+            return None
+        if state == "running" and session.state.value != "executing":
+            return None
+        running_packages = tuple(
+            package.id
+            for package in session.work_packages
+            if package.requires_execution and package.status.value == "running"
+        )
+        retry_candidates = tuple(
+            package.id
+            for package in session.work_packages
+            if package.requires_execution
+            and package.status.value in {"running", "blocked", "failed"}
+        )
+        done_packages = tuple(
+            package.id
+            for package in session.work_packages
+            if package.requires_execution and package.status.value == "done"
+        )
+        last_event = self._last_session_event(session)
+        return ExecutionRecoverySnapshot(
+            run_id=str(run.get("run_id", "") or ""),
+            state=state,
+            target_workspace=str(run.get("target_workspace") or session.target_workspace or ""),
+            running_packages=running_packages,
+            done_packages=done_packages,
+            retry_candidates=retry_candidates,
+            last_event=(str(last_event.get("event", "")) if last_event is not None else ""),
+            last_event_at=(
+                float(last_event.get("timestamp"))
+                if last_event is not None and last_event.get("timestamp") is not None
+                else None
+            ),
+            interrupted_reason=str(run.get("interrupted_reason", "") or ""),
         )
 
     @staticmethod
@@ -176,9 +272,7 @@ class NexusSnapshotAdapter:
 
         def add(subtask: object) -> None:
             subtask_id = str(getattr(subtask, "id", "")).strip()
-            parent_package_id = str(
-                getattr(subtask, "parent_package_id", "")
-            ).strip()
+            parent_package_id = str(getattr(subtask, "parent_package_id", "")).strip()
             parent_agent = str(getattr(subtask, "parent_agent", "")).strip()
             key = (subtask_id, parent_package_id, parent_agent)
             if key in seen:
@@ -194,9 +288,7 @@ class NexusSnapshotAdapter:
                     parent_agent=parent_agent,
                     delegated_to=str(getattr(subtask, "delegated_to", "")).strip(),
                     objective=str(getattr(subtask, "objective", "")).strip(),
-                    result_summary=str(
-                        getattr(subtask, "result_summary", "")
-                    ).strip(),
+                    result_summary=str(getattr(subtask, "result_summary", "")).strip(),
                     status=str(status).strip() or "unknown",
                 )
             )
@@ -214,9 +306,7 @@ class NexusSnapshotAdapter:
         owner = str(getattr(package, "owner_agent", "")).strip() or "unassigned"
         title = str(getattr(package, "title", "")).strip() or "Untitled package"
         dependencies = [
-            str(item).strip()
-            for item in getattr(package, "dependencies", [])
-            if str(item).strip()
+            str(item).strip() for item in getattr(package, "dependencies", []) if str(item).strip()
         ]
         expected_files = [
             str(item).strip()
@@ -246,9 +336,7 @@ class NexusSnapshotAdapter:
                 options=list(q.options),
                 recommended_option=q.recommended_option or "",
                 status=q.status,
-                answer=answer_by_question_id.get(q.id, "")
-                if q.status != "open"
-                else "",
+                answer=answer_by_question_id.get(q.id, "") if q.status != "open" else "",
             )
             for q in session.pending_questions
         ]
@@ -423,8 +511,7 @@ class NexusSnapshotAdapter:
                 round_num = self._event_round(data)
                 synthesis = SynthesisSnapshot(
                     summary=(
-                        f"Central agent is synthesizing round {round_num} "
-                        "provider responses."
+                        f"Central agent is synthesizing round {round_num} provider responses."
                     ),
                     consensus_progress=f"round {round_num} synthesizing",
                     source="runtime",
@@ -439,10 +526,7 @@ class NexusSnapshotAdapter:
                 vote_text = f"{agreement}/{total}" if total else "0/0"
                 state_text = "reached" if reached else "not reached"
                 if not summary:
-                    summary = (
-                        f"Round {round_num} consensus {state_text} "
-                        f"({vote_text})."
-                    )
+                    summary = f"Round {round_num} consensus {state_text} ({vote_text})."
                 fallback_reason = str(data.get("fallback_reason", "")).strip()
                 if fallback_reason:
                     summary = f"{summary}\n\nSynthesis fallback: {fallback_reason}"
@@ -505,6 +589,17 @@ class NexusSnapshotAdapter:
                 lines.append(self._format_execution_result(result))
         return lines
 
+    def _last_session_event(
+        self,
+        session: WorkflowSession,
+    ) -> dict[str, object] | None:
+        events = [
+            event
+            for event in self.persistence.load_events()
+            if str(event.get("workflow_id", "")) == session.id
+        ]
+        return events[-1] if events else None
+
     @staticmethod
     def _format_execution_result(result: object) -> str:
         package_id = str(getattr(result, "package_id", "")).strip()
@@ -551,6 +646,18 @@ class NexusSnapshotAdapter:
             line = f"work_package_completed: {details}" if details else event_name
             return f"{prefix}{line}"
 
+        if event_name == "execution_run_started":
+            packages = data.get("work_packages", [])
+            package_count = len(packages) if isinstance(packages, list) else 0
+            run_id = str(data.get("run_id", "")).strip()
+            target = str(data.get("target_workspace", "")).strip()
+            detail = f"{package_count} packages"
+            if target:
+                detail = f"{detail} -> {target}"
+            if run_id:
+                detail = f"{run_id} {detail}"
+            return f"{prefix}{event_name}: {detail}"
+
         if event_name in {"execution_enabled", "implementation_requested"}:
             packages = data.get("work_packages", [])
             package_count = len(packages) if isinstance(packages, list) else 0
@@ -558,6 +665,35 @@ class NexusSnapshotAdapter:
             if target:
                 return f"{prefix}{event_name}: {package_count} packages -> {target}"
             return f"{prefix}{event_name}: {package_count} packages"
+
+        if event_name == "execution_interrupted_detected":
+            packages = data.get("running_packages", [])
+            package_list = (
+                ", ".join(str(item) for item in packages) if isinstance(packages, list) else ""
+            )
+            reason = str(data.get("reason", "")).strip()
+            detail = package_list or "no running package"
+            if reason:
+                detail = f"{detail}; {reason}"
+            return f"{prefix}{event_name}: {detail}"
+
+        if event_name == "execution_recovery_action":
+            action = str(data.get("action", "")).strip()
+            packages = data.get("packages", [])
+            package_list = (
+                ", ".join(str(item) for item in packages) if isinstance(packages, list) else ""
+            )
+            detail = action or "action"
+            if package_list:
+                detail = f"{detail}: {package_list}"
+            return f"{prefix}{event_name}: {detail}"
+
+        if event_name == "work_package_retry_requested":
+            package_id = str(data.get("package_id", "")).strip()
+            previous = str(data.get("previous_status", "")).strip()
+            agent = str(data.get("agent", "")).strip()
+            details = " ".join(part for part in (package_id, agent, previous) if part)
+            return f"{prefix}{event_name}: {details or package_id}"
 
         if event_name == "execution_batch_planned":
             batches = data.get("batches", [])
@@ -607,9 +743,7 @@ class NexusSnapshotAdapter:
             return {}
 
         round_dir = (
-            self.config.effective_state_dir
-            / "responses"
-            / f"round-{session.current_round:02d}"
+            self.config.effective_state_dir / "responses" / f"round-{session.current_round:02d}"
         )
         if not round_dir.exists():
             return {}

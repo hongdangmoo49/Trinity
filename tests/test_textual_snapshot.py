@@ -60,9 +60,7 @@ def test_snapshot_projects_persisted_workflow(tmp_path) -> None:
             state=WorkflowState.BLUEPRINT_READY,
             active_agents=["claude"],
             current_round=2,
-            pending_questions=[
-                OpenQuestion(id="q-1", question="Which theme?", options=["dark"])
-            ],
+            pending_questions=[OpenQuestion(id="q-1", question="Which theme?", options=["dark"])],
             blueprint=Blueprint(
                 title="Workbench",
                 summary="Use Textual screens.",
@@ -94,9 +92,7 @@ def test_snapshot_projects_persisted_workflow(tmp_path) -> None:
 def test_snapshot_projects_central_and_repaired_work_package_graph(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     persistence = WorkflowPersistence(config.effective_state_dir)
-    missing_dependency_note = (
-        "dependency 'shared-contract' removed because no package matched"
-    )
+    missing_dependency_note = "dependency 'shared-contract' removed because no package matched"
     persistence.save(
         WorkflowSession(
             id="wf-graph",
@@ -330,15 +326,76 @@ def test_snapshot_formats_execution_events_with_runtime_details(tmp_path) -> Non
     assert snapshot.execution_log == [
         "implementation_requested: 1 packages -> /workspace/game",
         f"{started_prefix} work_package_started: WP-001 claude running",
-        (
-            "execution_batch_planned: 2 batches; 1 policy notices - "
-            "high-risk package serialized"
-        ),
+        ("execution_batch_planned: 2 batches; 1 policy notices - high-risk package serialized"),
         (
             f"{completed_prefix} work_package_completed: "
             "WP-001 claude done - Implemented input controller."
         ),
     ]
+
+
+def test_snapshot_projects_execution_recovery_and_executor_details(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-interrupted",
+            goal="Build game",
+            state=WorkflowState.EXECUTING,
+            active_agents=["codex", "claude"],
+            target_workspace=tmp_path / "game",
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="Shared contracts",
+                    owner_agent="codex",
+                    objective="Build contracts.",
+                    status=WorkStatus.RUNNING,
+                    current_executor="claude",
+                    last_executor="claude",
+                    risk="high",
+                ),
+                WorkPackage(
+                    id="WP-002",
+                    title="Done package",
+                    owner_agent="codex",
+                    objective="Done.",
+                    status=WorkStatus.DONE,
+                    last_executor="codex",
+                ),
+            ],
+            execution_run={
+                "run_id": "exec-run-test",
+                "state": "interrupted",
+                "target_workspace": str(tmp_path / "game"),
+                "interrupted_reason": "process_lost",
+            },
+        )
+    )
+    persistence.append_event(
+        {
+            "event": "execution_interrupted_detected",
+            "state": "executing",
+            "workflow_id": "wf-interrupted",
+            "data": {
+                "run_id": "exec-run-test",
+                "running_packages": ["WP-001"],
+                "reason": "process_lost",
+            },
+            "timestamp": 1710000000.0,
+        }
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert snapshot.execution_recovery is not None
+    assert snapshot.execution_recovery.state == "interrupted"
+    assert snapshot.execution_recovery.running_packages == ("WP-001",)
+    assert snapshot.execution_recovery.retry_candidates == ("WP-001",)
+    assert snapshot.execution_recovery.done_packages == ("WP-002",)
+    assert snapshot.work_package_details[0].owner_agent == "codex"
+    assert snapshot.work_package_details[0].current_executor == "claude"
+    assert snapshot.work_package_details[0].risk == "high"
 
 
 def test_snapshot_formats_legacy_execution_result_event(tmp_path) -> None:
@@ -571,9 +628,7 @@ def test_snapshot_projects_consensus_result_from_events(tmp_path) -> None:
     assert snapshot.round_num == 1
     assert snapshot.synthesis.status == "ready"
     assert snapshot.synthesis.summary == "Need another round to resolve scope."
-    assert snapshot.synthesis.consensus_progress == (
-        "round 1 consensus not reached (1/3)"
-    )
+    assert snapshot.synthesis.consensus_progress == ("round 1 consensus not reached (1/3)")
 
 
 def test_snapshot_projects_synthesis_fallback_reason_from_events(tmp_path) -> None:
@@ -649,6 +704,4 @@ def test_snapshot_projects_new_round_collection_after_previous_result(
     assert snapshot.round_num == 2
     assert snapshot.synthesis.status == "waiting"
     assert snapshot.synthesis.consensus_progress == "round 2 collecting"
-    assert snapshot.synthesis.summary == (
-        "Collecting provider responses for round 2."
-    )
+    assert snapshot.synthesis.summary == ("Collecting provider responses for round 2.")

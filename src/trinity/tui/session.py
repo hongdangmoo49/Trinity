@@ -202,8 +202,7 @@ class InteractiveSession:
         self.console.print(self.tui.get_welcome_renderable())
         if self._startup_archive:
             self.console.print(
-                "[dim]Previous workflow saved to history. "
-                "Use /resume to restore it.[/dim]"
+                "[dim]Previous workflow saved to history. Use /resume to restore it.[/dim]"
             )
         self.console.print(
             "[dim]Type a question to start deliberation, or /help for commands.[/dim]\n"
@@ -242,8 +241,7 @@ class InteractiveSession:
         handler_name = PLAIN_TUI_COMMAND_HANDLERS.get(command_id)
         if handler_name is None:
             self.console.print(
-                f"[yellow]Command {parsed.spec.name} is not available "
-                "in the plain TUI.[/yellow]"
+                f"[yellow]Command {parsed.spec.name} is not available in the plain TUI.[/yellow]"
             )
             return
 
@@ -476,8 +474,7 @@ class InteractiveSession:
             )
         else:
             self.console.print(
-                f"[yellow]Unknown option: {action}. "
-                f"Use: on, off, lite, full, ultra[/yellow]"
+                f"[yellow]Unknown option: {action}. Use: on, off, lite, full, ultra[/yellow]"
             )
 
     def _cmd_workflow(self) -> None:
@@ -491,26 +488,75 @@ class InteractiveSession:
         next_action = ""
         if session.state == WorkflowState.BLUEPRINT_READY and session.blueprint:
             next_action = (
-                "\n[bold]Next action[/bold]: /target, /execute, 구현해라, "
-                "설계 다듬기, or /workflow"
+                "\n[bold]Next action[/bold]: /target, /execute, 구현해라, 설계 다듬기, or /workflow"
             )
-        self.console.print(Panel.fit(
-            f"[bold]ID[/bold]: {session.id}\n"
-            f"[bold]State[/bold]: {session.state.value}\n"
-            f"[bold]Goal[/bold]: {session.goal or '(none)'}\n"
-            f"[bold]Round[/bold]: {session.current_round}\n"
-            f"[bold]Active agents[/bold]: {', '.join(session.active_agents) or '(none)'}\n"
-            f"[bold]Target workspace[/bold]: {escape(target_workspace)}\n"
-            f"[bold]Pending questions[/bold]: {len(session.open_questions)}\n"
-            f"[bold]Decisions[/bold]: {len(session.decisions)}\n"
-            f"[bold]Work packages[/bold]: {len(session.work_packages)}\n"
-            f"[bold]Parallel groups[/bold]: {len(parallel_groups)}\n"
-            f"[bold]Subtasks[/bold]: {len(session.subtask_results)}\n"
-            f"[bold]Review packages[/bold]: {len(session.review_packages)}"
-            f"{next_action}",
-            title="Workflow",
-            border_style="magenta",
-        ))
+        recovery = self.workflow.execution_recovery_summary()
+        recovery_text = ""
+        if recovery is not None:
+            recovery_text = (
+                "\n[bold]Execution[/bold]: "
+                f"{escape(str(recovery.get('state') or 'unknown'))}"
+                "\n[bold]Retry candidates[/bold]: "
+                f"{escape(', '.join(recovery.get('retry_candidates') or []) or '(none)')}"
+                "\n[bold]Recovery actions[/bold]: "
+                "/execute retry, /execute mark-interrupted, /execute abort"
+            )
+        self.console.print(
+            Panel.fit(
+                f"[bold]ID[/bold]: {session.id}\n"
+                f"[bold]State[/bold]: {session.state.value}\n"
+                f"[bold]Goal[/bold]: {session.goal or '(none)'}\n"
+                f"[bold]Round[/bold]: {session.current_round}\n"
+                f"[bold]Active agents[/bold]: {', '.join(session.active_agents) or '(none)'}\n"
+                f"[bold]Target workspace[/bold]: {escape(target_workspace)}\n"
+                f"[bold]Pending questions[/bold]: {len(session.open_questions)}\n"
+                f"[bold]Decisions[/bold]: {len(session.decisions)}\n"
+                f"[bold]Work packages[/bold]: {len(session.work_packages)}\n"
+                f"[bold]Parallel groups[/bold]: {len(parallel_groups)}\n"
+                f"[bold]Subtasks[/bold]: {len(session.subtask_results)}\n"
+                f"[bold]Review packages[/bold]: {len(session.review_packages)}"
+                f"{recovery_text}"
+                f"{next_action}",
+                title="Workflow",
+                border_style="magenta",
+            )
+        )
+
+    def _print_execution_recovery(self, message: str = "") -> None:
+        recovery = self.workflow.execution_recovery_summary()
+        if recovery is None:
+            self.console.print("[dim]No interrupted execution recorded.[/dim]")
+            return
+        lines = []
+        if message:
+            lines.append(message)
+            lines.append("")
+        lines.extend(
+            [
+                f"[bold]Execution[/bold]: {escape(str(recovery.get('state') or 'unknown'))}",
+                f"[bold]Run[/bold]: {escape(str(recovery.get('run_id') or '(unknown)'))}",
+                f"[bold]Target[/bold]: {escape(str(recovery.get('target_workspace') or '(not set)'))}",
+                (
+                    "[bold]Running packages at exit[/bold]: "
+                    f"{escape(', '.join(recovery.get('running_packages') or []) or '(none)')}"
+                ),
+                (
+                    "[bold]Retry candidates[/bold]: "
+                    f"{escape(', '.join(recovery.get('retry_candidates') or []) or '(none)')}"
+                ),
+                (
+                    "[bold]Done packages[/bold]: "
+                    f"{escape(', '.join(recovery.get('done_packages') or []) or '(none)')}"
+                ),
+                f"[bold]Last event[/bold]: {escape(str(recovery.get('last_event') or '(none)'))}",
+                "",
+                "Provider process reattach is not supported. Use /execute retry, "
+                "/execute mark-interrupted, or /execute abort.",
+            ]
+        )
+        self.console.print(
+            Panel("\n".join(lines), title="Execution Recovery", border_style="yellow")
+        )
 
     def _cmd_questions(self, args: list[str] | None = None) -> None:
         """Show pending workflow questions."""
@@ -536,16 +582,12 @@ class InteractiveSession:
             /answer --replace <question-id|decision-id> <answer>
         """
         if not args:
-            self.console.print(
-                "[dim]Usage: /answer <question-id|index|next> <answer>[/dim]"
-            )
+            self.console.print("[dim]Usage: /answer <question-id|index|next> <answer>[/dim]")
             return
 
         active = self.config.active_agents
         if not active:
-            self.console.print(
-                "[red]No active agents. Use /agent <name> on to enable one.[/red]"
-            )
+            self.console.print("[red]No active agents. Use /agent <name> on to enable one.[/red]")
             return
 
         replace = False
@@ -557,9 +599,7 @@ class InteractiveSession:
                 filtered.append(arg)
 
         if not filtered:
-            self.console.print(
-                "[dim]Usage: /answer <question-id|index|next> <answer>[/dim]"
-            )
+            self.console.print("[dim]Usage: /answer <question-id|index|next> <answer>[/dim]")
             return
 
         if len(filtered) == 1 and filtered[0].isdigit():
@@ -591,9 +631,7 @@ class InteractiveSession:
 
         active = self.config.active_agents
         if not active:
-            self.console.print(
-                "[red]No active agents. Use /agent <name> on to enable one.[/red]"
-            )
+            self.console.print("[red]No active agents. Use /agent <name> on to enable one.[/red]")
             return
 
         previous_wizard_state = self._question_wizard_active
@@ -631,9 +669,7 @@ class InteractiveSession:
                             question_selector=question.id,
                         )
                 else:
-                    self.console.print(
-                        self._build_questions_panel([question], compact=True)
-                    )
+                    self.console.print(self._build_questions_panel([question], compact=True))
                     answer = self._prompt_session.get_answer_input(
                         question_id=question.id,
                     ).strip()
@@ -693,11 +729,7 @@ class InteractiveSession:
         table.add_column("Objective")
 
         for package in packages:
-            status = (
-                package.status.value
-                if package.requires_execution
-                else "planning_only"
-            )
+            status = package.status.value if package.requires_execution else "planning_only"
             table.add_row(
                 package.id,
                 package.owner_agent,
@@ -753,8 +785,7 @@ class InteractiveSession:
         session = self.workflow.session
         if not session.goal and result is None:
             self.console.print(
-                "[yellow]아직 협의 결과가 없습니다. "
-                "먼저 질문을 입력해 협의를 시작하세요.[/yellow]"
+                "[yellow]아직 협의 결과가 없습니다. 먼저 질문을 입력해 협의를 시작하세요.[/yellow]"
             )
             return
 
@@ -766,9 +797,9 @@ class InteractiveSession:
             self._save_report_markdown(report)
         else:
             self.console.print(report.render())
-            self.console.print(
-                "\n[dim]/report save 로 Markdown 파일로 저장할 수 있습니다.[/dim]"
-            )
+            if self.workflow.execution_recovery_summary() is not None:
+                self._print_execution_recovery()
+            self.console.print("\n[dim]/report save 로 Markdown 파일로 저장할 수 있습니다.[/dim]")
 
     def _save_report_markdown(self, report) -> None:
         """Report를 Markdown 파일로 저장."""
@@ -778,9 +809,7 @@ class InteractiveSession:
         filename = f"report-{report.meta.session_id[:8]}-{timestamp}.md"
         filepath = report_dir / filename
         filepath.write_text(report.to_markdown(), encoding="utf-8")
-        self.console.print(
-            f"[green]📋 Report 저장 완료: {filepath}[/green]"
-        )
+        self.console.print(f"[green]📋 Report 저장 완료: {filepath}[/green]")
 
     def _cmd_resume(self, args: list[str]) -> None:
         """Resume an archived workflow session.
@@ -798,10 +827,7 @@ class InteractiveSession:
         selector = args[0] if args else ""
         if not selector:
             if sys.stdin.isatty() and sys.stdout.isatty():
-                labels = [
-                    self._archive_label(archive)
-                    for archive in archives
-                ]
+                labels = [self._archive_label(archive) for archive in archives]
                 selected = self._prompt_session.select_option(
                     title="Resume Workflow",
                     question="Select a saved workflow session.",
@@ -830,14 +856,42 @@ class InteractiveSession:
             self.console.print(
                 f"[dim]Current workflow saved as {archived_current.session.id}.[/dim]"
             )
-        self.console.print(
-            f"[green]Resumed workflow {self.workflow.session.id}.[/green]"
-        )
+        self.console.print(f"[green]Resumed workflow {self.workflow.session.id}.[/green]")
         self._cmd_workflow()
 
     def _cmd_execute(self, args: list[str]) -> None:
         """Execute the current approved blueprint work packages."""
         instruction = " ".join(args).strip()
+        normalized = instruction.lower()
+        if normalized in {"retry", "retry-interrupted", "recovery retry"}:
+            summary = self.workflow.retry_interrupted_execution()
+            if summary is None:
+                self.console.print("[yellow]No interrupted execution to retry.[/yellow]")
+                return
+            self.console.print("[green]Retrying interrupted execution packages.[/green]")
+            self._run_enabled_execution()
+            self._cmd_workflow()
+            return
+        if normalized in {"mark", "mark-interrupted", "mark interrupted"}:
+            if self.workflow.mark_interrupted_execution() is None:
+                self.console.print("[yellow]No interrupted execution to mark.[/yellow]")
+                return
+            self._print_execution_recovery("Execution marked as interrupted.")
+            self._cmd_workflow()
+            return
+        if normalized in {"abort", "abort-execution", "abort execution"}:
+            if self.workflow.abort_interrupted_execution() is None:
+                self.console.print("[yellow]No interrupted execution to abort.[/yellow]")
+                return
+            self._print_execution_recovery("Interrupted execution aborted.")
+            self._cmd_workflow()
+            return
+        recovery = self.workflow.detect_interrupted_execution(worker_running=False)
+        if recovery is not None and str(recovery.get("state", "")) == "interrupted":
+            self._print_execution_recovery(
+                "Previous execution was interrupted. Review running packages before retrying."
+            )
+            return
         self._execute_current_blueprint(instruction=instruction)
 
     def _cmd_target(self, args: list[str]) -> None:
@@ -845,13 +899,15 @@ class InteractiveSession:
         if not args:
             current = self.workflow.session.target_workspace
             default = self._default_target_workspace()
-            self.console.print(Panel.fit(
-                f"[bold]Current[/bold]: {current or '(not set)'}\n"
-                f"[bold]Default[/bold]: {default}\n\n"
-                "Usage: /target <path> or /target clear",
-                title="Target Workspace",
-                border_style="cyan",
-            ))
+            self.console.print(
+                Panel.fit(
+                    f"[bold]Current[/bold]: {current or '(not set)'}\n"
+                    f"[bold]Default[/bold]: {default}\n\n"
+                    "Usage: /target <path> or /target clear",
+                    title="Target Workspace",
+                    border_style="cyan",
+                )
+            )
             return
 
         action = args[0].strip().lower()
@@ -898,11 +954,7 @@ class InteractiveSession:
                 return archives[index]
             return None
         return next(
-            (
-                archive
-                for archive in archives
-                if archive.session.id.lower() == normalized
-            ),
+            (archive for archive in archives if archive.session.id.lower() == normalized),
             None,
         )
 
@@ -922,6 +974,7 @@ class InteractiveSession:
     ) -> str:
         """Format a persisted Unix timestamp for display."""
         from trinity.tui.formatting import format_timestamp
+
         return format_timestamp(timestamp, fmt)
 
     @staticmethod
@@ -938,15 +991,10 @@ class InteractiveSession:
         """Route normal input through workflow state before deliberating."""
         active = self.config.active_agents
         if not active:
-            self.console.print(
-                "[red]No active agents. Use /agent <name> on to enable one.[/red]"
-            )
+            self.console.print("[red]No active agents. Use /agent <name> on to enable one.[/red]")
             return
 
-        if (
-            self.workflow.state == WorkflowState.BLUEPRINT_READY
-            and self.workflow.work_packages
-        ):
+        if self.workflow.state == WorkflowState.BLUEPRINT_READY and self.workflow.work_packages:
             self._handle_blueprint_ready_text(text, list(active.keys()))
             return
 
@@ -962,9 +1010,7 @@ class InteractiveSession:
 
         if action.decision_record:
             verb = "Updated" if action.replaced_decision else "Recorded"
-            self.console.print(
-                f"[green]{verb} decision {action.decision_record.id}.[/green]"
-            )
+            self.console.print(f"[green]{verb} decision {action.decision_record.id}.[/green]")
 
         if action.should_deliberate:
             self._run_deliberation(action.prompt)
@@ -1001,12 +1047,9 @@ class InteractiveSession:
                         if option == question.recommended_option
                         else ""
                     )
-                    lines.append(
-                        f"    {option_index}. {escape(option)}{suffix}"
-                    )
+                    lines.append(f"    {option_index}. {escape(option)}{suffix}")
                 lines.append(
-                    f"    답변: 직접 입력 또는 /answer {index} <값> 또는 "
-                    f"/answer {question.id} <값>"
+                    f"    답변: 직접 입력 또는 /answer {index} <값> 또는 /answer {question.id} <값>"
                 )
                 if index == 1:
                     lines.append("    선택 UI: /questions --select")
@@ -1015,8 +1058,7 @@ class InteractiveSession:
                         lines.append("    전체 선택 UI: /questions --select --all")
             else:
                 lines.append(
-                    f"    답변: 직접 입력 또는 /answer {index} <값> 또는 "
-                    f"/answer {question.id} <값>"
+                    f"    답변: 직접 입력 또는 /answer {index} <값> 또는 /answer {question.id} <값>"
                 )
             if question.rationale:
                 lines.append(f"    이유: {escape(question.rationale)}")
@@ -1047,16 +1089,13 @@ class InteractiveSession:
 
         active = self.config.active_agents
         if not active:
-            self.console.print(
-                "[red]No active agents. Use /agent <name> on to enable one.[/red]"
-            )
+            self.console.print("[red]No active agents. Use /agent <name> on to enable one.[/red]")
             return
 
         use_tmux = self._uses_tmux_transport()
         if use_tmux and not self._has_tmux():
             self.console.print(
-                "[red]transport_mode is 'tmux', but tmux is not installed or "
-                "not on PATH.[/red]"
+                "[red]transport_mode is 'tmux', but tmux is not installed or not on PATH.[/red]"
             )
             return
         if use_tmux:
@@ -1066,14 +1105,16 @@ class InteractiveSession:
             )
 
         mode_str = self._transport_mode_label()
-        self.console.print(Panel.fit(
-            f"[bold]{prompt}[/bold]\n\n"
-            f"Agents: {', '.join(active.keys())}\n"
-            f"Max rounds: {self.config.max_deliberation_rounds}\n"
-            f"Mode: {mode_str}",
-            title="🧠 Deliberation Starting",
-            border_style="cyan",
-        ))
+        self.console.print(
+            Panel.fit(
+                f"[bold]{prompt}[/bold]\n\n"
+                f"Agents: {', '.join(active.keys())}\n"
+                f"Max rounds: {self.config.max_deliberation_rounds}\n"
+                f"Mode: {mode_str}",
+                title="🧠 Deliberation Starting",
+                border_style="cyan",
+            )
+        )
 
         # Create orchestrator
         orchestrator = TrinityOrchestrator(self.config, interactive=use_tmux)
@@ -1149,8 +1190,7 @@ class InteractiveSession:
         selected = self._prompt_session.select_option(
             title="Workflow",
             question=(
-                "현재 승인된 설계가 있습니다. 방금 입력한 내용을 어떻게 처리할까요?\n\n"
-                f"{text}"
+                f"현재 승인된 설계가 있습니다. 방금 입력한 내용을 어떻게 처리할까요?\n\n{text}"
             ),
             options=[
                 "이 설계도로 구현 시작",
@@ -1173,9 +1213,7 @@ class InteractiveSession:
         self.workflow = WorkflowEngine(self.config.effective_state_dir)
         self.tui.set_workflow_session(self.workflow.session)
         if archived:
-            self.console.print(
-                f"[dim]Current workflow saved as {archived.session.id}.[/dim]"
-            )
+            self.console.print(f"[dim]Current workflow saved as {archived.session.id}.[/dim]")
 
     def _offer_pending_questions(self) -> None:
         """Prompt for synthesized user decisions after a deliberation round."""
@@ -1187,13 +1225,14 @@ class InteractiveSession:
         if sys.stdin.isatty() and sys.stdout.isatty():
             self._cmd_select_question(select_all=True)
         else:
-            self.console.print(self._build_questions_panel(
-                self.workflow.pending_questions,
-                compact=True,
-            ))
             self.console.print(
-                "[dim]Type an answer at the prompt, or use "
-                "/questions --select.[/dim]"
+                self._build_questions_panel(
+                    self.workflow.pending_questions,
+                    compact=True,
+                )
+            )
+            self.console.print(
+                "[dim]Type an answer at the prompt, or use /questions --select.[/dim]"
             )
 
     def _ensure_target_workspace_for_execution(self) -> bool:
@@ -1204,14 +1243,16 @@ class InteractiveSession:
 
         default = self._default_target_workspace()
         if not sys.stdin.isatty() or not sys.stdout.isatty():
-            self.console.print(Panel.fit(
-                "Implementation requires a target workspace before provider "
-                "workspace-write can start.\n\n"
-                f"Recommended default:\n{default}\n\n"
-                "Use /target <path>, then run /execute again.",
-                title="Target Workspace Required",
-                border_style="yellow",
-            ))
+            self.console.print(
+                Panel.fit(
+                    "Implementation requires a target workspace before provider "
+                    "workspace-write can start.\n\n"
+                    f"Recommended default:\n{default}\n\n"
+                    "Use /target <path>, then run /execute again.",
+                    title="Target Workspace Required",
+                    border_style="yellow",
+                )
+            )
             return False
 
         selected = self._prompt_session.select_option(
@@ -1258,9 +1299,7 @@ class InteractiveSession:
         """Validate a persisted target workspace before execution resumes."""
         resolved = target.expanduser().resolve()
         if not resolved.exists() or not resolved.is_dir():
-            self.console.print(
-                f"[yellow]Target workspace does not exist: {resolved}[/yellow]"
-            )
+            self.console.print(f"[yellow]Target workspace does not exist: {resolved}[/yellow]")
             return False
         if (
             self._is_inside_control_repo(resolved)
@@ -1279,16 +1318,12 @@ class InteractiveSession:
         """Persist a target workspace path after validation."""
         resolved = path.expanduser().resolve()
         if require_existing and (not resolved.exists() or not resolved.is_dir()):
-            self.console.print(
-                f"[yellow]Target workspace does not exist: {resolved}[/yellow]"
-            )
+            self.console.print(f"[yellow]Target workspace does not exist: {resolved}[/yellow]")
             return False
         if create:
             resolved.mkdir(parents=True, exist_ok=True)
         if not resolved.is_dir():
-            self.console.print(
-                f"[yellow]Target workspace is not a directory: {resolved}[/yellow]"
-            )
+            self.console.print(f"[yellow]Target workspace is not a directory: {resolved}[/yellow]")
             return False
 
         control_repo_confirmed = False
@@ -1303,9 +1338,7 @@ class InteractiveSession:
             control_repo_confirmed=control_repo_confirmed,
         )
         self.tui.set_workflow_session(self.workflow.session)
-        self.console.print(
-            f"[green]Target workspace set to {resolved}[/green]"
-        )
+        self.console.print(f"[green]Target workspace set to {resolved}[/green]")
         return True
 
     def _confirm_and_store_control_repo_target(self, path: Path) -> bool:
@@ -1325,11 +1358,13 @@ class InteractiveSession:
             f"{path}"
         )
         if not sys.stdin.isatty() or not sys.stdout.isatty():
-            self.console.print(Panel.fit(
-                message + "\n\nUse a target workspace outside the Trinity repo.",
-                title="Target Workspace Warning",
-                border_style="red",
-            ))
+            self.console.print(
+                Panel.fit(
+                    message + "\n\nUse a target workspace outside the Trinity repo.",
+                    title="Target Workspace Warning",
+                    border_style="red",
+                )
+            )
             return False
 
         selected = self._prompt_session.select_option(
@@ -1369,7 +1404,9 @@ class InteractiveSession:
         return resolved == control_repo or control_repo in resolved.parents
 
     def _run_with_live(
-        self, orchestrator: "TrinityOrchestrator", prompt: str,
+        self,
+        orchestrator: "TrinityOrchestrator",
+        prompt: str,
     ) -> DeliberationResult:
         """Run deliberation with Rich Live real-time display via event bus.
 
@@ -1472,11 +1509,13 @@ class InteractiveSession:
 
         self.workflow.begin_execution()
         self.tui.set_workflow_session(self.workflow.session)
-        self.console.print(Panel.fit(
-            f"[bold]Target workspace[/bold]\n{target_workspace}",
-            title="Execution Starting",
-            border_style="green",
-        ))
+        self.console.print(
+            Panel.fit(
+                f"[bold]Target workspace[/bold]\n{target_workspace}",
+                title="Execution Starting",
+                border_style="green",
+            )
+        )
 
         try:
             results = self._run_execution_with_live(orchestrator)
@@ -1527,8 +1566,7 @@ class InteractiveSession:
         use_tmux = self._uses_tmux_transport()
         if use_tmux and not self._has_tmux():
             self.console.print(
-                "[red]transport_mode is 'tmux', but tmux is not installed or "
-                "not on PATH.[/red]"
+                "[red]transport_mode is 'tmux', but tmux is not installed or not on PATH.[/red]"
             )
             return
         if use_tmux:
@@ -1541,9 +1579,7 @@ class InteractiveSession:
             self.config,
             interactive=use_tmux,
             target_workspace=self.workflow.session.target_workspace,
-            allow_control_repo_writes=(
-                self.workflow.session.control_repo_target_confirmed
-            ),
+            allow_control_repo_writes=(self.workflow.session.control_repo_target_confirmed),
         )
         self._maybe_run_execution(orchestrator)
 
@@ -1567,9 +1603,7 @@ class InteractiveSession:
             self.config,
             interactive=self._uses_tmux_transport(),
             target_workspace=target,
-            allow_control_repo_writes=(
-                self.workflow.session.control_repo_target_confirmed
-            ),
+            allow_control_repo_writes=(self.workflow.session.control_repo_target_confirmed),
         )
 
     def _run_execution_with_live(
@@ -1620,9 +1654,7 @@ class InteractiveSession:
             normalized: list[list[str]] = []
             for batch in batches:
                 if isinstance(batch, list):
-                    normalized.append(
-                        [str(item) for item in batch if str(item).strip()]
-                    )
+                    normalized.append([str(item) for item in batch if str(item).strip()])
             return normalized
 
         def _event_notices(event: TUIEvent) -> list[dict[str, object]]:
@@ -1706,22 +1738,26 @@ class InteractiveSession:
         from rich.markdown import Markdown
 
         if result.has_consensus:
-            self.console.print(Panel.fit(
-                f"[green bold]{result.consensus.summary}[/green bold]",
-                title=f"✅ Consensus (Round {result.rounds_completed})",
-                border_style="green",
-            ))
+            self.console.print(
+                Panel.fit(
+                    f"[green bold]{result.consensus.summary}[/green bold]",
+                    title=f"✅ Consensus (Round {result.rounds_completed})",
+                    border_style="green",
+                )
+            )
         else:
             summary = (
                 result.consensus.summary
                 if result.consensus and result.consensus.summary
                 else "No consensus reached."
             )
-            self.console.print(Panel.fit(
-                f"[yellow]{summary}[/yellow]",
-                title=f"Deliberation Result ({result.rounds_completed} rounds)",
-                border_style="yellow",
-            ))
+            self.console.print(
+                Panel.fit(
+                    f"[yellow]{summary}[/yellow]",
+                    title=f"Deliberation Result ({result.rounds_completed} rounds)",
+                    border_style="yellow",
+                )
+            )
 
         # Show each agent's final opinion
         if self.tui.agents:
@@ -1736,11 +1772,13 @@ class InteractiveSession:
                         f"  [{theme.color}]{theme.icon} {name}[/{theme.color}] "
                         f"[dim]({theme.role_label})[/dim]"
                     )
-                    self.console.print(Panel(
-                        Markdown(response[:2000]),
-                        border_style=theme.border_style,
-                        padding=(0, 1),
-                    ))
+                    self.console.print(
+                        Panel(
+                            Markdown(response[:2000]),
+                            border_style=theme.border_style,
+                            padding=(0, 1),
+                        )
+                    )
 
         if result.tasks:
             self.console.print("\n[bold]🎯 작업 분배[/bold]")
@@ -1756,14 +1794,9 @@ class InteractiveSession:
         if self.workflow.work_packages:
             self.console.print("\n[bold]📦 Work Packages[/bold]")
             for package in self.workflow.work_packages:
-                status = (
-                    package.status.value
-                    if package.requires_execution
-                    else "planning_only"
-                )
+                status = package.status.value if package.requires_execution else "planning_only"
                 self.console.print(
-                    f"  [cyan]{package.id}[/cyan] {package.owner_agent}: "
-                    f"{package.title} ({status})"
+                    f"  [cyan]{package.id}[/cyan] {package.owner_agent}: {package.title} ({status})"
                 )
 
         if self.workflow.execution_results:
@@ -1795,8 +1828,7 @@ class InteractiveSession:
             f"Rounds: {result.rounds_completed}[/dim]\n"
         )
         self.console.print(
-            "[dim]/report 로 전체 협의 결과 개괄 보기, "
-            "/report save 로 파일 저장[/dim]"
+            "[dim]/report 로 전체 협의 결과 개괄 보기, /report save 로 파일 저장[/dim]"
         )
 
     # ─── Persistence ────────────────────────────────────────────────────
@@ -1821,6 +1853,7 @@ class InteractiveSession:
     def _has_tmux(self) -> bool:
         """Check if tmux is available for interactive mode."""
         import shutil
+
         return shutil.which("tmux") is not None
 
     def _uses_tmux_transport(self) -> bool:

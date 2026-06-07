@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from textual import events
+from textual.coordinate import Coordinate
 from textual.containers import VerticalScroll
 from textual.widgets import (
     Button,
@@ -35,7 +36,9 @@ from trinity.textual_app.snapshot import (
     QuestionSnapshot,
     SubtaskSnapshot,
     SynthesisSnapshot,
+    ExecutionRecoverySnapshot,
     WorkflowNexusSnapshot,
+    WorkPackageSnapshot,
 )
 from trinity.textual_app.workflow_controller import (
     TextualWorkflowArchiveOption,
@@ -221,6 +224,30 @@ def test_status_modal_centers_and_uses_read_only_table() -> None:
     assert "Item" in text
     assert "Value" in text
     assert "Workflow" in text
+
+
+def test_status_reports_interrupted_execution() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-interrupted",
+        state="executing",
+        execution_recovery=ExecutionRecoverySnapshot(
+            run_id="exec-run-test",
+            state="interrupted",
+            target_workspace="/home/zaemi/workspace/hyper",
+            running_packages=("WP-001",),
+            retry_candidates=("WP-001", "WP-003"),
+            done_packages=("WP-002",),
+            last_event="work_package_started",
+        ),
+    )
+
+    markdown = TrinityTextualApp._snapshot_status_markdown(snapshot)
+    rows = TrinityTextualApp._snapshot_status_rows(snapshot)
+
+    assert "### Execution Recovery" in markdown
+    assert "Execution: `interrupted`" in markdown
+    assert ("Execution", "interrupted") in rows
+    assert ("Retry candidates", "WP-001, WP-003") in rows
 
 
 @pytest.mark.asyncio
@@ -1521,25 +1548,19 @@ async def test_prompt_composer_shows_slash_command_palette(tmp_path) -> None:
 
         composer.set_text("/ex")
         await pilot.pause()
-        filtered_options = [
-            str(option.content) for option in composer.query(".command-option")
-        ]
+        filtered_options = [str(option.content) for option in composer.query(".command-option")]
 
         assert any("/execute" in option for option in filtered_options)
 
         composer.set_text("/rep")
         await pilot.pause()
-        report_options = [
-            str(option.content) for option in composer.query(".command-option")
-        ]
+        report_options = [str(option.content) for option in composer.query(".command-option")]
 
         assert any("/report" in option for option in report_options)
 
         composer.set_text("/q")
         await pilot.pause()
-        quit_options = [
-            str(option.content) for option in composer.query(".command-option")
-        ]
+        quit_options = [str(option.content) for option in composer.query(".command-option")]
 
         assert any("/q" in option for option in quit_options)
         assert any("/quit" in option for option in quit_options)
@@ -1551,9 +1572,7 @@ async def test_prompt_composer_shows_slash_command_palette(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_prompt_composer_localizes_slash_command_palette_in_korean(tmp_path) -> None:
-    app = TrinityTextualApp(
-        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
-    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
 
     async with app.run_test(size=(100, 30)) as pilot:
         composer = app.screen.query_one(PromptComposer)
@@ -1565,9 +1584,7 @@ async def test_prompt_composer_localizes_slash_command_palette_in_korean(tmp_pat
 
         assert any("/status" in option for option in options)
         assert any("제공자와 워크플로우 상태 보기" in option for option in options)
-        assert not any(
-            "show provider and workflow status" in option for option in options
-        )
+        assert not any("show provider and workflow status" in option for option in options)
         assert "명령 더 있음" in more
 
         composer.set_text("/missing")
@@ -1579,9 +1596,7 @@ async def test_prompt_composer_localizes_slash_command_palette_in_korean(tmp_pat
 
 @pytest.mark.asyncio
 async def test_nexus_composer_uses_configured_slash_command_language(tmp_path) -> None:
-    app = TrinityTextualApp(
-        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
-    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
 
     async with app.run_test(size=(120, 40)) as pilot:
         app.switch_to("nexus")
@@ -1612,17 +1627,13 @@ async def test_screen_and_composer_bindings_use_configured_language(tmp_path) ->
         composer = start.query_one(PromptComposer)
         textarea = composer.query_one(ComposerTextArea)
         assert _binding_description(composer._bindings, "enter", "submit") == "보내기"
-        assert _binding_description(
-            textarea._bindings, "shift+enter", "insert_newline"
-        ) == "새 줄"
+        assert _binding_description(textarea._bindings, "shift+enter", "insert_newline") == "새 줄"
 
         app.switch_to("nexus")
         await pilot.pause()
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
-        assert _binding_description(
-            nexus._bindings, "ctrl+e", "request_execute"
-        ) == "실행"
+        assert _binding_description(nexus._bindings, "ctrl+e", "request_execute") == "실행"
 
 
 @pytest.mark.asyncio
@@ -1671,10 +1682,7 @@ async def test_prompt_composer_arrow_selects_slash_command(tmp_path) -> None:
 
         await pilot.press("down")
         await pilot.pause()
-        selected = [
-            str(option.content)
-            for option in composer.query(".command-option-selected")
-        ]
+        selected = [str(option.content) for option in composer.query(".command-option-selected")]
 
         assert any("/context" in option for option in selected)
 
@@ -1738,10 +1746,7 @@ async def test_prompt_composer_scrolls_slash_command_window(tmp_path) -> None:
             await pilot.press("down")
         await pilot.pause()
 
-        selected = [
-            str(option.content)
-            for option in composer.query(".command-option-selected")
-        ]
+        selected = [str(option.content) for option in composer.query(".command-option-selected")]
         visible = [str(option.content) for option in composer.query(".command-option")]
 
         assert any("/workflow" in option for option in selected)
@@ -1898,16 +1903,12 @@ async def test_central_agent_view_renders_all_questions(tmp_path) -> None:
         await pilot.pause()
 
         central = screen.query_one(CentralAgentView)
-        assert "Questions for you (2)" in str(
-            central.query_one("#central-question-title").content
-        )
+        assert "Questions for you (2)" in str(central.query_one("#central-question-title").content)
         assert central.query_one("#answer-q-1-1")
         assert central.query_one("#answer-q-1-2")
         assert central.query_one("#answer-q-2-1")
         assert central.query_one("#answer-q-2-2")
-        rendered_questions = [
-            str(item.content) for item in central.query(".question-text")
-        ]
+        rendered_questions = [str(item.content) for item in central.query(".question-text")]
         assert rendered_questions == [
             "1. [open] Engine?",
             "2. [open] Monetization?",
@@ -1989,9 +1990,9 @@ async def test_textual_status_refresh_replaces_existing_local_command_table(
             value.endswith("readiness=not checked")
             for _, value in app.active_snapshot.local_commands[-1].table_rows
         )
-        assert [
-            command.command for command in app.active_snapshot.local_commands
-        ].count("/status") == 1
+        assert [command.command for command in app.active_snapshot.local_commands].count(
+            "/status"
+        ) == 1
 
         central = app.screen.query_one(CentralAgentView)
         tables = list(central.query(".local-command-table"))
@@ -2034,9 +2035,7 @@ async def test_central_agent_view_keeps_answered_question_history(tmp_path) -> N
         assert "1. [answered] Engine?" in [
             str(item.content) for item in central.query(".question-text")
         ]
-        assert "Answer: Godot" in [
-            str(item.content) for item in central.query(".question-answer")
-        ]
+        assert "Answer: Godot" in [str(item.content) for item in central.query(".question-answer")]
         assert not central.query("#answer-q-1-1")
         assert central.query_one("#answer-q-2-1")
 
@@ -2115,6 +2114,42 @@ async def test_nexus_running_surfaces_show_activity(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_execution_matrix_separates_owner_and_executor(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Rust contracts",
+                        owner_agent="codex",
+                        current_executor="claude",
+                        last_executor="claude",
+                        status="running",
+                        risk="high",
+                    )
+                ]
+            ),
+        )
+        await pilot.pause()
+
+        table = screen.query_one("#execution-table", DataTable)
+
+        assert table.get_cell_at(Coordinate(0, 0)) == "Rust contracts"
+        assert table.get_cell_at(Coordinate(0, 1)) == "codex"
+        assert table.get_cell_at(Coordinate(0, 2)) == "claude (fallback)"
+        assert table.get_cell_at(Coordinate(0, 3)) == "running"
+        assert table.get_cell_at(Coordinate(0, 4)) == "high"
+
+
+@pytest.mark.asyncio
 async def test_provider_panel_renders_scrollable_raw_output(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
     long_output = "\n".join(f"line {index}" for index in range(30))
@@ -2143,6 +2178,7 @@ async def test_provider_panel_renders_scrollable_raw_output(tmp_path) -> None:
         panel = screen.query_one("#provider-claude", ProviderPanel)
         assert isinstance(panel, VerticalScroll)
         assert "line 29" in str(panel.query_one(".provider-summary").content)
+
 
 @pytest.mark.asyncio
 async def test_workflow_inspector_renders_snapshot_counts(tmp_path) -> None:
@@ -2241,15 +2277,15 @@ async def test_provider_inspector_pretty_prints_json_output(tmp_path) -> None:
 
         output = app.screen.query_one("#inspect-codex .provider-inspector-output", RichLog)
         assert "\n".join(line.text for line in output.lines) == (
-            '{\n'
+            "{\n"
             '  "name": "Trinity",\n'
             '  "items": [\n'
-            '    {\n'
+            "    {\n"
             '      "id": 1,\n'
             '      "label": "alpha"\n'
-            '    }\n'
-            '  ]\n'
-            '}'
+            "    }\n"
+            "  ]\n"
+            "}"
         )
 
 

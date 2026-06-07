@@ -123,6 +123,11 @@ class WorkflowEngine:
             for package in self.session.work_packages
         )
 
+    @property
+    def has_interrupted_execution(self) -> bool:
+        """Return whether the persisted execution run needs recovery."""
+        return self.execution_recovery_summary() is not None
+
     def handle_user_input(
         self,
         text: str,
@@ -137,16 +142,12 @@ class WorkflowEngine:
 
     def _can_continue_existing_blueprint(self) -> bool:
         """Return whether free text should stay attached to this workflow."""
-        return (
-            self.session.blueprint is not None
-            and self.session.state
-            in {
-                WorkflowState.BLUEPRINT_READY,
-                WorkflowState.REVIEWING,
-                WorkflowState.DONE,
-                WorkflowState.FAILED,
-            }
-        )
+        return self.session.blueprint is not None and self.session.state in {
+            WorkflowState.BLUEPRINT_READY,
+            WorkflowState.REVIEWING,
+            WorkflowState.DONE,
+            WorkflowState.FAILED,
+        }
 
     def start(
         self,
@@ -445,11 +446,7 @@ class WorkflowEngine:
 
         if include_answered and normalized.startswith("dec-"):
             decision = next(
-                (
-                    item
-                    for item in self.session.decisions
-                    if item.id.lower() == normalized
-                ),
+                (item for item in self.session.decisions if item.id.lower() == normalized),
                 None,
             )
             if decision and decision.question_id:
@@ -593,9 +590,7 @@ class WorkflowEngine:
         base = question_id.strip() or "oq"
         existing = {question.id for question in self.session.pending_questions}
         existing.update(
-            decision.question_id
-            for decision in self.session.decisions
-            if decision.question_id
+            decision.question_id for decision in self.session.decisions if decision.question_id
         )
         if base not in existing:
             return base
@@ -626,15 +621,33 @@ class WorkflowEngine:
             return
         if self.session.target_workspace is None:
             raise RuntimeError("Target workspace is required before implementation.")
+        run_id = f"exec-run-{uuid4().hex[:12]}"
+        now = time.time()
+        work_package_ids = [
+            package.id for package in self.session.work_packages if package.requires_execution
+        ]
+        self.session.execution_run = {
+            "run_id": run_id,
+            "started_at": now,
+            "heartbeat_at": now,
+            "state": "running",
+            "target_workspace": str(self.session.target_workspace),
+            "work_packages": list(work_package_ids),
+        }
+        self._persist(
+            "execution_run_started",
+            {
+                "run_id": run_id,
+                "target_workspace": str(self.session.target_workspace),
+                "work_packages": list(work_package_ids),
+            },
+            timestamp=now,
+        )
         self._persist(
             "implementation_requested",
             {
                 "target_workspace": str(self.session.target_workspace),
-                "work_packages": [
-                    package.id
-                    for package in self.session.work_packages
-                    if package.requires_execution
-                ],
+                "work_packages": list(work_package_ids),
             },
         )
         self.set_state(WorkflowState.EXECUTING, reason="work package execution started")
@@ -650,13 +663,17 @@ class WorkflowEngine:
         if package is None:
             return
 
+        executor = agent_name or package.owner_agent
         package.status = WorkStatus.RUNNING
+        package.current_executor = executor
+        package.last_executor = executor
+        self._touch_execution_run(occurred_at)
         self.session.updated_at = time.time()
         self._persist(
             "work_package_started",
             {
                 "package_id": package.id,
-                "agent": agent_name or package.owner_agent,
+                "agent": executor,
                 "status": package.status.value,
             },
             timestamp=occurred_at,
@@ -675,17 +692,21 @@ class WorkflowEngine:
         if package is None:
             return
 
+        executor = agent_name or package.owner_agent
         if status:
             try:
                 package.status = WorkStatus(status)
             except ValueError:
                 pass
+        package.current_executor = ""
+        package.last_executor = executor
+        self._touch_execution_run(occurred_at)
         self.session.updated_at = time.time()
         self._persist(
             "work_package_completed",
             {
                 "package_id": package.id,
-                "agent": agent_name or package.owner_agent,
+                "agent": executor,
                 "status": package.status.value,
                 "summary": summary,
             },
@@ -726,8 +747,7 @@ class WorkflowEngine:
                 key=lambda item: (-item.estimated_weight, item.id),
             )
             scope_by_package_id = {
-                id(package): self._preview_execution_scope(package)
-                for package in ordered_ready
+                id(package): self._preview_execution_scope(package) for package in ordered_ready
             }
             package_by_scope_id = {
                 id(scope): package
@@ -771,6 +791,7 @@ class WorkflowEngine:
         occurred_at: float | None = None,
     ) -> None:
         """Persist execution scheduling batches and policy notices."""
+        self._touch_execution_run(occurred_at)
         self.session.updated_at = time.time()
         self._persist(
             "execution_batch_planned",
@@ -808,10 +829,10 @@ class WorkflowEngine:
         package = self._work_package_by_id(result.package_id)
         if package:
             package.status = result.status
+            package.current_executor = ""
+            package.last_executor = result.agent_name or package.last_executor
 
-        existing_by_package = {
-            item.package_id: item for item in self.session.execution_results
-        }
+        existing_by_package = {item.package_id: item for item in self.session.execution_results}
         existing_by_package[result.package_id] = result
 
         for decision in result.decisions_made:
@@ -851,26 +872,26 @@ class WorkflowEngine:
         """Derive the workflow state after current execution progress."""
 
         executable = [
-            package
-            for package in self.session.work_packages
-            if package.requires_execution
+            package for package in self.session.work_packages if package.requires_execution
         ]
         if any(package.status == WorkStatus.FAILED for package in executable):
+            self._finish_execution_run("failed")
             self.set_state(WorkflowState.FAILED, reason="work package execution failed")
             return
         if any(
-            package.status
-            in {WorkStatus.BLOCKED, WorkStatus.WAITING_ON_DECISION}
+            package.status in {WorkStatus.BLOCKED, WorkStatus.WAITING_ON_DECISION}
             for package in executable
         ):
+            self._finish_execution_run("blocked")
             self.set_state(
                 WorkflowState.NEEDS_USER_DECISION,
                 reason="work package execution is blocked",
             )
             return
         if executable and all(
-            package.status == WorkStatus.DONE for package in executable
+            package.status in {WorkStatus.DONE, WorkStatus.NEEDS_REVIEW} for package in executable
         ):
+            self._finish_execution_run("completed")
             self._plan_review_packages()
             self.set_state(
                 WorkflowState.REVIEWING,
@@ -882,13 +903,221 @@ class WorkflowEngine:
             reason="work package execution still in progress",
         )
 
+    def detect_interrupted_execution(
+        self,
+        *,
+        worker_running: bool = False,
+        reason: str = "process_lost",
+    ) -> dict[str, Any] | None:
+        """Mark and return stale execution recovery metadata."""
+        if worker_running:
+            return None
+        if self.session.state != WorkflowState.EXECUTING:
+            return None
+        run = self.session.execution_run
+        run_state = str(run.get("state", "")) if isinstance(run, dict) else ""
+        running_packages = self._packages_with_status(WorkStatus.RUNNING)
+        if run_state == "completed":
+            return None
+        if run_state not in {"running", "interrupted"} and not running_packages:
+            return None
+        if run_state != "interrupted":
+            now = time.time()
+            run = dict(run) if isinstance(run, dict) else {}
+            run.setdefault("run_id", f"exec-run-{uuid4().hex[:12]}")
+            run.setdefault("target_workspace", str(self.session.target_workspace or ""))
+            run["state"] = "interrupted"
+            run["interrupted_reason"] = reason
+            run["interrupted_at"] = now
+            run["running_packages"] = [package.id for package in running_packages]
+            self.session.execution_run = run
+            self.session.updated_at = now
+            summary = self.execution_recovery_summary()
+            self._persist(
+                "execution_interrupted_detected",
+                {
+                    "run_id": run.get("run_id", ""),
+                    "running_packages": run.get("running_packages", []),
+                    "last_event_at": summary.get("last_event_at") if summary else None,
+                    "reason": reason,
+                },
+                timestamp=now,
+            )
+            return summary
+        return self.execution_recovery_summary()
+
+    def execution_recovery_summary(self) -> dict[str, Any] | None:
+        """Return a serializable execution recovery summary when applicable."""
+        run = self.session.execution_run
+        if not isinstance(run, dict) or not run:
+            return None
+        run_state = str(run.get("state", "") or "")
+        if run_state not in {"running", "interrupted", "aborted"}:
+            return None
+        running_packages = self._packages_with_status(WorkStatus.RUNNING)
+        if run_state == "running" and self.session.state != WorkflowState.EXECUTING:
+            return None
+        retry_candidates = [
+            package.id
+            for package in self.session.work_packages
+            if package.requires_execution
+            and package.status in {WorkStatus.RUNNING, WorkStatus.BLOCKED, WorkStatus.FAILED}
+        ]
+        done_packages = [
+            package.id
+            for package in self.session.work_packages
+            if package.requires_execution and package.status == WorkStatus.DONE
+        ]
+        last_event = self._last_workflow_event()
+        return {
+            "run_id": str(run.get("run_id", "")),
+            "state": run_state,
+            "target_workspace": str(
+                run.get("target_workspace") or self.session.target_workspace or ""
+            ),
+            "started_at": run.get("started_at"),
+            "heartbeat_at": run.get("heartbeat_at"),
+            "interrupted_reason": str(run.get("interrupted_reason", "") or ""),
+            "running_packages": [package.id for package in running_packages],
+            "done_packages": done_packages,
+            "retry_candidates": retry_candidates,
+            "last_event_at": last_event.get("timestamp") if last_event else None,
+            "last_event": str(last_event.get("event", "")) if last_event else "",
+        }
+
+    def retry_interrupted_execution(self) -> dict[str, Any] | None:
+        """Prepare interrupted/failed packages for explicit user retry."""
+        summary = self.detect_interrupted_execution(worker_running=False)
+        if summary is None:
+            summary = self.execution_recovery_summary()
+        if summary is None:
+            return None
+        candidates = set(summary.get("retry_candidates", []))
+        if not candidates:
+            return summary
+        for package in self.session.work_packages:
+            if package.id not in candidates:
+                continue
+            previous_status = package.status.value
+            package.status = WorkStatus.PENDING
+            package.current_executor = ""
+            self._persist(
+                "work_package_retry_requested",
+                {
+                    "package_id": package.id,
+                    "previous_status": previous_status,
+                    "agent": package.owner_agent,
+                },
+            )
+        run = dict(self.session.execution_run)
+        run["state"] = "retry_requested"
+        run["retry_requested_at"] = time.time()
+        run["retry_packages"] = sorted(candidates)
+        self.session.execution_run = run
+        self.session.updated_at = time.time()
+        self._persist(
+            "execution_recovery_action",
+            {
+                "action": "retry_interrupted",
+                "packages": sorted(candidates),
+                "target_workspace": str(self.session.target_workspace or ""),
+            },
+        )
+        self.set_state(
+            WorkflowState.BLUEPRINT_READY,
+            reason="interrupted packages queued for retry",
+        )
+        return summary
+
+    def mark_interrupted_execution(self) -> dict[str, Any] | None:
+        """Turn stale running packages into blocked work that needs user review."""
+        summary = self.detect_interrupted_execution(worker_running=False)
+        if summary is None:
+            summary = self.execution_recovery_summary()
+        if summary is None:
+            return None
+        running_ids = set(summary.get("running_packages", []))
+        for package in self.session.work_packages:
+            if package.id in running_ids:
+                package.status = WorkStatus.BLOCKED
+                package.current_executor = ""
+        self._persist_recovery_action("mark_interrupted", sorted(running_ids))
+        self.set_state(WorkflowState.NEEDS_USER_DECISION, reason="execution marked interrupted")
+        return self.execution_recovery_summary()
+
+    def abort_interrupted_execution(self) -> dict[str, Any] | None:
+        """Abort a stale execution and require an explicit user decision."""
+        summary = self.detect_interrupted_execution(worker_running=False)
+        if summary is None:
+            summary = self.execution_recovery_summary()
+        if summary is None:
+            return None
+        candidates = set(summary.get("retry_candidates", []))
+        for package in self.session.work_packages:
+            if package.id in candidates and package.status == WorkStatus.RUNNING:
+                package.status = WorkStatus.BLOCKED
+                package.current_executor = ""
+        run = dict(self.session.execution_run)
+        run["state"] = "aborted"
+        run["aborted_at"] = time.time()
+        self.session.execution_run = run
+        self._persist_recovery_action("abort_execution", sorted(candidates))
+        self.set_state(WorkflowState.NEEDS_USER_DECISION, reason="execution aborted")
+        return self.execution_recovery_summary()
+
+    def _touch_execution_run(self, occurred_at: float | None = None) -> None:
+        run = self.session.execution_run
+        if not isinstance(run, dict) or not run:
+            return
+        if str(run.get("state", "")) != "running":
+            return
+        run["heartbeat_at"] = occurred_at if occurred_at is not None else time.time()
+        self.session.execution_run = run
+
+    def _finish_execution_run(self, outcome: str) -> None:
+        run = self.session.execution_run
+        if not isinstance(run, dict) or not run:
+            return
+        if str(run.get("state", "")) == "interrupted":
+            return
+        run["state"] = "completed"
+        run["outcome"] = outcome
+        run["completed_at"] = time.time()
+        self.session.execution_run = run
+
+    def _persist_recovery_action(self, action: str, packages: list[str]) -> None:
+        run = dict(self.session.execution_run)
+        run["last_recovery_action"] = action
+        run["last_recovery_action_at"] = time.time()
+        self.session.execution_run = run
+        self.session.updated_at = time.time()
+        self._persist(
+            "execution_recovery_action",
+            {
+                "action": action,
+                "packages": list(packages),
+                "target_workspace": str(self.session.target_workspace or ""),
+            },
+        )
+
+    def _packages_with_status(self, status: WorkStatus) -> list[WorkPackage]:
+        return [
+            package
+            for package in self.session.work_packages
+            if package.requires_execution and package.status == status
+        ]
+
+    def _last_workflow_event(self) -> dict[str, Any] | None:
+        events = [
+            event
+            for event in self.persistence.load_events()
+            if str(event.get("workflow_id", "")) == self.session.id
+        ]
+        return events[-1] if events else None
+
     def _work_package_by_id(self, package_id: str) -> WorkPackage | None:
         return next(
-            (
-                package
-                for package in self.session.work_packages
-                if package.id == package_id
-            ),
+            (package for package in self.session.work_packages if package.id == package_id),
             None,
         )
 
@@ -955,8 +1184,7 @@ class WorkflowEngine:
         round_sections = [
             body
             for heading, body in sections.items()
-            if heading == "round opinions"
-            or re.fullmatch(r"round\s+\d+\s+opinions", heading)
+            if heading == "round opinions" or re.fullmatch(r"round\s+\d+\s+opinions", heading)
         ]
         return {
             "round_opinions": "\n\n".join(round_sections).strip(),
@@ -1041,9 +1269,7 @@ class WorkflowEngine:
         )
 
     def _build_decision_continuation_prompt(self, decision: DecisionRecord) -> str:
-        decisions = "\n".join(
-            f"- {item.id}: {item.decision}" for item in self.session.decisions
-        )
+        decisions = "\n".join(f"- {item.id}: {item.decision}" for item in self.session.decisions)
         return (
             "Continue the existing workflow using the user's decision below.\n\n"
             f"Original goal:\n{self.session.goal}\n\n"
@@ -1061,9 +1287,10 @@ class WorkflowEngine:
             if blueprint and blueprint.acceptance_criteria
             else "- none"
         )
-        decisions = "\n".join(
-            f"- {item.id}: {item.decision}" for item in self.session.decisions
-        ) or "- none"
+        decisions = (
+            "\n".join(f"- {item.id}: {item.decision}" for item in self.session.decisions)
+            or "- none"
+        )
         return (
             "Continue the existing workflow instead of starting a new one.\n\n"
             f"Original goal:\n{self.session.goal}\n\n"

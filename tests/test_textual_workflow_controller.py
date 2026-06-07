@@ -300,6 +300,87 @@ def test_textual_workflow_controller_requests_workspace_before_execution(tmp_pat
     assert controller.workflow.state == WorkflowState.BLUEPRINT_READY
 
 
+def test_resume_surfaces_execution_recovery(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    controller = TextualWorkflowController(
+        config,
+        orchestrator_factory=FakeOrchestrator,
+        archive_active_session=False,
+    )
+    target = tmp_path / "game"
+    controller.persistence.save(
+        WorkflowSession(
+            id="wf-interrupted",
+            goal="게임 구현",
+            state=WorkflowState.EXECUTING,
+            active_agents=["claude"],
+            target_workspace=target,
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="client",
+                    owner_agent="claude",
+                    objective="Build client.",
+                    status=WorkStatus.RUNNING,
+                    current_executor="claude",
+                )
+            ],
+            execution_run={
+                "run_id": "exec-run-test",
+                "state": "running",
+                "target_workspace": str(target),
+            },
+        )
+    )
+    controller.persistence.archive_active_session(force=True)
+
+    outcome = controller.resume_workflow("latest")
+
+    assert outcome.execution_recovery_required is True
+    assert outcome.snapshot.session_id == "wf-interrupted"
+    assert outcome.snapshot.execution_recovery is not None
+    assert outcome.snapshot.execution_recovery.state == "interrupted"
+    assert outcome.snapshot.execution_recovery.retry_candidates == ("WP-001",)
+
+
+def test_execute_requires_recovery_choice_for_stale_execution(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 구현", ["claude"])
+    workflow.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="client",
+            owner_agent="claude",
+            objective="Build client.",
+            status=WorkStatus.RUNNING,
+            current_executor="claude",
+        )
+    ]
+    workflow.set_target_workspace(tmp_path / "game")
+    workflow.set_state(WorkflowState.EXECUTING, reason="simulate stale execution")
+    workflow.session.execution_run = {
+        "run_id": "exec-run-test",
+        "state": "running",
+        "target_workspace": str(tmp_path / "game"),
+    }
+    workflow.save()
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeOrchestrator,
+        archive_active_session=False,
+    )
+
+    outcome = controller.request_execution()
+
+    assert outcome.execution_recovery_required is True
+    assert outcome.execution_requested is False
+    assert outcome.target_workspace_required is False
+    assert "Previous execution was interrupted" in outcome.message
+    assert controller.is_running is False
+
+
 def test_textual_workflow_controller_reuses_target_for_review_followup(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     workflow = WorkflowEngine(config.effective_state_dir)
@@ -396,9 +477,7 @@ def test_textual_workflow_controller_persists_work_package_runtime_events(tmp_pa
     assert events[-3]["event"] == "execution_batch_planned"
     assert events[-3]["timestamp"] == 1200.0
     assert events[-3]["data"]["batches"] == [["WP-001"]]
-    assert events[-3]["data"]["notices"][0]["reason"] == (
-        "non-parallelizable package serialized"
-    )
+    assert events[-3]["data"]["notices"][0]["reason"] == ("non-parallelizable package serialized")
     assert events[-2]["event"] == "work_package_started"
     assert events[-2]["timestamp"] == 1234.5
     assert events[-1]["event"] == "work_package_completed"

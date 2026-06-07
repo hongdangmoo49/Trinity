@@ -88,9 +88,7 @@ async def test_execution_protocol_dispatches_package_and_records_result(tmp_path
     assert "Do not switch branches, merge, commit, or push" in sent_prompt
     assert "[Subagent Delegation Policy]" in sent_prompt
     assert "## Subtasks" in sent_prompt
-    assert agent.send_and_wait.call_args.kwargs["access"] == (
-        InvocationAccess.WORKSPACE_WRITE
-    )
+    assert agent.send_and_wait.call_args.kwargs["access"] == (InvocationAccess.WORKSPACE_WRITE)
     task_results = shared.read_section("Task Results")
     assert task_results is not None
     assert "WP-001 / codex" in task_results
@@ -170,10 +168,7 @@ async def test_execution_protocol_allows_external_target_workspace(tmp_path):
     agent = AsyncMock()
     agent.launch_cwd = target_workspace
     agent.send_and_wait.return_value = _message(
-        "## Completed\n"
-        "- Implemented in target workspace\n\n"
-        "## Blockers\n"
-        "- none\n"
+        "## Completed\n- Implemented in target workspace\n\n## Blockers\n- none\n"
     )
     package = WorkPackage(
         id="WP-001",
@@ -253,10 +248,7 @@ async def test_execution_protocol_marks_blockers(tmp_path):
     shared = SharedContextEngine(tmp_path / "shared.md")
     agent = AsyncMock()
     agent.send_and_wait.return_value = _message(
-        "## Completed\n"
-        "- Started implementation\n\n"
-        "## Blockers\n"
-        "- Missing API key\n"
+        "## Completed\n- Started implementation\n\n## Blockers\n- Missing API key\n"
     )
     package = WorkPackage(
         id="WP-001",
@@ -381,16 +373,10 @@ async def test_execution_protocol_falls_back_after_owner_blocked(tmp_path):
     claude = AsyncMock()
     codex = AsyncMock()
     claude.send_and_wait.return_value = _message(
-        "## Completed\n"
-        "- Could not proceed\n\n"
-        "## Blockers\n"
-        "- Missing local SDK\n"
+        "## Completed\n- Could not proceed\n\n## Blockers\n- Missing local SDK\n"
     )
     codex.send_and_wait.return_value = _message(
-        "## Completed\n"
-        "- Fallback implementation complete\n\n"
-        "## Blockers\n"
-        "- No blockers.\n"
+        "## Completed\n- Fallback implementation complete\n\n## Blockers\n- No blockers.\n"
     )
     package = WorkPackage(
         id="WP-001",
@@ -411,6 +397,46 @@ async def test_execution_protocol_falls_back_after_owner_blocked(tmp_path):
     assert results[0].blockers == []
     claude.send_and_wait.assert_called_once()
     codex.send_and_wait.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_environment_blocker_does_not_auto_fallback(tmp_path):
+    shared = SharedContextEngine(tmp_path / "shared.md")
+    claude = AsyncMock()
+    codex = AsyncMock()
+    claude.send_and_wait.return_value = _message(
+        "## Completed\n"
+        "- Implemented Rust project files\n\n"
+        "## Files Changed\n"
+        "- Cargo.toml\n"
+        "- src/main.rs\n\n"
+        "## Blockers\n"
+        "- cargo not installed in this environment, so tests could not be run\n"
+    )
+    codex.send_and_wait.return_value = _message(
+        "## Completed\n- fallback should not run\n\n## Blockers\n- none\n"
+    )
+    package = WorkPackage(
+        id="WP-001",
+        title="rust package",
+        owner_agent="claude",
+        objective="Implement Rust package.",
+    )
+    protocol = ExecutionProtocol(
+        agents={"claude": claude, "codex": codex},
+        shared=shared,
+        artifact_dir=tmp_path / "execution",
+    )
+
+    results = await protocol.run([package])
+
+    assert results[0].status == WorkStatus.NEEDS_REVIEW
+    assert results[0].agent_name == "claude"
+    assert results[0].blockers == [
+        "cargo not installed in this environment, so tests could not be run"
+    ]
+    claude.send_and_wait.assert_called_once()
+    codex.send_and_wait.assert_not_called()
 
 
 @pytest.mark.asyncio

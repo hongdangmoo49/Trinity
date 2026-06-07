@@ -53,17 +53,34 @@ class ExecutionMatrixScreen(Screen[None]):
         table = self.query_one("#execution-table", DataTable)
         if table.columns:
             return
-        table.add_columns("Task", "Assignee", "Status", "Risk")
+        table.add_columns("Task", "Assignee", "Executor", "Status", "Risk")
 
     def _render_table(self) -> None:
         table = self.query_one("#execution-table", DataTable)
         table.clear()
+        if self.snapshot.work_package_details:
+            for package in self.snapshot.work_package_details:
+                executor = package.current_executor or package.last_executor or "-"
+                if (
+                    executor not in {"", "-"}
+                    and package.owner_agent
+                    and executor != package.owner_agent
+                ):
+                    executor = f"{executor} (fallback)"
+                table.add_row(
+                    package.title or package.id,
+                    package.owner_agent or "-",
+                    executor,
+                    package.status or "pending",
+                    package.risk or "unknown",
+                )
+            return
         if not self.snapshot.work_packages:
-            table.add_row("(no work packages)", "-", "pending", "unknown")
+            table.add_row("(no work packages)", "-", "-", "pending", "unknown")
             return
         for package in self.snapshot.work_packages:
             task, assignee, status = _parse_package_line(package)
-            table.add_row(task, assignee, status, "unknown")
+            table.add_row(task, assignee, "-", status, "unknown")
 
     def _render_log(self) -> None:
         log = self.query_one("#execution-log", RichLog)

@@ -338,13 +338,7 @@ def test_enable_execution_regenerates_current_blueprint_packages(tmp_path):
     assert engine.work_packages[0].requires_execution is True
     assert engine.work_packages[0].expected_files != ["docs/"]
     assert engine.decisions[0].decision == "Implement in Python"
-    artifact_path = (
-        tmp_path
-        / ".trinity"
-        / "workflow"
-        / "blueprints"
-        / f"{engine.session.id}.json"
-    )
+    artifact_path = tmp_path / ".trinity" / "workflow" / "blueprints" / f"{engine.session.id}.json"
     assert artifact_path.exists()
     payload = json.loads(artifact_path.read_text(encoding="utf-8"))
     assert payload["blueprint"]["title"] == "Route Bot"
@@ -477,15 +471,17 @@ def test_record_execution_results_moves_to_reviewing(tmp_path):
     engine.set_target_workspace(tmp_path / "route-bot")
     engine.begin_execution()
 
-    engine.record_execution_results([
-        ExecutionResult(
-            package_id="WP-001",
-            agent_name="codex",
-            status=WorkStatus.DONE,
-            summary="Implemented route bot.",
-            files_changed=["src/routes.py"],
-        )
-    ])
+    engine.record_execution_results(
+        [
+            ExecutionResult(
+                package_id="WP-001",
+                agent_name="codex",
+                status=WorkStatus.DONE,
+                summary="Implemented route bot.",
+                files_changed=["src/routes.py"],
+            )
+        ]
+    )
 
     assert engine.state == WorkflowState.REVIEWING
     assert engine.session.work_packages[0].status == WorkStatus.DONE
@@ -525,6 +521,90 @@ def test_record_work_package_started_persists_running_status(tmp_path):
 
     loaded = WorkflowEngine(tmp_path / ".trinity")
     assert loaded.session.work_packages[0].status == WorkStatus.RUNNING
+    assert loaded.session.work_packages[0].current_executor == "codex"
+    assert loaded.session.execution_run["state"] == "running"
+
+
+def test_detect_interrupted_execution_when_running_without_worker(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement route bot.",
+            requires_execution=True,
+        )
+    ]
+    engine.set_target_workspace(tmp_path / "route-bot")
+    engine.begin_execution()
+    engine.record_work_package_started("WP-001", "codex", occurred_at=1234.5)
+
+    loaded = WorkflowEngine(tmp_path / ".trinity")
+    recovery = loaded.detect_interrupted_execution(worker_running=False)
+
+    assert recovery is not None
+    assert recovery["state"] == "interrupted"
+    assert recovery["running_packages"] == ["WP-001"]
+    assert recovery["retry_candidates"] == ["WP-001"]
+    assert loaded.session.execution_run["state"] == "interrupted"
+    events = loaded.persistence.load_events()
+    assert events[-1]["event"] == "execution_interrupted_detected"
+
+
+def test_retry_interrupted_packages_excludes_done_packages(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="done package",
+            owner_agent="codex",
+            objective="Done.",
+            status=WorkStatus.DONE,
+        ),
+        WorkPackage(
+            id="WP-002",
+            title="running package",
+            owner_agent="claude",
+            objective="Running.",
+            status=WorkStatus.RUNNING,
+            current_executor="claude",
+        ),
+        WorkPackage(
+            id="WP-003",
+            title="blocked package",
+            owner_agent="codex",
+            objective="Blocked.",
+            status=WorkStatus.BLOCKED,
+        ),
+    ]
+    engine.set_target_workspace(tmp_path / "route-bot")
+    engine.set_state(WorkflowState.EXECUTING, reason="simulate stale execution")
+    engine.session.execution_run = {
+        "run_id": "exec-run-test",
+        "state": "running",
+        "target_workspace": str(tmp_path / "route-bot"),
+    }
+    engine.save()
+
+    recovery = engine.retry_interrupted_execution()
+
+    assert recovery is not None
+    assert set(recovery["retry_candidates"]) == {"WP-002", "WP-003"}
+    assert [package.status for package in engine.session.work_packages] == [
+        WorkStatus.DONE,
+        WorkStatus.PENDING,
+        WorkStatus.PENDING,
+    ]
+    assert engine.session.work_packages[0].status == WorkStatus.DONE
+    events = engine.persistence.load_events()
+    retry_events = [event for event in events if event["event"] == "work_package_retry_requested"]
+    assert [event["data"]["package_id"] for event in retry_events] == [
+        "WP-002",
+        "WP-003",
+    ]
 
 
 def test_record_work_package_completed_persists_finished_event(tmp_path):
@@ -625,26 +705,28 @@ def test_record_execution_results_persists_subtasks(tmp_path):
         )
     ]
 
-    engine.record_execution_results([
-        ExecutionResult(
-            package_id="WP-001",
-            agent_name="codex",
-            status=WorkStatus.DONE,
-            summary="Done.",
-            subtasks=[
-                SubtaskResult(
-                    id="ST-001",
-                    parent_package_id="WP-001",
-                    parent_agent="codex",
-                    delegated_to="code-search tool",
-                    objective="Find patterns.",
-                    result_summary="Found registry.",
-                    status=WorkStatus.DONE,
-                    files_changed=["src/routes.py"],
-                )
-            ],
-        )
-    ])
+    engine.record_execution_results(
+        [
+            ExecutionResult(
+                package_id="WP-001",
+                agent_name="codex",
+                status=WorkStatus.DONE,
+                summary="Done.",
+                subtasks=[
+                    SubtaskResult(
+                        id="ST-001",
+                        parent_package_id="WP-001",
+                        parent_agent="codex",
+                        delegated_to="code-search tool",
+                        objective="Find patterns.",
+                        result_summary="Found registry.",
+                        status=WorkStatus.DONE,
+                        files_changed=["src/routes.py"],
+                    )
+                ],
+            )
+        ]
+    )
 
     assert len(engine.subtask_results) == 1
     assert engine.subtask_results[0].delegated_to == "code-search tool"
@@ -666,14 +748,16 @@ def test_record_execution_results_marks_failure(tmp_path):
         )
     ]
 
-    engine.record_execution_results([
-        ExecutionResult(
-            package_id="WP-001",
-            agent_name="codex",
-            status=WorkStatus.FAILED,
-            summary="Provider failed.",
-        )
-    ])
+    engine.record_execution_results(
+        [
+            ExecutionResult(
+                package_id="WP-001",
+                agent_name="codex",
+                status=WorkStatus.FAILED,
+                summary="Provider failed.",
+            )
+        ]
+    )
 
     assert engine.state == WorkflowState.FAILED
     assert engine.session.work_packages[0].status == WorkStatus.FAILED
@@ -691,15 +775,17 @@ def test_record_execution_results_marks_blocked_as_user_decision(tmp_path):
         )
     ]
 
-    engine.record_execution_results([
-        ExecutionResult(
-            package_id="WP-001",
-            agent_name="codex",
-            status=WorkStatus.BLOCKED,
-            summary="Missing credential.",
-            blockers=["Missing credential."],
-        )
-    ])
+    engine.record_execution_results(
+        [
+            ExecutionResult(
+                package_id="WP-001",
+                agent_name="codex",
+                status=WorkStatus.BLOCKED,
+                summary="Missing credential.",
+                blockers=["Missing credential."],
+            )
+        ]
+    )
 
     assert engine.state == WorkflowState.NEEDS_USER_DECISION
     assert engine.session.work_packages[0].status == WorkStatus.BLOCKED

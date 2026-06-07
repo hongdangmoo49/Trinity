@@ -36,6 +36,7 @@ class TextualWorkflowOutcome:
     running: bool = False
     execution_requested: bool = False
     target_workspace_required: bool = False
+    execution_recovery_required: bool = False
 
 
 @dataclass(frozen=True)
@@ -152,10 +153,39 @@ class TextualWorkflowController:
         """Enable and run execution for the current blueprint when possible."""
         if self.is_running:
             return self._outcome(message="Workflow is still running.", running=True)
-        if self.workflow.state != WorkflowState.BLUEPRINT_READY:
+        normalized_instruction = instruction.strip().lower()
+        if normalized_instruction in {"retry", "retry-interrupted", "recovery retry"}:
+            summary = self.workflow.retry_interrupted_execution()
+            if summary is None:
+                return self._outcome(message="No interrupted execution to retry.")
+            if not summary.get("retry_candidates") and not self.workflow.has_pending_execution:
+                return self._outcome(message="No interrupted packages need retry.")
+            self._start_execution()
             return self._outcome(
-                message="No blueprint is ready. Finish planning before execution."
+                message="Retrying interrupted execution packages.",
+                execution_requested=True,
             )
+        if normalized_instruction in {"mark-interrupted", "mark interrupted", "mark"}:
+            summary = self.workflow.mark_interrupted_execution()
+            if summary is None:
+                return self._outcome(message="No interrupted execution to mark.")
+            return self._outcome(message="Execution marked as interrupted.")
+        if normalized_instruction in {"abort", "abort-execution", "abort execution"}:
+            summary = self.workflow.abort_interrupted_execution()
+            if summary is None:
+                return self._outcome(message="No interrupted execution to abort.")
+            return self._outcome(message="Interrupted execution aborted.")
+
+        recovery = self.workflow.detect_interrupted_execution(worker_running=self.is_running)
+        if recovery is not None and str(recovery.get("state", "")) == "interrupted":
+            return self._outcome(
+                message=(
+                    "Previous execution was interrupted. Review running packages before retrying."
+                ),
+                execution_recovery_required=True,
+            )
+        if self.workflow.state != WorkflowState.BLUEPRINT_READY:
+            return self._outcome(message="No blueprint is ready. Finish planning before execution.")
         action = self.workflow.enable_execution_for_current_blueprint(instruction)
         return self._apply_action(action)
 
@@ -207,24 +237,22 @@ class TextualWorkflowController:
                 archive = archives[int(normalized) - 1]
             else:
                 found = next(
-                    (
-                        item
-                        for item in archives
-                        if item.session.id.lower() == normalized
-                    ),
+                    (item for item in archives if item.session.id.lower() == normalized),
                     None,
                 )
                 if found is None:
-                    return self._outcome(
-                        message=f"No matching workflow session: {selector}"
-                    )
+                    return self._outcome(message=f"No matching workflow session: {selector}")
                 archive = found
 
         self.persistence.archive_active_session()
         self.persistence.restore_archive(archive)
         self.workflow = WorkflowEngine(self.config.effective_state_dir)
+        recovery = self.workflow.detect_interrupted_execution(worker_running=False)
         self._recent_events = []
-        return self._outcome(message=f"Resumed workflow {archive.session.id}.")
+        return self._outcome(
+            message=f"Resumed workflow {archive.session.id}.",
+            execution_recovery_required=recovery is not None,
+        )
 
     def drain_updates(self) -> TextualWorkflowOutcome | None:
         """Consume runtime events and complete finished background work."""
@@ -248,6 +276,8 @@ class TextualWorkflowController:
         if completion_pending:
             completion_changed = True
             if error is not None:
+                if run_kind == "execution":
+                    self.workflow.abort_interrupted_execution()
                 self.workflow.set_state(WorkflowState.FAILED, reason=str(error))
                 message = f"Workflow error: {error}"
             elif run_kind == "deliberation" and result is not None:
@@ -286,9 +316,7 @@ class TextualWorkflowController:
         use_tmux = self._uses_tmux_transport()
         if use_tmux and shutil.which("tmux") is None:
             with self._lock:
-                self._error = RuntimeError(
-                    "transport_mode is 'tmux', but tmux is not installed."
-                )
+                self._error = RuntimeError("transport_mode is 'tmux', but tmux is not installed.")
                 self._run_kind = "deliberation"
                 self._completion_pending = True
             return
@@ -334,9 +362,7 @@ class TextualWorkflowController:
                     self.config,
                     interactive=use_tmux,
                     target_workspace=self.workflow.session.target_workspace,
-                    allow_control_repo_writes=(
-                        self.workflow.session.control_repo_target_confirmed
-                    ),
+                    allow_control_repo_writes=(self.workflow.session.control_repo_target_confirmed),
                 )
                 orchestrator.set_event_bus(bus)
                 results = asyncio.run(
@@ -438,6 +464,7 @@ class TextualWorkflowController:
         running: bool | None = None,
         execution_requested: bool = False,
         target_workspace_required: bool = False,
+        execution_recovery_required: bool = False,
     ) -> TextualWorkflowOutcome:
         return TextualWorkflowOutcome(
             snapshot=self.snapshot(),
@@ -445,6 +472,7 @@ class TextualWorkflowController:
             running=self._has_active_or_pending_work() if running is None else running,
             execution_requested=execution_requested,
             target_workspace_required=target_workspace_required,
+            execution_recovery_required=execution_recovery_required,
         )
 
     def _has_active_or_pending_work(self) -> bool:

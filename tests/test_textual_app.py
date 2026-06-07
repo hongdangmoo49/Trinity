@@ -1171,6 +1171,46 @@ async def test_prompt_composer_arrow_selects_slash_command(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_prompt_composer_tab_accepts_slash_command(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+        composer.set_text("/con")
+        composer.focus_text_area()
+        await pilot.pause()
+
+        await pilot.press("tab")
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert composer.text == "/context "
+
+
+@pytest.mark.asyncio
+async def test_prompt_composer_tab_completes_exact_slash_without_running(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+        composer.set_text("/context")
+        composer.focus_text_area()
+        await pilot.pause()
+
+        await pilot.press("tab")
+        await pilot.pause()
+
+        assert app.current_route == "start"
+        assert composer.text == "/context "
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+        assert app.active_snapshot is None
+
+
+@pytest.mark.asyncio
 async def test_prompt_composer_scrolls_slash_command_window(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

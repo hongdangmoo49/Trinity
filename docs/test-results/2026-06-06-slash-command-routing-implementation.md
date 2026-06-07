@@ -36,8 +36,11 @@
     `NexusScreen.SlashCommandSubmitted`를 발생시킴
 - `src/trinity/textual_app/widgets/composer.py`
   - 부분 slash 입력의 Enter는 기존처럼 palette 후보를 수락한다
+  - 부분 slash 입력의 Tab도 palette 후보를 수락해 slash command text를 완성한다
   - `/context`, `/status`처럼 등록 command와 정확히 일치하는 입력의 Enter는 후보 수락으로
     멈추지 않고 바로 submit해 command router를 실행한다
+  - 정확히 일치하는 slash 입력의 Tab은 실행하지 않고 trailing space가 포함된 command text로
+    완성한다
 - `src/trinity/textual_app/app.py`
   - Start/Nexus slash command handler 추가
   - 조회/unknown command가 `start_prompt()` 또는 `submit_follow_up()`으로 넘어가지 않게 처리
@@ -137,6 +140,10 @@
 /home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py::test_nexus_exact_context_enter_executes_without_palette_accept tests/test_textual_app.py::test_nexus_context_without_session_records_empty_message tests/test_textual_app.py::test_prompt_composer_arrow_selects_slash_command -q
 /home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/widgets/composer.py tests/test_textual_app.py tests/test_slash_command_docs.py
 /home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py tests/test_slash_command_docs.py -q
+/home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/widgets/composer.py tests/test_textual_app.py
+/home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py::test_prompt_composer_tab_accepts_slash_command tests/test_textual_app.py::test_prompt_composer_tab_completes_exact_slash_without_running tests/test_textual_app.py::test_prompt_composer_arrow_selects_slash_command tests/test_textual_app.py::test_nexus_exact_context_enter_executes_without_palette_accept -q
+/home/zaemi/.local/bin/uvx ruff check src/trinity/textual_app/widgets/composer.py tests/test_textual_app.py tests/test_slash_command_docs.py
+/home/zaemi/.local/bin/uv run pytest tests/test_textual_app.py tests/test_slash_command_docs.py -q
 git diff --check
 /home/zaemi/.local/bin/uv run pytest -q
 ```
@@ -169,9 +176,11 @@ git diff --check
 - Textual/plain slash/docs 회귀: `143 passed in 33.89s`
 - Nexus exact `/context` Enter 회귀: `3 passed in 3.20s`
 - Textual slash/docs 회귀: `64 passed in 48.39s`
+- Tab slash completion 회귀: `4 passed in 3.75s`
+- Textual slash/docs 최신 회귀: `66 passed in 48.84s`
 - Ruff 대상 파일 검사 통과
 - `git diff --check` 통과
-- 전체 회귀: `1230 passed, 1 warning in 83.25s`
+- 전체 회귀: `1232 passed, 1 warning in 80.88s`
 
 ## 남은 작업
 

@@ -4,7 +4,7 @@
 
 브랜치: `codex/execution-resume-recovery-design`
 
-상태: 설계
+상태: 구현 완료 (`0.11.0`)
 
 ## 목적
 

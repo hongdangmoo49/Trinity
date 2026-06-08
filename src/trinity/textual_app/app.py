@@ -41,6 +41,10 @@ from trinity.textual_app.workflow_controller import (
 )
 from trinity.textual_app.widgets.confirm_quit_modal import ConfirmQuitModal
 from trinity.textual_app.widgets.context_modal import ContextCommandModal
+from trinity.textual_app.widgets.execution_retry_modal import (
+    ExecutionRetryModal,
+    ExecutionRetrySelection,
+)
 from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
@@ -97,6 +101,43 @@ class TrinityTextualApp(App[None]):
         content-align: center middle;
         text-align: center;
         color: $text;
+    }
+
+    #resume-picker {
+        width: 112;
+        max-width: 94%;
+        height: 30;
+        max-height: 88%;
+        border: round $accent;
+        background: $surface;
+        padding: 1 2;
+    }
+
+    #resume-picker-title {
+        color: $accent;
+        text-style: bold;
+        margin-bottom: 1;
+    }
+
+    .resume-archive-option {
+        width: 100%;
+        margin-bottom: 1;
+    }
+
+    #resume-archive-list {
+        height: 1fr;
+        border: round $primary;
+        padding: 0 1;
+        margin-bottom: 1;
+    }
+
+    .resume-archive-option-selected {
+        color: $accent;
+        text-style: bold;
+    }
+
+    #cancel-resume-picker {
+        width: 18;
     }
 
     #start-screen {
@@ -564,9 +605,44 @@ class TrinityTextualApp(App[None]):
         color: $accent;
     }
 
-    #execution-table {
+    #execution-package-list {
         height: 11;
         margin-top: 1;
+        border: round $primary;
+        padding: 0 1;
+    }
+
+    .execution-package-header {
+        height: 1;
+        color: $text-muted;
+    }
+
+    .execution-package-row {
+        height: 1;
+    }
+
+    .execution-package-task {
+        width: 30;
+    }
+
+    .execution-package-assignee {
+        width: 13;
+    }
+
+    .execution-package-executor {
+        width: 20;
+    }
+
+    .execution-package-status {
+        width: 12;
+    }
+
+    .execution-package-risk {
+        width: 11;
+    }
+
+    .execution-package-empty {
+        color: $text-muted;
     }
 
     #execution-log {
@@ -574,6 +650,111 @@ class TrinityTextualApp(App[None]):
         border: round $primary;
         margin-top: 1;
         padding: 0 1;
+    }
+
+    #execution-retry-modal {
+        width: 108;
+        max-width: 96%;
+        height: 34;
+        max-height: 92%;
+        border: round $accent;
+        background: $surface;
+        padding: 1 2;
+    }
+
+    #execution-retry-title {
+        text-style: bold;
+        color: $accent;
+        margin-bottom: 1;
+    }
+
+    #execution-retry-summary {
+        color: $text-muted;
+        margin-bottom: 1;
+    }
+
+    #execution-retry-filters {
+        height: auto;
+        margin-bottom: 1;
+    }
+
+    #execution-retry-filters Button {
+        width: 16;
+        margin-right: 1;
+    }
+
+    #execution-retry-list {
+        height: 1fr;
+        border: round $primary;
+        padding: 0 1;
+    }
+
+    #execution-retry-header {
+        height: 1;
+        color: $text-muted;
+    }
+
+    .retry-row {
+        height: 1;
+    }
+
+    .retry-id {
+        width: 8;
+    }
+
+    .retry-status {
+        width: 11;
+    }
+
+    .retry-topic {
+        width: 30;
+    }
+
+    .retry-owner {
+        width: 11;
+    }
+
+    .retry-executor {
+        width: 13;
+    }
+
+    .retry-note {
+        width: 1fr;
+        color: $text-muted;
+    }
+
+    #execution-retry-selected {
+        height: 1;
+        margin-top: 1;
+        color: $text-muted;
+    }
+
+    #execution-retry-actions {
+        height: auto;
+        align-horizontal: right;
+    }
+
+    #work-package-detail-modal {
+        width: 96;
+        max-width: 94%;
+        height: 34;
+        max-height: 92%;
+        border: round $accent;
+        background: $surface;
+        padding: 1 2;
+    }
+
+    #work-package-detail-title {
+        text-style: bold;
+        color: $accent;
+        margin-bottom: 1;
+    }
+
+    #work-package-detail-body {
+        height: 1fr;
+        border: round $primary;
+        padding: 0 1;
+        margin-bottom: 1;
     }
 
     #report-screen {
@@ -673,6 +854,7 @@ class TrinityTextualApp(App[None]):
         self._screens_installed = False
         self._workflow_polling_started = False
         self._local_command_results: list[LocalCommandSnapshot] = []
+        self._pending_execute_retry: ExecutionRetrySelection | None = None
 
     def on_mount(self) -> None:
         self._install_workbench_screens()
@@ -771,6 +953,13 @@ class TrinityTextualApp(App[None]):
         event.stop()
         outcome = self.workflow_controller.request_execution()
         self._apply_workflow_outcome(outcome)
+        if outcome.execution_recovery_required:
+            self._present_execution_recovery(
+                "/execute",
+                outcome.snapshot,
+                outcome.message,
+            )
+            return
         if outcome.target_workspace_required:
             self._open_execute_workspace_picker(outcome.snapshot)
 
@@ -805,6 +994,7 @@ class TrinityTextualApp(App[None]):
 
     def _on_workspace_preflight(self, preflight: WorkspacePreflight | None) -> None:
         if preflight is None:
+            self._pending_execute_retry = None
             return
         if self._is_control_repo_target(preflight.path):
             self.push_screen(
@@ -842,6 +1032,7 @@ class TrinityTextualApp(App[None]):
             empty=True,
             action_hint="Choose a workspace outside the Trinity control repo.",
         )
+        self._pending_execute_retry = None
 
     def _continue_workspace_preflight(
         self,
@@ -854,8 +1045,23 @@ class TrinityTextualApp(App[None]):
             preflight.path,
             control_repo_confirmed=control_repo_confirmed,
         )
-        outcome = self.workflow_controller.request_execution()
+        pending_retry = self._pending_execute_retry
+        self._pending_execute_retry = None
+        if pending_retry is not None:
+            outcome = self.workflow_controller.confirm_execution_retry(
+                pending_retry.selector,
+                list(pending_retry.package_ids),
+            )
+        else:
+            outcome = self.workflow_controller.request_execution()
         self._apply_workflow_outcome(outcome)
+        if outcome.execution_recovery_required:
+            self._present_execution_recovery(
+                "/execute",
+                outcome.snapshot,
+                outcome.message,
+            )
+            return
         snapshot = outcome.snapshot
         execution = self.get_screen("execution", ExecutionMatrixScreen)
         execution.apply_execution_state(preflight, snapshot)
@@ -1070,12 +1276,22 @@ class TrinityTextualApp(App[None]):
         if command == "answer":
             self._handle_textual_answer_command(args)
             return
+        if command == "execute-retry":
+            self._handle_textual_execute_retry_command(args)
+            return
         if command == "execute":
             outcome = self.workflow_controller.request_execution(" ".join(args))
             message = outcome.message
             if message:
                 outcome = replace(outcome, message="")
             self._apply_workflow_outcome(outcome)
+            if outcome.execution_recovery_required:
+                self._present_execution_recovery(
+                    parsed.spec.name,
+                    outcome.snapshot,
+                    message,
+                )
+                return
             if message:
                 self._record_slash_command_result(
                     parsed.spec.name,
@@ -1083,9 +1299,7 @@ class TrinityTextualApp(App[None]):
                     message,
                     severity="warning",
                     empty=True,
-                    action_hint=(
-                        "Finish planning first, then run `/execute` from Nexus."
-                    ),
+                    action_hint=("Finish planning first, then run `/execute` from Nexus."),
                 )
             if outcome.target_workspace_required:
                 self._open_execute_workspace_picker(outcome.snapshot)
@@ -1108,6 +1322,29 @@ class TrinityTextualApp(App[None]):
             or self.workflow_controller.snapshot()
             or self.snapshot_adapter.load_snapshot()
         )
+
+    def _fresh_textual_snapshot(self) -> WorkflowNexusSnapshot:
+        """Return the latest persisted/controller snapshot, ignoring stale UI state."""
+        return self.workflow_controller.snapshot() or self.snapshot_adapter.load_snapshot()
+
+    def _refresh_current_route_from_active_snapshot(self) -> None:
+        """Re-apply the active snapshot after Textual finishes a screen switch."""
+        if not self._screens_installed:
+            return
+        snapshot = (
+            self.active_snapshot
+            or self.workflow_controller.snapshot()
+            or self.snapshot_adapter.load_snapshot()
+        )
+        if self.current_route == "nexus":
+            self.get_screen("nexus", NexusScreen).apply_snapshot(snapshot)
+        elif self.current_route == "execution" and self.confirmed_preflight is not None:
+            self.get_screen("execution", ExecutionMatrixScreen).apply_execution_state(
+                self.confirmed_preflight,
+                snapshot,
+            )
+        elif self.current_route == "report":
+            self.get_screen("report", ReportScreen).apply_snapshot(snapshot)
 
     def _with_local_command_results(
         self,
@@ -1168,9 +1405,7 @@ class TrinityTextualApp(App[None]):
             self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
         if notify and self.current_route != "start":
             notify_severity = (
-                "warning"
-                if result.severity in {"warning", "error"}
-                else "information"
+                "warning" if result.severity in {"warning", "error"} else "information"
             )
             self.notify(result.title, title="Slash Command", severity=notify_severity)
 
@@ -1194,6 +1429,63 @@ class TrinityTextualApp(App[None]):
             self.push_screen(StatusCommandModal(result))
             return
         self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
+
+    def _present_execution_recovery(
+        self,
+        command: str,
+        snapshot: WorkflowNexusSnapshot,
+        message: str = "",
+    ) -> None:
+        """Show interrupted execution recovery details as a local command result."""
+        body_parts = [message.strip()] if message.strip() else []
+        body_parts.append(self._execution_recovery_markdown(snapshot))
+        self._record_slash_command_result(
+            command,
+            "Execution Recovery",
+            "\n\n".join(body_parts),
+            severity="warning",
+            action_hint=("Use `/execute-retry`, `/execute mark-interrupted`, or `/execute abort`."),
+            table_columns=("Item", "Value"),
+            table_rows=self._execution_recovery_rows(snapshot),
+            start_modal=False,
+        )
+
+    @staticmethod
+    def _execution_recovery_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+        recovery = snapshot.execution_recovery
+        if recovery is None:
+            return "No interrupted execution is recorded for this workflow."
+        lines = [
+            f"- Execution: `{recovery.state}`",
+            f"- Run: `{recovery.run_id or '(unknown)'}`",
+            f"- Target: `{recovery.target_workspace or '(not set)'}`",
+            (f"- Running packages at exit: `{', '.join(recovery.running_packages) or '(none)'}`"),
+            (f"- Retry candidates: `{', '.join(recovery.retry_candidates) or '(none)'}`"),
+            f"- Done packages: `{', '.join(recovery.done_packages) or '(none)'}`",
+            f"- Last event: `{recovery.last_event or '(none)'}`",
+            "",
+            "Provider process reattach is not supported. Retry starts a new "
+            "one-shot execution only for interrupted, failed, or blocked packages.",
+        ]
+        return "\n".join(lines)
+
+    @staticmethod
+    def _execution_recovery_rows(
+        snapshot: WorkflowNexusSnapshot,
+    ) -> tuple[tuple[str, str], ...]:
+        recovery = snapshot.execution_recovery
+        if recovery is None:
+            return (("Execution", "none"),)
+        return (
+            ("Execution", recovery.state),
+            ("Run", recovery.run_id or "(unknown)"),
+            ("Target", recovery.target_workspace or "(not set)"),
+            ("Running packages", ", ".join(recovery.running_packages) or "(none)"),
+            ("Retry candidates", ", ".join(recovery.retry_candidates) or "(none)"),
+            ("Done packages", ", ".join(recovery.done_packages) or "(none)"),
+            ("Last event", recovery.last_event or "(none)"),
+            ("Next", "/execute-retry | /execute mark-interrupted | /execute abort"),
+        )
 
     def _local_command_snapshot(
         self,
@@ -1227,9 +1519,7 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         """Keep only the latest result for each local slash command."""
         self._local_command_results = [
-            item
-            for item in self._local_command_results
-            if item.command != result.command
+            item for item in self._local_command_results if item.command != result.command
         ]
         self._local_command_results.append(result)
 
@@ -1257,6 +1547,9 @@ class TrinityTextualApp(App[None]):
             )
         else:
             lines.append("| - | - | - | - |")
+        if snapshot.execution_recovery is not None:
+            lines.extend(["", "### Execution Recovery"])
+            lines.append(TrinityTextualApp._execution_recovery_markdown(snapshot))
         return "\n".join(lines)
 
     @staticmethod
@@ -1280,6 +1573,8 @@ class TrinityTextualApp(App[None]):
                     ),
                 )
             )
+        if snapshot.execution_recovery is not None:
+            rows.extend(TrinityTextualApp._execution_recovery_rows(snapshot))
         return tuple(rows)
 
     @staticmethod
@@ -1307,11 +1602,7 @@ class TrinityTextualApp(App[None]):
     def _unknown_command_rows(
         suggestions: tuple[str, ...],
     ) -> tuple[tuple[str, str], ...]:
-        summary_by_name = {
-            name: spec.summary
-            for spec in COMMAND_SPECS
-            for name in spec.names
-        }
+        summary_by_name = {name: spec.summary for spec in COMMAND_SPECS for name in spec.names}
         return tuple((name, summary_by_name.get(name, "")) for name in suggestions)
 
     def _help_markdown(self) -> str:
@@ -1327,8 +1618,7 @@ class TrinityTextualApp(App[None]):
             "### Categories",
         ]
         lines.extend(
-            f"- `{category}`: {count}"
-            for category, count in sorted(category_counts.items())
+            f"- `{category}`: {count}" for category, count in sorted(category_counts.items())
         )
         lines.extend(
             [
@@ -1361,26 +1651,28 @@ class TrinityTextualApp(App[None]):
     def _snapshot_workflow_markdown(snapshot: WorkflowNexusSnapshot) -> str:
         state = snapshot.state or "idle"
         goal = snapshot.goal or "(none)"
-        return "\n".join(
-            [
-                f"- ID: `{snapshot.session_id or '(new)'}`",
-                f"- State: `{state}`",
-                f"- Goal: {goal}",
-                f"- Round: `{snapshot.round_num}`",
-                f"- Pending questions: `{len(snapshot.questions)}`",
-                f"- Decisions: `{len(snapshot.decisions)}`",
-                f"- Work packages: `{len(snapshot.work_packages)}`",
-                f"- Subtasks: `{len(snapshot.subtasks)}`",
-                f"- Local policy repairs: `{len(snapshot.work_package_repairs)}`",
-                f"- Execution log entries: `{len(snapshot.execution_log)}`",
-            ]
-        )
+        lines = [
+            f"- ID: `{snapshot.session_id or '(new)'}`",
+            f"- State: `{state}`",
+            f"- Goal: {goal}",
+            f"- Round: `{snapshot.round_num}`",
+            f"- Pending questions: `{len(snapshot.questions)}`",
+            f"- Decisions: `{len(snapshot.decisions)}`",
+            f"- Work packages: `{len(snapshot.work_packages)}`",
+            f"- Subtasks: `{len(snapshot.subtasks)}`",
+            f"- Local policy repairs: `{len(snapshot.work_package_repairs)}`",
+            f"- Execution log entries: `{len(snapshot.execution_log)}`",
+        ]
+        if snapshot.execution_recovery is not None:
+            lines.extend(["", "### Execution Recovery"])
+            lines.append(TrinityTextualApp._execution_recovery_markdown(snapshot))
+        return "\n".join(lines)
 
     @staticmethod
     def _snapshot_workflow_rows(
         snapshot: WorkflowNexusSnapshot,
     ) -> tuple[tuple[str, str], ...]:
-        return (
+        rows = [
             ("ID", snapshot.session_id or "(new)"),
             ("State", snapshot.state or "idle"),
             ("Goal", snapshot.goal or "(none)"),
@@ -1391,7 +1683,10 @@ class TrinityTextualApp(App[None]):
             ("Subtasks", str(len(snapshot.subtasks))),
             ("Local policy repairs", str(len(snapshot.work_package_repairs))),
             ("Execution log entries", str(len(snapshot.execution_log))),
-        )
+        ]
+        if snapshot.execution_recovery is not None:
+            rows.extend(TrinityTextualApp._execution_recovery_rows(snapshot))
+        return tuple(rows)
 
     @staticmethod
     def _snapshot_has_current_context(snapshot: WorkflowNexusSnapshot) -> bool:
@@ -1407,6 +1702,7 @@ class TrinityTextualApp(App[None]):
             or snapshot.work_packages
             or snapshot.subtasks
             or snapshot.work_package_repairs
+            or snapshot.workflow_events
             or snapshot.execution_log
         )
 
@@ -1422,9 +1718,7 @@ class TrinityTextualApp(App[None]):
             f"- Round: `{snapshot.round_num}`",
         ]
         if snapshot.synthesis.consensus_progress:
-            lines.append(
-                f"- Synthesis: `{snapshot.synthesis.consensus_progress}`"
-            )
+            lines.append(f"- Synthesis: `{snapshot.synthesis.consensus_progress}`")
         if snapshot.synthesis.summary:
             lines.extend(["", "### Synthesis", snapshot.synthesis.summary])
         if snapshot.questions:
@@ -1454,9 +1748,15 @@ class TrinityTextualApp(App[None]):
         if snapshot.work_package_repairs:
             lines.extend(["", "### Local Policy Repairs"])
             lines.extend(f"- {item}" for item in snapshot.work_package_repairs)
-        if snapshot.execution_log:
-            lines.extend(["", "### Recent Execution Log"])
-            lines.extend(f"- {item}" for item in snapshot.execution_log[-8:])
+        if snapshot.workflow_events:
+            lines.extend(["", "### Workflow History"])
+            lines.extend(f"- {item}" for item in snapshot.workflow_events)
+        extra_execution_log = [
+            item for item in snapshot.execution_log if item not in snapshot.workflow_events
+        ]
+        if extra_execution_log:
+            lines.extend(["", "### Execution Results"])
+            lines.extend(f"- {item}" for item in extra_execution_log)
         return "\n".join(lines)
 
     @staticmethod
@@ -1488,8 +1788,7 @@ class TrinityTextualApp(App[None]):
         if question.options:
             lines.append("")
             lines.append(
-                "Use the option buttons in the central panel, "
-                "or run `/answer <option-number>`."
+                "Use the option buttons in the central panel, or run `/answer <option-number>`."
             )
             for index, option in enumerate(question.options, start=1):
                 lines.append(f"- {index}. {option}")
@@ -1518,8 +1817,7 @@ class TrinityTextualApp(App[None]):
         if not snapshot.decisions:
             return "No workflow decisions recorded in the current session."
         return "\n".join(
-            f"{index}. {decision}"
-            for index, decision in enumerate(snapshot.decisions, start=1)
+            f"{index}. {decision}" for index, decision in enumerate(snapshot.decisions, start=1)
         )
 
     @staticmethod
@@ -1527,8 +1825,7 @@ class TrinityTextualApp(App[None]):
         snapshot: WorkflowNexusSnapshot,
     ) -> tuple[tuple[str, str], ...]:
         return tuple(
-            (str(index), decision)
-            for index, decision in enumerate(snapshot.decisions, start=1)
+            (str(index), decision) for index, decision in enumerate(snapshot.decisions, start=1)
         )
 
     @staticmethod
@@ -1623,7 +1920,7 @@ class TrinityTextualApp(App[None]):
 
     def _handle_textual_context_command(self, command: str) -> None:
         """Show the current session context without reading stale shared.md state."""
-        snapshot = self._current_textual_snapshot()
+        snapshot = self._fresh_textual_snapshot()
         body = self._snapshot_context_markdown(snapshot)
         if not self._snapshot_has_current_context(snapshot):
             if self.current_route == "start":
@@ -1756,9 +2053,7 @@ class TrinityTextualApp(App[None]):
         self._record_slash_command_result(
             command_name,
             "Rounds",
-            self._session_setting_body(
-                f"Max rounds set to `{rounds}` for this session only."
-            ),
+            self._session_setting_body(f"Max rounds set to `{rounds}` for this session only."),
             table_columns=("Item", "Value"),
             table_rows=(
                 ("Current max rounds", str(self.config.max_deliberation_rounds)),
@@ -1818,9 +2113,7 @@ class TrinityTextualApp(App[None]):
         self._record_slash_command_result(
             command_name,
             "Agent",
-            self._session_setting_body(
-                f"Agent `{name}` {status} for this session only."
-            ),
+            self._session_setting_body(f"Agent `{name}` {status} for this session only."),
             table_columns=("Agent", "Enabled", "Provider"),
             table_rows=self._agent_rows(),
         )
@@ -2067,6 +2360,13 @@ class TrinityTextualApp(App[None]):
             )
         if not failed:
             self.switch_to("nexus")
+            if outcome.execution_recovery_required:
+                self._present_execution_recovery(
+                    "/resume",
+                    outcome.snapshot,
+                    "Previous execution was interrupted before Trinity could collect all results.",
+                )
+            self._handle_textual_context_command("/context")
 
     @staticmethod
     def _resume_archives_markdown(
@@ -2164,6 +2464,60 @@ class TrinityTextualApp(App[None]):
                 empty=message.startswith("No "),
             )
 
+    def _handle_textual_execute_retry_command(self, args: list[str]) -> None:
+        selector, package_ids = self._parse_execute_retry_args(args)
+        self.workflow_controller.preview_execution_retry(selector, package_ids)
+        snapshot = self._refresh_textual_snapshot()
+        if not snapshot.work_package_details:
+            self._record_slash_command_result(
+                "/execute-retry",
+                "Execute Retry",
+                "No work packages are available in the current workflow.",
+                severity="warning",
+                empty=True,
+                action_hint="Finish planning and execute at least one package first.",
+            )
+            return
+        self.push_screen(
+            ExecutionRetryModal(
+                snapshot,
+                selector=selector,
+                package_ids=tuple(package_ids),
+                lang=self.config.lang,
+            ),
+            self._on_execute_retry_selected,
+        )
+
+    @staticmethod
+    def _parse_execute_retry_args(args: list[str]) -> tuple[str, list[str]]:
+        if not args:
+            return "all", []
+        first = args[0].lower()
+        if first in {"all", "failed", "blocked", "interrupted", "custom"}:
+            return first, args[1:]
+        return "custom", args
+
+    def _on_execute_retry_selected(
+        self,
+        selection: ExecutionRetrySelection | None,
+    ) -> None:
+        if selection is None:
+            return
+        outcome = self.workflow_controller.confirm_execution_retry(
+            selection.selector,
+            list(selection.package_ids),
+        )
+        if outcome.target_workspace_required:
+            self._pending_execute_retry = selection
+            self._apply_workflow_outcome(outcome)
+            self._open_execute_workspace_picker(outcome.snapshot)
+            return
+        self._apply_workflow_outcome(outcome)
+        if outcome.execution_requested:
+            execution = self.get_screen("execution", ExecutionMatrixScreen)
+            execution.apply_execution_state(self.confirmed_preflight, outcome.snapshot)
+            self.switch_to("execution")
+
     def _advance_activity_frame(self) -> None:
         if self.current_route == "nexus" and self._screens_installed:
             nexus = self.get_screen("nexus", NexusScreen)
@@ -2179,9 +2533,7 @@ class TrinityTextualApp(App[None]):
             )
         if route == "report" and self._screens_installed:
             report = self.get_screen("report", ReportScreen)
-            report.apply_snapshot(
-                self.active_snapshot or self.snapshot_adapter.load_snapshot()
-            )
+            report.apply_snapshot(self.active_snapshot or self.snapshot_adapter.load_snapshot())
             # Build a structured DeliberationReport for richer rendering
             try:
                 from trinity.tui.report import DeliberationReportBuilder
@@ -2194,8 +2546,18 @@ class TrinityTextualApp(App[None]):
                     report.apply_report(structured)
             except Exception:
                 pass  # Fallback to snapshot rendering
+        if route == "execution" and self._screens_installed:
+            execution = self.get_screen("execution", ExecutionMatrixScreen)
+            execution.apply_execution_state(
+                self.confirmed_preflight,
+                self.active_snapshot
+                or self.workflow_controller.snapshot()
+                or self.snapshot_adapter.load_snapshot(),
+            )
         self.current_route = route
         self.switch_screen(route)
+        if self.active_snapshot is not None:
+            self.call_after_refresh(self._refresh_current_route_from_active_snapshot)
 
     def action_go_start(self) -> None:
         self.active_snapshot = None
@@ -2221,11 +2583,7 @@ class TrinityTextualApp(App[None]):
         event: ReportScreen.ExportRequested,
     ) -> None:
         event.stop()
-        snapshot = (
-            event.snapshot
-            or self.active_snapshot
-            or self.snapshot_adapter.load_snapshot()
-        )
+        snapshot = event.snapshot or self.active_snapshot or self.snapshot_adapter.load_snapshot()
         self._export_report_markdown(snapshot)
 
     def _export_report_markdown(self, snapshot: WorkflowNexusSnapshot) -> Path | None:

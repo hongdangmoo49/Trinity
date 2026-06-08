@@ -660,6 +660,39 @@ class TestWorkflowRouting:
         assert session.workflow.work_packages[0].requires_execution is False
         assert session.workflow.decisions == []
 
+    def test_execute_retry_command_prepares_selected_package(self, session):
+        session.workflow.start("Original goal", ["claude", "codex"])
+        session.workflow.session.work_packages = [
+            WorkPackage(
+                id="WP-001",
+                title="client",
+                owner_agent="claude",
+                objective="Build client.",
+                status=WorkStatus.FAILED,
+            ),
+            WorkPackage(
+                id="WP-002",
+                title="server",
+                owner_agent="codex",
+                objective="Build server.",
+                status=WorkStatus.FAILED,
+            ),
+        ]
+        target = session.config.project_dir.parent / "route-bot"
+        target.mkdir(exist_ok=True)
+        session.workflow.set_target_workspace(target)
+        session.workflow.set_state(WorkflowState.FAILED, reason="simulate failed execution")
+
+        with patch.object(session, "_run_enabled_execution") as run_enabled_execution:
+            session._handle_command("/execute-retry custom WP-002")
+
+        assert [package.status for package in session.workflow.work_packages] == [
+            WorkStatus.FAILED,
+            WorkStatus.PENDING,
+        ]
+        assert session.workflow.session.execution_run["retry_packages"] == ["WP-002"]
+        run_enabled_execution.assert_called_once()
+
     def test_execute_command_can_select_default_target_workspace(self, session):
         session.workflow.start("Original goal", ["claude"])
         session.workflow.session.blueprint = Blueprint(

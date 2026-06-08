@@ -202,6 +202,16 @@ COMMAND_SPECS: tuple[SlashCommandSpec, ...] = (
         writes_files=True,
     ),
     SlashCommandSpec(
+        name="/execute-retry",
+        usage="/execute-retry [all|failed|blocked|interrupted|custom|WP-ID...]",
+        summary="retry failed, blocked, or interrupted work packages",
+        summary_ko="실패, 차단, 중단된 작업 패키지 재시도",
+        category=SlashCommandCategory.EXECUTION,
+        agent_call=AgentCallPolicy.EXECUTION,
+        mutates_workflow=True,
+        writes_files=True,
+    ),
+    SlashCommandSpec(
         name="/target",
         usage="/target [path|clear]",
         summary="set target workspace candidate",

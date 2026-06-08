@@ -103,9 +103,7 @@ class DecisionRecord:
     def from_dict(cls, data: dict[str, Any]) -> "DecisionRecord":
         return cls(
             id=str(data.get("id", "")),
-            question_id=(
-                str(data["question_id"]) if data.get("question_id") is not None else None
-            ),
+            question_id=(str(data["question_id"]) if data.get("question_id") is not None else None),
             decision=str(data.get("decision", "")),
             decided_by=str(data.get("decided_by", "user")),
             rationale=str(data.get("rationale", "")),
@@ -135,11 +133,7 @@ class ArchitectureComponent:
         return cls(
             name=str(data.get("name", "")),
             responsibility=str(data.get("responsibility", "")),
-            owner_agent=(
-                str(data["owner_agent"])
-                if data.get("owner_agent") is not None
-                else None
-            ),
+            owner_agent=(str(data["owner_agent"]) if data.get("owner_agent") is not None else None),
             dependencies=[str(dep) for dep in data.get("dependencies", [])],
         )
 
@@ -167,11 +161,7 @@ class RiskItem:
             description=str(data.get("description", "")),
             severity=str(data.get("severity", "medium")),
             mitigation=str(data.get("mitigation", "")),
-            owner_agent=(
-                str(data["owner_agent"])
-                if data.get("owner_agent") is not None
-                else None
-            ),
+            owner_agent=(str(data["owner_agent"]) if data.get("owner_agent") is not None else None),
         )
 
 
@@ -226,17 +216,11 @@ class Blueprint:
                 if isinstance(item, dict)
             ],
             data_flow=[str(item) for item in data.get("data_flow", [])],
-            external_dependencies=[
-                str(item) for item in data.get("external_dependencies", [])
-            ],
+            external_dependencies=[str(item) for item in data.get("external_dependencies", [])],
             risks=[
-                RiskItem.from_dict(item)
-                for item in data.get("risks", [])
-                if isinstance(item, dict)
+                RiskItem.from_dict(item) for item in data.get("risks", []) if isinstance(item, dict)
             ],
-            acceptance_criteria=[
-                str(item) for item in data.get("acceptance_criteria", [])
-            ],
+            acceptance_criteria=[str(item) for item in data.get("acceptance_criteria", [])],
             open_questions=[
                 OpenQuestion.from_dict(item)
                 for item in data.get("open_questions", [])
@@ -270,6 +254,8 @@ class WorkPackage:
     parallelizable: bool = True
     risk: str = "medium"
     repair_notes: list[str] = field(default_factory=list)
+    current_executor: str = ""
+    last_executor: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -289,6 +275,8 @@ class WorkPackage:
             "parallelizable": self.parallelizable,
             "risk": self.risk,
             "repair_notes": list(self.repair_notes),
+            "current_executor": self.current_executor,
+            "last_executor": self.last_executor,
         }
 
     @classmethod
@@ -303,20 +291,18 @@ class WorkPackage:
             out_of_scope=[str(item) for item in data.get("out_of_scope", [])],
             dependencies=[str(item) for item in data.get("dependencies", [])],
             expected_files=[str(item) for item in data.get("expected_files", [])],
-            acceptance_criteria=[
-                str(item) for item in data.get("acceptance_criteria", [])
-            ],
+            acceptance_criteria=[str(item) for item in data.get("acceptance_criteria", [])],
             status=WorkStatus(status_value),
             requires_execution=bool(data.get("requires_execution", True)),
             estimated_weight=max(1, int(data.get("estimated_weight", 1))),
             parallel_group=(
-                int(data["parallel_group"])
-                if data.get("parallel_group") is not None
-                else None
+                int(data["parallel_group"]) if data.get("parallel_group") is not None else None
             ),
             parallelizable=bool(data.get("parallelizable", True)),
             risk=str(data.get("risk", "medium") or "medium"),
             repair_notes=[str(item) for item in data.get("repair_notes", [])],
+            current_executor=str(data.get("current_executor", "") or ""),
+            last_executor=str(data.get("last_executor", "") or ""),
         )
 
 
@@ -362,9 +348,7 @@ class SubtaskResult:
             status=WorkStatus(status_value),
             decisions_made=[str(item) for item in data.get("decisions_made", [])],
             files_changed=[str(item) for item in data.get("files_changed", [])],
-            unresolved_issues=[
-                str(item) for item in data.get("unresolved_issues", [])
-            ],
+            unresolved_issues=[str(item) for item in data.get("unresolved_issues", [])],
         )
 
 
@@ -390,15 +374,11 @@ class ExecutionResult:
             "status": self.status.value,
             "summary": self.summary,
             "files_changed": list(self.files_changed),
-            "decisions_made": [
-                decision.to_dict() for decision in self.decisions_made
-            ],
+            "decisions_made": [decision.to_dict() for decision in self.decisions_made],
             "blockers": list(self.blockers),
             "follow_up": list(self.follow_up),
             "subtasks": [subtask.to_dict() for subtask in self.subtasks],
-            "raw_response_path": (
-                str(self.raw_response_path) if self.raw_response_path else None
-            ),
+            "raw_response_path": (str(self.raw_response_path) if self.raw_response_path else None),
         }
 
     @classmethod
@@ -446,6 +426,7 @@ class WorkflowSession:
     review_packages: list[dict[str, Any]] = field(default_factory=list)
     review_results: list[dict[str, Any]] = field(default_factory=list)
     decisions: list[DecisionRecord] = field(default_factory=list)
+    execution_run: dict[str, Any] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -461,22 +442,17 @@ class WorkflowSession:
             "state": self.state.value,
             "active_agents": list(self.active_agents),
             "current_round": self.current_round,
-            "target_workspace": (
-                str(self.target_workspace) if self.target_workspace else None
-            ),
+            "target_workspace": (str(self.target_workspace) if self.target_workspace else None),
             "control_repo_target_confirmed": self.control_repo_target_confirmed,
             "pending_questions": [q.to_dict() for q in self.pending_questions],
             "blueprint": self.blueprint.to_dict() if self.blueprint else None,
             "work_packages": [package.to_dict() for package in self.work_packages],
-            "execution_results": [
-                result.to_dict() for result in self.execution_results
-            ],
-            "subtask_results": [
-                result.to_dict() for result in self.subtask_results
-            ],
+            "execution_results": [result.to_dict() for result in self.execution_results],
+            "subtask_results": [result.to_dict() for result in self.subtask_results],
             "review_packages": [dict(item) for item in self.review_packages],
             "review_results": [dict(item) for item in self.review_results],
             "decisions": [decision.to_dict() for decision in self.decisions],
+            "execution_run": dict(self.execution_run),
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -495,9 +471,7 @@ class WorkflowSession:
                 if data.get("target_workspace") is not None
                 else None
             ),
-            control_repo_target_confirmed=bool(
-                data.get("control_repo_target_confirmed", False)
-            ),
+            control_repo_target_confirmed=bool(data.get("control_repo_target_confirmed", False)),
             pending_questions=[
                 OpenQuestion.from_dict(item)
                 for item in data.get("pending_questions", [])
@@ -524,20 +498,21 @@ class WorkflowSession:
                 if isinstance(item, dict)
             ],
             review_packages=[
-                dict(item)
-                for item in data.get("review_packages", [])
-                if isinstance(item, dict)
+                dict(item) for item in data.get("review_packages", []) if isinstance(item, dict)
             ],
             review_results=[
-                dict(item)
-                for item in data.get("review_results", [])
-                if isinstance(item, dict)
+                dict(item) for item in data.get("review_results", []) if isinstance(item, dict)
             ],
             decisions=[
                 DecisionRecord.from_dict(item)
                 for item in data.get("decisions", [])
                 if isinstance(item, dict)
             ],
+            execution_run=(
+                dict(data.get("execution_run", {}))
+                if isinstance(data.get("execution_run"), dict)
+                else {}
+            ),
             created_at=float(data.get("created_at", time.time())),
             updated_at=float(data.get("updated_at", time.time())),
         )

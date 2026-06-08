@@ -35,7 +35,9 @@ from trinity.textual_app.snapshot import (
     QuestionSnapshot,
     SubtaskSnapshot,
     SynthesisSnapshot,
+    ExecutionRecoverySnapshot,
     WorkflowNexusSnapshot,
+    WorkPackageSnapshot,
 )
 from trinity.textual_app.workflow_controller import (
     TextualWorkflowArchiveOption,
@@ -46,6 +48,7 @@ from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.composer import COMMAND_LIMIT, ComposerTextArea, PromptComposer
 from trinity.textual_app.widgets.confirm_quit_modal import ConfirmQuitModal
 from trinity.textual_app.widgets.context_modal import ContextCommandModal
+from trinity.textual_app.widgets.execution_retry_modal import ExecutionRetryModal
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
@@ -76,6 +79,9 @@ class FakeWorkflowController:
         self.resume_options: list[TextualWorkflowArchiveOption] = []
         self.execution_outcome: TextualWorkflowOutcome | None = None
         self.execution_requests = 0
+        self.retry_previews: list[tuple[str, list[str]]] = []
+        self.retry_confirms: list[tuple[str, list[str]]] = []
+        self.retry_outcome: TextualWorkflowOutcome | None = None
         self.target_workspace = None
         self.target_control_confirmed = False
         self.target_cleared = False
@@ -151,6 +157,20 @@ class FakeWorkflowController:
             target_workspace_required=True,
         )
 
+    def preview_execution_retry(self, selector: str = "all", package_ids=()):
+        self.retry_previews.append((selector, list(package_ids)))
+        return None
+
+    def confirm_execution_retry(self, selector: str = "all", package_ids=()):
+        self.retry_confirms.append((selector, list(package_ids)))
+        if self.retry_outcome is not None:
+            return self.retry_outcome
+        return TextualWorkflowOutcome(
+            self.current_snapshot,
+            message=f"Retrying work packages: {', '.join(package_ids)}.",
+            execution_requested=True,
+        )
+
     def set_target_workspace(self, path, *, control_repo_confirmed: bool = False):
         self.target_workspace = path
         self.target_control_confirmed = control_repo_confirmed
@@ -198,6 +218,13 @@ def _binding_tooltip(bindings_map, key: str, action: str) -> str:
     raise AssertionError(f"missing binding {key} -> {action}")
 
 
+def _local_command(snapshot: WorkflowNexusSnapshot, command: str) -> LocalCommandSnapshot:
+    for result in snapshot.local_commands:
+        if result.command == command:
+            return result
+    raise AssertionError(f"missing local command result for {command}")
+
+
 def test_textual_app_localizes_command_palette_bindings_in_korean(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
 
@@ -221,6 +248,55 @@ def test_status_modal_centers_and_uses_read_only_table() -> None:
     assert "Item" in text
     assert "Value" in text
     assert "Workflow" in text
+
+
+def test_resume_picker_modal_centers() -> None:
+    assert "align: center middle" in ResumeWorkflowPicker.DEFAULT_CSS
+
+
+def test_status_reports_interrupted_execution() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-interrupted",
+        state="executing",
+        execution_recovery=ExecutionRecoverySnapshot(
+            run_id="exec-run-test",
+            state="interrupted",
+            target_workspace="/home/zaemi/workspace/hyper",
+            running_packages=("WP-001",),
+            retry_candidates=("WP-001", "WP-003"),
+            done_packages=("WP-002",),
+            last_event="work_package_started",
+        ),
+    )
+
+    markdown = TrinityTextualApp._snapshot_status_markdown(snapshot)
+    rows = TrinityTextualApp._snapshot_status_rows(snapshot)
+
+    assert "### Execution Recovery" in markdown
+    assert "Execution: `interrupted`" in markdown
+    assert ("Execution", "interrupted") in rows
+    assert ("Retry candidates", "WP-001, WP-003") in rows
+
+
+def test_context_markdown_includes_full_workflow_history() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-history",
+        goal="Resume workflow",
+        state="blueprint_ready",
+        workflow_events=[f"event-{index}" for index in range(1, 13)],
+        execution_log=[
+            *(f"event-{index}" for index in range(1, 13)),
+            "WP-001 claude: failed - missing file",
+        ],
+    )
+
+    markdown = TrinityTextualApp._snapshot_context_markdown(snapshot)
+
+    assert "### Workflow History" in markdown
+    assert "- event-1" in markdown
+    assert "- event-12" in markdown
+    assert "### Execution Results" in markdown
+    assert "WP-001 claude: failed - missing file" in markdown
 
 
 @pytest.mark.asyncio
@@ -688,6 +764,52 @@ async def test_nexus_slash_workflow_does_not_submit_followup(tmp_path) -> None:
         assert central.snapshot.local_commands[-1].title == "Workflow"
         assert "Local Command Results" in central._markdown()
         assert "#### /workflow - Workflow" in central._markdown()
+
+
+@pytest.mark.asyncio
+async def test_nexus_execute_retry_slash_opens_retry_modal(tmp_path) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-retry",
+        goal="game",
+        state="failed",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Client",
+                owner_agent="codex",
+                status="failed",
+                topic="Client",
+                retryable=True,
+            ),
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="Docs",
+                owner_agent="claude",
+                status="done",
+                topic="Docs",
+                retryable=False,
+                retry_disabled_reason="already done",
+            ),
+        ],
+    )
+    controller = FakeWorkflowController(snapshot)
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/execute-retry custom WP-001")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ExecutionRetryModal)
+        assert controller.retry_previews == [("custom", ["WP-001"])]
+        assert controller.follow_ups == []
+        assert composer.text == ""
 
 
 @pytest.mark.asyncio
@@ -1382,10 +1504,16 @@ async def test_nexus_slash_resume_routes_to_controller(tmp_path) -> None:
         assert controller.resumes == ["latest"]
         assert app.active_snapshot is not None
         assert app.active_snapshot.session_id == "wf-resumed-latest"
-        result = app.active_snapshot.local_commands[-1]
-        assert result.command == "/resume"
-        assert result.title == "Resume"
-        assert ("Workflow", "wf-resumed-latest") in result.table_rows
+        assert screen.snapshot is not None
+        assert screen.snapshot.session_id == "wf-resumed-latest"
+        assert screen.query_one(CentralAgentView).snapshot is not None
+        assert screen.query_one(CentralAgentView).snapshot.session_id == "wf-resumed-latest"
+        resume_result = _local_command(app.active_snapshot, "/resume")
+        assert resume_result.title == "Resume"
+        assert ("Workflow", "wf-resumed-latest") in resume_result.table_rows
+        context_result = _local_command(app.active_snapshot, "/context")
+        assert context_result.title == "Context"
+        assert "wf-resumed-latest" in context_result.body
 
 
 @pytest.mark.asyncio
@@ -1422,10 +1550,90 @@ async def test_start_slash_resume_picker_selection_switches_to_nexus(tmp_path) -
         assert isinstance(app.screen, NexusScreen)
         assert app.active_snapshot is not None
         assert app.active_snapshot.session_id == "wf-resumed-1"
-        result = app.active_snapshot.local_commands[-1]
-        assert result.command == "/resume"
-        assert result.title == "Resume"
-        assert ("Workflow", "wf-resumed-1") in result.table_rows
+        assert app.screen.snapshot is not None
+        assert app.screen.snapshot.session_id == "wf-resumed-1"
+        central = app.screen.query_one(CentralAgentView)
+        assert central.snapshot is not None
+        assert central.snapshot.session_id == "wf-resumed-1"
+        resume_result = _local_command(app.active_snapshot, "/resume")
+        assert resume_result.title == "Resume"
+        assert ("Workflow", "wf-resumed-1") in resume_result.table_rows
+        context_result = _local_command(app.active_snapshot, "/context")
+        assert context_result.title == "Context"
+        assert "wf-resumed-1" in context_result.body
+
+
+@pytest.mark.asyncio
+async def test_resume_picker_arrow_keys_select_archive(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    controller.resume_options = [
+        TextualWorkflowArchiveOption(
+            selector="1",
+            session_id="wf-first",
+            goal="first goal",
+            state="blueprint_ready",
+            updated_at=1000.0,
+        ),
+        TextualWorkflowArchiveOption(
+            selector="2",
+            session_id="wf-second",
+            goal="second goal",
+            state="needs_user_decision",
+            updated_at=2000.0,
+        ),
+    ]
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+        composer.set_text("/resume")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ResumeWorkflowPicker)
+        await pilot.press("down")
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert controller.resumes == ["2"]
+        assert app.current_route == "nexus"
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.session_id == "wf-resumed-2"
+        context_result = _local_command(app.active_snapshot, "/context")
+        assert "wf-resumed-2" in context_result.body
+
+
+@pytest.mark.asyncio
+async def test_resume_picker_arrow_keys_scroll_long_archive_list(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    controller.resume_options = [
+        TextualWorkflowArchiveOption(
+            selector=str(index),
+            session_id=f"wf-{index:02d}",
+            goal=f"archived goal {index}",
+            state="blueprint_ready",
+            updated_at=1000.0 + index,
+        )
+        for index in range(1, 31)
+    ]
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+        composer.set_text("/resume")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ResumeWorkflowPicker)
+        archive_list = app.screen.query_one("#resume-archive-list", VerticalScroll)
+        assert archive_list.scroll_y == 0
+
+        for _ in range(18):
+            await pilot.press("down")
+        await pilot.pause()
+
+        assert app.screen.selected_index == 18
+        assert archive_list.scroll_y > 0
 
 
 @pytest.mark.asyncio
@@ -1467,9 +1675,10 @@ async def test_nexus_slash_resume_without_selector_opens_archive_picker(tmp_path
         assert controller.resumes == ["1"]
         assert app.active_snapshot is not None
         assert app.active_snapshot.session_id == "wf-resumed-1"
-        result = app.active_snapshot.local_commands[-1]
-        assert result.command == "/resume"
-        assert ("Workflow", "wf-resumed-1") in result.table_rows
+        resume_result = _local_command(app.active_snapshot, "/resume")
+        assert ("Workflow", "wf-resumed-1") in resume_result.table_rows
+        context_result = _local_command(app.active_snapshot, "/context")
+        assert "wf-resumed-1" in context_result.body
 
 
 @pytest.mark.asyncio
@@ -1521,25 +1730,19 @@ async def test_prompt_composer_shows_slash_command_palette(tmp_path) -> None:
 
         composer.set_text("/ex")
         await pilot.pause()
-        filtered_options = [
-            str(option.content) for option in composer.query(".command-option")
-        ]
+        filtered_options = [str(option.content) for option in composer.query(".command-option")]
 
         assert any("/execute" in option for option in filtered_options)
 
         composer.set_text("/rep")
         await pilot.pause()
-        report_options = [
-            str(option.content) for option in composer.query(".command-option")
-        ]
+        report_options = [str(option.content) for option in composer.query(".command-option")]
 
         assert any("/report" in option for option in report_options)
 
         composer.set_text("/q")
         await pilot.pause()
-        quit_options = [
-            str(option.content) for option in composer.query(".command-option")
-        ]
+        quit_options = [str(option.content) for option in composer.query(".command-option")]
 
         assert any("/q" in option for option in quit_options)
         assert any("/quit" in option for option in quit_options)
@@ -1551,9 +1754,7 @@ async def test_prompt_composer_shows_slash_command_palette(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_prompt_composer_localizes_slash_command_palette_in_korean(tmp_path) -> None:
-    app = TrinityTextualApp(
-        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
-    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
 
     async with app.run_test(size=(100, 30)) as pilot:
         composer = app.screen.query_one(PromptComposer)
@@ -1565,9 +1766,7 @@ async def test_prompt_composer_localizes_slash_command_palette_in_korean(tmp_pat
 
         assert any("/status" in option for option in options)
         assert any("제공자와 워크플로우 상태 보기" in option for option in options)
-        assert not any(
-            "show provider and workflow status" in option for option in options
-        )
+        assert not any("show provider and workflow status" in option for option in options)
         assert "명령 더 있음" in more
 
         composer.set_text("/missing")
@@ -1579,9 +1778,7 @@ async def test_prompt_composer_localizes_slash_command_palette_in_korean(tmp_pat
 
 @pytest.mark.asyncio
 async def test_nexus_composer_uses_configured_slash_command_language(tmp_path) -> None:
-    app = TrinityTextualApp(
-        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
-    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
 
     async with app.run_test(size=(120, 40)) as pilot:
         app.switch_to("nexus")
@@ -1612,17 +1809,13 @@ async def test_screen_and_composer_bindings_use_configured_language(tmp_path) ->
         composer = start.query_one(PromptComposer)
         textarea = composer.query_one(ComposerTextArea)
         assert _binding_description(composer._bindings, "enter", "submit") == "보내기"
-        assert _binding_description(
-            textarea._bindings, "shift+enter", "insert_newline"
-        ) == "새 줄"
+        assert _binding_description(textarea._bindings, "shift+enter", "insert_newline") == "새 줄"
 
         app.switch_to("nexus")
         await pilot.pause()
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
-        assert _binding_description(
-            nexus._bindings, "ctrl+e", "request_execute"
-        ) == "실행"
+        assert _binding_description(nexus._bindings, "ctrl+e", "request_execute") == "실행"
 
 
 @pytest.mark.asyncio
@@ -1671,10 +1864,7 @@ async def test_prompt_composer_arrow_selects_slash_command(tmp_path) -> None:
 
         await pilot.press("down")
         await pilot.pause()
-        selected = [
-            str(option.content)
-            for option in composer.query(".command-option-selected")
-        ]
+        selected = [str(option.content) for option in composer.query(".command-option-selected")]
 
         assert any("/context" in option for option in selected)
 
@@ -1738,10 +1928,7 @@ async def test_prompt_composer_scrolls_slash_command_window(tmp_path) -> None:
             await pilot.press("down")
         await pilot.pause()
 
-        selected = [
-            str(option.content)
-            for option in composer.query(".command-option-selected")
-        ]
+        selected = [str(option.content) for option in composer.query(".command-option-selected")]
         visible = [str(option.content) for option in composer.query(".command-option")]
 
         assert any("/workflow" in option for option in selected)
@@ -1898,16 +2085,12 @@ async def test_central_agent_view_renders_all_questions(tmp_path) -> None:
         await pilot.pause()
 
         central = screen.query_one(CentralAgentView)
-        assert "Questions for you (2)" in str(
-            central.query_one("#central-question-title").content
-        )
+        assert "Questions for you (2)" in str(central.query_one("#central-question-title").content)
         assert central.query_one("#answer-q-1-1")
         assert central.query_one("#answer-q-1-2")
         assert central.query_one("#answer-q-2-1")
         assert central.query_one("#answer-q-2-2")
-        rendered_questions = [
-            str(item.content) for item in central.query(".question-text")
-        ]
+        rendered_questions = [str(item.content) for item in central.query(".question-text")]
         assert rendered_questions == [
             "1. [open] Engine?",
             "2. [open] Monetization?",
@@ -1989,9 +2172,9 @@ async def test_textual_status_refresh_replaces_existing_local_command_table(
             value.endswith("readiness=not checked")
             for _, value in app.active_snapshot.local_commands[-1].table_rows
         )
-        assert [
-            command.command for command in app.active_snapshot.local_commands
-        ].count("/status") == 1
+        assert [command.command for command in app.active_snapshot.local_commands].count(
+            "/status"
+        ) == 1
 
         central = app.screen.query_one(CentralAgentView)
         tables = list(central.query(".local-command-table"))
@@ -2034,9 +2217,7 @@ async def test_central_agent_view_keeps_answered_question_history(tmp_path) -> N
         assert "1. [answered] Engine?" in [
             str(item.content) for item in central.query(".question-text")
         ]
-        assert "Answer: Godot" in [
-            str(item.content) for item in central.query(".question-answer")
-        ]
+        assert "Answer: Godot" in [str(item.content) for item in central.query(".question-answer")]
         assert not central.query("#answer-q-1-1")
         assert central.query_one("#answer-q-2-1")
 
@@ -2115,6 +2296,45 @@ async def test_nexus_running_surfaces_show_activity(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_execution_matrix_separates_owner_and_executor(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Rust contracts",
+                        owner_agent="codex",
+                        current_executor="claude",
+                        last_executor="claude",
+                        status="running",
+                        risk="high",
+                    )
+                ]
+            ),
+        )
+        await pilot.pause()
+
+        rows = screen.query("#execution-package-list .execution-package-row")
+        row_text = " ".join(str(child.render()) for child in rows.first().children)
+
+        assert len(rows) == 1
+        assert "Rust contracts" in row_text
+        assert "codex" in row_text
+        assert "claude fallback" in row_text
+        assert "running" in row_text
+        assert "high" in row_text
+        assert rows.first().query_one("#wp-detail-0", Button)
+
+
+@pytest.mark.asyncio
 async def test_provider_panel_renders_scrollable_raw_output(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
     long_output = "\n".join(f"line {index}" for index in range(30))
@@ -2143,6 +2363,7 @@ async def test_provider_panel_renders_scrollable_raw_output(tmp_path) -> None:
         panel = screen.query_one("#provider-claude", ProviderPanel)
         assert isinstance(panel, VerticalScroll)
         assert "line 29" in str(panel.query_one(".provider-summary").content)
+
 
 @pytest.mark.asyncio
 async def test_workflow_inspector_renders_snapshot_counts(tmp_path) -> None:
@@ -2241,15 +2462,15 @@ async def test_provider_inspector_pretty_prints_json_output(tmp_path) -> None:
 
         output = app.screen.query_one("#inspect-codex .provider-inspector-output", RichLog)
         assert "\n".join(line.text for line in output.lines) == (
-            '{\n'
+            "{\n"
             '  "name": "Trinity",\n'
             '  "items": [\n'
-            '    {\n'
+            "    {\n"
             '      "id": 1,\n'
             '      "label": "alpha"\n'
-            '    }\n'
-            '  ]\n'
-            '}'
+            "    }\n"
+            "  ]\n"
+            "}"
         )
 
 
@@ -2372,7 +2593,7 @@ async def test_execution_matrix_renders_preflight_and_packages(tmp_path) -> None
         await pilot.pause()
 
         assert str(tmp_path) in str(screen.query_one("#execution-header").content)
-        assert screen.query_one("#execution-table").row_count == 1
+        assert len(screen.query("#execution-package-list .execution-package-row")) == 1
 
 
 @pytest.mark.asyncio

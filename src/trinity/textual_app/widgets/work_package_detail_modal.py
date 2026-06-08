@@ -1,0 +1,88 @@
+"""Work package design detail modal."""
+
+from __future__ import annotations
+
+from textual.app import ComposeResult
+from textual.containers import Vertical, VerticalScroll
+from textual.screen import ModalScreen
+from textual.widgets import Button, Footer, Markdown, Static
+
+from trinity.textual_app.snapshot import WorkPackageSnapshot
+
+
+class WorkPackageDetailModal(ModalScreen[None]):
+    """Show the full design and latest execution state for one work package."""
+
+    DEFAULT_CSS = """
+    WorkPackageDetailModal {
+        align: center middle;
+    }
+    """
+
+    BINDINGS = [
+        ("escape", "close", "Close"),
+    ]
+
+    def __init__(self, package: WorkPackageSnapshot) -> None:
+        super().__init__()
+        self.package = package
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="work-package-detail-modal"):
+            yield Static(
+                f"{self.package.id}: {self.package.title or self.package.topic}",
+                id="work-package-detail-title",
+            )
+            with VerticalScroll(id="work-package-detail-body"):
+                yield Markdown(self._markdown())
+            yield Button("Close", id="close-work-package-detail")
+        yield Footer()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id != "close-work-package-detail":
+            return
+        event.stop()
+        self.dismiss(None)
+
+    def action_close(self) -> None:
+        self.dismiss(None)
+
+    def _markdown(self) -> str:
+        package = self.package
+        lines = [
+            f"- Status: `{package.status or 'pending'}`",
+            f"- Owner: `{package.owner_agent or '-'}`",
+            f"- Executor: `{package.current_executor or package.last_executor or '-'}`",
+            f"- Risk: `{package.risk or 'unknown'}`",
+            f"- Requires execution: `{'yes' if package.requires_execution else 'no'}`",
+            f"- Retry: `{('available' if package.retryable else package.retry_disabled_reason or 'not available')}`",
+            "",
+            "## Objective",
+            package.objective or "(none)",
+        ]
+        self._append_list(lines, "Scope", package.scope)
+        self._append_list(lines, "Out of Scope", package.out_of_scope)
+        self._append_list(lines, "Dependencies", package.dependencies)
+        self._append_list(lines, "Expected Files", package.expected_files)
+        self._append_list(lines, "Acceptance Criteria", package.acceptance_criteria)
+        self._append_list(lines, "Repair Notes", package.repair_notes)
+        if package.last_result_status or package.last_result_summary:
+            lines.extend(
+                [
+                    "",
+                    "## Last Result",
+                    f"- Agent: `{package.last_result_agent or '-'}`",
+                    f"- Status: `{package.last_result_status or '-'}`",
+                    f"- Summary: {package.last_result_summary or '(none)'}",
+                ]
+            )
+            self._append_list(lines, "Files Changed", package.last_result_files_changed)
+            self._append_list(lines, "Blockers", package.last_result_blockers)
+        return "\n".join(lines)
+
+    @staticmethod
+    def _append_list(lines: list[str], title: str, values: list[str]) -> None:
+        if not values:
+            return
+        lines.extend(["", f"## {title}"])
+        lines.extend(f"- {value}" for value in values)

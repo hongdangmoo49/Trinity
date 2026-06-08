@@ -43,6 +43,23 @@ LEGACY_OWNER_ALIASES: dict[str, str] = {
     "gemini": "antigravity",
 }
 
+ENVIRONMENT_BLOCKER_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"\b(cargo|rustc|npm|pnpm|yarn|node|python|pytest|go|java)\b"
+        r".{0,80}\b(not found|not installed|missing|unavailable|없)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(not found|not installed|missing|unavailable|없).{0,80}"
+        r"\b(cargo|rustc|npm|pnpm|yarn|node|python|pytest|go|java)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(command not found|not recognized as an internal|no such file)\b",
+        re.IGNORECASE,
+    ),
+)
+
 
 class ExecutionWorkspaceError(RuntimeError):
     """Raised when provider workspace-write would violate workspace boundaries."""
@@ -86,7 +103,12 @@ class ExecutionProtocol:
         result_callback: Callable[[ExecutionResult], None] | None = None,
     ) -> list[ExecutionResult]:
         """Execute all executable work packages and return their results."""
-        packages = [package for package in work_packages if package.requires_execution]
+        packages = [
+            package
+            for package in work_packages
+            if package.requires_execution
+            and package.status not in {WorkStatus.DONE, WorkStatus.NEEDS_REVIEW}
+        ]
         if not packages:
             return []
         self._validate_workspace_boundary()
@@ -105,10 +127,14 @@ class ExecutionProtocol:
             ]
             if not ready_packages:
                 for package in list(remaining.values()):
-                    blocked_dependencies = self._blocked_dependencies(
-                        package,
-                        packages_by_id,
-                    ) or package.dependencies or ["dependency cycle"]
+                    blocked_dependencies = (
+                        self._blocked_dependencies(
+                            package,
+                            packages_by_id,
+                        )
+                        or package.dependencies
+                        or ["dependency cycle"]
+                    )
                     result = self._dependency_blocked_result(
                         package,
                         blocked_dependencies,
@@ -122,10 +148,7 @@ class ExecutionProtocol:
 
             for ready_batch in self._plan_ready_batches(ready_packages):
                 batch_results = await asyncio.gather(
-                    *[
-                        self._run_ready_package(package, decisions)
-                        for package in ready_batch
-                    ],
+                    *[self._run_ready_package(package, decisions) for package in ready_batch],
                     return_exceptions=True,
                 )
                 for package, item in zip(ready_batch, batch_results):
@@ -145,11 +168,7 @@ class ExecutionProtocol:
                     remaining.pop(package.id, None)
 
         self._emit(TUIEventType.EXECUTION_DONE, package_count=len(packages))
-        return [
-            results_by_id[package.id]
-            for package in packages
-            if package.id in results_by_id
-        ]
+        return [results_by_id[package.id] for package in packages if package.id in results_by_id]
 
     def _validate_workspace_boundary(self) -> None:
         """Refuse provider writes without an approved implementation workspace."""
@@ -171,10 +190,7 @@ class ExecutionProtocol:
             cwd = getattr(agent, "launch_cwd", None)
             if not isinstance(cwd, Path):
                 continue
-            if (
-                self._is_inside_control_repo(cwd.resolve())
-                and not self.allow_control_repo_writes
-            ):
+            if self._is_inside_control_repo(cwd.resolve()) and not self.allow_control_repo_writes:
                 raise ExecutionWorkspaceError(
                     f"Refusing provider workspace-write for {agent_name} in "
                     "the Trinity control repo."
@@ -193,13 +209,10 @@ class ExecutionProtocol:
         """Group dependency-ready packages into safe parallel batches."""
         packages = tuple(ready_packages)
         scope_by_id: dict[int, ExecutionScope] = {
-            id(package): self._execution_scope_for_package(package)
-            for package in packages
+            id(package): self._execution_scope_for_package(package) for package in packages
         }
         package_by_scope_id = {
-            id(scope): package
-            for package in packages
-            for scope in (scope_by_id[id(package)],)
+            id(scope): package for package in packages for scope in (scope_by_id[id(package)],)
         }
         batch_plan = self.parallel_policy.plan(scope_by_id.values())
         scope_batches = batch_plan.batches
@@ -243,9 +256,7 @@ class ExecutionProtocol:
             notices=[
                 {
                     "reason": str(getattr(notice, "reason", "")),
-                    "serialized_agents": list(
-                        getattr(notice, "serialized_agents", ()) or ()
-                    ),
+                    "serialized_agents": list(getattr(notice, "serialized_agents", ()) or ()),
                 }
                 for notice in notices
                 if str(getattr(notice, "reason", "")).strip()
@@ -282,8 +293,7 @@ class ExecutionProtocol:
         return [
             dep_id
             for dep_id in package.dependencies
-            if packages_by_id.get(dep_id)
-            and packages_by_id[dep_id].status != WorkStatus.DONE
+            if packages_by_id.get(dep_id) and packages_by_id[dep_id].status != WorkStatus.DONE
         ]
 
     async def _before_work_package_lifecycle(self, package: WorkPackage) -> None:
@@ -347,6 +357,8 @@ class ExecutionProtocol:
     ) -> ExecutionResult:
         """Dispatch one package attempt to a concrete agent."""
         package.status = WorkStatus.RUNNING
+        package.current_executor = agent_name
+        package.last_executor = agent_name
         self._emit(
             TUIEventType.WORK_PACKAGE_STARTED,
             package_id=package.id,
@@ -421,7 +433,7 @@ class ExecutionProtocol:
 
         parsed = self._parse_execution_response(message.content)
         blockers = parsed["blockers"]
-        status = WorkStatus.BLOCKED if blockers else WorkStatus.DONE
+        status = self._status_from_blockers(blockers)
         decisions = [
             DecisionRecord(
                 id=f"{package.id.lower()}-dec-{idx:03d}",
@@ -451,7 +463,9 @@ class ExecutionProtocol:
             return WorkStatus.FAILED
         if any(status == WorkStatus.BLOCKED for status in statuses):
             return WorkStatus.BLOCKED
-        if statuses and all(status == WorkStatus.DONE for status in statuses):
+        if statuses and all(
+            status in {WorkStatus.DONE, WorkStatus.NEEDS_REVIEW} for status in statuses
+        ):
             return WorkStatus.DONE
         return WorkStatus.PENDING
 
@@ -520,9 +534,7 @@ class ExecutionProtocol:
             agent_name=package.owner_agent,
             status=WorkStatus.BLOCKED,
             summary="Package dependencies have not completed.",
-            blockers=[
-                "Dependencies not completed: " + ", ".join(sorted(dependencies))
-            ],
+            blockers=["Dependencies not completed: " + ", ".join(sorted(dependencies))],
         )
 
     def _exception_result(
@@ -590,9 +602,9 @@ class ExecutionProtocol:
         execution_agent: str | None = None,
     ) -> str:
         execution_agent = execution_agent or package.owner_agent
-        decisions_text = "\n".join(
-            f"- {decision.id}: {decision.decision}" for decision in decisions
-        ) or "- none"
+        decisions_text = (
+            "\n".join(f"- {decision.id}: {decision.decision}" for decision in decisions) or "- none"
+        )
         scope = self._format_list(package.scope)
         out_of_scope = self._format_list(package.out_of_scope)
         acceptance = self._format_list(package.acceptance_criteria)
@@ -734,9 +746,7 @@ class ExecutionProtocol:
                 or cls._field(fields, "id", "subtask id", "subtask_id")
                 or f"{package.id}-ST-{index:03d}"
             )
-            status = cls._parse_work_status(
-                cls._field(fields, "status") or WorkStatus.DONE.value
-            )
+            status = cls._parse_work_status(cls._field(fields, "status") or WorkStatus.DONE.value)
             subtasks.append(
                 SubtaskResult(
                     id=subtask_id,
@@ -834,9 +844,7 @@ class ExecutionProtocol:
             return []
         parts = re.split(r"[,;\n]+", value)
         return [
-            re.sub(r"^\s*[-*]\s*", "", part).strip()
-            for part in parts
-            if _is_substantive_line(part)
+            re.sub(r"^\s*[-*]\s*", "", part).strip() for part in parts if _is_substantive_line(part)
         ]
 
     @staticmethod
@@ -855,6 +863,24 @@ class ExecutionProtocol:
             "review": WorkStatus.NEEDS_REVIEW,
         }
         return aliases.get(normalized, WorkStatus.DONE)
+
+    @classmethod
+    def _status_from_blockers(cls, blockers: list[str]) -> WorkStatus:
+        if not blockers:
+            return WorkStatus.DONE
+        if cls._only_environment_verification_blockers(blockers):
+            return WorkStatus.NEEDS_REVIEW
+        return WorkStatus.BLOCKED
+
+    @staticmethod
+    def _only_environment_verification_blockers(blockers: list[str]) -> bool:
+        substantive = [blocker.strip() for blocker in blockers if blocker.strip()]
+        if not substantive:
+            return False
+        return all(
+            any(pattern.search(blocker) for pattern in ENVIRONMENT_BLOCKER_PATTERNS)
+            for blocker in substantive
+        )
 
     @staticmethod
     def _message_failed(message: DeliberationMessage) -> bool:
@@ -898,11 +924,7 @@ class ExecutionProtocol:
 
     @staticmethod
     def _wrap_execution_prompt(prompt: str, request_id: str) -> str:
-        return (
-            f"TRINITY_EXECUTION_START {request_id}\n"
-            f"{prompt}\n"
-            f"TRINITY_EXECUTION_END {request_id}"
-        )
+        return f"TRINITY_EXECUTION_START {request_id}\n{prompt}\nTRINITY_EXECUTION_END {request_id}"
 
     def _emit(self, event_type: TUIEventType, **kwargs) -> None:
         if self._event_callback:

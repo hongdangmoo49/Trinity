@@ -1,8 +1,8 @@
-# Trinity v0.10.3 Workflow and Runtime Guide
+# Trinity v0.12.0 Workflow and Runtime Guide
 
 작성일: 2026-06-05
 
-이 문서는 Trinity `0.10.3` 기준의 실제 워크플로우와 런타임 동작 방식을 정리한다.
+이 문서는 Trinity `0.12.0` 기준의 실제 워크플로우와 런타임 동작 방식을 정리한다.
 기준 코드는 `pyproject.toml`, `src/trinity/cli.py`, `src/trinity/orchestrator.py`,
 `src/trinity/workflow/engine.py`, `src/trinity/workflow/execution.py`,
 `src/trinity/textual_app/workflow_controller.py`이다.

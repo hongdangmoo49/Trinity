@@ -107,7 +107,7 @@ class TestStartupUpdatePrompt:
         return StartupUpdate(
             source="git",
             current_version="0.11.1",
-            latest_version="0.11.2",
+            latest_version="0.12.0",
             detail="origin/main has 1 new commit.",
             repo_root=tmp_path,
             upstream="origin/main",

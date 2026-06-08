@@ -41,6 +41,10 @@ from trinity.textual_app.workflow_controller import (
 )
 from trinity.textual_app.widgets.confirm_quit_modal import ConfirmQuitModal
 from trinity.textual_app.widgets.context_modal import ContextCommandModal
+from trinity.textual_app.widgets.execution_retry_modal import (
+    ExecutionRetryModal,
+    ExecutionRetrySelection,
+)
 from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
@@ -564,9 +568,44 @@ class TrinityTextualApp(App[None]):
         color: $accent;
     }
 
-    #execution-table {
+    #execution-package-list {
         height: 11;
         margin-top: 1;
+        border: round $primary;
+        padding: 0 1;
+    }
+
+    .execution-package-header {
+        height: 1;
+        color: $text-muted;
+    }
+
+    .execution-package-row {
+        height: 1;
+    }
+
+    .execution-package-task {
+        width: 30;
+    }
+
+    .execution-package-assignee {
+        width: 13;
+    }
+
+    .execution-package-executor {
+        width: 20;
+    }
+
+    .execution-package-status {
+        width: 12;
+    }
+
+    .execution-package-risk {
+        width: 11;
+    }
+
+    .execution-package-empty {
+        color: $text-muted;
     }
 
     #execution-log {
@@ -574,6 +613,111 @@ class TrinityTextualApp(App[None]):
         border: round $primary;
         margin-top: 1;
         padding: 0 1;
+    }
+
+    #execution-retry-modal {
+        width: 108;
+        max-width: 96%;
+        height: 34;
+        max-height: 92%;
+        border: round $accent;
+        background: $surface;
+        padding: 1 2;
+    }
+
+    #execution-retry-title {
+        text-style: bold;
+        color: $accent;
+        margin-bottom: 1;
+    }
+
+    #execution-retry-summary {
+        color: $text-muted;
+        margin-bottom: 1;
+    }
+
+    #execution-retry-filters {
+        height: auto;
+        margin-bottom: 1;
+    }
+
+    #execution-retry-filters Button {
+        width: 16;
+        margin-right: 1;
+    }
+
+    #execution-retry-list {
+        height: 1fr;
+        border: round $primary;
+        padding: 0 1;
+    }
+
+    #execution-retry-header {
+        height: 1;
+        color: $text-muted;
+    }
+
+    .retry-row {
+        height: 1;
+    }
+
+    .retry-id {
+        width: 8;
+    }
+
+    .retry-status {
+        width: 11;
+    }
+
+    .retry-topic {
+        width: 30;
+    }
+
+    .retry-owner {
+        width: 11;
+    }
+
+    .retry-executor {
+        width: 13;
+    }
+
+    .retry-note {
+        width: 1fr;
+        color: $text-muted;
+    }
+
+    #execution-retry-selected {
+        height: 1;
+        margin-top: 1;
+        color: $text-muted;
+    }
+
+    #execution-retry-actions {
+        height: auto;
+        align-horizontal: right;
+    }
+
+    #work-package-detail-modal {
+        width: 96;
+        max-width: 94%;
+        height: 34;
+        max-height: 92%;
+        border: round $accent;
+        background: $surface;
+        padding: 1 2;
+    }
+
+    #work-package-detail-title {
+        text-style: bold;
+        color: $accent;
+        margin-bottom: 1;
+    }
+
+    #work-package-detail-body {
+        height: 1fr;
+        border: round $primary;
+        padding: 0 1;
+        margin-bottom: 1;
     }
 
     #report-screen {
@@ -673,6 +817,7 @@ class TrinityTextualApp(App[None]):
         self._screens_installed = False
         self._workflow_polling_started = False
         self._local_command_results: list[LocalCommandSnapshot] = []
+        self._pending_execute_retry: ExecutionRetrySelection | None = None
 
     def on_mount(self) -> None:
         self._install_workbench_screens()
@@ -812,6 +957,7 @@ class TrinityTextualApp(App[None]):
 
     def _on_workspace_preflight(self, preflight: WorkspacePreflight | None) -> None:
         if preflight is None:
+            self._pending_execute_retry = None
             return
         if self._is_control_repo_target(preflight.path):
             self.push_screen(
@@ -849,6 +995,7 @@ class TrinityTextualApp(App[None]):
             empty=True,
             action_hint="Choose a workspace outside the Trinity control repo.",
         )
+        self._pending_execute_retry = None
 
     def _continue_workspace_preflight(
         self,
@@ -861,7 +1008,15 @@ class TrinityTextualApp(App[None]):
             preflight.path,
             control_repo_confirmed=control_repo_confirmed,
         )
-        outcome = self.workflow_controller.request_execution()
+        pending_retry = self._pending_execute_retry
+        self._pending_execute_retry = None
+        if pending_retry is not None:
+            outcome = self.workflow_controller.confirm_execution_retry(
+                pending_retry.selector,
+                list(pending_retry.package_ids),
+            )
+        else:
+            outcome = self.workflow_controller.request_execution()
         self._apply_workflow_outcome(outcome)
         if outcome.execution_recovery_required:
             self._present_execution_recovery(
@@ -1084,6 +1239,9 @@ class TrinityTextualApp(App[None]):
         if command == "answer":
             self._handle_textual_answer_command(args)
             return
+        if command == "execute-retry":
+            self._handle_textual_execute_retry_command(args)
+            return
         if command == "execute":
             outcome = self.workflow_controller.request_execution(" ".join(args))
             message = outcome.message
@@ -1226,7 +1384,7 @@ class TrinityTextualApp(App[None]):
             "Execution Recovery",
             "\n\n".join(body_parts),
             severity="warning",
-            action_hint=("Use `/execute retry`, `/execute mark-interrupted`, or `/execute abort`."),
+            action_hint=("Use `/execute-retry`, `/execute mark-interrupted`, or `/execute abort`."),
             table_columns=("Item", "Value"),
             table_rows=self._execution_recovery_rows(snapshot),
             start_modal=False,
@@ -1266,7 +1424,7 @@ class TrinityTextualApp(App[None]):
             ("Retry candidates", ", ".join(recovery.retry_candidates) or "(none)"),
             ("Done packages", ", ".join(recovery.done_packages) or "(none)"),
             ("Last event", recovery.last_event or "(none)"),
-            ("Next", "/execute retry | /execute mark-interrupted | /execute abort"),
+            ("Next", "/execute-retry | /execute mark-interrupted | /execute abort"),
         )
 
     def _local_command_snapshot(
@@ -2238,6 +2396,60 @@ class TrinityTextualApp(App[None]):
                 empty=message.startswith("No "),
             )
 
+    def _handle_textual_execute_retry_command(self, args: list[str]) -> None:
+        selector, package_ids = self._parse_execute_retry_args(args)
+        self.workflow_controller.preview_execution_retry(selector, package_ids)
+        snapshot = self._refresh_textual_snapshot()
+        if not snapshot.work_package_details:
+            self._record_slash_command_result(
+                "/execute-retry",
+                "Execute Retry",
+                "No work packages are available in the current workflow.",
+                severity="warning",
+                empty=True,
+                action_hint="Finish planning and execute at least one package first.",
+            )
+            return
+        self.push_screen(
+            ExecutionRetryModal(
+                snapshot,
+                selector=selector,
+                package_ids=tuple(package_ids),
+                lang=self.config.lang,
+            ),
+            self._on_execute_retry_selected,
+        )
+
+    @staticmethod
+    def _parse_execute_retry_args(args: list[str]) -> tuple[str, list[str]]:
+        if not args:
+            return "all", []
+        first = args[0].lower()
+        if first in {"all", "failed", "blocked", "interrupted", "custom"}:
+            return first, args[1:]
+        return "custom", args
+
+    def _on_execute_retry_selected(
+        self,
+        selection: ExecutionRetrySelection | None,
+    ) -> None:
+        if selection is None:
+            return
+        outcome = self.workflow_controller.confirm_execution_retry(
+            selection.selector,
+            list(selection.package_ids),
+        )
+        if outcome.target_workspace_required:
+            self._pending_execute_retry = selection
+            self._apply_workflow_outcome(outcome)
+            self._open_execute_workspace_picker(outcome.snapshot)
+            return
+        self._apply_workflow_outcome(outcome)
+        if outcome.execution_requested:
+            execution = self.get_screen("execution", ExecutionMatrixScreen)
+            execution.apply_execution_state(self.confirmed_preflight, outcome.snapshot)
+            self.switch_to("execution")
+
     def _advance_activity_frame(self) -> None:
         if self.current_route == "nexus" and self._screens_installed:
             nexus = self.get_screen("nexus", NexusScreen)
@@ -2266,6 +2478,14 @@ class TrinityTextualApp(App[None]):
                     report.apply_report(structured)
             except Exception:
                 pass  # Fallback to snapshot rendering
+        if route == "execution" and self._screens_installed:
+            execution = self.get_screen("execution", ExecutionMatrixScreen)
+            execution.apply_execution_state(
+                self.confirmed_preflight,
+                self.active_snapshot
+                or self.workflow_controller.snapshot()
+                or self.snapshot_adapter.load_snapshot(),
+            )
         self.current_route = route
         self.switch_screen(route)
 

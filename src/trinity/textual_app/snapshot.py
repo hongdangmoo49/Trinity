@@ -89,6 +89,25 @@ class WorkPackageSnapshot:
     risk: str = "unknown"
     current_executor: str = ""
     last_executor: str = ""
+    objective: str = ""
+    scope: list[str] = field(default_factory=list)
+    out_of_scope: list[str] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
+    expected_files: list[str] = field(default_factory=list)
+    acceptance_criteria: list[str] = field(default_factory=list)
+    requires_execution: bool = True
+    estimated_weight: int = 1
+    parallel_group: int | None = None
+    parallelizable: bool = True
+    repair_notes: list[str] = field(default_factory=list)
+    last_result_agent: str = ""
+    last_result_status: str = ""
+    last_result_summary: str = ""
+    last_result_files_changed: list[str] = field(default_factory=list)
+    last_result_blockers: list[str] = field(default_factory=list)
+    retryable: bool = False
+    retry_disabled_reason: str = ""
+    topic: str = ""
 
 
 @dataclass(frozen=True)
@@ -114,6 +133,7 @@ class WorkflowNexusSnapshot:
     goal: str = ""
     state: str = "idle"
     round_num: int = 0
+    target_workspace: str = ""
     providers: list[ProviderSnapshot] = field(default_factory=list)
     synthesis: SynthesisSnapshot = field(default_factory=SynthesisSnapshot)
     questions: list[QuestionSnapshot] = field(default_factory=list)
@@ -161,6 +181,7 @@ class NexusSnapshotAdapter:
             goal=session.goal if session else "",
             state=session.state.value if session else "idle",
             round_num=round_num,
+            target_workspace=str(session.target_workspace or "") if session else "",
             providers=list(provider_states.values()),
             synthesis=self._synthesis(session, recent, round_num),
             questions=self._questions(session),
@@ -185,6 +206,7 @@ class NexusSnapshotAdapter:
     ) -> list[WorkPackageSnapshot]:
         if session is None:
             return []
+        result_by_package_id = {result.package_id: result for result in session.execution_results}
         return [
             WorkPackageSnapshot(
                 id=package.id,
@@ -194,9 +216,81 @@ class NexusSnapshotAdapter:
                 risk=package.risk or "unknown",
                 current_executor=package.current_executor,
                 last_executor=package.last_executor,
+                objective=package.objective,
+                scope=list(package.scope),
+                out_of_scope=list(package.out_of_scope),
+                dependencies=list(package.dependencies),
+                expected_files=list(package.expected_files),
+                acceptance_criteria=list(package.acceptance_criteria),
+                requires_execution=package.requires_execution,
+                estimated_weight=package.estimated_weight,
+                parallel_group=package.parallel_group,
+                parallelizable=package.parallelizable,
+                repair_notes=list(package.repair_notes),
+                last_result_agent=(
+                    result_by_package_id[package.id].agent_name
+                    if package.id in result_by_package_id
+                    else ""
+                ),
+                last_result_status=(
+                    result_by_package_id[package.id].status.value
+                    if package.id in result_by_package_id
+                    else ""
+                ),
+                last_result_summary=(
+                    result_by_package_id[package.id].summary
+                    if package.id in result_by_package_id
+                    else ""
+                ),
+                last_result_files_changed=(
+                    list(result_by_package_id[package.id].files_changed)
+                    if package.id in result_by_package_id
+                    else []
+                ),
+                last_result_blockers=(
+                    list(result_by_package_id[package.id].blockers)
+                    if package.id in result_by_package_id
+                    else []
+                ),
+                retryable=NexusSnapshotAdapter._work_package_retryable(package),
+                retry_disabled_reason=NexusSnapshotAdapter._work_package_retry_disabled_reason(
+                    package
+                ),
+                topic=NexusSnapshotAdapter._work_package_topic(package),
             )
             for package in session.work_packages
         ]
+
+    @staticmethod
+    def _work_package_retryable(package: object) -> bool:
+        if not bool(getattr(package, "requires_execution", True)):
+            return False
+        status = str(getattr(getattr(package, "status", ""), "value", ""))
+        return status in {"running", "failed", "blocked"}
+
+    @staticmethod
+    def _work_package_retry_disabled_reason(package: object) -> str:
+        if not bool(getattr(package, "requires_execution", True)):
+            return "does not require execution"
+        status = str(getattr(getattr(package, "status", ""), "value", ""))
+        if status == "done":
+            return "already done"
+        if status == "needs_review":
+            return "already needs review"
+        if status in {"running", "failed", "blocked"}:
+            return ""
+        return f"status is {status or 'unknown'}"
+
+    @staticmethod
+    def _work_package_topic(package: object) -> str:
+        title = str(getattr(package, "title", "")).strip()
+        if title:
+            return title
+        objective = str(getattr(package, "objective", "")).strip()
+        if objective:
+            first_sentence = objective.split(".", 1)[0].strip()
+            return first_sentence or objective
+        return str(getattr(package, "id", "")).strip()
 
     def _execution_recovery(
         self,

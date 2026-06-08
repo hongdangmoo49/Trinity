@@ -3,12 +3,53 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import Screen
-from textual.widgets import DataTable, Footer, Header, RichLog, Static
+from textual.widgets import Button, Footer, Header, RichLog, Static
 
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
+from trinity.textual_app.widgets.work_package_detail_modal import WorkPackageDetailModal
 from trinity.textual_app.widgets.workspace_picker import WorkspacePreflight
+
+
+class ExecutionPackageRow(Horizontal):
+    """One work package row with a detail button."""
+
+    def __init__(
+        self,
+        *,
+        package_id: str,
+        task: str,
+        assignee: str,
+        executor: str,
+        status: str,
+        risk: str,
+        button_id: str,
+        detail_enabled: bool = True,
+    ) -> None:
+        super().__init__(classes="execution-package-row")
+        self.package_id = package_id
+        self.task_label = task
+        self.assignee = assignee
+        self.executor = executor
+        self.status = status
+        self.risk = risk
+        self.button_id = button_id
+        self.detail_enabled = detail_enabled
+
+    def compose(self) -> ComposeResult:
+        yield Static(_clip(self.task_label, 28), classes="execution-package-task")
+        yield Static(_clip(self.assignee, 11), classes="execution-package-assignee")
+        yield Static(_clip(self.executor, 18), classes="execution-package-executor")
+        yield Static(_clip(self.status, 10), classes="execution-package-status")
+        yield Static(_clip(self.risk, 9), classes="execution-package-risk")
+        yield Button(
+            "View",
+            id=self.button_id,
+            name=self.package_id,
+            disabled=not self.detail_enabled,
+            compact=True,
+        )
 
 
 class ExecutionMatrixScreen(Screen[None]):
@@ -23,12 +64,11 @@ class ExecutionMatrixScreen(Screen[None]):
         yield Header(show_clock=False)
         with Vertical(id="execution-screen"):
             yield Static(self._header_text(), id="execution-header")
-            yield DataTable(id="execution-table", zebra_stripes=True)
+            yield VerticalScroll(id="execution-package-list")
             yield RichLog(id="execution-log", wrap=True, markup=False)
         yield Footer()
 
     def on_mount(self) -> None:
-        self._setup_table()
         self.apply_execution_state(self.preflight, self.snapshot)
 
     def apply_execution_state(
@@ -41,7 +81,7 @@ class ExecutionMatrixScreen(Screen[None]):
         if not self.is_mounted:
             return
         self.query_one("#execution-header", Static).update(self._header_text())
-        self._render_table()
+        self._render_package_list()
         self._render_log()
 
     def append_log(self, line: str) -> None:
@@ -49,38 +89,91 @@ class ExecutionMatrixScreen(Screen[None]):
             return
         self.query_one("#execution-log", RichLog).write(line)
 
-    def _setup_table(self) -> None:
-        table = self.query_one("#execution-table", DataTable)
-        if table.columns:
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if not event.button.id or not event.button.id.startswith("wp-detail-"):
             return
-        table.add_columns("Task", "Assignee", "Executor", "Status", "Risk")
+        event.stop()
+        package_id = str(event.button.name or "")
+        package = next(
+            (
+                item
+                for item in self.snapshot.work_package_details
+                if item.id == package_id
+            ),
+            None,
+        )
+        if package is not None:
+            self.app.push_screen(WorkPackageDetailModal(package))
 
-    def _render_table(self) -> None:
-        table = self.query_one("#execution-table", DataTable)
-        table.clear()
+    def _render_package_list(self) -> None:
+        package_list = self.query_one("#execution-package-list", VerticalScroll)
+        package_list.remove_children()
+        package_list.mount(
+            Static(
+                "Task                         Assignee     Executor     Status      Risk       Detail",
+                classes="execution-package-header",
+            )
+        )
         if self.snapshot.work_package_details:
-            for package in self.snapshot.work_package_details:
-                executor = package.current_executor or package.last_executor or "-"
-                if (
-                    executor not in {"", "-"}
-                    and package.owner_agent
-                    and executor != package.owner_agent
-                ):
-                    executor = f"{executor} (fallback)"
-                table.add_row(
-                    package.title or package.id,
-                    package.owner_agent or "-",
-                    executor,
-                    package.status or "pending",
-                    package.risk or "unknown",
+            for index, package in enumerate(self.snapshot.work_package_details):
+                package_list.mount(
+                    self._package_row(
+                        package_id=package.id,
+                        task=package.title or package.topic or package.id,
+                        assignee=package.owner_agent or "-",
+                        executor=_executor_label(
+                            package.current_executor,
+                            package.last_executor,
+                            package.owner_agent,
+                        ),
+                        status=package.status or "pending",
+                        risk=package.risk or "unknown",
+                        button_id=f"wp-detail-{index}",
+                    )
                 )
             return
         if not self.snapshot.work_packages:
-            table.add_row("(no work packages)", "-", "-", "pending", "unknown")
+            package_list.mount(
+                Static("(no work packages)", classes="execution-package-empty")
+            )
             return
-        for package in self.snapshot.work_packages:
+        for index, package in enumerate(self.snapshot.work_packages):
             task, assignee, status = _parse_package_line(package)
-            table.add_row(task, assignee, "-", status, "unknown")
+            package_list.mount(
+                self._package_row(
+                    package_id=task,
+                    task=task,
+                    assignee=assignee,
+                    executor="-",
+                    status=status,
+                    risk="unknown",
+                    button_id=f"wp-detail-legacy-{index}",
+                    detail_enabled=False,
+                )
+            )
+
+    @staticmethod
+    def _package_row(
+        *,
+        package_id: str,
+        task: str,
+        assignee: str,
+        executor: str,
+        status: str,
+        risk: str,
+        button_id: str,
+        detail_enabled: bool = True,
+    ) -> ExecutionPackageRow:
+        return ExecutionPackageRow(
+            package_id=package_id,
+            task=task,
+            assignee=assignee,
+            executor=executor,
+            status=status,
+            risk=risk,
+            button_id=button_id,
+            detail_enabled=detail_enabled,
+        )
 
     def _render_log(self) -> None:
         log = self.query_one("#execution-log", RichLog)
@@ -109,3 +202,19 @@ def _parse_package_line(line: str) -> tuple[str, str, str]:
         assignee = owner.split()[-1] if owner.split() else "-"
         task = title.strip() or task
     return task, assignee, status
+
+
+def _executor_label(current: str, last: str, owner: str) -> str:
+    executor = current or last or "-"
+    if executor not in {"", "-"} and owner and executor != owner:
+        return f"{executor} fallback"
+    return executor
+
+
+def _clip(value: str, width: int) -> str:
+    clean = " ".join(str(value).split())
+    if len(clean) <= width:
+        return clean
+    if width <= 3:
+        return clean[:width]
+    return clean[: width - 3] + "..."

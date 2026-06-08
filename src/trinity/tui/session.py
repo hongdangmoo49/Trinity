@@ -63,6 +63,7 @@ PLAIN_TUI_COMMAND_HANDLERS: dict[str, str] = {
     "report": "_cmd_report",
     "resume": "_cmd_resume",
     "execute": "_cmd_execute",
+    "execute-retry": "_cmd_execute_retry",
     "target": "_cmd_target",
 }
 
@@ -76,6 +77,7 @@ PLAIN_TUI_COMMANDS_WITH_ARGS = frozenset(
         "report",
         "resume",
         "execute",
+        "execute-retry",
         "target",
     }
 )
@@ -864,13 +866,7 @@ class InteractiveSession:
         instruction = " ".join(args).strip()
         normalized = instruction.lower()
         if normalized in {"retry", "retry-interrupted", "recovery retry"}:
-            summary = self.workflow.retry_interrupted_execution()
-            if summary is None:
-                self.console.print("[yellow]No interrupted execution to retry.[/yellow]")
-                return
-            self.console.print("[green]Retrying interrupted execution packages.[/green]")
-            self._run_enabled_execution()
-            self._cmd_workflow()
+            self._cmd_execute_retry(["all"])
             return
         if normalized in {"mark", "mark-interrupted", "mark interrupted"}:
             if self.workflow.mark_interrupted_execution() is None:
@@ -893,6 +889,36 @@ class InteractiveSession:
             )
             return
         self._execute_current_blueprint(instruction=instruction)
+
+    def _cmd_execute_retry(self, args: list[str]) -> None:
+        """Retry failed, blocked, or interrupted work packages."""
+        selector, package_ids = self._parse_execute_retry_args(args)
+        plan = self.workflow.build_execution_retry_plan(selector, package_ids)
+        if not plan.selected:
+            self.console.print("[yellow]No retryable work packages match the request.[/yellow]")
+            return
+        if self.workflow.session.target_workspace is None:
+            if not self._ensure_target_workspace_for_execution():
+                return
+        prepared = self.workflow.prepare_execution_retry(selector, package_ids)
+        if not prepared.selected:
+            self.console.print("[yellow]No retryable work packages match the request.[/yellow]")
+            return
+        self.console.print(
+            "[green]Retrying work packages: "
+            f"{', '.join(prepared.selected)}[/green]"
+        )
+        self._run_enabled_execution()
+        self._cmd_workflow()
+
+    @staticmethod
+    def _parse_execute_retry_args(args: list[str]) -> tuple[str, list[str]]:
+        if not args:
+            return "all", []
+        first = args[0].lower()
+        if first in {"all", "failed", "blocked", "interrupted", "custom"}:
+            return first, args[1:]
+        return "custom", args
 
     def _cmd_target(self, args: list[str]) -> None:
         """Show, set, or clear the implementation target workspace."""
@@ -1507,7 +1533,17 @@ class InteractiveSession:
         orchestrator = self._execution_orchestrator(orchestrator)
         target_workspace = self.workflow.session.target_workspace
 
-        self.workflow.begin_execution()
+        package_ids = self.workflow.pending_execution_package_ids()
+        if not package_ids:
+            return
+        package_id_set = set(package_ids)
+        dispatch_packages = [
+            package
+            for package in self.workflow.session.work_packages
+            if package.id in package_id_set
+        ]
+
+        self.workflow.begin_execution(package_ids)
         self.tui.set_workflow_session(self.workflow.session)
         self.console.print(
             Panel.fit(
@@ -1518,7 +1554,7 @@ class InteractiveSession:
         )
 
         try:
-            results = self._run_execution_with_live(orchestrator)
+            results = self._run_execution_with_live(orchestrator, dispatch_packages)
         except KeyboardInterrupt:
             self.console.print("\n[yellow]Execution interrupted.[/yellow]")
             return
@@ -1609,6 +1645,7 @@ class InteractiveSession:
     def _run_execution_with_live(
         self,
         orchestrator: "TrinityOrchestrator",
+        work_packages: list[object] | None = None,
     ) -> list[ExecutionResult]:
         """Run work package execution while consuming TUI events."""
         import threading
@@ -1622,6 +1659,7 @@ class InteractiveSession:
         error_holder: list[Exception | None] = [None]
         progress_lock = threading.Lock()
         progress_results: list[ExecutionResult] = []
+        dispatch_packages = list(work_packages or self.workflow.session.work_packages)
 
         def _record_progress(result: ExecutionResult) -> None:
             with progress_lock:
@@ -1699,7 +1737,7 @@ class InteractiveSession:
             try:
                 result_holder[0] = asyncio.run(
                     orchestrator.execute_work_packages(
-                        self.workflow.session.work_packages,
+                        dispatch_packages,
                         decisions=self.workflow.decisions,
                         result_callback=_record_progress,
                     )

@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 from textual import events
-from textual.coordinate import Coordinate
 from textual.containers import VerticalScroll
 from textual.widgets import (
     Button,
@@ -49,6 +48,7 @@ from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.composer import COMMAND_LIMIT, ComposerTextArea, PromptComposer
 from trinity.textual_app.widgets.confirm_quit_modal import ConfirmQuitModal
 from trinity.textual_app.widgets.context_modal import ContextCommandModal
+from trinity.textual_app.widgets.execution_retry_modal import ExecutionRetryModal
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
@@ -79,6 +79,9 @@ class FakeWorkflowController:
         self.resume_options: list[TextualWorkflowArchiveOption] = []
         self.execution_outcome: TextualWorkflowOutcome | None = None
         self.execution_requests = 0
+        self.retry_previews: list[tuple[str, list[str]]] = []
+        self.retry_confirms: list[tuple[str, list[str]]] = []
+        self.retry_outcome: TextualWorkflowOutcome | None = None
         self.target_workspace = None
         self.target_control_confirmed = False
         self.target_cleared = False
@@ -152,6 +155,20 @@ class FakeWorkflowController:
         return TextualWorkflowOutcome(
             self.current_snapshot,
             target_workspace_required=True,
+        )
+
+    def preview_execution_retry(self, selector: str = "all", package_ids=()):
+        self.retry_previews.append((selector, list(package_ids)))
+        return None
+
+    def confirm_execution_retry(self, selector: str = "all", package_ids=()):
+        self.retry_confirms.append((selector, list(package_ids)))
+        if self.retry_outcome is not None:
+            return self.retry_outcome
+        return TextualWorkflowOutcome(
+            self.current_snapshot,
+            message=f"Retrying work packages: {', '.join(package_ids)}.",
+            execution_requested=True,
         )
 
     def set_target_workspace(self, path, *, control_repo_confirmed: bool = False):
@@ -715,6 +732,52 @@ async def test_nexus_slash_workflow_does_not_submit_followup(tmp_path) -> None:
         assert central.snapshot.local_commands[-1].title == "Workflow"
         assert "Local Command Results" in central._markdown()
         assert "#### /workflow - Workflow" in central._markdown()
+
+
+@pytest.mark.asyncio
+async def test_nexus_execute_retry_slash_opens_retry_modal(tmp_path) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-retry",
+        goal="game",
+        state="failed",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Client",
+                owner_agent="codex",
+                status="failed",
+                topic="Client",
+                retryable=True,
+            ),
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="Docs",
+                owner_agent="claude",
+                status="done",
+                topic="Docs",
+                retryable=False,
+                retry_disabled_reason="already done",
+            ),
+        ],
+    )
+    controller = FakeWorkflowController(snapshot)
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/execute-retry custom WP-001")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ExecutionRetryModal)
+        assert controller.retry_previews == [("custom", ["WP-001"])]
+        assert controller.follow_ups == []
+        assert composer.text == ""
 
 
 @pytest.mark.asyncio
@@ -2140,13 +2203,16 @@ async def test_execution_matrix_separates_owner_and_executor(tmp_path) -> None:
         )
         await pilot.pause()
 
-        table = screen.query_one("#execution-table", DataTable)
+        rows = screen.query("#execution-package-list .execution-package-row")
+        row_text = " ".join(str(child.render()) for child in rows.first().children)
 
-        assert table.get_cell_at(Coordinate(0, 0)) == "Rust contracts"
-        assert table.get_cell_at(Coordinate(0, 1)) == "codex"
-        assert table.get_cell_at(Coordinate(0, 2)) == "claude (fallback)"
-        assert table.get_cell_at(Coordinate(0, 3)) == "running"
-        assert table.get_cell_at(Coordinate(0, 4)) == "high"
+        assert len(rows) == 1
+        assert "Rust contracts" in row_text
+        assert "codex" in row_text
+        assert "claude fallback" in row_text
+        assert "running" in row_text
+        assert "high" in row_text
+        assert rows.first().query_one("#wp-detail-0", Button)
 
 
 @pytest.mark.asyncio
@@ -2408,7 +2474,7 @@ async def test_execution_matrix_renders_preflight_and_packages(tmp_path) -> None
         await pilot.pause()
 
         assert str(tmp_path) in str(screen.query_one("#execution-header").content)
-        assert screen.query_one("#execution-table").row_count == 1
+        assert len(screen.query("#execution-package-list .execution-package-row")) == 1
 
 
 @pytest.mark.asyncio

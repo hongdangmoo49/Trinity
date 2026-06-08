@@ -350,6 +350,9 @@ def test_snapshot_projects_execution_recovery_and_executor_details(tmp_path) -> 
                     title="Shared contracts",
                     owner_agent="codex",
                     objective="Build contracts.",
+                    scope=["Define API"],
+                    expected_files=["src/contracts.py"],
+                    acceptance_criteria=["Types compile"],
                     status=WorkStatus.RUNNING,
                     current_executor="claude",
                     last_executor="claude",
@@ -363,6 +366,16 @@ def test_snapshot_projects_execution_recovery_and_executor_details(tmp_path) -> 
                     status=WorkStatus.DONE,
                     last_executor="codex",
                 ),
+            ],
+            execution_results=[
+                ExecutionResult(
+                    package_id="WP-001",
+                    agent_name="claude",
+                    status=WorkStatus.FAILED,
+                    summary="Could not finish.",
+                    files_changed=["src/contracts.py"],
+                    blockers=["Missing schema."],
+                )
             ],
             execution_run={
                 "run_id": "exec-run-test",
@@ -389,6 +402,7 @@ def test_snapshot_projects_execution_recovery_and_executor_details(tmp_path) -> 
     snapshot = NexusSnapshotAdapter(config).load_snapshot()
 
     assert snapshot.execution_recovery is not None
+    assert snapshot.target_workspace == str(tmp_path / "game")
     assert snapshot.execution_recovery.state == "interrupted"
     assert snapshot.execution_recovery.running_packages == ("WP-001",)
     assert snapshot.execution_recovery.retry_candidates == ("WP-001",)
@@ -396,6 +410,15 @@ def test_snapshot_projects_execution_recovery_and_executor_details(tmp_path) -> 
     assert snapshot.work_package_details[0].owner_agent == "codex"
     assert snapshot.work_package_details[0].current_executor == "claude"
     assert snapshot.work_package_details[0].risk == "high"
+    assert snapshot.work_package_details[0].topic == "Shared contracts"
+    assert snapshot.work_package_details[0].scope == ["Define API"]
+    assert snapshot.work_package_details[0].expected_files == ["src/contracts.py"]
+    assert snapshot.work_package_details[0].acceptance_criteria == ["Types compile"]
+    assert snapshot.work_package_details[0].retryable is True
+    assert snapshot.work_package_details[0].last_result_summary == "Could not finish."
+    assert snapshot.work_package_details[0].last_result_blockers == ["Missing schema."]
+    assert snapshot.work_package_details[1].retryable is False
+    assert snapshot.work_package_details[1].retry_disabled_reason == "already done"
 
 
 def test_snapshot_formats_legacy_execution_result_event(tmp_path) -> None:

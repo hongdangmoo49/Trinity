@@ -21,6 +21,7 @@ import click
 from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
+from rich.prompt import Confirm
 from rich.table import Table
 
 from trinity import __version__
@@ -42,6 +43,12 @@ from trinity.providers.bootstrap import (
 )
 from trinity.setup.detector import CLIDetector
 from trinity.textual_app.runtime import resolve_tui_runtime
+from trinity.updater import (
+    StartupUpdate,
+    apply_startup_update,
+    check_for_startup_update,
+    startup_update_check_disabled,
+)
 
 
 def _configure_stdio_encoding_errors(*streams) -> None:
@@ -95,12 +102,113 @@ def load_config(silent: bool = False) -> TrinityConfig:
     return TrinityConfig.default_config()
 
 
+def _stdio_is_interactive() -> bool:
+    """Return True when startup prompts can safely read from the terminal."""
+    stdin_is_tty = getattr(sys.stdin, "isatty", lambda: False)
+    stdout_is_tty = getattr(sys.stdout, "isatty", lambda: False)
+    return bool(stdin_is_tty() and stdout_is_tty())
+
+
+def _startup_update_lang() -> str:
+    """Resolve the configured language for pre-TUI startup prompts."""
+    try:
+        config_path = find_config_path()
+        if config_path:
+            return TrinityConfig.load(config_path).lang
+    except Exception:
+        return "en"
+    return "en"
+
+
+def _startup_update_strings(lang: str) -> dict[str, str]:
+    if lang == "ko":
+        return {
+            "title": "Trinity 업데이트",
+            "available": "Trinity 업데이트가 있습니다.",
+            "current": "현재 버전",
+            "latest": "새 버전",
+            "prompt": "지금 업데이트할까요?",
+            "declined": "업데이트를 건너뛰고 현재 버전으로 시작합니다.",
+            "done": "업데이트가 완료되었습니다.",
+            "restart": "새 버전을 적용하려면 trinity를 다시 실행하세요.",
+            "failed": "업데이트에 실패했습니다. 현재 버전으로 계속 시작합니다.",
+            "details": "상세 내용",
+        }
+    return {
+        "title": "Trinity Update",
+        "available": "A Trinity update is available.",
+        "current": "Current",
+        "latest": "Latest",
+        "prompt": "Update now?",
+        "declined": "Skipping update and starting the current version.",
+        "done": "Update completed.",
+        "restart": "Run trinity again to use the updated version.",
+        "failed": "Update failed. Starting the current version.",
+        "details": "Details",
+    }
+
+
+def _render_startup_update(update: StartupUpdate, lang: str) -> Panel:
+    strings = _startup_update_strings(lang)
+    body = "\n".join(
+        [
+            f"[bold]{strings['available']}[/bold]",
+            "",
+            f"{strings['current']}: [cyan]{update.current_version}[/cyan]",
+            f"{strings['latest']}: [green]{update.latest_version}[/green]",
+        ]
+    )
+    return Panel.fit(body, title=strings["title"], border_style="yellow")
+
+
+def _maybe_run_startup_update(*, skip: bool = False) -> bool:
+    """Prompt for a startup update and return True when the CLI should exit."""
+    if skip or startup_update_check_disabled() or not _stdio_is_interactive():
+        return False
+
+    lang = _startup_update_lang()
+    update = check_for_startup_update(__version__)
+    if update is None:
+        return False
+
+    strings = _startup_update_strings(lang)
+    console.print(_render_startup_update(update, lang))
+    if not Confirm.ask(strings["prompt"], default=False, console=console):
+        console.print(f"[dim]{strings['declined']}[/dim]")
+        return False
+
+    result = apply_startup_update(update)
+    if result.succeeded:
+        console.print(f"[green]{strings['done']}[/green]")
+        if result.output:
+            console.print(f"[dim]{result.output}[/dim]")
+        console.print(f"[yellow]{strings['restart']}[/yellow]")
+        return True
+
+    console.print(f"[red]{strings['failed']}[/red]")
+    if result.output:
+        console.print(
+            Panel.fit(result.output, title=strings["details"], border_style="red")
+        )
+    return False
+
+
 @click.group(invoke_without_command=True)
 @click.version_option(version=__version__, prog_name="trinity")
 @click.option("--interactive/--no-interactive", default=None, help="Force interactive TUI mode")
 @click.option("--plain", is_flag=True, help="Use the legacy Rich/prompt_toolkit TUI")
+@click.option(
+    "--no-update-check",
+    is_flag=True,
+    help="Skip the startup update check before launching the interactive TUI",
+)
 @click.pass_context
-def main(ctx: click.Context, interactive: bool | None, plain: bool):
+def main(
+    ctx: click.Context,
+    interactive: bool | None,
+    plain: bool,
+    no_update_check: bool,
+):
     """Trinity — Three minds, one context.
 
     Multi-agent AI orchestrator that unifies Claude Code, Codex, and Antigravity
@@ -112,6 +220,8 @@ def main(ctx: click.Context, interactive: bool | None, plain: bool):
     ctx.obj["force_interactive"] = interactive
 
     if ctx.invoked_subcommand is None:
+        if _maybe_run_startup_update(skip=no_update_check):
+            ctx.exit(0)
         # No subcommand → enter interactive TUI mode
         _run_interactive_tui(plain=plain)
 

@@ -383,6 +383,9 @@ Final review가 승인되거나 변경 요청을 내면 workflow를 바로 `DONE
 
 Final review 이후 `POST_REVIEW_READY` 상태에서만 동작한다. 이 명령은 post-review action
 item을 고르거나, 사용자의 자유 보강 요청을 새 action item으로 저장한다.
+같은 상태에서 Nexus 일반 채팅으로 보강 요청을 입력해도 동일한 post-review follow-up
+경로로 처리된다. `/improve`는 목록 조회, severity/ID 선택, 명시적 종료를 위한
+command surface다.
 
 동작은 다음과 같다.
 

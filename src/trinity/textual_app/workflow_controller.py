@@ -103,7 +103,13 @@ class TextualWorkflowController:
         self._recent_events = []
         return self._outcome()
 
-    def start_prompt(self, prompt: str) -> TextualWorkflowOutcome:
+    def start_prompt(
+        self,
+        prompt: str,
+        *,
+        target_workspace: Path | None = None,
+        control_repo_confirmed: bool = False,
+    ) -> TextualWorkflowOutcome:
         """Start a workflow from the first Textual prompt."""
         if self.is_running:
             return self._outcome(message="Workflow is already running.", running=True)
@@ -112,6 +118,11 @@ class TextualWorkflowController:
             return self._outcome(message="No active agents are configured.")
         self._recent_events = []
         action = self.workflow.start(prompt, active_agents)
+        if target_workspace is not None:
+            self.workflow.set_target_workspace(
+                target_workspace,
+                control_repo_confirmed=control_repo_confirmed,
+            )
         return self._apply_action(action)
 
     def submit_follow_up(self, text: str) -> TextualWorkflowOutcome:

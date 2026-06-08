@@ -889,7 +889,11 @@ class TrinityTextualApp(App[None]):
         self.workspace_candidate = event.workspace_candidate
         nexus = self.get_screen("nexus", NexusScreen)
         nexus.set_initial_prompt(event.prompt)
-        outcome = self.workflow_controller.start_prompt(event.prompt)
+        target_workspace = self._safe_start_target_workspace(event.workspace_candidate)
+        outcome = self.workflow_controller.start_prompt(
+            event.prompt,
+            target_workspace=target_workspace,
+        )
         self._apply_workflow_outcome(outcome)
         self.switch_to("nexus")
 
@@ -995,6 +999,14 @@ class TrinityTextualApp(App[None]):
         self.workspace_candidate = preflight.path
         start = self.get_screen("start", StartScreen)
         start.set_workspace_candidate(preflight.path)
+
+    def _safe_start_target_workspace(self, path: Path | None) -> Path | None:
+        """Return a start-screen target that can be persisted without confirmation."""
+        if path is None:
+            return None
+        if self._is_control_repo_target(path):
+            return None
+        return path
 
     def _on_workspace_preflight(self, preflight: WorkspacePreflight | None) -> None:
         if preflight is None:

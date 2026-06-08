@@ -663,6 +663,10 @@ class TrinityTextualApp(App[None]):
         width: 11;
     }
 
+    .execution-package-spec {
+        width: 8;
+    }
+
     .execution-package-empty {
         color: $text-muted;
     }

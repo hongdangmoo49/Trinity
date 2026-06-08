@@ -58,7 +58,24 @@ class ExecutionPackageRow(Horizontal):
             name=self.package_id,
             disabled=not self.detail_enabled,
             compact=True,
+            classes="execution-package-spec",
         )
+
+
+class ExecutionPackageHeader(Horizontal):
+    """Column header aligned to the same CSS grid as package rows."""
+
+    def __init__(self) -> None:
+        super().__init__(classes="execution-package-header")
+
+    def compose(self) -> ComposeResult:
+        yield Static("Task", classes="execution-package-task")
+        yield Static("Assignee", classes="execution-package-assignee")
+        yield Static("Executor", classes="execution-package-executor")
+        yield Static("Status", classes="execution-package-status")
+        yield Static("Review", classes="execution-package-review")
+        yield Static("Risk", classes="execution-package-risk")
+        yield Static("Spec", classes="execution-package-spec")
 
 
 class ExecutionMatrixScreen(Screen[None]):
@@ -152,12 +169,7 @@ class ExecutionMatrixScreen(Screen[None]):
     def _render_package_list(self) -> None:
         package_list = self.query_one("#execution-package-list", VerticalScroll)
         package_list.remove_children()
-        package_list.mount(
-            Static(
-                "Task                         Assignee     Executor     Status      Review     Risk       Spec",
-                classes="execution-package-header",
-            )
-        )
+        package_list.mount(ExecutionPackageHeader())
         if self.snapshot.work_package_details:
             for index, package in enumerate(self.snapshot.work_package_details):
                 package_list.mount(

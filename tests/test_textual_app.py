@@ -235,6 +235,13 @@ def _local_command(snapshot: WorkflowNexusSnapshot, command: str) -> LocalComman
     raise AssertionError(f"missing local command result for {command}")
 
 
+def _column_class(widget, expected: list[str]) -> str:
+    for class_name in expected:
+        if widget.has_class(class_name):
+            return class_name
+    raise AssertionError(f"missing expected column class on {widget!r}")
+
+
 def test_textual_app_localizes_command_palette_bindings_in_korean(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
 
@@ -2372,6 +2379,65 @@ async def test_execution_matrix_separates_owner_and_executor(tmp_path) -> None:
         assert "WP-001: Rust contracts" in str(
             app.screen.query_one("#work-package-detail-title", Static).content
         )
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_header_uses_row_column_layout(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="프론트타입 기술 골격 수립",
+                        owner_agent="codex",
+                        current_executor="codex",
+                        status="done",
+                        review_status="-",
+                        risk="high",
+                    )
+                ]
+            ),
+        )
+        await pilot.pause()
+
+        expected_columns = [
+            "execution-package-task",
+            "execution-package-assignee",
+            "execution-package-executor",
+            "execution-package-status",
+            "execution-package-review",
+            "execution-package-risk",
+            "execution-package-spec",
+        ]
+        header = screen.query("#execution-package-list .execution-package-header").first()
+        row = screen.query("#execution-package-list .execution-package-row").first()
+
+        assert [_column_class(child, expected_columns) for child in header.children] == (
+            expected_columns
+        )
+        assert [_column_class(child, expected_columns) for child in row.children] == (
+            expected_columns
+        )
+        assert [child.region.x for child in header.children] == [
+            child.region.x for child in row.children
+        ]
+
+        await pilot.press("f")
+        await pilot.pause()
+
+        header = screen.query("#execution-package-list .execution-package-header").first()
+        row = screen.query("#execution-package-list .execution-package-row").first()
+        assert [child.region.x for child in header.children] == [
+            child.region.x for child in row.children
+        ]
 
 
 @pytest.mark.asyncio

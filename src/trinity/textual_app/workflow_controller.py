@@ -16,6 +16,7 @@ from trinity.orchestrator import TrinityOrchestrator
 from trinity.textual_app.snapshot import NexusSnapshotAdapter, WorkflowNexusSnapshot
 from trinity.tui.events import TUIEvent, TUIEventBus, TUIEventType
 from trinity.workflow import (
+    ExecutionRetryPlan,
     ExecutionResult,
     WorkflowEngine,
     WorkflowInputAction,
@@ -155,16 +156,7 @@ class TextualWorkflowController:
             return self._outcome(message="Workflow is still running.", running=True)
         normalized_instruction = instruction.strip().lower()
         if normalized_instruction in {"retry", "retry-interrupted", "recovery retry"}:
-            summary = self.workflow.retry_interrupted_execution()
-            if summary is None:
-                return self._outcome(message="No interrupted execution to retry.")
-            if not summary.get("retry_candidates") and not self.workflow.has_pending_execution:
-                return self._outcome(message="No interrupted packages need retry.")
-            self._start_execution()
-            return self._outcome(
-                message="Retrying interrupted execution packages.",
-                execution_requested=True,
-            )
+            return self.confirm_execution_retry("all")
         if normalized_instruction in {"mark-interrupted", "mark interrupted", "mark"}:
             summary = self.workflow.mark_interrupted_execution()
             if summary is None:
@@ -188,6 +180,49 @@ class TextualWorkflowController:
             return self._outcome(message="No blueprint is ready. Finish planning before execution.")
         action = self.workflow.enable_execution_for_current_blueprint(instruction)
         return self._apply_action(action)
+
+    def preview_execution_retry(
+        self,
+        selector: str = "all",
+        package_ids: tuple[str, ...] | list[str] = (),
+    ) -> ExecutionRetryPlan:
+        """Return the retry plan that the UI should show before confirmation."""
+        return self.workflow.build_execution_retry_plan(
+            selector=selector,
+            package_ids=package_ids,
+        )
+
+    def confirm_execution_retry(
+        self,
+        selector: str = "all",
+        package_ids: tuple[str, ...] | list[str] = (),
+    ) -> TextualWorkflowOutcome:
+        """Prepare selected work packages and start a new execution run."""
+        if self.is_running:
+            return self._outcome(message="Workflow is still running.", running=True)
+        plan = self.workflow.build_execution_retry_plan(
+            selector=selector,
+            package_ids=package_ids,
+        )
+        if not plan.selected:
+            return self._outcome(message="No retryable work packages match the request.")
+        if self.workflow.session.target_workspace is None:
+            return self._outcome(
+                message="Choose a target workspace before retrying execution.",
+                target_workspace_required=True,
+            )
+
+        prepared = self.workflow.prepare_execution_retry(
+            selector=selector,
+            package_ids=package_ids,
+        )
+        if not prepared.selected:
+            return self._outcome(message="No retryable work packages match the request.")
+        self._start_execution()
+        return self._outcome(
+            message=f"Retrying work packages: {', '.join(prepared.selected)}.",
+            execution_requested=True,
+        )
 
     def set_target_workspace(
         self,
@@ -351,9 +386,18 @@ class TextualWorkflowController:
             return
         if self.workflow.session.target_workspace is None:
             return
+        package_ids = self.workflow.pending_execution_package_ids()
+        if not package_ids:
+            return
+        package_id_set = set(package_ids)
+        dispatch_packages = [
+            package
+            for package in self.workflow.session.work_packages
+            if package.id in package_id_set
+        ]
         bus = TUIEventBus()
         use_tmux = self._uses_tmux_transport()
-        self.workflow.begin_execution()
+        self.workflow.begin_execution(package_ids)
         self._prepare_background_run(bus, "execution")
 
         def _run() -> None:
@@ -367,7 +411,7 @@ class TextualWorkflowController:
                 orchestrator.set_event_bus(bus)
                 results = asyncio.run(
                     orchestrator.execute_work_packages(
-                        self.workflow.session.work_packages,
+                        dispatch_packages,
                         decisions=self.workflow.decisions,
                     )
                 )

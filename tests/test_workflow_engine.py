@@ -607,6 +607,89 @@ def test_retry_interrupted_packages_excludes_done_packages(tmp_path):
     ]
 
 
+def test_build_execution_retry_plan_selects_failed_blocked_and_interrupted(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="done package",
+            owner_agent="codex",
+            objective="Done.",
+            status=WorkStatus.DONE,
+        ),
+        WorkPackage(
+            id="WP-002",
+            title="running package",
+            owner_agent="claude",
+            objective="Running.",
+            status=WorkStatus.RUNNING,
+            current_executor="claude",
+        ),
+        WorkPackage(
+            id="WP-003",
+            title="blocked package",
+            owner_agent="codex",
+            objective="Blocked.",
+            status=WorkStatus.BLOCKED,
+        ),
+        WorkPackage(
+            id="WP-004",
+            title="failed package",
+            owner_agent="codex",
+            objective="Failed.",
+            status=WorkStatus.FAILED,
+        ),
+    ]
+    engine.set_target_workspace(tmp_path / "route-bot")
+    engine.set_state(WorkflowState.EXECUTING, reason="simulate stale execution")
+    engine.session.execution_run = {
+        "run_id": "exec-run-test",
+        "state": "running",
+        "target_workspace": str(tmp_path / "route-bot"),
+    }
+    engine.save()
+
+    plan = engine.build_execution_retry_plan("all")
+
+    assert plan.selector == "all"
+    assert plan.selected == ("WP-002", "WP-003", "WP-004")
+    assert plan.target_workspace == (tmp_path / "route-bot").resolve()
+    assert engine.session.execution_run["state"] == "interrupted"
+
+
+def test_prepare_execution_retry_keeps_unselected_failed_packages_out_of_dispatch(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="first failed",
+            owner_agent="codex",
+            objective="Failed.",
+            status=WorkStatus.FAILED,
+        ),
+        WorkPackage(
+            id="WP-002",
+            title="second failed",
+            owner_agent="claude",
+            objective="Failed.",
+            status=WorkStatus.FAILED,
+        ),
+    ]
+    engine.set_target_workspace(tmp_path / "route-bot")
+    engine.set_state(WorkflowState.FAILED, reason="simulate failed execution")
+
+    plan = engine.prepare_execution_retry("custom", ["WP-002"])
+
+    assert plan.selected == ("WP-002",)
+    assert engine.pending_execution_package_ids() == ["WP-002"]
+    assert [package.status for package in engine.session.work_packages] == [
+        WorkStatus.FAILED,
+        WorkStatus.PENDING,
+    ]
+
+
 def test_record_work_package_completed_persists_finished_event(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
     engine.start("Implement route bot", ["codex"])

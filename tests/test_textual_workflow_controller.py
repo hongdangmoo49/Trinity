@@ -10,6 +10,7 @@ from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workflow import WorkflowEngine, WorkflowState
 from trinity.workflow.models import (
     Blueprint,
+    ExecutionResult,
     OpenQuestion,
     WorkPackage,
     WorkflowSession,
@@ -484,3 +485,98 @@ def test_textual_workflow_controller_persists_work_package_runtime_events(tmp_pa
     assert events[-1]["timestamp"] == 1300.25
     assert events[-1]["data"]["summary"] == "Built client."
     assert controller.workflow.session.work_packages[0].status == WorkStatus.DONE
+
+
+class FakeExecutionOrchestrator(FakeOrchestrator):
+    executed_packages: list[list[str]] = []
+
+    async def execute_work_packages(self, work_packages, decisions=()):
+        self.__class__.executed_packages.append([package.id for package in work_packages])
+        return [
+            ExecutionResult(
+                package_id=package.id,
+                agent_name=package.owner_agent,
+                status=WorkStatus.DONE,
+                summary=f"Retried {package.id}.",
+            )
+            for package in work_packages
+        ]
+
+
+def test_textual_workflow_controller_retries_selected_failed_packages_only(tmp_path) -> None:
+    FakeExecutionOrchestrator.executed_packages = []
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 구현", ["claude", "codex"])
+    workflow.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="client",
+            owner_agent="claude",
+            objective="Build client.",
+            status=WorkStatus.FAILED,
+        ),
+        WorkPackage(
+            id="WP-002",
+            title="server",
+            owner_agent="codex",
+            objective="Build server.",
+            status=WorkStatus.FAILED,
+        ),
+        WorkPackage(
+            id="WP-003",
+            title="docs",
+            owner_agent="codex",
+            objective="Write docs.",
+            status=WorkStatus.DONE,
+        ),
+    ]
+    workflow.set_target_workspace(tmp_path / "game")
+    workflow.set_state(WorkflowState.FAILED, reason="simulate failed execution")
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeExecutionOrchestrator,
+        archive_active_session=False,
+    )
+
+    outcome = controller.confirm_execution_retry("custom", ["WP-002"])
+
+    assert outcome.execution_requested is True
+    assert controller.workflow.session.work_packages[0].status == WorkStatus.FAILED
+    assert controller.workflow.session.work_packages[1].status == WorkStatus.PENDING
+    assert controller.workflow.session.execution_run["retry_packages"] == ["WP-002"]
+    assert controller.wait_until_idle(timeout=2.0)
+    assert FakeExecutionOrchestrator.executed_packages == [["WP-002"]]
+    final = controller.drain_updates()
+    assert final is not None
+    assert controller.workflow.session.work_packages[0].status == WorkStatus.FAILED
+    assert controller.workflow.session.work_packages[1].status == WorkStatus.DONE
+
+
+def test_textual_workflow_controller_retry_requires_target_workspace(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 구현", ["claude"])
+    workflow.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="client",
+            owner_agent="claude",
+            objective="Build client.",
+            status=WorkStatus.FAILED,
+        )
+    ]
+    workflow.set_state(WorkflowState.FAILED, reason="simulate failed execution")
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeExecutionOrchestrator,
+        archive_active_session=False,
+    )
+
+    outcome = controller.confirm_execution_retry("failed")
+
+    assert outcome.target_workspace_required is True
+    assert outcome.execution_requested is False
+    assert controller.workflow.session.work_packages[0].status == WorkStatus.FAILED

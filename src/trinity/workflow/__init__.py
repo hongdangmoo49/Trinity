@@ -5,7 +5,12 @@ from trinity.workflow.decomposer import (
     classify_blueprint_followup_action,
     classify_execution_intent,
 )
-from trinity.workflow.engine import WorkflowEngine, WorkflowInputAction
+from trinity.workflow.engine import (
+    ExecutionRetryPlan,
+    RetrySkip,
+    WorkflowEngine,
+    WorkflowInputAction,
+)
 from trinity.workflow.execution import ExecutionProtocol, ExecutionWorkspaceError
 from trinity.workflow.ledger import (
     ReadinessInput,
@@ -54,6 +59,7 @@ __all__ = [
     "DecisionRecord",
     "ExecutionProtocol",
     "ExecutionWorkspaceError",
+    "ExecutionRetryPlan",
     "ExecutionResult",
     "OpenQuestion",
     "PeerReviewPlanner",
@@ -61,6 +67,7 @@ __all__ = [
     "ReviewPackage",
     "ReviewResult",
     "ReviewStatus",
+    "RetrySkip",
     "RiskItem",
     "SharedLedgerRenderer",
     "SubtaskResult",

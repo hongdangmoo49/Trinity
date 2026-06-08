@@ -21,6 +21,8 @@ from trinity.workflow import (
     Blueprint,
     ExecutionResult,
     OpenQuestion,
+    ReviewResult,
+    ReviewStatus,
     SubtaskResult,
     WorkPackage,
     WorkStatus,
@@ -885,6 +887,177 @@ class TestWorkflowRouting:
             "Finished after done event."
         )
 
+    def test_review_command_runs_work_package_and_final_review(self, session):
+        session.workflow.start("Implement route bot", ["claude"])
+        session.workflow.session.work_packages = [
+            WorkPackage(
+                id="WP-001",
+                title="client",
+                owner_agent="claude",
+                objective="Build client.",
+                status=WorkStatus.DONE,
+            )
+        ]
+        session.workflow.session.execution_results = [
+            ExecutionResult(
+                package_id="WP-001",
+                agent_name="claude",
+                status=WorkStatus.DONE,
+                summary="Implemented client.",
+            )
+        ]
+        target = session.config.project_dir.parent / "route-bot"
+        target.mkdir(exist_ok=True)
+        session.workflow.set_target_workspace(target)
+        session.workflow.set_state(WorkflowState.REVIEWING, reason="test review")
+        session.workflow.ensure_review_packages()
+
+        class FakeReviewOrchestrator:
+            def __init__(self, *args, **kwargs):
+                self.bus = None
+
+            def set_event_bus(self, bus):
+                self.bus = bus
+
+            async def review_work_packages(self, review_packages, work_packages, execution_results):
+                assert self.bus is not None
+                self.bus.emit(
+                    TUIEvent(
+                        type=TUIEventType.WORK_PACKAGE_REVIEW_STARTED,
+                        data={"package_id": "WP-001", "reviewer": "claude"},
+                    )
+                )
+                self.bus.emit(
+                    TUIEvent(
+                        type=TUIEventType.WORK_PACKAGE_REVIEW_COMPLETED,
+                        data={
+                            "package_id": "WP-001",
+                            "reviewer": "claude",
+                            "status": ReviewStatus.APPROVED.value,
+                        },
+                    )
+                )
+                return [
+                    ReviewResult(
+                        review_package_id=review_packages[0].id,
+                        package_id="WP-001",
+                        reviewer_agent="claude",
+                        target_agent="claude",
+                        status=ReviewStatus.APPROVED,
+                        severity="low",
+                        summary="WP approved.",
+                    )
+                ]
+
+            async def review_final_execution(
+                self,
+                work_packages,
+                execution_results,
+                review_results,
+            ):
+                return ReviewResult(
+                    review_package_id="RP-FINAL-claude",
+                    package_id="FINAL",
+                    reviewer_agent="claude",
+                    target_agent="project",
+                    status=ReviewStatus.APPROVED,
+                    severity="low",
+                    scope="final",
+                    summary="Final approved.",
+                )
+
+        with patch("trinity.orchestrator.TrinityOrchestrator", FakeReviewOrchestrator):
+            session._handle_command("/review all")
+
+        assert session.workflow.state == WorkflowState.DONE
+        assert [result.status for result in session.workflow.review_results] == [
+            ReviewStatus.APPROVED,
+            ReviewStatus.APPROVED,
+        ]
+
+    def test_execute_auto_runs_review_after_completion(self, session):
+        session.workflow.start("Implement route bot", ["claude"])
+        session.workflow.session.blueprint = Blueprint(
+            title="Route Bot",
+            summary="Find bridge routes.",
+            acceptance_criteria=["rank paths"],
+        )
+        session.workflow.session.work_packages = [
+            WorkPackage(
+                id="WP-001",
+                title="client",
+                owner_agent="claude",
+                objective="Build client.",
+                requires_execution=True,
+            )
+        ]
+        target = session.config.project_dir.parent / "route-bot"
+        target.mkdir(exist_ok=True)
+        session.workflow.set_target_workspace(target)
+        session.workflow.set_state(WorkflowState.BLUEPRINT_READY, reason="test blueprint")
+
+        class FakeExecutionReviewOrchestrator:
+            def __init__(self, *args, **kwargs):
+                self.bus = None
+
+            def set_event_bus(self, bus):
+                self.bus = bus
+
+            async def execute_work_packages(
+                self,
+                work_packages,
+                decisions=None,
+                result_callback=None,
+            ):
+                result = ExecutionResult(
+                    package_id="WP-001",
+                    agent_name="claude",
+                    status=WorkStatus.DONE,
+                    summary="Implemented client.",
+                )
+                if result_callback:
+                    result_callback(result)
+                return [result]
+
+            async def review_work_packages(self, review_packages, work_packages, execution_results):
+                return [
+                    ReviewResult(
+                        review_package_id=review_packages[0].id,
+                        package_id="WP-001",
+                        reviewer_agent="claude",
+                        target_agent="claude",
+                        status=ReviewStatus.APPROVED,
+                        severity="low",
+                        summary="WP approved.",
+                    )
+                ]
+
+            async def review_final_execution(
+                self,
+                work_packages,
+                execution_results,
+                review_results,
+            ):
+                return ReviewResult(
+                    review_package_id="RP-FINAL-claude",
+                    package_id="FINAL",
+                    reviewer_agent="claude",
+                    target_agent="project",
+                    status=ReviewStatus.APPROVED,
+                    severity="low",
+                    scope="final",
+                    summary="Final approved.",
+                )
+
+        with patch("trinity.orchestrator.TrinityOrchestrator", FakeExecutionReviewOrchestrator):
+            session._handle_command("/execute")
+
+        assert session.workflow.state == WorkflowState.DONE
+        assert [result.status for result in session.workflow.review_results] == [
+            ReviewStatus.APPROVED,
+            ReviewStatus.APPROVED,
+        ]
+
     def test_questions_select_answers_next_option(self, session):
         session.workflow.start("Original goal", ["claude"])
         session.workflow.add_open_question(
@@ -1141,13 +1314,15 @@ class TestWorkflowRouting:
                 return_value=[execution_result],
             ) as run_execution:
                 with patch.object(session, "_has_tmux", return_value=False):
-                    session.workflow.start("Implement route bot", ["claude"])
-                    target = session.config.project_dir.parent / "route-bot"
-                    target.mkdir(exist_ok=True)
-                    session.workflow.set_target_workspace(target)
-                    session._run_deliberation("Implement route bot")
+                    with patch.object(session, "_run_review") as run_review:
+                        session.workflow.start("Implement route bot", ["claude"])
+                        target = session.config.project_dir.parent / "route-bot"
+                        target.mkdir(exist_ok=True)
+                        session.workflow.set_target_workspace(target)
+                        session._run_deliberation("Implement route bot")
 
         run_execution.assert_called_once()
+        run_review.assert_called_once()
         assert session.workflow.state == WorkflowState.REVIEWING
         assert session.workflow.work_packages[0].status == WorkStatus.DONE
         assert len(session.workflow.subtask_results) == 1

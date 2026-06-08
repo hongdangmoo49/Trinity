@@ -35,6 +35,9 @@ from trinity.tui.prompt import CUSTOM_OPTION_VALUE, TrinityPromptSession
 from trinity.tui.theme import get_theme
 from trinity.workflow import (
     ExecutionResult,
+    ReviewPackage,
+    ReviewResult,
+    ReviewStatus,
     WorkflowEngine,
     WorkflowInputAction,
     WorkflowPersistence,
@@ -64,6 +67,7 @@ PLAIN_TUI_COMMAND_HANDLERS: dict[str, str] = {
     "resume": "_cmd_resume",
     "execute": "_cmd_execute",
     "execute-retry": "_cmd_execute_retry",
+    "review": "_cmd_review",
     "target": "_cmd_target",
 }
 
@@ -78,6 +82,7 @@ PLAIN_TUI_COMMANDS_WITH_ARGS = frozenset(
         "resume",
         "execute",
         "execute-retry",
+        "review",
         "target",
     }
 )
@@ -911,6 +916,34 @@ class InteractiveSession:
         self._run_enabled_execution()
         self._cmd_workflow()
 
+    def _cmd_review(self, args: list[str]) -> None:
+        """Run pending work package and/or final project review."""
+        active = self.config.active_agents
+        if not active:
+            self.console.print("[red]No active agents. Use /agent <name> on to enable one.[/red]")
+            return
+        if self.workflow.session.target_workspace is None:
+            if not self._ensure_target_workspace_for_execution():
+                return
+
+        selector, package_ids = self._parse_review_args(args)
+        selected_reviews: list[ReviewPackage] = []
+        if selector in {"all", "wp"}:
+            self.workflow.ensure_review_packages()
+            selected_reviews = self.workflow.review_packages_for_request(
+                "wp",
+                package_ids,
+            )
+        final_requested = selector in {"all", "final"}
+        if not selected_reviews and not final_requested:
+            self.console.print(
+                "[yellow]No pending work package reviews match the request.[/yellow]"
+            )
+            return
+
+        self._run_review(selector, selected_reviews)
+        self._cmd_workflow()
+
     @staticmethod
     def _parse_execute_retry_args(args: list[str]) -> tuple[str, list[str]]:
         if not args:
@@ -919,6 +952,16 @@ class InteractiveSession:
         if first in {"all", "failed", "blocked", "interrupted", "custom"}:
             return first, args[1:]
         return "custom", args
+
+    @staticmethod
+    def _parse_review_args(args: list[str]) -> tuple[str, tuple[str, ...]]:
+        values = [str(arg).strip() for arg in args if str(arg).strip()]
+        if not values:
+            return "all", ()
+        first = values[0].lower()
+        if first in {"all", "wp", "final"}:
+            return first, tuple(values[1:])
+        return "wp", tuple(values)
 
     def _cmd_target(self, args: list[str]) -> None:
         """Show, set, or clear the implementation target workspace."""
@@ -1565,6 +1608,73 @@ class InteractiveSession:
 
         self.workflow.record_execution_results(results, emit_events=False)
         self.tui.set_workflow_session(self.workflow.session)
+        if self._should_auto_review_after_execution():
+            selected_reviews = self.workflow.review_packages_for_request("wp")
+            self.console.print("[green]Review started after execution.[/green]")
+            self._run_review("all", selected_reviews)
+
+    def _should_auto_review_after_execution(self) -> bool:
+        """Return whether a completed execution should immediately enter review."""
+        if self.workflow.state != WorkflowState.REVIEWING:
+            return False
+        if self.workflow.session.target_workspace is None:
+            return False
+        if not self.workflow.session.review_packages:
+            return False
+        if not self.config.active_agents:
+            return False
+        return True
+
+    def _run_review(
+        self,
+        selector: str,
+        selected_reviews: list[ReviewPackage],
+    ) -> None:
+        """Run selected review packages and persist review outcomes."""
+        from trinity.orchestrator import TrinityOrchestrator
+
+        use_tmux = self._uses_tmux_transport()
+        if use_tmux and not self._has_tmux():
+            self.console.print(
+                "[red]transport_mode is 'tmux', but tmux is not installed or not on PATH.[/red]"
+            )
+            return
+
+        orchestrator = TrinityOrchestrator(
+            self.config,
+            interactive=use_tmux,
+            target_workspace=self.workflow.session.target_workspace,
+            allow_control_repo_writes=(self.workflow.session.control_repo_target_confirmed),
+        )
+        try:
+            results = self._run_review_with_live(
+                orchestrator,
+                selector,
+                selected_reviews,
+            )
+        except KeyboardInterrupt:
+            self.console.print("\n[yellow]Review interrupted.[/yellow]")
+            return
+        except Exception as exc:
+            self.console.print(f"[red]Review error: {exc}[/red]")
+            logger.exception("Review failed")
+            return
+
+        if not results:
+            self.console.print("[dim]No review results returned.[/dim]")
+            return
+
+        self.workflow.record_review_results(results)
+        self.tui.set_workflow_session(self.workflow.session)
+        self._print_review_results(results)
+
+        repair_packages = self.workflow.prepare_review_repairs(results)
+        if repair_packages:
+            self.console.print(
+                "[yellow]Review requested repairs: "
+                f"{', '.join(repair_packages)}[/yellow]"
+            )
+            self._run_enabled_execution()
 
     def _execute_current_blueprint(self, *, instruction: str = "") -> None:
         """Mark current blueprint executable and run pending execution packages."""
@@ -1770,6 +1880,106 @@ class InteractiveSession:
         return result_holder[0] or []
 
     # ─── Display ────────────────────────────────────────────────────────
+
+    def _run_review_with_live(
+        self,
+        orchestrator: "TrinityOrchestrator",
+        selector: str,
+        selected_reviews: list[ReviewPackage],
+    ) -> list[ReviewResult]:
+        """Run review providers while consuming TUI events."""
+        import threading
+
+        bus = TUIEventBus()
+        orchestrator.set_event_bus(bus)
+
+        result_holder: list[list[ReviewResult] | None] = [None]
+        error_holder: list[Exception | None] = [None]
+        work_packages = list(self.workflow.session.work_packages)
+        execution_results = list(self.workflow.session.execution_results)
+        existing_review_results = list(self.workflow.review_results)
+
+        async def _review() -> list[ReviewResult]:
+            results: list[ReviewResult] = []
+            if selector in {"all", "wp"} and selected_reviews:
+                results.extend(
+                    await orchestrator.review_work_packages(
+                        selected_reviews,
+                        work_packages,
+                        execution_results,
+                    )
+                )
+            if selector in {"all", "final"}:
+                if selector == "all" and any(
+                    result.status != ReviewStatus.APPROVED for result in results
+                ):
+                    return results
+                results.append(
+                    await orchestrator.review_final_execution(
+                        work_packages,
+                        execution_results,
+                        [*existing_review_results, *results],
+                    )
+                )
+            return results
+
+        def _consume_events() -> None:
+            for event in bus.poll():
+                self.tui.consume_event(event)
+
+        def _run_async() -> None:
+            try:
+                result_holder[0] = asyncio.run(_review())
+            except Exception as exc:
+                error_holder[0] = exc
+
+        thread = threading.Thread(target=_run_async, daemon=True)
+        thread.start()
+
+        try:
+            with Live(
+                self.tui.build_layout(),
+                console=self.console,
+                refresh_per_second=4,
+                transient=True,
+            ) as live:
+                while thread.is_alive():
+                    thread.join(timeout=0.25)
+                    _consume_events()
+                    live.update(self.tui.build_layout())
+
+                _consume_events()
+                live.update(self.tui.build_layout())
+        except KeyboardInterrupt:
+            raise
+
+        if error_holder[0]:
+            raise error_holder[0]
+        return result_holder[0] or []
+
+    def _print_review_results(self, results: list[ReviewResult]) -> None:
+        """Render a compact table for review outcomes."""
+        from rich.table import Table
+
+        table = Table(title="Review Results")
+        table.add_column("Scope", style="cyan")
+        table.add_column("Package")
+        table.add_column("Reviewer")
+        table.add_column("Status")
+        table.add_column("Severity")
+        table.add_column("Summary")
+
+        for result in results:
+            table.add_row(
+                result.scope,
+                result.package_id,
+                result.reviewer_agent,
+                result.status.value,
+                result.severity,
+                result.summary or "-",
+            )
+
+        self.console.print(table)
 
     def _display_result(self, result: DeliberationResult) -> None:
         """Display deliberation result with agent opinions."""

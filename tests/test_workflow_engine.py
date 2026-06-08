@@ -568,7 +568,7 @@ def test_prepare_review_repairs_queues_changed_package(tmp_path):
     assert engine.state == WorkflowState.BLUEPRINT_READY
 
 
-def test_record_final_review_approved_marks_done(tmp_path):
+def test_record_final_review_approved_moves_to_post_review_ready(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
     engine.start("Implement route bot", ["codex", "claude"])
     engine.set_state(WorkflowState.REVIEWING, reason="test final review")
@@ -588,7 +588,70 @@ def test_record_final_review_approved_marks_done(tmp_path):
         ]
     )
 
+    assert engine.state == WorkflowState.POST_REVIEW_READY
+    assert engine.post_review_items == []
+
+    action = engine.handle_post_review_input("/improve done", ["codex", "claude"])
+
+    assert action.should_deliberate is False
     assert engine.state == WorkflowState.DONE
+
+
+def test_post_review_improve_queues_supplemental_wp_without_clearing_evidence(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude"])
+    engine.set_target_workspace(tmp_path / "route-bot")
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="client",
+            owner_agent="codex",
+            objective="Build client.",
+            status=WorkStatus.DONE,
+            last_executor="codex",
+        )
+    ]
+    engine.session.execution_results = [
+        ExecutionResult(
+            package_id="WP-001",
+            agent_name="codex",
+            status=WorkStatus.DONE,
+            summary="Implemented client.",
+        )
+    ]
+    engine.set_state(WorkflowState.REVIEWING, reason="test final review")
+    engine.record_review_results(
+        [
+            ReviewResult(
+                review_package_id="RP-FINAL-codex",
+                package_id="FINAL",
+                reviewer_agent="codex",
+                target_agent="project",
+                status=ReviewStatus.CHANGES_REQUESTED,
+                severity="high",
+                scope="final",
+                summary="Needs regression coverage.",
+                required_changes=["Add execution retry regression tests."],
+            )
+        ]
+    )
+
+    assert engine.state == WorkflowState.POST_REVIEW_READY
+    assert [item.id for item in engine.post_review_items] == ["AI-001"]
+    assert engine.post_review_items[0].status.value == "proposed"
+
+    action = engine.handle_post_review_input("/improve high", ["codex", "claude"])
+
+    assert action.execution_requested is True
+    assert engine.state == WorkflowState.BLUEPRINT_READY
+    assert [package.id for package in engine.session.work_packages] == ["WP-001", "WP-S001"]
+    supplemental = engine.session.work_packages[-1]
+    assert supplemental.origin == "post_review_followup"
+    assert supplemental.origin_action_item_ids == ["AI-001"]
+    assert supplemental.status == WorkStatus.PENDING
+    assert engine.execution_results[0].summary == "Implemented client."
+    assert engine.review_results[0].summary == "Needs regression coverage."
+    assert engine.post_review_items[0].status.value == "queued"
 
 
 def test_record_work_package_started_persists_running_status(tmp_path):

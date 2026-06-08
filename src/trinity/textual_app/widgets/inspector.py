@@ -25,6 +25,8 @@ class WorkflowInspector(Vertical):
         yield Static("", id="inspector-decisions")
         yield Static("Packages", classes="inspector-title")
         yield Static("", id="inspector-packages")
+        yield Static("Post Review", classes="inspector-title")
+        yield Static("", id="inspector-post-review")
         yield Static("Execution Log", classes="inspector-title")
         yield Static("", id="inspector-log")
 
@@ -49,6 +51,14 @@ class WorkflowInspector(Vertical):
         )
         self.query_one("#inspector-packages", Static).update(
             self._list_or_empty(snapshot.work_packages)
+        )
+        self.query_one("#inspector-post-review", Static).update(
+            self._list_or_empty(
+                [
+                    f"{item.id} [{item.severity}/{item.status}] {item.title or item.summary}"
+                    for item in snapshot.post_review_items
+                ]
+            )
         )
         self.query_one("#inspector-log", Static).update(
             self._list_or_empty(snapshot.execution_log[-5:])

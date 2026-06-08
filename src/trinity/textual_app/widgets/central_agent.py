@@ -116,6 +116,39 @@ class CentralAgentView(VerticalScroll):
                 )
                 if item.action_hint:
                     lines.append(f"_Next:_ {item.action_hint}")
+        if snapshot.final_review is not None:
+            review = snapshot.final_review
+            lines.extend(
+                [
+                    "",
+                    "### Final Review",
+                    (
+                        f"- `{review.status or 'unknown'}` by "
+                        f"`{review.reviewer_agent or '(unknown)'}`"
+                    ),
+                ]
+            )
+            if review.summary:
+                lines.append(f"- {review.summary}")
+        if snapshot.post_review_items:
+            lines.extend(["", "### Suggested Follow-up Work"])
+            for item in snapshot.post_review_items:
+                title = item.title or item.summary or item.id
+                lines.append(
+                    f"- **{item.id}** [{item.severity}][{item.status}] "
+                    f"{title}"
+                )
+            lines.append("")
+            lines.append("Use `/improve high`, `/improve all`, `/improve AI-001`, or `/improve done`.")
+        elif snapshot.state == "post_review_ready":
+            lines.extend(
+                [
+                    "",
+                    "### Suggested Follow-up Work",
+                    "No action items were extracted from the final review.",
+                    "Use `/improve done` to close the workflow.",
+                ]
+            )
         if snapshot.decisions:
             lines.extend(["", "### Decisions"])
             lines.extend(f"- {item}" for item in snapshot.decisions)

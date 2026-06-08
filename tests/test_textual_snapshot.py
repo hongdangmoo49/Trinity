@@ -11,6 +11,8 @@ from trinity.workflow import (
     Blueprint,
     ExecutionResult,
     OpenQuestion,
+    PostReviewActionItem,
+    PostReviewActionStatus,
     WorkflowPersistence,
     ReviewResult,
     ReviewStatus,
@@ -202,6 +204,52 @@ def test_snapshot_projects_work_package_and_final_review_results(tmp_path) -> No
     assert snapshot.final_review.status == "approved"
     assert snapshot.final_review.summary == "Project is coherent and runnable."
     assert snapshot.final_review.compatibility_notes == ["Textual UI remains compatible."]
+
+
+def test_snapshot_projects_post_review_follow_up_items(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-post-review",
+            goal="Build UI",
+            state=WorkflowState.POST_REVIEW_READY,
+            active_agents=["claude"],
+            post_review_items=[
+                PostReviewActionItem(
+                    id="AI-001",
+                    source="final_review",
+                    kind="test",
+                    severity="high",
+                    title="Add regression tests",
+                    summary="Add final review regression tests.",
+                    suggested_owner="claude",
+                    status=PostReviewActionStatus.PROPOSED,
+                    related_wp_ids=["WP-001"],
+                ).to_dict()
+            ],
+            follow_up_requests=[
+                {
+                    "id": "fur-001",
+                    "text": "/improve high",
+                    "source_state": "post_review_ready",
+                    "accepted_action_item_ids": ["AI-001"],
+                }
+            ],
+            supplemental_round=1,
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert snapshot.state == "post_review_ready"
+    assert snapshot.supplemental_round == 1
+    assert len(snapshot.post_review_items) == 1
+    item = snapshot.post_review_items[0]
+    assert item.id == "AI-001"
+    assert item.status == "proposed"
+    assert item.related_wp_ids == ("WP-001",)
+    assert snapshot.follow_up_requests == ["fur-001: /improve high"]
 
 
 def test_snapshot_keeps_answered_question_history(tmp_path) -> None:

@@ -4,7 +4,7 @@
 
 브랜치: `codex/review-workflow-design`
 
-상태: 설계 초안
+상태: 구현 반영
 
 ## 목적
 

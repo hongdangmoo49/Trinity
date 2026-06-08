@@ -13,6 +13,7 @@ from trinity.context.shared import SharedContextEngine
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workflow import (
     FINAL_REVIEW_PACKAGE_ID,
+    PostReviewActionItem,
     ReviewResult,
     WorkflowPersistence,
     WorkflowSession,
@@ -143,6 +144,22 @@ class ReviewSnapshot:
 
 
 @dataclass(frozen=True)
+class PostReviewActionSnapshot:
+    """Projected review follow-up item for Textual UI."""
+
+    id: str = ""
+    source: str = ""
+    kind: str = ""
+    severity: str = ""
+    title: str = ""
+    summary: str = ""
+    status: str = ""
+    suggested_owner: str = ""
+    requires_execution: bool = True
+    related_wp_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class ExecutionRecoverySnapshot:
     """Projected execution run/recovery state."""
 
@@ -179,6 +196,9 @@ class WorkflowNexusSnapshot:
     execution_log: list[str] = field(default_factory=list)
     execution_recovery: ExecutionRecoverySnapshot | None = None
     final_review: ReviewSnapshot | None = None
+    post_review_items: list[PostReviewActionSnapshot] = field(default_factory=list)
+    follow_up_requests: list[str] = field(default_factory=list)
+    supplemental_round: int = 0
     local_commands: list[LocalCommandSnapshot] = field(default_factory=list)
 
 
@@ -234,6 +254,9 @@ class NexusSnapshotAdapter:
             execution_log=self._execution_log(session),
             execution_recovery=self._execution_recovery(session),
             final_review=self._final_review(session),
+            post_review_items=self._post_review_items(session),
+            follow_up_requests=self._follow_up_requests(session),
+            supplemental_round=session.supplemental_round if session else 0,
         )
 
     @staticmethod
@@ -375,6 +398,50 @@ class NexusSnapshotAdapter:
             anti_patterns=list(review.anti_patterns),
             execution_risks=list(review.execution_risks),
         )
+
+    @staticmethod
+    def _post_review_items(
+        session: WorkflowSession | None,
+    ) -> list[PostReviewActionSnapshot]:
+        if session is None:
+            return []
+        items: list[PostReviewActionSnapshot] = []
+        for raw in session.post_review_items:
+            if not isinstance(raw, dict):
+                continue
+            try:
+                item = PostReviewActionItem.from_dict(raw)
+            except (TypeError, ValueError):
+                continue
+            items.append(
+                PostReviewActionSnapshot(
+                    id=item.id,
+                    source=item.source,
+                    kind=item.kind,
+                    severity=item.severity,
+                    title=item.title,
+                    summary=item.summary,
+                    status=item.status.value,
+                    suggested_owner=item.suggested_owner,
+                    requires_execution=item.requires_execution,
+                    related_wp_ids=tuple(item.related_wp_ids),
+                )
+            )
+        return items
+
+    @staticmethod
+    def _follow_up_requests(session: WorkflowSession | None) -> list[str]:
+        if session is None:
+            return []
+        requests: list[str] = []
+        for item in session.follow_up_requests:
+            if not isinstance(item, dict):
+                continue
+            text = str(item.get("text", "")).strip()
+            request_id = str(item.get("id", "")).strip()
+            if text:
+                requests.append(f"{request_id or '(request)'}: {text}")
+        return requests
 
     @staticmethod
     def _work_package_retryable(package: object) -> bool:

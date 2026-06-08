@@ -27,6 +27,8 @@ from trinity.workflow.models import (
     DecisionRecord,
     ExecutionResult,
     OpenQuestion,
+    PostReviewActionItem,
+    PostReviewActionStatus,
     SubtaskResult,
     WorkPackage,
     WorkStatus,
@@ -138,6 +140,10 @@ class WorkflowEngine:
         return self._review_results()
 
     @property
+    def post_review_items(self) -> list[PostReviewActionItem]:
+        return self._post_review_items()
+
+    @property
     def has_pending_execution(self) -> bool:
         """Return whether any generated package still needs execution."""
         return any(
@@ -164,6 +170,8 @@ class WorkflowEngine:
         active_agents: list[str],
     ) -> WorkflowInputAction:
         """Route plain session text through the current workflow state."""
+        if self.session.state == WorkflowState.POST_REVIEW_READY:
+            return self.handle_post_review_input(text, active_agents)
         if self.session.state == WorkflowState.NEEDS_USER_DECISION:
             return self.answer_pending_question(text)
         if self._can_continue_existing_blueprint():
@@ -713,6 +721,13 @@ class WorkflowEngine:
             execution_run["retry_selector"] = str(previous_run.get("retry_selector", "") or "")
             execution_run["retry_requested_at"] = previous_run.get("retry_requested_at")
             execution_run["retry_packages"] = list(previous_run.get("retry_packages", []))
+        if str(previous_run.get("state", "")) == "supplemental_queued":
+            execution_run["kind"] = str(previous_run.get("kind", "supplemental") or "supplemental")
+            execution_run["source"] = str(
+                previous_run.get("source", "post_review_followup") or "post_review_followup"
+            )
+            execution_run["round"] = previous_run.get("round")
+            execution_run["action_item_ids"] = list(previous_run.get("action_item_ids", []))
         self.session.execution_run = execution_run
         self._persist(
             "execution_run_started",
@@ -911,6 +926,11 @@ class WorkflowEngine:
             package.status = result.status
             package.current_executor = ""
             package.last_executor = result.agent_name or package.last_executor
+            if (
+                result.status == WorkStatus.DONE
+                and package.origin == "post_review_followup"
+            ):
+                self._mark_post_review_items_done(package.origin_action_item_ids)
 
         existing_by_package = {item.package_id: item for item in self.session.execution_results}
         existing_by_package[result.package_id] = result
@@ -1109,13 +1129,7 @@ class WorkflowEngine:
         return tuple(selected)
 
     def _record_review_result(self, result: ReviewResult) -> None:
-        existing_by_id = {
-            str(item.get("review_package_id", "")): dict(item)
-            for item in self.session.review_results
-            if isinstance(item, dict)
-        }
-        existing_by_id[result.review_package_id] = result.to_dict()
-        self.session.review_results = list(existing_by_id.values())
+        self.session.review_results.append(result.to_dict())
         self._apply_review_result_to_package(result)
         self.session.updated_at = time.time()
         self._persist(
@@ -1162,10 +1176,11 @@ class WorkflowEngine:
         ]
         if final_results:
             final = final_results[-1]
-            if final.status == ReviewStatus.APPROVED:
-                self.set_state(WorkflowState.DONE, reason="final review approved")
-            elif final.status == ReviewStatus.CHANGES_REQUESTED:
-                self.set_state(WorkflowState.REVIEWING, reason="final review requested changes")
+            if final.status in {
+                ReviewStatus.APPROVED,
+                ReviewStatus.CHANGES_REQUESTED,
+            }:
+                self.finalize_post_review(final)
             elif final.status == ReviewStatus.BLOCKED:
                 self.set_state(WorkflowState.NEEDS_USER_DECISION, reason="final review blocked")
             else:
@@ -1182,6 +1197,253 @@ class WorkflowEngine:
             self.set_state(WorkflowState.REVIEWING, reason="work package review requested changes")
             return
         self.set_state(WorkflowState.REVIEWING, reason="work package review completed")
+
+    def finalize_post_review(self, final_result: ReviewResult | None = None) -> None:
+        """Move a completed final review into the user-selectable follow-up state."""
+        created = self.extract_post_review_items(final_result)
+        self.session.updated_at = time.time()
+        self._persist(
+            "post_review_items_extracted",
+            {
+                "review_package_id": final_result.review_package_id if final_result else "",
+                "created": [item.id for item in created],
+                "total": len(self.session.post_review_items),
+            },
+        )
+        self.set_state(
+            WorkflowState.POST_REVIEW_READY,
+            reason="final review complete; waiting for follow-up selection",
+        )
+
+    def extract_post_review_items(
+        self,
+        final_result: ReviewResult | None = None,
+    ) -> list[PostReviewActionItem]:
+        """Normalize review findings into post-review action items."""
+        existing = self._post_review_items()
+        existing_keys = {self._post_review_item_key(item) for item in existing}
+        created: list[PostReviewActionItem] = []
+        reviews = self._review_results()
+        if final_result is not None and not any(
+            item.review_package_id == final_result.review_package_id
+            and item.package_id == final_result.package_id
+            for item in reviews
+        ):
+            reviews.append(final_result)
+
+        for review in reviews:
+            candidates = self._post_review_candidates_from_review(review)
+            for candidate in candidates:
+                key = self._post_review_item_key(candidate)
+                if key in existing_keys:
+                    continue
+                existing_keys.add(key)
+                candidate.id = self._next_post_review_item_id([*existing, *created])
+                created.append(candidate)
+
+        if created:
+            self.session.post_review_items.extend(item.to_dict() for item in created)
+        return created
+
+    def handle_post_review_input(
+        self,
+        text: str,
+        active_agents: list[str],
+    ) -> WorkflowInputAction:
+        """Handle user follow-up after final review without starting a new workflow."""
+        instruction = self._normalize_improve_instruction(text)
+        if self.session.state != WorkflowState.POST_REVIEW_READY:
+            return WorkflowInputAction(
+                should_deliberate=False,
+                message="No post-review follow-up is ready for this workflow.",
+            )
+        if active_agents:
+            self.session.active_agents = list(active_agents)
+        if not instruction:
+            return WorkflowInputAction(
+                should_deliberate=False,
+                message=self.post_review_summary(),
+            )
+
+        if self._is_post_review_done_command(instruction):
+            self._record_follow_up_request(instruction, [], source_state=self.session.state.value)
+            self.set_state(WorkflowState.DONE, reason="post-review follow-up closed by user")
+            return WorkflowInputAction(
+                should_deliberate=False,
+                message="Post-review follow-up closed. Workflow is done.",
+            )
+
+        if self.session.target_workspace is None:
+            return WorkflowInputAction(
+                should_deliberate=False,
+                target_workspace_required=True,
+                message="Target workspace is required before post-review improvement.",
+            )
+
+        selected = self._select_post_review_items(instruction)
+        created_from_text = False
+        if not selected and not self._looks_like_post_review_selector(instruction):
+            item = self._create_user_request_action_item(instruction)
+            self.session.post_review_items.append(item.to_dict())
+            selected = [item.id]
+            created_from_text = True
+
+        if not selected:
+            return WorkflowInputAction(
+                should_deliberate=False,
+                message=(
+                    "No matching post-review action items. "
+                    "Use /improve, /improve high, /improve all, /improve AI-001, or /improve done."
+                ),
+            )
+
+        source_state = self.session.state.value
+        package_ids = self.accept_post_review_items(
+            selected,
+            note=instruction,
+            active_agents=active_agents,
+        )
+        self._record_follow_up_request(instruction, selected, source_state=source_state)
+        if not package_ids:
+            return WorkflowInputAction(
+                should_deliberate=False,
+                message="Selected post-review items do not require execution.",
+            )
+
+        source = "new request" if created_from_text else "selected items"
+        return WorkflowInputAction(
+            should_deliberate=False,
+            execution_requested=True,
+            message=(
+                f"Queued post-review improvement from {source}: "
+                f"{', '.join(package_ids)}."
+            ),
+        )
+
+    def accept_post_review_items(
+        self,
+        item_ids: Iterable[str],
+        *,
+        note: str | None = None,
+        active_agents: list[str] | None = None,
+    ) -> tuple[str, ...]:
+        """Mark action items accepted and append supplemental work packages."""
+        requested = {str(item_id).strip() for item_id in item_ids if str(item_id).strip()}
+        if not requested:
+            return ()
+        items = self._post_review_items()
+        accepted: list[PostReviewActionItem] = []
+        now = time.time()
+        for item in items:
+            if item.id not in requested:
+                continue
+            if item.status in {PostReviewActionStatus.QUEUED, PostReviewActionStatus.DONE}:
+                continue
+            item.status = PostReviewActionStatus.ACCEPTED
+            item.updated_at = now
+            if note and note not in item.rationale:
+                item.rationale = "\n".join(part for part in [item.rationale, note] if part)
+            accepted.append(item)
+        if not accepted:
+            return ()
+
+        package_ids = self.queue_supplemental_work_packages(
+            accepted,
+            active_agents=active_agents or self.session.active_agents,
+        )
+        self.session.post_review_items = [item.to_dict() for item in items]
+        self.session.updated_at = time.time()
+        self._persist(
+            "post_review_items_accepted",
+            {
+                "action_item_ids": [item.id for item in accepted],
+                "work_packages": list(package_ids),
+            },
+        )
+        return package_ids
+
+    def queue_supplemental_work_packages(
+        self,
+        items: Iterable[PostReviewActionItem],
+        *,
+        active_agents: list[str] | None = None,
+    ) -> tuple[str, ...]:
+        """Append accepted action items as supplemental work packages."""
+        selected = [item for item in items if item.requires_execution]
+        if not selected:
+            for item in items:
+                item.status = PostReviewActionStatus.DONE
+                item.updated_at = time.time()
+            return ()
+
+        agents = list(active_agents or self.session.active_agents)
+        self.session.supplemental_round += 1
+        supplemental_round = self.session.supplemental_round
+        created_ids: list[str] = []
+        for index, item in enumerate(selected):
+            package_id = self._next_supplemental_package_id()
+            owner = self._owner_for_post_review_item(item, agents, index)
+            related = [
+                package_id
+                for package_id in item.related_wp_ids
+                if self._work_package_by_id(package_id) is not None
+            ]
+            package = WorkPackage(
+                id=package_id,
+                title=item.title or f"Post-review follow-up {item.id}",
+                owner_agent=owner,
+                objective=self._supplemental_objective(item),
+                scope=[item.summary] if item.summary else [],
+                dependencies=related,
+                acceptance_criteria=[
+                    item.summary or item.title or f"Complete action item {item.id}."
+                ],
+                status=WorkStatus.PENDING,
+                requires_execution=True,
+                risk=item.severity or "medium",
+                origin="post_review_followup",
+                origin_action_item_ids=[item.id],
+                parent_package_ids=related,
+                supplemental_round=supplemental_round,
+            )
+            self.session.work_packages.append(package)
+            item.status = PostReviewActionStatus.QUEUED
+            item.updated_at = time.time()
+            created_ids.append(package.id)
+
+        run = dict(self.session.execution_run) if isinstance(self.session.execution_run, dict) else {}
+        run.setdefault("run_id", f"exec-run-{uuid4().hex[:12]}")
+        run["state"] = "supplemental_queued"
+        run["kind"] = "supplemental"
+        run["source"] = "post_review_followup"
+        run["round"] = supplemental_round
+        run["package_ids"] = list(created_ids)
+        run["action_item_ids"] = [item.id for item in selected]
+        run["target_workspace"] = str(self.session.target_workspace or "")
+        self.session.execution_run = run
+        self.session.updated_at = time.time()
+        self.set_state(
+            WorkflowState.BLUEPRINT_READY,
+            reason="post-review supplemental work packages queued",
+        )
+        return tuple(created_ids)
+
+    def post_review_summary(self) -> str:
+        """Return a concise user-facing summary of post-review actions."""
+        items = self._post_review_items()
+        if not items:
+            return (
+                "Final review is complete. No post-review action items were extracted. "
+                "Use /improve done to close."
+            )
+        lines = ["Post-review action items:"]
+        for item in items:
+            lines.append(
+                f"- {item.id} [{item.severity}][{item.status.value}] "
+                f"{item.title or item.summary}"
+            )
+        lines.append("Use /improve high, /improve all, /improve AI-001, or /improve done.")
+        return "\n".join(lines)
 
     def _latest_review_is_approved(self, package_id: str) -> bool:
         for result in reversed(self._review_results()):
@@ -1559,18 +1821,315 @@ class WorkflowEngine:
                 continue
         return reviews
 
+    def _post_review_items(self) -> list[PostReviewActionItem]:
+        items: list[PostReviewActionItem] = []
+        for item in self.session.post_review_items:
+            if not isinstance(item, dict):
+                continue
+            try:
+                items.append(PostReviewActionItem.from_dict(item))
+            except (TypeError, ValueError):
+                continue
+        return items
+
+    def _post_review_candidates_from_review(
+        self,
+        review: ReviewResult,
+    ) -> list[PostReviewActionItem]:
+        candidates: list[PostReviewActionItem] = []
+        is_final = review.scope == "final" or review.package_id == FINAL_REVIEW_PACKAGE_ID
+        source = "final_review" if is_final else "wp_review"
+        related_wp_ids = [] if is_final else [review.package_id]
+        suggested_owner = "" if is_final else self._owner_for_related_package(review.package_id)
+
+        for change in review.required_changes:
+            candidates.append(
+                self._new_post_review_item(
+                    source=source,
+                    kind="bugfix",
+                    severity=review.severity or "high",
+                    summary=change,
+                    review=review,
+                    related_wp_ids=related_wp_ids,
+                    suggested_owner=suggested_owner,
+                    rationale=review.summary,
+                )
+            )
+        for risk in review.execution_risks:
+            candidates.append(
+                self._new_post_review_item(
+                    source=source,
+                    kind="validation",
+                    severity=review.severity or "high",
+                    summary=risk,
+                    review=review,
+                    related_wp_ids=related_wp_ids,
+                    suggested_owner=suggested_owner,
+                    rationale=review.summary,
+                )
+            )
+        if is_final:
+            for follow_up in review.follow_up:
+                candidates.append(
+                    self._new_post_review_item(
+                        source=source,
+                        kind="enhancement",
+                        severity=self._downgrade_optional_severity(review.severity),
+                        summary=follow_up,
+                        review=review,
+                        related_wp_ids=[],
+                        suggested_owner="",
+                        rationale=review.summary,
+                    )
+                )
+        return [item for item in candidates if item.summary.strip()]
+
+    def _new_post_review_item(
+        self,
+        *,
+        source: str,
+        kind: str,
+        severity: str,
+        summary: str,
+        review: ReviewResult,
+        related_wp_ids: list[str],
+        suggested_owner: str,
+        rationale: str = "",
+    ) -> PostReviewActionItem:
+        return PostReviewActionItem(
+            id="",
+            source=source,
+            kind=kind,
+            severity=self._normalize_severity(severity),
+            title=self._action_title(summary),
+            summary=summary.strip(),
+            rationale=rationale.strip(),
+            related_wp_ids=list(related_wp_ids),
+            related_review_ids=[review.review_package_id],
+            suggested_owner=suggested_owner,
+            requires_execution=True,
+        )
+
+    def _create_user_request_action_item(self, instruction: str) -> PostReviewActionItem:
+        item = PostReviewActionItem(
+            id=self._next_post_review_item_id(self._post_review_items()),
+            source="user_request",
+            kind="enhancement",
+            severity="medium",
+            title=self._action_title(instruction),
+            summary=instruction.strip(),
+            rationale="User requested additional post-review improvement.",
+            requires_execution=True,
+        )
+        return item
+
+    @staticmethod
+    def _post_review_item_key(item: PostReviewActionItem) -> tuple[str, str, tuple[str, ...]]:
+        normalized = " ".join(item.summary.strip().lower().split())
+        return (item.source, normalized, tuple(sorted(item.related_wp_ids)))
+
+    @staticmethod
+    def _normalize_improve_instruction(text: str) -> str:
+        instruction = text.strip()
+        if instruction.lower().startswith("/improve"):
+            instruction = instruction[len("/improve") :].strip()
+        return instruction
+
+    @staticmethod
+    def _is_post_review_done_command(instruction: str) -> bool:
+        return instruction.strip().lower() in {
+            "done",
+            "complete",
+            "close",
+            "finish",
+            "완료",
+            "종료",
+            "끝",
+            "닫기",
+        }
+
+    def _select_post_review_items(self, instruction: str) -> list[str]:
+        tokens = [token for token in re.split(r"[\s,]+", instruction.strip()) if token]
+        if not tokens:
+            return []
+        items = self._post_review_items()
+        selectable = [
+            item
+            for item in items
+            if item.status
+            in {PostReviewActionStatus.PROPOSED, PostReviewActionStatus.ACCEPTED}
+        ]
+        normalized_tokens = [token.lower() for token in tokens]
+        if any(token in {"all", "*", "전체"} for token in normalized_tokens):
+            return [item.id for item in selectable]
+        if any(token in {"critical", "긴급"} for token in normalized_tokens):
+            return [item.id for item in selectable if item.severity == "critical"]
+        if any(token in {"high", "높음", "important", "중요"} for token in normalized_tokens):
+            return [
+                item.id
+                for item in selectable
+                if item.severity in {"critical", "high"}
+            ]
+        requested = {token.upper() for token in tokens}
+        return [item.id for item in selectable if item.id.upper() in requested]
+
+    @staticmethod
+    def _looks_like_post_review_selector(instruction: str) -> bool:
+        tokens = [token.lower() for token in re.split(r"[\s,]+", instruction.strip()) if token]
+        if not tokens:
+            return True
+        selector_words = {
+            "all",
+            "*",
+            "전체",
+            "critical",
+            "긴급",
+            "high",
+            "높음",
+            "important",
+            "중요",
+        }
+        return all(token in selector_words or re.fullmatch(r"ai-\d+", token) for token in tokens)
+
+    def _next_post_review_item_id(
+        self,
+        existing: Iterable[PostReviewActionItem],
+    ) -> str:
+        used: set[int] = set()
+        for item in existing:
+            match = re.fullmatch(r"AI-(\d+)", item.id.strip().upper())
+            if match:
+                used.add(int(match.group(1)))
+        index = 1
+        while index in used:
+            index += 1
+        return f"AI-{index:03d}"
+
+    def _next_supplemental_package_id(self) -> str:
+        used: set[int] = set()
+        for package in self.session.work_packages:
+            match = re.fullmatch(r"WP-S(\d+)", package.id.strip().upper())
+            if match:
+                used.add(int(match.group(1)))
+        index = 1
+        while index in used:
+            index += 1
+        return f"WP-S{index:03d}"
+
+    def _owner_for_post_review_item(
+        self,
+        item: PostReviewActionItem,
+        active_agents: list[str],
+        index: int,
+    ) -> str:
+        agents = [agent for agent in active_agents if agent]
+        if item.suggested_owner and (not agents or item.suggested_owner in agents):
+            return item.suggested_owner
+        for package_id in item.related_wp_ids:
+            owner = self._owner_for_related_package(package_id)
+            if owner and (not agents or owner in agents):
+                return owner
+        if agents:
+            return agents[index % len(agents)]
+        return item.suggested_owner or "codex"
+
+    def _owner_for_related_package(self, package_id: str) -> str:
+        package = self._work_package_by_id(package_id)
+        if package is None:
+            return ""
+        return package.last_executor or package.owner_agent
+
+    def _record_follow_up_request(
+        self,
+        text: str,
+        accepted_action_item_ids: Iterable[str],
+        *,
+        source_state: str | None = None,
+    ) -> None:
+        existing = self.session.follow_up_requests
+        request = {
+            "id": f"fur-{len(existing) + 1:03d}",
+            "text": text,
+            "source_state": source_state or self.session.state.value,
+            "created_at": time.time(),
+            "accepted_action_item_ids": [
+                str(item_id) for item_id in accepted_action_item_ids
+            ],
+        }
+        self.session.follow_up_requests.append(request)
+        self.session.updated_at = time.time()
+        self._persist("post_review_follow_up_requested", request)
+
+    def _mark_post_review_items_done(self, item_ids: Iterable[str]) -> None:
+        ids = {str(item_id).strip() for item_id in item_ids if str(item_id).strip()}
+        if not ids:
+            return
+        changed = False
+        items = self._post_review_items()
+        for item in items:
+            if item.id in ids:
+                item.status = PostReviewActionStatus.DONE
+                item.updated_at = time.time()
+                changed = True
+        if changed:
+            self.session.post_review_items = [item.to_dict() for item in items]
+
+    @staticmethod
+    def _supplemental_objective(item: PostReviewActionItem) -> str:
+        parts = [
+            f"Post-review action item {item.id}: {item.summary}",
+            f"Source: {item.source}",
+            f"Kind: {item.kind}",
+            f"Severity: {item.severity}",
+        ]
+        if item.rationale:
+            parts.append(f"Rationale: {item.rationale}")
+        if item.related_wp_ids:
+            parts.append(f"Related work packages: {', '.join(item.related_wp_ids)}")
+        return "\n".join(parts)
+
+    @staticmethod
+    def _action_title(value: str, limit: int = 80) -> str:
+        text = " ".join(value.strip().split())
+        if not text:
+            return "Post-review follow-up"
+        sentence = re.split(r"[.!?\n]", text, maxsplit=1)[0].strip() or text
+        if len(sentence) <= limit:
+            return sentence
+        return sentence[: limit - 3].rstrip() + "..."
+
+    @staticmethod
+    def _normalize_severity(value: str) -> str:
+        normalized = str(value or "medium").strip().lower()
+        return normalized if normalized in {"low", "medium", "high", "critical"} else "medium"
+
+    @classmethod
+    def _downgrade_optional_severity(cls, value: str) -> str:
+        severity = cls._normalize_severity(value)
+        if severity == "critical":
+            return "high"
+        if severity == "high":
+            return "medium"
+        return severity
+
     def _plan_review_packages(self) -> None:
         """Create peer review packages for completed execution results."""
         from trinity.workflow.review import PeerReviewPlanner
 
         planner = PeerReviewPlanner()
+        reviewable_packages = [
+            package
+            for package in self.session.work_packages
+            if package.requires_execution
+            and package.status in {WorkStatus.DONE, WorkStatus.NEEDS_REVIEW}
+            and not self._latest_review_is_approved(package.id)
+        ]
         reviews = planner.plan_reviews(
-            self.session.work_packages,
+            reviewable_packages,
             self.session.active_agents,
             self.session.execution_results,
         )
         self.session.review_packages = [review.to_dict() for review in reviews]
-        self.session.review_results = []
 
     def _upsert_subtask_result(self, result: SubtaskResult) -> None:
         """Insert or replace a subtask result by id."""

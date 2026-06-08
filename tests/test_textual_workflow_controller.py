@@ -439,7 +439,7 @@ def test_textual_workflow_controller_runs_review_all(tmp_path) -> None:
     assert controller.wait_until_idle(timeout=2.0)
     final = controller.drain_updates()
     assert final is not None
-    assert final.snapshot.state == "done"
+    assert final.snapshot.state == "post_review_ready"
     assert [result.status for result in controller.workflow.review_results] == [
         ReviewStatus.APPROVED,
         ReviewStatus.APPROVED,
@@ -475,8 +475,72 @@ def test_textual_workflow_controller_auto_reviews_after_execution(tmp_path) -> N
     assert controller.wait_until_idle(timeout=2.0)
     final = controller.drain_updates()
     assert final is not None
-    assert final.snapshot.state == "done"
+    assert final.snapshot.state == "post_review_ready"
+
+
+def test_textual_workflow_controller_queues_post_review_improvement(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 구현", ["claude"])
+    workflow.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="client",
+            owner_agent="claude",
+            objective="Build client.",
+            status=WorkStatus.DONE,
+            last_executor="claude",
+        )
+    ]
+    workflow.session.execution_results = [
+        ExecutionResult(
+            package_id="WP-001",
+            agent_name="claude",
+            status=WorkStatus.DONE,
+            summary="Implemented client.",
+        )
+    ]
+    workflow.set_target_workspace(tmp_path / "game")
+    workflow.set_state(WorkflowState.REVIEWING, reason="test final review")
+    workflow.record_review_results(
+        [
+            ReviewResult(
+                review_package_id="RP-FINAL-claude",
+                package_id="FINAL",
+                reviewer_agent="claude",
+                target_agent="project",
+                status=ReviewStatus.CHANGES_REQUESTED,
+                severity="high",
+                scope="final",
+                summary="Needs tests.",
+                required_changes=["Add final review regression test."],
+            )
+        ]
+    )
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeExecutionReviewOrchestrator,
+        archive_active_session=False,
+    )
+
+    outcome = controller.request_improvement(["high"])
+
+    assert outcome.execution_requested is True
+    assert outcome.running is True
+    assert controller.workflow.session.work_packages[-1].id == "WP-S001"
+    assert controller.workflow.session.work_packages[-1].origin == "post_review_followup"
+    assert controller.workflow.post_review_items[0].status.value == "queued"
+    assert controller.wait_until_idle(timeout=2.0)
+    review_started = controller.drain_updates()
+    assert review_started is not None
+    assert review_started.running is True
+    assert controller.wait_until_idle(timeout=2.0)
+    final = controller.drain_updates()
+    assert final is not None
+    assert final.snapshot.state == "post_review_ready"
     assert [result.status for result in controller.workflow.review_results] == [
+        ReviewStatus.CHANGES_REQUESTED,
         ReviewStatus.APPROVED,
         ReviewStatus.APPROVED,
     ]
@@ -533,7 +597,7 @@ def test_textual_workflow_controller_restarts_execution_for_review_repairs(tmp_p
     assert controller.wait_until_idle(timeout=2.0)
     final = controller.drain_updates()
     assert final is not None
-    assert final.snapshot.state == "done"
+    assert final.snapshot.state == "post_review_ready"
     assert FakeRepairReviewOrchestrator.review_calls == 2
 
 

@@ -265,6 +265,22 @@ class TextualWorkflowController:
             running=True,
         )
 
+    def request_improvement(
+        self,
+        args: tuple[str, ...] | list[str] = (),
+    ) -> TextualWorkflowOutcome:
+        """Handle post-review follow-up selection or supplemental work."""
+        if self.is_running:
+            return self._outcome(message="Workflow is still running.", running=True)
+        active_agents = self._active_agent_names()
+        if not active_agents:
+            return self._outcome(message="No active agents are configured.")
+        action = self.workflow.handle_post_review_input(
+            " ".join(str(arg) for arg in args),
+            active_agents,
+        )
+        return self._apply_action(action)
+
     def set_target_workspace(
         self,
         path: Path,

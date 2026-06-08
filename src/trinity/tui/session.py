@@ -68,6 +68,7 @@ PLAIN_TUI_COMMAND_HANDLERS: dict[str, str] = {
     "execute": "_cmd_execute",
     "execute-retry": "_cmd_execute_retry",
     "review": "_cmd_review",
+    "improve": "_cmd_improve",
     "target": "_cmd_target",
 }
 
@@ -83,6 +84,7 @@ PLAIN_TUI_COMMANDS_WITH_ARGS = frozenset(
         "execute",
         "execute-retry",
         "review",
+        "improve",
         "target",
     }
 )
@@ -497,6 +499,11 @@ class InteractiveSession:
             next_action = (
                 "\n[bold]Next action[/bold]: /target, /execute, 구현해라, 설계 다듬기, or /workflow"
             )
+        if session.state == WorkflowState.POST_REVIEW_READY:
+            next_action = (
+                "\n[bold]Next action[/bold]: /improve high, /improve all, "
+                "/improve AI-001, or /improve done"
+            )
         recovery = self.workflow.execution_recovery_summary()
         recovery_text = ""
         if recovery is not None:
@@ -522,6 +529,8 @@ class InteractiveSession:
                 f"[bold]Parallel groups[/bold]: {len(parallel_groups)}\n"
                 f"[bold]Subtasks[/bold]: {len(session.subtask_results)}\n"
                 f"[bold]Review packages[/bold]: {len(session.review_packages)}"
+                f"\n[bold]Post-review items[/bold]: {len(session.post_review_items)}"
+                f"\n[bold]Supplemental rounds[/bold]: {session.supplemental_round}"
                 f"{recovery_text}"
                 f"{next_action}",
                 title="Workflow",
@@ -943,6 +952,50 @@ class InteractiveSession:
 
         self._run_review(selector, selected_reviews)
         self._cmd_workflow()
+
+    def _cmd_improve(self, args: list[str]) -> None:
+        """Select post-review action items or queue supplemental work."""
+        active = self.config.active_agents
+        if not active:
+            self.console.print("[red]No active agents. Use /agent <name> on to enable one.[/red]")
+            return
+        instruction = " ".join(args).strip()
+        action = self.workflow.handle_post_review_input(
+            instruction,
+            list(active.keys()),
+        )
+        self._apply_workflow_action(action)
+        if not action.execution_requested:
+            self._print_post_review_items()
+        elif self.workflow.has_pending_execution:
+            self._cmd_workflow()
+
+    def _print_post_review_items(self) -> None:
+        """Print post-review action item summary in plain TUI."""
+        items = self.workflow.post_review_items
+        if not items:
+            self.console.print("[dim]No post-review action items.[/dim]")
+            return
+
+        from rich.table import Table
+
+        table = Table(title="Post Review Action Items")
+        table.add_column("ID", style="cyan")
+        table.add_column("Severity")
+        table.add_column("Status")
+        table.add_column("Kind")
+        table.add_column("Owner")
+        table.add_column("Title")
+        for item in items:
+            table.add_row(
+                item.id,
+                item.severity,
+                item.status.value,
+                item.kind,
+                item.suggested_owner or "-",
+                item.title or item.summary,
+            )
+        self.console.print(table)
 
     @staticmethod
     def _parse_execute_retry_args(args: list[str]) -> tuple[str, list[str]]:

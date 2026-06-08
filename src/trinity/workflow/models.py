@@ -19,6 +19,8 @@ class WorkflowState(str, Enum):
     BLUEPRINT_READY = "blueprint_ready"
     EXECUTING = "executing"
     REVIEWING = "reviewing"
+    POST_REVIEW_READY = "post_review_ready"
+    IMPROVING = "improving"
     DONE = "done"
     FAILED = "failed"
 
@@ -33,6 +35,16 @@ class WorkStatus(str, Enum):
     DONE = "done"
     FAILED = "failed"
     NEEDS_REVIEW = "needs_review"
+
+
+class PostReviewActionStatus(str, Enum):
+    """Lifecycle state for a review follow-up action item."""
+
+    PROPOSED = "proposed"
+    ACCEPTED = "accepted"
+    IGNORED = "ignored"
+    QUEUED = "queued"
+    DONE = "done"
 
 
 @dataclass
@@ -256,6 +268,10 @@ class WorkPackage:
     repair_notes: list[str] = field(default_factory=list)
     current_executor: str = ""
     last_executor: str = ""
+    origin: str = "initial"
+    origin_action_item_ids: list[str] = field(default_factory=list)
+    parent_package_ids: list[str] = field(default_factory=list)
+    supplemental_round: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -277,6 +293,10 @@ class WorkPackage:
             "repair_notes": list(self.repair_notes),
             "current_executor": self.current_executor,
             "last_executor": self.last_executor,
+            "origin": self.origin,
+            "origin_action_item_ids": list(self.origin_action_item_ids),
+            "parent_package_ids": list(self.parent_package_ids),
+            "supplemental_round": self.supplemental_round,
         }
 
     @classmethod
@@ -303,6 +323,12 @@ class WorkPackage:
             repair_notes=[str(item) for item in data.get("repair_notes", [])],
             current_executor=str(data.get("current_executor", "") or ""),
             last_executor=str(data.get("last_executor", "") or ""),
+            origin=str(data.get("origin", "initial") or "initial"),
+            origin_action_item_ids=[
+                str(item) for item in data.get("origin_action_item_ids", [])
+            ],
+            parent_package_ids=[str(item) for item in data.get("parent_package_ids", [])],
+            supplemental_round=int(data.get("supplemental_round", 0) or 0),
         )
 
 
@@ -408,6 +434,68 @@ class ExecutionResult:
 
 
 @dataclass
+class PostReviewActionItem:
+    """A user-selectable follow-up item extracted after final review."""
+
+    id: str
+    source: str
+    kind: str
+    severity: str
+    title: str
+    summary: str
+    rationale: str = ""
+    related_wp_ids: list[str] = field(default_factory=list)
+    related_review_ids: list[str] = field(default_factory=list)
+    suggested_owner: str = ""
+    requires_execution: bool = True
+    status: PostReviewActionStatus = PostReviewActionStatus.PROPOSED
+    created_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "source": self.source,
+            "kind": self.kind,
+            "severity": self.severity,
+            "title": self.title,
+            "summary": self.summary,
+            "rationale": self.rationale,
+            "related_wp_ids": list(self.related_wp_ids),
+            "related_review_ids": list(self.related_review_ids),
+            "suggested_owner": self.suggested_owner,
+            "requires_execution": self.requires_execution,
+            "status": self.status.value,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "PostReviewActionItem":
+        status_value = str(data.get("status", PostReviewActionStatus.PROPOSED.value))
+        try:
+            status = PostReviewActionStatus(status_value)
+        except ValueError:
+            status = PostReviewActionStatus.PROPOSED
+        return cls(
+            id=str(data.get("id", "")),
+            source=str(data.get("source", "")),
+            kind=str(data.get("kind", "enhancement") or "enhancement"),
+            severity=str(data.get("severity", "medium") or "medium"),
+            title=str(data.get("title", "")),
+            summary=str(data.get("summary", "")),
+            rationale=str(data.get("rationale", "")),
+            related_wp_ids=[str(item) for item in data.get("related_wp_ids", [])],
+            related_review_ids=[str(item) for item in data.get("related_review_ids", [])],
+            suggested_owner=str(data.get("suggested_owner", "") or ""),
+            requires_execution=bool(data.get("requires_execution", True)),
+            status=status,
+            created_at=float(data.get("created_at", time.time())),
+            updated_at=float(data.get("updated_at", time.time())),
+        )
+
+
+@dataclass
 class WorkflowSession:
     """Persisted state for one stateful workflow."""
 
@@ -425,6 +513,9 @@ class WorkflowSession:
     subtask_results: list[SubtaskResult] = field(default_factory=list)
     review_packages: list[dict[str, Any]] = field(default_factory=list)
     review_results: list[dict[str, Any]] = field(default_factory=list)
+    post_review_items: list[dict[str, Any]] = field(default_factory=list)
+    follow_up_requests: list[dict[str, Any]] = field(default_factory=list)
+    supplemental_round: int = 0
     decisions: list[DecisionRecord] = field(default_factory=list)
     execution_run: dict[str, Any] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
@@ -451,6 +542,9 @@ class WorkflowSession:
             "subtask_results": [result.to_dict() for result in self.subtask_results],
             "review_packages": [dict(item) for item in self.review_packages],
             "review_results": [dict(item) for item in self.review_results],
+            "post_review_items": [dict(item) for item in self.post_review_items],
+            "follow_up_requests": [dict(item) for item in self.follow_up_requests],
+            "supplemental_round": self.supplemental_round,
             "decisions": [decision.to_dict() for decision in self.decisions],
             "execution_run": dict(self.execution_run),
             "created_at": self.created_at,
@@ -503,6 +597,15 @@ class WorkflowSession:
             review_results=[
                 dict(item) for item in data.get("review_results", []) if isinstance(item, dict)
             ],
+            post_review_items=[
+                dict(item) for item in data.get("post_review_items", []) if isinstance(item, dict)
+            ],
+            follow_up_requests=[
+                dict(item)
+                for item in data.get("follow_up_requests", [])
+                if isinstance(item, dict)
+            ],
+            supplemental_round=int(data.get("supplemental_round", 0) or 0),
             decisions=[
                 DecisionRecord.from_dict(item)
                 for item in data.get("decisions", [])

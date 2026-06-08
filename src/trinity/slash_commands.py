@@ -221,6 +221,16 @@ COMMAND_SPECS: tuple[SlashCommandSpec, ...] = (
         mutates_workflow=True,
     ),
     SlashCommandSpec(
+        name="/improve",
+        usage="/improve [all|critical|high|AI-ID...|done|text]",
+        summary="select review follow-up or queue supplemental work",
+        summary_ko="리뷰 후속 보강 작업 선택 또는 요청",
+        category=SlashCommandCategory.EXECUTION,
+        agent_call=AgentCallPolicy.CONDITIONAL,
+        mutates_workflow=True,
+        writes_files=True,
+    ),
+    SlashCommandSpec(
         name="/target",
         usage="/target [path|clear]",
         summary="set target workspace candidate",

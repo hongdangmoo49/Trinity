@@ -4,7 +4,7 @@
 
 브랜치: `codex/review-workflow-design`
 
-상태: 기능 설계 초안
+상태: 1차 구현 반영
 
 관련 문서:
 
@@ -831,3 +831,34 @@ final review 승인 직후 `DONE`으로 닫지 않으면 사용자는 완료 여
 - 보강 WP ID는 `WP-S001` 형식을 사용한다.
 - 보강 WP도 WP review와 final review를 다시 통과해야 한다.
 - Central Agent는 리뷰 결과를 정리하고 선택지를 제안하되, 실행 시작은 사용자 선택 이후에만 한다.
+
+## 1차 구현 결과
+
+2026-06-08 기준 `codex/review-workflow-design` 브랜치에 다음이 반영되었다.
+
+- `WorkflowState.POST_REVIEW_READY`, `WorkflowState.IMPROVING` 상태를 추가했다.
+- `PostReviewActionItem`, `PostReviewActionStatus`를 session persistence에 추가했다.
+- `WorkPackage`에 `origin`, `origin_action_item_ids`, `parent_package_ids`,
+  `supplemental_round`를 추가해 보강 WP의 출처를 추적한다.
+- final review가 `approved` 또는 `changes_requested`로 끝나면 즉시 `DONE`으로 닫지 않고
+  `POST_REVIEW_READY`로 전환한다.
+- final/WP review 결과의 required changes, execution risks, final review follow-up을
+  post-review action item으로 정규화한다.
+- `/improve` slash command를 추가했다.
+  - `/improve`는 현재 action item 요약을 보여준다.
+  - `/improve done`은 workflow를 `DONE`으로 닫는다.
+  - `/improve all`, `/improve critical`, `/improve high`, `/improve AI-001`은 선택된
+    action item을 supplemental WP로 append한다.
+  - 자유 텍스트는 `user_request` action item으로 저장한 뒤 supplemental WP로 queue한다.
+- supplemental WP는 기존 증거를 지우지 않고 `WP-S001` 형식으로 기존 session에 append된다.
+- 보강 실행은 기존 execution -> WP review -> final review 루프를 재사용한다.
+- Textual central panel, inspector, local command result, plain TUI workflow/package 표시가
+  post-review item과 supplemental round를 보여준다.
+- `_plan_review_packages()`는 더 이상 `review_results`를 초기화하지 않는다.
+
+검증:
+
+- `uv run pytest tests/test_peer_review.py tests/test_workflow_engine.py tests/test_textual_snapshot.py tests/test_textual_workflow_controller.py tests/test_tui_session.py tests/test_slash_command_docs.py -q`
+  - `172 passed`
+- `uv run pytest -q`
+  - `1293 passed, 1 warning`

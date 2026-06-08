@@ -969,11 +969,52 @@ class TestWorkflowRouting:
         with patch("trinity.orchestrator.TrinityOrchestrator", FakeReviewOrchestrator):
             session._handle_command("/review all")
 
-        assert session.workflow.state == WorkflowState.DONE
+        assert session.workflow.state == WorkflowState.POST_REVIEW_READY
         assert [result.status for result in session.workflow.review_results] == [
             ReviewStatus.APPROVED,
             ReviewStatus.APPROVED,
         ]
+
+    def test_improve_command_queues_post_review_work_package(self, session):
+        session.workflow.start("Implement route bot", ["claude"])
+        session.workflow.session.work_packages = [
+            WorkPackage(
+                id="WP-001",
+                title="client",
+                owner_agent="claude",
+                objective="Build client.",
+                status=WorkStatus.DONE,
+                last_executor="claude",
+            )
+        ]
+        target = session.config.project_dir.parent / "route-bot"
+        target.mkdir(exist_ok=True)
+        session.workflow.set_target_workspace(target)
+        session.workflow.set_state(WorkflowState.REVIEWING, reason="test final review")
+        session.workflow.record_review_results(
+            [
+                ReviewResult(
+                    review_package_id="RP-FINAL-claude",
+                    package_id="FINAL",
+                    reviewer_agent="claude",
+                    target_agent="project",
+                    status=ReviewStatus.CHANGES_REQUESTED,
+                    severity="high",
+                    scope="final",
+                    summary="Needs regression coverage.",
+                    required_changes=["Add review regression tests."],
+                )
+            ]
+        )
+
+        with patch.object(session, "_run_enabled_execution") as run_execution:
+            session._handle_command("/improve high")
+
+        run_execution.assert_called_once()
+        assert session.workflow.state == WorkflowState.BLUEPRINT_READY
+        assert session.workflow.session.work_packages[-1].id == "WP-S001"
+        assert session.workflow.session.work_packages[-1].origin == "post_review_followup"
+        assert session.workflow.post_review_items[0].status.value == "queued"
 
     def test_execute_auto_runs_review_after_completion(self, session):
         session.workflow.start("Implement route bot", ["claude"])
@@ -1052,7 +1093,7 @@ class TestWorkflowRouting:
         with patch("trinity.orchestrator.TrinityOrchestrator", FakeExecutionReviewOrchestrator):
             session._handle_command("/execute")
 
-        assert session.workflow.state == WorkflowState.DONE
+        assert session.workflow.state == WorkflowState.POST_REVIEW_READY
         assert [result.status for result in session.workflow.review_results] == [
             ReviewStatus.APPROVED,
             ReviewStatus.APPROVED,

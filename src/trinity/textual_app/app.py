@@ -1304,6 +1304,28 @@ class TrinityTextualApp(App[None]):
                     action_hint="Run `/review wp`, `/review final`, or `/review all`.",
                 )
             return
+        if command == "improve":
+            outcome = self.workflow_controller.request_improvement(args)
+            message = outcome.message
+            if message:
+                outcome = replace(outcome, message="")
+            self._apply_workflow_outcome(outcome)
+            if message:
+                self._record_slash_command_result(
+                    parsed.spec.name,
+                    "Improve",
+                    message,
+                    severity=(
+                        "warning"
+                        if message.startswith("No matching")
+                        or "required" in message
+                        else "info"
+                    ),
+                    table_columns=("Item", "Value"),
+                    table_rows=self._improve_rows(outcome.snapshot),
+                    action_hint="Use `/improve high`, `/improve all`, `/improve AI-001`, or `/improve done`.",
+                )
+            return
         if command == "execute":
             outcome = self.workflow_controller.request_execution(" ".join(args))
             message = outcome.message
@@ -1686,6 +1708,8 @@ class TrinityTextualApp(App[None]):
             f"- Work packages: `{len(snapshot.work_packages)}`",
             f"- Subtasks: `{len(snapshot.subtasks)}`",
             f"- Local policy repairs: `{len(snapshot.work_package_repairs)}`",
+            f"- Post-review items: `{len(snapshot.post_review_items)}`",
+            f"- Supplemental rounds: `{snapshot.supplemental_round}`",
             f"- Execution log entries: `{len(snapshot.execution_log)}`",
         ]
         if snapshot.execution_recovery is not None:
@@ -1707,6 +1731,8 @@ class TrinityTextualApp(App[None]):
             ("Work packages", str(len(snapshot.work_packages))),
             ("Subtasks", str(len(snapshot.subtasks))),
             ("Local policy repairs", str(len(snapshot.work_package_repairs))),
+            ("Post-review items", str(len(snapshot.post_review_items))),
+            ("Supplemental rounds", str(snapshot.supplemental_round)),
             ("Execution log entries", str(len(snapshot.execution_log))),
         ]
         if snapshot.execution_recovery is not None:
@@ -1727,6 +1753,8 @@ class TrinityTextualApp(App[None]):
             or snapshot.work_packages
             or snapshot.subtasks
             or snapshot.work_package_repairs
+            or snapshot.post_review_items
+            or snapshot.follow_up_requests
             or snapshot.workflow_events
             or snapshot.execution_log
         )
@@ -1773,6 +1801,23 @@ class TrinityTextualApp(App[None]):
         if snapshot.work_package_repairs:
             lines.extend(["", "### Local Policy Repairs"])
             lines.extend(f"- {item}" for item in snapshot.work_package_repairs)
+        if snapshot.final_review is not None:
+            lines.extend(["", "### Final Review"])
+            lines.append(
+                f"- `{snapshot.final_review.status}` by `{snapshot.final_review.reviewer_agent}`"
+            )
+            if snapshot.final_review.summary:
+                lines.append(f"- {snapshot.final_review.summary}")
+        if snapshot.post_review_items:
+            lines.extend(["", "### Post Review Action Items"])
+            for item in snapshot.post_review_items:
+                lines.append(
+                    f"- **{item.id}** [{item.severity}][{item.status}] "
+                    f"{item.title or item.summary}"
+                )
+        if snapshot.follow_up_requests:
+            lines.extend(["", "### Follow-up Requests"])
+            lines.extend(f"- {item}" for item in snapshot.follow_up_requests)
         if snapshot.workflow_events:
             lines.extend(["", "### Workflow History"])
             lines.extend(f"- {item}" for item in snapshot.workflow_events)
@@ -1907,6 +1952,30 @@ class TrinityTextualApp(App[None]):
             )
         else:
             rows.append(("Final review", "(none)"))
+        return tuple(rows)
+
+    @staticmethod
+    def _improve_rows(
+        snapshot: WorkflowNexusSnapshot,
+    ) -> tuple[tuple[str, str], ...]:
+        rows: list[tuple[str, str]] = [
+            ("Workflow", snapshot.session_id or "(new)"),
+            ("State", snapshot.state or "idle"),
+            ("Supplemental rounds", str(snapshot.supplemental_round)),
+        ]
+        if not snapshot.post_review_items:
+            rows.append(("Action items", "(none)"))
+            return tuple(rows)
+        for item in snapshot.post_review_items:
+            rows.append(
+                (
+                    item.id,
+                    (
+                        f"{item.status}; severity={item.severity}; "
+                        f"kind={item.kind}; title={item.title or item.summary}"
+                    ),
+                )
+            )
         return tuple(rows)
 
     @staticmethod

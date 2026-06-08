@@ -8,12 +8,14 @@ from click.testing import CliRunner
 
 from trinity.cli import (
     _configure_stdio_encoding_errors,
+    _maybe_run_startup_update,
     main,
     load_config,
     find_config_path,
 )
 from trinity.context.analytics import RoundRecord, TokenAnalytics, analytics_history_path
 from trinity.models import Provider
+from trinity.updater import StartupUpdate, StartupUpdateResult
 
 
 @pytest.fixture
@@ -98,6 +100,55 @@ class TestInteractiveEntrypoint:
         assert result.exit_code == 0
         session_cls.assert_called_once()
         session_cls.return_value.run.assert_called_once()
+
+
+class TestStartupUpdatePrompt:
+    def _update(self, tmp_path: Path) -> StartupUpdate:
+        return StartupUpdate(
+            source="git",
+            current_version="0.11.1",
+            latest_version="0.11.2",
+            detail="origin/main has 1 new commit.",
+            repo_root=tmp_path,
+            upstream="origin/main",
+            behind_count=1,
+            command=("git", "-C", str(tmp_path), "pull", "--ff-only"),
+        )
+
+    def test_startup_update_skips_when_not_interactive(self):
+        with patch("trinity.cli._stdio_is_interactive", return_value=False):
+            with patch("trinity.cli.check_for_startup_update") as check:
+                assert _maybe_run_startup_update() is False
+
+        check.assert_not_called()
+
+    def test_startup_update_decline_continues_current_version(self, tmp_path):
+        update = self._update(tmp_path)
+        with patch("trinity.cli._stdio_is_interactive", return_value=True):
+            with patch("trinity.cli.startup_update_check_disabled", return_value=False):
+                with patch("trinity.cli._startup_update_lang", return_value="en"):
+                    with patch("trinity.cli.check_for_startup_update", return_value=update):
+                        with patch("trinity.cli.Confirm.ask", return_value=False):
+                            with patch("trinity.cli.apply_startup_update") as apply:
+                                assert _maybe_run_startup_update() is False
+
+        apply.assert_not_called()
+
+    def test_startup_update_accept_applies_and_exits(self, tmp_path):
+        update = self._update(tmp_path)
+        result = StartupUpdateResult(True, "done", "pulled")
+        with patch("trinity.cli._stdio_is_interactive", return_value=True):
+            with patch("trinity.cli.startup_update_check_disabled", return_value=False):
+                with patch("trinity.cli._startup_update_lang", return_value="ko"):
+                    with patch("trinity.cli.check_for_startup_update", return_value=update):
+                        with patch("trinity.cli.Confirm.ask", return_value=True):
+                            with patch(
+                                "trinity.cli.apply_startup_update",
+                                return_value=result,
+                            ) as apply:
+                                assert _maybe_run_startup_update() is True
+
+        apply.assert_called_once_with(update)
 
 
 class TestOutputEncoding:

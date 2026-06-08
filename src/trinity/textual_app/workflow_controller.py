@@ -362,6 +362,10 @@ class TextualWorkflowController:
                 self.workflow.mark_deliberation_result(result)
             elif run_kind == "execution" and execution_results is not None:
                 self.workflow.record_execution_results(execution_results, emit_events=False)
+                if self._should_auto_review_after_execution():
+                    selected_reviews = tuple(self.workflow.review_packages_for_request("wp"))
+                    self._start_review("all", (), selected_reviews)
+                    message = "Review started after execution."
             elif run_kind == "review" and review_results is not None:
                 self.workflow.record_review_results(review_results)
 
@@ -639,6 +643,17 @@ class TextualWorkflowController:
 
     def _uses_tmux_transport(self) -> bool:
         return self.config.transport_mode.lower() == "tmux"
+
+    def _should_auto_review_after_execution(self) -> bool:
+        if self.workflow.state != WorkflowState.REVIEWING:
+            return False
+        if self.workflow.session.target_workspace is None:
+            return False
+        if not self.workflow.session.review_packages:
+            return False
+        if not self._active_agent_names():
+            return False
+        return True
 
     @staticmethod
     def _parse_review_request_args(

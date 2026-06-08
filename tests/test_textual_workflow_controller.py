@@ -120,6 +120,23 @@ class FakeReviewOrchestrator(FakeOrchestrator):
         )
 
 
+class FakeExecutionReviewOrchestrator(FakeReviewOrchestrator):
+    async def execute_work_packages(
+        self,
+        work_packages,
+        decisions=None,
+        result_callback=None,
+    ) -> list[ExecutionResult]:
+        return [
+            ExecutionResult(
+                package_id=work_packages[0].id,
+                agent_name=work_packages[0].owner_agent,
+                status=WorkStatus.DONE,
+                summary="Implemented work package.",
+            )
+        ]
+
+
 def test_textual_workflow_controller_starts_real_workflow_session(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     controller = TextualWorkflowController(
@@ -374,6 +391,42 @@ def test_textual_workflow_controller_runs_review_all(tmp_path) -> None:
     outcome = controller.request_review(["all"])
 
     assert outcome.running is True
+    assert controller.wait_until_idle(timeout=2.0)
+    final = controller.drain_updates()
+    assert final is not None
+    assert final.snapshot.state == "done"
+    assert [result.status for result in controller.workflow.review_results] == [
+        ReviewStatus.APPROVED,
+        ReviewStatus.APPROVED,
+    ]
+
+
+def test_textual_workflow_controller_auto_reviews_after_execution(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 구현", ["claude"])
+    workflow.session.blueprint = Blueprint(
+        title="Game",
+        summary="Build a game.",
+        acceptance_criteria=["runs"],
+    )
+    workflow.set_target_workspace(tmp_path / "game")
+    workflow.set_state(WorkflowState.BLUEPRINT_READY, reason="test blueprint ready")
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeExecutionReviewOrchestrator,
+        archive_active_session=False,
+    )
+
+    execution = controller.request_execution()
+
+    assert execution.running is True
+    assert controller.wait_until_idle(timeout=2.0)
+    review_started = controller.drain_updates()
+    assert review_started is not None
+    assert review_started.running is True
+    assert review_started.message == "Review started after execution."
     assert controller.wait_until_idle(timeout=2.0)
     final = controller.drain_updates()
     assert final is not None

@@ -24,7 +24,7 @@ from trinity.workflow import (
     WorkflowState,
 )
 
-RunKind = Literal["deliberation", "execution"]
+RunKind = Literal["deliberation", "execution", "review"]
 OrchestratorFactory = Callable[..., TrinityOrchestrator]
 
 
@@ -222,6 +222,27 @@ class TextualWorkflowController:
         return self._outcome(
             message=f"Retrying work packages: {', '.join(prepared.selected)}.",
             execution_requested=True,
+        )
+
+    def request_review(
+        self,
+        args: tuple[str, ...] | list[str] = (),
+    ) -> TextualWorkflowOutcome:
+        """Route a requested review run. Provider review execution is wired later."""
+        if self.is_running:
+            return self._outcome(message="Workflow is still running.", running=True)
+        review_packages = list(self.workflow.session.review_packages)
+        review_results = list(self.workflow.session.review_results)
+        if not review_packages and not review_results:
+            return self._outcome(
+                message="No review is pending. Finish execution before running /review.",
+            )
+        selector = " ".join(str(arg) for arg in args if str(arg).strip()) or "all"
+        return self._outcome(
+            message=(
+                f"Review request queued for `{selector}`. "
+                "Provider review execution will run once the review protocol is connected."
+            ),
         )
 
     def set_target_workspace(

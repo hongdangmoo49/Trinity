@@ -212,6 +212,15 @@ COMMAND_SPECS: tuple[SlashCommandSpec, ...] = (
         writes_files=True,
     ),
     SlashCommandSpec(
+        name="/review",
+        usage="/review [wp|final|all] [WP-ID...]",
+        summary="run pending work package or final project review",
+        summary_ko="대기 중인 WP 리뷰 또는 최종 프로젝트 리뷰 실행",
+        category=SlashCommandCategory.EXECUTION,
+        agent_call=AgentCallPolicy.EXECUTION,
+        mutates_workflow=True,
+    ),
+    SlashCommandSpec(
         name="/target",
         usage="/target [path|clear]",
         summary="set target workspace candidate",

@@ -40,10 +40,14 @@ from trinity.workflow.models import (
 )
 from trinity.workflow.persistence import WorkflowPersistence
 from trinity.workflow.review import (
+    FINAL_REVIEW_FALLBACK_PRIORITY,
+    FINAL_REVIEW_PACKAGE_ID,
     PeerReviewPlanner,
     ReviewPackage,
     ReviewResult,
     ReviewStatus,
+    final_review_criteria,
+    final_review_package,
 )
 from trinity.workflow.structured import (
     StructuredConsensusResult,
@@ -61,6 +65,8 @@ __all__ = [
     "ExecutionWorkspaceError",
     "ExecutionRetryPlan",
     "ExecutionResult",
+    "FINAL_REVIEW_FALLBACK_PRIORITY",
+    "FINAL_REVIEW_PACKAGE_ID",
     "OpenQuestion",
     "PeerReviewPlanner",
     "ReadinessInput",
@@ -84,6 +90,8 @@ __all__ = [
     "WorkflowState",
     "classify_blueprint_followup_action",
     "classify_execution_intent",
+    "final_review_criteria",
+    "final_review_package",
     "LifecycleAction",
     "LifecycleActionKind",
     "LifecycleDecision",

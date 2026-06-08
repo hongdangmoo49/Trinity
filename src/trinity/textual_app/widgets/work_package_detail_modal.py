@@ -78,6 +78,22 @@ class WorkPackageDetailModal(ModalScreen[None]):
             )
             self._append_list(lines, "Files Changed", package.last_result_files_changed)
             self._append_list(lines, "Blockers", package.last_result_blockers)
+        if package.review_status or package.review_summary:
+            lines.extend(
+                [
+                    "",
+                    "## Review",
+                    f"- Reviewer: `{package.reviewer_agent or '-'}`",
+                    f"- Status: `{package.review_status or '-'}`",
+                    f"- Severity: `{package.review_severity or '-'}`",
+                    f"- Summary: {package.review_summary or '(none)'}",
+                ]
+            )
+            self._append_list(
+                lines,
+                "Required Changes",
+                package.review_required_changes,
+            )
         return "\n".join(lines)
 
     @staticmethod

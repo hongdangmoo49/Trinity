@@ -637,6 +637,10 @@ class TrinityTextualApp(App[None]):
         width: 12;
     }
 
+    .execution-package-review {
+        width: 11;
+    }
+
     .execution-package-risk {
         width: 11;
     }
@@ -1279,6 +1283,27 @@ class TrinityTextualApp(App[None]):
         if command == "execute-retry":
             self._handle_textual_execute_retry_command(args)
             return
+        if command == "review":
+            outcome = self.workflow_controller.request_review(args)
+            message = outcome.message
+            if message:
+                outcome = replace(outcome, message="")
+            self._apply_workflow_outcome(outcome)
+            if message:
+                self._record_slash_command_result(
+                    parsed.spec.name,
+                    "Review",
+                    message,
+                    severity=(
+                        "warning"
+                        if message.startswith("No review") or "not connected" in message
+                        else "info"
+                    ),
+                    table_columns=("Item", "Value"),
+                    table_rows=self._review_rows(outcome.snapshot),
+                    action_hint="Run `/review wp`, `/review final`, or `/review all`.",
+                )
+            return
         if command == "execute":
             outcome = self.workflow_controller.request_execution(" ".join(args))
             message = outcome.message
@@ -1847,6 +1872,41 @@ class TrinityTextualApp(App[None]):
             rows.append((str(len(rows) + 1), "central", package))
         for package in snapshot.work_packages:
             rows.append((str(len(rows) + 1), "local", package))
+        return tuple(rows)
+
+    @staticmethod
+    def _review_rows(
+        snapshot: WorkflowNexusSnapshot,
+    ) -> tuple[tuple[str, str], ...]:
+        rows: list[tuple[str, str]] = [
+            ("Workflow", snapshot.session_id or "(new)"),
+            ("State", snapshot.state or "idle"),
+            ("Work packages", str(len(snapshot.work_package_details))),
+        ]
+        pending = [
+            package.id
+            for package in snapshot.work_package_details
+            if not package.review_status
+        ]
+        reviewed = [
+            f"{package.id}:{package.review_status}"
+            for package in snapshot.work_package_details
+            if package.review_status
+        ]
+        rows.append(("Pending WP review", ", ".join(pending) or "(none)"))
+        rows.append(("Reviewed WP", ", ".join(reviewed) or "(none)"))
+        if snapshot.final_review is not None:
+            rows.append(
+                (
+                    "Final review",
+                    (
+                        f"{snapshot.final_review.status} by "
+                        f"{snapshot.final_review.reviewer_agent or '(unknown)'}"
+                    ),
+                )
+            )
+        else:
+            rows.append(("Final review", "(none)"))
         return tuple(rows)
 
     @staticmethod

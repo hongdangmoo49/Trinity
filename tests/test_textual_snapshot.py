@@ -12,6 +12,8 @@ from trinity.workflow import (
     ExecutionResult,
     OpenQuestion,
     WorkflowPersistence,
+    ReviewResult,
+    ReviewStatus,
     WorkflowSession,
     WorkflowState,
     WorkPackage,
@@ -142,6 +144,64 @@ def test_snapshot_projects_central_and_repaired_work_package_graph(tmp_path) -> 
         "WP-001: owner reassigned from 'missing' to 'claude'",
         f"WP-001: {missing_dependency_note}",
     ]
+
+
+def test_snapshot_projects_work_package_and_final_review_results(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-review",
+            goal="Build UI",
+            state=WorkflowState.REVIEWING,
+            active_agents=["claude", "codex"],
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="Frontend shell",
+                    owner_agent="claude",
+                    objective="Build the shell.",
+                    status=WorkStatus.DONE,
+                )
+            ],
+            review_results=[
+                ReviewResult(
+                    review_package_id="RP-WP-001-codex",
+                    package_id="WP-001",
+                    reviewer_agent="codex",
+                    target_agent="claude",
+                    status=ReviewStatus.CHANGES_REQUESTED,
+                    severity="high",
+                    summary="Needs safer terminal handling.",
+                    required_changes=["Add resize regression test."],
+                    performance_notes=["Rendering remains bounded."],
+                ).to_dict(),
+                ReviewResult(
+                    review_package_id="RP-FINAL-codex",
+                    package_id="FINAL",
+                    reviewer_agent="codex",
+                    target_agent="project",
+                    status=ReviewStatus.APPROVED,
+                    severity="low",
+                    scope="final",
+                    summary="Project is coherent and runnable.",
+                    compatibility_notes=["Textual UI remains compatible."],
+                ).to_dict(),
+            ],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    package = snapshot.work_package_details[0]
+    assert package.review_status == "changes_requested"
+    assert package.reviewer_agent == "codex"
+    assert package.review_severity == "high"
+    assert package.review_required_changes == ["Add resize regression test."]
+    assert snapshot.final_review is not None
+    assert snapshot.final_review.status == "approved"
+    assert snapshot.final_review.summary == "Project is coherent and runnable."
+    assert snapshot.final_review.compatibility_notes == ["Textual UI remains compatible."]
 
 
 def test_snapshot_keeps_answered_question_history(tmp_path) -> None:

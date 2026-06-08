@@ -23,6 +23,7 @@ class ExecutionPackageRow(Horizontal):
         assignee: str,
         executor: str,
         status: str,
+        review_status: str,
         risk: str,
         button_id: str,
         detail_enabled: bool = True,
@@ -33,6 +34,7 @@ class ExecutionPackageRow(Horizontal):
         self.assignee = assignee
         self.executor = executor
         self.status = status
+        self.review_status = review_status
         self.risk = risk
         self.button_id = button_id
         self.detail_enabled = detail_enabled
@@ -42,9 +44,10 @@ class ExecutionPackageRow(Horizontal):
         yield Static(_clip(self.assignee, 11), classes="execution-package-assignee")
         yield Static(_clip(self.executor, 18), classes="execution-package-executor")
         yield Static(_clip(self.status, 10), classes="execution-package-status")
+        yield Static(_clip(self.review_status or "-", 9), classes="execution-package-review")
         yield Static(_clip(self.risk, 9), classes="execution-package-risk")
         yield Button(
-            "View",
+            "Spec",
             id=self.button_id,
             name=self.package_id,
             disabled=not self.detail_enabled,
@@ -110,7 +113,7 @@ class ExecutionMatrixScreen(Screen[None]):
         package_list.remove_children()
         package_list.mount(
             Static(
-                "Task                         Assignee     Executor     Status      Risk       Detail",
+                "Task                         Assignee     Executor     Status      Review     Risk       Spec",
                 classes="execution-package-header",
             )
         )
@@ -127,6 +130,7 @@ class ExecutionMatrixScreen(Screen[None]):
                             package.owner_agent,
                         ),
                         status=package.status or "pending",
+                        review_status=package.review_status,
                         risk=package.risk or "unknown",
                         button_id=f"wp-detail-{index}",
                     )
@@ -146,6 +150,7 @@ class ExecutionMatrixScreen(Screen[None]):
                     assignee=assignee,
                     executor="-",
                     status=status,
+                    review_status="-",
                     risk="unknown",
                     button_id=f"wp-detail-legacy-{index}",
                     detail_enabled=False,
@@ -160,6 +165,7 @@ class ExecutionMatrixScreen(Screen[None]):
         assignee: str,
         executor: str,
         status: str,
+        review_status: str,
         risk: str,
         button_id: str,
         detail_enabled: bool = True,
@@ -170,6 +176,7 @@ class ExecutionMatrixScreen(Screen[None]):
             assignee=assignee,
             executor=executor,
             status=status,
+            review_status=review_status,
             risk=risk,
             button_id=button_id,
             detail_enabled=detail_enabled,

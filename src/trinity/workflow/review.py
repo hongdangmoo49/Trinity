@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -20,6 +21,14 @@ class ReviewStatus(str, Enum):
     FAILED = "failed"
 
 
+FINAL_REVIEW_PACKAGE_ID = "FINAL"
+FINAL_REVIEW_FALLBACK_PRIORITY: tuple[str, ...] = (
+    "codex",
+    "claude",
+    "antigravity",
+)
+
+
 @dataclass
 class ReviewPackage:
     """A review task assigned to an agent for one completed work package."""
@@ -31,6 +40,9 @@ class ReviewPackage:
     id: str = ""
     self_review: bool = False
     execution_status: WorkStatus | None = None
+    scope: str = "work_package"
+    attempt: int = 1
+    created_at: float = field(default_factory=time.time)
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -48,6 +60,9 @@ class ReviewPackage:
             "execution_status": (
                 self.execution_status.value if self.execution_status else None
             ),
+            "scope": self.scope,
+            "attempt": self.attempt,
+            "created_at": self.created_at,
         }
 
     @classmethod
@@ -61,6 +76,9 @@ class ReviewPackage:
             criteria=[str(item) for item in data.get("criteria", [])],
             self_review=bool(data.get("self_review", False)),
             execution_status=WorkStatus(str(status)) if status else None,
+            scope=str(data.get("scope", "work_package") or "work_package"),
+            attempt=max(1, int(data.get("attempt", 1) or 1)),
+            created_at=float(data.get("created_at", time.time())),
         )
 
 
@@ -78,6 +96,13 @@ class ReviewResult:
     required_changes: list[str] = field(default_factory=list)
     follow_up: list[str] = field(default_factory=list)
     raw_response_path: Path | None = None
+    severity: str = "medium"
+    scope: str = "work_package"
+    reviewed_files: list[str] = field(default_factory=list)
+    compatibility_notes: list[str] = field(default_factory=list)
+    performance_notes: list[str] = field(default_factory=list)
+    anti_patterns: list[str] = field(default_factory=list)
+    execution_risks: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -93,6 +118,13 @@ class ReviewResult:
             "raw_response_path": (
                 str(self.raw_response_path) if self.raw_response_path else None
             ),
+            "severity": self.severity,
+            "scope": self.scope,
+            "reviewed_files": list(self.reviewed_files),
+            "compatibility_notes": list(self.compatibility_notes),
+            "performance_notes": list(self.performance_notes),
+            "anti_patterns": list(self.anti_patterns),
+            "execution_risks": list(self.execution_risks),
         }
 
     @classmethod
@@ -111,6 +143,15 @@ class ReviewResult:
             ],
             follow_up=[str(item) for item in data.get("follow_up", [])],
             raw_response_path=Path(str(raw_path)) if raw_path else None,
+            severity=str(data.get("severity", "medium") or "medium"),
+            scope=str(data.get("scope", "work_package") or "work_package"),
+            reviewed_files=[str(item) for item in data.get("reviewed_files", [])],
+            compatibility_notes=[
+                str(item) for item in data.get("compatibility_notes", [])
+            ],
+            performance_notes=[str(item) for item in data.get("performance_notes", [])],
+            anti_patterns=[str(item) for item in data.get("anti_patterns", [])],
+            execution_risks=[str(item) for item in data.get("execution_risks", [])],
         )
 
 
@@ -120,6 +161,9 @@ class PeerReviewPlanner:
     DEFAULT_CRITERIA = (
         "Verify the work package acceptance criteria are satisfied.",
         "Check changed files for correctness, regressions, and missing tests.",
+        "Identify severe runtime or execution-breaking defects.",
+        "Flag anti-patterns that make the implementation hard to maintain.",
+        "Call out performance risks introduced by the implementation.",
         "Identify blockers or follow-up needed before merge.",
     )
 
@@ -211,3 +255,33 @@ class PeerReviewPlanner:
                 deduped.append(item)
                 seen.add(item)
         return deduped
+
+
+def final_review_package(
+    reviewer_agent: str,
+    *,
+    attempt: int = 1,
+    criteria: list[str] | None = None,
+) -> ReviewPackage:
+    """Build the session-level final review task for a selected reviewer."""
+    return ReviewPackage(
+        id=f"RP-{FINAL_REVIEW_PACKAGE_ID}-{reviewer_agent}",
+        package_id=FINAL_REVIEW_PACKAGE_ID,
+        reviewer_agent=reviewer_agent,
+        target_agent="project",
+        criteria=criteria or final_review_criteria(),
+        execution_status=WorkStatus.DONE,
+        scope="final",
+        attempt=attempt,
+    )
+
+
+def final_review_criteria() -> list[str]:
+    """Return the required focus areas for final project review."""
+    return [
+        "Review whole-project compatibility across the completed work packages.",
+        "Summarize the project overview in user-facing language.",
+        "Document how to run the project from the selected target workspace.",
+        "Identify additional features that appear necessary or high-value.",
+        "Call out critical execution risks before the workflow is considered done.",
+    ]

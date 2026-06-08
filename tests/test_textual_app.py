@@ -2368,6 +2368,58 @@ async def test_execution_matrix_separates_owner_and_executor(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_execution_matrix_expands_task_area(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+    long_title = (
+        "Build a very long execution task title with detailed Korean and English "
+        "context for monitoring"
+    )
+
+    async with app.run_test(size=(150, 44)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title=long_title,
+                        owner_agent="codex",
+                        status="pending",
+                    )
+                ]
+            ),
+        )
+        await pilot.pause()
+
+        compact_row = screen.query("#execution-package-list .execution-package-row").first()
+        compact_text = " ".join(str(child.render()) for child in compact_row.children)
+        execution_screen = screen.query_one("#execution-screen")
+        assert not execution_screen.has_class("execution-task-expanded")
+        assert "detailed Korean" not in compact_text
+
+        await pilot.press("f")
+        await pilot.pause()
+
+        expanded_row = screen.query("#execution-package-list .execution-package-row").first()
+        expanded_text = " ".join(str(child.render()) for child in expanded_row.children)
+        assert screen.tasks_expanded is True
+        assert execution_screen.has_class("execution-task-expanded")
+        assert "detailed Korean" in expanded_text
+        assert str(screen.query_one("#toggle-task-expanded", Button).label) == "Compact Tasks"
+
+        screen.query_one("#toggle-task-expanded", Button).press()
+        await pilot.pause()
+
+        assert screen.tasks_expanded is False
+        assert not execution_screen.has_class("execution-task-expanded")
+        assert str(screen.query_one("#toggle-task-expanded", Button).label) == "Expand Tasks"
+
+
+@pytest.mark.asyncio
 async def test_provider_panel_renders_scrollable_raw_output(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
     long_output = "\n".join(f"line {index}" for index in range(30))

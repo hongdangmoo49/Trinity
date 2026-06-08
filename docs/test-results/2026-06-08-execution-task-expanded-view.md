@@ -13,6 +13,7 @@ Execution Matrix의 task 목록 영역을 확장/축소할 수 있게 했다.
 - 확장 상태에서 task title clip width를 `28`에서 `72`로 확대
 - execution log는 하단 작은 영역으로 유지
 - 기존 `Spec` 버튼과 WP detail modal 동작 유지
+- `Spec` 버튼 클릭 시 WP detail modal이 열리는지 검증
 
 ## 검증
 
@@ -23,7 +24,7 @@ uv run pytest tests/test_textual_app.py::test_execution_matrix_expands_task_area
 결과:
 
 ```text
-3 passed in 2.29s
+3 passed in 2.54s
 ```
 
 ```text
@@ -41,10 +42,10 @@ uv run pytest -q
 결과:
 
 ```text
-1297 passed, 1 warning in 89.77s
+1297 passed, 1 warning in 90.36s
 ```
 
 경고:
 
-- `tests/test_error_handling.py::TestActiveAgents::test_excludes_disabled`의 기존
+- `tests/test_e2e.py::TestE2EContext::test_context_shows_shared`의 기존
   `AsyncMock` unawaited warning.

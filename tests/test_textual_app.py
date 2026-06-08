@@ -58,6 +58,7 @@ from trinity.textual_app.widgets.status_modal import StatusCommandModal
 from trinity.textual_app.widgets.target_workspace_confirm_modal import (
     TargetWorkspaceConfirmModal,
 )
+from trinity.textual_app.widgets.work_package_detail_modal import WorkPackageDetailModal
 from trinity.textual_app.widgets.workspace_picker import WorkspacePicker, build_preflight
 from trinity.workflow import (
     WorkPackage,
@@ -2364,7 +2365,13 @@ async def test_execution_matrix_separates_owner_and_executor(tmp_path) -> None:
         assert "claude fallback" in row_text
         assert "running" in row_text
         assert "high" in row_text
-        assert rows.first().query_one("#wp-detail-0", Button)
+        rows.first().query_one("#wp-detail-0", Button).press()
+        await pilot.pause()
+
+        assert isinstance(app.screen, WorkPackageDetailModal)
+        assert "WP-001: Rust contracts" in str(
+            app.screen.query_one("#work-package-detail-title", Static).content
+        )
 
 
 @pytest.mark.asyncio

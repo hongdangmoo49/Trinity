@@ -1050,6 +1050,64 @@ class WorkflowEngine:
         if finalize:
             self._finalize_review_state(review_results)
 
+    def prepare_review_repairs(
+        self,
+        results: Iterable[ReviewResult],
+    ) -> tuple[str, ...]:
+        """Queue packages with requested review changes for another execution pass."""
+        selected: list[str] = []
+        for result in results:
+            if result.scope == "final" or result.package_id == FINAL_REVIEW_PACKAGE_ID:
+                continue
+            if result.status != ReviewStatus.CHANGES_REQUESTED:
+                continue
+            package = self._work_package_by_id(result.package_id)
+            if package is None or not package.requires_execution:
+                continue
+            previous_status = package.status.value
+            package.status = WorkStatus.PENDING
+            package.current_executor = ""
+            if package.id not in selected:
+                selected.append(package.id)
+            self._persist(
+                "work_package_repair_requested",
+                {
+                    "package_id": package.id,
+                    "previous_status": previous_status,
+                    "review_package_id": result.review_package_id,
+                    "reviewer": result.reviewer_agent,
+                    "target": result.target_agent,
+                    "required_changes": list(result.required_changes),
+                    "executor": package.last_executor or package.owner_agent,
+                },
+            )
+
+        if not selected:
+            return ()
+
+        run = dict(self.session.execution_run) if isinstance(self.session.execution_run, dict) else {}
+        run.setdefault("run_id", f"exec-run-{uuid4().hex[:12]}")
+        run.setdefault("target_workspace", str(self.session.target_workspace or ""))
+        run["state"] = "retry_requested"
+        run["retry_requested_at"] = time.time()
+        run["retry_selector"] = "review-repair"
+        run["retry_packages"] = list(selected)
+        self.session.execution_run = run
+        self.session.updated_at = time.time()
+        self._persist(
+            "execution_recovery_action",
+            {
+                "action": "review_repair",
+                "packages": list(selected),
+                "target_workspace": str(self.session.target_workspace or ""),
+            },
+        )
+        self.set_state(
+            WorkflowState.BLUEPRINT_READY,
+            reason="review changes queued for repair",
+        )
+        return tuple(selected)
+
     def _record_review_result(self, result: ReviewResult) -> None:
         existing_by_id = {
             str(item.get("review_package_id", "")): dict(item)

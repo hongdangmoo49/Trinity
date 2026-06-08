@@ -536,6 +536,38 @@ def test_record_review_results_requests_repair_notes(tmp_path):
     assert engine.review_results[0].status == ReviewStatus.CHANGES_REQUESTED
 
 
+def test_prepare_review_repairs_queues_changed_package(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement route bot.",
+            status=WorkStatus.NEEDS_REVIEW,
+            last_executor="claude",
+        )
+    ]
+    engine.set_target_workspace(tmp_path / "route-bot")
+    result = ReviewResult(
+        review_package_id="RP-WP-001-claude",
+        package_id="WP-001",
+        reviewer_agent="claude",
+        target_agent="codex",
+        status=ReviewStatus.CHANGES_REQUESTED,
+        required_changes=["Add retry regression test."],
+    )
+
+    selected = engine.prepare_review_repairs([result])
+
+    assert selected == ("WP-001",)
+    assert engine.session.work_packages[0].status == WorkStatus.PENDING
+    assert engine.pending_execution_package_ids() == ["WP-001"]
+    assert engine.session.execution_run["retry_selector"] == "review-repair"
+    assert engine.state == WorkflowState.BLUEPRINT_READY
+
+
 def test_record_final_review_approved_marks_done(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
     engine.start("Implement route bot", ["codex", "claude"])

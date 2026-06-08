@@ -368,6 +368,13 @@ class TextualWorkflowController:
                     message = "Review started after execution."
             elif run_kind == "review" and review_results is not None:
                 self.workflow.record_review_results(review_results)
+                repair_packages = self.workflow.prepare_review_repairs(review_results)
+                if repair_packages:
+                    self._start_execution()
+                    message = (
+                        "Review requested repairs; restarting execution for: "
+                        f"{', '.join(repair_packages)}."
+                    )
 
         if events or completion_changed:
             return self._outcome(message=message, running=self.is_running)

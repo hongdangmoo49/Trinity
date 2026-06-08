@@ -330,7 +330,8 @@ class ExecutionProtocol:
     ) -> ExecutionResult:
         """Send one work package to its owner agent and collect the result."""
         failed_attempts: list[ExecutionResult] = []
-        for agent_name in self._agent_attempt_order(package.owner_agent):
+        preferred_agent = package.last_executor or package.owner_agent
+        for agent_name in self._agent_attempt_order(preferred_agent):
             agent = self.agents.get(agent_name)
             if agent is None:
                 failed_attempts.append(self._missing_agent_result(package, agent_name))
@@ -609,6 +610,7 @@ class ExecutionProtocol:
         out_of_scope = self._format_list(package.out_of_scope)
         acceptance = self._format_list(package.acceptance_criteria)
         expected_files = self._format_list(package.expected_files)
+        repair_notes = self._format_list(package.repair_notes)
         shared_decisions = self.shared.read_section("Agreed Conclusion") or ""
         fallback_note = ""
         if execution_agent != package.owner_agent:
@@ -643,6 +645,8 @@ class ExecutionProtocol:
             "orchestrator owns integration.\n\n"
             "Acceptance Criteria:\n"
             f"{acceptance}\n\n"
+            "Repair Notes:\n"
+            f"{repair_notes}\n\n"
             "[Shared Decisions]\n"
             f"{decisions_text}\n\n"
             "[Agreed Conclusion]\n"

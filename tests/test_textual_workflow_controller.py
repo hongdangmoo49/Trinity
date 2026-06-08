@@ -137,6 +137,51 @@ class FakeExecutionReviewOrchestrator(FakeReviewOrchestrator):
         ]
 
 
+class FakeRepairReviewOrchestrator(FakeReviewOrchestrator):
+    review_calls = 0
+
+    async def review_work_packages(
+        self,
+        review_packages,
+        work_packages,
+        execution_results,
+    ) -> list[ReviewResult]:
+        type(self).review_calls += 1
+        if type(self).review_calls == 1:
+            return [
+                ReviewResult(
+                    review_package_id=review_packages[0].id,
+                    package_id=review_packages[0].package_id,
+                    reviewer_agent=review_packages[0].reviewer_agent,
+                    target_agent=review_packages[0].target_agent,
+                    status=ReviewStatus.CHANGES_REQUESTED,
+                    severity="high",
+                    summary="Needs repair.",
+                    required_changes=["Add retry regression test."],
+                )
+            ]
+        return await super().review_work_packages(
+            review_packages,
+            work_packages,
+            execution_results,
+        )
+
+    async def execute_work_packages(
+        self,
+        work_packages,
+        decisions=None,
+        result_callback=None,
+    ) -> list[ExecutionResult]:
+        return [
+            ExecutionResult(
+                package_id=work_packages[0].id,
+                agent_name=work_packages[0].last_executor or work_packages[0].owner_agent,
+                status=WorkStatus.DONE,
+                summary="Repaired work package.",
+            )
+        ]
+
+
 def test_textual_workflow_controller_starts_real_workflow_session(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     controller = TextualWorkflowController(
@@ -435,6 +480,61 @@ def test_textual_workflow_controller_auto_reviews_after_execution(tmp_path) -> N
         ReviewStatus.APPROVED,
         ReviewStatus.APPROVED,
     ]
+
+
+def test_textual_workflow_controller_restarts_execution_for_review_repairs(tmp_path) -> None:
+    FakeRepairReviewOrchestrator.review_calls = 0
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 구현", ["claude"])
+    workflow.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="client",
+            owner_agent="claude",
+            objective="Build client.",
+            status=WorkStatus.RUNNING,
+            last_executor="claude",
+        )
+    ]
+    workflow.set_target_workspace(tmp_path / "game")
+    workflow.begin_execution()
+    workflow.record_execution_results(
+        [
+            ExecutionResult(
+                package_id="WP-001",
+                agent_name="claude",
+                status=WorkStatus.DONE,
+                summary="Implemented client.",
+            )
+        ]
+    )
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeRepairReviewOrchestrator,
+        archive_active_session=False,
+    )
+
+    review = controller.request_review(["wp"])
+
+    assert review.running is True
+    assert controller.wait_until_idle(timeout=2.0)
+    repair = controller.drain_updates()
+    assert repair is not None
+    assert repair.running is True
+    assert "Review requested repairs" in repair.message
+    assert controller.workflow.pending_execution_package_ids() == ["WP-001"]
+    assert controller.wait_until_idle(timeout=2.0)
+    auto_review = controller.drain_updates()
+    assert auto_review is not None
+    assert auto_review.running is True
+    assert auto_review.message == "Review started after execution."
+    assert controller.wait_until_idle(timeout=2.0)
+    final = controller.drain_updates()
+    assert final is not None
+    assert final.snapshot.state == "done"
+    assert FakeRepairReviewOrchestrator.review_calls == 2
 
 
 def test_resume_surfaces_execution_recovery(tmp_path) -> None:

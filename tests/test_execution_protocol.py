@@ -86,6 +86,7 @@ async def test_execution_protocol_dispatches_package_and_records_result(tmp_path
     assert "Estimated Weight: 1" in sent_prompt
     assert "[Workspace Boundary]" in sent_prompt
     assert "Do not switch branches, merge, commit, or push" in sent_prompt
+    assert "Repair Notes:" in sent_prompt
     assert "[Subagent Delegation Policy]" in sent_prompt
     assert "## Subtasks" in sent_prompt
     assert agent.send_and_wait.call_args.kwargs["access"] == (InvocationAccess.WORKSPACE_WRITE)
@@ -106,6 +107,39 @@ async def test_execution_protocol_dispatches_package_and_records_result(tmp_path
     assert isinstance(started_at, float)
     assert isinstance(completed_at, float)
     assert completed_at >= started_at
+
+
+@pytest.mark.asyncio
+async def test_execution_protocol_prefers_last_executor_for_repair(tmp_path):
+    shared = SharedContextEngine(tmp_path / "shared.md")
+    claude = AsyncMock()
+    codex = AsyncMock()
+    codex.send_and_wait.return_value = _message(
+        "## Completed\n- Repaired implementation\n\n## Blockers\n- none\n"
+    )
+    package = WorkPackage(
+        id="WP-001",
+        title="repair package",
+        owner_agent="claude",
+        objective="Repair route service.",
+        status=WorkStatus.PENDING,
+        last_executor="codex",
+        repair_notes=["review RP-WP-001-claude: Add retry regression test."],
+    )
+    protocol = ExecutionProtocol(
+        agents={"claude": claude, "codex": codex},
+        shared=shared,
+        artifact_dir=tmp_path / "execution",
+    )
+
+    results = await protocol.run([package])
+
+    assert results[0].status == WorkStatus.DONE
+    codex.send_and_wait.assert_called_once()
+    claude.send_and_wait.assert_not_called()
+    prompt = codex.send_and_wait.call_args.args[0]
+    assert "Repair Notes:" in prompt
+    assert "Add retry regression test" in prompt
 
 
 @pytest.mark.asyncio

@@ -5,7 +5,8 @@ from __future__ import annotations
 import datetime as dt
 
 from textual.app import ComposeResult
-from textual.containers import Vertical
+from textual.binding import Binding
+from textual.containers import Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Static
 
@@ -16,8 +17,17 @@ from trinity.textual_app.workflow_controller import TextualWorkflowArchiveOption
 class ResumeWorkflowPicker(ModalScreen[str | None]):
     """Select an archived workflow to restore."""
 
+    DEFAULT_CSS = """
+    ResumeWorkflowPicker {
+        align: center middle;
+    }
+    """
+
     BINDINGS = [
-        ("escape", "cancel", "Cancel"),
+        Binding("escape", "cancel", "Cancel", priority=True),
+        Binding("up", "cursor_up", "Previous", priority=True),
+        Binding("down", "cursor_down", "Next", priority=True),
+        Binding("enter", "confirm", "Resume", priority=True),
     ]
 
     LOCALIZED_BINDINGS = {
@@ -33,6 +43,7 @@ class ResumeWorkflowPicker(ModalScreen[str | None]):
         super().__init__()
         self.archives = archives
         self.lang = lang
+        self.selected_index = 0
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
@@ -41,14 +52,21 @@ class ResumeWorkflowPicker(ModalScreen[str | None]):
             if not self.archives:
                 yield Static("No saved workflow sessions.", id="resume-picker-empty")
             else:
-                for archive in self.archives:
-                    yield Button(
-                        self._archive_label(archive),
-                        id=f"resume-archive-{archive.selector}",
-                        classes="resume-archive-option",
-                    )
+                with VerticalScroll(id="resume-archive-list"):
+                    for archive in self.archives:
+                        classes = "resume-archive-option"
+                        if archive.selector == self.archives[self.selected_index].selector:
+                            classes += " resume-archive-option-selected"
+                        yield Button(
+                            self._archive_label(archive),
+                            id=f"resume-archive-{archive.selector}",
+                            classes=classes,
+                        )
             yield Button("Cancel", id="cancel-resume-picker")
         yield Footer()
+
+    def on_mount(self) -> None:
+        self._focus_selected_archive()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id or ""
@@ -59,10 +77,59 @@ class ResumeWorkflowPicker(ModalScreen[str | None]):
         prefix = "resume-archive-"
         if button_id.startswith(prefix):
             event.stop()
-            self.dismiss(button_id.removeprefix(prefix))
+            selector = button_id.removeprefix(prefix)
+            self._select_archive(selector)
+            self.dismiss(selector)
 
     def action_cancel(self) -> None:
         self.dismiss(None)
+
+    def action_cursor_up(self) -> None:
+        if not self.archives:
+            return
+        self.selected_index = (self.selected_index - 1) % len(self.archives)
+        self._focus_selected_archive()
+
+    def action_cursor_down(self) -> None:
+        if not self.archives:
+            return
+        self.selected_index = (self.selected_index + 1) % len(self.archives)
+        self._focus_selected_archive()
+
+    def action_confirm(self) -> None:
+        if not self.archives:
+            self.dismiss(None)
+            return
+        self.dismiss(self.archives[self.selected_index].selector)
+
+    def _select_archive(self, selector: str) -> None:
+        for index, archive in enumerate(self.archives):
+            if archive.selector == selector:
+                self.selected_index = index
+                self._focus_selected_archive()
+                return
+
+    def _focus_selected_archive(self) -> None:
+        buttons = [
+            button
+            for button in self.query(".resume-archive-option")
+            if isinstance(button, Button)
+        ]
+        if not buttons:
+            return
+        self.selected_index = max(0, min(self.selected_index, len(buttons) - 1))
+        for index, button in enumerate(buttons):
+            if index == self.selected_index:
+                button.add_class("resume-archive-option-selected")
+            else:
+                button.remove_class("resume-archive-option-selected")
+        selected = buttons[self.selected_index]
+        selected.focus()
+        self.query_one("#resume-archive-list", VerticalScroll).scroll_to_widget(
+            selected,
+            animate=False,
+            immediate=True,
+        )
 
     @staticmethod
     def _archive_label(archive: TextualWorkflowArchiveOption) -> str:

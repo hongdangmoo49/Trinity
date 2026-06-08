@@ -103,6 +103,43 @@ class TrinityTextualApp(App[None]):
         color: $text;
     }
 
+    #resume-picker {
+        width: 112;
+        max-width: 94%;
+        height: 30;
+        max-height: 88%;
+        border: round $accent;
+        background: $surface;
+        padding: 1 2;
+    }
+
+    #resume-picker-title {
+        color: $accent;
+        text-style: bold;
+        margin-bottom: 1;
+    }
+
+    .resume-archive-option {
+        width: 100%;
+        margin-bottom: 1;
+    }
+
+    #resume-archive-list {
+        height: 1fr;
+        border: round $primary;
+        padding: 0 1;
+        margin-bottom: 1;
+    }
+
+    .resume-archive-option-selected {
+        color: $accent;
+        text-style: bold;
+    }
+
+    #cancel-resume-picker {
+        width: 18;
+    }
+
     #start-screen {
         width: 100%;
         height: 1fr;

@@ -58,6 +58,7 @@ from trinity.textual_app.widgets.status_modal import StatusCommandModal
 from trinity.textual_app.widgets.target_workspace_confirm_modal import (
     TargetWorkspaceConfirmModal,
 )
+from trinity.textual_app.widgets.work_package_detail_modal import WorkPackageDetailModal
 from trinity.textual_app.widgets.workspace_picker import WorkspacePicker, build_preflight
 from trinity.workflow import (
     WorkPackage,
@@ -232,6 +233,13 @@ def _local_command(snapshot: WorkflowNexusSnapshot, command: str) -> LocalComman
         if result.command == command:
             return result
     raise AssertionError(f"missing local command result for {command}")
+
+
+def _column_class(widget, expected: list[str]) -> str:
+    for class_name in expected:
+        if widget.has_class(class_name):
+            return class_name
+    raise AssertionError(f"missing expected column class on {widget!r}")
 
 
 def test_textual_app_localizes_command_palette_bindings_in_korean(tmp_path) -> None:
@@ -2364,7 +2372,124 @@ async def test_execution_matrix_separates_owner_and_executor(tmp_path) -> None:
         assert "claude fallback" in row_text
         assert "running" in row_text
         assert "high" in row_text
-        assert rows.first().query_one("#wp-detail-0", Button)
+        rows.first().query_one("#wp-detail-0", Button).press()
+        await pilot.pause()
+
+        assert isinstance(app.screen, WorkPackageDetailModal)
+        assert "WP-001: Rust contracts" in str(
+            app.screen.query_one("#work-package-detail-title", Static).content
+        )
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_header_uses_row_column_layout(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="프론트타입 기술 골격 수립",
+                        owner_agent="codex",
+                        current_executor="codex",
+                        status="done",
+                        review_status="-",
+                        risk="high",
+                    )
+                ]
+            ),
+        )
+        await pilot.pause()
+
+        expected_columns = [
+            "execution-package-task",
+            "execution-package-assignee",
+            "execution-package-executor",
+            "execution-package-status",
+            "execution-package-review",
+            "execution-package-risk",
+            "execution-package-spec",
+        ]
+        header = screen.query("#execution-package-list .execution-package-header").first()
+        row = screen.query("#execution-package-list .execution-package-row").first()
+
+        assert [_column_class(child, expected_columns) for child in header.children] == (
+            expected_columns
+        )
+        assert [_column_class(child, expected_columns) for child in row.children] == (
+            expected_columns
+        )
+        assert [child.region.x for child in header.children] == [
+            child.region.x for child in row.children
+        ]
+
+        await pilot.press("f")
+        await pilot.pause()
+
+        header = screen.query("#execution-package-list .execution-package-header").first()
+        row = screen.query("#execution-package-list .execution-package-row").first()
+        assert [child.region.x for child in header.children] == [
+            child.region.x for child in row.children
+        ]
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_expands_task_area(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+    long_title = (
+        "Build a very long execution task title with detailed Korean and English "
+        "context for monitoring"
+    )
+
+    async with app.run_test(size=(150, 44)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title=long_title,
+                        owner_agent="codex",
+                        status="pending",
+                    )
+                ]
+            ),
+        )
+        await pilot.pause()
+
+        compact_row = screen.query("#execution-package-list .execution-package-row").first()
+        compact_text = " ".join(str(child.render()) for child in compact_row.children)
+        execution_screen = screen.query_one("#execution-screen")
+        assert not execution_screen.has_class("execution-task-expanded")
+        assert "detailed Korean" not in compact_text
+
+        await pilot.press("f")
+        await pilot.pause()
+
+        expanded_row = screen.query("#execution-package-list .execution-package-row").first()
+        expanded_text = " ".join(str(child.render()) for child in expanded_row.children)
+        assert screen.tasks_expanded is True
+        assert execution_screen.has_class("execution-task-expanded")
+        assert "detailed Korean" in expanded_text
+        assert str(screen.query_one("#toggle-task-expanded", Button).label) == "Compact Tasks"
+
+        screen.query_one("#toggle-task-expanded", Button).press()
+        await pilot.pause()
+
+        assert screen.tasks_expanded is False
+        assert not execution_screen.has_class("execution-task-expanded")
+        assert str(screen.query_one("#toggle-task-expanded", Button).label) == "Expand Tasks"
 
 
 @pytest.mark.asyncio

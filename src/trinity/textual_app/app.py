@@ -599,10 +599,20 @@ class TrinityTextualApp(App[None]):
         padding: 1;
     }
 
+    #execution-header-row {
+        height: 1;
+    }
+
     #execution-header {
         height: 1;
+        width: 1fr;
         text-style: bold;
         color: $accent;
+    }
+
+    #toggle-task-expanded {
+        width: 16;
+        margin-left: 1;
     }
 
     #execution-package-list {
@@ -610,6 +620,10 @@ class TrinityTextualApp(App[None]):
         margin-top: 1;
         border: round $primary;
         padding: 0 1;
+    }
+
+    .execution-task-expanded #execution-package-list {
+        height: 1fr;
     }
 
     .execution-package-header {
@@ -623,6 +637,10 @@ class TrinityTextualApp(App[None]):
 
     .execution-package-task {
         width: 30;
+    }
+
+    .execution-task-expanded .execution-package-task {
+        width: 74;
     }
 
     .execution-package-assignee {
@@ -645,6 +663,10 @@ class TrinityTextualApp(App[None]):
         width: 11;
     }
 
+    .execution-package-spec {
+        width: 8;
+    }
+
     .execution-package-empty {
         color: $text-muted;
     }
@@ -654,6 +676,10 @@ class TrinityTextualApp(App[None]):
         border: round $primary;
         margin-top: 1;
         padding: 0 1;
+    }
+
+    .execution-task-expanded #execution-log {
+        height: 8;
     }
 
     #execution-retry-modal {

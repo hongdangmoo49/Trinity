@@ -84,6 +84,7 @@ def test_snapshot_projects_persisted_workflow(tmp_path) -> None:
     assert snapshot.synthesis.summary == "Use Textual screens."
     assert [question.question for question in snapshot.questions] == ["Which theme?"]
     assert snapshot.questions[0].options == ["dark"]
+    assert snapshot.workflow_events == ["state_changed: blueprint_ready"]
     assert snapshot.execution_log == ["state_changed: blueprint_ready"]
     assert snapshot.providers[0].enabled is True
     assert snapshot.providers[1].enabled is False

@@ -143,6 +143,7 @@ class WorkflowNexusSnapshot:
     work_package_details: list[WorkPackageSnapshot] = field(default_factory=list)
     subtasks: list[SubtaskSnapshot] = field(default_factory=list)
     work_package_repairs: list[str] = field(default_factory=list)
+    workflow_events: list[str] = field(default_factory=list)
     execution_log: list[str] = field(default_factory=list)
     execution_recovery: ExecutionRecoverySnapshot | None = None
     local_commands: list[LocalCommandSnapshot] = field(default_factory=list)
@@ -196,6 +197,7 @@ class NexusSnapshotAdapter:
             work_package_details=self._work_package_details(session),
             subtasks=self._subtasks(session),
             work_package_repairs=self._work_package_repairs(session),
+            workflow_events=self._workflow_events(session),
             execution_log=self._execution_log(session),
             execution_recovery=self._execution_recovery(session),
         )
@@ -683,6 +685,15 @@ class NexusSnapshotAdapter:
                 lines.append(self._format_execution_result(result))
         return lines
 
+    def _workflow_events(self, session: WorkflowSession | None) -> list[str]:
+        if session is None:
+            return []
+        return [
+            self._format_workflow_event(event)
+            for event in self.persistence.load_events()
+            if str(event.get("workflow_id", "")) == session.id
+        ]
+
     def _last_session_event(
         self,
         session: WorkflowSession,
@@ -712,6 +723,61 @@ class NexusSnapshotAdapter:
         if reason and status in {"failed", "blocked"}:
             line = f"{line} - {NexusSnapshotAdapter._short_summary(reason, limit=120)}"
         return line
+
+    @staticmethod
+    def _format_workflow_event(event: dict[str, object]) -> str:
+        event_name = str(event.get("event", "event"))
+        data = event.get("data", {})
+        data = data if isinstance(data, dict) else {}
+        prefix = NexusSnapshotAdapter._format_event_timestamp(event)
+
+        if event_name == "workflow_started":
+            goal = str(data.get("goal", "")).strip()
+            agents = data.get("active_agents", [])
+            agent_list = ", ".join(str(item) for item in agents) if isinstance(agents, list) else ""
+            detail = NexusSnapshotAdapter._short_summary(goal, limit=120) or "workflow"
+            if agent_list:
+                detail = f"{detail}; agents={agent_list}"
+            return f"{prefix}{event_name}: {detail}"
+
+        if event_name == "state_changed":
+            previous = str(data.get("from", "")).strip()
+            current = str(data.get("to", "") or event.get("state", "")).strip()
+            reason = str(data.get("reason", "")).strip()
+            detail = f"{previous} -> {current}" if previous else current
+            if reason:
+                detail = f"{detail}; {reason}"
+            return f"{prefix}{event_name}: {detail or event_name}"
+
+        if event_name in {"decision_recorded", "decision_replaced"}:
+            question_id = str(data.get("question_id", "")).strip()
+            decision = str(data.get("decision", "")).strip()
+            detail = question_id or str(data.get("decision_id", "")).strip()
+            if decision:
+                decision = NexusSnapshotAdapter._short_summary(decision, limit=140)
+                detail = f"{detail}: {decision}" if detail else decision
+            return f"{prefix}{event_name}: {detail or event_name}"
+
+        if event_name == "workflow_continued":
+            instruction = str(data.get("instruction", "")).strip()
+            source_state = str(data.get("source_state", "")).strip()
+            detail = NexusSnapshotAdapter._short_summary(instruction, limit=140)
+            if source_state:
+                detail = f"{detail}; from={source_state}" if detail else f"from={source_state}"
+            return f"{prefix}{event_name}: {detail or event_name}"
+
+        if event_name == "target_workspace_cleared":
+            return f"{prefix}{event_name}"
+
+        if event_name == "work_package_retry_skipped":
+            package_id = str(data.get("package_id", "")).strip()
+            reason = str(data.get("reason", "")).strip()
+            detail = package_id
+            if reason:
+                detail = f"{detail} - {reason}" if detail else reason
+            return f"{prefix}{event_name}: {detail or event_name}"
+
+        return NexusSnapshotAdapter._format_execution_event(event)
 
     @staticmethod
     def _format_execution_event(event: dict[str, object]) -> str:

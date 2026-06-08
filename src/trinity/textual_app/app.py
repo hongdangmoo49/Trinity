@@ -1323,6 +1323,29 @@ class TrinityTextualApp(App[None]):
             or self.snapshot_adapter.load_snapshot()
         )
 
+    def _fresh_textual_snapshot(self) -> WorkflowNexusSnapshot:
+        """Return the latest persisted/controller snapshot, ignoring stale UI state."""
+        return self.workflow_controller.snapshot() or self.snapshot_adapter.load_snapshot()
+
+    def _refresh_current_route_from_active_snapshot(self) -> None:
+        """Re-apply the active snapshot after Textual finishes a screen switch."""
+        if not self._screens_installed:
+            return
+        snapshot = (
+            self.active_snapshot
+            or self.workflow_controller.snapshot()
+            or self.snapshot_adapter.load_snapshot()
+        )
+        if self.current_route == "nexus":
+            self.get_screen("nexus", NexusScreen).apply_snapshot(snapshot)
+        elif self.current_route == "execution" and self.confirmed_preflight is not None:
+            self.get_screen("execution", ExecutionMatrixScreen).apply_execution_state(
+                self.confirmed_preflight,
+                snapshot,
+            )
+        elif self.current_route == "report":
+            self.get_screen("report", ReportScreen).apply_snapshot(snapshot)
+
     def _with_local_command_results(
         self,
         snapshot: WorkflowNexusSnapshot,
@@ -1679,6 +1702,7 @@ class TrinityTextualApp(App[None]):
             or snapshot.work_packages
             or snapshot.subtasks
             or snapshot.work_package_repairs
+            or snapshot.workflow_events
             or snapshot.execution_log
         )
 
@@ -1724,9 +1748,15 @@ class TrinityTextualApp(App[None]):
         if snapshot.work_package_repairs:
             lines.extend(["", "### Local Policy Repairs"])
             lines.extend(f"- {item}" for item in snapshot.work_package_repairs)
-        if snapshot.execution_log:
-            lines.extend(["", "### Recent Execution Log"])
-            lines.extend(f"- {item}" for item in snapshot.execution_log[-8:])
+        if snapshot.workflow_events:
+            lines.extend(["", "### Workflow History"])
+            lines.extend(f"- {item}" for item in snapshot.workflow_events)
+        extra_execution_log = [
+            item for item in snapshot.execution_log if item not in snapshot.workflow_events
+        ]
+        if extra_execution_log:
+            lines.extend(["", "### Execution Results"])
+            lines.extend(f"- {item}" for item in extra_execution_log)
         return "\n".join(lines)
 
     @staticmethod
@@ -1890,7 +1920,7 @@ class TrinityTextualApp(App[None]):
 
     def _handle_textual_context_command(self, command: str) -> None:
         """Show the current session context without reading stale shared.md state."""
-        snapshot = self._current_textual_snapshot()
+        snapshot = self._fresh_textual_snapshot()
         body = self._snapshot_context_markdown(snapshot)
         if not self._snapshot_has_current_context(snapshot):
             if self.current_route == "start":
@@ -2336,6 +2366,7 @@ class TrinityTextualApp(App[None]):
                     outcome.snapshot,
                     "Previous execution was interrupted before Trinity could collect all results.",
                 )
+            self._handle_textual_context_command("/context")
 
     @staticmethod
     def _resume_archives_markdown(
@@ -2525,6 +2556,8 @@ class TrinityTextualApp(App[None]):
             )
         self.current_route = route
         self.switch_screen(route)
+        if self.active_snapshot is not None:
+            self.call_after_refresh(self._refresh_current_route_from_active_snapshot)
 
     def action_go_start(self) -> None:
         self.active_snapshot = None

@@ -218,6 +218,13 @@ def _binding_tooltip(bindings_map, key: str, action: str) -> str:
     raise AssertionError(f"missing binding {key} -> {action}")
 
 
+def _local_command(snapshot: WorkflowNexusSnapshot, command: str) -> LocalCommandSnapshot:
+    for result in snapshot.local_commands:
+        if result.command == command:
+            return result
+    raise AssertionError(f"missing local command result for {command}")
+
+
 def test_textual_app_localizes_command_palette_bindings_in_korean(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
 
@@ -243,6 +250,10 @@ def test_status_modal_centers_and_uses_read_only_table() -> None:
     assert "Workflow" in text
 
 
+def test_resume_picker_modal_centers() -> None:
+    assert "align: center middle" in ResumeWorkflowPicker.DEFAULT_CSS
+
+
 def test_status_reports_interrupted_execution() -> None:
     snapshot = WorkflowNexusSnapshot(
         session_id="wf-interrupted",
@@ -265,6 +276,27 @@ def test_status_reports_interrupted_execution() -> None:
     assert "Execution: `interrupted`" in markdown
     assert ("Execution", "interrupted") in rows
     assert ("Retry candidates", "WP-001, WP-003") in rows
+
+
+def test_context_markdown_includes_full_workflow_history() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-history",
+        goal="Resume workflow",
+        state="blueprint_ready",
+        workflow_events=[f"event-{index}" for index in range(1, 13)],
+        execution_log=[
+            *(f"event-{index}" for index in range(1, 13)),
+            "WP-001 claude: failed - missing file",
+        ],
+    )
+
+    markdown = TrinityTextualApp._snapshot_context_markdown(snapshot)
+
+    assert "### Workflow History" in markdown
+    assert "- event-1" in markdown
+    assert "- event-12" in markdown
+    assert "### Execution Results" in markdown
+    assert "WP-001 claude: failed - missing file" in markdown
 
 
 @pytest.mark.asyncio
@@ -1472,10 +1504,16 @@ async def test_nexus_slash_resume_routes_to_controller(tmp_path) -> None:
         assert controller.resumes == ["latest"]
         assert app.active_snapshot is not None
         assert app.active_snapshot.session_id == "wf-resumed-latest"
-        result = app.active_snapshot.local_commands[-1]
-        assert result.command == "/resume"
-        assert result.title == "Resume"
-        assert ("Workflow", "wf-resumed-latest") in result.table_rows
+        assert screen.snapshot is not None
+        assert screen.snapshot.session_id == "wf-resumed-latest"
+        assert screen.query_one(CentralAgentView).snapshot is not None
+        assert screen.query_one(CentralAgentView).snapshot.session_id == "wf-resumed-latest"
+        resume_result = _local_command(app.active_snapshot, "/resume")
+        assert resume_result.title == "Resume"
+        assert ("Workflow", "wf-resumed-latest") in resume_result.table_rows
+        context_result = _local_command(app.active_snapshot, "/context")
+        assert context_result.title == "Context"
+        assert "wf-resumed-latest" in context_result.body
 
 
 @pytest.mark.asyncio
@@ -1512,10 +1550,90 @@ async def test_start_slash_resume_picker_selection_switches_to_nexus(tmp_path) -
         assert isinstance(app.screen, NexusScreen)
         assert app.active_snapshot is not None
         assert app.active_snapshot.session_id == "wf-resumed-1"
-        result = app.active_snapshot.local_commands[-1]
-        assert result.command == "/resume"
-        assert result.title == "Resume"
-        assert ("Workflow", "wf-resumed-1") in result.table_rows
+        assert app.screen.snapshot is not None
+        assert app.screen.snapshot.session_id == "wf-resumed-1"
+        central = app.screen.query_one(CentralAgentView)
+        assert central.snapshot is not None
+        assert central.snapshot.session_id == "wf-resumed-1"
+        resume_result = _local_command(app.active_snapshot, "/resume")
+        assert resume_result.title == "Resume"
+        assert ("Workflow", "wf-resumed-1") in resume_result.table_rows
+        context_result = _local_command(app.active_snapshot, "/context")
+        assert context_result.title == "Context"
+        assert "wf-resumed-1" in context_result.body
+
+
+@pytest.mark.asyncio
+async def test_resume_picker_arrow_keys_select_archive(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    controller.resume_options = [
+        TextualWorkflowArchiveOption(
+            selector="1",
+            session_id="wf-first",
+            goal="first goal",
+            state="blueprint_ready",
+            updated_at=1000.0,
+        ),
+        TextualWorkflowArchiveOption(
+            selector="2",
+            session_id="wf-second",
+            goal="second goal",
+            state="needs_user_decision",
+            updated_at=2000.0,
+        ),
+    ]
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+        composer.set_text("/resume")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ResumeWorkflowPicker)
+        await pilot.press("down")
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert controller.resumes == ["2"]
+        assert app.current_route == "nexus"
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.session_id == "wf-resumed-2"
+        context_result = _local_command(app.active_snapshot, "/context")
+        assert "wf-resumed-2" in context_result.body
+
+
+@pytest.mark.asyncio
+async def test_resume_picker_arrow_keys_scroll_long_archive_list(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    controller.resume_options = [
+        TextualWorkflowArchiveOption(
+            selector=str(index),
+            session_id=f"wf-{index:02d}",
+            goal=f"archived goal {index}",
+            state="blueprint_ready",
+            updated_at=1000.0 + index,
+        )
+        for index in range(1, 31)
+    ]
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+        composer.set_text("/resume")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ResumeWorkflowPicker)
+        archive_list = app.screen.query_one("#resume-archive-list", VerticalScroll)
+        assert archive_list.scroll_y == 0
+
+        for _ in range(18):
+            await pilot.press("down")
+        await pilot.pause()
+
+        assert app.screen.selected_index == 18
+        assert archive_list.scroll_y > 0
 
 
 @pytest.mark.asyncio
@@ -1557,9 +1675,10 @@ async def test_nexus_slash_resume_without_selector_opens_archive_picker(tmp_path
         assert controller.resumes == ["1"]
         assert app.active_snapshot is not None
         assert app.active_snapshot.session_id == "wf-resumed-1"
-        result = app.active_snapshot.local_commands[-1]
-        assert result.command == "/resume"
-        assert ("Workflow", "wf-resumed-1") in result.table_rows
+        resume_result = _local_command(app.active_snapshot, "/resume")
+        assert ("Workflow", "wf-resumed-1") in resume_result.table_rows
+        context_result = _local_command(app.active_snapshot, "/context")
+        assert "wf-resumed-1" in context_result.body
 
 
 @pytest.mark.asyncio

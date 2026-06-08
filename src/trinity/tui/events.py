@@ -32,6 +32,13 @@ class TUIEventType(str, Enum):
     WORK_PACKAGE_STARTED = "work_package_started"
     WORK_PACKAGE_COMPLETED = "work_package_completed"
     EXECUTION_DONE = "execution_done"
+    REVIEW_START = "review_start"
+    WORK_PACKAGE_REVIEW_STARTED = "work_package_review_started"
+    WORK_PACKAGE_REVIEW_COMPLETED = "work_package_review_completed"
+    WORK_PACKAGE_REPAIR_REQUESTED = "work_package_repair_requested"
+    FINAL_REVIEW_STARTED = "final_review_started"
+    FINAL_REVIEW_COMPLETED = "final_review_completed"
+    REVIEW_DONE = "review_done"
     DELIBERATION_DONE = "deliberation_done"
 
 

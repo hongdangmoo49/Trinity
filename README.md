@@ -172,7 +172,7 @@ Trinity는 기본 실행 화면으로 **Textual 기반 Workbench TUI**를 제공
 변경은 `Execute`를 누른 뒤 workspace preflight를 승인해야 시작됩니다.
 
 ```
-  ┌ Trinity v0.10.3 ─ Nexus ─ workflow: planning ┐
+  ┌ Trinity v0.12.0 ─ Nexus ─ workflow: planning ┐
   │ Claude              │ Codex              │ Antigravity │
   │ Ready               │ Running            │ Ready       │
   ├───────────────────────────────────────────────────────────┤

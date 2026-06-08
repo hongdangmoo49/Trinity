@@ -4,10 +4,14 @@ import pytest
 
 from trinity.workflow.models import ExecutionResult, WorkPackage, WorkStatus
 from trinity.workflow.review import (
+    FINAL_REVIEW_FALLBACK_PRIORITY,
+    FINAL_REVIEW_PACKAGE_ID,
     PeerReviewPlanner,
     ReviewPackage,
     ReviewResult,
     ReviewStatus,
+    final_review_criteria,
+    final_review_package,
 )
 
 
@@ -106,6 +110,9 @@ def test_review_package_round_trips_to_dict():
     assert restored.criteria == ["Verify tests"]
     assert restored.self_review is False
     assert restored.execution_status == WorkStatus.DONE
+    assert restored.scope == "work_package"
+    assert restored.attempt == 1
+    assert restored.created_at > 0
 
 
 def test_review_result_round_trips_to_dict(tmp_path):
@@ -120,6 +127,11 @@ def test_review_result_round_trips_to_dict(tmp_path):
         required_changes=["Add retry failure test"],
         follow_up=["Re-run focused pytest"],
         raw_response_path=tmp_path / "review.raw.txt",
+        severity="high",
+        reviewed_files=["src/retry.py"],
+        performance_notes=["Retry loop has bounded backoff."],
+        anti_patterns=["Broad exception handling hides root cause."],
+        execution_risks=["Retry may fail under missing workspace."],
     )
 
     restored = ReviewResult.from_dict(result.to_dict())
@@ -131,3 +143,22 @@ def test_review_result_round_trips_to_dict(tmp_path):
     assert restored.required_changes == ["Add retry failure test"]
     assert restored.follow_up == ["Re-run focused pytest"]
     assert restored.raw_response_path == tmp_path / "review.raw.txt"
+    assert restored.severity == "high"
+    assert restored.scope == "work_package"
+    assert restored.reviewed_files == ["src/retry.py"]
+    assert restored.performance_notes == ["Retry loop has bounded backoff."]
+    assert restored.anti_patterns == ["Broad exception handling hides root cause."]
+    assert restored.execution_risks == ["Retry may fail under missing workspace."]
+
+
+def test_final_review_package_uses_codex_first_fallback_contract():
+    assert FINAL_REVIEW_FALLBACK_PRIORITY == ("codex", "claude", "antigravity")
+
+    review = final_review_package(FINAL_REVIEW_FALLBACK_PRIORITY[0])
+
+    assert review.package_id == FINAL_REVIEW_PACKAGE_ID
+    assert review.reviewer_agent == "codex"
+    assert review.target_agent == "project"
+    assert review.scope == "final"
+    assert review.self_review is False
+    assert "project overview" in " ".join(final_review_criteria()).lower()

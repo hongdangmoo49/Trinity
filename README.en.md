@@ -172,7 +172,7 @@ the central synthesis view organize questions and consensus. File changes only
 start after you choose `Execute` and approve the workspace preflight.
 
 ```
-  ┌ Trinity v0.10.3 ─ Nexus ─ workflow: planning ┐
+  ┌ Trinity v0.12.0 ─ Nexus ─ workflow: planning ┐
   │ Claude              │ Codex              │ Antigravity │
   │ Ready               │ Running            │ Ready       │
   ├───────────────────────────────────────────────────────────┤

@@ -105,6 +105,8 @@ class CentralAgentView(VerticalScroll):
                     "Planning does not require a workspace.",
                 ]
             )
+        self._append_work_package_sections(lines, snapshot)
+        self._append_execution_summary(lines, snapshot)
         if snapshot.local_commands:
             lines.extend(["", "### Local Command Results"])
             for item in snapshot.local_commands:
@@ -116,20 +118,42 @@ class CentralAgentView(VerticalScroll):
                 )
                 if item.action_hint:
                     lines.append(f"_Next:_ {item.action_hint}")
+        if snapshot.final_review is not None:
+            review = snapshot.final_review
+            lines.extend(
+                [
+                    "",
+                    "### Final Review",
+                    (
+                        f"- `{review.status or 'unknown'}` by "
+                        f"`{review.reviewer_agent or '(unknown)'}`"
+                    ),
+                ]
+            )
+            if review.summary:
+                lines.append(f"- {review.summary}")
+        if snapshot.post_review_items:
+            lines.extend(["", "### Suggested Follow-up Work"])
+            for item in snapshot.post_review_items:
+                title = item.title or item.summary or item.id
+                lines.append(
+                    f"- **{item.id}** [{item.severity}][{item.status}] "
+                    f"{title}"
+                )
+            lines.append("")
+            lines.append("Use `/improve high`, `/improve all`, `/improve AI-001`, or `/improve done`.")
+        elif snapshot.state == "post_review_ready":
+            lines.extend(
+                [
+                    "",
+                    "### Suggested Follow-up Work",
+                    "No action items were extracted from the final review.",
+                    "Use `/improve done` to close the workflow.",
+                ]
+            )
         if snapshot.decisions:
             lines.extend(["", "### Decisions"])
             lines.extend(f"- {item}" for item in snapshot.decisions)
-        if snapshot.central_work_packages:
-            lines.extend(["", "### Central WP Graph"])
-            lines.extend(f"- {item}" for item in snapshot.central_work_packages)
-        if snapshot.work_packages:
-            heading = (
-                "### Local WP Graph"
-                if snapshot.central_work_packages
-                else "### Work Packages"
-            )
-            lines.extend(["", heading])
-            lines.extend(f"- {item}" for item in snapshot.work_packages)
         if snapshot.subtasks:
             lines.extend(["", "### Subtasks"])
             for subtask in snapshot.subtasks:
@@ -144,6 +168,81 @@ class CentralAgentView(VerticalScroll):
             lines.extend(["", "### Local Policy Repairs"])
             lines.extend(f"- {item}" for item in snapshot.work_package_repairs)
         return "\n".join(lines)
+
+    def _append_work_package_sections(
+        self,
+        lines: list[str],
+        snapshot: WorkflowNexusSnapshot,
+    ) -> None:
+        if snapshot.central_work_packages:
+            lines.extend(["", "### Central WP Graph"])
+            lines.extend(f"- {item}" for item in snapshot.central_work_packages)
+        if snapshot.work_packages:
+            heading = (
+                "### Local WP Graph"
+                if snapshot.central_work_packages
+                else "### Work Packages"
+            )
+            lines.extend(["", heading])
+            lines.extend(f"- {item}" for item in snapshot.work_packages)
+
+    def _append_execution_summary(
+        self,
+        lines: list[str],
+        snapshot: WorkflowNexusSnapshot,
+    ) -> None:
+        executed = [
+            package
+            for package in snapshot.work_package_details
+            if package.last_result_status
+            or package.last_result_summary
+            or package.last_result_files_changed
+            or package.last_result_blockers
+        ]
+        if not executed:
+            return
+
+        status_counts: dict[str, int] = {}
+        for package in executed:
+            key = package.last_result_status or "unknown"
+            status_counts[key] = status_counts.get(key, 0) + 1
+        counts = ", ".join(
+            f"{status}={count}" for status, count in sorted(status_counts.items())
+        )
+
+        lines.extend(["", "### Execution Result Summary"])
+        lines.append(f"- Results: `{counts}`")
+        for package in executed:
+            result_status = package.last_result_status or "unknown"
+            package_status = package.status or "unknown"
+            executor = (
+                package.last_result_agent
+                or package.last_executor
+                or package.owner_agent
+                or "(unknown)"
+            )
+            summary = package.last_result_summary or "(no summary)"
+            lines.append(
+                f"- **{package.id}** [{result_status} -> {package_status}] "
+                f"`{executor}`: {package.title or package.id} - {summary}"
+            )
+            files = self._compact_list(package.last_result_files_changed)
+            blockers = self._compact_list(package.last_result_blockers)
+            if files:
+                lines.append(f"  - Files: {files}")
+            if blockers:
+                lines.append(f"  - Blockers: {blockers}")
+
+    @staticmethod
+    def _compact_list(values: list[str], *, limit: int = 5) -> str:
+        items = [value for value in values if value]
+        if not items:
+            return ""
+        rendered = ", ".join(items[:limit])
+        remaining = len(items) - limit
+        if remaining > 0:
+            rendered = f"{rendered}, +{remaining} more"
+        return rendered
 
     def _render_local_command_tables(
         self,

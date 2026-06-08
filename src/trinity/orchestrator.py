@@ -44,6 +44,8 @@ from trinity.workspace.managed_home import ManagedHome
 from trinity.workflow.execution import ExecutionProtocol
 from trinity.workflow.lifecycle import LifecycleGuard
 from trinity.workflow.models import DecisionRecord, ExecutionResult, WorkPackage
+from trinity.workflow.review import ReviewPackage, ReviewResult
+from trinity.workflow.review_execution import ReviewExecutionProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +114,7 @@ class TrinityOrchestrator:
         self.shared: SharedContextEngine | None = None
         self.protocol: DeliberationProtocol | None = None
         self.execution_protocol: ExecutionProtocol | None = None
+        self.review_protocol: ReviewExecutionProtocol | None = None
         self.tmux_manager: TmuxSessionManager | None = None
         self.context_monitor: ContextMonitor | None = None
         self.session_rotator: SessionRotator | None = None
@@ -136,6 +139,8 @@ class TrinityOrchestrator:
             self.protocol._event_callback = bus.emit
         if self.execution_protocol:
             self.execution_protocol._event_callback = bus.emit
+        if self.review_protocol:
+            self.review_protocol._event_callback = bus.emit
 
     def _ensure_initialized(self) -> None:
         """Lazy initialization: create agents, shared context, protocol."""
@@ -213,6 +218,13 @@ class TrinityOrchestrator:
             target_workspace=self.target_workspace,
             control_repo=self.config.project_dir,
             allow_control_repo_writes=self.allow_control_repo_writes,
+        )
+        self.review_protocol = ReviewExecutionProtocol(
+            agents=self.agents,
+            shared=self.shared,
+            artifact_dir=state_dir / "reviews",
+            timeout=self.config.execution_timeout_seconds,
+            event_callback=event_callback,
         )
 
         # Create context monitor and session rotator
@@ -540,6 +552,40 @@ class TrinityOrchestrator:
             **run_kwargs,
         )
 
+    async def review_work_packages(
+        self,
+        review_packages: list[ReviewPackage],
+        work_packages: list[WorkPackage],
+        execution_results: list[ExecutionResult],
+    ) -> list[ReviewResult]:
+        """Run provider-backed reviews for completed work packages."""
+        self._ensure_initialized()
+        if not self.review_protocol:
+            raise RuntimeError("Review protocol was not initialized")
+        await self._ensure_agents_started()
+        return await self.review_protocol.review_work_packages(
+            review_packages,
+            work_packages,
+            execution_results,
+        )
+
+    async def review_final_execution(
+        self,
+        work_packages: list[WorkPackage],
+        execution_results: list[ExecutionResult],
+        review_results: list[ReviewResult],
+    ) -> ReviewResult:
+        """Run the final whole-project review with codex/claude/antigravity fallback."""
+        self._ensure_initialized()
+        if not self.review_protocol:
+            raise RuntimeError("Review protocol was not initialized")
+        await self._ensure_agents_started()
+        return await self.review_protocol.review_final_execution(
+            work_packages,
+            execution_results,
+            review_results,
+        )
+
     async def _ensure_agents_started(self) -> None:
         """Start active agents before a deliberation or execution-only run."""
         for name, agent in self.agents.items():
@@ -616,6 +662,8 @@ class TrinityOrchestrator:
             )
         if self.execution_protocol:
             self.execution_protocol.agents = ready_agents
+        if self.review_protocol:
+            self.review_protocol.agents = ready_agents
         if self.context_monitor:
             self.context_monitor.agents = ready_agents
         if self.session_rotator:

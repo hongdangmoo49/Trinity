@@ -11,7 +11,11 @@ from trinity.workflow import (
     Blueprint,
     ExecutionResult,
     OpenQuestion,
+    PostReviewActionItem,
+    PostReviewActionStatus,
     WorkflowPersistence,
+    ReviewResult,
+    ReviewStatus,
     WorkflowSession,
     WorkflowState,
     WorkPackage,
@@ -142,6 +146,110 @@ def test_snapshot_projects_central_and_repaired_work_package_graph(tmp_path) -> 
         "WP-001: owner reassigned from 'missing' to 'claude'",
         f"WP-001: {missing_dependency_note}",
     ]
+
+
+def test_snapshot_projects_work_package_and_final_review_results(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-review",
+            goal="Build UI",
+            state=WorkflowState.REVIEWING,
+            active_agents=["claude", "codex"],
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="Frontend shell",
+                    owner_agent="claude",
+                    objective="Build the shell.",
+                    status=WorkStatus.DONE,
+                )
+            ],
+            review_results=[
+                ReviewResult(
+                    review_package_id="RP-WP-001-codex",
+                    package_id="WP-001",
+                    reviewer_agent="codex",
+                    target_agent="claude",
+                    status=ReviewStatus.CHANGES_REQUESTED,
+                    severity="high",
+                    summary="Needs safer terminal handling.",
+                    required_changes=["Add resize regression test."],
+                    performance_notes=["Rendering remains bounded."],
+                ).to_dict(),
+                ReviewResult(
+                    review_package_id="RP-FINAL-codex",
+                    package_id="FINAL",
+                    reviewer_agent="codex",
+                    target_agent="project",
+                    status=ReviewStatus.APPROVED,
+                    severity="low",
+                    scope="final",
+                    summary="Project is coherent and runnable.",
+                    compatibility_notes=["Textual UI remains compatible."],
+                ).to_dict(),
+            ],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    package = snapshot.work_package_details[0]
+    assert package.review_status == "changes_requested"
+    assert package.reviewer_agent == "codex"
+    assert package.review_severity == "high"
+    assert package.review_required_changes == ["Add resize regression test."]
+    assert snapshot.final_review is not None
+    assert snapshot.final_review.status == "approved"
+    assert snapshot.final_review.summary == "Project is coherent and runnable."
+    assert snapshot.final_review.compatibility_notes == ["Textual UI remains compatible."]
+
+
+def test_snapshot_projects_post_review_follow_up_items(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-post-review",
+            goal="Build UI",
+            state=WorkflowState.POST_REVIEW_READY,
+            active_agents=["claude"],
+            post_review_items=[
+                PostReviewActionItem(
+                    id="AI-001",
+                    source="final_review",
+                    kind="test",
+                    severity="high",
+                    title="Add regression tests",
+                    summary="Add final review regression tests.",
+                    suggested_owner="claude",
+                    status=PostReviewActionStatus.PROPOSED,
+                    related_wp_ids=["WP-001"],
+                ).to_dict()
+            ],
+            follow_up_requests=[
+                {
+                    "id": "fur-001",
+                    "text": "/improve high",
+                    "source_state": "post_review_ready",
+                    "accepted_action_item_ids": ["AI-001"],
+                }
+            ],
+            supplemental_round=1,
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert snapshot.state == "post_review_ready"
+    assert snapshot.supplemental_round == 1
+    assert len(snapshot.post_review_items) == 1
+    item = snapshot.post_review_items[0]
+    assert item.id == "AI-001"
+    assert item.status == "proposed"
+    assert item.related_wp_ids == ("WP-001",)
+    assert snapshot.follow_up_requests == ["fur-001: /improve high"]
 
 
 def test_snapshot_keeps_answered_question_history(tmp_path) -> None:

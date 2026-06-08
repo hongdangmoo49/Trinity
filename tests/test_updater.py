@@ -138,7 +138,7 @@ def test_apply_startup_update_refuses_dirty_worktree(tmp_path: Path) -> None:
     update = StartupUpdate(
         source="git",
         current_version="0.11.1",
-        latest_version="0.11.2",
+        latest_version="0.12.0",
         detail="origin/main has 1 new commit.",
         repo_root=tmp_path,
         upstream="origin/main",
@@ -168,7 +168,7 @@ def test_apply_startup_update_runs_fast_forward_pull(tmp_path: Path) -> None:
     update = StartupUpdate(
         source="git",
         current_version="0.11.1",
-        latest_version="0.11.2",
+        latest_version="0.12.0",
         detail="origin/main has 1 new commit.",
         repo_root=tmp_path,
         upstream="origin/main",

@@ -18,13 +18,16 @@ from trinity.tui.events import TUIEvent, TUIEventBus, TUIEventType
 from trinity.workflow import (
     ExecutionRetryPlan,
     ExecutionResult,
+    ReviewPackage,
+    ReviewResult,
+    ReviewStatus,
     WorkflowEngine,
     WorkflowInputAction,
     WorkflowPersistence,
     WorkflowState,
 )
 
-RunKind = Literal["deliberation", "execution"]
+RunKind = Literal["deliberation", "execution", "review"]
 OrchestratorFactory = Callable[..., TrinityOrchestrator]
 
 
@@ -76,6 +79,7 @@ class TextualWorkflowController:
         self._run_kind: RunKind | None = None
         self._result: DeliberationResult | None = None
         self._execution_results: list[ExecutionResult] | None = None
+        self._review_results: list[ReviewResult] | None = None
         self._error: Exception | None = None
         self._completion_pending = False
         self._recent_events: list[TUIEvent] = []
@@ -99,7 +103,13 @@ class TextualWorkflowController:
         self._recent_events = []
         return self._outcome()
 
-    def start_prompt(self, prompt: str) -> TextualWorkflowOutcome:
+    def start_prompt(
+        self,
+        prompt: str,
+        *,
+        target_workspace: Path | None = None,
+        control_repo_confirmed: bool = False,
+    ) -> TextualWorkflowOutcome:
         """Start a workflow from the first Textual prompt."""
         if self.is_running:
             return self._outcome(message="Workflow is already running.", running=True)
@@ -108,6 +118,11 @@ class TextualWorkflowController:
             return self._outcome(message="No active agents are configured.")
         self._recent_events = []
         action = self.workflow.start(prompt, active_agents)
+        if target_workspace is not None:
+            self.workflow.set_target_workspace(
+                target_workspace,
+                control_repo_confirmed=control_repo_confirmed,
+            )
         return self._apply_action(action)
 
     def submit_follow_up(self, text: str) -> TextualWorkflowOutcome:
@@ -224,6 +239,59 @@ class TextualWorkflowController:
             execution_requested=True,
         )
 
+    def request_review(
+        self,
+        args: tuple[str, ...] | list[str] = (),
+    ) -> TextualWorkflowOutcome:
+        """Run pending work package and/or final project review."""
+        if self.is_running:
+            return self._outcome(message="Workflow is still running.", running=True)
+
+        active_agents = self._active_agent_names()
+        if not active_agents:
+            return self._outcome(message="No active agents are configured.")
+        selector, package_ids = self._parse_review_request_args(args)
+        if self.workflow.session.target_workspace is None:
+            return self._outcome(
+                message="Choose a target workspace before running review.",
+                target_workspace_required=True,
+            )
+
+        selected_reviews: list[ReviewPackage] = []
+        if selector in {"all", "wp"}:
+            self.workflow.ensure_review_packages()
+            selected_reviews = self.workflow.review_packages_for_request(
+                "wp",
+                package_ids,
+            )
+        final_requested = selector in {"all", "final"}
+        if not selected_reviews and not final_requested:
+            return self._outcome(
+                message="No pending work package reviews match the request.",
+            )
+
+        self._start_review(selector, tuple(package_ids), tuple(selected_reviews))
+        return self._outcome(
+            message=f"Review started: {selector}.",
+            running=True,
+        )
+
+    def request_improvement(
+        self,
+        args: tuple[str, ...] | list[str] = (),
+    ) -> TextualWorkflowOutcome:
+        """Handle post-review follow-up selection or supplemental work."""
+        if self.is_running:
+            return self._outcome(message="Workflow is still running.", running=True)
+        active_agents = self._active_agent_names()
+        if not active_agents:
+            return self._outcome(message="No active agents are configured.")
+        action = self.workflow.handle_post_review_input(
+            " ".join(str(arg) for arg in args),
+            active_agents,
+        )
+        return self._apply_action(action)
+
     def set_target_workspace(
         self,
         path: Path,
@@ -300,12 +368,14 @@ class TextualWorkflowController:
             run_kind = self._run_kind
             result = self._result
             execution_results = self._execution_results
+            review_results = self._review_results
             error = self._error
             if completion_pending:
                 self._completion_pending = False
                 self._run_kind = None
                 self._result = None
                 self._execution_results = None
+                self._review_results = None
                 self._error = None
 
         if completion_pending:
@@ -319,6 +389,19 @@ class TextualWorkflowController:
                 self.workflow.mark_deliberation_result(result)
             elif run_kind == "execution" and execution_results is not None:
                 self.workflow.record_execution_results(execution_results, emit_events=False)
+                if self._should_auto_review_after_execution():
+                    selected_reviews = tuple(self.workflow.review_packages_for_request("wp"))
+                    self._start_review("all", (), selected_reviews)
+                    message = "Review started after execution."
+            elif run_kind == "review" and review_results is not None:
+                self.workflow.record_review_results(review_results)
+                repair_packages = self.workflow.prepare_review_repairs(review_results)
+                if repair_packages:
+                    self._start_execution()
+                    message = (
+                        "Review requested repairs; restarting execution for: "
+                        f"{', '.join(repair_packages)}."
+                    )
 
         if events or completion_changed:
             return self._outcome(message=message, running=self.is_running)
@@ -430,12 +513,77 @@ class TextualWorkflowController:
         )
         self._thread.start()
 
+    def _start_review(
+        self,
+        selector: str,
+        package_ids: tuple[str, ...],
+        selected_reviews: tuple[ReviewPackage, ...],
+    ) -> None:
+        bus = TUIEventBus()
+        use_tmux = self._uses_tmux_transport()
+        self._prepare_background_run(bus, "review")
+
+        work_packages = list(self.workflow.session.work_packages)
+        execution_results = list(self.workflow.session.execution_results)
+        existing_review_results = list(self.workflow.review_results)
+        target_workspace = self.workflow.session.target_workspace
+        allow_control_repo_writes = self.workflow.session.control_repo_target_confirmed
+
+        async def _review(orchestrator: TrinityOrchestrator) -> list[ReviewResult]:
+            results: list[ReviewResult] = []
+            if selector in {"all", "wp"} and selected_reviews:
+                results.extend(
+                    await orchestrator.review_work_packages(
+                        list(selected_reviews),
+                        work_packages,
+                        execution_results,
+                    )
+                )
+            if selector in {"all", "final"}:
+                if selector == "all" and any(
+                    result.status != ReviewStatus.APPROVED for result in results
+                ):
+                    return results
+                final = await orchestrator.review_final_execution(
+                    work_packages,
+                    execution_results,
+                    [*existing_review_results, *results],
+                )
+                results.append(final)
+            return results
+
+        def _run() -> None:
+            try:
+                orchestrator = self.orchestrator_factory(
+                    self.config,
+                    interactive=use_tmux,
+                    target_workspace=target_workspace,
+                    allow_control_repo_writes=allow_control_repo_writes,
+                )
+                orchestrator.set_event_bus(bus)
+                results = asyncio.run(_review(orchestrator))
+                with self._lock:
+                    self._review_results = results
+                    self._completion_pending = True
+            except Exception as exc:  # pragma: no cover - defensive runtime guard
+                with self._lock:
+                    self._error = exc
+                    self._completion_pending = True
+
+        self._thread = threading.Thread(
+            target=_run,
+            name="trinity-textual-review",
+            daemon=True,
+        )
+        self._thread.start()
+
     def _prepare_background_run(self, bus: TUIEventBus, run_kind: RunKind) -> None:
         with self._lock:
             self._bus = bus
             self._run_kind = run_kind
             self._result = None
             self._execution_results = None
+            self._review_results = None
             self._error = None
             self._completion_pending = False
         self._recent_events = []
@@ -529,3 +677,26 @@ class TextualWorkflowController:
 
     def _uses_tmux_transport(self) -> bool:
         return self.config.transport_mode.lower() == "tmux"
+
+    def _should_auto_review_after_execution(self) -> bool:
+        if self.workflow.state != WorkflowState.REVIEWING:
+            return False
+        if self.workflow.session.target_workspace is None:
+            return False
+        if not self.workflow.session.review_packages:
+            return False
+        if not self._active_agent_names():
+            return False
+        return True
+
+    @staticmethod
+    def _parse_review_request_args(
+        args: tuple[str, ...] | list[str],
+    ) -> tuple[str, tuple[str, ...]]:
+        values = [str(arg).strip() for arg in args if str(arg).strip()]
+        if not values:
+            return "all", ()
+        first = values[0].lower()
+        if first in {"all", "wp", "final"}:
+            return first, tuple(values[1:])
+        return "wp", tuple(values)

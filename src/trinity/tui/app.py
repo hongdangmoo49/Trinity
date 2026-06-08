@@ -274,6 +274,29 @@ class TrinityTUI:
         elif event.type == TUIEventType.EXECUTION_DONE:
             pass
 
+        elif event.type == TUIEventType.REVIEW_START:
+            pass
+
+        elif event.type == TUIEventType.WORK_PACKAGE_REVIEW_STARTED:
+            package_id = str(event.data.get("package_id", ""))
+            if package_id:
+                self.work_package_statuses[package_id] = "reviewing"
+
+        elif event.type == TUIEventType.WORK_PACKAGE_REVIEW_COMPLETED:
+            package_id = str(event.data.get("package_id", ""))
+            if package_id:
+                status = str(event.data.get("status", "done"))
+                self.work_package_statuses[package_id] = f"review:{status}"
+
+        elif event.type == TUIEventType.FINAL_REVIEW_STARTED:
+            pass
+
+        elif event.type == TUIEventType.FINAL_REVIEW_COMPLETED:
+            pass
+
+        elif event.type == TUIEventType.REVIEW_DONE:
+            pass
+
         elif event.type == TUIEventType.DELIBERATION_DONE:
             self.deliberation_active = False
             self.current_phase = ""
@@ -792,6 +815,8 @@ class TrinityTUI:
             "  [cyan]/subtasks[/cyan]   — Show delegated subtask reports\n"
             "  [cyan]/resume [n|latest|id][/cyan] — Resume a saved workflow session\n"
             "  [cyan]/execute [text][/cyan] — Execute the current approved blueprint\n"
+            "  [cyan]/execute-retry [selector][/cyan] - Retry failed or interrupted work packages\n"
+            "  [cyan]/review [wp|final|all][/cyan] - Review completed implementation work\n"
             "  [cyan]/target [path|clear][/cyan] — Show or set implementation workspace\n"
             "  [cyan]/help[/cyan]       — Show this help\n"
             "  [cyan]/quit[/cyan]       — Exit Trinity\n"

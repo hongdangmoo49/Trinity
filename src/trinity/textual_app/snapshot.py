@@ -11,7 +11,13 @@ from uuid import uuid4
 from trinity.config import TrinityConfig
 from trinity.context.shared import SharedContextEngine
 from trinity.tui.events import TUIEvent, TUIEventType
-from trinity.workflow import WorkflowPersistence, WorkflowSession
+from trinity.workflow import (
+    FINAL_REVIEW_PACKAGE_ID,
+    PostReviewActionItem,
+    ReviewResult,
+    WorkflowPersistence,
+    WorkflowSession,
+)
 
 
 @dataclass(frozen=True)
@@ -108,6 +114,49 @@ class WorkPackageSnapshot:
     retryable: bool = False
     retry_disabled_reason: str = ""
     topic: str = ""
+    review_status: str = ""
+    reviewer_agent: str = ""
+    review_summary: str = ""
+    review_required_changes: list[str] = field(default_factory=list)
+    review_severity: str = ""
+
+
+@dataclass(frozen=True)
+class ReviewSnapshot:
+    """Projected review result state for Textual UI."""
+
+    review_package_id: str = ""
+    package_id: str = ""
+    reviewer_agent: str = ""
+    target_agent: str = ""
+    status: str = ""
+    severity: str = ""
+    scope: str = ""
+    summary: str = ""
+    findings: list[str] = field(default_factory=list)
+    required_changes: list[str] = field(default_factory=list)
+    follow_up: list[str] = field(default_factory=list)
+    reviewed_files: list[str] = field(default_factory=list)
+    compatibility_notes: list[str] = field(default_factory=list)
+    performance_notes: list[str] = field(default_factory=list)
+    anti_patterns: list[str] = field(default_factory=list)
+    execution_risks: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class PostReviewActionSnapshot:
+    """Projected review follow-up item for Textual UI."""
+
+    id: str = ""
+    source: str = ""
+    kind: str = ""
+    severity: str = ""
+    title: str = ""
+    summary: str = ""
+    status: str = ""
+    suggested_owner: str = ""
+    requires_execution: bool = True
+    related_wp_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -146,6 +195,10 @@ class WorkflowNexusSnapshot:
     workflow_events: list[str] = field(default_factory=list)
     execution_log: list[str] = field(default_factory=list)
     execution_recovery: ExecutionRecoverySnapshot | None = None
+    final_review: ReviewSnapshot | None = None
+    post_review_items: list[PostReviewActionSnapshot] = field(default_factory=list)
+    follow_up_requests: list[str] = field(default_factory=list)
+    supplemental_round: int = 0
     local_commands: list[LocalCommandSnapshot] = field(default_factory=list)
 
 
@@ -200,6 +253,10 @@ class NexusSnapshotAdapter:
             workflow_events=self._workflow_events(session),
             execution_log=self._execution_log(session),
             execution_recovery=self._execution_recovery(session),
+            final_review=self._final_review(session),
+            post_review_items=self._post_review_items(session),
+            follow_up_requests=self._follow_up_requests(session),
+            supplemental_round=session.supplemental_round if session else 0,
         )
 
     @staticmethod
@@ -209,6 +266,7 @@ class NexusSnapshotAdapter:
         if session is None:
             return []
         result_by_package_id = {result.package_id: result for result in session.execution_results}
+        review_by_package_id = NexusSnapshotAdapter._latest_work_package_reviews(session)
         return [
             WorkPackageSnapshot(
                 id=package.id,
@@ -259,9 +317,131 @@ class NexusSnapshotAdapter:
                     package
                 ),
                 topic=NexusSnapshotAdapter._work_package_topic(package),
+                review_status=(
+                    review_by_package_id[package.id].status.value
+                    if package.id in review_by_package_id
+                    else ""
+                ),
+                reviewer_agent=(
+                    review_by_package_id[package.id].reviewer_agent
+                    if package.id in review_by_package_id
+                    else ""
+                ),
+                review_summary=(
+                    review_by_package_id[package.id].summary
+                    if package.id in review_by_package_id
+                    else ""
+                ),
+                review_required_changes=(
+                    list(review_by_package_id[package.id].required_changes)
+                    if package.id in review_by_package_id
+                    else []
+                ),
+                review_severity=(
+                    review_by_package_id[package.id].severity
+                    if package.id in review_by_package_id
+                    else ""
+                ),
             )
             for package in session.work_packages
         ]
+
+    @staticmethod
+    def _latest_work_package_reviews(
+        session: WorkflowSession,
+    ) -> dict[str, ReviewResult]:
+        reviews: dict[str, ReviewResult] = {}
+        for review in NexusSnapshotAdapter._review_results(session):
+            if review.scope == "final" or review.package_id == FINAL_REVIEW_PACKAGE_ID:
+                continue
+            reviews[review.package_id] = review
+        return reviews
+
+    @staticmethod
+    def _review_results(session: WorkflowSession | None) -> list[ReviewResult]:
+        if session is None:
+            return []
+        reviews: list[ReviewResult] = []
+        for item in session.review_results:
+            if not isinstance(item, dict):
+                continue
+            try:
+                reviews.append(ReviewResult.from_dict(item))
+            except (TypeError, ValueError):
+                continue
+        return reviews
+
+    @staticmethod
+    def _final_review(session: WorkflowSession | None) -> ReviewSnapshot | None:
+        for review in reversed(NexusSnapshotAdapter._review_results(session)):
+            if review.scope == "final" or review.package_id == FINAL_REVIEW_PACKAGE_ID:
+                return NexusSnapshotAdapter._review_snapshot(review)
+        return None
+
+    @staticmethod
+    def _review_snapshot(review: ReviewResult) -> ReviewSnapshot:
+        return ReviewSnapshot(
+            review_package_id=review.review_package_id,
+            package_id=review.package_id,
+            reviewer_agent=review.reviewer_agent,
+            target_agent=review.target_agent,
+            status=review.status.value,
+            severity=review.severity,
+            scope=review.scope,
+            summary=review.summary,
+            findings=list(review.findings),
+            required_changes=list(review.required_changes),
+            follow_up=list(review.follow_up),
+            reviewed_files=list(review.reviewed_files),
+            compatibility_notes=list(review.compatibility_notes),
+            performance_notes=list(review.performance_notes),
+            anti_patterns=list(review.anti_patterns),
+            execution_risks=list(review.execution_risks),
+        )
+
+    @staticmethod
+    def _post_review_items(
+        session: WorkflowSession | None,
+    ) -> list[PostReviewActionSnapshot]:
+        if session is None:
+            return []
+        items: list[PostReviewActionSnapshot] = []
+        for raw in session.post_review_items:
+            if not isinstance(raw, dict):
+                continue
+            try:
+                item = PostReviewActionItem.from_dict(raw)
+            except (TypeError, ValueError):
+                continue
+            items.append(
+                PostReviewActionSnapshot(
+                    id=item.id,
+                    source=item.source,
+                    kind=item.kind,
+                    severity=item.severity,
+                    title=item.title,
+                    summary=item.summary,
+                    status=item.status.value,
+                    suggested_owner=item.suggested_owner,
+                    requires_execution=item.requires_execution,
+                    related_wp_ids=tuple(item.related_wp_ids),
+                )
+            )
+        return items
+
+    @staticmethod
+    def _follow_up_requests(session: WorkflowSession | None) -> list[str]:
+        if session is None:
+            return []
+        requests: list[str] = []
+        for item in session.follow_up_requests:
+            if not isinstance(item, dict):
+                continue
+            text = str(item.get("text", "")).strip()
+            request_id = str(item.get("id", "")).strip()
+            if text:
+                requests.append(f"{request_id or '(request)'}: {text}")
+        return requests
 
     @staticmethod
     def _work_package_retryable(package: object) -> bool:
@@ -570,6 +750,7 @@ class NexusSnapshotAdapter:
             or session.work_packages
             or session.subtask_results
             or session.review_packages
+            or session.review_results
         )
 
     def _round_num(

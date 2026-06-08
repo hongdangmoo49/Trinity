@@ -89,8 +89,17 @@ class FakeWorkflowController:
     def snapshot(self) -> WorkflowNexusSnapshot:
         return self.current_snapshot
 
-    def start_prompt(self, prompt: str) -> TextualWorkflowOutcome:
+    def start_prompt(
+        self,
+        prompt: str,
+        *,
+        target_workspace=None,
+        control_repo_confirmed: bool = False,
+    ) -> TextualWorkflowOutcome:
         self.started_prompts.append(prompt)
+        if target_workspace is not None:
+            self.target_workspace = target_workspace
+            self.target_control_confirmed = control_repo_confirmed
         self.current_snapshot = WorkflowNexusSnapshot(
             session_id="wf-fake",
             goal=prompt,
@@ -585,6 +594,30 @@ async def test_start_screen_submission_moves_to_nexus(tmp_path) -> None:
         assert controller.started_prompts == ["설계해줘"]
         assert app.screen.snapshot is not None
         assert app.screen.snapshot.state == "deliberating"
+
+
+@pytest.mark.asyncio
+async def test_start_submission_persists_selected_workspace_target(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+    target = tmp_path.parent / "target-app"
+    target.mkdir()
+    app.workspace_candidate = target
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+        screen.set_workspace_candidate(target)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("앱을 만들어줘")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.started_prompts == ["앱을 만들어줘"]
+        assert controller.target_workspace == target
+        assert controller.target_control_confirmed is False
+        assert app.current_route == "nexus"
 
 
 @pytest.mark.asyncio

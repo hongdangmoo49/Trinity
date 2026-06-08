@@ -34,6 +34,12 @@ from trinity.workflow.models import (
     WorkflowState,
 )
 from trinity.workflow.persistence import WorkflowPersistence
+from trinity.workflow.review import (
+    FINAL_REVIEW_PACKAGE_ID,
+    ReviewPackage,
+    ReviewResult,
+    ReviewStatus,
+)
 
 if TYPE_CHECKING:
     from trinity.context.shared import SharedContextEngine
@@ -126,6 +132,10 @@ class WorkflowEngine:
     @property
     def review_packages(self) -> list[dict[str, Any]]:
         return [dict(item) for item in self.session.review_packages]
+
+    @property
+    def review_results(self) -> list[ReviewResult]:
+        return self._review_results()
 
     @property
     def has_pending_execution(self) -> bool:
@@ -973,6 +983,154 @@ class WorkflowEngine:
             reason="work package execution still in progress",
         )
 
+    def ensure_review_packages(self) -> list[ReviewPackage]:
+        """Ensure completed execution has review packages planned."""
+        if not self.session.review_packages and self.session.work_packages:
+            self._plan_review_packages()
+            self.session.updated_at = time.time()
+            self._persist(
+                "review_packages_planned",
+                {
+                    "review_packages": [
+                        item.get("id", "") for item in self.session.review_packages
+                    ],
+                },
+            )
+        return self.review_packages_for_request("wp")
+
+    def review_packages_for_request(
+        self,
+        selector: str = "wp",
+        package_ids: Iterable[str] = (),
+    ) -> list[ReviewPackage]:
+        """Return review packages selected by a /review request."""
+        normalized = (selector or "wp").strip().lower()
+        requested = {
+            str(package_id).strip()
+            for package_id in package_ids
+            if str(package_id).strip()
+        }
+        explicit = bool(requested)
+        if normalized in {"all", "wp", "work-package", "work_packages"}:
+            scope = "work_package"
+        else:
+            scope = normalized
+
+        reviews: list[ReviewPackage] = []
+        for item in self.session.review_packages:
+            if not isinstance(item, dict):
+                continue
+            try:
+                review = ReviewPackage.from_dict(item)
+            except (TypeError, ValueError):
+                continue
+            if review.scope == "final" or review.package_id == FINAL_REVIEW_PACKAGE_ID:
+                continue
+            if scope not in {"work_package", "custom"}:
+                continue
+            if requested and review.package_id not in requested:
+                continue
+            if not explicit and self._latest_review_is_approved(review.package_id):
+                continue
+            reviews.append(review)
+        return reviews
+
+    def record_review_results(
+        self,
+        results: Iterable[ReviewResult],
+        *,
+        finalize: bool = True,
+    ) -> None:
+        """Persist review results and update workflow/package state."""
+        review_results = list(results)
+        if not review_results:
+            return
+        for result in review_results:
+            self._record_review_result(result)
+        if finalize:
+            self._finalize_review_state(review_results)
+
+    def _record_review_result(self, result: ReviewResult) -> None:
+        existing_by_id = {
+            str(item.get("review_package_id", "")): dict(item)
+            for item in self.session.review_results
+            if isinstance(item, dict)
+        }
+        existing_by_id[result.review_package_id] = result.to_dict()
+        self.session.review_results = list(existing_by_id.values())
+        self._apply_review_result_to_package(result)
+        self.session.updated_at = time.time()
+        self._persist(
+            "review_result_recorded",
+            {
+                "review_package_id": result.review_package_id,
+                "package_id": result.package_id,
+                "reviewer": result.reviewer_agent,
+                "target": result.target_agent,
+                "status": result.status.value,
+                "severity": result.severity,
+                "scope": result.scope,
+            },
+        )
+
+    def _apply_review_result_to_package(self, result: ReviewResult) -> None:
+        if result.scope == "final" or result.package_id == FINAL_REVIEW_PACKAGE_ID:
+            return
+        package = self._work_package_by_id(result.package_id)
+        if package is None:
+            return
+        if result.status == ReviewStatus.APPROVED:
+            if package.status == WorkStatus.NEEDS_REVIEW:
+                package.status = WorkStatus.DONE
+            return
+        if result.status == ReviewStatus.CHANGES_REQUESTED:
+            package.status = WorkStatus.NEEDS_REVIEW
+            for change in result.required_changes:
+                note = f"review {result.review_package_id}: {change}"
+                if note not in package.repair_notes:
+                    package.repair_notes.append(note)
+            return
+        if result.status == ReviewStatus.BLOCKED:
+            package.status = WorkStatus.BLOCKED
+            return
+        if result.status == ReviewStatus.FAILED:
+            package.status = WorkStatus.FAILED
+
+    def _finalize_review_state(self, latest_results: list[ReviewResult]) -> None:
+        final_results = [
+            result
+            for result in latest_results
+            if result.scope == "final" or result.package_id == FINAL_REVIEW_PACKAGE_ID
+        ]
+        if final_results:
+            final = final_results[-1]
+            if final.status == ReviewStatus.APPROVED:
+                self.set_state(WorkflowState.DONE, reason="final review approved")
+            elif final.status == ReviewStatus.CHANGES_REQUESTED:
+                self.set_state(WorkflowState.REVIEWING, reason="final review requested changes")
+            elif final.status == ReviewStatus.BLOCKED:
+                self.set_state(WorkflowState.NEEDS_USER_DECISION, reason="final review blocked")
+            else:
+                self.set_state(WorkflowState.FAILED, reason="final review failed")
+            return
+
+        if any(result.status == ReviewStatus.FAILED for result in latest_results):
+            self.set_state(WorkflowState.FAILED, reason="work package review failed")
+            return
+        if any(result.status == ReviewStatus.BLOCKED for result in latest_results):
+            self.set_state(WorkflowState.NEEDS_USER_DECISION, reason="work package review blocked")
+            return
+        if any(result.status == ReviewStatus.CHANGES_REQUESTED for result in latest_results):
+            self.set_state(WorkflowState.REVIEWING, reason="work package review requested changes")
+            return
+        self.set_state(WorkflowState.REVIEWING, reason="work package review completed")
+
+    def _latest_review_is_approved(self, package_id: str) -> bool:
+        for result in reversed(self._review_results()):
+            if result.package_id == package_id and result.scope != "final":
+                return result.status == ReviewStatus.APPROVED
+        return False
+
     def detect_interrupted_execution(
         self,
         *,
@@ -1331,6 +1489,17 @@ class WorkflowEngine:
             (package for package in self.session.work_packages if package.id == package_id),
             None,
         )
+
+    def _review_results(self) -> list[ReviewResult]:
+        reviews: list[ReviewResult] = []
+        for item in self.session.review_results:
+            if not isinstance(item, dict):
+                continue
+            try:
+                reviews.append(ReviewResult.from_dict(item))
+            except (TypeError, ValueError):
+                continue
+        return reviews
 
     def _plan_review_packages(self) -> None:
         """Create peer review packages for completed execution results."""

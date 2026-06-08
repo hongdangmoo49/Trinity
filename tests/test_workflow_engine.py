@@ -8,6 +8,8 @@ from trinity.workflow import (
     Blueprint,
     ExecutionResult,
     OpenQuestion,
+    ReviewResult,
+    ReviewStatus,
     SubtaskResult,
     WorkPackage,
     WorkStatus,
@@ -494,6 +496,67 @@ def test_record_execution_results_moves_to_reviewing(tmp_path):
     assert loaded.state == WorkflowState.REVIEWING
     assert loaded.execution_results[0].files_changed == ["src/routes.py"]
     assert loaded.review_packages[0]["package_id"] == "WP-001"
+
+
+def test_record_review_results_requests_repair_notes(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement route bot.",
+            status=WorkStatus.DONE,
+        )
+    ]
+    engine.set_state(WorkflowState.REVIEWING, reason="test review")
+
+    engine.record_review_results(
+        [
+            ReviewResult(
+                review_package_id="RP-WP-001-claude",
+                package_id="WP-001",
+                reviewer_agent="claude",
+                target_agent="codex",
+                status=ReviewStatus.CHANGES_REQUESTED,
+                severity="high",
+                summary="Needs test coverage.",
+                required_changes=["Add retry regression test."],
+            )
+        ]
+    )
+
+    package = engine.session.work_packages[0]
+    assert package.status == WorkStatus.NEEDS_REVIEW
+    assert package.repair_notes == [
+        "review RP-WP-001-claude: Add retry regression test."
+    ]
+    assert engine.state == WorkflowState.REVIEWING
+    assert engine.review_results[0].status == ReviewStatus.CHANGES_REQUESTED
+
+
+def test_record_final_review_approved_marks_done(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude"])
+    engine.set_state(WorkflowState.REVIEWING, reason="test final review")
+
+    engine.record_review_results(
+        [
+            ReviewResult(
+                review_package_id="RP-FINAL-codex",
+                package_id="FINAL",
+                reviewer_agent="codex",
+                target_agent="project",
+                status=ReviewStatus.APPROVED,
+                severity="low",
+                scope="final",
+                summary="Project is coherent.",
+            )
+        ]
+    )
+
+    assert engine.state == WorkflowState.DONE
 
 
 def test_record_work_package_started_persists_running_status(tmp_path):

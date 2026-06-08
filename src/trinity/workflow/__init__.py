@@ -49,6 +49,7 @@ from trinity.workflow.review import (
     final_review_criteria,
     final_review_package,
 )
+from trinity.workflow.review_execution import ReviewExecutionProtocol
 from trinity.workflow.structured import (
     StructuredConsensusResult,
     StructuredConsensusSynthesizer,
@@ -71,6 +72,7 @@ __all__ = [
     "PeerReviewPlanner",
     "ReadinessInput",
     "ReviewPackage",
+    "ReviewExecutionProtocol",
     "ReviewResult",
     "ReviewStatus",
     "RetrySkip",

@@ -7,7 +7,7 @@ from trinity.config import TrinityConfig
 from trinity.models import ConsensusResult, DeliberationResult
 from trinity.textual_app.workflow_controller import TextualWorkflowController
 from trinity.tui.events import TUIEvent, TUIEventType
-from trinity.workflow import WorkflowEngine, WorkflowState
+from trinity.workflow import ReviewResult, ReviewStatus, WorkflowEngine, WorkflowState
 from trinity.workflow.models import (
     Blueprint,
     ExecutionResult,
@@ -79,6 +79,44 @@ class FakeOrchestrator:
                 opinions={"claude": "agree"},
                 summary="Build the requested app.",
             ),
+        )
+
+
+class FakeReviewOrchestrator(FakeOrchestrator):
+    async def review_work_packages(
+        self,
+        review_packages,
+        work_packages,
+        execution_results,
+    ) -> list[ReviewResult]:
+        assert self.bus is not None
+        return [
+            ReviewResult(
+                review_package_id=review_packages[0].id,
+                package_id=review_packages[0].package_id,
+                reviewer_agent=review_packages[0].reviewer_agent,
+                target_agent=review_packages[0].target_agent,
+                status=ReviewStatus.APPROVED,
+                severity="low",
+                summary="WP review approved.",
+            )
+        ]
+
+    async def review_final_execution(
+        self,
+        work_packages,
+        execution_results,
+        review_results,
+    ) -> ReviewResult:
+        return ReviewResult(
+            review_package_id="RP-FINAL-codex",
+            package_id="FINAL",
+            reviewer_agent="codex",
+            target_agent="project",
+            status=ReviewStatus.APPROVED,
+            severity="low",
+            scope="final",
+            summary="Final review approved.",
         )
 
 
@@ -299,6 +337,51 @@ def test_textual_workflow_controller_requests_workspace_before_execution(tmp_pat
 
     assert outcome.target_workspace_required is True
     assert controller.workflow.state == WorkflowState.BLUEPRINT_READY
+
+
+def test_textual_workflow_controller_runs_review_all(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 구현", ["claude"])
+    workflow.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="client",
+            owner_agent="claude",
+            objective="Build client.",
+            status=WorkStatus.RUNNING,
+        )
+    ]
+    workflow.set_target_workspace(tmp_path / "game")
+    workflow.begin_execution()
+    workflow.record_execution_results(
+        [
+            ExecutionResult(
+                package_id="WP-001",
+                agent_name="claude",
+                status=WorkStatus.DONE,
+                summary="Implemented client.",
+            )
+        ]
+    )
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeReviewOrchestrator,
+        archive_active_session=False,
+    )
+
+    outcome = controller.request_review(["all"])
+
+    assert outcome.running is True
+    assert controller.wait_until_idle(timeout=2.0)
+    final = controller.drain_updates()
+    assert final is not None
+    assert final.snapshot.state == "done"
+    assert [result.status for result in controller.workflow.review_results] == [
+        ReviewStatus.APPROVED,
+        ReviewStatus.APPROVED,
+    ]
 
 
 def test_resume_surfaces_execution_recovery(tmp_path) -> None:

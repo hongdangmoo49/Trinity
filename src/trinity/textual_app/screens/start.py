@@ -10,8 +10,12 @@ from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Static
 
+from trinity.config import TrinityConfig
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
+from trinity.textual_app.widgets.agent_recipient_model_selector import (
+    AgentRecipientModelSelector,
+)
 from trinity.textual_app.widgets.composer import PromptComposer
 from trinity.tui.sacred_geometry import SacredGeometryAnimator
 
@@ -42,10 +46,18 @@ class StartScreen(Screen[None]):
     class Submitted(Message):
         """Posted when the user starts planning from the first prompt."""
 
-        def __init__(self, prompt: str, workspace_candidate: Path | None) -> None:
+        def __init__(
+            self,
+            prompt: str,
+            workspace_candidate: Path | None,
+            target_agents: tuple[str, ...],
+            agent_model_overrides: dict[str, str],
+        ) -> None:
             super().__init__()
             self.prompt = prompt
             self.workspace_candidate = workspace_candidate
+            self.target_agents = target_agents
+            self.agent_model_overrides = agent_model_overrides
 
     class SlashCommandSubmitted(Message):
         """Posted when the first prompt is a Trinity slash command."""
@@ -67,11 +79,13 @@ class StartScreen(Screen[None]):
 
     def __init__(
         self,
+        config: TrinityConfig,
         workspace_candidate: Path | None = None,
         *,
         lang: str = "en",
     ) -> None:
         super().__init__(name="start")
+        self.config = config
         self.workspace_candidate = workspace_candidate
         self.lang = lang
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
@@ -86,6 +100,11 @@ class StartScreen(Screen[None]):
                 yield PromptComposer(
                     placeholder="What should Trinity work on?",
                     id="start-composer",
+                    lang=self.lang,
+                )
+                yield AgentRecipientModelSelector(
+                    self.config.agents,
+                    id="start-recipient-selector",
                     lang=self.lang,
                 )
                 with Horizontal(id="start-actions"):
@@ -130,7 +149,19 @@ class StartScreen(Screen[None]):
             self.query_one("#start-composer", PromptComposer).clear()
             self.post_message(self.SlashCommandSubmitted(text))
             return
-        self.post_message(self.Submitted(text, self.workspace_candidate))
+        selector = self.query_one(AgentRecipientModelSelector)
+        target_agents = selector.selected_agents()
+        if not target_agents:
+            self.app.notify("Select at least one agent.", severity="warning")
+            return
+        self.post_message(
+            self.Submitted(
+                text,
+                self.workspace_candidate,
+                target_agents,
+                selector.model_overrides(),
+            )
+        )
 
     def _workspace_label(self) -> str:
         if self.workspace_candidate is None:

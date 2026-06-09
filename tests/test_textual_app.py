@@ -2826,6 +2826,33 @@ async def test_settings_screen_saves_agent_and_central_models(tmp_path) -> None:
     assert saved_config.synthesis_model == "agent-default"
 
 
+@pytest.mark.asyncio
+async def test_nexus_renders_blueprint_action_buttons(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                session_id="wf-blueprint",
+                state="blueprint_ready",
+                goal="게임 만들기",
+                synthesis=SynthesisSnapshot(summary="설계 완료"),
+                central_blueprint="중앙 에이전트 응답",
+                work_packages=["WP-001 codex: 구현 (pending)"],
+            )
+        )
+        await pilot.pause()
+
+        assert len(screen.query("#central-actions Button")) == 4
+        assert screen.query_one("#central-action-title", Static).content == "다음 작업"
+
+
 def test_nexus_refine_prompts_are_scope_specific(tmp_path) -> None:
     screen = NexusScreen(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
 

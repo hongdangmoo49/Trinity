@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from trinity.context.memory import ContentRouter, MemoryRecord, MemoryStats, MemoryStore
+from trinity.context.packing import ContextPacker, PackedContext
 
 logger = logging.getLogger(__name__)
 
@@ -560,6 +561,27 @@ class SharedContextEngine:
         if self.memory_store is None:
             return None
         return self.memory_store.stats()
+
+    def pack_context_for_prompt(
+        self,
+        *,
+        workflow_id: str = "",
+        prompt_budget_tokens: int = 24_000,
+        recent_records: int = 30,
+    ) -> PackedContext:
+        """Build a token-bounded context bundle for provider prompts."""
+        sections = self._parse_sections(self.read())
+        pinned = {
+            "Current Goal": sections.get("current goal", ""),
+            "Agreed Conclusion": sections.get("agreed conclusion", ""),
+            "Task Assignment": sections.get("task assignment", ""),
+        }
+        packer = ContextPacker(
+            self.memory_store,
+            prompt_budget_tokens=prompt_budget_tokens,
+            recent_records=recent_records,
+        )
+        return packer.pack(pinned_sections=pinned, workflow_id=workflow_id)
 
     def compact_projection_from_memory(
         self,

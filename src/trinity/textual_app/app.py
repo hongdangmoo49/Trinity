@@ -12,6 +12,13 @@ from textual.binding import Binding
 
 from trinity import __version__
 from trinity.config import TrinityConfig
+from trinity.context.commands import (
+    artifact_markdown,
+    compact_memory_markdown,
+    engine_from_config,
+    memory_stats_markdown,
+    memory_stats_rows,
+)
 from trinity.i18n import VALID_CAVEMAN_INTENSITIES
 from trinity.slash_commands import (
     COMMAND_SPECS,
@@ -1298,6 +1305,12 @@ class TrinityTextualApp(App[None]):
         if command == "context":
             self._handle_textual_context_command(parsed.spec.name)
             return
+        if command == "memory":
+            self._handle_textual_memory_command(args)
+            return
+        if command == "artifact":
+            self._handle_textual_artifact_command(args)
+            return
         if command == "history":
             snapshot = self._refresh_textual_snapshot()
             history_rows = self._history_rows(snapshot)
@@ -2133,6 +2146,42 @@ class TrinityTextualApp(App[None]):
             self.push_screen(ContextCommandModal(result))
             return
         self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
+
+    def _handle_textual_memory_command(self, args: list[str]) -> None:
+        engine = engine_from_config(self.config)
+        action = args[0].lower() if args else "stats"
+        if action == "compact":
+            body = compact_memory_markdown(
+                engine,
+                target_bytes=self.config.shared_compact_target_bytes,
+                recent_records=self.config.memory_recent_records,
+            )
+            title = "Memory Compact"
+            rows = memory_stats_rows(engine)
+        else:
+            body = memory_stats_markdown(engine)
+            title = "Memory Stats"
+            rows = memory_stats_rows(engine)
+        self._record_slash_command_result(
+            "/memory",
+            title,
+            body,
+            table_columns=("Item", "Value"),
+            table_rows=rows,
+        )
+
+    def _handle_textual_artifact_command(self, args: list[str]) -> None:
+        record_id = args[0] if args else ""
+        if not record_id:
+            self._record_slash_command_result(
+                "/artifact",
+                "Artifact",
+                "Usage: `/artifact <memory-id>`",
+                severity="warning",
+            )
+            return
+        body = artifact_markdown(engine_from_config(self.config), record_id)
+        self._record_slash_command_result("/artifact", "Artifact", body)
 
     def _handle_textual_report_command(self, args: list[str]) -> None:
         snapshot = self._refresh_textual_snapshot()

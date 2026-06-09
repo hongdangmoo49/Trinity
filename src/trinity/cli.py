@@ -1050,14 +1050,9 @@ def context(section: str | None):
     """Display the shared context (shared.md)."""
     config = load_config()
 
-    from trinity.context.shared import SharedContextEngine
+    from trinity.context.commands import engine_from_config
 
-    engine = SharedContextEngine(
-        path=config.shared_context_path,
-        max_read_bytes=config.shared_max_bytes,
-        section_entry_max_chars=config.shared_section_entry_max_chars,
-        memory_index_enabled=config.memory_index_enabled,
-    )
+    engine = engine_from_config(config)
 
     if section:
         content = engine.read_section(section)
@@ -1071,6 +1066,54 @@ def context(section: str | None):
             console.print("[yellow]Shared context is empty.[/yellow]")
             return
         console.print(content)
+
+
+# ─── trinity memory ──────────────────────────────────────────────────────
+
+@main.group()
+def memory():
+    """Inspect or compact the shared context memory index."""
+
+
+@memory.command("stats")
+def memory_stats():
+    """Show shared context memory stats."""
+    config = load_config()
+    from trinity.context.commands import engine_from_config, memory_stats_rows
+
+    engine = engine_from_config(config)
+    table = Table(title="Memory Stats")
+    table.add_column("Item")
+    table.add_column("Value")
+    for key, value in memory_stats_rows(engine):
+        table.add_row(key, value)
+    console.print(table)
+
+
+@memory.command("compact")
+def memory_compact():
+    """Rebuild shared.md as a bounded memory projection."""
+    config = load_config()
+    from trinity.context.commands import compact_memory_markdown, engine_from_config
+
+    engine = engine_from_config(config)
+    console.print(
+        compact_memory_markdown(
+            engine,
+            target_bytes=config.shared_compact_target_bytes,
+            recent_records=config.memory_recent_records,
+        )
+    )
+
+
+@main.command()
+@click.argument("record_id")
+def artifact(record_id: str):
+    """Show an indexed memory artifact reference."""
+    config = load_config()
+    from trinity.context.commands import artifact_markdown, engine_from_config
+
+    console.print(artifact_markdown(engine_from_config(config), record_id))
 
 
 # ─── Helper ──────────────────────────────────────────────────────────────

@@ -213,6 +213,14 @@ class MemoryStore:
             ).fetchall()
         return [self._from_row(row) for row in rows]
 
+    def get(self, record_id: str) -> MemoryRecord | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM memory_records WHERE id = ?",
+                (record_id,),
+            ).fetchone()
+        return self._from_row(row) if row is not None else None
+
     def stats(self) -> MemoryStats:
         with self._connect() as conn:
             row = conn.execute(

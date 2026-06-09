@@ -239,6 +239,21 @@ COMMAND_SPECS: tuple[SlashCommandSpec, ...] = (
         mutates_workflow=True,
     ),
     SlashCommandSpec(
+        name="/memory",
+        usage="/memory [stats|compact]",
+        summary="show or compact shared context memory",
+        summary_ko="shared 컨텍스트 메모리 보기 또는 압축",
+        category=SlashCommandCategory.LOCAL_FILE,
+        writes_files=True,
+    ),
+    SlashCommandSpec(
+        name="/artifact",
+        usage="/artifact <memory-id>",
+        summary="show an indexed memory artifact reference",
+        summary_ko="메모리 아티팩트 참조 보기",
+        category=SlashCommandCategory.LOCAL_UI,
+    ),
+    SlashCommandSpec(
         name="/help",
         usage="/help",
         summary="show available commands",

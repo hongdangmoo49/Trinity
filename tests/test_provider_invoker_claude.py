@@ -49,6 +49,19 @@ def test_build_command_uses_claude_print_json_and_system_prompt(tmp_path):
     assert "Design the system." in command[-1]
 
 
+def test_build_command_uses_explicit_claude_resume(tmp_path):
+    invoker = ClaudePrintInvoker()
+    request = _request(tmp_path)
+    request = PromptRequest(
+        **{**request.__dict__, "provider_session_id": "claude-session-1"}
+    )
+
+    command = invoker.build_command(request)
+
+    assert "--resume" in command
+    assert command[command.index("--resume") + 1] == "claude-session-1"
+
+
 @pytest.mark.asyncio
 async def test_invoke_parses_claude_json_response(tmp_path):
     invoker = ClaudePrintInvoker()
@@ -59,7 +72,13 @@ async def test_invoke_parses_claude_json_response(tmp_path):
             {
                 "result": "Use a stateless one-shot transport.",
                 "usage": {"input_tokens": 100, "output_tokens": 40},
-                "model": "claude-sonnet",
+                "session_id": "claude-session-1",
+                "modelUsage": {
+                    "GLM-5.1[1m]": {
+                        "contextWindow": 1000000,
+                        "maxOutputTokens": 64000,
+                    }
+                },
             }
         ),
         stderr="",
@@ -73,7 +92,12 @@ async def test_invoke_parses_claude_json_response(tmp_path):
     assert result.usage is not None
     assert result.usage.used == 140
     assert result.execution_authority == ExecutionAuthority.PROVIDER_MANAGED
-    assert result.metadata["model"] == "claude-sonnet"
+    assert result.metadata["model"] == "GLM-5.1[1m]"
+    assert result.metadata["session_id"] == "claude-session-1"
+    assert result.metadata["provider_session"]["provider_session_id"] == "claude-session-1"
+    assert result.metadata["runtime_model"]["actual_model"] == "GLM-5.1[1m]"
+    assert result.metadata["runtime_model"]["context_window"] == 1000000
+    assert result.metadata["runtime_model"]["budget_source"] == "runtime_metadata"
 
 
 @pytest.mark.asyncio

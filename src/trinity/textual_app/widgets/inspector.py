@@ -19,6 +19,8 @@ class WorkflowInspector(Vertical):
     def compose(self) -> ComposeResult:
         yield Static("Workflow", classes="inspector-title")
         yield Static("", id="inspector-workflow")
+        yield Static("Providers", classes="inspector-title")
+        yield Static("", id="inspector-providers")
         yield Static("Questions", classes="inspector-title")
         yield Static("", id="inspector-questions")
         yield Static("Decisions", classes="inspector-title")
@@ -42,6 +44,9 @@ class WorkflowInspector(Vertical):
                     f"Round: {snapshot.round_num}",
                 ]
             )
+        )
+        self.query_one("#inspector-providers", Static).update(
+            self._list_or_empty(self._provider_lines(snapshot))
         )
         self.query_one("#inspector-questions", Static).update(
             self._list_or_empty([question.question for question in snapshot.questions])
@@ -69,3 +74,27 @@ class WorkflowInspector(Vertical):
         if not items:
             return "(none)"
         return "\n".join(f"- {item}" for item in items[:5])
+
+    @staticmethod
+    def _provider_lines(snapshot: WorkflowNexusSnapshot) -> list[str]:
+        lines: list[str] = []
+        for provider in snapshot.providers:
+            if not provider.enabled:
+                continue
+            model = provider.actual_model or provider.model_label or provider.configured_model
+            context = (
+                f"{provider.context_window:,}"
+                if provider.context_window > 0
+                else "unknown"
+            )
+            session = (
+                provider.session_id[:12]
+                if provider.session_id
+                else "none"
+            )
+            source = provider.budget_source or "unknown"
+            lines.append(
+                f"{provider.name}: {model or 'default'}; context {context} "
+                f"({source}); session {session}"
+            )
+        return lines

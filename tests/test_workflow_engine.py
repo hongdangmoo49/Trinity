@@ -172,6 +172,53 @@ def test_mark_deliberation_result_updates_state(tmp_path):
     assert engine.session.blueprint.summary == "Blueprint summary"
 
 
+def test_mark_deliberation_result_records_provider_metadata(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design", ["codex"])
+    result = DeliberationResult(
+        user_prompt="Design",
+        rounds_completed=1,
+        consensus=ConsensusResult(
+            reached=True,
+            agreement_count=1,
+            total_agents=1,
+            opinions={"codex": "yes"},
+            summary="Blueprint summary",
+        ),
+        metadata={
+            "provider_sessions": {
+                "codex:key": {
+                    "provider": "codex",
+                    "agent_name": "codex",
+                    "session_key": "codex:key",
+                    "provider_session_id": "thread-1",
+                    "session_kind": "codex_thread",
+                    "access": "read-only",
+                }
+            },
+            "runtime_models": {
+                "codex": {
+                    "provider": "codex",
+                    "agent_name": "codex",
+                    "configured_model": "default",
+                    "actual_model": "gpt-5.5",
+                    "context_window": 272000,
+                    "budget_source": "local_cli_cache",
+                    "confidence": "medium-high",
+                }
+            },
+        },
+    )
+
+    engine.mark_deliberation_result(result)
+
+    assert engine.session.provider_sessions["codex:key"].provider_session_id == "thread-1"
+    assert engine.session.runtime_models["codex"].actual_model == "gpt-5.5"
+    loaded = WorkflowEngine(tmp_path / ".trinity")
+    assert loaded.session.provider_sessions["codex:key"].provider_session_id == "thread-1"
+    assert loaded.session.runtime_models["codex"].context_window == 272000
+
+
 def test_mark_deliberation_result_applies_structured_blueprint(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
     engine.start("Design", ["claude"])

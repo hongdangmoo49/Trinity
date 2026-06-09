@@ -8,11 +8,13 @@ from trinity.context.shared import SharedContextEngine
 from trinity.textual_app.snapshot import NexusSnapshotAdapter
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workflow import (
+    AgentRuntimeModel,
     Blueprint,
     ExecutionResult,
     OpenQuestion,
     PostReviewActionItem,
     PostReviewActionStatus,
+    ProviderSessionRef,
     WorkflowPersistence,
     ReviewResult,
     ReviewStatus,
@@ -92,6 +94,50 @@ def test_snapshot_projects_persisted_workflow(tmp_path) -> None:
     assert snapshot.execution_log == ["state_changed: blueprint_ready"]
     assert snapshot.providers[0].enabled is True
     assert snapshot.providers[1].enabled is False
+
+
+def test_snapshot_projects_provider_runtime_metadata(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-provider",
+            goal="Build UI",
+            state=WorkflowState.DELIBERATING,
+            active_agents=["codex"],
+            provider_sessions={
+                "codex:key": ProviderSessionRef(
+                    provider="codex",
+                    agent_name="codex",
+                    session_key="codex:key",
+                    provider_session_id="019ea9e3-426f",
+                    session_kind="codex_thread",
+                    access="read-only",
+                    last_observed_at=2.0,
+                )
+            },
+            runtime_models={
+                "codex": AgentRuntimeModel(
+                    provider="codex",
+                    agent_name="codex",
+                    configured_model="default",
+                    actual_model="gpt-5.5",
+                    context_window=272000,
+                    budget_source="local_cli_cache",
+                    confidence="medium-high",
+                )
+            },
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+    codex = next(provider for provider in snapshot.providers if provider.name == "codex")
+
+    assert codex.provider == "codex · gpt-5.5"
+    assert codex.actual_model == "gpt-5.5"
+    assert codex.context_window == 272000
+    assert codex.budget_source == "local_cli_cache"
+    assert codex.session_id == "019ea9e3-426f"
 
 
 def test_snapshot_projects_central_and_repaired_work_package_graph(tmp_path) -> None:

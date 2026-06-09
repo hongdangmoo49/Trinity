@@ -22,6 +22,7 @@ class AgentWrapper(ABC):
         self._context_usage = ContextUsage(total=spec.effective_context_budget)
         self.launch_cwd: Path | None = None
         self.env_overrides: dict[str, str] = {}
+        self.provider_session_id: str = ""
 
     @property
     def name(self) -> str:
@@ -88,6 +89,19 @@ class AgentWrapper(ABC):
             kwargs["env"] = env
         return kwargs
 
+    def configure_provider_session(self, provider_session_id: str = "") -> None:
+        """Attach a provider-native session id restored from workflow state."""
+        self.provider_session_id = str(provider_session_id or "").strip()
+
+    def _remember_provider_session(self, metadata: dict) -> None:
+        """Persist the latest provider-native session id observed by an invoker."""
+        session = metadata.get("provider_session") if isinstance(metadata, dict) else None
+        if not isinstance(session, dict):
+            return
+        provider_session_id = str(session.get("provider_session_id") or "").strip()
+        if provider_session_id:
+            self.provider_session_id = provider_session_id
+
     def _model_args(self) -> list[str]:
         """Return CLI args that pin the configured model for this agent."""
         model = (self.spec.model or "").strip()
@@ -124,6 +138,8 @@ class AgentWrapper(ABC):
             model=self.spec.model,
             extra_args=tuple(self.spec.extra_args),
             access=access,
+            provider_session_id=self.provider_session_id,
+            continuity_enabled=True,
         )
 
     def _shell_command(self, args: list[str]) -> str:

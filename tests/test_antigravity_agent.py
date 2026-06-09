@@ -37,6 +37,9 @@ async def test_send_and_wait_returns_deliberation_message(antigravity_spec):
                 "output_format": "plain-text",
                 "machine_readable_output": False,
                 "usage_source": "unsupported",
+                "provider_session": {
+                    "provider_session_id": "agy-conv-1",
+                },
             },
         )
     )
@@ -51,6 +54,7 @@ async def test_send_and_wait_returns_deliberation_message(antigravity_spec):
     assert message.metadata["machine_readable_output"] is False
     assert message.metadata["usage_source"] == "unsupported"
     agent._invoker.invoke.assert_awaited_once()
+    assert agent.provider_session_id == "agy-conv-1"
 
 
 @pytest.mark.asyncio

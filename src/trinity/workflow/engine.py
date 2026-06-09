@@ -23,12 +23,14 @@ from trinity.workflow.decomposer import (
     classify_execution_intent,
 )
 from trinity.workflow.models import (
+    AgentRuntimeModel,
     Blueprint,
     DecisionRecord,
     ExecutionResult,
     OpenQuestion,
     PostReviewActionItem,
     PostReviewActionStatus,
+    ProviderSessionRef,
     SubtaskResult,
     WorkPackage,
     WorkStatus,
@@ -546,6 +548,7 @@ class WorkflowEngine:
     def mark_deliberation_result(self, result: DeliberationResult) -> None:
         """Update workflow state after a deliberation completes."""
         self.session.current_round = result.rounds_completed
+        self._record_provider_observations(result.metadata)
         structured = result.metadata.get("structured_consensus")
         if isinstance(structured, dict):
             if self._apply_structured_questions(structured):
@@ -591,6 +594,48 @@ class WorkflowEngine:
             )
         else:
             self.set_state(WorkflowState.FAILED, reason="deliberation ended without consensus")
+
+    def _record_provider_observations(self, metadata: dict[str, Any]) -> None:
+        """Persist provider session/model observations from result metadata."""
+        provider_sessions = metadata.get("provider_sessions")
+        runtime_models = metadata.get("runtime_models")
+        changed = False
+
+        if isinstance(provider_sessions, dict):
+            for key, value in provider_sessions.items():
+                if not isinstance(value, dict):
+                    continue
+                session = ProviderSessionRef.from_dict(value)
+                if not session.provider_session_id:
+                    continue
+                session_key = session.session_key or str(key)
+                if not session_key:
+                    continue
+                self.session.provider_sessions[session_key] = session
+                changed = True
+
+        if isinstance(runtime_models, dict):
+            for key, value in runtime_models.items():
+                if not isinstance(value, dict):
+                    continue
+                model = AgentRuntimeModel.from_dict(value)
+                model_key = model.agent_name or str(key)
+                if not model_key:
+                    continue
+                self.session.runtime_models[model_key] = model
+                changed = True
+
+        if not changed:
+            return
+
+        self.session.updated_at = time.time()
+        self._persist(
+            "provider_metadata_observed",
+            {
+                "provider_sessions": sorted(self.session.provider_sessions.keys()),
+                "runtime_models": sorted(self.session.runtime_models.keys()),
+            },
+        )
 
     def _apply_structured_questions(self, structured: dict) -> bool:
         raw_questions = structured.get("open_questions", [])

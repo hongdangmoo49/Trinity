@@ -44,6 +44,7 @@ class AntigravityPrintAgent(AgentWrapper):
             access=access,
         )
         result = await self._invoker.invoke(request)
+        self._remember_provider_session(result.metadata)
         elapsed = result.elapsed_seconds or (time.time() - start_time)
 
         return DeliberationMessage(
@@ -64,6 +65,10 @@ class AntigravityPrintAgent(AgentWrapper):
                     "machine_readable_output", False
                 ),
                 "usage_source": result.metadata.get("usage_source", "unsupported"),
+                "conversation_id": result.metadata.get("conversation_id"),
+                "model_label": result.metadata.get("model_label"),
+                "provider_session": result.metadata.get("provider_session"),
+                "runtime_model": result.metadata.get("runtime_model"),
             },
         )
 

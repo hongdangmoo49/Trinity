@@ -41,6 +41,10 @@ def snapshot_report_markdown(snapshot: WorkflowNexusSnapshot) -> str:
         f"**Providers**: {len(snapshot.providers)}",
     ]
 
+    provider_lines = _provider_lines(snapshot)
+    if provider_lines:
+        lines.extend(["", "## Providers", ""])
+        lines.extend(provider_lines)
     if snapshot.synthesis.summary:
         lines.extend(
             [
@@ -138,6 +142,29 @@ def _md_block(value: str) -> str:
     while fence in text:
         fence += "`"
     return f"{fence}\n{text}\n{fence}"
+
+
+def _provider_lines(snapshot: WorkflowNexusSnapshot) -> list[str]:
+    lines: list[str] = []
+    for provider in snapshot.providers:
+        if not provider.enabled:
+            continue
+        model = provider.actual_model or provider.model_label or provider.configured_model or "default"
+        context = (
+            f"{provider.context_window:,}"
+            if provider.context_window > 0
+            else "unknown"
+        )
+        source = provider.budget_source or "unknown"
+        session = provider.session_id[:12] if provider.session_id else "none"
+        lines.append(
+            "- "
+            f"**{_md_inline(provider.name)}**: "
+            f"{_md_inline(model)}; "
+            f"context {_md_inline(context)} ({_md_inline(source)}); "
+            f"session {_md_inline(session)}"
+        )
+    return lines
 
 
 def _safe_filename_part(value: str) -> str:

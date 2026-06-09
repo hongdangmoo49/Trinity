@@ -65,6 +65,7 @@ class PrintModeClaudeAgent(AgentWrapper):
 
         start_time = time.time()
         result = await self._invoker.invoke(request)
+        self._remember_provider_session(result.metadata)
         elapsed = result.elapsed_seconds or (time.time() - start_time)
         logger.info(f"[{self.name}] Response received in {elapsed:.1f}s")
 
@@ -83,6 +84,9 @@ class PrintModeClaudeAgent(AgentWrapper):
                 "elapsed_seconds": elapsed,
                 "token_count": token_count,
                 "model": result.metadata.get("model", "unknown"),
+                "session_id": result.metadata.get("session_id"),
+                "provider_session": result.metadata.get("provider_session"),
+                "runtime_model": result.metadata.get("runtime_model"),
                 "response_status": result.status.value,
                 "raw_output": result.raw_output,
                 "diagnostics": list(result.diagnostics),

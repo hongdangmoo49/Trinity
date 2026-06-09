@@ -48,6 +48,112 @@ class PostReviewActionStatus(str, Enum):
 
 
 @dataclass
+class ProviderSessionRef:
+    """Provider-native conversation/session id mapped to a Trinity workflow."""
+
+    provider: str
+    agent_name: str
+    session_key: str
+    provider_session_id: str
+    session_kind: str = ""
+    lane: str = ""
+    access: str = ""
+    cwd: str = ""
+    configured_model: str = ""
+    resolved_model: str = ""
+    last_request_id: str = ""
+    last_observed_at: float = field(default_factory=time.time)
+    diagnostics: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "provider": self.provider,
+            "agent_name": self.agent_name,
+            "session_key": self.session_key,
+            "provider_session_id": self.provider_session_id,
+            "session_kind": self.session_kind,
+            "lane": self.lane,
+            "access": self.access,
+            "cwd": self.cwd,
+            "configured_model": self.configured_model,
+            "resolved_model": self.resolved_model,
+            "last_request_id": self.last_request_id,
+            "last_observed_at": self.last_observed_at,
+            "diagnostics": list(self.diagnostics),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ProviderSessionRef":
+        return cls(
+            provider=str(data.get("provider", "")),
+            agent_name=str(data.get("agent_name", "")),
+            session_key=str(data.get("session_key", "")),
+            provider_session_id=str(data.get("provider_session_id", "")),
+            session_kind=str(data.get("session_kind", "")),
+            lane=str(data.get("lane", "")),
+            access=str(data.get("access", "")),
+            cwd=str(data.get("cwd", "")),
+            configured_model=str(data.get("configured_model", "")),
+            resolved_model=str(data.get("resolved_model", "")),
+            last_request_id=str(data.get("last_request_id", "")),
+            last_observed_at=float(data.get("last_observed_at", time.time())),
+            diagnostics=[str(item) for item in data.get("diagnostics", [])],
+        )
+
+
+@dataclass
+class AgentRuntimeModel:
+    """Observed provider model and context metadata for one agent."""
+
+    provider: str
+    agent_name: str
+    configured_model: str = ""
+    actual_model: str = ""
+    model_label: str = ""
+    context_window: int = 0
+    max_output_tokens: int = 0
+    budget_source: str = "unsupported"
+    confidence: str = "unknown"
+    observed_at: float = field(default_factory=time.time)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "provider": self.provider,
+            "agent_name": self.agent_name,
+            "configured_model": self.configured_model,
+            "actual_model": self.actual_model,
+            "model_label": self.model_label,
+            "context_window": self.context_window,
+            "max_output_tokens": self.max_output_tokens,
+            "budget_source": self.budget_source,
+            "confidence": self.confidence,
+            "observed_at": self.observed_at,
+            "metadata": dict(self.metadata),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "AgentRuntimeModel":
+        return cls(
+            provider=str(data.get("provider", "")),
+            agent_name=str(data.get("agent_name", "")),
+            configured_model=str(data.get("configured_model", "")),
+            actual_model=str(data.get("actual_model", "")),
+            model_label=str(data.get("model_label", "")),
+            context_window=int(data.get("context_window", 0) or 0),
+            max_output_tokens=int(data.get("max_output_tokens", 0) or 0),
+            budget_source=str(data.get("budget_source", "unsupported")),
+            confidence=str(data.get("confidence", "unknown")),
+            observed_at=float(data.get("observed_at", time.time())),
+            metadata=(
+                dict(data.get("metadata", {}))
+                if isinstance(data.get("metadata"), dict)
+                else {}
+            ),
+        )
+
+
+@dataclass
 class OpenQuestion:
     """A user-facing decision point raised by agents or workflow logic."""
 
@@ -518,6 +624,8 @@ class WorkflowSession:
     supplemental_round: int = 0
     decisions: list[DecisionRecord] = field(default_factory=list)
     execution_run: dict[str, Any] = field(default_factory=dict)
+    provider_sessions: dict[str, ProviderSessionRef] = field(default_factory=dict)
+    runtime_models: dict[str, AgentRuntimeModel] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -547,6 +655,14 @@ class WorkflowSession:
             "supplemental_round": self.supplemental_round,
             "decisions": [decision.to_dict() for decision in self.decisions],
             "execution_run": dict(self.execution_run),
+            "provider_sessions": {
+                key: value.to_dict()
+                for key, value in self.provider_sessions.items()
+            },
+            "runtime_models": {
+                key: value.to_dict()
+                for key, value in self.runtime_models.items()
+            },
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -616,6 +732,24 @@ class WorkflowSession:
                 if isinstance(data.get("execution_run"), dict)
                 else {}
             ),
+            provider_sessions={
+                str(key): ProviderSessionRef.from_dict(value)
+                for key, value in (
+                    data.get("provider_sessions", {})
+                    if isinstance(data.get("provider_sessions"), dict)
+                    else {}
+                ).items()
+                if isinstance(value, dict)
+            },
+            runtime_models={
+                str(key): AgentRuntimeModel.from_dict(value)
+                for key, value in (
+                    data.get("runtime_models", {})
+                    if isinstance(data.get("runtime_models"), dict)
+                    else {}
+                ).items()
+                if isinstance(value, dict)
+            },
             created_at=float(data.get("created_at", time.time())),
             updated_at=float(data.get("updated_at", time.time())),
         )

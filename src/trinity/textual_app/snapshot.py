@@ -216,7 +216,12 @@ class NexusSnapshotAdapter:
     def __init__(self, config: TrinityConfig) -> None:
         self.config = config
         self.persistence = WorkflowPersistence(config.effective_state_dir)
-        self.shared = SharedContextEngine(config.shared_context_path)
+        self.shared = SharedContextEngine(
+            config.shared_context_path,
+            max_read_bytes=config.shared_max_bytes,
+            section_entry_max_chars=config.shared_section_entry_max_chars,
+            memory_index_enabled=config.memory_index_enabled,
+        )
 
     def new_session_snapshot(self, goal: str) -> WorkflowNexusSnapshot:
         """Create a fresh in-memory snapshot for a newly submitted UI prompt."""

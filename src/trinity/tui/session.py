@@ -26,6 +26,12 @@ from rich.markup import escape
 from rich.panel import Panel
 
 from trinity.config import TrinityConfig
+from trinity.context.commands import (
+    artifact_markdown,
+    compact_memory_markdown,
+    engine_from_config,
+    memory_stats_markdown,
+)
 from trinity.models import DeliberationResult
 from trinity.slash_commands import SESSION_ONLY_SETTING_NOTICE, parse_slash_command
 from trinity.tui.app import AgentTUIState, TrinityTUI
@@ -70,6 +76,8 @@ PLAIN_TUI_COMMAND_HANDLERS: dict[str, str] = {
     "review": "_cmd_review",
     "improve": "_cmd_improve",
     "target": "_cmd_target",
+    "memory": "_cmd_memory",
+    "artifact": "_cmd_artifact",
 }
 
 PLAIN_TUI_COMMANDS_WITH_ARGS = frozenset(
@@ -86,6 +94,8 @@ PLAIN_TUI_COMMANDS_WITH_ARGS = frozenset(
         "review",
         "improve",
         "target",
+        "memory",
+        "artifact",
     }
 )
 
@@ -330,6 +340,29 @@ class InteractiveSession:
         if session.blueprint and session.blueprint.summary:
             lines.extend(["", "[bold]Synthesis[/bold]:", session.blueprint.summary])
         self.console.print(Panel("\n".join(lines), title="Current Session Context"))
+
+    def _cmd_memory(self, args: list[str]) -> None:
+        """Show or compact shared context memory."""
+        engine = engine_from_config(self.config)
+        action = args[0].lower() if args else "stats"
+        if action == "compact":
+            body = compact_memory_markdown(
+                engine,
+                target_bytes=self.config.shared_compact_target_bytes,
+                recent_records=self.config.memory_recent_records,
+            )
+            self.console.print(Panel(body, title="Memory Compact"))
+            return
+        self.console.print(Panel(memory_stats_markdown(engine), title="Memory Stats"))
+
+    def _cmd_artifact(self, args: list[str]) -> None:
+        """Show a memory artifact reference by id."""
+        if not args:
+            self.console.print("[yellow]Usage: /artifact <memory-id>[/yellow]")
+            return
+        self.console.print(
+            Panel(artifact_markdown(engine_from_config(self.config), args[0]), title="Artifact")
+        )
 
     def _session_has_context(self) -> bool:
         """Return whether the plain TUI has meaningful current workflow context."""

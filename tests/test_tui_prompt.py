@@ -62,6 +62,8 @@ class TestCommandCompletion:
             "/report",
             "/resume",
             "/execute",
+            "/memory",
+            "/artifact",
             "/target",
             "/help",
             "/quit",
@@ -117,6 +119,8 @@ class TestSlashCommandRegistry:
         assert policies["/status"] == AgentCallPolicy.NONE
         assert policies["/workflow"] == AgentCallPolicy.NONE
         assert policies["/questions"] == AgentCallPolicy.NONE
+        assert policies["/memory"] == AgentCallPolicy.NONE
+        assert policies["/artifact"] == AgentCallPolicy.NONE
 
     def test_parse_slash_command_resolves_aliases(self):
         parsed = parse_slash_command("/q")

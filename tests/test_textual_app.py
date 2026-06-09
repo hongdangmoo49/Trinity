@@ -1008,6 +1008,53 @@ def test_execution_retry_modal_limits_rows_to_retry_candidates() -> None:
     assert [package.id for package in modal._display_packages()] == ["WP-001"]
 
 
+def test_execution_retry_modal_large_snapshot_keeps_only_retry_candidates() -> None:
+    details = [
+        WorkPackageSnapshot(
+            id=f"WP-{index:03d}",
+            title=f"Package {index}",
+            owner_agent="codex",
+            status="done",
+            retryable=False,
+            retry_disabled_reason="already done",
+        )
+        for index in range(1, 101)
+    ]
+    details[9] = WorkPackageSnapshot(
+        id="WP-010",
+        title="Failed package",
+        owner_agent="codex",
+        status="failed",
+        retryable=True,
+    )
+    details[49] = WorkPackageSnapshot(
+        id="WP-050",
+        title="Blocked package",
+        owner_agent="claude",
+        status="blocked",
+        retryable=True,
+    )
+    details[74] = WorkPackageSnapshot(
+        id="WP-075",
+        title="Running package",
+        owner_agent="antigravity",
+        status="running",
+        retryable=True,
+    )
+    modal = ExecutionRetryModal(
+        WorkflowNexusSnapshot(work_package_details=details),
+    )
+
+    assert [package.id for package in modal._display_packages()] == [
+        "WP-010",
+        "WP-050",
+        "WP-075",
+    ]
+    assert modal._ids_for_selector("all") == ("WP-010", "WP-050", "WP-075")
+    modal.selector = "blocked"
+    assert [package.id for package in modal._display_packages()] == ["WP-050"]
+
+
 def test_execution_retry_modal_custom_keeps_selected_retry_candidates() -> None:
     snapshot = WorkflowNexusSnapshot(
         work_package_details=[

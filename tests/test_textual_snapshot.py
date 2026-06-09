@@ -152,6 +152,63 @@ def test_snapshot_loads_workflow_events_once_per_projection(tmp_path, monkeypatc
     ]
 
 
+def test_snapshot_large_event_log_uses_single_read_and_tail_limit(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-large",
+            goal="Build UI",
+            state=WorkflowState.EXECUTING,
+            work_packages=[
+                WorkPackage(
+                    id=f"WP-{index:03d}",
+                    title=f"Package {index}",
+                    owner_agent="codex",
+                    objective=f"Build package {index}.",
+                    status=WorkStatus.RUNNING if index == 1 else WorkStatus.DONE,
+                )
+                for index in range(1, 101)
+            ],
+            execution_run={"state": "running", "run_id": "run-large"},
+        )
+    )
+    for index in range(5_000):
+        persistence.append_event(
+            {
+                "event": "work_package_started",
+                "workflow_id": "wf-large",
+                "data": {"package_id": f"WP-{index % 100:03d}", "agent": "codex"},
+            }
+        )
+    persistence.append_event(
+        {"event": "ignored", "workflow_id": "wf-other"}
+    )
+
+    adapter = NexusSnapshotAdapter(config)
+    calls = 0
+    original_load_events = adapter.persistence.load_events
+
+    def counted_load_events():
+        nonlocal calls
+        calls += 1
+        return original_load_events()
+
+    monkeypatch.setattr(adapter.persistence, "load_events", counted_load_events)
+
+    snapshot = adapter.load_snapshot()
+
+    assert calls == 1
+    assert len(snapshot.execution_log) == 80
+    assert len(snapshot.workflow_events) == 5_000
+    assert snapshot.execution_recovery is not None
+    assert snapshot.execution_recovery.last_event == "work_package_started"
+    assert snapshot.execution_recovery.retry_candidates == ("WP-001",)
+
+
 def test_snapshot_projects_provider_runtime_metadata(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     persistence = WorkflowPersistence(config.effective_state_dir)

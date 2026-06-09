@@ -38,6 +38,48 @@ def test_central_markdown_surfaces_wp_graph_before_local_commands() -> None:
     )
 
 
+def test_central_markdown_surfaces_blueprint_response_before_wp_graph() -> None:
+    view = CentralAgentView()
+    view.snapshot = WorkflowNexusSnapshot(
+        session_id="wf-blueprint",
+        state="blueprint_ready",
+        goal="Build game",
+        synthesis=SynthesisSnapshot(summary="Vampire survival blueprint."),
+        central_blueprint=(
+            "**Vampire Survival Roguelike**\n\n"
+            "Use a wave loop, enemy spawners, weapon upgrades, and run meta data."
+        ),
+        central_work_packages=["gameplay: Build combat loop"],
+    )
+
+    markdown = view._markdown()
+
+    assert "### Central Agent Response" in markdown
+    assert "**Vampire Survival Roguelike**" in markdown
+    assert "weapon upgrades" in markdown
+    assert markdown.index("### Central Agent Response") < markdown.index(
+        "### Central WP Graph"
+    )
+
+
+def test_blueprint_next_actions_only_show_when_ready_with_packages() -> None:
+    assert CentralAgentView._should_show_blueprint_actions(
+        WorkflowNexusSnapshot(
+            state="blueprint_ready",
+            work_packages=["WP-001 codex: Build loop (pending)"],
+        )
+    )
+    assert not CentralAgentView._should_show_blueprint_actions(
+        WorkflowNexusSnapshot(
+            state="executing",
+            work_packages=["WP-001 codex: Build loop (running)"],
+        )
+    )
+    assert not CentralAgentView._should_show_blueprint_actions(
+        WorkflowNexusSnapshot(state="blueprint_ready")
+    )
+
+
 def test_central_markdown_summarizes_execution_results() -> None:
     view = CentralAgentView()
     view.snapshot = WorkflowNexusSnapshot(

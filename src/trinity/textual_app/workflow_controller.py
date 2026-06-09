@@ -362,6 +362,7 @@ class TextualWorkflowController:
         events = self._poll_events()
         message = ""
         completion_changed = False
+        started_follow_up_work = False
 
         with self._lock:
             completion_pending = self._completion_pending
@@ -392,19 +393,24 @@ class TextualWorkflowController:
                 if self._should_auto_review_after_execution():
                     selected_reviews = tuple(self.workflow.review_packages_for_request("wp"))
                     self._start_review("all", (), selected_reviews)
+                    started_follow_up_work = True
                     message = "Review started after execution."
             elif run_kind == "review" and review_results is not None:
                 self.workflow.record_review_results(review_results)
                 repair_packages = self.workflow.prepare_review_repairs(review_results)
                 if repair_packages:
                     self._start_execution()
+                    started_follow_up_work = True
                     message = (
                         "Review requested repairs; restarting execution for: "
                         f"{', '.join(repair_packages)}."
                     )
 
         if events or completion_changed:
-            return self._outcome(message=message, running=self.is_running)
+            return self._outcome(
+                message=message,
+                running=True if started_follow_up_work else self.is_running,
+            )
         return None
 
     def wait_until_idle(self, timeout: float = 5.0) -> bool:

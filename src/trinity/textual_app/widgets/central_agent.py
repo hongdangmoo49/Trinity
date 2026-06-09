@@ -37,16 +37,28 @@ class CentralAgentView(VerticalScroll):
             super().__init__()
             self.answer = answer
 
-    def __init__(self, *, id: str | None = None) -> None:
+    class BlueprintActionRequested(Message):
+        """Posted when the user chooses a blueprint-ready next action."""
+
+        def __init__(self, action: str) -> None:
+            super().__init__()
+            self.action = action
+
+    def __init__(self, *, id: str | None = None, lang: str = "en") -> None:
         super().__init__(id=id)
+        self.lang = lang
         self.snapshot: WorkflowNexusSnapshot | None = None
         self._button_answers: dict[str, QuestionAnswer] = {}
+        self._button_actions: dict[str, str] = {}
         self._activity_frame = 0
 
     def compose(self) -> ComposeResult:
         yield Static("Central Agent", id="central-title")
         yield Markdown(self._markdown(), id="central-markdown")
         with Vertical(id="central-local-command-tables"):
+            pass
+        yield Static("", id="central-action-title")
+        with Grid(id="central-actions", classes="blueprint-actions"):
             pass
         yield Static("", id="central-question-title")
         with Vertical(id="central-questions"):
@@ -60,6 +72,7 @@ class CentralAgentView(VerticalScroll):
         self._refresh_title()
         self.query_one("#central-markdown", Markdown).update(self._markdown())
         self._render_local_command_tables(snapshot.local_commands)
+        self._render_blueprint_actions(snapshot)
         self.query_one("#central-question-title", Static).update(
             self._question_title(snapshot.questions)
         )
@@ -67,6 +80,11 @@ class CentralAgentView(VerticalScroll):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id or ""
+        action = self._button_actions.get(button_id)
+        if action is not None:
+            event.stop()
+            self.post_message(self.BlueprintActionRequested(action))
+            return
         answer = self._button_answers.get(button_id)
         if answer is None:
             return
@@ -105,6 +123,8 @@ class CentralAgentView(VerticalScroll):
                     "Planning does not require a workspace.",
                 ]
             )
+        if snapshot.central_blueprint:
+            lines.extend(["", "### Central Agent Response", snapshot.central_blueprint])
         self._append_work_package_sections(lines, snapshot)
         self._append_execution_summary(lines, snapshot)
         if snapshot.local_commands:
@@ -274,6 +294,65 @@ class CentralAgentView(VerticalScroll):
             container.mount(table)
             table.add_columns(*command.table_columns)
             table.add_rows(command.table_rows)
+
+    def _render_blueprint_actions(self, snapshot: WorkflowNexusSnapshot) -> None:
+        title = self.query_one("#central-action-title", Static)
+        container = self.query_one("#central-actions", Grid)
+        container.remove_children()
+        self._button_actions = {}
+        if not self._should_show_blueprint_actions(snapshot):
+            title.update("")
+            return
+
+        title.update(self._label("next_action"))
+        for action, label, variant in (
+            ("execute", self._label("execute"), "primary"),
+            ("refine-features", self._label("refine_features"), "default"),
+            ("refine-risks", self._label("refine_risks"), "default"),
+            ("refine-work-packages", self._label("refine_work_packages"), "default"),
+        ):
+            button_id = f"central-action-{action}"
+            self._button_actions[button_id] = action
+            container.mount(
+                Button(
+                    label,
+                    id=button_id,
+                    variant=variant,
+                    tooltip=self._label(f"{action}_tooltip"),
+                )
+            )
+
+    @staticmethod
+    def _should_show_blueprint_actions(snapshot: WorkflowNexusSnapshot) -> bool:
+        if snapshot.state != "blueprint_ready":
+            return False
+        return bool(snapshot.work_packages or snapshot.central_work_packages)
+
+    def _label(self, key: str) -> str:
+        ko = {
+            "next_action": "다음 작업",
+            "execute": "실행",
+            "refine_features": "기능 보강",
+            "refine_risks": "리스크 보강",
+            "refine_work_packages": "WP 재분배",
+            "execute_tooltip": "현재 WP를 실행합니다.",
+            "refine-features_tooltip": "기능 범위와 사용자 경험을 더 구체화합니다.",
+            "refine-risks_tooltip": "실행 리스크와 검증 기준을 더 구체화합니다.",
+            "refine-work-packages_tooltip": "WP 분해, 담당자, 의존성을 다시 정리합니다.",
+        }
+        en = {
+            "next_action": "Next action",
+            "execute": "Execute",
+            "refine_features": "Refine features",
+            "refine_risks": "Refine risks",
+            "refine_work_packages": "Rebalance WPs",
+            "execute_tooltip": "Run the current work packages.",
+            "refine-features_tooltip": "Clarify feature scope and user experience.",
+            "refine-risks_tooltip": "Clarify execution risks and validation criteria.",
+            "refine-work-packages_tooltip": "Revise WP ownership, scope, and dependencies.",
+        }
+        labels = ko if self.lang == "ko" else en
+        return labels.get(key, key)
 
     def _render_questions(self, questions: list[QuestionSnapshot]) -> None:
         container = self.query_one("#central-questions", Vertical)

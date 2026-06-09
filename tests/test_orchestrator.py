@@ -834,7 +834,7 @@ class TestSynthesisAgentWiring:
         assert isinstance(primary, ModelBackedSynthesisAgent)
         assert primary.agent_name == "codex"
         assert primary.provider == Provider.CODEX
-        assert primary.model == "gpt-5.4"
+        assert primary.model == "default"
 
     def test_auto_synthesis_uses_claude_when_codex_is_not_active(self, tmp_path):
         config = TrinityConfig(
@@ -864,7 +864,7 @@ class TestSynthesisAgentWiring:
         assert primary.provider == Provider.CLAUDE_CODE
         assert primary.model == "opus"
 
-    def test_fast_synthesis_model_keeps_lightweight_provider_defaults(self, tmp_path):
+    def test_fast_synthesis_model_uses_codex_agent_default_model(self, tmp_path):
         config = TrinityConfig(
             project_dir=tmp_path,
             state_dir=tmp_path / ".trinity",
@@ -884,8 +884,33 @@ class TestSynthesisAgentWiring:
         primary = orch.protocol.synthesis_agent.primary
         assert isinstance(primary, ModelBackedSynthesisAgent)
         assert primary.agent_name == "codex"
-        assert primary.model == "gpt-5.4-mini"
+        assert primary.model == "default"
         assert primary.requested_model == "fast"
+
+    def test_agent_default_synthesis_model_uses_selected_agent_model(self, tmp_path):
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=tmp_path / ".trinity",
+            synthesis_agent="codex",
+            synthesis_model="agent-default",
+            agents={
+                "codex": AgentSpec(
+                    name="codex",
+                    provider=Provider.CODEX,
+                    cli_command="codex",
+                    model="gpt-5",
+                    enabled=True,
+                ),
+            },
+        )
+        orch = TrinityOrchestrator(config)
+        orch._ensure_initialized()
+
+        primary = orch.protocol.synthesis_agent.primary
+        assert isinstance(primary, ModelBackedSynthesisAgent)
+        assert primary.agent_name == "codex"
+        assert primary.model == "gpt-5"
+        assert primary.requested_model == "agent-default"
 
     def test_auto_synthesis_uses_antigravity_when_it_is_only_active(self, tmp_path):
         config = TrinityConfig(

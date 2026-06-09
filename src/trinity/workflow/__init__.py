@@ -27,12 +27,14 @@ from trinity.workflow.lifecycle import (
 )
 from trinity.workflow.models import (
     ArchitectureComponent,
+    AgentRuntimeModel,
     Blueprint,
     DecisionRecord,
     ExecutionResult,
     OpenQuestion,
     PostReviewActionItem,
     PostReviewActionStatus,
+    ProviderSessionRef,
     RiskItem,
     SubtaskResult,
     WorkPackage,
@@ -61,6 +63,7 @@ from trinity.workflow.structured import (
 
 __all__ = [
     "ArchitectureComponent",
+    "AgentRuntimeModel",
     "Blueprint",
     "BlueprintDecomposer",
     "DecisionRecord",
@@ -73,6 +76,7 @@ __all__ = [
     "OpenQuestion",
     "PostReviewActionItem",
     "PostReviewActionStatus",
+    "ProviderSessionRef",
     "PeerReviewPlanner",
     "ReadinessInput",
     "ReviewPackage",

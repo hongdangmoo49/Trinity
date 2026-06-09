@@ -9,11 +9,16 @@ from unittest.mock import patch
 import pytest
 
 from trinity.models import Provider, ResponseStatus
-from trinity.providers.invoker import AntigravityPrintInvoker, PromptRequest
+from trinity.providers.invoker import (
+    AntigravityPrintInvoker,
+    PromptRequest,
+    parse_antigravity_log,
+)
 from trinity.providers.policy import ExecutionAuthority, InvocationAccess
 
 
 def _request(tmp_path: Path) -> PromptRequest:
+    log_path = tmp_path / "agy.log"
     return PromptRequest(
         agent_name="antigravity",
         provider=Provider.ANTIGRAVITY_CLI,
@@ -24,7 +29,7 @@ def _request(tmp_path: Path) -> PromptRequest:
         cwd=tmp_path,
         timeout_seconds=7.2,
         model="gemini-3-pro",
-        extra_args=("--log-file", str(tmp_path / "agy.log")),
+        extra_args=("--log-file", str(log_path)),
     )
 
 
@@ -67,6 +72,11 @@ def test_build_command_omits_sandbox_for_workspace_write(tmp_path):
 @pytest.mark.asyncio
 async def test_invoke_parses_plain_stdout(tmp_path):
     invoker = AntigravityPrintInvoker()
+    (tmp_path / "agy.log").write_text(
+        'Print mode: conversation=agy-conv-1\n'
+        'Propagating selected model override to backend: label="Gemini 3.5 Flash (Medium)"\n',
+        encoding="utf-8",
+    )
     completed = subprocess.CompletedProcess(
         args=["agy"],
         returncode=0,
@@ -84,6 +94,10 @@ async def test_invoke_parses_plain_stdout(tmp_path):
     assert result.metadata["output_format"] == "plain-text"
     assert result.metadata["machine_readable_output"] is False
     assert result.metadata["usage_source"] == "unsupported"
+    assert result.metadata["conversation_id"] == "agy-conv-1"
+    assert result.metadata["model_label"] == "Gemini 3.5 Flash (Medium)"
+    assert result.metadata["provider_session"]["provider_session_id"] == "agy-conv-1"
+    assert result.metadata["runtime_model"]["model_label"] == "Gemini 3.5 Flash (Medium)"
 
 
 @pytest.mark.asyncio
@@ -106,6 +120,18 @@ async def test_invoke_keeps_json_looking_stdout_as_plain_text(tmp_path):
     assert result.metadata["output_format"] == "plain-text"
     assert result.metadata["machine_readable_output"] is False
     assert result.metadata["usage_source"] == "unsupported"
+
+
+def test_parse_antigravity_log_extracts_conversation_and_model():
+    parsed = parse_antigravity_log(
+        'Print mode: conversation=9ab98524-1234\n'
+        'Propagating selected model override to backend: label="Gemini 3.5 Flash (Medium)"\n'
+        'backend=gemini-3-flash-a\n'
+    )
+
+    assert parsed["conversation_id"] == "9ab98524-1234"
+    assert parsed["model_label"] == "Gemini 3.5 Flash (Medium)"
+    assert parsed["backend_model"] == "gemini-3-flash-a"
 
 
 @pytest.mark.asyncio
@@ -145,6 +171,5 @@ async def test_invoke_marks_empty_antigravity_output_with_diagnostic(tmp_path):
     assert result.status == ResponseStatus.EMPTY
     assert result.content == "[Empty response from Antigravity CLI]"
     assert result.raw_output == "[Empty response from Antigravity CLI]"
-    assert result.diagnostics == [
-        "empty_response: Antigravity CLI returned empty output."
-    ]
+    assert "empty_response: Antigravity CLI returned empty output." in result.diagnostics
+    assert any(item.startswith("antigravity_log_missing:") for item in result.diagnostics)

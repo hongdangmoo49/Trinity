@@ -164,6 +164,8 @@ class DeliberationProtocol:
         structured_consensus: StructuredConsensusResult | None = None
         synthesis_result: SynthesisResult | None = None
         round_num = 0
+        provider_sessions: dict[str, dict[str, object]] = {}
+        runtime_models: dict[str, dict[str, object]] = {}
 
         self._emit(TUIEventType.DELIBERATION_STARTED, prompt=user_prompt)
 
@@ -184,6 +186,11 @@ class DeliberationProtocol:
             self._emit(TUIEventType.DELIBERATION_PHASE, phase="opinions", round_num=round_num)
             opinions = await self._collect_opinions(round_num, round_prompt)
             await self._after_round_lifecycle()
+            self._collect_provider_observations(
+                opinions,
+                provider_sessions=provider_sessions,
+                runtime_models=runtime_models,
+            )
 
             # Record token analytics for this round
             round_agent_tokens = {name: msg.token_count for name, msg in opinions.items()}
@@ -379,6 +386,8 @@ class DeliberationProtocol:
                     if synthesis_result is not None
                     else None
                 ),
+                "provider_sessions": provider_sessions,
+                "runtime_models": runtime_models,
             },
         )
 
@@ -507,6 +516,35 @@ class DeliberationProtocol:
             raise
 
         return opinions
+
+    @staticmethod
+    def _collect_provider_observations(
+        opinions: dict[str, DeliberationMessage],
+        *,
+        provider_sessions: dict[str, dict[str, object]],
+        runtime_models: dict[str, dict[str, object]],
+    ) -> None:
+        """Collect provider session/model observations from agent metadata."""
+        for agent_name, msg in opinions.items():
+            request_id = str(msg.metadata.get("request_id") or "")
+            session = msg.metadata.get("provider_session")
+            if isinstance(session, dict):
+                observed = dict(session)
+                if request_id:
+                    observed["last_request_id"] = request_id
+                key = str(
+                    observed.get("session_key")
+                    or f"{observed.get('provider', '')}:{agent_name}"
+                )
+                if key.strip():
+                    provider_sessions[key] = observed
+
+            runtime_model = msg.metadata.get("runtime_model")
+            if isinstance(runtime_model, dict):
+                observed_model = dict(runtime_model)
+                key = str(observed_model.get("agent_name") or agent_name)
+                if key.strip():
+                    runtime_models[key] = observed_model
 
     async def _before_round_lifecycle(self, prompt: str) -> None:
         """Run lifecycle checks before sending a round prompt."""

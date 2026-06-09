@@ -151,6 +151,10 @@ class CodexAgent(AgentWrapper):
                     "diagnostics": list(result.diagnostics),
                     "execution_authority": result.execution_authority.value,
                     "tool_activity_summary": list(result.tool_activity_summary),
+                    "thread_id": result.metadata.get("thread_id"),
+                    "model": result.metadata.get("model"),
+                    "provider_session": result.metadata.get("provider_session"),
+                    "runtime_model": result.metadata.get("runtime_model"),
                 },
             )
 

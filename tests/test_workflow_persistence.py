@@ -1,7 +1,9 @@
 """Tests for workflow persistence helpers."""
 
 from trinity.workflow import (
+    AgentRuntimeModel,
     Blueprint,
+    ProviderSessionRef,
     WorkPackage,
     WorkflowPersistence,
     WorkflowSession,
@@ -60,6 +62,44 @@ def test_workflow_persistence_round_trips_work_package_repair_notes(tmp_path):
         "owner reassigned from 'missing' to 'codex'",
         "expected_files missing; using unknown write scope",
     ]
+
+
+def test_workflow_persistence_round_trips_provider_metadata(tmp_path):
+    persistence = WorkflowPersistence(tmp_path / ".trinity")
+    session = WorkflowSession(
+        id="wf-provider",
+        goal="Design",
+        state=WorkflowState.DELIBERATING,
+        provider_sessions={
+            "codex:key": ProviderSessionRef(
+                provider="codex",
+                agent_name="codex",
+                session_key="codex:key",
+                provider_session_id="thread-1",
+                session_kind="codex_thread",
+                access="read-only",
+            )
+        },
+        runtime_models={
+            "codex": AgentRuntimeModel(
+                provider="codex",
+                agent_name="codex",
+                configured_model="default",
+                actual_model="gpt-5.5",
+                context_window=272000,
+                budget_source="local_cli_cache",
+                confidence="medium-high",
+            )
+        },
+    )
+
+    persistence.save(session)
+    loaded = persistence.load()
+
+    assert loaded is not None
+    assert loaded.provider_sessions["codex:key"].provider_session_id == "thread-1"
+    assert loaded.runtime_models["codex"].actual_model == "gpt-5.5"
+    assert loaded.runtime_models["codex"].context_window == 272000
 
 
 def test_workflow_persistence_appends_and_loads_events(tmp_path):

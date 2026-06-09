@@ -212,6 +212,56 @@ role_prompt = "당신은 아키텍트입니다."
         assert config.prompt_compression_round_threshold == 2
         assert config.prompt_compression_max_summary_tokens == 200
 
+    def test_context_memory_defaults(self):
+        config = TrinityConfig.default_config()
+        assert config.shared_max_bytes == 1_048_576
+        assert config.shared_compact_target_bytes == 524_288
+        assert config.shared_section_entry_max_chars == 12_000
+        assert config.auto_compact_on_start is True
+        assert config.memory_index_enabled is True
+        assert config.memory_prompt_budget_tokens == 24_000
+        assert config.memory_recent_records == 30
+        assert config.memory_retrieval_max_bytes == 262_144
+        assert config.compression_mode == "deterministic"
+        assert config.repair_max_attempts == 3
+
+    def test_load_context_memory_settings(self, tmp_trinity_dir):
+        config_path = tmp_trinity_dir / "trinity.config"
+        config_path.write_text(
+            """
+[context]
+shared_max_bytes = 2048
+shared_compact_target_bytes = 1024
+shared_section_entry_max_chars = 256
+auto_compact_on_start = false
+memory_index_enabled = false
+memory_prompt_budget_tokens = 123
+memory_recent_records = 4
+memory_retrieval_max_bytes = 512
+compression_mode = "off"
+repair_max_attempts = 2
+
+[agents.claude]
+provider = "claude-code"
+cli_command = "claude"
+enabled = true
+""",
+            encoding="utf-8",
+        )
+
+        config = TrinityConfig.load(config_path)
+
+        assert config.shared_max_bytes == 2048
+        assert config.shared_compact_target_bytes == 1024
+        assert config.shared_section_entry_max_chars == 256
+        assert config.auto_compact_on_start is False
+        assert config.memory_index_enabled is False
+        assert config.memory_prompt_budget_tokens == 123
+        assert config.memory_recent_records == 4
+        assert config.memory_retrieval_max_bytes == 512
+        assert config.compression_mode == "off"
+        assert config.repair_max_attempts == 2
+
     def test_provider_readiness_defaults(self):
         config = TrinityConfig.default_config()
         assert config.provider_readiness_mode == "strict"

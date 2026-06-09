@@ -76,6 +76,16 @@ class TrinityConfig:
     )
     recent_rounds_on_rotate: int = 3
     summary_max_tokens: int = 500
+    shared_max_bytes: int = 1_048_576
+    shared_compact_target_bytes: int = 524_288
+    shared_section_entry_max_chars: int = 12_000
+    auto_compact_on_start: bool = True
+    memory_index_enabled: bool = True
+    memory_prompt_budget_tokens: int = 24_000
+    memory_recent_records: int = 30
+    memory_retrieval_max_bytes: int = 262_144
+    compression_mode: str = "deterministic"
+    repair_max_attempts: int = 3
 
     # Prompt compression (Phase 7)
     prompt_compression_enabled: bool = True
@@ -225,6 +235,24 @@ class TrinityConfig:
             ),
             recent_rounds_on_rotate=context.get("recent_rounds_on_rotate", 3),
             summary_max_tokens=context.get("summary_max_tokens", 500),
+            shared_max_bytes=int(context.get("shared_max_bytes", 1_048_576)),
+            shared_compact_target_bytes=int(
+                context.get("shared_compact_target_bytes", 524_288)
+            ),
+            shared_section_entry_max_chars=int(
+                context.get("shared_section_entry_max_chars", 12_000)
+            ),
+            auto_compact_on_start=bool(context.get("auto_compact_on_start", True)),
+            memory_index_enabled=bool(context.get("memory_index_enabled", True)),
+            memory_prompt_budget_tokens=int(
+                context.get("memory_prompt_budget_tokens", 24_000)
+            ),
+            memory_recent_records=int(context.get("memory_recent_records", 30)),
+            memory_retrieval_max_bytes=int(
+                context.get("memory_retrieval_max_bytes", 262_144)
+            ),
+            compression_mode=str(context.get("compression_mode", "deterministic")),
+            repair_max_attempts=int(context.get("repair_max_attempts", 3)),
             prompt_compression_enabled=context.get("prompt_compression_enabled", True),
             prompt_compression_round_threshold=context.get("prompt_compression_round_threshold", 2),
             prompt_compression_max_summary_tokens=context.get("prompt_compression_max_summary_tokens", 200),
@@ -304,6 +332,23 @@ class TrinityConfig:
                 "synthesis_max_input_chars": self.synthesis_max_input_chars,
             },
             "context": {
+                "shared_max_bytes": self.shared_max_bytes,
+                "shared_compact_target_bytes": self.shared_compact_target_bytes,
+                "shared_section_entry_max_chars": self.shared_section_entry_max_chars,
+                "auto_compact_on_start": self.auto_compact_on_start,
+                "memory_index_enabled": self.memory_index_enabled,
+                "memory_prompt_budget_tokens": self.memory_prompt_budget_tokens,
+                "memory_recent_records": self.memory_recent_records,
+                "memory_retrieval_max_bytes": self.memory_retrieval_max_bytes,
+                "compression_mode": self.compression_mode,
+                "repair_max_attempts": self.repair_max_attempts,
+                "prompt_compression_enabled": self.prompt_compression_enabled,
+                "prompt_compression_round_threshold": (
+                    self.prompt_compression_round_threshold
+                ),
+                "prompt_compression_max_summary_tokens": (
+                    self.prompt_compression_max_summary_tokens
+                ),
                 "caveman_mode": self.caveman_mode,
                 "caveman_intensity": self.caveman_intensity,
             },

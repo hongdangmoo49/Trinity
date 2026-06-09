@@ -1052,7 +1052,11 @@ def context(section: str | None):
 
     from trinity.context.shared import SharedContextEngine
 
-    engine = SharedContextEngine(path=config.shared_context_path)
+    engine = SharedContextEngine(
+        path=config.shared_context_path,
+        max_read_bytes=config.shared_max_bytes,
+        section_entry_max_chars=config.shared_section_entry_max_chars,
+    )
 
     if section:
         content = engine.read_section(section)

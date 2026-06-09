@@ -10,6 +10,11 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_MAX_READ_BYTES = 1_048_576
+DEFAULT_SECTION_ENTRY_MAX_CHARS = 12_000
+DEFAULT_LIST_ITEM_MAX_CHARS = 500
+DEFAULT_LIST_MAX_ITEMS = 30
+
 
 class SharedContextEngine:
     """Section-based CRUD on shared.md.
@@ -43,8 +48,12 @@ class SharedContextEngine:
         self,
         path: Path,
         keep_sections: list[str] | None = None,
+        max_read_bytes: int = DEFAULT_MAX_READ_BYTES,
+        section_entry_max_chars: int = DEFAULT_SECTION_ENTRY_MAX_CHARS,
     ):
         self.path = path
+        self.max_read_bytes = max_read_bytes
+        self.section_entry_max_chars = section_entry_max_chars
         self.keep_sections: set[str] = {
             self._normalize_heading(h) for h in (keep_sections or [])
         }
@@ -57,6 +66,8 @@ class SharedContextEngine:
         """Read the entire shared.md content."""
         if not self.path.exists():
             return ""
+        if self._is_oversized():
+            return self._oversized_read_notice()
         return self.path.read_text(encoding="utf-8")
 
     @staticmethod
@@ -103,18 +114,20 @@ class SharedContextEngine:
 
     def write_section(self, heading: str, content: str) -> None:
         """Replace or append a ## section."""
+        self.ensure_mutable_projection()
         full = self.read()
         sections = self._parse_sections(full)
         key = self._normalize_heading(heading)
+        safe_content = self._strip_section_heading(content, heading)
 
         if key in sections:
             # Replace existing section
-            full = self._replace_section(full, heading, content)
+            full = self._replace_section(full, heading, safe_content)
         else:
             # Append new section
             if full and not full.endswith("\n"):
                 full += "\n"
-            full += f"\n## {heading}\n{content}\n"
+            full += f"\n## {heading}\n{safe_content}\n"
 
         self.write(full)
 
@@ -222,7 +235,7 @@ class SharedContextEngine:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         safe_package = self._sanitize_md_heading(package_id)
         safe_agent = self._sanitize_md_heading(agent)
-        safe_summary = self._sanitize_md_heading(summary)
+        safe_summary = self._bounded_block(self._sanitize_md_heading(summary))
 
         lines = [
             f"\n### {safe_package} / {safe_agent} — {timestamp}",
@@ -234,11 +247,7 @@ class SharedContextEngine:
             lines.extend(["", "#### Summary", safe_summary])
 
         def _append_list(title: str, items: Iterable[str]) -> None:
-            values = [
-                self._sanitize_md_heading(str(item).strip())
-                for item in items
-                if str(item).strip()
-            ]
+            values = self._bounded_items(items)
             if not values:
                 return
             lines.extend(["", f"#### {title}"])
@@ -270,8 +279,8 @@ class SharedContextEngine:
         safe_package = self._sanitize_md_heading(parent_package_id)
         safe_agent = self._sanitize_md_heading(parent_agent)
         safe_delegate = self._sanitize_md_heading(delegated_to)
-        safe_objective = self._sanitize_md_heading(objective)
-        safe_summary = self._sanitize_md_heading(result_summary)
+        safe_objective = self._bounded_block(self._sanitize_md_heading(objective))
+        safe_summary = self._bounded_block(self._sanitize_md_heading(result_summary))
 
         lines = [
             f"\n### {safe_subtask} / {safe_package} — {timestamp}",
@@ -285,11 +294,7 @@ class SharedContextEngine:
             lines.extend(["", "#### Result Summary", safe_summary])
 
         def _append_list(title: str, items: Iterable[str]) -> None:
-            values = [
-                self._sanitize_md_heading(str(item).strip())
-                for item in items
-                if str(item).strip()
-            ]
+            values = self._bounded_items(items)
             if not values:
                 return
             lines.extend(["", f"#### {title}"])
@@ -494,10 +499,31 @@ class SharedContextEngine:
         )
         self.write(content)
 
+    def ensure_mutable_projection(self) -> Path | None:
+        """Move an oversized shared.md aside before write-based mutations.
+
+        Startup, resume, and retry paths can mutate shared.md while the file is
+        already too large to read safely. Preserve the original file and create
+        a small recovery projection so future section writes stay bounded.
+        """
+        if not self._is_oversized():
+            return None
+
+        backup_path = self._next_oversized_backup_path()
+        self.path.rename(backup_path)
+        size = backup_path.stat().st_size
+        logger.warning(
+            "Moved oversized shared context to %s (%s bytes)",
+            backup_path,
+            size,
+        )
+        self.write(self._recovery_projection(backup_path, size))
+        return backup_path
+
     # --- Private helpers ---
 
     def _parse_sections(self, content: str) -> dict[str, str]:
-        """Parse markdown into {normalized_heading: full_section_text}."""
+        """Parse markdown into {normalized_heading: section_body}."""
         if not content.strip():
             return {}
 
@@ -513,7 +539,7 @@ class SharedContextEngine:
                     sections[key] = "\n".join(current_lines)
 
                 current_heading = line[3:].strip()
-                current_lines = [line]
+                current_lines = []
             else:
                 current_lines.append(line)
 
@@ -545,3 +571,79 @@ class SharedContextEngine:
                 result.append(line)
 
         return "\n".join(result)
+
+    def _is_oversized(self) -> bool:
+        if self.max_read_bytes <= 0 or not self.path.exists():
+            return False
+        try:
+            return self.path.stat().st_size > self.max_read_bytes
+        except OSError:
+            logger.exception("Failed to stat shared context: %s", self.path)
+            return False
+
+    def _oversized_read_notice(self) -> str:
+        try:
+            size = self.path.stat().st_size
+        except OSError:
+            size = -1
+        return self._recovery_projection(self.path, size, moved=False)
+
+    def _recovery_projection(
+        self,
+        original_path: Path,
+        size: int,
+        *,
+        moved: bool = True,
+    ) -> str:
+        state = "moved aside" if moved else "not loaded"
+        return (
+            "# Shared Context\n\n"
+            "## Recovery Notice\n"
+            f"`shared.md` was {state} because it exceeded the safe read limit.\n\n"
+            f"- original_path: `{original_path}`\n"
+            f"- original_size_bytes: {size}\n"
+            f"- max_read_bytes: {self.max_read_bytes}\n"
+            "- next_step: run `/memory compact` or inspect the preserved file.\n"
+        )
+
+    def _next_oversized_backup_path(self) -> Path:
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        candidate = self.path.with_name(f"{self.path.name}.oversized-{timestamp}")
+        suffix = 1
+        while candidate.exists():
+            candidate = self.path.with_name(
+                f"{self.path.name}.oversized-{timestamp}-{suffix}"
+            )
+            suffix += 1
+        return candidate
+
+    def _strip_section_heading(self, content: str, heading: str) -> str:
+        """Remove an accidental leading target heading from section body text."""
+        lines = content.splitlines()
+        if lines and lines[0].strip() == f"## {heading}":
+            return "\n".join(lines[1:]).lstrip("\n")
+        return content
+
+    def _bounded_block(self, text: str) -> str:
+        if self.section_entry_max_chars <= 0:
+            return text
+        if len(text) <= self.section_entry_max_chars:
+            return text
+        return text[: self.section_entry_max_chars].rstrip() + "\n[truncated]"
+
+    def _bounded_items(self, items: Iterable[str]) -> list[str]:
+        values: list[str] = []
+        omitted = 0
+        for raw in items:
+            value = self._sanitize_md_heading(str(raw).strip())
+            if not value:
+                continue
+            if len(value) > DEFAULT_LIST_ITEM_MAX_CHARS:
+                value = value[:DEFAULT_LIST_ITEM_MAX_CHARS].rstrip() + " [truncated]"
+            if len(values) < DEFAULT_LIST_MAX_ITEMS:
+                values.append(value)
+            else:
+                omitted += 1
+        if omitted:
+            values.append(f"... {omitted} more omitted")
+        return values

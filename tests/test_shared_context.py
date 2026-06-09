@@ -107,6 +107,44 @@ class TestSharedContextEngine:
         assert "Use existing router." in section
         assert "Add load test." in section
 
+    def test_repeated_append_does_not_duplicate_section_heading(self, shared_engine):
+        shared_engine.initialize("Test", ["codex"])
+
+        for index in range(5):
+            shared_engine.append_task_result(
+                package_id=f"WP-{index:03d}",
+                agent="codex",
+                status="done",
+                summary=f"Implemented step {index}.",
+            )
+
+        content = shared_engine.read()
+        assert content.count("## Task Results") == 1
+        section = shared_engine.read_section("Task Results")
+        assert section is not None
+        assert "## Task Results" not in section
+        assert "WP-000 / codex" in section
+        assert "WP-004 / codex" in section
+
+    def test_append_task_result_bounds_long_summary(self, tmp_path):
+        engine = SharedContextEngine(
+            path=tmp_path / "shared.md",
+            section_entry_max_chars=40,
+        )
+        engine.initialize("Test", ["codex"])
+
+        engine.append_task_result(
+            package_id="WP-001",
+            agent="codex",
+            status="done",
+            summary="x" * 200,
+        )
+
+        section = engine.read_section("Task Results")
+        assert section is not None
+        assert "[truncated]" in section
+        assert "x" * 100 not in section
+
     def test_append_subtask_result(self, shared_engine):
         shared_engine.initialize("Test", ["codex"])
         shared_engine.append_subtask_result(
@@ -156,6 +194,31 @@ class TestSharedContextEngine:
         engine = SharedContextEngine(path=tmp_path / "shared.md")
         assert engine.read() == ""
         assert engine.read_section("anything") is None
+
+    def test_oversized_read_returns_recovery_notice_without_loading_body(self, tmp_path):
+        shared_path = tmp_path / "shared.md"
+        shared_path.write_text("# Shared Context\n\n" + ("large-body\n" * 100), encoding="utf-8")
+        engine = SharedContextEngine(path=shared_path, max_read_bytes=64)
+
+        content = engine.read()
+
+        assert "Recovery Notice" in content
+        assert "large-body" not in content
+        assert str(shared_path) in content
+
+    def test_write_section_moves_oversized_shared_aside(self, tmp_path):
+        shared_path = tmp_path / "shared.md"
+        shared_path.write_text("# Shared Context\n\n" + ("large-body\n" * 100), encoding="utf-8")
+        engine = SharedContextEngine(path=shared_path, max_read_bytes=64)
+
+        engine.write_section("Current Goal", "Recovered goal")
+
+        content = shared_path.read_text(encoding="utf-8")
+        backups = list(tmp_path.glob("shared.md.oversized-*"))
+        assert "Recovered goal" in content
+        assert "Recovery Notice" in content
+        assert len(backups) == 1
+        assert "large-body" in backups[0].read_text(encoding="utf-8")
 
     def test_multiple_sections(self, shared_engine):
         shared_engine.initialize("Test", ["claude"])

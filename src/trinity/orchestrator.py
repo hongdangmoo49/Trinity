@@ -163,6 +163,8 @@ class TrinityOrchestrator:
         self.shared = SharedContextEngine(
             path=self.config.shared_context_path,
             keep_sections=self.config.keep_sections,
+            max_read_bytes=self.config.shared_max_bytes,
+            section_entry_max_chars=self.config.shared_section_entry_max_chars,
         )
 
         if self.interactive:

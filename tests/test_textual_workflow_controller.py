@@ -84,6 +84,14 @@ class FakeOrchestrator:
         )
 
 
+class CapturingOrchestrator(FakeOrchestrator):
+    calls: list[dict[str, object]] = []
+
+    def __init__(self, *args, **kwargs) -> None:
+        type(self).calls.append(dict(kwargs))
+        super().__init__(*args, **kwargs)
+
+
 class FakeReviewOrchestrator(FakeOrchestrator):
     async def review_work_packages(
         self,
@@ -348,6 +356,35 @@ def test_textual_workflow_controller_starts_real_workflow_session(tmp_path) -> N
     provider = next(item for item in final.snapshot.providers if item.name == "claude")
     assert provider.status == "Ready"
     assert provider.raw_output == "claude plan"
+
+
+def test_textual_workflow_controller_passes_targeted_agents_to_orchestrator(
+    tmp_path,
+) -> None:
+    CapturingOrchestrator.calls = []
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    controller = TextualWorkflowController(
+        config,
+        orchestrator_factory=CapturingOrchestrator,
+        archive_active_session=False,
+    )
+
+    outcome = controller.start_prompt(
+        "코덱스만 검토해줘",
+        target_agents=("codex",),
+        agent_model_overrides={"codex": "gpt-5"},
+    )
+
+    assert outcome.running is True
+    assert controller.workflow.session.active_agents == ["claude", "codex"]
+    assert controller.workflow.session.last_target_agents == ["codex"]
+    assert controller.workflow.session.agent_model_overrides["codex"] == "gpt-5"
+    assert controller.wait_until_idle(timeout=2.0)
+    assert CapturingOrchestrator.calls
+    call = CapturingOrchestrator.calls[-1]
+    assert call["active_agent_names"] == ("codex",)
+    assert call["agent_model_overrides"] == {"codex": "gpt-5"}
 
 
 def test_textual_workflow_controller_reports_active_synthesis(tmp_path) -> None:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Callable
 
@@ -102,11 +102,21 @@ class TrinityOrchestrator:
         target_workspace: Path | None = None,
         allow_control_repo_writes: bool = False,
         provider_sessions: Mapping[str, object] | None = None,
+        active_agent_names: tuple[str, ...] | list[str] = (),
+        agent_model_overrides: Mapping[str, str] | None = None,
     ):
         self.config = config
         self.target_workspace = target_workspace.resolve() if target_workspace else None
         self.allow_control_repo_writes = allow_control_repo_writes
         self.provider_sessions = dict(provider_sessions or {})
+        self.active_agent_names = tuple(
+            str(name).strip() for name in active_agent_names if str(name).strip()
+        )
+        self.agent_model_overrides = {
+            str(name).strip(): str(model).strip()
+            for name, model in dict(agent_model_overrides or {}).items()
+            if str(name).strip() and str(model).strip()
+        }
         self.transport_mode = config.transport_mode
         self.interactive = (
             self.transport_mode == "tmux" if interactive is None else interactive
@@ -145,6 +155,25 @@ class TrinityOrchestrator:
         if self.review_protocol:
             self.review_protocol._event_callback = bus.emit
 
+    def _configured_active_agents(self) -> dict[str, AgentSpec]:
+        """Return the active agent projection for this invocation."""
+        active_agents = dict(self.config.active_agents)
+        if self.active_agent_names:
+            requested = set(self.active_agent_names)
+            active_agents = {
+                name: spec for name, spec in active_agents.items() if name in requested
+            }
+        if not self.agent_model_overrides:
+            return active_agents
+        return {
+            name: (
+                replace(spec, model=self.agent_model_overrides[name])
+                if name in self.agent_model_overrides
+                else spec
+            )
+            for name, spec in active_agents.items()
+        }
+
     def _ensure_initialized(self) -> None:
         """Lazy initialization: create agents, shared context, protocol."""
         if self.agents and self.shared:
@@ -156,7 +185,7 @@ class TrinityOrchestrator:
         (state_dir / "agents").mkdir(exist_ok=True)
         (state_dir / "history").mkdir(exist_ok=True)
         (state_dir / "logs").mkdir(exist_ok=True)
-        active_agents = self.config.active_agents
+        active_agents = self._configured_active_agents()
         self._prepare_agent_launch_contexts(active_agents, state_dir)
 
         # Create shared context engine

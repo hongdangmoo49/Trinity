@@ -624,6 +624,8 @@ class WorkflowSession:
     goal: str
     state: WorkflowState
     active_agents: list[str] = field(default_factory=list)
+    last_target_agents: list[str] = field(default_factory=list)
+    agent_model_overrides: dict[str, str] = field(default_factory=dict)
     current_round: int = 0
     target_workspace: Path | None = None
     control_repo_target_confirmed: bool = False
@@ -655,6 +657,8 @@ class WorkflowSession:
             "goal": self.goal,
             "state": self.state.value,
             "active_agents": list(self.active_agents),
+            "last_target_agents": list(self.last_target_agents),
+            "agent_model_overrides": dict(self.agent_model_overrides),
             "current_round": self.current_round,
             "target_workspace": (str(self.target_workspace) if self.target_workspace else None),
             "control_repo_target_confirmed": self.control_repo_target_confirmed,
@@ -690,6 +694,15 @@ class WorkflowSession:
             goal=str(data.get("goal", "")),
             state=WorkflowState(state_value),
             active_agents=[str(item) for item in data.get("active_agents", [])],
+            last_target_agents=[
+                str(item) for item in data.get("last_target_agents", [])
+            ],
+            agent_model_overrides={
+                str(key): str(value)
+                for key, value in data.get("agent_model_overrides", {}).items()
+            }
+            if isinstance(data.get("agent_model_overrides", {}), dict)
+            else {},
             current_round=int(data.get("current_round", 0)),
             target_workspace=(
                 Path(str(data["target_workspace"]))

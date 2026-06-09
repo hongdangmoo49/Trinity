@@ -39,6 +39,29 @@ def test_workflow_engine_starts_and_persists_session(tmp_path):
     assert data["state"] == "deliberating"
 
 
+def test_workflow_engine_records_target_agents_and_model_overrides(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+
+    action = engine.handle_user_input(
+        "Ask codex",
+        ["claude", "codex"],
+        target_agents=("codex",),
+        agent_model_overrides={"claude": "ignored-sonnet", "codex": "gpt-5"},
+    )
+
+    assert action.should_deliberate is True
+    assert action.target_agents == ("codex",)
+    assert action.agent_selection_mode == "targeted"
+    assert action.agent_model_overrides == {"codex": "gpt-5"}
+    assert engine.session.active_agents == ["claude", "codex"]
+    assert engine.session.last_target_agents == ["codex"]
+    assert engine.session.agent_model_overrides == {"codex": "gpt-5"}
+
+    data = json.loads(engine.state_file.read_text(encoding="utf-8"))
+    assert data["last_target_agents"] == ["codex"]
+    assert data["agent_model_overrides"] == {"codex": "gpt-5"}
+
+
 def test_workflow_engine_loads_existing_session(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
     engine.start("Keep this goal", ["claude"])

@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable
 from uuid import uuid4
@@ -56,6 +56,9 @@ class WorkflowInputAction:
 
     should_deliberate: bool
     prompt: str = ""
+    target_agents: tuple[str, ...] = ()
+    agent_model_overrides: dict[str, str] = field(default_factory=dict)
+    agent_selection_mode: str = "all"
     decision_record: DecisionRecord | None = None
     started_new_workflow: bool = False
     replaced_decision: bool = False
@@ -167,10 +170,48 @@ class WorkflowEngine:
         """Return whether the persisted execution run needs recovery."""
         return self.execution_recovery_summary() is not None
 
+    @staticmethod
+    def _effective_target_agents(
+        active_agents: list[str],
+        target_agents: list[str] | tuple[str, ...] | None,
+    ) -> tuple[str, ...]:
+        active = [str(agent).strip() for agent in active_agents if str(agent).strip()]
+        active_set = set(active)
+        requested = [
+            str(agent).strip()
+            for agent in (target_agents or active)
+            if str(agent).strip()
+        ]
+        selected = tuple(agent for agent in requested if agent in active_set)
+        return selected or tuple(active)
+
+    @staticmethod
+    def _normalized_model_overrides(
+        agent_model_overrides: dict[str, str] | None,
+        allowed_agents: tuple[str, ...] | list[str] = (),
+    ) -> dict[str, str]:
+        if not agent_model_overrides:
+            return {}
+        allowed = {
+            str(agent).strip()
+            for agent in allowed_agents
+            if str(agent).strip()
+        }
+        return {
+            str(agent).strip(): str(model).strip()
+            for agent, model in agent_model_overrides.items()
+            if str(agent).strip()
+            and str(model).strip()
+            and (not allowed or str(agent).strip() in allowed)
+        }
+
     def handle_user_input(
         self,
         text: str,
         active_agents: list[str],
+        *,
+        target_agents: list[str] | tuple[str, ...] | None = None,
+        agent_model_overrides: dict[str, str] | None = None,
     ) -> WorkflowInputAction:
         """Route plain session text through the current workflow state."""
         if self.session.state == WorkflowState.POST_REVIEW_READY:
@@ -178,8 +219,18 @@ class WorkflowEngine:
         if self.session.state == WorkflowState.NEEDS_USER_DECISION:
             return self.answer_pending_question(text)
         if self._can_continue_existing_blueprint():
-            return self.continue_from_blueprint(text, active_agents)
-        return self.start(text, active_agents)
+            return self.continue_from_blueprint(
+                text,
+                active_agents,
+                target_agents=target_agents,
+                agent_model_overrides=agent_model_overrides,
+            )
+        return self.start(
+            text,
+            active_agents,
+            target_agents=target_agents,
+            agent_model_overrides=agent_model_overrides,
+        )
 
     def _can_continue_existing_blueprint(self) -> bool:
         """Return whether free text should stay attached to this workflow."""
@@ -194,22 +245,46 @@ class WorkflowEngine:
         self,
         goal: str,
         active_agents: list[str],
+        *,
+        target_agents: list[str] | tuple[str, ...] | None = None,
+        agent_model_overrides: dict[str, str] | None = None,
     ) -> WorkflowInputAction:
         """Start a new workflow for a user goal."""
         now = time.time()
+        effective_targets = self._effective_target_agents(active_agents, target_agents)
+        model_overrides = self._normalized_model_overrides(
+            agent_model_overrides,
+            effective_targets,
+        )
         self.session = WorkflowSession(
             id=f"wf-{uuid4().hex[:12]}",
             goal=goal,
             state=WorkflowState.PREFLIGHT,
             active_agents=list(active_agents),
+            last_target_agents=list(effective_targets),
+            agent_model_overrides=model_overrides,
             created_at=now,
             updated_at=now,
         )
-        self._persist("workflow_started", {"goal": goal, "active_agents": active_agents})
+        self._persist(
+            "workflow_started",
+            {
+                "goal": goal,
+                "active_agents": active_agents,
+                "target_agents": list(effective_targets),
+                "agent_model_overrides": dict(model_overrides),
+                "targeted": set(effective_targets) != set(active_agents),
+            },
+        )
         self.set_state(WorkflowState.DELIBERATING, reason="user goal accepted")
         return WorkflowInputAction(
             should_deliberate=True,
             prompt=goal,
+            target_agents=effective_targets,
+            agent_model_overrides=dict(model_overrides),
+            agent_selection_mode=(
+                "targeted" if set(effective_targets) != set(active_agents) else "all"
+            ),
             started_new_workflow=True,
         )
 
@@ -337,6 +412,9 @@ class WorkflowEngine:
         self,
         instruction: str,
         active_agents: list[str],
+        *,
+        target_agents: list[str] | tuple[str, ...] | None = None,
+        agent_model_overrides: dict[str, str] | None = None,
     ) -> WorkflowInputAction:
         """Continue an existing blueprint workflow with additional user text."""
         instruction = instruction.strip()
@@ -346,7 +424,12 @@ class WorkflowEngine:
                 message="Instruction cannot be empty.",
             )
         if self.session.blueprint is None:
-            return self.start(instruction, active_agents)
+            return self.start(
+                instruction,
+                active_agents,
+                target_agents=target_agents,
+                agent_model_overrides=agent_model_overrides,
+            )
 
         followup_action = classify_blueprint_followup_action(instruction)
         if followup_action == "execute":
@@ -357,10 +440,25 @@ class WorkflowEngine:
                 message="Workflow action cancelled.",
             )
         if followup_action == "new":
-            return self.start(instruction, active_agents)
+            return self.start(
+                instruction,
+                active_agents,
+                target_agents=target_agents,
+                agent_model_overrides=agent_model_overrides,
+            )
 
         if active_agents:
             self.session.active_agents = list(active_agents)
+        effective_targets = self._effective_target_agents(
+            self.session.active_agents,
+            target_agents,
+        )
+        model_overrides = self._normalized_model_overrides(
+            agent_model_overrides,
+            effective_targets,
+        )
+        self.session.last_target_agents = list(effective_targets)
+        self.session.agent_model_overrides = model_overrides
         source_state = self.session.state
         self.set_state(
             WorkflowState.DELIBERATING,
@@ -371,11 +469,21 @@ class WorkflowEngine:
             {
                 "instruction": instruction,
                 "source_state": source_state.value,
+                "target_agents": list(effective_targets),
+                "agent_model_overrides": dict(model_overrides),
+                "targeted": set(effective_targets) != set(self.session.active_agents),
             },
         )
         return WorkflowInputAction(
             should_deliberate=True,
             prompt=self._build_blueprint_continuation_prompt(instruction),
+            target_agents=effective_targets,
+            agent_model_overrides=dict(model_overrides),
+            agent_selection_mode=(
+                "targeted"
+                if set(effective_targets) != set(self.session.active_agents)
+                else "all"
+            ),
         )
 
     def enable_execution_for_current_blueprint(

@@ -13,6 +13,9 @@ from trinity.models import AgentSpec
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
+from trinity.textual_app.widgets.agent_recipient_model_selector import (
+    AgentRecipientModelSelector,
+)
 from trinity.textual_app.widgets.composer import PromptComposer
 from trinity.textual_app.widgets.central_agent import CentralAgentView, QuestionAnswer
 from trinity.textual_app.widgets.inspector import WorkflowInspector
@@ -25,9 +28,16 @@ class NexusScreen(Screen[None]):
     class FollowUpSubmitted(Message):
         """Posted when the user sends a follow-up in the active workflow."""
 
-        def __init__(self, text: str) -> None:
+        def __init__(
+            self,
+            text: str,
+            target_agents: tuple[str, ...],
+            agent_model_overrides: dict[str, str],
+        ) -> None:
             super().__init__()
             self.text = text
+            self.target_agents = target_agents
+            self.agent_model_overrides = agent_model_overrides
 
     class SlashCommandSubmitted(Message):
         """Posted when the Nexus composer submits a Trinity slash command."""
@@ -87,6 +97,8 @@ class NexusScreen(Screen[None]):
         self.follow_ups: list[str] = []
         self.snapshot: WorkflowNexusSnapshot | None = None
         self._activity_frame = 0
+        self._selected_agents: tuple[str, ...] = ()
+        self._agent_model_overrides: dict[str, str] = {}
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -100,6 +112,11 @@ class NexusScreen(Screen[None]):
             with Horizontal(id="nexus-main"):
                 yield CentralAgentView(id="central-agent", lang=self.config.lang)
                 yield WorkflowInspector(id="workflow-inspector")
+            yield AgentRecipientModelSelector(
+                self.config.agents,
+                id="nexus-recipient-selector",
+                lang=self.config.lang,
+            )
             yield PromptComposer(
                 placeholder="Reply, refine direction, or type / for commands",
                 id="nexus-composer",
@@ -113,12 +130,32 @@ class NexusScreen(Screen[None]):
         else:
             self._refresh_central()
             self._refresh_inspector()
+        if self._selected_agents or self._agent_model_overrides:
+            self._apply_agent_selection()
         self.query_one("#nexus-composer", PromptComposer).focus_text_area()
 
     def set_initial_prompt(self, prompt: str) -> None:
         self.initial_prompt = prompt.strip()
         if self.is_mounted:
             self._refresh_central()
+
+    def set_agent_selection(
+        self,
+        target_agents: tuple[str, ...] | list[str],
+        agent_model_overrides: dict[str, str],
+    ) -> None:
+        """Apply selection state restored from the Start screen or resume."""
+        self._selected_agents = tuple(target_agents)
+        self._agent_model_overrides = dict(agent_model_overrides)
+        if self.is_mounted:
+            self._apply_agent_selection()
+
+    def _apply_agent_selection(self) -> None:
+        selector = self.query_one(AgentRecipientModelSelector)
+        if self._selected_agents:
+            selector.set_selected_agents(self._selected_agents)
+        if self._agent_model_overrides:
+            selector.set_model_overrides(self._agent_model_overrides)
 
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
         self.snapshot = snapshot
@@ -211,10 +248,21 @@ class NexusScreen(Screen[None]):
             self.query_one("#nexus-composer", PromptComposer).clear()
             self.post_message(self.SlashCommandSubmitted(cleaned))
             return
+        selector = self.query_one(AgentRecipientModelSelector)
+        target_agents = selector.selected_agents()
+        if not target_agents:
+            self.app.notify("Select at least one agent.", severity="warning")
+            return
         self.follow_ups.append(cleaned)
         self.query_one("#nexus-composer", PromptComposer).clear()
         self._refresh_central()
-        self.post_message(self.FollowUpSubmitted(cleaned))
+        self.post_message(
+            self.FollowUpSubmitted(
+                cleaned,
+                target_agents,
+                selector.model_overrides(),
+            )
+        )
 
     def _refine_prompt(self, action: str) -> str:
         prompts_ko = {

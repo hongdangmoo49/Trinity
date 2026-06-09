@@ -155,8 +155,8 @@ class TrinityTextualApp(App[None]):
     }
 
     #start-shell {
-        width: 72;
-        max-width: 90%;
+        width: 88;
+        max-width: 94%;
         height: auto;
     }
 
@@ -194,6 +194,37 @@ class TrinityTextualApp(App[None]):
 
     #start-composer.-commands-open {
         height: 13;
+    }
+
+    .agent-recipient-selector {
+        width: 100%;
+        height: auto;
+        margin-top: 1;
+        align-vertical: middle;
+    }
+
+    .recipient-label {
+        width: auto;
+        min-width: 8;
+        content-align: left middle;
+        color: $text-muted;
+        margin-right: 1;
+    }
+
+    .recipient-all {
+        width: auto;
+        min-width: 10;
+        margin-right: 1;
+    }
+
+    .recipient-agent-check {
+        width: 3;
+        margin-right: 0;
+    }
+
+    .recipient-agent-model {
+        width: 16;
+        margin-right: 1;
     }
 
     #prompt-textarea {
@@ -928,7 +959,11 @@ class TrinityTextualApp(App[None]):
             return
 
         self.install_screen(
-            StartScreen(self.workspace_candidate, lang=self.config.lang),
+            StartScreen(
+                self.config,
+                self.workspace_candidate,
+                lang=self.config.lang,
+            ),
             "start",
         )
         self.install_screen(NexusScreen(self.config), "nexus")
@@ -947,10 +982,13 @@ class TrinityTextualApp(App[None]):
         self.workspace_candidate = event.workspace_candidate
         nexus = self.get_screen("nexus", NexusScreen)
         nexus.set_initial_prompt(event.prompt)
+        nexus.set_agent_selection(event.target_agents, event.agent_model_overrides)
         target_workspace = self._safe_start_target_workspace(event.workspace_candidate)
         outcome = self.workflow_controller.start_prompt(
             event.prompt,
             target_workspace=target_workspace,
+            target_agents=event.target_agents,
+            agent_model_overrides=event.agent_model_overrides,
         )
         self._apply_workflow_outcome(outcome)
         self.switch_to("nexus")
@@ -977,7 +1015,11 @@ class TrinityTextualApp(App[None]):
         event: NexusScreen.FollowUpSubmitted,
     ) -> None:
         event.stop()
-        outcome = self.workflow_controller.submit_follow_up(event.text)
+        outcome = self.workflow_controller.submit_follow_up(
+            event.text,
+            target_agents=event.target_agents,
+            agent_model_overrides=event.agent_model_overrides,
+        )
         self._apply_workflow_outcome(outcome)
         if outcome.target_workspace_required:
             self._open_execute_workspace_picker(outcome.snapshot)
@@ -1402,6 +1444,9 @@ class TrinityTextualApp(App[None]):
         if command == "answer":
             self._handle_textual_answer_command(args)
             return
+        if command == "ask":
+            self._handle_textual_ask_command(parsed.spec.name, args)
+            return
         if command == "execute-retry":
             self._handle_textual_execute_retry_command(args)
             return
@@ -1473,6 +1518,92 @@ class TrinityTextualApp(App[None]):
             if outcome.target_workspace_required:
                 self._open_execute_workspace_picker(outcome.snapshot)
             return
+
+    def _handle_textual_ask_command(self, command_name: str, args: list[str]) -> None:
+        target_agents, model_overrides, prompt, error = self._parse_ask_args(args)
+        if error:
+            self._record_slash_command_result(
+                command_name,
+                "Ask",
+                error,
+                severity="warning",
+                empty=True,
+                action_hint="/ask <all|agent[,agent...]> [--model MODEL] <prompt>",
+            )
+            return
+
+        if self.current_route == "start":
+            self.initial_prompt = prompt
+            nexus = self.get_screen("nexus", NexusScreen)
+            nexus.set_initial_prompt(prompt)
+            nexus.set_agent_selection(target_agents, model_overrides)
+            target_workspace = self._safe_start_target_workspace(self.workspace_candidate)
+            outcome = self.workflow_controller.start_prompt(
+                prompt,
+                target_workspace=target_workspace,
+                target_agents=target_agents,
+                agent_model_overrides=model_overrides,
+            )
+            self._apply_workflow_outcome(outcome)
+            self.switch_to("nexus")
+            return
+
+        nexus = self.get_screen("nexus", NexusScreen)
+        nexus.set_agent_selection(target_agents, model_overrides)
+        outcome = self.workflow_controller.submit_follow_up(
+            prompt,
+            target_agents=target_agents,
+            agent_model_overrides=model_overrides,
+        )
+        self._apply_workflow_outcome(outcome)
+        if outcome.target_workspace_required:
+            self._open_execute_workspace_picker(outcome.snapshot)
+
+    def _parse_ask_args(
+        self,
+        args: list[str],
+    ) -> tuple[tuple[str, ...], dict[str, str], str, str]:
+        if not args:
+            return (), {}, "", "Usage: /ask <all|agent[,agent...]> [--model MODEL] <prompt>"
+
+        active_agents = tuple(self.config.active_agents.keys())
+        selector = args[0].strip().lower()
+        if selector == "all":
+            target_agents = active_agents
+        else:
+            requested = tuple(
+                item.strip().lower()
+                for item in selector.split(",")
+                if item.strip()
+            )
+            unknown = [name for name in requested if name not in self.config.active_agents]
+            if unknown:
+                return (), {}, "", f"Unknown or disabled agent: {', '.join(unknown)}"
+            target_agents = requested
+
+        if not target_agents:
+            return (), {}, "", "No active agents are available for /ask."
+
+        model = ""
+        prompt_parts: list[str] = []
+        index = 1
+        while index < len(args):
+            value = args[index]
+            if value in {"--model", "-m"}:
+                if index + 1 >= len(args):
+                    return (), {}, "", "Missing model after --model."
+                model = args[index + 1].strip()
+                index += 2
+                continue
+            prompt_parts.append(value)
+            index += 1
+
+        prompt = " ".join(prompt_parts).strip()
+        if not prompt:
+            return (), {}, "", "Prompt cannot be empty."
+
+        model_overrides = {agent: model for agent in target_agents} if model else {}
+        return target_agents, model_overrides, prompt, ""
 
     def _on_quit_confirmed(self, confirmed: bool | None) -> None:
         if confirmed:

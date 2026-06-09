@@ -104,6 +104,7 @@ text table로 렌더링한다.
 | `/workflow` | `/workflow` | 없음 | workflow id, state, goal, target workspace, 질문/결정/package 수, 병렬 그룹 수를 표시한다. |
 | `/questions` | `/questions [--select] [--all]` | 선택 시 변경 | 열린 workflow 질문을 표시하거나 선택 UI로 답변을 입력한다. |
 | `/answer` | `/answer <id\|n\|next> <text>` | workflow 저장 | 질문 답변을 decision으로 기록하고 필요하면 deliberation을 재개한다. |
+| `/ask` | `/ask <all\|agent[,agent...]> [--model MODEL] <prompt>` | 조건부 workflow 저장 | 선택한 agent에게만 새 질문이나 follow-up을 보내고, 필요하면 지정 모델 override를 해당 요청에 적용한다. |
 | `/decisions` | `/decisions` | 없음 | 기록된 workflow decision ledger를 표시한다. |
 | `/packages` | `/packages` | 없음 | 생성된 work package 목록과 실행 여부, dependency, 예상 파일을 표시한다. |
 | `/subtasks` | `/subtasks` | 없음 | provider 내부 delegation 결과를 표시한다. |

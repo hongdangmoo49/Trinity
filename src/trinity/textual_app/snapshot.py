@@ -32,6 +32,13 @@ class ProviderSnapshot:
     readiness: str = "unknown"
     readiness_reason: str = ""
     raw_output: str = ""
+    configured_model: str = ""
+    actual_model: str = ""
+    model_label: str = ""
+    context_window: int = 0
+    budget_source: str = ""
+    session_id: str = ""
+    session_kind: str = ""
 
 
 @dataclass(frozen=True)
@@ -639,15 +646,58 @@ class NexusSnapshotAdapter:
                 status = "Ready"
             elif enabled and session and session.state.value == "deliberating":
                 status = "Running"
+            runtime_model = self._runtime_model_for(session, name)
+            provider_session = self._provider_session_for(session, name)
+            actual_model = ""
+            model_label = ""
+            context_window = 0
+            budget_source = ""
+            if runtime_model is not None:
+                actual_model = runtime_model.actual_model
+                model_label = runtime_model.model_label
+                context_window = runtime_model.context_window
+                budget_source = runtime_model.budget_source
+            session_id = provider_session.provider_session_id if provider_session else ""
+            session_kind = provider_session.session_kind if provider_session else ""
+            provider_line = spec.provider.value
+            display_model = actual_model or model_label
+            if display_model:
+                provider_line = f"{provider_line} · {display_model}"
             states[name] = ProviderSnapshot(
                 name=name,
-                provider=spec.provider.value,
+                provider=provider_line,
                 enabled=enabled,
                 status=status,
                 summary=summary,
                 raw_output=raw_output,
+                configured_model=spec.model,
+                actual_model=actual_model,
+                model_label=model_label,
+                context_window=context_window,
+                budget_source=budget_source,
+                session_id=session_id,
+                session_kind=session_kind,
             )
         return states
+
+    @staticmethod
+    def _runtime_model_for(session: WorkflowSession | None, agent_name: str):
+        if session is None:
+            return None
+        return session.runtime_models.get(agent_name)
+
+    @staticmethod
+    def _provider_session_for(session: WorkflowSession | None, agent_name: str):
+        if session is None:
+            return None
+        matches = [
+            item
+            for item in session.provider_sessions.values()
+            if item.agent_name == agent_name and item.provider_session_id
+        ]
+        if not matches:
+            return None
+        return sorted(matches, key=lambda item: item.last_observed_at, reverse=True)[0]
 
     def _fold_recent_events(
         self,
@@ -1136,6 +1186,13 @@ class NexusSnapshotAdapter:
             "readiness": snapshot.readiness,
             "readiness_reason": snapshot.readiness_reason,
             "raw_output": snapshot.raw_output,
+            "configured_model": snapshot.configured_model,
+            "actual_model": snapshot.actual_model,
+            "model_label": snapshot.model_label,
+            "context_window": snapshot.context_window,
+            "budget_source": snapshot.budget_source,
+            "session_id": snapshot.session_id,
+            "session_kind": snapshot.session_kind,
         }
         data.update(updates)
         return ProviderSnapshot(**data)

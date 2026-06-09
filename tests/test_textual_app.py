@@ -566,6 +566,33 @@ def test_snapshot_report_markdown_escapes_user_markdown() -> None:
     assert "```\n# summary heading\n- summary item\n```" in md
 
 
+def test_snapshot_report_markdown_includes_provider_metadata() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-provider",
+        goal="design",
+        state="blueprint_ready",
+        providers=[
+            ProviderSnapshot(
+                name="codex",
+                provider="codex · gpt-5.5",
+                enabled=True,
+                status="Ready",
+                configured_model="default",
+                actual_model="gpt-5.5",
+                context_window=272000,
+                budget_source="local_cli_cache",
+                session_id="019ea9e3-426f",
+            )
+        ],
+    )
+
+    md = snapshot_report_markdown(snapshot)
+
+    assert "## Providers" in md
+    assert "**codex**: gpt\\-5\\.5; context 272,000 (local\\_cli\\_cache)" in md
+    assert "session 019ea9e3\\-426" in md
+
+
 def test_unique_report_path_avoids_existing_file_and_sanitizes_session_id(
     tmp_path,
 ) -> None:

@@ -21,10 +21,11 @@ Nexus 화면에서 중앙 에이전트가 설계한 workflow가 짧은 요약과
 1. `WorkflowNexusSnapshot`에 중앙 blueprint 응답 Markdown을 추가한다.
 2. `CentralAgentView`에서 `Central Agent Response` 섹션을 출력한다.
 3. `blueprint_ready` 상태이고 WP가 존재할 때 중앙 패널에 다음 행동 버튼을 표시한다.
-4. 버튼은 `실행/Execute`, `보강/Refine` 두 개로 구성한다.
+4. 버튼은 `실행/Execute`, `기능 보강/Refine features`, `리스크 보강/Refine risks`, `WP 재분배/Rebalance WPs`로 구성한다.
 5. `실행`은 기존 execute preflight 흐름으로 연결한다.
-6. `보강`은 현재 blueprint를 더 구체화하고 빠진 결정을 정리하라는 follow-up으로 연결한다.
+6. 보강 버튼은 선택한 범위에 따라 서로 다른 follow-up으로 연결한다.
 7. 중앙 에이전트의 Codex synthesis 모델은 Codex agent의 설정 모델을 따른다. Codex agent 모델이 비어 있으면 `default`를 사용한다.
+8. Settings 화면에서 Claude, Codex, Antigravity, Central agent 모델을 직접 선택하고 프로젝트 `trinity.config`에 저장한다.
 
 ## 화면 동작
 
@@ -58,7 +59,9 @@ Nexus 화면에서 중앙 에이전트가 설계한 workflow가 짧은 요약과
 버튼은 `state == blueprint_ready`이고 WP가 있을 때만 표시한다. 이미 `executing`, `reviewing`, `post_review_ready` 등 다음 단계로 넘어간 상태에서는 다시 표시하지 않는다.
 
 - `실행/Execute`: 기존 `request_execution()`으로 연결되어 workspace preflight 또는 실행으로 이어진다.
-- `보강/Refine`: 현재 workflow에 follow-up을 제출해 중앙 에이전트가 설계를 더 구체화하도록 한다.
+- `기능 보강/Refine features`: 핵심 기능, 게임 루프, 사용자 경험, 빠진 결정을 더 구체화한다.
+- `리스크 보강/Refine risks`: 실행 리스크, 안티패턴 가능성, 성능 우려, 검증 기준을 더 구체화한다.
+- `WP 재분배/Rebalance WPs`: WP 범위, 담당 에이전트, 의존성, 병렬 실행 가능성을 다시 검토한다.
 
 ## 중앙 에이전트 모델 정책
 
@@ -66,26 +69,31 @@ Nexus 화면에서 중앙 에이전트가 설계한 workflow가 짧은 요약과
 
 Codex가 중앙 synthesis provider로 선택되면 `synthesis_model = "fast"` 또는 `"strong"`이어도 더 이상 `gpt-5.4-mini`나 `gpt-5.4`로 강제 매핑하지 않는다. 대신 Codex agent의 `AgentSpec.model`을 그대로 사용하고, 값이 비어 있으면 `default`를 사용한다.
 
+`synthesis_model = "agent-default"`는 provider와 관계없이 선택된 중앙 provider agent의 `AgentSpec.model`을 따른다. Settings 화면의 중앙 모델 기본 선택지는 이 값을 사용한다.
+
 이 정책은 사용자가 보는 Codex agent 모델과 중앙 에이전트가 실제 호출하는 Codex 모델을 맞추기 위한 것이다.
 
-## 향후 확장
+## Settings 화면
 
-추후 설정 화면에서는 네 개의 모델 선택 영역을 분리한다.
+Settings 화면에는 네 개의 모델 선택 영역을 분리한다.
 
 - Claude agent provider/model
 - Codex agent provider/model
 - Antigravity agent provider/model
 - Central agent provider/model
 
-Central agent는 기본적으로 Codex agent default를 따르되, 사용자가 직접 provider와 model을 지정하면 해당 override를 사용한다.
+Central agent는 기본적으로 agent default를 따르되, 사용자가 직접 provider와 model을 지정하면 해당 override를 사용한다.
 
 모델 선택 UI에는 다음 정보가 함께 표시되어야 한다.
 
-- configured model
-- actual 또는 observed model
-- context window
-- budget source
-- session persistence 지원 여부
+- known model choices
+- current central provider override
+- current central model override
+- 저장 대상 프로젝트 config
+
+## 향후 확장
+
+이후 Settings 화면은 모델 선택을 넘어 provider 활성화/비활성화, actual observed model, context window, budget source, session persistence 지원 여부를 함께 보여줄 수 있다.
 
 ## 테스트 기준
 

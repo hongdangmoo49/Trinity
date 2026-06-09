@@ -521,6 +521,13 @@ class TrinityTextualApp(App[None]):
         margin-bottom: 1;
     }
 
+    .settings-section-title {
+        text-style: bold;
+        color: $warning;
+        margin-top: 1;
+        margin-bottom: 1;
+    }
+
     .settings-row {
         width: 72;
         height: 3;
@@ -537,7 +544,7 @@ class TrinityTextualApp(App[None]):
 
     #theme-preview {
         width: 72;
-        height: 7;
+        height: 10;
         border: round $accent;
         margin-top: 1;
         padding: 1 2;
@@ -919,7 +926,7 @@ class TrinityTextualApp(App[None]):
         )
         self.install_screen(NexusScreen(self.config), "nexus")
         self.install_screen(
-            SettingsScreen(self.settings_store, lang=self.config.lang),
+            SettingsScreen(self.settings_store, self.config, lang=self.config.lang),
             "settings",
         )
         self.install_screen(ExecutionMatrixScreen(), "execution")

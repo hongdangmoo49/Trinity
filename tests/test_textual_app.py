@@ -2799,3 +2799,40 @@ async def test_settings_screen_saves_theme_preferences(tmp_path) -> None:
     saved = UISettingsStore(tmp_path / ".trinity").load()
     assert saved.theme_mode == "dark"
     assert saved.density == "compact"
+
+
+@pytest.mark.asyncio
+async def test_settings_screen_saves_agent_and_central_models(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        screen.query_one("#model-claude").value = "sonnet[1m]"
+        screen.query_one("#model-codex").value = "gpt-5"
+        screen.query_one("#central-provider").value = "codex"
+        screen.query_one("#central-model").value = "agent-default"
+        screen.action_apply()
+        await pilot.pause()
+
+    saved_config = TrinityConfig.load(tmp_path / ".trinity" / "trinity.config")
+    assert saved_config.agents["claude"].model == "sonnet[1m]"
+    assert saved_config.agents["codex"].model == "gpt-5"
+    assert saved_config.synthesis_agent == "codex"
+    assert saved_config.synthesis_model == "agent-default"
+
+
+def test_nexus_refine_prompts_are_scope_specific(tmp_path) -> None:
+    screen = NexusScreen(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
+
+    feature_prompt = screen._refine_prompt("refine-features")
+    risk_prompt = screen._refine_prompt("refine-risks")
+    package_prompt = screen._refine_prompt("refine-work-packages")
+
+    assert "핵심 기능" in feature_prompt
+    assert "실행 리스크" in risk_prompt
+    assert "WP의 범위" in package_prompt

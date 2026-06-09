@@ -307,7 +307,9 @@ class CentralAgentView(VerticalScroll):
         title.update(self._label("next_action"))
         for action, label, variant in (
             ("execute", self._label("execute"), "primary"),
-            ("refine", self._label("refine"), "default"),
+            ("refine-features", self._label("refine_features"), "default"),
+            ("refine-risks", self._label("refine_risks"), "default"),
+            ("refine-work-packages", self._label("refine_work_packages"), "default"),
         ):
             button_id = f"central-action-{action}"
             self._button_actions[button_id] = action
@@ -330,16 +332,24 @@ class CentralAgentView(VerticalScroll):
         ko = {
             "next_action": "다음 작업",
             "execute": "실행",
-            "refine": "보강",
+            "refine_features": "기능 보강",
+            "refine_risks": "리스크 보강",
+            "refine_work_packages": "WP 재분배",
             "execute_tooltip": "현재 WP를 실행합니다.",
-            "refine_tooltip": "현재 설계를 한 번 더 보강합니다.",
+            "refine-features_tooltip": "기능 범위와 사용자 경험을 더 구체화합니다.",
+            "refine-risks_tooltip": "실행 리스크와 검증 기준을 더 구체화합니다.",
+            "refine-work-packages_tooltip": "WP 분해, 담당자, 의존성을 다시 정리합니다.",
         }
         en = {
             "next_action": "Next action",
             "execute": "Execute",
-            "refine": "Refine",
+            "refine_features": "Refine features",
+            "refine_risks": "Refine risks",
+            "refine_work_packages": "Rebalance WPs",
             "execute_tooltip": "Run the current work packages.",
-            "refine_tooltip": "Refine the current blueprint once more.",
+            "refine-features_tooltip": "Clarify feature scope and user experience.",
+            "refine-risks_tooltip": "Clarify execution risks and validation criteria.",
+            "refine-work-packages_tooltip": "Revise WP ownership, scope, and dependencies.",
         }
         labels = ko if self.lang == "ko" else en
         return labels.get(key, key)

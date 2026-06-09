@@ -426,6 +426,8 @@ class TrinityOrchestrator:
     def _resolve_synthesis_model(self, spec: AgentSpec) -> str:
         """Resolve synthesis_model using provider-specific quality tiers."""
         requested = (self.config.synthesis_model or "strong").strip()
+        if requested in {"agent-default", "agent_default"}:
+            return spec.model or "default"
         if spec.provider == Provider.CODEX and requested in {"fast", "strong"}:
             return spec.model or "default"
         if requested == "fast":

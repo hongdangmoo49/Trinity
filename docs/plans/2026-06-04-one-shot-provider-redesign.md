@@ -586,3 +586,18 @@ enabled = false
 - Antigravity Gemini migration: https://antigravity.google/assets/docs/cli/gcli-migration.md
 - Antigravity CLI conversations: https://antigravity.google/assets/docs/cli/cli-conversations.md
 - Google Developers Blog - Transitioning Gemini CLI to Antigravity CLI: https://developers.googleblog.com/en/an-important-update-transitioning-gemini-cli-to-antigravity-cli/
+
+## 2026-06-09 보강 결정: provider-native session continuity
+
+기존 one-shot 기본 설계는 provider 내부 세션 기억보다 `shared.md`, response artifacts, synthesis summary를 canonical memory로 삼았다. 이후 실제 CLI 검증 결과, provider-native session id를 Trinity workflow에 매핑하면 사용자 관점의 세션 지속성과 context budget 관측값을 더 정확하게 유지할 수 있음이 확인됐다.
+
+추가 설계는 `docs/plans/2026-06-09-provider-session-model-context-design.md`에 둔다.
+
+핵심 변경:
+
+- Claude는 첫 `claude -p` JSON 응답의 `session_id`를 저장하고, 같은 Trinity workflow의 다음 호출부터 `claude --resume <session_id> -p ...`를 사용한다.
+- Claude의 `-c`/`--continue`는 자동화 기본값으로 쓰지 않는다. current directory의 가장 최근 대화 기준이라 다른 사용자 호출 또는 다른 workflow와 충돌할 수 있다.
+- Codex continuity mode는 `--ephemeral`을 제거하고 `thread.started.thread_id`를 저장한 뒤 `codex exec resume <thread_id> ...`를 사용한다.
+- Antigravity는 호출별 `--log-file`을 지정하고 로그의 `conversation=<uuid>`를 저장한 뒤 `agy --conversation <uuid> --print ...`를 사용한다.
+- 각 provider의 `configured_model`, `actual_model`, `context_window`, `context_window_source`, `provider_session_id`를 workflow session state와 report에 저장한다.
+- Context budget은 숫자만 표시하지 않고 runtime metadata, local CLI cache, provider log, Trinity config fallback 같은 source/confidence와 함께 표시한다.

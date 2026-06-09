@@ -6,7 +6,7 @@ import json
 import logging
 import shutil
 import time
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -96,6 +96,37 @@ class WorkflowPersistence:
         except (json.JSONDecodeError, OSError):
             logger.exception("Failed to load workflow events from %s", self.events_path)
         return events
+
+    def load_events_for_workflow(
+        self,
+        workflow_id: str,
+        *,
+        tail: int | None = None,
+        event_names: Iterable[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Read events for one workflow, optionally filtered and tail-limited."""
+        normalized_workflow_id = str(workflow_id).strip()
+        if not normalized_workflow_id:
+            return []
+
+        names = {str(name) for name in event_names or ()}
+        events = [
+            event
+            for event in self.load_events()
+            if str(event.get("workflow_id", "")) == normalized_workflow_id
+            and (not names or str(event.get("event", "")) in names)
+        ]
+        if tail is None:
+            return events
+        limit = max(0, int(tail or 0))
+        if limit == 0:
+            return []
+        return events[-limit:]
+
+    def last_event_for_workflow(self, workflow_id: str) -> dict[str, Any] | None:
+        """Return the latest persisted event for one workflow."""
+        events = self.load_events_for_workflow(workflow_id, tail=1)
+        return events[-1] if events else None
 
     def clear(self) -> None:
         """Remove persisted workflow files."""

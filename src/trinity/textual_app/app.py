@@ -1029,6 +1029,50 @@ class TrinityTextualApp(App[None]):
         if outcome.target_workspace_required:
             self._open_execute_workspace_picker(outcome.snapshot)
 
+    def on_nexus_screen_repair_action_requested(
+        self,
+        event: NexusScreen.RepairActionRequested,
+    ) -> None:
+        event.stop()
+        self._handle_review_repair_action(event.action, event.snapshot)
+
+    def _handle_review_repair_action(
+        self,
+        action: str,
+        snapshot: WorkflowNexusSnapshot | None,
+    ) -> None:
+        current = snapshot or self._fresh_textual_snapshot()
+        package_ids = self._review_repair_blocked_ids(current)
+        if action == "repair-open-review":
+            self._present_review_repair_details(current)
+            return
+        if action == "repair-retry-once":
+            outcome = self.workflow_controller.retry_blocked_review_repairs()
+            if outcome.target_workspace_required:
+                self._pending_execute_retry = ExecutionRetrySelection(
+                    "custom",
+                    package_ids,
+                )
+                self._apply_workflow_outcome(outcome)
+                self._open_execute_workspace_picker(outcome.snapshot)
+                return
+            self._apply_workflow_outcome(outcome)
+            if outcome.execution_requested:
+                execution = self.get_screen("execution", ExecutionMatrixScreen)
+                execution.apply_execution_state(self.confirmed_preflight, outcome.snapshot)
+                self.switch_to("execution")
+            return
+        if action == "repair-mark-done":
+            self._apply_workflow_outcome(
+                self.workflow_controller.accept_blocked_review_repairs()
+            )
+            return
+        if action == "repair-stop":
+            self._apply_workflow_outcome(
+                self.workflow_controller.stop_blocked_review_repairs()
+            )
+            return
+
     def _open_execute_workspace_picker(self, snapshot: WorkflowNexusSnapshot) -> None:
         self._open_workspace_picker(snapshot, self._on_workspace_preflight)
 
@@ -1151,6 +1195,8 @@ class TrinityTextualApp(App[None]):
         outcome = self.workflow_controller.drain_updates()
         if outcome is not None:
             self._apply_workflow_outcome(outcome)
+            if outcome.target_workspace_required:
+                self._open_execute_workspace_picker(outcome.snapshot)
         elif getattr(self.workflow_controller, "is_running", False):
             self._advance_activity_frame()
 
@@ -1572,6 +1618,89 @@ class TrinityTextualApp(App[None]):
             table_rows=self._execution_recovery_rows(snapshot),
             start_modal=False,
         )
+
+    def _present_review_repair_details(self, snapshot: WorkflowNexusSnapshot) -> None:
+        self._record_slash_command_result(
+            "/review",
+            "Review Repair",
+            self._review_repair_details_markdown(snapshot),
+            severity="warning",
+            action_hint="Choose Retry once, Mark done, or Stop from the central panel.",
+            table_columns=("WP", "Repair state"),
+            table_rows=self._review_repair_rows(snapshot),
+            start_modal=False,
+        )
+
+    @staticmethod
+    def _review_repair_blocked_ids(
+        snapshot: WorkflowNexusSnapshot,
+    ) -> tuple[str, ...]:
+        package_ids: list[str] = []
+        seen: set[str] = set()
+        for package in snapshot.work_package_details:
+            if package.status != "blocked" or not package.repair_blocked_reason:
+                continue
+            package_id = package.id.strip()
+            if package_id and package_id not in seen:
+                package_ids.append(package_id)
+                seen.add(package_id)
+        recovery = snapshot.execution_recovery
+        if recovery is not None and recovery.state == "repair_blocked":
+            for package_id in recovery.retry_candidates:
+                normalized = str(package_id).strip()
+                if normalized and normalized not in seen:
+                    package_ids.append(normalized)
+                    seen.add(normalized)
+        return tuple(package_ids)
+
+    @staticmethod
+    def _review_repair_details_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+        rows = TrinityTextualApp._review_repair_rows(snapshot)
+        if not rows:
+            return "No review-repair blocked work packages are recorded."
+        lines = ["Review-repair loop guard has paused these work packages:"]
+        for package_id, detail in rows:
+            lines.append(f"- **{package_id}**: {detail}")
+        if snapshot.work_package_repairs:
+            lines.extend(["", "### Recent repair notes"])
+            lines.extend(f"- {item}" for item in snapshot.work_package_repairs)
+        return "\n".join(lines)
+
+    @staticmethod
+    def _review_repair_rows(
+        snapshot: WorkflowNexusSnapshot,
+    ) -> tuple[tuple[str, str], ...]:
+        rows: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        for package in snapshot.work_package_details:
+            if package.status != "blocked" or not package.repair_blocked_reason:
+                continue
+            seen.add(package.id)
+            rows.append(
+                (
+                    package.id,
+                    (
+                        f"{package.repair_blocked_reason}; "
+                        f"attempts={package.repair_attempt_count}/"
+                        f"{package.repair_max_attempts}; "
+                        f"review={package.review_status or '(none)'}"
+                    ),
+                )
+            )
+        recovery = snapshot.execution_recovery
+        if recovery is not None and recovery.state == "repair_blocked":
+            for package_id in recovery.retry_candidates:
+                normalized = str(package_id).strip()
+                if not normalized or normalized in seen:
+                    continue
+                seen.add(normalized)
+                rows.append(
+                    (
+                        normalized,
+                        "repair_blocked; attempts=(unknown); review=(recovery)",
+                    )
+                )
+        return tuple(rows)
 
     @staticmethod
     def _execution_recovery_markdown(snapshot: WorkflowNexusSnapshot) -> str:

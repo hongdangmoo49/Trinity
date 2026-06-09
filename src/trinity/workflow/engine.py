@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import time
@@ -766,6 +767,11 @@ class WorkflowEngine:
             execution_run["retry_selector"] = str(previous_run.get("retry_selector", "") or "")
             execution_run["retry_requested_at"] = previous_run.get("retry_requested_at")
             execution_run["retry_packages"] = list(previous_run.get("retry_packages", []))
+            execution_run["repair_blocked_packages"] = list(
+                previous_run.get("repair_blocked_packages", [])
+            )
+            if previous_run.get("repair_blocked_at") is not None:
+                execution_run["repair_blocked_at"] = previous_run.get("repair_blocked_at")
         if str(previous_run.get("state", "")) == "supplemental_queued":
             execution_run["kind"] = str(previous_run.get("kind", "supplemental") or "supplemental")
             execution_run["source"] = str(
@@ -1118,9 +1124,14 @@ class WorkflowEngine:
     def prepare_review_repairs(
         self,
         results: Iterable[ReviewResult],
+        *,
+        max_attempts: int = 3,
     ) -> tuple[str, ...]:
         """Queue packages with requested review changes for another execution pass."""
         selected: list[str] = []
+        blocked: list[dict[str, Any]] = []
+        max_attempts = max(0, int(max_attempts or 0))
+        repair_requests: dict[str, tuple[WorkPackage, list[ReviewResult]]] = {}
         for result in results:
             if result.scope == "final" or result.package_id == FINAL_REVIEW_PACKAGE_ID:
                 continue
@@ -1129,9 +1140,56 @@ class WorkflowEngine:
             package = self._work_package_by_id(result.package_id)
             if package is None or not package.requires_execution:
                 continue
+            if package.id not in repair_requests:
+                repair_requests[package.id] = (package, [])
+            repair_requests[package.id][1].append(result)
+
+        for package, package_results in repair_requests.values():
+            result = package_results[-1]
+            required_changes = self._merged_review_repair_changes(package_results)
+            signature = self._review_repair_signature_from_parts(
+                package.id,
+                self._review_repair_target_agent(package, package_results),
+                required_changes,
+            )
+            if package.repair_attempt_count >= max_attempts:
+                blocked.append(
+                    self._block_review_repair(
+                        package,
+                        result,
+                        reason="max_attempts_exceeded",
+                        signature=signature,
+                        max_attempts=max_attempts,
+                        required_changes=required_changes,
+                        review_package_ids=[
+                            review.review_package_id for review in package_results
+                        ],
+                    )
+                )
+                continue
+            if package.last_repair_signature == signature and package.repair_attempt_count > 0:
+                blocked.append(
+                    self._block_review_repair(
+                        package,
+                        result,
+                        reason="duplicate_required_changes",
+                        signature=signature,
+                        max_attempts=max_attempts,
+                        required_changes=required_changes,
+                        review_package_ids=[
+                            review.review_package_id for review in package_results
+                        ],
+                    )
+                )
+                continue
             previous_status = package.status.value
             package.status = WorkStatus.PENDING
             package.current_executor = ""
+            package.repair_attempt_count += 1
+            package.last_repair_signature = signature
+            package.last_repair_review_id = result.review_package_id
+            package.repair_blocked_reason = ""
+            package.repair_blocked_at = 0.0
             if package.id not in selected:
                 selected.append(package.id)
             self._persist(
@@ -1140,14 +1198,39 @@ class WorkflowEngine:
                     "package_id": package.id,
                     "previous_status": previous_status,
                     "review_package_id": result.review_package_id,
+                    "review_package_ids": [
+                        review.review_package_id for review in package_results
+                    ],
                     "reviewer": result.reviewer_agent,
+                    "reviewers": [review.reviewer_agent for review in package_results],
                     "target": result.target_agent,
-                    "required_changes": list(result.required_changes),
+                    "targets": [review.target_agent for review in package_results],
+                    "required_changes": list(required_changes),
+                    "repair_attempt_count": package.repair_attempt_count,
+                    "max_attempts": max_attempts,
+                    "repair_signature": signature,
                     "executor": package.last_executor or package.owner_agent,
                 },
             )
 
         if not selected:
+            if blocked:
+                run = (
+                    dict(self.session.execution_run)
+                    if isinstance(self.session.execution_run, dict)
+                    else {}
+                )
+                run["state"] = "repair_blocked"
+                run["repair_blocked_at"] = time.time()
+                run["repair_blocked_packages"] = [
+                    item["package_id"] for item in blocked
+                ]
+                self.session.execution_run = run
+                self.session.updated_at = time.time()
+                self.set_state(
+                    WorkflowState.NEEDS_USER_DECISION,
+                    reason="review repair blocked",
+                )
             return ()
 
         run = dict(self.session.execution_run) if isinstance(self.session.execution_run, dict) else {}
@@ -1157,6 +1240,14 @@ class WorkflowEngine:
         run["retry_requested_at"] = time.time()
         run["retry_selector"] = "review-repair"
         run["retry_packages"] = list(selected)
+        if blocked:
+            run["repair_blocked_at"] = time.time()
+            run["repair_blocked_packages"] = [
+                item["package_id"] for item in blocked
+            ]
+        else:
+            run.pop("repair_blocked_at", None)
+            run.pop("repair_blocked_packages", None)
         self.session.execution_run = run
         self.session.updated_at = time.time()
         self._persist(
@@ -1164,6 +1255,9 @@ class WorkflowEngine:
             {
                 "action": "review_repair",
                 "packages": list(selected),
+                "blocked_packages": [
+                    item["package_id"] for item in blocked
+                ],
                 "target_workspace": str(self.session.target_workspace or ""),
             },
         )
@@ -1172,6 +1266,207 @@ class WorkflowEngine:
             reason="review changes queued for repair",
         )
         return tuple(selected)
+
+    def reconcile_review_repair_metadata(
+        self,
+        *,
+        max_attempts: int = 3,
+    ) -> tuple[str, ...]:
+        """Recover repair-loop metadata for sessions saved before repair guards."""
+        max_attempts = max(0, int(max_attempts or 0))
+        event_metadata = self._review_repair_metadata_from_events()
+        if not event_metadata:
+            return ()
+
+        latest_change_by_package: dict[str, ReviewResult] = {}
+        for result in self._review_results():
+            if result.scope == "final" or result.package_id == FINAL_REVIEW_PACKAGE_ID:
+                continue
+            if result.status == ReviewStatus.CHANGES_REQUESTED:
+                latest_change_by_package[result.package_id] = result
+
+        changed = False
+        blocked: list[str] = []
+        for package in self.session.work_packages:
+            metadata = event_metadata.get(package.id, {})
+            attempts = int(metadata.get("attempt_count", 0) or 0)
+            if attempts <= 0:
+                continue
+            if package.repair_attempt_count < attempts:
+                package.repair_attempt_count = attempts
+                changed = True
+            event_signature = str(metadata.get("repair_signature", "") or "")
+            event_review_id = str(metadata.get("review_package_id", "") or "")
+            if event_signature and not package.last_repair_signature:
+                package.last_repair_signature = event_signature
+                package.last_repair_review_id = event_review_id
+                changed = True
+            latest_change = latest_change_by_package.get(package.id)
+            if latest_change is not None and not package.last_repair_signature:
+                package.last_repair_signature = self._review_repair_signature(latest_change)
+                package.last_repair_review_id = latest_change.review_package_id
+                changed = True
+            if (
+                package.repair_attempt_count >= max_attempts
+                and not package.repair_blocked_reason
+                and package.status
+                in {WorkStatus.PENDING, WorkStatus.RUNNING, WorkStatus.NEEDS_REVIEW}
+            ):
+                previous_status = package.status.value
+                package.status = WorkStatus.BLOCKED
+                package.current_executor = ""
+                package.repair_blocked_reason = "legacy_repair_loop_detected"
+                package.repair_blocked_at = time.time()
+                blocked.append(package.id)
+                changed = True
+                self._persist(
+                    "work_package_repair_blocked",
+                    {
+                        "package_id": package.id,
+                        "previous_status": previous_status,
+                        "reason": package.repair_blocked_reason,
+                        "repair_attempt_count": package.repair_attempt_count,
+                        "max_attempts": max_attempts,
+                        "repair_signature": package.last_repair_signature,
+                    },
+                )
+
+        if blocked:
+            run = (
+                dict(self.session.execution_run)
+                if isinstance(self.session.execution_run, dict)
+                else {}
+            )
+            run["state"] = "repair_blocked"
+            run["repair_blocked_at"] = time.time()
+            run["repair_blocked_packages"] = list(blocked)
+            self.session.execution_run = run
+            self.session.updated_at = time.time()
+            self.set_state(
+                WorkflowState.NEEDS_USER_DECISION,
+                reason="legacy review repair loop detected",
+            )
+            return tuple(blocked)
+
+        if changed:
+            self.save()
+        return ()
+
+    def review_repair_blocked_package_ids(self) -> tuple[str, ...]:
+        """Return packages paused by review-repair loop guards."""
+        return tuple(
+            package.id
+            for package in self.session.work_packages
+            if package.requires_execution
+            and package.status == WorkStatus.BLOCKED
+            and bool(package.repair_blocked_reason)
+        )
+
+    def accept_review_repair_blocks(self) -> tuple[str, ...]:
+        """Mark review-repair blocked packages as accepted by the user."""
+        package_ids = self.review_repair_blocked_package_ids()
+        if not package_ids:
+            return ()
+        accepted = set(package_ids)
+        for package in self.session.work_packages:
+            if package.id not in accepted:
+                continue
+            previous_status = package.status.value
+            reason = package.repair_blocked_reason
+            package.status = WorkStatus.DONE
+            package.current_executor = ""
+            package.repair_blocked_reason = ""
+            package.repair_blocked_at = 0.0
+            note = f"user accepted blocked repair: {reason}"
+            if note not in package.repair_notes:
+                package.repair_notes.append(note)
+            self._persist(
+                "work_package_repair_accepted",
+                {
+                    "package_id": package.id,
+                    "previous_status": previous_status,
+                    "reason": reason,
+                    "repair_attempt_count": package.repair_attempt_count,
+                },
+            )
+
+        run = dict(self.session.execution_run) if isinstance(self.session.execution_run, dict) else {}
+        run["state"] = "repair_accepted"
+        run["repair_accepted_at"] = time.time()
+        run["repair_accepted_packages"] = list(package_ids)
+        self.session.execution_run = run
+        self.session.updated_at = time.time()
+        self.set_state(
+            WorkflowState.REVIEWING,
+            reason="review repair accepted by user",
+        )
+        return package_ids
+
+    def stop_review_repair_blocks(self) -> tuple[str, ...]:
+        """Stop the workflow after review-repair loop guards pause packages."""
+        package_ids = self.review_repair_blocked_package_ids()
+        if not package_ids:
+            return ()
+        run = dict(self.session.execution_run) if isinstance(self.session.execution_run, dict) else {}
+        run["state"] = "repair_stopped"
+        run["repair_stopped_at"] = time.time()
+        run["repair_stopped_packages"] = list(package_ids)
+        self.session.execution_run = run
+        self.session.updated_at = time.time()
+        self._persist(
+            "work_package_repair_stopped",
+            {
+                "packages": list(package_ids),
+            },
+        )
+        self.set_state(
+            WorkflowState.FAILED,
+            reason="review repair stopped by user",
+        )
+        return package_ids
+
+    def _block_review_repair(
+        self,
+        package: WorkPackage,
+        result: ReviewResult,
+        *,
+        reason: str,
+        signature: str,
+        max_attempts: int,
+        required_changes: Iterable[str] | None = None,
+        review_package_ids: Iterable[str] | None = None,
+    ) -> dict[str, Any]:
+        """Persist that a review repair should not be auto-restarted again."""
+        previous_status = package.status.value
+        package.status = WorkStatus.BLOCKED
+        package.current_executor = ""
+        package.last_repair_signature = signature
+        package.last_repair_review_id = result.review_package_id
+        package.repair_blocked_reason = reason
+        package.repair_blocked_at = time.time()
+        payload = {
+            "package_id": package.id,
+            "previous_status": previous_status,
+            "reason": reason,
+            "review_package_id": result.review_package_id,
+            "review_package_ids": (
+                list(review_package_ids)
+                if review_package_ids is not None
+                else [result.review_package_id]
+            ),
+            "reviewer": result.reviewer_agent,
+            "target": result.target_agent,
+            "required_changes": (
+                list(required_changes)
+                if required_changes is not None
+                else list(result.required_changes)
+            ),
+            "repair_attempt_count": package.repair_attempt_count,
+            "max_attempts": max_attempts,
+            "repair_signature": signature,
+        }
+        self._persist("work_package_repair_blocked", payload)
+        return payload
 
     def _record_review_result(self, result: ReviewResult) -> None:
         self.session.review_results.append(result.to_dict())
@@ -1545,7 +1840,7 @@ class WorkflowEngine:
         if not isinstance(run, dict) or not run:
             return None
         run_state = str(run.get("state", "") or "")
-        if run_state not in {"running", "interrupted", "aborted"}:
+        if run_state not in {"running", "interrupted", "aborted", "repair_blocked"}:
             return None
         running_packages = self._packages_with_status(WorkStatus.RUNNING)
         if run_state == "running" and self.session.state != WorkflowState.EXECUTING:
@@ -1653,6 +1948,8 @@ class WorkflowEngine:
                 previous_status = package.status.value
                 package.status = WorkStatus.PENDING
                 package.current_executor = ""
+                package.repair_blocked_reason = ""
+                package.repair_blocked_at = 0.0
                 self._persist(
                     "work_package_retry_requested",
                     {
@@ -1842,18 +2139,119 @@ class WorkflowEngine:
         ]
 
     def _last_workflow_event(self) -> dict[str, Any] | None:
-        events = [
-            event
-            for event in self.persistence.load_events()
-            if str(event.get("workflow_id", "")) == self.session.id
-        ]
-        return events[-1] if events else None
+        return self.persistence.last_event_for_workflow(self.session.id)
 
     def _work_package_by_id(self, package_id: str) -> WorkPackage | None:
         return next(
             (package for package in self.session.work_packages if package.id == package_id),
             None,
         )
+
+    def _review_repair_metadata_from_events(self) -> dict[str, dict[str, Any]]:
+        metadata_by_package: dict[str, dict[str, Any]] = {}
+        for event in self.persistence.load_events_for_workflow(
+            self.session.id,
+            event_names={"work_package_repair_requested"},
+        ):
+            data = event.get("data", {})
+            if not isinstance(data, dict):
+                continue
+            package_id = str(data.get("package_id", "")).strip()
+            if not package_id:
+                continue
+            metadata = metadata_by_package.setdefault(
+                package_id,
+                {
+                    "attempt_count": 0,
+                    "repair_signature": "",
+                    "review_package_id": "",
+                },
+            )
+            next_count = int(metadata["attempt_count"]) + 1
+            try:
+                event_count = int(data.get("repair_attempt_count", 0) or 0)
+            except (TypeError, ValueError):
+                event_count = 0
+            metadata["attempt_count"] = max(next_count, event_count)
+            repair_signature = str(data.get("repair_signature", "") or "")
+            if repair_signature:
+                metadata["repair_signature"] = repair_signature
+            review_package_id = str(data.get("review_package_id", "") or "")
+            if not review_package_id:
+                review_package_ids = data.get("review_package_ids", [])
+                if isinstance(review_package_ids, list) and review_package_ids:
+                    review_package_id = str(review_package_ids[-1])
+            if review_package_id:
+                metadata["review_package_id"] = review_package_id
+        return metadata_by_package
+
+    @classmethod
+    def _review_repair_signature(cls, result: ReviewResult) -> str:
+        return cls._review_repair_signature_from_parts(
+            result.package_id,
+            result.target_agent,
+            result.required_changes,
+        )
+
+    @classmethod
+    def _review_repair_signature_from_parts(
+        cls,
+        package_id: str,
+        target_agent: str,
+        required_changes: Iterable[str],
+    ) -> str:
+        changes = [
+            normalized
+            for normalized in (
+                cls._normalize_repair_change(change) for change in required_changes
+            )
+            if normalized
+        ]
+        payload = {
+            "package_id": package_id,
+            "target_agent": target_agent,
+            "required_changes": sorted(set(changes)),
+        }
+        encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode(
+            "utf-8"
+        )
+        return hashlib.sha256(encoded).hexdigest()
+
+    @classmethod
+    def _merged_review_repair_changes(
+        cls,
+        results: Iterable[ReviewResult],
+    ) -> list[str]:
+        merged: list[str] = []
+        seen: set[str] = set()
+        for result in results:
+            for change in result.required_changes:
+                normalized = cls._normalize_repair_change(change)
+                if not normalized or normalized in seen:
+                    continue
+                seen.add(normalized)
+                merged.append(normalized)
+        return merged
+
+    @staticmethod
+    def _review_repair_target_agent(
+        package: WorkPackage,
+        results: Iterable[ReviewResult],
+    ) -> str:
+        targets = {
+            str(result.target_agent).strip()
+            for result in results
+            if str(result.target_agent).strip()
+        }
+        if len(targets) == 1:
+            return next(iter(targets))
+        if targets:
+            return ",".join(sorted(targets))
+        return package.owner_agent
+
+    @staticmethod
+    def _normalize_repair_change(change: str) -> str:
+        return re.sub(r"\s+", " ", str(change).strip())
 
     def _review_results(self) -> list[ReviewResult]:
         reviews: list[ReviewResult] = []

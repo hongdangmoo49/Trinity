@@ -610,9 +610,464 @@ def test_prepare_review_repairs_queues_changed_package(tmp_path):
 
     assert selected == ("WP-001",)
     assert engine.session.work_packages[0].status == WorkStatus.PENDING
+    assert engine.session.work_packages[0].repair_attempt_count == 1
+    assert engine.session.work_packages[0].last_repair_review_id == "RP-WP-001-claude"
+    assert engine.session.work_packages[0].last_repair_signature
     assert engine.pending_execution_package_ids() == ["WP-001"]
     assert engine.session.execution_run["retry_selector"] == "review-repair"
     assert engine.state == WorkflowState.BLUEPRINT_READY
+
+
+def test_prepare_review_repairs_blocks_duplicate_required_changes(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement route bot.",
+            status=WorkStatus.NEEDS_REVIEW,
+            last_executor="claude",
+        )
+    ]
+    engine.set_target_workspace(tmp_path / "route-bot")
+    result = ReviewResult(
+        review_package_id="RP-WP-001-claude",
+        package_id="WP-001",
+        reviewer_agent="claude",
+        target_agent="codex",
+        status=ReviewStatus.CHANGES_REQUESTED,
+        required_changes=["Add retry regression test."],
+    )
+
+    assert engine.prepare_review_repairs([result]) == ("WP-001",)
+    package = engine.session.work_packages[0]
+    package.status = WorkStatus.NEEDS_REVIEW
+    duplicate = ReviewResult(
+        review_package_id="RP-WP-001-codex",
+        package_id="WP-001",
+        reviewer_agent="codex",
+        target_agent="codex",
+        status=ReviewStatus.CHANGES_REQUESTED,
+        required_changes=["  Add   retry regression test.  "],
+    )
+
+    selected = engine.prepare_review_repairs([duplicate])
+
+    assert selected == ()
+    assert package.status == WorkStatus.BLOCKED
+    assert package.repair_attempt_count == 1
+    assert package.repair_blocked_reason == "duplicate_required_changes"
+    assert engine.state == WorkflowState.NEEDS_USER_DECISION
+    assert engine.session.execution_run["state"] == "repair_blocked"
+    assert engine.session.execution_run["repair_blocked_packages"] == ["WP-001"]
+    assert engine.persistence.load_events()[-2]["event"] == "work_package_repair_blocked"
+
+
+def test_prepare_review_repairs_batches_multiple_reviews_per_package(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude", "antigravity"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement route bot.",
+            status=WorkStatus.NEEDS_REVIEW,
+            last_executor="codex",
+        )
+    ]
+    engine.set_target_workspace(tmp_path / "route-bot")
+    first = ReviewResult(
+        review_package_id="RP-WP-001-claude",
+        package_id="WP-001",
+        reviewer_agent="claude",
+        target_agent="codex",
+        status=ReviewStatus.CHANGES_REQUESTED,
+        required_changes=["Add retry regression test."],
+    )
+    duplicate = ReviewResult(
+        review_package_id="RP-WP-001-antigravity",
+        package_id="WP-001",
+        reviewer_agent="antigravity",
+        target_agent="codex",
+        status=ReviewStatus.CHANGES_REQUESTED,
+        required_changes=["  Add   retry regression test.  "],
+    )
+
+    selected = engine.prepare_review_repairs([first, duplicate])
+
+    package = engine.session.work_packages[0]
+    repair_events = [
+        event
+        for event in engine.persistence.load_events()
+        if event["event"] == "work_package_repair_requested"
+    ]
+    assert selected == ("WP-001",)
+    assert package.status == WorkStatus.PENDING
+    assert package.repair_attempt_count == 1
+    assert package.repair_blocked_reason == ""
+    assert len(repair_events) == 1
+    assert repair_events[0]["data"]["required_changes"] == [
+        "Add retry regression test."
+    ]
+    assert repair_events[0]["data"]["review_package_ids"] == [
+        "RP-WP-001-claude",
+        "RP-WP-001-antigravity",
+    ]
+
+
+def test_prepare_review_repairs_batches_distinct_changes_into_one_signature(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude", "antigravity"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement route bot.",
+            status=WorkStatus.NEEDS_REVIEW,
+            last_executor="codex",
+        )
+    ]
+    engine.set_target_workspace(tmp_path / "route-bot")
+    first = ReviewResult(
+        review_package_id="RP-WP-001-claude",
+        package_id="WP-001",
+        reviewer_agent="claude",
+        target_agent="codex",
+        status=ReviewStatus.CHANGES_REQUESTED,
+        required_changes=["Add retry regression test."],
+    )
+    second = ReviewResult(
+        review_package_id="RP-WP-001-antigravity",
+        package_id="WP-001",
+        reviewer_agent="antigravity",
+        target_agent="codex",
+        status=ReviewStatus.CHANGES_REQUESTED,
+        required_changes=["Document retry behavior."],
+    )
+
+    assert engine.prepare_review_repairs([first, second]) == ("WP-001",)
+    package = engine.session.work_packages[0]
+    first_signature = package.last_repair_signature
+    package.status = WorkStatus.NEEDS_REVIEW
+
+    selected = engine.prepare_review_repairs([second, first])
+
+    assert selected == ()
+    assert package.status == WorkStatus.BLOCKED
+    assert package.repair_attempt_count == 1
+    assert package.last_repair_signature == first_signature
+    assert package.repair_blocked_reason == "duplicate_required_changes"
+
+
+def test_prepare_review_repairs_honors_max_attempts(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement route bot.",
+            status=WorkStatus.NEEDS_REVIEW,
+            repair_attempt_count=2,
+        )
+    ]
+    engine.set_target_workspace(tmp_path / "route-bot")
+    result = ReviewResult(
+        review_package_id="RP-WP-001-claude",
+        package_id="WP-001",
+        reviewer_agent="claude",
+        target_agent="codex",
+        status=ReviewStatus.CHANGES_REQUESTED,
+        required_changes=["Add a different regression test."],
+    )
+
+    selected = engine.prepare_review_repairs([result], max_attempts=2)
+
+    package = engine.session.work_packages[0]
+    assert selected == ()
+    assert package.status == WorkStatus.BLOCKED
+    assert package.repair_attempt_count == 2
+    assert package.repair_blocked_reason == "max_attempts_exceeded"
+    assert engine.state == WorkflowState.NEEDS_USER_DECISION
+
+
+def test_prepare_review_repairs_records_mixed_selected_and_blocked_packages(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="retryable package",
+            owner_agent="codex",
+            objective="Repair this package.",
+            status=WorkStatus.NEEDS_REVIEW,
+            last_executor="codex",
+        ),
+        WorkPackage(
+            id="WP-002",
+            title="blocked package",
+            owner_agent="claude",
+            objective="Already retried.",
+            status=WorkStatus.NEEDS_REVIEW,
+            repair_attempt_count=3,
+            last_executor="claude",
+        ),
+    ]
+    engine.set_target_workspace(tmp_path / "route-bot")
+    retryable = ReviewResult(
+        review_package_id="RP-WP-001-claude",
+        package_id="WP-001",
+        reviewer_agent="claude",
+        target_agent="codex",
+        status=ReviewStatus.CHANGES_REQUESTED,
+        required_changes=["Add retry regression test."],
+    )
+    blocked = ReviewResult(
+        review_package_id="RP-WP-002-codex",
+        package_id="WP-002",
+        reviewer_agent="codex",
+        target_agent="claude",
+        status=ReviewStatus.CHANGES_REQUESTED,
+        required_changes=["Document retry behavior."],
+    )
+
+    selected = engine.prepare_review_repairs([retryable, blocked], max_attempts=3)
+
+    assert selected == ("WP-001",)
+    assert engine.session.work_packages[0].status == WorkStatus.PENDING
+    assert engine.session.work_packages[1].status == WorkStatus.BLOCKED
+    assert engine.session.work_packages[1].repair_blocked_reason == "max_attempts_exceeded"
+    assert engine.session.execution_run["state"] == "retry_requested"
+    assert engine.session.execution_run["retry_packages"] == ["WP-001"]
+    assert engine.session.execution_run["repair_blocked_packages"] == ["WP-002"]
+    assert engine.state == WorkflowState.BLUEPRINT_READY
+
+
+def test_work_package_repair_metadata_round_trips():
+    package = WorkPackage(
+        id="WP-001",
+        title="codex package",
+        owner_agent="codex",
+        objective="Implement route bot.",
+        repair_attempt_count=2,
+        last_repair_signature="sig-1",
+        last_repair_review_id="RP-WP-001-claude",
+        repair_blocked_reason="duplicate_required_changes",
+        repair_blocked_at=123.5,
+    )
+
+    loaded = WorkPackage.from_dict(package.to_dict())
+
+    assert loaded.repair_attempt_count == 2
+    assert loaded.last_repair_signature == "sig-1"
+    assert loaded.last_repair_review_id == "RP-WP-001-claude"
+    assert loaded.repair_blocked_reason == "duplicate_required_changes"
+    assert loaded.repair_blocked_at == 123.5
+
+
+def test_reconcile_review_repair_metadata_blocks_legacy_loop(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement route bot.",
+            status=WorkStatus.RUNNING,
+            current_executor="codex",
+        )
+    ]
+    engine.session.review_results = [
+        ReviewResult(
+            review_package_id="RP-WP-001-claude",
+            package_id="WP-001",
+            reviewer_agent="claude",
+            target_agent="codex",
+            status=ReviewStatus.CHANGES_REQUESTED,
+            required_changes=["Add retry regression test."],
+        ).to_dict()
+    ]
+    engine.session.execution_run = {"state": "running", "run_id": "exec-run-test"}
+    engine.set_state(WorkflowState.EXECUTING, reason="simulate legacy execution")
+    for index in range(3):
+        engine.persistence.append_event(
+            {
+                "timestamp": 1000 + index,
+                "workflow_id": engine.session.id,
+                "event": "work_package_repair_requested",
+                "state": "blueprint_ready",
+                "data": {
+                    "package_id": "WP-001",
+                    "previous_status": "needs_review",
+                },
+            }
+        )
+
+    loaded = WorkflowEngine(tmp_path / ".trinity")
+    blocked = loaded.reconcile_review_repair_metadata(max_attempts=3)
+
+    package = loaded.session.work_packages[0]
+    assert blocked == ("WP-001",)
+    assert package.status == WorkStatus.BLOCKED
+    assert package.current_executor == ""
+    assert package.repair_attempt_count == 3
+    assert package.last_repair_signature
+    assert package.repair_blocked_reason == "legacy_repair_loop_detected"
+    assert loaded.state == WorkflowState.NEEDS_USER_DECISION
+    assert loaded.session.execution_run["state"] == "repair_blocked"
+    assert loaded.session.execution_run["repair_blocked_packages"] == ["WP-001"]
+
+
+def test_reconcile_review_repair_metadata_restores_event_signature(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement route bot.",
+            status=WorkStatus.NEEDS_REVIEW,
+        )
+    ]
+    engine.save()
+    engine.persistence.append_event(
+        {
+            "timestamp": 1000,
+            "workflow_id": engine.session.id,
+            "event": "work_package_repair_requested",
+            "state": "blueprint_ready",
+            "data": {
+                "package_id": "WP-001",
+                "previous_status": "needs_review",
+                "review_package_id": "RP-WP-001-claude",
+                "review_package_ids": [
+                    "RP-WP-001-claude",
+                    "RP-WP-001-antigravity",
+                ],
+                "required_changes": [
+                    "Add retry regression test.",
+                    "Document retry behavior.",
+                ],
+                "repair_signature": "batch-signature",
+            },
+        }
+    )
+
+    loaded = WorkflowEngine(tmp_path / ".trinity")
+    blocked = loaded.reconcile_review_repair_metadata(max_attempts=3)
+
+    package = loaded.session.work_packages[0]
+    assert blocked == ()
+    assert package.status == WorkStatus.NEEDS_REVIEW
+    assert package.repair_attempt_count == 1
+    assert package.last_repair_signature == "batch-signature"
+    assert package.last_repair_review_id == "RP-WP-001-claude"
+
+
+def test_reconcile_review_repair_metadata_uses_event_attempt_count(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement route bot.",
+            status=WorkStatus.RUNNING,
+            current_executor="codex",
+        )
+    ]
+    engine.save()
+    engine.persistence.append_event(
+        {
+            "timestamp": 1000,
+            "workflow_id": engine.session.id,
+            "event": "work_package_repair_requested",
+            "state": "blueprint_ready",
+            "data": {
+                "package_id": "WP-001",
+                "previous_status": "needs_review",
+                "review_package_ids": [
+                    "RP-WP-001-claude",
+                    "RP-WP-001-antigravity",
+                ],
+                "repair_attempt_count": 3,
+                "repair_signature": "batch-signature-3",
+            },
+        }
+    )
+
+    loaded = WorkflowEngine(tmp_path / ".trinity")
+    blocked = loaded.reconcile_review_repair_metadata(max_attempts=3)
+
+    package = loaded.session.work_packages[0]
+    assert blocked == ("WP-001",)
+    assert package.status == WorkStatus.BLOCKED
+    assert package.repair_attempt_count == 3
+    assert package.last_repair_signature == "batch-signature-3"
+    assert package.last_repair_review_id == "RP-WP-001-antigravity"
+    assert package.repair_blocked_reason == "legacy_repair_loop_detected"
+
+
+def test_accept_review_repair_blocks_marks_packages_done(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement route bot.",
+            status=WorkStatus.BLOCKED,
+            repair_attempt_count=3,
+            repair_blocked_reason="duplicate_required_changes",
+        )
+    ]
+    engine.set_state(WorkflowState.NEEDS_USER_DECISION, reason="test repair blocked")
+
+    accepted = engine.accept_review_repair_blocks()
+
+    package = engine.session.work_packages[0]
+    assert accepted == ("WP-001",)
+    assert package.status == WorkStatus.DONE
+    assert package.repair_blocked_reason == ""
+    assert package.repair_notes == [
+        "user accepted blocked repair: duplicate_required_changes"
+    ]
+    assert engine.state == WorkflowState.REVIEWING
+    assert engine.session.execution_run["state"] == "repair_accepted"
+
+
+def test_stop_review_repair_blocks_marks_workflow_failed(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement route bot.",
+            status=WorkStatus.BLOCKED,
+            repair_attempt_count=3,
+            repair_blocked_reason="duplicate_required_changes",
+        )
+    ]
+    engine.set_state(WorkflowState.NEEDS_USER_DECISION, reason="test repair blocked")
+
+    stopped = engine.stop_review_repair_blocks()
+
+    assert stopped == ("WP-001",)
+    assert engine.session.work_packages[0].status == WorkStatus.BLOCKED
+    assert engine.state == WorkflowState.FAILED
+    assert engine.session.execution_run["state"] == "repair_stopped"
+    assert engine.persistence.load_events()[-2]["event"] == "work_package_repair_stopped"
 
 
 def test_record_final_review_approved_moves_to_post_review_ready(tmp_path):
@@ -893,6 +1348,43 @@ def test_prepare_execution_retry_keeps_unselected_failed_packages_out_of_dispatc
         WorkStatus.FAILED,
         WorkStatus.PENDING,
     ]
+
+
+def test_prepare_execution_retry_clears_selected_repair_block_marker(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="repair blocked package",
+            owner_agent="codex",
+            objective="Repair.",
+            status=WorkStatus.BLOCKED,
+            repair_attempt_count=3,
+            last_repair_signature="sig-1",
+            repair_blocked_reason="duplicate_required_changes",
+            repair_blocked_at=123.5,
+        )
+    ]
+    engine.set_target_workspace(tmp_path / "route-bot")
+    engine.set_state(WorkflowState.NEEDS_USER_DECISION, reason="repair blocked")
+    engine.session.execution_run = {
+        "run_id": "exec-run-test",
+        "state": "repair_blocked",
+        "repair_blocked_packages": ["WP-001"],
+    }
+
+    plan = engine.prepare_execution_retry("custom", ["WP-001"])
+
+    package = engine.session.work_packages[0]
+    assert plan.selected == ("WP-001",)
+    assert package.status == WorkStatus.PENDING
+    assert package.current_executor == ""
+    assert package.repair_blocked_reason == ""
+    assert package.repair_blocked_at == 0.0
+    assert package.repair_attempt_count == 3
+    assert package.last_repair_signature == "sig-1"
+    assert engine.pending_execution_package_ids() == ["WP-001"]
 
 
 def test_record_work_package_completed_persists_finished_event(tmp_path):

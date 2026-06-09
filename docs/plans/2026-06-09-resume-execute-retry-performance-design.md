@@ -208,6 +208,19 @@ Performance regression:
 5. Central Agent repair action UI와 `/execute-retry` modal 표시를 정리한다.
 6. Synthetic performance fixture와 regression tests를 추가한다.
 
+## 구현 진행 현황
+
+2026-06-09 현재 이 브랜치에서 1차 구현을 진행했다.
+
+- `WorkPackage`에 review repair attempt/signature/block metadata를 추가했다.
+- `WorkflowEngine.prepare_review_repairs()`가 package 단위로 review 결과를 묶고, duplicate required changes와 max attempts를 자동 repair block으로 전환한다.
+- resume/controller 초기화 시 legacy repair metadata를 reconcile해 오래된 세션의 반복 repair loop를 감지한다.
+- Central Agent 영역에 blocked repair 사용자 액션을 연결했다: retry once, mark done, open review, stop.
+- `/execute-retry`는 repair metadata와 blocked note를 표시하고, recovery-only 후보도 fallback row로 보여준다.
+- `WorkflowPersistence.load_events_for_workflow()`와 `last_event_for_workflow()`를 추가했다.
+- `NexusSnapshotAdapter.load_snapshot()`은 한 번 읽은 workflow event 목록을 execution log, workflow event, execution recovery projection에 재사용한다.
+- 테스트는 repair guard, blocked action routing, recovery fallback, snapshot event single-pass, persistence helper를 포함하도록 확장했다.
+
 ## 수용 기준
 
 - 오래된 세션을 resume해도 Nexus 입력이 눈에 띄게 밀리지 않는다.

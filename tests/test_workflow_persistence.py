@@ -129,6 +129,27 @@ def test_workflow_persistence_appends_and_loads_events(tmp_path):
     assert persistence.load_events() == []
 
 
+def test_workflow_persistence_loads_events_for_one_workflow(tmp_path):
+    persistence = WorkflowPersistence(tmp_path / ".trinity")
+    persistence.append_event({"event": "started", "workflow_id": "wf-a"})
+    persistence.append_event({"event": "ignored", "workflow_id": "wf-b"})
+    persistence.append_event({"event": "completed", "workflow_id": "wf-a"})
+    persistence.append_event({"event": "state_changed", "workflow_id": "wf-a"})
+
+    assert persistence.load_events_for_workflow("wf-a", tail=2) == [
+        {"event": "completed", "workflow_id": "wf-a"},
+        {"event": "state_changed", "workflow_id": "wf-a"},
+    ]
+    assert persistence.load_events_for_workflow(
+        "wf-a",
+        event_names={"completed"},
+    ) == [{"event": "completed", "workflow_id": "wf-a"}]
+    assert persistence.last_event_for_workflow("wf-a") == {
+        "event": "state_changed",
+        "workflow_id": "wf-a",
+    }
+
+
 def test_workflow_persistence_archives_and_restores_active_session(tmp_path):
     persistence = WorkflowPersistence(tmp_path / ".trinity")
     session = WorkflowSession(

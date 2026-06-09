@@ -50,6 +50,7 @@ class CentralAgentView(VerticalScroll):
         self.snapshot: WorkflowNexusSnapshot | None = None
         self._button_answers: dict[str, QuestionAnswer] = {}
         self._button_actions: dict[str, str] = {}
+        self._action_render_version = 0
         self._activity_frame = 0
 
     def compose(self) -> ComposeResult:
@@ -300,6 +301,28 @@ class CentralAgentView(VerticalScroll):
         container = self.query_one("#central-actions", Grid)
         container.remove_children()
         self._button_actions = {}
+        self._action_render_version += 1
+        render_version = self._action_render_version
+        if self._should_show_repair_actions(snapshot):
+            title.update(self._label("repair_action"))
+            for action, label, variant in (
+                ("repair-retry-once", self._label("repair_retry_once"), "primary"),
+                ("repair-mark-done", self._label("repair_mark_done"), "default"),
+                ("repair-open-review", self._label("repair_open_review"), "default"),
+                ("repair-stop", self._label("repair_stop"), "error"),
+            ):
+                button_id = f"central-action-{render_version}-{action}"
+                self._button_actions[button_id] = action
+                container.mount(
+                    Button(
+                        label,
+                        id=button_id,
+                        variant=variant,
+                        tooltip=self._label(f"{action}_tooltip"),
+                    )
+                )
+            return
+
         if not self._should_show_blueprint_actions(snapshot):
             title.update("")
             return
@@ -311,7 +334,7 @@ class CentralAgentView(VerticalScroll):
             ("refine-risks", self._label("refine_risks"), "default"),
             ("refine-work-packages", self._label("refine_work_packages"), "default"),
         ):
-            button_id = f"central-action-{action}"
+            button_id = f"central-action-{render_version}-{action}"
             self._button_actions[button_id] = action
             container.mount(
                 Button(
@@ -328,28 +351,58 @@ class CentralAgentView(VerticalScroll):
             return False
         return bool(snapshot.work_packages or snapshot.central_work_packages)
 
+    @staticmethod
+    def _should_show_repair_actions(snapshot: WorkflowNexusSnapshot) -> bool:
+        recovery = snapshot.execution_recovery
+        if recovery and recovery.state == "repair_blocked":
+            return True
+        if snapshot.state != "needs_user_decision":
+            return False
+        return any(
+            package.status == "blocked" and package.repair_blocked_reason
+            for package in snapshot.work_package_details
+        )
+
     def _label(self, key: str) -> str:
         ko = {
             "next_action": "다음 작업",
+            "repair_action": "리뷰 수리 결정",
             "execute": "실행",
             "refine_features": "기능 보강",
             "refine_risks": "리스크 보강",
             "refine_work_packages": "WP 재분배",
+            "repair_retry_once": "한 번 더 재시도",
+            "repair_mark_done": "완료 처리",
+            "repair_open_review": "리뷰 보기",
+            "repair_stop": "중단",
             "execute_tooltip": "현재 WP를 실행합니다.",
             "refine-features_tooltip": "기능 범위와 사용자 경험을 더 구체화합니다.",
             "refine-risks_tooltip": "실행 리스크와 검증 기준을 더 구체화합니다.",
             "refine-work-packages_tooltip": "WP 분해, 담당자, 의존성을 다시 정리합니다.",
+            "repair-retry-once_tooltip": "리뷰 수리로 막힌 WP만 한 번 더 실행합니다.",
+            "repair-mark-done_tooltip": "막힌 리뷰 수리를 사용자가 수용하고 WP를 완료 처리합니다.",
+            "repair-open-review_tooltip": "현재 리뷰 수리 차단 상세를 봅니다.",
+            "repair-stop_tooltip": "현재 워크플로우를 중단합니다.",
         }
         en = {
             "next_action": "Next action",
+            "repair_action": "Review repair decision",
             "execute": "Execute",
             "refine_features": "Refine features",
             "refine_risks": "Refine risks",
             "refine_work_packages": "Rebalance WPs",
+            "repair_retry_once": "Retry once",
+            "repair_mark_done": "Mark done",
+            "repair_open_review": "Open review",
+            "repair_stop": "Stop",
             "execute_tooltip": "Run the current work packages.",
             "refine-features_tooltip": "Clarify feature scope and user experience.",
             "refine-risks_tooltip": "Clarify execution risks and validation criteria.",
             "refine-work-packages_tooltip": "Revise WP ownership, scope, and dependencies.",
+            "repair-retry-once_tooltip": "Retry only the WPs paused by review repair guards.",
+            "repair-mark-done_tooltip": "Accept the blocked repair and mark the WP done.",
+            "repair-open-review_tooltip": "Show the current review repair details.",
+            "repair-stop_tooltip": "Stop the current workflow.",
         }
         labels = ko if self.lang == "ko" else en
         return labels.get(key, key)

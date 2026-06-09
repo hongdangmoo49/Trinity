@@ -218,6 +218,7 @@ Performance regression:
 - Central Agent 영역에 blocked repair 사용자 액션을 연결했다: retry once, mark done, open review, stop.
 - `/execute-retry`는 repair metadata와 blocked note를 표시하고, recovery-only 후보도 fallback row로 보여준다.
 - `/execute-retry` modal의 `all`과 `custom`은 전체 work package가 아니라 retryable 후보만 렌더링해 큰 세션의 row 수를 줄인다.
+- `/execute-retry` preview plan은 persisted recovery summary만 읽고, stale execution 감지는 실제 retry 준비 단계에서 수행해 미리보기의 state mutation을 피한다.
 - `WorkflowPersistence.load_events_for_workflow()`와 `last_event_for_workflow()`를 추가했다.
 - `NexusSnapshotAdapter.load_snapshot()`은 한 번 읽은 workflow event 목록을 execution log, workflow event, execution recovery projection에 재사용한다.
 - 테스트는 repair guard, blocked action routing, recovery fallback, snapshot event single-pass, persistence helper를 포함하도록 확장했다.

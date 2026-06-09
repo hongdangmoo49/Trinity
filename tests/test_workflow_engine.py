@@ -1315,7 +1315,53 @@ def test_build_execution_retry_plan_selects_failed_blocked_and_interrupted(tmp_p
     assert plan.selector == "all"
     assert plan.selected == ("WP-002", "WP-003", "WP-004")
     assert plan.target_workspace == (tmp_path / "route-bot").resolve()
-    assert engine.session.execution_run["state"] == "interrupted"
+    assert engine.session.execution_run["state"] == "running"
+    assert not [
+        event
+        for event in engine.persistence.load_events()
+        if event["event"] == "execution_interrupted_detected"
+    ]
+
+
+def test_prepare_execution_retry_detects_stale_running_before_retry(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="running package",
+            owner_agent="claude",
+            objective="Running.",
+            status=WorkStatus.RUNNING,
+            current_executor="claude",
+        ),
+        WorkPackage(
+            id="WP-002",
+            title="failed package",
+            owner_agent="codex",
+            objective="Failed.",
+            status=WorkStatus.FAILED,
+        ),
+    ]
+    engine.set_target_workspace(tmp_path / "route-bot")
+    engine.set_state(WorkflowState.EXECUTING, reason="simulate stale execution")
+    engine.session.execution_run = {
+        "run_id": "exec-run-test",
+        "state": "running",
+        "target_workspace": str(tmp_path / "route-bot"),
+    }
+    engine.save()
+
+    plan = engine.prepare_execution_retry("all")
+
+    assert plan.selected == ("WP-001", "WP-002")
+    assert engine.session.execution_run["state"] == "retry_requested"
+    assert engine.session.execution_run["retry_packages"] == ["WP-001", "WP-002"]
+    assert [
+        event
+        for event in engine.persistence.load_events()
+        if event["event"] == "execution_interrupted_detected"
+    ]
 
 
 def test_prepare_execution_retry_keeps_unselected_failed_packages_out_of_dispatch(tmp_path):

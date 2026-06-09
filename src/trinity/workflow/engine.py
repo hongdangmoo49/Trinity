@@ -1883,9 +1883,7 @@ class WorkflowEngine:
         requested = tuple(
             str(package_id).strip() for package_id in package_ids if str(package_id).strip()
         )
-        summary = self.detect_interrupted_execution(worker_running=False)
-        if summary is None:
-            summary = self.execution_recovery_summary()
+        summary = self.execution_recovery_summary()
         interrupted_ids = {
             str(package_id)
             for package_id in ((summary or {}).get("running_packages", []) if summary else [])
@@ -1933,6 +1931,7 @@ class WorkflowEngine:
         package_ids: Iterable[str] = (),
     ) -> ExecutionRetryPlan:
         """Mark selected retry packages pending without deleting prior results."""
+        self.detect_interrupted_execution(worker_running=False)
         plan = self.build_execution_retry_plan(selector=selector, package_ids=package_ids)
         candidates = set(plan.selected)
         if not candidates:

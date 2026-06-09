@@ -33,8 +33,9 @@ def _request(tmp_path: Path) -> PromptRequest:
 
 def test_build_command_uses_codex_exec_json_ephemeral(tmp_path):
     invoker = CodexExecInvoker()
+    request = _request(tmp_path)
 
-    command = invoker.build_command(_request(tmp_path))
+    command = invoker.build_command(request)
 
     assert command[:2] == ["codex", "exec"]
     assert "--json" in command
@@ -45,8 +46,10 @@ def test_build_command_uses_codex_exec_json_ephemeral(tmp_path):
     assert "--model" in command
     assert "gpt-5.4-mini" in command
     assert "--ignore-rules" in command
-    assert "[System Role]" in command[-1]
-    assert "Summarize the repo." in command[-1]
+    assert command[-1] == "-"
+    stdin_text = invoker.stdin_text(request)
+    assert "[System Role]" in stdin_text
+    assert "Summarize the repo." in stdin_text
 
 
 def test_build_command_uses_workspace_write_when_requested(tmp_path):
@@ -103,6 +106,7 @@ def test_build_command_uses_codex_exec_resume_for_read_only_continuation(tmp_pat
     assert "--ephemeral" not in command
     assert "--sandbox" not in command
     assert "--cd" not in command
+    assert command[-1] == "-"
 
 
 def test_build_command_does_not_resume_codex_workspace_write(tmp_path):
@@ -123,6 +127,7 @@ def test_build_command_does_not_resume_codex_workspace_write(tmp_path):
     assert command[:2] == ["codex", "exec"]
     assert "resume" not in command
     assert command[command.index("--sandbox") + 1] == "workspace-write"
+    assert command[-1] == "-"
 
 
 def test_parse_codex_jsonl_extracts_final_message_usage_and_tools():
@@ -161,7 +166,7 @@ async def test_invoke_parses_codex_jsonl_response(tmp_path):
         stderr="",
     )
 
-    with patch("trinity.platform.process.subprocess.run", return_value=completed):
+    with patch("trinity.platform.process.subprocess.run", return_value=completed) as run:
         result = await invoker.invoke(_request(tmp_path))
 
     assert result.status == ResponseStatus.OK
@@ -169,6 +174,8 @@ async def test_invoke_parses_codex_jsonl_response(tmp_path):
     assert result.usage is not None
     assert result.usage.used == 125
     assert result.execution_authority == ExecutionAuthority.PROVIDER_MANAGED
+    assert run.call_args.kwargs["input"]
+    assert "Summarize the repo." in run.call_args.kwargs["input"]
 
 
 @pytest.mark.asyncio

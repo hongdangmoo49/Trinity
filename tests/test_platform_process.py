@@ -31,6 +31,7 @@ def test_process_runner_run_uses_argv_env_cwd_and_utf8(tmp_path):
                 cwd=tmp_path,
                 env={"TRINITY_TEST": "1"},
                 timeout_seconds=5,
+                input_text="stdin payload",
             )
         )
 
@@ -44,6 +45,7 @@ def test_process_runner_run_uses_argv_env_cwd_and_utf8(tmp_path):
     assert kwargs["encoding"] == "utf-8"
     assert kwargs["errors"] == "replace"
     assert kwargs["timeout"] == 5
+    assert kwargs["input"] == "stdin payload"
     assert "shell" not in kwargs
 
 

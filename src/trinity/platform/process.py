@@ -20,6 +20,7 @@ class CommandSpec:
     cwd: Path
     env: Mapping[str, str] = field(default_factory=dict)
     timeout_seconds: float | None = None
+    input_text: str | None = None
 
     def __post_init__(self) -> None:
         if not self.argv:
@@ -42,6 +43,7 @@ class ProcessRunner:
             encoding="utf-8",
             errors="replace",
             timeout=command.timeout_seconds,
+            input=command.input_text,
         )
 
     def stream_interactive(self, command: CommandSpec) -> int:

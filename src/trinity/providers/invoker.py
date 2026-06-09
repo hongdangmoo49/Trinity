@@ -107,6 +107,10 @@ class CliProviderInvoker:
         """Build argv for this provider invocation."""
         raise NotImplementedError
 
+    def stdin_text(self, request: PromptRequest) -> str | None:
+        """Return stdin payload for providers that read prompts from stdin."""
+        return None
+
     def parse_completed_process(
         self,
         request: PromptRequest,
@@ -128,6 +132,7 @@ class CliProviderInvoker:
                 cwd=request.cwd,
                 env=request.env,
                 timeout_seconds=request.timeout_seconds,
+                input_text=self.stdin_text(request),
             )
         )
 
@@ -411,7 +416,7 @@ class CodexExecInvoker(CliProviderInvoker):
                 *self._model_args(request),
             ]
             command.extend(request.extra_args)
-            command.append(self._render_prompt(request, include_role=True))
+            command.append("-")
             return command
 
         command = [
@@ -428,8 +433,11 @@ class CodexExecInvoker(CliProviderInvoker):
         if not request.continuity_enabled:
             command.insert(3, "--ephemeral")
         command.extend(request.extra_args)
-        command.append(self._render_prompt(request, include_role=True))
+        command.append("-")
         return command
+
+    def stdin_text(self, request: PromptRequest) -> str | None:
+        return self._render_prompt(request, include_role=True)
 
     def parse_completed_process(
         self,

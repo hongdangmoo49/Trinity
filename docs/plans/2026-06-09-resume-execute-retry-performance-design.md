@@ -217,6 +217,7 @@ Performance regression:
 - resume/controller 초기화 시 legacy repair metadata를 reconcile해 오래된 세션의 반복 repair loop를 감지한다.
 - Central Agent 영역에 blocked repair 사용자 액션을 연결했다: retry once, mark done, open review, stop.
 - `/execute-retry`는 repair metadata와 blocked note를 표시하고, recovery-only 후보도 fallback row로 보여준다.
+- `/execute-retry` modal의 `all`과 `custom`은 전체 work package가 아니라 retryable 후보만 렌더링해 큰 세션의 row 수를 줄인다.
 - `WorkflowPersistence.load_events_for_workflow()`와 `last_event_for_workflow()`를 추가했다.
 - `NexusSnapshotAdapter.load_snapshot()`은 한 번 읽은 workflow event 목록을 execution log, workflow event, execution recovery projection에 재사용한다.
 - 테스트는 repair guard, blocked action routing, recovery fallback, snapshot event single-pass, persistence helper를 포함하도록 확장했다.

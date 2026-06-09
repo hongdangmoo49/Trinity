@@ -969,6 +969,83 @@ async def test_nexus_execute_retry_slash_opens_retry_modal(tmp_path) -> None:
         assert composer.text == ""
 
 
+def test_execution_retry_modal_limits_rows_to_retry_candidates() -> None:
+    modal = ExecutionRetryModal(
+        WorkflowNexusSnapshot(
+            work_package_details=[
+                WorkPackageSnapshot(
+                    id="WP-001",
+                    title="Client",
+                    owner_agent="codex",
+                    status="failed",
+                    topic="Client",
+                    retryable=True,
+                ),
+                WorkPackageSnapshot(
+                    id="WP-002",
+                    title="Docs",
+                    owner_agent="claude",
+                    status="done",
+                    topic="Docs",
+                    retryable=False,
+                    retry_disabled_reason="already done",
+                ),
+                WorkPackageSnapshot(
+                    id="WP-003",
+                    title="Backend",
+                    owner_agent="antigravity",
+                    status="blocked",
+                    topic="Backend",
+                    retryable=True,
+                ),
+            ],
+        )
+    )
+
+    assert [package.id for package in modal._display_packages()] == ["WP-001", "WP-003"]
+    assert modal._ids_for_selector("all") == ("WP-001", "WP-003")
+    modal.selector = "failed"
+    assert [package.id for package in modal._display_packages()] == ["WP-001"]
+
+
+def test_execution_retry_modal_custom_keeps_selected_retry_candidates() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Client",
+                owner_agent="codex",
+                status="failed",
+                retryable=True,
+            ),
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="Docs",
+                owner_agent="claude",
+                status="done",
+                retryable=False,
+                retry_disabled_reason="already done",
+            ),
+            WorkPackageSnapshot(
+                id="WP-003",
+                title="Backend",
+                owner_agent="antigravity",
+                status="blocked",
+                retryable=True,
+            ),
+        ],
+    )
+
+    modal = ExecutionRetryModal(
+        snapshot,
+        selector="custom",
+        package_ids=("WP-002", "WP-003"),
+    )
+
+    assert [package.id for package in modal._display_packages()] == ["WP-001", "WP-003"]
+    assert modal._selected_package_ids() == ("WP-003",)
+
+
 @pytest.mark.asyncio
 async def test_start_slash_workflow_uses_generic_local_command_modal(
     tmp_path,

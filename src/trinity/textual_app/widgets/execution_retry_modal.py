@@ -145,7 +145,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
         self.dismiss(None)
 
     def _display_packages(self) -> list[WorkPackageSnapshot]:
-        packages = list(self.snapshot.work_package_details)
+        packages = self._retry_candidate_packages()
         if self.selector in {"all", "custom"}:
             return packages
         if self.selector == "interrupted":
@@ -161,11 +161,16 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
             ]
         return [package for package in packages if package.status == self.selector]
 
+    def _retry_candidate_packages(self) -> list[WorkPackageSnapshot]:
+        return [
+            package
+            for package in self.snapshot.work_package_details
+            if package.retryable
+        ]
+
     def _ids_for_selector(self, selector: str) -> tuple[str, ...]:
         selected: list[str] = []
-        for package in self.snapshot.work_package_details:
-            if not package.retryable:
-                continue
+        for package in self._retry_candidate_packages():
             if selector in {"all", "custom"}:
                 selected.append(package.id)
             elif selector == "interrupted":
@@ -180,7 +185,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
         return tuple(selected)
 
     def _selected_package_ids(self) -> tuple[str, ...]:
-        allowed = {package.id for package in self.snapshot.work_package_details if package.retryable}
+        allowed = {package.id for package in self._retry_candidate_packages()}
         ordered = [
             package.id
             for package in self.snapshot.work_package_details

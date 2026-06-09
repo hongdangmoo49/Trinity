@@ -784,6 +784,9 @@ class NexusSnapshotAdapter:
                 budget_source = runtime_model.budget_source
             session_id = provider_session.provider_session_id if provider_session else ""
             session_kind = provider_session.session_kind if provider_session else ""
+            configured_model = spec.model
+            if session is not None and name in session.agent_model_overrides:
+                configured_model = session.agent_model_overrides[name]
             provider_line = spec.provider.value
             display_model = actual_model or model_label
             if display_model:
@@ -795,7 +798,7 @@ class NexusSnapshotAdapter:
                 status=status,
                 summary=summary,
                 raw_output=raw_output,
-                configured_model=spec.model,
+                configured_model=configured_model,
                 actual_model=actual_model,
                 model_label=model_label,
                 context_window=context_window,

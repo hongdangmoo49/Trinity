@@ -112,6 +112,8 @@ class TextualWorkflowController:
         *,
         target_workspace: Path | None = None,
         control_repo_confirmed: bool = False,
+        target_agents: tuple[str, ...] | list[str] = (),
+        agent_model_overrides: dict[str, str] | None = None,
     ) -> TextualWorkflowOutcome:
         """Start a workflow from the first Textual prompt."""
         if self.is_running:
@@ -120,7 +122,12 @@ class TextualWorkflowController:
         if not active_agents:
             return self._outcome(message="No active agents are configured.")
         self._recent_events = []
-        action = self.workflow.start(prompt, active_agents)
+        action = self.workflow.start(
+            prompt,
+            active_agents,
+            target_agents=target_agents,
+            agent_model_overrides=agent_model_overrides,
+        )
         if target_workspace is not None:
             self.workflow.set_target_workspace(
                 target_workspace,
@@ -128,14 +135,25 @@ class TextualWorkflowController:
             )
         return self._apply_action(action)
 
-    def submit_follow_up(self, text: str) -> TextualWorkflowOutcome:
+    def submit_follow_up(
+        self,
+        text: str,
+        *,
+        target_agents: tuple[str, ...] | list[str] = (),
+        agent_model_overrides: dict[str, str] | None = None,
+    ) -> TextualWorkflowOutcome:
         """Route Nexus follow-up text through the workflow state machine."""
         if self.is_running:
             return self._outcome(message="Workflow is still running.", running=True)
         active_agents = self._active_agent_names()
         if not active_agents:
             return self._outcome(message="No active agents are configured.")
-        action = self.workflow.handle_user_input(text, active_agents)
+        action = self.workflow.handle_user_input(
+            text,
+            active_agents,
+            target_agents=target_agents,
+            agent_model_overrides=agent_model_overrides,
+        )
         return self._apply_action(action)
 
     def answer_question(
@@ -504,7 +522,11 @@ class TextualWorkflowController:
         message = action.message
         execution_started = False
         if action.should_deliberate:
-            self._start_deliberation(action.prompt)
+            self._start_deliberation(
+                action.prompt,
+                target_agents=action.target_agents,
+                agent_model_overrides=action.agent_model_overrides,
+            )
         elif action.execution_requested:
             execution_started = self._start_execution()
 
@@ -514,7 +536,13 @@ class TextualWorkflowController:
             target_workspace_required=action.target_workspace_required,
         )
 
-    def _start_deliberation(self, prompt: str) -> None:
+    def _start_deliberation(
+        self,
+        prompt: str,
+        *,
+        target_agents: tuple[str, ...] | list[str] = (),
+        agent_model_overrides: dict[str, str] | None = None,
+    ) -> None:
         bus = TUIEventBus()
         use_tmux = self._uses_tmux_transport()
         if use_tmux and shutil.which("tmux") is None:
@@ -532,6 +560,8 @@ class TextualWorkflowController:
                     self.config,
                     interactive=use_tmux,
                     provider_sessions=self.workflow.session.provider_sessions,
+                    active_agent_names=tuple(target_agents),
+                    agent_model_overrides=agent_model_overrides or {},
                 )
                 orchestrator.set_event_bus(bus)
                 result = asyncio.run(orchestrator.ask(prompt))

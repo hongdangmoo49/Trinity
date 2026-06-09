@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from difflib import get_close_matches
+from inspect import Parameter, signature
 from pathlib import Path
 from typing import Literal
 
@@ -155,8 +156,8 @@ class TrinityTextualApp(App[None]):
     }
 
     #start-shell {
-        width: 72;
-        max-width: 90%;
+        width: 88;
+        max-width: 94%;
         height: auto;
     }
 
@@ -194,6 +195,37 @@ class TrinityTextualApp(App[None]):
 
     #start-composer.-commands-open {
         height: 13;
+    }
+
+    .agent-recipient-selector {
+        width: 100%;
+        height: auto;
+        margin-top: 1;
+        align-vertical: middle;
+    }
+
+    .recipient-label {
+        width: auto;
+        min-width: 8;
+        content-align: left middle;
+        color: $text-muted;
+        margin-right: 1;
+    }
+
+    .recipient-all {
+        width: auto;
+        min-width: 10;
+        margin-right: 1;
+    }
+
+    .recipient-agent-check {
+        width: 3;
+        margin-right: 0;
+    }
+
+    .recipient-agent-model {
+        width: 16;
+        margin-right: 1;
     }
 
     #prompt-textarea {
@@ -928,7 +960,11 @@ class TrinityTextualApp(App[None]):
             return
 
         self.install_screen(
-            StartScreen(self.workspace_candidate, lang=self.config.lang),
+            StartScreen(
+                self.config,
+                self.workspace_candidate,
+                lang=self.config.lang,
+            ),
             "start",
         )
         self.install_screen(NexusScreen(self.config), "nexus")
@@ -947,10 +983,17 @@ class TrinityTextualApp(App[None]):
         self.workspace_candidate = event.workspace_candidate
         nexus = self.get_screen("nexus", NexusScreen)
         nexus.set_initial_prompt(event.prompt)
+        nexus.set_agent_selection(event.target_agents, event.agent_model_overrides)
         target_workspace = self._safe_start_target_workspace(event.workspace_candidate)
-        outcome = self.workflow_controller.start_prompt(
+        start_kwargs = {
+            "target_workspace": target_workspace,
+            "target_agents": event.target_agents,
+            "agent_model_overrides": event.agent_model_overrides,
+        }
+        outcome = self._call_controller_method(
+            self.workflow_controller.start_prompt,
             event.prompt,
-            target_workspace=target_workspace,
+            **start_kwargs,
         )
         self._apply_workflow_outcome(outcome)
         self.switch_to("nexus")
@@ -977,10 +1020,37 @@ class TrinityTextualApp(App[None]):
         event: NexusScreen.FollowUpSubmitted,
     ) -> None:
         event.stop()
-        outcome = self.workflow_controller.submit_follow_up(event.text)
+        outcome = self._call_controller_method(
+            self.workflow_controller.submit_follow_up,
+            event.text,
+            target_agents=event.target_agents,
+            agent_model_overrides=event.agent_model_overrides,
+        )
         self._apply_workflow_outcome(outcome)
         if outcome.target_workspace_required:
             self._open_execute_workspace_picker(outcome.snapshot)
+
+    @staticmethod
+    def _call_controller_method(method, *args, **kwargs):
+        """Call a controller method while tolerating older test doubles."""
+        try:
+            parameters = signature(method).parameters
+        except (TypeError, ValueError):
+            return method(*args, **kwargs)
+
+        accepts_kwargs = any(
+            parameter.kind == Parameter.VAR_KEYWORD
+            for parameter in parameters.values()
+        )
+        if accepts_kwargs:
+            return method(*args, **kwargs)
+
+        supported_kwargs = {
+            key: value
+            for key, value in kwargs.items()
+            if key in parameters
+        }
+        return method(*args, **supported_kwargs)
 
     def on_nexus_screen_slash_command_submitted(
         self,

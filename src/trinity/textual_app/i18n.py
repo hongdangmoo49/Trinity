@@ -32,6 +32,9 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "binding_send": "Send",
         "binding_settings": "Settings",
         "binding_start": "Start",
+        "recipient_all": "All",
+        "recipient_label": "Ask",
+        "recipient_provider_default": "default",
     },
     "ko": {
         "command_no_matches": "일치하는 명령이 없습니다",
@@ -54,6 +57,9 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "binding_send": "보내기",
         "binding_settings": "설정",
         "binding_start": "시작",
+        "recipient_all": "전체",
+        "recipient_label": "물어볼 대상",
+        "recipient_provider_default": "기본값",
     },
 }
 

@@ -87,6 +87,7 @@ class PrintModeClaudeAgent(AgentWrapper):
                 "session_id": result.metadata.get("session_id"),
                 "provider_session": result.metadata.get("provider_session"),
                 "runtime_model": result.metadata.get("runtime_model"),
+                "resource_projections": dict(request.resource_projections),
                 "response_status": result.status.value,
                 "raw_output": result.raw_output,
                 "diagnostics": list(result.diagnostics),

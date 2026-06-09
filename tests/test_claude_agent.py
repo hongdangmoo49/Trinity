@@ -80,7 +80,12 @@ class TestSendAndWait:
             status=ResponseStatus.OK,
             elapsed_seconds=0.25,
             usage=ContextUsage(used=150, total=0),
-            metadata={"model": "claude-sonnet-4-6"},
+            metadata={
+                "model": "claude-sonnet-4-6",
+                "provider_session": {
+                    "provider_session_id": "claude-session-1",
+                },
+            },
         )
 
         agent._invoker.invoke = AsyncMock(return_value=mock_result)
@@ -98,6 +103,7 @@ class TestSendAndWait:
         assert msg.metadata["token_count"] == 150
         assert msg.metadata["model"] == "claude-sonnet-4-6"
         assert msg.metadata["response_status"] == "ok"
+        assert agent.provider_session_id == "claude-session-1"
 
     @pytest.mark.asyncio
     async def test_updates_context_usage(self, agent):

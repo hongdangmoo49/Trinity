@@ -65,6 +65,7 @@ class PrintModeClaudeAgent(AgentWrapper):
 
         start_time = time.time()
         result = await self._invoker.invoke(request)
+        self._remember_provider_session(result.metadata)
         elapsed = result.elapsed_seconds or (time.time() - start_time)
         logger.info(f"[{self.name}] Response received in {elapsed:.1f}s")
 

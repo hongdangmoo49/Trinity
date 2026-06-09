@@ -44,6 +44,7 @@ class AntigravityPrintAgent(AgentWrapper):
             access=access,
         )
         result = await self._invoker.invoke(request)
+        self._remember_provider_session(result.metadata)
         elapsed = result.elapsed_seconds or (time.time() - start_time)
 
         return DeliberationMessage(

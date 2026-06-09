@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
@@ -100,10 +101,12 @@ class TrinityOrchestrator:
         *,
         target_workspace: Path | None = None,
         allow_control_repo_writes: bool = False,
+        provider_sessions: Mapping[str, object] | None = None,
     ):
         self.config = config
         self.target_workspace = target_workspace.resolve() if target_workspace else None
         self.allow_control_repo_writes = allow_control_repo_writes
+        self.provider_sessions = dict(provider_sessions or {})
         self.transport_mode = config.transport_mode
         self.interactive = (
             self.transport_mode == "tmux" if interactive is None else interactive
@@ -450,6 +453,7 @@ class TrinityOrchestrator:
         for name, spec in (active_agents or self.config.active_agents).items():
             agent = self._create_print_agent(spec)
             self._apply_launch_context(name, agent)
+            self._apply_provider_session(name, agent)
             self.agents[name] = agent
             logger.info(f"Created agent (print mode): {agent}")
 
@@ -475,6 +479,7 @@ class TrinityOrchestrator:
                 logger.warning(f"No pane for agent '{name}', falling back to print mode")
                 agent = self._create_print_agent(spec)
                 self._apply_launch_context(name, agent)
+                self._apply_provider_session(name, agent)
                 self.agents[name] = agent
                 continue
 
@@ -490,6 +495,7 @@ class TrinityOrchestrator:
                 signal_path=signal_path,
             )
             self._apply_launch_context(name, agent)
+            self._apply_provider_session(name, agent)
             self.agents[name] = agent
             logger.info(f"Created agent (interactive): {agent}")
 
@@ -505,6 +511,35 @@ class TrinityOrchestrator:
                 cwd=context.cwd,
                 env_overrides=context.env_overrides,
             )
+
+    def _apply_provider_session(self, agent_name: str, agent: AgentWrapper) -> None:
+        """Attach the latest provider session id restored from workflow state."""
+        session = self._provider_session_for_agent(agent_name)
+        if session:
+            agent.configure_provider_session(session)
+
+    def _provider_session_for_agent(self, agent_name: str) -> str:
+        """Return latest read-only provider session id for an agent."""
+        candidates: list[tuple[float, str]] = []
+        for value in self.provider_sessions.values():
+            if isinstance(value, Mapping):
+                item_agent = str(value.get("agent_name", ""))
+                item_access = str(value.get("access", ""))
+                session_id = str(value.get("provider_session_id", ""))
+                observed_at = float(value.get("last_observed_at", 0) or 0)
+            else:
+                item_agent = str(getattr(value, "agent_name", ""))
+                item_access = str(getattr(value, "access", ""))
+                session_id = str(getattr(value, "provider_session_id", ""))
+                observed_at = float(getattr(value, "last_observed_at", 0) or 0)
+            if item_agent != agent_name or not session_id:
+                continue
+            if item_access and item_access != "read-only":
+                continue
+            candidates.append((observed_at, session_id))
+        if not candidates:
+            return ""
+        return sorted(candidates, reverse=True)[0][1]
 
     async def ask(self, prompt: str) -> DeliberationResult:
         """Main entry point: run deliberation on a user prompt."""

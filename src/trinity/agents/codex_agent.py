@@ -128,6 +128,7 @@ class CodexAgent(AgentWrapper):
                 access=access,
             )
             result = await self._invoker.invoke(request)
+            self._remember_provider_session(result.metadata)
             elapsed = time.time() - start_time
             if result.elapsed_seconds:
                 elapsed = result.elapsed_seconds

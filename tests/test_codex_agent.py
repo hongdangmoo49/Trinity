@@ -79,6 +79,11 @@ class TestCodexSendAndWait:
                 elapsed_seconds=0.2,
                 usage=ContextUsage(used=5000, total=0),
                 tool_activity_summary=["command_execution:1"],
+                metadata={
+                    "provider_session": {
+                        "provider_session_id": "thread-1",
+                    }
+                },
             )
         )
         msg = await agent.send_and_wait("Implement auth.")
@@ -92,6 +97,12 @@ class TestCodexSendAndWait:
         request = agent._invoker.invoke.call_args.args[0]
         assert request.prompt == "Implement auth."
         assert request.role_prompt == "You are the Implementer."
+        assert request.continuity_enabled is True
+        assert agent.provider_session_id == "thread-1"
+
+        await agent.send_and_wait("Continue auth.")
+        followup_request = agent._invoker.invoke.call_args.args[0]
+        assert followup_request.provider_session_id == "thread-1"
 
     @pytest.mark.asyncio
     async def test_print_mode_forwards_invocation_access(self, agent):

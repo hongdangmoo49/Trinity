@@ -140,6 +140,35 @@ class TestTrinityOrchestratorInit:
         with pytest.raises(ValueError, match="No active agents"):
             orch._ensure_initialized()
 
+    def test_restored_provider_session_is_attached_to_agent(self, tmp_path):
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=tmp_path / ".trinity",
+            agents={
+                "codex": AgentSpec(
+                    name="codex",
+                    provider=Provider.CODEX,
+                    cli_command="codex",
+                    enabled=True,
+                ),
+            },
+        )
+        orch = TrinityOrchestrator(
+            config,
+            provider_sessions={
+                "codex:key": {
+                    "agent_name": "codex",
+                    "provider_session_id": "thread-1",
+                    "access": "read-only",
+                    "last_observed_at": 1.0,
+                }
+            },
+        )
+
+        orch._ensure_initialized()
+
+        assert orch.agents["codex"].provider_session_id == "thread-1"
+
 
 class TestWorkspaceHomeIsolation:
     """Test first-stage workspace/home launch metadata wiring."""

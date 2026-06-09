@@ -65,6 +65,66 @@ def test_build_command_uses_workspace_write_when_requested(tmp_path):
     assert command[command.index("--sandbox") + 1] == "workspace-write"
 
 
+def test_build_command_omits_ephemeral_for_continuity_first_call(tmp_path):
+    invoker = CodexExecInvoker()
+    request = PromptRequest(
+        agent_name="codex",
+        provider=Provider.CODEX,
+        cli_command="codex",
+        prompt="Continue plan.",
+        cwd=tmp_path,
+        continuity_enabled=True,
+    )
+
+    command = invoker.build_command(request)
+
+    assert command[:2] == ["codex", "exec"]
+    assert "--json" in command
+    assert "--ephemeral" not in command
+    assert command[command.index("--sandbox") + 1] == "read-only"
+
+
+def test_build_command_uses_codex_exec_resume_for_read_only_continuation(tmp_path):
+    invoker = CodexExecInvoker()
+    request = PromptRequest(
+        agent_name="codex",
+        provider=Provider.CODEX,
+        cli_command="codex",
+        prompt="Continue plan.",
+        cwd=tmp_path,
+        provider_session_id="thread-xyz",
+        continuity_enabled=True,
+    )
+
+    command = invoker.build_command(request)
+
+    assert command[:4] == ["codex", "exec", "resume", "thread-xyz"]
+    assert "--json" in command
+    assert "--ephemeral" not in command
+    assert "--sandbox" not in command
+    assert "--cd" not in command
+
+
+def test_build_command_does_not_resume_codex_workspace_write(tmp_path):
+    invoker = CodexExecInvoker()
+    request = PromptRequest(
+        agent_name="codex",
+        provider=Provider.CODEX,
+        cli_command="codex",
+        prompt="Implement.",
+        cwd=tmp_path,
+        provider_session_id="thread-xyz",
+        continuity_enabled=True,
+        access=InvocationAccess.WORKSPACE_WRITE,
+    )
+
+    command = invoker.build_command(request)
+
+    assert command[:2] == ["codex", "exec"]
+    assert "resume" not in command
+    assert command[command.index("--sandbox") + 1] == "workspace-write"
+
+
 def test_parse_codex_jsonl_extracts_final_message_usage_and_tools():
     stdout = "\n".join(
         [

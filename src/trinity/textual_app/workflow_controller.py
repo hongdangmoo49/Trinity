@@ -446,6 +446,7 @@ class TextualWorkflowController:
                 orchestrator = self.orchestrator_factory(
                     self.config,
                     interactive=use_tmux,
+                    provider_sessions=self.workflow.session.provider_sessions,
                 )
                 orchestrator.set_event_bus(bus)
                 result = asyncio.run(orchestrator.ask(prompt))
@@ -559,6 +560,7 @@ class TextualWorkflowController:
                     interactive=use_tmux,
                     target_workspace=target_workspace,
                     allow_control_repo_writes=allow_control_repo_writes,
+                    provider_sessions=self.workflow.session.provider_sessions,
                 )
                 orchestrator.set_event_bus(bus)
                 results = asyncio.run(_review(orchestrator))

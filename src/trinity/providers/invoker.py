@@ -41,6 +41,8 @@ class PromptRequest:
     model: str = "default"
     extra_args: tuple[str, ...] = ()
     access: InvocationAccess = InvocationAccess.READ_ONLY
+    provider_session_id: str = ""
+    continuity_enabled: bool = False
 
 
 @dataclass
@@ -253,10 +255,10 @@ class ClaudePrintInvoker(CliProviderInvoker):
         command = [
             request.cli_command,
             *self._model_args(request),
-            "-p",
-            "--output-format",
-            "json",
         ]
+        if request.provider_session_id:
+            command.extend(["--resume", request.provider_session_id])
+        command.extend(["-p", "--output-format", "json"])
         if request.role_prompt:
             command.extend(["--append-system-prompt", request.role_prompt])
         command.extend(request.extra_args)
@@ -394,11 +396,28 @@ class CodexExecInvoker(CliProviderInvoker):
     """Invoke Codex with `codex exec --json` and parse JSONL events."""
 
     def build_command(self, request: PromptRequest) -> list[str]:
+        if (
+            request.continuity_enabled
+            and request.provider_session_id
+            and request.access == InvocationAccess.READ_ONLY
+        ):
+            command = [
+                request.cli_command,
+                "exec",
+                "resume",
+                request.provider_session_id,
+                "--json",
+                "--skip-git-repo-check",
+                *self._model_args(request),
+            ]
+            command.extend(request.extra_args)
+            command.append(self._render_prompt(request, include_role=True))
+            return command
+
         command = [
             request.cli_command,
             "exec",
             "--json",
-            "--ephemeral",
             "--skip-git-repo-check",
             "--sandbox",
             request.access.value,
@@ -406,6 +425,8 @@ class CodexExecInvoker(CliProviderInvoker):
             str(request.cwd),
             *self._model_args(request),
         ]
+        if not request.continuity_enabled:
+            command.insert(3, "--ephemeral")
         command.extend(request.extra_args)
         command.append(self._render_prompt(request, include_role=True))
         return command
@@ -671,8 +692,15 @@ class AntigravityPrintInvoker(CliProviderInvoker):
         ]
         if request.access == InvocationAccess.READ_ONLY:
             command.append("--sandbox")
+        if request.provider_session_id:
+            command.extend(["--conversation", request.provider_session_id])
+        extra_args = list(request.extra_args)
+        if not _extract_flag_value(extra_args, "--log-file"):
+            log_path = _default_antigravity_log_path(request)
+            if log_path:
+                command.extend(["--log-file", str(log_path)])
+        command.extend(extra_args)
         command.append("--print")
-        command.extend(request.extra_args)
         command.append(self._render_prompt(request, include_role=True))
         return command
 
@@ -761,6 +789,21 @@ def _extract_flag_value(command: list[str], flag: str) -> str:
         if text.startswith(prefix):
             return text[len(prefix):]
     return ""
+
+
+def _default_antigravity_log_path(request: PromptRequest) -> Path | None:
+    """Return a per-call Antigravity log path for metadata parsing."""
+    try:
+        log_dir = request.cwd / ".trinity" / "provider-sessions"
+        log_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return None
+    request_part = request.request_id.strip() if request.request_id else ""
+    if not request_part:
+        request_part = str(int(time.time() * 1000))
+    safe_agent = re.sub(r"[^A-Za-z0-9_.-]+", "-", request.agent_name).strip("-")
+    safe_request = re.sub(r"[^A-Za-z0-9_.-]+", "-", request_part).strip("-")
+    return log_dir / f"{safe_agent or 'agy'}-{safe_request}.agy.log"
 
 
 def parse_antigravity_log_file(path: str | Path | None) -> dict[str, Any]:

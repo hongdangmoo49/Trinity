@@ -69,6 +69,37 @@ def test_build_command_omits_sandbox_for_workspace_write(tmp_path):
     assert "--dangerously-skip-permissions" not in command
 
 
+def test_build_command_uses_antigravity_conversation_resume(tmp_path):
+    invoker = AntigravityPrintInvoker()
+    request = PromptRequest(
+        agent_name="antigravity",
+        provider=Provider.ANTIGRAVITY_CLI,
+        cli_command="agy",
+        prompt="Continue review.",
+        cwd=tmp_path,
+        provider_session_id="agy-conv-1",
+    )
+
+    command = invoker.build_command(request)
+
+    assert "--conversation" in command
+    assert command[command.index("--conversation") + 1] == "agy-conv-1"
+    assert "--log-file" in command
+    assert str(tmp_path / ".trinity" / "provider-sessions") in command[
+        command.index("--log-file") + 1
+    ]
+
+
+def test_build_command_preserves_configured_antigravity_log_file(tmp_path):
+    invoker = AntigravityPrintInvoker()
+    request = _request(tmp_path)
+
+    command = invoker.build_command(request)
+
+    assert command.count("--log-file") == 1
+    assert command[command.index("--log-file") + 1] == str(tmp_path / "agy.log")
+
+
 @pytest.mark.asyncio
 async def test_invoke_parses_plain_stdout(tmp_path):
     invoker = AntigravityPrintInvoker()

@@ -49,6 +49,19 @@ def test_build_command_uses_claude_print_json_and_system_prompt(tmp_path):
     assert "Design the system." in command[-1]
 
 
+def test_build_command_uses_explicit_claude_resume(tmp_path):
+    invoker = ClaudePrintInvoker()
+    request = _request(tmp_path)
+    request = PromptRequest(
+        **{**request.__dict__, "provider_session_id": "claude-session-1"}
+    )
+
+    command = invoker.build_command(request)
+
+    assert "--resume" in command
+    assert command[command.index("--resume") + 1] == "claude-session-1"
+
+
 @pytest.mark.asyncio
 async def test_invoke_parses_claude_json_response(tmp_path):
     invoker = ClaudePrintInvoker()

@@ -8,6 +8,8 @@ from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
 
+from trinity.context.memory import ContentRouter, MemoryRecord, MemoryStats, MemoryStore
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_MAX_READ_BYTES = 1_048_576
@@ -50,10 +52,21 @@ class SharedContextEngine:
         keep_sections: list[str] | None = None,
         max_read_bytes: int = DEFAULT_MAX_READ_BYTES,
         section_entry_max_chars: int = DEFAULT_SECTION_ENTRY_MAX_CHARS,
+        memory_index_enabled: bool = True,
+        memory_store: MemoryStore | None = None,
     ):
         self.path = path
         self.max_read_bytes = max_read_bytes
         self.section_entry_max_chars = section_entry_max_chars
+        self.memory_store = (
+            memory_store
+            if memory_store is not None
+            else (
+                MemoryStore(path.parent / "memory" / "index.sqlite")
+                if memory_index_enabled
+                else None
+            )
+        )
         self.keep_sections: set[str] = {
             self._normalize_heading(h) for h in (keep_sections or [])
         }
@@ -257,7 +270,18 @@ class SharedContextEngine:
         _append_list("Decisions Made", decisions_made)
         _append_list("Blockers", blockers)
         _append_list("Follow-up", follow_up)
-        self.append_to_section("Task Results", "\n".join(lines))
+        content = "\n".join(lines)
+        self._record_memory(
+            kind="execution_result",
+            source="shared.append_task_result",
+            title=f"{safe_package} / {safe_agent}",
+            summary=ContentRouter.summarize(content),
+            agent=safe_agent,
+            work_package_id=safe_package,
+            artifact_path=str(raw_response_path or ""),
+            tags=["execution", status],
+        )
+        self.append_to_section("Task Results", content)
 
     def append_subtask_result(
         self,
@@ -303,7 +327,18 @@ class SharedContextEngine:
         _append_list("Decisions Made", decisions_made)
         _append_list("Files Changed", files_changed)
         _append_list("Unresolved Issues", unresolved_issues)
-        self.append_to_section("Subtasks", "\n".join(lines))
+        content = "\n".join(lines)
+        self._record_memory(
+            kind="subtask_result",
+            source="shared.append_subtask_result",
+            title=f"{safe_subtask} / {safe_package}",
+            summary=ContentRouter.summarize(content),
+            agent=safe_agent,
+            work_package_id=safe_package,
+            artifact_path="",
+            tags=["subtask", status],
+        )
+        self.append_to_section("Subtasks", content)
 
     def append_session_summary(self, agent: str, summary: str) -> None:
         """Append a session rotation summary to session history."""
@@ -520,6 +555,72 @@ class SharedContextEngine:
         self.write(self._recovery_projection(backup_path, size))
         return backup_path
 
+    def memory_stats(self) -> MemoryStats | None:
+        """Return memory index statistics if the memory index is enabled."""
+        if self.memory_store is None:
+            return None
+        return self.memory_store.stats()
+
+    def compact_projection_from_memory(
+        self,
+        *,
+        target_bytes: int | None = None,
+        recent_records: int = 20,
+    ) -> Path | None:
+        """Rebuild shared.md as a bounded projection over pinned sections + memory."""
+        backup_path = self.ensure_mutable_projection()
+        sections = self._parse_sections(self.read())
+        target = target_bytes or self.max_read_bytes
+        parts = ["# Shared Context"]
+
+        for heading in (
+            "Current Goal",
+            "Agents",
+            "Agreed Conclusion",
+            "Task Assignment",
+            "Recovery Notice",
+        ):
+            body = sections.get(self._normalize_heading(heading), "").strip()
+            if body:
+                parts.append(self._format_section(heading, body))
+
+        if self.memory_store is not None:
+            stats = self.memory_store.stats()
+            memory_lines = [
+                f"- records: {stats.record_count}",
+                f"- artifacts: {stats.artifact_count}",
+                f"- estimated_tokens: {stats.total_token_estimate}",
+            ]
+            recent = self.memory_store.recent(limit=recent_records)
+            if recent:
+                memory_lines.extend(["", "### Recent Records"])
+                for record in recent:
+                    line = (
+                        f"- `{record.id}` {record.kind}: {record.title}"
+                        f" ({record.agent or 'unknown'})"
+                    )
+                    if record.artifact_path:
+                        line += f" artifact=`{record.artifact_path}`"
+                    memory_lines.append(line)
+                    if record.summary:
+                        memory_lines.append(
+                            "  "
+                            + record.summary.replace("\n", "\n  ")[:800].rstrip()
+                        )
+            parts.append(self._format_section("Memory Projection", "\n".join(memory_lines)))
+
+        projection = "\n\n".join(parts).rstrip() + "\n"
+        encoded = projection.encode("utf-8", errors="replace")
+        if target > 0 and len(encoded) > target:
+            marker = "\n\n## Projection Truncated\nMemory projection exceeded target size.\n"
+            keep = max(0, target - len(marker.encode("utf-8")) - 256)
+            projection = projection.encode("utf-8", errors="replace")[:keep].decode(
+                "utf-8",
+                errors="ignore",
+            ).rstrip() + marker
+        self.write(projection)
+        return backup_path
+
     # --- Private helpers ---
 
     def _parse_sections(self, content: str) -> dict[str, str]:
@@ -571,6 +672,40 @@ class SharedContextEngine:
                 result.append(line)
 
         return "\n".join(result)
+
+    def _format_section(self, heading: str, body: str) -> str:
+        return f"## {heading}\n{body.strip()}"
+
+    def _record_memory(
+        self,
+        *,
+        kind: str,
+        source: str,
+        title: str,
+        summary: str,
+        agent: str = "",
+        work_package_id: str = "",
+        artifact_path: str = "",
+        tags: list[str] | None = None,
+    ) -> None:
+        if self.memory_store is None:
+            return
+        content_hash = MemoryStore.hash_text(
+            "\n".join((kind, source, title, summary, artifact_path))
+        )
+        record = MemoryRecord(
+            id=f"{kind}-{work_package_id or 'global'}-{content_hash[:12]}",
+            kind=kind,
+            source=source,
+            title=title,
+            summary=summary,
+            agent=agent,
+            work_package_id=work_package_id,
+            artifact_path=artifact_path,
+            content_hash=content_hash,
+            tags=tags or [],
+        )
+        self.memory_store.upsert(record)
 
     def _is_oversized(self) -> bool:
         if self.max_read_bytes <= 0 or not self.path.exists():

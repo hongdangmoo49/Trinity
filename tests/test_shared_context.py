@@ -106,6 +106,9 @@ class TestSharedContextEngine:
         assert "src/app.py" in section
         assert "Use existing router." in section
         assert "Add load test." in section
+        stats = shared_engine.memory_stats()
+        assert stats is not None
+        assert stats.record_count == 1
 
     def test_repeated_append_does_not_duplicate_section_heading(self, shared_engine):
         shared_engine.initialize("Test", ["codex"])
@@ -168,6 +171,28 @@ class TestSharedContextEngine:
         assert "Found existing adapter registry." in section
         assert "Reuse registry." in section
         assert "src/routes.py" in section
+        stats = shared_engine.memory_stats()
+        assert stats is not None
+        assert stats.record_count == 1
+
+    def test_compact_projection_from_memory(self, shared_engine):
+        shared_engine.initialize("Build app", ["codex"])
+        shared_engine.append_task_result(
+            package_id="WP-001",
+            agent="codex",
+            status="done",
+            summary="Implemented endpoint.",
+            raw_response_path=shared_engine.path.parent / "execution" / "raw.txt",
+        )
+
+        shared_engine.compact_projection_from_memory(target_bytes=4096)
+
+        content = shared_engine.read()
+        assert "## Current Goal" in content
+        assert "Build app" in content
+        assert "## Memory Projection" in content
+        assert "execution_result" in content
+        assert "WP-001 / codex" in content
 
     def test_append_session_summary(self, shared_engine):
         shared_engine.initialize("Test", ["claude"])

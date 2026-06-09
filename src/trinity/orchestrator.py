@@ -165,6 +165,7 @@ class TrinityOrchestrator:
             keep_sections=self.config.keep_sections,
             max_read_bytes=self.config.shared_max_bytes,
             section_entry_max_chars=self.config.shared_section_entry_max_chars,
+            memory_index_enabled=self.config.memory_index_enabled,
         )
 
         if self.interactive:

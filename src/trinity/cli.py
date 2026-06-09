@@ -1056,6 +1056,7 @@ def context(section: str | None):
         path=config.shared_context_path,
         max_read_bytes=config.shared_max_bytes,
         section_entry_max_chars=config.shared_section_entry_max_chars,
+        memory_index_enabled=config.memory_index_enabled,
     )
 
     if section:

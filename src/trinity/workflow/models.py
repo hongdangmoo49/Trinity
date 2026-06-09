@@ -8,6 +8,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from trinity.resources.models import AgentResourceProjection
+
 
 class WorkflowState(str, Enum):
     """Lifecycle state for a Trinity workflow."""
@@ -624,6 +626,8 @@ class WorkflowSession:
     goal: str
     state: WorkflowState
     active_agents: list[str] = field(default_factory=list)
+    last_target_agents: list[str] = field(default_factory=list)
+    agent_model_overrides: dict[str, str] = field(default_factory=dict)
     current_round: int = 0
     target_workspace: Path | None = None
     control_repo_target_confirmed: bool = False
@@ -641,6 +645,7 @@ class WorkflowSession:
     execution_run: dict[str, Any] = field(default_factory=dict)
     provider_sessions: dict[str, ProviderSessionRef] = field(default_factory=dict)
     runtime_models: dict[str, AgentRuntimeModel] = field(default_factory=dict)
+    resource_projections: dict[str, AgentResourceProjection] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -655,6 +660,8 @@ class WorkflowSession:
             "goal": self.goal,
             "state": self.state.value,
             "active_agents": list(self.active_agents),
+            "last_target_agents": list(self.last_target_agents),
+            "agent_model_overrides": dict(self.agent_model_overrides),
             "current_round": self.current_round,
             "target_workspace": (str(self.target_workspace) if self.target_workspace else None),
             "control_repo_target_confirmed": self.control_repo_target_confirmed,
@@ -678,6 +685,10 @@ class WorkflowSession:
                 key: value.to_dict()
                 for key, value in self.runtime_models.items()
             },
+            "resource_projections": {
+                key: value.to_dict()
+                for key, value in self.resource_projections.items()
+            },
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -690,6 +701,15 @@ class WorkflowSession:
             goal=str(data.get("goal", "")),
             state=WorkflowState(state_value),
             active_agents=[str(item) for item in data.get("active_agents", [])],
+            last_target_agents=[
+                str(item) for item in data.get("last_target_agents", [])
+            ],
+            agent_model_overrides={
+                str(key): str(value)
+                for key, value in data.get("agent_model_overrides", {}).items()
+            }
+            if isinstance(data.get("agent_model_overrides", {}), dict)
+            else {},
             current_round=int(data.get("current_round", 0)),
             target_workspace=(
                 Path(str(data["target_workspace"]))
@@ -761,6 +781,15 @@ class WorkflowSession:
                 for key, value in (
                     data.get("runtime_models", {})
                     if isinstance(data.get("runtime_models"), dict)
+                    else {}
+                ).items()
+                if isinstance(value, dict)
+            },
+            resource_projections={
+                str(key): AgentResourceProjection.from_dict(value)
+                for key, value in (
+                    data.get("resource_projections", {})
+                    if isinstance(data.get("resource_projections"), dict)
                     else {}
                 ).items()
                 if isinstance(value, dict)

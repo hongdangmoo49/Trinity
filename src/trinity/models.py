@@ -154,6 +154,10 @@ class AgentSpec:
     context_budget: int = 0  # 0 = auto-detect from provider defaults
     enabled: bool = True
     extra_args: list[str] = field(default_factory=list)
+    resource_packs: list[str] = field(default_factory=list)
+    resource_types: list[str] = field(default_factory=list)
+    resource_disabled: list[str] = field(default_factory=list)
+    resource_activation: str = "auto"
 
     @property
     def effective_context_budget(self) -> int:

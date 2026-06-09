@@ -16,6 +16,16 @@ from trinity.providers.policy import (
 PROVIDER_STATE_MODES = {"user-home", "isolated"}
 TRANSPORT_MODES = {"one-shot", "tmux"}
 SYNTHESIS_MODES = {"auto", "model", "heuristic"}
+RESOURCE_PROJECTION_MODES = {"managed-overlay", "prompt-only", "disabled"}
+RESOURCE_COLLISION_POLICIES = {"namespace", "fail", "native-wins"}
+RESOURCE_FAILURE_POLICIES = {
+    "degrade",
+    "skip",
+    "fail-provider-call",
+    "fail-workflow",
+}
+RESOURCE_ACTIVATIONS = {"auto", "project", "prompt-only", "off"}
+PROVIDER_PROCESS_NAMESPACES = {"auto", "host", "wsl", "windows"}
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +54,7 @@ class TrinityConfig:
 
     # Agent invocation transport
     transport_mode: str = "one-shot"  # "one-shot" | "tmux"
+    provider_process_namespace: str = "auto"
 
     # Language (affects deliberation prompts + role prompts)
     lang: str = "en"  # "en" | "ko"
@@ -103,6 +114,14 @@ class TrinityConfig:
     log_level: str = "INFO"
     log_file: str = ".trinity/logs/trinity.log"
 
+    # Trinity-managed agent resources
+    resources_enabled: bool = True
+    resources_root: Path = field(default_factory=lambda: Path(".trinity/resources"))
+    resource_projection_mode: str = "managed-overlay"
+    resource_collision_policy: str = "namespace"
+    resource_default_failure_policy: str = "degrade"
+    resource_audit: bool = True
+
     # Agents
     agents: dict[str, AgentSpec] = field(default_factory=dict)
 
@@ -150,6 +169,7 @@ class TrinityConfig:
         context = data.get("context", {})
         health = data.get("health", {})
         logging_conf = data.get("logging", {})
+        resources_conf = data.get("resources", {})
 
         lang = general.get("lang", None)
         if lang is None or (lang == "en" and detected_lang == "ko"):
@@ -157,6 +177,11 @@ class TrinityConfig:
 
         agents = {}
         for name, agent_data in data.get("agents", {}).items():
+            agent_resources = (
+                agent_data.get("resources", {})
+                if isinstance(agent_data.get("resources", {}), dict)
+                else {}
+            )
             agents[name] = AgentSpec(
                 name=name,
                 provider=Provider(agent_data.get("provider", "claude-code")),
@@ -173,6 +198,14 @@ class TrinityConfig:
                 context_budget=agent_data.get("context_budget", 0),
                 enabled=agent_data.get("enabled", True),
                 extra_args=agent_data.get("extra_args", []),
+                resource_packs=cls._string_list(agent_resources.get("packs", [])),
+                resource_types=cls._string_list(agent_resources.get("types", [])),
+                resource_disabled=cls._string_list(
+                    agent_resources.get("disabled", [])
+                ),
+                resource_activation=cls._normalize_resource_activation(
+                    agent_resources.get("activation", "auto")
+                ),
             )
 
         return cls(
@@ -186,6 +219,9 @@ class TrinityConfig:
             ),
             transport_mode=cls._normalize_transport_mode(
                 general.get("transport_mode", "one-shot")
+            ),
+            provider_process_namespace=cls._normalize_provider_process_namespace(
+                general.get("provider_process_namespace", "auto")
             ),
             lang=lang,
             max_deliberation_rounds=deliberation.get(
@@ -261,6 +297,18 @@ class TrinityConfig:
             health_check_interval_seconds=health.get("check_interval_seconds", 30.0),
             log_level=logging_conf.get("level", "INFO"),
             log_file=logging_conf.get("file", ".trinity/logs/trinity.log"),
+            resources_enabled=bool(resources_conf.get("enabled", True)),
+            resources_root=Path(resources_conf.get("root", ".trinity/resources")),
+            resource_projection_mode=cls._normalize_resource_projection_mode(
+                resources_conf.get("projection_mode", "managed-overlay")
+            ),
+            resource_collision_policy=cls._normalize_resource_collision_policy(
+                resources_conf.get("collision_policy", "namespace")
+            ),
+            resource_default_failure_policy=cls._normalize_resource_failure_policy(
+                resources_conf.get("default_failure_policy", "degrade")
+            ),
+            resource_audit=bool(resources_conf.get("audit", True)),
             agents=agents,
         )
 
@@ -314,9 +362,18 @@ class TrinityConfig:
                 "lang": self.lang,
                 "provider_state_mode": self.provider_state_mode,
                 "transport_mode": self.transport_mode,
+                "provider_process_namespace": self.provider_process_namespace,
                 "max_deliberation_rounds": self.max_deliberation_rounds,
                 "consensus_threshold": self.consensus_threshold,
                 "context_rotate_threshold": self.context_rotate_threshold,
+            },
+            "resources": {
+                "enabled": self.resources_enabled,
+                "root": str(self.resources_root),
+                "projection_mode": self.resource_projection_mode,
+                "collision_policy": self.resource_collision_policy,
+                "default_failure_policy": self.resource_default_failure_policy,
+                "audit": self.resource_audit,
             },
             "deliberation": {
                 "round_timeout_seconds": self.round_timeout_seconds,
@@ -372,6 +429,18 @@ class TrinityConfig:
                 agent_data["role_prompt"] = spec.role_prompt
             if spec.extra_args:
                 agent_data["extra_args"] = spec.extra_args
+            if (
+                spec.resource_packs
+                or spec.resource_types
+                or spec.resource_disabled
+                or spec.resource_activation != "auto"
+            ):
+                agent_data["resources"] = {
+                    "packs": list(spec.resource_packs),
+                    "types": list(spec.resource_types),
+                    "disabled": list(spec.resource_disabled),
+                    "activation": spec.resource_activation,
+                }
             data["agents"][name] = agent_data
 
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -510,6 +579,66 @@ class TrinityConfig:
             allowed = ", ".join(sorted(TRANSPORT_MODES))
             raise ValueError(
                 f"Unsupported transport_mode: {value!r}. "
+                f"Expected one of: {allowed}"
+            )
+        return normalized
+
+    @staticmethod
+    def _normalize_provider_process_namespace(value: str) -> str:
+        """Validate provider process namespace policy."""
+        normalized = (value or "auto").strip().lower()
+        if normalized not in PROVIDER_PROCESS_NAMESPACES:
+            allowed = ", ".join(sorted(PROVIDER_PROCESS_NAMESPACES))
+            raise ValueError(
+                f"Unsupported provider_process_namespace: {value!r}. "
+                f"Expected one of: {allowed}"
+            )
+        return normalized
+
+    @staticmethod
+    def _normalize_resource_projection_mode(value: str) -> str:
+        """Validate Trinity resource projection mode."""
+        normalized = (value or "managed-overlay").strip().lower()
+        if normalized not in RESOURCE_PROJECTION_MODES:
+            allowed = ", ".join(sorted(RESOURCE_PROJECTION_MODES))
+            raise ValueError(
+                f"Unsupported resource projection_mode: {value!r}. "
+                f"Expected one of: {allowed}"
+            )
+        return normalized
+
+    @staticmethod
+    def _normalize_resource_collision_policy(value: str) -> str:
+        """Validate Trinity resource collision policy."""
+        normalized = (value or "namespace").strip().lower()
+        if normalized not in RESOURCE_COLLISION_POLICIES:
+            allowed = ", ".join(sorted(RESOURCE_COLLISION_POLICIES))
+            raise ValueError(
+                f"Unsupported resource collision_policy: {value!r}. "
+                f"Expected one of: {allowed}"
+            )
+        return normalized
+
+    @staticmethod
+    def _normalize_resource_failure_policy(value: str) -> str:
+        """Validate Trinity resource failure policy."""
+        normalized = (value or "degrade").strip().lower()
+        if normalized not in RESOURCE_FAILURE_POLICIES:
+            allowed = ", ".join(sorted(RESOURCE_FAILURE_POLICIES))
+            raise ValueError(
+                f"Unsupported resource failure_policy: {value!r}. "
+                f"Expected one of: {allowed}"
+            )
+        return normalized
+
+    @staticmethod
+    def _normalize_resource_activation(value: str) -> str:
+        """Validate per-agent Trinity resource activation mode."""
+        normalized = (value or "auto").strip().lower()
+        if normalized not in RESOURCE_ACTIVATIONS:
+            allowed = ", ".join(sorted(RESOURCE_ACTIVATIONS))
+            raise ValueError(
+                f"Unsupported agent resource activation: {value!r}. "
                 f"Expected one of: {allowed}"
             )
         return normalized

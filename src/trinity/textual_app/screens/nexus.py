@@ -57,6 +57,14 @@ class NexusScreen(Screen[None]):
             super().__init__()
             self.snapshot = snapshot
 
+    class RepairActionRequested(Message):
+        """Posted when the user chooses a review-repair blocked action."""
+
+        def __init__(self, action: str, snapshot: WorkflowNexusSnapshot | None) -> None:
+            super().__init__()
+            self.action = action
+            self.snapshot = snapshot
+
     BINDINGS = [
         ("ctrl+enter", "submit_follow_up", "Send"),
         ("ctrl+e", "request_execute", "Execute"),
@@ -148,6 +156,9 @@ class NexusScreen(Screen[None]):
         event: CentralAgentView.BlueprintActionRequested,
     ) -> None:
         event.stop()
+        if event.action.startswith("repair-"):
+            self.post_message(self.RepairActionRequested(event.action, self.snapshot))
+            return
         if event.action == "execute":
             self.post_message(self.ExecuteRequested(self.snapshot))
             return

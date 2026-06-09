@@ -96,6 +96,119 @@ def test_snapshot_projects_persisted_workflow(tmp_path) -> None:
     assert snapshot.providers[1].enabled is False
 
 
+def test_snapshot_loads_workflow_events_once_per_projection(tmp_path, monkeypatch) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-events",
+            goal="Build UI",
+            state=WorkflowState.EXECUTING,
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="Frontend shell",
+                    owner_agent="codex",
+                    objective="Build the frontend shell.",
+                    status=WorkStatus.RUNNING,
+                )
+            ],
+            execution_run={"state": "running", "run_id": "run-1"},
+        )
+    )
+    persistence.append_event(
+        {"event": "execution_run_started", "workflow_id": "wf-events"}
+    )
+    persistence.append_event(
+        {"event": "work_package_started", "workflow_id": "wf-events"}
+    )
+    persistence.append_event(
+        {"event": "ignored", "workflow_id": "wf-other"}
+    )
+
+    adapter = NexusSnapshotAdapter(config)
+    calls = 0
+    original_load_events = adapter.persistence.load_events
+
+    def counted_load_events():
+        nonlocal calls
+        calls += 1
+        return original_load_events()
+
+    monkeypatch.setattr(adapter.persistence, "load_events", counted_load_events)
+
+    snapshot = adapter.load_snapshot()
+
+    assert calls == 1
+    assert snapshot.execution_recovery is not None
+    assert snapshot.execution_recovery.last_event == "work_package_started"
+    assert snapshot.workflow_events == [
+        "execution_run_started: 0 packages",
+        "work_package_started",
+    ]
+    assert snapshot.execution_log == [
+        "execution_run_started: 0 packages",
+        "work_package_started",
+    ]
+
+
+def test_snapshot_large_event_log_uses_single_read_and_tail_limit(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-large",
+            goal="Build UI",
+            state=WorkflowState.EXECUTING,
+            work_packages=[
+                WorkPackage(
+                    id=f"WP-{index:03d}",
+                    title=f"Package {index}",
+                    owner_agent="codex",
+                    objective=f"Build package {index}.",
+                    status=WorkStatus.RUNNING if index == 1 else WorkStatus.DONE,
+                )
+                for index in range(1, 101)
+            ],
+            execution_run={"state": "running", "run_id": "run-large"},
+        )
+    )
+    for index in range(5_000):
+        persistence.append_event(
+            {
+                "event": "work_package_started",
+                "workflow_id": "wf-large",
+                "data": {"package_id": f"WP-{index % 100:03d}", "agent": "codex"},
+            }
+        )
+    persistence.append_event(
+        {"event": "ignored", "workflow_id": "wf-other"}
+    )
+
+    adapter = NexusSnapshotAdapter(config)
+    calls = 0
+    original_load_events = adapter.persistence.load_events
+
+    def counted_load_events():
+        nonlocal calls
+        calls += 1
+        return original_load_events()
+
+    monkeypatch.setattr(adapter.persistence, "load_events", counted_load_events)
+
+    snapshot = adapter.load_snapshot()
+
+    assert calls == 1
+    assert len(snapshot.execution_log) == 80
+    assert len(snapshot.workflow_events) == 5_000
+    assert snapshot.execution_recovery is not None
+    assert snapshot.execution_recovery.last_event == "work_package_started"
+    assert snapshot.execution_recovery.retry_candidates == ("WP-001",)
+
+
 def test_snapshot_projects_provider_runtime_metadata(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     persistence = WorkflowPersistence(config.effective_state_dir)
@@ -574,6 +687,123 @@ def test_snapshot_projects_execution_recovery_and_executor_details(tmp_path) -> 
     assert snapshot.work_package_details[0].last_result_blockers == ["Missing schema."]
     assert snapshot.work_package_details[1].retryable is False
     assert snapshot.work_package_details[1].retry_disabled_reason == "already done"
+
+
+def test_snapshot_projects_review_repair_blocked_state(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    notes = [f"repair note {index}" for index in range(10)]
+    persistence.save(
+        WorkflowSession(
+            id="wf-repair-blocked",
+            goal="Build game",
+            state=WorkflowState.NEEDS_USER_DECISION,
+            active_agents=["codex", "claude"],
+            target_workspace=tmp_path / "game",
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="Client",
+                    owner_agent="codex",
+                    objective="Build client.",
+                    status=WorkStatus.BLOCKED,
+                    repair_notes=notes,
+                    repair_attempt_count=3,
+                    last_repair_signature="sig-1",
+                    last_repair_review_id="RP-WP-001-claude",
+                    repair_blocked_reason="duplicate_required_changes",
+                    repair_blocked_at=123.5,
+                )
+            ],
+            execution_run={
+                "run_id": "exec-run-repair",
+                "state": "repair_blocked",
+                "target_workspace": str(tmp_path / "game"),
+                "repair_blocked_packages": ["WP-001"],
+            },
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert snapshot.execution_recovery is not None
+    assert snapshot.execution_recovery.state == "repair_blocked"
+    assert snapshot.execution_recovery.retry_candidates == ("WP-001",)
+    assert snapshot.work_packages == [
+        "WP-001 codex: Client (blocked) repair 3/3 blocked: duplicate_required_changes"
+    ]
+    package = snapshot.work_package_details[0]
+    assert package.repair_attempt_count == 3
+    assert package.repair_max_attempts == config.repair_max_attempts
+    assert package.repair_blocked_reason == "duplicate_required_changes"
+    assert package.repair_blocked_at == 123.5
+    assert package.retryable is True
+    assert snapshot.work_package_repairs == [
+        "WP-001: repair note 3",
+        "WP-001: repair note 4",
+        "WP-001: repair note 5",
+        "WP-001: repair note 6",
+        "WP-001: repair note 7",
+        "WP-001: repair note 8",
+        "WP-001: repair note 9",
+        "WP-001: blocked after 3 repair attempts (duplicate_required_changes)",
+    ]
+
+
+def test_snapshot_projects_mixed_review_repair_retry_and_blocked_state(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-mixed-repair",
+            goal="Build game",
+            state=WorkflowState.BLUEPRINT_READY,
+            active_agents=["codex", "claude"],
+            target_workspace=tmp_path / "game",
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="Retry package",
+                    owner_agent="codex",
+                    objective="Retry.",
+                    status=WorkStatus.PENDING,
+                    repair_attempt_count=1,
+                    last_repair_signature="sig-retry",
+                ),
+                WorkPackage(
+                    id="WP-002",
+                    title="Blocked package",
+                    owner_agent="claude",
+                    objective="Blocked.",
+                    status=WorkStatus.BLOCKED,
+                    repair_attempt_count=3,
+                    last_repair_signature="sig-blocked",
+                    repair_blocked_reason="max_attempts_exceeded",
+                ),
+            ],
+            execution_run={
+                "run_id": "exec-run-mixed",
+                "state": "retry_requested",
+                "target_workspace": str(tmp_path / "game"),
+                "retry_selector": "review-repair",
+                "retry_packages": ["WP-001"],
+                "repair_blocked_packages": ["WP-002"],
+            },
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert snapshot.execution_recovery is None
+    assert snapshot.work_packages == [
+        "WP-001 codex: Retry package (pending) repair 1/3",
+        "WP-002 claude: Blocked package (blocked) repair 3/3 blocked: max_attempts_exceeded",
+    ]
+    assert snapshot.work_package_repairs == [
+        "WP-002: blocked after 3 repair attempts (max_attempts_exceeded)"
+    ]
+    assert snapshot.work_package_details[0].repair_attempt_count == 1
+    assert snapshot.work_package_details[1].repair_blocked_reason == "max_attempts_exceeded"
 
 
 def test_snapshot_formats_legacy_execution_result_event(tmp_path) -> None:

@@ -71,6 +71,9 @@ class TextualWorkflowController:
         if workflow is None and archive_active_session:
             self.persistence.archive_active_session()
         self.workflow = workflow or WorkflowEngine(config.effective_state_dir)
+        self.workflow.reconcile_review_repair_metadata(
+            max_attempts=config.repair_max_attempts,
+        )
         self.snapshot_adapter = snapshot_adapter or NexusSnapshotAdapter(config)
         self.orchestrator_factory = orchestrator_factory or TrinityOrchestrator
         self._lock = threading.Lock()
@@ -183,6 +186,23 @@ class TextualWorkflowController:
                 return self._outcome(message="No interrupted execution to abort.")
             return self._outcome(message="Interrupted execution aborted.")
 
+        pending_repair_packages = self._pending_review_repair_packages()
+        if pending_repair_packages:
+            if self.workflow.session.target_workspace is None:
+                return self._outcome(
+                    message="Choose a target workspace before restarting repairs.",
+                    target_workspace_required=True,
+                )
+            started = self._start_execution()
+            return self._outcome(
+                message=(
+                    "Retrying work packages: "
+                    f"{', '.join(pending_repair_packages)}."
+                ),
+                running=started,
+                execution_requested=started,
+            )
+
         recovery = self.workflow.detect_interrupted_execution(worker_running=self.is_running)
         if recovery is not None and str(recovery.get("state", "")) == "interrupted":
             return self._outcome(
@@ -233,10 +253,40 @@ class TextualWorkflowController:
         )
         if not prepared.selected:
             return self._outcome(message="No retryable work packages match the request.")
-        self._start_execution()
+        started = self._start_execution()
         return self._outcome(
             message=f"Retrying work packages: {', '.join(prepared.selected)}.",
-            execution_requested=True,
+            running=started,
+            execution_requested=started,
+        )
+
+    def retry_blocked_review_repairs(self) -> TextualWorkflowOutcome:
+        """Retry only packages paused by review-repair loop guards."""
+        package_ids = self.workflow.review_repair_blocked_package_ids()
+        if not package_ids:
+            return self._outcome(message="No review-repair blocked packages to retry.")
+        return self.confirm_execution_retry("custom", list(package_ids))
+
+    def accept_blocked_review_repairs(self) -> TextualWorkflowOutcome:
+        """Accept review-repair blocked packages as done."""
+        if self.is_running:
+            return self._outcome(message="Workflow is still running.", running=True)
+        package_ids = self.workflow.accept_review_repair_blocks()
+        if not package_ids:
+            return self._outcome(message="No review-repair blocked packages to accept.")
+        return self._outcome(
+            message=f"Accepted blocked review repairs: {', '.join(package_ids)}.",
+        )
+
+    def stop_blocked_review_repairs(self) -> TextualWorkflowOutcome:
+        """Stop the workflow after review-repair loop guards pause packages."""
+        if self.is_running:
+            return self._outcome(message="Workflow is still running.", running=True)
+        package_ids = self.workflow.stop_review_repair_blocks()
+        if not package_ids:
+            return self._outcome(message="No review-repair blocked packages to stop.")
+        return self._outcome(
+            message=f"Stopped workflow after blocked review repairs: {', '.join(package_ids)}.",
         )
 
     def request_review(
@@ -350,6 +400,9 @@ class TextualWorkflowController:
         self.persistence.archive_active_session()
         self.persistence.restore_archive(archive)
         self.workflow = WorkflowEngine(self.config.effective_state_dir)
+        self.workflow.reconcile_review_repair_metadata(
+            max_attempts=self.config.repair_max_attempts,
+        )
         recovery = self.workflow.detect_interrupted_execution(worker_running=False)
         self._recent_events = []
         return self._outcome(
@@ -363,6 +416,7 @@ class TextualWorkflowController:
         message = ""
         completion_changed = False
         started_follow_up_work = False
+        target_workspace_required = False
 
         with self._lock:
             completion_pending = self._completion_pending
@@ -397,19 +451,43 @@ class TextualWorkflowController:
                     message = "Review started after execution."
             elif run_kind == "review" and review_results is not None:
                 self.workflow.record_review_results(review_results)
-                repair_packages = self.workflow.prepare_review_repairs(review_results)
+                repair_packages = self.workflow.prepare_review_repairs(
+                    review_results,
+                    max_attempts=self.config.repair_max_attempts,
+                )
                 if repair_packages:
-                    self._start_execution()
-                    started_follow_up_work = True
+                    run = (
+                        self.workflow.session.execution_run
+                        if isinstance(self.workflow.session.execution_run, dict)
+                        else {}
+                    )
+                    blocked_packages = [
+                        str(package_id)
+                        for package_id in run.get("repair_blocked_packages", [])
+                    ]
                     message = (
                         "Review requested repairs; restarting execution for: "
                         f"{', '.join(repair_packages)}."
                     )
+                    if blocked_packages:
+                        message = (
+                            f"{message} Blocked by repair guard: "
+                            f"{', '.join(blocked_packages)}."
+                        )
+                    started_follow_up_work = self._start_execution()
+                    if not started_follow_up_work and self.workflow.session.target_workspace is None:
+                        target_workspace_required = True
+                        message = (
+                            f"{message} Choose a target workspace before restarting repairs."
+                        )
+                elif self.workflow.state == WorkflowState.NEEDS_USER_DECISION:
+                    message = "Review requires a user decision before continuing."
 
         if events or completion_changed:
             return self._outcome(
                 message=message,
                 running=True if started_follow_up_work else self.is_running,
+                target_workspace_required=target_workspace_required,
             )
         return None
 
@@ -424,14 +502,15 @@ class TextualWorkflowController:
 
     def _apply_action(self, action: WorkflowInputAction) -> TextualWorkflowOutcome:
         message = action.message
+        execution_started = False
         if action.should_deliberate:
             self._start_deliberation(action.prompt)
         elif action.execution_requested:
-            self._start_execution()
+            execution_started = self._start_execution()
 
         return self._outcome(
             message=message,
-            execution_requested=action.execution_requested,
+            execution_requested=execution_started,
             target_workspace_required=action.target_workspace_required,
         )
 
@@ -471,14 +550,14 @@ class TextualWorkflowController:
         )
         self._thread.start()
 
-    def _start_execution(self) -> None:
+    def _start_execution(self) -> bool:
         if not self.workflow.has_pending_execution:
-            return
+            return False
         if self.workflow.session.target_workspace is None:
-            return
+            return False
         package_ids = self.workflow.pending_execution_package_ids()
         if not package_ids:
-            return
+            return False
         package_id_set = set(package_ids)
         dispatch_packages = [
             package
@@ -519,6 +598,7 @@ class TextualWorkflowController:
             daemon=True,
         )
         self._thread.start()
+        return True
 
     def _start_review(
         self,
@@ -679,6 +759,23 @@ class TextualWorkflowController:
         with self._lock:
             pending = self._completion_pending
         return self.is_running or pending
+
+    def _pending_review_repair_packages(self) -> tuple[str, ...]:
+        run = (
+            self.workflow.session.execution_run
+            if isinstance(self.workflow.session.execution_run, dict)
+            else {}
+        )
+        if str(run.get("state", "")) != "retry_requested":
+            return ()
+        if str(run.get("retry_selector", "")) != "review-repair":
+            return ()
+        pending = set(self.workflow.pending_execution_package_ids())
+        return tuple(
+            str(package_id)
+            for package_id in run.get("retry_packages", [])
+            if str(package_id) in pending
+        )
 
     def _active_agent_names(self) -> list[str]:
         return list(self.config.active_agents.keys())

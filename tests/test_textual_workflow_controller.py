@@ -5,6 +5,8 @@ import time
 
 from trinity.config import TrinityConfig
 from trinity.models import ConsensusResult, DeliberationResult
+from trinity.textual_app.snapshot import WorkPackageSnapshot, WorkflowNexusSnapshot
+from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.workflow_controller import TextualWorkflowController
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workflow import ReviewResult, ReviewStatus, WorkflowEngine, WorkflowState
@@ -180,6 +182,145 @@ class FakeRepairReviewOrchestrator(FakeReviewOrchestrator):
                 summary="Repaired work package.",
             )
         ]
+
+
+class FakeLoopingRepairReviewOrchestrator(FakeReviewOrchestrator):
+    review_calls = 0
+    executed_packages: list[list[str]] = []
+
+    async def review_work_packages(
+        self,
+        review_packages,
+        work_packages,
+        execution_results,
+    ) -> list[ReviewResult]:
+        type(self).review_calls += 1
+        return [
+            ReviewResult(
+                review_package_id=review_packages[0].id,
+                package_id=review_packages[0].package_id,
+                reviewer_agent=review_packages[0].reviewer_agent,
+                target_agent=review_packages[0].target_agent,
+                status=ReviewStatus.CHANGES_REQUESTED,
+                severity="high",
+                summary="Needs the same repair again.",
+                required_changes=["Add retry regression test."],
+            )
+        ]
+
+    async def execute_work_packages(
+        self,
+        work_packages,
+        decisions=None,
+        result_callback=None,
+    ) -> list[ExecutionResult]:
+        type(self).executed_packages.append([package.id for package in work_packages])
+        return [
+            ExecutionResult(
+                package_id=work_packages[0].id,
+                agent_name=work_packages[0].last_executor or work_packages[0].owner_agent,
+                status=WorkStatus.DONE,
+                summary="Repaired work package.",
+            )
+        ]
+
+
+class FakeMixedRepairReviewOrchestrator(FakeReviewOrchestrator):
+    executed_packages: list[list[str]] = []
+
+    async def review_work_packages(
+        self,
+        review_packages,
+        work_packages,
+        execution_results,
+    ) -> list[ReviewResult]:
+        by_id = {review.package_id: review for review in review_packages}
+        first = by_id["WP-001"]
+        second = by_id["WP-002"]
+        return [
+            ReviewResult(
+                review_package_id=first.id,
+                package_id=first.package_id,
+                reviewer_agent=first.reviewer_agent,
+                target_agent=first.target_agent,
+                status=ReviewStatus.CHANGES_REQUESTED,
+                severity="high",
+                summary="Retry this package.",
+                required_changes=["Add retry regression test."],
+            ),
+            ReviewResult(
+                review_package_id=second.id,
+                package_id=second.package_id,
+                reviewer_agent=second.reviewer_agent,
+                target_agent=second.target_agent,
+                status=ReviewStatus.CHANGES_REQUESTED,
+                severity="high",
+                summary="Blocked after too many repairs.",
+                required_changes=["Document retry behavior."],
+            ),
+        ]
+
+    async def execute_work_packages(
+        self,
+        work_packages,
+        decisions=None,
+        result_callback=None,
+    ) -> list[ExecutionResult]:
+        type(self).executed_packages.append([package.id for package in work_packages])
+        return [
+            ExecutionResult(
+                package_id=package.id,
+                agent_name=package.last_executor or package.owner_agent,
+                status=WorkStatus.DONE,
+                summary=f"Repaired {package.id}.",
+            )
+            for package in work_packages
+        ]
+
+
+def test_central_agent_uses_repair_actions_for_blocked_package() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        state="needs_user_decision",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="client",
+                owner_agent="claude",
+                status="blocked",
+                repair_attempt_count=2,
+                repair_max_attempts=3,
+                repair_blocked_reason="duplicate_required_changes",
+            )
+        ],
+    )
+
+    assert CentralAgentView._should_show_repair_actions(snapshot) is True
+    assert CentralAgentView._should_show_blueprint_actions(snapshot) is False
+
+
+def test_central_agent_does_not_show_repair_actions_during_mixed_retry() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        state="executing",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="client",
+                owner_agent="claude",
+                status="running",
+            ),
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="server",
+                owner_agent="codex",
+                status="blocked",
+                repair_attempt_count=3,
+                repair_max_attempts=3,
+                repair_blocked_reason="max_attempts_exceeded",
+            ),
+        ],
+    )
+
+    assert CentralAgentView._should_show_repair_actions(snapshot) is False
 
 
 def test_textual_workflow_controller_starts_real_workflow_session(tmp_path) -> None:
@@ -599,6 +740,344 @@ def test_textual_workflow_controller_restarts_execution_for_review_repairs(tmp_p
     assert final is not None
     assert final.snapshot.state == "post_review_ready"
     assert FakeRepairReviewOrchestrator.review_calls == 2
+
+
+def test_textual_workflow_controller_requests_workspace_for_review_repairs(
+    tmp_path,
+) -> None:
+    FakeRepairReviewOrchestrator.review_calls = 0
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 구현", ["claude"])
+    workflow.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="client",
+            owner_agent="claude",
+            objective="Build client.",
+            status=WorkStatus.DONE,
+            last_executor="claude",
+        )
+    ]
+    workflow.set_target_workspace(tmp_path / "game")
+    workflow.record_execution_results(
+        [
+            ExecutionResult(
+                package_id="WP-001",
+                agent_name="claude",
+                status=WorkStatus.DONE,
+                summary="Implemented client.",
+            )
+        ]
+    )
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeRepairReviewOrchestrator,
+        archive_active_session=False,
+    )
+
+    review = controller.request_review(["wp"])
+
+    assert review.running is True
+    assert controller.wait_until_idle(timeout=2.0)
+    controller.workflow.session.target_workspace = None
+    repair = controller.drain_updates()
+
+    assert repair is not None
+    assert repair.running is False
+    assert repair.target_workspace_required is True
+    assert repair.execution_requested is False
+    assert "Choose a target workspace before restarting repairs." in repair.message
+    assert controller.workflow.pending_execution_package_ids() == ["WP-001"]
+    assert controller.is_running is False
+
+
+def test_textual_workflow_controller_continues_pending_review_repair_after_workspace(
+    tmp_path,
+) -> None:
+    FakeRepairReviewOrchestrator.review_calls = 0
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 구현", ["claude"])
+    workflow.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="client",
+            owner_agent="claude",
+            objective="Build client.",
+            status=WorkStatus.DONE,
+            last_executor="claude",
+        )
+    ]
+    workflow.set_target_workspace(tmp_path / "game")
+    workflow.record_execution_results(
+        [
+            ExecutionResult(
+                package_id="WP-001",
+                agent_name="claude",
+                status=WorkStatus.DONE,
+                summary="Implemented client.",
+            )
+        ]
+    )
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeRepairReviewOrchestrator,
+        archive_active_session=False,
+    )
+
+    review = controller.request_review(["wp"])
+
+    assert review.running is True
+    assert controller.wait_until_idle(timeout=2.0)
+    controller.workflow.session.target_workspace = None
+    repair = controller.drain_updates()
+    assert repair is not None
+    assert repair.target_workspace_required is True
+
+    controller.set_target_workspace(tmp_path / "game")
+    continued = controller.request_execution()
+
+    assert continued.running is True
+    assert continued.execution_requested is True
+    assert continued.message == "Retrying work packages: WP-001."
+    assert controller.workflow.session.execution_run["retry_selector"] == "review-repair"
+    assert controller.wait_until_idle(timeout=2.0)
+    completed = controller.drain_updates()
+    assert completed is not None
+    assert controller.workflow.session.work_packages[0].status == WorkStatus.DONE
+
+
+def test_textual_workflow_controller_blocks_repeated_review_repairs(tmp_path) -> None:
+    FakeLoopingRepairReviewOrchestrator.review_calls = 0
+    FakeLoopingRepairReviewOrchestrator.executed_packages = []
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 구현", ["claude"])
+    workflow.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="client",
+            owner_agent="claude",
+            objective="Build client.",
+            status=WorkStatus.RUNNING,
+            last_executor="claude",
+        )
+    ]
+    workflow.set_target_workspace(tmp_path / "game")
+    workflow.begin_execution()
+    workflow.record_execution_results(
+        [
+            ExecutionResult(
+                package_id="WP-001",
+                agent_name="claude",
+                status=WorkStatus.DONE,
+                summary="Implemented client.",
+            )
+        ]
+    )
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeLoopingRepairReviewOrchestrator,
+        archive_active_session=False,
+    )
+
+    review = controller.request_review(["wp"])
+
+    assert review.running is True
+    assert controller.wait_until_idle(timeout=2.0)
+    repair = controller.drain_updates()
+    assert repair is not None
+    assert repair.running is True
+    assert "Review requested repairs" in repair.message
+    assert controller.wait_until_idle(timeout=2.0)
+    auto_review = controller.drain_updates()
+    assert auto_review is not None
+    assert auto_review.running is True
+    assert auto_review.message == "Review started after execution."
+    assert controller.wait_until_idle(timeout=2.0)
+    blocked = controller.drain_updates()
+
+    assert blocked is not None
+    assert blocked.running is False
+    assert blocked.snapshot.state == "needs_user_decision"
+    assert blocked.snapshot.execution_recovery is not None
+    assert blocked.snapshot.execution_recovery.state == "repair_blocked"
+    assert blocked.message == "Review requires a user decision before continuing."
+    package = controller.workflow.session.work_packages[0]
+    assert package.status == WorkStatus.BLOCKED
+    assert package.repair_attempt_count == 1
+    assert package.repair_blocked_reason == "duplicate_required_changes"
+    assert FakeLoopingRepairReviewOrchestrator.review_calls == 2
+    assert FakeLoopingRepairReviewOrchestrator.executed_packages == [["WP-001"]]
+
+
+def test_textual_workflow_controller_reports_mixed_repair_retry_and_blocked(
+    tmp_path,
+) -> None:
+    FakeMixedRepairReviewOrchestrator.executed_packages = []
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 구현", ["claude", "codex"])
+    workflow.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="client",
+            owner_agent="claude",
+            objective="Build client.",
+            status=WorkStatus.DONE,
+            last_executor="claude",
+        ),
+        WorkPackage(
+            id="WP-002",
+            title="server",
+            owner_agent="codex",
+            objective="Build server.",
+            status=WorkStatus.DONE,
+            repair_attempt_count=3,
+            last_executor="codex",
+        ),
+    ]
+    workflow.set_target_workspace(tmp_path / "game")
+    workflow.record_execution_results(
+        [
+            ExecutionResult(
+                package_id="WP-001",
+                agent_name="claude",
+                status=WorkStatus.DONE,
+                summary="Implemented client.",
+            ),
+            ExecutionResult(
+                package_id="WP-002",
+                agent_name="codex",
+                status=WorkStatus.DONE,
+                summary="Implemented server.",
+            ),
+        ]
+    )
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeMixedRepairReviewOrchestrator,
+        archive_active_session=False,
+    )
+
+    review = controller.request_review(["wp"])
+
+    assert review.running is True
+    assert controller.wait_until_idle(timeout=2.0)
+    outcome = controller.drain_updates()
+
+    assert outcome is not None
+    assert outcome.running is True
+    assert outcome.message == (
+        "Review requested repairs; restarting execution for: WP-001. "
+        "Blocked by repair guard: WP-002."
+    )
+    assert controller.workflow.session.execution_run["retry_packages"] == ["WP-001"]
+    assert controller.workflow.session.execution_run["repair_blocked_packages"] == [
+        "WP-002"
+    ]
+    assert controller.workflow.session.work_packages[0].status == WorkStatus.PENDING
+    assert controller.workflow.session.work_packages[1].status == WorkStatus.BLOCKED
+    assert controller.wait_until_idle(timeout=2.0)
+    assert FakeMixedRepairReviewOrchestrator.executed_packages == [["WP-001"]]
+
+
+def test_textual_workflow_controller_accepts_blocked_review_repairs(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 구현", ["claude"])
+    workflow.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="client",
+            owner_agent="claude",
+            objective="Build client.",
+            status=WorkStatus.BLOCKED,
+            repair_attempt_count=2,
+            repair_blocked_reason="duplicate_required_changes",
+        )
+    ]
+    workflow.set_state(WorkflowState.NEEDS_USER_DECISION, reason="test repair blocked")
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeOrchestrator,
+        archive_active_session=False,
+    )
+
+    outcome = controller.accept_blocked_review_repairs()
+
+    assert outcome.message == "Accepted blocked review repairs: WP-001."
+    assert outcome.snapshot.state == "reviewing"
+    assert controller.workflow.session.work_packages[0].status == WorkStatus.DONE
+
+
+def test_textual_workflow_controller_retries_blocked_review_repairs(tmp_path) -> None:
+    FakeExecutionOrchestrator.executed_packages = []
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 구현", ["claude"])
+    workflow.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="client",
+            owner_agent="claude",
+            objective="Build client.",
+            status=WorkStatus.BLOCKED,
+            repair_attempt_count=2,
+            repair_blocked_reason="duplicate_required_changes",
+        )
+    ]
+    workflow.set_target_workspace(tmp_path / "game")
+    workflow.set_state(WorkflowState.NEEDS_USER_DECISION, reason="test repair blocked")
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeExecutionOrchestrator,
+        archive_active_session=False,
+    )
+
+    outcome = controller.retry_blocked_review_repairs()
+
+    assert outcome.execution_requested is True
+    assert outcome.message == "Retrying work packages: WP-001."
+    assert controller.wait_until_idle(timeout=2.0)
+    assert FakeExecutionOrchestrator.executed_packages == [["WP-001"]]
+    assert controller.workflow.session.work_packages[0].repair_blocked_reason == ""
+
+
+def test_textual_workflow_controller_stops_blocked_review_repairs(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 구현", ["claude"])
+    workflow.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="client",
+            owner_agent="claude",
+            objective="Build client.",
+            status=WorkStatus.BLOCKED,
+            repair_attempt_count=2,
+            repair_blocked_reason="duplicate_required_changes",
+        )
+    ]
+    workflow.set_state(WorkflowState.NEEDS_USER_DECISION, reason="test repair blocked")
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeOrchestrator,
+        archive_active_session=False,
+    )
+
+    outcome = controller.stop_blocked_review_repairs()
+
+    assert outcome.message == "Stopped workflow after blocked review repairs: WP-001."
+    assert outcome.snapshot.state == "failed"
 
 
 def test_resume_surfaces_execution_recovery(tmp_path) -> None:

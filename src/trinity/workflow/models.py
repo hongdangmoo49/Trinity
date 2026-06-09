@@ -372,6 +372,11 @@ class WorkPackage:
     parallelizable: bool = True
     risk: str = "medium"
     repair_notes: list[str] = field(default_factory=list)
+    repair_attempt_count: int = 0
+    last_repair_signature: str = ""
+    last_repair_review_id: str = ""
+    repair_blocked_reason: str = ""
+    repair_blocked_at: float = 0.0
     current_executor: str = ""
     last_executor: str = ""
     origin: str = "initial"
@@ -397,6 +402,11 @@ class WorkPackage:
             "parallelizable": self.parallelizable,
             "risk": self.risk,
             "repair_notes": list(self.repair_notes),
+            "repair_attempt_count": self.repair_attempt_count,
+            "last_repair_signature": self.last_repair_signature,
+            "last_repair_review_id": self.last_repair_review_id,
+            "repair_blocked_reason": self.repair_blocked_reason,
+            "repair_blocked_at": self.repair_blocked_at,
             "current_executor": self.current_executor,
             "last_executor": self.last_executor,
             "origin": self.origin,
@@ -427,6 +437,11 @@ class WorkPackage:
             parallelizable=bool(data.get("parallelizable", True)),
             risk=str(data.get("risk", "medium") or "medium"),
             repair_notes=[str(item) for item in data.get("repair_notes", [])],
+            repair_attempt_count=max(0, int(data.get("repair_attempt_count", 0) or 0)),
+            last_repair_signature=str(data.get("last_repair_signature", "") or ""),
+            last_repair_review_id=str(data.get("last_repair_review_id", "") or ""),
+            repair_blocked_reason=str(data.get("repair_blocked_reason", "") or ""),
+            repair_blocked_at=float(data.get("repair_blocked_at", 0.0) or 0.0),
             current_executor=str(data.get("current_executor", "") or ""),
             last_executor=str(data.get("last_executor", "") or ""),
             origin=str(data.get("origin", "initial") or "initial"),

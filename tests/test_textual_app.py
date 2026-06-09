@@ -48,7 +48,7 @@ from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.composer import COMMAND_LIMIT, ComposerTextArea, PromptComposer
 from trinity.textual_app.widgets.confirm_quit_modal import ConfirmQuitModal
 from trinity.textual_app.widgets.context_modal import ContextCommandModal
-from trinity.textual_app.widgets.execution_retry_modal import ExecutionRetryModal
+from trinity.textual_app.widgets.execution_retry_modal import ExecutionRetryModal, _retry_note
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
@@ -83,6 +83,8 @@ class FakeWorkflowController:
         self.retry_previews: list[tuple[str, list[str]]] = []
         self.retry_confirms: list[tuple[str, list[str]]] = []
         self.retry_outcome: TextualWorkflowOutcome | None = None
+        self.repair_actions: list[str] = []
+        self.drain_outcome: TextualWorkflowOutcome | None = None
         self.target_workspace = None
         self.target_control_confirmed = False
         self.target_cleared = False
@@ -181,6 +183,41 @@ class FakeWorkflowController:
             execution_requested=True,
         )
 
+    def retry_blocked_review_repairs(self) -> TextualWorkflowOutcome:
+        self.repair_actions.append("retry")
+        package_ids = [
+            package.id
+            for package in self.current_snapshot.work_package_details
+            if package.status == "blocked" and package.repair_blocked_reason
+        ]
+        return self.confirm_execution_retry("custom", package_ids)
+
+    def accept_blocked_review_repairs(self) -> TextualWorkflowOutcome:
+        self.repair_actions.append("accept")
+        self.current_snapshot = WorkflowNexusSnapshot(
+            session_id=self.current_snapshot.session_id,
+            goal=self.current_snapshot.goal,
+            state="reviewing",
+            work_package_details=self.current_snapshot.work_package_details,
+        )
+        return TextualWorkflowOutcome(
+            self.current_snapshot,
+            message="Accepted blocked review repairs.",
+        )
+
+    def stop_blocked_review_repairs(self) -> TextualWorkflowOutcome:
+        self.repair_actions.append("stop")
+        self.current_snapshot = WorkflowNexusSnapshot(
+            session_id=self.current_snapshot.session_id,
+            goal=self.current_snapshot.goal,
+            state="failed",
+            work_package_details=self.current_snapshot.work_package_details,
+        )
+        return TextualWorkflowOutcome(
+            self.current_snapshot,
+            message="Stopped blocked review repairs.",
+        )
+
     def set_target_workspace(self, path, *, control_repo_confirmed: bool = False):
         self.target_workspace = path
         self.target_control_confirmed = control_repo_confirmed
@@ -211,7 +248,9 @@ class FakeWorkflowController:
         return TextualWorkflowOutcome(self.current_snapshot)
 
     def drain_updates(self):
-        return None
+        outcome = self.drain_outcome
+        self.drain_outcome = None
+        return outcome
 
 
 def _binding_description(bindings_map, key: str, action: str) -> str:
@@ -240,6 +279,56 @@ def _column_class(widget, expected: list[str]) -> str:
         if widget.has_class(class_name):
             return class_name
     raise AssertionError(f"missing expected column class on {widget!r}")
+
+
+def _review_repair_blocked_snapshot() -> WorkflowNexusSnapshot:
+    return WorkflowNexusSnapshot(
+        session_id="wf-repair",
+        goal="repair loop",
+        state="needs_user_decision",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="Adapter repair",
+                owner_agent="claude",
+                status="blocked",
+                repair_attempt_count=2,
+                repair_max_attempts=3,
+                repair_blocked_reason="duplicate_required_changes",
+                review_status="changes_requested",
+                review_required_changes=["Handle retry idempotently."],
+            )
+        ],
+        work_package_repairs=[
+            "WP-002: blocked after 2 repair attempts (duplicate_required_changes)"
+        ],
+    )
+
+
+def test_execution_retry_note_summarizes_repair_attempts() -> None:
+    retryable = WorkPackageSnapshot(
+        id="WP-001",
+        title="client",
+        owner_agent="codex",
+        status="blocked",
+        retryable=True,
+        repair_attempt_count=2,
+        repair_max_attempts=3,
+        repair_blocked_reason="duplicate_required_changes",
+    )
+    disabled = WorkPackageSnapshot(
+        id="WP-002",
+        title="docs",
+        owner_agent="claude",
+        status="done",
+        retryable=False,
+        retry_disabled_reason="already done",
+        repair_attempt_count=1,
+        repair_max_attempts=3,
+    )
+
+    assert _retry_note(retryable) == "repair 2/3: duplicate_required_changes"
+    assert _retry_note(disabled) == "already done"
 
 
 def test_textual_app_localizes_command_palette_bindings_in_korean(tmp_path) -> None:
@@ -878,6 +967,130 @@ async def test_nexus_execute_retry_slash_opens_retry_modal(tmp_path) -> None:
         assert controller.retry_previews == [("custom", ["WP-001"])]
         assert controller.follow_ups == []
         assert composer.text == ""
+
+
+def test_execution_retry_modal_limits_rows_to_retry_candidates() -> None:
+    modal = ExecutionRetryModal(
+        WorkflowNexusSnapshot(
+            work_package_details=[
+                WorkPackageSnapshot(
+                    id="WP-001",
+                    title="Client",
+                    owner_agent="codex",
+                    status="failed",
+                    topic="Client",
+                    retryable=True,
+                ),
+                WorkPackageSnapshot(
+                    id="WP-002",
+                    title="Docs",
+                    owner_agent="claude",
+                    status="done",
+                    topic="Docs",
+                    retryable=False,
+                    retry_disabled_reason="already done",
+                ),
+                WorkPackageSnapshot(
+                    id="WP-003",
+                    title="Backend",
+                    owner_agent="antigravity",
+                    status="blocked",
+                    topic="Backend",
+                    retryable=True,
+                ),
+            ],
+        )
+    )
+
+    assert [package.id for package in modal._display_packages()] == ["WP-001", "WP-003"]
+    assert modal._ids_for_selector("all") == ("WP-001", "WP-003")
+    modal.selector = "failed"
+    assert [package.id for package in modal._display_packages()] == ["WP-001"]
+
+
+def test_execution_retry_modal_large_snapshot_keeps_only_retry_candidates() -> None:
+    details = [
+        WorkPackageSnapshot(
+            id=f"WP-{index:03d}",
+            title=f"Package {index}",
+            owner_agent="codex",
+            status="done",
+            retryable=False,
+            retry_disabled_reason="already done",
+        )
+        for index in range(1, 101)
+    ]
+    details[9] = WorkPackageSnapshot(
+        id="WP-010",
+        title="Failed package",
+        owner_agent="codex",
+        status="failed",
+        retryable=True,
+    )
+    details[49] = WorkPackageSnapshot(
+        id="WP-050",
+        title="Blocked package",
+        owner_agent="claude",
+        status="blocked",
+        retryable=True,
+    )
+    details[74] = WorkPackageSnapshot(
+        id="WP-075",
+        title="Running package",
+        owner_agent="antigravity",
+        status="running",
+        retryable=True,
+    )
+    modal = ExecutionRetryModal(
+        WorkflowNexusSnapshot(work_package_details=details),
+    )
+
+    assert [package.id for package in modal._display_packages()] == [
+        "WP-010",
+        "WP-050",
+        "WP-075",
+    ]
+    assert modal._ids_for_selector("all") == ("WP-010", "WP-050", "WP-075")
+    modal.selector = "blocked"
+    assert [package.id for package in modal._display_packages()] == ["WP-050"]
+
+
+def test_execution_retry_modal_custom_keeps_selected_retry_candidates() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Client",
+                owner_agent="codex",
+                status="failed",
+                retryable=True,
+            ),
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="Docs",
+                owner_agent="claude",
+                status="done",
+                retryable=False,
+                retry_disabled_reason="already done",
+            ),
+            WorkPackageSnapshot(
+                id="WP-003",
+                title="Backend",
+                owner_agent="antigravity",
+                status="blocked",
+                retryable=True,
+            ),
+        ],
+    )
+
+    modal = ExecutionRetryModal(
+        snapshot,
+        selector="custom",
+        package_ids=("WP-002", "WP-003"),
+    )
+
+    assert [package.id for package in modal._display_packages()] == ["WP-001", "WP-003"]
+    assert modal._selected_package_ids() == ("WP-003",)
 
 
 @pytest.mark.asyncio
@@ -2851,6 +3064,239 @@ async def test_nexus_renders_blueprint_action_buttons(tmp_path) -> None:
 
         assert len(screen.query("#central-actions Button")) == 4
         assert screen.query_one("#central-action-title", Static).content == "다음 작업"
+
+
+def test_review_repair_details_markdown_summarizes_blocked_packages() -> None:
+    snapshot = _review_repair_blocked_snapshot()
+
+    assert TrinityTextualApp._review_repair_blocked_ids(snapshot) == ("WP-002",)
+    assert TrinityTextualApp._review_repair_rows(snapshot) == (
+        (
+            "WP-002",
+            "duplicate_required_changes; attempts=2/3; review=changes_requested",
+        ),
+    )
+
+    body = TrinityTextualApp._review_repair_details_markdown(snapshot)
+
+    assert "Review-repair loop guard has paused these work packages" in body
+    assert "WP-002" in body
+    assert "duplicate_required_changes" in body
+    assert "Recent repair notes" in body
+
+
+def test_review_repair_blocked_ids_include_recovery_retry_candidates() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        execution_recovery=ExecutionRecoverySnapshot(
+            state="repair_blocked",
+            retry_candidates=("WP-003", "WP-004"),
+        )
+    )
+
+    assert TrinityTextualApp._review_repair_blocked_ids(snapshot) == (
+        "WP-003",
+        "WP-004",
+    )
+
+
+def test_review_repair_details_include_recovery_only_candidates() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        execution_recovery=ExecutionRecoverySnapshot(
+            state="repair_blocked",
+            retry_candidates=("WP-003",),
+        )
+    )
+
+    assert TrinityTextualApp._review_repair_rows(snapshot) == (
+        (
+            "WP-003",
+            "repair_blocked; attempts=(unknown); review=(recovery)",
+        ),
+    )
+
+    body = TrinityTextualApp._review_repair_details_markdown(snapshot)
+
+    assert "WP-003" in body
+    assert "repair_blocked" in body
+
+
+@pytest.mark.asyncio
+async def test_nexus_repair_open_review_records_local_command(tmp_path) -> None:
+    controller = FakeWorkflowController(_review_repair_blocked_snapshot())
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_review_repair_action("repair-open-review", controller.snapshot())
+        await pilot.pause()
+
+        assert app.active_snapshot is not None
+        result = _local_command(app.active_snapshot, "/review")
+        assert result.title == "Review Repair"
+        assert result.severity == "warning"
+        assert result.table_columns == ("WP", "Repair state")
+        assert result.table_rows == (
+            (
+                "WP-002",
+                "duplicate_required_changes; attempts=2/3; review=changes_requested",
+            ),
+        )
+        assert "duplicate_required_changes" in result.body
+
+
+@pytest.mark.asyncio
+async def test_nexus_repair_retry_uses_custom_execute_retry(tmp_path) -> None:
+    controller = FakeWorkflowController(_review_repair_blocked_snapshot())
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_review_repair_action("repair-retry-once", controller.snapshot())
+        await pilot.pause()
+
+        assert controller.repair_actions == ["retry"]
+        assert controller.retry_confirms == [("custom", ["WP-002"])]
+        assert app.current_route == "execution"
+
+
+@pytest.mark.asyncio
+async def test_nexus_repair_retry_workspace_picker_preserves_recovery_candidates(
+    tmp_path,
+) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-repair",
+        state="needs_user_decision",
+        execution_recovery=ExecutionRecoverySnapshot(
+            state="repair_blocked",
+            retry_candidates=("WP-002",),
+        ),
+    )
+    controller = FakeWorkflowController(snapshot)
+    controller.retry_outcome = TextualWorkflowOutcome(
+        snapshot,
+        message="Choose a target workspace before retrying execution.",
+        target_workspace_required=True,
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_review_repair_action("repair-retry-once", controller.snapshot())
+        await pilot.pause()
+
+        assert app._pending_execute_retry is not None
+        assert app._pending_execute_retry.selector == "custom"
+        assert app._pending_execute_retry.package_ids == ("WP-002",)
+        assert isinstance(app.screen, WorkspacePicker)
+
+
+@pytest.mark.asyncio
+async def test_poll_workflow_opens_workspace_picker_when_repair_needs_target(
+    tmp_path,
+) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-repair",
+        state="blueprint_ready",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Client",
+                owner_agent="codex",
+                status="pending",
+                retryable=True,
+            )
+        ],
+    )
+    controller = FakeWorkflowController(snapshot)
+    controller.drain_outcome = TextualWorkflowOutcome(
+        snapshot,
+        message="Choose a target workspace before restarting repairs.",
+        target_workspace_required=True,
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._poll_workflow_controller()
+        await pilot.pause()
+
+        assert isinstance(app.screen, WorkspacePicker)
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.session_id == "wf-repair"
+
+
+@pytest.mark.asyncio
+async def test_nexus_repair_retry_button_routes_through_screen_event(tmp_path) -> None:
+    controller = FakeWorkflowController(_review_repair_blocked_snapshot())
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        screen.apply_snapshot(controller.snapshot())
+        await pilot.pause()
+
+        central = screen.query_one(CentralAgentView)
+        buttons = list(central.query("#central-actions Button"))
+        retry_button = next(
+            button for button in buttons if str(button.label) == "한 번 더 재시도"
+        )
+        retry_button.press()
+        await pilot.pause()
+
+        assert controller.repair_actions == ["retry"]
+        assert controller.retry_confirms == [("custom", ["WP-002"])]
+        assert app.current_route == "execution"
+
+
+@pytest.mark.asyncio
+async def test_nexus_repair_mark_done_and_stop_delegate_to_controller(tmp_path) -> None:
+    controller = FakeWorkflowController(_review_repair_blocked_snapshot())
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_review_repair_action("repair-mark-done", controller.snapshot())
+        await pilot.pause()
+        assert controller.repair_actions == ["accept"]
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.state == "reviewing"
+
+        app._handle_review_repair_action("repair-stop", controller.snapshot())
+        await pilot.pause()
+        assert controller.repair_actions == ["accept", "stop"]
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.state == "failed"
 
 
 def test_nexus_refine_prompts_are_scope_specific(tmp_path) -> None:

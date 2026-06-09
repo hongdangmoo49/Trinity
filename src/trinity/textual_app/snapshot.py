@@ -113,6 +113,10 @@ class WorkPackageSnapshot:
     parallel_group: int | None = None
     parallelizable: bool = True
     repair_notes: list[str] = field(default_factory=list)
+    repair_attempt_count: int = 0
+    repair_max_attempts: int = 0
+    repair_blocked_reason: str = ""
+    repair_blocked_at: float = 0.0
     last_result_agent: str = ""
     last_result_status: str = ""
     last_result_summary: str = ""
@@ -239,6 +243,9 @@ class NexusSnapshotAdapter:
         """Load a snapshot without mutating workflow/session state."""
         session = self.persistence.load()
         recent = list(recent_events)
+        session_events = (
+            self.persistence.load_events_for_workflow(session.id) if session else []
+        )
         provider_states = self._provider_states(session)
         self._fold_recent_events(provider_states, recent)
         round_num = self._round_num(session, recent)
@@ -256,7 +263,7 @@ class NexusSnapshotAdapter:
             central_blueprint=self._central_blueprint_markdown(session),
             central_work_packages=self._central_work_packages(session),
             work_packages=[
-                f"{package.id} {package.owner_agent}: {package.title} ({package.status.value})"
+                self._work_package_line(package)
                 for package in session.work_packages
             ]
             if session
@@ -264,17 +271,17 @@ class NexusSnapshotAdapter:
             work_package_details=self._work_package_details(session),
             subtasks=self._subtasks(session),
             work_package_repairs=self._work_package_repairs(session),
-            workflow_events=self._workflow_events(session),
-            execution_log=self._execution_log(session),
-            execution_recovery=self._execution_recovery(session),
+            workflow_events=self._workflow_events(session, session_events),
+            execution_log=self._execution_log(session, session_events),
+            execution_recovery=self._execution_recovery(session, session_events),
             final_review=self._final_review(session),
             post_review_items=self._post_review_items(session),
             follow_up_requests=self._follow_up_requests(session),
             supplemental_round=session.supplemental_round if session else 0,
         )
 
-    @staticmethod
     def _work_package_details(
+        self,
         session: WorkflowSession | None,
     ) -> list[WorkPackageSnapshot]:
         if session is None:
@@ -301,6 +308,10 @@ class NexusSnapshotAdapter:
                 parallel_group=package.parallel_group,
                 parallelizable=package.parallelizable,
                 repair_notes=list(package.repair_notes),
+                repair_attempt_count=package.repair_attempt_count,
+                repair_max_attempts=self.config.repair_max_attempts,
+                repair_blocked_reason=package.repair_blocked_reason,
+                repair_blocked_at=package.repair_blocked_at,
                 last_result_agent=(
                     result_by_package_id[package.id].agent_name
                     if package.id in result_by_package_id
@@ -359,6 +370,20 @@ class NexusSnapshotAdapter:
             )
             for package in session.work_packages
         ]
+
+    def _work_package_line(self, package: object) -> str:
+        status = str(getattr(getattr(package, "status", ""), "value", "") or "unknown")
+        line = (
+            f"{getattr(package, 'id', '')} {getattr(package, 'owner_agent', '')}: "
+            f"{getattr(package, 'title', '')} ({status})"
+        )
+        attempt_count = int(getattr(package, "repair_attempt_count", 0) or 0)
+        blocked_reason = str(getattr(package, "repair_blocked_reason", "") or "")
+        if attempt_count or blocked_reason:
+            line = f"{line} repair {attempt_count}/{self.config.repair_max_attempts}"
+        if blocked_reason:
+            line = f"{line} blocked: {blocked_reason}"
+        return line
 
     @staticmethod
     def _latest_work_package_reviews(
@@ -491,12 +516,13 @@ class NexusSnapshotAdapter:
     def _execution_recovery(
         self,
         session: WorkflowSession | None,
+        session_events: Iterable[dict[str, object]] | None = None,
     ) -> ExecutionRecoverySnapshot | None:
         if session is None or not isinstance(session.execution_run, dict):
             return None
         run = session.execution_run
         state = str(run.get("state", "") or "")
-        if state not in {"running", "interrupted", "aborted"}:
+        if state not in {"running", "interrupted", "aborted", "repair_blocked"}:
             return None
         if state == "running" and session.state.value != "executing":
             return None
@@ -516,7 +542,7 @@ class NexusSnapshotAdapter:
             for package in session.work_packages
             if package.requires_execution and package.status.value == "done"
         )
-        last_event = self._last_session_event(session)
+        last_event = self._last_session_event(session, session_events)
         return ExecutionRecoverySnapshot(
             run_id=str(run.get("run_id", "") or ""),
             state=state,
@@ -636,7 +662,13 @@ class NexusSnapshotAdapter:
         for package in session.work_packages:
             for note in package.repair_notes:
                 repairs.append(f"{package.id}: {note}")
-        return repairs
+            if package.repair_blocked_reason:
+                repairs.append(
+                    f"{package.id}: blocked after "
+                    f"{package.repair_attempt_count} repair attempts "
+                    f"({package.repair_blocked_reason})"
+                )
+        return repairs[-8:]
 
     @staticmethod
     def _subtasks(session: WorkflowSession | None) -> list[SubtaskSnapshot]:
@@ -973,16 +1005,18 @@ class NexusSnapshotAdapter:
         except (TypeError, ValueError):
             return 0
 
-    def _execution_log(self, session: WorkflowSession | None) -> list[str]:
+    def _execution_log(
+        self,
+        session: WorkflowSession | None,
+        session_events: Iterable[dict[str, object]] | None = None,
+    ) -> list[str]:
         if session is None:
             return []
 
         lines: list[str] = []
-        session_events = [
-            event
-            for event in self.persistence.load_events()
-            if str(event.get("workflow_id", "")) == session.id
-        ]
+        session_events = list(session_events) if session_events is not None else (
+            self.persistence.load_events_for_workflow(session.id)
+        )
         completed_event_package_ids = {
             self._event_package_id(event)
             for event in session_events
@@ -1009,24 +1043,29 @@ class NexusSnapshotAdapter:
                 lines.append(self._format_execution_result(result))
         return lines
 
-    def _workflow_events(self, session: WorkflowSession | None) -> list[str]:
+    def _workflow_events(
+        self,
+        session: WorkflowSession | None,
+        session_events: Iterable[dict[str, object]] | None = None,
+    ) -> list[str]:
         if session is None:
             return []
+        session_events = list(session_events) if session_events is not None else (
+            self.persistence.load_events_for_workflow(session.id)
+        )
         return [
             self._format_workflow_event(event)
-            for event in self.persistence.load_events()
-            if str(event.get("workflow_id", "")) == session.id
+            for event in session_events
         ]
 
     def _last_session_event(
         self,
         session: WorkflowSession,
+        session_events: Iterable[dict[str, object]] | None = None,
     ) -> dict[str, object] | None:
-        events = [
-            event
-            for event in self.persistence.load_events()
-            if str(event.get("workflow_id", "")) == session.id
-        ]
+        events = list(session_events) if session_events is not None else (
+            self.persistence.load_events_for_workflow(session.id)
+        )
         return events[-1] if events else None
 
     @staticmethod

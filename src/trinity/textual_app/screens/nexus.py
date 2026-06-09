@@ -90,7 +90,7 @@ class NexusScreen(Screen[None]):
                 yield Button("Open Provider Inspector", id="open-provider-inspector")
                 yield Button("Execute", id="request-execute", variant="primary")
             with Horizontal(id="nexus-main"):
-                yield CentralAgentView(id="central-agent")
+                yield CentralAgentView(id="central-agent", lang=self.config.lang)
                 yield WorkflowInspector(id="workflow-inspector")
             yield PromptComposer(
                 placeholder="Reply, refine direction, or type / for commands",
@@ -143,6 +143,17 @@ class NexusScreen(Screen[None]):
         event.stop()
         self.post_message(self.QuestionAnswered(event.answer))
 
+    def on_central_agent_view_blueprint_action_requested(
+        self,
+        event: CentralAgentView.BlueprintActionRequested,
+    ) -> None:
+        event.stop()
+        if event.action == "execute":
+            self.post_message(self.ExecuteRequested(self.snapshot))
+            return
+        if event.action == "refine":
+            self.post_message(self.FollowUpSubmitted(self._refine_prompt()))
+
     def update_provider(
         self,
         name: str,
@@ -193,6 +204,14 @@ class NexusScreen(Screen[None]):
         self.query_one("#nexus-composer", PromptComposer).clear()
         self._refresh_central()
         self.post_message(self.FollowUpSubmitted(cleaned))
+
+    def _refine_prompt(self) -> str:
+        if self.config.lang == "ko":
+            return "현재 설계를 더 구체화하고 빠진 결정 사항을 정리해라."
+        return (
+            "Refine the current blueprint, make missing decisions explicit, "
+            "and update the work packages."
+        )
 
     def advance_activity_frame(self) -> None:
         """Advance running indicators for provider and central-agent surfaces."""

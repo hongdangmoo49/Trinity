@@ -194,6 +194,7 @@ class WorkflowNexusSnapshot:
     synthesis: SynthesisSnapshot = field(default_factory=SynthesisSnapshot)
     questions: list[QuestionSnapshot] = field(default_factory=list)
     decisions: list[str] = field(default_factory=list)
+    central_blueprint: str = ""
     central_work_packages: list[str] = field(default_factory=list)
     work_packages: list[str] = field(default_factory=list)
     work_package_details: list[WorkPackageSnapshot] = field(default_factory=list)
@@ -247,6 +248,7 @@ class NexusSnapshotAdapter:
             synthesis=self._synthesis(session, recent, round_num),
             questions=self._questions(session),
             decisions=[d.decision for d in session.decisions] if session else [],
+            central_blueprint=self._central_blueprint_markdown(session),
             central_work_packages=self._central_work_packages(session),
             work_packages=[
                 f"{package.id} {package.owner_agent}: {package.title} ({package.status.value})"
@@ -534,6 +536,92 @@ class NexusSnapshotAdapter:
             NexusSnapshotAdapter._format_central_package(package)
             for package in session.blueprint.work_packages
         ]
+
+    @staticmethod
+    def _central_blueprint_markdown(session: WorkflowSession | None) -> str:
+        if session is None or session.blueprint is None:
+            return ""
+        blueprint = session.blueprint
+        lines: list[str] = []
+        title = blueprint.title.strip()
+        summary = blueprint.summary.strip()
+        if title:
+            lines.append(f"**{title}**")
+        if summary:
+            if lines:
+                lines.append("")
+            lines.append(summary)
+
+        if blueprint.architecture:
+            lines.extend(["", "#### Architecture"])
+            for component in blueprint.architecture:
+                owner = f" `{component.owner_agent}`" if component.owner_agent else ""
+                dependencies = (
+                    f" Dependencies: {', '.join(component.dependencies)}."
+                    if component.dependencies
+                    else ""
+                )
+                lines.append(
+                    f"- **{component.name}**{owner}: "
+                    f"{component.responsibility}{dependencies}"
+                )
+
+        NexusSnapshotAdapter._append_blueprint_list(
+            lines,
+            "Data Flow",
+            blueprint.data_flow,
+        )
+        NexusSnapshotAdapter._append_blueprint_list(
+            lines,
+            "External Dependencies",
+            blueprint.external_dependencies,
+        )
+
+        if blueprint.risks:
+            lines.extend(["", "#### Risks"])
+            for risk in blueprint.risks:
+                owner = f" `{risk.owner_agent}`" if risk.owner_agent else ""
+                mitigation = f" Mitigation: {risk.mitigation}" if risk.mitigation else ""
+                lines.append(
+                    f"- **{risk.severity}**{owner}: {risk.description}{mitigation}"
+                )
+
+        NexusSnapshotAdapter._append_blueprint_list(
+            lines,
+            "Acceptance Criteria",
+            blueprint.acceptance_criteria,
+        )
+
+        if blueprint.open_questions:
+            lines.extend(["", "#### Open Questions"])
+            for question in blueprint.open_questions:
+                options = (
+                    f" Options: {', '.join(question.options)}."
+                    if question.options
+                    else ""
+                )
+                recommended = (
+                    f" Recommended: {question.recommended_option}."
+                    if question.recommended_option
+                    else ""
+                )
+                lines.append(
+                    f"- **{question.id}**: {question.question}{options}{recommended}"
+                )
+
+        return "\n".join(lines).strip()
+
+    @staticmethod
+    def _append_blueprint_list(
+        lines: list[str],
+        title: str,
+        values: list[str],
+    ) -> None:
+        items = [item.strip() for item in values if item.strip()]
+        if not items:
+            return
+        lines.extend(["", f"#### {title}"])
+        lines.extend(f"- {item}" for item in items)
 
     @staticmethod
     def _work_package_repairs(session: WorkflowSession | None) -> list[str]:

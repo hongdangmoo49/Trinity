@@ -58,13 +58,13 @@ SYNTHESIS_PROVIDER_PRIORITY: tuple[Provider, ...] = (
 )
 
 SYNTHESIS_FAST_MODELS: dict[Provider, str] = {
-    Provider.CODEX: "gpt-5.4-mini",
+    Provider.CODEX: "default",
     Provider.CLAUDE_CODE: "sonnet",
     Provider.ANTIGRAVITY_CLI: "default",
 }
 
 SYNTHESIS_STRONG_MODELS: dict[Provider, str] = {
-    Provider.CODEX: "gpt-5.4",
+    Provider.CODEX: "default",
     Provider.CLAUDE_CODE: "opus",
     Provider.ANTIGRAVITY_CLI: "default",
 }
@@ -426,6 +426,8 @@ class TrinityOrchestrator:
     def _resolve_synthesis_model(self, spec: AgentSpec) -> str:
         """Resolve synthesis_model using provider-specific quality tiers."""
         requested = (self.config.synthesis_model or "strong").strip()
+        if spec.provider == Provider.CODEX and requested in {"fast", "strong"}:
+            return spec.model or "default"
         if requested == "fast":
             return SYNTHESIS_FAST_MODELS.get(spec.provider, "default")
         if requested == "strong":

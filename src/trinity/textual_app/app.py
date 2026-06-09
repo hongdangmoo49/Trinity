@@ -411,6 +411,24 @@ class TrinityTextualApp(App[None]):
         color: $warning;
     }
 
+    #central-action-title {
+        text-style: bold;
+        color: $warning;
+        margin-top: 1;
+    }
+
+    #central-actions {
+        layout: grid;
+        grid-size: 2;
+        grid-gutter: 1;
+        height: auto;
+        margin-bottom: 1;
+    }
+
+    #central-actions Button {
+        width: 100%;
+    }
+
     #central-questions {
         height: auto;
     }

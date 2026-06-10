@@ -2,7 +2,12 @@
 
 작성일: 2026-06-10
 
-브랜치: `feature/loop-engineering-analysis`
+브랜치:
+
+- 분석: `feature/loop-engineering-analysis`
+- 1차 구현: `feature/loop-engineering-mvp`
+
+상태: Phase 1 manual loop MVP 구현 반영
 
 참조: [루프 엔지니어링 - 에이전트를 프롬프트하는 시스템을 설계하기](https://news.hada.io/topic?id=30336)
 
@@ -650,3 +655,41 @@ loop-level state/gate다. 따라서 지금 필요한 첫 작업은 자동화 자
 
 이 범위가 안정화되면 그 다음에 provider review gate, queue, GitHub connector, Textual dashboard를
 순서대로 붙이는 것이 안전하다.
+
+## Phase 1 구현 메모
+
+`feature/loop-engineering-mvp`에서 1차 구현을 반영했다.
+
+추가된 범위:
+
+- `src/trinity/loop/models.py`
+  - `LoopSpec`, `LoopRun`, `LoopGateSpec`, `LoopGateResult`, `LoopStopPolicy`
+- `src/trinity/loop/persistence.py`
+  - `.trinity/loops/specs/*.toml` spec 로딩
+  - `.trinity/loops/runs/<run-id>/loop.json`, `events.jsonl`, `ledger.md` 저장
+  - iteration별 `gate-results.json` 저장
+- `src/trinity/loop/gates.py`
+  - `command` gate
+  - `workflow-state` gate
+- `src/trinity/loop/engine.py`
+  - manual loop run
+  - once/until-stop 반복
+  - max iteration, runtime/token budget stop
+  - gate 실패 시 pause/iterate policy
+  - `DefaultWorkflowRunner`로 기존 `WorkflowEngine`/`TrinityOrchestrator` 호출
+  - `NoopWorkflowRunner`로 provider 호출 없는 gate-only 진단
+- `trinity loop run/status/stop`
+  - `trinity loop run <spec-id-or-path>`
+  - `trinity loop run <spec> --skip-workflow`
+  - `trinity loop run <spec> --until-stop`
+  - `trinity loop status [latest|run-id]`
+  - `trinity loop stop [latest|run-id] --reason <text>`
+
+검증:
+
+- `PYTHONPATH=src ~/workspace/Trinity/.venv/bin/pytest tests/test_loop_engine.py tests/test_cli_loop.py -q`
+  - `11 passed`
+- `PYTHONPATH=src ~/workspace/Trinity/.venv/bin/pytest tests/test_cli.py tests/test_cli_v2.py tests/test_workflow_persistence.py tests/test_config.py tests/test_loop_engine.py tests/test_cli_loop.py -q`
+  - `102 passed`
+- `PYTHONPATH=src ~/workspace/Trinity/.venv/bin/pytest -q`
+  - `1403 passed, 1 warning`

@@ -17,7 +17,7 @@ from trinity.textual_app.i18n import command_palette_text
 
 
 class AgentToggle(Static):
-    """Compact selected/unselected indicator inside an agent model chip."""
+    """Small selected/unselected square inside an agent model pill."""
 
     can_focus = True
 
@@ -73,7 +73,7 @@ class AgentToggle(Static):
 
     def _refresh(self) -> None:
         marker = "■" if self.value else "□"
-        self.update(f"{marker} {self.label} ·")
+        self.update(marker)
         self.set_class(self.value, "recipient-agent-toggle-selected")
         self.set_class(not self.agent_enabled, "recipient-agent-toggle-disabled")
 
@@ -120,6 +120,16 @@ class AgentRecipientModelSelector(Horizontal):
                     value=enabled,
                     enabled=enabled,
                     id=f"recipient-{name}",
+                )
+                label_classes = "recipient-agent-name"
+                if enabled:
+                    label_classes += " recipient-agent-name-selected"
+                else:
+                    label_classes += " recipient-agent-name-disabled"
+                yield Static(
+                    f"{self._agent_label(name)} ·",
+                    id=f"recipient-agent-label-{name}",
+                    classes=label_classes,
                 )
                 selector = self._model_select(name, spec)
                 selector.disabled = not enabled
@@ -262,6 +272,9 @@ class AgentRecipientModelSelector(Horizontal):
         toggle = self.query_one(f"#recipient-{name}", AgentToggle)
         chip.set_class(toggle.value, "recipient-agent-chip-selected")
         chip.set_class(not self.agents[name].enabled, "recipient-agent-chip-disabled")
+        label = self.query_one(f"#recipient-agent-label-{name}", Static)
+        label.set_class(toggle.value, "recipient-agent-name-selected")
+        label.set_class(not self.agents[name].enabled, "recipient-agent-name-disabled")
 
     def _model_select(self, name: str, spec: AgentSpec) -> Select[str]:
         choices = self._model_choices.get(name, self._initial_model_choices(spec))

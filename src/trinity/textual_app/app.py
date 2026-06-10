@@ -225,44 +225,79 @@ class TrinityTextualApp(App[None]):
     }
 
     .recipient-agent-chip {
-        width: 23;
-        height: 3;
+        width: auto;
+        height: 1;
         margin-right: 1;
-        border: round $primary;
         background: $surface;
         align-vertical: middle;
     }
 
     .recipient-agent-chip-selected {
-        border: round $accent;
+        color: $text;
     }
 
     .recipient-agent-chip-disabled {
         color: $text-muted;
-        border: round grey;
     }
 
     .recipient-agent-toggle {
-        width: 11;
+        width: 3;
         height: 1;
-        padding: 0 1;
-        content-align: left middle;
+        margin-right: 0;
+        content-align: center middle;
+        background: $panel;
+        color: $text-muted;
     }
 
     .recipient-agent-toggle-selected {
-        color: $text;
+        color: $accent;
+        text-style: bold;
     }
 
     .recipient-agent-toggle-disabled {
         color: $text-muted;
+        text-style: dim;
+    }
+
+    .recipient-agent-name {
+        width: auto;
+        min-width: 8;
+        height: 1;
+        margin-left: 1;
+        content-align: left middle;
+        color: $text-muted;
+    }
+
+    .recipient-agent-name-selected {
+        color: $text;
+    }
+
+    .recipient-agent-name-disabled {
+        color: $text-muted;
+        text-style: dim;
     }
 
     .recipient-agent-model {
-        width: 11;
+        width: 10;
         margin: 0;
         height: 1;
         border: none;
         background: $surface;
+    }
+
+    .recipient-agent-model > SelectCurrent {
+        padding: 0 1 0 0;
+        border: none;
+        background: $surface;
+    }
+
+    .recipient-agent-model:focus > SelectCurrent {
+        border: none;
+        background-tint: $foreground 5%;
+    }
+
+    .recipient-agent-model > SelectOverlay {
+        min-width: 18;
     }
 
     #prompt-textarea {

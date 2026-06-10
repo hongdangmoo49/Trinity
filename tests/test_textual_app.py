@@ -10,6 +10,7 @@ from textual.widgets import (
     Checkbox,
     DataTable,
     Markdown,
+    OptionList,
     RichLog,
     Select,
     Static,
@@ -50,7 +51,6 @@ from trinity.textual_app.workflow_controller import (
 from trinity.tui.report import DeliberationReportBuilder
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
-    AgentSettingsTrigger,
     AgentToggle,
     AgentRecipientModelSelector,
 )
@@ -60,6 +60,7 @@ from trinity.textual_app.widgets.context_modal import ContextCommandModal
 from trinity.textual_app.widgets.execution_retry_modal import ExecutionRetryModal, _retry_note
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
+from trinity.textual_app.widgets.model_settings_modal import ModelSettingsModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
@@ -456,19 +457,16 @@ async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> 
         assert start_selector.selected_agents() == ("claude", "codex")
         claude_toggle = start_selector.query_one("#recipient-claude", AgentToggle)
         codex_toggle = start_selector.query_one("#recipient-codex", AgentToggle)
-        codex_settings = start_selector.query_one(
-            "#recipient-settings-codex",
-            AgentSettingsTrigger,
-        )
         assert claude_toggle.value is True
         assert codex_toggle.value is True
-        assert codex_settings.value == "default"
         assert start_selector.selected_model("codex") == "default"
         assert start_selector.model_option_labels("claude")[0] == "claude(default)"
         assert start_selector.model_option_labels("codex")[0] == "codex(default)"
         assert start_selector.query_one("#recipient-antigravity", AgentToggle).value is False
         assert start_selector.selected_model("antigravity") == "default"
         assert start_selector.model_option_labels("antigravity")[0] == "agy(default)"
+        codex_toggle._toggle()
+        assert start_selector.selected_agents() == ("claude",)
 
         app.switch_to("nexus")
         await pilot.pause()
@@ -520,7 +518,7 @@ async def test_agent_recipient_selector_accepts_live_model_choices(tmp_path) -> 
 
 
 @pytest.mark.asyncio
-async def test_agent_recipient_selector_model_menu_updates_override(tmp_path) -> None:
+async def test_model_slash_modal_updates_selector_model_override(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     config.agents["codex"].enabled = True
     app = TrinityTextualApp(config, FakeWorkflowController())
@@ -551,14 +549,21 @@ async def test_agent_recipient_selector_model_menu_updates_override(tmp_path) ->
             ],
         )
 
-        selector._toggle_model_menu("codex")
-        menu = selector.query_one("#recipient-model-menu")
+        app._handle_textual_slash_command("/model")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ModelSettingsModal)
+        app.screen.query_one("#model-agent-codex", Button).press()
+        await pilot.pause()
+
+        menu = app.screen.query_one("#model-choice-list", OptionList)
         menu.highlighted = 1
         menu.action_select()
         await pilot.pause()
 
-        trigger = selector.query_one("#recipient-settings-codex", AgentSettingsTrigger)
-        assert trigger.value == "gpt-5.5"
+        app.screen.query_one("#apply-model-settings", Button).press()
+        await pilot.pause()
+
         assert selector.selected_model("codex") == "gpt-5.5"
         assert selector.model_overrides() == {"codex": "gpt-5.5"}
 
@@ -2407,7 +2412,7 @@ async def test_prompt_composer_scrolls_slash_command_window(tmp_path) -> None:
         composer.focus_text_area()
         await pilot.pause()
 
-        for _ in range(COMMAND_LIMIT + 1):
+        for _ in range(COMMAND_LIMIT + 2):
             await pilot.press("down")
         await pilot.pause()
 

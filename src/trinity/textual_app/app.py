@@ -51,6 +51,9 @@ from trinity.textual_app.workflow_controller import (
     TextualWorkflowController,
     TextualWorkflowOutcome,
 )
+from trinity.textual_app.widgets.agent_recipient_model_selector import (
+    AgentRecipientModelSelector,
+)
 from trinity.textual_app.widgets.confirm_quit_modal import ConfirmQuitModal
 from trinity.textual_app.widgets.context_modal import ContextCommandModal
 from trinity.textual_app.widgets.execution_retry_modal import (
@@ -58,6 +61,7 @@ from trinity.textual_app.widgets.execution_retry_modal import (
     ExecutionRetrySelection,
 )
 from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
+from trinity.textual_app.widgets.model_settings_modal import ModelSettingsModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
 from trinity.textual_app.widgets.status_modal import StatusCommandModal
@@ -217,36 +221,20 @@ class TrinityTextualApp(App[None]):
         height: 1;
     }
 
-    .recipient-all {
-        width: auto;
-        min-width: 7;
-        margin-right: 1;
-        height: 1;
-    }
-
-    .recipient-agent-chip {
-        width: auto;
+    .recipient-agent-toggle {
+        width: 14;
         height: 1;
         margin-right: 1;
         padding: 0 1;
+        content-align: left middle;
         background: $surface;
-        align-vertical: middle;
+        color: $text-muted;
     }
 
-    .recipient-agent-chip-selected {
+    .recipient-agent-toggle:hover,
+    .recipient-agent-toggle:focus {
+        background-tint: $foreground 5%;
         color: $text;
-    }
-
-    .recipient-agent-chip-disabled {
-        color: $text-muted;
-    }
-
-    .recipient-agent-toggle {
-        width: 3;
-        height: 1;
-        margin-right: 0;
-        content-align: center middle;
-        color: $text-muted;
     }
 
     .recipient-agent-toggle-selected {
@@ -257,42 +245,6 @@ class TrinityTextualApp(App[None]):
     .recipient-agent-toggle-disabled {
         color: $text-muted;
         text-style: dim;
-    }
-
-    .recipient-agent-settings-trigger {
-        width: auto;
-        min-width: 7;
-        margin: 0;
-        margin-left: 1;
-        height: 1;
-        content-align: left middle;
-        background: $surface;
-        color: $text-muted;
-    }
-
-    .recipient-agent-settings-trigger:hover,
-    .recipient-agent-settings-trigger:focus {
-        background-tint: $foreground 5%;
-        color: $text;
-    }
-
-    .recipient-agent-settings-enabled {
-        color: $text;
-    }
-
-    .recipient-agent-settings-disabled {
-        color: $text-muted;
-        text-style: dim;
-    }
-
-    .recipient-agent-model-menu {
-        width: 28;
-        max-height: 8;
-        overlay: screen;
-        constrain: none inside;
-        border: round $primary;
-        background: $surface;
-        padding: 0 1;
     }
 
     #prompt-textarea {
@@ -1529,6 +1481,9 @@ class TrinityTextualApp(App[None]):
         if command == "context":
             self._handle_textual_context_command(parsed.spec.name)
             return
+        if command == "model":
+            self._open_model_settings_modal()
+            return
         if command == "memory":
             self._handle_textual_memory_command(args)
             return
@@ -1865,6 +1820,52 @@ class TrinityTextualApp(App[None]):
             self.push_screen(StatusCommandModal(result))
             return
         self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
+
+    def _open_model_settings_modal(self) -> None:
+        """Open the model settings modal for the active prompt selector."""
+        selector = self._active_agent_selector()
+        if selector is None:
+            self.notify(
+                "Model settings are available on Start and Nexus.",
+                title="Model Settings",
+                severity="warning",
+            )
+            return
+        self.push_screen(
+            ModelSettingsModal(
+                self.config.agents,
+                selector.model_choices_by_agent(),
+                selector.selected_models(),
+                lang=self.config.lang,
+            ),
+            self._on_model_settings_applied,
+        )
+
+    def _on_model_settings_applied(
+        self,
+        selections: dict[str, str] | None,
+    ) -> None:
+        if selections is None:
+            return
+        selector = self._active_agent_selector()
+        if selector is None:
+            return
+        selector.set_model_selections(selections)
+        self.notify(
+            "Model settings updated.",
+            title="Model Settings",
+        )
+
+    def _active_agent_selector(self) -> AgentRecipientModelSelector | None:
+        if self.current_route == "start":
+            screen = self.get_screen("start", StartScreen)
+        elif self.current_route == "nexus":
+            screen = self.get_screen("nexus", NexusScreen)
+        else:
+            return None
+        if not screen.is_mounted:
+            return None
+        return screen.query_one(AgentRecipientModelSelector)
 
     def _present_execution_recovery(
         self,

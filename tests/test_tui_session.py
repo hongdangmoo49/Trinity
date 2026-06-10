@@ -454,6 +454,20 @@ class TestWorkflowRouting:
         assert session.workflow.session.goal == "Design a system"
         assert session.tui.workflow_state == WorkflowState.DELIBERATING
 
+    def test_cmd_ask_routes_target_agents_and_model_overrides(self, session):
+        session.config.agents["codex"].enabled = True
+
+        with patch.object(session, "_run_deliberation") as run_deliberation:
+            session._cmd_ask(["codex", "--model", "gpt-5", "Review this plan"])
+
+        run_deliberation.assert_called_once_with(
+            "Review this plan",
+            target_agents=("codex",),
+            agent_model_overrides={"codex": "gpt-5"},
+        )
+        assert session.workflow.session.last_target_agents == ["codex"]
+        assert session.workflow.session.agent_model_overrides == {"codex": "gpt-5"}
+
     def test_pending_question_text_answers_next_question(self, session):
         session.workflow.start("Original goal", ["claude"])
         original_id = session.workflow.session.id

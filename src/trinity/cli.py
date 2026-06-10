@@ -1116,6 +1116,124 @@ def artifact(record_id: str):
     console.print(artifact_markdown(engine_from_config(config), record_id))
 
 
+# ─── trinity loop ────────────────────────────────────────────────────────
+
+@main.group()
+def loop():
+    """Run and inspect Trinity loop-engineering workflows."""
+
+
+@loop.command("run")
+@click.argument("spec_ref")
+@click.option(
+    "--once/--until-stop",
+    default=True,
+    help="Run one iteration only, or continue until stop policy halts the loop.",
+)
+@click.option(
+    "--skip-workflow",
+    is_flag=True,
+    help="Evaluate gates and persist loop state without invoking providers.",
+)
+def loop_run(spec_ref: str, once: bool, skip_workflow: bool):
+    """Run a loop spec by id or TOML path."""
+    config = load_config()
+    from trinity.loop import LoopEngine, LoopPersistence
+    from trinity.loop.persistence import LoopPersistenceError
+
+    persistence = LoopPersistence(config.effective_state_dir)
+    try:
+        spec = persistence.load_spec(spec_ref)
+    except LoopPersistenceError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    engine = LoopEngine(config, persistence=persistence)
+    try:
+        run = engine.run(
+            spec,
+            once=once,
+            run_workflow=not skip_workflow,
+        )
+    except Exception as exc:
+        raise click.ClickException(str(exc)) from exc
+    _display_loop_run(run)
+
+
+@loop.command("status")
+@click.argument("run_id", required=False, default="latest")
+@click.option("--spec", "spec_id", default="", help="Show latest run for a spec id.")
+def loop_status(run_id: str, spec_id: str):
+    """Show loop run status."""
+    config = load_config()
+    from trinity.loop import LoopPersistence
+    from trinity.loop.persistence import LoopPersistenceError
+
+    persistence = LoopPersistence(config.effective_state_dir)
+    try:
+        run = (
+            persistence.latest_run(spec_id=spec_id)
+            if run_id == "latest" and spec_id
+            else persistence.load_run(run_id)
+        )
+    except LoopPersistenceError as exc:
+        raise click.ClickException(str(exc)) from exc
+    if run is None:
+        raise click.ClickException("No loop runs found.")
+    _display_loop_run(run)
+
+
+@loop.command("stop")
+@click.argument("run_id", required=False, default="latest")
+@click.option("--reason", default="stopped by user", help="Reason stored in the ledger.")
+def loop_stop(run_id: str, reason: str):
+    """Cancel a loop run without deleting its artifacts."""
+    config = load_config()
+    from trinity.loop import LoopEngine, LoopPersistence
+    from trinity.loop.persistence import LoopPersistenceError
+
+    persistence = LoopPersistence(config.effective_state_dir)
+    try:
+        run = persistence.load_run(run_id)
+    except LoopPersistenceError as exc:
+        raise click.ClickException(str(exc)) from exc
+    run = LoopEngine(config, persistence=persistence).stop(run, reason=reason)
+    _display_loop_run(run)
+
+
+def _display_loop_run(run) -> None:
+    """Render a loop run summary."""
+    table = Table(title=f"Loop Run {run.id}")
+    table.add_column("Item", style="cyan")
+    table.add_column("Value")
+    table.add_row("Spec", run.spec_id)
+    table.add_row("Status", run.status.value)
+    table.add_row("Iteration", str(run.iteration))
+    table.add_row("Workflows", ", ".join(run.workflow_ids) or "-")
+    table.add_row("Tokens", f"{run.token_used:,}")
+    table.add_row("Stop reason", run.stop_reason or "-")
+    console.print(table)
+
+    latest_iteration = run.iteration
+    gate_results = [
+        result for result in run.gate_results if result.iteration == latest_iteration
+    ]
+    if not gate_results:
+        return
+    gate_table = Table(title="Latest Gate Results")
+    gate_table.add_column("Gate", style="cyan")
+    gate_table.add_column("Type")
+    gate_table.add_column("Status")
+    gate_table.add_column("Summary")
+    for result in gate_results:
+        gate_table.add_row(
+            result.id,
+            result.gate_type,
+            result.status,
+            result.summary,
+        )
+    console.print(gate_table)
+
+
 # ─── Helper ──────────────────────────────────────────────────────────────
 
 def _display_result(result):

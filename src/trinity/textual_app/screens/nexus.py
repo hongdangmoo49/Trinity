@@ -147,8 +147,9 @@ class NexusScreen(Screen[None]):
         """Apply selection state restored from the Start screen or resume."""
         self._selected_agents = tuple(target_agents)
         self._agent_model_overrides = dict(agent_model_overrides)
-        if self.is_mounted:
-            self._apply_agent_selection()
+        if not self.is_mounted:
+            return
+        self._apply_agent_selection()
 
     def _apply_agent_selection(self) -> None:
         selector = self.query_one(AgentRecipientModelSelector)

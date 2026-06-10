@@ -38,6 +38,9 @@ from trinity.providers.readiness import (
     ProviderReadinessGate,
     ReadinessResult,
 )
+from trinity.resources.paths import ResourcePathResolver
+from trinity.resources.projector import ResourceProjector
+from trinity.resources.registry import ResourceRegistry
 from trinity.legacy.tmux.session import TmuxSessionManager
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workspace.isolation import WorkspaceIsolation
@@ -139,6 +142,7 @@ class TrinityOrchestrator:
         self.managed_home: ManagedHome | None = None
         self.workspace_isolation: WorkspaceIsolation | None = None
         self.agent_launch_contexts: dict[str, AgentLaunchContext] = {}
+        self.resource_projector: ResourceProjector | None = None
         self._event_bus = None
 
     def set_event_bus(self, bus) -> None:
@@ -187,6 +191,7 @@ class TrinityOrchestrator:
         (state_dir / "logs").mkdir(exist_ok=True)
         active_agents = self._configured_active_agents()
         self._prepare_agent_launch_contexts(active_agents, state_dir)
+        self._prepare_resource_projector(state_dir)
 
         # Create shared context engine
         self.shared = SharedContextEngine(
@@ -344,6 +349,28 @@ class TrinityOrchestrator:
                 managed_home=managed_home,
                 workspace_path=workspace_path,
             )
+
+    def _prepare_resource_projector(self, state_dir: Path) -> None:
+        """Load Trinity-managed resource packs for prompt inventory projection."""
+        self.resource_projector = None
+        if not self.config.resources_enabled:
+            return
+
+        resolver = ResourcePathResolver(
+            project_dir=self.config.project_dir,
+            state_dir=state_dir,
+            resource_root=self.config.resources_root,
+        )
+        registry = ResourceRegistry.load(
+            root=resolver.resource_root,
+            resolver=resolver,
+        )
+        self.resource_projector = ResourceProjector(
+            registry=registry,
+            resolver=resolver,
+            state_dir=state_dir,
+            projection_mode=self.config.resource_projection_mode,
+        )
 
     def get_agent_launch_context(self, agent_name: str) -> AgentLaunchContext | None:
         """Return prepared launch metadata for an agent, initializing if needed."""
@@ -547,6 +574,32 @@ class TrinityOrchestrator:
                 cwd=context.cwd,
                 env_overrides=context.env_overrides,
             )
+        self._apply_resource_context_builder(agent_name, agent)
+
+    def _apply_resource_context_builder(
+        self,
+        agent_name: str,
+        agent: AgentWrapper,
+    ) -> None:
+        """Attach a lazy resource overlay builder to an agent wrapper."""
+        if self.resource_projector is None:
+            return
+        context = self.agent_launch_contexts.get(agent_name)
+        if context is None:
+            return
+        spec = agent.spec
+
+        def build(access):
+            lane = "execution" if getattr(access, "value", "") == "workspace-write" else "deliberation"
+            return self.resource_projector.build_context(
+                spec=spec,
+                cwd=context.cwd,
+                access=access,
+                lane=lane,
+                managed_home=context.managed_home,
+            )
+
+        agent.configure_resource_context_builder(build)
 
     def _apply_provider_session(self, agent_name: str, agent: AgentWrapper) -> None:
         """Attach the latest provider session id restored from workflow state."""

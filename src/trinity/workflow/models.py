@@ -8,6 +8,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from trinity.resources.models import AgentResourceProjection
+
 
 class WorkflowState(str, Enum):
     """Lifecycle state for a Trinity workflow."""
@@ -643,6 +645,7 @@ class WorkflowSession:
     execution_run: dict[str, Any] = field(default_factory=dict)
     provider_sessions: dict[str, ProviderSessionRef] = field(default_factory=dict)
     runtime_models: dict[str, AgentRuntimeModel] = field(default_factory=dict)
+    resource_projections: dict[str, AgentResourceProjection] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -681,6 +684,10 @@ class WorkflowSession:
             "runtime_models": {
                 key: value.to_dict()
                 for key, value in self.runtime_models.items()
+            },
+            "resource_projections": {
+                key: value.to_dict()
+                for key, value in self.resource_projections.items()
             },
             "created_at": self.created_at,
             "updated_at": self.updated_at,
@@ -774,6 +781,15 @@ class WorkflowSession:
                 for key, value in (
                     data.get("runtime_models", {})
                     if isinstance(data.get("runtime_models"), dict)
+                    else {}
+                ).items()
+                if isinstance(value, dict)
+            },
+            resource_projections={
+                str(key): AgentResourceProjection.from_dict(value)
+                for key, value in (
+                    data.get("resource_projections", {})
+                    if isinstance(data.get("resource_projections"), dict)
                     else {}
                 ).items()
                 if isinstance(value, dict)

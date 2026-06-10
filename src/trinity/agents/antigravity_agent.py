@@ -69,6 +69,7 @@ class AntigravityPrintAgent(AgentWrapper):
                 "model_label": result.metadata.get("model_label"),
                 "provider_session": result.metadata.get("provider_session"),
                 "runtime_model": result.metadata.get("runtime_model"),
+                "resource_projections": dict(request.resource_projections),
             },
         )
 

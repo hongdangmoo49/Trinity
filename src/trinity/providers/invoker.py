@@ -43,6 +43,8 @@ class PromptRequest:
     access: InvocationAccess = InvocationAccess.READ_ONLY
     provider_session_id: str = ""
     continuity_enabled: bool = False
+    resource_prompt: str = ""
+    resource_projections: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass
@@ -150,6 +152,8 @@ class CliProviderInvoker:
             parts.append(f"[System Role]\n{request.role_prompt}")
         if request.context_prompt:
             parts.append(f"[Context]\n{request.context_prompt}")
+        if request.resource_prompt:
+            parts.append(request.resource_prompt)
         parts.append(request.prompt)
         return "\n\n".join(parts)
 

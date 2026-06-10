@@ -25,6 +25,7 @@ from trinity.workflow.decomposer import (
 )
 from trinity.workflow.models import (
     AgentRuntimeModel,
+    AgentResourceProjection,
     Blueprint,
     DecisionRecord,
     ExecutionResult,
@@ -708,6 +709,7 @@ class WorkflowEngine:
         """Persist provider session/model observations from result metadata."""
         provider_sessions = metadata.get("provider_sessions")
         runtime_models = metadata.get("runtime_models")
+        resource_projections = metadata.get("resource_projections")
         changed = False
 
         if isinstance(provider_sessions, dict):
@@ -734,6 +736,17 @@ class WorkflowEngine:
                 self.session.runtime_models[model_key] = model
                 changed = True
 
+        if isinstance(resource_projections, dict):
+            for key, value in resource_projections.items():
+                if not isinstance(value, dict):
+                    continue
+                projection = AgentResourceProjection.from_dict(value)
+                projection_key = str(key).strip() or projection.key
+                if not projection_key:
+                    continue
+                self.session.resource_projections[projection_key] = projection
+                changed = True
+
         if not changed:
             return
 
@@ -743,6 +756,9 @@ class WorkflowEngine:
             {
                 "provider_sessions": sorted(self.session.provider_sessions.keys()),
                 "runtime_models": sorted(self.session.runtime_models.keys()),
+                "resource_projections": sorted(
+                    self.session.resource_projections.keys()
+                ),
             },
         )
 

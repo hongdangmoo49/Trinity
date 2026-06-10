@@ -6,6 +6,7 @@ import os
 import shlex
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Any, Callable
 
 from trinity.models import AgentSpec, ContextUsage, DeliberationMessage
 
@@ -23,6 +24,7 @@ class AgentWrapper(ABC):
         self.launch_cwd: Path | None = None
         self.env_overrides: dict[str, str] = {}
         self.provider_session_id: str = ""
+        self._resource_context_builder: Callable[[Any], Any] | None = None
 
     @property
     def name(self) -> str:
@@ -93,6 +95,13 @@ class AgentWrapper(ABC):
         """Attach a provider-native session id restored from workflow state."""
         self.provider_session_id = str(provider_session_id or "").strip()
 
+    def configure_resource_context_builder(
+        self,
+        builder: Callable[[Any], Any] | None,
+    ) -> None:
+        """Attach a lazy Trinity resource overlay builder for provider turns."""
+        self._resource_context_builder = builder
+
     def _remember_provider_session(self, metadata: dict) -> None:
         """Persist the latest provider-native session id observed by an invoker."""
         session = metadata.get("provider_session") if isinstance(metadata, dict) else None
@@ -125,6 +134,7 @@ class AgentWrapper(ABC):
         from trinity.providers.policy import InvocationAccess
 
         access = access or InvocationAccess.READ_ONLY
+        resource_context = self._resource_context(access)
         return PromptRequest(
             agent_name=self.name,
             provider=self.spec.provider,
@@ -140,7 +150,19 @@ class AgentWrapper(ABC):
             access=access,
             provider_session_id=self.provider_session_id,
             continuity_enabled=True,
+            resource_prompt=str(getattr(resource_context, "prompt", "") or ""),
+            resource_projections=(
+                resource_context.projections_to_metadata()
+                if hasattr(resource_context, "projections_to_metadata")
+                else {}
+            ),
         )
+
+    def _resource_context(self, access):
+        """Return Trinity resource overlay context for one provider turn."""
+        if self._resource_context_builder is None:
+            return None
+        return self._resource_context_builder(access)
 
     def _shell_command(self, args: list[str]) -> str:
         """Build a shell command with per-agent environment overrides."""

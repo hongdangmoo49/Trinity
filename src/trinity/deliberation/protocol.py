@@ -166,6 +166,7 @@ class DeliberationProtocol:
         round_num = 0
         provider_sessions: dict[str, dict[str, object]] = {}
         runtime_models: dict[str, dict[str, object]] = {}
+        resource_projections: dict[str, dict[str, object]] = {}
 
         self._emit(TUIEventType.DELIBERATION_STARTED, prompt=user_prompt)
 
@@ -190,6 +191,7 @@ class DeliberationProtocol:
                 opinions,
                 provider_sessions=provider_sessions,
                 runtime_models=runtime_models,
+                resource_projections=resource_projections,
             )
 
             # Record token analytics for this round
@@ -388,6 +390,7 @@ class DeliberationProtocol:
                 ),
                 "provider_sessions": provider_sessions,
                 "runtime_models": runtime_models,
+                "resource_projections": resource_projections,
             },
         )
 
@@ -523,6 +526,7 @@ class DeliberationProtocol:
         *,
         provider_sessions: dict[str, dict[str, object]],
         runtime_models: dict[str, dict[str, object]],
+        resource_projections: dict[str, dict[str, object]],
     ) -> None:
         """Collect provider session/model observations from agent metadata."""
         for agent_name, msg in opinions.items():
@@ -545,6 +549,14 @@ class DeliberationProtocol:
                 key = str(observed_model.get("agent_name") or agent_name)
                 if key.strip():
                     runtime_models[key] = observed_model
+
+            projections = msg.metadata.get("resource_projections")
+            if isinstance(projections, dict):
+                for key, projection in projections.items():
+                    if isinstance(projection, dict):
+                        projection_key = str(key).strip()
+                        if projection_key:
+                            resource_projections[projection_key] = dict(projection)
 
     async def _before_round_lifecycle(self, prompt: str) -> None:
         """Run lifecycle checks before sending a round prompt."""

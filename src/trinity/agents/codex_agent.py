@@ -156,6 +156,7 @@ class CodexAgent(AgentWrapper):
                     "model": result.metadata.get("model"),
                     "provider_session": result.metadata.get("provider_session"),
                     "runtime_model": result.metadata.get("runtime_model"),
+                    "resource_projections": dict(request.resource_projections),
                 },
             )
 

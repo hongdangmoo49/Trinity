@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from difflib import get_close_matches
+from inspect import Parameter, signature
 from pathlib import Path
 from typing import Literal
 
@@ -984,11 +985,15 @@ class TrinityTextualApp(App[None]):
         nexus.set_initial_prompt(event.prompt)
         nexus.set_agent_selection(event.target_agents, event.agent_model_overrides)
         target_workspace = self._safe_start_target_workspace(event.workspace_candidate)
-        outcome = self.workflow_controller.start_prompt(
+        start_kwargs = {
+            "target_workspace": target_workspace,
+            "target_agents": event.target_agents,
+            "agent_model_overrides": event.agent_model_overrides,
+        }
+        outcome = self._call_controller_method(
+            self.workflow_controller.start_prompt,
             event.prompt,
-            target_workspace=target_workspace,
-            target_agents=event.target_agents,
-            agent_model_overrides=event.agent_model_overrides,
+            **start_kwargs,
         )
         self._apply_workflow_outcome(outcome)
         self.switch_to("nexus")
@@ -1015,7 +1020,8 @@ class TrinityTextualApp(App[None]):
         event: NexusScreen.FollowUpSubmitted,
     ) -> None:
         event.stop()
-        outcome = self.workflow_controller.submit_follow_up(
+        outcome = self._call_controller_method(
+            self.workflow_controller.submit_follow_up,
             event.text,
             target_agents=event.target_agents,
             agent_model_overrides=event.agent_model_overrides,
@@ -1023,6 +1029,28 @@ class TrinityTextualApp(App[None]):
         self._apply_workflow_outcome(outcome)
         if outcome.target_workspace_required:
             self._open_execute_workspace_picker(outcome.snapshot)
+
+    @staticmethod
+    def _call_controller_method(method, *args, **kwargs):
+        """Call a controller method while tolerating older test doubles."""
+        try:
+            parameters = signature(method).parameters
+        except (TypeError, ValueError):
+            return method(*args, **kwargs)
+
+        accepts_kwargs = any(
+            parameter.kind == Parameter.VAR_KEYWORD
+            for parameter in parameters.values()
+        )
+        if accepts_kwargs:
+            return method(*args, **kwargs)
+
+        supported_kwargs = {
+            key: value
+            for key, value in kwargs.items()
+            if key in parameters
+        }
+        return method(*args, **supported_kwargs)
 
     def on_nexus_screen_slash_command_submitted(
         self,

@@ -50,6 +50,7 @@ from trinity.textual_app.workflow_controller import (
 from trinity.tui.report import DeliberationReportBuilder
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
+    AgentToggle,
     AgentRecipientModelSelector,
 )
 from trinity.textual_app.widgets.composer import COMMAND_LIMIT, ComposerTextArea, PromptComposer
@@ -452,18 +453,16 @@ async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> 
             AgentRecipientModelSelector,
         )
         assert start_selector.selected_agents() == ("claude", "codex")
-        claude_toggle = start_selector.query_one("#recipient-claude", Checkbox)
-        codex_toggle = start_selector.query_one("#recipient-codex", Checkbox)
+        claude_toggle = start_selector.query_one("#recipient-claude", AgentToggle)
+        codex_toggle = start_selector.query_one("#recipient-codex", AgentToggle)
         codex_model = start_selector.query_one("#recipient-model-codex", Select)
         assert claude_toggle.value is True
-        assert claude_toggle.compact is True
         assert codex_toggle.value is True
-        assert codex_toggle.compact is True
         assert codex_model.value == "default"
         assert codex_model.compact is True
         assert start_selector.model_option_labels("claude")[0] == "claude(default)"
         assert start_selector.model_option_labels("codex")[0] == "codex(default)"
-        assert start_selector.query_one("#recipient-antigravity", Checkbox).value is False
+        assert start_selector.query_one("#recipient-antigravity", AgentToggle).value is False
         assert (
             start_selector.query_one("#recipient-model-antigravity", Select).value
             == "default"
@@ -479,7 +478,7 @@ async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> 
         )
         assert nexus_selector.selected_agents() == ("claude", "codex")
         assert nexus_selector.query_one("#recipient-model-claude", Select).value == "default"
-        assert nexus_selector.query_one("#recipient-antigravity", Checkbox).value is False
+        assert nexus_selector.query_one("#recipient-antigravity", AgentToggle).value is False
 
 
 @pytest.mark.asyncio

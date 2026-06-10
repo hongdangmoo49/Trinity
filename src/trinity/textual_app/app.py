@@ -224,17 +224,45 @@ class TrinityTextualApp(App[None]):
         height: 1;
     }
 
-    .recipient-agent-check {
-        width: auto;
-        min-width: 8;
+    .recipient-agent-chip {
+        width: 23;
+        height: 3;
         margin-right: 1;
+        border: round $primary;
+        background: $surface;
+        align-vertical: middle;
+    }
+
+    .recipient-agent-chip-selected {
+        border: round $accent;
+    }
+
+    .recipient-agent-chip-disabled {
+        color: $text-muted;
+        border: round grey;
+    }
+
+    .recipient-agent-toggle {
+        width: 11;
         height: 1;
+        padding: 0 1;
+        content-align: left middle;
+    }
+
+    .recipient-agent-toggle-selected {
+        color: $text;
+    }
+
+    .recipient-agent-toggle-disabled {
+        color: $text-muted;
     }
 
     .recipient-agent-model {
-        width: 18;
-        margin-right: 1;
+        width: 11;
+        margin: 0;
         height: 1;
+        border: none;
+        background: $surface;
     }
 
     #prompt-textarea {

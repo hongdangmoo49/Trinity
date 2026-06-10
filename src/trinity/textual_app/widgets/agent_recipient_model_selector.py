@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from textual import events
 from textual.app import ComposeResult
 from textual.containers import Horizontal
+from textual.message import Message
 from textual.widgets import Checkbox, Select, Static
 
 from trinity.models import AgentSpec
@@ -12,6 +14,68 @@ from trinity.providers.model_discovery import (
     fallback_provider_models,
 )
 from trinity.textual_app.i18n import command_palette_text
+
+
+class AgentToggle(Static):
+    """Compact selected/unselected indicator inside an agent model chip."""
+
+    can_focus = True
+
+    class Changed(Message):
+        """Posted when an agent chip selection changes."""
+
+        def __init__(self, toggle: "AgentToggle") -> None:
+            super().__init__()
+            self.toggle = toggle
+            self.agent_name = toggle.agent_name
+            self.value = toggle.value
+
+    def __init__(
+        self,
+        agent_name: str,
+        label: str,
+        *,
+        value: bool,
+        enabled: bool,
+        id: str,
+    ) -> None:
+        super().__init__("", id=id, classes="recipient-agent-toggle")
+        self.agent_name = agent_name
+        self.label = label
+        self.value = bool(value and enabled)
+        self.agent_enabled = enabled
+        self.disabled = not enabled
+
+    def on_mount(self) -> None:
+        self._refresh()
+
+    def set_value(self, value: bool) -> None:
+        """Set selected state without posting a changed message."""
+        self.value = bool(value and self.agent_enabled)
+        self._refresh()
+
+    def on_click(self, event: events.Click) -> None:
+        event.stop()
+        self._toggle()
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key not in {"space", "enter"}:
+            return
+        event.stop()
+        self._toggle()
+
+    def _toggle(self) -> None:
+        if not self.agent_enabled:
+            return
+        self.value = not self.value
+        self._refresh()
+        self.post_message(self.Changed(self))
+
+    def _refresh(self) -> None:
+        marker = "■" if self.value else "□"
+        self.update(f"{marker} {self.label} ·")
+        self.set_class(self.value, "recipient-agent-toggle-selected")
+        self.set_class(not self.agent_enabled, "recipient-agent-toggle-disabled")
 
 
 class AgentRecipientModelSelector(Horizontal):
@@ -44,18 +108,22 @@ class AgentRecipientModelSelector(Horizontal):
         )
         for name, spec in self.agents.items():
             enabled = bool(spec.enabled)
-            checkbox = Checkbox(
-                self._agent_label(name),
-                value=enabled,
-                id=f"recipient-{name}",
-                classes="recipient-agent-check",
-                disabled=not enabled,
-                compact=True,
-            )
-            selector = self._model_select(name, spec)
-            selector.disabled = not enabled
-            yield checkbox
-            yield selector
+            chip_classes = "recipient-agent-chip"
+            if enabled:
+                chip_classes += " recipient-agent-chip-selected"
+            else:
+                chip_classes += " recipient-agent-chip-disabled"
+            with Horizontal(id=f"recipient-chip-{name}", classes=chip_classes):
+                yield AgentToggle(
+                    name,
+                    self._agent_label(name),
+                    value=enabled,
+                    enabled=enabled,
+                    id=f"recipient-{name}",
+                )
+                selector = self._model_select(name, spec)
+                selector.disabled = not enabled
+                yield selector
 
     def selected_agents(self) -> tuple[str, ...]:
         """Return enabled agents selected for the next prompt."""
@@ -63,8 +131,8 @@ class AgentRecipientModelSelector(Horizontal):
         for name, spec in self.agents.items():
             if not spec.enabled:
                 continue
-            checkbox = self.query_one(f"#recipient-{name}", Checkbox)
-            if checkbox.value:
+            toggle = self.query_one(f"#recipient-{name}", AgentToggle)
+            if toggle.value:
                 selected.append(name)
         return tuple(selected)
 
@@ -92,8 +160,9 @@ class AgentRecipientModelSelector(Horizontal):
         self._syncing = True
         try:
             for name, spec in self.agents.items():
-                checkbox = self.query_one(f"#recipient-{name}", Checkbox)
-                checkbox.value = spec.enabled and name in requested
+                toggle = self.query_one(f"#recipient-{name}", AgentToggle)
+                toggle.set_value(spec.enabled and name in requested)
+                self._sync_chip_class(name)
             self._sync_all_checkbox()
         finally:
             self._syncing = False
@@ -165,13 +234,19 @@ class AgentRecipientModelSelector(Horizontal):
             self._syncing = True
             try:
                 for name, spec in self.agents.items():
-                    item = self.query_one(f"#recipient-{name}", Checkbox)
-                    item.value = bool(event.checkbox.value and spec.enabled)
+                    item = self.query_one(f"#recipient-{name}", AgentToggle)
+                    item.set_value(bool(event.checkbox.value and spec.enabled))
+                    self._sync_chip_class(name)
             finally:
                 self._syncing = False
             return
-        if checkbox_id.startswith("recipient-"):
-            self._sync_all_checkbox()
+
+    def on_agent_toggle_changed(self, event: AgentToggle.Changed) -> None:
+        event.stop()
+        if self._syncing:
+            return
+        self._sync_chip_class(event.agent_name)
+        self._sync_all_checkbox()
 
     def _sync_all_checkbox(self) -> None:
         all_checkbox = self.query_one("#recipient-all", Checkbox)
@@ -181,6 +256,12 @@ class AgentRecipientModelSelector(Horizontal):
             all_checkbox.value = bool(enabled) and set(self.selected_agents()) == set(enabled)
         finally:
             self._syncing = False
+
+    def _sync_chip_class(self, name: str) -> None:
+        chip = self.query_one(f"#recipient-chip-{name}", Horizontal)
+        toggle = self.query_one(f"#recipient-{name}", AgentToggle)
+        chip.set_class(toggle.value, "recipient-agent-chip-selected")
+        chip.set_class(not self.agents[name].enabled, "recipient-agent-chip-disabled")
 
     def _model_select(self, name: str, spec: AgentSpec) -> Select[str]:
         choices = self._model_choices.get(name, self._initial_model_choices(spec))

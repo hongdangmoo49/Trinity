@@ -134,6 +134,15 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
     def on_mount(self) -> None:
         self._sync_choice_highlight()
 
+    def set_model_choices(
+        self,
+        choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]],
+    ) -> None:
+        """Refresh available choices while preserving modal selections."""
+        self.choices_by_agent.update(choices_by_agent)
+        if self.is_mounted:
+            self.refresh(recompose=True)
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id or ""
         if button_id.startswith("model-agent-"):

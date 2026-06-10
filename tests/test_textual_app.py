@@ -521,7 +521,8 @@ async def test_agent_recipient_selector_accepts_live_model_choices(tmp_path) -> 
 async def test_model_slash_modal_updates_selector_model_override(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     config.agents["codex"].enabled = True
-    app = TrinityTextualApp(config, FakeWorkflowController())
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(config, controller)
 
     async with app.run_test(size=(120, 34)) as pilot:
         selector = app.screen.query_one(
@@ -566,6 +567,54 @@ async def test_model_slash_modal_updates_selector_model_override(tmp_path) -> No
 
         assert selector.selected_model("codex") == "gpt-5.5"
         assert selector.model_overrides() == {"codex": "gpt-5.5"}
+
+        composer = app.screen.query_one("#start-composer", PromptComposer)
+        composer.set_text("코덱스 모델 확인")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.started_models[-1] == {"codex": "gpt-5.5"}
+
+
+@pytest.mark.asyncio
+async def test_open_model_modal_receives_late_discovered_models(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    app = TrinityTextualApp(config, FakeWorkflowController())
+
+    async with app.run_test(size=(120, 34)) as pilot:
+        app._handle_textual_slash_command("/model")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ModelSettingsModal)
+        app.screen.query_one("#model-agent-codex", Button).press()
+        await pilot.pause()
+        assert "gpt-5.5" not in app.screen._choice_labels("codex")
+
+        app._apply_discovered_model_choices(
+            {
+                "codex": (
+                    ProviderModelChoice(
+                        provider=Provider.CODEX,
+                        model="default",
+                        label="codex(default)",
+                        source="static-fallback",
+                        is_default=True,
+                        context_budget=128_000,
+                    ),
+                    ProviderModelChoice(
+                        provider=Provider.CODEX,
+                        model="gpt-5.5",
+                        label="gpt-5.5",
+                        source="cli-live",
+                        context_budget=None,
+                    ),
+                )
+            }
+        )
+        await pilot.pause()
+
+        assert "gpt-5.5  cli-live" in app.screen._choice_labels("codex")
 
 
 @pytest.mark.asyncio

@@ -967,6 +967,7 @@ class TrinityTextualApp(App[None]):
         self._screens_installed = False
         self._workflow_polling_started = False
         self._model_discovery_started = False
+        self._agent_model_choices: dict[str, tuple[ProviderModelChoice, ...]] = {}
         self._local_command_results: list[LocalCommandSnapshot] = []
         self._pending_execute_retry: ExecutionRetrySelection | None = None
 
@@ -1011,31 +1012,31 @@ class TrinityTextualApp(App[None]):
         )
 
     def _discover_provider_models(self) -> None:
-        choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]] = {}
         for name, spec in self.config.agents.items():
             choices = discover_provider_models(
                 spec.provider,
                 spec.cli_command,
-                timeout_seconds=5.0,
+                timeout_seconds=10.0,
             )
             if choices:
-                choices_by_agent[name] = tuple(choices)
-        if choices_by_agent:
-            self.call_from_thread(
-                self._apply_discovered_model_choices,
-                choices_by_agent,
-            )
+                self.call_from_thread(
+                    self._apply_discovered_model_choices,
+                    {name: tuple(choices)},
+                )
 
     def _apply_discovered_model_choices(
         self,
         choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]],
     ) -> None:
+        self._agent_model_choices.update(choices_by_agent)
         for screen_name, screen_type in (
             ("start", StartScreen),
             ("nexus", NexusScreen),
         ):
             screen = self.get_screen(screen_name, screen_type)
             screen.set_agent_model_choices(choices_by_agent)
+        if isinstance(self.screen, ModelSettingsModal):
+            self.screen.set_model_choices(choices_by_agent)
 
     def on_start_screen_submitted(self, event: StartScreen.Submitted) -> None:
         event.stop()
@@ -1831,10 +1832,12 @@ class TrinityTextualApp(App[None]):
                 severity="warning",
             )
             return
+        choices_by_agent = selector.model_choices_by_agent()
+        choices_by_agent.update(self._agent_model_choices)
         self.push_screen(
             ModelSettingsModal(
                 self.config.agents,
-                selector.model_choices_by_agent(),
+                choices_by_agent,
                 selector.selected_models(),
                 lang=self.config.lang,
             ),

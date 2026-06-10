@@ -210,7 +210,7 @@ class TrinityTextualApp(App[None]):
 
     .recipient-label {
         width: auto;
-        min-width: 12;
+        min-width: 10;
         content-align: left middle;
         color: $text-muted;
         margin-right: 1;
@@ -219,20 +219,20 @@ class TrinityTextualApp(App[None]):
 
     .recipient-all {
         width: auto;
-        min-width: 8;
+        min-width: 7;
         margin-right: 1;
         height: 1;
     }
 
     .recipient-agent-check {
         width: auto;
-        min-width: 9;
+        min-width: 8;
         margin-right: 1;
         height: 1;
     }
 
     .recipient-agent-model {
-        width: 24;
+        width: 18;
         margin-right: 1;
         height: 1;
     }
@@ -1002,7 +1002,7 @@ class TrinityTextualApp(App[None]):
 
     def _discover_provider_models(self) -> None:
         choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]] = {}
-        for name, spec in self.config.active_agents.items():
+        for name, spec in self.config.agents.items():
             choices = discover_provider_models(
                 spec.provider,
                 spec.cli_command,

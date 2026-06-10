@@ -463,6 +463,12 @@ async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> 
         assert codex_model.compact is True
         assert start_selector.model_option_labels("claude")[0] == "claude(default)"
         assert start_selector.model_option_labels("codex")[0] == "codex(default)"
+        assert start_selector.query_one("#recipient-antigravity", Checkbox).value is False
+        assert (
+            start_selector.query_one("#recipient-model-antigravity", Select).value
+            == "default"
+        )
+        assert start_selector.model_option_labels("antigravity")[0] == "agy(default)"
 
         app.switch_to("nexus")
         await pilot.pause()
@@ -473,6 +479,7 @@ async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> 
         )
         assert nexus_selector.selected_agents() == ("claude", "codex")
         assert nexus_selector.query_one("#recipient-model-claude", Select).value == "default"
+        assert nexus_selector.query_one("#recipient-antigravity", Checkbox).value is False
 
 
 @pytest.mark.asyncio

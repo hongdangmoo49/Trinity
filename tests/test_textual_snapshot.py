@@ -96,6 +96,31 @@ def test_snapshot_projects_persisted_workflow(tmp_path) -> None:
     assert snapshot.providers[1].enabled is False
 
 
+def test_snapshot_marks_non_target_agents_idle_during_targeted_deliberation(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    config.agents["antigravity"].enabled = True
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-targeted",
+            goal="Ask codex only",
+            state=WorkflowState.DELIBERATING,
+            active_agents=["claude", "codex", "antigravity"],
+            last_target_agents=["codex"],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+    by_name = {provider.name: provider for provider in snapshot.providers}
+
+    assert by_name["codex"].status == "Running"
+    assert by_name["claude"].status == "Idle"
+    assert by_name["antigravity"].status == "Idle"
+
+
 def test_snapshot_loads_workflow_events_once_per_projection(tmp_path, monkeypatch) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     persistence = WorkflowPersistence(config.effective_state_dir)

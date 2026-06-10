@@ -228,6 +228,7 @@ class TrinityTextualApp(App[None]):
         width: auto;
         height: 1;
         margin-right: 1;
+        padding: 0 1;
         background: $surface;
         align-vertical: middle;
     }
@@ -245,7 +246,6 @@ class TrinityTextualApp(App[None]):
         height: 1;
         margin-right: 0;
         content-align: center middle;
-        background: $panel;
         color: $text-muted;
     }
 
@@ -259,34 +259,34 @@ class TrinityTextualApp(App[None]):
         text-style: dim;
     }
 
-    .recipient-agent-model-trigger {
-        width: 18;
+    .recipient-agent-settings-trigger {
+        width: auto;
+        min-width: 7;
         margin: 0;
         margin-left: 1;
         height: 1;
-        padding: 0 1;
         content-align: left middle;
         background: $surface;
         color: $text-muted;
     }
 
-    .recipient-agent-model-trigger:hover,
-    .recipient-agent-model-trigger:focus {
+    .recipient-agent-settings-trigger:hover,
+    .recipient-agent-settings-trigger:focus {
         background-tint: $foreground 5%;
         color: $text;
     }
 
-    .recipient-agent-model-enabled {
+    .recipient-agent-settings-enabled {
         color: $text;
     }
 
-    .recipient-agent-model-disabled {
+    .recipient-agent-settings-disabled {
         color: $text-muted;
         text-style: dim;
     }
 
     .recipient-agent-model-menu {
-        width: 22;
+        width: 28;
         max-height: 8;
         overlay: screen;
         constrain: none inside;

@@ -59,12 +59,16 @@ class AgentRecipientModelSelector(Horizontal):
         return tuple(selected)
 
     def model_overrides(self) -> dict[str, str]:
-        """Return the current model selection for each agent."""
+        """Return explicit model overrides for selected agents."""
         values: dict[str, str] = {}
-        for name in self.agents:
+        selected = set(self.selected_agents())
+        for name, spec in self.agents.items():
+            if name not in selected:
+                continue
             selector = self.query_one(f"#recipient-model-{name}", Select)
             value = str(selector.value or "").strip()
-            if value:
+            default = spec.model or "default"
+            if value and value != default:
                 values[name] = value
         return values
 
@@ -95,6 +99,8 @@ class AgentRecipientModelSelector(Horizontal):
             return
         checkbox_id = event.checkbox.id or ""
         if checkbox_id == "recipient-all":
+            if not event.checkbox.value:
+                return
             self._syncing = True
             try:
                 for name, spec in self.agents.items():

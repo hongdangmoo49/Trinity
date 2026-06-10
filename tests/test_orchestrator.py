@@ -48,6 +48,22 @@ class TestTrinityOrchestratorInit:
         assert orch.transport_mode == "one-shot"
         assert orch.interactive is False
 
+    def test_active_agent_projection_applies_target_and_model_override(self, tmp_path):
+        config = TrinityConfig.default_config(project_dir=tmp_path)
+        config.agents["codex"].enabled = True
+        config.agents["codex"].model = "default"
+        orch = TrinityOrchestrator(
+            config,
+            active_agent_names=("codex",),
+            agent_model_overrides={"codex": "gpt-5"},
+        )
+
+        active_agents = orch._configured_active_agents()
+
+        assert tuple(active_agents) == ("codex",)
+        assert active_agents["codex"].model == "gpt-5"
+        assert config.agents["codex"].model == "default"
+
     def test_ensure_initializes_creates_components(self, tmp_path):
         config = TrinityConfig(
             project_dir=tmp_path,

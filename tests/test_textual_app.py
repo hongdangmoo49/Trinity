@@ -7,9 +7,11 @@ from textual import events
 from textual.containers import VerticalScroll
 from textual.widgets import (
     Button,
+    Checkbox,
     DataTable,
     Markdown,
     RichLog,
+    Select,
     Static,
     TabbedContent,
     TextArea,
@@ -45,6 +47,9 @@ from trinity.textual_app.workflow_controller import (
 )
 from trinity.tui.report import DeliberationReportBuilder
 from trinity.textual_app.widgets.central_agent import CentralAgentView
+from trinity.textual_app.widgets.agent_recipient_model_selector import (
+    AgentRecipientModelSelector,
+)
 from trinity.textual_app.widgets.composer import COMMAND_LIMIT, ComposerTextArea, PromptComposer
 from trinity.textual_app.widgets.confirm_quit_modal import ConfirmQuitModal
 from trinity.textual_app.widgets.context_modal import ContextCommandModal
@@ -73,7 +78,11 @@ class FakeWorkflowController:
     def __init__(self, snapshot: WorkflowNexusSnapshot | None = None) -> None:
         self.current_snapshot = snapshot or WorkflowNexusSnapshot()
         self.started_prompts: list[str] = []
+        self.started_targets: list[tuple[str, ...]] = []
+        self.started_models: list[dict[str, str]] = []
         self.follow_ups: list[str] = []
+        self.follow_up_targets: list[tuple[str, ...]] = []
+        self.follow_up_models: list[dict[str, str]] = []
         self.answers: list[tuple[str, str, bool]] = []
         self.option_answers: list[tuple[str, str, bool]] = []
         self.resumes: list[str] = []
@@ -98,8 +107,12 @@ class FakeWorkflowController:
         *,
         target_workspace=None,
         control_repo_confirmed: bool = False,
+        target_agents=(),
+        agent_model_overrides=None,
     ) -> TextualWorkflowOutcome:
         self.started_prompts.append(prompt)
+        self.started_targets.append(tuple(target_agents))
+        self.started_models.append(dict(agent_model_overrides or {}))
         if target_workspace is not None:
             self.target_workspace = target_workspace
             self.target_control_confirmed = control_repo_confirmed
@@ -118,8 +131,16 @@ class FakeWorkflowController:
         )
         return TextualWorkflowOutcome(self.current_snapshot, running=False)
 
-    def submit_follow_up(self, text: str) -> TextualWorkflowOutcome:
+    def submit_follow_up(
+        self,
+        text: str,
+        *,
+        target_agents=(),
+        agent_model_overrides=None,
+    ) -> TextualWorkflowOutcome:
         self.follow_ups.append(text)
+        self.follow_up_targets.append(tuple(target_agents))
+        self.follow_up_models.append(dict(agent_model_overrides or {}))
         self.current_snapshot = WorkflowNexusSnapshot(
             session_id="wf-fake",
             goal=self.current_snapshot.goal,
@@ -415,6 +436,33 @@ async def test_textual_app_boots_to_start_screen(tmp_path) -> None:
         assert app.screen.query_one(PromptComposer)
         geometry = app.screen.query_one("#start-geometry", SacredGeometryAnimation)
         assert str(geometry.render()).strip()
+
+
+@pytest.mark.asyncio
+async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    app = TrinityTextualApp(config, FakeWorkflowController())
+
+    async with app.run_test(size=(120, 34)) as pilot:
+        start_selector = app.screen.query_one(
+            "#start-recipient-selector",
+            AgentRecipientModelSelector,
+        )
+        assert start_selector.selected_agents() == ("claude", "codex")
+        assert start_selector.query_one("#recipient-claude", Checkbox).value is True
+        assert start_selector.query_one("#recipient-codex", Checkbox).value is True
+        assert start_selector.query_one("#recipient-model-codex", Select).value == "default"
+
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus_selector = app.screen.query_one(
+            "#nexus-recipient-selector",
+            AgentRecipientModelSelector,
+        )
+        assert nexus_selector.selected_agents() == ("claude", "codex")
+        assert nexus_selector.query_one("#recipient-model-claude", Select).value == "default"
 
 
 @pytest.mark.asyncio
@@ -718,6 +766,62 @@ async def test_start_screen_submission_moves_to_nexus(tmp_path) -> None:
         assert controller.started_prompts == ["설계해줘"]
         assert app.screen.snapshot is not None
         assert app.screen.snapshot.state == "deliberating"
+
+
+@pytest.mark.asyncio
+async def test_start_submission_passes_selected_agents_and_models(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    app = TrinityTextualApp(config, controller)
+
+    async with app.run_test(size=(120, 34)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+        selector = screen.query_one(AgentRecipientModelSelector)
+        selector.set_selected_agents(("codex",))
+        selector.set_model_overrides({"codex": "gpt-5"})
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("코덱스에게만 물어봐")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.started_prompts == ["코덱스에게만 물어봐"]
+        assert controller.started_targets == [("codex",)]
+        assert controller.started_models[-1]["codex"] == "gpt-5"
+        assert isinstance(app.screen, NexusScreen)
+        nexus_selector = app.screen.query_one(AgentRecipientModelSelector)
+        assert nexus_selector.selected_agents() == ("codex",)
+        assert nexus_selector.model_overrides()["codex"] == "gpt-5"
+
+
+@pytest.mark.asyncio
+async def test_start_ask_slash_starts_targeted_workflow(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    app = TrinityTextualApp(config, controller)
+    target = tmp_path.parent / "ask-target-app"
+    target.mkdir()
+    app.workspace_candidate = target
+
+    async with app.run_test(size=(120, 34)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+        screen.set_workspace_candidate(target)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/ask codex --model gpt-5 설계 검토")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.started_prompts == ["설계 검토"]
+        assert controller.started_targets == [("codex",)]
+        assert controller.started_models[-1] == {"codex": "gpt-5"}
+        assert controller.target_workspace == target
+        assert app.current_route == "nexus"
+        assert isinstance(app.screen, NexusScreen)
 
 
 @pytest.mark.asyncio
@@ -2300,8 +2404,60 @@ async def test_nexus_follow_up_stays_in_current_workflow(tmp_path) -> None:
         assert app.current_route == "nexus"
         assert screen.follow_ups == ["이어서 검토해줘"]
         assert controller.follow_ups == ["이어서 검토해줘"]
+        assert controller.follow_up_targets == [("claude",)]
         assert screen.snapshot is not None
         assert "follow-up: 이어서 검토해줘" in screen.snapshot.work_packages
+
+
+@pytest.mark.asyncio
+async def test_nexus_follow_up_passes_selected_agents_and_models(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    app = TrinityTextualApp(config, controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        selector = screen.query_one(AgentRecipientModelSelector)
+        selector.set_selected_agents(("codex",))
+        selector.set_model_overrides({"codex": "gpt-5"})
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("코덱스만 다시 봐줘")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_ups == ["코덱스만 다시 봐줘"]
+        assert controller.follow_up_targets == [("codex",)]
+        assert controller.follow_up_models[-1]["codex"] == "gpt-5"
+
+
+@pytest.mark.asyncio
+async def test_nexus_ask_slash_routes_targeted_follow_up(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    app = TrinityTextualApp(config, controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/ask codex --model gpt-5 다시 검토")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_ups == ["다시 검토"]
+        assert controller.follow_up_targets == [("codex",)]
+        assert controller.follow_up_models[-1] == {"codex": "gpt-5"}
+        assert screen.follow_ups == []
 
 
 @pytest.mark.asyncio

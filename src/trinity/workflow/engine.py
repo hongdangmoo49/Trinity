@@ -189,13 +189,21 @@ class WorkflowEngine:
     @staticmethod
     def _normalized_model_overrides(
         agent_model_overrides: dict[str, str] | None,
+        allowed_agents: tuple[str, ...] | list[str] = (),
     ) -> dict[str, str]:
         if not agent_model_overrides:
             return {}
+        allowed = {
+            str(agent).strip()
+            for agent in allowed_agents
+            if str(agent).strip()
+        }
         return {
             str(agent).strip(): str(model).strip()
             for agent, model in agent_model_overrides.items()
-            if str(agent).strip() and str(model).strip()
+            if str(agent).strip()
+            and str(model).strip()
+            and (not allowed or str(agent).strip() in allowed)
         }
 
     def handle_user_input(
@@ -245,7 +253,10 @@ class WorkflowEngine:
         """Start a new workflow for a user goal."""
         now = time.time()
         effective_targets = self._effective_target_agents(active_agents, target_agents)
-        model_overrides = self._normalized_model_overrides(agent_model_overrides)
+        model_overrides = self._normalized_model_overrides(
+            agent_model_overrides,
+            effective_targets,
+        )
         self.session = WorkflowSession(
             id=f"wf-{uuid4().hex[:12]}",
             goal=goal,
@@ -443,7 +454,10 @@ class WorkflowEngine:
             self.session.active_agents,
             target_agents,
         )
-        model_overrides = self._normalized_model_overrides(agent_model_overrides)
+        model_overrides = self._normalized_model_overrides(
+            agent_model_overrides,
+            effective_targets,
+        )
         self.session.last_target_agents = list(effective_targets)
         self.session.agent_model_overrides = model_overrides
         source_state = self.session.state

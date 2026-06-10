@@ -155,6 +155,15 @@ COMMAND_SPECS: tuple[SlashCommandSpec, ...] = (
         mutates_workflow=True,
     ),
     SlashCommandSpec(
+        name="/ask",
+        usage="/ask <all|agent[,agent...]> [--model MODEL] <prompt>",
+        summary="ask only selected agents",
+        summary_ko="선택한 에이전트에게만 질문",
+        category=SlashCommandCategory.CONDITIONAL_WORKFLOW,
+        agent_call=AgentCallPolicy.CONDITIONAL,
+        mutates_workflow=True,
+    ),
+    SlashCommandSpec(
         name="/decisions",
         usage="/decisions",
         summary="show agreed decisions",

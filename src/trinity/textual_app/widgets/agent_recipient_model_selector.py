@@ -6,7 +6,7 @@ from textual import events
 from textual.app import ComposeResult
 from textual.containers import Horizontal
 from textual.message import Message
-from textual.widgets import Checkbox, Select, Static
+from textual.widgets import Checkbox, OptionList, Static
 
 from trinity.models import AgentSpec
 from trinity.providers.model_discovery import (
@@ -78,6 +78,68 @@ class AgentToggle(Static):
         self.set_class(not self.agent_enabled, "recipient-agent-toggle-disabled")
 
 
+class AgentModelTrigger(Static):
+    """One-line model dropdown trigger used by an agent pill."""
+
+    can_focus = True
+
+    class Requested(Message):
+        """Posted when the model dropdown should be opened."""
+
+        def __init__(self, trigger: "AgentModelTrigger") -> None:
+            super().__init__()
+            self.trigger = trigger
+            self.agent_name = trigger.agent_name
+
+    def __init__(
+        self,
+        agent_name: str,
+        agent_label: str,
+        *,
+        model: str,
+        model_label: str,
+        enabled: bool,
+        id: str,
+    ) -> None:
+        super().__init__("", id=id, classes="recipient-agent-model-trigger")
+        self.agent_name = agent_name
+        self.agent_label = agent_label
+        self.value = model
+        self.model_label = model_label
+        self.agent_enabled = enabled
+        self.disabled = not enabled
+
+    def on_mount(self) -> None:
+        self._refresh()
+
+    def set_model(self, model: str, model_label: str) -> None:
+        """Set selected model without opening the dropdown."""
+        self.value = model
+        self.model_label = model_label
+        self._refresh()
+
+    def on_click(self, event: events.Click) -> None:
+        event.stop()
+        self._request()
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key not in {"space", "enter", "down"}:
+            return
+        event.stop()
+        self._request()
+
+    def _request(self) -> None:
+        if not self.agent_enabled:
+            return
+        self.post_message(self.Requested(self))
+
+    def _refresh(self) -> None:
+        label = _clip_label(self.model_label, 10)
+        self.update(f"{self.agent_label} ▾ {label}")
+        self.set_class(self.agent_enabled, "recipient-agent-model-enabled")
+        self.set_class(not self.agent_enabled, "recipient-agent-model-disabled")
+
+
 class AgentRecipientModelSelector(Horizontal):
     """Select which agents receive the next prompt and which model they use."""
 
@@ -121,19 +183,16 @@ class AgentRecipientModelSelector(Horizontal):
                     enabled=enabled,
                     id=f"recipient-{name}",
                 )
-                label_classes = "recipient-agent-name"
-                if enabled:
-                    label_classes += " recipient-agent-name-selected"
-                else:
-                    label_classes += " recipient-agent-name-disabled"
-                yield Static(
-                    f"{self._agent_label(name)} ·",
-                    id=f"recipient-agent-label-{name}",
-                    classes=label_classes,
+                yield self._model_trigger(name, spec)
+                menu = OptionList(
+                    *self._option_list_items(name),
+                    id=f"recipient-model-menu-{name}",
+                    classes="recipient-agent-model-menu",
+                    compact=True,
+                    disabled=True,
                 )
-                selector = self._model_select(name, spec)
-                selector.disabled = not enabled
-                yield selector
+                menu.display = False
+                yield menu
 
     def selected_agents(self) -> tuple[str, ...]:
         """Return enabled agents selected for the next prompt."""
@@ -153,8 +212,8 @@ class AgentRecipientModelSelector(Horizontal):
         for name, spec in self.agents.items():
             if name not in selected:
                 continue
-            selector = self.query_one(f"#recipient-model-{name}", Select)
-            value = str(selector.value or "").strip()
+            trigger = self.query_one(f"#recipient-model-{name}", AgentModelTrigger)
+            value = str(trigger.value or "").strip()
             default = spec.model or "default"
             if value and value != default:
                 values[name] = value
@@ -182,11 +241,10 @@ class AgentRecipientModelSelector(Horizontal):
         for name, value in values.items():
             if name not in self.agents:
                 continue
-            selector = self.query_one(f"#recipient-model-{name}", Select)
             normalized = str(value).strip()
             if normalized:
                 self._ensure_model_choice(name, normalized)
-                selector.value = normalized
+                self._set_trigger_model(name, normalized)
 
     def set_model_choices(
         self,
@@ -197,8 +255,8 @@ class AgentRecipientModelSelector(Horizontal):
         if name not in self.agents:
             return
         spec = self.agents[name]
-        selector = self.query_one(f"#recipient-model-{name}", Select)
-        current = str(selector.value or spec.model or "default").strip() or "default"
+        trigger = self.query_one(f"#recipient-model-{name}", AgentModelTrigger)
+        current = str(trigger.value or spec.model or "default").strip() or "default"
         normalized = self._normalize_choices(spec, list(choices))
         if current not in {choice.model for choice in normalized}:
             normalized.append(
@@ -211,8 +269,8 @@ class AgentRecipientModelSelector(Horizontal):
                 )
             )
         self._model_choices[name] = normalized
-        selector.set_options(self._options_for_choices(normalized))
-        selector.value = current
+        self._refresh_menu_options(name)
+        self._set_trigger_model(name, current)
 
     def _ensure_model_choice(self, name: str, model: str) -> None:
         if name not in self.agents:
@@ -231,8 +289,7 @@ class AgentRecipientModelSelector(Horizontal):
             )
         )
         self._model_choices[name] = choices
-        selector = self.query_one(f"#recipient-model-{name}", Select)
-        selector.set_options(self._options_for_choices(choices))
+        self._refresh_menu_options(name)
 
     def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
         if self._syncing:
@@ -272,11 +329,35 @@ class AgentRecipientModelSelector(Horizontal):
         toggle = self.query_one(f"#recipient-{name}", AgentToggle)
         chip.set_class(toggle.value, "recipient-agent-chip-selected")
         chip.set_class(not self.agents[name].enabled, "recipient-agent-chip-disabled")
-        label = self.query_one(f"#recipient-agent-label-{name}", Static)
-        label.set_class(toggle.value, "recipient-agent-name-selected")
-        label.set_class(not self.agents[name].enabled, "recipient-agent-name-disabled")
 
-    def _model_select(self, name: str, spec: AgentSpec) -> Select[str]:
+    def on_agent_model_trigger_requested(
+        self,
+        event: AgentModelTrigger.Requested,
+    ) -> None:
+        event.stop()
+        self._toggle_model_menu(event.agent_name)
+
+    def on_option_list_option_selected(
+        self,
+        event: OptionList.OptionSelected,
+    ) -> None:
+        option_list_id = event.option_list.id or ""
+        prefix = "recipient-model-menu-"
+        if not option_list_id.startswith(prefix):
+            return
+        event.stop()
+        name = option_list_id.removeprefix(prefix)
+        choices = self._model_choices.get(name, [])
+        if event.option_index >= len(choices):
+            return
+        self._set_trigger_model(name, choices[event.option_index].model)
+        self._close_model_menu(name)
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key == "escape" and self._close_all_model_menus():
+            event.stop()
+
+    def _model_trigger(self, name: str, spec: AgentSpec) -> AgentModelTrigger:
         choices = self._model_choices.get(name, self._initial_model_choices(spec))
         current = spec.model or "default"
         if current not in {choice.model for choice in choices}:
@@ -290,20 +371,72 @@ class AgentRecipientModelSelector(Horizontal):
                     context_budget=None,
                 ),
             ]
-        return Select(
-            self._options_for_choices(choices),
-            allow_blank=False,
-            value=current,
+        return AgentModelTrigger(
+            name,
+            self._agent_label(name),
+            model=current,
+            model_label=self._display_model_label(name, current),
+            enabled=bool(spec.enabled),
             id=f"recipient-model-{name}",
-            classes="recipient-agent-model",
-            compact=True,
         )
 
-    @staticmethod
-    def _options_for_choices(
-        choices: list[ProviderModelChoice],
-    ) -> list[tuple[str, str]]:
-        return [(choice.label, choice.model) for choice in choices]
+    def _option_list_items(self, name: str) -> list[str]:
+        return [choice.label for choice in self._model_choices.get(name, [])]
+
+    def _refresh_menu_options(self, name: str) -> None:
+        if not self.is_mounted:
+            return
+        menu = self.query_one(f"#recipient-model-menu-{name}", OptionList)
+        menu.clear_options()
+        menu.add_options(self._option_list_items(name))
+
+    def _toggle_model_menu(self, name: str) -> None:
+        menu = self.query_one(f"#recipient-model-menu-{name}", OptionList)
+        if bool(menu.display):
+            self._close_model_menu(name)
+            return
+        self._close_all_model_menus(except_name=name)
+        menu.display = True
+        menu.disabled = False
+        menu.highlighted = self._selected_choice_index(name)
+        menu.focus()
+
+    def _close_model_menu(self, name: str) -> None:
+        menu = self.query_one(f"#recipient-model-menu-{name}", OptionList)
+        menu.display = False
+        menu.disabled = True
+        self.query_one(f"#recipient-model-{name}", AgentModelTrigger).focus()
+
+    def _close_all_model_menus(self, *, except_name: str = "") -> bool:
+        closed = False
+        for name in self.agents:
+            if name == except_name:
+                continue
+            menu = self.query_one(f"#recipient-model-menu-{name}", OptionList)
+            if bool(menu.display):
+                menu.display = False
+                menu.disabled = True
+                closed = True
+        return closed
+
+    def _selected_choice_index(self, name: str) -> int:
+        trigger = self.query_one(f"#recipient-model-{name}", AgentModelTrigger)
+        for index, choice in enumerate(self._model_choices.get(name, [])):
+            if choice.model == trigger.value:
+                return index
+        return 0
+
+    def _set_trigger_model(self, name: str, model: str) -> None:
+        trigger = self.query_one(f"#recipient-model-{name}", AgentModelTrigger)
+        trigger.set_model(model, self._display_model_label(name, model))
+
+    def _display_model_label(self, name: str, model: str) -> str:
+        if model == "default":
+            return "기본값" if self.lang == "ko" else "default"
+        for choice in self._model_choices.get(name, []):
+            if choice.model == model:
+                return choice.label
+        return model
 
     def _initial_model_choices(self, spec: AgentSpec) -> list[ProviderModelChoice]:
         return self._normalize_choices(spec, fallback_provider_models(spec.provider))
@@ -349,3 +482,9 @@ class AgentRecipientModelSelector(Horizontal):
 
     def _text(self, key: str) -> str:
         return command_palette_text(key, self.lang) or key
+
+
+def _clip_label(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    return text[: max(1, limit - 1)] + "…"

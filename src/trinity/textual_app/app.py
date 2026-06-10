@@ -259,45 +259,40 @@ class TrinityTextualApp(App[None]):
         text-style: dim;
     }
 
-    .recipient-agent-name {
-        width: auto;
-        min-width: 8;
-        height: 1;
+    .recipient-agent-model-trigger {
+        width: 18;
+        margin: 0;
         margin-left: 1;
+        height: 1;
+        padding: 0 1;
         content-align: left middle;
+        background: $surface;
         color: $text-muted;
     }
 
-    .recipient-agent-name-selected {
+    .recipient-agent-model-trigger:hover,
+    .recipient-agent-model-trigger:focus {
+        background-tint: $foreground 5%;
         color: $text;
     }
 
-    .recipient-agent-name-disabled {
+    .recipient-agent-model-enabled {
+        color: $text;
+    }
+
+    .recipient-agent-model-disabled {
         color: $text-muted;
         text-style: dim;
     }
 
-    .recipient-agent-model {
-        width: 10;
-        margin: 0;
-        height: 1;
-        border: none;
+    .recipient-agent-model-menu {
+        width: 22;
+        max-height: 8;
+        overlay: screen;
+        constrain: none inside;
+        border: round $primary;
         background: $surface;
-    }
-
-    .recipient-agent-model > SelectCurrent {
-        padding: 0 1 0 0;
-        border: none;
-        background: $surface;
-    }
-
-    .recipient-agent-model:focus > SelectCurrent {
-        border: none;
-        background-tint: $foreground 5%;
-    }
-
-    .recipient-agent-model > SelectOverlay {
-        min-width: 18;
+        padding: 0 1;
     }
 
     #prompt-textarea {

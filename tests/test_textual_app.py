@@ -50,6 +50,7 @@ from trinity.textual_app.workflow_controller import (
 from trinity.tui.report import DeliberationReportBuilder
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
+    AgentModelTrigger,
     AgentToggle,
     AgentRecipientModelSelector,
 )
@@ -455,16 +456,15 @@ async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> 
         assert start_selector.selected_agents() == ("claude", "codex")
         claude_toggle = start_selector.query_one("#recipient-claude", AgentToggle)
         codex_toggle = start_selector.query_one("#recipient-codex", AgentToggle)
-        codex_model = start_selector.query_one("#recipient-model-codex", Select)
+        codex_model = start_selector.query_one("#recipient-model-codex", AgentModelTrigger)
         assert claude_toggle.value is True
         assert codex_toggle.value is True
         assert codex_model.value == "default"
-        assert codex_model.compact is True
         assert start_selector.model_option_labels("claude")[0] == "claude(default)"
         assert start_selector.model_option_labels("codex")[0] == "codex(default)"
         assert start_selector.query_one("#recipient-antigravity", AgentToggle).value is False
         assert (
-            start_selector.query_one("#recipient-model-antigravity", Select).value
+            start_selector.query_one("#recipient-model-antigravity", AgentModelTrigger).value
             == "default"
         )
         assert start_selector.model_option_labels("antigravity")[0] == "agy(default)"
@@ -477,7 +477,10 @@ async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> 
             AgentRecipientModelSelector,
         )
         assert nexus_selector.selected_agents() == ("claude", "codex")
-        assert nexus_selector.query_one("#recipient-model-claude", Select).value == "default"
+        assert (
+            nexus_selector.query_one("#recipient-model-claude", AgentModelTrigger).value
+            == "default"
+        )
         assert nexus_selector.query_one("#recipient-antigravity", AgentToggle).value is False
 
 
@@ -515,6 +518,49 @@ async def test_agent_recipient_selector_accepts_live_model_choices(tmp_path) -> 
 
         assert selector.model_option_labels("codex") == ("codex(default)", "gpt-5.5")
         selector.set_model_overrides({"codex": "gpt-5.5"})
+        assert selector.model_overrides() == {"codex": "gpt-5.5"}
+
+
+@pytest.mark.asyncio
+async def test_agent_recipient_selector_model_menu_updates_override(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    app = TrinityTextualApp(config, FakeWorkflowController())
+
+    async with app.run_test(size=(120, 34)) as pilot:
+        selector = app.screen.query_one(
+            "#start-recipient-selector",
+            AgentRecipientModelSelector,
+        )
+        selector.set_model_choices(
+            "codex",
+            [
+                ProviderModelChoice(
+                    provider=Provider.CODEX,
+                    model="default",
+                    label="codex(default)",
+                    source="static-fallback",
+                    is_default=True,
+                    context_budget=128_000,
+                ),
+                ProviderModelChoice(
+                    provider=Provider.CODEX,
+                    model="gpt-5.5",
+                    label="gpt-5.5",
+                    source="cli-live",
+                    context_budget=None,
+                ),
+            ],
+        )
+
+        selector._toggle_model_menu("codex")
+        menu = selector.query_one("#recipient-model-menu-codex")
+        menu.highlighted = 1
+        menu.action_select()
+        await pilot.pause()
+
+        trigger = selector.query_one("#recipient-model-codex", AgentModelTrigger)
+        assert trigger.value == "gpt-5.5"
         assert selector.model_overrides() == {"codex": "gpt-5.5"}
 
 

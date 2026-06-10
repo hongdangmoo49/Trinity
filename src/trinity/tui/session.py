@@ -66,6 +66,7 @@ PLAIN_TUI_COMMAND_HANDLERS: dict[str, str] = {
     "workflow": "_cmd_workflow",
     "questions": "_cmd_questions",
     "answer": "_cmd_answer",
+    "ask": "_cmd_ask",
     "decisions": "_cmd_decisions",
     "packages": "_cmd_packages",
     "subtasks": "_cmd_subtasks",
@@ -87,6 +88,7 @@ PLAIN_TUI_COMMANDS_WITH_ARGS = frozenset(
         "caveman",
         "questions",
         "answer",
+        "ask",
         "report",
         "resume",
         "execute",
@@ -363,6 +365,69 @@ class InteractiveSession:
         self.console.print(
             Panel(artifact_markdown(engine_from_config(self.config), args[0]), title="Artifact")
         )
+
+    def _cmd_ask(self, args: list[str]) -> None:
+        """Ask only selected agents in the plain TUI."""
+        target_agents, model_overrides, prompt, error = self._parse_ask_args(args)
+        if error:
+            self.console.print(f"[yellow]{error}[/yellow]")
+            self.console.print(
+                "[dim]Usage: /ask <all|agent[,agent...]> [--model MODEL] <prompt>[/dim]"
+            )
+            return
+        action = self.workflow.handle_user_input(
+            prompt,
+            list(self.config.active_agents.keys()),
+            target_agents=target_agents,
+            agent_model_overrides=model_overrides,
+        )
+        self._apply_workflow_action(action)
+
+    def _parse_ask_args(
+        self,
+        args: list[str],
+    ) -> tuple[tuple[str, ...], dict[str, str], str, str]:
+        if not args:
+            return (), {}, "", "Missing /ask target."
+
+        active_agents = tuple(self.config.active_agents.keys())
+        selector = args[0].strip().lower()
+        if selector == "all":
+            target_agents = active_agents
+        else:
+            requested = tuple(
+                item.strip().lower()
+                for item in selector.split(",")
+                if item.strip()
+            )
+            unknown = [name for name in requested if name not in self.config.active_agents]
+            if unknown:
+                return (), {}, "", f"Unknown or disabled agent: {', '.join(unknown)}"
+            target_agents = requested
+
+        if not target_agents:
+            return (), {}, "", "No active agents are available for /ask."
+
+        model = ""
+        prompt_parts: list[str] = []
+        index = 1
+        while index < len(args):
+            value = args[index]
+            if value in {"--model", "-m"}:
+                if index + 1 >= len(args):
+                    return (), {}, "", "Missing model after --model."
+                model = args[index + 1].strip()
+                index += 2
+                continue
+            prompt_parts.append(value)
+            index += 1
+
+        prompt = " ".join(prompt_parts).strip()
+        if not prompt:
+            return (), {}, "", "Prompt cannot be empty."
+
+        model_overrides = {agent: model for agent in target_agents} if model else {}
+        return target_agents, model_overrides, prompt, ""
 
     def _session_has_context(self) -> bool:
         """Return whether the plain TUI has meaningful current workflow context."""
@@ -1168,7 +1233,14 @@ class InteractiveSession:
             self.console.print(f"[green]{verb} decision {action.decision_record.id}.[/green]")
 
         if action.should_deliberate:
-            self._run_deliberation(action.prompt)
+            if action.agent_selection_mode == "targeted" or action.agent_model_overrides:
+                self._run_deliberation(
+                    action.prompt,
+                    target_agents=action.target_agents,
+                    agent_model_overrides=action.agent_model_overrides,
+                )
+            else:
+                self._run_deliberation(action.prompt)
         elif action.execution_requested:
             self._run_enabled_execution()
         elif (
@@ -1231,7 +1303,13 @@ class InteractiveSession:
             border_style="yellow",
         )
 
-    def _run_deliberation(self, prompt: str) -> None:
+    def _run_deliberation(
+        self,
+        prompt: str,
+        *,
+        target_agents: tuple[str, ...] | list[str] = (),
+        agent_model_overrides: dict[str, str] | None = None,
+    ) -> None:
         """Run a deliberation on the user's prompt with real-time TUI updates.
 
         Uses Rich Live to show agent status and round progress
@@ -1246,6 +1324,9 @@ class InteractiveSession:
         if not active:
             self.console.print("[red]No active agents. Use /agent <name> on to enable one.[/red]")
             return
+        selected_agents = tuple(name for name in target_agents if name in active) or tuple(
+            active.keys()
+        )
 
         use_tmux = self._uses_tmux_transport()
         if use_tmux and not self._has_tmux():
@@ -1263,7 +1344,7 @@ class InteractiveSession:
         self.console.print(
             Panel.fit(
                 f"[bold]{prompt}[/bold]\n\n"
-                f"Agents: {', '.join(active.keys())}\n"
+                f"Agents: {', '.join(selected_agents)}\n"
                 f"Max rounds: {self.config.max_deliberation_rounds}\n"
                 f"Mode: {mode_str}",
                 title="🧠 Deliberation Starting",
@@ -1272,7 +1353,12 @@ class InteractiveSession:
         )
 
         # Create orchestrator
-        orchestrator = TrinityOrchestrator(self.config, interactive=use_tmux)
+        orchestrator = TrinityOrchestrator(
+            self.config,
+            interactive=use_tmux,
+            active_agent_names=selected_agents,
+            agent_model_overrides=agent_model_overrides or {},
+        )
 
         # Reset TUI state for new deliberation
         self.tui.reset_agents()

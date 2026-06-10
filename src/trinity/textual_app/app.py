@@ -21,6 +21,10 @@ from trinity.context.commands import (
     memory_stats_rows,
 )
 from trinity.i18n import VALID_CAVEMAN_INTENSITIES
+from trinity.providers.model_discovery import (
+    ProviderModelChoice,
+    discover_provider_models,
+)
 from trinity.slash_commands import (
     COMMAND_SPECS,
     SESSION_ONLY_SETTING_NOTICE,
@@ -156,8 +160,8 @@ class TrinityTextualApp(App[None]):
     }
 
     #start-shell {
-        width: 88;
-        max-width: 94%;
+        width: 96;
+        max-width: 96%;
         height: auto;
     }
 
@@ -206,26 +210,31 @@ class TrinityTextualApp(App[None]):
 
     .recipient-label {
         width: auto;
-        min-width: 8;
+        min-width: 12;
         content-align: left middle;
         color: $text-muted;
         margin-right: 1;
+        height: 1;
     }
 
     .recipient-all {
         width: auto;
-        min-width: 10;
+        min-width: 8;
         margin-right: 1;
+        height: 1;
     }
 
     .recipient-agent-check {
-        width: 3;
-        margin-right: 0;
+        width: auto;
+        min-width: 9;
+        margin-right: 1;
+        height: 1;
     }
 
     .recipient-agent-model {
-        width: 16;
+        width: 24;
         margin-right: 1;
+        height: 1;
     }
 
     #prompt-textarea {
@@ -947,6 +956,7 @@ class TrinityTextualApp(App[None]):
         self.workflow_controller = workflow_controller or TextualWorkflowController(config)
         self._screens_installed = False
         self._workflow_polling_started = False
+        self._model_discovery_started = False
         self._local_command_results: list[LocalCommandSnapshot] = []
         self._pending_execute_retry: ExecutionRetrySelection | None = None
 
@@ -954,6 +964,7 @@ class TrinityTextualApp(App[None]):
         self._install_workbench_screens()
         self.current_route = "start"
         self.push_screen("start")
+        self._start_model_discovery()
 
     def _install_workbench_screens(self) -> None:
         if self._screens_installed:
@@ -976,6 +987,45 @@ class TrinityTextualApp(App[None]):
         self.install_screen(ReportScreen(), "report")
 
         self._screens_installed = True
+
+    def _start_model_discovery(self) -> None:
+        if self._model_discovery_started:
+            return
+        self._model_discovery_started = True
+        self.run_worker(
+            self._discover_provider_models,
+            name="provider-model-discovery",
+            group="provider-model-discovery",
+            exit_on_error=False,
+            thread=True,
+        )
+
+    def _discover_provider_models(self) -> None:
+        choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]] = {}
+        for name, spec in self.config.active_agents.items():
+            choices = discover_provider_models(
+                spec.provider,
+                spec.cli_command,
+                timeout_seconds=5.0,
+            )
+            if choices:
+                choices_by_agent[name] = tuple(choices)
+        if choices_by_agent:
+            self.call_from_thread(
+                self._apply_discovered_model_choices,
+                choices_by_agent,
+            )
+
+    def _apply_discovered_model_choices(
+        self,
+        choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]],
+    ) -> None:
+        for screen_name, screen_type in (
+            ("start", StartScreen),
+            ("nexus", NexusScreen),
+        ):
+            screen = self.get_screen(screen_name, screen_type)
+            screen.set_agent_model_choices(choices_by_agent)
 
     def on_start_screen_submitted(self, event: StartScreen.Submitted) -> None:
         event.stop()

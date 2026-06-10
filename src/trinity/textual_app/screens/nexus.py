@@ -10,6 +10,7 @@ from textual.widgets import Button, Footer, Header
 
 from trinity.config import TrinityConfig
 from trinity.models import AgentSpec
+from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
@@ -99,6 +100,7 @@ class NexusScreen(Screen[None]):
         self._activity_frame = 0
         self._selected_agents: tuple[str, ...] = ()
         self._agent_model_overrides: dict[str, str] = {}
+        self._agent_model_choices: dict[str, tuple[ProviderModelChoice, ...]] = {}
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -132,6 +134,7 @@ class NexusScreen(Screen[None]):
             self._refresh_inspector()
         if self._selected_agents or self._agent_model_overrides:
             self._apply_agent_selection()
+        self._apply_model_choices()
         self.query_one("#nexus-composer", PromptComposer).focus_text_area()
 
     def set_initial_prompt(self, prompt: str) -> None:
@@ -157,6 +160,22 @@ class NexusScreen(Screen[None]):
             selector.set_selected_agents(self._selected_agents)
         if self._agent_model_overrides:
             selector.set_model_overrides(self._agent_model_overrides)
+
+    def set_agent_model_choices(
+        self,
+        choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]],
+    ) -> None:
+        """Apply live model choices discovered from provider CLIs."""
+        self._agent_model_choices.update(choices_by_agent)
+        if self.is_mounted:
+            self._apply_model_choices()
+
+    def _apply_model_choices(self) -> None:
+        if not self._agent_model_choices:
+            return
+        selector = self.query_one(AgentRecipientModelSelector)
+        for name, choices in self._agent_model_choices.items():
+            selector.set_model_choices(name, choices)
 
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
         self.snapshot = snapshot

@@ -391,10 +391,12 @@ VOTE: APPROVE
     titles = [package.title for package in engine.work_packages]
     assert titles == [
         "GameLoop",
-        "Data flow and integration",
         "External dependency adapters",
         "Risk and validation coverage",
     ]
+    game_loop = engine.work_packages[0]
+    assert "Integration flow: 게임 시작 -> 캐릭터 선택 -> 30분 타이머 시작" in game_loop.scope
+    assert "Integration flow: 매 킬: XP 드롭 -> 레벨업 -> 보상 선택" in game_loop.scope
     assert all("###" not in item for item in engine.session.blueprint.data_flow)
     assert all("VOTE:" not in item for item in engine.session.blueprint.acceptance_criteria)
 

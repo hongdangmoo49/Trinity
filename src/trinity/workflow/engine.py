@@ -700,6 +700,11 @@ class WorkflowEngine:
                 self.session.subtask_results = []
                 self.session.review_packages = []
                 self.session.review_results = []
+                self._record_central_conversation(
+                    title="Central Agent Response",
+                    body=self._central_blueprint_body(self.session.blueprint),
+                    related_ids=[package.id for package in self.session.work_packages],
+                )
                 self.set_state(
                     WorkflowState.BLUEPRINT_READY,
                     reason="structured blueprint reached consensus",
@@ -718,12 +723,62 @@ class WorkflowEngine:
             self.session.subtask_results = []
             self.session.review_packages = []
             self.session.review_results = []
+            self._record_central_conversation(
+                title="Central Agent Response",
+                body=self._central_blueprint_body(self.session.blueprint),
+                related_ids=[package.id for package in self.session.work_packages],
+            )
             self.set_state(
                 WorkflowState.BLUEPRINT_READY,
                 reason="deliberation reached consensus",
             )
         else:
             self.set_state(WorkflowState.FAILED, reason="deliberation ended without consensus")
+
+    def _record_central_conversation(
+        self,
+        *,
+        title: str,
+        body: str,
+        role: str = "central",
+        channel: str = "nexus",
+        command: str = "",
+        related_ids: Iterable[str] = (),
+        truncated: bool = False,
+    ) -> None:
+        """Persist a central-agent transcript item for report reconstruction."""
+        self._persist(
+            "central_conversation_recorded",
+            {
+                "message_id": f"cc-{uuid4().hex[:12]}",
+                "role": role,
+                "channel": channel,
+                "title": title,
+                "body": body,
+                "command": command,
+                "related_ids": [str(item) for item in related_ids if str(item).strip()],
+                "truncated": truncated,
+            },
+        )
+
+    @staticmethod
+    def _central_blueprint_body(blueprint: Blueprint) -> str:
+        lines = [f"# {blueprint.title or 'Blueprint'}"]
+        if blueprint.summary:
+            lines.extend(["", blueprint.summary])
+        if blueprint.architecture:
+            lines.extend(["", "## Architecture"])
+            lines.extend(
+                f"- {component.name}: {component.responsibility}"
+                for component in blueprint.architecture
+            )
+        if blueprint.data_flow:
+            lines.extend(["", "## Data Flow"])
+            lines.extend(f"- {item}" for item in blueprint.data_flow)
+        if blueprint.acceptance_criteria:
+            lines.extend(["", "## Acceptance Criteria"])
+            lines.extend(f"- {item}" for item in blueprint.acceptance_criteria)
+        return "\n".join(lines)
 
     def _record_provider_observations(self, metadata: dict[str, Any]) -> None:
         """Persist provider session/model observations from result metadata."""

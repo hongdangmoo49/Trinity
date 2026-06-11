@@ -932,7 +932,8 @@ class InteractiveSession:
             )
             return
 
-        builder = DeliberationReportBuilder(session, result)
+        events = self.workflow_persistence.load_events_for_workflow(session.id)
+        builder = DeliberationReportBuilder(session, result, events=events)
         report = builder.build()
 
         save_requested = args and args[0].lower() in ("save", "s")

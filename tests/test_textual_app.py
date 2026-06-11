@@ -7,12 +7,10 @@ from textual import events
 from textual.containers import VerticalScroll
 from textual.widgets import (
     Button,
-    Checkbox,
     DataTable,
     Markdown,
     OptionList,
     RichLog,
-    Select,
     Static,
     TabbedContent,
     TextArea,
@@ -521,8 +519,11 @@ async def test_agent_recipient_selector_accepts_live_model_choices(tmp_path) -> 
 async def test_model_slash_modal_updates_selector_model_override(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     config.agents["codex"].enabled = True
+    config.agents["codex"].model = "default"
     controller = FakeWorkflowController()
     app = TrinityTextualApp(config, controller)
+    app._start_model_discovery = lambda: None  # type: ignore[method-assign]
+    app._refresh_provider_models = lambda *, use_cache: None  # type: ignore[method-assign]
 
     async with app.run_test(size=(120, 34)) as pilot:
         selector = app.screen.query_one(
@@ -558,7 +559,10 @@ async def test_model_slash_modal_updates_selector_model_override(tmp_path) -> No
         await pilot.pause()
 
         menu = app.screen.query_one("#model-choice-list", OptionList)
-        menu.highlighted = 1
+        labels = app.screen._choice_labels("codex")
+        menu.highlighted = next(
+            index for index, label in enumerate(labels) if "gpt-5.5" in label
+        )
         menu.action_select()
         await pilot.pause()
 
@@ -868,6 +872,33 @@ async def test_textual_export_uses_persisted_session_when_available(tmp_path) ->
             ],
         )
     )
+    persistence.append_event(
+        {
+            "timestamp": 1781136000.0,
+            "workflow_id": "persisted-session",
+            "event": "central_conversation_recorded",
+            "state": "blueprint_ready",
+            "data": {
+                "role": "central",
+                "channel": "nexus",
+                "title": "Central Agent Response",
+                "body": "Persisted central transcript",
+            },
+        }
+    )
+    persistence.append_event(
+        {
+            "timestamp": 1781136060.0,
+            "workflow_id": "persisted-session",
+            "event": "execution_run_started",
+            "state": "executing",
+            "data": {
+                "run_id": "exec-run-persisted",
+                "target_workspace": str(tmp_path),
+                "work_packages": ["wp-persisted"],
+            },
+        }
+    )
     app = TrinityTextualApp(config, workflow_controller=FakeWorkflowController())
 
     async with app.run_test(size=(100, 30)) as pilot:
@@ -887,6 +918,10 @@ async def test_textual_export_uses_persisted_session_when_available(tmp_path) ->
     assert "persisted report" in md
     assert "wp-persisted" in md
     assert "export from persisted workflow" in md
+    assert "## Central Agent Conversation" in md
+    assert "Persisted central transcript" in md
+    assert "## Execution Timeline" in md
+    assert "exec-run-persisted" in md
 
 
 @pytest.mark.asyncio

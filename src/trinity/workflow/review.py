@@ -156,7 +156,7 @@ class ReviewResult:
 
 
 class PeerReviewPlanner:
-    """Assign at least one active reviewer to each workflow work package."""
+    """Assign peer reviewers to completed workflow work packages."""
 
     DEFAULT_CRITERIA = (
         "Verify the work package acceptance criteria are satisfied.",
@@ -198,34 +198,33 @@ class PeerReviewPlanner:
         for index, package in enumerate(packages):
             result = results_by_package.get(package.id)
             target_agent = result.agent_name if result else package.owner_agent
-            reviewer_agent = self._choose_reviewer(
+            reviewer_agents = self._reviewers_for(
                 target_agent=target_agent,
                 active_agents=agents,
-                index=index,
             )
-            review_packages.append(
-                ReviewPackage(
-                    package_id=package.id,
-                    reviewer_agent=reviewer_agent,
-                    target_agent=target_agent,
-                    criteria=self._criteria_for(package),
-                    execution_status=result.status if result else None,
+            for reviewer_agent in reviewer_agents:
+                review_packages.append(
+                    ReviewPackage(
+                        package_id=package.id,
+                        reviewer_agent=reviewer_agent,
+                        target_agent=target_agent,
+                        criteria=self._criteria_for(package),
+                        execution_status=result.status if result else None,
+                    )
                 )
-            )
 
         return review_packages
 
     def _criteria_for(self, package: WorkPackage) -> list[str]:
         return self._dedupe([*self.default_criteria, *package.acceptance_criteria])
 
-    def _choose_reviewer(
+    def _reviewers_for(
         self,
         target_agent: str,
         active_agents: list[str],
-        index: int,
-    ) -> str:
+    ) -> list[str]:
         if len(active_agents) == 1:
-            return active_agents[0]
+            return [active_agents[0]]
 
         candidates = [
             agent
@@ -234,7 +233,7 @@ class PeerReviewPlanner:
         ]
         if not candidates:
             candidates = active_agents
-        return candidates[index % len(candidates)]
+        return candidates
 
     def _normalize_agents(self, agents: list[str]) -> list[str]:
         normalized: list[str] = []

@@ -593,6 +593,88 @@ def test_record_execution_results_moves_to_reviewing(tmp_path):
     assert loaded.review_packages[0]["package_id"] == "WP-001"
 
 
+def test_record_execution_results_plans_all_non_owner_reviews(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["claude", "codex", "antigravity"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement route bot.",
+            requires_execution=True,
+        )
+    ]
+    engine.set_target_workspace(tmp_path / "route-bot")
+    engine.begin_execution()
+
+    engine.record_execution_results(
+        [
+            ExecutionResult(
+                package_id="WP-001",
+                agent_name="codex",
+                status=WorkStatus.DONE,
+                summary="Implemented route bot.",
+            )
+        ]
+    )
+
+    assert [
+        (review["package_id"], review["target_agent"], review["reviewer_agent"])
+        for review in engine.review_packages
+    ] == [
+        ("WP-001", "codex", "claude"),
+        ("WP-001", "codex", "antigravity"),
+    ]
+    assert all(review["self_review"] is False for review in engine.review_packages)
+
+
+def test_review_request_keeps_unapproved_non_owner_reviews_pending(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["claude", "codex", "antigravity"])
+    engine.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="codex package",
+            owner_agent="codex",
+            objective="Implement route bot.",
+            requires_execution=True,
+            status=WorkStatus.DONE,
+        )
+    ]
+    engine.session.execution_results = [
+        ExecutionResult(
+            package_id="WP-001",
+            agent_name="codex",
+            status=WorkStatus.DONE,
+            summary="Implemented route bot.",
+        )
+    ]
+    engine.ensure_review_packages()
+    planned = engine.review_packages_for_request("wp")
+
+    engine.record_review_results(
+        [
+            ReviewResult(
+                review_package_id=planned[0].id,
+                package_id=planned[0].package_id,
+                reviewer_agent=planned[0].reviewer_agent,
+                target_agent=planned[0].target_agent,
+                status=ReviewStatus.APPROVED,
+                severity="low",
+                summary="Looks good.",
+            )
+        ]
+    )
+
+    pending = engine.review_packages_for_request("wp")
+
+    assert [(review.id, review.reviewer_agent) for review in pending] == [
+        (planned[1].id, "antigravity")
+    ]
+    assert engine._latest_review_is_approved("WP-001") is False
+
+
 def test_record_review_results_requests_repair_notes(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
     engine.start("Implement route bot", ["codex", "claude"])

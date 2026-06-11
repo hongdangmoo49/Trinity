@@ -29,7 +29,7 @@ def _package(
     )
 
 
-def test_peer_review_planner_assigns_non_owner_reviewer_per_work_package():
+def test_peer_review_planner_assigns_all_non_owner_reviewers_per_work_package():
     packages = [
         _package("WP-001", "claude", ["Tests pass"]),
         _package("WP-002", "codex"),
@@ -41,11 +41,16 @@ def test_peer_review_planner_assigns_non_owner_reviewer_per_work_package():
         active_agents=["claude", "codex", "antigravity"],
     )
 
-    assert [review.package_id for review in reviews] == ["WP-001", "WP-002", "WP-003"]
-    assert [review.target_agent for review in reviews] == [
-        "claude",
-        "codex",
-        "antigravity",
+    assert [
+        (review.package_id, review.target_agent, review.reviewer_agent)
+        for review in reviews
+    ] == [
+        ("WP-001", "claude", "codex"),
+        ("WP-001", "claude", "antigravity"),
+        ("WP-002", "codex", "claude"),
+        ("WP-002", "codex", "antigravity"),
+        ("WP-003", "antigravity", "claude"),
+        ("WP-003", "antigravity", "codex"),
     ]
     assert all(review.reviewer_agent != review.target_agent for review in reviews)
     assert all(review.self_review is False for review in reviews)

@@ -693,7 +693,7 @@ def test_textual_workflow_controller_auto_reviews_after_execution(tmp_path) -> N
     assert final.snapshot.state == "post_review_ready"
 
 
-def test_textual_workflow_controller_queues_post_review_improvement(tmp_path) -> None:
+def test_textual_workflow_controller_auto_queues_post_review_improvement(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     workflow = WorkflowEngine(config.effective_state_dir)
     workflow.start("게임 구현", ["claude"])
@@ -739,26 +739,12 @@ def test_textual_workflow_controller_queues_post_review_improvement(tmp_path) ->
         archive_active_session=False,
     )
 
-    outcome = controller.request_improvement(["high"])
-
-    assert outcome.execution_requested is True
-    assert outcome.running is True
+    assert controller.workflow.state == WorkflowState.BLUEPRINT_READY
     assert controller.workflow.session.work_packages[-1].id == "WP-S001"
     assert controller.workflow.session.work_packages[-1].origin == "post_review_followup"
     assert controller.workflow.post_review_items[0].status.value == "queued"
-    assert controller.wait_until_idle(timeout=2.0)
-    review_started = controller.drain_updates()
-    assert review_started is not None
-    assert review_started.running is True
-    assert controller.wait_until_idle(timeout=2.0)
-    final = controller.drain_updates()
-    assert final is not None
-    assert final.snapshot.state == "post_review_ready"
-    assert [result.status for result in controller.workflow.review_results] == [
-        ReviewStatus.CHANGES_REQUESTED,
-        ReviewStatus.APPROVED,
-        ReviewStatus.APPROVED,
-    ]
+    assert controller.workflow.session.execution_run["state"] == "supplemental_queued"
+    assert controller.workflow.session.execution_run["source"] == "final_review_auto_replan"
 
 
 def test_textual_workflow_controller_restarts_execution_for_review_repairs(tmp_path) -> None:

@@ -1694,10 +1694,75 @@ class WorkflowEngine:
                 "total": len(self.session.post_review_items),
             },
         )
+        auto_replanned = self._auto_replan_final_review_changes(
+            final_result,
+            created,
+        )
+        if auto_replanned:
+            return
         self.set_state(
             WorkflowState.POST_REVIEW_READY,
             reason="final review complete; waiting for follow-up selection",
         )
+
+    def _auto_replan_final_review_changes(
+        self,
+        final_result: ReviewResult | None,
+        created_items: Iterable[PostReviewActionItem],
+    ) -> tuple[str, ...]:
+        """Queue supplemental WPs for required final-review changes."""
+        if final_result is None or final_result.status != ReviewStatus.CHANGES_REQUESTED:
+            return ()
+
+        candidate_ids = [
+            item.id
+            for item in created_items
+            if item.source == "final_review"
+            and final_result.review_package_id in item.related_review_ids
+            and item.requires_execution
+            and item.kind in {"bugfix", "validation"}
+        ]
+        if not candidate_ids:
+            return ()
+
+        if self.session.target_workspace is None:
+            self._persist(
+                "post_review_auto_replan_skipped",
+                {
+                    "review_package_id": final_result.review_package_id,
+                    "reason": "target_workspace_missing",
+                    "action_item_ids": list(candidate_ids),
+                },
+            )
+            return ()
+
+        package_ids = self.accept_post_review_items(
+            candidate_ids,
+            note="auto replanned from final review changes",
+            active_agents=self.session.active_agents,
+        )
+        if not package_ids:
+            return ()
+
+        run = (
+            dict(self.session.execution_run)
+            if isinstance(self.session.execution_run, dict)
+            else {}
+        )
+        run["source"] = "final_review_auto_replan"
+        run["auto_replanned_from_review"] = final_result.review_package_id
+        run["auto_replanned_action_item_ids"] = list(candidate_ids)
+        self.session.execution_run = run
+        self.session.updated_at = time.time()
+        self._persist(
+            "post_review_auto_replan_queued",
+            {
+                "review_package_id": final_result.review_package_id,
+                "action_item_ids": list(candidate_ids),
+                "work_packages": list(package_ids),
+            },
+        )
+        return tuple(package_ids)
 
     def extract_post_review_items(
         self,

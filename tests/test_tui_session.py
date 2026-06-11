@@ -975,7 +975,7 @@ class TestWorkflowRouting:
             ReviewStatus.APPROVED,
         ]
 
-    def test_improve_command_queues_post_review_work_package(self, session):
+    def test_final_review_changes_auto_queue_post_review_work_package(self, session):
         session.workflow.start("Implement route bot", ["claude"])
         session.workflow.session.work_packages = [
             WorkPackage(
@@ -1007,14 +1007,15 @@ class TestWorkflowRouting:
             ]
         )
 
-        with patch.object(session, "_run_enabled_execution") as run_execution:
-            session._handle_command("/improve high")
-
-        run_execution.assert_called_once()
         assert session.workflow.state == WorkflowState.BLUEPRINT_READY
         assert session.workflow.session.work_packages[-1].id == "WP-S001"
         assert session.workflow.session.work_packages[-1].origin == "post_review_followup"
         assert session.workflow.post_review_items[0].status.value == "queued"
+        assert session.workflow.session.execution_run["state"] == "supplemental_queued"
+        assert (
+            session.workflow.session.execution_run["source"]
+            == "final_review_auto_replan"
+        )
 
     def test_execute_auto_runs_review_after_completion(self, session):
         session.workflow.start("Implement route bot", ["claude"])

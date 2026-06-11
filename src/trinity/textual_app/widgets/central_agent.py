@@ -52,6 +52,10 @@ class CentralAgentView(VerticalScroll):
         self._button_actions: dict[str, str] = {}
         self._action_render_version = 0
         self._activity_frame = 0
+        self._markdown_key = ""
+        self._local_commands_key: tuple[object, ...] = ()
+        self._actions_key: tuple[object, ...] = ()
+        self._questions_key: tuple[object, ...] = ()
 
     def compose(self) -> ComposeResult:
         yield Static("Central Agent", id="central-title")
@@ -71,13 +75,25 @@ class CentralAgentView(VerticalScroll):
             return
         self.set_class(self._is_running(), "central-running")
         self._refresh_title()
-        self.query_one("#central-markdown", Markdown).update(self._markdown())
-        self._render_local_command_tables(snapshot.local_commands)
-        self._render_blueprint_actions(snapshot)
+        markdown = self._markdown()
+        if markdown != self._markdown_key:
+            self.query_one("#central-markdown", Markdown).update(markdown)
+            self._markdown_key = markdown
+        local_commands_key = self._local_command_key(snapshot.local_commands)
+        if local_commands_key != self._local_commands_key:
+            self._render_local_command_tables(snapshot.local_commands)
+            self._local_commands_key = local_commands_key
+        actions_key = self._blueprint_actions_key(snapshot)
+        if actions_key != self._actions_key:
+            self._render_blueprint_actions(snapshot)
+            self._actions_key = actions_key
         self.query_one("#central-question-title", Static).update(
             self._question_title(snapshot.questions)
         )
-        self._render_questions(snapshot.questions)
+        questions_key = self._question_key(snapshot.questions)
+        if questions_key != self._questions_key:
+            self._render_questions(snapshot.questions)
+            self._questions_key = questions_key
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id or ""
@@ -295,6 +311,57 @@ class CentralAgentView(VerticalScroll):
             container.mount(table)
             table.add_columns(*command.table_columns)
             table.add_rows(command.table_rows)
+
+    @staticmethod
+    def _local_command_key(commands: list[LocalCommandSnapshot]) -> tuple[object, ...]:
+        return tuple(
+            (
+                command.command,
+                command.title,
+                command.body,
+                command.action_hint,
+                command.empty,
+                tuple(command.table_columns),
+                tuple(tuple(row) for row in command.table_rows),
+            )
+            for command in commands
+        )
+
+    @staticmethod
+    def _blueprint_actions_key(snapshot: WorkflowNexusSnapshot) -> tuple[object, ...]:
+        return (
+            snapshot.state,
+            tuple(snapshot.central_work_packages),
+            tuple(snapshot.work_packages),
+            (
+                snapshot.execution_recovery.state
+                if snapshot.execution_recovery is not None
+                else ""
+            ),
+            tuple(
+                (
+                    package.id,
+                    package.status,
+                    package.repair_blocked_reason,
+                    package.repair_attempt_count,
+                )
+                for package in snapshot.work_package_details
+            ),
+        )
+
+    @staticmethod
+    def _question_key(questions: list[QuestionSnapshot]) -> tuple[object, ...]:
+        return tuple(
+            (
+                question.id,
+                question.question,
+                tuple(question.options),
+                question.recommended_option,
+                question.status,
+                question.answer,
+            )
+            for question in questions
+        )
 
     def _render_blueprint_actions(self, snapshot: WorkflowNexusSnapshot) -> None:
         title = self.query_one("#central-action-title", Static)

@@ -1245,7 +1245,7 @@ class WorkflowEngine:
                 continue
             if requested and review.package_id not in requested:
                 continue
-            if not explicit and self._latest_review_is_approved(review.package_id):
+            if not explicit and self._review_package_is_approved(review):
                 continue
             reviews.append(review)
         return reviews
@@ -1930,10 +1930,44 @@ class WorkflowEngine:
         return "\n".join(lines)
 
     def _latest_review_is_approved(self, package_id: str) -> bool:
+        planned = [
+            review
+            for review in self._planned_review_packages()
+            if review.package_id == package_id
+            and review.scope != "final"
+            and review.package_id != FINAL_REVIEW_PACKAGE_ID
+        ]
+        if planned:
+            return all(self._review_package_is_approved(review) for review in planned)
+
         for result in reversed(self._review_results()):
             if result.package_id == package_id and result.scope != "final":
                 return result.status == ReviewStatus.APPROVED
         return False
+
+    def _review_package_is_approved(self, review: ReviewPackage) -> bool:
+        for result in reversed(self._review_results()):
+            if result.review_package_id == review.id:
+                return result.status == ReviewStatus.APPROVED
+            if (
+                result.package_id == review.package_id
+                and result.reviewer_agent == review.reviewer_agent
+                and result.target_agent == review.target_agent
+                and result.scope == review.scope
+            ):
+                return result.status == ReviewStatus.APPROVED
+        return False
+
+    def _planned_review_packages(self) -> list[ReviewPackage]:
+        reviews: list[ReviewPackage] = []
+        for item in self.session.review_packages:
+            if not isinstance(item, dict):
+                continue
+            try:
+                reviews.append(ReviewPackage.from_dict(item))
+            except (TypeError, ValueError):
+                continue
+        return reviews
 
     def detect_interrupted_execution(
         self,

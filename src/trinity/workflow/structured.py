@@ -122,6 +122,19 @@ class StructuredConsensusSynthesizer:
         },
         "blockers": {"blockers", "blocking issues", "차단 사유", "블로커"},
     }
+    SECTION_MODIFIER_PREFIXES = {
+        "approved",
+        "confirmed",
+        "final",
+        "revised",
+        "updated",
+        "결정된",
+        "수정된",
+        "승인된",
+        "업데이트",
+        "최종",
+        "확정",
+    }
 
     VOTE_PATTERN = re.compile(
         r"\b(APPROVE_WITH_CHANGES|BLOCKED_BY_QUESTION|APPROVE|REJECT)\b",
@@ -346,21 +359,48 @@ class StructuredConsensusSynthesizer:
                 else:
                     sections.setdefault(section, [])
                 continue
+            if self._is_vote_marker_line(line):
+                current = None
+                continue
             if current is not None:
                 sections.setdefault(current, []).append(line)
         return sections
 
-    def _section_key(self, line: str) -> str | None:
+    @classmethod
+    def _section_key(cls, line: str) -> str | None:
         heading = line.strip().strip("#").strip()
         heading = re.sub(r"^\d+[.)]\s*", "", heading)
-        heading = heading.rstrip(":").strip().lower()
+        heading = heading.strip("*_`").rstrip(":：").strip().lower()
+        heading = re.sub(r"\s*[（(][^()（）]*[）)]\s*$", "", heading).strip()
+        heading = re.sub(r"\s+", " ", heading)
         if not heading:
             return None
 
-        for key, aliases in self.SECTION_ALIASES.items():
-            if heading in aliases:
-                return key
+        for candidate in cls._section_heading_candidates(heading):
+            for key, aliases in cls.SECTION_ALIASES.items():
+                if candidate in aliases:
+                    return key
         return None
+
+    @classmethod
+    def _section_heading_candidates(cls, heading: str) -> list[str]:
+        candidates = [heading]
+        for prefix in cls.SECTION_MODIFIER_PREFIXES:
+            if heading.startswith(f"{prefix} "):
+                candidates.append(heading[len(prefix) + 1 :].strip())
+        return [candidate for candidate in candidates if candidate]
+
+    @classmethod
+    def _is_vote_marker_line(cls, line: str) -> bool:
+        stripped = line.strip()
+        return bool(
+            re.match(
+                r"^(?:[-*]\s*)?(?:vote\s*[:：]\s*)?"
+                r"(APPROVE_WITH_CHANGES|BLOCKED_BY_QUESTION|APPROVE|REJECT)\s*$",
+                stripped,
+                re.IGNORECASE,
+            )
+        )
 
     @staticmethod
     def _inline_section_value(line: str) -> str:
@@ -677,6 +717,8 @@ class StructuredConsensusSynthesizer:
         item = line.strip()
         item = re.sub(r"^\s*[-*]\s*", "", item)
         item = re.sub(r"^\s*\d+[.)]\s*", "", item)
+        if re.match(r"^`{3,}\w*\s*$", item):
+            return ""
         return item.strip()
 
     @staticmethod

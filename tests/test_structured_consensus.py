@@ -41,6 +41,51 @@ def test_single_agent_blueprint_reaches_consensus():
     assert result.approval_count == 1
 
 
+def test_extracts_korean_section_headings_with_modifiers():
+    synthesizer = StructuredConsensusSynthesizer()
+    text = """\
+## 수정된 제안: 픽셀 탄막 슈팅 — 설계 확정
+
+### 요약
+싱글 로그라이트 탄막 서바이벌.
+
+### 확정 아키텍처
+- GameLoop: 런 상태와 난이도 곡선을 관리한다.
+
+### 데이터 흐름
+- 게임 시작 -> 캐릭터 선택 -> 30분 타이머 시작
+
+### 외부 의존성 (최종)
+- Godot 4.4+
+- GodotSteam
+
+### 리스크 (업데이트)
+- 대량 적과 탄환 처리 성능 저하
+
+### 수용 기준 (확정)
+- 1920x1080에서 6배 정수 배율
+- 적 200 + 총알 1000 동시 처리
+
+VOTE: APPROVE
+"""
+
+    result = synthesizer.evaluate({"claude": text})
+
+    assert result.reached is True
+    assert result.final_blueprint is not None
+    blueprint = result.final_blueprint
+    assert [component.name for component in blueprint.architecture] == ["GameLoop"]
+    assert blueprint.data_flow == ["게임 시작 -> 캐릭터 선택 -> 30분 타이머 시작"]
+    assert blueprint.external_dependencies == ["Godot 4.4+", "GodotSteam"]
+    assert [risk.description for risk in blueprint.risks] == [
+        "대량 적과 탄환 처리 성능 저하"
+    ]
+    assert blueprint.acceptance_criteria == [
+        "1920x1080에서 6배 정수 배율",
+        "적 200 + 총알 1000 동시 처리",
+    ]
+
+
 def test_approve_with_changes_counts_toward_threshold():
     synthesizer = StructuredConsensusSynthesizer(required_fraction=0.6)
 

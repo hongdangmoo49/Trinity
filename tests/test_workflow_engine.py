@@ -18,6 +18,7 @@ from trinity.workflow import (
     classify_blueprint_followup_action,
     classify_execution_intent,
 )
+from trinity.workflow.structured import StructuredConsensusSynthesizer
 
 
 def test_workflow_engine_starts_and_persists_session(tmp_path):
@@ -121,6 +122,8 @@ def test_answer_question_records_decision_without_new_workflow(tmp_path):
     assert engine.state == WorkflowState.DELIBERATING
     assert "Original goal" in action.prompt
     assert "Use mixed score" in action.prompt
+    assert "executable work packages" in action.prompt
+    assert "expected files" in action.prompt
 
 
 def test_answer_question_preserves_target_agents_and_model_overrides(tmp_path):
@@ -331,6 +334,69 @@ def test_mark_deliberation_result_applies_structured_blueprint(tmp_path):
     loaded = WorkflowEngine(tmp_path / ".trinity")
     assert loaded.session.blueprint is not None
     assert loaded.session.blueprint.title == "Route Bot"
+
+
+def test_structured_followup_with_korean_modified_sections_decomposes_packages(tmp_path):
+    synthesizer = StructuredConsensusSynthesizer()
+    structured = synthesizer.evaluate(
+        {
+            "claude": """\
+## 수정된 제안: 뱀파이어 서바이벌형 탄막 슈팅 게임 — 설계 확정
+
+### 요약
+Godot 기반 싱글 세션 생존 슈팅.
+
+### 확정 아키텍처
+- GameLoop: 런 상태와 난이도 곡선을 관리한다.
+
+### 데이터 흐름
+```
+게임 시작 -> 캐릭터 선택 -> 30분 타이머 시작
+매 킬: XP 드롭 -> 레벨업 -> 보상 선택
+```
+
+### 외부 의존성 (최종)
+- Godot 4.4+
+- GodotSteam
+
+### 리스크 (업데이트)
+- 대량 적과 탄환 처리 성능 저하
+
+### 수용 기준 (확정)
+- 1920x1080에서 6배 정수 배율
+- 적 200 + 총알 1000 동시 처리
+
+VOTE: APPROVE
+"""
+        }
+    ).to_dict()
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("뱀파이어 서바이벌형 탄막 슈팅 게임을 개발해라", ["claude", "codex"])
+    result = DeliberationResult(
+        user_prompt="사용자 결정 반영",
+        rounds_completed=2,
+        consensus=None,
+        metadata={"structured_consensus": structured},
+    )
+
+    engine.mark_deliberation_result(result)
+
+    assert engine.state == WorkflowState.BLUEPRINT_READY
+    assert engine.session.blueprint is not None
+    assert engine.session.blueprint.data_flow == [
+        "게임 시작 -> 캐릭터 선택 -> 30분 타이머 시작",
+        "매 킬: XP 드롭 -> 레벨업 -> 보상 선택",
+    ]
+    assert engine.session.blueprint.external_dependencies == ["Godot 4.4+", "GodotSteam"]
+    titles = [package.title for package in engine.work_packages]
+    assert titles == [
+        "GameLoop",
+        "Data flow and integration",
+        "External dependency adapters",
+        "Risk and validation coverage",
+    ]
+    assert all("###" not in item for item in engine.session.blueprint.data_flow)
+    assert all("VOTE:" not in item for item in engine.session.blueprint.acceptance_criteria)
 
 
 def test_blueprint_ready_plain_text_continues_existing_workflow(tmp_path):

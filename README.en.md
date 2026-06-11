@@ -48,13 +48,98 @@ Single-agent AI is powerful, but it has blind spots.
 ### Install
 
 ```bash
-pip install trinity-agent
+# Recommended: isolated CLI install
+pipx install trinity-agent
+
+# Or install into an environment you already manage
+python -m pip install trinity-agent
 ```
+
+### Fresh macOS Install
+
+1. Install Python 3.10+ and `pipx`.
+
+   ```bash
+   brew install python pipx
+   pipx ensurepath
+   ```
+
+2. Install Trinity.
+
+   ```bash
+   pipx install trinity-agent
+   trinity --version
+   ```
+
+3. Install and authenticate the provider CLIs in the same macOS terminal
+   environment. At least one provider is required; all three unlock the full
+   multi-agent workflow.
+
+   | Provider | Check command | Install/auth docs |
+   | :--- | :--- | :--- |
+   | Claude Code | `claude --version` | <https://docs.anthropic.com/en/docs/claude-code> |
+   | Codex CLI | `codex --version` | <https://github.com/openai/codex> |
+   | Antigravity CLI | `agy --version` | <https://antigravity.google/docs/cli-getting-started> |
+
+4. Initialize and launch Trinity from your project directory.
+
+   ```bash
+   cd /path/to/your/project
+   trinity init
+   trinity bootstrap
+   trinity
+   ```
+
+### Fresh Windows Install
+
+The recommended Windows path is **WSL2 Ubuntu**. If you run Trinity in WSL,
+install and authenticate Claude/Codex/Agy inside that same WSL environment.
+Provider CLIs installed only in Windows PowerShell are not automatically
+available inside WSL.
+
+1. Install WSL2 Ubuntu from PowerShell.
+
+   ```powershell
+   wsl --install -d Ubuntu
+   ```
+
+2. In the Ubuntu terminal, install Python, `pipx`, and Trinity.
+
+   ```bash
+   sudo apt update
+   sudo apt install -y python3 python3-pip python3-venv pipx
+   pipx ensurepath
+   pipx install trinity-agent
+   trinity --version
+   ```
+
+3. Install provider CLIs in the same Ubuntu environment, authenticate them, and
+   verify they are visible.
+
+   ```bash
+   claude --version
+   codex --version
+   agy --version
+   ```
+
+4. Initialize and launch from your project directory.
+
+   ```bash
+   cd ~/workspace/your-project
+   trinity init
+   trinity bootstrap
+   trinity
+   ```
+
+Native Windows PowerShell is also possible. Install Python, then run
+`py -m pip install --user pipx`, `py -m pipx ensurepath`, and
+`pipx install trinity-agent`. Provider CLIs must also be installed on the
+PowerShell-visible `PATH`.
 
 ### Initialize in Your Project
 
 ```bash
-# Interactive setup wizard — detects your installed AI CLIs
+# Interactive setup wizard — detects installed AI CLIs and model choices
 trinity init
 
 # Non-interactive (uses defaults)
@@ -106,11 +191,13 @@ That's it. Trinity will:
 
 | Phase | Action |
 | :--- | :--- |
-| **Initialize** | Create shared context (`shared.md`) with the goal and agent list |
-| **Round 1** | Each agent shares its **initial opinion** on the user's request |
-| **Round 2+** | Agents read others' opinions, **AGREE or DISAGREE**, propose alternatives |
-| **Consensus** | When ≥60% agents agree, consensus is **reached** |
-| **Distribute** | Tasks are auto-assigned based on each agent's **strengths** |
+| **Initialize** | Store the goal, selected agents, model overrides, and observed provider sessions in workflow state |
+| **Rounds** | Selected agents analyze the request and return opinions, risks, and implementation direction |
+| **Central Synthesis** | The central agent summarizes and decides whether questions or a blueprint are needed |
+| **User Decision** | Blocking questions pause in `NEEDS_USER_DECISION`; answers continue with the same target agents/models |
+| **Blueprint Ready** | Executable work becomes work packages, and the user chooses `Execute` or refinement |
+| **Execute/Review** | Target workspace preflight gates execution; each completed WP is reviewed by all non-owner agents |
+| **Final Review/Replan** | Required final-review fixes become supplemental WPs and wait for another user-approved execution |
 
 ### Agent Strengths
 
@@ -124,13 +211,14 @@ That's it. Trinity will:
 
 ## 🧭 Workflow and Execution Model
 
-Trinity `0.10.3` is built around a **persisted workflow** that separates planning
-from execution. A user request first goes through round-based deliberation and
-central synthesis. Only after a blueprint is ready does Trinity ask for an
-execution workspace and allow provider-managed file writes.
+Trinity `0.12.7` is built around a **persisted workflow** that separates
+planning, execution, review, and replanning. A user request first goes through
+round-based deliberation and central synthesis. Only after a blueprint is ready
+does Trinity ask for an execution workspace and allow provider-managed file
+writes.
 
 ```text
-Prompt
+Prompt + selected agents/models
   -> WorkflowEngine.start()
   -> TrinityOrchestrator.ask()
   -> ProviderReadinessGate
@@ -139,28 +227,52 @@ Prompt
   -> NEEDS_USER_DECISION or BLUEPRINT_READY
   -> Execute preflight
   -> ExecutionProtocol.run()
-  -> REVIEWING / DONE
+  -> WP non-owner peer reviews
+  -> Review repair loop or Final review
+  -> Final-review auto replan or DONE
 ```
 
 Important runtime rules:
 
 - **Persisted state** - `.trinity/workflow/session.json` and `events.jsonl` store
-  workflow state, open questions, user decisions, blueprints, work packages, and
-  execution results.
+  workflow state, open questions, user decisions, blueprints, work packages,
+  execution results, provider session IDs, and runtime model observations.
+- **Target/model continuity** - agent selections and non-default model overrides
+  from Start/Nexus, `/ask`, or `/model` are stored on the workflow and reused
+  after question answers.
 - **Provider invocation** - one-shot transport is the default. Claude uses
   `claude -p`, Codex uses `codex exec --json`, and Antigravity uses `agy --print`.
-  Raw and cleaned response artifacts are stored under `.trinity/responses/`.
+  Raw and cleaned response artifacts are stored under `.trinity/responses/`. When
+  a provider returns a session ID, Trinity maps it to the worker agent or central
+  synthesis owner such as `central:codex` so resumed workflows can continue that
+  provider-native session.
+- **Model discovery** - `trinity init` and Textual `/model` load model choices
+  from live CLIs where possible. Codex uses `codex debug models`, Antigravity
+  uses `agy models`, and Claude uses a static fallback because the Claude CLI
+  does not expose a non-interactive model-list command.
 - **Question loop** - blocking questions move the workflow to
   `NEEDS_USER_DECISION`; answers are recorded and used to continue deliberation.
 - **Execution boundary** - provider writes require a target workspace. Writing
   inside the Trinity control repo is refused unless explicitly confirmed.
 - **Safe parallelism** - work packages run only when dependencies and expected
   file ownership make parallel execution safe.
+- **WP review** - after a WP completes, every active non-owner agent reviews it.
+  Single-agent sessions fall back to self-review.
+- **Final review** - final project review falls back in `codex -> claude ->
+  antigravity` order. Required bugfix/validation items are automatically
+  converted into `WP-S###` supplemental packages and the workflow returns to
+  `BLUEPRINT_READY` for another user-approved execution.
+- **Recovery and retry** - `/resume` restores saved workflows, and
+  `/execute-retry` restarts failed, blocked, interrupted, or custom-selected
+  work packages.
+- **Memory management** - raw logs and artifacts are preserved, while
+  `/memory compact` and shared-context projection keep provider prompts bounded.
 - **UI boundary** - Textual Workbench is a projection layer. The runtime remains
   in `WorkflowEngine`, `TrinityOrchestrator`, and `ExecutionProtocol`.
 
-For the detailed Korean runtime guide, see
-[the workflow runtime guide](docs/workflow-v0.10.2-guide.md).
+For current workflow differences and command behavior, see
+[the README workflow review](docs/plans/2026-06-11-readme-workflow-install-review.md)
+and the [Slash Command Reference](docs/slash-command-reference.md).
 
 ---
 
@@ -189,10 +301,16 @@ start after you choose `Execute` and approve the workspace preflight.
 
 - **Start Screen** — begin planning with a large multi-line prompt; workspace is optional.
 - **Nexus Screen** — provider status panels, central synthesis, and workflow inspector.
+- **Agent Target Row** — choose which of Claude/Codex/Antigravity receives the
+  next prompt from Start or Nexus, then configure provider models with `/model`.
 - **Provider Inspector** — tabbed modal for raw Claude/Codex/Antigravity output.
 - **Execution Preflight** — workspace picker and path/git/write checks only when `Execute` is selected.
 - **Execution Matrix** — work package DataTable plus execution log.
+- **Resume/Retry** — restore saved workflows with `/resume` and use the
+  `/execute-retry` modal to retry failed, blocked, or interrupted WPs.
 - **Theme Settings** — save theme mode, density, motion, and Unicode rendering preferences.
+- **Startup Update Check** — when `trinity` starts, it can ask whether to apply an
+  available update; use `--skip-update-check` to bypass this check.
 - **Plain fallback** — use `trinity --plain` or `TRINITY_TUI=plain` for the legacy Rich/prompt_toolkit UI.
 
 ---
@@ -233,19 +351,26 @@ the current Textual Workbench palette limitations, use the
 | `/context` | Show current-session goal, synthesis, questions, decisions, and work package summary |
 | `/rounds [N]` | Set max deliberation rounds (1–20) |
 | `/agent <name> on\|off` | Enable/disable an agent |
+| `/model` | Open the per-agent model selection modal and set model overrides |
 | `/history` | Show deliberation history |
 | `/save` | Save session results to file |
 | `/caveman [on\|off\|lite\|full\|ultra]` | Inspect or change concise output compression |
 | `/workflow` | Show workflow state, target workspace, and package summary |
 | `/questions [--select --all]` | Show pending questions or open the selection wizard |
 | `/answer <id\|n\|next> <text>` | Answer a workflow question and continue when needed |
+| `/ask <all\|agent[,agent...]> [--model MODEL] <text>` | Ask only selected agents or send a targeted follow-up |
 | `/decisions` | Show recorded workflow decisions |
 | `/packages` | Show generated work packages |
 | `/subtasks` | Show provider-internal subtask results |
 | `/report [save]` | Show the deliberation report or save it as Markdown |
 | `/resume [N\|latest\|ID]` | Select and resume a saved workflow session |
 | `/execute [text]` | Execute the ready blueprint in the target workspace |
+| `/execute-retry [all\|failed\|blocked\|interrupted\|custom\|WP-ID...]` | Retry failed, blocked, or interrupted work packages |
+| `/review [wp\|final\|all] [WP-ID...]` | Run pending WP review or final project review |
+| `/improve [all\|critical\|high\|AI-ID...\|done\|text]` | Select final-review follow-up work or queue supplemental WPs |
 | `/target [path\|clear]` | Show, set, or clear the implementation target workspace |
+| `/memory [stats\|compact]` | Show or compact shared context memory |
+| `/artifact <memory-id>` | Show an indexed memory artifact reference |
 | `/help` | Show help |
 | `/quit`, `/exit`, `/q` | Exit Trinity |
 
@@ -260,8 +385,11 @@ explicitly with `/resume`.
 Edit `.trinity/trinity.config` (TOML format):
 
 `trinity init` asks which model each agent should use and stores the matching
-`context_budget` for known models. `model = "default"` keeps the local CLI's
+`context_budget` for known models. The interactive wizard proposes installed
+providers as enabled by default. `model = "default"` keeps the local CLI's
 default model and applies Trinity's conservative provider default budget.
+The `trinity init --non-interactive` fallback config can still leave optional
+providers disabled until they are explicitly configured.
 
 ```toml
 [general]
@@ -291,8 +419,8 @@ caveman_intensity = "full"
 [agents.claude]
 provider = "claude-code"
 cli_command = "claude"
-model = "opus[1m]"
-context_budget = 1000000
+model = "default"
+context_budget = 200000
 role_prompt = "You are the Architect. You design systems, review code..."
 enabled = true
 extra_args = ["--dangerously-skip-permissions"]
@@ -300,10 +428,10 @@ extra_args = ["--dangerously-skip-permissions"]
 [agents.codex]
 provider = "codex"
 cli_command = "codex"
-model = "gpt-5.1"
-context_budget = 400000
+model = "default"
+context_budget = 128000
 role_prompt = "You are the Implementer. You write clean, efficient code..."
-enabled = false                    # Disabled by default
+enabled = true                     # When selected in interactive init
 
 [agents.antigravity]
 provider = "antigravity-cli"
@@ -311,7 +439,7 @@ cli_command = "agy"
 model = "default"
 context_budget = 1000000
 role_prompt = "You are the Reviewer. You explore alternatives..."
-enabled = false                    # Disabled by default
+enabled = true                     # When selected in interactive init
 ```
 
 ---
@@ -456,8 +584,8 @@ uv publish --token <PYPI_TOKEN>
 
 | Metric | Value |
 | :--- | :--- |
-| **Version** | 0.10.3 |
-| **Tests** | `1173 passed, 1 warning` in the latest WSL 0.10.3 verification run |
+| **Version** | 0.12.7 |
+| **Tests** | Run the full suite with `uv run pytest` |
 | **Coverage** | ~87% |
 | **Source files** | 100+ |
 | **Test files** | 70+ |

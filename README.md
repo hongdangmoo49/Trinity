@@ -46,13 +46,96 @@
 ### 설치하기
 
 ```bash
-pip install trinity-agent
+# 권장: 격리된 CLI 설치
+pipx install trinity-agent
+
+# 또는 이미 관리 중인 Python 환경에 설치
+python -m pip install trinity-agent
 ```
+
+### macOS 새 환경에서 설치하기
+
+1. Python 3.10 이상과 `pipx`를 준비합니다.
+
+   ```bash
+   brew install python pipx
+   pipx ensurepath
+   ```
+
+2. Trinity를 설치합니다.
+
+   ```bash
+   pipx install trinity-agent
+   trinity --version
+   ```
+
+3. 같은 macOS 터미널 환경에 사용할 provider CLI를 설치하고 로그인합니다.
+   최소 한 개가 필요하며, 세 개를 모두 설치하면 Trinity의 전체 multi-agent 흐름을
+   사용할 수 있습니다.
+
+   | Provider | 확인 명령 | 설치/인증 문서 |
+   | :--- | :--- | :--- |
+   | Claude Code | `claude --version` | <https://docs.anthropic.com/en/docs/claude-code> |
+   | Codex CLI | `codex --version` | <https://github.com/openai/codex> |
+   | Antigravity CLI | `agy --version` | <https://antigravity.google/docs/cli-getting-started> |
+
+4. 프로젝트 폴더에서 Trinity를 초기화하고 실행합니다.
+
+   ```bash
+   cd /path/to/your/project
+   trinity init
+   trinity bootstrap
+   trinity
+   ```
+
+### Windows 새 환경에서 설치하기
+
+권장 경로는 **WSL2 Ubuntu**입니다. Trinity를 WSL에서 실행한다면 Claude/Codex/Agy도
+같은 WSL 안에 설치하고 인증해야 합니다. Windows PowerShell에 설치된 provider CLI는
+WSL 내부에서 자동으로 공유되지 않습니다.
+
+1. PowerShell에서 WSL2 Ubuntu를 설치합니다.
+
+   ```powershell
+   wsl --install -d Ubuntu
+   ```
+
+2. Ubuntu 터미널에서 Python과 `pipx`를 준비하고 Trinity를 설치합니다.
+
+   ```bash
+   sudo apt update
+   sudo apt install -y python3 python3-pip python3-venv pipx
+   pipx ensurepath
+   pipx install trinity-agent
+   trinity --version
+   ```
+
+3. 같은 Ubuntu 환경에 provider CLI를 설치하고 로그인한 뒤 확인합니다.
+
+   ```bash
+   claude --version
+   codex --version
+   agy --version
+   ```
+
+4. 작업할 프로젝트 폴더에서 초기화하고 실행합니다.
+
+   ```bash
+   cd ~/workspace/your-project
+   trinity init
+   trinity bootstrap
+   trinity
+   ```
+
+Native Windows PowerShell에서 실행할 수도 있습니다. 이 경우 Python을 설치한 뒤
+PowerShell에서 `py -m pip install --user pipx`, `py -m pipx ensurepath`,
+`pipx install trinity-agent` 순서로 설치하고, provider CLI도 PowerShell에서 인식되는
+PATH에 설치해야 합니다.
 
 ### 프로젝트 초기화
 
 ```bash
-# 대화형 설정 마법사 실행 — 시스템에 설치된 AI CLI를 자동으로 탐색합니다
+# 대화형 설정 마법사 실행 — 설치된 AI CLI와 모델 목록을 자동 탐색합니다
 trinity init
 
 # 비대화형 실행 (기본 설정값 적용)
@@ -104,11 +187,13 @@ Trinity가 백그라운드에서 다음 단계를 자동으로 수행합니다:
 
 | 단계 | 수행 항목 및 동작 설명 |
 | :--- | :--- |
-| **초기화 (Initialize)** | 최종 목표와 참가 에이전트 목록을 담은 공유 컨텍스트 파일(`shared.md`)을 생성합니다. |
-| **1라운드 (Round 1)** | 각 에이전트가 사용자의 요청을 분석하고 이에 대한 **초기 의견 및 설계안**을 공유 컨텍스트에 제시합니다. |
-| **2라운드 이상 (Round 2+)** | 다른 에이전트들의 제안을 상호 검토하여 **동의/비동의**를 표명하고, 필요 시 더 나은 대안을 제안합니다. |
-| **합의 도달 (Consensus)** | 전체 에이전트 중 60% 이상이 동의하는 시점에 최종 합의안을 **확정**합니다. |
-| **작업 분배 (Distribute)** | 확정된 작업들을 각 에이전트의 **특화된 분야(강점)**에 맞춰 자동으로 할당하고 처리합니다. |
+| **초기화 (Initialize)** | 사용자 목표, 선택 agent, 모델 override, provider session 관찰값을 workflow 상태로 저장합니다. |
+| **협의 라운드 (Rounds)** | 선택된 에이전트가 사용자 요청을 분석하고 초기 의견, 리스크, 구현 방향을 반환합니다. |
+| **중앙 합성 (Central Synthesis)** | 중앙 에이전트가 응답을 요약·분석해 질문이 필요한지, blueprint를 만들 수 있는지 판단합니다. |
+| **사용자 결정 (Decision)** | 질문이 있으면 `NEEDS_USER_DECISION`에서 멈추고, 답변 후 같은 대상 agent/model로 협의를 이어갑니다. |
+| **Blueprint 준비 (Blueprint Ready)** | 실행 가능한 작업이면 work package를 만들고, 사용자가 `Execute` 또는 보강을 선택할 수 있게 합니다. |
+| **실행과 리뷰 (Execute/Review)** | Target workspace preflight 후 WP를 실행하고, 각 WP는 모든 non-owner agent에게 리뷰받습니다. |
+| **최종 리뷰와 재계획 (Final Review/Replan)** | 전체 리뷰에서 필수 수정이 나오면 supplemental WP를 자동 생성하고 다시 사용자 승인 대기 상태로 돌아갑니다. |
 
 ### 에이전트별 특기 분야(강점)
 
@@ -122,14 +207,14 @@ Trinity가 백그라운드에서 다음 단계를 자동으로 수행합니다:
 
 ## 🧭 워크플로우와 실행 모델
 
-Trinity `0.10.3`의 핵심은 **planning과 execution을 분리한 persisted workflow**입니다.
-사용자의 요구사항은 먼저 라운드 기반 deliberation과 central synthesis를 거쳐
-질문, 결정, blueprint, work package로 정리됩니다. 실제 파일 변경은 blueprint가
-준비된 뒤 사용자가 `Execute`를 선택하고 target workspace preflight를 통과해야
-시작됩니다.
+Trinity `0.12.7`의 핵심은 **planning, execution, review, replan을 분리한
+persisted workflow**입니다. 사용자의 요구사항은 먼저 라운드 기반 deliberation과
+central synthesis를 거쳐 질문, 결정, blueprint, work package로 정리됩니다.
+실제 파일 변경은 blueprint가 준비된 뒤 사용자가 `Execute`를 선택하고 target
+workspace preflight를 통과해야 시작됩니다.
 
 ```text
-Prompt
+Prompt + selected agents/models
   → WorkflowEngine.start()
   → TrinityOrchestrator.ask()
   → ProviderReadinessGate
@@ -138,16 +223,26 @@ Prompt
   → NEEDS_USER_DECISION 또는 BLUEPRINT_READY
   → Execute preflight
   → ExecutionProtocol.run()
-  → REVIEWING / DONE
+  → WP non-owner peer reviews
+  → Review repair loop 또는 Final review
+  → Final-review auto replan 또는 DONE
 ```
 
 주요 동작 규칙:
 
 - **상태 저장** — `.trinity/workflow/session.json`과 `events.jsonl`에 workflow 상태,
-  open question, user decision, blueprint, work package, 실행 결과를 저장합니다.
-- **Provider 호출** — 기본 transport는 one-shot입니다. Claude는 `claude -p`,
+  open question, user decision, blueprint, work package, 실행 결과, provider
+  session id, runtime model 관찰값을 저장합니다.
+- **대상 에이전트와 모델 유지** — Start/Nexus의 대상 선택, `/ask`, `/model`에서
+  고른 agent/model override는 workflow에 저장되고 질문 답변 이후에도 이어집니다.
+- **Provider 호출** — 기본 호출은 one-shot입니다. Claude는 `claude -p`,
   Codex는 `codex exec --json`, Antigravity는 `agy --print`로 호출되고,
-  raw/clean response artifact가 `.trinity/responses/`에 남습니다.
+  raw/clean response artifact가 `.trinity/responses/`에 남습니다. Provider가
+  session id를 반환하면 worker agent와 central synthesis(`central:codex` 등)에
+  매핑해 resume 이후에도 이어갈 수 있게 저장합니다.
+- **모델 탐색** — `trinity init`과 Textual `/model`은 가능한 경우 실제 CLI에서
+  모델 목록을 가져옵니다. Codex는 `codex debug models`, Antigravity는 `agy models`를
+  사용하며, Claude는 CLI 모델 목록 명령이 없어 정적 fallback을 사용합니다.
 - **질문 루프** — synthesis가 blocking question을 만들면 workflow는
   `NEEDS_USER_DECISION`에서 멈추고, 답변이 기록되면 decision continuation prompt로
   다시 deliberation을 이어갑니다.
@@ -155,12 +250,23 @@ Prompt
   control repo 내부 쓰기는 명시적 확인 없이는 차단됩니다.
 - **병렬 실행** — work package dependency와 예상 파일 소유권을 기준으로 안전한
   병렬 batch만 실행합니다.
+- **WP 리뷰** — WP가 완료되면 해당 WP를 수행하지 않은 모든 active agent가 리뷰합니다.
+  단일 agent 세션에서는 self-review로 대체됩니다.
+- **Final review** — 전체 실행 후 최종 리뷰는 `codex → claude → antigravity` 순서로
+  fallback합니다. 필수 bugfix/validation 항목이 나오면 중앙 workflow가 `WP-S###`
+  supplemental package를 자동으로 만들고 다시 `BLUEPRINT_READY`로 돌려, 사용자가
+  다음 실행을 승인할 수 있게 합니다.
+- **복구와 재시도** — `/resume`은 저장된 workflow를 복원하고, `/execute-retry`는
+  failed/blocked/interrupted/custom package를 골라 새 execution run으로 재시도합니다.
+- **메모리 관리** — 원본 로그와 artifact는 보존하되, `/memory compact`와 shared
+  context projection으로 provider prompt에 들어가는 정보를 압축합니다.
 - **UI 역할** — Textual Workbench는 workflow/orchestrator를 새로 구현하지 않고,
   `TextualWorkflowController`가 기존 engine을 background thread에서 실행한 뒤
   snapshot으로 투영합니다.
 
-상세한 상태 전이와 런타임 경로는
-[workflow runtime guide](docs/workflow-v0.10.2-guide.md)를 참고하세요.
+상세한 상태 전이 차이는
+[README workflow review](docs/plans/2026-06-11-readme-workflow-install-review.md)와
+[Slash Command Reference](docs/slash-command-reference.md)를 참고하세요.
 
 ---
 
@@ -189,10 +295,16 @@ Trinity는 기본 실행 화면으로 **Textual 기반 Workbench TUI**를 제공
 
 - **Start Screen** — workspace를 필수로 묻지 않고 큰 multi-line prompt로 planning을 시작합니다.
 - **Nexus Screen** — provider별 상태 패널, 중앙 synthesis, workflow inspector를 한 화면에 보여줍니다.
+- **Agent Target Row** — Start/Nexus 입력창에서 Claude/Codex/Antigravity 중 질문할
+  대상을 고르고, `/model` modal에서 provider별 모델을 세부 설정합니다.
 - **Provider Inspector** — Claude/Codex/Antigravity 원문 output을 탭 modal에서 확인합니다.
 - **Execution Preflight** — `Execute` 시점에만 workspace picker와 경로/git/write 권한 preflight를 보여줍니다.
 - **Execution Matrix** — work package DataTable과 execution log를 모니터링 화면으로 표시합니다.
+- **Resume/Retry** — `/resume`으로 이전 workflow를 복원하고 `/execute-retry` modal에서
+  실패, 차단, 중단된 WP를 선택해 재시도합니다.
 - **Theme Settings** — 앱 안에서 theme mode, density, motion, Unicode rendering preference를 저장합니다.
+- **Startup Update Check** — `trinity` 실행 시 업데이트가 있으면 적용 여부를 묻고,
+  `--skip-update-check`로 건너뛸 수 있습니다.
 - **Plain fallback** — `trinity --plain` 또는 `TRINITY_TUI=plain`으로 기존 Rich/prompt_toolkit TUI를 사용할 수 있습니다.
 
 ---
@@ -233,19 +345,26 @@ Trinity는 기본 실행 화면으로 **Textual 기반 Workbench TUI**를 제공
 | `/context` | 현재 세션의 목표, 합의, 질문, 결정, 작업 패키지 요약 확인 |
 | `/rounds [N]` | 토론을 진행할 최대 라운드 횟수 설정 (1–20 범위) |
 | `/agent <이름> on\|off` | 특정 에이전트를 즉시 활성화하거나 비활성화 |
+| `/model` | 에이전트별 모델 선택 modal을 열고 다음 요청의 모델 override 설정 |
 | `/history` | 이전 라운드의 토론 히스토리 요약 조회 |
 | `/save` | 현재 토론 세션의 전체 결과를 파일로 영구 저장 |
 | `/caveman [on\|off\|lite\|full\|ultra]` | 출력 압축 모드 조회 또는 변경 |
 | `/workflow` | 현재 workflow 상태, target workspace, package 요약 조회 |
 | `/questions [--select --all]` | 대기 중인 사용자 질문 표시 또는 선택 UI 실행 |
 | `/answer <id\|n\|next> <텍스트>` | workflow 질문에 답변하고 필요 시 협의 재개 |
+| `/ask <all\|agent[,agent...]> [--model MODEL] <텍스트>` | 선택한 에이전트에게만 질문하거나 follow-up 전송 |
 | `/decisions` | 기록된 사용자/시스템 결정 목록 조회 |
 | `/packages` | 생성된 work package 목록 조회 |
 | `/subtasks` | provider 내부 위임 subtask 결과 조회 |
 | `/report [save]` | 협의 결과 개괄 보고서 표시 또는 Markdown 저장 |
 | `/resume [N\|latest\|ID]` | 저장된 workflow 세션을 선택해 재개 |
 | `/execute [텍스트]` | 준비된 blueprint를 target workspace에서 실행 |
+| `/execute-retry [all\|failed\|blocked\|interrupted\|custom\|WP-ID...]` | 실패, 차단, 중단된 work package를 선택해 재시도 |
+| `/review [wp\|final\|all] [WP-ID...]` | 대기 중인 WP 리뷰 또는 최종 프로젝트 리뷰 실행 |
+| `/improve [all\|critical\|high\|AI-ID...\|done\|텍스트]` | final review 후속 보강 작업 선택 또는 supplemental WP 추가 |
 | `/target [경로\|clear]` | 구현 산출물을 쓸 target workspace 조회, 설정, 초기화 |
+| `/memory [stats\|compact]` | shared context memory 통계 확인 또는 압축 |
+| `/artifact <memory-id>` | memory index에 기록된 artifact 참조 확인 |
 | `/help` | 사용 가능한 인라인 명령어 도움말 표시 |
 | `/quit`, `/exit`, `/q` | Trinity 종료 및 백그라운드 리소스 정리 |
 
@@ -259,8 +378,10 @@ TUI는 기본적으로 새 workflow 세션으로 시작한다. 이전 active wor
 `.trinity/trinity.config` 편집 (TOML 형식):
 
 `trinity init`은 각 에이전트의 모델을 선택받고, 알려진 모델이면 알맞은
-`context_budget`을 자동으로 저장합니다. `model = "default"`는 해당 CLI의 로컬
-기본 모델을 그대로 사용하며, 보수적인 provider 기본 예산을 적용합니다.
+`context_budget`을 자동으로 저장합니다. 대화형 wizard는 설치된 provider를 기본적으로
+활성화 대상으로 제안합니다. `model = "default"`는 해당 CLI의 로컬 기본 모델을 그대로
+사용하며, 보수적인 provider 기본 예산을 적용합니다. `trinity init --non-interactive`의
+fallback 기본 설정은 선택 provider를 명시적으로 켜기 전까지 비활성 상태로 둘 수 있습니다.
 
 ```toml
 [general]
@@ -290,8 +411,8 @@ caveman_intensity = "full"
 [agents.claude]
 provider = "claude-code"
 cli_command = "claude"
-model = "opus[1m]"
-context_budget = 1000000
+model = "default"
+context_budget = 200000
 role_prompt = "You are the Architect. You design systems, review code..."
 enabled = true
 extra_args = ["--dangerously-skip-permissions"]
@@ -299,10 +420,10 @@ extra_args = ["--dangerously-skip-permissions"]
 [agents.codex]
 provider = "codex"
 cli_command = "codex"
-model = "gpt-5.1"
-context_budget = 400000
+model = "default"
+context_budget = 128000
 role_prompt = "You are the Implementer. You write clean, efficient code..."
-enabled = false                    # 기본값은 비활성화
+enabled = true                     # 대화형 init에서 선택한 경우
 
 [agents.antigravity]
 provider = "antigravity-cli"
@@ -310,7 +431,7 @@ cli_command = "agy"
 model = "default"
 context_budget = 1000000
 role_prompt = "You are the Reviewer. You explore alternatives..."
-enabled = false                    # 기본값은 비활성화
+enabled = true                     # 대화형 init에서 선택한 경우
 ```
 
 ---
@@ -455,8 +576,8 @@ uv publish --token <PYPI_TOKEN>
 
 | 지표 | 수치 |
 | :--- | :--- |
-| **버전** | 0.10.3 |
-| **테스트** | `1173 passed, 1 warning` (WSL 최신 0.10.3 검증 기준) |
+| **버전** | 0.12.7 |
+| **테스트** | `uv run pytest`로 전체 테스트 스위트 실행 |
 | **커버리지** | 약 87% |
 | **소스 파일** | 100여 개 |
 | **테스트 파일** | 70여 개 |

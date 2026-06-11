@@ -72,6 +72,8 @@ SYNTHESIS_STRONG_MODELS: dict[Provider, str] = {
     Provider.ANTIGRAVITY_CLI: "default",
 }
 
+CENTRAL_SYNTHESIS_SESSION_PREFIX = "central:"
+
 
 @dataclass(frozen=True)
 class AgentLaunchContext:
@@ -426,6 +428,7 @@ class TrinityOrchestrator:
                 "fallback_used": False,
                 "provider": model_agent.provider.value,
                 "provider_agent": model_agent.agent_name,
+                "provider_session_agent": model_agent.provider_session_agent_name,
                 "model": model_agent.model,
                 "requested_model": model_agent.requested_model,
             }
@@ -439,9 +442,12 @@ class TrinityOrchestrator:
         context = self.agent_launch_contexts.get(agent_name)
         cwd = context.cwd if context is not None else self.config.project_dir.resolve()
         env = dict(context.env_overrides) if context is not None else {}
+        provider_session_agent_name = self._central_synthesis_session_agent_name(agent_name)
         return ModelBackedSynthesisAgent(
             invoker=invoker,
             agent_name=agent_name,
+            provider_session_agent_name=provider_session_agent_name,
+            provider_session_id=self._provider_session_for_agent(provider_session_agent_name),
             provider=spec.provider,
             cli_command=spec.cli_command,
             cwd=cwd,
@@ -629,6 +635,12 @@ class TrinityOrchestrator:
         if not candidates:
             return ""
         return sorted(candidates, reverse=True)[0][1]
+
+    @staticmethod
+    def _central_synthesis_session_agent_name(agent_name: str) -> str:
+        """Return the logical provider-session owner for central synthesis."""
+        normalized = str(agent_name or "").strip()
+        return f"{CENTRAL_SYNTHESIS_SESSION_PREFIX}{normalized or 'agent'}"
 
     async def ask(self, prompt: str) -> DeliberationResult:
         """Main entry point: run deliberation on a user prompt."""

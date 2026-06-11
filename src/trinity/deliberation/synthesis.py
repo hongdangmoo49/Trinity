@@ -127,9 +127,12 @@ class ModelBackedSynthesisAgent:
         max_input_chars: int = 60_000,
         artifact_dir: Path | None = None,
         lang: str = "en",
+        provider_session_agent_name: str = "",
+        provider_session_id: str = "",
     ):
         self.invoker = invoker
         self.agent_name = agent_name
+        self.provider_session_agent_name = provider_session_agent_name or agent_name
         self.provider = provider
         self.cli_command = cli_command
         self.cwd = cwd
@@ -141,13 +144,14 @@ class ModelBackedSynthesisAgent:
         self.max_input_chars = max_input_chars
         self.artifact_dir = artifact_dir
         self.lang = lang
+        self.provider_session_id = provider_session_id
 
     async def synthesize(self, synthesis_input: SynthesisInput) -> SynthesisResult:
         """Call a provider and convert its strict JSON response into SynthesisResult."""
         request_id = f"synthesis-round-{synthesis_input.round_num}-{uuid4().hex[:12]}"
         prompt = self._build_prompt(synthesis_input)
         request = PromptRequest(
-            agent_name=self.agent_name,
+            agent_name=self.provider_session_agent_name,
             provider=self.provider,
             cli_command=self.cli_command,
             prompt=prompt,
@@ -160,6 +164,8 @@ class ModelBackedSynthesisAgent:
             model=self.model,
             extra_args=self.extra_args,
             access=InvocationAccess.READ_ONLY,
+            provider_session_id=self.provider_session_id,
+            continuity_enabled=bool(self.provider_session_id),
         )
         turn = await self.invoker.invoke(request)
         raw_output = turn.raw_output or turn.content
@@ -212,6 +218,7 @@ class ModelBackedSynthesisAgent:
                 "fallback_used": False,
                 "provider": self.provider.value,
                 "provider_agent": self.agent_name,
+                "provider_session_agent": self.provider_session_agent_name,
                 "model": self.model,
                 "requested_model": self.requested_model,
                 "status": turn.status.value,
@@ -221,6 +228,12 @@ class ModelBackedSynthesisAgent:
         )
         if provider_diagnostics:
             result.metadata["provider_diagnostics"] = provider_diagnostics
+        provider_session = turn.metadata.get("provider_session")
+        if isinstance(provider_session, dict):
+            result.metadata["provider_session"] = dict(provider_session)
+        runtime_model = turn.metadata.get("runtime_model")
+        if isinstance(runtime_model, dict):
+            result.metadata["runtime_model"] = dict(runtime_model)
         result.metadata.update(artifacts)
         return result
 

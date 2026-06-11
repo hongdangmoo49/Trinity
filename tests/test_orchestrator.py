@@ -13,6 +13,7 @@ from trinity.deliberation.synthesis import (
 )
 from trinity.providers.readiness import ProviderState, ReadinessResult
 from trinity.workflow import ExecutionResult, WorkPackage, WorkStatus
+from trinity.workflow.models import ProviderSessionRef
 
 
 class TestTrinityOrchestratorInit:
@@ -980,3 +981,50 @@ class TestSynthesisAgentWiring:
         assert primary.provider == Provider.CODEX
         assert primary.model == "gpt-5.4-mini"
         assert orch.synthesis_status["provider_agent"] == "codex"
+
+    def test_model_synthesis_uses_restored_central_provider_session(self, tmp_path):
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=tmp_path / ".trinity",
+            synthesis_agent="codex",
+            synthesis_model="agent-default",
+            agents={
+                "codex": AgentSpec(
+                    name="codex",
+                    provider=Provider.CODEX,
+                    cli_command="codex",
+                    model="gpt-5",
+                    enabled=True,
+                ),
+            },
+        )
+        orch = TrinityOrchestrator(
+            config,
+            provider_sessions={
+                "regular": ProviderSessionRef(
+                    provider="codex",
+                    agent_name="codex",
+                    session_key="regular",
+                    provider_session_id="agent-thread",
+                    access="read-only",
+                    last_observed_at=2.0,
+                ),
+                "central": ProviderSessionRef(
+                    provider="codex",
+                    agent_name="central:codex",
+                    session_key="central",
+                    provider_session_id="central-thread",
+                    access="read-only",
+                    last_observed_at=1.0,
+                ),
+            },
+        )
+
+        orch._ensure_initialized()
+
+        primary = orch.protocol.synthesis_agent.primary
+        assert isinstance(primary, ModelBackedSynthesisAgent)
+        assert primary.agent_name == "codex"
+        assert primary.provider_session_agent_name == "central:codex"
+        assert primary.provider_session_id == "central-thread"
+        assert orch.synthesis_status["provider_session_agent"] == "central:codex"

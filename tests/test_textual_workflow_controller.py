@@ -387,6 +387,43 @@ def test_textual_workflow_controller_passes_targeted_agents_to_orchestrator(
     assert call["agent_model_overrides"] == {"codex": "gpt-5"}
 
 
+def test_textual_workflow_controller_preserves_targeted_agents_when_answering_question(
+    tmp_path,
+) -> None:
+    CapturingOrchestrator.calls = []
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start(
+        "코덱스만 이어서 검토해줘",
+        ["claude", "codex"],
+        target_agents=("codex",),
+        agent_model_overrides={"codex": "gpt-5"},
+    )
+    workflow.add_open_question(
+        OpenQuestion(
+            id="q-1",
+            question="Which theme?",
+            options=["dark", "light"],
+        )
+    )
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=CapturingOrchestrator,
+        archive_active_session=False,
+    )
+
+    outcome = controller.answer_question("q-1", "dark")
+
+    assert outcome.running is True
+    assert controller.wait_until_idle(timeout=2.0)
+    assert CapturingOrchestrator.calls
+    call = CapturingOrchestrator.calls[-1]
+    assert call["active_agent_names"] == ("codex",)
+    assert call["agent_model_overrides"] == {"codex": "gpt-5"}
+
+
 def test_textual_workflow_controller_reports_active_synthesis(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     controller = TextualWorkflowController(

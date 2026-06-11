@@ -1256,7 +1256,7 @@ def test_record_final_review_approved_moves_to_post_review_ready(tmp_path):
     assert engine.state == WorkflowState.DONE
 
 
-def test_post_review_improve_queues_supplemental_wp_without_clearing_evidence(tmp_path):
+def test_final_review_changes_auto_queue_supplemental_wp_without_clearing_evidence(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
     engine.start("Implement route bot", ["codex", "claude"])
     engine.set_target_workspace(tmp_path / "route-bot")
@@ -1295,22 +1295,58 @@ def test_post_review_improve_queues_supplemental_wp_without_clearing_evidence(tm
         ]
     )
 
-    assert engine.state == WorkflowState.POST_REVIEW_READY
-    assert [item.id for item in engine.post_review_items] == ["AI-001"]
-    assert engine.post_review_items[0].status.value == "proposed"
-
-    action = engine.handle_post_review_input("/improve high", ["codex", "claude"])
-
-    assert action.execution_requested is True
     assert engine.state == WorkflowState.BLUEPRINT_READY
+    assert [item.id for item in engine.post_review_items] == ["AI-001"]
+    assert engine.post_review_items[0].status.value == "queued"
     assert [package.id for package in engine.session.work_packages] == ["WP-001", "WP-S001"]
     supplemental = engine.session.work_packages[-1]
     assert supplemental.origin == "post_review_followup"
     assert supplemental.origin_action_item_ids == ["AI-001"]
     assert supplemental.status == WorkStatus.PENDING
+    assert supplemental.objective.startswith(
+        "Post-review action item AI-001: Add execution retry regression tests."
+    )
+    assert engine.session.execution_run["state"] == "supplemental_queued"
+    assert engine.session.execution_run["source"] == "final_review_auto_replan"
+    assert engine.session.execution_run["auto_replanned_from_review"] == "RP-FINAL-codex"
+    assert engine.session.execution_run["auto_replanned_action_item_ids"] == ["AI-001"]
     assert engine.execution_results[0].summary == "Implemented client."
     assert engine.review_results[0].summary == "Needs regression coverage."
-    assert engine.post_review_items[0].status.value == "queued"
+    events = engine.persistence.load_events()
+    assert events[-1]["event"] == "post_review_auto_replan_queued"
+
+
+def test_final_review_changes_without_target_workspace_waits_for_user(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Implement route bot", ["codex", "claude"])
+    engine.set_state(WorkflowState.REVIEWING, reason="test final review")
+
+    engine.record_review_results(
+        [
+            ReviewResult(
+                review_package_id="RP-FINAL-codex",
+                package_id="FINAL",
+                reviewer_agent="codex",
+                target_agent="project",
+                status=ReviewStatus.CHANGES_REQUESTED,
+                severity="high",
+                scope="final",
+                summary="Needs regression coverage.",
+                required_changes=["Add execution retry regression tests."],
+            )
+        ]
+    )
+
+    assert engine.state == WorkflowState.POST_REVIEW_READY
+    assert [item.id for item in engine.post_review_items] == ["AI-001"]
+    assert engine.post_review_items[0].status.value == "proposed"
+    assert [package.id for package in engine.session.work_packages] == []
+    events = engine.persistence.load_events()
+    assert any(
+        event["event"] == "post_review_auto_replan_skipped"
+        and event["data"]["reason"] == "target_workspace_missing"
+        for event in events
+    )
 
 
 def test_record_work_package_started_persists_running_status(tmp_path):

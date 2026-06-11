@@ -64,12 +64,12 @@ class TestCLIDetector:
         with patch("trinity.setup.detector.shutil.which", return_value=None):
             results = detector.detect_all()
 
-        assert len(results) == len(Provider) + 1
+        assert len(results) == len(Provider)
         providers = {r.provider for r in results}
         assert Provider.CLAUDE_CODE in providers
         assert Provider.CODEX in providers
         assert Provider.ANTIGRAVITY_CLI in providers
-        assert LEGACY_GEMINI_CLI in providers
+        assert LEGACY_GEMINI_CLI not in providers
 
     def test_detect_installed_binary(self):
         detector = CLIDetector()

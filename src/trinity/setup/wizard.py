@@ -21,10 +21,12 @@ from rich.table import Table
 from trinity.i18n import Lang, get_strings, localized_roles_with_caveman
 from trinity.models import (
     AgentSpec,
-    ModelContextSpec,
     Provider,
     PROVIDER_DEFAULT_MODELS,
-    provider_model_choices,
+)
+from trinity.providers.model_discovery import (
+    ProviderModelChoice,
+    discover_provider_models,
 )
 from trinity.setup.detector import (
     LEGACY_PROVIDERS,
@@ -44,6 +46,13 @@ PROVIDER_AGENT_NAMES: dict[Provider, str] = {
     Provider.CODEX: "codex",
     Provider.ANTIGRAVITY_CLI: "antigravity",
 }
+
+
+def _is_legacy_detection(detection: CLIDetectionResult) -> bool:
+    provider = detection.provider
+    if isinstance(provider, Provider):
+        return False
+    return str(provider) in LEGACY_PROVIDERS
 
 
 class SetupWizard:
@@ -134,6 +143,10 @@ class SetupWizard:
         self.console.print()
 
         self.detections = self.detector.detect_all()
+        visible_detections = [
+            d for d in self.detections
+            if not _is_legacy_detection(d)
+        ]
 
         # Display results
         table = Table(show_header=True, header_style="bold")
@@ -141,7 +154,7 @@ class SetupWizard:
         table.add_column(S.col_status, min_width=12)
         table.add_column(S.col_info, style="dim")
 
-        for d in self.detections:
+        for d in visible_detections:
             if d.installed:
                 status = f"[green]{S.detected}[/green]"
                 info = f"{d.version}" if d.version else f"at {d.path}"
@@ -157,7 +170,7 @@ class SetupWizard:
         self.console.print()
 
         # Show install hints for missing tools
-        missing = [d for d in self.detections if not d.installed]
+        missing = [d for d in visible_detections if not d.installed]
         if missing:
             self.console.print(f"[dim]{S.install_hint}[/dim]")
             for d in missing:
@@ -165,7 +178,7 @@ class SetupWizard:
             self.console.print()
 
         installed = [
-            d for d in self.detections
+            d for d in visible_detections
             if d.installed and isinstance(d.provider, Provider)
         ]
         if not installed:
@@ -193,7 +206,7 @@ class SetupWizard:
             assert isinstance(d.provider, Provider)
             agent_name = PROVIDER_AGENT_NAMES.get(d.provider, d.provider.value)
             display = PROVIDER_DISPLAY_NAMES.get(d.provider, d.provider.value)
-            default = d.provider == Provider.CLAUDE_CODE
+            default = True
 
             msg = S.enable_prompt.format(display_name=display, agent_name=agent_name)
             if d.provider == Provider.CLAUDE_CODE:
@@ -245,9 +258,9 @@ class SetupWizard:
             selected_model = self._ask_model_choice(spec)
             if selected_model:
                 spec.model = selected_model.model
-                spec.context_budget = selected_model.context_budget
+                spec.context_budget = selected_model.context_budget or 0
                 self.console.print(
-                    f"  {S.model_budget_applied.format(budget=spec.context_budget)}"
+                    f"  {S.model_budget_applied.format(budget=spec.effective_context_budget)}"
                 )
 
             # Role prompt
@@ -279,10 +292,15 @@ class SetupWizard:
 
             self.console.print()
 
-    def _ask_model_choice(self, spec: AgentSpec) -> ModelContextSpec | None:
+    def _ask_model_choice(self, spec: AgentSpec) -> ProviderModelChoice | None:
         """Prompt for a provider model and return its context metadata."""
         S = get_strings(self.lang)
-        choices = list(provider_model_choices(spec.provider))
+        choices = discover_provider_models(
+            spec.provider,
+            spec.cli_command,
+            timeout_seconds=10.0,
+            use_cache=False,
+        )
         if not choices:
             return None
 
@@ -294,9 +312,9 @@ class SetupWizard:
         for idx, choice in enumerate(choices, start=1):
             table.add_row(
                 str(idx),
-                f"{choice.display_name} ({choice.model})",
-                f"{choice.context_budget:,}",
-                choice.note,
+                self._model_choice_label(choice),
+                self._model_budget_label(choice.context_budget),
+                choice.source,
             )
         table.add_row("c", S.custom_model, "-", S.custom_model_hint)
         self.console.print(table)
@@ -320,14 +338,27 @@ class SetupWizard:
                 f"  {S.enter_budget}",
                 default=spec.effective_context_budget,
             )
-            return ModelContextSpec(
+            return ProviderModelChoice(
+                provider=spec.provider,
                 model=model_name,
-                display_name=model_name,
+                label=model_name,
                 context_budget=budget,
-                note="custom",
+                source="static-fallback",
             )
 
         return choices[int(selected) - 1]
+
+    @staticmethod
+    def _model_choice_label(choice: ProviderModelChoice) -> str:
+        if choice.label and choice.label != choice.model:
+            return f"{choice.label} ({choice.model})"
+        return choice.model
+
+    @staticmethod
+    def _model_budget_label(context_budget: int | None) -> str:
+        if context_budget:
+            return f"{context_budget:,}"
+        return "auto"
 
     def _step_review(self) -> bool:
         """Step 4: Review and confirm configuration."""

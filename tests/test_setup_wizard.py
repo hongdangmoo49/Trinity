@@ -6,6 +6,7 @@ import pytest
 from rich.console import Console
 
 from trinity.models import AgentSpec, Provider
+from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.setup.detector import CLIDetectionResult, LEGACY_GEMINI_CLI
 from trinity.setup.wizard import SetupWizard, PROVIDER_AGENT_NAMES
 
@@ -90,13 +91,44 @@ class TestSetupWizard:
         assert result is True  # At least one installed
         assert len(wizard.detections) == 4
 
+    def test_step_detect_hides_legacy_gemini(self, mock_detector_all_installed):
+        console = Console(force_terminal=True, width=120, record=True)
+        wizard = SetupWizard(console=console, detector=mock_detector_all_installed)
+
+        result = wizard._step_detect()
+
+        assert result is True
+        output = console.export_text()
+        assert "Antigravity CLI" in output
+        assert "Gemini CLI" not in output
+
     def test_step_detect_no_tools_installed(self, console):
         detector = MagicMock()
         detector.detect_all.return_value = [
             CLIDetectionResult(provider=Provider.CLAUDE_CODE, installed=False, error="not found"),
             CLIDetectionResult(provider=Provider.CODEX, installed=False, error="not found"),
-            CLIDetectionResult(provider=Provider.ANTIGRAVITY_CLI, installed=False, error="not found"),
+            CLIDetectionResult(
+                provider=Provider.ANTIGRAVITY_CLI,
+                installed=False,
+                error="not found",
+            ),
             CLIDetectionResult(provider=LEGACY_GEMINI_CLI, installed=False, error="not found"),
+        ]
+
+        wizard = SetupWizard(console=console, detector=detector)
+        result = wizard._step_detect()
+
+        assert result is False
+
+    def test_step_detect_legacy_gemini_only_is_not_available(self, console):
+        detector = MagicMock()
+        detector.detect_all.return_value = [
+            CLIDetectionResult(
+                provider=LEGACY_GEMINI_CLI,
+                installed=True,
+                version="gemini 0.5.0",
+                path="/usr/bin/gemini",
+            ),
         ]
 
         wizard = SetupWizard(console=console, detector=detector)
@@ -128,6 +160,22 @@ class TestSetupWizard:
         assert "codex" in wizard.selected_agents
         assert "antigravity" in wizard.selected_agents
         assert "gemini" not in wizard.selected_agents
+
+    def test_step_select_installed_agents_default_to_enabled(
+        self,
+        console,
+        mock_detector_all_installed,
+    ):
+        """Installed non-legacy agents should default to enabled."""
+        wizard = SetupWizard(console=console, detector=mock_detector_all_installed)
+        wizard.detections = mock_detector_all_installed.detect_all()
+
+        with patch("trinity.setup.wizard.Confirm.ask", return_value=True) as ask:
+            result = wizard._step_select()
+
+        assert result is True
+        defaults = [call.kwargs["default"] for call in ask.call_args_list]
+        assert defaults == [True, True, True]
 
     def test_step_select_none_selected(self, console, mock_detector):
         """Test when user declines all agents."""
@@ -206,6 +254,53 @@ class TestSetupWizard:
 
         assert wizard.selected_agents["codex"].model == "my-codex-model"
         assert wizard.selected_agents["codex"].context_budget == 256_000
+
+    def test_ask_model_choice_uses_provider_discovery(self, console):
+        """Model choices should come from the provider CLI discovery layer."""
+        wizard = SetupWizard(console=console)
+        spec = AgentSpec(
+            name="codex",
+            provider=Provider.CODEX,
+            cli_command="codex",
+            model="default",
+            role_prompt="You are the Implementer.",
+            context_budget=128_000,
+            enabled=True,
+        )
+
+        discovered = [
+            ProviderModelChoice(
+                provider=Provider.CODEX,
+                model="default",
+                label="codex(default)",
+                source="static-fallback",
+                is_default=True,
+                context_budget=128_000,
+            ),
+            ProviderModelChoice(
+                provider=Provider.CODEX,
+                model="gpt-5.5",
+                label="gpt-5.5",
+                source="cli-live",
+                context_budget=None,
+            ),
+        ]
+        with patch(
+            "trinity.setup.wizard.discover_provider_models",
+            return_value=discovered,
+        ) as discover:
+            with patch("trinity.setup.wizard.Prompt.ask", return_value="2"):
+                selected = wizard._ask_model_choice(spec)
+
+        discover.assert_called_once_with(
+            Provider.CODEX,
+            "codex",
+            timeout_seconds=10.0,
+            use_cache=False,
+        )
+        assert selected is not None
+        assert selected.model == "gpt-5.5"
+        assert selected.source == "cli-live"
 
     def test_step_review_accept(self, console, mock_detector):
         """Test review step with acceptance."""

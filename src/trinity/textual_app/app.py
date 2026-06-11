@@ -1011,12 +1011,22 @@ class TrinityTextualApp(App[None]):
             thread=True,
         )
 
-    def _discover_provider_models(self) -> None:
+    def _refresh_provider_models(self, *, use_cache: bool) -> None:
+        self.run_worker(
+            lambda: self._discover_provider_models(use_cache=use_cache),
+            name="provider-model-discovery-refresh",
+            group="provider-model-discovery",
+            exit_on_error=False,
+            thread=True,
+        )
+
+    def _discover_provider_models(self, *, use_cache: bool = True) -> None:
         for name, spec in self.config.agents.items():
             choices = discover_provider_models(
                 spec.provider,
                 spec.cli_command,
                 timeout_seconds=10.0,
+                use_cache=use_cache,
             )
             if choices:
                 self.call_from_thread(
@@ -1832,6 +1842,7 @@ class TrinityTextualApp(App[None]):
                 severity="warning",
             )
             return
+        self._refresh_provider_models(use_cache=False)
         choices_by_agent = selector.model_choices_by_agent()
         choices_by_agent.update(self._agent_model_choices)
         self.push_screen(

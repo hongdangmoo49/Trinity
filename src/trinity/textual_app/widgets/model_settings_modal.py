@@ -141,14 +141,14 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         """Refresh available choices while preserving modal selections."""
         self.choices_by_agent.update(choices_by_agent)
         if self.is_mounted:
-            self.refresh(recompose=True)
+            self._refresh_choices()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id or ""
         if button_id.startswith("model-agent-"):
             event.stop()
             self.active_agent = button_id.removeprefix("model-agent-")
-            self.refresh(recompose=True)
+            self._refresh_choices()
             return
         if button_id == "cancel-model-settings":
             event.stop()
@@ -169,10 +169,14 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         if event.option_index >= len(choices):
             return
         self.selected_models[self.active_agent] = choices[event.option_index].model
-        self.refresh(recompose=True)
+        self._refresh_choices()
 
     def action_cancel(self) -> None:
         self.dismiss(None)
+
+    def _refresh_choices(self) -> None:
+        self.refresh(recompose=True)
+        self.call_after_refresh(self._sync_choice_highlight)
 
     def _sync_choice_highlight(self) -> None:
         choice_list = self.query_one("#model-choice-list", OptionList)

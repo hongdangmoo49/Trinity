@@ -577,6 +577,84 @@ async def test_model_slash_modal_updates_selector_model_override(tmp_path) -> No
 
 
 @pytest.mark.asyncio
+async def test_model_slash_refreshes_provider_models_without_cache(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(TrinityTextualApp, "_start_model_discovery", lambda self: None)
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config, FakeWorkflowController())
+    refreshes: list[bool] = []
+
+    def refresh_provider_models(*, use_cache: bool) -> None:
+        refreshes.append(use_cache)
+
+    app._refresh_provider_models = refresh_provider_models  # type: ignore[method-assign]
+
+    async with app.run_test(size=(120, 34)) as pilot:
+        app._handle_textual_slash_command("/model")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ModelSettingsModal)
+        assert refreshes == [False]
+
+
+@pytest.mark.asyncio
+async def test_model_slash_modal_highlights_current_model_selection(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(TrinityTextualApp, "_start_model_discovery", lambda self: None)
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config, FakeWorkflowController())
+    app._refresh_provider_models = lambda *, use_cache: None  # type: ignore[method-assign]
+
+    async with app.run_test(size=(120, 34)) as pilot:
+        selector = app.screen.query_one(
+            "#start-recipient-selector",
+            AgentRecipientModelSelector,
+        )
+        selector.set_model_choices(
+            "antigravity",
+            [
+                ProviderModelChoice(
+                    provider=Provider.ANTIGRAVITY_CLI,
+                    model="default",
+                    label="agy(default)",
+                    source="static-fallback",
+                    is_default=True,
+                    context_budget=1_000_000,
+                ),
+                ProviderModelChoice(
+                    provider=Provider.ANTIGRAVITY_CLI,
+                    model="Gemini 3.5 Flash (Medium)",
+                    label="Gemini 3.5 Flash (Medium)",
+                    source="cli-live",
+                    context_budget=None,
+                ),
+                ProviderModelChoice(
+                    provider=Provider.ANTIGRAVITY_CLI,
+                    model="Gemini 3.1 Pro (High)",
+                    label="Gemini 3.1 Pro (High)",
+                    source="cli-live",
+                    context_budget=None,
+                ),
+            ],
+        )
+        selector.set_model_selections({"antigravity": "Gemini 3.1 Pro (High)"})
+
+        app._handle_textual_slash_command("/model")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ModelSettingsModal)
+        app.screen.query_one("#model-agent-antigravity", Button).press()
+        await pilot.pause()
+
+        menu = app.screen.query_one("#model-choice-list", OptionList)
+        assert menu.highlighted == 2
+
+
+@pytest.mark.asyncio
 async def test_open_model_modal_receives_late_discovered_models(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     config.agents["codex"].enabled = True

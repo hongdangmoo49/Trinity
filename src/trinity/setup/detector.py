@@ -143,7 +143,7 @@ class CLIDetector:
             List of detection results, one per known provider.
         """
         results = []
-        for provider in (*Provider, LEGACY_GEMINI_CLI):
+        for provider in Provider:
             result = self.detect(provider)
             results.append(result)
         return results

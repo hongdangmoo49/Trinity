@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
 from trinity.workflow.models import Blueprint, WorkPackage, WorkStatus
@@ -406,21 +406,27 @@ class BlueprintDecomposer:
         if blueprint.data_flow:
             data_flow = self._clean_list_items(blueprint.data_flow)
             if data_flow:
-                data_flow_key = self._seed_key("data-flow", known_keys)
-                seeds.append(
-                    _PackageSeed(
-                        key=data_flow_key,
-                        title="Data flow and integration",
-                        objective="Implement the approved end-to-end data flow.",
-                        scope=[f"Data flow: {item}" for item in data_flow],
-                        kind="integration",
-                        expected_files=self._scoped_expected_files(
-                            "integration",
-                            data_flow_key,
-                        ),
-                        estimated_weight=max(1, len(data_flow)),
+                if seeds:
+                    seeds = self._attach_data_flow_to_component_seeds(
+                        seeds,
+                        data_flow,
                     )
-                )
+                else:
+                    data_flow_key = self._seed_key("workflow-implementation", known_keys)
+                    seeds.append(
+                        _PackageSeed(
+                            key=data_flow_key,
+                            title=self._workflow_seed_title(blueprint.title),
+                            objective="Implement the approved end-to-end workflow.",
+                            scope=[f"Integration flow: {item}" for item in data_flow],
+                            kind="integration",
+                            expected_files=self._scoped_expected_files(
+                                "integration",
+                                data_flow_key,
+                            ),
+                            estimated_weight=max(1, len(data_flow)),
+                        )
+                    )
 
         external_dependencies = self._clean_list_items(blueprint.external_dependencies)
         if external_dependencies:
@@ -478,6 +484,28 @@ class BlueprintDecomposer:
                 )
             )
         return seeds
+
+    @staticmethod
+    def _attach_data_flow_to_component_seeds(
+        seeds: list[_PackageSeed],
+        data_flow: list[str],
+    ) -> list[_PackageSeed]:
+        updated = list(seeds)
+        for index, item in enumerate(data_flow):
+            target_index = index % len(updated)
+            seed = updated[target_index]
+            updated[target_index] = replace(
+                seed,
+                scope=[*seed.scope, f"Integration flow: {item}"],
+            )
+        return updated
+
+    @classmethod
+    def _workflow_seed_title(cls, blueprint_title: str) -> str:
+        title = cls._clean_text(blueprint_title)
+        if not title:
+            return "End-to-end workflow implementation"
+        return f"{title} workflow implementation"
 
     def _component_seed(
         self,

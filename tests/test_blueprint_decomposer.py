@@ -54,6 +54,12 @@ def test_decompose_two_agents_balances_deliverable_packages():
     packages = BlueprintDecomposer().decompose(_blueprint(), ["claude", "codex"])
 
     assert len(packages) > 2
+    assert "Data flow and integration" not in {package.title for package in packages}
+    assert any(
+        item.startswith("Integration flow:")
+        for package in packages
+        for item in package.scope
+    )
     owners = [package.owner_agent for package in packages]
     assert set(owners) == {"claude", "codex"}
     weights = {"claude": 0, "codex": 0}
@@ -172,6 +178,28 @@ def test_decompose_filters_markdown_artifacts_and_scopes_expected_files():
         if package.title in {"InputController", "EntityManager"}
     ]
     assert len({tuple(package.expected_files) for package in component_packages}) == 2
+
+
+def test_decompose_data_flow_only_blueprint_uses_contextual_workflow_title():
+    blueprint = Blueprint(
+        title="Godot Survival Shooter",
+        summary="Build the playable loop.",
+        data_flow=[
+            "Game starts -> wave timer starts",
+            "Enemy defeated -> XP gained -> upgrade selected",
+        ],
+        acceptance_criteria=["playable loop works"],
+    )
+
+    packages = BlueprintDecomposer().decompose(blueprint, ["codex"])
+
+    assert [package.title for package in packages] == [
+        "Godot Survival Shooter workflow implementation"
+    ]
+    assert packages[0].scope == [
+        "Integration flow: Game starts -> wave timer starts",
+        "Integration flow: Enemy defeated -> XP gained -> upgrade selected",
+    ]
 
 
 def test_decompose_prefers_central_work_package_graph():

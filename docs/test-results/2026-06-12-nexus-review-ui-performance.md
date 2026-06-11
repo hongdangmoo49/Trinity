@@ -42,13 +42,13 @@ uv run pytest -q
 결과:
 
 ```text
-1430 passed, 1 warning in 104.71s (0:01:44)
+1430 passed, 1 warning in 107.88s (0:01:47)
 ```
 
 경고:
 
 ```text
-tests/test_error_handling.py::TestCrashRecording::test_records_crash
+tests/test_error_handling.py::TestActiveAgents::test_excludes_disabled
 RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
 ```
 

@@ -16,6 +16,7 @@ from trinity.workflow import (
     PostReviewActionStatus,
     ProviderSessionRef,
     WorkflowPersistence,
+    ReviewPackage,
     ReviewResult,
     ReviewStatus,
     WorkflowSession,
@@ -388,6 +389,148 @@ def test_snapshot_projects_work_package_and_final_review_results(tmp_path) -> No
     assert snapshot.final_review.status == "approved"
     assert snapshot.final_review.summary == "Project is coherent and runnable."
     assert snapshot.final_review.compatibility_notes == ["Textual UI remains compatible."]
+
+
+def test_snapshot_projects_planned_review_as_reviewing(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-reviewing",
+            goal="Build UI",
+            state=WorkflowState.REVIEWING,
+            active_agents=["claude", "codex", "antigravity"],
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="Frontend shell",
+                    owner_agent="claude",
+                    objective="Build the shell.",
+                    status=WorkStatus.DONE,
+                )
+            ],
+            review_packages=[
+                ReviewPackage(
+                    id="RP-WP-001-codex",
+                    package_id="WP-001",
+                    reviewer_agent="codex",
+                    target_agent="claude",
+                ).to_dict(),
+                ReviewPackage(
+                    id="RP-WP-001-antigravity",
+                    package_id="WP-001",
+                    reviewer_agent="antigravity",
+                    target_agent="claude",
+                ).to_dict(),
+            ],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    package = snapshot.work_package_details[0]
+    assert package.review_status == "reviewing"
+    assert package.reviewer_agent == "codex, antigravity"
+
+
+def test_snapshot_projects_planned_review_as_queued_before_reviewing(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-review-queued",
+            goal="Build UI",
+            state=WorkflowState.EXECUTING,
+            active_agents=["claude", "codex"],
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="Frontend shell",
+                    owner_agent="claude",
+                    objective="Build the shell.",
+                    status=WorkStatus.DONE,
+                )
+            ],
+            review_packages=[
+                ReviewPackage(
+                    id="RP-WP-001-codex",
+                    package_id="WP-001",
+                    reviewer_agent="codex",
+                    target_agent="claude",
+                ).to_dict()
+            ],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert snapshot.work_package_details[0].review_status == "queued"
+
+
+def test_snapshot_aggregates_multiple_work_package_review_results(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-review-aggregate",
+            goal="Build UI",
+            state=WorkflowState.REVIEWING,
+            active_agents=["claude", "codex", "antigravity"],
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="Frontend shell",
+                    owner_agent="claude",
+                    objective="Build the shell.",
+                    status=WorkStatus.DONE,
+                )
+            ],
+            review_packages=[
+                ReviewPackage(
+                    id="RP-WP-001-codex",
+                    package_id="WP-001",
+                    reviewer_agent="codex",
+                    target_agent="claude",
+                ).to_dict(),
+                ReviewPackage(
+                    id="RP-WP-001-antigravity",
+                    package_id="WP-001",
+                    reviewer_agent="antigravity",
+                    target_agent="claude",
+                ).to_dict(),
+            ],
+            review_results=[
+                ReviewResult(
+                    review_package_id="RP-WP-001-codex",
+                    package_id="WP-001",
+                    reviewer_agent="codex",
+                    target_agent="claude",
+                    status=ReviewStatus.APPROVED,
+                    severity="low",
+                    summary="Looks good.",
+                ).to_dict(),
+                ReviewResult(
+                    review_package_id="RP-WP-001-antigravity",
+                    package_id="WP-001",
+                    reviewer_agent="antigravity",
+                    target_agent="claude",
+                    status=ReviewStatus.CHANGES_REQUESTED,
+                    severity="critical",
+                    summary="Needs a terminal resize fix.",
+                    required_changes=["Add resize regression test."],
+                ).to_dict(),
+            ],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    package = snapshot.work_package_details[0]
+    assert package.review_status == "changes_requested"
+    assert package.reviewer_agent == "codex, antigravity"
+    assert package.review_summary == "Needs a terminal resize fix."
+    assert package.review_required_changes == ["Add resize regression test."]
+    assert package.review_severity == "critical"
 
 
 def test_snapshot_projects_post_review_follow_up_items(tmp_path) -> None:

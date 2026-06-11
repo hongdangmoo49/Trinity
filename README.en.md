@@ -211,7 +211,7 @@ That's it. Trinity will:
 
 ## 🧭 Workflow and Execution Model
 
-Trinity `0.12.7` is built around a **persisted workflow** that separates
+Trinity `0.12.8` is built around a **persisted workflow** that separates
 planning, execution, review, and replanning. A user request first goes through
 round-based deliberation and central synthesis. Only after a blueprint is ready
 does Trinity ask for an execution workspace and allow provider-managed file
@@ -584,7 +584,7 @@ uv publish --token <PYPI_TOKEN>
 
 | Metric | Value |
 | :--- | :--- |
-| **Version** | 0.12.7 |
+| **Version** | 0.12.8 |
 | **Tests** | Run the full suite with `uv run pytest` |
 | **Coverage** | ~87% |
 | **Source files** | 100+ |

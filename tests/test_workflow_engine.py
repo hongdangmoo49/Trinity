@@ -242,12 +242,29 @@ def test_mark_deliberation_result_records_provider_metadata(tmp_path):
                     "provider_session_id": "thread-1",
                     "session_kind": "codex_thread",
                     "access": "read-only",
+                },
+                "central:key": {
+                    "provider": "codex",
+                    "agent_name": "central:codex",
+                    "session_key": "central:key",
+                    "provider_session_id": "central-thread-1",
+                    "session_kind": "codex_thread",
+                    "access": "read-only",
                 }
             },
             "runtime_models": {
                 "codex": {
                     "provider": "codex",
                     "agent_name": "codex",
+                    "configured_model": "default",
+                    "actual_model": "gpt-5.5",
+                    "context_window": 272000,
+                    "budget_source": "local_cli_cache",
+                    "confidence": "medium-high",
+                },
+                "central:codex": {
+                    "provider": "codex",
+                    "agent_name": "central:codex",
                     "configured_model": "default",
                     "actual_model": "gpt-5.5",
                     "context_window": 272000,
@@ -261,10 +278,20 @@ def test_mark_deliberation_result_records_provider_metadata(tmp_path):
     engine.mark_deliberation_result(result)
 
     assert engine.session.provider_sessions["codex:key"].provider_session_id == "thread-1"
+    assert (
+        engine.session.provider_sessions["central:key"].provider_session_id
+        == "central-thread-1"
+    )
     assert engine.session.runtime_models["codex"].actual_model == "gpt-5.5"
+    assert engine.session.runtime_models["central:codex"].actual_model == "gpt-5.5"
     loaded = WorkflowEngine(tmp_path / ".trinity")
     assert loaded.session.provider_sessions["codex:key"].provider_session_id == "thread-1"
+    assert (
+        loaded.session.provider_sessions["central:key"].provider_session_id
+        == "central-thread-1"
+    )
     assert loaded.session.runtime_models["codex"].context_window == 272000
+    assert loaded.session.runtime_models["central:codex"].context_window == 272000
 
 
 def test_mark_deliberation_result_applies_structured_blueprint(tmp_path):

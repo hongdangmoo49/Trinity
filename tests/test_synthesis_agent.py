@@ -165,7 +165,11 @@ class FakeSynthesisInvoker:
         return self.result
 
 
-def _provider_result(payload: dict | str, status: ResponseStatus = ResponseStatus.OK):
+def _provider_result(
+    payload: dict | str,
+    status: ResponseStatus = ResponseStatus.OK,
+    metadata: dict | None = None,
+):
     content = json.dumps(payload) if isinstance(payload, dict) else payload
     return ProviderTurnResult(
         agent_name="codex",
@@ -175,6 +179,7 @@ def _provider_result(payload: dict | str, status: ResponseStatus = ResponseStatu
         elapsed_seconds=0.2,
         usage=ContextUsage(used=42, total=0),
         diagnostics=[] if status == ResponseStatus.OK else ["provider failed"],
+        metadata=dict(metadata or {}),
     )
 
 
@@ -264,6 +269,63 @@ async def test_model_backed_synthesis_parses_valid_json_and_writes_artifacts(tmp
     assert Path(result.metadata["json_path"]).exists()
     assert invoker.requests[0].access.value == "read-only"
     assert "Return exactly one JSON object" in invoker.requests[0].prompt
+
+
+@pytest.mark.asyncio
+async def test_model_backed_synthesis_continues_provider_session_and_exposes_metadata(
+    tmp_path,
+):
+    provider_session = {
+        "provider": "codex",
+        "agent_name": "central:codex",
+        "session_key": "codex:central:codex:read-only",
+        "provider_session_id": "thread-after",
+        "session_kind": "codex_thread",
+        "access": "read-only",
+    }
+    runtime_model = {
+        "provider": "codex",
+        "agent_name": "central:codex",
+        "actual_model": "gpt-5",
+    }
+    invoker = FakeSynthesisInvoker(
+        _provider_result(
+            _valid_model_payload(),
+            metadata={
+                "provider_session": provider_session,
+                "runtime_model": runtime_model,
+            },
+        )
+    )
+    agent = ModelBackedSynthesisAgent(
+        invoker=invoker,
+        agent_name="codex",
+        provider=Provider.CODEX,
+        cli_command="codex",
+        cwd=tmp_path,
+        model="gpt-5",
+        requested_model="agent-default",
+        artifact_dir=tmp_path / "synthesis",
+        provider_session_agent_name="central:codex",
+        provider_session_id="thread-before",
+    )
+
+    result = await agent.synthesize(
+        SynthesisInput(
+            user_prompt="Design route bot",
+            round_num=1,
+            opinions={"claude": "Approved blueprint."},
+        )
+    )
+
+    request = invoker.requests[0]
+    assert request.agent_name == "central:codex"
+    assert request.provider_session_id == "thread-before"
+    assert request.continuity_enabled is True
+    assert result.metadata["provider_agent"] == "codex"
+    assert result.metadata["provider_session_agent"] == "central:codex"
+    assert result.metadata["provider_session"] == provider_session
+    assert result.metadata["runtime_model"] == runtime_model
 
 
 @pytest.mark.asyncio

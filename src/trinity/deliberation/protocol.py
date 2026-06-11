@@ -253,6 +253,11 @@ class DeliberationProtocol:
                     summary="No synthesis result was produced.",
                 )
             synthesis_metadata = synthesis_result.metadata
+            self._collect_synthesis_provider_observations(
+                synthesis_metadata,
+                provider_sessions=provider_sessions,
+                runtime_models=runtime_models,
+            )
             self.shared.write_synthesis_summary(
                 round_num=round_num,
                 summary=synthesis_result.summary_for_shared_md,
@@ -557,6 +562,39 @@ class DeliberationProtocol:
                         projection_key = str(key).strip()
                         if projection_key:
                             resource_projections[projection_key] = dict(projection)
+
+    @staticmethod
+    def _collect_synthesis_provider_observations(
+        metadata: dict[str, object],
+        *,
+        provider_sessions: dict[str, dict[str, object]],
+        runtime_models: dict[str, dict[str, object]],
+    ) -> None:
+        """Collect provider session/model observations from central synthesis metadata."""
+        request_id = str(metadata.get("request_id") or "")
+        session = metadata.get("provider_session")
+        if isinstance(session, dict):
+            observed = dict(session)
+            if request_id:
+                observed["last_request_id"] = request_id
+            key = str(
+                observed.get("session_key")
+                or f"{observed.get('provider', '')}:{observed.get('agent_name', '')}"
+            )
+            if key.strip():
+                provider_sessions[key] = observed
+
+        runtime_model = metadata.get("runtime_model")
+        if isinstance(runtime_model, dict):
+            observed_model = dict(runtime_model)
+            key = str(
+                observed_model.get("agent_name")
+                or metadata.get("provider_session_agent")
+                or metadata.get("provider_agent")
+                or ""
+            )
+            if key.strip():
+                runtime_models[key] = observed_model
 
     async def _before_round_lifecycle(self, prompt: str) -> None:
         """Run lifecycle checks before sending a round prompt."""

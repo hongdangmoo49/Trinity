@@ -82,8 +82,9 @@ class RecordingBudgetChecker:
 class RecordingSynthesisAgent:
     """Synthesis test double that records received round input."""
 
-    def __init__(self):
+    def __init__(self, metadata: dict | None = None):
         self.inputs: list[SynthesisInput] = []
+        self.metadata = dict(metadata or {})
 
     async def synthesize(self, synthesis_input: SynthesisInput) -> SynthesisResult:
         self.inputs.append(synthesis_input)
@@ -102,6 +103,7 @@ class RecordingSynthesisAgent:
             summary_for_shared_md=consensus.summary,
             consensus=consensus,
             source="test-synthesis",
+            metadata=dict(self.metadata),
         )
 
 
@@ -647,6 +649,57 @@ VOTE: APPROVE
         assert synthesis_section is not None
         assert "Recorded synthesis consensus." in synthesis_section
         assert "source: test-synthesis" in synthesis_section
+
+    @pytest.mark.asyncio
+    async def test_protocol_collects_central_synthesis_provider_session_metadata(
+        self,
+        tmp_path,
+    ):
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        agents = {"codex": _make_mock_agent("codex")}
+        agents["codex"].send_and_wait = AsyncMock(
+            return_value=_make_opinion("codex", 1, "I agree with the plan.")
+        )
+        provider_session = {
+            "provider": "codex",
+            "agent_name": "central:codex",
+            "session_key": "codex:central:codex:read-only",
+            "provider_session_id": "thread-after",
+            "access": "read-only",
+        }
+        runtime_model = {
+            "provider": "codex",
+            "agent_name": "central:codex",
+            "actual_model": "gpt-5",
+        }
+        synthesis_agent = RecordingSynthesisAgent(
+            metadata={
+                "request_id": "synthesis-round-1-test",
+                "provider_agent": "codex",
+                "provider_session_agent": "central:codex",
+                "provider_session": provider_session,
+                "runtime_model": runtime_model,
+            }
+        )
+
+        protocol = DeliberationProtocol(
+            agents=agents,
+            shared=engine,
+            max_rounds=3,
+            synthesis_agent=synthesis_agent,
+        )
+
+        result = await protocol.run("Design route bot")
+
+        assert result.metadata["provider_sessions"] == {
+            "codex:central:codex:read-only": {
+                **provider_session,
+                "last_request_id": "synthesis-round-1-test",
+            }
+        }
+        assert result.metadata["runtime_models"] == {
+            "central:codex": runtime_model
+        }
 
     @pytest.mark.asyncio
     async def test_structured_open_question_stops_round_loop(self, tmp_path):

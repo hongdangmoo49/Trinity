@@ -21,6 +21,10 @@ from trinity.context.commands import (
     memory_stats_rows,
 )
 from trinity.i18n import VALID_CAVEMAN_INTENSITIES
+from trinity.providers.model_discovery import (
+    ProviderModelChoice,
+    discover_provider_models,
+)
 from trinity.slash_commands import (
     COMMAND_SPECS,
     SESSION_ONLY_SETTING_NOTICE,
@@ -47,6 +51,9 @@ from trinity.textual_app.workflow_controller import (
     TextualWorkflowController,
     TextualWorkflowOutcome,
 )
+from trinity.textual_app.widgets.agent_recipient_model_selector import (
+    AgentRecipientModelSelector,
+)
 from trinity.textual_app.widgets.confirm_quit_modal import ConfirmQuitModal
 from trinity.textual_app.widgets.context_modal import ContextCommandModal
 from trinity.textual_app.widgets.execution_retry_modal import (
@@ -54,6 +61,7 @@ from trinity.textual_app.widgets.execution_retry_modal import (
     ExecutionRetrySelection,
 )
 from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
+from trinity.textual_app.widgets.model_settings_modal import ModelSettingsModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
 from trinity.textual_app.widgets.status_modal import StatusCommandModal
@@ -156,8 +164,8 @@ class TrinityTextualApp(App[None]):
     }
 
     #start-shell {
-        width: 88;
-        max-width: 94%;
+        width: 96;
+        max-width: 96%;
         height: auto;
     }
 
@@ -206,26 +214,37 @@ class TrinityTextualApp(App[None]):
 
     .recipient-label {
         width: auto;
-        min-width: 8;
+        min-width: 10;
         content-align: left middle;
         color: $text-muted;
         margin-right: 1;
+        height: 1;
     }
 
-    .recipient-all {
-        width: auto;
-        min-width: 10;
+    .recipient-agent-toggle {
+        width: 14;
+        height: 1;
         margin-right: 1;
+        padding: 0 1;
+        content-align: left middle;
+        background: $surface;
+        color: $text-muted;
     }
 
-    .recipient-agent-check {
-        width: 3;
-        margin-right: 0;
+    .recipient-agent-toggle:hover,
+    .recipient-agent-toggle:focus {
+        background-tint: $foreground 5%;
+        color: $text;
     }
 
-    .recipient-agent-model {
-        width: 16;
-        margin-right: 1;
+    .recipient-agent-toggle-selected {
+        color: $accent;
+        text-style: bold;
+    }
+
+    .recipient-agent-toggle-disabled {
+        color: $text-muted;
+        text-style: dim;
     }
 
     #prompt-textarea {
@@ -947,6 +966,8 @@ class TrinityTextualApp(App[None]):
         self.workflow_controller = workflow_controller or TextualWorkflowController(config)
         self._screens_installed = False
         self._workflow_polling_started = False
+        self._model_discovery_started = False
+        self._agent_model_choices: dict[str, tuple[ProviderModelChoice, ...]] = {}
         self._local_command_results: list[LocalCommandSnapshot] = []
         self._pending_execute_retry: ExecutionRetrySelection | None = None
 
@@ -954,6 +975,7 @@ class TrinityTextualApp(App[None]):
         self._install_workbench_screens()
         self.current_route = "start"
         self.push_screen("start")
+        self._start_model_discovery()
 
     def _install_workbench_screens(self) -> None:
         if self._screens_installed:
@@ -976,6 +998,55 @@ class TrinityTextualApp(App[None]):
         self.install_screen(ReportScreen(), "report")
 
         self._screens_installed = True
+
+    def _start_model_discovery(self) -> None:
+        if self._model_discovery_started:
+            return
+        self._model_discovery_started = True
+        self.run_worker(
+            self._discover_provider_models,
+            name="provider-model-discovery",
+            group="provider-model-discovery",
+            exit_on_error=False,
+            thread=True,
+        )
+
+    def _refresh_provider_models(self, *, use_cache: bool) -> None:
+        self.run_worker(
+            lambda: self._discover_provider_models(use_cache=use_cache),
+            name="provider-model-discovery-refresh",
+            group="provider-model-discovery",
+            exit_on_error=False,
+            thread=True,
+        )
+
+    def _discover_provider_models(self, *, use_cache: bool = True) -> None:
+        for name, spec in self.config.agents.items():
+            choices = discover_provider_models(
+                spec.provider,
+                spec.cli_command,
+                timeout_seconds=10.0,
+                use_cache=use_cache,
+            )
+            if choices:
+                self.call_from_thread(
+                    self._apply_discovered_model_choices,
+                    {name: tuple(choices)},
+                )
+
+    def _apply_discovered_model_choices(
+        self,
+        choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]],
+    ) -> None:
+        self._agent_model_choices.update(choices_by_agent)
+        for screen_name, screen_type in (
+            ("start", StartScreen),
+            ("nexus", NexusScreen),
+        ):
+            screen = self.get_screen(screen_name, screen_type)
+            screen.set_agent_model_choices(choices_by_agent)
+        if isinstance(self.screen, ModelSettingsModal):
+            self.screen.set_model_choices(choices_by_agent)
 
     def on_start_screen_submitted(self, event: StartScreen.Submitted) -> None:
         event.stop()
@@ -1421,6 +1492,9 @@ class TrinityTextualApp(App[None]):
         if command == "context":
             self._handle_textual_context_command(parsed.spec.name)
             return
+        if command == "model":
+            self._open_model_settings_modal()
+            return
         if command == "memory":
             self._handle_textual_memory_command(args)
             return
@@ -1757,6 +1831,55 @@ class TrinityTextualApp(App[None]):
             self.push_screen(StatusCommandModal(result))
             return
         self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
+
+    def _open_model_settings_modal(self) -> None:
+        """Open the model settings modal for the active prompt selector."""
+        selector = self._active_agent_selector()
+        if selector is None:
+            self.notify(
+                "Model settings are available on Start and Nexus.",
+                title="Model Settings",
+                severity="warning",
+            )
+            return
+        self._refresh_provider_models(use_cache=False)
+        choices_by_agent = selector.model_choices_by_agent()
+        choices_by_agent.update(self._agent_model_choices)
+        self.push_screen(
+            ModelSettingsModal(
+                self.config.agents,
+                choices_by_agent,
+                selector.selected_models(),
+                lang=self.config.lang,
+            ),
+            self._on_model_settings_applied,
+        )
+
+    def _on_model_settings_applied(
+        self,
+        selections: dict[str, str] | None,
+    ) -> None:
+        if selections is None:
+            return
+        selector = self._active_agent_selector()
+        if selector is None:
+            return
+        selector.set_model_selections(selections)
+        self.notify(
+            "Model settings updated.",
+            title="Model Settings",
+        )
+
+    def _active_agent_selector(self) -> AgentRecipientModelSelector | None:
+        if self.current_route == "start":
+            screen = self.get_screen("start", StartScreen)
+        elif self.current_route == "nexus":
+            screen = self.get_screen("nexus", NexusScreen)
+        else:
+            return None
+        if not screen.is_mounted:
+            return None
+        return screen.query_one(AgentRecipientModelSelector)
 
     def _present_execution_recovery(
         self,

@@ -110,6 +110,13 @@ COMMAND_SPECS: tuple[SlashCommandSpec, ...] = (
         category=SlashCommandCategory.SESSION_SETTING,
     ),
     SlashCommandSpec(
+        name="/model",
+        usage="/model",
+        summary="configure per-agent model selections",
+        summary_ko="에이전트별 모델 선택 설정",
+        category=SlashCommandCategory.LOCAL_UI,
+    ),
+    SlashCommandSpec(
         name="/history",
         usage="/history",
         summary="show recent session history",

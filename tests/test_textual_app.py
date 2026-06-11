@@ -10,6 +10,7 @@ from textual.widgets import (
     Checkbox,
     DataTable,
     Markdown,
+    OptionList,
     RichLog,
     Select,
     Static,
@@ -19,6 +20,8 @@ from textual.widgets import (
 
 from trinity.config import TrinityConfig
 from trinity.context.shared import SharedContextEngine
+from trinity.models import Provider
+from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import SESSION_ONLY_SETTING_NOTICE
 from trinity.textual_app.app import TrinityTextualApp
 from trinity.textual_app.report_export import (
@@ -48,6 +51,7 @@ from trinity.textual_app.workflow_controller import (
 from trinity.tui.report import DeliberationReportBuilder
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
+    AgentToggle,
     AgentRecipientModelSelector,
 )
 from trinity.textual_app.widgets.composer import COMMAND_LIMIT, ComposerTextArea, PromptComposer
@@ -56,6 +60,7 @@ from trinity.textual_app.widgets.context_modal import ContextCommandModal
 from trinity.textual_app.widgets.execution_retry_modal import ExecutionRetryModal, _retry_note
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
+from trinity.textual_app.widgets.model_settings_modal import ModelSettingsModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
@@ -450,9 +455,18 @@ async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> 
             AgentRecipientModelSelector,
         )
         assert start_selector.selected_agents() == ("claude", "codex")
-        assert start_selector.query_one("#recipient-claude", Checkbox).value is True
-        assert start_selector.query_one("#recipient-codex", Checkbox).value is True
-        assert start_selector.query_one("#recipient-model-codex", Select).value == "default"
+        claude_toggle = start_selector.query_one("#recipient-claude", AgentToggle)
+        codex_toggle = start_selector.query_one("#recipient-codex", AgentToggle)
+        assert claude_toggle.value is True
+        assert codex_toggle.value is True
+        assert start_selector.selected_model("codex") == "default"
+        assert start_selector.model_option_labels("claude")[0] == "claude(default)"
+        assert start_selector.model_option_labels("codex")[0] == "codex(default)"
+        assert start_selector.query_one("#recipient-antigravity", AgentToggle).value is False
+        assert start_selector.selected_model("antigravity") == "default"
+        assert start_selector.model_option_labels("antigravity")[0] == "agy(default)"
+        codex_toggle._toggle()
+        assert start_selector.selected_agents() == ("claude",)
 
         app.switch_to("nexus")
         await pilot.pause()
@@ -462,7 +476,223 @@ async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> 
             AgentRecipientModelSelector,
         )
         assert nexus_selector.selected_agents() == ("claude", "codex")
-        assert nexus_selector.query_one("#recipient-model-claude", Select).value == "default"
+        assert nexus_selector.selected_model("claude") == "default"
+        assert nexus_selector.query_one("#recipient-antigravity", AgentToggle).value is False
+
+
+@pytest.mark.asyncio
+async def test_agent_recipient_selector_accepts_live_model_choices(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    app = TrinityTextualApp(config, FakeWorkflowController())
+
+    async with app.run_test(size=(120, 34)):
+        selector = app.screen.query_one(
+            "#start-recipient-selector",
+            AgentRecipientModelSelector,
+        )
+        selector.set_model_choices(
+            "codex",
+            [
+                ProviderModelChoice(
+                    provider=Provider.CODEX,
+                    model="default",
+                    label="codex(default)",
+                    source="static-fallback",
+                    is_default=True,
+                    context_budget=128_000,
+                ),
+                ProviderModelChoice(
+                    provider=Provider.CODEX,
+                    model="gpt-5.5",
+                    label="gpt-5.5",
+                    source="cli-live",
+                    context_budget=None,
+                ),
+            ],
+        )
+
+        assert selector.model_option_labels("codex") == ("codex(default)", "gpt-5.5")
+        selector.set_model_overrides({"codex": "gpt-5.5"})
+        assert selector.model_overrides() == {"codex": "gpt-5.5"}
+
+
+@pytest.mark.asyncio
+async def test_model_slash_modal_updates_selector_model_override(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(config, controller)
+
+    async with app.run_test(size=(120, 34)) as pilot:
+        selector = app.screen.query_one(
+            "#start-recipient-selector",
+            AgentRecipientModelSelector,
+        )
+        selector.set_model_choices(
+            "codex",
+            [
+                ProviderModelChoice(
+                    provider=Provider.CODEX,
+                    model="default",
+                    label="codex(default)",
+                    source="static-fallback",
+                    is_default=True,
+                    context_budget=128_000,
+                ),
+                ProviderModelChoice(
+                    provider=Provider.CODEX,
+                    model="gpt-5.5",
+                    label="gpt-5.5",
+                    source="cli-live",
+                    context_budget=None,
+                ),
+            ],
+        )
+
+        app._handle_textual_slash_command("/model")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ModelSettingsModal)
+        app.screen.query_one("#model-agent-codex", Button).press()
+        await pilot.pause()
+
+        menu = app.screen.query_one("#model-choice-list", OptionList)
+        menu.highlighted = 1
+        menu.action_select()
+        await pilot.pause()
+
+        app.screen.query_one("#apply-model-settings", Button).press()
+        await pilot.pause()
+
+        assert selector.selected_model("codex") == "gpt-5.5"
+        assert selector.model_overrides() == {"codex": "gpt-5.5"}
+
+        composer = app.screen.query_one("#start-composer", PromptComposer)
+        composer.set_text("코덱스 모델 확인")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.started_models[-1] == {"codex": "gpt-5.5"}
+
+
+@pytest.mark.asyncio
+async def test_model_slash_refreshes_provider_models_without_cache(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(TrinityTextualApp, "_start_model_discovery", lambda self: None)
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config, FakeWorkflowController())
+    refreshes: list[bool] = []
+
+    def refresh_provider_models(*, use_cache: bool) -> None:
+        refreshes.append(use_cache)
+
+    app._refresh_provider_models = refresh_provider_models  # type: ignore[method-assign]
+
+    async with app.run_test(size=(120, 34)) as pilot:
+        app._handle_textual_slash_command("/model")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ModelSettingsModal)
+        assert refreshes == [False]
+
+
+@pytest.mark.asyncio
+async def test_model_slash_modal_highlights_current_model_selection(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(TrinityTextualApp, "_start_model_discovery", lambda self: None)
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config, FakeWorkflowController())
+    app._refresh_provider_models = lambda *, use_cache: None  # type: ignore[method-assign]
+
+    async with app.run_test(size=(120, 34)) as pilot:
+        selector = app.screen.query_one(
+            "#start-recipient-selector",
+            AgentRecipientModelSelector,
+        )
+        selector.set_model_choices(
+            "antigravity",
+            [
+                ProviderModelChoice(
+                    provider=Provider.ANTIGRAVITY_CLI,
+                    model="default",
+                    label="agy(default)",
+                    source="static-fallback",
+                    is_default=True,
+                    context_budget=1_000_000,
+                ),
+                ProviderModelChoice(
+                    provider=Provider.ANTIGRAVITY_CLI,
+                    model="Gemini 3.5 Flash (Medium)",
+                    label="Gemini 3.5 Flash (Medium)",
+                    source="cli-live",
+                    context_budget=None,
+                ),
+                ProviderModelChoice(
+                    provider=Provider.ANTIGRAVITY_CLI,
+                    model="Gemini 3.1 Pro (High)",
+                    label="Gemini 3.1 Pro (High)",
+                    source="cli-live",
+                    context_budget=None,
+                ),
+            ],
+        )
+        selector.set_model_selections({"antigravity": "Gemini 3.1 Pro (High)"})
+
+        app._handle_textual_slash_command("/model")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ModelSettingsModal)
+        app.screen.query_one("#model-agent-antigravity", Button).press()
+        await pilot.pause()
+
+        menu = app.screen.query_one("#model-choice-list", OptionList)
+        assert menu.highlighted == 2
+
+
+@pytest.mark.asyncio
+async def test_open_model_modal_receives_late_discovered_models(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    app = TrinityTextualApp(config, FakeWorkflowController())
+
+    async with app.run_test(size=(120, 34)) as pilot:
+        app._handle_textual_slash_command("/model")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ModelSettingsModal)
+        app.screen.query_one("#model-agent-codex", Button).press()
+        await pilot.pause()
+        assert "gpt-5.5" not in app.screen._choice_labels("codex")
+
+        app._apply_discovered_model_choices(
+            {
+                "codex": (
+                    ProviderModelChoice(
+                        provider=Provider.CODEX,
+                        model="default",
+                        label="codex(default)",
+                        source="static-fallback",
+                        is_default=True,
+                        context_budget=128_000,
+                    ),
+                    ProviderModelChoice(
+                        provider=Provider.CODEX,
+                        model="gpt-5.5",
+                        label="gpt-5.5",
+                        source="cli-live",
+                        context_budget=None,
+                    ),
+                )
+            }
+        )
+        await pilot.pause()
+
+        assert "gpt-5.5  cli-live" in app.screen._choice_labels("codex")
 
 
 @pytest.mark.asyncio
@@ -2309,7 +2539,7 @@ async def test_prompt_composer_scrolls_slash_command_window(tmp_path) -> None:
         composer.focus_text_area()
         await pilot.pause()
 
-        for _ in range(COMMAND_LIMIT + 1):
+        for _ in range(COMMAND_LIMIT + 2):
             await pilot.press("down")
         await pilot.pause()
 

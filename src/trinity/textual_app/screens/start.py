@@ -11,6 +11,7 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Static
 
 from trinity.config import TrinityConfig
+from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
@@ -88,6 +89,7 @@ class StartScreen(Screen[None]):
         self.config = config
         self.workspace_candidate = workspace_candidate
         self.lang = lang
+        self._agent_model_choices: dict[str, tuple[ProviderModelChoice, ...]] = {}
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
@@ -114,7 +116,24 @@ class StartScreen(Screen[None]):
         yield Footer()
 
     def on_mount(self) -> None:
+        self._apply_model_choices()
         self.query_one("#start-composer", PromptComposer).focus_text_area()
+
+    def set_agent_model_choices(
+        self,
+        choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]],
+    ) -> None:
+        """Apply live model choices discovered from provider CLIs."""
+        self._agent_model_choices.update(choices_by_agent)
+        if self.is_mounted:
+            self._apply_model_choices()
+
+    def _apply_model_choices(self) -> None:
+        if not self._agent_model_choices:
+            return
+        selector = self.query_one(AgentRecipientModelSelector)
+        for name, choices in self._agent_model_choices.items():
+            selector.set_model_choices(name, choices)
 
     def on_prompt_composer_submitted(self, event: PromptComposer.Submitted) -> None:
         event.stop()

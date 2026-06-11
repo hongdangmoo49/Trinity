@@ -754,17 +754,23 @@ class NexusSnapshotAdapter:
         session: WorkflowSession | None,
     ) -> dict[str, ProviderSnapshot]:
         active = set(session.active_agents) if session else set()
+        targets = set(session.last_target_agents) if session else set()
         artifacts = self._latest_response_artifacts(session)
         states: dict[str, ProviderSnapshot] = {}
         for name, spec in self.config.agents.items():
             enabled = spec.enabled
             if session and session.active_agents:
                 enabled = name in active
+            targeted = True
+            if session and session.state.value == "deliberating" and targets:
+                targeted = name in targets
             artifact = artifacts.get(name)
             summary = ""
             raw_output = ""
             status = "Queued" if enabled else "Disabled"
-            if enabled and artifact is not None:
+            if enabled and not targeted:
+                status = "Idle"
+            elif enabled and artifact is not None:
                 clean_output = self._read_artifact_text(artifact[0])
                 raw_output = self._read_artifact_text(artifact[1]) or clean_output
                 summary = self._short_summary(clean_output or raw_output)

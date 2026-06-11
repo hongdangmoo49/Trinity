@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import replace
 from difflib import get_close_matches
 from inspect import Parameter, signature
@@ -1784,10 +1785,41 @@ class TrinityTextualApp(App[None]):
             table_columns=table_columns,
             table_rows=table_rows,
         )
+        self._record_central_conversation_result(result)
         self._present_local_command_result(
             result,
             start_modal=start_modal,
             notify=True,
+        )
+
+    def _record_central_conversation_result(
+        self,
+        result: LocalCommandSnapshot,
+    ) -> None:
+        """Persist Textual central-panel command results for report export."""
+        from trinity.workflow import WorkflowPersistence
+
+        persistence = WorkflowPersistence(self.config.effective_state_dir)
+        session = persistence.load()
+        if session is None or not session.id:
+            return
+        persistence.append_event(
+            {
+                "timestamp": time.time(),
+                "workflow_id": session.id,
+                "event": "central_conversation_recorded",
+                "state": session.state.value,
+                "data": {
+                    "message_id": f"cc-local-{int(time.time() * 1000)}",
+                    "role": "tool",
+                    "channel": "local_command",
+                    "title": result.title,
+                    "body": result.body,
+                    "command": result.command,
+                    "related_ids": [],
+                    "truncated": False,
+                },
+            }
         )
 
     def _present_local_command_result(
@@ -3194,7 +3226,13 @@ class TrinityTextualApp(App[None]):
                 persistence = WorkflowPersistence(self.config.effective_state_dir)
                 session = persistence.load()
                 if session and session.goal:
-                    structured = DeliberationReportBuilder(session, result=None).build()
+                    events = persistence.load_events_for_workflow(session.id)
+                    structured = DeliberationReportBuilder(
+                        session,
+                        result=None,
+                        events=events,
+                        snapshot=self.active_snapshot,
+                    ).build()
                     report.apply_report(structured)
             except Exception:
                 pass  # Fallback to snapshot rendering
@@ -3244,16 +3282,23 @@ class TrinityTextualApp(App[None]):
         from trinity.workflow import WorkflowPersistence
 
         report_dir = self.config.effective_state_dir / "reports"
-        filepath = unique_report_path(report_dir, snapshot.session_id)
 
         # Build from the full WorkflowSession for richer output
         persistence = WorkflowPersistence(self.config.effective_state_dir)
         session = persistence.load()
         if session is not None:
-            builder = DeliberationReportBuilder(session, result=None)
+            filepath = unique_report_path(report_dir, session.id)
+            events = persistence.load_events_for_workflow(session.id)
+            builder = DeliberationReportBuilder(
+                session,
+                result=None,
+                events=events,
+                snapshot=snapshot,
+            )
             report = builder.build()
             markdown = report.to_markdown()
         elif snapshot_has_report_data(snapshot):
+            filepath = unique_report_path(report_dir, snapshot.session_id)
             markdown = snapshot_report_markdown(snapshot)
         else:
             self.notify(

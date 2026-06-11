@@ -1,6 +1,6 @@
 # Report Audit Export Design
 
-**Status:** Design
+**Status:** Implemented - initial audit export
 **Date:** 2026-06-11
 **Branch:** `codex/design-report-audit-export`
 **Related plan:** `docs/plans/2026-06-05-deliberation-report.md`
@@ -314,9 +314,30 @@ Regression tests:
 - review, repair, retry, recovery 흐름이 report에서 추적 가능하다.
 - Markdown injection, table breakage, secret-looking 값 노출 위험이 테스트로 방어된다.
 
+## Implementation Notes
+
+2026-06-11 구현에서 다음 범위를 반영했다.
+
+- `DeliberationReportBuilder`가 `events`와 `snapshot`을 선택 인자로 받아 canonical report를 확장한다.
+- canonical report에 provider runtime/session metadata, target workspace, central conversation, execution timeline/detail, reviews, repairs, recovery 섹션을 추가했다.
+- workflow engine은 blueprint/consensus 확정 시 `central_conversation_recorded` event를 남긴다.
+- Textual local slash command 결과는 persisted workflow가 있을 때 `central_conversation_recorded` event로 남는다.
+- Plain TUI `/report`와 Textual Report 화면/export는 persisted workflow events를 builder에 전달한다.
+- `snapshot_report_markdown()`은 session이 없을 때 fallback으로 유지한다.
+- ReportScreen structured path는 새 canonical report 섹션을 표시한다.
+
+검증:
+
+- `uv run pytest -q`
+  - 1424 passed, 1 warning
+- `uvx ruff check src/trinity/tui/report.py src/trinity/textual_app/app.py src/trinity/textual_app/screens/report.py src/trinity/workflow/engine.py tests/test_report.py tests/test_textual_app.py tests/test_workflow_engine.py`
+  - All checks passed
+- `git diff --check`
+  - passed
+
 ## Risks and Open Questions
 
-- 중앙 에이전트 transcript의 정확한 기록 지점은 UI event handler와 workflow engine 양쪽에 걸쳐 있다. 첫 구현에서는 workflow/session에 영향을 주는 사용자 입력과 central response부터 기록하고, 화면-only local command는 후속으로 보강한다.
+- 중앙 에이전트 transcript의 정확한 기록 지점은 UI event handler와 workflow engine 양쪽에 걸쳐 있다. 첫 구현에서는 blueprint/consensus 확정 response와 Textual local command 결과를 기록하며, provider-native 전체 대화 로그는 아직 범위 밖이다.
 - report가 너무 커질 수 있다. saved Markdown은 상세성을 우선하되 event cap과 truncation marker를 둔다.
 - raw event data는 디버깅에 유용하지만 민감 정보가 섞일 수 있다. redaction helper 없이는 raw detail section을 기본 활성화하지 않는다.
 - provider-native session 전체 대화 로그는 provider별 저장 위치와 권한이 다르다. 이번 범위의 "중앙 에이전트 채팅"은 Trinity가 중앙 화면에서 생성/표시한 conversation event로 한정한다.

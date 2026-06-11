@@ -163,6 +163,34 @@ class ReportScreen(Screen[None]):
         if report.executions:
             sections.append(_section("Executions", _render_executions(report.executions)))
 
+        if report.providers:
+            sections.append(_section("Providers", _render_providers(report.providers)))
+
+        if report.execution_events:
+            sections.append(
+                _section(
+                    "Execution Timeline",
+                    _render_execution_events(report.execution_events[-80:]),
+                )
+            )
+
+        if report.reviews:
+            sections.append(_section("Reviews", _render_reviews(report.reviews)))
+
+        if report.repairs:
+            sections.append(_section("Review Repairs", _render_repairs(report.repairs)))
+
+        if report.recovery is not None:
+            sections.append(_section("Execution Recovery", _render_recovery(report.recovery)))
+
+        if report.conversation:
+            sections.append(
+                _section(
+                    "Central Agent Conversation",
+                    _render_conversation(report.conversation[-12:]),
+                )
+            )
+
         for section_text in sections:
             body.mount(Static(section_text))
 
@@ -291,6 +319,88 @@ def _render_executions(executions) -> str:
     for ex in executions:
         files = f" · {ex.files_count} files" if ex.files_count else ""
         lines.append(f"  • [cyan]{escape(ex.package_id)}[/cyan] {escape(ex.agent_name)}: {escape(ex.status)}{files}")
+    return "\n".join(lines) if lines else "(none)"
+
+
+def _render_providers(providers) -> str:
+    lines: list[str] = []
+    for provider in providers:
+        model = provider.actual_model or provider.configured_model or "default"
+        context = f"{provider.context_window:,}" if provider.context_window else "unknown"
+        session = provider.provider_session_id[:18] if provider.provider_session_id else "none"
+        lines.append(
+            f"  • [cyan]{escape(provider.name)}[/cyan] "
+            f"{escape(provider.provider or 'unknown')} · "
+            f"{escape(model)} · context {escape(context)} · session {escape(session)}"
+        )
+    return "\n".join(lines) if lines else "(none)"
+
+
+def _render_execution_events(events) -> str:
+    lines: list[str] = []
+    for event in events:
+        package = event.package_id or "-"
+        agent = event.agent or "-"
+        status = event.status or event.state or "-"
+        summary = " ".join(event.summary.split())
+        if len(summary) > 120:
+            summary = f"{summary[:117]}..."
+        lines.append(
+            f"  • [cyan]{escape(event.event)}[/cyan] "
+            f"{escape(package)} {escape(agent)} {escape(status)}"
+            f" [dim]{escape(summary)}[/dim]"
+        )
+    return "\n".join(lines) if lines else "(none)"
+
+
+def _render_reviews(reviews) -> str:
+    lines: list[str] = []
+    for review in reviews:
+        lines.append(
+            f"  • [cyan]{escape(review.review_package_id or review.package_id)}[/cyan] "
+            f"{escape(review.reviewer_agent or '-')} → "
+            f"{escape(review.target_agent or '-')} · {escape(review.status or '-')}: "
+            f"{escape(review.summary or '')}"
+        )
+    return "\n".join(lines) if lines else "(none)"
+
+
+def _render_repairs(repairs) -> str:
+    lines: list[str] = []
+    for repair in repairs:
+        lines.append(
+            f"  • [cyan]{escape(repair.package_id)}[/cyan] "
+            f"{escape(repair.status or '-')} · attempts {repair.attempt_count}: "
+            f"{escape(repair.summary or '')}"
+        )
+    return "\n".join(lines) if lines else "(none)"
+
+
+def _render_recovery(recovery) -> str:
+    lines = [
+        f"[bold]Run[/bold]: {escape(recovery.run_id or '(unknown)')}",
+        f"[bold]State[/bold]: {escape(recovery.state or '(unknown)')}",
+        f"[bold]Target[/bold]: {escape(recovery.target_workspace or '(not set)')}",
+        f"[bold]Running[/bold]: {escape(', '.join(recovery.running_packages) or '(none)')}",
+        f"[bold]Retry candidates[/bold]: {escape(', '.join(recovery.retry_candidates) or '(none)')}",
+        f"[bold]Done[/bold]: {escape(', '.join(recovery.done_packages) or '(none)')}",
+    ]
+    if recovery.interrupted_reason:
+        lines.append(f"[bold]Reason[/bold]: {escape(recovery.interrupted_reason)}")
+    return "\n".join(lines)
+
+
+def _render_conversation(messages) -> str:
+    lines: list[str] = []
+    for message in messages:
+        body = " ".join(message.body.split())
+        if len(body) > 140:
+            body = f"{body[:137]}..."
+        title = message.title or message.command or message.role
+        lines.append(
+            f"  • [cyan]{escape(message.role or 'entry')}[/cyan] "
+            f"{escape(title)}: [dim]{escape(body)}[/dim]"
+        )
     return "\n".join(lines) if lines else "(none)"
 
 

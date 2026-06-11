@@ -221,6 +221,14 @@ def test_mark_deliberation_result_updates_state(tmp_path):
     assert engine.session.blueprint is not None
     assert engine.session.blueprint.title == "Consensus Blueprint"
     assert engine.session.blueprint.summary == "Blueprint summary"
+    transcript_events = [
+        event
+        for event in engine.persistence.load_events()
+        if event["event"] == "central_conversation_recorded"
+    ]
+    assert transcript_events
+    assert transcript_events[-1]["data"]["title"] == "Central Agent Response"
+    assert "Blueprint summary" in transcript_events[-1]["data"]["body"]
 
 
 def test_mark_deliberation_result_records_provider_metadata(tmp_path):

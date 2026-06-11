@@ -5,12 +5,15 @@ import time
 import pytest
 
 from trinity.models import ConsensusResult, DeliberationResult
-from trinity.tui.report import DeliberationReportBuilder, DeliberationReport
+from trinity.tui.report import DeliberationReportBuilder
 from trinity.workflow.models import (
+    AgentRuntimeModel,
     ArchitectureComponent,
     Blueprint,
     DecisionRecord,
     ExecutionResult,
+    OpenQuestion,
+    ProviderSessionRef,
     RiskItem,
     WorkPackage,
     WorkflowSession,
@@ -379,3 +382,124 @@ def test_multiline_markdown_table_cells_are_normalized():
     assert "summary line one summary line two" in md
     assert "foo\nbar" not in md
     assert "line one\nline two" not in md
+
+
+def test_report_markdown_includes_audit_export_sections(tmp_path):
+    session = _sample_session()
+    session.target_workspace = tmp_path / "target"
+    session.provider_sessions = {
+        "codex:key": ProviderSessionRef(
+            provider="codex",
+            agent_name="codex",
+            session_key="codex:key",
+            provider_session_id="thread-abc123",
+            session_kind="codex_thread",
+            cwd=str(tmp_path / "target"),
+        )
+    }
+    session.runtime_models = {
+        "codex": AgentRuntimeModel(
+            provider="codex",
+            agent_name="codex",
+            configured_model="default",
+            actual_model="gpt-5.5",
+            context_window=272000,
+            budget_source="local_cli_cache",
+        )
+    }
+    session.review_results = [
+        {
+            "review_package_id": "RV-001",
+            "package_id": "wp-001",
+            "reviewer_agent": "claude",
+            "target_agent": "codex",
+            "status": "changes_requested",
+            "severity": "high",
+            "summary": "Add integration test",
+            "required_changes": ["Add `tests/test_auth.py`"],
+        }
+    ]
+    session.pending_questions = [
+        OpenQuestion(
+            id="q-001",
+            question="Which auth flow should be used?",
+            options=["JWT", "Session"],
+            recommended_option="JWT",
+        )
+    ]
+    session.work_packages[0].repair_notes = ["Fix missing integration test"]
+    session.work_packages[0].repair_attempt_count = 1
+    session.execution_run = {
+        "run_id": "exec-run-001",
+        "state": "interrupted",
+        "target_workspace": str(tmp_path / "target"),
+        "interrupted_reason": "worker stopped",
+    }
+    events = [
+        {
+            "timestamp": 1781136000.0,
+            "workflow_id": session.id,
+            "event": "central_conversation_recorded",
+            "state": "blueprint_ready",
+            "data": {
+                "role": "central",
+                "channel": "nexus",
+                "title": "Central Agent Response",
+                "body": "Central response with | pipe and ``` fence",
+                "related_ids": ["wp-001"],
+            },
+        },
+        {
+            "timestamp": 1781136060.0,
+            "workflow_id": session.id,
+            "event": "execution_run_started",
+            "state": "executing",
+            "data": {
+                "run_id": "exec-run-001",
+                "target_workspace": str(tmp_path / "target"),
+                "work_packages": ["wp-001"],
+            },
+        },
+        {
+            "timestamp": 1781136120.0,
+            "workflow_id": session.id,
+            "event": "implementation_requested",
+            "state": "blueprint_ready",
+            "data": {
+                "instruction": "이 설계대로 구현해라",
+                "work_packages": ["wp-001"],
+                "target_workspace": str(tmp_path / "target"),
+            },
+        },
+    ]
+
+    report = DeliberationReportBuilder(
+        session,
+        result=None,
+        events=events,
+    ).build()
+    md = report.to_markdown()
+
+    assert "## Providers" in md
+    assert "gpt-5.5" in md
+    assert "thread-abc123" in md
+    assert "## Execution Timeline" in md
+    assert "execution_run_started" in md
+    assert "## Execution Event Details" in md
+    assert "exec-run-001" in md
+    assert "## Reviews" in md
+    assert "RV-001" in md
+    assert "Add \\`tests/test\\_auth\\.py\\`" in md
+    assert "## Review Repairs" in md
+    assert "Fix missing integration test" in md
+    assert "## Execution Recovery" in md
+    assert "worker stopped" in md
+    assert "## Central Agent Conversation" in md
+    assert "Central response with | pipe" in md
+    assert "Which auth flow should be used?" in md
+    assert "Implementation Requested" in md
+    assert "이 설계대로 구현해라" in md
+    codex_provider = next(provider for provider in report.providers if provider.name == "codex")
+    assert codex_provider.actual_model == "gpt-5.5"
+    assert report.conversation[0].related_ids == ("wp-001",)
+    assert report.execution_events[0].raw_data["run_id"] == "exec-run-001"

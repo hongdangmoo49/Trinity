@@ -2957,7 +2957,10 @@ class WorkflowEngine:
             f"Original goal:\n{self.session.goal}\n\n"
             f"Latest decision ({decision.id}):\n{decision.decision}\n\n"
             f"All decisions:\n{decisions}\n\n"
-            "Update the design based on these decisions and continue deliberation."
+            "Update the design based on these decisions and continue deliberation. "
+            "If a final blueprint is approved, include executable work packages "
+            "covering the full deliverable graph, with owners, dependencies, "
+            "expected files, acceptance criteria, risk, and parallelization metadata."
         )
 
     def _build_blueprint_continuation_prompt(self, instruction: str) -> str:
@@ -2984,6 +2987,8 @@ class WorkflowEngine:
             f"Recorded decisions:\n{decisions}\n\n"
             "Revise or confirm the blueprint using the user's follow-up. "
             "If the user is asking for implementation, produce an executable "
-            "final blueprint and approve it. If more user input is required, "
-            "raise OPEN QUESTIONS."
+            "final blueprint and approve it. Preserve or regenerate a complete "
+            "work package graph with owners, dependencies, expected files, "
+            "acceptance criteria, risk, and parallelization metadata. If more "
+            "user input is required, raise OPEN QUESTIONS."
         )

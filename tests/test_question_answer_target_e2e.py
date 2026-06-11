@@ -87,7 +87,7 @@ print(json.dumps(completed_event))
 
 
 def _write_fake_claude(path: Path, log_path: Path) -> None:
-    """Write a fake Claude CLI that records unexpected invocations."""
+    """Write a fake Claude CLI that records argv/stdin and emits JSON."""
     script = f"""#!/usr/bin/env python3
 import json
 import pathlib
@@ -100,15 +100,111 @@ with log_path.open("a", encoding="utf-8") as handle:
     record = {{"argv": sys.argv[1:], "stdin": stdin_text}}
     handle.write(json.dumps(record, ensure_ascii=False) + "\\n")
 
-payload = {{
-    "result": (
-        "VOTE: APPROVE\\n"
-        "Title: Unexpected Claude Call\\n"
-        "Summary: Claude should not be invoked."
-    ),
-    "session_id": "claude-unexpected",
+agent_payload = {{
+    "vote": "APPROVE",
+    "rationale": "Targeted Claude continuation used the saved answer.",
+    "blueprint": {{
+        "title": "Claude Continuation Blueprint",
+        "summary": "Continue with the selected Claude model only.",
+        "architecture": [],
+        "data_flow": ["answer -> claude -> blueprint"],
+        "external_dependencies": [],
+        "risks": [],
+        "acceptance_criteria": ["Claude receives the answered prompt."],
+        "open_questions": [],
+        "work_packages": [
+            {{
+                "id": "WP-001",
+                "title": "Verify Claude continuation",
+                "owner_agent": "claude",
+                "objective": "Verify Claude target continuity.",
+                "scope": ["Use the answered decision."],
+                "out_of_scope": [],
+                "dependencies": [],
+                "expected_files": ["docs/"],
+                "acceptance_criteria": ["Only Claude is invoked."],
+                "estimated_weight": 1,
+                "parallel_group": 1,
+                "parallelizable": True,
+                "risk": "low"
+            }}
+        ]
+    }}
 }}
-print(json.dumps(payload))
+payload = {{
+    "result": json.dumps(agent_payload, ensure_ascii=False),
+    "session_id": "claude-after-answer",
+    "model": "opus[1m]",
+    "usage": {{"input_tokens": 11, "output_tokens": 22}},
+}}
+print(json.dumps(payload, ensure_ascii=False))
+"""
+    path.write_text(script, encoding="utf-8")
+    path.chmod(0o755)
+
+
+def _write_fake_antigravity(path: Path, log_path: Path) -> None:
+    """Write a fake Antigravity CLI that records argv/stdin and emits text."""
+    script = f"""#!/usr/bin/env python3
+import json
+import pathlib
+import sys
+
+log_path = pathlib.Path({str(log_path)!r})
+stdin_text = sys.stdin.read()
+log_path.parent.mkdir(parents=True, exist_ok=True)
+with log_path.open("a", encoding="utf-8") as handle:
+    record = {{"argv": sys.argv[1:], "stdin": stdin_text}}
+    handle.write(json.dumps(record, ensure_ascii=False) + "\\n")
+
+args = sys.argv[1:]
+provider_log = ""
+for index, arg in enumerate(args):
+    if arg == "--log-file" and index + 1 < len(args):
+        provider_log = args[index + 1]
+    elif arg.startswith("--log-file="):
+        provider_log = arg.split("=", 1)[1]
+if provider_log:
+    log_file = pathlib.Path(provider_log)
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    log_file.write_text(
+        "conversation=agy-after-answer\\n"
+        "selected model: Gemini 3.1 Pro (High)\\n",
+        encoding="utf-8",
+    )
+
+agent_payload = {{
+    "vote": "APPROVE",
+    "rationale": "Targeted Antigravity continuation used the saved answer.",
+    "blueprint": {{
+        "title": "Antigravity Continuation Blueprint",
+        "summary": "Continue with the selected Antigravity model only.",
+        "architecture": [],
+        "data_flow": ["answer -> antigravity -> blueprint"],
+        "external_dependencies": [],
+        "risks": [],
+        "acceptance_criteria": ["Antigravity receives the answered prompt."],
+        "open_questions": [],
+        "work_packages": [
+            {{
+                "id": "WP-001",
+                "title": "Verify Antigravity continuation",
+                "owner_agent": "antigravity",
+                "objective": "Verify Antigravity target continuity.",
+                "scope": ["Use the answered decision."],
+                "out_of_scope": [],
+                "dependencies": [],
+                "expected_files": ["docs/"],
+                "acceptance_criteria": ["Only Antigravity is invoked."],
+                "estimated_weight": 1,
+                "parallel_group": 1,
+                "parallelizable": True,
+                "risk": "low"
+            }}
+        ]
+    }}
+}}
+print(json.dumps(agent_payload, ensure_ascii=False))
 """
     path.write_text(script, encoding="utf-8")
     path.chmod(0o755)
@@ -207,3 +303,183 @@ def test_question_answer_continuation_invokes_only_saved_target_agent_model_and_
     assert argv[argv.index("--model") + 1] == "gpt-5"
     assert "dark" in stdin_text
     assert controller.workflow.session.runtime_models["codex"].actual_model == "gpt-5"
+
+
+def test_question_answer_continuation_invokes_claude_resume_for_targeted_agent(
+    tmp_path,
+) -> None:
+    """Claude question answers continue the saved provider session with --resume."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    claude_log = tmp_path / "logs" / "claude.jsonl"
+    codex_log = tmp_path / "logs" / "codex.jsonl"
+    fake_claude = bin_dir / "claude"
+    fake_codex = bin_dir / "codex"
+    _write_fake_claude(fake_claude, claude_log)
+    _write_fake_codex(fake_codex, codex_log)
+
+    config = TrinityConfig(
+        project_dir=tmp_path,
+        state_dir=tmp_path / ".trinity",
+        transport_mode="one-shot",
+        synthesis_mode="heuristic",
+        round_timeout_seconds=5.0,
+        provider_readiness_timeout_seconds=0.1,
+        agents={
+            "claude": AgentSpec(
+                name="claude",
+                provider=Provider.CLAUDE_CODE,
+                cli_command=str(fake_claude),
+                enabled=True,
+            ),
+            "codex": AgentSpec(
+                name="codex",
+                provider=Provider.CODEX,
+                cli_command=str(fake_codex),
+                enabled=True,
+            ),
+        },
+    )
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start(
+        "Build a targeted workflow.",
+        ["claude", "codex"],
+        target_agents=("claude",),
+        agent_model_overrides={"claude": "opus[1m]"},
+    )
+    workflow.session.provider_sessions["claude:key"] = ProviderSessionRef(
+        provider="claude-code",
+        agent_name="claude",
+        session_key="claude:key",
+        provider_session_id="claude-before-answer",
+        session_kind="claude_session",
+        access="read-only",
+    )
+    workflow.add_open_question(
+        OpenQuestion(
+            id="q-1",
+            question="Which theme?",
+            options=["dark", "light"],
+        )
+    )
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        archive_active_session=False,
+    )
+
+    outcome = controller.answer_question("q-1", "dark")
+
+    assert outcome.running is True
+    assert controller.wait_until_idle(timeout=5.0)
+    final = controller.drain_updates()
+    assert final is not None
+    assert final.snapshot.state == "blueprint_ready"
+
+    claude_calls = _read_jsonl(claude_log)
+    codex_calls = _read_jsonl(codex_log)
+    assert len(claude_calls) == 1
+    assert codex_calls == []
+
+    argv = [str(item) for item in claude_calls[0]["argv"]]
+    assert "--resume" in argv
+    assert argv[argv.index("--resume") + 1] == "claude-before-answer"
+    assert "--model" in argv
+    assert argv[argv.index("--model") + 1] == "opus[1m]"
+    assert "-p" in argv
+    assert "--output-format" in argv
+    assert "dark" in " ".join(argv)
+    assert (
+        controller.workflow.session.runtime_models["claude"].actual_model
+        == "opus[1m]"
+    )
+
+
+def test_question_answer_continuation_invokes_agy_conversation_for_targeted_agent(
+    tmp_path,
+) -> None:
+    """Antigravity question answers continue the saved provider conversation."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    agy_log = tmp_path / "logs" / "agy.jsonl"
+    claude_log = tmp_path / "logs" / "claude.jsonl"
+    fake_agy = bin_dir / "agy"
+    fake_claude = bin_dir / "claude"
+    _write_fake_antigravity(fake_agy, agy_log)
+    _write_fake_claude(fake_claude, claude_log)
+
+    config = TrinityConfig(
+        project_dir=tmp_path,
+        state_dir=tmp_path / ".trinity",
+        transport_mode="one-shot",
+        synthesis_mode="heuristic",
+        round_timeout_seconds=5.0,
+        provider_readiness_timeout_seconds=0.1,
+        agents={
+            "claude": AgentSpec(
+                name="claude",
+                provider=Provider.CLAUDE_CODE,
+                cli_command=str(fake_claude),
+                enabled=True,
+            ),
+            "antigravity": AgentSpec(
+                name="antigravity",
+                provider=Provider.ANTIGRAVITY_CLI,
+                cli_command=str(fake_agy),
+                enabled=True,
+            ),
+        },
+    )
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start(
+        "Build a targeted workflow.",
+        ["claude", "antigravity"],
+        target_agents=("antigravity",),
+        agent_model_overrides={"antigravity": "Gemini 3.1 Pro (High)"},
+    )
+    workflow.session.provider_sessions["agy:key"] = ProviderSessionRef(
+        provider="antigravity-cli",
+        agent_name="antigravity",
+        session_key="agy:key",
+        provider_session_id="agy-before-answer",
+        session_kind="antigravity_conversation",
+        access="read-only",
+    )
+    workflow.add_open_question(
+        OpenQuestion(
+            id="q-1",
+            question="Which theme?",
+            options=["dark", "light"],
+        )
+    )
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        archive_active_session=False,
+    )
+
+    outcome = controller.answer_question("q-1", "dark")
+
+    assert outcome.running is True
+    assert controller.wait_until_idle(timeout=5.0)
+    final = controller.drain_updates()
+    assert final is not None
+    assert final.snapshot.state == "blueprint_ready"
+
+    agy_calls = _read_jsonl(agy_log)
+    claude_calls = _read_jsonl(claude_log)
+    assert len(agy_calls) == 1
+    assert claude_calls == []
+
+    argv = [str(item) for item in agy_calls[0]["argv"]]
+    assert "--conversation" in argv
+    assert argv[argv.index("--conversation") + 1] == "agy-before-answer"
+    assert "--model" in argv
+    assert argv[argv.index("--model") + 1] == "Gemini 3.1 Pro (High)"
+    assert "--sandbox" in argv
+    assert "--print" in argv
+    assert "dark" in " ".join(argv)
+    assert (
+        controller.workflow.session.runtime_models["antigravity"].model_label
+        == "Gemini 3.1 Pro (High)"
+    )

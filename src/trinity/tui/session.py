@@ -60,6 +60,7 @@ PLAIN_TUI_COMMAND_HANDLERS: dict[str, str] = {
     "context": "_cmd_context",
     "rounds": "_cmd_rounds",
     "agent": "_cmd_agent",
+    "model": "_cmd_model",
     "history": "_cmd_history",
     "save": "_cmd_save",
     "caveman": "_cmd_caveman",
@@ -503,6 +504,34 @@ class InteractiveSession:
             )
         else:
             self.console.print("[dim]Usage: /agent <name> on|off[/dim]")
+
+    def _cmd_model(self) -> None:
+        """Show model settings in the plain TUI."""
+        from rich.table import Table
+
+        table = Table(title="Model Settings")
+        table.add_column("Agent", style="cyan")
+        table.add_column("Provider", style="green")
+        table.add_column("Enabled")
+        table.add_column("Configured model")
+        table.add_column("Session override")
+
+        overrides = dict(self.workflow.session.agent_model_overrides)
+        for name, spec in self.config.agents.items():
+            table.add_row(
+                name,
+                spec.provider.value,
+                "yes" if spec.enabled else "no",
+                spec.model or "default",
+                overrides.get(name, "-"),
+            )
+
+        self.console.print(table)
+        self.console.print(
+            "[dim]Plain TUI supports per-request overrides with "
+            "/ask <agent> --model <model> <prompt>. "
+            "Use the Textual UI /model modal for session-wide model selection.[/dim]"
+        )
 
     def _cmd_history(self) -> None:
         """Show deliberation history."""

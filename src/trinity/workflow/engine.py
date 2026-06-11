@@ -368,9 +368,29 @@ class WorkflowEngine:
             )
 
         self.set_state(WorkflowState.DELIBERATING, reason="user decision answered")
+        target_agents = self._effective_target_agents(
+            self.session.active_agents,
+            self.session.last_target_agents,
+        )
+        model_overrides = self._normalized_model_overrides(
+            self.session.agent_model_overrides,
+            target_agents,
+        )
+        active_agent_set = {
+            str(agent).strip()
+            for agent in self.session.active_agents
+            if str(agent).strip()
+        }
         return WorkflowInputAction(
             should_deliberate=True,
             prompt=self._build_decision_continuation_prompt(decision),
+            target_agents=target_agents,
+            agent_model_overrides=dict(model_overrides),
+            agent_selection_mode=(
+                "targeted"
+                if set(target_agents) != active_agent_set
+                else "all"
+            ),
             decision_record=decision,
             replaced_decision=replaced,
         )

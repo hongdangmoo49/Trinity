@@ -123,6 +123,31 @@ def test_answer_question_records_decision_without_new_workflow(tmp_path):
     assert "Use mixed score" in action.prompt
 
 
+def test_answer_question_preserves_target_agents_and_model_overrides(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start(
+        "Design a bridge bot",
+        ["claude", "codex"],
+        target_agents=("codex",),
+        agent_model_overrides={"codex": "gpt-5", "claude": "ignored"},
+    )
+    engine.add_open_question(
+        OpenQuestion(
+            id="q-001",
+            question="Optimize for cost or latency?",
+            options=["cost", "latency"],
+        )
+    )
+
+    action = engine.answer_question("q-001", "Use mixed score")
+
+    assert action.should_deliberate is True
+    assert action.target_agents == ("codex",)
+    assert action.agent_selection_mode == "targeted"
+    assert action.agent_model_overrides == {"codex": "gpt-5"}
+    assert "Use mixed score" in action.prompt
+
+
 def test_multiple_pending_questions_waits_for_remaining_answers(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
     engine.start("Design", ["claude"])

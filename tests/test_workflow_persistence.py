@@ -1,5 +1,7 @@
 """Tests for workflow persistence helpers."""
 
+from pathlib import Path
+
 from trinity.workflow import (
     AgentRuntimeModel,
     Blueprint,
@@ -148,6 +150,38 @@ def test_workflow_persistence_loads_events_for_one_workflow(tmp_path):
         "event": "state_changed",
         "workflow_id": "wf-a",
     }
+
+
+def test_workflow_persistence_caches_events_until_file_changes(tmp_path, monkeypatch):
+    persistence = WorkflowPersistence(tmp_path / ".trinity")
+    persistence.append_event({"event": "started", "workflow_id": "wf-a"})
+
+    read_count = 0
+    original_open = Path.open
+
+    def counted_open(path, *args, **kwargs):
+        nonlocal read_count
+        mode = args[0] if args else kwargs.get("mode", "r")
+        if path == persistence.events_path and "r" in str(mode):
+            read_count += 1
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", counted_open)
+
+    first = persistence.load_events()
+    assert first == [{"event": "started", "workflow_id": "wf-a"}]
+    assert read_count == 1
+
+    first[0]["event"] = "mutated"
+    assert persistence.load_events() == [{"event": "started", "workflow_id": "wf-a"}]
+    assert read_count == 1
+
+    persistence.append_event({"event": "completed", "workflow_id": "wf-a"})
+    assert persistence.load_events() == [
+        {"event": "started", "workflow_id": "wf-a"},
+        {"event": "completed", "workflow_id": "wf-a"},
+    ]
+    assert read_count == 2
 
 
 def test_workflow_persistence_archives_and_restores_active_session(tmp_path):

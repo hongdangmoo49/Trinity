@@ -39,6 +39,8 @@ class WorkflowPersistence:
         workflow_dir = state_dir / "workflow"
         self.session_path = state_file or workflow_dir / "session.json"
         self.events_path = events_file or workflow_dir / "events.jsonl"
+        self._cached_events_key: tuple[int, int] | None = None
+        self._cached_events: list[dict[str, Any]] | None = None
 
     @property
     def workflow_dir(self) -> Path:
@@ -77,11 +79,21 @@ class WorkflowPersistence:
         self.events_path.parent.mkdir(parents=True, exist_ok=True)
         with self.events_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(dict(event), ensure_ascii=False) + "\n")
+        self._invalidate_events_cache()
 
     def load_events(self) -> list[dict[str, Any]]:
         """Read event dictionaries from the JSONL event log."""
         if not self.events_path.exists():
+            self._invalidate_events_cache()
             return []
+
+        cache_key = self._events_cache_key()
+        if (
+            cache_key is not None
+            and self._cached_events_key == cache_key
+            and self._cached_events is not None
+        ):
+            return self._clone_events(self._cached_events)
 
         events: list[dict[str, Any]] = []
         try:
@@ -95,6 +107,10 @@ class WorkflowPersistence:
                         events.append(event)
         except (json.JSONDecodeError, OSError):
             logger.exception("Failed to load workflow events from %s", self.events_path)
+            return events
+
+        self._cached_events_key = cache_key
+        self._cached_events = self._clone_events(events)
         return events
 
     def load_events_for_workflow(
@@ -133,6 +149,7 @@ class WorkflowPersistence:
         for path in (self.session_path, self.events_path):
             if path.exists():
                 path.unlink()
+        self._invalidate_events_cache()
 
     def archive_active_session(self, *, force: bool = False) -> WorkflowArchive | None:
         """Move the current active session into workflow history.
@@ -207,7 +224,24 @@ class WorkflowPersistence:
             shutil.copyfile(archive.events_path, self.events_path)
         elif self.events_path.exists():
             self.events_path.unlink()
+        self._invalidate_events_cache()
         return archive.session
+
+    def _invalidate_events_cache(self) -> None:
+        """Drop cached JSONL events after a local write or remove operation."""
+        self._cached_events_key = None
+        self._cached_events = None
+
+    def _events_cache_key(self) -> tuple[int, int] | None:
+        try:
+            stat = self.events_path.stat()
+        except OSError:
+            return None
+        return (stat.st_mtime_ns, stat.st_size)
+
+    @staticmethod
+    def _clone_events(events: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [dict(event) for event in events]
 
     @staticmethod
     def _has_meaningful_session(session: WorkflowSession) -> bool:

@@ -19,8 +19,8 @@
 
 ## 결론 요약
 
-현재 active workflow 파일만 놓고 보면 즉시 치명적인 병목은 아니다. 로컬 계측 기준으로
-현재 session과 events는 작고 snapshot load도 빠르다.
+현재 active workflow 파일만 놓고 보면 즉시 치명적인 병목은 아니다. 다만 로컬 계측 기준으로
+session이 이미 약 1.6MB이고 snapshot load도 수십 ms 단위까지 올라와 있다.
 
 하지만 구조적으로 다음 조건이 겹치면 렉이 커질 가능성이 높다.
 
@@ -29,63 +29,74 @@
 - `shared.md` 또는 oversized backup이 계속 누적
 - `/model` live discovery가 provider별로 긴 timeout을 소비
 - Nexus/Execution/Report 화면이 snapshot을 반복 로드
-- execution 중 WP 결과가 partial persist되지 않아 사용자가 반복적으로 화면을 전환/조회
+- execution 중 WP 결과의 partial persist/UI/report 반영 계약이 약해 사용자가 반복적으로 화면을 전환/조회
 
-따라서 우선순위는 "무작정 빠르게 만들기"가 아니라, 먼저 하네스 계측을 추가하고 다음
-저위험 개선부터 적용하는 것이 맞다.
+따라서 우선순위는 "무작정 빠르게 만들기"가 아니라, 먼저 하네스 계측을 추가하고 현재
+경로에서 재현되는 비용부터 낮추는 것이 맞다.
 
-1. `.trinity` 대형 artifact retention 정책
+1. 성능 하네스와 current-state 재계측
 2. workflow event load cache/tail/index
-3. resume archive summary manifest
-4. snapshot memoization
-5. model discovery parallelization and shorter interactive timeout
-6. execution partial result persistence
-7. report/inspector lazy loading
+3. snapshot memoization and route projection cache
+4. model discovery cache-first UI, provider별 병렬화, provider별 timeout
+5. execution partial result의 UI/report 통합 계약 고정
+6. report/inspector lazy loading
+7. `.trinity` 대형 artifact retention/cleanup 명령
 
 ## 현재 상태 계측
 
 계측 환경:
 
-- 위치: `/home/user/workspace/Trinity`
+- 위치: `/home/zaemi/workspace/Trinity`
 - 명령: `PYTHONPATH=src python3`
 - active config: `.trinity/trinity.config`
-- 반복: session/events/snapshot 20회 또는 10회
+- 반복: session/events 20회, snapshot 10회
+
+주의:
+
+- 이전 초안의 `/home/user/workspace/Trinity` 기준 수치에는 `.trinity` 3.5GB와
+  `shared.md.oversized-*` 3.46GB가 포함되어 있었다.
+- 현재 WSL 체크아웃 `/home/zaemi/workspace/Trinity`에는 100MB 초과 파일이 없고, `.trinity`
+  전체 크기도 280MB다.
+- 따라서 oversized cleanup은 현재 즉시 병목의 증거가 아니라 재발 방지용 운영 기능으로
+  분류한다.
 
 현재 `.trinity` 크기:
 
 | 항목 | 크기 |
 | --- | ---: |
-| `.trinity` 전체 | 3.5GB |
-| `.trinity/shared.md.oversized-20260609-162457` | 약 3.46GB |
-| `.trinity/workflow/events.jsonl` | 57,589 bytes |
-| `.trinity/workflow/session.json` | 13,556 bytes |
-| `.trinity/shared.md` | 11,145 bytes |
-| `.trinity/memory/index.sqlite` | 53,248 bytes |
+| `.trinity` 전체 | 280MB |
+| 100MB 초과 파일 | 없음 |
+| `.trinity/workflow/session.json` | 1,589,743 bytes |
+| `.trinity/workflow/events.jsonl` | 399,717 bytes |
+| `.trinity/shared.md` | 182,984 bytes |
+| `.trinity/memory/index.sqlite` | 163,840 bytes |
 
 현재 active operation 계측:
 
 | Operation | min | avg | max | 비고 |
 | --- | ---: | ---: | ---: | --- |
-| `load_session` | 0.06ms | 0.07ms | 0.12ms | active session 작음 |
-| `load_events_all` | 0.27ms | 0.34ms | 1.21ms | events 138개 |
-| `load_events_for_workflow` | 0.27ms | 0.31ms | 0.49ms | 전체 events read 후 filter |
-| `list_archives` | 6.06ms | 8.27ms | 19.85ms | archive 28개 |
-| `snapshot_load` | 1.61ms | 2.19ms | 4.93ms | 현재는 빠름 |
+| `load_session` | 12.10ms | 14.73ms | 19.01ms | active session 약 1.6MB |
+| `load_events_all` | 2.21ms | 2.86ms | 4.91ms | events 447개 |
+| `load_events_for_workflow` | 2.18ms | 2.50ms | 3.30ms | 전체 events read 후 filter |
+| `snapshot_load` | 23.82ms | 28.33ms | 31.43ms | session/review 결과 증가 영향 |
 
 해석:
 
-- 현재 active session만 보면 Nexus가 느릴 이유는 크지 않다.
-- `.trinity` 전체가 3.5GB인 원인은 oversized backup 단일 파일이다.
-- backup 파일은 active `shared.md` read에는 직접 걸리지 않지만, 디렉터리 스캔, 백업, 복사,
-  IDE indexing, 바이러스 검사, 동기화, 압축, 파일 탐색에는 큰 영향을 준다.
-- event/archive load 구조는 현재는 빠르지만 선형 스캔이라 workflow가 커지면 재발 위험이 있다.
+- 현재 active session은 치명적으로 느리지는 않지만, snapshot load가 이미 수십 ms 단위로
+  올라왔다.
+- review result가 늘면서 `session.json` 자체가 커지고 있어 route 전환 때 반복 load가 쌓이면
+  체감 지연이 생길 수 있다.
+- event load는 아직 작지만 전체 read 후 filter 구조라 workflow가 커지면 선형 비용이 증가한다.
+- oversized backup은 현재 경로에서 재현되지 않으므로 P1 병목이 아니라 cleanup/retention
+  정책으로 분리한다.
 
 ## 병목 후보 상세
 
 ### 1. Oversized shared context backup 누적
 
-현재 `.trinity` 전체 크기의 대부분은 `shared.md.oversized-*` 파일 하나다. Trinity는
-oversized `shared.md`를 감지하면 원본을 옮기고 작은 recovery projection을 만든다.
+현재 WSL 체크아웃에는 대형 `shared.md.oversized-*` 파일이 없다. 다만 이전 계측 경로에서는
+oversized backup 하나가 `.trinity` 대부분을 차지했다. Trinity는 oversized `shared.md`를
+감지하면 원본을 옮기고 작은 recovery projection을 만든다.
 
 좋은 점:
 
@@ -94,7 +105,7 @@ oversized `shared.md`를 감지하면 원본을 옮기고 작은 recovery projec
 
 위험:
 
-- 3GB 이상 파일이 `.trinity` 안에 남아 workspace 전체 작업을 느리게 만든다.
+- GB 단위 파일이 `.trinity` 안에 남아 workspace 전체 작업을 느리게 만들 수 있다.
 - 여러 번 oversized가 발생하면 디스크 사용량이 빠르게 증가한다.
 - 사용자는 active 파일이 작아졌는데도 프로젝트가 무겁다고 느낄 수 있다.
 
@@ -104,7 +115,7 @@ oversized `shared.md`를 감지하면 원본을 옮기고 작은 recovery projec
 - `/memory prune` 또는 `/memory cleanup --oversized-backups` 명령을 추가한다.
 - retention 기본값을 둔다. 예: 최신 1개 또는 7일 보관.
 - backup manifest를 만들어 크기와 생성 시점을 report/settings에서 보여준다.
-- 자동 삭제는 위험하므로 처음에는 명시 명령으로 시작한다.
+- 자동 삭제는 위험하므로 처음에는 `--dry-run`과 명시 명령으로 시작한다.
 
 하네스:
 
@@ -115,7 +126,7 @@ oversized `shared.md`를 감지하면 원본을 옮기고 작은 recovery projec
 ### 2. Events JSONL 전체 로드
 
 `WorkflowPersistence.load_events_for_workflow()`는 `load_events()`로 events 파일 전체를 읽고
-workflow id로 filter한다. 현재는 events 138개라 빠르지만, 장기 workflow에서는 모든 snapshot,
+workflow id로 filter한다. 현재는 events 447개라 아직 감당 가능하지만, 장기 workflow에서는 모든 snapshot,
 report, resume/context 경로가 선형 비용을 갖는다.
 
 현재 호출 지점:
@@ -154,7 +165,7 @@ report, resume/context 경로가 선형 비용을 갖는다.
 `NexusSnapshotAdapter.load_snapshot()`은 session, events, provider state, synthesis, questions,
 decisions, central blueprint, WP details, review aggregation, execution recovery를 한 번에 만든다.
 
-현재는 빠르지만 다음 이유로 커질 수 있다.
+현재는 운영 가능한 수준이지만 다음 이유로 커질 수 있다.
 
 - events 전체 load
 - review_results를 매 snapshot마다 `ReviewResult.from_dict()`로 재구성
@@ -223,7 +234,9 @@ Textual app은 provider model discovery worker를 시작하고, 각 configured a
 
 개선안:
 
-- interactive discovery timeout을 provider당 3초로 낮춘다.
+- 기존 cache 또는 static fallback을 즉시 표시하고 live discovery는 백그라운드에서 refresh한다.
+- discovery timeout은 고정 3초가 아니라 provider별 기본값으로 분리한다. 예: 빠른 local list는
+  3초, 느린 provider는 5~10초.
 - provider별 discovery를 thread pool로 병렬 실행한다.
 - modal은 provider별 loading/error/source를 표시한다.
 - cache를 app lifetime뿐 아니라 `.trinity/provider-models.json` 같은 small cache로 저장한다.
@@ -237,8 +250,9 @@ Textual app은 provider model discovery worker를 시작하고, 각 configured a
 
 ### 6. Execution partial result persistence
 
-현재 execution protocol은 개별 WP 완료 event를 emit하고 shared.md에 task result를 append한다.
-하지만 controller는 전체 execution worker가 끝난 뒤에야 `record_execution_results()`를 호출한다.
+현재 엔진에는 `record_execution_results(..., finalize=False)`로 개별 WP 결과를 session에
+upsert하는 경로가 있다. 다만 execution protocol/controller/report가 이 경로를 항상 같은 계약으로
+사용한다는 보장이 약하다.
 
 성능 문제라기보다 UX/관측성 문제지만, 사용자는 긴 실행 중에 "완료된 WP 보고서가 왜 안 보이지"라고
 느끼게 된다. 사용자가 같은 화면을 반복 확인하면 체감상 더 느린 제품이 된다.
@@ -339,15 +353,14 @@ budget 안에서 packing한다. SQLite memory가 커질수록 index와 query pat
 
 작업:
 
-- oversized backup cleanup 명령과 retention 표시
 - workflow events mtime/size cache
 - snapshot memoization
-- model discovery provider별 병렬화
-- model discovery interactive timeout 3초 조정
+- route별 projection cache key 명시
+- model discovery는 캐시 결과를 즉시 표시하고 live refresh를 백그라운드에서 병렬 실행
+- model discovery timeout은 고정 3초가 아니라 provider별 기본값으로 분리
 
 예상 효과:
 
-- 대형 `.trinity`로 인한 체감 무거움 감소
 - running 중 UI polling 부담 감소
 - `/model` modal 체감 개선
 - resume/report/snapshot 성장 비용 완화
@@ -361,12 +374,14 @@ budget 안에서 packing한다. SQLite memory가 커질수록 index와 query pat
 - report raw artifact lazy loading
 - inspector tail-first rendering
 - archive summary manifest
+- oversized backup cleanup 명령과 retention 표시
 
 예상 효과:
 
 - 긴 WP 실행 중에도 보고서와 Execution Matrix가 바로 업데이트된다.
 - fallback 원인 분석이 UI에서 가능해진다.
 - report 화면이 큰 artifact에 덜 끌려간다.
+- 대형 `.trinity` artifact가 재발해도 사용자가 원인과 정리 방법을 확인할 수 있다.
 
 ### P3: 구조적 확장성 개선
 
@@ -401,12 +416,13 @@ budget 안에서 packing한다. SQLite memory가 커질수록 index와 query pat
 
 ## 바로 실행 가능한 다음 작업
 
-1. `shared.md.oversized-*` retention/cleanup 설계와 명령 추가
-2. performance harness skeleton 추가
+1. performance harness skeleton 추가
+2. current-state 계측 fixture와 large-session fixture 추가
 3. events cache와 snapshot memoization 구현
-4. model discovery 병렬화
-5. execution partial result persistence 구현
+4. model discovery cache-first UI와 provider별 병렬화 구현
+5. execution partial result의 UI/report 통합 계약 고정
 6. report/inspector lazy loading 구현
+7. `shared.md.oversized-*` retention/cleanup 설계와 명령 추가
 
 현재 체감 렉의 직접 원인은 상황마다 다를 수 있다. 하지만 위 순서대로 진행하면 "큰 파일 때문에
 무거운 문제", "반복 snapshot 때문에 끊기는 문제", "provider discovery 때문에 늦게 채워지는 문제",
@@ -418,9 +434,10 @@ Trinity는 workflow 기능이 빠르게 복잡해졌고, 이제 성능 병목도
 event replay, artifact 관리, Textual projection, provider discovery가 함께 만드는 문제가 될 가능성이
 높다.
 
-현재 수치만 보면 active workflow는 빠르다. 그러나 `.trinity`에 3GB 이상의 oversized backup이 이미
-생겼고, event/archive/snapshot 구조가 선형 로드에 기대고 있으므로 장기 사용에서는 같은 유형의 렉이
-반복될 수 있다.
+현재 수치만 보면 active workflow는 아직 운영 가능한 수준이다. 그러나 session과 snapshot 비용이 이미
+커지고 있고, event/archive/snapshot 구조가 선형 로드에 기대고 있으므로 장기 사용에서는 같은 유형의
+렉이 반복될 수 있다. oversized backup은 현재 체크아웃에서는 재현되지 않았지만, 과거 계측처럼 GB 단위
+artifact가 남는 상황을 막기 위한 retention/cleanup 정책은 별도 운영 기능으로 필요하다.
 
 따라서 성능개선은 먼저 하네스로 재현 가능한 상태를 만들고, 그 다음 cache/index/lazy loading/retention
 정책을 순서대로 적용하는 것이 가장 안전하다.

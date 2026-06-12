@@ -82,6 +82,7 @@ class TextualWorkflowController:
         self._run_kind: RunKind | None = None
         self._result: DeliberationResult | None = None
         self._execution_results: list[ExecutionResult] | None = None
+        self._execution_progress_results: list[ExecutionResult] = []
         self._review_results: list[ReviewResult] | None = None
         self._error: Exception | None = None
         self._completion_pending = False
@@ -431,10 +432,20 @@ class TextualWorkflowController:
     def drain_updates(self) -> TextualWorkflowOutcome | None:
         """Consume runtime events and complete finished background work."""
         events = self._poll_events()
+        progress_results = self._drain_execution_progress()
         message = ""
         completion_changed = False
+        progress_changed = False
         started_follow_up_work = False
         target_workspace_required = False
+
+        if progress_results:
+            self.workflow.record_execution_results(
+                progress_results,
+                finalize=False,
+                emit_events=False,
+            )
+            progress_changed = True
 
         with self._lock:
             completion_pending = self._completion_pending
@@ -501,7 +512,7 @@ class TextualWorkflowController:
                 elif self.workflow.state == WorkflowState.NEEDS_USER_DECISION:
                     message = "Review requires a user decision before continuing."
 
-        if events or completion_changed:
+        if events or completion_changed or progress_changed:
             return self._outcome(
                 message=message,
                 running=True if started_follow_up_work else self.is_running,
@@ -608,10 +619,16 @@ class TextualWorkflowController:
                     allow_control_repo_writes=(self.workflow.session.control_repo_target_confirmed),
                 )
                 orchestrator.set_event_bus(bus)
+
+                def _record_progress(result: ExecutionResult) -> None:
+                    with self._lock:
+                        self._execution_progress_results.append(result)
+
                 results = asyncio.run(
                     orchestrator.execute_work_packages(
                         dispatch_packages,
                         decisions=self.workflow.decisions,
+                        result_callback=_record_progress,
                     )
                 )
                 with self._lock:
@@ -701,10 +718,17 @@ class TextualWorkflowController:
             self._run_kind = run_kind
             self._result = None
             self._execution_results = None
+            self._execution_progress_results = []
             self._review_results = None
             self._error = None
             self._completion_pending = False
         self._recent_events = []
+
+    def _drain_execution_progress(self) -> list[ExecutionResult]:
+        with self._lock:
+            results = list(self._execution_progress_results)
+            self._execution_progress_results.clear()
+        return results
 
     def _poll_events(self) -> list[TUIEvent]:
         bus = self._bus

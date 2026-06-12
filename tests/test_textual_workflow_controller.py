@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 import time
 
 from trinity.config import TrinityConfig
@@ -1329,7 +1330,7 @@ def test_textual_workflow_controller_persists_work_package_runtime_events(tmp_pa
 class FakeExecutionOrchestrator(FakeOrchestrator):
     executed_packages: list[list[str]] = []
 
-    async def execute_work_packages(self, work_packages, decisions=()):
+    async def execute_work_packages(self, work_packages, decisions=(), result_callback=None):
         self.__class__.executed_packages.append([package.id for package in work_packages])
         return [
             ExecutionResult(
@@ -1340,6 +1341,69 @@ class FakeExecutionOrchestrator(FakeOrchestrator):
             )
             for package in work_packages
         ]
+
+
+class FakePartialProgressExecutionOrchestrator(FakeOrchestrator):
+    release = threading.Event()
+    progress_seen = threading.Event()
+
+    async def execute_work_packages(self, work_packages, decisions=None, result_callback=None):
+        result = ExecutionResult(
+            package_id=work_packages[0].id,
+            agent_name=work_packages[0].owner_agent,
+            status=WorkStatus.DONE,
+            summary="Partial progress completed.",
+        )
+        if result_callback is not None:
+            result_callback(result)
+            type(self).progress_seen.set()
+        await asyncio.to_thread(type(self).release.wait, 2.0)
+        return [result]
+
+
+def test_textual_workflow_controller_persists_partial_execution_progress(
+    tmp_path,
+) -> None:
+    FakePartialProgressExecutionOrchestrator.release = threading.Event()
+    FakePartialProgressExecutionOrchestrator.progress_seen = threading.Event()
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 구현", ["claude", "codex"])
+    workflow.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="client",
+            owner_agent="claude",
+            objective="Build client.",
+        )
+    ]
+    workflow.set_target_workspace(tmp_path / "game")
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakePartialProgressExecutionOrchestrator,
+        archive_active_session=False,
+    )
+
+    try:
+        assert controller._start_execution() is True
+        assert FakePartialProgressExecutionOrchestrator.progress_seen.wait(1.0)
+
+        outcome = controller.drain_updates()
+
+        assert outcome is not None
+        assert outcome.running is True
+        assert workflow.state == WorkflowState.EXECUTING
+        assert len(workflow.session.execution_results) == 1
+        assert workflow.session.execution_results[0].package_id == "WP-001"
+        assert workflow.session.work_packages[0].status == WorkStatus.DONE
+    finally:
+        FakePartialProgressExecutionOrchestrator.release.set()
+        controller.wait_until_idle()
+
+    controller.drain_updates()
+
+    assert len(workflow.session.execution_results) == 1
 
 
 def test_textual_workflow_controller_retries_selected_failed_packages_only(tmp_path) -> None:

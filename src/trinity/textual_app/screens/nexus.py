@@ -219,7 +219,7 @@ class NexusScreen(Screen[None]):
             self.post_message(self.ExecuteRequested(self.snapshot))
             return
         if event.action.startswith("refine-"):
-            self.post_message(self.FollowUpSubmitted(self._refine_prompt(event.action)))
+            self._submit_follow_up(self._refine_prompt(event.action))
 
     def update_provider(
         self,

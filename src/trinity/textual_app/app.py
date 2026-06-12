@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import replace
 from difflib import get_close_matches
 from inspect import Parameter, signature
@@ -1022,18 +1023,33 @@ class TrinityTextualApp(App[None]):
         )
 
     def _discover_provider_models(self, *, use_cache: bool = True) -> None:
-        for name, spec in self.config.agents.items():
-            choices = discover_provider_models(
-                spec.provider,
-                spec.cli_command,
-                timeout_seconds=10.0,
-                use_cache=use_cache,
-            )
-            if choices:
-                self.call_from_thread(
-                    self._apply_discovered_model_choices,
-                    {name: tuple(choices)},
-                )
+        agent_specs = list(self.config.agents.items())
+        if not agent_specs:
+            return
+
+        max_workers = min(len(agent_specs), 8)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(
+                    discover_provider_models,
+                    spec.provider,
+                    spec.cli_command,
+                    timeout_seconds=10.0,
+                    use_cache=use_cache,
+                ): name
+                for name, spec in agent_specs
+            }
+            for future in as_completed(futures):
+                name = futures[future]
+                try:
+                    choices = future.result()
+                except Exception:
+                    choices = []
+                if choices:
+                    self.call_from_thread(
+                        self._apply_discovered_model_choices,
+                        {name: tuple(choices)},
+                    )
 
     def _apply_discovered_model_choices(
         self,

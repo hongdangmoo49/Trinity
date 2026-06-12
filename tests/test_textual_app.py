@@ -2701,6 +2701,57 @@ async def test_nexus_follow_up_passes_selected_agents_and_models(tmp_path) -> No
         assert controller.follow_up_models[-1]["codex"] == "gpt-5"
 
 
+@pytest.mark.parametrize(
+    ("button_label", "expected_prompt"),
+    (
+        ("기능 보강", "핵심 기능"),
+        ("리스크 보강", "실행 리스크"),
+        ("WP 재분배", "WP의 범위"),
+    ),
+)
+@pytest.mark.asyncio
+async def test_nexus_refine_buttons_pass_selected_agents_and_models(
+    tmp_path,
+    button_label: str,
+    expected_prompt: str,
+) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-blueprint",
+        goal="game",
+        state="blueprint_ready",
+        work_packages=["WP-001 codex: gameplay loop"],
+    )
+    controller = FakeWorkflowController(snapshot)
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    config.agents["codex"].enabled = True
+    app = TrinityTextualApp(config, controller)
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        screen.apply_snapshot(snapshot)
+        selector = screen.query_one(AgentRecipientModelSelector)
+        selector.set_selected_agents(("codex",))
+        selector.set_model_overrides({"codex": "gpt-5"})
+        await pilot.pause()
+
+        central = screen.query_one(CentralAgentView)
+        buttons = list(central.query("#central-actions Button"))
+        refine_button = next(
+            button for button in buttons if str(button.label) == button_label
+        )
+        refine_button.press()
+        await pilot.pause()
+
+        assert controller.follow_ups
+        assert expected_prompt in controller.follow_ups[-1]
+        assert controller.follow_up_targets == [("codex",)]
+        assert controller.follow_up_models[-1] == {"codex": "gpt-5"}
+
+
 @pytest.mark.asyncio
 async def test_nexus_ask_slash_routes_targeted_follow_up(tmp_path) -> None:
     controller = FakeWorkflowController()

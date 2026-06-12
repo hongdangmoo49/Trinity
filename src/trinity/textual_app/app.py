@@ -1345,7 +1345,7 @@ class TrinityTextualApp(App[None]):
     def _apply_workflow_outcome(self, outcome: TextualWorkflowOutcome) -> None:
         snapshot = self._with_local_command_results(outcome.snapshot)
         self.active_snapshot = snapshot
-        if self._screens_installed:
+        if self._screens_installed and self.current_route == "nexus":
             nexus = self.get_screen("nexus", NexusScreen)
             nexus.apply_snapshot(snapshot)
             if outcome.running:
@@ -3208,13 +3208,6 @@ class TrinityTextualApp(App[None]):
             nexus.advance_activity_frame()
 
     def switch_to(self, route: WorkbenchRoute) -> None:
-        if route == "nexus" and self._screens_installed:
-            nexus = self.get_screen("nexus", NexusScreen)
-            nexus.apply_snapshot(
-                self.active_snapshot
-                or self.workflow_controller.snapshot()
-                or self.snapshot_adapter.load_snapshot()
-            )
         if route == "report" and self._screens_installed:
             report = self.get_screen("report", ReportScreen)
             report.apply_snapshot(self.active_snapshot or self.snapshot_adapter.load_snapshot())
@@ -3246,7 +3239,7 @@ class TrinityTextualApp(App[None]):
             )
         self.current_route = route
         self.switch_screen(route)
-        if self.active_snapshot is not None:
+        if route == "nexus" or self.active_snapshot is not None:
             self.call_after_refresh(self._refresh_current_route_from_active_snapshot)
 
     def action_go_start(self) -> None:

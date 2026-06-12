@@ -14,6 +14,7 @@ from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workflow import (
     FINAL_REVIEW_PACKAGE_ID,
     PostReviewActionItem,
+    ReviewPackage,
     ReviewResult,
     WorkflowPersistence,
     WorkflowSession,
@@ -155,6 +156,17 @@ class ReviewSnapshot:
 
 
 @dataclass(frozen=True)
+class _ReviewProjection:
+    """Aggregated per-work-package review state for compact UI surfaces."""
+
+    status: str = ""
+    reviewer_agent: str = ""
+    summary: str = ""
+    required_changes: list[str] = field(default_factory=list)
+    severity: str = ""
+
+
+@dataclass(frozen=True)
 class PostReviewActionSnapshot:
     """Projected review follow-up item for Textual UI."""
 
@@ -287,7 +299,7 @@ class NexusSnapshotAdapter:
         if session is None:
             return []
         result_by_package_id = {result.package_id: result for result in session.execution_results}
-        review_by_package_id = NexusSnapshotAdapter._latest_work_package_reviews(session)
+        review_by_package_id = NexusSnapshotAdapter._work_package_review_projections(session)
         return [
             WorkPackageSnapshot(
                 id=package.id,
@@ -343,7 +355,7 @@ class NexusSnapshotAdapter:
                 ),
                 topic=NexusSnapshotAdapter._work_package_topic(package),
                 review_status=(
-                    review_by_package_id[package.id].status.value
+                    review_by_package_id[package.id].status
                     if package.id in review_by_package_id
                     else ""
                 ),
@@ -386,15 +398,138 @@ class NexusSnapshotAdapter:
         return line
 
     @staticmethod
-    def _latest_work_package_reviews(
+    def _work_package_review_projections(
         session: WorkflowSession,
-    ) -> dict[str, ReviewResult]:
-        reviews: dict[str, ReviewResult] = {}
-        for review in NexusSnapshotAdapter._review_results(session):
+    ) -> dict[str, _ReviewProjection]:
+        planned_by_package = NexusSnapshotAdapter._planned_work_package_reviews(session)
+        result_by_package: dict[str, dict[str, ReviewResult]] = {}
+        for result in NexusSnapshotAdapter._review_results(session):
+            if result.scope == "final" or result.package_id == FINAL_REVIEW_PACKAGE_ID:
+                continue
+            review_id = result.review_package_id or f"{result.package_id}:{result.reviewer_agent}"
+            result_by_package.setdefault(result.package_id, {})[review_id] = result
+
+        projections: dict[str, _ReviewProjection] = {}
+        for package_id in set(planned_by_package) | set(result_by_package):
+            planned = planned_by_package.get(package_id, [])
+            results = list(result_by_package.get(package_id, {}).values())
+            pending_status = NexusSnapshotAdapter._pending_review_status(session)
+            status = pending_status
+            if results:
+                status = NexusSnapshotAdapter._aggregate_review_status(results)
+                planned_ids = {review.id for review in planned if review.id}
+                completed_ids = {
+                    result.review_package_id for result in results if result.review_package_id
+                }
+                if (
+                    status == "approved"
+                    and planned_ids
+                    and not planned_ids.issubset(completed_ids)
+                ):
+                    status = pending_status
+            representative = NexusSnapshotAdapter._representative_review_result(results)
+            projections[package_id] = _ReviewProjection(
+                status=status,
+                reviewer_agent=NexusSnapshotAdapter._reviewer_label(planned, results),
+                summary=representative.summary if representative else "",
+                required_changes=NexusSnapshotAdapter._review_required_changes(results),
+                severity=NexusSnapshotAdapter._aggregate_review_severity(results),
+            )
+        return projections
+
+    @staticmethod
+    def _planned_work_package_reviews(
+        session: WorkflowSession | None,
+    ) -> dict[str, list[ReviewPackage]]:
+        if session is None:
+            return {}
+        reviews: dict[str, list[ReviewPackage]] = {}
+        for item in session.review_packages:
+            if not isinstance(item, dict):
+                continue
+            try:
+                review = ReviewPackage.from_dict(item)
+            except (TypeError, ValueError):
+                continue
             if review.scope == "final" or review.package_id == FINAL_REVIEW_PACKAGE_ID:
                 continue
-            reviews[review.package_id] = review
+            reviews.setdefault(review.package_id, []).append(review)
         return reviews
+
+    @staticmethod
+    def _pending_review_status(session: WorkflowSession) -> str:
+        state = str(getattr(getattr(session, "state", ""), "value", "") or "")
+        return "reviewing" if state == "reviewing" else "queued"
+
+    @staticmethod
+    def _aggregate_review_status(results: list[ReviewResult]) -> str:
+        if not results:
+            return ""
+        priority = {
+            "failed": 5,
+            "blocked": 4,
+            "changes_requested": 3,
+            "approved": 2,
+            "pending": 1,
+        }
+        return max(
+            (result.status.value for result in results),
+            key=lambda status: priority.get(status, 0),
+        )
+
+    @staticmethod
+    def _representative_review_result(results: list[ReviewResult]) -> ReviewResult | None:
+        if not results:
+            return None
+        priority = {
+            "failed": 5,
+            "blocked": 4,
+            "changes_requested": 3,
+            "approved": 2,
+            "pending": 1,
+        }
+        return max(results, key=lambda result: priority.get(result.status.value, 0))
+
+    @staticmethod
+    def _reviewer_label(
+        planned: list[ReviewPackage],
+        results: list[ReviewResult],
+    ) -> str:
+        names: list[str] = []
+        for result in results:
+            if result.reviewer_agent and result.reviewer_agent not in names:
+                names.append(result.reviewer_agent)
+        for review in planned:
+            if review.reviewer_agent and review.reviewer_agent not in names:
+                names.append(review.reviewer_agent)
+        if len(names) <= 2:
+            return ", ".join(names)
+        return f"{', '.join(names[:2])}, +{len(names) - 2}"
+
+    @staticmethod
+    def _review_required_changes(results: list[ReviewResult]) -> list[str]:
+        changes: list[str] = []
+        for result in results:
+            for change in result.required_changes:
+                if change and change not in changes:
+                    changes.append(change)
+        return changes
+
+    @staticmethod
+    def _aggregate_review_severity(results: list[ReviewResult]) -> str:
+        if not results:
+            return ""
+        priority = {
+            "critical": 4,
+            "high": 3,
+            "medium": 2,
+            "low": 1,
+        }
+        return max(
+            (result.severity for result in results if result.severity),
+            key=lambda severity: priority.get(severity, 0),
+            default="",
+        )
 
     @staticmethod
     def _review_results(session: WorkflowSession | None) -> list[ReviewResult]:

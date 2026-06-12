@@ -207,7 +207,7 @@ Trinity가 백그라운드에서 다음 단계를 자동으로 수행합니다:
 
 ## 🧭 워크플로우와 실행 모델
 
-Trinity `0.12.8`의 핵심은 **planning, execution, review, replan을 분리한
+Trinity `0.12.9`의 핵심은 **planning, execution, review, replan을 분리한
 persisted workflow**입니다. 사용자의 요구사항은 먼저 라운드 기반 deliberation과
 central synthesis를 거쳐 질문, 결정, blueprint, work package로 정리됩니다.
 실제 파일 변경은 blueprint가 준비된 뒤 사용자가 `Execute`를 선택하고 target
@@ -576,7 +576,7 @@ uv publish --token <PYPI_TOKEN>
 
 | 지표 | 수치 |
 | :--- | :--- |
-| **버전** | 0.12.8 |
+| **버전** | 0.12.9 |
 | **테스트** | `uv run pytest`로 전체 테스트 스위트 실행 |
 | **커버리지** | 약 87% |
 | **소스 파일** | 100여 개 |

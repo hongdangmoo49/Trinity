@@ -2998,6 +2998,102 @@ async def test_nexus_running_surfaces_show_activity(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_workflow_outcome_does_not_render_hidden_nexus(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        nexus = app.get_screen("nexus", NexusScreen)
+        calls: list[str] = []
+
+        def counted_apply_snapshot(snapshot: WorkflowNexusSnapshot) -> None:
+            calls.append(snapshot.session_id)
+
+        monkeypatch.setattr(nexus, "apply_snapshot", counted_apply_snapshot)
+        app._apply_workflow_outcome(
+            TextualWorkflowOutcome(
+                WorkflowNexusSnapshot(session_id="wf-hidden", state="reviewing"),
+                running=True,
+            )
+        )
+        await pilot.pause()
+
+        assert app.current_route == "execution"
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.session_id == "wf-hidden"
+        assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_switch_to_nexus_applies_snapshot_once(tmp_path, monkeypatch) -> None:
+    snapshot = WorkflowNexusSnapshot(session_id="wf-once", state="reviewing")
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+    app.active_snapshot = snapshot
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        nexus = app.get_screen("nexus", NexusScreen)
+        original_apply_snapshot = nexus.apply_snapshot
+        calls: list[str] = []
+
+        def counted_apply_snapshot(snapshot: WorkflowNexusSnapshot) -> None:
+            calls.append(snapshot.session_id)
+            original_apply_snapshot(snapshot)
+
+        monkeypatch.setattr(nexus, "apply_snapshot", counted_apply_snapshot)
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        assert app.current_route == "nexus"
+        assert calls == ["wf-once"]
+
+
+@pytest.mark.asyncio
+async def test_central_agent_view_skips_repeated_snapshot_rerender(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-repeat",
+        state="reviewing",
+        goal="Build UI",
+        decisions=["Use Textual"],
+        work_packages=["WP-001 codex: UI shell (done)"],
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        screen.apply_snapshot(snapshot)
+        await pilot.pause()
+
+        central = screen.query_one(CentralAgentView)
+        markdown = central.query_one("#central-markdown", Markdown)
+        original_update = markdown.update
+        markdown_updates: list[str] = []
+
+        def counted_update(content) -> None:
+            markdown_updates.append(str(content))
+            original_update(content)
+
+        monkeypatch.setattr(markdown, "update", counted_update)
+        action_render_version = central._action_render_version
+
+        screen.apply_snapshot(snapshot)
+        screen.apply_snapshot(snapshot)
+        await pilot.pause()
+
+        assert markdown_updates == []
+        assert central._action_render_version == action_render_version
+
+
+@pytest.mark.asyncio
 async def test_execution_matrix_separates_owner_and_executor(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
@@ -3154,7 +3250,7 @@ async def test_execution_matrix_expands_task_area(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_provider_panel_renders_scrollable_raw_output(tmp_path) -> None:
+async def test_provider_panel_shows_summary_and_keeps_raw_in_inspector(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
     long_output = "\n".join(f"line {index}" for index in range(30))
 
@@ -3181,7 +3277,14 @@ async def test_provider_panel_renders_scrollable_raw_output(tmp_path) -> None:
 
         panel = screen.query_one("#provider-claude", ProviderPanel)
         assert isinstance(panel, VerticalScroll)
-        assert "line 29" in str(panel.query_one(".provider-summary").content)
+        assert "short summary" in str(panel.query_one(".provider-summary").content)
+        assert "line 29" not in str(panel.query_one(".provider-summary").content)
+
+        screen.action_open_inspector()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProviderInspector)
+        assert "line 29" in app.screen._provider_output(app.screen.providers[0])
 
 
 @pytest.mark.asyncio

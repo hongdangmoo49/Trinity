@@ -235,6 +235,103 @@ def test_snapshot_large_event_log_uses_single_read_and_tail_limit(
     assert snapshot.execution_recovery.retry_candidates == ("WP-001",)
 
 
+def test_snapshot_reuses_cached_projection_until_events_change(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-cache",
+            goal="Build cache",
+            state=WorkflowState.EXECUTING,
+            active_agents=["claude", "codex"],
+        )
+    )
+
+    adapter = NexusSnapshotAdapter(config)
+    load_calls = 0
+    original_load = adapter.persistence.load
+
+    def counted_load():
+        nonlocal load_calls
+        load_calls += 1
+        return original_load()
+
+    monkeypatch.setattr(adapter.persistence, "load", counted_load)
+
+    first = adapter.load_snapshot()
+    second = adapter.load_snapshot()
+
+    assert second is first
+    assert load_calls == 1
+
+    persistence.append_event(
+        {
+            "event": "work_package_started",
+            "workflow_id": "wf-cache",
+            "data": {"package_id": "WP-001", "agent": "codex"},
+        }
+    )
+
+    third = adapter.load_snapshot()
+
+    assert third is not first
+    assert load_calls == 2
+    assert third.workflow_events == ["work_package_started: WP-001 codex"]
+
+
+def test_snapshot_cache_key_includes_recent_events(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    adapter = NexusSnapshotAdapter(config)
+
+    first_event = [
+        TUIEvent(
+            type=TUIEventType.AGENT_RESPONDED,
+            data={"agent": "claude", "content": "First runtime summary."},
+        )
+    ]
+    second_event = [
+        TUIEvent(
+            type=TUIEventType.AGENT_RESPONDED,
+            data={"agent": "claude", "content": "Second runtime summary."},
+        )
+    ]
+
+    first = adapter.load_snapshot(first_event)
+    second = adapter.load_snapshot(first_event)
+    third = adapter.load_snapshot(second_event)
+
+    assert second is first
+    assert third is not first
+    assert third.providers[0].summary == "Second runtime summary."
+
+
+def test_snapshot_cache_invalidates_when_shared_context_changes(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-shared-cache",
+            goal="Use shared context",
+            state=WorkflowState.NEEDS_USER_DECISION,
+            active_agents=["claude"],
+        )
+    )
+    shared = SharedContextEngine(config.shared_context_path)
+    shared.update_consensus("First agreed conclusion.")
+
+    adapter = NexusSnapshotAdapter(config)
+    first = adapter.load_snapshot()
+    shared.update_consensus("Second agreed conclusion.")
+    second = adapter.load_snapshot()
+
+    assert second is not first
+    assert first.synthesis.summary == "First agreed conclusion."
+    assert second.synthesis.summary == "Second agreed conclusion."
+
+
 def test_snapshot_projects_provider_runtime_metadata(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     persistence = WorkflowPersistence(config.effective_state_dir)

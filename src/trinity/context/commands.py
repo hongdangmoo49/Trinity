@@ -2,8 +2,41 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from pathlib import Path
+
 from trinity.config import TrinityConfig
 from trinity.context.shared import SharedContextEngine
+
+
+@dataclass(frozen=True)
+class OversizedBackupEntry:
+    path: Path
+    size_bytes: int
+
+
+@dataclass(frozen=True)
+class OversizedBackupCleanupResult:
+    shared_path: Path
+    backup_dir: Path
+    apply: bool
+    keep_latest: int
+    retained: tuple[OversizedBackupEntry, ...]
+    candidates: tuple[OversizedBackupEntry, ...]
+    deleted: tuple[OversizedBackupEntry, ...]
+    skipped: tuple[tuple[Path, str], ...]
+
+    @property
+    def found_count(self) -> int:
+        return len(self.retained) + len(self.candidates)
+
+    @property
+    def candidate_bytes(self) -> int:
+        return sum(entry.size_bytes for entry in self.candidates)
+
+    @property
+    def deleted_bytes(self) -> int:
+        return sum(entry.size_bytes for entry in self.deleted)
 
 
 def engine_from_config(config: TrinityConfig) -> SharedContextEngine:
@@ -83,6 +116,162 @@ def compact_memory_markdown(
     return "\n".join(lines)
 
 
+def parse_oversized_cleanup_options(args: list[str]) -> tuple[bool, int, str | None]:
+    apply = False
+    keep_latest = 1
+    saw_target = False
+    index = 0
+    while index < len(args):
+        token = args[index]
+        if token == "--oversized-backups":
+            saw_target = True
+        elif token == "--apply":
+            apply = True
+        elif token == "--dry-run":
+            apply = False
+        elif token == "--keep-latest":
+            index += 1
+            if index >= len(args):
+                return apply, keep_latest, "--keep-latest requires a number."
+            try:
+                keep_latest = int(args[index])
+            except ValueError:
+                return apply, keep_latest, "--keep-latest requires a number."
+        elif token.startswith("--keep-latest="):
+            try:
+                keep_latest = int(token.split("=", 1)[1])
+            except ValueError:
+                return apply, keep_latest, "--keep-latest requires a number."
+        else:
+            return apply, keep_latest, f"Unknown cleanup option: `{token}`"
+        index += 1
+
+    if not saw_target:
+        return (
+            apply,
+            keep_latest,
+            "Usage: `/memory cleanup --oversized-backups [--apply] [--keep-latest N]`",
+        )
+    if keep_latest < 0:
+        return apply, keep_latest, "--keep-latest must be 0 or greater."
+    return apply, keep_latest, None
+
+
+def cleanup_oversized_backups(
+    engine: SharedContextEngine,
+    *,
+    apply: bool = False,
+    keep_latest: int = 1,
+) -> OversizedBackupCleanupResult:
+    backup_dir = engine.path.parent
+    backup_dir_resolved = backup_dir.resolve()
+    keep_latest = max(0, keep_latest)
+    entries: list[tuple[int, str, OversizedBackupEntry]] = []
+    skipped: list[tuple[Path, str]] = []
+
+    for path in backup_dir.glob(f"{engine.path.name}.oversized-*"):
+        if path.is_symlink():
+            skipped.append((path, "symlink"))
+            continue
+        try:
+            resolved = path.resolve()
+        except OSError as exc:
+            skipped.append((path, f"resolve failed: {exc}"))
+            continue
+        if resolved.parent != backup_dir_resolved:
+            skipped.append((path, "outside shared context directory"))
+            continue
+        try:
+            stat = path.stat()
+        except OSError as exc:
+            skipped.append((path, f"stat failed: {exc}"))
+            continue
+        if not path.is_file():
+            skipped.append((path, "not a file"))
+            continue
+        entries.append(
+            (
+                stat.st_mtime_ns,
+                path.name,
+                OversizedBackupEntry(path=path, size_bytes=stat.st_size),
+            )
+        )
+
+    sorted_entries = tuple(
+        entry
+        for _, _, entry in sorted(
+            entries,
+            key=lambda item: (item[0], item[1]),
+            reverse=True,
+        )
+    )
+    retained = sorted_entries[:keep_latest]
+    candidates = sorted_entries[keep_latest:]
+    deleted: list[OversizedBackupEntry] = []
+    if apply:
+        for entry in candidates:
+            try:
+                entry.path.unlink()
+            except OSError as exc:
+                skipped.append((entry.path, f"delete failed: {exc}"))
+                continue
+            deleted.append(entry)
+
+    return OversizedBackupCleanupResult(
+        shared_path=engine.path,
+        backup_dir=backup_dir,
+        apply=apply,
+        keep_latest=keep_latest,
+        retained=retained,
+        candidates=candidates,
+        deleted=tuple(deleted),
+        skipped=tuple(skipped),
+    )
+
+
+def cleanup_oversized_backups_markdown(
+    engine: SharedContextEngine,
+    *,
+    apply: bool = False,
+    keep_latest: int = 1,
+) -> str:
+    result = cleanup_oversized_backups(
+        engine,
+        apply=apply,
+        keep_latest=keep_latest,
+    )
+    mode = "apply" if apply else "dry-run"
+    lines = [
+        "## Memory Cleanup",
+        "- target: oversized shared context backups",
+        f"- mode: {mode}",
+        f"- shared_path: `{result.shared_path}`",
+        f"- backup_dir: `{result.backup_dir}`",
+        f"- keep_latest: {result.keep_latest}",
+        f"- backups_found: {result.found_count}",
+        f"- cleanup_candidates: {len(result.candidates)}",
+        f"- cleanup_candidate_bytes: {result.candidate_bytes}",
+        f"- deleted: {len(result.deleted)}",
+        f"- deleted_bytes: {result.deleted_bytes}",
+    ]
+    if not apply and result.candidates:
+        lines.append(
+            "- next_step: rerun `/memory cleanup --oversized-backups --apply` to delete candidates."
+        )
+    elif not result.candidates:
+        lines.append("- next_step: no oversized backup cleanup is needed.")
+
+    lines.extend(_backup_entries_markdown("Retained", result.retained))
+    lines.extend(_backup_entries_markdown("Cleanup Candidates", result.candidates))
+    if result.skipped:
+        lines.extend(["", "### Skipped"])
+        for path, reason in result.skipped[:20]:
+            lines.append(f"- `{path}` ({reason})")
+        if len(result.skipped) > 20:
+            lines.append(f"- ... {len(result.skipped) - 20} more")
+    return "\n".join(lines)
+
+
 def artifact_markdown(engine: SharedContextEngine, record_id: str) -> str:
     if engine.memory_store is None:
         return "Memory index is disabled."
@@ -103,3 +292,17 @@ def artifact_markdown(engine: SharedContextEngine, record_id: str) -> str:
         record.summary or "(none)",
     ]
     return "\n".join(lines)
+
+
+def _backup_entries_markdown(
+    title: str,
+    entries: tuple[OversizedBackupEntry, ...],
+) -> list[str]:
+    if not entries:
+        return []
+    lines = ["", f"### {title}"]
+    for entry in entries[:20]:
+        lines.append(f"- `{entry.path}` ({entry.size_bytes} bytes)")
+    if len(entries) > 20:
+        lines.append(f"- ... {len(entries) - 20} more")
+    return lines

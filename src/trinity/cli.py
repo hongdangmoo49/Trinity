@@ -1106,6 +1106,50 @@ def memory_compact():
     )
 
 
+@memory.command("cleanup")
+@click.option(
+    "--oversized-backups",
+    is_flag=True,
+    help="Target shared.md.oversized-* backup files.",
+)
+@click.option(
+    "--apply",
+    "apply_changes",
+    is_flag=True,
+    help="Delete cleanup candidates. Without this flag, only show a dry-run.",
+)
+@click.option(
+    "--keep-latest",
+    type=int,
+    default=1,
+    show_default=True,
+    help="Retain the latest N oversized backup files.",
+)
+def memory_cleanup(oversized_backups: bool, apply_changes: bool, keep_latest: int):
+    """Show or apply shared context memory cleanup candidates."""
+    if not oversized_backups:
+        console.print(
+            "[yellow]Usage: trinity memory cleanup --oversized-backups "
+            "[--apply] [--keep-latest N][/yellow]"
+        )
+        return
+    if keep_latest < 0:
+        raise click.BadParameter("--keep-latest must be 0 or greater")
+    config = load_config()
+    from trinity.context.commands import (
+        cleanup_oversized_backups_markdown,
+        engine_from_config,
+    )
+
+    console.print(
+        cleanup_oversized_backups_markdown(
+            engine_from_config(config),
+            apply=apply_changes,
+            keep_latest=keep_latest,
+        )
+    )
+
+
 @main.command()
 @click.argument("record_id")
 def artifact(record_id: str):

@@ -17,10 +17,12 @@ from trinity import __version__
 from trinity.config import TrinityConfig
 from trinity.context.commands import (
     artifact_markdown,
+    cleanup_oversized_backups_markdown,
     compact_memory_markdown,
     engine_from_config,
     memory_stats_markdown,
     memory_stats_rows,
+    parse_oversized_cleanup_options,
 )
 from trinity.i18n import VALID_CAVEMAN_INTENSITIES
 from trinity.providers.model_discovery import (
@@ -2617,6 +2619,23 @@ class TrinityTextualApp(App[None]):
             )
             title = "Memory Compact"
             rows = memory_stats_rows(engine)
+        elif action == "cleanup":
+            apply, keep_latest, error = parse_oversized_cleanup_options(args[1:])
+            if error:
+                self._record_slash_command_result(
+                    "/memory",
+                    "Memory Cleanup",
+                    error,
+                    severity="warning",
+                )
+                return
+            body = cleanup_oversized_backups_markdown(
+                engine,
+                apply=apply,
+                keep_latest=keep_latest,
+            )
+            title = "Memory Cleanup"
+            rows = ()
         else:
             body = memory_stats_markdown(engine)
             title = "Memory Stats"

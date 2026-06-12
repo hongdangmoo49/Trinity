@@ -112,10 +112,12 @@ oversized backup 하나가 `.trinity` 대부분을 차지했다. Trinity는 over
 개선안:
 
 - `/memory compact` 이후 oversized backup retention 안내를 UI에 표시한다.
-- `/memory prune` 또는 `/memory cleanup --oversized-backups` 명령을 추가한다.
-- retention 기본값을 둔다. 예: 최신 1개 또는 7일 보관.
+- `/memory cleanup --oversized-backups` 명령을 추가한다. 기본은 dry-run이고,
+  실제 삭제는 `--apply`를 명시한 경우에만 수행한다.
+- retention 기본값을 둔다. 현재 구현 기준은 최신 1개 보관이며
+  `--keep-latest N`으로 조정한다.
 - backup manifest를 만들어 크기와 생성 시점을 report/settings에서 보여준다.
-- 자동 삭제는 위험하므로 처음에는 `--dry-run`과 명시 명령으로 시작한다.
+- 자동 삭제는 위험하므로 명시 명령과 dry-run 우선 흐름을 유지한다.
 
 하네스:
 

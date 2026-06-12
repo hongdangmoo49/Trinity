@@ -256,9 +256,9 @@ COMMAND_SPECS: tuple[SlashCommandSpec, ...] = (
     ),
     SlashCommandSpec(
         name="/memory",
-        usage="/memory [stats|compact]",
-        summary="show or compact shared context memory",
-        summary_ko="shared 컨텍스트 메모리 보기 또는 압축",
+        usage="/memory [stats|compact|cleanup --oversized-backups [--apply]]",
+        summary="show, compact, or clean shared context memory",
+        summary_ko="shared 컨텍스트 메모리 보기, 압축 또는 정리",
         category=SlashCommandCategory.LOCAL_FILE,
         writes_files=True,
     ),

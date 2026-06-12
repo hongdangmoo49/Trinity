@@ -3491,6 +3491,32 @@ async def test_provider_inspector_pretty_prints_json_output(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_provider_inspector_truncates_large_raw_output(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.push_screen(
+            ProviderInspector(
+                [
+                    ProviderSnapshot(
+                        name="codex",
+                        provider="codex",
+                        enabled=True,
+                        status="Ready",
+                        raw_output="x" * 60_000,
+                    )
+                ]
+            )
+        )
+        await pilot.pause()
+
+        output = app.screen.query_one("#inspect-codex .provider-inspector-output", RichLog)
+        text = "\n".join(line.text for line in output.lines)
+        assert "[truncated 10000 characters" in text
+        assert len(text) < 51_000
+
+
+@pytest.mark.asyncio
 async def test_start_choose_now_opens_workspace_picker(tmp_path) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),

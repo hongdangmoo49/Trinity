@@ -12,6 +12,9 @@ from textual.widgets import Button, Footer, RichLog, Static, TabbedContent, TabP
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import ProviderSnapshot
 
+MAX_PRETTY_PRINT_CHARS = 200_000
+MAX_DISPLAY_CHARS = 50_000
+
 
 class ProviderInspector(ModalScreen[None]):
     """Tabbed modal for provider raw output inspection."""
@@ -100,17 +103,32 @@ class ProviderInspector(ModalScreen[None]):
         text = output.strip()
         if not text:
             return output
+        if len(text) > MAX_DISPLAY_CHARS:
+            return cls._truncate_output(output)
 
         fenced = cls._strip_json_fence(text)
         candidate = fenced if fenced is not None else text
         if not candidate.startswith(("{", "[")):
             return output
+        if len(candidate) > MAX_PRETTY_PRINT_CHARS:
+            return cls._truncate_output(output)
 
         try:
             parsed = json.loads(candidate)
         except json.JSONDecodeError:
             return output
         return json.dumps(parsed, indent=2, ensure_ascii=False)
+
+    @staticmethod
+    def _truncate_output(output: str) -> str:
+        if len(output) <= MAX_DISPLAY_CHARS:
+            return output
+        omitted = len(output) - MAX_DISPLAY_CHARS
+        return (
+            output[:MAX_DISPLAY_CHARS]
+            + "\n\n"
+            + f"[truncated {omitted} characters; inspect the raw artifact for full output]"
+        )
 
     @staticmethod
     def _strip_json_fence(text: str) -> str | None:

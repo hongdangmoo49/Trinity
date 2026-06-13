@@ -2027,6 +2027,12 @@ class InteractiveSession:
                 return []
             return [item for item in notices if isinstance(item, dict)]
 
+        def _event_attempt_chain(event: TUIEvent) -> list[dict[str, object]]:
+            attempts = event.data.get("attempt_chain", [])
+            if not isinstance(attempts, list):
+                return []
+            return [dict(item) for item in attempts if isinstance(item, dict)]
+
         def _consume_events() -> bool:
             execution_done = False
             for event in bus.poll():
@@ -2052,6 +2058,8 @@ class InteractiveSession:
                         str(event.data.get("status") or ""),
                         str(event.data.get("summary") or ""),
                         _event_occurred_at(event),
+                        _event_attempt_chain(event),
+                        str(event.data.get("raw_response_path") or ""),
                     )
                     self.tui.set_workflow_session(self.workflow.session)
                 if event.type == TUIEventType.EXECUTION_DONE:

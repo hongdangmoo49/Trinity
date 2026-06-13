@@ -78,6 +78,11 @@ class WorkPackageDetailModal(ModalScreen[None]):
             )
             self._append_list(lines, "Files Changed", package.last_result_files_changed)
             self._append_list(lines, "Blockers", package.last_result_blockers)
+            self._append_list(
+                lines,
+                "Fallback Attempts",
+                package.last_result_attempt_chain,
+            )
         if package.review_status or package.review_summary:
             lines.extend(
                 [

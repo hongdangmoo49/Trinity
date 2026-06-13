@@ -912,6 +912,22 @@ def test_snapshot_projects_execution_recovery_and_executor_details(tmp_path) -> 
                     summary="Could not finish.",
                     files_changed=["src/contracts.py"],
                     blockers=["Missing schema."],
+                    attempt_chain=[
+                        {
+                            "agent": "codex",
+                            "status": "blocked",
+                            "summary": "Owner could not continue.",
+                            "blockers": ["Missing schema."],
+                            "raw_response_path": "/tmp/codex.raw.txt",
+                        },
+                        {
+                            "agent": "claude",
+                            "status": "failed",
+                            "summary": "Could not finish.",
+                            "blockers": ["Missing schema."],
+                            "raw_response_path": "/tmp/claude.raw.txt",
+                        },
+                    ],
                 )
             ],
             execution_run={
@@ -954,6 +970,16 @@ def test_snapshot_projects_execution_recovery_and_executor_details(tmp_path) -> 
     assert snapshot.work_package_details[0].retryable is True
     assert snapshot.work_package_details[0].last_result_summary == "Could not finish."
     assert snapshot.work_package_details[0].last_result_blockers == ["Missing schema."]
+    assert snapshot.work_package_details[0].last_result_attempt_chain == [
+        (
+            "1. `codex` `blocked` - Owner could not continue. "
+            "(blockers: Missing schema.) [raw: /tmp/codex.raw.txt]"
+        ),
+        (
+            "2. `claude` `failed` - Could not finish. "
+            "(blockers: Missing schema.) [raw: /tmp/claude.raw.txt]"
+        ),
+    ]
     assert snapshot.work_package_details[1].retryable is False
     assert snapshot.work_package_details[1].retry_disabled_reason == "already done"
 

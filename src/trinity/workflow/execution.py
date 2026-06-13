@@ -344,6 +344,8 @@ class ExecutionProtocol:
                 decisions,
             )
             if result.status not in {WorkStatus.FAILED, WorkStatus.BLOCKED}:
+                if failed_attempts:
+                    result.attempt_chain = self._attempt_chain([*failed_attempts, result])
                 return result
             failed_attempts.append(result)
 
@@ -501,6 +503,10 @@ class ExecutionProtocol:
             agent=result.agent_name,
             status=result.status.value,
             summary=result.summary,
+            attempt_chain=list(result.attempt_chain),
+            raw_response_path=(
+                str(result.raw_response_path) if result.raw_response_path else ""
+            ),
         )
 
     @staticmethod
@@ -593,7 +599,26 @@ class ExecutionProtocol:
             summary=summary,
             blockers=[item for item in blockers if item],
             raw_response_path=last.raw_response_path,
+            attempt_chain=self._attempt_chain(attempts),
         )
+
+    @classmethod
+    def _attempt_chain(cls, attempts: Iterable[ExecutionResult]) -> list[dict[str, object]]:
+        """Return a structured, serializable execution-attempt chain."""
+        return [cls._attempt_chain_payload(attempt) for attempt in attempts]
+
+    @staticmethod
+    def _attempt_chain_payload(result: ExecutionResult) -> dict[str, object]:
+        """Return one execution attempt for events, sessions, and reports."""
+        return {
+            "agent": result.agent_name,
+            "status": result.status.value,
+            "summary": result.summary,
+            "blockers": list(result.blockers),
+            "raw_response_path": (
+                str(result.raw_response_path) if result.raw_response_path else ""
+            ),
+        }
 
     def _build_execution_prompt(
         self,

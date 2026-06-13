@@ -273,6 +273,9 @@ codex -> claude -> antigravity
 
 - owner success, owner failed fallback success, owner blocked fallback success를 모두 재현한다.
 - fallback attempt chain을 session/event/report에서 검증한다.
+  `codex/p2-p3-scalability-hardening`에서 owner blocked -> fallback success 단위 테스트와
+  session/event/report/snapshot projection 저장 경로를 추가했다. 실제 provider CLI fixture와
+  한국어 heading fixture는 별도 하네스 보강 과제로 남는다.
 - 영어/한국어 execution report fixture를 모두 파싱한다.
 - environment-only verification blocker는 `needs_review`와 `blocked` 중 어떤 정책인지 명확히
   고정한다.
@@ -609,6 +612,8 @@ Codex가 실제 구현을 했더라도 output의 blockers가 environment verific
 - H-004에서 Codex output에 `EPERM`, `loopback bind`, `sandbox` blocker를 넣는다.
 - 정책에 따라 `needs_review` 또는 `blocked`가 되는지 검증한다.
 - fallback reason과 original raw artifact가 UI/report에 노출되는지 검증한다.
+  현재 구현은 `ExecutionResult.attempt_chain`에 agent/status/summary/blockers/raw_response_path를
+  저장하고, Work Package detail modal과 Deliberation Report markdown에 노출한다.
 
 ### Antigravity가 WP owner로 배정되지 않는 문제
 

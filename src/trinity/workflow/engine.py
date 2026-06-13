@@ -1031,6 +1031,8 @@ class WorkflowEngine:
         status: str = "",
         summary: str = "",
         occurred_at: float | None = None,
+        attempt_chain: list[dict[str, object]] | None = None,
+        raw_response_path: str = "",
     ) -> None:
         """Persist that one work package has finished execution."""
         package = self._work_package_by_id(package_id)
@@ -1047,14 +1049,19 @@ class WorkflowEngine:
         package.last_executor = executor
         self._touch_execution_run(occurred_at)
         self.session.updated_at = time.time()
+        event_data: dict[str, object] = {
+            "package_id": package.id,
+            "agent": executor,
+            "status": package.status.value,
+            "summary": summary,
+        }
+        if attempt_chain:
+            event_data["attempt_chain"] = attempt_chain
+        if raw_response_path:
+            event_data["raw_response_path"] = raw_response_path
         self._persist(
             "work_package_completed",
-            {
-                "package_id": package.id,
-                "agent": executor,
-                "status": package.status.value,
-                "summary": summary,
-            },
+            event_data,
             timestamp=occurred_at,
         )
 
@@ -1207,13 +1214,18 @@ class WorkflowEngine:
         self.session.updated_at = time.time()
 
         if emit_event:
+            event_data: dict[str, object] = {
+                "package_id": result.package_id,
+                "agent": result.agent_name,
+                "status": result.status.value,
+            }
+            if result.attempt_chain:
+                event_data["attempt_chain"] = list(result.attempt_chain)
+            if result.raw_response_path:
+                event_data["raw_response_path"] = str(result.raw_response_path)
             self._persist(
                 "execution_result_recorded",
-                {
-                    "package_id": result.package_id,
-                    "agent": result.agent_name,
-                    "status": result.status.value,
-                },
+                event_data,
             )
         else:
             self.save()

@@ -351,6 +351,48 @@ def test_pipe_characters_escaped_in_markdown_tables():
                 assert "|" not in part or "\\|" in part, f"Unescaped pipe: {line}"
 
 
+def test_report_includes_execution_attempt_chain():
+    session = WorkflowSession(
+        id="fallback-report",
+        goal="test",
+        state=WorkflowState.BLUEPRINT_READY,
+        execution_results=[
+            ExecutionResult(
+                package_id="wp-1",
+                agent_name="claude",
+                status=WorkStatus.DONE,
+                summary="fallback succeeded",
+                files_changed=["src/app.py"],
+                attempt_chain=[
+                    {
+                        "agent": "codex",
+                        "status": "blocked",
+                        "summary": "pytest missing",
+                        "blockers": ["pytest missing"],
+                        "raw_response_path": "/tmp/codex.raw.txt",
+                    },
+                    {
+                        "agent": "claude",
+                        "status": "done",
+                        "summary": "fallback succeeded",
+                        "blockers": [],
+                        "raw_response_path": "/tmp/claude.raw.txt",
+                    },
+                ],
+            )
+        ],
+    )
+
+    report = DeliberationReportBuilder(session, result=None).build()
+    md = report.to_markdown()
+
+    assert report.executions[0].attempt_chain[0].startswith("1. codex blocked")
+    assert "| wp-1 | claude | done | 1 | 2 | fallback succeeded |" in md
+    assert "### Attempt Chain - wp\\-1" in md
+    assert "codex blocked" in md
+    assert "/tmp/codex\\.raw\\.txt" in md
+
+
 def test_multiline_markdown_table_cells_are_normalized():
     session = WorkflowSession(
         id="multiline-test",

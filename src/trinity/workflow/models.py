@@ -515,6 +515,7 @@ class ExecutionResult:
     follow_up: list[str] = field(default_factory=list)
     subtasks: list[SubtaskResult] = field(default_factory=list)
     raw_response_path: Path | None = None
+    attempt_chain: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -528,6 +529,18 @@ class ExecutionResult:
             "follow_up": list(self.follow_up),
             "subtasks": [subtask.to_dict() for subtask in self.subtasks],
             "raw_response_path": (str(self.raw_response_path) if self.raw_response_path else None),
+            "attempt_chain": [
+                {
+                    str(key): (
+                        [str(item) for item in value]
+                        if isinstance(value, list)
+                        else (str(value) if value is not None else "")
+                    )
+                    for key, value in item.items()
+                }
+                for item in self.attempt_chain
+                if isinstance(item, dict)
+            ],
         }
 
     @classmethod
@@ -553,6 +566,18 @@ class ExecutionResult:
                 if isinstance(item, dict)
             ],
             raw_response_path=Path(str(raw_path)) if raw_path else None,
+            attempt_chain=[
+                {
+                    str(key): (
+                        [str(entry) for entry in value]
+                        if isinstance(value, list)
+                        else (str(value) if value is not None else "")
+                    )
+                    for key, value in item.items()
+                }
+                for item in data.get("attempt_chain", [])
+                if isinstance(item, dict)
+            ],
         )
 
 

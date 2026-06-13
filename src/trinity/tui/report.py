@@ -167,6 +167,7 @@ class ReportExecution:
     status: str
     files_count: int
     summary: str
+    attempt_chain: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -443,6 +444,7 @@ class DeliberationReport:
         table.add_column("Agent")
         table.add_column("Status")
         table.add_column("Files", justify="right")
+        table.add_column("Attempts", justify="right")
         table.add_column("Summary", max_width=120)
 
         for ex in self.executions:
@@ -453,6 +455,7 @@ class DeliberationReport:
                 agent,
                 ex.status,
                 str(ex.files_count),
+                str(len(ex.attempt_chain)) if ex.attempt_chain else "-",
                 escape(_truncate(ex.summary, 120)),
             )
         return table
@@ -676,16 +679,28 @@ class DeliberationReport:
     def _md_executions(self) -> str:
         lines = [
             "\n## Execution Results\n",
-            "| Package | Agent | Status | Files | Summary |",
-            "|---------|-------|--------|-------|---------|",
+            "| Package | Agent | Status | Files | Attempts | Summary |",
+            "|---------|-------|--------|-------|----------|---------|",
         ]
         for ex in self.executions:
             lines.append(
                 f"| {_escape_md_table(ex.package_id)} "
                 f"| {_escape_md_table(ex.agent_name)} "
                 f"| {_escape_md_table(ex.status)} | {ex.files_count} "
+                f"| {len(ex.attempt_chain) if ex.attempt_chain else '-'} "
                 f"| {_escape_md_table(_truncate(ex.summary, 120))} |"
             )
+        for ex in self.executions:
+            if not ex.attempt_chain:
+                continue
+            lines.extend(
+                [
+                    "",
+                    f"### Attempt Chain - {_escape_md_inline(ex.package_id)}",
+                    "",
+                ]
+            )
+            lines.extend(f"- {_escape_md_inline(item)}" for item in ex.attempt_chain)
         lines.append("")
         return "\n".join(lines)
 
@@ -1448,6 +1463,37 @@ class DeliberationReportBuilder:
                 status=ex.status.value,
                 files_count=len(ex.files_changed),
                 summary=ex.summary,
+                attempt_chain=tuple(self._format_attempt_chain(ex.attempt_chain)),
             )
             for ex in self._session.execution_results
         )
+
+    @staticmethod
+    def _format_attempt_chain(attempts: object) -> list[str]:
+        if not isinstance(attempts, list):
+            return []
+        lines: list[str] = []
+        for index, attempt in enumerate(attempts, start=1):
+            if not isinstance(attempt, dict):
+                continue
+            agent = str(attempt.get("agent") or attempt.get("agent_name") or "-")
+            status = str(attempt.get("status") or "-")
+            summary = str(attempt.get("summary") or "").strip()
+            raw_path = str(attempt.get("raw_response_path") or "").strip()
+            blockers = attempt.get("blockers", [])
+            blocker_text = ""
+            if isinstance(blockers, list):
+                blocker_text = "; ".join(
+                    str(item).strip() for item in blockers if str(item).strip()
+                )
+            elif blockers:
+                blocker_text = str(blockers).strip()
+            parts = [f"{index}. {agent} {status}"]
+            if summary:
+                parts.append(f"- {summary}")
+            if blocker_text:
+                parts.append(f"(blockers: {blocker_text})")
+            if raw_path:
+                parts.append(f"[raw: {raw_path}]")
+            lines.append(" ".join(parts))
+        return lines

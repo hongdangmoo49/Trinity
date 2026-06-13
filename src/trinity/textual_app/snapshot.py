@@ -125,6 +125,7 @@ class WorkPackageSnapshot:
     last_result_summary: str = ""
     last_result_files_changed: list[str] = field(default_factory=list)
     last_result_blockers: list[str] = field(default_factory=list)
+    last_result_attempt_chain: list[str] = field(default_factory=list)
     retryable: bool = False
     retry_disabled_reason: str = ""
     topic: str = ""
@@ -430,6 +431,13 @@ class NexusSnapshotAdapter:
                     if package.id in result_by_package_id
                     else []
                 ),
+                last_result_attempt_chain=(
+                    NexusSnapshotAdapter._execution_attempt_lines(
+                        result_by_package_id[package.id]
+                    )
+                    if package.id in result_by_package_id
+                    else []
+                ),
                 retryable=NexusSnapshotAdapter._work_package_retryable(package),
                 retry_disabled_reason=NexusSnapshotAdapter._work_package_retry_disabled_reason(
                     package
@@ -717,6 +725,37 @@ class NexusSnapshotAdapter:
         if status in {"running", "failed", "blocked"}:
             return ""
         return f"status is {status or 'unknown'}"
+
+    @staticmethod
+    def _execution_attempt_lines(result: object) -> list[str]:
+        attempts = getattr(result, "attempt_chain", []) or []
+        if not isinstance(attempts, list):
+            return []
+        lines: list[str] = []
+        for index, attempt in enumerate(attempts, start=1):
+            if not isinstance(attempt, dict):
+                continue
+            agent = str(attempt.get("agent") or attempt.get("agent_name") or "-")
+            status = str(attempt.get("status") or "-")
+            summary = str(attempt.get("summary") or "").strip()
+            raw_path = str(attempt.get("raw_response_path") or "").strip()
+            blockers = attempt.get("blockers", [])
+            blocker_text = ""
+            if isinstance(blockers, list):
+                blocker_text = "; ".join(
+                    str(item).strip() for item in blockers if str(item).strip()
+                )
+            elif blockers:
+                blocker_text = str(blockers).strip()
+            parts = [f"{index}. `{agent}` `{status}`"]
+            if summary:
+                parts.append(f"- {summary}")
+            if blocker_text:
+                parts.append(f"(blockers: {blocker_text})")
+            if raw_path:
+                parts.append(f"[raw: {raw_path}]")
+            lines.append(" ".join(parts))
+        return lines
 
     @staticmethod
     def _work_package_topic(package: object) -> str:

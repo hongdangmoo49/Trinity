@@ -763,6 +763,8 @@ class TextualWorkflowController:
                 str(event.data.get("status") or ""),
                 str(event.data.get("summary") or ""),
                 self._event_occurred_at(event),
+                self._event_attempt_chain(event),
+                str(event.data.get("raw_response_path") or ""),
             )
 
     @staticmethod
@@ -772,6 +774,13 @@ class TextualWorkflowController:
             return float(value) if value is not None else None
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _event_attempt_chain(event: TUIEvent) -> list[dict[str, object]]:
+        attempts = event.data.get("attempt_chain", [])
+        if not isinstance(attempts, list):
+            return []
+        return [dict(item) for item in attempts if isinstance(item, dict)]
 
     @staticmethod
     def _event_batches(event: TUIEvent) -> list[list[str]]:

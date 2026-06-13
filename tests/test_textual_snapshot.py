@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
+from pathlib import Path
 
 from trinity.config import TrinityConfig
 from trinity.context.shared import SharedContextEngine
@@ -122,7 +123,10 @@ def test_snapshot_marks_non_target_agents_idle_during_targeted_deliberation(
     assert by_name["antigravity"].status == "Idle"
 
 
-def test_snapshot_loads_workflow_events_once_per_projection(tmp_path, monkeypatch) -> None:
+def test_snapshot_uses_event_index_without_full_event_projection_read(
+    tmp_path,
+    monkeypatch,
+) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     persistence = WorkflowPersistence(config.effective_state_dir)
     persistence.save(
@@ -165,7 +169,7 @@ def test_snapshot_loads_workflow_events_once_per_projection(tmp_path, monkeypatc
 
     snapshot = adapter.load_snapshot()
 
-    assert calls == 1
+    assert calls == 0
     assert snapshot.execution_recovery is not None
     assert snapshot.execution_recovery.last_event == "work_package_started"
     assert snapshot.workflow_events == [
@@ -178,7 +182,7 @@ def test_snapshot_loads_workflow_events_once_per_projection(tmp_path, monkeypatc
     ]
 
 
-def test_snapshot_large_event_log_uses_single_read_and_tail_limit(
+def test_snapshot_large_event_log_uses_event_index_and_tail_limit(
     tmp_path,
     monkeypatch,
 ) -> None:
@@ -227,7 +231,7 @@ def test_snapshot_large_event_log_uses_single_read_and_tail_limit(
 
     snapshot = adapter.load_snapshot()
 
-    assert calls == 1
+    assert calls == 0
     assert len(snapshot.execution_log) == 80
     assert len(snapshot.workflow_events) == 5_000
     assert snapshot.execution_recovery is not None
@@ -1213,6 +1217,31 @@ def test_snapshot_restores_provider_status_from_response_artifacts(tmp_path) -> 
     assert claude.status == "Ready"
     assert claude.summary == "Use a compact dashboard."
     assert claude.raw_output == "RAW: Use a compact dashboard."
+
+
+def test_snapshot_reads_only_bounded_artifact_preview(tmp_path, monkeypatch) -> None:
+    read_sizes: list[int] = []
+
+    class FakeArtifact:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self, size: int = -1) -> bytes:
+            read_sizes.append(size)
+            return b"x" * size
+
+    def fake_open(path, *args, **kwargs):
+        return FakeArtifact()
+
+    monkeypatch.setattr(Path, "open", fake_open)
+
+    text = NexusSnapshotAdapter._read_artifact_text(tmp_path / "large.raw.txt", limit=5)
+
+    assert read_sizes == [6]
+    assert text == "xxxxx\n..."
 
 
 def test_snapshot_folds_recent_provider_events(tmp_path) -> None:

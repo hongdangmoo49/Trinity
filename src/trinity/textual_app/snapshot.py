@@ -1526,11 +1526,18 @@ class NexusSnapshotAdapter:
     def _read_artifact_text(path: Path | None, limit: int = 120_000) -> str:
         if path is None:
             return ""
+        if limit <= 0:
+            return ""
         try:
-            text = path.read_text(encoding="utf-8", errors="replace")
+            with path.open("rb") as fh:
+                data = fh.read(limit + 1)
         except OSError:
             return ""
-        return text if len(text) <= limit else text[:limit].rstrip() + "\n..."
+        truncated = len(data) > limit
+        if truncated:
+            data = data[:limit]
+        text = data.decode("utf-8", errors="replace")
+        return text if not truncated else text.rstrip() + "\n..."
 
     @staticmethod
     def _replace(snapshot: ProviderSnapshot, **updates: object) -> ProviderSnapshot:

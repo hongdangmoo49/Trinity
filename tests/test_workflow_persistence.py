@@ -1,5 +1,6 @@
 """Tests for workflow persistence helpers."""
 
+import json
 from pathlib import Path
 
 from trinity.workflow import (
@@ -150,6 +151,49 @@ def test_workflow_persistence_loads_events_for_one_workflow(tmp_path):
         "event": "state_changed",
         "workflow_id": "wf-a",
     }
+    assert persistence.event_index_path.exists()
+
+
+def test_workflow_persistence_uses_event_index_for_workflow_filter(tmp_path, monkeypatch):
+    persistence = WorkflowPersistence(tmp_path / ".trinity")
+    persistence.append_event({"event": "started", "workflow_id": "wf-a"})
+    persistence.append_event({"event": "ignored", "workflow_id": "wf-b"})
+    persistence.append_event({"event": "completed", "workflow_id": "wf-a"})
+
+    def fail_full_scan():
+        raise AssertionError("load_events should not run when event index is valid")
+
+    monkeypatch.setattr(persistence, "load_events", fail_full_scan)
+
+    assert persistence.load_events_for_workflow("wf-a", tail=1) == [
+        {"event": "completed", "workflow_id": "wf-a"}
+    ]
+
+
+def test_workflow_persistence_rebuilds_stale_event_index(tmp_path):
+    persistence = WorkflowPersistence(tmp_path / ".trinity")
+    persistence.append_event({"event": "started", "workflow_id": "wf-a"})
+    persistence.event_index_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "events_size_bytes": 0,
+                "events_mtime_ns": 0,
+                "workflows": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert persistence.load_events_for_workflow("wf-a") == [
+        {"event": "started", "workflow_id": "wf-a"}
+    ]
+    index_lines = [
+        json.loads(line)
+        for line in persistence.event_index_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert any(item["workflow_id"] == "wf-a" for item in index_lines)
 
 
 def test_workflow_persistence_caches_events_until_file_changes(tmp_path, monkeypatch):
@@ -220,3 +264,60 @@ def test_workflow_persistence_does_not_archive_empty_idle_session(tmp_path):
     assert archive is None
     assert persistence.load() is None
     assert persistence.list_archives() == []
+
+
+def test_workflow_persistence_lists_archives_from_manifest(tmp_path, monkeypatch):
+    persistence = WorkflowPersistence(tmp_path / ".trinity")
+    for index in range(3):
+        persistence.save(
+            WorkflowSession(
+                id=f"wf-{index}",
+                goal=f"Goal {index}",
+                state=WorkflowState.BLUEPRINT_READY,
+                updated_at=float(index),
+            )
+        )
+        assert persistence.archive_active_session(force=True) is not None
+
+    assert persistence.archive_manifest_path.exists()
+    archive_json_paths = {
+        path
+        for path in persistence.history_dir.glob("*.json")
+        if path != persistence.archive_manifest_path
+    }
+    original_read_text = Path.read_text
+
+    def guarded_read_text(path, *args, **kwargs):
+        if path in archive_json_paths:
+            raise AssertionError(f"archive JSON should not be read: {path}")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", guarded_read_text)
+
+    archives = persistence.list_archives()
+
+    assert [archive.session.id for archive in archives] == ["wf-2", "wf-1", "wf-0"]
+    assert [archive.session.goal for archive in archives] == ["Goal 2", "Goal 1", "Goal 0"]
+
+
+def test_workflow_persistence_rebuilds_stale_archive_manifest(tmp_path):
+    persistence = WorkflowPersistence(tmp_path / ".trinity")
+    persistence.save(
+        WorkflowSession(
+            id="wf-original",
+            goal="Original",
+            state=WorkflowState.DONE,
+            updated_at=1.0,
+        )
+    )
+    assert persistence.archive_active_session(force=True) is not None
+    persistence.archive_manifest_path.write_text(
+        json.dumps({"version": 1, "archives": []}),
+        encoding="utf-8",
+    )
+
+    archives = persistence.list_archives()
+
+    assert [archive.session.id for archive in archives] == ["wf-original"]
+    manifest = json.loads(persistence.archive_manifest_path.read_text(encoding="utf-8"))
+    assert manifest["archives"][0]["id"] == "wf-original"

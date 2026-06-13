@@ -11,6 +11,7 @@ from trinity.providers.policy import InvocationAccess
 from trinity.tui.events import TUIEventType
 from trinity.workflow import (
     ExecutionProtocol,
+    ExecutionResult,
     ExecutionWorkspaceError,
     WorkPackage,
     WorkStatus,
@@ -140,6 +141,63 @@ async def test_execution_protocol_prefers_last_executor_for_repair(tmp_path):
     prompt = codex.send_and_wait.call_args.args[0]
     assert "Repair Notes:" in prompt
     assert "Add retry regression test" in prompt
+
+
+@pytest.mark.asyncio
+async def test_execution_protocol_persists_fallback_attempt_chain(tmp_path):
+    shared = SharedContextEngine(tmp_path / "shared.md")
+    codex = AsyncMock()
+    claude = AsyncMock()
+    codex.send_and_wait.return_value = _message(
+        "## Completed\n"
+        "- Could not verify environment\n\n"
+        "## Blockers\n"
+        "- Schema contract is unresolved\n"
+    )
+    claude.send_and_wait.return_value = _message(
+        "## Completed\n"
+        "- Implemented fallback path\n\n"
+        "## Blockers\n"
+        "- none\n"
+    )
+    events = []
+    package = WorkPackage(
+        id="WP-001",
+        title="fallback package",
+        owner_agent="codex",
+        objective="Implement route service.",
+    )
+    protocol = ExecutionProtocol(
+        agents={"codex": codex, "claude": claude},
+        shared=shared,
+        artifact_dir=tmp_path / "execution",
+        event_callback=events.append,
+    )
+
+    results = await protocol.run([package])
+
+    result = results[0]
+    assert result.status == WorkStatus.DONE
+    assert result.agent_name == "claude"
+    assert result.summary == "Implemented fallback path"
+    assert len(result.attempt_chain) == 2
+    assert result.attempt_chain[0]["agent"] == "codex"
+    assert result.attempt_chain[0]["status"] == "blocked"
+    assert result.attempt_chain[0]["blockers"] == ["Schema contract is unresolved"]
+    assert result.attempt_chain[0]["raw_response_path"]
+    assert result.attempt_chain[1]["agent"] == "claude"
+    assert result.attempt_chain[1]["status"] == "done"
+    assert result.attempt_chain[1]["raw_response_path"]
+    assert ExecutionResult.from_dict(result.to_dict()).attempt_chain == result.attempt_chain
+
+    fallback_prompt = claude.send_and_wait.call_args.args[0]
+    assert "[Fallback Assignment]" in fallback_prompt
+    assert "Original owner: codex" in fallback_prompt
+    assert "Current executor: claude" in fallback_prompt
+    completed_event = [
+        event for event in events if event.type == TUIEventType.WORK_PACKAGE_COMPLETED
+    ][0]
+    assert completed_event.data["attempt_chain"] == result.attempt_chain
 
 
 @pytest.mark.asyncio

@@ -125,9 +125,9 @@ class ProviderInspector(ModalScreen[None]):
             return output
         omitted = len(output) - MAX_DISPLAY_CHARS
         return (
-            output[:MAX_DISPLAY_CHARS]
+            f"[truncated {omitted} characters; inspect the raw artifact for full output]"
             + "\n\n"
-            + f"[truncated {omitted} characters; inspect the raw artifact for full output]"
+            + output[-MAX_DISPLAY_CHARS:]
         )
 
     @staticmethod

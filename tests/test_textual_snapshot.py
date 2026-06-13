@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
+from pathlib import Path
 
 from trinity.config import TrinityConfig
 from trinity.context.shared import SharedContextEngine
@@ -122,7 +123,10 @@ def test_snapshot_marks_non_target_agents_idle_during_targeted_deliberation(
     assert by_name["antigravity"].status == "Idle"
 
 
-def test_snapshot_loads_workflow_events_once_per_projection(tmp_path, monkeypatch) -> None:
+def test_snapshot_uses_event_index_without_full_event_projection_read(
+    tmp_path,
+    monkeypatch,
+) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     persistence = WorkflowPersistence(config.effective_state_dir)
     persistence.save(
@@ -165,7 +169,7 @@ def test_snapshot_loads_workflow_events_once_per_projection(tmp_path, monkeypatc
 
     snapshot = adapter.load_snapshot()
 
-    assert calls == 1
+    assert calls == 0
     assert snapshot.execution_recovery is not None
     assert snapshot.execution_recovery.last_event == "work_package_started"
     assert snapshot.workflow_events == [
@@ -178,7 +182,7 @@ def test_snapshot_loads_workflow_events_once_per_projection(tmp_path, monkeypatc
     ]
 
 
-def test_snapshot_large_event_log_uses_single_read_and_tail_limit(
+def test_snapshot_large_event_log_uses_event_index_and_tail_limit(
     tmp_path,
     monkeypatch,
 ) -> None:
@@ -227,9 +231,10 @@ def test_snapshot_large_event_log_uses_single_read_and_tail_limit(
 
     snapshot = adapter.load_snapshot()
 
-    assert calls == 1
+    assert calls == 0
     assert len(snapshot.execution_log) == 80
-    assert len(snapshot.workflow_events) == 5_000
+    assert len(snapshot.workflow_events) == 501
+    assert snapshot.workflow_events[0] == "... 4500 older workflow events omitted"
     assert snapshot.execution_recovery is not None
     assert snapshot.execution_recovery.last_event == "work_package_started"
     assert snapshot.execution_recovery.retry_candidates == ("WP-001",)
@@ -630,6 +635,65 @@ def test_snapshot_aggregates_multiple_work_package_review_results(tmp_path) -> N
     assert package.review_severity == "critical"
 
 
+def test_snapshot_reuses_review_index_for_package_and_final_review(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-review-index",
+            goal="Build UI",
+            state=WorkflowState.REVIEWING,
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="Frontend shell",
+                    owner_agent="claude",
+                    objective="Build the shell.",
+                    status=WorkStatus.DONE,
+                )
+            ],
+            review_results=[
+                ReviewResult(
+                    review_package_id="RP-WP-001-codex",
+                    package_id="WP-001",
+                    reviewer_agent="codex",
+                    target_agent="claude",
+                    status=ReviewStatus.CHANGES_REQUESTED,
+                    summary="Needs resize handling.",
+                ).to_dict(),
+                ReviewResult(
+                    review_package_id="RP-FINAL-codex",
+                    package_id="FINAL",
+                    reviewer_agent="codex",
+                    target_agent="all",
+                    status=ReviewStatus.APPROVED,
+                    scope="final",
+                    summary="Project is coherent.",
+                ).to_dict(),
+            ],
+        )
+    )
+    calls = 0
+    original = NexusSnapshotAdapter._review_results
+
+    def counted(session):
+        nonlocal calls
+        calls += 1
+        return original(session)
+
+    monkeypatch.setattr(NexusSnapshotAdapter, "_review_results", staticmethod(counted))
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert calls == 1
+    assert snapshot.work_package_details[0].review_status == "changes_requested"
+    assert snapshot.final_review is not None
+    assert snapshot.final_review.summary == "Project is coherent."
+
+
 def test_snapshot_projects_post_review_follow_up_items(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     persistence = WorkflowPersistence(config.effective_state_dir)
@@ -908,6 +972,22 @@ def test_snapshot_projects_execution_recovery_and_executor_details(tmp_path) -> 
                     summary="Could not finish.",
                     files_changed=["src/contracts.py"],
                     blockers=["Missing schema."],
+                    attempt_chain=[
+                        {
+                            "agent": "codex",
+                            "status": "blocked",
+                            "summary": "Owner could not continue.",
+                            "blockers": ["Missing schema."],
+                            "raw_response_path": "/tmp/codex.raw.txt",
+                        },
+                        {
+                            "agent": "claude",
+                            "status": "failed",
+                            "summary": "Could not finish.",
+                            "blockers": ["Missing schema."],
+                            "raw_response_path": "/tmp/claude.raw.txt",
+                        },
+                    ],
                 )
             ],
             execution_run={
@@ -950,6 +1030,16 @@ def test_snapshot_projects_execution_recovery_and_executor_details(tmp_path) -> 
     assert snapshot.work_package_details[0].retryable is True
     assert snapshot.work_package_details[0].last_result_summary == "Could not finish."
     assert snapshot.work_package_details[0].last_result_blockers == ["Missing schema."]
+    assert snapshot.work_package_details[0].last_result_attempt_chain == [
+        (
+            "1. `codex` `blocked` - Owner could not continue. "
+            "(blockers: Missing schema.) [raw: /tmp/codex.raw.txt]"
+        ),
+        (
+            "2. `claude` `failed` - Could not finish. "
+            "(blockers: Missing schema.) [raw: /tmp/claude.raw.txt]"
+        ),
+    ]
     assert snapshot.work_package_details[1].retryable is False
     assert snapshot.work_package_details[1].retry_disabled_reason == "already done"
 
@@ -1213,6 +1303,31 @@ def test_snapshot_restores_provider_status_from_response_artifacts(tmp_path) -> 
     assert claude.status == "Ready"
     assert claude.summary == "Use a compact dashboard."
     assert claude.raw_output == "RAW: Use a compact dashboard."
+
+
+def test_snapshot_reads_only_bounded_artifact_preview(tmp_path, monkeypatch) -> None:
+    read_sizes: list[int] = []
+
+    class FakeArtifact:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self, size: int = -1) -> bytes:
+            read_sizes.append(size)
+            return b"x" * size
+
+    def fake_open(path, *args, **kwargs):
+        return FakeArtifact()
+
+    monkeypatch.setattr(Path, "open", fake_open)
+
+    text = NexusSnapshotAdapter._read_artifact_text(tmp_path / "large.raw.txt", limit=5)
+
+    assert read_sizes == [6]
+    assert text == "xxxxx\n..."
 
 
 def test_snapshot_folds_recent_provider_events(tmp_path) -> None:

@@ -22,6 +22,8 @@ from trinity.workflow import (
     WorkflowSession,
 )
 
+WORKFLOW_EVENT_DISPLAY_LIMIT = 500
+
 
 @dataclass(frozen=True)
 class ProviderSnapshot:
@@ -125,6 +127,7 @@ class WorkPackageSnapshot:
     last_result_summary: str = ""
     last_result_files_changed: list[str] = field(default_factory=list)
     last_result_blockers: list[str] = field(default_factory=list)
+    last_result_attempt_chain: list[str] = field(default_factory=list)
     retryable: bool = False
     retry_disabled_reason: str = ""
     topic: str = ""
@@ -166,6 +169,15 @@ class _ReviewProjection:
     summary: str = ""
     required_changes: list[str] = field(default_factory=list)
     severity: str = ""
+
+
+@dataclass(frozen=True)
+class _ReviewIndex:
+    """Parsed review state reused across one snapshot projection."""
+
+    planned_by_package: dict[str, list[ReviewPackage]] = field(default_factory=dict)
+    result_by_package: dict[str, dict[str, ReviewResult]] = field(default_factory=dict)
+    final_review: ReviewResult | None = None
 
 
 @dataclass(frozen=True)
@@ -269,6 +281,7 @@ class NexusSnapshotAdapter:
         session_events = (
             self.persistence.load_events_for_workflow(session.id) if session else []
         )
+        review_index = self._review_index(session)
         provider_states = self._provider_states(session)
         self._fold_recent_events(provider_states, recent)
         round_num = self._round_num(session, recent)
@@ -291,13 +304,13 @@ class NexusSnapshotAdapter:
             ]
             if session
             else [],
-            work_package_details=self._work_package_details(session),
+            work_package_details=self._work_package_details(session, review_index),
             subtasks=self._subtasks(session),
             work_package_repairs=self._work_package_repairs(session),
             workflow_events=self._workflow_events(session, session_events),
             execution_log=self._execution_log(session, session_events),
             execution_recovery=self._execution_recovery(session, session_events),
-            final_review=self._final_review(session),
+            final_review=self._final_review(review_index),
             post_review_items=self._post_review_items(session),
             follow_up_requests=self._follow_up_requests(session),
             supplemental_round=session.supplemental_round if session else 0,
@@ -376,11 +389,15 @@ class NexusSnapshotAdapter:
     def _work_package_details(
         self,
         session: WorkflowSession | None,
+        review_index: _ReviewIndex | None = None,
     ) -> list[WorkPackageSnapshot]:
         if session is None:
             return []
         result_by_package_id = {result.package_id: result for result in session.execution_results}
-        review_by_package_id = NexusSnapshotAdapter._work_package_review_projections(session)
+        review_by_package_id = NexusSnapshotAdapter._work_package_review_projections(
+            session,
+            review_index or NexusSnapshotAdapter._review_index(session),
+        )
         return [
             WorkPackageSnapshot(
                 id=package.id,
@@ -427,6 +444,13 @@ class NexusSnapshotAdapter:
                 ),
                 last_result_blockers=(
                     list(result_by_package_id[package.id].blockers)
+                    if package.id in result_by_package_id
+                    else []
+                ),
+                last_result_attempt_chain=(
+                    NexusSnapshotAdapter._execution_attempt_lines(
+                        result_by_package_id[package.id]
+                    )
                     if package.id in result_by_package_id
                     else []
                 ),
@@ -481,14 +505,11 @@ class NexusSnapshotAdapter:
     @staticmethod
     def _work_package_review_projections(
         session: WorkflowSession,
+        review_index: _ReviewIndex | None = None,
     ) -> dict[str, _ReviewProjection]:
-        planned_by_package = NexusSnapshotAdapter._planned_work_package_reviews(session)
-        result_by_package: dict[str, dict[str, ReviewResult]] = {}
-        for result in NexusSnapshotAdapter._review_results(session):
-            if result.scope == "final" or result.package_id == FINAL_REVIEW_PACKAGE_ID:
-                continue
-            review_id = result.review_package_id or f"{result.package_id}:{result.reviewer_agent}"
-            result_by_package.setdefault(result.package_id, {})[review_id] = result
+        index = review_index or NexusSnapshotAdapter._review_index(session)
+        planned_by_package = index.planned_by_package
+        result_by_package = index.result_by_package
 
         projections: dict[str, _ReviewProjection] = {}
         for package_id in set(planned_by_package) | set(result_by_package):
@@ -627,11 +648,29 @@ class NexusSnapshotAdapter:
         return reviews
 
     @staticmethod
-    def _final_review(session: WorkflowSession | None) -> ReviewSnapshot | None:
-        for review in reversed(NexusSnapshotAdapter._review_results(session)):
-            if review.scope == "final" or review.package_id == FINAL_REVIEW_PACKAGE_ID:
-                return NexusSnapshotAdapter._review_snapshot(review)
-        return None
+    def _review_index(session: WorkflowSession | None) -> _ReviewIndex:
+        if session is None:
+            return _ReviewIndex()
+        planned_by_package = NexusSnapshotAdapter._planned_work_package_reviews(session)
+        result_by_package: dict[str, dict[str, ReviewResult]] = {}
+        final_review: ReviewResult | None = None
+        for result in NexusSnapshotAdapter._review_results(session):
+            if result.scope == "final" or result.package_id == FINAL_REVIEW_PACKAGE_ID:
+                final_review = result
+                continue
+            review_id = result.review_package_id or f"{result.package_id}:{result.reviewer_agent}"
+            result_by_package.setdefault(result.package_id, {})[review_id] = result
+        return _ReviewIndex(
+            planned_by_package=planned_by_package,
+            result_by_package=result_by_package,
+            final_review=final_review,
+        )
+
+    @staticmethod
+    def _final_review(review_index: _ReviewIndex) -> ReviewSnapshot | None:
+        if review_index.final_review is None:
+            return None
+        return NexusSnapshotAdapter._review_snapshot(review_index.final_review)
 
     @staticmethod
     def _review_snapshot(review: ReviewResult) -> ReviewSnapshot:
@@ -717,6 +756,37 @@ class NexusSnapshotAdapter:
         if status in {"running", "failed", "blocked"}:
             return ""
         return f"status is {status or 'unknown'}"
+
+    @staticmethod
+    def _execution_attempt_lines(result: object) -> list[str]:
+        attempts = getattr(result, "attempt_chain", []) or []
+        if not isinstance(attempts, list):
+            return []
+        lines: list[str] = []
+        for index, attempt in enumerate(attempts, start=1):
+            if not isinstance(attempt, dict):
+                continue
+            agent = str(attempt.get("agent") or attempt.get("agent_name") or "-")
+            status = str(attempt.get("status") or "-")
+            summary = str(attempt.get("summary") or "").strip()
+            raw_path = str(attempt.get("raw_response_path") or "").strip()
+            blockers = attempt.get("blockers", [])
+            blocker_text = ""
+            if isinstance(blockers, list):
+                blocker_text = "; ".join(
+                    str(item).strip() for item in blockers if str(item).strip()
+                )
+            elif blockers:
+                blocker_text = str(blockers).strip()
+            parts = [f"{index}. `{agent}` `{status}`"]
+            if summary:
+                parts.append(f"- {summary}")
+            if blocker_text:
+                parts.append(f"(blockers: {blocker_text})")
+            if raw_path:
+                parts.append(f"[raw: {raw_path}]")
+            lines.append(" ".join(parts))
+        return lines
 
     @staticmethod
     def _work_package_topic(package: object) -> str:
@@ -1278,10 +1348,18 @@ class NexusSnapshotAdapter:
         session_events = list(session_events) if session_events is not None else (
             self.persistence.load_events_for_workflow(session.id)
         )
-        return [
+        total = len(session_events)
+        display_events = session_events[-WORKFLOW_EVENT_DISPLAY_LIMIT:]
+        lines = [
             self._format_workflow_event(event)
-            for event in session_events
+            for event in display_events
         ]
+        if total > len(display_events):
+            lines.insert(
+                0,
+                f"... {total - len(display_events)} older workflow events omitted",
+            )
+        return lines
 
     def _last_session_event(
         self,
@@ -1526,11 +1604,18 @@ class NexusSnapshotAdapter:
     def _read_artifact_text(path: Path | None, limit: int = 120_000) -> str:
         if path is None:
             return ""
+        if limit <= 0:
+            return ""
         try:
-            text = path.read_text(encoding="utf-8", errors="replace")
+            with path.open("rb") as fh:
+                data = fh.read(limit + 1)
         except OSError:
             return ""
-        return text if len(text) <= limit else text[:limit].rstrip() + "\n..."
+        truncated = len(data) > limit
+        if truncated:
+            data = data[:limit]
+        text = data.decode("utf-8", errors="replace")
+        return text if not truncated else text.rstrip() + "\n..."
 
     @staticmethod
     def _replace(snapshot: ProviderSnapshot, **updates: object) -> ProviderSnapshot:

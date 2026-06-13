@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from rich.console import Group
@@ -167,6 +168,20 @@ class ReportExecution:
     status: str
     files_count: int
     summary: str
+    attempt_chain: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ReportArtifact:
+    """A raw artifact reference captured without loading artifact bodies."""
+
+    path: str
+    source: str
+    package_id: str = ""
+    agent_name: str = ""
+    exists: bool = False
+    size_bytes: int = 0
+    modified_at: str = ""
 
 
 @dataclass(frozen=True)
@@ -283,6 +298,7 @@ class DeliberationReport:
     providers: tuple[ReportProvider, ...] = ()
     conversation: tuple[ReportConversationMessage, ...] = ()
     execution_events: tuple[ReportExecutionEvent, ...] = ()
+    artifacts: tuple[ReportArtifact, ...] = ()
     reviews: tuple[ReportReview, ...] = ()
     repairs: tuple[ReportRepair, ...] = ()
     recovery: ReportRecovery | None = None
@@ -306,6 +322,8 @@ class DeliberationReport:
             renderables.append(self._render_executions())
         if self.execution_events:
             renderables.append(self._render_execution_events())
+        if self.artifacts:
+            renderables.append(self._render_artifacts())
         if self.reviews:
             renderables.append(self._render_reviews())
         if self.repairs:
@@ -443,6 +461,7 @@ class DeliberationReport:
         table.add_column("Agent")
         table.add_column("Status")
         table.add_column("Files", justify="right")
+        table.add_column("Attempts", justify="right")
         table.add_column("Summary", max_width=120)
 
         for ex in self.executions:
@@ -453,6 +472,7 @@ class DeliberationReport:
                 agent,
                 ex.status,
                 str(ex.files_count),
+                str(len(ex.attempt_chain)) if ex.attempt_chain else "-",
                 escape(_truncate(ex.summary, 120)),
             )
         return table
@@ -474,6 +494,25 @@ class DeliberationReport:
                 escape(event.agent or "-"),
                 escape(event.status or event.state or "-"),
                 escape(_truncate(event.summary, 120)),
+            )
+        return table
+
+    def _render_artifacts(self) -> Table:
+        table = Table(title="Artifact Manifest")
+        table.add_column("Source")
+        table.add_column("Package")
+        table.add_column("Agent")
+        table.add_column("Size", justify="right")
+        table.add_column("Path", max_width=120)
+
+        for artifact in self.artifacts:
+            size = f"{artifact.size_bytes:,}" if artifact.exists else "missing"
+            table.add_row(
+                escape(artifact.source or "-"),
+                escape(artifact.package_id or "-"),
+                escape(artifact.agent_name or "-"),
+                size,
+                escape(artifact.path),
             )
         return table
 
@@ -563,6 +602,8 @@ class DeliberationReport:
             lines.append(self._md_executions())
         if self.execution_events:
             lines.append(self._md_execution_events())
+        if self.artifacts:
+            lines.append(self._md_artifacts())
         if self.reviews:
             lines.append(self._md_reviews())
         if self.repairs:
@@ -676,16 +717,28 @@ class DeliberationReport:
     def _md_executions(self) -> str:
         lines = [
             "\n## Execution Results\n",
-            "| Package | Agent | Status | Files | Summary |",
-            "|---------|-------|--------|-------|---------|",
+            "| Package | Agent | Status | Files | Attempts | Summary |",
+            "|---------|-------|--------|-------|----------|---------|",
         ]
         for ex in self.executions:
             lines.append(
                 f"| {_escape_md_table(ex.package_id)} "
                 f"| {_escape_md_table(ex.agent_name)} "
                 f"| {_escape_md_table(ex.status)} | {ex.files_count} "
+                f"| {len(ex.attempt_chain) if ex.attempt_chain else '-'} "
                 f"| {_escape_md_table(_truncate(ex.summary, 120))} |"
             )
+        for ex in self.executions:
+            if not ex.attempt_chain:
+                continue
+            lines.extend(
+                [
+                    "",
+                    f"### Attempt Chain - {_escape_md_inline(ex.package_id)}",
+                    "",
+                ]
+            )
+            lines.extend(f"- {_escape_md_inline(item)}" for item in ex.attempt_chain)
         lines.append("")
         return "\n".join(lines)
 
@@ -724,6 +777,25 @@ class DeliberationReport:
                     "",
                 ]
             )
+        return "\n".join(lines)
+
+    def _md_artifacts(self) -> str:
+        lines = [
+            "\n## Artifact Manifest\n",
+            "| Source | Package | Agent | Exists | Size | Modified | Path |",
+            "|--------|---------|-------|--------|------|----------|------|",
+        ]
+        for artifact in self.artifacts:
+            lines.append(
+                f"| {_escape_md_table(artifact.source or '-')} "
+                f"| {_escape_md_table(artifact.package_id or '-')} "
+                f"| {_escape_md_table(artifact.agent_name or '-')} "
+                f"| {'yes' if artifact.exists else 'no'} "
+                f"| {artifact.size_bytes if artifact.exists else '-'} "
+                f"| {_escape_md_table(artifact.modified_at or '-')} "
+                f"| {_escape_md_table(artifact.path)} |"
+            )
+        lines.append("")
         return "\n".join(lines)
 
     def _md_reviews(self) -> str:
@@ -869,6 +941,7 @@ class DeliberationReportBuilder:
             providers=self._build_providers(),
             conversation=self._build_conversation(),
             execution_events=self._build_execution_events(),
+            artifacts=self._build_artifacts(),
             reviews=self._build_reviews(),
             repairs=self._build_repairs(),
             recovery=self._build_recovery(),
@@ -1448,6 +1521,108 @@ class DeliberationReportBuilder:
                 status=ex.status.value,
                 files_count=len(ex.files_changed),
                 summary=ex.summary,
+                attempt_chain=tuple(self._format_attempt_chain(ex.attempt_chain)),
             )
             for ex in self._session.execution_results
+        )
+
+    @staticmethod
+    def _format_attempt_chain(attempts: object) -> list[str]:
+        if not isinstance(attempts, list):
+            return []
+        lines: list[str] = []
+        for index, attempt in enumerate(attempts, start=1):
+            if not isinstance(attempt, dict):
+                continue
+            agent = str(attempt.get("agent") or attempt.get("agent_name") or "-")
+            status = str(attempt.get("status") or "-")
+            summary = str(attempt.get("summary") or "").strip()
+            raw_path = str(attempt.get("raw_response_path") or "").strip()
+            blockers = attempt.get("blockers", [])
+            blocker_text = ""
+            if isinstance(blockers, list):
+                blocker_text = "; ".join(
+                    str(item).strip() for item in blockers if str(item).strip()
+                )
+            elif blockers:
+                blocker_text = str(blockers).strip()
+            parts = [f"{index}. {agent} {status}"]
+            if summary:
+                parts.append(f"- {summary}")
+            if blocker_text:
+                parts.append(f"(blockers: {blocker_text})")
+            if raw_path:
+                parts.append(f"[raw: {raw_path}]")
+            lines.append(" ".join(parts))
+        return lines
+
+    def _build_artifacts(self) -> tuple[ReportArtifact, ...]:
+        seen: set[str] = set()
+        artifacts: list[ReportArtifact] = []
+
+        def add(
+            path_value: object,
+            *,
+            source: str,
+            package_id: str,
+            agent_name: str,
+        ) -> None:
+            path_text = str(path_value or "").strip()
+            if not path_text or path_text in seen:
+                return
+            seen.add(path_text)
+            artifacts.append(
+                self._artifact_from_path(
+                    path_text,
+                    source=source,
+                    package_id=package_id,
+                    agent_name=agent_name,
+                )
+            )
+
+        for result in self._session.execution_results:
+            add(
+                result.raw_response_path,
+                source="execution_result",
+                package_id=result.package_id,
+                agent_name=result.agent_name,
+            )
+            for attempt in result.attempt_chain:
+                if not isinstance(attempt, dict):
+                    continue
+                add(
+                    attempt.get("raw_response_path"),
+                    source="fallback_attempt",
+                    package_id=result.package_id,
+                    agent_name=str(attempt.get("agent") or attempt.get("agent_name") or ""),
+                )
+
+        return tuple(artifacts)
+
+    @staticmethod
+    def _artifact_from_path(
+        path_text: str,
+        *,
+        source: str,
+        package_id: str,
+        agent_name: str,
+    ) -> ReportArtifact:
+        path = Path(path_text)
+        try:
+            stat = path.stat()
+        except OSError:
+            return ReportArtifact(
+                path=path_text,
+                source=source,
+                package_id=package_id,
+                agent_name=agent_name,
+            )
+        return ReportArtifact(
+            path=path_text,
+            source=source,
+            package_id=package_id,
+            agent_name=agent_name,
+            exists=True,
+            size_bytes=stat.st_size,
+            modified_at=format_timestamp(stat.st_mtime, "%Y-%m-%d %H:%M:%S"),
         )

@@ -3503,7 +3503,7 @@ async def test_provider_inspector_truncates_large_raw_output(tmp_path) -> None:
                         provider="codex",
                         enabled=True,
                         status="Ready",
-                        raw_output="x" * 60_000,
+                        raw_output=("head-" + ("x" * 59_990) + "-tail"),
                     )
                 ]
             )
@@ -3513,6 +3513,8 @@ async def test_provider_inspector_truncates_large_raw_output(tmp_path) -> None:
         output = app.screen.query_one("#inspect-codex .provider-inspector-output", RichLog)
         text = "\n".join(line.text for line in output.lines)
         assert "[truncated 10000 characters" in text
+        assert "head-" not in text
+        assert "-tail" in text
         assert len(text) < 51_000
 
 

@@ -273,6 +273,9 @@ codex -> claude -> antigravity
 
 - owner success, owner failed fallback success, owner blocked fallback success를 모두 재현한다.
 - fallback attempt chain을 session/event/report에서 검증한다.
+  `codex/p2-p3-scalability-hardening`에서 owner blocked -> fallback success 단위 테스트와
+  session/event/report/snapshot projection 저장 경로를 추가했다. 실제 provider CLI fixture와
+  한국어 heading fixture는 별도 하네스 보강 과제로 남는다.
 - 영어/한국어 execution report fixture를 모두 파싱한다.
 - environment-only verification blocker는 `needs_review`와 `blocked` 중 어떤 정책인지 명확히
   고정한다.
@@ -609,6 +612,8 @@ Codex가 실제 구현을 했더라도 output의 blockers가 environment verific
 - H-004에서 Codex output에 `EPERM`, `loopback bind`, `sandbox` blocker를 넣는다.
 - 정책에 따라 `needs_review` 또는 `blocked`가 되는지 검증한다.
 - fallback reason과 original raw artifact가 UI/report에 노출되는지 검증한다.
+  현재 구현은 `ExecutionResult.attempt_chain`에 agent/status/summary/blockers/raw_response_path를
+  저장하고, Work Package detail modal과 Deliberation Report markdown에 노출한다.
 
 ### Antigravity가 WP owner로 배정되지 않는 문제
 
@@ -709,6 +714,14 @@ Codex가 실제 구현을 했더라도 output의 blockers가 environment verific
 - 실제 provider CLI 없이 과거 session을 복원해 Nexus/report를 검증한다.
 - report 누락, fallback reason 누락, review aggregation 오류를 deterministic하게 잡는다.
 
+구현 상태:
+
+- `codex/p2-p3-scalability-hardening`에서 `tests/harness/replay.py`를 추가해 persisted
+  workflow session, workflow events, raw artifacts를 로드하고 `WorkflowNexusSnapshot`과
+  `DeliberationReport`를 재구성한다.
+- `tests/test_replay_harness.py`는 fallback attempt chain, raw artifact manifest, work package
+  review aggregation, final review projection이 replay 후에도 유지되는지 검증한다.
+
 ### P3: Performance harness
 
 - pytest benchmark가 없어도 단순 monotonic timer 기반 smoke budget을 둔다.
@@ -719,6 +732,15 @@ Codex가 실제 구현을 했더라도 output의 blockers가 environment verific
 
 - resume, snapshot, execute-retry, report, memory pack의 기준값이 문서화된다.
 - 성능개선 PR마다 before/after를 비교할 수 있다.
+
+구현 상태:
+
+- `feature/current-workflow-operation-analysis`에서 `tests/harness/perf.py`와
+  `tests/test_performance_harness.py`를 추가해 session/events/shared/review 규모별 fixture와
+  monotonic timer 기반 smoke probe를 만들었다.
+- `codex/p2-p3-scalability-hardening`에서 replay/report harness와 P2/P3 확장성 검증을 보강해
+  snapshot, report, event index, memory pack, artifact manifest가 같은 fixture 흐름에서
+  검증되도록 확장했다.
 
 ### P4: Optional live smoke
 

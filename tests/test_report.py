@@ -351,6 +351,92 @@ def test_pipe_characters_escaped_in_markdown_tables():
                 assert "|" not in part or "\\|" in part, f"Unescaped pipe: {line}"
 
 
+def test_report_includes_execution_attempt_chain():
+    session = WorkflowSession(
+        id="fallback-report",
+        goal="test",
+        state=WorkflowState.BLUEPRINT_READY,
+        execution_results=[
+            ExecutionResult(
+                package_id="wp-1",
+                agent_name="claude",
+                status=WorkStatus.DONE,
+                summary="fallback succeeded",
+                files_changed=["src/app.py"],
+                attempt_chain=[
+                    {
+                        "agent": "codex",
+                        "status": "blocked",
+                        "summary": "pytest missing",
+                        "blockers": ["pytest missing"],
+                        "raw_response_path": "/tmp/codex.raw.txt",
+                    },
+                    {
+                        "agent": "claude",
+                        "status": "done",
+                        "summary": "fallback succeeded",
+                        "blockers": [],
+                        "raw_response_path": "/tmp/claude.raw.txt",
+                    },
+                ],
+            )
+        ],
+    )
+
+    report = DeliberationReportBuilder(session, result=None).build()
+    md = report.to_markdown()
+
+    assert report.executions[0].attempt_chain[0].startswith("1. codex blocked")
+    assert "| wp-1 | claude | done | 1 | 2 | fallback succeeded |" in md
+    assert "### Attempt Chain - wp\\-1" in md
+    assert "codex blocked" in md
+    assert "/tmp/codex\\.raw\\.txt" in md
+
+
+def test_report_builds_artifact_manifest_without_raw_body(tmp_path):
+    raw_path = tmp_path / "codex.raw.txt"
+    raw_path.write_text("x" * 128, encoding="utf-8")
+    missing_path = tmp_path / "claude.raw.txt"
+    session = WorkflowSession(
+        id="artifact-report",
+        goal="test",
+        state=WorkflowState.BLUEPRINT_READY,
+        execution_results=[
+            ExecutionResult(
+                package_id="wp-1",
+                agent_name="codex",
+                status=WorkStatus.DONE,
+                summary="done",
+                raw_response_path=raw_path,
+                attempt_chain=[
+                    {
+                        "agent": "claude",
+                        "status": "failed",
+                        "summary": "missing raw artifact",
+                        "blockers": ["raw missing"],
+                        "raw_response_path": str(missing_path),
+                    },
+                ],
+            )
+        ],
+    )
+
+    report = DeliberationReportBuilder(session, result=None).build()
+    md = report.to_markdown()
+
+    assert [artifact.source for artifact in report.artifacts] == [
+        "execution_result",
+        "fallback_attempt",
+    ]
+    assert report.artifacts[0].exists is True
+    assert report.artifacts[0].size_bytes == 128
+    assert report.artifacts[1].exists is False
+    assert "## Artifact Manifest" in md
+    assert "codex.raw.txt" in md
+    assert "claude.raw.txt" in md
+    assert "x" * 80 not in md
+
+
 def test_multiline_markdown_table_cells_are_normalized():
     session = WorkflowSession(
         id="multiline-test",

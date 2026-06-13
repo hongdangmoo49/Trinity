@@ -733,6 +733,15 @@ Codex가 실제 구현을 했더라도 output의 blockers가 environment verific
 - resume, snapshot, execute-retry, report, memory pack의 기준값이 문서화된다.
 - 성능개선 PR마다 before/after를 비교할 수 있다.
 
+구현 상태:
+
+- `feature/current-workflow-operation-analysis`에서 `tests/harness/perf.py`와
+  `tests/test_performance_harness.py`를 추가해 session/events/shared/review 규모별 fixture와
+  monotonic timer 기반 smoke probe를 만들었다.
+- `codex/p2-p3-scalability-hardening`에서 replay/report harness와 P2/P3 확장성 검증을 보강해
+  snapshot, report, event index, memory pack, artifact manifest가 같은 fixture 흐름에서
+  검증되도록 확장했다.
+
 ### P4: Optional live smoke
 
 실제 Claude/Codex/Antigravity CLI 호출은 deterministic CI에 넣기 어렵다. 대신 local-only smoke로

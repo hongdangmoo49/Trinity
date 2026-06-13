@@ -430,19 +430,24 @@ budget 안에서 packing한다. SQLite memory가 커질수록 index와 query pat
 | raw artifact expand, 5MB | 300ms 이하 또는 명시 loading |
 | memory pack, record 10,000개 | 150ms 이하 |
 
-## 바로 실행 가능한 다음 작업
+## 구현 완료 요약
 
-1. performance harness skeleton 추가
-2. current-state 계측 fixture와 large-session fixture 추가
-3. events cache와 snapshot memoization 구현
-4. model discovery cache-first UI와 provider별 병렬화 구현
-5. execution partial result의 UI/report 통합 계약 고정
-6. report/inspector lazy loading 구현
-7. `shared.md.oversized-*` retention/cleanup 설계와 명령 추가
+이번 분석에서 제안한 실행 가능한 개선 항목은 `feature/current-workflow-operation-analysis`와
+`codex/p2-p3-scalability-hardening`에 나누어 반영했다.
 
-현재 체감 렉의 직접 원인은 상황마다 다를 수 있다. 하지만 위 순서대로 진행하면 "큰 파일 때문에
-무거운 문제", "반복 snapshot 때문에 끊기는 문제", "provider discovery 때문에 늦게 채워지는 문제",
-"긴 실행 중 보고서가 안 보이는 문제"를 모두 계측 가능한 형태로 줄일 수 있다.
+1. performance harness skeleton과 large workflow fixture를 추가했다.
+2. workflow events cache/index와 snapshot memoization을 추가했다.
+3. model discovery를 provider별 병렬 실행으로 바꿨다.
+4. execution partial result와 fallback attempt chain이 session/report/UI에 남도록 했다.
+5. report artifact manifest와 provider inspector tail-first truncation을 추가했다.
+6. `shared.md.oversized-*` cleanup/retention 명령을 추가했다.
+7. memory pack cache, review aggregation index, workflow history tail projection을 추가했다.
+8. persisted session/events/raw artifact를 재생하는 replay/report harness를 추가했다.
+
+이제 체감 렉 후보였던 "큰 파일 때문에 무거운 문제", "반복 snapshot 때문에 끊기는 문제",
+"provider discovery 때문에 늦게 채워지는 문제", "긴 실행 중 보고서가 안 보이는 문제"는 모두
+테스트 가능한 형태로 줄였고, 각 항목의 검증 결과는 `docs/test-results/2026-06-13-*.md`에
+남겼다.
 
 ## 최종 판단
 

@@ -714,6 +714,14 @@ Codex가 실제 구현을 했더라도 output의 blockers가 environment verific
 - 실제 provider CLI 없이 과거 session을 복원해 Nexus/report를 검증한다.
 - report 누락, fallback reason 누락, review aggregation 오류를 deterministic하게 잡는다.
 
+구현 상태:
+
+- `codex/p2-p3-scalability-hardening`에서 `tests/harness/replay.py`를 추가해 persisted
+  workflow session, workflow events, raw artifacts를 로드하고 `WorkflowNexusSnapshot`과
+  `DeliberationReport`를 재구성한다.
+- `tests/test_replay_harness.py`는 fallback attempt chain, raw artifact manifest, work package
+  review aggregation, final review projection이 replay 후에도 유지되는지 검증한다.
+
 ### P3: Performance harness
 
 - pytest benchmark가 없어도 단순 monotonic timer 기반 smoke budget을 둔다.

@@ -1,6 +1,7 @@
 """Tests for Trinity context memory index."""
 
 from trinity.context.memory import ContentRouter, MemoryRecord, MemoryStore
+from trinity.context.shared import SharedContextEngine
 
 
 def test_memory_store_upsert_and_recent(tmp_path):
@@ -42,3 +43,65 @@ def test_content_router_bounds_long_text():
 
     assert len(summary) < 3000
     assert "[truncated for memory]" in summary
+
+
+def test_shared_context_pack_context_reuses_cache_until_inputs_change(tmp_path, monkeypatch):
+    engine = SharedContextEngine(tmp_path / "shared.md")
+    engine.initialize("Build UI", ["codex"])
+    engine.memory_store.upsert(
+        MemoryRecord(
+            id="record-1",
+            kind="execution_result",
+            source="test",
+            title="WP-001",
+            summary="Implemented shell.",
+            workflow_id="wf-cache",
+        )
+    )
+    parse_calls = 0
+    recent_calls = 0
+    original_parse = engine._parse_sections
+    original_recent = engine.memory_store.recent
+
+    def counted_parse(content: str):
+        nonlocal parse_calls
+        parse_calls += 1
+        return original_parse(content)
+
+    def counted_recent(*args, **kwargs):
+        nonlocal recent_calls
+        recent_calls += 1
+        return original_recent(*args, **kwargs)
+
+    monkeypatch.setattr(engine, "_parse_sections", counted_parse)
+    monkeypatch.setattr(engine.memory_store, "recent", counted_recent)
+
+    first = engine.pack_context_for_prompt(workflow_id="wf-cache")
+    second = engine.pack_context_for_prompt(workflow_id="wf-cache")
+
+    assert second is first
+    assert parse_calls == 1
+    assert recent_calls == 1
+
+    engine.memory_store.upsert(
+        MemoryRecord(
+            id="record-2",
+            kind="execution_result",
+            source="test",
+            title="WP-002",
+            summary="Added tests.",
+            workflow_id="wf-cache",
+        )
+    )
+    third = engine.pack_context_for_prompt(workflow_id="wf-cache")
+
+    assert third is not first
+    assert parse_calls == 2
+    assert recent_calls == 2
+
+    engine.write_section("Agreed Conclusion", "Use compact UI.")
+    fourth = engine.pack_context_for_prompt(workflow_id="wf-cache")
+
+    assert fourth is not third
+    assert parse_calls == 4
+    assert recent_calls == 3

@@ -379,6 +379,8 @@ budget 안에서 packing한다. SQLite memory가 커질수록 index와 query pat
 - report raw artifact lazy loading: `codex/p2-p3-scalability-hardening`에서 snapshot
   artifact preview를 bounded byte read로 변경했다.
 - inspector tail-first rendering
+- provider inspector tail-first rendering: `codex/p2-p3-scalability-hardening`에서
+  긴 raw output truncation 시 tail을 보존하도록 변경했다.
 - archive summary manifest: `codex/p2-p3-scalability-hardening`에서
   `.trinity/workflow/history/manifest.json` 기반 resume 목록 로딩을 추가했다.
 - oversized backup cleanup 명령과 retention 표시
@@ -397,9 +399,15 @@ budget 안에서 packing한다. SQLite memory가 커질수록 index와 query pat
 - workflow event index: `codex/p2-p3-scalability-hardening`에서
   `.trinity/workflow/events.index.jsonl` offset index와 stale rebuild를 추가했다.
 - report/audit artifact manifest
-- route별 lazy projection
-- memory pack cache
-- 대형 review aggregation index
+- report/audit artifact manifest: `codex/p2-p3-scalability-hardening`에서
+  execution result와 fallback attempt raw artifact의 path/stat manifest를 report에 추가했다.
+- route별 lazy projection: `codex/p2-p3-scalability-hardening`에서
+  snapshot workflow history projection을 최근 500개로 제한하고 전체 audit은 report/event index
+  경로에 남기는 방식으로 분리했다.
+- memory pack cache: `codex/p2-p3-scalability-hardening`에서 shared context stat과 memory index
+  aggregate key 기반 cache를 추가했다.
+- 대형 review aggregation index: `codex/p2-p3-scalability-hardening`에서 snapshot 생성 중
+  review result를 한 번만 파싱해 work package review와 final review projection에 재사용한다.
 
 예상 효과:
 

@@ -174,6 +174,9 @@ class ReportScreen(Screen[None]):
                 )
             )
 
+        if report.artifacts:
+            sections.append(_section("Artifact Manifest", _render_artifacts(report.artifacts)))
+
         if report.reviews:
             sections.append(_section("Reviews", _render_reviews(report.reviews)))
 
@@ -349,6 +352,19 @@ def _render_execution_events(events) -> str:
             f"  • [cyan]{escape(event.event)}[/cyan] "
             f"{escape(package)} {escape(agent)} {escape(status)}"
             f" [dim]{escape(summary)}[/dim]"
+        )
+    return "\n".join(lines) if lines else "(none)"
+
+
+def _render_artifacts(artifacts) -> str:
+    lines: list[str] = []
+    for artifact in artifacts:
+        size = f"{artifact.size_bytes:,} bytes" if artifact.exists else "missing"
+        lines.append(
+            f"  • [cyan]{escape(artifact.source or '-')}[/cyan] "
+            f"{escape(artifact.package_id or '-')} "
+            f"{escape(artifact.agent_name or '-')} · {escape(size)}\n"
+            f"    [dim]{escape(artifact.path)}[/dim]"
         )
     return "\n".join(lines) if lines else "(none)"
 

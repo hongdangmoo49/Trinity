@@ -71,6 +71,8 @@ class SharedContextEngine:
         self.keep_sections: set[str] = {
             self._normalize_heading(h) for h in (keep_sections or [])
         }
+        self._pack_cache_key: tuple[object, ...] | None = None
+        self._pack_cache_value: PackedContext | None = None
 
     def _normalize_heading(self, heading: str) -> str:
         """Normalize a heading for comparison (strip ## prefix and whitespace)."""
@@ -570,6 +572,14 @@ class SharedContextEngine:
         recent_records: int = 30,
     ) -> PackedContext:
         """Build a token-bounded context bundle for provider prompts."""
+        cache_key = self._pack_context_cache_key(
+            workflow_id=workflow_id,
+            prompt_budget_tokens=prompt_budget_tokens,
+            recent_records=recent_records,
+        )
+        if self._pack_cache_key == cache_key and self._pack_cache_value is not None:
+            return self._pack_cache_value
+
         sections = self._parse_sections(self.read())
         pinned = {
             "Current Goal": sections.get("current goal", ""),
@@ -581,7 +591,10 @@ class SharedContextEngine:
             prompt_budget_tokens=prompt_budget_tokens,
             recent_records=recent_records,
         )
-        return packer.pack(pinned_sections=pinned, workflow_id=workflow_id)
+        packed = packer.pack(pinned_sections=pinned, workflow_id=workflow_id)
+        self._pack_cache_key = cache_key
+        self._pack_cache_value = packed
+        return packed
 
     def compact_projection_from_memory(
         self,
@@ -644,6 +657,46 @@ class SharedContextEngine:
         return backup_path
 
     # --- Private helpers ---
+
+    def _pack_context_cache_key(
+        self,
+        *,
+        workflow_id: str,
+        prompt_budget_tokens: int,
+        recent_records: int,
+    ) -> tuple[object, ...]:
+        return (
+            workflow_id,
+            prompt_budget_tokens,
+            recent_records,
+            self._path_stat_key(self.path),
+            self._memory_store_cache_key(),
+        )
+
+    def _memory_store_cache_key(self) -> tuple[object, ...]:
+        if self.memory_store is None:
+            return ("disabled",)
+        try:
+            stats = self.memory_store.stats()
+        except Exception:
+            logger.exception("Failed to build memory store cache key")
+            return ("error",)
+        return (
+            "enabled",
+            str(self.memory_store.path),
+            stats.record_count,
+            stats.artifact_count,
+            stats.total_token_estimate,
+            stats.latest_updated_at,
+        )
+
+    @staticmethod
+    def _path_stat_key(path: Path) -> tuple[str, int, int]:
+        try:
+            stat = path.stat()
+        except OSError:
+            return ("missing", 0, 0)
+        return ("file", stat.st_mtime_ns, stat.st_size)
 
     def _parse_sections(self, content: str) -> dict[str, str]:
         """Parse markdown into {normalized_heading: section_body}."""

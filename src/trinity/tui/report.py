@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from rich.console import Group
@@ -171,6 +172,19 @@ class ReportExecution:
 
 
 @dataclass(frozen=True)
+class ReportArtifact:
+    """A raw artifact reference captured without loading artifact bodies."""
+
+    path: str
+    source: str
+    package_id: str = ""
+    agent_name: str = ""
+    exists: bool = False
+    size_bytes: int = 0
+    modified_at: str = ""
+
+
+@dataclass(frozen=True)
 class ReportDecision:
     """A single resolved decision captured for the report."""
 
@@ -284,6 +298,7 @@ class DeliberationReport:
     providers: tuple[ReportProvider, ...] = ()
     conversation: tuple[ReportConversationMessage, ...] = ()
     execution_events: tuple[ReportExecutionEvent, ...] = ()
+    artifacts: tuple[ReportArtifact, ...] = ()
     reviews: tuple[ReportReview, ...] = ()
     repairs: tuple[ReportRepair, ...] = ()
     recovery: ReportRecovery | None = None
@@ -307,6 +322,8 @@ class DeliberationReport:
             renderables.append(self._render_executions())
         if self.execution_events:
             renderables.append(self._render_execution_events())
+        if self.artifacts:
+            renderables.append(self._render_artifacts())
         if self.reviews:
             renderables.append(self._render_reviews())
         if self.repairs:
@@ -480,6 +497,25 @@ class DeliberationReport:
             )
         return table
 
+    def _render_artifacts(self) -> Table:
+        table = Table(title="Artifact Manifest")
+        table.add_column("Source")
+        table.add_column("Package")
+        table.add_column("Agent")
+        table.add_column("Size", justify="right")
+        table.add_column("Path", max_width=120)
+
+        for artifact in self.artifacts:
+            size = f"{artifact.size_bytes:,}" if artifact.exists else "missing"
+            table.add_row(
+                escape(artifact.source or "-"),
+                escape(artifact.package_id or "-"),
+                escape(artifact.agent_name or "-"),
+                size,
+                escape(artifact.path),
+            )
+        return table
+
     def _render_reviews(self) -> Table:
         table = Table(title="Reviews")
         table.add_column("Review")
@@ -566,6 +602,8 @@ class DeliberationReport:
             lines.append(self._md_executions())
         if self.execution_events:
             lines.append(self._md_execution_events())
+        if self.artifacts:
+            lines.append(self._md_artifacts())
         if self.reviews:
             lines.append(self._md_reviews())
         if self.repairs:
@@ -741,6 +779,25 @@ class DeliberationReport:
             )
         return "\n".join(lines)
 
+    def _md_artifacts(self) -> str:
+        lines = [
+            "\n## Artifact Manifest\n",
+            "| Source | Package | Agent | Exists | Size | Modified | Path |",
+            "|--------|---------|-------|--------|------|----------|------|",
+        ]
+        for artifact in self.artifacts:
+            lines.append(
+                f"| {_escape_md_table(artifact.source or '-')} "
+                f"| {_escape_md_table(artifact.package_id or '-')} "
+                f"| {_escape_md_table(artifact.agent_name or '-')} "
+                f"| {'yes' if artifact.exists else 'no'} "
+                f"| {artifact.size_bytes if artifact.exists else '-'} "
+                f"| {_escape_md_table(artifact.modified_at or '-')} "
+                f"| {_escape_md_table(artifact.path)} |"
+            )
+        lines.append("")
+        return "\n".join(lines)
+
     def _md_reviews(self) -> str:
         lines = [
             "\n## Reviews\n",
@@ -884,6 +941,7 @@ class DeliberationReportBuilder:
             providers=self._build_providers(),
             conversation=self._build_conversation(),
             execution_events=self._build_execution_events(),
+            artifacts=self._build_artifacts(),
             reviews=self._build_reviews(),
             repairs=self._build_repairs(),
             recovery=self._build_recovery(),
@@ -1497,3 +1555,74 @@ class DeliberationReportBuilder:
                 parts.append(f"[raw: {raw_path}]")
             lines.append(" ".join(parts))
         return lines
+
+    def _build_artifacts(self) -> tuple[ReportArtifact, ...]:
+        seen: set[str] = set()
+        artifacts: list[ReportArtifact] = []
+
+        def add(
+            path_value: object,
+            *,
+            source: str,
+            package_id: str,
+            agent_name: str,
+        ) -> None:
+            path_text = str(path_value or "").strip()
+            if not path_text or path_text in seen:
+                return
+            seen.add(path_text)
+            artifacts.append(
+                self._artifact_from_path(
+                    path_text,
+                    source=source,
+                    package_id=package_id,
+                    agent_name=agent_name,
+                )
+            )
+
+        for result in self._session.execution_results:
+            add(
+                result.raw_response_path,
+                source="execution_result",
+                package_id=result.package_id,
+                agent_name=result.agent_name,
+            )
+            for attempt in result.attempt_chain:
+                if not isinstance(attempt, dict):
+                    continue
+                add(
+                    attempt.get("raw_response_path"),
+                    source="fallback_attempt",
+                    package_id=result.package_id,
+                    agent_name=str(attempt.get("agent") or attempt.get("agent_name") or ""),
+                )
+
+        return tuple(artifacts)
+
+    @staticmethod
+    def _artifact_from_path(
+        path_text: str,
+        *,
+        source: str,
+        package_id: str,
+        agent_name: str,
+    ) -> ReportArtifact:
+        path = Path(path_text)
+        try:
+            stat = path.stat()
+        except OSError:
+            return ReportArtifact(
+                path=path_text,
+                source=source,
+                package_id=package_id,
+                agent_name=agent_name,
+            )
+        return ReportArtifact(
+            path=path_text,
+            source=source,
+            package_id=package_id,
+            agent_name=agent_name,
+            exists=True,
+            size_bytes=stat.st_size,
+            modified_at=format_timestamp(stat.st_mtime, "%Y-%m-%d %H:%M:%S"),
+        )

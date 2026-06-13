@@ -233,7 +233,8 @@ def test_snapshot_large_event_log_uses_event_index_and_tail_limit(
 
     assert calls == 0
     assert len(snapshot.execution_log) == 80
-    assert len(snapshot.workflow_events) == 5_000
+    assert len(snapshot.workflow_events) == 501
+    assert snapshot.workflow_events[0] == "... 4500 older workflow events omitted"
     assert snapshot.execution_recovery is not None
     assert snapshot.execution_recovery.last_event == "work_package_started"
     assert snapshot.execution_recovery.retry_candidates == ("WP-001",)
@@ -632,6 +633,65 @@ def test_snapshot_aggregates_multiple_work_package_review_results(tmp_path) -> N
     assert package.review_summary == "Needs a terminal resize fix."
     assert package.review_required_changes == ["Add resize regression test."]
     assert package.review_severity == "critical"
+
+
+def test_snapshot_reuses_review_index_for_package_and_final_review(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-review-index",
+            goal="Build UI",
+            state=WorkflowState.REVIEWING,
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="Frontend shell",
+                    owner_agent="claude",
+                    objective="Build the shell.",
+                    status=WorkStatus.DONE,
+                )
+            ],
+            review_results=[
+                ReviewResult(
+                    review_package_id="RP-WP-001-codex",
+                    package_id="WP-001",
+                    reviewer_agent="codex",
+                    target_agent="claude",
+                    status=ReviewStatus.CHANGES_REQUESTED,
+                    summary="Needs resize handling.",
+                ).to_dict(),
+                ReviewResult(
+                    review_package_id="RP-FINAL-codex",
+                    package_id="FINAL",
+                    reviewer_agent="codex",
+                    target_agent="all",
+                    status=ReviewStatus.APPROVED,
+                    scope="final",
+                    summary="Project is coherent.",
+                ).to_dict(),
+            ],
+        )
+    )
+    calls = 0
+    original = NexusSnapshotAdapter._review_results
+
+    def counted(session):
+        nonlocal calls
+        calls += 1
+        return original(session)
+
+    monkeypatch.setattr(NexusSnapshotAdapter, "_review_results", staticmethod(counted))
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert calls == 1
+    assert snapshot.work_package_details[0].review_status == "changes_requested"
+    assert snapshot.final_review is not None
+    assert snapshot.final_review.summary == "Project is coherent."
 
 
 def test_snapshot_projects_post_review_follow_up_items(tmp_path) -> None:

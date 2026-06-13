@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import pytest
@@ -427,6 +428,48 @@ def test_context_markdown_includes_full_workflow_history() -> None:
     assert "- event-12" in markdown
     assert "### Execution Results" in markdown
     assert "WP-001 claude: failed - missing file" in markdown
+
+
+def test_model_discovery_applies_fast_provider_before_slow_provider(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    config.agents["antigravity"].enabled = True
+    app = TrinityTextualApp(config, FakeWorkflowController())
+    applied: list[str] = []
+
+    def fake_discover(provider, cli_command, *, timeout_seconds, use_cache):
+        if provider == Provider.CLAUDE_CODE:
+            time.sleep(0.05)
+        return [
+            ProviderModelChoice(
+                provider=provider,
+                model="default",
+                label=f"{cli_command}(default)",
+                source="static-fallback",
+                is_default=True,
+            )
+        ]
+
+    def direct_call(callback, choices_by_agent):
+        applied.extend(choices_by_agent)
+        callback(choices_by_agent)
+
+    monkeypatch.setattr("trinity.textual_app.app.discover_provider_models", fake_discover)
+    monkeypatch.setattr(app, "call_from_thread", direct_call)
+    monkeypatch.setattr(
+        app,
+        "_apply_discovered_model_choices",
+        lambda choices_by_agent: app._agent_model_choices.update(choices_by_agent),
+    )
+
+    app._discover_provider_models(use_cache=False)
+
+    assert applied[-1] == "claude"
+    assert {"claude", "codex", "antigravity"} <= set(applied)
+    assert set(app._agent_model_choices) >= {"claude", "codex", "antigravity"}
 
 
 @pytest.mark.asyncio
@@ -3445,6 +3488,32 @@ async def test_provider_inspector_pretty_prints_json_output(tmp_path) -> None:
             "  ]\n"
             "}"
         )
+
+
+@pytest.mark.asyncio
+async def test_provider_inspector_truncates_large_raw_output(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.push_screen(
+            ProviderInspector(
+                [
+                    ProviderSnapshot(
+                        name="codex",
+                        provider="codex",
+                        enabled=True,
+                        status="Ready",
+                        raw_output="x" * 60_000,
+                    )
+                ]
+            )
+        )
+        await pilot.pause()
+
+        output = app.screen.query_one("#inspect-codex .provider-inspector-output", RichLog)
+        text = "\n".join(line.text for line in output.lines)
+        assert "[truncated 10000 characters" in text
+        assert len(text) < 51_000
 
 
 @pytest.mark.asyncio

@@ -28,9 +28,11 @@ from rich.panel import Panel
 from trinity.config import TrinityConfig
 from trinity.context.commands import (
     artifact_markdown,
+    cleanup_oversized_backups_markdown,
     compact_memory_markdown,
     engine_from_config,
     memory_stats_markdown,
+    parse_oversized_cleanup_options,
 )
 from trinity.models import DeliberationResult
 from trinity.slash_commands import SESSION_ONLY_SETTING_NOTICE, parse_slash_command
@@ -355,6 +357,18 @@ class InteractiveSession:
                 recent_records=self.config.memory_recent_records,
             )
             self.console.print(Panel(body, title="Memory Compact"))
+            return
+        if action == "cleanup":
+            apply, keep_latest, error = parse_oversized_cleanup_options(args[1:])
+            if error:
+                self.console.print(f"[yellow]{error}[/yellow]")
+                return
+            body = cleanup_oversized_backups_markdown(
+                engine,
+                apply=apply,
+                keep_latest=keep_latest,
+            )
+            self.console.print(Panel(body, title="Memory Cleanup"))
             return
         self.console.print(Panel(memory_stats_markdown(engine), title="Memory Stats"))
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -238,6 +240,8 @@ class NexusSnapshotAdapter:
             section_entry_max_chars=config.shared_section_entry_max_chars,
             memory_index_enabled=config.memory_index_enabled,
         )
+        self._cached_snapshot_key: tuple[object, ...] | None = None
+        self._cached_snapshot: WorkflowNexusSnapshot | None = None
 
     def new_session_snapshot(self, goal: str) -> WorkflowNexusSnapshot:
         """Create a fresh in-memory snapshot for a newly submitted UI prompt."""
@@ -253,8 +257,15 @@ class NexusSnapshotAdapter:
         recent_events: Iterable[TUIEvent] = (),
     ) -> WorkflowNexusSnapshot:
         """Load a snapshot without mutating workflow/session state."""
-        session = self.persistence.load()
         recent = list(recent_events)
+        cache_key = self._make_snapshot_cache_key(recent)
+        if (
+            self._cached_snapshot_key == cache_key
+            and self._cached_snapshot is not None
+        ):
+            return self._cached_snapshot
+
+        session = self.persistence.load()
         session_events = (
             self.persistence.load_events_for_workflow(session.id) if session else []
         )
@@ -262,7 +273,7 @@ class NexusSnapshotAdapter:
         self._fold_recent_events(provider_states, recent)
         round_num = self._round_num(session, recent)
 
-        return WorkflowNexusSnapshot(
+        snapshot = WorkflowNexusSnapshot(
             session_id=session.id if session else "",
             goal=session.goal if session else "",
             state=session.state.value if session else "idle",
@@ -290,6 +301,76 @@ class NexusSnapshotAdapter:
             post_review_items=self._post_review_items(session),
             follow_up_requests=self._follow_up_requests(session),
             supplemental_round=session.supplemental_round if session else 0,
+        )
+        self._cached_snapshot_key = cache_key
+        self._cached_snapshot = snapshot
+        return snapshot
+
+    def _make_snapshot_cache_key(
+        self,
+        recent_events: list[TUIEvent],
+    ) -> tuple[object, ...]:
+        return (
+            self._path_cache_key(self.persistence.session_path),
+            self._path_cache_key(self.persistence.events_path),
+            self._path_cache_key(
+                self.config.shared_context_path,
+                content_fingerprint_bytes=64_000,
+            ),
+            self._config_cache_key(),
+            self._recent_events_cache_key(recent_events),
+        )
+
+    @staticmethod
+    def _path_cache_key(
+        path: Path,
+        *,
+        content_fingerprint_bytes: int = 0,
+    ) -> tuple[str, int, int, int, str]:
+        try:
+            stat = path.stat()
+        except OSError:
+            return ("missing", 0, 0, 0, "")
+        fingerprint = ""
+        if content_fingerprint_bytes > 0 and stat.st_size <= content_fingerprint_bytes:
+            try:
+                fingerprint = hashlib.blake2b(
+                    path.read_bytes(),
+                    digest_size=8,
+                ).hexdigest()
+            except OSError:
+                fingerprint = ""
+        return ("file", stat.st_mtime_ns, stat.st_ctime_ns, stat.st_size, fingerprint)
+
+    def _config_cache_key(self) -> tuple[object, ...]:
+        agents = tuple(
+            (
+                name,
+                spec.enabled,
+                spec.provider.value,
+                spec.cli_command,
+                spec.model,
+                spec.context_budget,
+                tuple(spec.extra_args),
+            )
+            for name, spec in sorted(self.config.agents.items())
+        )
+        return (
+            self.config.repair_max_attempts,
+            self.config.shared_max_bytes,
+            self.config.shared_section_entry_max_chars,
+            self.config.memory_index_enabled,
+            agents,
+        )
+
+    @staticmethod
+    def _recent_events_cache_key(events: list[TUIEvent]) -> tuple[tuple[str, str], ...]:
+        return tuple(
+            (
+                event.type.value,
+                json.dumps(event.data, ensure_ascii=False, sort_keys=True, default=str),
+            )
+            for event in events
         )
 
     def _work_package_details(

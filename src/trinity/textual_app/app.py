@@ -344,6 +344,11 @@ class TrinityTextualApp(App[None]):
         margin: 1 0;
     }
 
+    #nexus-center-stack {
+        width: 1fr;
+        height: 1fr;
+    }
+
     #workflow-inspector {
         width: 32;
         min-width: 26;
@@ -491,12 +496,41 @@ class TrinityTextualApp(App[None]):
         width: 100%;
     }
 
-    #central-questions {
+    #nexus-question-panel {
+        width: 100%;
+        height: 11;
+        max-height: 14;
+        border: round $warning;
+        margin-top: 1;
+        padding: 0 1;
+    }
+
+    #nexus-question-panel.question-panel-empty {
+        height: 3;
+        border: round $primary;
+    }
+
+    #question-panel-title {
+        text-style: bold;
+        color: $warning;
+        height: 1;
+        margin-bottom: 1;
+    }
+
+    #question-panel-body {
         height: auto;
+    }
+
+    .question-empty {
+        color: $text-muted;
     }
 
     .question-text {
         margin-top: 1;
+    }
+
+    .question-open {
+        text-style: bold;
     }
 
     .question-answer {
@@ -1449,7 +1483,7 @@ class TrinityTextualApp(App[None]):
                 else self._questions_markdown(snapshot),
                 empty=not has_questions,
                 action_hint=(
-                    "Use central panel buttons or `/answer <id|index|next> <answer>`."
+                    "Use question panel buttons or `/answer <id|index|next> <answer>`."
                     if has_questions
                     else "Continue planning until the central agent raises a question."
                 ),
@@ -2380,7 +2414,7 @@ class TrinityTextualApp(App[None]):
             for option_index, option in enumerate(question.options, start=1):
                 lines.append(f"   - {option_index}. {option}")
         lines.append("")
-        lines.append("Use central panel buttons or `/answer <id|index|next> <answer>`.")
+        lines.append("Use question panel buttons or `/answer <id|index|next> <answer>`.")
         return "\n".join(lines)
 
     @staticmethod
@@ -2395,7 +2429,7 @@ class TrinityTextualApp(App[None]):
         if question.options:
             lines.append("")
             lines.append(
-                "Use the option buttons in the central panel, or run `/answer <option-number>`."
+                "Use the option buttons in the question panel, or run `/answer <option-number>`."
             )
             for index, option in enumerate(question.options, start=1):
                 lines.append(f"- {index}. {option}")

@@ -3,13 +3,14 @@ from __future__ import annotations
 from trinity.textual_app.snapshot import (
     LocalCommandSnapshot,
     SynthesisSnapshot,
+    SubtaskSnapshot,
     WorkPackageSnapshot,
     WorkflowNexusSnapshot,
 )
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 
 
-def test_central_markdown_surfaces_wp_graph_before_local_commands() -> None:
+def test_central_markdown_keeps_conversation_and_hides_internal_dump() -> None:
     view = CentralAgentView()
     view.snapshot = WorkflowNexusSnapshot(
         session_id="wf-graph",
@@ -18,6 +19,19 @@ def test_central_markdown_surfaces_wp_graph_before_local_commands() -> None:
         synthesis=SynthesisSnapshot(summary="Agreed app blueprint."),
         central_work_packages=["frontend: Build the UI"],
         work_packages=["WP-001 codex: Build the UI (pending)"],
+        decisions=["Use hidden internal detail."],
+        subtasks=[
+            SubtaskSnapshot(
+                id="sub-1",
+                parent_package_id="WP-001",
+                parent_agent="claude",
+                delegated_to="codex",
+                objective="Internal task",
+                result_summary="Done",
+                status="done",
+            )
+        ],
+        work_package_repairs=["Repair note"],
         local_commands=[
             LocalCommandSnapshot(
                 command="/status",
@@ -29,16 +43,17 @@ def test_central_markdown_surfaces_wp_graph_before_local_commands() -> None:
 
     markdown = view._markdown()
 
-    assert "### Central WP Graph" in markdown
-    assert "- frontend: Build the UI" in markdown
-    assert "### Local WP Graph" in markdown
+    assert "### Work Packages" in markdown
     assert "- WP-001 codex: Build the UI (pending)" in markdown
-    assert markdown.index("### Central WP Graph") < markdown.index(
-        "### Local Command Results"
-    )
+    assert "### Command Result" in markdown
+    assert "Current status." in markdown
+    assert "### Decisions" not in markdown
+    assert "### Subtasks" not in markdown
+    assert "### Local Policy Repairs" not in markdown
+    assert "### Local Command Results" not in markdown
 
 
-def test_central_markdown_surfaces_blueprint_response_before_wp_graph() -> None:
+def test_central_markdown_surfaces_blueprint_response_before_wp_overview() -> None:
     view = CentralAgentView()
     view.snapshot = WorkflowNexusSnapshot(
         session_id="wf-blueprint",
@@ -57,9 +72,7 @@ def test_central_markdown_surfaces_blueprint_response_before_wp_graph() -> None:
     assert "### Central Agent Response" in markdown
     assert "**Vampire Survival Roguelike**" in markdown
     assert "weapon upgrades" in markdown
-    assert markdown.index("### Central Agent Response") < markdown.index(
-        "### Central WP Graph"
-    )
+    assert markdown.index("### Central Agent Response") < markdown.index("### Work Packages")
 
 
 def test_blueprint_next_actions_only_show_when_ready_with_packages() -> None:
@@ -80,11 +93,11 @@ def test_blueprint_next_actions_only_show_when_ready_with_packages() -> None:
     )
 
 
-def test_central_markdown_summarizes_execution_results() -> None:
+def test_central_markdown_summarizes_execution_progress_without_result_dump() -> None:
     view = CentralAgentView()
     view.snapshot = WorkflowNexusSnapshot(
         session_id="wf-results",
-        state="post_review_ready",
+        state="executing",
         goal="Build app",
         work_packages=["WP-001 codex: Build API (done)"],
         work_package_details=[
@@ -102,20 +115,19 @@ def test_central_markdown_summarizes_execution_results() -> None:
                 id="WP-002",
                 title="Wire UI",
                 owner_agent="claude",
-                status="blocked",
+                status="running",
                 last_result_agent="claude",
-                last_result_status="blocked",
-                last_result_summary="Waiting on API contract.",
-                last_result_blockers=["API schema is missing."],
+                last_result_status="",
+                last_result_summary="Wiring UI to API contract.",
             ),
         ],
     )
 
     markdown = view._markdown()
 
-    assert "### Execution Result Summary" in markdown
-    assert "Results: `blocked=1, done=1`" in markdown
-    assert "**WP-001** [done -> done] `codex`: Build API - Implemented API endpoints." in markdown
-    assert "Files: src/api.py, tests/test_api.py" in markdown
-    assert "**WP-002** [blocked -> blocked] `claude`: Wire UI - Waiting on API contract." in markdown
-    assert "Blockers: API schema is missing." in markdown
+    assert "Progress" in markdown
+    assert "1 done / 1 running / 0 pending" in markdown
+    assert "### Current Focus" in markdown
+    assert "**WP-002** [running] `claude`: Wire UI" in markdown
+    assert "### Execution Result Summary" not in markdown
+    assert "Files: src/api.py, tests/test_api.py" not in markdown

@@ -1,8 +1,8 @@
-"""Central synthesis view widget."""
+"""Central synthesis conversation widget."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import re
 
 from textual.app import ComposeResult
 from textual.containers import Grid, Vertical, VerticalScroll
@@ -11,31 +11,34 @@ from textual.widgets import Button, DataTable, Markdown, Static
 
 from trinity.textual_app.snapshot import (
     LocalCommandSnapshot,
-    QuestionSnapshot,
     WorkflowNexusSnapshot,
 )
 
 
-@dataclass(frozen=True)
-class QuestionAnswer:
-    """Question answer selected from the central view."""
-
-    question_id: str
-    answer: str
-
-
 ACTIVITY_FRAMES = ("|", "/", "-", "\\")
+DETAIL_SECTION_HEADINGS = {
+    "acceptance criteria",
+    "architecture",
+    "data flow",
+    "external dependencies",
+    "open questions",
+    "risks",
+    "work packages",
+    "검증 기준",
+    "권장 사항",
+    "데이터 흐름",
+    "리스크",
+    "수용 기준",
+    "수용 조건",
+    "아키텍처",
+    "외부 의존성",
+    "작업 패키지",
+    "핵심 근거",
+}
 
 
 class CentralAgentView(VerticalScroll):
-    """Render synthesis summary, workflow status, and interactive questions."""
-
-    class QuestionAnswered(Message):
-        """Posted when a user selects one of the synthesized options."""
-
-        def __init__(self, answer: QuestionAnswer) -> None:
-            super().__init__()
-            self.answer = answer
+    """Render central-agent conversation, progress, and next actions."""
 
     class BlueprintActionRequested(Message):
         """Posted when the user chooses a blueprint-ready next action."""
@@ -48,14 +51,12 @@ class CentralAgentView(VerticalScroll):
         super().__init__(id=id)
         self.lang = lang
         self.snapshot: WorkflowNexusSnapshot | None = None
-        self._button_answers: dict[str, QuestionAnswer] = {}
         self._button_actions: dict[str, str] = {}
         self._action_render_version = 0
         self._activity_frame = 0
         self._markdown_key = ""
         self._local_commands_key: tuple[object, ...] = ()
         self._actions_key: tuple[object, ...] = ()
-        self._questions_key: tuple[object, ...] = ()
 
     def compose(self) -> ComposeResult:
         yield Static("Central Agent", id="central-title")
@@ -64,9 +65,6 @@ class CentralAgentView(VerticalScroll):
             pass
         yield Static("", id="central-action-title")
         with Grid(id="central-actions", classes="blueprint-actions"):
-            pass
-        yield Static("", id="central-question-title")
-        with Vertical(id="central-questions"):
             pass
 
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
@@ -87,13 +85,6 @@ class CentralAgentView(VerticalScroll):
         if actions_key != self._actions_key:
             self._render_blueprint_actions(snapshot)
             self._actions_key = actions_key
-        self.query_one("#central-question-title", Static).update(
-            self._question_title(snapshot.questions)
-        )
-        questions_key = self._question_key(snapshot.questions)
-        if questions_key != self._questions_key:
-            self._render_questions(snapshot.questions)
-            self._questions_key = questions_key
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id or ""
@@ -102,11 +93,7 @@ class CentralAgentView(VerticalScroll):
             event.stop()
             self.post_message(self.BlueprintActionRequested(action))
             return
-        answer = self._button_answers.get(button_id)
-        if answer is None:
-            return
-        event.stop()
-        self.post_message(self.QuestionAnswered(answer))
+        return
 
     def set_activity_frame(self, frame: int) -> None:
         self._activity_frame = frame % len(ACTIVITY_FRAMES)
@@ -116,51 +103,45 @@ class CentralAgentView(VerticalScroll):
         snapshot = self.snapshot
         if snapshot is None:
             return (
-                "Waiting for synthesis.\n\n"
-                "Planning does not require a workspace. Execute will ask for one."
+                f"**{self._label('progress')}:** {self._label('waiting')}\n\n"
+                f"{self._label('planning_no_workspace')}"
             )
 
-        lines = [
-            f"**Workflow:** `{snapshot.session_id or '(new)'}`",
-            f"**State:** `{snapshot.state}`",
-            f"**Round:** `{snapshot.round_num}`",
-        ]
+        lines = [f"**{self._label('progress')}:** {self._progress_line(snapshot)}"]
         if snapshot.synthesis.consensus_progress:
-            lines.append(f"**Synthesis:** `{snapshot.synthesis.consensus_progress}`")
+            lines.append(
+                f"**{self._label('synthesis')}:** `{snapshot.synthesis.consensus_progress}`"
+            )
         if snapshot.goal:
-            lines.extend(["", "### Goal", snapshot.goal])
-        if snapshot.synthesis.summary:
-            lines.extend(["", "### Synthesis", snapshot.synthesis.summary])
+            lines.extend(["", f"### {self._label('goal')}", snapshot.goal])
+        central_response = self._central_response(snapshot)
+        if central_response:
+            lines.extend(
+                [
+                    "",
+                    f"### {self._label('central_response')}",
+                    central_response,
+                ]
+            )
         elif not snapshot.goal:
             lines.extend(
                 [
                     "",
-                    "Waiting for synthesis.",
+                    self._label("waiting"),
                     "",
-                    "Planning does not require a workspace.",
+                    self._label("planning_no_workspace"),
                 ]
             )
-        if snapshot.central_blueprint:
-            lines.extend(["", "### Central Agent Response", snapshot.central_blueprint])
-        self._append_work_package_sections(lines, snapshot)
-        self._append_execution_summary(lines, snapshot)
+        self._append_work_package_overview(lines, snapshot)
+        self._append_execution_overview(lines, snapshot)
         if snapshot.local_commands:
-            lines.extend(["", "### Local Command Results"])
-            for item in snapshot.local_commands:
-                lines.extend(
-                    [
-                        f"#### {item.command} - {item.title}",
-                        item.body,
-                    ]
-                )
-                if item.action_hint:
-                    lines.append(f"_Next:_ {item.action_hint}")
+            self._append_latest_command(lines, snapshot.local_commands[-1])
         if snapshot.final_review is not None:
             review = snapshot.final_review
             lines.extend(
                 [
                     "",
-                    "### Final Review",
+                    f"### {self._label('final_review')}",
                     (
                         f"- `{review.status or 'unknown'}` by "
                         f"`{review.reviewer_agent or '(unknown)'}`"
@@ -170,7 +151,7 @@ class CentralAgentView(VerticalScroll):
             if review.summary:
                 lines.append(f"- {review.summary}")
         if snapshot.post_review_items:
-            lines.extend(["", "### Suggested Follow-up Work"])
+            lines.extend(["", f"### {self._label('follow_up_work')}"])
             for item in snapshot.post_review_items:
                 title = item.title or item.summary or item.id
                 lines.append(
@@ -183,92 +164,81 @@ class CentralAgentView(VerticalScroll):
             lines.extend(
                 [
                     "",
-                    "### Suggested Follow-up Work",
-                    "No action items were extracted from the final review.",
+                    f"### {self._label('follow_up_work')}",
+                    self._label("no_follow_up_items"),
                     "Use `/improve done` to close the workflow.",
                 ]
             )
-        if snapshot.decisions:
-            lines.extend(["", "### Decisions"])
-            lines.extend(f"- {item}" for item in snapshot.decisions)
-        if snapshot.subtasks:
-            lines.extend(["", "### Subtasks"])
-            for subtask in snapshot.subtasks:
-                summary = subtask.result_summary or subtask.objective
-                lines.append(
-                    f"- **{subtask.id or '(unnamed)'}** "
-                    f"[{subtask.status}] "
-                    f"{subtask.parent_package_id or '(no package)'} -> "
-                    f"{subtask.delegated_to or '(unknown)'}: {summary}"
-                )
-        if snapshot.work_package_repairs:
-            lines.extend(["", "### Local Policy Repairs"])
-            lines.extend(f"- {item}" for item in snapshot.work_package_repairs)
         return "\n".join(lines)
 
-    def _append_work_package_sections(
+    def _append_work_package_overview(
         self,
         lines: list[str],
         snapshot: WorkflowNexusSnapshot,
     ) -> None:
-        if snapshot.central_work_packages:
-            lines.extend(["", "### Central WP Graph"])
-            lines.extend(f"- {item}" for item in snapshot.central_work_packages)
-        if snapshot.work_packages:
-            heading = (
-                "### Local WP Graph"
-                if snapshot.central_work_packages
-                else "### Work Packages"
-            )
-            lines.extend(["", heading])
-            lines.extend(f"- {item}" for item in snapshot.work_packages)
-
-    def _append_execution_summary(
-        self,
-        lines: list[str],
-        snapshot: WorkflowNexusSnapshot,
-    ) -> None:
-        executed = [
-            package
-            for package in snapshot.work_package_details
-            if package.last_result_status
-            or package.last_result_summary
-            or package.last_result_files_changed
-            or package.last_result_blockers
-        ]
-        if not executed:
+        package_lines = snapshot.work_packages or snapshot.central_work_packages
+        package_count = len(snapshot.work_package_details) or len(package_lines)
+        if package_count <= 0:
             return
 
-        status_counts: dict[str, int] = {}
-        for package in executed:
-            key = package.last_result_status or "unknown"
-            status_counts[key] = status_counts.get(key, 0) + 1
-        counts = ", ".join(
-            f"{status}={count}" for status, count in sorted(status_counts.items())
-        )
-
-        lines.extend(["", "### Execution Result Summary"])
-        lines.append(f"- Results: `{counts}`")
-        for package in executed:
-            result_status = package.last_result_status or "unknown"
-            package_status = package.status or "unknown"
-            executor = (
-                package.last_result_agent
-                or package.last_executor
-                or package.owner_agent
-                or "(unknown)"
-            )
-            summary = package.last_result_summary or "(no summary)"
+        lines.extend(["", f"### {self._label('work_packages')}"])
+        status_counts = self._package_status_counts(snapshot)
+        count_text = self._package_count_text(package_count)
+        if status_counts:
             lines.append(
-                f"- **{package.id}** [{result_status} -> {package_status}] "
-                f"`{executor}`: {package.title or package.id} - {summary}"
+                f"- {count_text} · "
+                + ", ".join(
+                    f"{status}={count}" for status, count in sorted(status_counts.items())
+                )
             )
-            files = self._compact_list(package.last_result_files_changed)
-            blockers = self._compact_list(package.last_result_blockers)
-            if files:
-                lines.append(f"  - Files: {files}")
+        else:
+            lines.append(f"- {count_text} · {self._label('ready')}")
+        lines.append(f"- {self._label('details_in_inspector')}")
+
+    def _append_execution_overview(
+        self,
+        lines: list[str],
+        snapshot: WorkflowNexusSnapshot,
+    ) -> None:
+        if not snapshot.work_package_details:
+            return
+
+        active = [
+            package
+            for package in snapshot.work_package_details
+            if package.status in {"running", "blocked"}
+            or package.last_result_status in {"blocked", "failed"}
+        ]
+        if not active:
+            return
+
+        lines.extend(["", f"### {self._label('current_focus')}"])
+        for package in active[:5]:
+            executor = package.current_executor or package.last_executor or package.owner_agent
+            status = package.status or package.last_result_status or "unknown"
+            title = package.title or package.id
+            lines.append(f"- **{package.id}** [{status}] `{executor}`: {title}")
+            if package.last_result_summary:
+                lines.append(f"  - {package.last_result_summary}")
+            blockers = self._compact_list(package.last_result_blockers, limit=2)
             if blockers:
                 lines.append(f"  - Blockers: {blockers}")
+
+    def _append_latest_command(
+        self,
+        lines: list[str],
+        command: LocalCommandSnapshot,
+    ) -> None:
+        lines.extend(
+            [
+                "",
+                f"### {self._label('command_result')}",
+                f"**{command.command} - {command.title}**",
+                command.body,
+            ]
+        )
+        if command.action_hint:
+            lines.append(f"_Next:_ {command.action_hint}")
 
     @staticmethod
     def _compact_list(values: list[str], *, limit: int = 5) -> str:
@@ -281,6 +251,74 @@ class CentralAgentView(VerticalScroll):
             rendered = f"{rendered}, +{remaining} more"
         return rendered
 
+    def _central_response(self, snapshot: WorkflowNexusSnapshot) -> str:
+        source = snapshot.central_blueprint.strip() or snapshot.synthesis.summary.strip()
+        if not source:
+            return ""
+
+        lines: list[str] = []
+        visible_count = 0
+        for raw_line in source.splitlines():
+            line = raw_line.strip()
+            if not line:
+                if lines and lines[-1] != "":
+                    lines.append("")
+                continue
+            if self._is_detail_section_heading(line):
+                break
+            if self._is_low_value_blueprint_bullet(line):
+                if visible_count:
+                    break
+                continue
+            lines.append(self._strip_markdown_links(line))
+            visible_count += 1
+            if visible_count >= 4:
+                break
+
+        while lines and lines[-1] == "":
+            lines.pop()
+        compact = "\n".join(lines).strip()
+        if not compact:
+            compact = snapshot.synthesis.summary.strip()
+        return self._truncate_response(compact)
+
+    @staticmethod
+    def _is_detail_section_heading(line: str) -> bool:
+        normalized = re.sub(r"^[#>\-\*\s•]+", "", line).strip()
+        normalized = re.sub(r"^\d+[.)]\s+", "", normalized).strip()
+        normalized = normalized.strip("*`：: ")
+        lowered = normalized.lower()
+        return any(
+            lowered == heading or lowered.startswith(f"{heading} ")
+            for heading in DETAIL_SECTION_HEADINGS
+        )
+
+    @staticmethod
+    def _is_low_value_blueprint_bullet(line: str) -> bool:
+        normalized = line.lstrip()
+        if not normalized.startswith(("- ", "* ", "• ")):
+            return False
+        return any(
+            marker in normalized.lower()
+            for marker in ("file://", "expected file", "acceptance", "수용 기준")
+        )
+
+    @staticmethod
+    def _strip_markdown_links(line: str) -> str:
+        return re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", line)
+
+    @staticmethod
+    def _truncate_response(text: str, *, limit: int = 700) -> str:
+        if len(text) <= limit:
+            return text
+        return text[: limit - 1].rstrip() + "…"
+
+    def _package_count_text(self, count: int) -> str:
+        if self.lang == "ko":
+            return f"{count}개 작업 패키지"
+        word = "package" if count == 1 else "packages"
+        return f"{count} {word}"
+
     def _render_local_command_tables(
         self,
         commands: list[LocalCommandSnapshot],
@@ -289,7 +327,7 @@ class CentralAgentView(VerticalScroll):
         container.remove_children()
         table_commands = [
             command
-            for command in commands
+            for command in commands[-1:]
             if command.table_columns and command.table_rows
         ]
         if not table_commands:
@@ -324,8 +362,53 @@ class CentralAgentView(VerticalScroll):
                 tuple(command.table_columns),
                 tuple(tuple(row) for row in command.table_rows),
             )
-            for command in commands
+            for command in commands[-1:]
         )
+
+    def _progress_line(self, snapshot: WorkflowNexusSnapshot) -> str:
+        open_questions = sum(1 for question in snapshot.questions if not question.answer)
+        if open_questions:
+            return f"{self._label('awaiting_answers')} ({open_questions})"
+        if snapshot.state in {"preflight", "deliberating"}:
+            return self._label("collecting_provider_responses")
+        if snapshot.synthesis.status in {"running", "waiting"}:
+            return self._label("synthesizing")
+        if snapshot.state == "blueprint_ready":
+            return self._label("blueprint_ready")
+        if snapshot.state == "executing":
+            return self._execution_progress(snapshot)
+        if snapshot.state == "reviewing":
+            return self._label("reviewing")
+        if snapshot.state == "post_review_ready":
+            return self._label("post_review_ready")
+        if snapshot.state == "needs_user_decision":
+            return self._label("awaiting_decision")
+        if snapshot.state == "completed":
+            return self._label("completed")
+        return snapshot.state or self._label("idle")
+
+    def _execution_progress(self, snapshot: WorkflowNexusSnapshot) -> str:
+        counts = self._package_status_counts(snapshot)
+        if not counts:
+            return self._label("executing")
+        total = sum(counts.values())
+        done = counts.get("done", 0)
+        running = counts.get("running", 0)
+        blocked = counts.get("blocked", 0)
+        pending = total - done - running - blocked
+        return (
+            f"{self._label('executing')}: "
+            f"{done} done / {running} running / {pending} pending"
+            + (f" / {blocked} blocked" if blocked else "")
+        )
+
+    @staticmethod
+    def _package_status_counts(snapshot: WorkflowNexusSnapshot) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for package in snapshot.work_package_details:
+            key = package.status or "unknown"
+            counts[key] = counts.get(key, 0) + 1
+        return counts
 
     @staticmethod
     def _blueprint_actions_key(snapshot: WorkflowNexusSnapshot) -> tuple[object, ...]:
@@ -347,20 +430,6 @@ class CentralAgentView(VerticalScroll):
                 )
                 for package in snapshot.work_package_details
             ),
-        )
-
-    @staticmethod
-    def _question_key(questions: list[QuestionSnapshot]) -> tuple[object, ...]:
-        return tuple(
-            (
-                question.id,
-                question.question,
-                tuple(question.options),
-                question.recommended_option,
-                question.status,
-                question.answer,
-            )
-            for question in questions
         )
 
     def _render_blueprint_actions(self, snapshot: WorkflowNexusSnapshot) -> None:
@@ -432,8 +501,32 @@ class CentralAgentView(VerticalScroll):
 
     def _label(self, key: str) -> str:
         ko = {
+            "awaiting_answers": "사용자 답변 대기",
+            "awaiting_decision": "사용자 결정 대기",
+            "blueprint_ready": "설계가 준비되었습니다",
+            "central_response": "중앙 에이전트 응답",
+            "collecting_provider_responses": "프로바이더 응답을 모으는 중",
+            "command_result": "명령 결과",
+            "completed": "완료",
+            "current_focus": "현재 진행/주의 항목",
+            "details_in_inspector": "상세 설계와 WP 목록은 Inspector 또는 Report에서 확인하세요.",
+            "executing": "실행 중",
+            "final_review": "최종 리뷰",
+            "follow_up_work": "후속 보강 작업",
+            "goal": "목표",
+            "idle": "대기",
             "next_action": "다음 작업",
+            "no_follow_up_items": "최종 리뷰에서 추가 작업 항목이 추출되지 않았습니다.",
+            "planning_no_workspace": "기획은 작업 폴더 없이 진행할 수 있습니다. 실행 시 작업 폴더를 선택합니다.",
+            "post_review_ready": "최종 리뷰 이후 보강 선택 대기",
+            "progress": "진행",
+            "ready": "준비됨",
+            "reviewing": "리뷰 중",
             "repair_action": "리뷰 수리 결정",
+            "synthesis": "종합",
+            "synthesizing": "중앙 에이전트 종합 중",
+            "waiting": "종합 대기 중",
+            "work_packages": "작업 패키지",
             "execute": "실행",
             "refine_features": "기능 보강",
             "refine_risks": "리스크 보강",
@@ -452,8 +545,32 @@ class CentralAgentView(VerticalScroll):
             "repair-stop_tooltip": "현재 워크플로우를 중단합니다.",
         }
         en = {
+            "awaiting_answers": "Waiting for your answer",
+            "awaiting_decision": "Waiting for your decision",
+            "blueprint_ready": "Blueprint ready",
+            "central_response": "Central Agent Response",
+            "collecting_provider_responses": "Collecting provider responses",
+            "command_result": "Command Result",
+            "completed": "Completed",
+            "current_focus": "Current Focus",
+            "details_in_inspector": "Open Inspector or Report for the full design and WP list.",
+            "executing": "Executing",
+            "final_review": "Final Review",
+            "follow_up_work": "Suggested Follow-up Work",
+            "goal": "Goal",
+            "idle": "Idle",
             "next_action": "Next action",
+            "no_follow_up_items": "No action items were extracted from the final review.",
+            "planning_no_workspace": "Planning does not require a workspace. Execute will ask for one.",
+            "post_review_ready": "Post-review follow-up ready",
+            "progress": "Progress",
+            "ready": "ready",
+            "reviewing": "Reviewing",
             "repair_action": "Review repair decision",
+            "synthesis": "Synthesis",
+            "synthesizing": "Central agent is synthesizing",
+            "waiting": "Waiting for synthesis",
+            "work_packages": "Work Packages",
             "execute": "Execute",
             "refine_features": "Refine features",
             "refine_risks": "Refine risks",
@@ -474,50 +591,6 @@ class CentralAgentView(VerticalScroll):
         labels = ko if self.lang == "ko" else en
         return labels.get(key, key)
 
-    def _render_questions(self, questions: list[QuestionSnapshot]) -> None:
-        container = self.query_one("#central-questions", Vertical)
-        container.remove_children()
-        self._button_answers = {}
-        if not questions:
-            return
-
-        for question_number, question in enumerate(questions, start=1):
-            row = Grid(classes="question-options")
-            status = question.status or "open"
-            container.mount(
-                Static(
-                    f"{question_number}. [{status}] {question.question}",
-                    classes="question-text",
-                )
-            )
-            if question.answer:
-                container.mount(
-                    Static(f"Answer: {question.answer}", classes="question-answer")
-                )
-                continue
-            if question.options and status == "open":
-                container.mount(row)
-                for option_index, option in enumerate(question.options, start=1):
-                    button_id = self._answer_button_id(question_number, option_index)
-                    label = (
-                        f"{option} (recommended)"
-                        if option == question.recommended_option
-                        else option
-                    )
-                    self._button_answers[button_id] = QuestionAnswer(question.id, option)
-                    row.mount(Button(label, id=button_id, variant="default", tooltip=label))
-
-    @staticmethod
-    def _answer_button_id(question_number: int, option_index: int) -> str:
-        return f"answer-q-{question_number}-{option_index}"
-
-    def _question_title(self, questions: list[QuestionSnapshot]) -> str:
-        if not questions:
-            return ""
-        if len(questions) == 1:
-            return "Question for you"
-        return f"Questions for you ({len(questions)})"
-
     def _refresh_title(self) -> None:
         if not self.is_mounted:
             return
@@ -530,5 +603,8 @@ class CentralAgentView(VerticalScroll):
         snapshot = self.snapshot
         return bool(
             snapshot
-            and snapshot.synthesis.status == "running"
+            and (
+                snapshot.synthesis.status in {"running", "waiting"}
+                or snapshot.state in {"preflight", "deliberating", "executing", "reviewing"}
+            )
         )

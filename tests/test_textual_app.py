@@ -62,6 +62,7 @@ from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.model_settings_modal import ModelSettingsModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
+from trinity.textual_app.widgets.question_panel import QuestionPanel
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
 from trinity.textual_app.widgets.status_modal import StatusCommandModal
 from trinity.textual_app.widgets.target_workspace_confirm_modal import (
@@ -1331,8 +1332,8 @@ async def test_nexus_slash_workflow_does_not_submit_followup(tmp_path) -> None:
         assert central.snapshot is not None
         assert central.snapshot.local_commands[-1].command == "/workflow"
         assert central.snapshot.local_commands[-1].title == "Workflow"
-        assert "Local Command Results" in central._markdown()
-        assert "#### /workflow - Workflow" in central._markdown()
+        assert "Command Result" in central._markdown()
+        assert "**/workflow - Workflow**" in central._markdown()
 
 
 @pytest.mark.asyncio
@@ -1565,8 +1566,8 @@ async def test_nexus_unknown_slash_does_not_submit_followup(tmp_path) -> None:
         assert central.snapshot is not None
         assert central.snapshot.local_commands[-1].command == "/not-a-command"
         assert central.snapshot.local_commands[-1].title == "Unknown Command"
-        assert "Local Command Results" in central._markdown()
-        assert "#### /not-a-command - Unknown Command" in central._markdown()
+        assert "Command Result" in central._markdown()
+        assert "**/not-a-command - Unknown Command**" in central._markdown()
 
 
 @pytest.mark.asyncio
@@ -2137,10 +2138,10 @@ async def test_nexus_questions_select_uses_local_question_ui(tmp_path) -> None:
         central = screen.query_one(CentralAgentView)
         assert central.snapshot is not None
         assert central.snapshot.local_commands[-1].command == "/questions"
-        assert "Use the option buttons in the central panel" in (
+        assert "Use the option buttons in the question panel" in (
             central.snapshot.local_commands[-1].body
         )
-        assert central.query_one("#answer-q-1-1")
+        assert screen.query_one(QuestionPanel).query_one("#answer-q-1-1")
 
 
 @pytest.mark.asyncio
@@ -2846,9 +2847,9 @@ async def test_central_agent_view_renders_question_options(tmp_path) -> None:
         )
         await pilot.pause()
 
-        central = screen.query_one(CentralAgentView)
-        assert central.query_one("#answer-q-1-1")
-        assert central.query_one("#answer-q-1-2")
+        question_panel = screen.query_one(QuestionPanel)
+        assert question_panel.query_one("#answer-q-1-1")
+        assert question_panel.query_one("#answer-q-1-2")
 
 
 @pytest.mark.asyncio
@@ -2880,13 +2881,17 @@ async def test_central_agent_view_renders_all_questions(tmp_path) -> None:
         )
         await pilot.pause()
 
-        central = screen.query_one(CentralAgentView)
-        assert "Questions for you (2)" in str(central.query_one("#central-question-title").content)
-        assert central.query_one("#answer-q-1-1")
-        assert central.query_one("#answer-q-1-2")
-        assert central.query_one("#answer-q-2-1")
-        assert central.query_one("#answer-q-2-2")
-        rendered_questions = [str(item.content) for item in central.query(".question-text")]
+        question_panel = screen.query_one(QuestionPanel)
+        assert "Questions for You (2)" in str(
+            question_panel.query_one("#question-panel-title").content
+        )
+        assert question_panel.query_one("#answer-q-1-1")
+        assert question_panel.query_one("#answer-q-1-2")
+        assert question_panel.query_one("#answer-q-2-1")
+        assert question_panel.query_one("#answer-q-2-2")
+        rendered_questions = [
+            str(item.content) for item in question_panel.query(".question-text")
+        ]
         assert rendered_questions == [
             "1. [open] Engine?",
             "2. [open] Monetization?",
@@ -2927,7 +2932,8 @@ async def test_central_agent_view_renders_local_command_tables(tmp_path) -> None
         assert table.row_count == 2
         assert table.show_cursor is False
         assert table.cursor_type == "none"
-        assert "Local Command Results" in central._markdown()
+        assert "Command Result" in central._markdown()
+        assert "Local Command Results" not in central._markdown()
 
 
 @pytest.mark.asyncio
@@ -3009,13 +3015,15 @@ async def test_central_agent_view_keeps_answered_question_history(tmp_path) -> N
         )
         await pilot.pause()
 
-        central = screen.query_one(CentralAgentView)
+        question_panel = screen.query_one(QuestionPanel)
         assert "1. [answered] Engine?" in [
-            str(item.content) for item in central.query(".question-text")
+            str(item.content) for item in question_panel.query(".question-text")
         ]
-        assert "Answer: Godot" in [str(item.content) for item in central.query(".question-answer")]
-        assert not central.query("#answer-q-1-1")
-        assert central.query_one("#answer-q-2-1")
+        assert "Answer: Godot" in [
+            str(item.content) for item in question_panel.query(".question-answer")
+        ]
+        assert not question_panel.query("#answer-q-1-1")
+        assert question_panel.query_one("#answer-q-2-1")
 
 
 @pytest.mark.asyncio
@@ -3040,8 +3048,8 @@ async def test_central_agent_question_options_use_two_column_grid(tmp_path) -> N
         )
         await pilot.pause()
 
-        central = screen.query_one(CentralAgentView)
-        grid = central.query_one(".question-options")
+        question_panel = screen.query_one(QuestionPanel)
+        grid = question_panel.query_one(".question-options")
         buttons = list(grid.query("Button"))
 
         assert len(buttons) == 2
@@ -3565,7 +3573,7 @@ async def test_nexus_question_answer_routes_to_controller(tmp_path) -> None:
     async with app.run_test(size=(120, 40)) as pilot:
         app.switch_to("nexus")
         await pilot.pause()
-        app.screen.query_one(CentralAgentView).apply_snapshot(controller.snapshot())
+        app.screen.query_one(QuestionPanel).apply_questions(controller.snapshot().questions)
         button = app.screen.query_one("#answer-q-1-1", Button)
         button.press()
         await pilot.pause()
@@ -3591,7 +3599,7 @@ async def test_nexus_question_answer_handles_non_ascii_question_id(tmp_path) -> 
     async with app.run_test(size=(120, 40)) as pilot:
         app.switch_to("nexus")
         await pilot.pause()
-        app.screen.query_one(CentralAgentView).apply_snapshot(controller.snapshot())
+        app.screen.query_one(QuestionPanel).apply_questions(controller.snapshot().questions)
         button = app.screen.query_one("#answer-q-1-1", Button)
         button.press()
         await pilot.pause()

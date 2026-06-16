@@ -18,9 +18,10 @@ from trinity.textual_app.widgets.agent_recipient_model_selector import (
     AgentRecipientModelSelector,
 )
 from trinity.textual_app.widgets.composer import PromptComposer
-from trinity.textual_app.widgets.central_agent import CentralAgentView, QuestionAnswer
+from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel, ProviderPanelState
+from trinity.textual_app.widgets.question_panel import QuestionAnswer, QuestionPanel
 
 
 class NexusScreen(Screen[None]):
@@ -112,7 +113,9 @@ class NexusScreen(Screen[None]):
                 yield Button("Open Provider Inspector", id="open-provider-inspector")
                 yield Button("Execute", id="request-execute", variant="primary")
             with Horizontal(id="nexus-main"):
-                yield CentralAgentView(id="central-agent", lang=self.config.lang)
+                with Vertical(id="nexus-center-stack"):
+                    yield CentralAgentView(id="central-agent", lang=self.config.lang)
+                    yield QuestionPanel(id="nexus-question-panel", lang=self.config.lang)
                 yield WorkflowInspector(id="workflow-inspector")
             yield AgentRecipientModelSelector(
                 self.config.agents,
@@ -131,6 +134,7 @@ class NexusScreen(Screen[None]):
             self.apply_snapshot(self.snapshot)
         else:
             self._refresh_central()
+            self._refresh_questions()
             self._refresh_inspector()
         if self._selected_agents or self._agent_model_overrides:
             self._apply_agent_selection()
@@ -197,12 +201,13 @@ class NexusScreen(Screen[None]):
                 )
             )
         self._refresh_central()
+        self._refresh_questions()
         self._refresh_inspector()
         self._apply_activity_frame()
 
-    def on_central_agent_view_question_answered(
+    def on_question_panel_question_answered(
         self,
-        event: CentralAgentView.QuestionAnswered,
+        event: QuestionPanel.QuestionAnswered,
     ) -> None:
         event.stop()
         self.post_message(self.QuestionAnswered(event.answer))
@@ -350,6 +355,11 @@ class NexusScreen(Screen[None]):
             central.apply_snapshot(self.snapshot)
             return
         central.apply_snapshot(self._fallback_snapshot())
+
+    def _refresh_questions(self) -> None:
+        question_panel = self.query_one(QuestionPanel)
+        snapshot = self.snapshot or self._fallback_snapshot()
+        question_panel.apply_questions(snapshot.questions)
 
     def _refresh_inspector(self) -> None:
         inspector = self.query_one(WorkflowInspector)

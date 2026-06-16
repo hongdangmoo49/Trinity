@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from textual.app import ComposeResult
 from textual.containers import Grid, Vertical, VerticalScroll
 from textual.message import Message
@@ -14,6 +16,25 @@ from trinity.textual_app.snapshot import (
 
 
 ACTIVITY_FRAMES = ("|", "/", "-", "\\")
+DETAIL_SECTION_HEADINGS = {
+    "acceptance criteria",
+    "architecture",
+    "data flow",
+    "external dependencies",
+    "open questions",
+    "risks",
+    "work packages",
+    "검증 기준",
+    "권장 사항",
+    "데이터 흐름",
+    "리스크",
+    "수용 기준",
+    "수용 조건",
+    "아키텍처",
+    "외부 의존성",
+    "작업 패키지",
+    "핵심 근거",
+}
 
 
 class CentralAgentView(VerticalScroll):
@@ -93,20 +114,13 @@ class CentralAgentView(VerticalScroll):
             )
         if snapshot.goal:
             lines.extend(["", f"### {self._label('goal')}", snapshot.goal])
-        if snapshot.central_blueprint:
+        central_response = self._central_response(snapshot)
+        if central_response:
             lines.extend(
                 [
                     "",
                     f"### {self._label('central_response')}",
-                    snapshot.central_blueprint,
-                ]
-            )
-        elif snapshot.synthesis.summary:
-            lines.extend(
-                [
-                    "",
-                    f"### {self._label('central_response')}",
-                    snapshot.synthesis.summary,
+                    central_response,
                 ]
             )
         elif not snapshot.goal:
@@ -169,19 +183,17 @@ class CentralAgentView(VerticalScroll):
 
         lines.extend(["", f"### {self._label('work_packages')}"])
         status_counts = self._package_status_counts(snapshot)
+        count_text = self._package_count_text(package_count)
         if status_counts:
             lines.append(
-                "- "
+                f"- {count_text} · "
                 + ", ".join(
                     f"{status}={count}" for status, count in sorted(status_counts.items())
                 )
             )
         else:
-            lines.append(f"- {package_count} {self._label('packages_ready')}")
-        for item in package_lines[:6]:
-            lines.append(f"- {item}")
-        if len(package_lines) > 6:
-            lines.append(f"- +{len(package_lines) - 6} more")
+            lines.append(f"- {count_text} · {self._label('ready')}")
+        lines.append(f"- {self._label('details_in_inspector')}")
 
     def _append_execution_overview(
         self,
@@ -238,6 +250,74 @@ class CentralAgentView(VerticalScroll):
         if remaining > 0:
             rendered = f"{rendered}, +{remaining} more"
         return rendered
+
+    def _central_response(self, snapshot: WorkflowNexusSnapshot) -> str:
+        source = snapshot.central_blueprint.strip() or snapshot.synthesis.summary.strip()
+        if not source:
+            return ""
+
+        lines: list[str] = []
+        visible_count = 0
+        for raw_line in source.splitlines():
+            line = raw_line.strip()
+            if not line:
+                if lines and lines[-1] != "":
+                    lines.append("")
+                continue
+            if self._is_detail_section_heading(line):
+                break
+            if self._is_low_value_blueprint_bullet(line):
+                if visible_count:
+                    break
+                continue
+            lines.append(self._strip_markdown_links(line))
+            visible_count += 1
+            if visible_count >= 4:
+                break
+
+        while lines and lines[-1] == "":
+            lines.pop()
+        compact = "\n".join(lines).strip()
+        if not compact:
+            compact = snapshot.synthesis.summary.strip()
+        return self._truncate_response(compact)
+
+    @staticmethod
+    def _is_detail_section_heading(line: str) -> bool:
+        normalized = re.sub(r"^[#>\-\*\s•]+", "", line).strip()
+        normalized = re.sub(r"^\d+[.)]\s+", "", normalized).strip()
+        normalized = normalized.strip("*`：: ")
+        lowered = normalized.lower()
+        return any(
+            lowered == heading or lowered.startswith(f"{heading} ")
+            for heading in DETAIL_SECTION_HEADINGS
+        )
+
+    @staticmethod
+    def _is_low_value_blueprint_bullet(line: str) -> bool:
+        normalized = line.lstrip()
+        if not normalized.startswith(("- ", "* ", "• ")):
+            return False
+        return any(
+            marker in normalized.lower()
+            for marker in ("file://", "expected file", "acceptance", "수용 기준")
+        )
+
+    @staticmethod
+    def _strip_markdown_links(line: str) -> str:
+        return re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", line)
+
+    @staticmethod
+    def _truncate_response(text: str, *, limit: int = 700) -> str:
+        if len(text) <= limit:
+            return text
+        return text[: limit - 1].rstrip() + "…"
+
+    def _package_count_text(self, count: int) -> str:
+        if self.lang == "ko":
+            return f"{count}개 작업 패키지"
+        word = "package" if count == 1 else "packages"
+        return f"{count} {word}"
 
     def _render_local_command_tables(
         self,
@@ -429,6 +509,7 @@ class CentralAgentView(VerticalScroll):
             "command_result": "명령 결과",
             "completed": "완료",
             "current_focus": "현재 진행/주의 항목",
+            "details_in_inspector": "상세 설계와 WP 목록은 Inspector 또는 Report에서 확인하세요.",
             "executing": "실행 중",
             "final_review": "최종 리뷰",
             "follow_up_work": "후속 보강 작업",
@@ -436,10 +517,10 @@ class CentralAgentView(VerticalScroll):
             "idle": "대기",
             "next_action": "다음 작업",
             "no_follow_up_items": "최종 리뷰에서 추가 작업 항목이 추출되지 않았습니다.",
-            "packages_ready": "개 작업 준비됨",
             "planning_no_workspace": "기획은 작업 폴더 없이 진행할 수 있습니다. 실행 시 작업 폴더를 선택합니다.",
             "post_review_ready": "최종 리뷰 이후 보강 선택 대기",
             "progress": "진행",
+            "ready": "준비됨",
             "reviewing": "리뷰 중",
             "repair_action": "리뷰 수리 결정",
             "synthesis": "종합",
@@ -472,6 +553,7 @@ class CentralAgentView(VerticalScroll):
             "command_result": "Command Result",
             "completed": "Completed",
             "current_focus": "Current Focus",
+            "details_in_inspector": "Open Inspector or Report for the full design and WP list.",
             "executing": "Executing",
             "final_review": "Final Review",
             "follow_up_work": "Suggested Follow-up Work",
@@ -479,10 +561,10 @@ class CentralAgentView(VerticalScroll):
             "idle": "Idle",
             "next_action": "Next action",
             "no_follow_up_items": "No action items were extracted from the final review.",
-            "packages_ready": "packages ready",
             "planning_no_workspace": "Planning does not require a workspace. Execute will ask for one.",
             "post_review_ready": "Post-review follow-up ready",
             "progress": "Progress",
+            "ready": "ready",
             "reviewing": "Reviewing",
             "repair_action": "Review repair decision",
             "synthesis": "Synthesis",

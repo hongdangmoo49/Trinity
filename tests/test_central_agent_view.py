@@ -44,7 +44,9 @@ def test_central_markdown_keeps_conversation_and_hides_internal_dump() -> None:
     markdown = view._markdown()
 
     assert "### Work Packages" in markdown
-    assert "- WP-001 codex: Build the UI (pending)" in markdown
+    assert "- 1 package · ready" in markdown
+    assert "Open Inspector or Report" in markdown
+    assert "- WP-001 codex: Build the UI (pending)" not in markdown
     assert "### Command Result" in markdown
     assert "Current status." in markdown
     assert "### Decisions" not in markdown
@@ -62,7 +64,9 @@ def test_central_markdown_surfaces_blueprint_response_before_wp_overview() -> No
         synthesis=SynthesisSnapshot(summary="Vampire survival blueprint."),
         central_blueprint=(
             "**Vampire Survival Roguelike**\n\n"
-            "Use a wave loop, enemy spawners, weapon upgrades, and run meta data."
+            "Use a wave loop, enemy spawners, weapon upgrades, and run meta data.\n\n"
+            "#### Architecture\n"
+            "- Combat loop: detailed internal design."
         ),
         central_work_packages=["gameplay: Build combat loop"],
     )
@@ -72,7 +76,47 @@ def test_central_markdown_surfaces_blueprint_response_before_wp_overview() -> No
     assert "### Central Agent Response" in markdown
     assert "**Vampire Survival Roguelike**" in markdown
     assert "weapon upgrades" in markdown
+    assert "Architecture" not in markdown
+    assert "Combat loop" not in markdown
     assert markdown.index("### Central Agent Response") < markdown.index("### Work Packages")
+
+
+def test_central_markdown_compacts_verbose_blueprint_for_user_view() -> None:
+    view = CentralAgentView(lang="ko")
+    view.snapshot = WorkflowNexusSnapshot(
+        state="blueprint_ready",
+        goal="테스트입니다",
+        synthesis=SynthesisSnapshot(consensus_progress="blueprint ready"),
+        central_blueprint=(
+            "제안: 테스트 요청 처리 및 시스템 검증\n"
+            "사용자 테스트 메시지 정상 수신. 시스템 초기 응답 및 기본 구성 요소 검증.\n\n"
+            "Architecture\n"
+            "- 입력 채널: 사용자 입력 (CLI/TUI)\n"
+            "Data Flow\n"
+            "- 사용자 요청 -> 에이전트 분석 -> 검증 결과 제안\n"
+            "Acceptance Criteria\n"
+            "- 에이전트 환경 정보 읽기 성공 ([src/trinity](file:///home/user/workspace/Trinity/src/trinity) 확인)\n"
+            "작업 패키지 (Work Packages)\n"
+            "- WP-001 claude: 입력 채널"
+        ),
+        work_packages=[
+            "WP-001 claude: 입력 채널 (pending)",
+            "WP-002 codex: 파서 (pending)",
+            "WP-003 antigravity: 검증 대상 (pending)",
+        ],
+    )
+
+    markdown = view._markdown()
+
+    assert "제안: 테스트 요청 처리 및 시스템 검증" in markdown
+    assert "사용자 테스트 메시지 정상 수신" in markdown
+    assert "Architecture" not in markdown
+    assert "Data Flow" not in markdown
+    assert "Acceptance Criteria" not in markdown
+    assert "file://" not in markdown
+    assert "WP-001 claude: 입력 채널" not in markdown
+    assert "3개 작업 패키지" in markdown
+    assert "상세 설계와 WP 목록은 Inspector 또는 Report" in markdown
 
 
 def test_blueprint_next_actions_only_show_when_ready_with_packages() -> None:

@@ -108,7 +108,11 @@ class NexusScreen(Screen[None]):
         with Vertical(id="nexus-screen"):
             with Horizontal(id="provider-strip"):
                 for state in self._initial_provider_states():
-                    yield ProviderPanel(state, id=f"provider-{state.name}")
+                    yield ProviderPanel(
+                        state,
+                        id=f"provider-{state.name}",
+                        lang=self.config.lang,
+                    )
             with Horizontal(id="nexus-action-bar"):
                 yield Button("Open Provider Inspector", id="open-provider-inspector")
                 yield Button("Execute", id="request-execute", variant="primary")

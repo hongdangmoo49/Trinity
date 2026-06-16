@@ -3091,9 +3091,9 @@ async def test_nexus_running_surfaces_show_activity(tmp_path) -> None:
 
         panel = screen.query_one("#provider-claude", ProviderPanel)
         central = screen.query_one(CentralAgentView)
-        assert isinstance(panel, VerticalScroll)
         assert panel.has_class("provider-running")
-        assert "Running" in str(panel.query_one(".provider-status").content)
+        assert panel.has_class("provider-state-running")
+        assert "RUN" in str(panel.query_one(".provider-status").content)
         assert central.has_class("central-running")
         assert "Central Agent" in str(central.query_one("#central-title").content)
         assert "round 1 synthesizing" in central._markdown()
@@ -3378,9 +3378,9 @@ async def test_provider_panel_shows_summary_and_keeps_raw_in_inspector(tmp_path)
         await pilot.pause()
 
         panel = screen.query_one("#provider-claude", ProviderPanel)
-        assert isinstance(panel, VerticalScroll)
         assert "short summary" in str(panel.query_one(".provider-summary").content)
         assert "line 29" not in str(panel.query_one(".provider-summary").content)
+        assert panel.has_class("provider-state-done")
 
         screen.action_open_inspector()
         await pilot.pause()

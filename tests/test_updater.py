@@ -134,6 +134,65 @@ def test_check_for_startup_update_returns_none_when_current_branch_is_up_to_date
     assert check_for_startup_update("0.11.1", start_path=start, runner=runner) is None
 
 
+def test_check_for_startup_update_detects_pypi_when_not_git_repo(
+    tmp_path: Path,
+) -> None:
+    start = tmp_path / "site-packages" / "trinity"
+    start.mkdir(parents=True)
+    runner = FakeRunner(
+        {
+            ("git", "-C", str(start), "rev-parse", "--show-toplevel"): CommandResult(
+                128,
+                stderr="not a git repository",
+            ),
+        }
+    )
+
+    update = check_for_startup_update(
+        "0.13.2",
+        start_path=start,
+        runner=runner,
+        pypi_fetcher=lambda url, timeout: '{"info": {"version": "0.13.4"}}',
+    )
+
+    assert update is not None
+    assert update.source == "pypi"
+    assert update.current_version == "0.13.2"
+    assert update.latest_version == "0.13.4"
+    assert update.repo_root is None
+    assert update.command[-5:] == (
+        "-m",
+        "pip",
+        "install",
+        "--upgrade",
+        "trinity-agent",
+    )
+
+
+def test_check_for_startup_update_ignores_pypi_when_not_newer(
+    tmp_path: Path,
+) -> None:
+    start = tmp_path / "site-packages" / "trinity"
+    start.mkdir(parents=True)
+    runner = FakeRunner(
+        {
+            ("git", "-C", str(start), "rev-parse", "--show-toplevel"): CommandResult(
+                128,
+                stderr="not a git repository",
+            ),
+        }
+    )
+
+    update = check_for_startup_update(
+        "0.13.4",
+        start_path=start,
+        runner=runner,
+        pypi_fetcher=lambda url, timeout: '{"info": {"version": "0.13.4"}}',
+    )
+
+    assert update is None
+
+
 def test_apply_startup_update_refuses_dirty_worktree(tmp_path: Path) -> None:
     update = StartupUpdate(
         source="git",
@@ -191,4 +250,28 @@ def test_apply_startup_update_runs_fast_forward_pull(tmp_path: Path) -> None:
     result = apply_startup_update(update, runner=runner)
 
     assert result.succeeded is True
+    assert update.command in runner.calls
+
+
+def test_apply_startup_update_runs_pip_upgrade() -> None:
+    update = StartupUpdate(
+        source="pypi",
+        current_version="0.13.2",
+        latest_version="0.13.4",
+        detail="trinity-agent 0.13.4 is available on PyPI.",
+        command=(
+            "python",
+            "-m",
+            "pip",
+            "install",
+            "--upgrade",
+            "trinity-agent",
+        ),
+    )
+    runner = FakeRunner({update.command: CommandResult(0, stdout="updated\n")})
+
+    result = apply_startup_update(update, runner=runner)
+
+    assert result.succeeded is True
+    assert result.output == "updated"
     assert update.command in runner.calls

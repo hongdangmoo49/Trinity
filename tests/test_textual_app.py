@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import time
 from pathlib import Path
 
@@ -126,6 +127,7 @@ class FakeWorkflowController:
             session_id="wf-fake",
             goal=prompt,
             state="deliberating",
+            target_workspace=str(target_workspace or ""),
             providers=[
                 ProviderSnapshot(
                     name="claude",
@@ -248,11 +250,16 @@ class FakeWorkflowController:
     def set_target_workspace(self, path, *, control_repo_confirmed: bool = False):
         self.target_workspace = path
         self.target_control_confirmed = control_repo_confirmed
+        self.current_snapshot = replace(
+            self.current_snapshot,
+            target_workspace=str(path),
+        )
         return TextualWorkflowOutcome(self.current_snapshot)
 
     def clear_target_workspace(self) -> TextualWorkflowOutcome:
         self.target_cleared = True
         self.target_workspace = None
+        self.current_snapshot = replace(self.current_snapshot, target_workspace="")
         return TextualWorkflowOutcome(self.current_snapshot)
 
     def list_resume_options(self) -> list[TextualWorkflowArchiveOption]:
@@ -4047,6 +4054,12 @@ async def test_start_choose_now_opens_workspace_picker(tmp_path) -> None:
         await pilot.pause()
 
         assert isinstance(app.screen, WorkspacePicker)
+        picker = app.screen
+        assert picker.intent == "select"
+        assert str(picker.query_one("#workspace-picker-title", Static).content) == (
+            "Choose Workspace"
+        )
+        assert str(picker.query_one("#confirm-execute", Button).label) == "Use Workspace"
 
 
 @pytest.mark.asyncio
@@ -4069,6 +4082,83 @@ async def test_start_choose_now_updates_workspace_candidate(tmp_path) -> None:
         start = app.get_screen("start", StartScreen)
         assert app.workspace_candidate == tmp_path
         assert str(tmp_path) in str(start.query_one("#workspace-candidate").content)
+
+
+@pytest.mark.asyncio
+async def test_nexus_choose_now_selects_target_without_execution(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target-app"
+    control_repo.mkdir()
+    target.mkdir()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        controller,
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        assert str(nexus.query_one("#request-execute", Button).label) == "Choose now"
+
+        await pilot.click("#request-execute")
+        await pilot.pause()
+
+        assert controller.execution_requests == 0
+        picker = app.screen
+        assert isinstance(picker, WorkspacePicker)
+        assert picker.intent == "select"
+        assert str(picker.query_one("#workspace-picker-title", Static).content) == (
+            "Choose Workspace"
+        )
+
+        picker.action_confirm()
+        await pilot.pause()
+
+        assert controller.execution_requests == 0
+        assert controller.target_workspace == target.resolve()
+        assert app.current_route == "nexus"
+        nexus = app.get_screen("nexus", NexusScreen)
+        assert str(nexus.query_one("#request-execute", Button).label) == "Execute"
+
+
+@pytest.mark.asyncio
+async def test_nexus_execute_requests_execution_when_target_is_selected(
+    tmp_path,
+) -> None:
+    target = tmp_path / "target-app"
+    target.mkdir()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            state="blueprint_ready",
+            target_workspace=str(target),
+        )
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        controller,
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        assert str(nexus.query_one("#request-execute", Button).label) == "Execute"
+
+        await pilot.click("#request-execute")
+        await pilot.pause()
+
+        assert controller.execution_requests == 1
 
 
 @pytest.mark.asyncio
@@ -4120,7 +4210,9 @@ async def test_nexus_question_answer_handles_non_ascii_question_id(tmp_path) -> 
 
 @pytest.mark.asyncio
 async def test_workspace_picker_opens_from_nexus_execute(tmp_path) -> None:
-    controller = FakeWorkflowController()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(target_workspace=str(tmp_path))
+    )
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),
         controller,
@@ -4136,6 +4228,7 @@ async def test_workspace_picker_opens_from_nexus_execute(tmp_path) -> None:
         await pilot.pause()
 
         assert isinstance(app.screen, WorkspacePicker)
+        assert app.screen.intent == "execute"
         assert controller.execution_requests == 1
         assert str(tmp_path) in str(app.screen.query_one("#workspace-preflight").content)
 

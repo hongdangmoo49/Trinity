@@ -166,6 +166,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         snapshot: WorkflowNexusSnapshot,
         cwd: Path | None = None,
         tree_root: Path | None = None,
+        intent: str = "execute",
         lang: str = "en",
     ) -> None:
         super().__init__()
@@ -173,15 +174,19 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         self.snapshot = snapshot
         self.cwd = cwd or Path.cwd()
         self.tree_root = tree_root or self.cwd
+        self.intent = "select" if intent == "select" else "execute"
         self.lang = lang
         self._tree_mounted = False
-        localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
+        localized_bindings = dict(self.LOCALIZED_BINDINGS)
+        if self.intent == "select":
+            localized_bindings[("ctrl+enter", "confirm")] = ("binding_apply", None)
+        localize_bindings(self._bindings, self.lang, localized_bindings)
         self.preflight = build_preflight(candidate or self.cwd, snapshot)
         self.create_missing = self.preflight.creatable
 
     def compose(self) -> ComposeResult:
         with Vertical(id="workspace-picker"):
-            yield Static("Execute Preflight", id="workspace-picker-title")
+            yield Static(self._title(), id="workspace-picker-title")
             yield Input(
                 value=str(self.preflight.path),
                 placeholder="Target workspace path",
@@ -199,9 +204,19 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
                     yield Button("New Folder", id="new-workspace-folder")
                 with Horizontal(id="workspace-picker-actions"):
                     yield Button("Cancel", id="cancel-execute")
-                    yield Button("Confirm Execute", id="confirm-execute", variant="primary")
+                    yield Button(
+                        self._confirm_label(),
+                        id="confirm-execute",
+                        variant="primary",
+                    )
             yield Static("", id="workspace-picker-status")
         yield Footer()
+
+    def _title(self) -> str:
+        return "Choose Workspace" if self.intent == "select" else "Execute Preflight"
+
+    def _confirm_label(self) -> str:
+        return "Use Workspace" if self.intent == "select" else "Confirm Execute"
 
     def on_mount(self) -> None:
         self.set_timer(0.05, self._mount_directory_tree)

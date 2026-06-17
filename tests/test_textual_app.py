@@ -3655,6 +3655,10 @@ def test_work_package_detail_modal_orders_execution_sections_first() -> None:
             review_status="approved",
             last_result_status="succeeded",
             last_result_summary="Rows fit compact terminals.",
+            task_kind="implementation",
+            routing_reason="implementation strength 0.95",
+            routing_score=111.0,
+            profile_revision="default-v1",
         )
     )
     markdown = modal._markdown()
@@ -3662,6 +3666,32 @@ def test_work_package_detail_modal_orders_execution_sections_first() -> None:
     assert markdown.index("## Summary") < markdown.index("## Result")
     assert markdown.index("## Result") < markdown.index("## Review")
     assert markdown.index("## Review") < markdown.index("## Spec")
+    assert "Routing reason: implementation strength 0.95" in markdown
+
+
+def test_provider_inspector_meta_includes_profile_summary() -> None:
+    inspector = ProviderInspector(
+        [
+            ProviderSnapshot(
+                name="codex",
+                provider="codex",
+                enabled=True,
+                status="Ready",
+                readiness="ready",
+                profile_mission="Implementation and testing",
+                profile_modes=["execute", "review"],
+                profile_strengths=["implementation 0.95"],
+                context_profile="implementer",
+            )
+        ]
+    )
+
+    meta = inspector._provider_meta(inspector.providers[0])
+
+    assert "Mission: Implementation and testing" in meta
+    assert "Modes: execute, review" in meta
+    assert "Strengths: implementation 0.95" in meta
+    assert "Context profile: implementer" in meta
 
 
 @pytest.mark.asyncio

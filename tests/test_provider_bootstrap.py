@@ -26,7 +26,6 @@ def _config(tmp_path: Path) -> TrinityConfig:
                 provider=Provider.CLAUDE_CODE,
                 cli_command="claude",
                 enabled=True,
-                extra_args=["--dangerously-skip-permissions"],
             ),
             "codex": AgentSpec(
                 name="codex",
@@ -120,7 +119,7 @@ def test_run_sequential_streams_commands_without_tmux(tmp_path):
 
     runner.stream_interactive.assert_called_once()
     command = runner.stream_interactive.call_args.args[0]
-    assert command.argv == ("claude", "--dangerously-skip-permissions")
+    assert command.argv == ("claude",)
     assert command.cwd == tmp_path
     assert command.env["HOME"] == str(
         tmp_path / ".trinity" / "agents" / "claude" / "provider-state"
@@ -219,7 +218,7 @@ def test_launch_session_sends_commands_to_tmux_panes(tmp_path):
     pane.send_text.assert_called_once()
     sent_command = pane.send_text.call_args.args[0]
     assert "HOME=" in sent_command
-    assert "claude --dangerously-skip-permissions" in sent_command
+    assert sent_command.rstrip().endswith("claude")
     assert result.session_name == "bootstrap-test"
     assert result.commands["claude"] == sent_command
 

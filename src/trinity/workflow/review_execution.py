@@ -13,7 +13,7 @@ from uuid import uuid4
 from trinity.agents.base import AgentWrapper
 from trinity.context.profiles import project_shared_context
 from trinity.context.shared import SharedContextEngine
-from trinity.models import DeliberationMessage
+from trinity.models import DeliberationMessage, ResponseStatus
 from trinity.prompts.contracts import (
     FINAL_REVIEW_CONTRACT_ID,
     REVIEW_CONTRACT_ID,
@@ -313,12 +313,18 @@ class ReviewExecutionProtocol:
         raw_content = str(message.metadata.get("raw_output") or message.content or "")
         raw_path = self._write_raw_response(review_package, request_id, raw_content, reviewer_agent)
         if self._message_failed(message):
+            response_status = str(message.metadata.get("response_status") or "")
+            status = (
+                ReviewStatus.BLOCKED
+                if response_status == ResponseStatus.PERMISSION_REQUIRED.value
+                else ReviewStatus.FAILED
+            )
             return ReviewResult(
                 review_package_id=review_package.id,
                 package_id=review_package.package_id,
                 reviewer_agent=reviewer_agent,
                 target_agent=review_package.target_agent,
-                status=ReviewStatus.FAILED,
+                status=status,
                 summary=message.content or "Review agent response failed.",
                 raw_response_path=raw_path,
                 scope=review_package.scope,

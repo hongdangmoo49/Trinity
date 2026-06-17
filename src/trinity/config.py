@@ -345,7 +345,6 @@ class TrinityConfig:
                     provider=Provider.CLAUDE_CODE,
                     cli_command="claude",
                     role_prompt=roles["claude"],
-                    extra_args=["--dangerously-skip-permissions"],
                     profile=resolve_agent_profile("claude", Provider.CLAUDE_CODE),
                 ),
                 "codex": AgentSpec(

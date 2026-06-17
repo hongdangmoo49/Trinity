@@ -11,7 +11,7 @@ import pytest
 
 from trinity.models import Provider, ResponseStatus
 from trinity.providers.invoker import ClaudePrintInvoker, PromptRequest
-from trinity.providers.policy import ExecutionAuthority
+from trinity.providers.policy import ExecutionAuthority, InvocationAccess
 
 
 def _request(tmp_path: Path) -> PromptRequest:
@@ -41,12 +41,55 @@ def test_build_command_uses_claude_print_json_and_system_prompt(tmp_path):
         "--output-format",
         "json",
     ]
+    assert command[command.index("--permission-mode") + 1] == "plan"
+    assert command[command.index("--tools") + 1] == "Read,LS,Grep,Glob"
     assert "--append-system-prompt" in command
     assert "You are the Architect." in command
     assert "--no-session-persistence" in command
     assert "[System Role]" not in command[-1]
     assert "[Context]" in command[-1]
     assert "Design the system." in command[-1]
+
+
+def test_build_command_uses_accept_edits_for_workspace_write(tmp_path):
+    invoker = ClaudePrintInvoker()
+    request = PromptRequest(
+        agent_name="claude",
+        provider=Provider.CLAUDE_CODE,
+        cli_command="claude",
+        prompt="Implement it.",
+        cwd=tmp_path,
+        access=InvocationAccess.WORKSPACE_WRITE,
+    )
+
+    command = invoker.build_command(request)
+
+    assert command[command.index("--permission-mode") + 1] == "acceptEdits"
+    assert "--tools" not in command
+
+
+def test_build_command_filters_dangerous_claude_extra_args(tmp_path):
+    invoker = ClaudePrintInvoker()
+    request = PromptRequest(
+        agent_name="claude",
+        provider=Provider.CLAUDE_CODE,
+        cli_command="claude",
+        prompt="Review safely.",
+        cwd=tmp_path,
+        extra_args=(
+            "--dangerously-skip-permissions",
+            "--permission-mode",
+            "bypassPermissions",
+            "--no-session-persistence",
+        ),
+    )
+
+    command = invoker.build_command(request)
+
+    assert "--dangerously-skip-permissions" not in command
+    assert "bypassPermissions" not in command
+    assert command[command.index("--permission-mode") + 1] == "plan"
+    assert "--no-session-persistence" in command
 
 
 def test_build_command_uses_explicit_claude_resume(tmp_path):
@@ -116,6 +159,24 @@ async def test_invoke_classifies_claude_auth_failure(tmp_path):
     assert result.status == ResponseStatus.AUTH_REQUIRED
     assert "exit code 1" in result.content
     assert result.diagnostics == ["Please sign in to continue."]
+
+
+@pytest.mark.asyncio
+async def test_invoke_classifies_claude_permission_failure(tmp_path):
+    invoker = ClaudePrintInvoker()
+    completed = subprocess.CompletedProcess(
+        args=["claude"],
+        returncode=1,
+        stdout="",
+        stderr="Permission denied: operation requires approval.",
+    )
+
+    with patch("trinity.platform.process.subprocess.run", return_value=completed):
+        result = await invoker.invoke(_request(tmp_path))
+
+    assert result.status == ResponseStatus.PERMISSION_REQUIRED
+    assert "exit code 1" in result.content
+    assert result.diagnostics == ["Permission denied: operation requires approval."]
 
 
 @pytest.mark.asyncio

@@ -15,7 +15,7 @@ from uuid import uuid4
 from trinity.agents.base import AgentWrapper
 from trinity.context.profiles import project_shared_context
 from trinity.context.shared import SharedContextEngine
-from trinity.models import DeliberationMessage
+from trinity.models import DeliberationMessage, ResponseStatus
 from trinity.prompts.contracts import EXECUTION_CONTRACT_ID, render_output_contract
 from trinity.providers.policy import (
     ExecutionAuthority,
@@ -430,11 +430,22 @@ class ExecutionProtocol:
         )
 
         if self._message_failed(message):
+            response_status = str(message.metadata.get("response_status") or "")
+            status = (
+                WorkStatus.BLOCKED
+                if response_status == ResponseStatus.PERMISSION_REQUIRED.value
+                else WorkStatus.FAILED
+            )
             return ExecutionResult(
                 package_id=package.id,
                 agent_name=actual_agent,
-                status=WorkStatus.FAILED,
+                status=status,
                 summary=message.content or "Agent response failed.",
+                blockers=(
+                    [message.content or "Provider permission approval is required."]
+                    if status == WorkStatus.BLOCKED
+                    else []
+                ),
                 raw_response_path=raw_path,
             )
 

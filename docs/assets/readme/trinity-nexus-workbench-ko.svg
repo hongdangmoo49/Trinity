@@ -1,6 +1,6 @@
 <svg width="1040" height="620" viewBox="0 0 1040 620" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">Trinity Nexus Workbench 화면 개요</title>
-  <desc id="desc">Trinity Textual Workbench의 provider 카드, 중앙 synthesis, workflow inspector, composer 영역을 보여주는 UI 이미지</desc>
+  <title id="title">Trinity Nexus 워크벤치 화면 개요</title>
+  <desc id="desc">Trinity 워크벤치의 프로바이더 카드, 중앙 합성, 워크플로 검사기, 작성 입력창 영역을 보여주는 UI 이미지</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1040" y2="620" gradientUnits="userSpaceOnUse">
       <stop stop-color="#0B1120"/>
@@ -27,8 +27,8 @@
   <rect width="1040" height="620" rx="30" fill="url(#bg)"/>
   <circle cx="922" cy="92" r="138" fill="#22D3EE" fill-opacity="0.08"/>
   <circle cx="136" cy="540" r="170" fill="#F97316" fill-opacity="0.07"/>
-  <text x="86" y="50" class="font" fill="#E2E8F0" font-size="26" font-weight="850">Nexus Workbench</text>
-  <text x="86" y="78" class="font" fill="#94A3B8" font-size="14">planning부터 execution preflight까지 한 화면에서 확인하는 Textual UI</text>
+  <text x="86" y="50" class="font" fill="#E2E8F0" font-size="26" font-weight="850">Nexus 워크벤치</text>
+  <text x="86" y="78" class="font" fill="#94A3B8" font-size="14">계획부터 실행 전 점검까지 한 화면에서 확인합니다.</text>
 
   <g filter="url(#shadow)">
     <rect x="86" y="96" width="868" height="456" rx="24" fill="url(#window)" stroke="#334155"/>
@@ -37,16 +37,16 @@
     <circle cx="116" cy="122" r="7" fill="#FB7185"/>
     <circle cx="140" cy="122" r="7" fill="#FBBF24"/>
     <circle cx="164" cy="122" r="7" fill="#34D399"/>
-    <text x="192" y="128" class="mono" fill="#E2E8F0" font-size="15" font-weight="700">Trinity v0.12.0 · Nexus · workflow: planning</text>
+    <text x="192" y="128" class="font" fill="#E2E8F0" font-size="15" font-weight="700">Trinity v0.12.0 · Nexus · 작업흐름: 계획</text>
     <rect x="760" y="111" width="150" height="26" rx="13" fill="#0F172A" stroke="#334155"/>
-    <text x="835" y="129" text-anchor="middle" class="font" fill="#93C5FD" font-size="12" font-weight="700">target: current cwd</text>
+    <text x="835" y="129" text-anchor="middle" class="font" fill="#93C5FD" font-size="12" font-weight="700">대상: 현재 경로</text>
 
     <g>
       <rect x="112" y="174" width="248" height="100" rx="16" fill="#0F172A" stroke="#334155"/>
       <text x="134" y="205" class="font" fill="#F8FAFC" font-size="19" font-weight="800">Claude</text>
-      <text x="134" y="230" class="font" fill="#FDBA74" font-size="13" font-weight="700">Ready · Architect</text>
+      <text x="134" y="230" class="font" fill="#FDBA74" font-size="13" font-weight="700">준비됨 · 설계자</text>
       <rect x="260" y="192" width="72" height="28" rx="14" fill="#1E293B" stroke="#F97316" stroke-opacity="0.45"/>
-      <text x="296" y="211" text-anchor="middle" class="font" fill="#FED7AA" font-size="12" font-weight="800">idle</text>
+      <text x="296" y="211" text-anchor="middle" class="font" fill="#FED7AA" font-size="12" font-weight="800">대기</text>
       <path d="M134 249 H328" stroke="#334155" stroke-width="2" stroke-linecap="round"/>
       <path d="M134 249 H248" stroke="#F97316" stroke-width="2" stroke-linecap="round"/>
     </g>
@@ -54,9 +54,9 @@
     <g>
       <rect x="396" y="174" width="248" height="100" rx="16" fill="url(#active)" stroke="#67E8F9" stroke-opacity="0.6"/>
       <text x="418" y="205" class="font" fill="#FFFFFF" font-size="19" font-weight="850">Codex</text>
-      <text x="418" y="230" class="font" fill="#ECFEFF" font-size="13" font-weight="700">Running · Implementer</text>
+      <text x="418" y="230" class="font" fill="#ECFEFF" font-size="13" font-weight="700">실행 중 · 구현자</text>
       <rect x="538" y="192" width="78" height="28" rx="14" fill="#022C22" fill-opacity="0.7" stroke="#A7F3D0" stroke-opacity="0.45"/>
-      <text x="577" y="211" text-anchor="middle" class="font" fill="#D1FAE5" font-size="12" font-weight="800">active</text>
+      <text x="577" y="211" text-anchor="middle" class="font" fill="#D1FAE5" font-size="12" font-weight="800">진행 중</text>
       <path d="M418 249 H612" stroke="#BAE6FD" stroke-opacity="0.42" stroke-width="2" stroke-linecap="round"/>
       <path d="M418 249 H566" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
     </g>
@@ -64,40 +64,40 @@
     <g>
       <rect x="680" y="174" width="248" height="100" rx="16" fill="#0F172A" stroke="#334155"/>
       <text x="702" y="205" class="font" fill="#F8FAFC" font-size="19" font-weight="800">Antigravity</text>
-      <text x="702" y="230" class="font" fill="#C4B5FD" font-size="13" font-weight="700">Ready · Reviewer</text>
+      <text x="702" y="230" class="font" fill="#C4B5FD" font-size="13" font-weight="700">준비됨 · 검토자</text>
       <rect x="824" y="192" width="72" height="28" rx="14" fill="#1E293B" stroke="#8B5CF6" stroke-opacity="0.45"/>
-      <text x="860" y="211" text-anchor="middle" class="font" fill="#DDD6FE" font-size="12" font-weight="800">idle</text>
+      <text x="860" y="211" text-anchor="middle" class="font" fill="#DDD6FE" font-size="12" font-weight="800">대기</text>
       <path d="M702 249 H896" stroke="#334155" stroke-width="2" stroke-linecap="round"/>
       <path d="M702 249 H806" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round"/>
     </g>
 
     <rect x="112" y="302" width="532" height="152" rx="18" fill="#0B1220" stroke="#334155"/>
-    <text x="136" y="335" class="font" fill="#F8FAFC" font-size="20" font-weight="850">Central Agent</text>
+    <text x="136" y="335" class="font" fill="#F8FAFC" font-size="20" font-weight="850">중앙 에이전트</text>
     <rect x="504" y="316" width="96" height="28" rx="14" fill="#0F766E" fill-opacity="0.45" stroke="#5EEAD4" stroke-opacity="0.45"/>
-    <text x="552" y="335" text-anchor="middle" class="font" fill="#CCFBF1" font-size="12" font-weight="800">synthesis</text>
-    <text x="136" y="367" class="font" fill="#CBD5E1" font-size="14">· synthesis summary</text>
-    <text x="136" y="396" class="font" fill="#CBD5E1" font-size="14">· questions for the user</text>
-    <text x="136" y="425" class="font" fill="#CBD5E1" font-size="14">· blueprint and work package status</text>
+    <text x="552" y="335" text-anchor="middle" class="font" fill="#CCFBF1" font-size="12" font-weight="800">합성</text>
+    <text x="136" y="367" class="font" fill="#CBD5E1" font-size="14">· 합성 요약</text>
+    <text x="136" y="396" class="font" fill="#CBD5E1" font-size="14">· 사용자에게 확인할 질문</text>
+    <text x="136" y="425" class="font" fill="#CBD5E1" font-size="14">· 청사진 및 작업 패키지 상태</text>
 
     <rect x="676" y="302" width="252" height="152" rx="18" fill="#0B1220" stroke="#334155"/>
-    <text x="700" y="334" class="font" fill="#F8FAFC" font-size="18" font-weight="850">Workflow Inspector</text>
-    <text x="700" y="365" class="font" fill="#94A3B8" font-size="13">phase: planning</text>
-    <text x="700" y="390" class="font" fill="#94A3B8" font-size="13">rounds: 2 / 3</text>
-    <text x="700" y="415" class="font" fill="#94A3B8" font-size="13">packages: draft ready</text>
+    <text x="700" y="334" class="font" fill="#F8FAFC" font-size="18" font-weight="850">워크플로 검사기</text>
+    <text x="700" y="365" class="font" fill="#94A3B8" font-size="13">단계: 계획</text>
+    <text x="700" y="390" class="font" fill="#94A3B8" font-size="13">라운드: 2 / 3</text>
+    <text x="700" y="415" class="font" fill="#94A3B8" font-size="13">패키지: 초안 준비</text>
 
     <rect x="112" y="482" width="816" height="46" rx="16" fill="#020617" stroke="#334155"/>
-    <text x="136" y="511" class="mono" fill="#94A3B8" font-size="13">Ask all agents about the next decision...</text>
+    <text x="136" y="511" class="font" fill="#94A3B8" font-size="13">다음 결정을 모든 에이전트에게 질문...</text>
     <rect x="818" y="491" width="86" height="28" rx="14" fill="#0EA5E9"/>
-    <text x="861" y="510" text-anchor="middle" class="font" fill="#F8FAFC" font-size="12" font-weight="850">Send</text>
+    <text x="861" y="510" text-anchor="middle" class="font" fill="#F8FAFC" font-size="12" font-weight="850">전송</text>
   </g>
 
   <g filter="url(#shadow)">
     <rect x="630" y="398" width="260" height="126" rx="18" fill="#172554" stroke="#60A5FA"/>
     <rect x="654" y="422" width="92" height="24" rx="12" fill="#1D4ED8"/>
-    <text x="700" y="439" text-anchor="middle" class="font" fill="#DBEAFE" font-size="12" font-weight="800">Provider</text>
+    <text x="700" y="439" text-anchor="middle" class="font" fill="#DBEAFE" font-size="12" font-weight="800">프로바이더</text>
     <rect x="756" y="422" width="92" height="24" rx="12" fill="#0F172A" stroke="#60A5FA" stroke-opacity="0.34"/>
-    <text x="802" y="439" text-anchor="middle" class="font" fill="#BFDBFE" font-size="12" font-weight="800">Raw output</text>
-    <text x="654" y="475" class="font" fill="#E0F2FE" font-size="13" font-weight="700">Provider Inspector modal</text>
-    <text x="654" y="498" class="font" fill="#93C5FD" font-size="12">원문 출력과 model/session metadata 확인</text>
+    <text x="802" y="439" text-anchor="middle" class="font" fill="#BFDBFE" font-size="12" font-weight="800">원문 출력</text>
+    <text x="654" y="475" class="font" fill="#E0F2FE" font-size="13" font-weight="700">프로바이더 검사 모달</text>
+    <text x="654" y="498" class="font" fill="#93C5FD" font-size="12">원문 출력과 모델/세션 메타데이터 확인</text>
   </g>
 </svg>

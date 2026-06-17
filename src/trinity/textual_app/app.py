@@ -75,6 +75,7 @@ from trinity.textual_app.widgets.target_workspace_confirm_modal import (
 from trinity.textual_app.widgets.workspace_picker import (
     WorkspacePicker,
     WorkspacePreflight,
+    build_preflight,
     default_workspace_tree_root,
 )
 from trinity.tui.kitty_compat import install_textual_parser_patch
@@ -1038,6 +1039,7 @@ class TrinityTextualApp(App[None]):
         self,
         config: TrinityConfig,
         workflow_controller: TextualWorkflowController | None = None,
+        launch_cwd: Path | None = None,
     ) -> None:
         install_textual_parser_patch()
         super().__init__()
@@ -1045,7 +1047,8 @@ class TrinityTextualApp(App[None]):
         self.config = config
         self.current_route: WorkbenchRoute = "start"
         self.initial_prompt: str | None = None
-        self.workspace_candidate: Path | None = None
+        self.launch_cwd = self._default_launch_cwd(launch_cwd)
+        self.workspace_candidate: Path | None = self.launch_cwd
         self.snapshot_adapter = NexusSnapshotAdapter(config)
         self.active_snapshot: WorkflowNexusSnapshot | None = None
         self.settings_store = UISettingsStore(config.effective_state_dir)
@@ -1168,6 +1171,7 @@ class TrinityTextualApp(App[None]):
             event.prompt,
             **start_kwargs,
         )
+        self._remember_confirmed_target_preflight(target_workspace, outcome.snapshot)
         self._apply_workflow_outcome(outcome)
         self.switch_to("nexus")
 
@@ -1352,6 +1356,25 @@ class TrinityTextualApp(App[None]):
         if self._is_control_repo_target(path):
             return None
         return path
+
+    @staticmethod
+    def _default_launch_cwd(launch_cwd: Path | None = None) -> Path:
+        """Return the directory Trinity was launched from for target defaults."""
+        try:
+            return (launch_cwd or Path.cwd()).expanduser().resolve()
+        except OSError:
+            return (launch_cwd or Path.cwd()).expanduser()
+
+    def _remember_confirmed_target_preflight(
+        self,
+        path: Path | None,
+        snapshot: WorkflowNexusSnapshot,
+    ) -> None:
+        """Keep Execution Matrix workspace header aligned with persisted target."""
+        if path is None:
+            self.confirmed_preflight = None
+            return
+        self.confirmed_preflight = build_preflight(path, snapshot)
 
     def _on_workspace_preflight(self, preflight: WorkspacePreflight | None) -> None:
         if preflight is None:
@@ -1748,6 +1771,7 @@ class TrinityTextualApp(App[None]):
                 target_agents=target_agents,
                 agent_model_overrides=model_overrides,
             )
+            self._remember_confirmed_target_preflight(target_workspace, outcome.snapshot)
             self._apply_workflow_outcome(outcome)
             self.switch_to("nexus")
             return
@@ -2992,6 +3016,7 @@ class TrinityTextualApp(App[None]):
         action = args[0].lower()
         if action in {"clear", "reset", "none"}:
             outcome = self.workflow_controller.clear_target_workspace()
+            self.confirmed_preflight = None
             self._apply_workflow_outcome(outcome)
             self._record_slash_command_result(
                 "/target",
@@ -3064,7 +3089,15 @@ class TrinityTextualApp(App[None]):
             control_repo_confirmed=control_repo_confirmed,
         )
         if isinstance(outcome, TextualWorkflowOutcome):
+            self._remember_confirmed_target_preflight(resolved, outcome.snapshot)
             self._apply_workflow_outcome(outcome)
+        else:
+            self._remember_confirmed_target_preflight(
+                resolved,
+                self.active_snapshot
+                or self.workflow_controller.snapshot()
+                or self.snapshot_adapter.load_snapshot(),
+            )
         self._record_slash_command_result(
             "/target",
             "Target",

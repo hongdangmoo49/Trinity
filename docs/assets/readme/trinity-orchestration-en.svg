@@ -82,8 +82,8 @@
       <text x="381" y="400" text-anchor="middle" fill="#E0F2FE">Shared Context</text>
       <rect x="458" y="380" width="104" height="30" rx="15" fill="#0F172A" fill-opacity="0.72" stroke="#5EEAD4" stroke-opacity="0.34"/>
       <text x="510" y="400" text-anchor="middle" fill="#E0F2FE">Consensus</text>
-      <rect x="576" y="380" width="112" height="30" rx="15" fill="#0F172A" fill-opacity="0.72" stroke="#5EEAD4" stroke-opacity="0.34"/>
-      <text x="632" y="400" text-anchor="middle" fill="#E0F2FE">Task Routing</text>
+      <rect x="568" y="380" width="100" height="30" rx="15" fill="#0F172A" fill-opacity="0.72" stroke="#5EEAD4" stroke-opacity="0.34"/>
+      <text x="618" y="400" text-anchor="middle" fill="#E0F2FE" font-size="12">Task Routing</text>
     </g>
   </g>
 </svg>

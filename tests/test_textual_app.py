@@ -4236,6 +4236,55 @@ async def test_nexus_renders_blueprint_action_buttons(tmp_path) -> None:
         assert screen.query_one("#central-action-title", Static).content == "다음 작업"
 
 
+@pytest.mark.asyncio
+async def test_nexus_provider_error_gate_actions_answer_question(tmp_path) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-provider-error",
+        state="needs_user_decision",
+        questions=[
+            QuestionSnapshot(
+                id="q-provider-error-retry",
+                question="Provider errors occurred.",
+                options=[
+                    "Retry failed providers",
+                    "Continue without failed providers",
+                    "Stop workflow",
+                ],
+            )
+        ],
+    )
+    controller = FakeWorkflowController(snapshot)
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        screen.apply_snapshot(controller.snapshot())
+        await pilot.pause()
+
+        assert screen.query_one("#central-action-title", Static).content == (
+            "프로바이더 오류 결정"
+        )
+        buttons = list(screen.query("#central-actions Button"))
+        assert [str(button.label) for button in buttons] == [
+            "실패 재시도",
+            "제외하고 계속",
+            "중단",
+        ]
+
+        buttons[0].press()
+        await pilot.pause()
+
+    assert controller.answers == [
+        ("q-provider-error-retry", "Retry failed providers", False)
+    ]
+
+
 def test_review_repair_details_markdown_summarizes_blocked_packages() -> None:
     snapshot = _review_repair_blocked_snapshot()
 

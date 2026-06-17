@@ -438,6 +438,43 @@ class CentralAgentView(VerticalScroll):
         self._button_actions = {}
         self._action_render_version += 1
         render_version = self._action_render_version
+        provider_error_options = self._provider_error_gate_options(snapshot)
+        if provider_error_options:
+            title.update(self._label("provider_error_action"))
+            actions = [
+                (
+                    "provider-error-retry",
+                    self._label("provider_error_retry"),
+                    "primary",
+                )
+            ]
+            if "Continue without failed providers" in provider_error_options:
+                actions.append(
+                    (
+                        "provider-error-continue",
+                        self._label("provider_error_continue"),
+                        "default",
+                    )
+                )
+            actions.append(
+                (
+                    "provider-error-stop",
+                    self._label("provider_error_stop"),
+                    "error",
+                )
+            )
+            for action, label, variant in actions:
+                button_id = f"central-action-{render_version}-{action}"
+                self._button_actions[button_id] = action
+                container.mount(
+                    Button(
+                        label,
+                        id=button_id,
+                        variant=variant,
+                        tooltip=self._label(f"{action}_tooltip"),
+                    )
+                )
+            return
         if self._should_show_repair_actions(snapshot):
             title.update(self._label("repair_action"))
             for action, label, variant in (
@@ -498,6 +535,13 @@ class CentralAgentView(VerticalScroll):
             for package in snapshot.work_package_details
         )
 
+    @staticmethod
+    def _provider_error_gate_options(snapshot: WorkflowNexusSnapshot) -> set[str]:
+        for question in snapshot.questions:
+            if question.id == "q-provider-error-retry" and not question.answer:
+                return set(question.options)
+        return set()
+
     def _label(self, key: str) -> str:
         ko = {
             "awaiting_answers": "사용자 답변 대기",
@@ -520,6 +564,10 @@ class CentralAgentView(VerticalScroll):
             "no_follow_up_items": "최종 리뷰에서 추가 작업 항목이 추출되지 않았습니다.",
             "planning_no_workspace": "기획은 작업 폴더 없이 진행할 수 있습니다. 실행 시 작업 폴더를 선택합니다.",
             "post_review_ready": "최종 리뷰 이후 보강 선택 대기",
+            "provider_error_action": "프로바이더 오류 결정",
+            "provider_error_retry": "실패 재시도",
+            "provider_error_continue": "제외하고 계속",
+            "provider_error_stop": "중단",
             "progress": "진행",
             "ready": "준비됨",
             "reviewing": "리뷰 중",
@@ -544,6 +592,9 @@ class CentralAgentView(VerticalScroll):
             "repair-mark-done_tooltip": "막힌 리뷰 수리를 사용자가 수용하고 WP를 완료 처리합니다.",
             "repair-open-review_tooltip": "현재 리뷰 수리 차단 상세를 봅니다.",
             "repair-stop_tooltip": "현재 워크플로우를 중단합니다.",
+            "provider-error-retry_tooltip": "오류가 난 프로바이더 응답만 다시 요청합니다.",
+            "provider-error-continue_tooltip": "오류 응답을 제외하고 현재 중앙 집계를 적용합니다.",
+            "provider-error-stop_tooltip": "프로바이더 오류 이후 워크플로우를 중단합니다.",
         }
         en = {
             "awaiting_answers": "Waiting for your answer",
@@ -566,6 +617,10 @@ class CentralAgentView(VerticalScroll):
             "no_follow_up_items": "No action items were extracted from the final review.",
             "planning_no_workspace": "Planning does not require a workspace. Execute will ask for one.",
             "post_review_ready": "Post-review follow-up ready",
+            "provider_error_action": "Provider error decision",
+            "provider_error_retry": "Retry failed",
+            "provider_error_continue": "Continue without",
+            "provider_error_stop": "Stop",
             "progress": "Progress",
             "ready": "ready",
             "reviewing": "Reviewing",
@@ -590,6 +645,9 @@ class CentralAgentView(VerticalScroll):
             "repair-mark-done_tooltip": "Accept the blocked repair and mark the WP done.",
             "repair-open-review_tooltip": "Show the current review repair details.",
             "repair-stop_tooltip": "Stop the current workflow.",
+            "provider-error-retry_tooltip": "Retry only providers that returned errors.",
+            "provider-error-continue_tooltip": "Apply the current synthesis without failed providers.",
+            "provider-error-stop_tooltip": "Stop the workflow after provider errors.",
         }
         labels = ko if self.lang == "ko" else en
         return labels.get(key, key)

@@ -1,0 +1,110 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Trinity 사용자 워크플로우</title>
+  <desc id="desc">사용자가 목표를 입력하면 Trinity가 작업공간 선택, 설계, 병렬 실행, 리뷰, 재시도를 거쳐 결과를 완성하는 흐름</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#07111F"/>
+      <stop offset="0.44" stop-color="#101827"/>
+      <stop offset="1" stop-color="#052E2B"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="128" y1="92" x2="662" y2="214" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#60A5FA"/>
+      <stop offset="0.48" stop-color="#34D399"/>
+      <stop offset="1" stop-color="#FBBF24"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="96" y1="265" x2="1504" y2="786" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#102A2C"/>
+    </linearGradient>
+    <linearGradient id="accentA" x1="132" y1="320" x2="356" y2="522" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#22C55E"/>
+    </linearGradient>
+    <linearGradient id="accentB" x1="466" y1="320" x2="690" y2="522" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F59E0B"/>
+      <stop offset="1" stop-color="#FB7185"/>
+    </linearGradient>
+    <linearGradient id="accentC" x1="800" y1="320" x2="1024" y2="522" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A78BFA"/>
+      <stop offset="1" stop-color="#38BDF8"/>
+    </linearGradient>
+    <linearGradient id="accentD" x1="1134" y1="320" x2="1358" y2="522" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34D399"/>
+      <stop offset="1" stop-color="#FBBF24"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-25%" width="140%" height="160%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="20" stdDeviation="24" flood-color="#020617" flood-opacity="0.34"/>
+    </filter>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 14 7 L 0 14 z" fill="#8BE3CF"/>
+    </marker>
+    <style>
+      .font { font-family: Pretendard, "Noto Sans KR", "Segoe UI", Arial, sans-serif; }
+      .mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+      .small { font-size: 24px; }
+      .body { font-size: 28px; }
+      .title { font-size: 38px; font-weight: 850; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <path d="M94 704 C234 790 394 802 560 742 C715 686 879 692 1034 752 C1210 820 1371 772 1506 682" stroke="#2DD4BF" stroke-opacity="0.12" stroke-width="74" stroke-linecap="round"/>
+  <path d="M124 162 C362 88 645 106 814 174 C996 247 1198 238 1484 134" stroke="#60A5FA" stroke-opacity="0.13" stroke-width="50" stroke-linecap="round"/>
+
+  <text x="120" y="118" class="font" fill="#D8F3FF" font-size="34" font-weight="800">Trinity v1.0</text>
+  <text x="120" y="188" class="font" fill="url(#brand)" font-size="76" font-weight="900">목표 하나로 세 에이전트를 움직입니다</text>
+  <text x="124" y="238" class="font" fill="#B6C8D8" font-size="27">사용자는 방향을 정하고, Trinity는 설계 · 구현 · 리뷰 · 재시도 흐름을 하나의 작업대로 묶습니다.</text>
+
+  <rect x="96" y="284" width="1408" height="536" rx="34" fill="url(#panel)" stroke="#28485A"/>
+
+  <g filter="url(#shadow)">
+    <rect x="132" y="330" width="258" height="286" rx="24" fill="#0B1220" stroke="#1F3A52"/>
+    <rect x="158" y="356" width="74" height="74" rx="22" fill="url(#accentA)"/>
+    <text x="195" y="405" text-anchor="middle" class="font" fill="#FFFFFF" font-size="32" font-weight="900">1</text>
+    <text x="158" y="475" class="font title" fill="#F8FAFC">목표 입력</text>
+    <text x="158" y="524" class="font small" fill="#BFD0DE">만들고 싶은 기능,</text>
+    <text x="158" y="558" class="font small" fill="#BFD0DE">고치고 싶은 문제,</text>
+    <text x="158" y="592" class="font small" fill="#BFD0DE">원하는 결과만 적습니다.</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="466" y="330" width="258" height="286" rx="24" fill="#0B1220" stroke="#1F3A52"/>
+    <rect x="492" y="356" width="74" height="74" rx="22" fill="url(#accentB)"/>
+    <text x="529" y="405" text-anchor="middle" class="font" fill="#FFFFFF" font-size="32" font-weight="900">2</text>
+    <text x="492" y="475" class="font title" fill="#F8FAFC">작업공간 선택</text>
+    <text x="492" y="524" class="font small" fill="#BFD0DE">실행할 폴더를 고르고</text>
+    <text x="492" y="558" class="font small" fill="#BFD0DE">권한, git 상태, 패키지를</text>
+    <text x="492" y="592" class="font small" fill="#BFD0DE">실행 전에 확인합니다.</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="800" y="330" width="258" height="286" rx="24" fill="#0B1220" stroke="#1F3A52"/>
+    <rect x="826" y="356" width="74" height="74" rx="22" fill="url(#accentC)"/>
+    <text x="863" y="405" text-anchor="middle" class="font" fill="#FFFFFF" font-size="32" font-weight="900">3</text>
+    <text x="826" y="475" class="font title" fill="#F8FAFC">병렬 실행</text>
+    <text x="826" y="524" class="font small" fill="#BFD0DE">Claude, Codex, Agy가</text>
+    <text x="826" y="558" class="font small" fill="#BFD0DE">역할별로 나뉘어</text>
+    <text x="826" y="592" class="font small" fill="#BFD0DE">work package를 처리합니다.</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="1134" y="330" width="258" height="286" rx="24" fill="#0B1220" stroke="#1F3A52"/>
+    <rect x="1160" y="356" width="74" height="74" rx="22" fill="url(#accentD)"/>
+    <text x="1197" y="405" text-anchor="middle" class="font" fill="#FFFFFF" font-size="32" font-weight="900">4</text>
+    <text x="1160" y="475" class="font title" fill="#F8FAFC">리뷰와 재시도</text>
+    <text x="1160" y="524" class="font small" fill="#BFD0DE">실패, 충돌, 애매한 결과는</text>
+    <text x="1160" y="558" class="font small" fill="#BFD0DE">바로 집계하지 않고</text>
+    <text x="1160" y="592" class="font small" fill="#BFD0DE">사용자 선택을 기다립니다.</text>
+  </g>
+
+  <path d="M394 473 H444" stroke="#8BE3CF" stroke-width="5" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <path d="M728 473 H778" stroke="#8BE3CF" stroke-width="5" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <path d="M1062 473 H1112" stroke="#8BE3CF" stroke-width="5" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="206" y="672" width="1188" height="96" rx="26" fill="#07111F" stroke="#2DD4BF" stroke-opacity="0.52"/>
+    <text x="256" y="729" class="font" fill="#D8FFF4" font-size="31" font-weight="820">결과</text>
+    <text x="352" y="729" class="font" fill="#E5F6FF" font-size="29">작업 요약, 변경 파일, 테스트 결과, 다음 액션이 한 화면에 모입니다.</text>
+    <text x="1328" y="730" text-anchor="end" class="mono" fill="#7DD3FC" font-size="25" font-weight="700">trinity</text>
+  </g>
+</svg>

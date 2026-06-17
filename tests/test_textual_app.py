@@ -1078,6 +1078,75 @@ async def test_start_screen_submission_moves_to_nexus(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_start_screen_defaults_target_workspace_to_launch_cwd(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    control_repo = tmp_path / "control"
+    launch_cwd = tmp_path / "target-app"
+    control_repo.mkdir()
+    launch_cwd.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        controller,
+        launch_cwd=launch_cwd,
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+        assert app.workspace_candidate == launch_cwd.resolve()
+        assert str(launch_cwd.resolve()) in str(
+            screen.query_one("#workspace-candidate").content
+        )
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("현재 폴더에서 작업해줘")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.target_workspace == launch_cwd.resolve()
+        assert app.confirmed_preflight is not None
+        assert app.confirmed_preflight.path == launch_cwd.resolve()
+
+        app.action_go_execution()
+        await pilot.pause()
+
+        execution = app.screen
+        assert isinstance(execution, ExecutionMatrixScreen)
+        assert str(launch_cwd.resolve()) in str(
+            execution.query_one("#execution-header").content
+        )
+
+
+@pytest.mark.asyncio
+async def test_start_screen_launch_cwd_inside_control_repo_stays_unconfirmed(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    control_repo = tmp_path / "control"
+    control_repo.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        controller,
+        launch_cwd=control_repo,
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+        assert str(control_repo.resolve()) in str(
+            screen.query_one("#workspace-candidate").content
+        )
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("컨트롤 repo 내부 기본값은 확인 전까지 저장하지 마")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.target_workspace is None
+        assert app.confirmed_preflight is None
+
+
+@pytest.mark.asyncio
 async def test_start_submission_passes_selected_agents_and_models(tmp_path) -> None:
     controller = FakeWorkflowController()
     config = TrinityConfig.default_config(project_dir=tmp_path)
@@ -1162,6 +1231,7 @@ async def test_start_composer_enter_key_submits_prompt(tmp_path) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),
         FakeWorkflowController(),
+        launch_cwd=tmp_path,
     )
 
     async with app.run_test(size=(100, 30)) as pilot:
@@ -1229,7 +1299,11 @@ async def test_start_slash_status_does_not_start_workflow(tmp_path) -> None:
 @pytest.mark.asyncio
 async def test_start_unknown_slash_does_not_start_workflow(tmp_path) -> None:
     controller = FakeWorkflowController()
-    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        controller,
+        launch_cwd=tmp_path,
+    )
 
     async with app.run_test(size=(100, 30)) as pilot:
         screen = app.screen
@@ -3731,6 +3805,7 @@ async def test_start_choose_now_opens_workspace_picker(tmp_path) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),
         FakeWorkflowController(),
+        launch_cwd=tmp_path,
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
@@ -3745,6 +3820,7 @@ async def test_start_choose_now_updates_workspace_candidate(tmp_path) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),
         FakeWorkflowController(),
+        launch_cwd=tmp_path,
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
@@ -3811,7 +3887,11 @@ async def test_nexus_question_answer_handles_non_ascii_question_id(tmp_path) -> 
 @pytest.mark.asyncio
 async def test_workspace_picker_opens_from_nexus_execute(tmp_path) -> None:
     controller = FakeWorkflowController()
-    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        controller,
+        launch_cwd=tmp_path,
+    )
 
     async with app.run_test(size=(140, 44)) as pilot:
         app.switch_to("nexus")

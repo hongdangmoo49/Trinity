@@ -21,7 +21,7 @@ LEGACY_GEMINI_CLI = "gemini-cli"
 PROVIDER_BINARIES: dict[Provider | str, list[str]] = {
     Provider.CLAUDE_CODE: ["claude"],
     Provider.CODEX: ["codex"],
-    Provider.ANTIGRAVITY_CLI: ["agy", "antigravity"],
+    Provider.ANTIGRAVITY_CLI: ["agy"],
     LEGACY_GEMINI_CLI: ["gemini"],
 }
 
@@ -87,6 +87,14 @@ PROVIDER_WARNINGS: dict[Provider | str, str] = {
         "Deprecated: migrate Gemini CLI plugins/settings with `agy plugin import gemini`."
     ),
 }
+
+
+def provider_default_cli_command(provider: Provider | str) -> str:
+    """Return the canonical CLI command Trinity should store for a provider."""
+    binaries = PROVIDER_BINARIES.get(provider, [])
+    if binaries:
+        return binaries[0]
+    return str(provider)
 
 
 def get_provider_role(provider: Provider, lang: str = "en") -> str:

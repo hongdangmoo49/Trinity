@@ -192,7 +192,11 @@ class TrinityConfig:
             agents[name] = AgentSpec(
                 name=name,
                 provider=provider,
-                cli_command=agent_data.get("cli_command", name),
+                cli_command=cls._normalize_agent_cli_command(
+                    provider,
+                    agent_data.get("cli_command"),
+                    name,
+                ),
                 model=agent_data.get("model", "default"),
                 role_prompt=agent_data.get("role_prompt", ""),
                 role_file=(
@@ -533,6 +537,21 @@ class TrinityConfig:
 
         normalized["agents"] = normalized_agents
         return normalized
+
+    @staticmethod
+    def _normalize_agent_cli_command(
+        provider: Provider,
+        command: object,
+        fallback: str,
+    ) -> str:
+        raw = str(command or "").strip()
+        if provider == Provider.ANTIGRAVITY_CLI:
+            if not raw:
+                return "agy"
+            binary_name = raw.replace("\\", "/").rsplit("/", 1)[-1].lower()
+            if binary_name in {"antigravity", "antigravity.cmd", "antigravity.exe"}:
+                return "agy"
+        return raw or fallback
 
     @staticmethod
     def _as_antigravity_agent(

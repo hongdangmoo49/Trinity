@@ -347,6 +347,7 @@ class TestSetupWizard:
         assert "antigravity" in missing
         assert "gemini" not in missing
         assert "claude" not in missing
+        assert missing["antigravity"].cli_command == "agy"
 
         # All missing should be disabled
         for spec in missing.values():

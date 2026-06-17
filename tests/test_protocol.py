@@ -305,6 +305,13 @@ class TestCollectOpinions:
         assert result.consensus.agreement_count == 1
         assert result.consensus.total_agents == 1
         assert result.consensus.opinions == {"claude": "I agree with the plan."}
+        failures = result.metadata["provider_failures"]
+        assert len(failures) == 1
+        assert failures[0]["agent"] == "antigravity"
+        assert failures[0]["status"] == "auth_required"
+        assert failures[0]["classification"] == "auth_wait"
+        assert failures[0]["retryable"] is True
+        assert failures[0]["reasons"]
 
         assert engine.read_section("Round 1 Opinions") is None
         round_responses = engine.read_section("Round 1 Responses")

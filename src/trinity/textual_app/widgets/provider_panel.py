@@ -24,6 +24,7 @@ class ProviderPanelState:
     status: str
     summary: str = ""
     details: str = ""
+    response_status: str = ""
     configured_model: str = ""
     actual_model: str = ""
     model_label: str = ""
@@ -174,4 +175,7 @@ class ProviderPanel(Vertical):
     def _state_group(state: ProviderPanelState) -> str:
         if not state.enabled:
             return "off"
+        response_status = state.response_status.strip().lower()
+        if response_status and response_status != "ok":
+            return "issue"
         return compact_status_group(state.status)

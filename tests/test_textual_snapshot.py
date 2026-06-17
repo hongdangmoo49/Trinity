@@ -45,6 +45,62 @@ def test_snapshot_loads_provider_defaults_without_workflow(tmp_path) -> None:
     assert "architecture" in snapshot.providers[0].profile_strengths[0]
 
 
+def test_snapshot_marks_non_ok_provider_response_event_as_error(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot(
+        [
+            TUIEvent(
+                type=TUIEventType.AGENT_RESPONDED,
+                data={
+                    "agent": "claude",
+                    "content": "[Error: exit code 1]",
+                    "response_status": "auth_required",
+                },
+            )
+        ]
+    )
+
+    claude = next(provider for provider in snapshot.providers if provider.name == "claude")
+    assert claude.status == "Error"
+    assert claude.response_status == "auth_required"
+    assert claude.summary == "[Error: exit code 1]"
+
+
+def test_snapshot_marks_non_ok_persisted_response_artifact_as_error(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-provider-error",
+            goal="Build UI",
+            state=WorkflowState.BLUEPRINT_READY,
+            active_agents=["claude"],
+            current_round=1,
+        )
+    )
+    clean_path = config.effective_state_dir / "responses" / "round-01" / "claude-r1.clean.txt"
+    raw_path = config.effective_state_dir / "responses" / "round-01" / "claude-r1.raw.txt"
+    clean_path.parent.mkdir(parents=True, exist_ok=True)
+    clean_path.write_text("[Error: exit code 1]", encoding="utf-8")
+    raw_path.write_text("provider stderr", encoding="utf-8")
+    SharedContextEngine(config.shared_context_path).append_response_reference(
+        agent="claude",
+        round_num=1,
+        request_id="r1",
+        status="invalid",
+        clean_output_path=clean_path,
+        raw_output_path=raw_path,
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    claude = next(provider for provider in snapshot.providers if provider.name == "claude")
+    assert claude.status == "Error"
+    assert claude.response_status == "invalid"
+    assert claude.summary == "[Error: exit code 1]"
+
+
 def test_snapshot_does_not_project_stale_agreed_conclusion_without_workflow(
     tmp_path,
 ) -> None:
@@ -1245,6 +1301,43 @@ def test_snapshot_projects_execution_recovery_and_executor_details(tmp_path) -> 
     ]
     assert snapshot.work_package_details[1].retryable is False
     assert snapshot.work_package_details[1].retry_disabled_reason == "already done"
+
+
+def test_snapshot_projects_failed_execution_recovery(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    target = tmp_path / "game"
+    persistence.save(
+        WorkflowSession(
+            id="wf-failed-execution",
+            goal="Build game",
+            state=WorkflowState.FAILED,
+            active_agents=["claude"],
+            target_workspace=target,
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="client",
+                    owner_agent="claude",
+                    objective="Build client.",
+                    status=WorkStatus.FAILED,
+                    last_executor="claude",
+                )
+            ],
+            execution_run={
+                "run_id": "exec-run-failed",
+                "state": "failed",
+                "outcome": "failed",
+                "target_workspace": str(target),
+            },
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert snapshot.execution_recovery is not None
+    assert snapshot.execution_recovery.state == "failed"
+    assert snapshot.execution_recovery.retry_candidates == ("WP-001",)
 
 
 def test_snapshot_projects_review_repair_blocked_state(tmp_path) -> None:

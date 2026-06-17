@@ -167,6 +167,7 @@ class OpenQuestion:
     raised_by: list[str] = field(default_factory=list)
     rationale: str = ""
     status: str = "open"
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -178,6 +179,7 @@ class OpenQuestion:
             "raised_by": list(self.raised_by),
             "rationale": self.rationale,
             "status": self.status,
+            "metadata": dict(self.metadata),
         }
 
     @classmethod
@@ -195,6 +197,11 @@ class OpenQuestion:
             raised_by=[str(item) for item in data.get("raised_by", [])],
             rationale=str(data.get("rationale", "")),
             status=str(data.get("status", "open")),
+            metadata=(
+                dict(data.get("metadata", {}))
+                if isinstance(data.get("metadata", {}), dict)
+                else {}
+            ),
         )
 
 
@@ -680,6 +687,7 @@ class WorkflowSession:
     supplemental_round: int = 0
     decisions: list[DecisionRecord] = field(default_factory=list)
     execution_run: dict[str, Any] = field(default_factory=dict)
+    provider_error_gate: dict[str, Any] = field(default_factory=dict)
     provider_sessions: dict[str, ProviderSessionRef] = field(default_factory=dict)
     runtime_models: dict[str, AgentRuntimeModel] = field(default_factory=dict)
     resource_projections: dict[str, AgentResourceProjection] = field(default_factory=dict)
@@ -715,6 +723,7 @@ class WorkflowSession:
             "supplemental_round": self.supplemental_round,
             "decisions": [decision.to_dict() for decision in self.decisions],
             "execution_run": dict(self.execution_run),
+            "provider_error_gate": dict(self.provider_error_gate),
             "provider_sessions": {
                 key: value.to_dict()
                 for key, value in self.provider_sessions.items()
@@ -804,6 +813,11 @@ class WorkflowSession:
             execution_run=(
                 dict(data.get("execution_run", {}))
                 if isinstance(data.get("execution_run"), dict)
+                else {}
+            ),
+            provider_error_gate=(
+                dict(data.get("provider_error_gate", {}))
+                if isinstance(data.get("provider_error_gate"), dict)
                 else {}
             ),
             provider_sessions={

@@ -22,6 +22,12 @@ from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel, ProviderPanelState
 from trinity.textual_app.widgets.question_panel import QuestionAnswer, QuestionPanel
+from trinity.workflow.engine import (
+    PROVIDER_ERROR_CONTINUE_OPTION,
+    PROVIDER_ERROR_GATE_QUESTION_ID,
+    PROVIDER_ERROR_RETRY_OPTION,
+    PROVIDER_ERROR_STOP_OPTION,
+)
 
 
 class NexusScreen(Screen[None]):
@@ -202,6 +208,7 @@ class NexusScreen(Screen[None]):
                     enabled=provider.enabled,
                     status=provider.status,
                     summary=provider.summary,
+                    response_status=provider.response_status,
                     configured_model=provider.configured_model,
                     actual_model=provider.actual_model,
                     model_label=provider.model_label,
@@ -229,6 +236,15 @@ class NexusScreen(Screen[None]):
         event.stop()
         if event.action.startswith("repair-"):
             self.post_message(self.RepairActionRequested(event.action, self.snapshot))
+            return
+        if event.action.startswith("provider-error-"):
+            answer = self._provider_error_action_answer(event.action)
+            if answer:
+                self.post_message(
+                    self.QuestionAnswered(
+                        QuestionAnswer(PROVIDER_ERROR_GATE_QUESTION_ID, answer)
+                    )
+                )
             return
         if event.action == "execute":
             self.post_message(self.ExecuteRequested(self.snapshot))
@@ -330,6 +346,15 @@ class NexusScreen(Screen[None]):
         if self.config.lang == "ko":
             return prompts_ko.get(action, prompts_ko["refine-features"])
         return prompts_en.get(action, prompts_en["refine-features"])
+
+    @staticmethod
+    def _provider_error_action_answer(action: str) -> str:
+        answers = {
+            "provider-error-retry": PROVIDER_ERROR_RETRY_OPTION,
+            "provider-error-continue": PROVIDER_ERROR_CONTINUE_OPTION,
+            "provider-error-stop": PROVIDER_ERROR_STOP_OPTION,
+        }
+        return answers.get(action, "")
 
     def advance_activity_frame(self) -> None:
         """Advance running indicators for provider and central-agent surfaces."""

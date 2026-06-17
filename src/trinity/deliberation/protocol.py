@@ -167,6 +167,7 @@ class DeliberationProtocol:
         provider_sessions: dict[str, dict[str, object]] = {}
         runtime_models: dict[str, dict[str, object]] = {}
         resource_projections: dict[str, dict[str, object]] = {}
+        provider_failures: list[dict[str, object]] = []
 
         self._emit(TUIEventType.DELIBERATION_STARTED, prompt=user_prompt)
 
@@ -224,6 +225,10 @@ class DeliberationProtocol:
                 for name, msg in opinions.items()
                 if not self._is_unusable_agent_response(msg)
             }
+            invalid_response_diagnostics = self._invalid_response_diagnostics(opinions)
+            provider_failures = self._provider_failures_from_diagnostics(
+                invalid_response_diagnostics
+            )
             self._emit(TUIEventType.DELIBERATION_PHASE, phase="synthesis", round_num=round_num)
             synthesis_result = await self.synthesis_agent.synthesize(
                 SynthesisInput(
@@ -236,9 +241,8 @@ class DeliberationProtocol:
                         else ""
                     ),
                     metadata={
-                        "invalid_response_diagnostics": (
-                            self._invalid_response_diagnostics(opinions)
-                        ),
+                        "invalid_response_diagnostics": invalid_response_diagnostics,
+                        "provider_failures": provider_failures,
                     },
                 )
             )
@@ -396,6 +400,7 @@ class DeliberationProtocol:
                 "provider_sessions": provider_sessions,
                 "runtime_models": runtime_models,
                 "resource_projections": resource_projections,
+                "provider_failures": provider_failures,
             },
         )
 
@@ -761,6 +766,35 @@ class DeliberationProtocol:
                 }
             )
         return diagnostics
+
+    @staticmethod
+    def _provider_failures_from_diagnostics(
+        diagnostics: list[dict[str, object]],
+    ) -> list[dict[str, object]]:
+        retryable_statuses = {
+            ResponseStatus.AUTH_REQUIRED.value,
+            ResponseStatus.MODEL_LOADING.value,
+            ResponseStatus.TIMEOUT.value,
+            ResponseStatus.EMPTY.value,
+            ResponseStatus.PROCESS_DEAD.value,
+            ResponseStatus.INVALID.value,
+        }
+        failures: list[dict[str, object]] = []
+        for item in diagnostics:
+            status = str(item.get("status", "") or "")
+            classification = str(item.get("classification", "") or status)
+            failures.append(
+                {
+                    "agent": str(item.get("agent", "") or ""),
+                    "status": status,
+                    "classification": classification,
+                    "reasons": list(item.get("reasons", []))
+                    if isinstance(item.get("reasons", []), list)
+                    else [],
+                    "retryable": status in retryable_statuses,
+                }
+            )
+        return failures
 
     def _append_response_reference(
         self,

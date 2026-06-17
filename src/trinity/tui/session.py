@@ -182,7 +182,10 @@ class InteractiveSession:
         self.workflow_persistence = WorkflowPersistence(config.effective_state_dir)
         self._startup_archive = self.workflow_persistence.archive_active_session()
         self._question_wizard_active = False
-        self.workflow = WorkflowEngine(config.effective_state_dir)
+        self.workflow = WorkflowEngine(
+            config.effective_state_dir,
+            agent_specs=config.agents,
+        )
         self.tui.set_workflow_session(self.workflow.session)
 
     def run(self) -> None:
@@ -1007,7 +1010,10 @@ class InteractiveSession:
 
         archived_current = self.workflow_persistence.archive_active_session()
         self.workflow_persistence.restore_archive(archive)
-        self.workflow = WorkflowEngine(self.config.effective_state_dir)
+        self.workflow = WorkflowEngine(
+            self.config.effective_state_dir,
+            agent_specs=self.config.agents,
+        )
         self.tui.set_workflow_session(self.workflow.session)
 
         if archived_current:
@@ -1495,7 +1501,10 @@ class InteractiveSession:
     def _archive_current_workflow_for_new_goal(self) -> None:
         """Archive the current workflow before intentionally starting a new goal."""
         archived = self.workflow_persistence.archive_active_session(force=True)
-        self.workflow = WorkflowEngine(self.config.effective_state_dir)
+        self.workflow = WorkflowEngine(
+            self.config.effective_state_dir,
+            agent_specs=self.config.agents,
+        )
         self.tui.set_workflow_session(self.workflow.session)
         if archived:
             self.console.print(f"[dim]Current workflow saved as {archived.session.id}.[/dim]")

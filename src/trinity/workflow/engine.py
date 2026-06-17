@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable
 from uuid import uuid4
 
-from trinity.models import DeliberationResult
+from trinity.models import AgentSpec, DeliberationResult
 from trinity.providers.policy import (
     ExecutionAuthority,
     ExecutionScope,
@@ -97,6 +97,7 @@ class WorkflowEngine:
         state_file: Path | None = None,
         events_file: Path | None = None,
         decomposer: BlueprintDecomposer | None = None,
+        agent_specs: dict[str, AgentSpec] | None = None,
     ):
         self.state_dir = state_dir
         workflow_dir = state_dir / "workflow"
@@ -108,6 +109,7 @@ class WorkflowEngine:
         self.state_file = self.persistence.session_path
         self.events_file = self.persistence.events_path
         self.decomposer = decomposer or BlueprintDecomposer()
+        self.agent_specs = dict(agent_specs or {})
         self.session = self._load_or_create()
 
     @property
@@ -129,6 +131,16 @@ class WorkflowEngine:
     @property
     def execution_results(self) -> list[ExecutionResult]:
         return list(self.session.execution_results)
+
+    def _decomposition_agents(self) -> list[str] | dict[str, AgentSpec]:
+        if not self.agent_specs:
+            return list(self.session.active_agents)
+        active = set(self.session.active_agents)
+        return {
+            name: spec
+            for name, spec in self.agent_specs.items()
+            if name in active
+        }
 
     @property
     def target_workspace(self) -> Path | None:
@@ -543,7 +555,7 @@ class WorkflowEngine:
 
         self.session.work_packages = self.decomposer.decompose(
             self.session.blueprint,
-            self.session.active_agents,
+            self._decomposition_agents(),
             requires_execution=True,
         )
         self.session.execution_results = []
@@ -693,7 +705,7 @@ class WorkflowEngine:
                 self.session.blueprint = Blueprint.from_dict(blueprint)
                 self.session.work_packages = self.decomposer.decompose(
                     self.session.blueprint,
-                    self.session.active_agents,
+                    self._decomposition_agents(),
                     requires_execution=self._requires_execution(result),
                 )
                 self.session.execution_results = []

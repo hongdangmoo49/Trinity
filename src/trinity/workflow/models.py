@@ -385,6 +385,10 @@ class WorkPackage:
     origin_action_item_ids: list[str] = field(default_factory=list)
     parent_package_ids: list[str] = field(default_factory=list)
     supplemental_round: int = 0
+    task_kind: str = ""
+    routing_reason: str = ""
+    routing_score: float = 0.0
+    profile_revision: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -415,6 +419,10 @@ class WorkPackage:
             "origin_action_item_ids": list(self.origin_action_item_ids),
             "parent_package_ids": list(self.parent_package_ids),
             "supplemental_round": self.supplemental_round,
+            "task_kind": self.task_kind,
+            "routing_reason": self.routing_reason,
+            "routing_score": self.routing_score,
+            "profile_revision": self.profile_revision,
         }
 
     @classmethod
@@ -452,6 +460,10 @@ class WorkPackage:
             ],
             parent_package_ids=[str(item) for item in data.get("parent_package_ids", [])],
             supplemental_round=int(data.get("supplemental_round", 0) or 0),
+            task_kind=str(data.get("task_kind", "") or ""),
+            routing_reason=str(data.get("routing_reason", "") or ""),
+            routing_score=float(data.get("routing_score", 0.0) or 0.0),
+            profile_revision=str(data.get("profile_revision", "") or ""),
         )
 
 

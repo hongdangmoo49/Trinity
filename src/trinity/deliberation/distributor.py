@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from trinity.models import AgentSpec, TaskAssignment, TaskIntent
+from trinity.routing.profile_router import ProfileRouter
 
 logger = logging.getLogger(__name__)
 
@@ -15,37 +16,6 @@ class TaskDistributor:
     Phase 1: simple keyword-based matching.
     Phase 4+: LLM-based task decomposition.
     """
-
-    # Default agent strength mapping
-    DEFAULT_STRENGTHS: dict[str, list[str]] = {
-        "claude": [
-            "architecture",
-            "design",
-            "code review",
-            "complex logic",
-            "planning",
-            "specification",
-            "documentation",
-        ],
-        "codex": [
-            "implementation",
-            "coding",
-            "prototyping",
-            "refactoring",
-            "bulk code",
-            "fixing",
-            "testing",
-        ],
-        "antigravity": [
-            "testing",
-            "research",
-            "alternative exploration",
-            "documentation",
-            "review",
-            "quality assurance",
-            "edge cases",
-        ],
-    }
 
     DESIGN_ONLY_MARKERS = (
         "design only",
@@ -104,8 +74,13 @@ class TaskDistributor:
         "write code",
     )
 
-    def __init__(self, agent_strengths: dict[str, list[str]] | None = None):
-        self.strengths = agent_strengths or self.DEFAULT_STRENGTHS
+    def __init__(
+        self,
+        agent_strengths: dict[str, list[str]] | None = None,
+        router: ProfileRouter | None = None,
+    ):
+        self.legacy_strengths = agent_strengths or {}
+        self.router = router or ProfileRouter()
 
     def distribute(
         self,
@@ -127,10 +102,18 @@ class TaskDistributor:
         assignments: list[TaskAssignment] = []
         consensus_lower = consensus_text.lower()
         intent = self._classify_intent(consensus_text)
+        turn_mode = "execute" if intent == TaskIntent.EXECUTION else "plan"
+        classified = self.router.classify_text(
+            consensus_text,
+            turn_mode=turn_mode,
+            requires_write=intent == TaskIntent.EXECUTION,
+            fallback_kind="implementation" if intent == TaskIntent.EXECUTION else "planning",
+        )
 
         for name, spec in agents.items():
-            strengths = self.strengths.get(name, ["general"])
+            strengths = self._strength_names(name, spec)
             matched_strengths = [s for s in strengths if s in consensus_lower]
+            decision = self.router.score_agent(name, spec, classified)
 
             task = self._generate_task(
                 name,
@@ -138,7 +121,9 @@ class TaskDistributor:
                 consensus_text,
                 matched_strengths,
                 intent,
+                decision.reason,
             )
+            task.priority = max(len(matched_strengths), int(decision.score // 25))
             assignments.append(task)
 
             logger.info(
@@ -171,6 +156,7 @@ class TaskDistributor:
         consensus: str,
         matched_strengths: list[str],
         intent: TaskIntent,
+        routing_reason: str,
     ) -> TaskAssignment:
         """Generate a task description for a specific agent."""
         role = spec.role_prompt or agent_name
@@ -189,18 +175,19 @@ class TaskDistributor:
             task_desc = (
                 f"[{agent_name}] Plan item (design only): {focus}; "
                 f"produce analysis or specification only. Do not edit files. "
-                f"Reference: {reference}"
+                f"Routing: {routing_reason}. Reference: {reference}"
             )
         elif intent == TaskIntent.EXECUTION:
             task_desc = (
                 f"[{agent_name}] Plan item (execution): {focus}; "
                 f"prepare actionable implementation or test work from the agreed conclusion. "
-                f"Reference: {reference}"
+                f"Routing: {routing_reason}. Reference: {reference}"
             )
         else:
             task_desc = (
                 f"[{agent_name}] Plan item: {focus}; "
-                f"clarify next steps from the agreed conclusion. Reference: {reference}"
+                f"clarify next steps from the agreed conclusion. "
+                f"Routing: {routing_reason}. Reference: {reference}"
             )
 
         return TaskAssignment(
@@ -210,3 +197,10 @@ class TaskDistributor:
             intent=intent,
             requires_execution=intent == TaskIntent.EXECUTION,
         )
+
+    def _strength_names(self, agent_name: str, spec: AgentSpec) -> list[str]:
+        if agent_name in self.legacy_strengths:
+            return list(self.legacy_strengths[agent_name])
+        names = list(spec.profile.strengths)
+        names.extend(spec.profile.preferred_task_kinds)
+        return sorted(set(names))

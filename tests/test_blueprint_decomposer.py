@@ -1,5 +1,6 @@
 """Tests for blueprint decomposition into work packages."""
 
+from trinity.models import AgentProfile, AgentSpec, Provider
 from trinity.workflow import Blueprint, BlueprintDecomposer, WorkPackage, WorkStatus
 from trinity.workflow.structured import ArchitectureComponent, RiskItem
 
@@ -102,6 +103,53 @@ def test_decompose_accepts_blueprint_dict():
     assert {package.owner_agent for package in packages} == {"codex"}
 
 
+def test_decompose_uses_agent_profile_strength_for_owner_selection():
+    blueprint = Blueprint(
+        title="Documentation refresh",
+        summary="Refresh README and setup guide.",
+        architecture=[
+            ArchitectureComponent(
+                name="README guide",
+                responsibility="document setup and usage",
+            )
+        ],
+        acceptance_criteria=["README explains setup"],
+    )
+    agents = {
+        "claude": AgentSpec(
+            name="claude",
+            provider=Provider.CLAUDE_CODE,
+            cli_command="claude",
+            profile=AgentProfile(
+                mission="Implementation only",
+                strengths={"documentation": 0.1},
+                supported_turn_modes=["execute"],
+                routing_priority=20,
+            ),
+        ),
+        "codex": AgentSpec(
+            name="codex",
+            provider=Provider.CODEX,
+            cli_command="codex",
+            profile=AgentProfile(
+                mission="Documentation specialist",
+                strengths={"documentation": 1.0},
+                preferred_task_kinds=["documentation"],
+                supported_turn_modes=["execute"],
+                routing_priority=5,
+            ),
+        ),
+    }
+
+    packages = BlueprintDecomposer().decompose(blueprint, agents)
+
+    assert len(packages) == 1
+    assert packages[0].owner_agent == "codex"
+    assert packages[0].task_kind == "documentation"
+    assert packages[0].routing_score > 0
+    assert "documentation strength" in packages[0].routing_reason
+
+
 def test_decompose_component_dependencies_resolve_to_package_ids():
     blueprint = _blueprint()
     blueprint.architecture[1].dependencies = ["Route Scoring Model"]
@@ -114,6 +162,26 @@ def test_decompose_component_dependencies_resolve_to_package_ids():
     scoring = next(package for package in packages if package.title == "Route Scoring Model")
     adapter = next(package for package in packages if package.title == "Bridge Adapter Interface")
     assert adapter.dependencies == [scoring.id]
+
+
+def test_work_package_routing_metadata_round_trips():
+    package = WorkPackage(
+        id="WP-001",
+        title="Route scoring",
+        owner_agent="codex",
+        objective="Implement scoring.",
+        task_kind="implementation",
+        routing_reason="implementation strength 0.95",
+        routing_score=99.0,
+        profile_revision="default-v1",
+    )
+
+    loaded = WorkPackage.from_dict(package.to_dict())
+
+    assert loaded.task_kind == "implementation"
+    assert loaded.routing_reason == "implementation strength 0.95"
+    assert loaded.routing_score == 99.0
+    assert loaded.profile_revision == "default-v1"
 
 
 def test_decompose_filters_markdown_artifacts_and_scopes_expected_files():

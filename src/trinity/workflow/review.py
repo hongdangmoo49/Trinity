@@ -21,11 +21,32 @@ class ReviewStatus(str, Enum):
     FAILED = "failed"
 
 
+class ReviewDepth(str, Enum):
+    """Planned depth for work-package review."""
+
+    NONE = "none"
+    SELF_CHECK = "self_check"
+    SINGLE_PEER = "single_peer"
+    ESCALATED_PEER = "escalated_peer"
+
+
 FINAL_REVIEW_PACKAGE_ID = "FINAL"
 FINAL_REVIEW_FALLBACK_PRIORITY: tuple[str, ...] = (
     "codex",
     "claude",
     "antigravity",
+)
+PRIMARY_REVIEWER_PRIORITY: tuple[str, ...] = (
+    "antigravity",
+    "claude",
+    "codex",
+)
+ESCALATION_REVIEW_STATUSES: frozenset[ReviewStatus] = frozenset(
+    {
+        ReviewStatus.CHANGES_REQUESTED,
+        ReviewStatus.BLOCKED,
+        ReviewStatus.FAILED,
+    }
 )
 
 
@@ -42,12 +63,27 @@ class ReviewPackage:
     execution_status: WorkStatus | None = None
     scope: str = "work_package"
     attempt: int = 1
+    depth: ReviewDepth = ReviewDepth.SINGLE_PEER
+    required: bool = True
+    reason: str = ""
+    escalation_parent_id: str = ""
+    skipped_reason: str = ""
     created_at: float = field(default_factory=time.time)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.depth, ReviewDepth):
+            self.depth = ReviewDepth(str(self.depth))
+        if self.depth == ReviewDepth.NONE:
+            self.required = False
+        self.reason = str(self.reason or "")
+        self.escalation_parent_id = str(self.escalation_parent_id or "")
+        self.skipped_reason = str(self.skipped_reason or "")
         if not self.id:
-            self.id = f"RP-{self.package_id}-{self.reviewer_agent}"
-        self.self_review = self.reviewer_agent == self.target_agent
+            reviewer = self.reviewer_agent or "skipped"
+            self.id = f"RP-{self.package_id}-{reviewer}"
+        self.self_review = bool(
+            self.reviewer_agent and self.reviewer_agent == self.target_agent
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -62,22 +98,41 @@ class ReviewPackage:
             ),
             "scope": self.scope,
             "attempt": self.attempt,
+            "depth": self.depth.value,
+            "required": self.required,
+            "reason": self.reason,
+            "escalation_parent_id": self.escalation_parent_id,
+            "skipped_reason": self.skipped_reason,
             "created_at": self.created_at,
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ReviewPackage":
         status = data.get("execution_status")
+        reviewer_agent = str(data.get("reviewer_agent", ""))
+        target_agent = str(data.get("target_agent", ""))
+        depth = str(data.get("depth", "") or "")
+        if not depth:
+            depth = (
+                ReviewDepth.SELF_CHECK.value
+                if reviewer_agent and reviewer_agent == target_agent
+                else ReviewDepth.SINGLE_PEER.value
+            )
         return cls(
             id=str(data.get("id", "")),
             package_id=str(data.get("package_id", "")),
-            reviewer_agent=str(data.get("reviewer_agent", "")),
-            target_agent=str(data.get("target_agent", "")),
+            reviewer_agent=reviewer_agent,
+            target_agent=target_agent,
             criteria=[str(item) for item in data.get("criteria", [])],
             self_review=bool(data.get("self_review", False)),
             execution_status=WorkStatus(str(status)) if status else None,
             scope=str(data.get("scope", "work_package") or "work_package"),
             attempt=max(1, int(data.get("attempt", 1) or 1)),
+            depth=ReviewDepth(depth),
+            required=bool(data.get("required", True)),
+            reason=str(data.get("reason", "") or ""),
+            escalation_parent_id=str(data.get("escalation_parent_id", "") or ""),
+            skipped_reason=str(data.get("skipped_reason", "") or ""),
             created_at=float(data.get("created_at", time.time())),
         )
 
@@ -103,6 +158,9 @@ class ReviewResult:
     performance_notes: list[str] = field(default_factory=list)
     anti_patterns: list[str] = field(default_factory=list)
     execution_risks: list[str] = field(default_factory=list)
+    skipped: bool = False
+    skipped_reason: str = ""
+    confidence: str = "medium"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -125,6 +183,9 @@ class ReviewResult:
             "performance_notes": list(self.performance_notes),
             "anti_patterns": list(self.anti_patterns),
             "execution_risks": list(self.execution_risks),
+            "skipped": self.skipped,
+            "skipped_reason": self.skipped_reason,
+            "confidence": self.confidence,
         }
 
     @classmethod
@@ -152,6 +213,9 @@ class ReviewResult:
             performance_notes=[str(item) for item in data.get("performance_notes", [])],
             anti_patterns=[str(item) for item in data.get("anti_patterns", [])],
             execution_risks=[str(item) for item in data.get("execution_risks", [])],
+            skipped=bool(data.get("skipped", False)),
+            skipped_reason=str(data.get("skipped_reason", "") or ""),
+            confidence=str(data.get("confidence", "medium") or "medium"),
         )
 
 
@@ -195,36 +259,115 @@ class PeerReviewPlanner:
         }
         review_packages: list[ReviewPackage] = []
 
-        for index, package in enumerate(packages):
+        for package in packages:
             result = results_by_package.get(package.id)
             target_agent = result.agent_name if result else package.owner_agent
-            reviewer_agents = self._reviewers_for(
+            reviewer_agent = self._primary_reviewer_for(
                 target_agent=target_agent,
                 active_agents=agents,
             )
-            for reviewer_agent in reviewer_agents:
+            if reviewer_agent is None:
                 review_packages.append(
-                    ReviewPackage(
-                        package_id=package.id,
-                        reviewer_agent=reviewer_agent,
-                        target_agent=target_agent,
-                        criteria=self._criteria_for(package),
-                        execution_status=result.status if result else None,
-                    )
+                    self._skipped_no_peer_package(package, target_agent, result)
                 )
+                continue
+            review_packages.append(
+                ReviewPackage(
+                    package_id=package.id,
+                    reviewer_agent=reviewer_agent,
+                    target_agent=target_agent,
+                    criteria=self._criteria_for(package),
+                    execution_status=result.status if result else None,
+                    depth=ReviewDepth.SINGLE_PEER,
+                    reason=self._primary_reason(target_agent, agents),
+                )
+            )
 
         return review_packages
+
+    def plan_escalation_reviews(
+        self,
+        work_packages: list[WorkPackage],
+        active_agents: list[str],
+        existing_reviews: list[ReviewPackage],
+        review_results: list[ReviewResult] | None = None,
+        execution_results: list[ExecutionResult] | None = None,
+    ) -> list[ReviewPackage]:
+        """Create optional second-review packages for risk or review issues."""
+        agents = self._normalize_agents(active_agents)
+        if len(agents) < 3:
+            return []
+
+        results_by_package = {
+            result.package_id: result
+            for result in execution_results or []
+        }
+        review_results_by_package: dict[str, list[ReviewResult]] = {}
+        for result in review_results or []:
+            review_results_by_package.setdefault(result.package_id, []).append(result)
+
+        escalations: list[ReviewPackage] = []
+        for package in work_packages:
+            primary_reviews = [
+                review
+                for review in existing_reviews
+                if review.package_id == package.id
+                and review.scope != "final"
+                and review.required
+                and not review.escalation_parent_id
+                and review.depth != ReviewDepth.NONE
+            ]
+            if not primary_reviews:
+                continue
+            primary = primary_reviews[0]
+            if any(
+                review.escalation_parent_id == primary.id
+                for review in existing_reviews
+            ):
+                continue
+            reason = self._escalation_reason(
+                package,
+                review_results_by_package.get(package.id, []),
+            )
+            if not reason:
+                continue
+            reviewer_agent = self._secondary_reviewer_for(
+                target_agent=primary.target_agent,
+                active_agents=agents,
+                existing_reviewers=[
+                    review.reviewer_agent
+                    for review in existing_reviews
+                    if review.package_id == package.id
+                ],
+            )
+            if reviewer_agent is None:
+                continue
+            result = results_by_package.get(package.id)
+            escalations.append(
+                ReviewPackage(
+                    id=f"{primary.id}-ESC-{reviewer_agent}",
+                    package_id=package.id,
+                    reviewer_agent=reviewer_agent,
+                    target_agent=primary.target_agent,
+                    criteria=self._criteria_for(package),
+                    execution_status=result.status if result else primary.execution_status,
+                    depth=ReviewDepth.ESCALATED_PEER,
+                    reason=reason,
+                    escalation_parent_id=primary.id,
+                )
+            )
+        return escalations
 
     def _criteria_for(self, package: WorkPackage) -> list[str]:
         return self._dedupe([*self.default_criteria, *package.acceptance_criteria])
 
-    def _reviewers_for(
+    def _primary_reviewer_for(
         self,
         target_agent: str,
         active_agents: list[str],
-    ) -> list[str]:
+    ) -> str | None:
         if len(active_agents) == 1:
-            return [active_agents[0]]
+            return None
 
         candidates = [
             agent
@@ -232,8 +375,75 @@ class PeerReviewPlanner:
             if agent != target_agent
         ]
         if not candidates:
-            candidates = active_agents
-        return candidates
+            return None
+        return self._select_by_priority(candidates)
+
+    def _secondary_reviewer_for(
+        self,
+        target_agent: str,
+        active_agents: list[str],
+        existing_reviewers: list[str],
+    ) -> str | None:
+        used = {agent for agent in existing_reviewers if agent}
+        candidates = [
+            agent
+            for agent in active_agents
+            if agent != target_agent and agent not in used
+        ]
+        if not candidates:
+            return None
+        return self._select_by_priority(candidates)
+
+    def _select_by_priority(self, candidates: list[str]) -> str:
+        return sorted(candidates, key=self._priority_key)[0]
+
+    def _priority_key(self, agent: str) -> tuple[int, str]:
+        normalized = agent.strip().lower()
+        try:
+            priority = PRIMARY_REVIEWER_PRIORITY.index(normalized)
+        except ValueError:
+            priority = len(PRIMARY_REVIEWER_PRIORITY)
+        return (priority, normalized)
+
+    def _primary_reason(self, target_agent: str, active_agents: list[str]) -> str:
+        candidates = [agent for agent in active_agents if agent != target_agent]
+        if len(candidates) == 1:
+            return "single available non-owner reviewer"
+        return "selected primary reviewer by deterministic provider priority"
+
+    def _skipped_no_peer_package(
+        self,
+        package: WorkPackage,
+        target_agent: str,
+        result: ExecutionResult | None,
+    ) -> ReviewPackage:
+        skipped_reason = (
+            f"only {target_agent} is active; no non-owner peer reviewer is available"
+        )
+        return ReviewPackage(
+            id=f"RP-{package.id}-skipped-no-peer",
+            package_id=package.id,
+            reviewer_agent="",
+            target_agent=target_agent,
+            criteria=[],
+            execution_status=result.status if result else None,
+            depth=ReviewDepth.NONE,
+            required=False,
+            reason="peer review skipped because no peer reviewer is active",
+            skipped_reason=skipped_reason,
+        )
+
+    def _escalation_reason(
+        self,
+        package: WorkPackage,
+        review_results: list[ReviewResult],
+    ) -> str:
+        if str(package.risk).strip().lower() in {"high", "critical"}:
+            return f"package risk is {package.risk}"
+        for result in reversed(review_results):
+            if result.status in ESCALATION_REVIEW_STATUSES:
+                return f"primary review status is {result.status.value}"
+        return ""
 
     def _normalize_agents(self, agents: list[str]) -> list[str]:
         normalized: list[str] = []

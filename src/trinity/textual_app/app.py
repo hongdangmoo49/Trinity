@@ -44,6 +44,7 @@ from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.report import ReportScreen
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import StartScreen
+from trinity.textual_app.slash_palette import SlashCommandPaletteProvider
 from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import (
     LocalCommandSnapshot,
@@ -91,6 +92,7 @@ class TrinityTextualApp(App[None]):
 
     TITLE = "Trinity"
     SUB_TITLE = f"v{__version__}"
+    COMMANDS = App.COMMANDS | {SlashCommandPaletteProvider}
     BINDINGS = [
         Binding("ctrl+q", "quit", "Quit", priority=True),
         Binding("ctrl+n", "go_start", "New Session"),

@@ -620,7 +620,7 @@ def test_textual_workflow_controller_requests_workspace_before_execution(tmp_pat
 def test_textual_workflow_controller_runs_review_all(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     workflow = WorkflowEngine(config.effective_state_dir)
-    workflow.start("게임 구현", ["claude"])
+    workflow.start("게임 구현", ["claude", "codex"])
     workflow.session.work_packages = [
         WorkPackage(
             id="WP-001",
@@ -698,7 +698,7 @@ def test_textual_workflow_controller_keeps_review_package_events_capped(
 def test_textual_workflow_controller_auto_reviews_after_execution(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     workflow = WorkflowEngine(config.effective_state_dir)
-    workflow.start("게임 구현", ["claude"])
+    workflow.start("게임 구현", ["claude", "codex"])
     workflow.session.blueprint = Blueprint(
         title="Game",
         summary="Build a game.",
@@ -785,7 +785,7 @@ def test_textual_workflow_controller_restarts_execution_for_review_repairs(tmp_p
     FakeRepairReviewOrchestrator.review_calls = 0
     config = TrinityConfig.default_config(project_dir=tmp_path)
     workflow = WorkflowEngine(config.effective_state_dir)
-    workflow.start("게임 구현", ["claude"])
+    workflow.start("게임 구현", ["claude", "codex"])
     workflow.session.work_packages = [
         WorkPackage(
             id="WP-001",
@@ -842,7 +842,7 @@ def test_textual_workflow_controller_requests_workspace_for_review_repairs(
     FakeRepairReviewOrchestrator.review_calls = 0
     config = TrinityConfig.default_config(project_dir=tmp_path)
     workflow = WorkflowEngine(config.effective_state_dir)
-    workflow.start("게임 구현", ["claude"])
+    workflow.start("게임 구현", ["claude", "codex"])
     workflow.session.work_packages = [
         WorkPackage(
             id="WP-001",
@@ -893,7 +893,7 @@ def test_textual_workflow_controller_continues_pending_review_repair_after_works
     FakeRepairReviewOrchestrator.review_calls = 0
     config = TrinityConfig.default_config(project_dir=tmp_path)
     workflow = WorkflowEngine(config.effective_state_dir)
-    workflow.start("게임 구현", ["claude"])
+    workflow.start("게임 구현", ["claude", "codex"])
     workflow.session.work_packages = [
         WorkPackage(
             id="WP-001",
@@ -949,7 +949,7 @@ def test_textual_workflow_controller_blocks_repeated_review_repairs(tmp_path) ->
     FakeLoopingRepairReviewOrchestrator.executed_packages = []
     config = TrinityConfig.default_config(project_dir=tmp_path)
     workflow = WorkflowEngine(config.effective_state_dir)
-    workflow.start("게임 구현", ["claude"])
+    workflow.start("게임 구현", ["claude", "codex"])
     workflow.session.work_packages = [
         WorkPackage(
             id="WP-001",

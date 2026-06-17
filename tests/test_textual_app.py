@@ -307,6 +307,15 @@ def _column_class(widget, expected: list[str]) -> str:
     raise AssertionError(f"missing expected column class on {widget!r}")
 
 
+def _widget_tree_text(widget) -> str:
+    parts = []
+    for child in widget.query("*"):
+        rendered = str(child.render())
+        if "textual.renderables.blank" not in rendered:
+            parts.append(rendered)
+    return " ".join(parts)
+
+
 def _review_repair_blocked_snapshot() -> WorkflowNexusSnapshot:
     return WorkflowNexusSnapshot(
         session_id="wf-repair",
@@ -3364,7 +3373,7 @@ async def test_execution_matrix_separates_owner_and_executor(tmp_path) -> None:
         await pilot.pause()
 
         rows = screen.query("#execution-package-list .execution-package-row")
-        row_text = " ".join(str(child.render()) for child in rows.first().children)
+        row_text = _widget_tree_text(rows.first())
 
         assert len(rows) == 1
         assert "Rust contracts" in row_text
@@ -3458,7 +3467,7 @@ async def test_execution_matrix_renders_compact_status_labels(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_execution_matrix_header_uses_row_column_layout(tmp_path) -> None:
+async def test_execution_matrix_header_uses_two_line_row_layout(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
     async with app.run_test(size=(140, 44)) as pilot:
@@ -3484,26 +3493,45 @@ async def test_execution_matrix_header_uses_row_column_layout(tmp_path) -> None:
         )
         await pilot.pause()
 
-        expected_columns = [
+        expected_primary_columns = [
             "execution-package-task",
-            "execution-package-assignee",
             "execution-package-executor",
             "execution-package-status",
+        ]
+        expected_secondary_columns = [
+            "execution-package-assignee",
             "execution-package-review",
             "execution-package-risk",
             "execution-package-spec",
         ]
         header = screen.query("#execution-package-list .execution-package-header").first()
         row = screen.query("#execution-package-list .execution-package-row").first()
+        header_primary = header.query(".execution-package-primary").first()
+        header_secondary = header.query(".execution-package-secondary").first()
+        row_primary = row.query(".execution-package-primary").first()
+        row_secondary = row.query(".execution-package-secondary").first()
 
-        assert [_column_class(child, expected_columns) for child in header.children] == (
-            expected_columns
-        )
-        assert [_column_class(child, expected_columns) for child in row.children] == (
-            expected_columns
-        )
-        assert [child.region.x for child in header.children] == [
-            child.region.x for child in row.children
+        assert [
+            _column_class(child, expected_primary_columns)
+            for child in header_primary.children
+        ] == expected_primary_columns
+        assert [
+            _column_class(child, expected_primary_columns)
+            for child in row_primary.children
+        ] == expected_primary_columns
+        assert [
+            _column_class(child, expected_secondary_columns)
+            for child in header_secondary.children
+        ] == expected_secondary_columns
+        assert [
+            _column_class(child, expected_secondary_columns)
+            for child in row_secondary.children
+        ] == expected_secondary_columns
+        assert [child.region.x for child in header_primary.children] == [
+            child.region.x for child in row_primary.children
+        ]
+        assert [child.region.x for child in header_secondary.children] == [
+            child.region.x for child in row_secondary.children
         ]
 
         await pilot.press("f")
@@ -3511,9 +3539,100 @@ async def test_execution_matrix_header_uses_row_column_layout(tmp_path) -> None:
 
         header = screen.query("#execution-package-list .execution-package-header").first()
         row = screen.query("#execution-package-list .execution-package-row").first()
-        assert [child.region.x for child in header.children] == [
-            child.region.x for child in row.children
+        assert [
+            child.region.x
+            for child in header.query(".execution-package-primary").first().children
+        ] == [
+            child.region.x
+            for child in row.query(".execution-package-primary").first().children
         ]
+        assert [
+            child.region.x
+            for child in header.query(".execution-package-secondary").first().children
+        ] == [
+            child.region.x
+            for child in row.query(".execution-package-secondary").first().children
+        ]
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_80_columns_keeps_review_risk_and_spec_visible(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                session_id="wf-compact",
+                state="executing",
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Build compact execution dashboard rows",
+                        owner_agent="codex",
+                        current_executor="codex",
+                        status="running",
+                        review_status="queued",
+                        reviewer_agent="antigravity",
+                        risk="high",
+                        retryable=True,
+                    )
+                ],
+                execution_log=[f"event-{index}" for index in range(1, 12)],
+                execution_recovery=ExecutionRecoverySnapshot(
+                    run_id="exec-run-compact",
+                    state="running",
+                    retry_candidates=("WP-001",),
+                ),
+            ),
+        )
+        await pilot.pause()
+
+        summary = str(screen.query_one("#execution-summary", Static).content)
+        assert "RUN 1" in summary
+        assert "retry 1" in summary
+        assert "exec-run-compact" in summary
+
+        row = screen.query("#execution-package-list .execution-package-row").first()
+        row_text = _widget_tree_text(row)
+        assert "review: agy queued" in row_text
+        assert "risk: high" in row_text
+        assert "Spec" in row_text
+        for widget in row.query(
+            ".execution-package-review, .execution-package-risk, .execution-package-spec"
+        ):
+            assert widget.region.x + widget.region.width <= 80
+
+        activity_lines = screen._activity_lines()
+        assert activity_lines[0] == "Activity"
+        assert "... 4 earlier log lines hidden" in activity_lines
+        assert "event-11" in activity_lines
+
+
+def test_work_package_detail_modal_orders_execution_sections_first() -> None:
+    modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-001",
+            title="Dashboard",
+            owner_agent="codex",
+            status="done",
+            objective="Improve execution UI",
+            review_status="approved",
+            last_result_status="succeeded",
+            last_result_summary="Rows fit compact terminals.",
+        )
+    )
+    markdown = modal._markdown()
+
+    assert markdown.index("## Summary") < markdown.index("## Result")
+    assert markdown.index("## Result") < markdown.index("## Review")
+    assert markdown.index("## Review") < markdown.index("## Spec")
 
 
 @pytest.mark.asyncio
@@ -3545,7 +3664,7 @@ async def test_execution_matrix_expands_task_area(tmp_path) -> None:
         await pilot.pause()
 
         compact_row = screen.query("#execution-package-list .execution-package-row").first()
-        compact_text = " ".join(str(child.render()) for child in compact_row.children)
+        compact_text = _widget_tree_text(compact_row)
         execution_screen = screen.query_one("#execution-screen")
         assert not execution_screen.has_class("execution-task-expanded")
         assert "detailed Korean" not in compact_text
@@ -3554,7 +3673,7 @@ async def test_execution_matrix_expands_task_area(tmp_path) -> None:
         await pilot.pause()
 
         expanded_row = screen.query("#execution-package-list .execution-package-row").first()
-        expanded_text = " ".join(str(child.render()) for child in expanded_row.children)
+        expanded_text = _widget_tree_text(expanded_row)
         assert screen.tasks_expanded is True
         assert execution_screen.has_class("execution-task-expanded")
         assert "detailed Korean" in expanded_text
@@ -3927,7 +4046,7 @@ async def test_execution_matrix_renders_preflight_and_packages(tmp_path) -> None
         assert str(tmp_path) in str(screen.query_one("#execution-header").content)
         rows = screen.query("#execution-package-list .execution-package-row")
         assert len(rows) == 1
-        assert "WAIT" in " ".join(str(child.render()) for child in rows.first().children)
+        assert "WAIT" in _widget_tree_text(rows.first())
 
 
 @pytest.mark.asyncio

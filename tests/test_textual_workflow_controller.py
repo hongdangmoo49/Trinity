@@ -9,7 +9,7 @@ from trinity.models import ConsensusResult, DeliberationResult
 from trinity.textual_app.snapshot import WorkPackageSnapshot, WorkflowNexusSnapshot
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.workflow_controller import TextualWorkflowController
-from trinity.tui.events import TUIEvent, TUIEventType
+from trinity.tui.events import TUIEvent, TUIEventBus, TUIEventType
 from trinity.workflow import ReviewResult, ReviewStatus, WorkflowEngine, WorkflowState
 from trinity.workflow.models import (
     Blueprint,
@@ -660,6 +660,39 @@ def test_textual_workflow_controller_runs_review_all(tmp_path) -> None:
         ReviewStatus.APPROVED,
         ReviewStatus.APPROVED,
     ]
+
+
+def test_textual_workflow_controller_keeps_review_package_events_capped(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    controller = TextualWorkflowController(
+        config,
+        archive_active_session=False,
+    )
+    bus = TUIEventBus()
+    controller._prepare_background_run(bus, "review")
+
+    for index in range(205):
+        bus.emit(
+            TUIEvent(
+                type=TUIEventType.REVIEW_PACKAGE_STARTED,
+                data={
+                    "review_package_id": f"RP-WP-{index:03d}-codex",
+                    "package_id": f"WP-{index:03d}",
+                    "reviewer_agent": "codex",
+                    "target_agent": "claude",
+                    "status": "reviewing",
+                },
+            )
+        )
+
+    outcome = controller.drain_updates()
+
+    assert outcome is not None
+    assert len(controller._recent_events) == 200
+    assert controller._recent_events[0].data["package_id"] == "WP-005"
+    assert controller._recent_events[-1].type == TUIEventType.REVIEW_PACKAGE_STARTED
 
 
 def test_textual_workflow_controller_auto_reviews_after_execution(tmp_path) -> None:

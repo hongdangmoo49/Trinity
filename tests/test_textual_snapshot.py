@@ -569,6 +569,174 @@ def test_snapshot_projects_planned_review_as_queued_before_reviewing(tmp_path) -
     assert snapshot.work_package_details[0].review_status == "queued"
 
 
+def test_snapshot_folds_runtime_review_started_over_queued_plan(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-review-runtime-started",
+            goal="Build UI",
+            state=WorkflowState.EXECUTING,
+            active_agents=["claude", "codex"],
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="Frontend shell",
+                    owner_agent="claude",
+                    objective="Build the shell.",
+                    status=WorkStatus.DONE,
+                )
+            ],
+            review_packages=[
+                ReviewPackage(
+                    id="RP-WP-001-codex",
+                    package_id="WP-001",
+                    reviewer_agent="codex",
+                    target_agent="claude",
+                ).to_dict()
+            ],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot(
+        [
+            TUIEvent(
+                type=TUIEventType.REVIEW_PACKAGE_STARTED,
+                data={
+                    "review_package_id": "RP-WP-001-codex",
+                    "package_id": "WP-001",
+                    "reviewer_agent": "codex",
+                    "target_agent": "claude",
+                    "status": "reviewing",
+                },
+            )
+        ]
+    )
+
+    package = snapshot.work_package_details[0]
+    assert package.review_status == "reviewing"
+    assert package.reviewer_agent == "codex"
+
+
+def test_snapshot_folds_runtime_review_completed_before_persisted_result(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-review-runtime-completed",
+            goal="Build UI",
+            state=WorkflowState.REVIEWING,
+            active_agents=["claude", "codex"],
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="Frontend shell",
+                    owner_agent="claude",
+                    objective="Build the shell.",
+                    status=WorkStatus.DONE,
+                )
+            ],
+            review_packages=[
+                ReviewPackage(
+                    id="RP-WP-001-codex",
+                    package_id="WP-001",
+                    reviewer_agent="codex",
+                    target_agent="claude",
+                ).to_dict()
+            ],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot(
+        [
+            TUIEvent(
+                type=TUIEventType.REVIEW_PACKAGE_COMPLETED,
+                data={
+                    "review_package_id": "RP-WP-001-codex",
+                    "package_id": "WP-001",
+                    "reviewer_agent": "codex",
+                    "target_agent": "claude",
+                    "status": ReviewStatus.CHANGES_REQUESTED.value,
+                    "severity": "high",
+                    "summary": "Needs safer terminal handling.",
+                    "required_changes": ["Add resize regression test."],
+                },
+            )
+        ]
+    )
+
+    package = snapshot.work_package_details[0]
+    assert package.review_status == "changes_requested"
+    assert package.reviewer_agent == "codex"
+    assert package.review_summary == "Needs safer terminal handling."
+    assert package.review_required_changes == ["Add resize regression test."]
+    assert package.review_severity == "high"
+
+
+def test_snapshot_runtime_review_started_overrides_stale_persisted_result(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-review-runtime-rerun",
+            goal="Build UI",
+            state=WorkflowState.REVIEWING,
+            active_agents=["claude", "codex"],
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="Frontend shell",
+                    owner_agent="claude",
+                    objective="Build the shell.",
+                    status=WorkStatus.DONE,
+                )
+            ],
+            review_packages=[
+                ReviewPackage(
+                    id="RP-WP-001-codex",
+                    package_id="WP-001",
+                    reviewer_agent="codex",
+                    target_agent="claude",
+                ).to_dict()
+            ],
+            review_results=[
+                ReviewResult(
+                    review_package_id="RP-WP-001-codex",
+                    package_id="WP-001",
+                    reviewer_agent="codex",
+                    target_agent="claude",
+                    status=ReviewStatus.APPROVED,
+                    severity="low",
+                    summary="Previous review passed.",
+                ).to_dict()
+            ],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot(
+        [
+            TUIEvent(
+                type=TUIEventType.REVIEW_PACKAGE_STARTED,
+                data={
+                    "review_package_id": "RP-WP-001-codex",
+                    "package_id": "WP-001",
+                    "reviewer_agent": "codex",
+                    "target_agent": "claude",
+                    "status": "reviewing",
+                },
+            )
+        ]
+    )
+
+    package = snapshot.work_package_details[0]
+    assert package.review_status == "reviewing"
+    assert package.review_summary == ""
+
+
 def test_snapshot_aggregates_multiple_work_package_review_results(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     persistence = WorkflowPersistence(config.effective_state_dir)

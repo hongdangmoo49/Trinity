@@ -44,39 +44,53 @@ class ExecutionPackageRow(Horizontal):
         self.detail_enabled = detail_enabled
 
     def compose(self) -> ComposeResult:
-        yield Static(
-            _clip(self.task_label, self.task_width),
-            classes="execution-package-task",
-        )
-        yield Static(_clip(self.assignee, 11), classes="execution-package-assignee")
-        yield Static(_clip(self.executor, 18), classes="execution-package-executor")
-        yield Static(_clip(self.status, 10), classes="execution-package-status")
-        yield Static(_clip(self.review_status or "-", 9), classes="execution-package-review")
-        yield Static(_clip(self.risk, 9), classes="execution-package-risk")
-        yield Button(
-            "Spec",
-            id=self.button_id,
-            name=self.package_id,
-            disabled=not self.detail_enabled,
-            compact=True,
-            classes="execution-package-spec",
-        )
+        with Vertical(classes="execution-package-lines"):
+            with Horizontal(classes="execution-package-primary"):
+                yield Static(
+                    _clip(f"{self.package_id} {self.task_label}", self.task_width),
+                    classes="execution-package-task",
+                )
+                yield Static(_clip(self.executor, 18), classes="execution-package-executor")
+                yield Static(_clip(self.status, 10), classes="execution-package-status")
+            with Horizontal(classes="execution-package-secondary"):
+                yield Static(
+                    _clip(f"owner: {self.assignee}", 18),
+                    classes="execution-package-assignee",
+                )
+                yield Static(
+                    _clip(f"review: {self.review_status or '-'}", 18),
+                    classes="execution-package-review",
+                )
+                yield Static(
+                    _clip(f"risk: {self.risk}", 14),
+                    classes="execution-package-risk",
+                )
+                yield Button(
+                    "Spec",
+                    id=self.button_id,
+                    name=self.package_id,
+                    disabled=not self.detail_enabled,
+                    compact=True,
+                    classes="execution-package-spec",
+                )
 
 
-class ExecutionPackageHeader(Horizontal):
+class ExecutionPackageHeader(Vertical):
     """Column header aligned to the same CSS grid as package rows."""
 
     def __init__(self) -> None:
         super().__init__(classes="execution-package-header")
 
     def compose(self) -> ComposeResult:
-        yield Static("Task", classes="execution-package-task")
-        yield Static("Assignee", classes="execution-package-assignee")
-        yield Static("Executor", classes="execution-package-executor")
-        yield Static("Status", classes="execution-package-status")
-        yield Static("Review", classes="execution-package-review")
-        yield Static("Risk", classes="execution-package-risk")
-        yield Static("Spec", classes="execution-package-spec")
+        with Horizontal(classes="execution-package-primary"):
+            yield Static("Package / Task", classes="execution-package-task")
+            yield Static("Executor", classes="execution-package-executor")
+            yield Static("Status", classes="execution-package-status")
+        with Horizontal(classes="execution-package-secondary"):
+            yield Static("Owner", classes="execution-package-assignee")
+            yield Static("Review", classes="execution-package-review")
+            yield Static("Risk", classes="execution-package-risk")
+            yield Static("Spec", classes="execution-package-spec")
 
 
 class ExecutionMatrixScreen(Screen[None]):
@@ -102,6 +116,7 @@ class ExecutionMatrixScreen(Screen[None]):
                     id="toggle-task-expanded",
                     compact=True,
                 )
+            yield Static("", id="execution-summary")
             yield VerticalScroll(id="execution-package-list")
             yield RichLog(id="execution-log", wrap=True, markup=False)
         yield Footer()
@@ -120,6 +135,7 @@ class ExecutionMatrixScreen(Screen[None]):
         if not self.is_mounted:
             return
         self.query_one("#execution-header", Static).update(self._header_text())
+        self.query_one("#execution-summary", Static).update(self._summary_text())
         self.query_one("#toggle-task-expanded", Button).label = self._task_toggle_label()
         self._sync_task_expanded_view()
         self._render_package_list()
@@ -184,7 +200,7 @@ class ExecutionMatrixScreen(Screen[None]):
                             package.owner_agent,
                         ),
                         status=compact_status_label(package.status or "pending"),
-                        review_status=package.review_status,
+                        review_status=_review_label(package),
                         risk=package.risk or "unknown",
                         button_id=f"wp-detail-{index}",
                         task_width=self._task_clip_width(),
@@ -243,7 +259,7 @@ class ExecutionMatrixScreen(Screen[None]):
     def _render_log(self) -> None:
         log = self.query_one("#execution-log", RichLog)
         log.clear()
-        lines = self.snapshot.execution_log or ["Execution not started."]
+        lines = self._activity_lines()
         for line in lines:
             log.write(line)
 
@@ -251,6 +267,71 @@ class ExecutionMatrixScreen(Screen[None]):
         if self.preflight is None:
             return "Execution Matrix · workspace: not selected"
         return f"Execution Matrix · workspace: {self.preflight.path}"
+
+    def _summary_text(self) -> str:
+        packages = self.snapshot.work_package_details
+        counts = {"RUN": 0, "WAIT": 0, "DONE": 0, "ISSUE": 0, "REVIEW": 0}
+        for package in packages:
+            label = compact_status_label(package.status or "pending")
+            if label == "RUN":
+                counts["RUN"] += 1
+            elif label == "DONE":
+                counts["DONE"] += 1
+            elif label == "ISSUE":
+                counts["ISSUE"] += 1
+            elif (package.status or "") == "needs_review" or package.review_status:
+                counts["REVIEW"] += 1
+            else:
+                counts["WAIT"] += 1
+
+        retry_count = sum(1 for package in packages if package.retryable)
+        recovery = self.snapshot.execution_recovery
+        if recovery is not None:
+            retry_count = max(retry_count, len(recovery.retry_candidates))
+        target = (
+            str(self.preflight.path)
+            if self.preflight is not None
+            else self.snapshot.target_workspace
+            or (recovery.target_workspace if recovery is not None else "")
+        )
+        run = (
+            recovery.run_id
+            if recovery is not None and recovery.run_id
+            else self.snapshot.session_id
+            or "-"
+        )
+        state = (
+            recovery.state
+            if recovery is not None and recovery.state
+            else self.snapshot.state
+            or "idle"
+        )
+        parts = [
+            f"RUN {counts['RUN']}",
+            f"REVIEW {counts['REVIEW']}",
+            f"WAIT {counts['WAIT']}",
+            f"DONE {counts['DONE']}",
+            f"ISSUE {counts['ISSUE']}",
+            f"retry {retry_count}",
+            f"workflow {state}",
+            f"run {run}",
+        ]
+        if target:
+            parts.append(f"target: {_clip(target, 28)}")
+        return " · ".join(parts)
+
+    def _activity_lines(self) -> list[str]:
+        source = list(self.snapshot.execution_log)
+        if not source and self.snapshot.workflow_events:
+            source = list(self.snapshot.workflow_events)
+        if not source:
+            return ["Activity", "Execution not started."]
+        recent = source[-7:]
+        lines = ["Activity"]
+        if len(source) > len(recent):
+            lines.append(f"... {len(source) - len(recent)} earlier log lines hidden")
+        lines.extend(recent)
+        return lines
 
     def _task_toggle_label(self) -> str:
         return "Compact Tasks" if self.tasks_expanded else "Expand Tasks"
@@ -280,6 +361,38 @@ def _executor_label(current: str, last: str, owner: str) -> str:
     if executor not in {"", "-"} and owner and executor != owner:
         return f"{executor} fallback"
     return executor
+
+
+def _review_label(package: object) -> str:
+    status = str(getattr(package, "review_status", "") or "").strip()
+    reviewer = str(getattr(package, "reviewer_agent", "") or "").strip()
+    if not status:
+        return "-"
+    normalized = status.lower().replace("_", " ")
+    labels = {
+        "queued": "queued",
+        "reviewing": "reviewing",
+        "pending": "queued",
+        "changes requested": "changes",
+        "approved": "approved",
+        "blocked": "issue",
+        "failed": "issue",
+        "skipped": "skip",
+    }
+    label = labels.get(normalized, normalized)
+    if reviewer and label not in {"changes", "approved", "issue", "skip"}:
+        return f"{_agent_short_label(reviewer)} {label}"
+    return label
+
+
+def _agent_short_label(agent: str) -> str:
+    normalized = agent.strip().lower()
+    aliases = {
+        "antigravity": "agy",
+        "claude": "claude",
+        "codex": "codex",
+    }
+    return aliases.get(normalized, _clip(agent, 8))
 
 
 def _clip(value: str, width: int) -> str:

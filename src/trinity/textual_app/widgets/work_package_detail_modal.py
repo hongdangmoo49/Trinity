@@ -50,27 +50,20 @@ class WorkPackageDetailModal(ModalScreen[None]):
     def _markdown(self) -> str:
         package = self.package
         lines = [
+            "## Summary",
             f"- Status: `{package.status or 'pending'}`",
             f"- Owner: `{package.owner_agent or '-'}`",
             f"- Executor: `{package.current_executor or package.last_executor or '-'}`",
+            f"- Review: `{package.review_status or '-'}`",
             f"- Risk: `{package.risk or 'unknown'}`",
             f"- Requires execution: `{'yes' if package.requires_execution else 'no'}`",
             f"- Retry: `{('available' if package.retryable else package.retry_disabled_reason or 'not available')}`",
-            "",
-            "## Objective",
-            package.objective or "(none)",
         ]
-        self._append_list(lines, "Scope", package.scope)
-        self._append_list(lines, "Out of Scope", package.out_of_scope)
-        self._append_list(lines, "Dependencies", package.dependencies)
-        self._append_list(lines, "Expected Files", package.expected_files)
-        self._append_list(lines, "Acceptance Criteria", package.acceptance_criteria)
-        self._append_list(lines, "Repair Notes", package.repair_notes)
+
+        lines.extend(["", "## Result"])
         if package.last_result_status or package.last_result_summary:
             lines.extend(
                 [
-                    "",
-                    "## Last Result",
                     f"- Agent: `{package.last_result_agent or '-'}`",
                     f"- Status: `{package.last_result_status or '-'}`",
                     f"- Summary: {package.last_result_summary or '(none)'}",
@@ -83,11 +76,13 @@ class WorkPackageDetailModal(ModalScreen[None]):
                 "Fallback Attempts",
                 package.last_result_attempt_chain,
             )
+        else:
+            lines.append("(no execution result yet)")
+
+        lines.extend(["", "## Review"])
         if package.review_status or package.review_summary:
             lines.extend(
                 [
-                    "",
-                    "## Review",
                     f"- Reviewer: `{package.reviewer_agent or '-'}`",
                     f"- Status: `{package.review_status or '-'}`",
                     f"- Severity: `{package.review_severity or '-'}`",
@@ -99,6 +94,16 @@ class WorkPackageDetailModal(ModalScreen[None]):
                 "Required Changes",
                 package.review_required_changes,
             )
+        else:
+            lines.append("(no review recorded)")
+
+        lines.extend(["", "## Spec", "### Objective", package.objective or "(none)"])
+        self._append_list(lines, "Scope", package.scope)
+        self._append_list(lines, "Out of Scope", package.out_of_scope)
+        self._append_list(lines, "Dependencies", package.dependencies)
+        self._append_list(lines, "Expected Files", package.expected_files)
+        self._append_list(lines, "Acceptance Criteria", package.acceptance_criteria)
+        self._append_list(lines, "Repair Notes", package.repair_notes)
         return "\n".join(lines)
 
     @staticmethod

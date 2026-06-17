@@ -788,8 +788,14 @@ class TrinityTextualApp(App[None]):
         margin-left: 1;
     }
 
+    #execution-summary {
+        height: 1;
+        margin-top: 1;
+        color: $text-muted;
+    }
+
     #execution-package-list {
-        height: 11;
+        height: 13;
         margin-top: 1;
         border: round $primary;
         padding: 0 1;
@@ -800,24 +806,36 @@ class TrinityTextualApp(App[None]):
     }
 
     .execution-package-header {
-        height: 1;
+        height: 2;
         color: $text-muted;
     }
 
     .execution-package-row {
+        height: 2;
+    }
+
+    .execution-package-lines {
+        width: 100%;
+        height: 2;
+    }
+
+    .execution-package-primary,
+    .execution-package-secondary {
+        width: 100%;
         height: 1;
     }
 
     .execution-package-task {
-        width: 30;
+        width: 1fr;
     }
 
     .execution-task-expanded .execution-package-task {
-        width: 74;
+        width: 1fr;
     }
 
     .execution-package-assignee {
-        width: 13;
+        width: 20;
+        color: $text-muted;
     }
 
     .execution-package-executor {
@@ -825,15 +843,18 @@ class TrinityTextualApp(App[None]):
     }
 
     .execution-package-status {
-        width: 12;
+        width: 8;
+        text-style: bold;
     }
 
     .execution-package-review {
-        width: 11;
+        width: 22;
+        color: $text-muted;
     }
 
     .execution-package-risk {
-        width: 11;
+        width: 16;
+        color: $text-muted;
     }
 
     .execution-package-spec {
@@ -845,14 +866,14 @@ class TrinityTextualApp(App[None]):
     }
 
     #execution-log {
-        height: 1fr;
+        height: 9;
         border: round $primary;
         margin-top: 1;
         padding: 0 1;
     }
 
     .execution-task-expanded #execution-log {
-        height: 8;
+        height: 6;
     }
 
     #execution-retry-modal {

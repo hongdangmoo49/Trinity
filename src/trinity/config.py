@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 import logging
 
+from trinity.agent_profiles import agent_profile_overrides, resolve_agent_profile
 from trinity.models import AgentSpec, Provider
 from trinity.providers.policy import (
     DEFAULT_BROAD_WRITE_PATHS,
@@ -177,6 +178,12 @@ class TrinityConfig:
 
         agents = {}
         for name, agent_data in data.get("agents", {}).items():
+            provider = Provider(agent_data.get("provider", "claude-code"))
+            profile_data = (
+                agent_data.get("profile", {})
+                if isinstance(agent_data.get("profile", {}), dict)
+                else {}
+            )
             agent_resources = (
                 agent_data.get("resources", {})
                 if isinstance(agent_data.get("resources", {}), dict)
@@ -184,7 +191,7 @@ class TrinityConfig:
             )
             agents[name] = AgentSpec(
                 name=name,
-                provider=Provider(agent_data.get("provider", "claude-code")),
+                provider=provider,
                 cli_command=agent_data.get("cli_command", name),
                 model=agent_data.get("model", "default"),
                 role_prompt=agent_data.get("role_prompt", ""),
@@ -206,6 +213,7 @@ class TrinityConfig:
                 resource_activation=cls._normalize_resource_activation(
                     agent_resources.get("activation", "auto")
                 ),
+                profile=resolve_agent_profile(name, provider, profile_data),
             )
 
         return cls(
@@ -334,6 +342,7 @@ class TrinityConfig:
                     cli_command="claude",
                     role_prompt=roles["claude"],
                     extra_args=["--dangerously-skip-permissions"],
+                    profile=resolve_agent_profile("claude", Provider.CLAUDE_CODE),
                 ),
                 "codex": AgentSpec(
                     name="codex",
@@ -341,6 +350,7 @@ class TrinityConfig:
                     cli_command="codex",
                     role_prompt=roles["codex"],
                     enabled=False,  # Disabled by default until codex CLI is available
+                    profile=resolve_agent_profile("codex", Provider.CODEX),
                 ),
                 "antigravity": AgentSpec(
                     name="antigravity",
@@ -348,6 +358,10 @@ class TrinityConfig:
                     cli_command="agy",
                     role_prompt=roles["antigravity"],
                     enabled=False,  # Enabled by setup only when agy is selected
+                    profile=resolve_agent_profile(
+                        "antigravity",
+                        Provider.ANTIGRAVITY_CLI,
+                    ),
                 ),
             },
         )
@@ -441,6 +455,9 @@ class TrinityConfig:
                     "disabled": list(spec.resource_disabled),
                     "activation": spec.resource_activation,
                 }
+            profile_overrides = agent_profile_overrides(name, spec.provider, spec.profile)
+            if profile_overrides:
+                agent_data["profile"] = profile_overrides
             data["agents"][name] = agent_data
 
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -140,6 +140,52 @@ class TaskIntent(str, Enum):
 
 
 @dataclass
+class AgentProfile:
+    """Structured orchestration profile for an agent.
+
+    The provider-facing role prompt stays in AgentSpec.role_prompt. This profile
+    is Trinity-facing metadata used for routing, prompt contracts, context
+    selection, and UI diagnostics.
+    """
+
+    mission: str = ""
+    summary: str = ""
+    strengths: dict[str, float] = field(default_factory=dict)
+    preferred_task_kinds: list[str] = field(default_factory=list)
+    avoid_task_kinds: list[str] = field(default_factory=list)
+    review_focus: list[str] = field(default_factory=list)
+    supported_turn_modes: list[str] = field(default_factory=list)
+    default_turn_mode: str = "chat"
+    output_contracts: dict[str, str] = field(default_factory=dict)
+    context_profile: str = "balanced"
+    cost_tier: str = "medium"
+    latency_tier: str = "medium"
+    risk_tolerance: str = "medium"
+    routing_priority: int = 100
+    revision: str = "default-v1"
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a TOML-serializable profile mapping."""
+        return {
+            "mission": self.mission,
+            "summary": self.summary,
+            "strengths": dict(self.strengths),
+            "preferred_task_kinds": list(self.preferred_task_kinds),
+            "avoid_task_kinds": list(self.avoid_task_kinds),
+            "review_focus": list(self.review_focus),
+            "supported_turn_modes": list(self.supported_turn_modes),
+            "default_turn_mode": self.default_turn_mode,
+            "output_contracts": dict(self.output_contracts),
+            "context_profile": self.context_profile,
+            "cost_tier": self.cost_tier,
+            "latency_tier": self.latency_tier,
+            "risk_tolerance": self.risk_tolerance,
+            "routing_priority": self.routing_priority,
+            "revision": self.revision,
+        }
+
+
+@dataclass
 class AgentSpec:
     """Configuration for a single agent."""
 
@@ -158,6 +204,14 @@ class AgentSpec:
     resource_types: list[str] = field(default_factory=list)
     resource_disabled: list[str] = field(default_factory=list)
     resource_activation: str = "auto"
+    profile: AgentProfile = field(default_factory=AgentProfile)
+
+    def __post_init__(self) -> None:
+        if self.profile.mission or self.profile.strengths:
+            return
+        from trinity.agent_profiles import resolve_agent_profile
+
+        self.profile = resolve_agent_profile(self.name, self.provider)
 
     @property
     def effective_context_budget(self) -> int:

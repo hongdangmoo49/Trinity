@@ -60,7 +60,7 @@ PROVIDER_DEFAULT_ROLES: dict[Provider, str] = {
 
 # Provider → default extra CLI args
 PROVIDER_DEFAULT_ARGS: dict[Provider, list[str]] = {
-    Provider.CLAUDE_CODE: ["--dangerously-skip-permissions"],
+    Provider.CLAUDE_CODE: [],
     Provider.CODEX: [],
     Provider.ANTIGRAVITY_CLI: [],
 }

@@ -270,6 +270,7 @@ class ResponseStatus(str, Enum):
 
     OK = "ok"
     AUTH_REQUIRED = "auth_required"
+    PERMISSION_REQUIRED = "permission_required"
     MODEL_LOADING = "model_loading"
     TIMEOUT = "timeout"
     PROMPT_ECHO = "prompt_echo"

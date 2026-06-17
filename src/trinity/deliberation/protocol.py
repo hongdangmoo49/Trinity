@@ -773,6 +773,7 @@ class DeliberationProtocol:
     ) -> list[dict[str, object]]:
         retryable_statuses = {
             ResponseStatus.AUTH_REQUIRED.value,
+            ResponseStatus.PERMISSION_REQUIRED.value,
             ResponseStatus.MODEL_LOADING.value,
             ResponseStatus.TIMEOUT.value,
             ResponseStatus.EMPTY.value,
@@ -865,6 +866,7 @@ class DeliberationProtocol:
             return 1.0
         if status in {
             ResponseStatus.AUTH_REQUIRED,
+            ResponseStatus.PERMISSION_REQUIRED,
             ResponseStatus.MODEL_LOADING,
             ResponseStatus.TIMEOUT,
             ResponseStatus.EMPTY,

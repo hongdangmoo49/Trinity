@@ -20,6 +20,7 @@ except ModuleNotFoundError:  # pragma: no cover
 
 from trinity.models import ContextUsage, Provider, ResponseStatus
 from trinity.platform.process import CommandSpec, ProcessRunner
+from trinity.providers.permissions import ProviderPermissionPolicy
 from trinity.providers.policy import ExecutionAuthority, InvocationAccess
 
 
@@ -77,8 +78,13 @@ class CliProviderInvoker:
 
     execution_authority = ExecutionAuthority.PROVIDER_MANAGED
 
-    def __init__(self, runner: ProcessRunner | None = None):
+    def __init__(
+        self,
+        runner: ProcessRunner | None = None,
+        permission_policy: ProviderPermissionPolicy | None = None,
+    ):
         self.runner = runner or ProcessRunner()
+        self.permission_policy = permission_policy or ProviderPermissionPolicy()
 
     async def invoke(self, request: PromptRequest) -> ProviderTurnResult:
         """Run the provider command in a subprocess."""
@@ -160,6 +166,20 @@ class CliProviderInvoker:
     @staticmethod
     def _failure_status(text: str) -> ResponseStatus:
         lowered = text.lower()
+        permission_terms = (
+            "permission denied",
+            "permission mode",
+            "requires approval",
+            "approval required",
+            "not allowed",
+            "operation not permitted",
+            "sandbox denied",
+            "user denied",
+            "blocked by policy",
+            "disallowed",
+        )
+        if any(term in lowered for term in permission_terms):
+            return ResponseStatus.PERMISSION_REQUIRED
         auth_terms = (
             "auth",
             "authentication",
@@ -261,6 +281,12 @@ class ClaudePrintInvoker(CliProviderInvoker):
     """Invoke Claude Code with `claude -p --output-format json`."""
 
     def build_command(self, request: PromptRequest) -> list[str]:
+        permission = self.permission_policy.plan(
+            provider=request.provider,
+            access=request.access,
+            cwd=request.cwd,
+            extra_args=tuple(request.extra_args),
+        )
         command = [
             request.cli_command,
             *self._model_args(request),
@@ -268,9 +294,10 @@ class ClaudePrintInvoker(CliProviderInvoker):
         if request.provider_session_id:
             command.extend(["--resume", request.provider_session_id])
         command.extend(["-p", "--output-format", "json"])
+        command.extend(permission.args)
         if request.role_prompt:
             command.extend(["--append-system-prompt", request.role_prompt])
-        command.extend(request.extra_args)
+        command.extend(permission.extra_args)
         command.append(self._render_prompt(request, include_role=False))
         return command
 
@@ -405,38 +432,23 @@ class CodexExecInvoker(CliProviderInvoker):
     """Invoke Codex with `codex exec --json` and parse JSONL events."""
 
     def build_command(self, request: PromptRequest) -> list[str]:
-        if (
-            request.continuity_enabled
-            and request.provider_session_id
-            and request.access == InvocationAccess.READ_ONLY
-        ):
-            command = [
-                request.cli_command,
-                "exec",
-                "resume",
-                request.provider_session_id,
-                "--json",
-                "--skip-git-repo-check",
-                *self._model_args(request),
-            ]
-            command.extend(request.extra_args)
-            command.append("-")
-            return command
-
+        permission = self.permission_policy.plan(
+            provider=request.provider,
+            access=request.access,
+            cwd=request.cwd,
+            extra_args=tuple(request.extra_args),
+        )
         command = [
             request.cli_command,
             "exec",
             "--json",
             "--skip-git-repo-check",
-            "--sandbox",
-            request.access.value,
-            "--cd",
-            str(request.cwd),
+            *permission.args,
             *self._model_args(request),
         ]
         if not request.continuity_enabled:
             command.insert(3, "--ephemeral")
-        command.extend(request.extra_args)
+        command.extend(permission.extra_args)
         command.append("-")
         return command
 
@@ -696,17 +708,22 @@ class AntigravityPrintInvoker(CliProviderInvoker):
     }
 
     def build_command(self, request: PromptRequest) -> list[str]:
+        permission = self.permission_policy.plan(
+            provider=request.provider,
+            access=request.access,
+            cwd=request.cwd,
+            extra_args=tuple(request.extra_args),
+        )
         timeout_seconds = max(1, math.ceil(request.timeout_seconds))
         command = [
             request.cli_command,
             *self._model_args(request),
             f"--print-timeout={timeout_seconds}s",
         ]
-        if request.access == InvocationAccess.READ_ONLY:
-            command.append("--sandbox")
+        command.extend(permission.args)
         if request.provider_session_id:
             command.extend(["--conversation", request.provider_session_id])
-        extra_args = list(request.extra_args)
+        extra_args = list(permission.extra_args)
         if not _extract_flag_value(extra_args, "--log-file"):
             log_path = _default_antigravity_log_path(request)
             if log_path:

@@ -78,3 +78,39 @@ def test_provider_panel_compacts_long_summary() -> None:
 
     assert len(panel._summary_line()) <= 72
     assert panel._summary_line().endswith("…")
+
+
+def test_provider_panel_shows_compact_model_context_and_session_metadata() -> None:
+    state = ProviderPanelState(
+        name="codex",
+        provider="codex",
+        enabled=True,
+        status="Ready",
+        configured_model="default",
+        actual_model="gpt-5.5",
+        context_window=272000,
+        budget_source="local_cli_cache",
+        session_id="019ea9e3-426f",
+    )
+    panel = ProviderPanel(state)
+
+    assert panel._provider_line() == (
+        "codex · gpt-5.5 · ctx 272K/local · sid 019ea9e3"
+    )
+
+
+def test_provider_panel_does_not_duplicate_snapshot_provider_model_label() -> None:
+    state = ProviderPanelState(
+        name="codex",
+        provider="codex · gpt-5.5",
+        enabled=True,
+        status="Ready",
+        configured_model="default",
+        actual_model="gpt-5.5",
+        context_window=272000,
+        budget_source="runtime_metadata",
+    )
+    panel = ProviderPanel(state)
+
+    assert panel._provider_line().count("gpt-5.5") == 1
+    assert "ctx 272K/runtime" in panel._provider_line()

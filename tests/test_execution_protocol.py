@@ -111,6 +111,49 @@ async def test_execution_protocol_dispatches_package_and_records_result(tmp_path
 
 
 @pytest.mark.asyncio
+async def test_execution_permission_failure_blocks_then_falls_back(tmp_path):
+    shared = SharedContextEngine(tmp_path / "shared.md")
+    shared.initialize("Implement routing", ["claude", "codex"])
+    claude = AsyncMock()
+    codex = AsyncMock()
+    claude.send_and_wait.return_value = _message(
+        "Permission denied: operation requires approval.",
+        metadata={"response_status": ResponseStatus.PERMISSION_REQUIRED.value},
+    )
+    codex.send_and_wait.return_value = _message(
+        "## Completed\n"
+        "- Implemented with fallback\n\n"
+        "## Files Changed\n"
+        "- src/routes.py\n\n"
+        "## Blockers\n"
+        "- none\n"
+    )
+    protocol = ExecutionProtocol(
+        agents={"claude": claude, "codex": codex},
+        shared=shared,
+        artifact_dir=tmp_path / "execution",
+    )
+    package = WorkPackage(
+        id="WP-001",
+        title="fallback package",
+        owner_agent="claude",
+        objective="Implement route service.",
+    )
+
+    result = await protocol.dispatch_package(package)
+
+    assert result.status == WorkStatus.DONE
+    assert result.agent_name == "codex"
+    assert result.attempt_chain[0]["agent"] == "claude"
+    assert result.attempt_chain[0]["status"] == "blocked"
+    assert "Permission denied" in str(result.attempt_chain[0]["blockers"][0])
+    assert result.attempt_chain[1]["agent"] == "codex"
+    assert result.attempt_chain[1]["status"] == "done"
+    assert claude.send_and_wait.call_args.kwargs["access"] == InvocationAccess.WORKSPACE_WRITE
+    assert codex.send_and_wait.call_args.kwargs["access"] == InvocationAccess.WORKSPACE_WRITE
+
+
+@pytest.mark.asyncio
 async def test_execution_protocol_prefers_last_executor_for_repair(tmp_path):
     shared = SharedContextEngine(tmp_path / "shared.md")
     claude = AsyncMock()

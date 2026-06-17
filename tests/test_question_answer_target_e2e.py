@@ -223,7 +223,7 @@ def _read_jsonl(path: Path) -> list[dict[str, object]]:
 def test_question_answer_continuation_invokes_only_saved_target_agent_model_and_session(
     tmp_path,
 ) -> None:
-    """Answering a central question keeps the saved target agent/model in a real run."""
+    """Answering keeps saved target/model while preserving Codex sandbox policy."""
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     codex_log = tmp_path / "logs" / "codex.jsonl"
@@ -298,7 +298,12 @@ def test_question_answer_continuation_invokes_only_saved_target_agent_model_and_
 
     argv = [str(item) for item in codex_calls[0]["argv"]]
     stdin_text = str(codex_calls[0]["stdin"])
-    assert argv[:3] == ["exec", "resume", "thread-before-answer"]
+    assert argv[:2] == ["exec", "--json"]
+    assert "resume" not in argv
+    assert "--sandbox" in argv
+    assert argv[argv.index("--sandbox") + 1] == "read-only"
+    assert "--cd" in argv
+    assert argv[argv.index("--cd") + 1] == str(tmp_path)
     assert "--model" in argv
     assert argv[argv.index("--model") + 1] == "gpt-5"
     assert "dark" in stdin_text

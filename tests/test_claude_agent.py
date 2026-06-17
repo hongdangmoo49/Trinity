@@ -15,7 +15,7 @@ def claude_spec():
         provider=Provider.CLAUDE_CODE,
         cli_command="claude",
         role_prompt="You are the Architect.",
-        extra_args=["--dangerously-skip-permissions"],
+        extra_args=["--no-session-persistence"],
     )
 
 
@@ -95,7 +95,7 @@ class TestSendAndWait:
         assert request.agent_name == "claude"
         assert request.role_prompt == "You are the Architect."
         assert request.context_prompt == ""
-        assert request.extra_args == ("--dangerously-skip-permissions",)
+        assert request.extra_args == ("--no-session-persistence",)
         assert msg.source == "claude"
         assert msg.target == "all"
         assert msg.role == MessageRole.OPINION

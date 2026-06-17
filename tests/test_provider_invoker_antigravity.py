@@ -69,6 +69,30 @@ def test_build_command_omits_sandbox_for_workspace_write(tmp_path):
     assert "--dangerously-skip-permissions" not in command
 
 
+def test_build_command_filters_antigravity_dangerous_extra_args(tmp_path):
+    invoker = AntigravityPrintInvoker()
+    request = PromptRequest(
+        agent_name="antigravity",
+        provider=Provider.ANTIGRAVITY_CLI,
+        cli_command="agy",
+        prompt="Implement the change.",
+        cwd=tmp_path,
+        access=InvocationAccess.WORKSPACE_WRITE,
+        extra_args=(
+            "--sandbox",
+            "--dangerously-skip-permissions",
+            "--log-file",
+            str(tmp_path / "agy.log"),
+        ),
+    )
+
+    command = invoker.build_command(request)
+
+    assert "--sandbox" not in command
+    assert "--dangerously-skip-permissions" not in command
+    assert command[command.index("--log-file") + 1] == str(tmp_path / "agy.log")
+
+
 def test_build_command_uses_antigravity_conversation_resume(tmp_path):
     invoker = AntigravityPrintInvoker()
     request = PromptRequest(

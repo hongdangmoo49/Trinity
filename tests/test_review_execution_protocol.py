@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from trinity.context.shared import SharedContextEngine
-from trinity.models import DeliberationMessage, MessageRole
+from trinity.models import DeliberationMessage, MessageRole, ResponseStatus
 from trinity.providers.policy import InvocationAccess
 from trinity.tui.events import TUIEventType
 from trinity.workflow import (
@@ -120,6 +120,53 @@ async def test_review_execution_protocol_reviews_work_package(tmp_path):
     completed = events[4]
     assert completed.data["status"] == ReviewStatus.CHANGES_REQUESTED.value
     assert completed.data["summary"] == "Needs safer terminal handling."
+
+
+@pytest.mark.asyncio
+async def test_review_permission_failure_becomes_blocked_result(tmp_path):
+    shared = SharedContextEngine(tmp_path / "shared.md")
+    agent = AsyncMock()
+    agent.send_and_wait.return_value = _message(
+        "Sandbox denied: approval required.",
+        metadata={"response_status": ResponseStatus.PERMISSION_REQUIRED.value},
+    )
+    protocol = ReviewExecutionProtocol(
+        agents={"codex": agent},
+        shared=shared,
+        artifact_dir=tmp_path / "reviews",
+    )
+
+    results = await protocol.review_work_packages(
+        [
+            ReviewPackage(
+                package_id="WP-001",
+                reviewer_agent="codex",
+                target_agent="claude",
+                criteria=["Check runtime errors"],
+            )
+        ],
+        [
+            WorkPackage(
+                id="WP-001",
+                title="UI shell",
+                owner_agent="claude",
+                objective="Build shell.",
+            )
+        ],
+        [
+            ExecutionResult(
+                package_id="WP-001",
+                agent_name="claude",
+                status=WorkStatus.DONE,
+                summary="Implemented shell.",
+            )
+        ],
+    )
+
+    assert len(results) == 1
+    assert results[0].status == ReviewStatus.BLOCKED
+    assert "approval required" in results[0].summary
+    assert agent.send_and_wait.call_args.kwargs["access"] == InvocationAccess.READ_ONLY
 
 
 @pytest.mark.asyncio

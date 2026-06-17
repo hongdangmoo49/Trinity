@@ -87,7 +87,7 @@ def test_build_command_omits_ephemeral_for_continuity_first_call(tmp_path):
     assert command[command.index("--sandbox") + 1] == "read-only"
 
 
-def test_build_command_uses_codex_exec_resume_for_read_only_continuation(tmp_path):
+def test_build_command_does_not_resume_read_only_when_sandbox_would_be_lost(tmp_path):
     invoker = CodexExecInvoker()
     request = PromptRequest(
         agent_name="codex",
@@ -101,12 +101,45 @@ def test_build_command_uses_codex_exec_resume_for_read_only_continuation(tmp_pat
 
     command = invoker.build_command(request)
 
-    assert command[:4] == ["codex", "exec", "resume", "thread-xyz"]
+    assert command[:2] == ["codex", "exec"]
+    assert "resume" not in command
     assert "--json" in command
     assert "--ephemeral" not in command
-    assert "--sandbox" not in command
-    assert "--cd" not in command
+    assert command[command.index("--sandbox") + 1] == "read-only"
+    assert command[command.index("--cd") + 1] == str(tmp_path)
     assert command[-1] == "-"
+
+
+def test_build_command_filters_codex_conflicting_extra_args(tmp_path):
+    invoker = CodexExecInvoker()
+    request = PromptRequest(
+        agent_name="codex",
+        provider=Provider.CODEX,
+        cli_command="codex",
+        prompt="Implement.",
+        cwd=tmp_path,
+        access=InvocationAccess.WORKSPACE_WRITE,
+        extra_args=(
+            "--sandbox",
+            "danger-full-access",
+            "--cd",
+            "/tmp/other",
+            "--add-dir",
+            "/tmp/other",
+            "--dangerously-bypass-approvals-and-sandbox",
+            "--ignore-rules",
+        ),
+    )
+
+    command = invoker.build_command(request)
+
+    assert command[command.index("--sandbox") + 1] == "workspace-write"
+    assert command[command.index("--cd") + 1] == str(tmp_path)
+    assert "danger-full-access" not in command
+    assert "/tmp/other" not in command
+    assert "--add-dir" not in command
+    assert "--dangerously-bypass-approvals-and-sandbox" not in command
+    assert "--ignore-rules" in command
 
 
 def test_build_command_does_not_resume_codex_workspace_write(tmp_path):

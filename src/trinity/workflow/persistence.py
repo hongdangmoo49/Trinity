@@ -455,6 +455,8 @@ class WorkflowPersistence:
             if limit == 0:
                 return []
             selected = selected[-limit:]
+        if not selected:
+            return []
         events = self._read_indexed_events(selected)
         if events is None:
             return None
@@ -464,6 +466,8 @@ class WorkflowPersistence:
         self,
         entries: list[dict[str, Any]],
     ) -> list[dict[str, Any]] | None:
+        if not entries:
+            return []
         events: list[dict[str, Any]] = []
         try:
             with self.events_path.open("rb") as fh:

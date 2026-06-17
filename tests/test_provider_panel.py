@@ -66,6 +66,34 @@ def test_provider_panel_supports_korean_status_labels() -> None:
     assert "실행" in panel._status_label()
 
 
+@pytest.mark.parametrize(
+    ("status", "enabled", "expected_label"),
+    [
+        ("Running", True, "실행"),
+        ("Queued", True, "대기"),
+        ("Idle", True, "휴식"),
+        ("Done", True, "완료"),
+        ("Failed", True, "문제"),
+        ("mystery", True, "?"),
+        ("Running", False, "끔"),
+    ],
+)
+def test_provider_panel_supports_all_korean_status_labels(
+    status: str,
+    enabled: bool,
+    expected_label: str,
+) -> None:
+    state = ProviderPanelState(
+        name="claude",
+        provider="claude-code",
+        enabled=enabled,
+        status=status,
+    )
+    panel = ProviderPanel(state, lang="ko")
+
+    assert expected_label in panel._status_label()
+
+
 def test_provider_panel_compacts_long_summary() -> None:
     state = ProviderPanelState(
         name="claude",
@@ -78,3 +106,39 @@ def test_provider_panel_compacts_long_summary() -> None:
 
     assert len(panel._summary_line()) <= 72
     assert panel._summary_line().endswith("…")
+
+
+def test_provider_panel_shows_compact_model_context_and_session_metadata() -> None:
+    state = ProviderPanelState(
+        name="codex",
+        provider="codex",
+        enabled=True,
+        status="Ready",
+        configured_model="default",
+        actual_model="gpt-5.5",
+        context_window=272000,
+        budget_source="local_cli_cache",
+        session_id="019ea9e3-426f",
+    )
+    panel = ProviderPanel(state)
+
+    assert panel._provider_line() == (
+        "codex · gpt-5.5 · ctx 272K/local · sid 019ea9e3"
+    )
+
+
+def test_provider_panel_does_not_duplicate_snapshot_provider_model_label() -> None:
+    state = ProviderPanelState(
+        name="codex",
+        provider="codex · gpt-5.5",
+        enabled=True,
+        status="Ready",
+        configured_model="default",
+        actual_model="gpt-5.5",
+        context_window=272000,
+        budget_source="runtime_metadata",
+    )
+    panel = ProviderPanel(state)
+
+    assert panel._provider_line().count("gpt-5.5") == 1
+    assert "ctx 272K/runtime" in panel._provider_line()

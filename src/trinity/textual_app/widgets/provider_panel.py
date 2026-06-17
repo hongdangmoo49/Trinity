@@ -8,6 +8,11 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Static
 
+from trinity.textual_app.widgets.status_label import (
+    COMPACT_STATUS_LABELS,
+    compact_status_group,
+)
+
 
 @dataclass(frozen=True)
 class ProviderPanelState:
@@ -19,14 +24,15 @@ class ProviderPanelState:
     status: str
     summary: str = ""
     details: str = ""
+    configured_model: str = ""
+    actual_model: str = ""
+    model_label: str = ""
+    context_window: int = 0
+    budget_source: str = ""
+    session_id: str = ""
 
 
 ACTIVITY_FRAMES = ("|", "/", "-", "\\")
-RUNNING_STATUSES = {"deliberating", "executing", "reviewing", "running"}
-WAITING_STATUSES = {"pending", "queued", "waiting"}
-IDLE_STATUSES = {"idle"}
-DONE_STATUSES = {"completed", "done", "ready", "success"}
-ISSUE_STATUSES = {"blocked", "error", "failed", "timeout"}
 
 
 class ProviderPanel(Vertical):
@@ -65,7 +71,17 @@ class ProviderPanel(Vertical):
             self.query_one(".provider-status", Static).update(self._status_label())
 
     def _provider_line(self) -> str:
-        return self.state.provider
+        parts = [self.state.provider]
+        model = self._model_label()
+        if model and model.lower() not in self.state.provider.lower():
+            parts.append(model)
+        context = self._context_label()
+        if context:
+            parts.append(context)
+        session = self.state.session_id.strip()
+        if session:
+            parts.append(f"sid {session[:8]}")
+        return self._compact_line(" · ".join(part for part in parts if part))
 
     def _status_label(self) -> str:
         prefix = ""
@@ -76,10 +92,52 @@ class ProviderPanel(Vertical):
 
     def _summary_line(self) -> str:
         text = self.state.details or self.state.summary or self._empty_summary()
+        return self._compact_line(text)
+
+    @staticmethod
+    def _compact_line(text: str, limit: int = 72) -> str:
         normalized = " ".join(text.split())
-        if len(normalized) <= 72:
+        if len(normalized) <= limit:
             return normalized
-        return normalized[:71].rstrip() + "…"
+        return normalized[: limit - 1].rstrip() + "…"
+
+    def _model_label(self) -> str:
+        return (
+            self.state.actual_model
+            or self.state.model_label
+            or self.state.configured_model
+        ).strip()
+
+    def _context_label(self) -> str:
+        if self.state.context_window <= 0:
+            return ""
+        label = f"ctx {self._format_context_window(self.state.context_window)}"
+        source = self._budget_source_label()
+        if source:
+            label = f"{label}/{source}"
+        return label
+
+    def _budget_source_label(self) -> str:
+        source = self.state.budget_source.strip()
+        if not source or source == "unsupported":
+            return ""
+        labels = {
+            "local_cli_cache": "local",
+            "provider_log": "log",
+            "runtime_metadata": "runtime",
+            "trinity_config": "config",
+        }
+        return labels.get(source, source)
+
+    @staticmethod
+    def _format_context_window(context_window: int) -> str:
+        if context_window >= 1_000_000:
+            value = context_window / 1_000_000
+            return f"{value:g}M"
+        if context_window >= 1_000:
+            value = context_window / 1_000
+            return f"{value:g}K"
+        return str(context_window)
 
     def _label_for_state(self, state: str) -> str:
         ko = {
@@ -92,13 +150,8 @@ class ProviderPanel(Vertical):
             "waiting": "대기",
         }
         en = {
-            "done": "DONE",
-            "idle": "IDLE",
-            "issue": "ISSUE",
             "off": "OFF",
-            "running": "RUN",
-            "unknown": "?",
-            "waiting": "WAIT",
+            **COMPACT_STATUS_LABELS,
         }
         labels = ko if self.lang == "ko" else en
         return labels.get(state, state.upper())
@@ -121,15 +174,4 @@ class ProviderPanel(Vertical):
     def _state_group(state: ProviderPanelState) -> str:
         if not state.enabled:
             return "off"
-        raw = state.status.strip().lower()
-        if raw in RUNNING_STATUSES:
-            return "running"
-        if raw in WAITING_STATUSES:
-            return "waiting"
-        if raw in IDLE_STATUSES:
-            return "idle"
-        if raw in DONE_STATUSES:
-            return "done"
-        if raw in ISSUE_STATUSES:
-            return "issue"
-        return "unknown"
+        return compact_status_group(state.status)

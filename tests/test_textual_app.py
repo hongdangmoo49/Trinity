@@ -3100,6 +3100,73 @@ async def test_nexus_running_surfaces_show_activity(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_nexus_provider_strip_stays_compact_on_small_viewport(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                providers=[
+                    ProviderSnapshot(
+                        name="claude",
+                        provider="claude-code",
+                        enabled=True,
+                        status="Running",
+                        actual_model="claude-opus-4.1",
+                        context_window=200000,
+                        budget_source="runtime_metadata",
+                        session_id="claude-session-123456789",
+                    ),
+                    ProviderSnapshot(
+                        name="codex",
+                        provider="codex",
+                        enabled=True,
+                        status="Queued",
+                        actual_model="gpt-5.5",
+                        context_window=272000,
+                        budget_source="local_cli_cache",
+                        session_id="codex-session-123456789",
+                    ),
+                    ProviderSnapshot(
+                        name="antigravity",
+                        provider="antigravity",
+                        enabled=True,
+                        status="Ready",
+                        actual_model="ag-high-context",
+                        context_window=128000,
+                        budget_source="trinity_config",
+                        session_id="antigravity-session-123456789",
+                    ),
+                ]
+            )
+        )
+        await pilot.pause()
+
+        strip = screen.query_one("#provider-strip")
+        panels = list(screen.query(ProviderPanel))
+
+        assert strip.region.height == 5
+        assert len(panels) == 3
+        for panel in panels:
+            assert panel.region.height == 5
+            assert panel.region.y >= strip.region.y
+            assert (
+                panel.region.y + panel.region.height
+                <= strip.region.y + strip.region.height
+            )
+            assert str(panel.query_one(".provider-name").content)
+            assert str(panel.query_one(".provider-status").content)
+            assert str(panel.query_one(".provider-meta").content)
+        assert "Antigravity" in str(
+            screen.query_one("#provider-antigravity .provider-name").content
+        )
+
+
+@pytest.mark.asyncio
 async def test_workflow_outcome_does_not_render_hidden_nexus(
     tmp_path,
     monkeypatch,
@@ -3229,7 +3296,7 @@ async def test_execution_matrix_separates_owner_and_executor(tmp_path) -> None:
         assert "Rust contracts" in row_text
         assert "codex" in row_text
         assert "claude fallback" in row_text
-        assert "running" in row_text
+        assert "RUN" in row_text
         assert "high" in row_text
         rows.first().query_one("#wp-detail-0", Button).press()
         await pilot.pause()
@@ -3238,6 +3305,82 @@ async def test_execution_matrix_separates_owner_and_executor(tmp_path) -> None:
         assert "WP-001: Rust contracts" in str(
             app.screen.query_one("#work-package-detail-title", Static).content
         )
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_renders_compact_status_labels(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Run task",
+                        owner_agent="codex",
+                        status="running",
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-002",
+                        title="Wait task",
+                        owner_agent="claude",
+                        status="pending",
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-003",
+                        title="Review task",
+                        owner_agent="codex",
+                        status="needs_review",
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-004",
+                        title="Done task",
+                        owner_agent="claude",
+                        status="done",
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-005",
+                        title="Issue task",
+                        owner_agent="codex",
+                        status="blocked",
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-006",
+                        title="Idle task",
+                        owner_agent="claude",
+                        status="idle",
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-007",
+                        title="Unknown task",
+                        owner_agent="codex",
+                        status="paused",
+                    ),
+                ]
+            ),
+        )
+        await pilot.pause()
+
+        statuses = screen.query(
+            "#execution-package-list "
+            ".execution-package-row .execution-package-status"
+        )
+
+        assert [str(status.render()) for status in statuses] == [
+            "RUN",
+            "WAIT",
+            "WAIT",
+            "DONE",
+            "ISSUE",
+            "IDLE",
+            "?",
+        ]
 
 
 @pytest.mark.asyncio
@@ -3702,7 +3845,9 @@ async def test_execution_matrix_renders_preflight_and_packages(tmp_path) -> None
         await pilot.pause()
 
         assert str(tmp_path) in str(screen.query_one("#execution-header").content)
-        assert len(screen.query("#execution-package-list .execution-package-row")) == 1
+        rows = screen.query("#execution-package-list .execution-package-row")
+        assert len(rows) == 1
+        assert "WAIT" in " ".join(str(child.render()) for child in rows.first().children)
 
 
 @pytest.mark.asyncio

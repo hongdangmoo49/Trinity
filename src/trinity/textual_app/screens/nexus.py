@@ -202,6 +202,12 @@ class NexusScreen(Screen[None]):
                     enabled=provider.enabled,
                     status=provider.status,
                     summary=provider.summary,
+                    configured_model=provider.configured_model,
+                    actual_model=provider.actual_model,
+                    model_label=provider.model_label,
+                    context_window=provider.context_window,
+                    budget_source=provider.budget_source,
+                    session_id=provider.session_id,
                 )
             )
         self._refresh_central()
@@ -351,6 +357,9 @@ class NexusScreen(Screen[None]):
             enabled=spec.enabled,
             status=status or default_status,
             summary=summary,
+            configured_model=spec.model,
+            context_window=spec.effective_context_budget,
+            budget_source="trinity_config",
         )
 
     def _refresh_central(self) -> None:

@@ -105,10 +105,21 @@ async def test_review_execution_protocol_reviews_work_package(tmp_path):
     assert agent.send_and_wait.call_args.kwargs["access"] == InvocationAccess.READ_ONLY
     assert [event.type for event in events] == [
         TUIEventType.REVIEW_START,
+        TUIEventType.REVIEW_PACKAGE_QUEUED,
+        TUIEventType.REVIEW_PACKAGE_STARTED,
         TUIEventType.WORK_PACKAGE_REVIEW_STARTED,
+        TUIEventType.REVIEW_PACKAGE_COMPLETED,
         TUIEventType.WORK_PACKAGE_REVIEW_COMPLETED,
         TUIEventType.REVIEW_DONE,
     ]
+    queued = events[1]
+    assert queued.data["review_package_id"] == "RP-WP-001-codex"
+    assert queued.data["package_id"] == "WP-001"
+    assert queued.data["reviewer_agent"] == "codex"
+    assert queued.data["target_agent"] == "claude"
+    completed = events[4]
+    assert completed.data["status"] == ReviewStatus.CHANGES_REQUESTED.value
+    assert completed.data["summary"] == "Needs safer terminal handling."
 
 
 @pytest.mark.asyncio

@@ -7,6 +7,7 @@ from trinity.workflow.review import (
     FINAL_REVIEW_FALLBACK_PRIORITY,
     FINAL_REVIEW_PACKAGE_ID,
     PeerReviewPlanner,
+    ReviewDepth,
     ReviewPackage,
     ReviewResult,
     ReviewStatus,
@@ -29,7 +30,7 @@ def _package(
     )
 
 
-def test_peer_review_planner_assigns_all_non_owner_reviewers_per_work_package():
+def test_peer_review_planner_assigns_one_primary_non_owner_reviewer_by_default():
     packages = [
         _package("WP-001", "claude", ["Tests pass"]),
         _package("WP-002", "codex"),
@@ -45,19 +46,18 @@ def test_peer_review_planner_assigns_all_non_owner_reviewers_per_work_package():
         (review.package_id, review.target_agent, review.reviewer_agent)
         for review in reviews
     ] == [
-        ("WP-001", "claude", "codex"),
         ("WP-001", "claude", "antigravity"),
-        ("WP-002", "codex", "claude"),
         ("WP-002", "codex", "antigravity"),
         ("WP-003", "antigravity", "claude"),
-        ("WP-003", "antigravity", "codex"),
     ]
     assert all(review.reviewer_agent != review.target_agent for review in reviews)
     assert all(review.self_review is False for review in reviews)
+    assert all(review.depth == ReviewDepth.SINGLE_PEER for review in reviews)
+    assert all(review.required is True for review in reviews)
     assert "Tests pass" in reviews[0].criteria
 
 
-def test_peer_review_planner_uses_self_review_for_single_active_agent():
+def test_peer_review_planner_skips_peer_review_for_single_active_agent():
     reviews = PeerReviewPlanner().plan_reviews(
         [_package("WP-001", "codex")],
         active_agents=["codex"],
@@ -66,9 +66,39 @@ def test_peer_review_planner_uses_self_review_for_single_active_agent():
     assert len(reviews) == 1
     review = reviews[0]
     assert review.package_id == "WP-001"
-    assert review.reviewer_agent == "codex"
+    assert review.reviewer_agent == ""
     assert review.target_agent == "codex"
-    assert review.self_review is True
+    assert review.self_review is False
+    assert review.depth == ReviewDepth.NONE
+    assert review.required is False
+    assert "no non-owner peer reviewer" in review.skipped_reason
+
+
+def test_peer_review_planner_uses_only_non_owner_for_two_active_agents():
+    reviews = PeerReviewPlanner().plan_reviews(
+        [_package("WP-001", "codex")],
+        active_agents=["claude", "codex"],
+    )
+
+    assert len(reviews) == 1
+    review = reviews[0]
+    assert review.reviewer_agent == "claude"
+    assert review.target_agent == "codex"
+    assert review.depth == ReviewDepth.SINGLE_PEER
+    assert review.reason == "single available non-owner reviewer"
+
+
+def test_peer_review_planner_uses_deterministic_primary_priority():
+    planner = PeerReviewPlanner()
+
+    assert [
+        planner.plan_reviews([_package("WP-001", target)], agents)[0].reviewer_agent
+        for target, agents in [
+            ("codex", ["claude", "codex", "antigravity"]),
+            ("antigravity", ["claude", "codex", "antigravity"]),
+            ("claude", ["codex", "claude", "antigravity"]),
+        ]
+    ] == ["antigravity", "claude", "antigravity"]
 
 
 def test_peer_review_planner_uses_execution_result_target_and_status():
@@ -117,7 +147,29 @@ def test_review_package_round_trips_to_dict():
     assert restored.execution_status == WorkStatus.DONE
     assert restored.scope == "work_package"
     assert restored.attempt == 1
+    assert restored.depth == ReviewDepth.SINGLE_PEER
+    assert restored.required is True
     assert restored.created_at > 0
+
+
+def test_review_package_round_trips_skip_and_escalation_metadata():
+    review = ReviewPackage(
+        package_id="WP-001",
+        reviewer_agent="",
+        target_agent="codex",
+        depth=ReviewDepth.NONE,
+        required=False,
+        reason="peer review skipped because no peer reviewer is active",
+        skipped_reason="only codex is active; no non-owner peer reviewer is available",
+    )
+
+    restored = ReviewPackage.from_dict(review.to_dict())
+
+    assert restored.id == "RP-WP-001-skipped"
+    assert restored.depth == ReviewDepth.NONE
+    assert restored.required is False
+    assert restored.self_review is False
+    assert restored.skipped_reason.startswith("only codex")
 
 
 def test_review_result_round_trips_to_dict(tmp_path):
@@ -137,6 +189,9 @@ def test_review_result_round_trips_to_dict(tmp_path):
         performance_notes=["Retry loop has bounded backoff."],
         anti_patterns=["Broad exception handling hides root cause."],
         execution_risks=["Retry may fail under missing workspace."],
+        skipped=True,
+        skipped_reason="no peer reviewer",
+        confidence="low",
     )
 
     restored = ReviewResult.from_dict(result.to_dict())
@@ -154,6 +209,60 @@ def test_review_result_round_trips_to_dict(tmp_path):
     assert restored.performance_notes == ["Retry loop has bounded backoff."]
     assert restored.anti_patterns == ["Broad exception handling hides root cause."]
     assert restored.execution_risks == ["Retry may fail under missing workspace."]
+    assert restored.skipped is True
+    assert restored.skipped_reason == "no peer reviewer"
+    assert restored.confidence == "low"
+
+
+def test_peer_review_planner_prepares_high_risk_escalation_hook():
+    package = _package("WP-001", "codex")
+    package.risk = "high"
+    planner = PeerReviewPlanner()
+    primary = planner.plan_reviews(
+        [package],
+        active_agents=["claude", "codex", "antigravity"],
+    )
+
+    escalations = planner.plan_escalation_reviews(
+        [package],
+        active_agents=["claude", "codex", "antigravity"],
+        existing_reviews=primary,
+    )
+
+    assert len(escalations) == 1
+    escalation = escalations[0]
+    assert escalation.depth == ReviewDepth.ESCALATED_PEER
+    assert escalation.escalation_parent_id == primary[0].id
+    assert escalation.reviewer_agent == "claude"
+    assert escalation.reason == "package risk is high"
+
+
+def test_peer_review_planner_prepares_changes_requested_escalation_hook():
+    package = _package("WP-001", "codex")
+    planner = PeerReviewPlanner()
+    primary = planner.plan_reviews(
+        [package],
+        active_agents=["claude", "codex", "antigravity"],
+    )
+
+    escalations = planner.plan_escalation_reviews(
+        [package],
+        active_agents=["claude", "codex", "antigravity"],
+        existing_reviews=primary,
+        review_results=[
+            ReviewResult(
+                review_package_id=primary[0].id,
+                package_id="WP-001",
+                reviewer_agent=primary[0].reviewer_agent,
+                target_agent="codex",
+                status=ReviewStatus.CHANGES_REQUESTED,
+            )
+        ],
+    )
+
+    assert len(escalations) == 1
+    assert escalations[0].reviewer_agent == "claude"
+    assert escalations[0].reason == "primary review status is changes_requested"
 
 
 def test_final_review_package_uses_codex_first_fallback_contract():

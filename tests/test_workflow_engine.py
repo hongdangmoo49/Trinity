@@ -8,6 +8,8 @@ from trinity.workflow import (
     Blueprint,
     ExecutionResult,
     OpenQuestion,
+    ReviewDepth,
+    ReviewPackage,
     ReviewResult,
     ReviewStatus,
     SubtaskResult,
@@ -688,7 +690,12 @@ def test_record_execution_results_moves_to_reviewing(tmp_path):
     assert engine.execution_results[0].summary == "Implemented route bot."
     assert len(engine.review_packages) == 1
     assert engine.review_packages[0]["package_id"] == "WP-001"
-    assert engine.review_packages[0]["self_review"] is True
+    assert engine.review_packages[0]["reviewer_agent"] == ""
+    assert engine.review_packages[0]["self_review"] is False
+    assert engine.review_packages[0]["depth"] == ReviewDepth.NONE.value
+    assert engine.review_packages[0]["required"] is False
+    assert "no non-owner peer reviewer" in engine.review_packages[0]["skipped_reason"]
+    assert engine.review_packages_for_request("wp") == []
 
     loaded = WorkflowEngine(tmp_path / ".trinity")
     assert loaded.state == WorkflowState.REVIEWING
@@ -696,7 +703,7 @@ def test_record_execution_results_moves_to_reviewing(tmp_path):
     assert loaded.review_packages[0]["package_id"] == "WP-001"
 
 
-def test_record_execution_results_plans_all_non_owner_reviews(tmp_path):
+def test_record_execution_results_plans_one_primary_non_owner_review(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
     engine.start("Implement route bot", ["claude", "codex", "antigravity"])
     engine.session.work_packages = [
@@ -726,13 +733,16 @@ def test_record_execution_results_plans_all_non_owner_reviews(tmp_path):
         (review["package_id"], review["target_agent"], review["reviewer_agent"])
         for review in engine.review_packages
     ] == [
-        ("WP-001", "codex", "claude"),
         ("WP-001", "codex", "antigravity"),
     ]
     assert all(review["self_review"] is False for review in engine.review_packages)
+    assert all(
+        review["depth"] == ReviewDepth.SINGLE_PEER.value
+        for review in engine.review_packages
+    )
 
 
-def test_review_request_keeps_unapproved_non_owner_reviews_pending(tmp_path):
+def test_review_request_keeps_legacy_multi_review_pending(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
     engine.start("Implement route bot", ["claude", "codex", "antigravity"])
     engine.session.work_packages = [
@@ -753,7 +763,18 @@ def test_review_request_keeps_unapproved_non_owner_reviews_pending(tmp_path):
             summary="Implemented route bot.",
         )
     ]
-    engine.ensure_review_packages()
+    engine.session.review_packages = [
+        ReviewPackage(
+            package_id="WP-001",
+            reviewer_agent="claude",
+            target_agent="codex",
+        ).to_dict(),
+        ReviewPackage(
+            package_id="WP-001",
+            reviewer_agent="antigravity",
+            target_agent="codex",
+        ).to_dict(),
+    ]
     planned = engine.review_packages_for_request("wp")
 
     engine.record_review_results(

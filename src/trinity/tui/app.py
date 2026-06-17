@@ -277,6 +277,27 @@ class TrinityTUI:
         elif event.type == TUIEventType.REVIEW_START:
             pass
 
+        elif event.type == TUIEventType.REVIEW_PACKAGE_QUEUED:
+            package_id = str(event.data.get("package_id", ""))
+            if package_id:
+                self.work_package_statuses[package_id] = "review:queued"
+
+        elif event.type == TUIEventType.REVIEW_PACKAGE_STARTED:
+            package_id = str(event.data.get("package_id", ""))
+            if package_id:
+                self.work_package_statuses[package_id] = "reviewing"
+
+        elif event.type == TUIEventType.REVIEW_PACKAGE_COMPLETED:
+            package_id = str(event.data.get("package_id", ""))
+            if package_id:
+                status = str(event.data.get("status", "done"))
+                self.work_package_statuses[package_id] = f"review:{status}"
+
+        elif event.type == TUIEventType.REVIEW_PACKAGE_SKIPPED:
+            package_id = str(event.data.get("package_id", ""))
+            if package_id:
+                self.work_package_statuses[package_id] = "review:skipped"
+
         elif event.type == TUIEventType.WORK_PACKAGE_REVIEW_STARTED:
             package_id = str(event.data.get("package_id", ""))
             if package_id:

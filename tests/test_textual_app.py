@@ -21,7 +21,7 @@ from trinity.config import TrinityConfig
 from trinity.context.shared import SharedContextEngine
 from trinity.models import Provider
 from trinity.providers.model_discovery import ProviderModelChoice
-from trinity.slash_commands import SESSION_ONLY_SETTING_NOTICE
+from trinity.slash_commands import COMMAND_SPECS, SESSION_ONLY_SETTING_NOTICE
 from trinity.textual_app.app import TrinityTextualApp
 from trinity.textual_app.report_export import (
     snapshot_report_markdown,
@@ -32,6 +32,7 @@ from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.report import ReportScreen
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import SacredGeometryAnimation, StartScreen
+from trinity.textual_app.slash_palette import SlashCommandPaletteProvider
 from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import (
     LocalCommandSnapshot,
@@ -372,6 +373,34 @@ def test_textual_app_localizes_command_palette_bindings_in_korean(tmp_path) -> N
     assert _binding_description(app._bindings, "ctrl+q", "quit") == "종료"
     assert _binding_description(app._bindings, "ctrl+p", "command_palette") == "팔레트"
     assert _binding_tooltip(app._bindings, "ctrl+p", "command_palette") == "명령 팔레트 열기"
+
+
+@pytest.mark.asyncio
+async def test_textual_command_palette_discovers_slash_command_registry(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)):
+        provider = SlashCommandPaletteProvider(app.screen)
+        discovered = [hit.text async for hit in provider.discover()]
+
+    expected = [name for spec in COMMAND_SPECS for name in spec.names]
+    assert SlashCommandPaletteProvider in TrinityTextualApp.COMMANDS
+    assert discovered == expected
+
+
+@pytest.mark.asyncio
+async def test_textual_command_palette_runs_slash_command_handler(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)):
+        handled: list[str] = []
+        app._handle_textual_slash_command = handled.append  # type: ignore[method-assign]
+        provider = SlashCommandPaletteProvider(app.screen)
+        status_hit = [hit async for hit in provider.search("status")][0]
+
+        status_hit.command()
+
+    assert handled == ["/status"]
 
 
 def test_status_modal_centers_and_uses_read_only_table() -> None:

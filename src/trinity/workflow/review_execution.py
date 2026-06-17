@@ -61,11 +61,26 @@ class ReviewExecutionProtocol:
             return []
 
         self._emit(TUIEventType.REVIEW_START, review_count=len(review_tasks), scope="wp")
+        for review_package in review_tasks:
+            self._emit_review_package_event(
+                TUIEventType.REVIEW_PACKAGE_QUEUED,
+                review_package,
+                status="queued",
+            )
         results: list[ReviewResult] = []
         for review_package in review_tasks:
             package = packages_by_id.get(review_package.package_id)
             execution_result = results_by_package.get(review_package.package_id)
             if package is None:
+                self._emit_review_package_event(
+                    TUIEventType.REVIEW_PACKAGE_SKIPPED,
+                    review_package,
+                    status="skipped",
+                    summary=(
+                        f"Work package '{review_package.package_id}' is not available "
+                        "for review."
+                    ),
+                )
                 results.append(self._missing_package_result(review_package))
                 continue
             results.append(
@@ -89,6 +104,13 @@ class ReviewExecutionProtocol:
         for reviewer_agent in self._reviewer_attempt_order(review_package):
             agent = self.agents.get(reviewer_agent)
             if agent is None:
+                attempted = self._attempted_review_package(review_package, reviewer_agent)
+                self._emit_review_package_event(
+                    TUIEventType.REVIEW_PACKAGE_SKIPPED,
+                    attempted,
+                    status="skipped",
+                    summary=f"Review agent '{reviewer_agent}' is not available.",
+                )
                 failed_attempts.append(
                     self._failed_result(
                         review_package,
@@ -98,17 +120,7 @@ class ReviewExecutionProtocol:
                 )
                 continue
 
-            attempted = ReviewPackage(
-                id=review_package.id,
-                package_id=review_package.package_id,
-                reviewer_agent=reviewer_agent,
-                target_agent=review_package.target_agent,
-                criteria=list(review_package.criteria),
-                execution_status=review_package.execution_status,
-                scope=review_package.scope,
-                attempt=review_package.attempt,
-                created_at=review_package.created_at,
-            )
+            attempted = self._attempted_review_package(review_package, reviewer_agent)
             result = await self._dispatch_work_package_review(
                 attempted,
                 package,
@@ -118,7 +130,9 @@ class ReviewExecutionProtocol:
             if result.status != ReviewStatus.FAILED:
                 return result
             failed_attempts.append(result)
-        return self._aggregate_failed_result(review_package, failed_attempts)
+        result = self._aggregate_failed_result(review_package, failed_attempts)
+        self._emit_review_package_completed(result)
+        return result
 
     async def review_final_execution(
         self,
@@ -166,6 +180,11 @@ class ReviewExecutionProtocol:
         agent: AgentWrapper,
     ) -> ReviewResult:
         request_id = self._new_request_id(review_package)
+        self._emit_review_package_event(
+            TUIEventType.REVIEW_PACKAGE_STARTED,
+            review_package,
+            status="reviewing",
+        )
         self._emit(
             TUIEventType.WORK_PACKAGE_REVIEW_STARTED,
             package_id=review_package.package_id,
@@ -207,15 +226,7 @@ class ReviewExecutionProtocol:
                 review_package.reviewer_agent,
             )
 
-        self._emit(
-            TUIEventType.WORK_PACKAGE_REVIEW_COMPLETED,
-            package_id=result.package_id,
-            reviewer=result.reviewer_agent,
-            target=result.target_agent,
-            status=result.status.value,
-            severity=result.severity,
-            summary=result.summary,
-        )
+        self._emit_review_package_completed(result)
         return result
 
     async def _dispatch_final_review(
@@ -542,6 +553,23 @@ class ReviewExecutionProtocol:
         attempts.extend(agent for agent in sorted(self.agents) if agent not in attempts)
         return tuple(attempts)
 
+    @staticmethod
+    def _attempted_review_package(
+        review_package: ReviewPackage,
+        reviewer_agent: str,
+    ) -> ReviewPackage:
+        return ReviewPackage(
+            id=review_package.id,
+            package_id=review_package.package_id,
+            reviewer_agent=reviewer_agent,
+            target_agent=review_package.target_agent,
+            criteria=list(review_package.criteria),
+            execution_status=review_package.execution_status,
+            scope=review_package.scope,
+            attempt=review_package.attempt,
+            created_at=review_package.created_at,
+        )
+
     def _missing_package_result(self, review_package: ReviewPackage) -> ReviewResult:
         return ReviewResult(
             review_package_id=review_package.id,
@@ -634,6 +662,50 @@ class ReviewExecutionProtocol:
     @staticmethod
     def _wrap_review_prompt(prompt: str, request_id: str) -> str:
         return f"TRINITY_REVIEW_START {request_id}\n{prompt}\nTRINITY_REVIEW_END {request_id}"
+
+    def _emit_review_package_event(
+        self,
+        event_type: TUIEventType,
+        review_package: ReviewPackage,
+        *,
+        status: str = "",
+        summary: str = "",
+        severity: str = "",
+    ) -> None:
+        self._emit(
+            event_type,
+            review_package_id=review_package.id,
+            package_id=review_package.package_id,
+            reviewer_agent=review_package.reviewer_agent,
+            target_agent=review_package.target_agent,
+            status=status,
+            summary=summary,
+            severity=severity,
+            scope=review_package.scope,
+        )
+
+    def _emit_review_package_completed(self, result: ReviewResult) -> None:
+        self._emit(
+            TUIEventType.REVIEW_PACKAGE_COMPLETED,
+            review_package_id=result.review_package_id,
+            package_id=result.package_id,
+            reviewer_agent=result.reviewer_agent,
+            target_agent=result.target_agent,
+            status=result.status.value,
+            severity=result.severity,
+            summary=result.summary,
+            scope=result.scope,
+            required_changes=list(result.required_changes),
+        )
+        self._emit(
+            TUIEventType.WORK_PACKAGE_REVIEW_COMPLETED,
+            package_id=result.package_id,
+            reviewer=result.reviewer_agent,
+            target=result.target_agent,
+            status=result.status.value,
+            severity=result.severity,
+            summary=result.summary,
+        )
 
     def _emit(self, event_type: TUIEventType, **kwargs) -> None:
         if self._event_callback:

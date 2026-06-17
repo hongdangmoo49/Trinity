@@ -1308,6 +1308,8 @@ class WorkflowEngine:
                 continue
             if review.scope == "final" or review.package_id == FINAL_REVIEW_PACKAGE_ID:
                 continue
+            if not review.required:
+                continue
             if scope not in {"work_package", "custom"}:
                 continue
             if requested and review.package_id not in requested:
@@ -2068,6 +2070,7 @@ class WorkflowEngine:
             if review.package_id == package_id
             and review.scope != "final"
             and review.package_id != FINAL_REVIEW_PACKAGE_ID
+            and review.required
         ]
         if planned:
             return all(self._review_package_is_approved(review) for review in planned)

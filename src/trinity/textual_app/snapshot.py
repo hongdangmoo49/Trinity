@@ -18,6 +18,7 @@ from trinity.workflow import (
     PostReviewActionItem,
     ReviewPackage,
     ReviewResult,
+    ReviewStatus,
     WorkflowPersistence,
     WorkflowSession,
 )
@@ -172,11 +173,28 @@ class _ReviewProjection:
 
 
 @dataclass(frozen=True)
+class _RuntimeReviewState:
+    """Most recent local event state for one reviewer/package review."""
+
+    review_package_id: str = ""
+    package_id: str = ""
+    reviewer_agent: str = ""
+    target_agent: str = ""
+    status: str = ""
+    summary: str = ""
+    severity: str = ""
+    scope: str = "work_package"
+    required_changes: list[str] = field(default_factory=list)
+    occurred_at: float = 0.0
+
+
+@dataclass(frozen=True)
 class _ReviewIndex:
     """Parsed review state reused across one snapshot projection."""
 
     planned_by_package: dict[str, list[ReviewPackage]] = field(default_factory=dict)
     result_by_package: dict[str, dict[str, ReviewResult]] = field(default_factory=dict)
+    runtime_by_package: dict[str, dict[str, _RuntimeReviewState]] = field(default_factory=dict)
     final_review: ReviewResult | None = None
 
 
@@ -281,7 +299,7 @@ class NexusSnapshotAdapter:
         session_events = (
             self.persistence.load_events_for_workflow(session.id) if session else []
         )
-        review_index = self._review_index(session)
+        review_index = self._review_index(session, recent)
         provider_states = self._provider_states(session)
         self._fold_recent_events(provider_states, recent)
         round_num = self._round_num(session, recent)
@@ -510,13 +528,23 @@ class NexusSnapshotAdapter:
         index = review_index or NexusSnapshotAdapter._review_index(session)
         planned_by_package = index.planned_by_package
         result_by_package = index.result_by_package
+        runtime_by_package = index.runtime_by_package
 
         projections: dict[str, _ReviewProjection] = {}
-        for package_id in set(planned_by_package) | set(result_by_package):
+        for package_id in set(planned_by_package) | set(result_by_package) | set(runtime_by_package):
             planned = planned_by_package.get(package_id, [])
-            results = list(result_by_package.get(package_id, {}).values())
+            runtime = runtime_by_package.get(package_id, {})
+            results_by_id = dict(result_by_package.get(package_id, {}))
+            for review_id, state in runtime.items():
+                if state.status in ReviewStatus._value2member_map_:
+                    results_by_id[review_id] = NexusSnapshotAdapter._runtime_review_result(
+                        state
+                    )
+                else:
+                    results_by_id.pop(review_id, None)
+            results = list(results_by_id.values())
             pending_status = NexusSnapshotAdapter._pending_review_status(session)
-            status = pending_status
+            status = NexusSnapshotAdapter._runtime_review_status(runtime, pending_status)
             if results:
                 status = NexusSnapshotAdapter._aggregate_review_status(results)
                 planned_ids = {review.id for review in planned if review.id}
@@ -528,12 +556,30 @@ class NexusSnapshotAdapter:
                     and planned_ids
                     and not planned_ids.issubset(completed_ids)
                 ):
-                    status = pending_status
+                    status = NexusSnapshotAdapter._runtime_review_status(
+                        runtime,
+                        pending_status,
+                    )
+                status = NexusSnapshotAdapter._merge_runtime_review_status(
+                    status,
+                    runtime,
+                )
             representative = NexusSnapshotAdapter._representative_review_result(results)
+            runtime_representative = NexusSnapshotAdapter._representative_runtime_review_state(
+                runtime
+            )
             projections[package_id] = _ReviewProjection(
                 status=status,
-                reviewer_agent=NexusSnapshotAdapter._reviewer_label(planned, results),
-                summary=representative.summary if representative else "",
+                reviewer_agent=NexusSnapshotAdapter._reviewer_label(
+                    planned,
+                    results,
+                    runtime,
+                ),
+                summary=(
+                    representative.summary
+                    if representative
+                    else runtime_representative.summary if runtime_representative else ""
+                ),
                 required_changes=NexusSnapshotAdapter._review_required_changes(results),
                 severity=NexusSnapshotAdapter._aggregate_review_severity(results),
             )
@@ -596,11 +642,15 @@ class NexusSnapshotAdapter:
     def _reviewer_label(
         planned: list[ReviewPackage],
         results: list[ReviewResult],
+        runtime: dict[str, _RuntimeReviewState] | None = None,
     ) -> str:
         names: list[str] = []
         for result in results:
             if result.reviewer_agent and result.reviewer_agent not in names:
                 names.append(result.reviewer_agent)
+        for state in (runtime or {}).values():
+            if state.reviewer_agent and state.reviewer_agent not in names:
+                names.append(state.reviewer_agent)
         for review in planned:
             if review.reviewer_agent and review.reviewer_agent not in names:
                 names.append(review.reviewer_agent)
@@ -648,7 +698,10 @@ class NexusSnapshotAdapter:
         return reviews
 
     @staticmethod
-    def _review_index(session: WorkflowSession | None) -> _ReviewIndex:
+    def _review_index(
+        session: WorkflowSession | None,
+        recent_events: Iterable[TUIEvent] = (),
+    ) -> _ReviewIndex:
         if session is None:
             return _ReviewIndex()
         planned_by_package = NexusSnapshotAdapter._planned_work_package_reviews(session)
@@ -663,8 +716,144 @@ class NexusSnapshotAdapter:
         return _ReviewIndex(
             planned_by_package=planned_by_package,
             result_by_package=result_by_package,
+            runtime_by_package=NexusSnapshotAdapter._runtime_review_index(recent_events),
             final_review=final_review,
         )
+
+    @staticmethod
+    def _runtime_review_index(
+        recent_events: Iterable[TUIEvent],
+    ) -> dict[str, dict[str, _RuntimeReviewState]]:
+        runtime: dict[str, dict[str, _RuntimeReviewState]] = {}
+        for event in recent_events:
+            state = NexusSnapshotAdapter._runtime_review_state_from_event(event)
+            if state is None:
+                continue
+            runtime.setdefault(state.package_id, {})[
+                NexusSnapshotAdapter._runtime_review_key(state)
+            ] = state
+        return runtime
+
+    @staticmethod
+    def _runtime_review_state_from_event(
+        event: TUIEvent,
+    ) -> _RuntimeReviewState | None:
+        event_status = {
+            TUIEventType.REVIEW_PACKAGE_QUEUED: "queued",
+            TUIEventType.REVIEW_PACKAGE_STARTED: "reviewing",
+            TUIEventType.REVIEW_PACKAGE_COMPLETED: "",
+            TUIEventType.REVIEW_PACKAGE_SKIPPED: "skipped",
+            TUIEventType.WORK_PACKAGE_REVIEW_STARTED: "reviewing",
+            TUIEventType.WORK_PACKAGE_REVIEW_COMPLETED: "",
+        }
+        if event.type not in event_status:
+            return None
+
+        data = event.data
+        package_id = str(data.get("package_id") or "").strip()
+        if not package_id or package_id == FINAL_REVIEW_PACKAGE_ID:
+            return None
+        scope = str(data.get("scope") or "work_package")
+        if scope == "final":
+            return None
+        reviewer = str(data.get("reviewer_agent") or data.get("reviewer") or "").strip()
+        review_package_id = str(data.get("review_package_id") or "").strip()
+        if not review_package_id and reviewer:
+            review_package_id = f"{package_id}:{reviewer}"
+        status = str(data.get("status") or event_status[event.type]).strip()
+        required_changes = data.get("required_changes", [])
+        if not isinstance(required_changes, list):
+            required_changes = []
+        return _RuntimeReviewState(
+            review_package_id=review_package_id,
+            package_id=package_id,
+            reviewer_agent=reviewer,
+            target_agent=str(data.get("target_agent") or data.get("target") or ""),
+            status=status,
+            summary=str(data.get("summary") or ""),
+            severity=str(data.get("severity") or ""),
+            scope=scope,
+            required_changes=[str(item) for item in required_changes],
+            occurred_at=NexusSnapshotAdapter._event_float(data.get("occurred_at")),
+        )
+
+    @staticmethod
+    def _runtime_review_key(state: _RuntimeReviewState) -> str:
+        return (
+            state.review_package_id
+            or f"{state.package_id}:{state.reviewer_agent}:{state.target_agent}"
+        )
+
+    @staticmethod
+    def _runtime_review_result(state: _RuntimeReviewState) -> ReviewResult:
+        return ReviewResult(
+            review_package_id=state.review_package_id,
+            package_id=state.package_id,
+            reviewer_agent=state.reviewer_agent,
+            target_agent=state.target_agent,
+            status=ReviewStatus(state.status),
+            summary=state.summary,
+            severity=state.severity or "medium",
+            scope=state.scope,
+            required_changes=list(state.required_changes),
+        )
+
+    @staticmethod
+    def _runtime_review_status(
+        runtime: dict[str, _RuntimeReviewState],
+        fallback: str,
+    ) -> str:
+        if any(state.status == "reviewing" for state in runtime.values()):
+            return "reviewing"
+        if any(state.status == "queued" for state in runtime.values()):
+            return "queued"
+        if runtime and all(state.status == "skipped" for state in runtime.values()):
+            return "skipped"
+        return fallback
+
+    @staticmethod
+    def _merge_runtime_review_status(
+        status: str,
+        runtime: dict[str, _RuntimeReviewState],
+    ) -> str:
+        if status in {"failed", "blocked", "changes_requested"}:
+            return status
+        if any(state.status == "reviewing" for state in runtime.values()):
+            return "reviewing"
+        if any(state.status == "queued" for state in runtime.values()) and status != "approved":
+            return "queued"
+        return status
+
+    @staticmethod
+    def _representative_runtime_review_state(
+        runtime: dict[str, _RuntimeReviewState],
+    ) -> _RuntimeReviewState | None:
+        values = [state for state in runtime.values() if state.summary]
+        if not values:
+            return None
+        priority = {
+            "failed": 6,
+            "blocked": 5,
+            "changes_requested": 4,
+            "reviewing": 3,
+            "queued": 2,
+            "skipped": 1,
+            "approved": 0,
+        }
+        return max(
+            values,
+            key=lambda state: (
+                priority.get(state.status, 0),
+                state.occurred_at,
+            ),
+        )
+
+    @staticmethod
+    def _event_float(value: object) -> float:
+        try:
+            return float(value) if value is not None else 0.0
+        except (TypeError, ValueError):
+            return 0.0
 
     @staticmethod
     def _final_review(review_index: _ReviewIndex) -> ReviewSnapshot | None:

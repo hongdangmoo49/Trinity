@@ -2893,7 +2893,7 @@ class WorkflowEngine:
         ]
         reviews = planner.plan_reviews(
             reviewable_packages,
-            self.session.active_agents,
+            self._decomposition_agents(),
             self.session.execution_results,
         )
         self.session.review_packages = [review.to_dict() for review in reviews]

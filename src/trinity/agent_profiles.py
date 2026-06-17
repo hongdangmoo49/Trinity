@@ -33,7 +33,7 @@ DEFAULT_OUTPUT_CONTRACTS: dict[str, str] = {
     "blueprint": "plan_v1",
     "execute": "execution_v1",
     "review": "review_v1",
-    "final_review": "review_v1",
+    "final_review": "final_review_v1",
     "repair": "repair_v1",
     "summarize": "chat_v1",
 }
@@ -267,4 +267,3 @@ def _safe_int(value: Any, default: int) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
-

@@ -13,6 +13,11 @@ from uuid import uuid4
 from trinity.agents.base import AgentWrapper
 from trinity.context.shared import SharedContextEngine
 from trinity.models import DeliberationMessage
+from trinity.prompts.contracts import (
+    FINAL_REVIEW_CONTRACT_ID,
+    REVIEW_CONTRACT_ID,
+    render_output_contract,
+)
 from trinity.providers.policy import InvocationAccess
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workflow.models import ExecutionResult, WorkPackage
@@ -184,6 +189,7 @@ class ReviewExecutionProtocol:
             TUIEventType.REVIEW_PACKAGE_STARTED,
             review_package,
             status="reviewing",
+            output_contract=REVIEW_CONTRACT_ID,
         )
         self._emit(
             TUIEventType.WORK_PACKAGE_REVIEW_STARTED,
@@ -241,6 +247,7 @@ class ReviewExecutionProtocol:
         self._emit(
             TUIEventType.FINAL_REVIEW_STARTED,
             reviewer=review_package.reviewer_agent,
+            output_contract=FINAL_REVIEW_CONTRACT_ID,
         )
         prompt = self._wrap_review_prompt(
             self._build_final_review_prompt(
@@ -283,6 +290,7 @@ class ReviewExecutionProtocol:
             status=result.status.value,
             severity=result.severity,
             summary=result.summary,
+            output_contract=FINAL_REVIEW_CONTRACT_ID,
         )
         return result
 
@@ -373,24 +381,7 @@ class ReviewExecutionProtocol:
             "Review the completed work package. Focus on severe runtime errors, "
             "anti-patterns, and performance concerns. Do not modify files. "
             "Report exactly in this format:\n"
-            "REVIEW STATUS: APPROVED | CHANGES_REQUESTED | BLOCKED\n"
-            "SEVERITY: LOW | MEDIUM | HIGH | CRITICAL\n\n"
-            "SUMMARY:\n"
-            "...\n\n"
-            "FINDINGS:\n"
-            "- ...\n\n"
-            "REQUIRED CHANGES:\n"
-            "- ...\n\n"
-            "REVIEWED FILES:\n"
-            "- ...\n\n"
-            "EXECUTION RISKS:\n"
-            "- ...\n\n"
-            "ANTI PATTERNS:\n"
-            "- ...\n\n"
-            "PERFORMANCE NOTES:\n"
-            "- ...\n\n"
-            "FOLLOW UP:\n"
-            "- ...\n"
+            f"{render_output_contract(REVIEW_CONTRACT_ID)}\n"
         )
 
     def _build_final_review_prompt(
@@ -427,22 +418,7 @@ class ReviewExecutionProtocol:
             "Focus on whole-project compatibility, project overview, run "
             "instructions, and additional features that appear necessary. "
             "Do not modify files. Report exactly in this format:\n"
-            "FINAL REVIEW STATUS: APPROVED | CHANGES_REQUESTED | BLOCKED\n"
-            "SEVERITY: LOW | MEDIUM | HIGH | CRITICAL\n\n"
-            "PROJECT OVERVIEW:\n"
-            "...\n\n"
-            "COMPATIBILITY:\n"
-            "- ...\n\n"
-            "RUN INSTRUCTIONS:\n"
-            "- ...\n\n"
-            "CRITICAL RISKS:\n"
-            "- ...\n\n"
-            "RECOMMENDED FEATURES:\n"
-            "- ...\n\n"
-            "REQUIRED CHANGES:\n"
-            "- ...\n\n"
-            "FOLLOW UP:\n"
-            "- ...\n"
+            f"{render_output_contract(FINAL_REVIEW_CONTRACT_ID)}\n"
         )
 
     @classmethod
@@ -671,6 +647,7 @@ class ReviewExecutionProtocol:
         status: str = "",
         summary: str = "",
         severity: str = "",
+        output_contract: str = "",
     ) -> None:
         self._emit(
             event_type,
@@ -682,6 +659,7 @@ class ReviewExecutionProtocol:
             summary=summary,
             severity=severity,
             scope=review_package.scope,
+            output_contract=output_contract,
         )
 
     def _emit_review_package_completed(self, result: ReviewResult) -> None:
@@ -695,6 +673,11 @@ class ReviewExecutionProtocol:
             severity=result.severity,
             summary=result.summary,
             scope=result.scope,
+            output_contract=(
+                FINAL_REVIEW_CONTRACT_ID
+                if result.scope == "final"
+                else REVIEW_CONTRACT_ID
+            ),
             required_changes=list(result.required_changes),
         )
         self._emit(

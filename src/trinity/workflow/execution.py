@@ -15,6 +15,7 @@ from uuid import uuid4
 from trinity.agents.base import AgentWrapper
 from trinity.context.shared import SharedContextEngine
 from trinity.models import DeliberationMessage
+from trinity.prompts.contracts import EXECUTION_CONTRACT_ID, render_output_contract
 from trinity.providers.policy import (
     ExecutionAuthority,
     ExecutionScope,
@@ -367,6 +368,7 @@ class ExecutionProtocol:
             package_id=package.id,
             agent=agent_name,
             status=package.status.value,
+            output_contract=EXECUTION_CONTRACT_ID,
         )
 
         prompt = self._build_execution_prompt(
@@ -503,6 +505,7 @@ class ExecutionProtocol:
             agent=result.agent_name,
             status=result.status.value,
             summary=result.summary,
+            output_contract=EXECUTION_CONTRACT_ID,
             attempt_chain=list(result.attempt_chain),
             raw_response_path=(
                 str(result.raw_response_path) if result.raw_response_path else ""
@@ -689,20 +692,7 @@ class ExecutionProtocol:
             "- unresolved issues\n\n"
             "Perform this work package. When finished, report exactly in this "
             "format:\n"
-            "## Completed\n"
-            "## Files Changed\n"
-            "## Decisions Made\n"
-            "## Blockers\n"
-            "## Follow-up\n"
-            "## Subtasks\n"
-            "### ST-001\n"
-            "- delegated_to: <subagent/tool or none>\n"
-            "- objective: <input objective>\n"
-            "- result_summary: <output summary>\n"
-            "- status: done | blocked | failed\n"
-            "- decisions_made: <comma-separated decisions or none>\n"
-            "- files_changed: <comma-separated files or none>\n"
-            "- unresolved_issues: <comma-separated issues or none>\n"
+            f"{render_output_contract(EXECUTION_CONTRACT_ID)}\n"
         )
 
     @staticmethod

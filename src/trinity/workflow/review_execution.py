@@ -11,6 +11,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from trinity.agents.base import AgentWrapper
+from trinity.context.profiles import project_shared_context
 from trinity.context.shared import SharedContextEngine
 from trinity.models import DeliberationMessage
 from trinity.prompts.contracts import (
@@ -190,6 +191,9 @@ class ReviewExecutionProtocol:
             review_package,
             status="reviewing",
             output_contract=REVIEW_CONTRACT_ID,
+            context_profile=self._agent_context_profile(
+                review_package.reviewer_agent
+            ),
         )
         self._emit(
             TUIEventType.WORK_PACKAGE_REVIEW_STARTED,
@@ -248,12 +252,16 @@ class ReviewExecutionProtocol:
             TUIEventType.FINAL_REVIEW_STARTED,
             reviewer=review_package.reviewer_agent,
             output_contract=FINAL_REVIEW_CONTRACT_ID,
+            context_profile=self._agent_context_profile(
+                review_package.reviewer_agent
+            ),
         )
         prompt = self._wrap_review_prompt(
             self._build_final_review_prompt(
                 work_packages,
                 execution_results,
                 review_results,
+                reviewer_agent=review_package.reviewer_agent,
             ),
             request_id,
         )
@@ -352,6 +360,9 @@ class ReviewExecutionProtocol:
         follow_up = self._format_list(execution_result.follow_up) if execution_result else "- none"
         criteria = self._format_list(review_package.criteria)
         shared_decisions = self.shared.read_section("Agreed Conclusion") or ""
+        context_projection = self._context_projection_block(
+            review_package.reviewer_agent
+        )
         return (
             "[Work Package Review]\n"
             f"Review Package: {review_package.id}\n"
@@ -376,6 +387,7 @@ class ReviewExecutionProtocol:
             f"{follow_up}\n\n"
             "Shared Decisions:\n"
             f"{shared_decisions.strip() or '(none)'}\n\n"
+            f"{context_projection}"
             "Review Criteria:\n"
             f"{criteria}\n\n"
             "Review the completed work package. Focus on severe runtime errors, "
@@ -389,6 +401,7 @@ class ReviewExecutionProtocol:
         work_packages: list[WorkPackage],
         execution_results: list[ExecutionResult],
         review_results: list[ReviewResult],
+        reviewer_agent: str = "",
     ) -> str:
         package_lines = [
             f"- {package.id} [{package.status.value}] {package.owner_agent}: {package.title}"
@@ -406,6 +419,7 @@ class ReviewExecutionProtocol:
             for result in review_results
             if result.scope != "final"
         ]
+        context_projection = self._context_projection_block(reviewer_agent)
         return (
             "[Final Project Review]\n"
             "Review the whole completed project after execution.\n\n"
@@ -415,11 +429,37 @@ class ReviewExecutionProtocol:
             f"{self._format_list(execution_lines)}\n\n"
             "WP Review Results:\n"
             f"{self._format_list(review_lines)}\n\n"
+            f"{context_projection}"
             "Focus on whole-project compatibility, project overview, run "
             "instructions, and additional features that appear necessary. "
             "Do not modify files. Report exactly in this format:\n"
             f"{render_output_contract(FINAL_REVIEW_CONTRACT_ID)}\n"
         )
+
+    def _context_projection_block(self, agent_name: str) -> str:
+        profile_id = self._agent_context_profile(agent_name)
+        projection = project_shared_context(self.shared, profile_id)
+        if not projection.text:
+            return (
+                "Context Projection:\n"
+                f"Profile: {profile_id}\n"
+                "Sections: none\n\n"
+            )
+        sections = ", ".join(projection.sections) or "none"
+        truncated = "yes" if projection.truncated else "no"
+        return (
+            "Context Projection:\n"
+            f"Profile: {projection.profile_id}\n"
+            f"Sections: {sections}\n"
+            f"Truncated: {truncated}\n"
+            f"{projection.text}\n\n"
+        )
+
+    def _agent_context_profile(self, agent_name: str) -> str:
+        agent = self.agents.get(agent_name)
+        spec = getattr(agent, "spec", None)
+        profile = getattr(spec, "profile", None)
+        return str(getattr(profile, "context_profile", "") or "balanced")
 
     @classmethod
     def _parse_review_response(cls, content: str) -> dict:
@@ -648,6 +688,7 @@ class ReviewExecutionProtocol:
         summary: str = "",
         severity: str = "",
         output_contract: str = "",
+        context_profile: str = "",
     ) -> None:
         self._emit(
             event_type,
@@ -660,6 +701,7 @@ class ReviewExecutionProtocol:
             severity=severity,
             scope=review_package.scope,
             output_contract=output_contract,
+            context_profile=context_profile,
         )
 
     def _emit_review_package_completed(self, result: ReviewResult) -> None:
@@ -678,6 +720,7 @@ class ReviewExecutionProtocol:
                 if result.scope == "final"
                 else REVIEW_CONTRACT_ID
             ),
+            context_profile=self._agent_context_profile(result.reviewer_agent),
             required_changes=list(result.required_changes),
         )
         self._emit(

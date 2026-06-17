@@ -13,6 +13,7 @@ from typing import Callable
 from uuid import uuid4
 
 from trinity.agents.base import AgentWrapper
+from trinity.context.profiles import project_shared_context
 from trinity.context.shared import SharedContextEngine
 from trinity.models import DeliberationMessage
 from trinity.prompts.contracts import EXECUTION_CONTRACT_ID, render_output_contract
@@ -369,6 +370,7 @@ class ExecutionProtocol:
             agent=agent_name,
             status=package.status.value,
             output_contract=EXECUTION_CONTRACT_ID,
+            context_profile=self._agent_context_profile(agent_name),
         )
 
         prompt = self._build_execution_prompt(
@@ -506,6 +508,7 @@ class ExecutionProtocol:
             status=result.status.value,
             summary=result.summary,
             output_contract=EXECUTION_CONTRACT_ID,
+            context_profile=self._agent_context_profile(result.agent_name),
             attempt_chain=list(result.attempt_chain),
             raw_response_path=(
                 str(result.raw_response_path) if result.raw_response_path else ""
@@ -640,6 +643,7 @@ class ExecutionProtocol:
         expected_files = self._format_list(package.expected_files)
         repair_notes = self._format_list(package.repair_notes)
         shared_decisions = self.shared.read_section("Agreed Conclusion") or ""
+        context_projection = self._context_projection_block(execution_agent)
         fallback_note = ""
         if execution_agent != package.owner_agent:
             fallback_note = (
@@ -679,6 +683,7 @@ class ExecutionProtocol:
             f"{decisions_text}\n\n"
             "[Agreed Conclusion]\n"
             f"{shared_decisions.strip() or '(none)'}\n\n"
+            f"{context_projection}"
             "[Subagent Delegation Policy]\n"
             "Trinity does not directly control provider-internal subagents or "
             "tools. If you delegate to subagents/tools, you must report each "
@@ -694,6 +699,31 @@ class ExecutionProtocol:
             "format:\n"
             f"{render_output_contract(EXECUTION_CONTRACT_ID)}\n"
         )
+
+    def _context_projection_block(self, agent_name: str) -> str:
+        profile_id = self._agent_context_profile(agent_name)
+        projection = project_shared_context(self.shared, profile_id)
+        if not projection.text:
+            return (
+                "[Context Projection]\n"
+                f"Profile: {profile_id}\n"
+                "Sections: none\n\n"
+            )
+        sections = ", ".join(projection.sections) or "none"
+        truncated = "yes" if projection.truncated else "no"
+        return (
+            "[Context Projection]\n"
+            f"Profile: {projection.profile_id}\n"
+            f"Sections: {sections}\n"
+            f"Truncated: {truncated}\n"
+            f"{projection.text}\n\n"
+        )
+
+    def _agent_context_profile(self, agent_name: str) -> str:
+        agent = self.agents.get(agent_name)
+        spec = getattr(agent, "spec", None)
+        profile = getattr(spec, "profile", None)
+        return str(getattr(profile, "context_profile", "") or "balanced")
 
     @staticmethod
     def _format_list(items: Iterable[str]) -> str:

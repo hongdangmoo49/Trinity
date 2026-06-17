@@ -202,6 +202,7 @@ class NexusScreen(Screen[None]):
                     enabled=provider.enabled,
                     status=provider.status,
                     summary=provider.summary,
+                    response_status=provider.response_status,
                     configured_model=provider.configured_model,
                     actual_model=provider.actual_model,
                     model_label=provider.model_label,

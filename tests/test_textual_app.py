@@ -3235,6 +3235,39 @@ async def test_nexus_running_surfaces_show_activity(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_nexus_provider_panel_marks_non_ok_response_as_issue(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                providers=[
+                    ProviderSnapshot(
+                        name="claude",
+                        provider="claude-code",
+                        enabled=True,
+                        status="Ready",
+                        summary="[Error: exit code 1]",
+                        response_status="invalid",
+                    )
+                ]
+            )
+        )
+        await pilot.pause()
+
+        panel = screen.query_one("#provider-claude", ProviderPanel)
+        assert panel.has_class("provider-state-issue")
+        assert "ISSUE" in str(panel.query_one(".provider-status").content)
+        assert "[Error: exit code 1]" in str(
+            panel.query_one(".provider-summary").content
+        )
+
+
+@pytest.mark.asyncio
 async def test_nexus_provider_strip_stays_compact_on_small_viewport(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

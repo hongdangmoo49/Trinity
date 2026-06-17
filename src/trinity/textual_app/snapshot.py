@@ -35,6 +35,7 @@ class ProviderSnapshot:
     enabled: bool
     status: str
     summary: str = ""
+    response_status: str = ""
     readiness: str = "unknown"
     readiness_reason: str = ""
     raw_output: str = ""
@@ -1254,14 +1255,16 @@ class NexusSnapshotAdapter:
             artifact = artifacts.get(name)
             summary = ""
             raw_output = ""
+            response_status = ""
             status = "Queued" if enabled else "Disabled"
             if enabled and not targeted:
                 status = "Idle"
             elif enabled and artifact is not None:
                 clean_output = self._read_artifact_text(artifact[0])
                 raw_output = self._read_artifact_text(artifact[1]) or clean_output
+                response_status = artifact[2]
                 summary = self._short_summary(clean_output or raw_output)
-                status = "Ready"
+                status = "Error" if self._is_non_ok_response_status(response_status) else "Ready"
             elif enabled and session and session.state.value == "deliberating":
                 status = "Running"
             runtime_model = self._runtime_model_for(session, name)
@@ -1290,6 +1293,7 @@ class NexusSnapshotAdapter:
                 enabled=enabled,
                 status=status,
                 summary=summary,
+                response_status=response_status,
                 raw_output=raw_output,
                 configured_model=configured_model,
                 actual_model=actual_model,
@@ -1348,10 +1352,16 @@ class NexusSnapshotAdapter:
                 states[agent] = self._replace(current, status="Running")
             elif event.type == TUIEventType.AGENT_RESPONDED:
                 content = str(data.get("content", ""))
+                response_status = self._event_response_status(data)
                 states[agent] = self._replace(
                     current,
-                    status="Ready",
+                    status=(
+                        "Error"
+                        if self._is_non_ok_response_status(response_status)
+                        else "Ready"
+                    ),
                     summary=self._short_summary(content),
+                    response_status=response_status,
                     raw_output=content,
                 )
             elif event.type == TUIEventType.AGENT_ERROR:
@@ -1360,6 +1370,7 @@ class NexusSnapshotAdapter:
                     current,
                     status="Error",
                     summary=self._short_summary(error),
+                    response_status="invalid",
                     raw_output=error,
                 )
             elif event.type == TUIEventType.PROVIDER_READINESS:
@@ -1777,10 +1788,11 @@ class NexusSnapshotAdapter:
     def _latest_response_artifacts(
         self,
         session: WorkflowSession | None,
-    ) -> dict[str, tuple[Path, Path | None]]:
+    ) -> dict[str, tuple[Path, Path | None, str]]:
         if session is None or session.current_round <= 0:
             return {}
 
+        statuses = self._round_response_statuses(session.current_round)
         round_dir = (
             self.config.effective_state_dir / "responses" / f"round-{session.current_round:02d}"
         )
@@ -1802,9 +1814,25 @@ class NexusSnapshotAdapter:
                 artifacts[name] = (
                     clean_path,
                     raw_path if raw_path.exists() else None,
+                    statuses.get(name, ""),
                 )
                 break
         return artifacts
+
+    def _round_response_statuses(self, round_num: int) -> dict[str, str]:
+        section = self.shared.read_section(f"Round {round_num} Responses") or ""
+        statuses: dict[str, str] = {}
+        current_agent = ""
+        for raw_line in section.splitlines():
+            line = raw_line.strip()
+            if line.startswith("### "):
+                current_agent = line[4:].strip()
+                continue
+            if current_agent and line.startswith("- status:"):
+                status = line.split(":", 1)[1].strip().strip("`")
+                if status:
+                    statuses[current_agent] = status
+        return statuses
 
     @staticmethod
     def _mtime(path: Path) -> float:
@@ -1838,6 +1866,7 @@ class NexusSnapshotAdapter:
             "enabled": snapshot.enabled,
             "status": snapshot.status,
             "summary": snapshot.summary,
+            "response_status": snapshot.response_status,
             "readiness": snapshot.readiness,
             "readiness_reason": snapshot.readiness_reason,
             "raw_output": snapshot.raw_output,
@@ -1848,9 +1877,28 @@ class NexusSnapshotAdapter:
             "budget_source": snapshot.budget_source,
             "session_id": snapshot.session_id,
             "session_kind": snapshot.session_kind,
+            "profile_mission": snapshot.profile_mission,
+            "profile_modes": list(snapshot.profile_modes),
+            "profile_strengths": list(snapshot.profile_strengths),
+            "context_profile": snapshot.context_profile,
         }
         data.update(updates)
         return ProviderSnapshot(**data)
+
+    @staticmethod
+    def _event_response_status(data: dict[str, object]) -> str:
+        response_status = str(data.get("response_status") or "").strip()
+        if response_status:
+            return response_status
+        metadata = data.get("metadata", {})
+        if isinstance(metadata, dict):
+            return str(metadata.get("response_status") or "").strip()
+        return ""
+
+    @staticmethod
+    def _is_non_ok_response_status(status: object) -> bool:
+        normalized = str(status or "").strip().lower()
+        return bool(normalized and normalized != "ok")
 
     @staticmethod
     def _short_summary(text: str, limit: int = 96) -> str:

@@ -683,6 +683,7 @@ class WorkflowSession:
     provider_sessions: dict[str, ProviderSessionRef] = field(default_factory=dict)
     runtime_models: dict[str, AgentRuntimeModel] = field(default_factory=dict)
     resource_projections: dict[str, AgentResourceProjection] = field(default_factory=dict)
+    quality_signals: list[dict[str, Any]] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -726,6 +727,7 @@ class WorkflowSession:
                 key: value.to_dict()
                 for key, value in self.resource_projections.items()
             },
+            "quality_signals": [dict(item) for item in self.quality_signals],
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -831,6 +833,11 @@ class WorkflowSession:
                 ).items()
                 if isinstance(value, dict)
             },
+            quality_signals=[
+                dict(item)
+                for item in data.get("quality_signals", [])
+                if isinstance(item, dict)
+            ],
             created_at=float(data.get("created_at", time.time())),
             updated_at=float(data.get("updated_at", time.time())),
         )

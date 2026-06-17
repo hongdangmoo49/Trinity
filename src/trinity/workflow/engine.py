@@ -18,6 +18,7 @@ from trinity.providers.policy import (
     InvocationAccess,
     ParallelExecutionPolicy,
 )
+from trinity.routing.quality import QualityLedger
 from trinity.workflow.decomposer import (
     BlueprintDecomposer,
     classify_blueprint_followup_action,
@@ -131,6 +132,15 @@ class WorkflowEngine:
     @property
     def execution_results(self) -> list[ExecutionResult]:
         return list(self.session.execution_results)
+
+    def quality_summaries(self) -> dict[str, dict[str, Any]]:
+        """Return advisory quality summaries keyed by agent name."""
+        return {
+            name: summary.to_dict()
+            for name, summary in QualityLedger(
+                self.session.quality_signals
+            ).summaries().items()
+        }
 
     def _decomposition_agents(self) -> list[str] | dict[str, AgentSpec]:
         if not self.agent_specs:
@@ -1209,6 +1219,7 @@ class WorkflowEngine:
                 self.session.decisions.append(decision)
         for subtask in result.subtasks:
             self._upsert_subtask_result(subtask)
+        self._record_execution_quality(result)
 
         ordered_package_ids = [package.id for package in self.session.work_packages]
         self.session.execution_results = [
@@ -1235,6 +1246,8 @@ class WorkflowEngine:
                 event_data["attempt_chain"] = list(result.attempt_chain)
             if result.raw_response_path:
                 event_data["raw_response_path"] = str(result.raw_response_path)
+            if self.session.quality_signals:
+                event_data["quality_signal"] = self.session.quality_signals[-1]
             self._persist(
                 "execution_result_recorded",
                 event_data,
@@ -1696,6 +1709,7 @@ class WorkflowEngine:
     def _record_review_result(self, result: ReviewResult) -> None:
         self.session.review_results.append(result.to_dict())
         self._apply_review_result_to_package(result)
+        self._record_review_quality(result)
         self.session.updated_at = time.time()
         self._persist(
             "review_result_recorded",
@@ -1707,7 +1721,30 @@ class WorkflowEngine:
                 "status": result.status.value,
                 "severity": result.severity,
                 "scope": result.scope,
+                "quality_signal": (
+                    self.session.quality_signals[-1]
+                    if self.session.quality_signals
+                    else {}
+                ),
             },
+        )
+
+    def _record_execution_quality(self, result: ExecutionResult) -> None:
+        ledger = QualityLedger(self.session.quality_signals)
+        signal = ledger.record_execution(result)
+        self.session.quality_signals = ledger.to_dicts()
+        self._persist(
+            "quality_signal_recorded",
+            signal.to_dict(),
+        )
+
+    def _record_review_quality(self, result: ReviewResult) -> None:
+        ledger = QualityLedger(self.session.quality_signals)
+        signal = ledger.record_review(result)
+        self.session.quality_signals = ledger.to_dicts()
+        self._persist(
+            "quality_signal_recorded",
+            signal.to_dict(),
         )
 
     def _apply_review_result_to_package(self, result: ReviewResult) -> None:

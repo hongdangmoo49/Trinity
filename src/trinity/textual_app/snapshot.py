@@ -1010,7 +1010,13 @@ class NexusSnapshotAdapter:
             return None
         run = session.execution_run
         state = str(run.get("state", "") or "")
-        if state not in {"running", "interrupted", "aborted", "repair_blocked"}:
+        if state not in {
+            "running",
+            "interrupted",
+            "aborted",
+            "failed",
+            "repair_blocked",
+        }:
             return None
         if state == "running" and session.state.value != "executing":
             return None

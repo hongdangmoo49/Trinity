@@ -1376,6 +1376,19 @@ class FakeExecutionOrchestrator(FakeOrchestrator):
         ]
 
 
+class FakeFailingExecutionOrchestrator(FakeOrchestrator):
+    async def execute_work_packages(self, work_packages, decisions=(), result_callback=None):
+        return [
+            ExecutionResult(
+                package_id=package.id,
+                agent_name=package.owner_agent,
+                status=WorkStatus.FAILED,
+                summary="[Error: exit code 1]",
+            )
+            for package in work_packages
+        ]
+
+
 class FakePartialProgressExecutionOrchestrator(FakeOrchestrator):
     release = threading.Event()
     progress_seen = threading.Event()
@@ -1392,6 +1405,41 @@ class FakePartialProgressExecutionOrchestrator(FakeOrchestrator):
             type(self).progress_seen.set()
         await asyncio.to_thread(type(self).release.wait, 2.0)
         return [result]
+
+
+def test_textual_workflow_controller_surfaces_failed_execution_recovery(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("게임 구현", ["claude"])
+    workflow.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="client",
+            owner_agent="claude",
+            objective="Build client.",
+        )
+    ]
+    workflow.set_target_workspace(tmp_path / "game")
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=FakeFailingExecutionOrchestrator,
+        archive_active_session=False,
+    )
+
+    assert controller._start_execution() is True
+    assert controller.wait_until_idle(timeout=2.0)
+    outcome = controller.drain_updates()
+
+    assert outcome is not None
+    assert outcome.execution_recovery_required is True
+    assert outcome.snapshot.state == "failed"
+    assert outcome.snapshot.execution_recovery is not None
+    assert outcome.snapshot.execution_recovery.state == "failed"
+    assert outcome.snapshot.execution_recovery.retry_candidates == ("WP-001",)
+    assert "Execution failed" in outcome.message
 
 
 def test_textual_workflow_controller_persists_partial_execution_progress(

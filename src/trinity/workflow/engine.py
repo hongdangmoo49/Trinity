@@ -2535,7 +2535,13 @@ class WorkflowEngine:
         if not isinstance(run, dict) or not run:
             return None
         run_state = str(run.get("state", "") or "")
-        if run_state not in {"running", "interrupted", "aborted", "repair_blocked"}:
+        if run_state not in {
+            "running",
+            "interrupted",
+            "aborted",
+            "failed",
+            "repair_blocked",
+        }:
             return None
         running_packages = self._packages_with_status(WorkStatus.RUNNING)
         if run_state == "running" and self.session.state != WorkflowState.EXECUTING:
@@ -2805,7 +2811,7 @@ class WorkflowEngine:
             return
         if str(run.get("state", "")) == "interrupted":
             return
-        run["state"] = "completed"
+        run["state"] = "failed" if outcome == "failed" else "completed"
         run["outcome"] = outcome
         run["completed_at"] = time.time()
         self.session.execution_run = run

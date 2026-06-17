@@ -1303,6 +1303,43 @@ def test_snapshot_projects_execution_recovery_and_executor_details(tmp_path) -> 
     assert snapshot.work_package_details[1].retry_disabled_reason == "already done"
 
 
+def test_snapshot_projects_failed_execution_recovery(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    target = tmp_path / "game"
+    persistence.save(
+        WorkflowSession(
+            id="wf-failed-execution",
+            goal="Build game",
+            state=WorkflowState.FAILED,
+            active_agents=["claude"],
+            target_workspace=target,
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="client",
+                    owner_agent="claude",
+                    objective="Build client.",
+                    status=WorkStatus.FAILED,
+                    last_executor="claude",
+                )
+            ],
+            execution_run={
+                "run_id": "exec-run-failed",
+                "state": "failed",
+                "outcome": "failed",
+                "target_workspace": str(target),
+            },
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    assert snapshot.execution_recovery is not None
+    assert snapshot.execution_recovery.state == "failed"
+    assert snapshot.execution_recovery.retry_candidates == ("WP-001",)
+
+
 def test_snapshot_projects_review_repair_blocked_state(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     persistence = WorkflowPersistence(config.effective_state_dir)

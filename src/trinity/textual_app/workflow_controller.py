@@ -447,6 +447,7 @@ class TextualWorkflowController:
         progress_changed = False
         started_follow_up_work = False
         target_workspace_required = False
+        execution_recovery_required = False
 
         if progress_results:
             self.workflow.record_execution_results(
@@ -482,7 +483,14 @@ class TextualWorkflowController:
                 self.workflow.mark_deliberation_result(result)
             elif run_kind == "execution" and execution_results is not None:
                 self.workflow.record_execution_results(execution_results, emit_events=False)
-                if self._should_auto_review_after_execution():
+                if self.workflow.state == WorkflowState.FAILED:
+                    retry_plan = self.workflow.build_execution_retry_plan("failed")
+                    if retry_plan.selected:
+                        execution_recovery_required = True
+                        message = (
+                            "Execution failed. Review failed packages before retrying."
+                        )
+                elif self._should_auto_review_after_execution():
                     selected_reviews = tuple(self.workflow.review_packages_for_request("wp"))
                     self._start_review("all", (), selected_reviews)
                     started_follow_up_work = True
@@ -526,6 +534,7 @@ class TextualWorkflowController:
                 message=message,
                 running=True if started_follow_up_work else self.is_running,
                 target_workspace_required=target_workspace_required,
+                execution_recovery_required=execution_recovery_required,
             )
         return None
 

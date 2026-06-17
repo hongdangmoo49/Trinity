@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,11 +35,7 @@ class WorkspacePreflight:
     @property
     def can_create(self) -> bool:
         """Return whether the target directory can be created before execution."""
-        return (
-            not self.exists
-            and self.creatable
-            and _path_creation_supported(self.path)
-        )
+        return not self.exists and self.creatable
 
     def render(self) -> str:
         return "\n".join(
@@ -250,12 +246,6 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         self.dismiss(None)
 
     def action_new_folder(self) -> None:
-        if not self.create_missing:
-            self.app.push_screen(
-                CreateMissingDirectoryPrompt(lang=self.lang),
-                self._on_create_missing_confirmed,
-            )
-            return
         self._open_folder_name_prompt()
 
     def _on_create_missing_confirmed(self, confirmed: bool) -> None:
@@ -263,11 +253,19 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
             return
         self.create_missing = True
         self._update_preflight(self._input_path())
+        if not self.preflight.exists and not self.preflight.can_create:
+            self.create_missing = self.preflight.creatable
+            self._show_invalid_preflight()
+            return
         self._open_folder_name_prompt()
 
-    def _open_folder_name_prompt(self) -> None:
+    def _open_folder_name_prompt(self, base: Path | None = None) -> None:
+        folder_parent = base or self._folder_creation_base()
+        if not _directory_accepts_child_creation(folder_parent):
+            self._set_status(f"Cannot create folders under: {folder_parent}")
+            return
         self.app.push_screen(
-            FolderNamePrompt(self._folder_creation_base(), lang=self.lang),
+            FolderNamePrompt(folder_parent, lang=self.lang),
             self._on_folder_name_submitted,
         )
 
@@ -400,9 +398,11 @@ def build_preflight(
     resolved = path.expanduser()
     exists = resolved.exists()
     is_dir = resolved.is_dir()
-    writable = exists and is_dir and os.access(resolved, os.W_OK)
+    writable = exists and is_dir and _directory_accepts_child_creation(resolved)
     create_supported = not exists and _path_creation_supported(resolved)
-    create_requested = create_supported if creatable is None else bool(creatable)
+    create_requested = (
+        create_supported if creatable is None else bool(creatable) and create_supported
+    )
     git_repo = (resolved / ".git").exists()
     return WorkspacePreflight(
         path=resolved,
@@ -428,7 +428,21 @@ def _path_creation_supported(path: Path) -> bool:
         if parent == current:
             return False
         current = parent
-    return current.is_dir() and os.access(current, os.W_OK)
+    return _directory_accepts_child_creation(current)
+
+
+def _directory_accepts_child_creation(directory: Path) -> bool:
+    """Return whether the OS allows creating a child directory here."""
+    if not directory.is_dir():
+        return False
+    try:
+        with tempfile.TemporaryDirectory(
+            prefix=".trinity-preflight-",
+            dir=directory,
+        ):
+            return True
+    except (OSError, ValueError):
+        return False
 
 
 def _git_branch(path: Path) -> str:

@@ -6,6 +6,7 @@ import pytest
 from textual.app import App
 from textual.widgets import DirectoryTree, Input, Static
 
+from trinity.textual_app.widgets import workspace_picker as workspace_picker_module
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.workspace_picker import (
     WorkspacePicker,
@@ -71,6 +72,53 @@ def test_build_preflight_supports_nested_missing_directories(tmp_path) -> None:
     preflight = build_preflight(tmp_path / "new-app" / "src", WorkflowNexusSnapshot())
 
     assert preflight.can_create is True
+
+
+def test_path_creation_supported_cleans_up_probe_directory(tmp_path) -> None:
+    target = tmp_path / "new-app"
+
+    assert workspace_picker_module._path_creation_supported(target) is True
+    assert list(tmp_path.glob(".trinity-preflight-*")) == []
+
+
+def test_path_creation_supported_returns_false_when_probe_is_denied(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    def deny_temp_directory(*args, **kwargs):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(
+        workspace_picker_module.tempfile,
+        "TemporaryDirectory",
+        deny_temp_directory,
+    )
+
+    assert (
+        workspace_picker_module._path_creation_supported(tmp_path / "new-app") is False
+    )
+
+
+def test_build_preflight_does_not_force_creatable_when_creation_unsupported(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    target = tmp_path / "new-app"
+    monkeypatch.setattr(
+        workspace_picker_module,
+        "_path_creation_supported",
+        lambda path: False,
+    )
+
+    preflight = build_preflight(
+        target,
+        WorkflowNexusSnapshot(),
+        creatable=True,
+    )
+
+    assert preflight.exists is False
+    assert preflight.creatable is False
+    assert preflight.can_create is False
 
 
 def test_default_workspace_tree_root_uses_control_repo_parent(tmp_path) -> None:
@@ -207,6 +255,39 @@ async def test_workspace_picker_new_folder_flow_targets_tree_root_from_control_r
         assert picker.preflight.can_execute is True
         assert str(target_workspace) in str(preflight_panel.content)
         assert "New folder created" in str(status.content)
+
+
+@pytest.mark.asyncio
+async def test_workspace_picker_new_folder_blocks_unwritable_base(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    control_repo = tmp_path / "Trinity"
+    control_repo.mkdir()
+
+    picker = WorkspacePicker(
+        candidate=control_repo,
+        snapshot=WorkflowNexusSnapshot(),
+        cwd=control_repo,
+        tree_root=tmp_path,
+    )
+    app = WorkspacePickerHarness()
+    monkeypatch.setattr(
+        workspace_picker_module,
+        "_directory_accepts_child_creation",
+        lambda directory: False,
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.push_screen(picker)
+        await pilot.pause()
+
+        picker.action_new_folder()
+        await pilot.pause()
+
+        status = picker.query_one("#workspace-picker-status", Static)
+        assert "Cannot create folders under" in str(status.content)
+        assert isinstance(app.screen, WorkspacePicker)
 
 
 @pytest.mark.asyncio

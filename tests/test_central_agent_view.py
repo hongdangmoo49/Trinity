@@ -160,9 +160,17 @@ def test_central_markdown_summarizes_execution_progress_without_result_dump() ->
                 title="Wire UI",
                 owner_agent="claude",
                 status="running",
+                current_executor="claude",
                 last_result_agent="claude",
                 last_result_status="",
                 last_result_summary="Wiring UI to API contract.",
+            ),
+            WorkPackageSnapshot(
+                id="WP-003",
+                title="Fix auth",
+                owner_agent="codex",
+                status="blocked",
+                repair_blocked_reason="missing token",
             ),
         ],
     )
@@ -170,8 +178,10 @@ def test_central_markdown_summarizes_execution_progress_without_result_dump() ->
     markdown = view._markdown()
 
     assert "Progress" in markdown
-    assert "1 done / 1 running / 0 pending" in markdown
-    assert "### Current Focus" in markdown
-    assert "**WP-002** [running] `claude`: Wire UI" in markdown
+    assert "1 done / 1 running / 0 waiting / 1 blocked" in markdown
+    assert "3 WP · 1 done · 1 running · 1 blocked" in markdown
+    assert "Current: WP-002 Claude · Wire UI" in markdown
+    assert "Blocked: WP-003 Codex · Fix auth" in markdown
+    assert "### Current Focus" not in markdown
     assert "### Execution Result Summary" not in markdown
     assert "Files: src/api.py, tests/test_api.py" not in markdown

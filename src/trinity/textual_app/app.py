@@ -277,17 +277,16 @@ class TrinityTextualApp(App[None]):
 
     #provider-strip {
         width: 100%;
-        height: 8;
+        height: 5;
         layout: grid;
         grid-size: 3 1;
         grid-gutter: 1;
     }
 
     .provider-panel {
-        height: 8;
+        height: 5;
         border: round $accent;
         padding: 0 1;
-        overflow-y: auto;
     }
 
     .provider-claude {
@@ -306,11 +305,37 @@ class TrinityTextualApp(App[None]):
         border: round $warning;
     }
 
+    .provider-state-waiting {
+        border: round $primary;
+    }
+
+    .provider-state-idle {
+        border: round $secondary;
+    }
+
+    .provider-state-done {
+        border: round $success;
+    }
+
+    .provider-state-issue {
+        border: round $error;
+    }
+
+    .provider-state-off {
+        border: round $secondary;
+    }
+
     .provider-disabled {
         color: $text-muted;
     }
 
+    .provider-heading {
+        width: 100%;
+        height: 1;
+    }
+
     .provider-name {
+        width: 1fr;
         text-style: bold;
     }
 
@@ -319,12 +344,36 @@ class TrinityTextualApp(App[None]):
     }
 
     .provider-status {
-        margin-top: 1;
+        width: auto;
+        min-width: 5;
+        content-align: right middle;
+        text-style: bold;
+        color: $accent;
+    }
+
+    .provider-state-running .provider-status {
+        color: $warning;
+    }
+
+    .provider-state-waiting .provider-status {
+        color: $primary;
+    }
+
+    .provider-state-idle .provider-status {
+        color: $text-muted;
+    }
+
+    .provider-state-done .provider-status {
+        color: $success;
+    }
+
+    .provider-state-issue .provider-status {
+        color: $error;
     }
 
     .provider-summary {
         color: $text-muted;
-        height: auto;
+        height: 1;
     }
 
     #central-agent {

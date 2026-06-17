@@ -243,6 +243,38 @@ role_prompt = "old gemini reviewer"
         assert list(config.agents) == ["antigravity"]
         assert config.agents["antigravity"].role_prompt == "antigravity reviewer"
 
+    def test_load_normalizes_antigravity_ide_launcher_command(self, tmp_trinity_dir):
+        config_path = tmp_trinity_dir / "trinity.config"
+        config_path.write_text(
+            """
+[agents.antigravity]
+provider = "antigravity-cli"
+cli_command = "C:/Users/USER/AppData/Local/Programs/Antigravity IDE/bin/antigravity.cmd"
+enabled = true
+role_prompt = "antigravity reviewer"
+""",
+            encoding="utf-8",
+        )
+
+        config = TrinityConfig.load(config_path)
+
+        assert config.agents["antigravity"].cli_command == "agy"
+
+    def test_load_defaults_missing_antigravity_command_to_agy(self, tmp_trinity_dir):
+        config_path = tmp_trinity_dir / "trinity.config"
+        config_path.write_text(
+            """
+[agents.antigravity]
+provider = "antigravity-cli"
+enabled = false
+""",
+            encoding="utf-8",
+        )
+
+        config = TrinityConfig.load(config_path)
+
+        assert config.agents["antigravity"].cli_command == "agy"
+
     def test_load_migrates_custom_gemini_cli_provider_key(self, tmp_trinity_dir):
         config_path = tmp_trinity_dir / "trinity.config"
         config_path.write_text(

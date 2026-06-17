@@ -122,6 +122,18 @@ class TestCLIDetector:
         assert result.path == "/usr/bin/agy"
         assert result.warning == ""
 
+    def test_detect_antigravity_does_not_accept_ide_launcher(self):
+        detector = CLIDetector()
+        with patch("trinity.setup.detector.shutil.which") as mock_which:
+            mock_which.side_effect = lambda binary: (
+                "/usr/bin/antigravity" if binary == "antigravity" else None
+            )
+            result = detector.detect(Provider.ANTIGRAVITY_CLI)
+
+        assert not result.installed
+        assert "agy" in result.error
+        mock_which.assert_called_once_with("agy")
+
     def test_get_version_timeout(self):
         detector = CLIDetector(timeout=0.001)
         with patch(

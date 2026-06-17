@@ -36,6 +36,7 @@ from trinity.setup.detector import (
     CLIDetectionResult,
     CLIDetector,
     get_provider_role,
+    provider_default_cli_command,
 )
 
 logger = logging.getLogger(__name__)
@@ -411,7 +412,7 @@ class SetupWizard:
                 missing_specs[name] = AgentSpec(
                     name=name,
                     provider=provider,
-                    cli_command=name,
+                    cli_command=provider_default_cli_command(provider),
                     model=PROVIDER_DEFAULT_MODELS.get(provider, "default"),
                     role_prompt=role,
                     context_budget=budget,

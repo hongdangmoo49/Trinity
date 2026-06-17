@@ -13,6 +13,13 @@ from trinity.textual_app.snapshot import (
     LocalCommandSnapshot,
     WorkflowNexusSnapshot,
 )
+from trinity.textual_app.widgets.progress_summary import (
+    blocked_work_packages,
+    compact_wp_line,
+    current_work_packages,
+    progress_summary_line,
+    work_package_counts,
+)
 
 
 ACTIVITY_FRAMES = ("|", "/", "-", "\\")
@@ -133,7 +140,6 @@ class CentralAgentView(VerticalScroll):
                 ]
             )
         self._append_work_package_overview(lines, snapshot)
-        self._append_execution_overview(lines, snapshot)
         if snapshot.local_commands:
             self._append_latest_command(lines, snapshot.local_commands[-1])
         if snapshot.final_review is not None:
@@ -182,17 +188,19 @@ class CentralAgentView(VerticalScroll):
             return
 
         lines.extend(["", f"### {self._label('work_packages')}"])
-        status_counts = self._package_status_counts(snapshot)
         count_text = self._package_count_text(package_count)
-        if status_counts:
+        if snapshot.work_package_details:
             lines.append(
-                f"- {count_text} · "
-                + ", ".join(
-                    f"{status}={count}" for status, count in sorted(status_counts.items())
-                )
+                f"- {progress_summary_line(snapshot.work_package_details, lang=self.lang)}"
             )
         else:
             lines.append(f"- {count_text} · {self._label('ready')}")
+        current = current_work_packages(snapshot.work_package_details, limit=1)
+        if current:
+            lines.append(f"- {self._label('current')}: {compact_wp_line(current[0])}")
+        blocked = blocked_work_packages(snapshot.work_package_details, limit=1)
+        if blocked:
+            lines.append(f"- {self._label('blocked')}: {compact_wp_line(blocked[0])}")
         lines.append(f"- {self._label('details_in_inspector')}")
 
     def _append_execution_overview(
@@ -388,27 +396,18 @@ class CentralAgentView(VerticalScroll):
         return snapshot.state or self._label("idle")
 
     def _execution_progress(self, snapshot: WorkflowNexusSnapshot) -> str:
-        counts = self._package_status_counts(snapshot)
+        counts = work_package_counts(snapshot.work_package_details)
         if not counts:
             return self._label("executing")
-        total = sum(counts.values())
         done = counts.get("done", 0)
         running = counts.get("running", 0)
         blocked = counts.get("blocked", 0)
-        pending = total - done - running - blocked
+        waiting = counts.get("waiting", 0)
         return (
             f"{self._label('executing')}: "
-            f"{done} done / {running} running / {pending} pending"
+            f"{done} done / {running} running / {waiting} waiting"
             + (f" / {blocked} blocked" if blocked else "")
         )
-
-    @staticmethod
-    def _package_status_counts(snapshot: WorkflowNexusSnapshot) -> dict[str, int]:
-        counts: dict[str, int] = {}
-        for package in snapshot.work_package_details:
-            key = package.status or "unknown"
-            counts[key] = counts.get(key, 0) + 1
-        return counts
 
     @staticmethod
     def _blueprint_actions_key(snapshot: WorkflowNexusSnapshot) -> tuple[object, ...]:
@@ -508,6 +507,8 @@ class CentralAgentView(VerticalScroll):
             "collecting_provider_responses": "프로바이더 응답을 모으는 중",
             "command_result": "명령 결과",
             "completed": "완료",
+            "blocked": "막힘",
+            "current": "현재",
             "current_focus": "현재 진행/주의 항목",
             "details_in_inspector": "상세 설계와 WP 목록은 Inspector 또는 Report에서 확인하세요.",
             "executing": "실행 중",
@@ -552,6 +553,8 @@ class CentralAgentView(VerticalScroll):
             "collecting_provider_responses": "Collecting provider responses",
             "command_result": "Command Result",
             "completed": "Completed",
+            "blocked": "Blocked",
+            "current": "Current",
             "current_focus": "Current Focus",
             "details_in_inspector": "Open Inspector or Report for the full design and WP list.",
             "executing": "Executing",

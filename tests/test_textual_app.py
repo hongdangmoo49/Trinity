@@ -3405,6 +3405,36 @@ async def test_workflow_inspector_renders_snapshot_counts(tmp_path) -> None:
                 round_num=1,
                 decisions=["Use Textual"],
                 work_packages=["WP-001 codex: UI shell (pending)"],
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="UI shell",
+                        owner_agent="codex",
+                        status="done",
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-002",
+                        title="Renderer",
+                        owner_agent="claude",
+                        status="running",
+                        current_executor="claude",
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-003",
+                        title="Validation",
+                        owner_agent="antigravity",
+                        status="pending",
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-004",
+                        title="Adapter",
+                        owner_agent="codex",
+                        status="blocked",
+                        repair_blocked_reason="missing token",
+                        repair_attempt_count=2,
+                        repair_max_attempts=2,
+                    ),
+                ],
                 execution_log=["state_changed: blueprint_ready"],
             )
         )
@@ -3413,6 +3443,22 @@ async def test_workflow_inspector_renders_snapshot_counts(tmp_path) -> None:
         inspector = screen.query_one(WorkflowInspector)
         assert "wf-inspector" in str(inspector.query_one("#inspector-workflow").content)
         assert "Use Textual" in str(inspector.query_one("#inspector-decisions").content)
+        assert "4 WP · 1 done · 1 running · 1 waiting · 1 blocked" in str(
+            inspector.query_one("#inspector-progress").content
+        )
+        assert "[#>.!]" in str(inspector.query_one("#inspector-progress").content)
+        assert "WP-002 Claude · Renderer" in str(
+            inspector.query_one("#inspector-current").content
+        )
+        assert "WP-003 Antigravity · Validation" in str(
+            inspector.query_one("#inspector-next").content
+        )
+        assert "WP-004 Codex · Adapter" in str(
+            inspector.query_one("#inspector-blocked").content
+        )
+        assert "repair 2/2 · missing token" in str(
+            inspector.query_one("#inspector-blocked").content
+        )
 
 
 @pytest.mark.asyncio

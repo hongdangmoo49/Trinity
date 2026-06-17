@@ -171,21 +171,7 @@ That's it. Trinity will:
 
 ## 🔁 How It Works
 
-```
-  ┌───────────────┐     ┌───────────────┐     ┌───────────────┐
-  │   🏗️ Claude   │     │   ⚙️ Codex    │     │   🔍 Antigravity   │
-  │  (Architect)  │     │ (Implementer) │     │  (Reviewer)   │
-  └───────┬───────┘     └───────┬───────┘     └───────┬───────┘
-          │                     │                     │
-          └─────────────────────┼─────────────────────┘
-                                │
-                       ┌────────┴────────┐
-                       │  Orchestrator   │
-                       │ Shared Context  │
-                       │    Consensus    │
-                       │  Task Distrib   │
-                       └─────────────────┘
-```
+![Trinity multi-agent orchestration](docs/assets/readme/trinity-orchestration-en.svg)
 
 ### Deliberation Flow
 
@@ -283,19 +269,7 @@ long multi-line prompts, compare Claude/Codex/Antigravity status panels, and let
 the central synthesis view organize questions and consensus. File changes only
 start after you choose `Execute` and approve the workspace preflight.
 
-```
-  ┌ Trinity v0.12.0 ─ Nexus ─ workflow: planning ┐
-  │ Claude              │ Codex              │ Antigravity │
-  │ Ready               │ Running            │ Ready       │
-  ├───────────────────────────────────────────────────────────┤
-  │ Central Agent                                              │
-  │ - synthesis summary                                        │
-  │ - questions for the user                                   │
-  │ - blueprint/work package status                            │
-  ├───────────────────────────────────────────────────────────┤
-  │ Workflow Inspector  │ Provider Inspector modal │ Composer │
-  └───────────────────────────────────────────────────────────┘
-```
+![Trinity Nexus Workbench overview](docs/assets/readme/trinity-nexus-workbench-en.svg)
 
 ### TUI Features
 

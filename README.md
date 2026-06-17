@@ -167,21 +167,7 @@ Trinity가 백그라운드에서 다음 단계를 자동으로 수행합니다:
 
 ## 🔁 작동 원리
 
-```
-  ┌───────────────┐     ┌───────────────┐     ┌───────────────┐
-  │   🏗️ Claude   │     │   ⚙️ Codex    │     │   🔍 Antigravity   │
-  │    (설계자)   │     │    (구현자)   │     │    (검토자)   │
-  └───────┬───────┘     └───────┬───────┘     └───────┬───────┘
-          │                     │                     │
-          └─────────────────────┼─────────────────────┘
-                                │
-                       ┌────────┴────────┐
-                       │  오케스트레이터 │
-                       │  공유 컨텍스트  │
-                       │    합의 엔진    │
-                       │   작업 분배기   │
-                       └─────────────────┘
-```
+![Trinity 멀티 에이전트 오케스트레이션](docs/assets/readme/trinity-orchestration-ko.svg)
 
 ### 토론 흐름 (Deliberation Flow)
 
@@ -277,19 +263,7 @@ Trinity는 기본 실행 화면으로 **Textual 기반 Workbench TUI**를 제공
 분리해서 보며, 중앙 synthesis가 질문과 합의 상태를 정리합니다. 실제 파일
 변경은 `Execute`를 누른 뒤 workspace preflight를 승인해야 시작됩니다.
 
-```
-  ┌ Trinity v0.12.0 ─ Nexus ─ workflow: planning ┐
-  │ Claude              │ Codex              │ Antigravity │
-  │ Ready               │ Running            │ Ready       │
-  ├───────────────────────────────────────────────────────────┤
-  │ Central Agent                                              │
-  │ - synthesis summary                                        │
-  │ - questions for the user                                   │
-  │ - blueprint/work package status                            │
-  ├───────────────────────────────────────────────────────────┤
-  │ Workflow Inspector  │ Provider Inspector modal │ Composer │
-  └───────────────────────────────────────────────────────────┘
-```
+![Trinity Nexus Workbench 화면 개요](docs/assets/readme/trinity-nexus-workbench-ko.svg)
 
 ### TUI 주요 기능
 

@@ -43,6 +43,20 @@
 
 ## 🚀 빠른 시작
 
+### 실행 전제 조건
+
+Trinity는 로컬 터미널에서 provider CLI를 직접 호출하는 프로그램입니다.
+따라서 `trinity`를 실행하는 **같은 로컬 셸/환경**에 다음 CLI 중 하나 이상이
+설치되어 있고 로그인되어 있어야 합니다.
+
+- Claude Code CLI (`claude`)
+- Codex CLI (`codex`)
+- Antigravity CLI (`agy`)
+
+Trinity 패키지만 설치된 상태에서도 앱은 실행할 수 있지만, 위 provider CLI가 하나도
+없으면 실제 에이전트를 소집할 수 없습니다. 한 개만 설치해도 시작할 수 있고,
+여러 개를 설치하면 더 완전한 multi-agent 토론과 리뷰 흐름을 사용할 수 있습니다.
+
 ### 설치하기
 
 ```bash
@@ -69,9 +83,8 @@ python -m pip install trinity-agent
    trinity --version
    ```
 
-3. 같은 macOS 터미널 환경에 사용할 provider CLI를 설치하고 로그인합니다.
-   최소 한 개가 필요하며, 세 개를 모두 설치하면 Trinity의 전체 multi-agent 흐름을
-   사용할 수 있습니다.
+3. 같은 macOS 터미널 환경에 사용할 provider CLI를 하나 이상 설치하고 로그인합니다.
+   세 개를 모두 설치하면 Trinity의 전체 multi-agent 흐름을 사용할 수 있습니다.
 
    | Provider | 확인 명령 | 설치/인증 문서 |
    | :--- | :--- | :--- |
@@ -110,12 +123,13 @@ WSL 내부에서 자동으로 공유되지 않습니다.
    trinity --version
    ```
 
-3. 같은 Ubuntu 환경에 provider CLI를 설치하고 로그인한 뒤 확인합니다.
+3. 같은 Ubuntu 환경에 사용할 provider CLI를 하나 이상 설치하고 로그인한 뒤 확인합니다.
+   아래 명령 중 실제로 설치한 CLI가 하나 이상 성공하면 됩니다.
 
    ```bash
-   claude --version
-   codex --version
-   agy --version
+   claude --version  # Claude Code CLI를 설치한 경우
+   codex --version   # Codex CLI를 설치한 경우
+   agy --version     # Antigravity CLI를 설치한 경우
    ```
 
 4. 작업할 프로젝트 폴더에서 초기화하고 실행합니다.

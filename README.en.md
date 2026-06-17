@@ -45,6 +45,21 @@ Single-agent AI is powerful, but it has blind spots.
 
 ## 🚀 Quick Start
 
+### Runtime Prerequisite
+
+Trinity is a terminal app that directly launches provider CLIs installed on
+your machine. The **same local shell/environment** that runs `trinity` must
+have at least one of these CLIs installed and authenticated:
+
+- Claude Code CLI (`claude`)
+- Codex CLI (`codex`)
+- Antigravity CLI (`agy`)
+
+Trinity can still start after installing only the Python package, but it cannot
+summon real agents unless at least one provider CLI is available. One provider
+is enough to begin; installing multiple providers enables the fuller
+multi-agent deliberation and review workflow.
+
 ### Install
 
 ```bash
@@ -71,9 +86,8 @@ python -m pip install trinity-agent
    trinity --version
    ```
 
-3. Install and authenticate the provider CLIs in the same macOS terminal
-   environment. At least one provider is required; all three unlock the full
-   multi-agent workflow.
+3. Install and authenticate at least one provider CLI in the same macOS
+   terminal environment. All three unlock the full multi-agent workflow.
 
    | Provider | Check command | Install/auth docs |
    | :--- | :--- | :--- |
@@ -113,13 +127,14 @@ available inside WSL.
    trinity --version
    ```
 
-3. Install provider CLIs in the same Ubuntu environment, authenticate them, and
-   verify they are visible.
+3. Install at least one provider CLI in the same Ubuntu environment,
+   authenticate it, and verify it is visible. At least one of the commands
+   below should succeed for the provider you installed.
 
    ```bash
-   claude --version
-   codex --version
-   agy --version
+   claude --version  # if Claude Code CLI is installed
+   codex --version   # if Codex CLI is installed
+   agy --version     # if Antigravity CLI is installed
    ```
 
 4. Initialize and launch from your project directory.

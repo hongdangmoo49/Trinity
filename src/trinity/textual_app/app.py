@@ -1213,6 +1213,7 @@ class TrinityTextualApp(App[None]):
         self._open_workspace_picker(
             WorkflowNexusSnapshot(),
             self._on_workspace_candidate_selected,
+            intent="select",
         )
 
     def on_nexus_screen_follow_up_submitted(
@@ -1299,6 +1300,23 @@ class TrinityTextualApp(App[None]):
         if outcome.target_workspace_required:
             self._open_execute_workspace_picker(outcome.snapshot)
 
+    def on_nexus_screen_workspace_requested(
+        self,
+        event: NexusScreen.WorkspaceRequested,
+    ) -> None:
+        event.stop()
+        snapshot = (
+            event.snapshot
+            or self.active_snapshot
+            or self.workflow_controller.snapshot()
+            or self.snapshot_adapter.load_snapshot()
+        )
+        self._open_workspace_picker(
+            snapshot,
+            self._on_nexus_workspace_selected,
+            intent="select",
+        )
+
     def on_nexus_screen_repair_action_requested(
         self,
         event: NexusScreen.RepairActionRequested,
@@ -1350,6 +1368,8 @@ class TrinityTextualApp(App[None]):
         self,
         snapshot: WorkflowNexusSnapshot,
         callback,
+        *,
+        intent: str = "execute",
     ) -> None:
         self.push_screen(
             WorkspacePicker(
@@ -1358,6 +1378,7 @@ class TrinityTextualApp(App[None]):
                 snapshot=snapshot,
                 cwd=self.config.project_dir,
                 tree_root=default_workspace_tree_root(self.config.project_dir),
+                intent=intent,
             ),
             callback,
         )
@@ -1371,6 +1392,61 @@ class TrinityTextualApp(App[None]):
         self.workspace_candidate = preflight.path
         start = self.get_screen("start", StartScreen)
         start.set_workspace_candidate(preflight.path)
+
+    def _on_nexus_workspace_selected(
+        self,
+        preflight: WorkspacePreflight | None,
+    ) -> None:
+        if preflight is None:
+            return
+        if self._is_control_repo_target(preflight.path):
+            self.push_screen(
+                TargetWorkspaceConfirmModal(
+                    target_path=preflight.path,
+                    control_repo=self.config.project_dir,
+                ),
+                lambda confirmed: self._on_nexus_workspace_selected_confirmed(
+                    preflight,
+                    confirmed,
+                ),
+            )
+            return
+        self._continue_nexus_workspace_selection(
+            preflight,
+            control_repo_confirmed=False,
+        )
+
+    def _on_nexus_workspace_selected_confirmed(
+        self,
+        preflight: WorkspacePreflight,
+        confirmed: bool | None,
+    ) -> None:
+        if confirmed:
+            self._continue_nexus_workspace_selection(
+                preflight,
+                control_repo_confirmed=True,
+            )
+            return
+        self._record_slash_command_result(
+            "/target",
+            "Target",
+            "Target workspace selection cancelled.",
+            severity="warning",
+            empty=True,
+            action_hint="Choose a workspace outside the Trinity control repo.",
+        )
+
+    def _continue_nexus_workspace_selection(
+        self,
+        preflight: WorkspacePreflight,
+        *,
+        control_repo_confirmed: bool,
+    ) -> None:
+        self.workspace_candidate = preflight.path
+        self._set_textual_target_workspace(
+            preflight.path,
+            control_repo_confirmed=control_repo_confirmed,
+        )
 
     def _safe_start_target_workspace(self, path: Path | None) -> Path | None:
         """Return a start-screen target that can be persisted without confirmation."""

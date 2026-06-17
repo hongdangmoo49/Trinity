@@ -12,9 +12,11 @@ from trinity.textual_app.widgets.progress_summary import (
     blocked_work_packages,
     compact_wp_line,
     current_work_packages,
-    next_work_packages,
+    next_work_package_entries,
+    next_work_package_line,
     progress_bar,
     progress_summary_line,
+    waiting_on_detail_line,
     work_package_counts,
     work_package_state,
 )
@@ -64,19 +66,8 @@ class WorkflowInspector(Vertical):
                 ]
             )
         )
-        next_packages = next_work_packages(snapshot.work_package_details, limit=3)
-        next_lines = [compact_wp_line(package) for package in next_packages]
-        waiting_count = len(
-            [
-                package
-                for package in snapshot.work_package_details
-                if work_package_state(package) == "waiting"
-            ]
-        )
-        if waiting_count > len(next_packages):
-            next_lines.append(f"+{waiting_count - len(next_packages)} more")
         self.query_one("#inspector-next", Static).update(
-            self._list_or_empty(next_lines)
+            self._list_or_empty(self._next_lines(snapshot), limit=8)
         )
         self.query_one("#inspector-blocked", Static).update(
             self._list_or_empty(self._blocked_lines(snapshot))
@@ -112,10 +103,16 @@ class WorkflowInspector(Vertical):
         )
 
     @staticmethod
-    def _list_or_empty(items: list[str]) -> str:
+    def _list_or_empty(items: list[str], *, limit: int = 5) -> str:
         if not items:
             return "(none)"
-        return "\n".join(f"- {item}" for item in items[:5])
+        lines: list[str] = []
+        for item in items[:limit]:
+            if item.startswith("  "):
+                lines.append(item)
+            else:
+                lines.append(f"- {item}")
+        return "\n".join(lines)
 
     @staticmethod
     def _progress_summary(snapshot: WorkflowNexusSnapshot) -> str:
@@ -145,6 +142,22 @@ class WorkflowInspector(Vertical):
         )
         if blocked_count > 3:
             lines.append(f"+{blocked_count - 3} more")
+        return lines
+
+    @staticmethod
+    def _next_lines(snapshot: WorkflowNexusSnapshot) -> list[str]:
+        entries = next_work_package_entries(snapshot.work_package_details, limit=3)
+        lines: list[str] = []
+        for entry in entries:
+            lines.append(next_work_package_line(entry))
+            detail = waiting_on_detail_line(entry)
+            if detail:
+                lines.append(f"  {detail}")
+        next_count = len(
+            next_work_package_entries(snapshot.work_package_details, limit=None)
+        )
+        if next_count > len(entries):
+            lines.append(f"+{next_count - len(entries)} more")
         return lines
 
     @staticmethod

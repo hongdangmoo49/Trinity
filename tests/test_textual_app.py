@@ -3424,6 +3424,7 @@ async def test_workflow_inspector_renders_snapshot_counts(tmp_path) -> None:
                         title="Validation",
                         owner_agent="antigravity",
                         status="pending",
+                        dependencies=["WP-002"],
                     ),
                     WorkPackageSnapshot(
                         id="WP-004",
@@ -3434,6 +3435,14 @@ async def test_workflow_inspector_renders_snapshot_counts(tmp_path) -> None:
                         repair_attempt_count=2,
                         repair_max_attempts=2,
                     ),
+                    WorkPackageSnapshot(
+                        id="WP-005",
+                        title="Docs",
+                        owner_agent="codex",
+                        status="pending",
+                        dependencies=["WP-001"],
+                        parallel_group=2,
+                    ),
                 ],
                 execution_log=["state_changed: blueprint_ready"],
             )
@@ -3443,16 +3452,18 @@ async def test_workflow_inspector_renders_snapshot_counts(tmp_path) -> None:
         inspector = screen.query_one(WorkflowInspector)
         assert "wf-inspector" in str(inspector.query_one("#inspector-workflow").content)
         assert "Use Textual" in str(inspector.query_one("#inspector-decisions").content)
-        assert "4 WP · 1 done · 1 running · 1 waiting · 1 blocked" in str(
+        assert "5 WP · 1 done · 1 running · 2 waiting · 1 blocked" in str(
             inspector.query_one("#inspector-progress").content
         )
-        assert "[#>.!]" in str(inspector.query_one("#inspector-progress").content)
+        assert "[#>..!]" in str(inspector.query_one("#inspector-progress").content)
         assert "WP-002 Claude · Renderer" in str(
             inspector.query_one("#inspector-current").content
         )
-        assert "WP-003 Antigravity · Validation" in str(
-            inspector.query_one("#inspector-next").content
-        )
+        next_content = str(inspector.query_one("#inspector-next").content)
+        assert "WP-005 Codex · Docs · group 2" in next_content
+        assert "WP-003 Antigravity · Validation" in next_content
+        assert "waiting on WP-002" in next_content
+        assert next_content.index("WP-005") < next_content.index("WP-003")
         assert "WP-004 Codex · Adapter" in str(
             inspector.query_one("#inspector-blocked").content
         )

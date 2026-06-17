@@ -888,7 +888,7 @@ class TestWorkflowRouting:
         )
 
     def test_review_command_runs_work_package_and_final_review(self, session):
-        session.workflow.start("Implement route bot", ["claude"])
+        session.workflow.start("Implement route bot", ["claude", "codex"])
         session.workflow.session.work_packages = [
             WorkPackage(
                 id="WP-001",
@@ -921,28 +921,32 @@ class TestWorkflowRouting:
 
             async def review_work_packages(self, review_packages, work_packages, execution_results):
                 assert self.bus is not None
+                review = review_packages[0]
                 self.bus.emit(
                     TUIEvent(
                         type=TUIEventType.WORK_PACKAGE_REVIEW_STARTED,
-                        data={"package_id": "WP-001", "reviewer": "claude"},
+                        data={
+                            "package_id": review.package_id,
+                            "reviewer": review.reviewer_agent,
+                        },
                     )
                 )
                 self.bus.emit(
                     TUIEvent(
                         type=TUIEventType.WORK_PACKAGE_REVIEW_COMPLETED,
                         data={
-                            "package_id": "WP-001",
-                            "reviewer": "claude",
+                            "package_id": review.package_id,
+                            "reviewer": review.reviewer_agent,
                             "status": ReviewStatus.APPROVED.value,
                         },
                     )
                 )
                 return [
                     ReviewResult(
-                        review_package_id=review_packages[0].id,
-                        package_id="WP-001",
-                        reviewer_agent="claude",
-                        target_agent="claude",
+                        review_package_id=review.id,
+                        package_id=review.package_id,
+                        reviewer_agent=review.reviewer_agent,
+                        target_agent=review.target_agent,
                         status=ReviewStatus.APPROVED,
                         severity="low",
                         summary="WP approved.",
@@ -976,7 +980,7 @@ class TestWorkflowRouting:
         ]
 
     def test_final_review_changes_auto_queue_post_review_work_package(self, session):
-        session.workflow.start("Implement route bot", ["claude"])
+        session.workflow.start("Implement route bot", ["claude", "codex"])
         session.workflow.session.work_packages = [
             WorkPackage(
                 id="WP-001",
@@ -1018,7 +1022,7 @@ class TestWorkflowRouting:
         )
 
     def test_execute_auto_runs_review_after_completion(self, session):
-        session.workflow.start("Implement route bot", ["claude"])
+        session.workflow.start("Implement route bot", ["claude", "codex"])
         session.workflow.session.blueprint = Blueprint(
             title="Route Bot",
             summary="Find bridge routes.",
@@ -1062,12 +1066,13 @@ class TestWorkflowRouting:
                 return [result]
 
             async def review_work_packages(self, review_packages, work_packages, execution_results):
+                review = review_packages[0]
                 return [
                     ReviewResult(
-                        review_package_id=review_packages[0].id,
-                        package_id="WP-001",
-                        reviewer_agent="claude",
-                        target_agent="claude",
+                        review_package_id=review.id,
+                        package_id=review.package_id,
+                        reviewer_agent=review.reviewer_agent,
+                        target_agent=review.target_agent,
                         status=ReviewStatus.APPROVED,
                         severity="low",
                         summary="WP approved.",

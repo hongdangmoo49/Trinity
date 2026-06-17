@@ -102,6 +102,25 @@ def test_work_package_progress_summary_supports_korean() -> None:
     )
 
 
+def test_progress_bar_compacts_width_but_keeps_nonzero_state_markers() -> None:
+    bar = progress_bar(
+        {
+            "done": 5,
+            "running": 4,
+            "waiting": 7,
+            "blocked": 2,
+            "unknown": 1,
+        },
+        width=6,
+    )
+
+    assert bar.startswith("[")
+    assert bar.endswith("]")
+    assert len(bar.removeprefix("[").removesuffix("]")) == 6
+    for marker in "#>.!?":
+        assert marker in bar
+
+
 def test_next_work_package_entries_prioritize_dependency_ready_packages() -> None:
     packages = [
         _package("WP-001", "running", title="Foundation"),

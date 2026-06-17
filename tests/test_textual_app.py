@@ -3100,6 +3100,73 @@ async def test_nexus_running_surfaces_show_activity(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_nexus_provider_strip_stays_compact_on_small_viewport(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                providers=[
+                    ProviderSnapshot(
+                        name="claude",
+                        provider="claude-code",
+                        enabled=True,
+                        status="Running",
+                        actual_model="claude-opus-4.1",
+                        context_window=200000,
+                        budget_source="runtime_metadata",
+                        session_id="claude-session-123456789",
+                    ),
+                    ProviderSnapshot(
+                        name="codex",
+                        provider="codex",
+                        enabled=True,
+                        status="Queued",
+                        actual_model="gpt-5.5",
+                        context_window=272000,
+                        budget_source="local_cli_cache",
+                        session_id="codex-session-123456789",
+                    ),
+                    ProviderSnapshot(
+                        name="antigravity",
+                        provider="antigravity",
+                        enabled=True,
+                        status="Ready",
+                        actual_model="ag-high-context",
+                        context_window=128000,
+                        budget_source="trinity_config",
+                        session_id="antigravity-session-123456789",
+                    ),
+                ]
+            )
+        )
+        await pilot.pause()
+
+        strip = screen.query_one("#provider-strip")
+        panels = list(screen.query(ProviderPanel))
+
+        assert strip.region.height == 5
+        assert len(panels) == 3
+        for panel in panels:
+            assert panel.region.height == 5
+            assert panel.region.y >= strip.region.y
+            assert (
+                panel.region.y + panel.region.height
+                <= strip.region.y + strip.region.height
+            )
+            assert str(panel.query_one(".provider-name").content)
+            assert str(panel.query_one(".provider-status").content)
+            assert str(panel.query_one(".provider-meta").content)
+        assert "Antigravity" in str(
+            screen.query_one("#provider-antigravity .provider-name").content
+        )
+
+
+@pytest.mark.asyncio
 async def test_workflow_outcome_does_not_render_hidden_nexus(
     tmp_path,
     monkeypatch,

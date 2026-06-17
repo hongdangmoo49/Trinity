@@ -66,6 +66,34 @@ def test_provider_panel_supports_korean_status_labels() -> None:
     assert "실행" in panel._status_label()
 
 
+@pytest.mark.parametrize(
+    ("status", "enabled", "expected_label"),
+    [
+        ("Running", True, "실행"),
+        ("Queued", True, "대기"),
+        ("Idle", True, "휴식"),
+        ("Done", True, "완료"),
+        ("Failed", True, "문제"),
+        ("mystery", True, "?"),
+        ("Running", False, "끔"),
+    ],
+)
+def test_provider_panel_supports_all_korean_status_labels(
+    status: str,
+    enabled: bool,
+    expected_label: str,
+) -> None:
+    state = ProviderPanelState(
+        name="claude",
+        provider="claude-code",
+        enabled=enabled,
+        status=status,
+    )
+    panel = ProviderPanel(state, lang="ko")
+
+    assert expected_label in panel._status_label()
+
+
 def test_provider_panel_compacts_long_summary() -> None:
     state = ProviderPanelState(
         name="claude",

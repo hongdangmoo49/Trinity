@@ -4,7 +4,7 @@
 
 브랜치: `feature/nexus-progress-visibility`
 
-상태: 설계 완료
+상태: 구현 반영
 
 ## 배경
 
@@ -291,3 +291,32 @@ Blocked
 - 중앙 Work Packages 요약이 progress count와 핵심 current/blocked만 보여준다.
 - 관련 테스트가 추가되고 통과한다.
 
+## 구현 결과
+
+- `ProviderPanel`을 `VerticalScroll` 기반 긴 카드에서 compact `Vertical` 카드로 전환했다.
+- provider strip/card 높이를 8에서 5로 줄였다.
+- provider status를 `RUN`, `WAIT`, `IDLE`, `DONE`, `ISSUE`, `OFF`로 정규화했다. 한국어 UI에서는 `실행`, `대기`, `휴식`, `완료`, `문제`, `끔`을 사용한다.
+- provider 상태별 class를 추가했다.
+  - `provider-state-running`
+  - `provider-state-waiting`
+  - `provider-state-idle`
+  - `provider-state-done`
+  - `provider-state-issue`
+  - `provider-state-off`
+- `progress_summary.py` helper를 추가해 WP 상태 분류, progress count, progress bar, current/next/blocked 추출을 공통화했다.
+- `WorkflowInspector` 상단에 `Progress`, `Current`, `Next`, `Blocked` 섹션을 추가하고 기존 `Packages` 단순 리스트를 대체했다.
+- 중앙 `Work Packages` 요약에는 progress count와 current/blocked 각 1줄만 표시하도록 보강했다.
+- 기존 질문 패널, blueprint action, provider inspector raw output 경로는 유지했다.
+
+## 검증 결과
+
+```text
+uv run pytest tests/test_provider_panel.py tests/test_progress_summary.py tests/test_central_agent_view.py -q
+20 passed in 0.19s
+
+uv run pytest tests/test_textual_app.py -q
+123 passed in 66.59s (0:01:06)
+
+uv run pytest tests/test_textual_snapshot.py tests/test_textual_workflow_controller.py tests/test_textual_smoke.py -q
+66 passed in 2.31s
+```

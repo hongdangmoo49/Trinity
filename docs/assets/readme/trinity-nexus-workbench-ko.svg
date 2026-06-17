@@ -37,7 +37,7 @@
     <circle cx="116" cy="122" r="7" fill="#FB7185"/>
     <circle cx="140" cy="122" r="7" fill="#FBBF24"/>
     <circle cx="164" cy="122" r="7" fill="#34D399"/>
-    <text x="192" y="128" class="font" fill="#E2E8F0" font-size="15" font-weight="700">Trinity v0.13.1 · Nexus · 작업흐름: 계획</text>
+    <text x="192" y="128" class="font" fill="#E2E8F0" font-size="15" font-weight="700">Trinity v0.13.2 · Nexus · 작업흐름: 계획</text>
     <rect x="760" y="111" width="150" height="26" rx="13" fill="#0F172A" stroke="#334155"/>
     <text x="835" y="129" text-anchor="middle" class="font" fill="#93C5FD" font-size="12" font-weight="700">대상: 현재 경로</text>
 

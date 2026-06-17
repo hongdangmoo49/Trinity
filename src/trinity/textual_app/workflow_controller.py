@@ -70,7 +70,10 @@ class TextualWorkflowController:
         self.persistence = WorkflowPersistence(config.effective_state_dir)
         if workflow is None and archive_active_session:
             self.persistence.archive_active_session()
-        self.workflow = workflow or WorkflowEngine(config.effective_state_dir)
+        self.workflow = workflow or WorkflowEngine(
+            config.effective_state_dir,
+            agent_specs=config.agents,
+        )
         self.workflow.reconcile_review_repair_metadata(
             max_attempts=config.repair_max_attempts,
         )
@@ -103,7 +106,10 @@ class TextualWorkflowController:
         if self.is_running:
             return self._outcome(message="Workflow is still running.", running=True)
         self.persistence.archive_active_session(force=True)
-        self.workflow = WorkflowEngine(self.config.effective_state_dir)
+        self.workflow = WorkflowEngine(
+            self.config.effective_state_dir,
+            agent_specs=self.config.agents,
+        )
         self._recent_events = []
         return self._outcome()
 
@@ -418,7 +424,10 @@ class TextualWorkflowController:
 
         self.persistence.archive_active_session()
         self.persistence.restore_archive(archive)
-        self.workflow = WorkflowEngine(self.config.effective_state_dir)
+        self.workflow = WorkflowEngine(
+            self.config.effective_state_dir,
+            agent_specs=self.config.agents,
+        )
         self.workflow.reconcile_review_repair_metadata(
             max_attempts=self.config.repair_max_attempts,
         )

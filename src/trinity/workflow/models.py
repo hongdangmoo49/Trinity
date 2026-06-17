@@ -385,6 +385,10 @@ class WorkPackage:
     origin_action_item_ids: list[str] = field(default_factory=list)
     parent_package_ids: list[str] = field(default_factory=list)
     supplemental_round: int = 0
+    task_kind: str = ""
+    routing_reason: str = ""
+    routing_score: float = 0.0
+    profile_revision: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -415,6 +419,10 @@ class WorkPackage:
             "origin_action_item_ids": list(self.origin_action_item_ids),
             "parent_package_ids": list(self.parent_package_ids),
             "supplemental_round": self.supplemental_round,
+            "task_kind": self.task_kind,
+            "routing_reason": self.routing_reason,
+            "routing_score": self.routing_score,
+            "profile_revision": self.profile_revision,
         }
 
     @classmethod
@@ -452,6 +460,10 @@ class WorkPackage:
             ],
             parent_package_ids=[str(item) for item in data.get("parent_package_ids", [])],
             supplemental_round=int(data.get("supplemental_round", 0) or 0),
+            task_kind=str(data.get("task_kind", "") or ""),
+            routing_reason=str(data.get("routing_reason", "") or ""),
+            routing_score=float(data.get("routing_score", 0.0) or 0.0),
+            profile_revision=str(data.get("profile_revision", "") or ""),
         )
 
 
@@ -671,6 +683,7 @@ class WorkflowSession:
     provider_sessions: dict[str, ProviderSessionRef] = field(default_factory=dict)
     runtime_models: dict[str, AgentRuntimeModel] = field(default_factory=dict)
     resource_projections: dict[str, AgentResourceProjection] = field(default_factory=dict)
+    quality_signals: list[dict[str, Any]] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -714,6 +727,7 @@ class WorkflowSession:
                 key: value.to_dict()
                 for key, value in self.resource_projections.items()
             },
+            "quality_signals": [dict(item) for item in self.quality_signals],
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -819,6 +833,11 @@ class WorkflowSession:
                 ).items()
                 if isinstance(value, dict)
             },
+            quality_signals=[
+                dict(item)
+                for item in data.get("quality_signals", [])
+                if isinstance(item, dict)
+            ],
             created_at=float(data.get("created_at", time.time())),
             updated_at=float(data.get("updated_at", time.time())),
         )

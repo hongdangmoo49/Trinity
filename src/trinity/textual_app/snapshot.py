@@ -45,6 +45,10 @@ class ProviderSnapshot:
     budget_source: str = ""
     session_id: str = ""
     session_kind: str = ""
+    profile_mission: str = ""
+    profile_modes: list[str] = field(default_factory=list)
+    profile_strengths: list[str] = field(default_factory=list)
+    context_profile: str = ""
 
 
 @dataclass(frozen=True)
@@ -137,6 +141,10 @@ class WorkPackageSnapshot:
     review_summary: str = ""
     review_required_changes: list[str] = field(default_factory=list)
     review_severity: str = ""
+    task_kind: str = ""
+    routing_reason: str = ""
+    routing_score: float = 0.0
+    profile_revision: str = ""
 
 
 @dataclass(frozen=True)
@@ -440,6 +448,10 @@ class NexusSnapshotAdapter:
                 repair_max_attempts=self.config.repair_max_attempts,
                 repair_blocked_reason=package.repair_blocked_reason,
                 repair_blocked_at=package.repair_blocked_at,
+                task_kind=package.task_kind,
+                routing_reason=package.routing_reason,
+                routing_score=package.routing_score,
+                profile_revision=package.profile_revision,
                 last_result_agent=(
                     result_by_package_id[package.id].agent_name
                     if package.id in result_by_package_id
@@ -1286,8 +1298,20 @@ class NexusSnapshotAdapter:
                 budget_source=budget_source,
                 session_id=session_id,
                 session_kind=session_kind,
+                profile_mission=spec.profile.mission,
+                profile_modes=list(spec.profile.supported_turn_modes),
+                profile_strengths=self._profile_strength_lines(spec),
+                context_profile=spec.profile.context_profile,
             )
         return states
+
+    @staticmethod
+    def _profile_strength_lines(spec) -> list[str]:
+        strengths = sorted(
+            spec.profile.strengths.items(),
+            key=lambda item: (-float(item[1]), item[0]),
+        )
+        return [f"{name} {score:.2f}" for name, score in strengths[:3]]
 
     @staticmethod
     def _runtime_model_for(session: WorkflowSession | None, agent_name: str):

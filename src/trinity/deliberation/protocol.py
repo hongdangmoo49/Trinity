@@ -1016,35 +1016,24 @@ class DeliberationProtocol:
 
     def _append_structured_instructions(self, prompt: str, round_num: int) -> str:
         """Ask agents to emit the v0.7.0 structured deliberation contract."""
+        from trinity.prompts.contracts import (
+            DELIBERATION_CONTRACT_ID,
+            render_output_contract,
+        )
+
         phase = "proposal" if round_num == 1 else "critique/synthesis"
+        phase_label = phase
         if self.lang == "ko":
-            phase_ko = "제안" if round_num == 1 else "비평/종합"
-            return (
-                f"{prompt}\n\n"
-                "응답 언어 규칙:\n"
-                "- 사용자에게 보이는 설명, 제목, 요약, 질문, 선택지, 추천, 근거는 반드시 한국어로 작성하세요.\n"
-                "- 영어로 된 사용자-facing 문장, 질문, 선택지는 만들지 마세요.\n"
-                "- 파서 호환을 위해 마지막 투표 줄만 다음 영어 토큰 중 하나를 그대로 사용하세요: "
-                "VOTE: APPROVE | APPROVE_WITH_CHANGES | BLOCKED_BY_QUESTION | REJECT.\n\n"
-                "구조화된 토론 계약:\n"
-                f"- 단계: {phase_ko}.\n"
-                "- 최종 설계가 가능하면 제목, 요약, 아키텍처, 데이터 흐름, 외부 의존성, "
-                "리스크, 수용 기준 섹션을 포함하세요.\n"
-                "- 사용자 입력이 필요하면 BLOCKED_BY_QUESTION으로 투표하고, "
-                "질문, 선택지, 추천, 근거를 한국어로 작성하세요."
-            )
-        return (
-            f"{prompt}\n\n"
-            "Structured deliberation contract:\n"
-            f"- Phase: {phase}.\n"
-            "- End with exactly one vote line: "
-            "VOTE: APPROVE | APPROVE_WITH_CHANGES | "
-            "BLOCKED_BY_QUESTION | REJECT.\n"
-            "- If a final design is possible, include a BLUEPRINT with "
-            "Title, Summary, Architecture, Data Flow, External Dependencies, "
-            "Risks, and Acceptance Criteria sections.\n"
-            "- If user input is required, vote BLOCKED_BY_QUESTION and include "
-            "OPEN QUESTIONS with Question, Options, Recommended, and Rationale."
+            phase_label = "제안" if round_num == 1 else "비평/종합"
+        return "\n\n".join(
+            [
+                prompt,
+                render_output_contract(
+                    DELIBERATION_CONTRACT_ID,
+                    lang=self.lang,
+                    phase=phase_label,
+                ),
+            ]
         )
 
     def _append_caveman(self, prompt: str) -> str:

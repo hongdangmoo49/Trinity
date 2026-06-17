@@ -59,6 +59,15 @@ class WorkPackageDetailModal(ModalScreen[None]):
             f"- Requires execution: `{'yes' if package.requires_execution else 'no'}`",
             f"- Retry: `{('available' if package.retryable else package.retry_disabled_reason or 'not available')}`",
         ]
+        if package.task_kind or package.routing_reason:
+            lines.extend(
+                [
+                    f"- Task kind: `{package.task_kind or '-'}`",
+                    f"- Routing score: `{package.routing_score:.1f}`",
+                    f"- Routing reason: {package.routing_reason or '(none)'}",
+                    f"- Profile revision: `{package.profile_revision or '-'}`",
+                ]
+            )
 
         lines.extend(["", "## Result"])
         if package.last_result_status or package.last_result_summary:

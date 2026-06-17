@@ -143,7 +143,11 @@ class SettingsScreen(Screen[None]):
 
     def _preview_text(self) -> str:
         model_lines = [
-            f"{self._agent_label(name)}: {spec.model or 'default'}"
+            (
+                f"{self._agent_label(name)}: {spec.model or 'default'} · "
+                f"{spec.profile.context_profile} · "
+                f"{self._profile_strength_summary(spec)}"
+            )
             for name, spec in self.config.agents.items()
         ]
         central_provider = self.config.synthesis_agent or "auto"
@@ -186,6 +190,17 @@ class SettingsScreen(Screen[None]):
         if current and current not in values:
             values.append(current)
         return values
+
+    @staticmethod
+    def _profile_strength_summary(spec) -> str:
+        strengths = sorted(
+            spec.profile.strengths.items(),
+            key=lambda item: (-float(item[1]), item[0]),
+        )
+        if not strengths:
+            return "profile balanced"
+        name, score = strengths[0]
+        return f"{name} {score:.2f}"
 
     def _agent_label(self, name: str) -> str:
         labels = {

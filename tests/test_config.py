@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from trinity.config import TrinityConfig
-from trinity.models import Provider
+from trinity.models import AgentProfile, Provider
 
 
 class TestTrinityConfig:
@@ -13,6 +13,14 @@ class TestTrinityConfig:
         assert "claude" in config.agents
         assert "codex" in config.agents
         assert "antigravity" in config.agents
+
+    def test_default_agents_have_operating_profiles(self):
+        config = TrinityConfig.default_config()
+
+        assert config.agents["claude"].profile.context_profile == "architect"
+        assert config.agents["codex"].profile.context_profile == "implementer"
+        assert config.agents["antigravity"].profile.context_profile == "reviewer"
+        assert config.agents["codex"].profile.strengths["implementation"] > 0.9
 
     def test_default_claude_enabled(self):
         config = TrinityConfig.default_config()
@@ -74,6 +82,75 @@ enabled = true
         assert config.agents["claude"].model == "opus[1m]"
         assert config.agents["claude"].role_prompt == "You are a tester."
         assert config.agents["codex"].enabled
+
+    def test_load_agent_profile_override_from_toml(self, tmp_trinity_dir):
+        config_path = tmp_trinity_dir / "trinity.config"
+        config_path.write_text(
+            """
+[agents.codex]
+provider = "codex"
+cli_command = "codex"
+enabled = true
+
+[agents.codex.profile]
+mission = "Repository implementation specialist"
+preferred_task_kinds = ["implementation", "testing"]
+context_profile = "implementer"
+cost_tier = "low"
+routing_priority = 5
+
+[agents.codex.profile.strengths]
+implementation = 1.0
+documentation = 0.2
+
+[agents.codex.profile.output_contracts]
+execute = "execution_v1"
+review = "review_v1"
+""",
+            encoding="utf-8",
+        )
+
+        config = TrinityConfig.load(config_path)
+        profile = config.agents["codex"].profile
+
+        assert profile.mission == "Repository implementation specialist"
+        assert profile.preferred_task_kinds == ["implementation", "testing"]
+        assert profile.context_profile == "implementer"
+        assert profile.cost_tier == "low"
+        assert profile.routing_priority == 5
+        assert profile.strengths["implementation"] == 1.0
+        assert profile.strengths["documentation"] == 0.2
+        assert profile.output_contracts["execute"] == "execution_v1"
+
+    def test_save_omits_default_agent_profile(self, tmp_path):
+        config = TrinityConfig.default_config(project_dir=tmp_path)
+        config_path = tmp_path / ".trinity" / "trinity.config"
+
+        config.save(config_path)
+        saved = config_path.read_text(encoding="utf-8")
+
+        assert "[agents.codex.profile]" not in saved
+        assert "context_profile" not in saved
+
+    def test_save_persists_custom_agent_profile_fields(self, tmp_path):
+        config = TrinityConfig.default_config(project_dir=tmp_path)
+        config.agents["codex"].profile = AgentProfile(
+            mission="Custom implementer",
+            strengths={"implementation": 1.0},
+            supported_turn_modes=["execute"],
+            context_profile="implementer",
+            routing_priority=3,
+        )
+        config_path = tmp_path / ".trinity" / "trinity.config"
+
+        config.save(config_path)
+        saved = config_path.read_text(encoding="utf-8")
+        loaded = TrinityConfig.load(config_path)
+
+        assert "[agents.codex.profile]" in saved
+        assert 'mission = "Custom implementer"' in saved
+        assert loaded.agents["codex"].profile.mission == "Custom implementer"
+        assert loaded.agents["codex"].profile.routing_priority == 3
 
     def test_load_detects_lang_from_korean_role_prompt(self, tmp_trinity_dir):
         config_path = tmp_trinity_dir / "trinity.config"

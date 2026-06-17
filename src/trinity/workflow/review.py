@@ -8,6 +8,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from trinity.models import AgentSpec
+from trinity.routing.profile_router import ClassifiedTask, ProfileRouter
 from trinity.workflow.models import ExecutionResult, WorkPackage, WorkStatus
 
 
@@ -231,17 +233,22 @@ class PeerReviewPlanner:
         "Identify blockers or follow-up needed before merge.",
     )
 
-    def __init__(self, default_criteria: list[str] | None = None):
+    def __init__(
+        self,
+        default_criteria: list[str] | None = None,
+        router: ProfileRouter | None = None,
+    ):
         self.default_criteria = (
             list(default_criteria)
             if default_criteria is not None
             else list(self.DEFAULT_CRITERIA)
         )
+        self.router = router or ProfileRouter()
 
     def plan_reviews(
         self,
         work_packages: list[WorkPackage],
-        active_agents: list[str],
+        active_agents: list[str] | dict[str, AgentSpec],
         execution_results: list[ExecutionResult] | None = None,
     ) -> list[ReviewPackage]:
         """Create review packages for work packages using the active agent set."""
@@ -249,7 +256,8 @@ class PeerReviewPlanner:
         if not packages:
             return []
 
-        agents = self._normalize_agents(active_agents)
+        agent_specs = self._normalize_agent_specs(active_agents)
+        agents = list(agent_specs)
         if not agents:
             raise ValueError("active_agents must include at least one reviewer")
 
@@ -264,7 +272,8 @@ class PeerReviewPlanner:
             target_agent = result.agent_name if result else package.owner_agent
             reviewer_agent = self._primary_reviewer_for(
                 target_agent=target_agent,
-                active_agents=agents,
+                active_agents=agent_specs,
+                package=package,
             )
             if reviewer_agent is None:
                 review_packages.append(
@@ -279,7 +288,11 @@ class PeerReviewPlanner:
                     criteria=self._criteria_for(package),
                     execution_status=result.status if result else None,
                     depth=ReviewDepth.SINGLE_PEER,
-                    reason=self._primary_reason(target_agent, agents),
+                    reason=self._primary_reason(
+                        target_agent,
+                        agents,
+                        reviewer_agent,
+                    ),
                 )
             )
 
@@ -288,13 +301,14 @@ class PeerReviewPlanner:
     def plan_escalation_reviews(
         self,
         work_packages: list[WorkPackage],
-        active_agents: list[str],
+        active_agents: list[str] | dict[str, AgentSpec],
         existing_reviews: list[ReviewPackage],
         review_results: list[ReviewResult] | None = None,
         execution_results: list[ExecutionResult] | None = None,
     ) -> list[ReviewPackage]:
         """Create optional second-review packages for risk or review issues."""
-        agents = self._normalize_agents(active_agents)
+        agent_specs = self._normalize_agent_specs(active_agents)
+        agents = list(agent_specs)
         if len(agents) < 3:
             return []
 
@@ -333,12 +347,13 @@ class PeerReviewPlanner:
                 continue
             reviewer_agent = self._secondary_reviewer_for(
                 target_agent=primary.target_agent,
-                active_agents=agents,
+                active_agents=agent_specs,
                 existing_reviewers=[
                     review.reviewer_agent
                     for review in existing_reviews
                     if review.package_id == package.id
                 ],
+                package=package,
             )
             if reviewer_agent is None:
                 continue
@@ -364,7 +379,8 @@ class PeerReviewPlanner:
     def _primary_reviewer_for(
         self,
         target_agent: str,
-        active_agents: list[str],
+        active_agents: dict[str, AgentSpec],
+        package: WorkPackage,
     ) -> str | None:
         if len(active_agents) == 1:
             return None
@@ -376,13 +392,16 @@ class PeerReviewPlanner:
         ]
         if not candidates:
             return None
-        return self._select_by_priority(candidates)
+        if len(candidates) == 1:
+            return candidates[0]
+        return self._select_review_candidate(candidates, active_agents, package)
 
     def _secondary_reviewer_for(
         self,
         target_agent: str,
-        active_agents: list[str],
+        active_agents: dict[str, AgentSpec],
         existing_reviewers: list[str],
+        package: WorkPackage,
     ) -> str | None:
         used = {agent for agent in existing_reviewers if agent}
         candidates = [
@@ -392,7 +411,32 @@ class PeerReviewPlanner:
         ]
         if not candidates:
             return None
-        return self._select_by_priority(candidates)
+        return self._select_review_candidate(candidates, active_agents, package)
+
+    def _select_review_candidate(
+        self,
+        candidates: list[str],
+        active_agents: dict[str, AgentSpec],
+        package: WorkPackage,
+    ) -> str:
+        task = ClassifiedTask(
+            kind="review",
+            turn_mode="review",
+            risk=str(package.risk or "medium"),
+            expected_files=tuple(package.expected_files),
+            requires_write=False,
+        )
+        scored = [
+            self.router.score_agent(candidate, active_agents[candidate], task)
+            for candidate in candidates
+        ]
+        scored.sort(
+            key=lambda decision: (
+                -decision.score,
+                self._priority_key(decision.agent_name),
+            )
+        )
+        return scored[0].agent_name
 
     def _select_by_priority(self, candidates: list[str]) -> str:
         return sorted(candidates, key=self._priority_key)[0]
@@ -405,11 +449,16 @@ class PeerReviewPlanner:
             priority = len(PRIMARY_REVIEWER_PRIORITY)
         return (priority, normalized)
 
-    def _primary_reason(self, target_agent: str, active_agents: list[str]) -> str:
+    def _primary_reason(
+        self,
+        target_agent: str,
+        active_agents: list[str],
+        reviewer_agent: str,
+    ) -> str:
         candidates = [agent for agent in active_agents if agent != target_agent]
         if len(candidates) == 1:
             return "single available non-owner reviewer"
-        return "selected primary reviewer by deterministic provider priority"
+        return f"selected {reviewer_agent} by profile review fit"
 
     def _skipped_no_peer_package(
         self,
@@ -445,14 +494,16 @@ class PeerReviewPlanner:
                 return f"primary review status is {result.status.value}"
         return ""
 
-    def _normalize_agents(self, agents: list[str]) -> list[str]:
-        normalized: list[str] = []
-        seen: set[str] = set()
-        for agent in agents:
-            name = str(agent).strip()
-            if name and name not in seen:
-                normalized.append(name)
-                seen.add(name)
+    def _normalize_agent_specs(
+        self,
+        agents: list[str] | dict[str, AgentSpec],
+    ) -> dict[str, AgentSpec]:
+        specs = self.router.specs_from_active_agents(agents)
+        normalized: dict[str, AgentSpec] = {}
+        for name, spec in specs.items():
+            agent = str(name).strip()
+            if agent and agent not in normalized:
+                normalized[agent] = spec
         return normalized
 
     def _dedupe(self, values: list[str]) -> list[str]:

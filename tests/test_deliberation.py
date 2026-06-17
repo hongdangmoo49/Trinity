@@ -4,7 +4,7 @@ import pytest
 
 from trinity.deliberation.consensus import ConsensusEngine
 from trinity.deliberation.distributor import TaskDistributor
-from trinity.models import AgentSpec, Provider, TaskIntent
+from trinity.models import AgentProfile, AgentSpec, Provider, TaskIntent
 
 
 class TestConsensusEngine:
@@ -221,3 +221,28 @@ class TestTaskDistributor:
         assert "plan item (execution)" in description
         assert "actionable implementation" in description
         assert "execute on the agreed conclusion" not in description
+
+    def test_distribution_uses_agent_profile_strengths(self):
+        distributor = TaskDistributor()
+        agents = {
+            "custom": AgentSpec(
+                name="custom",
+                provider=Provider.CODEX,
+                cli_command="custom",
+                profile=AgentProfile(
+                    mission="Documentation agent",
+                    strengths={"documentation": 1.0},
+                    preferred_task_kinds=["documentation"],
+                    supported_turn_modes=["plan"],
+                ),
+            ),
+        }
+
+        tasks = distributor.distribute(
+            consensus_text="Plan documentation updates for README.",
+            agents=agents,
+        )
+
+        assert tasks[0].agent_name == "custom"
+        assert "documentation" in tasks[0].task_description.lower()
+        assert "Routing:" in tasks[0].task_description

@@ -7,6 +7,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
+from trinity.models import AgentSpec
+from trinity.routing.profile_router import ProfileRouter, RoutingDecision
 from trinity.workflow.models import Blueprint, WorkPackage, WorkStatus
 
 
@@ -79,15 +81,19 @@ class BlueprintDecomposer:
 
     DEFAULT_FOCUS = ("general delivery", ("component", "delivery", "workflow"))
 
+    def __init__(self, router: ProfileRouter | None = None):
+        self.router = router or ProfileRouter()
+
     def decompose(
         self,
         blueprint: Blueprint | dict[str, Any],
-        active_agents: Iterable[str],
+        active_agents: Iterable[str] | dict[str, AgentSpec],
         *,
         requires_execution: bool = True,
     ) -> list[WorkPackage]:
         """Return deliverable-oriented packages assigned across active providers."""
-        agent_names = self._normalize_agents(active_agents)
+        agent_specs = self._normalize_agent_specs(active_agents)
+        agent_names = list(agent_specs)
         if not agent_names:
             return []
 
@@ -99,7 +105,7 @@ class BlueprintDecomposer:
         ]
         central_packages = self._packages_from_central_graph(
             normalized.work_packages,
-            agent_names,
+            agent_specs,
             criteria,
             requires_execution,
         )
@@ -107,14 +113,19 @@ class BlueprintDecomposer:
             return central_packages
 
         seeds = self._package_seeds(normalized)
-        owners_by_seed = self._assign_owners(agent_names, seeds)
+        decisions_by_seed = self._assign_owners(
+            agent_specs,
+            seeds,
+            requires_execution,
+        )
 
         packages: list[WorkPackage] = []
         seed_to_package_id: dict[str, str] = {}
         for index, seed in enumerate(seeds, start=1):
             package_id = f"WP-{index:03d}"
             seed_to_package_id[seed.key] = package_id
-            agent_name = owners_by_seed[seed.key]
+            decision = decisions_by_seed[seed.key]
+            agent_name = decision.agent_name
             focus_label, _ = self.AGENT_FOCUS.get(agent_name, self.DEFAULT_FOCUS)
             packages.append(
                 WorkPackage(
@@ -132,6 +143,10 @@ class BlueprintDecomposer:
                     status=WorkStatus.PENDING,
                     requires_execution=requires_execution,
                     estimated_weight=seed.estimated_weight,
+                    task_kind=decision.task_kind,
+                    routing_reason=decision.reason,
+                    routing_score=decision.score,
+                    profile_revision=decision.profile_revision,
                 )
             )
         for package, seed in zip(packages, seeds):
@@ -145,11 +160,12 @@ class BlueprintDecomposer:
     def _packages_from_central_graph(
         self,
         proposed_packages: Iterable[WorkPackage],
-        agent_names: list[str],
+        agent_specs: dict[str, AgentSpec],
         fallback_criteria: list[str],
         requires_execution: bool,
     ) -> list[WorkPackage]:
         """Validate and conservatively normalize model-authored work packages."""
+        agent_names = list(agent_specs)
         seeds: list[_PackageSeed] = []
         source_by_key: dict[str, WorkPackage] = {}
         known_keys: set[str] = set()
@@ -176,7 +192,11 @@ class BlueprintDecomposer:
         if not seeds:
             return []
 
-        owners_by_seed = self._assign_owners(agent_names, seeds)
+        decisions_by_seed = self._assign_owners(
+            agent_specs,
+            seeds,
+            requires_execution,
+        )
         packages: list[WorkPackage] = []
         alias_to_package_id: dict[str, str] = {}
         for index, seed in enumerate(seeds, start=1):
@@ -190,11 +210,18 @@ class BlueprintDecomposer:
                 )
             owner = source.owner_agent.strip()
             if owner not in agent_names:
+                decision = decisions_by_seed[seed.key]
                 repair_notes.append(
                     f"owner reassigned from {owner or '(empty)'!r} "
-                    f"to {owners_by_seed[seed.key]!r} because owner is not active"
+                    f"to {decision.agent_name!r} because owner is not active"
                 )
-                owner = owners_by_seed[seed.key]
+                owner = decision.agent_name
+            else:
+                decision = self._routing_decision_for_seed(
+                    agent_specs[owner],
+                    seed,
+                    requires_execution,
+                )
             criteria = (
                 self._clean_acceptance_criteria(source.acceptance_criteria)
                 or fallback_criteria
@@ -232,6 +259,13 @@ class BlueprintDecomposer:
                     parallelizable=source.parallelizable,
                     risk=risk,
                     repair_notes=repair_notes,
+                    task_kind=decision.task_kind,
+                    routing_reason=(
+                        "central owner retained; "
+                        f"profile score {decision.score:.1f}: {decision.reason}"
+                    ),
+                    routing_score=decision.score,
+                    profile_revision=decision.profile_revision,
                 )
             )
             self._register_package_aliases(alias_to_package_id, source, seed, package_id)
@@ -256,6 +290,16 @@ class BlueprintDecomposer:
         if any(term in text for term in ("api", "adapter", "dependency", "연동", "통합")):
             return "dependency"
         return "component"
+
+    @staticmethod
+    def _task_kind_for_seed(seed: _PackageSeed) -> str:
+        if seed.kind in {"dependency", "integration"}:
+            return "integration"
+        if seed.kind == "validation":
+            return "testing"
+        if seed.kind == "planning":
+            return "planning"
+        return "implementation"
 
     def _clean_expected_files(self, values: Iterable[str]) -> list[str]:
         cleaned = self._clean_list_items(values)
@@ -340,54 +384,68 @@ class BlueprintDecomposer:
             return normalized
         return "medium"
 
-    def _normalize_agents(self, active_agents: Iterable[str]) -> list[str]:
-        seen: set[str] = set()
-        agent_names: list[str] = []
-        for name in active_agents:
-            normalized = str(name).strip()
-            if not normalized or normalized in seen:
-                continue
-            seen.add(normalized)
-            agent_names.append(normalized)
-        return agent_names
+    def _normalize_agent_specs(
+        self,
+        active_agents: Iterable[str] | dict[str, AgentSpec],
+    ) -> dict[str, AgentSpec]:
+        specs = self.router.specs_from_active_agents(active_agents)
+        normalized: dict[str, AgentSpec] = {}
+        for name, spec in specs.items():
+            agent_name = str(name).strip()
+            if agent_name and agent_name not in normalized:
+                normalized[agent_name] = spec
+        return normalized
 
     def _assign_owners(
         self,
-        agent_names: list[str],
+        agent_specs: dict[str, AgentSpec],
         seeds: list[_PackageSeed],
-    ) -> dict[str, str]:
+        requires_execution: bool,
+    ) -> dict[str, RoutingDecision]:
         """Assign packages by load balance first, provider priority as tie-break."""
+        agent_names = list(agent_specs)
         loads = {agent_name: 0 for agent_name in agent_names}
-        assignments: dict[str, str] = {}
+        assignments: dict[str, RoutingDecision] = {}
         for seed in sorted(seeds, key=lambda item: item.estimated_weight, reverse=True):
             scores = {
-                agent_name: self._agent_fit_score(seed, agent_name)
+                agent_name: self._routing_decision_for_seed(
+                    agent_specs[agent_name],
+                    seed,
+                    requires_execution,
+                )
                 for agent_name in agent_names
             }
             owner = min(
                 agent_names,
                 key=lambda agent_name: (
                     loads[agent_name],
-                    -scores[agent_name],
-                    self._priority_index(agent_name),
+                    -scores[agent_name].score,
+                    int(
+                        agent_specs[agent_name].profile.routing_priority
+                        or self._priority_index(agent_name)
+                    ),
                     agent_names.index(agent_name),
                 ),
             )
-            assignments[seed.key] = owner
+            assignments[seed.key] = scores[owner]
             loads[owner] += seed.estimated_weight
         return assignments
 
-    def _agent_fit_score(self, seed: _PackageSeed, agent_name: str) -> int:
-        normalized = " ".join([seed.title, seed.objective, *seed.scope]).lower()
-        _, keywords = self.AGENT_FOCUS.get(agent_name, self.DEFAULT_FOCUS)
-        score = sum(1 for keyword in keywords if keyword in normalized)
-        if agent_name == "codex" and seed.kind in {"component", "integration", "dependency"}:
-            score += 2
-        if agent_name == "claude" and seed.kind in {"component", "planning"}:
-            score += 1
-        if agent_name == "antigravity" and seed.kind == "validation":
-            score += 2
-        return score
+    def _routing_decision_for_seed(
+        self,
+        spec: AgentSpec,
+        seed: _PackageSeed,
+        requires_execution: bool,
+    ) -> RoutingDecision:
+        text = " ".join([seed.title, seed.objective, *seed.scope])
+        task = self.router.classify_text(
+            text,
+            turn_mode="execute" if requires_execution else "plan",
+            expected_files=seed.expected_files,
+            requires_write=requires_execution,
+            fallback_kind=self._task_kind_for_seed(seed),
+        )
+        return self.router.score_agent(spec.name, spec, task)
 
     def _priority_index(self, agent_name: str) -> int:
         try:

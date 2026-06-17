@@ -74,14 +74,21 @@ class ProviderInspector(ModalScreen[None]):
         return self._format_output(output)
 
     def _provider_meta(self, provider: ProviderSnapshot) -> str:
-        return "\n".join(
-            [
-                provider.name.title(),
-                f"Provider: {provider.provider}",
-                f"Status: {provider.status}",
-                f"Readiness: {provider.readiness}",
-            ]
-        )
+        lines = [
+            provider.name.title(),
+            f"Provider: {provider.provider}",
+            f"Status: {provider.status}",
+            f"Readiness: {provider.readiness}",
+        ]
+        if provider.profile_mission:
+            lines.append(f"Mission: {provider.profile_mission}")
+        if provider.profile_modes:
+            lines.append(f"Modes: {', '.join(provider.profile_modes)}")
+        if provider.profile_strengths:
+            lines.append(f"Strengths: {', '.join(provider.profile_strengths)}")
+        if provider.context_profile:
+            lines.append(f"Context profile: {provider.context_profile}")
+        return "\n".join(lines)
 
     def _all_output(self) -> str:
         sections: list[str] = []
@@ -92,6 +99,8 @@ class ProviderInspector(ModalScreen[None]):
                     f"Provider: {provider.provider}",
                     f"Status: {provider.status}",
                     f"Readiness: {provider.readiness}",
+                    f"Mission: {provider.profile_mission or '-'}",
+                    f"Context profile: {provider.context_profile or '-'}",
                     "",
                     self._provider_output(provider),
                 ]

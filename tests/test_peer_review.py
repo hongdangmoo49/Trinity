@@ -2,6 +2,7 @@
 
 import pytest
 
+from trinity.models import AgentProfile, AgentSpec, Provider
 from trinity.workflow.models import ExecutionResult, WorkPackage, WorkStatus
 from trinity.workflow.review import (
     FINAL_REVIEW_FALLBACK_PRIORITY,
@@ -99,6 +100,46 @@ def test_peer_review_planner_uses_deterministic_primary_priority():
             ("claude", ["codex", "claude", "antigravity"]),
         ]
     ] == ["antigravity", "claude", "antigravity"]
+
+
+def test_peer_review_planner_uses_profile_review_fit():
+    agents = {
+        "claude": AgentSpec(
+            name="claude",
+            provider=Provider.CLAUDE_CODE,
+            cli_command="claude",
+            profile=AgentProfile(
+                mission="Review specialist",
+                strengths={"review": 1.0},
+                supported_turn_modes=["review"],
+                routing_priority=1,
+            ),
+        ),
+        "codex": AgentSpec(
+            name="codex",
+            provider=Provider.CODEX,
+            cli_command="codex",
+        ),
+        "antigravity": AgentSpec(
+            name="antigravity",
+            provider=Provider.ANTIGRAVITY_CLI,
+            cli_command="agy",
+            profile=AgentProfile(
+                mission="Implementation specialist",
+                strengths={"review": 0.1},
+                supported_turn_modes=["review"],
+                routing_priority=10,
+            ),
+        ),
+    }
+
+    reviews = PeerReviewPlanner().plan_reviews(
+        [_package("WP-001", "codex")],
+        active_agents=agents,
+    )
+
+    assert reviews[0].reviewer_agent == "claude"
+    assert reviews[0].reason == "selected claude by profile review fit"
 
 
 def test_peer_review_planner_uses_execution_result_target_and_status():

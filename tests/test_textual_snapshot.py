@@ -41,6 +41,8 @@ def test_snapshot_loads_provider_defaults_without_workflow(tmp_path) -> None:
     ]
     assert snapshot.providers[0].status == "Queued"
     assert snapshot.providers[1].status == "Disabled"
+    assert snapshot.providers[0].context_profile == "architect"
+    assert "architecture" in snapshot.providers[0].profile_strengths[0]
 
 
 def test_snapshot_does_not_project_stale_agreed_conclusion_without_workflow(
@@ -96,6 +98,39 @@ def test_snapshot_projects_persisted_workflow(tmp_path) -> None:
     assert snapshot.execution_log == ["state_changed: blueprint_ready"]
     assert snapshot.providers[0].enabled is True
     assert snapshot.providers[1].enabled is False
+
+
+def test_snapshot_projects_work_package_routing_metadata(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-routing",
+            goal="Build routing",
+            state=WorkflowState.BLUEPRINT_READY,
+            active_agents=["codex"],
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="Routing",
+                    owner_agent="codex",
+                    objective="Implement routing.",
+                    task_kind="implementation",
+                    routing_reason="implementation strength 0.95",
+                    routing_score=111.0,
+                    profile_revision="default-v1",
+                )
+            ],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    package = snapshot.work_package_details[0]
+    assert package.task_kind == "implementation"
+    assert package.routing_reason == "implementation strength 0.95"
+    assert package.routing_score == 111.0
+    assert package.profile_revision == "default-v1"
 
 
 def test_snapshot_marks_non_target_agents_idle_during_targeted_deliberation(

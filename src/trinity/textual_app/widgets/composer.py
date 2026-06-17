@@ -49,9 +49,39 @@ class ComposerTextArea(TextArea):
     }
 
     def __init__(self, *args, lang: str = "en", **kwargs) -> None:
+        self._configured_placeholder = str(kwargs.get("placeholder", ""))
         super().__init__(*args, **kwargs)
         self.lang = lang
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
+        self._sync_placeholder_visibility()
+
+    def _sync_placeholder_visibility(self) -> None:
+        placeholder = (
+            self._configured_placeholder
+            if not self.has_focus and not self.text
+            else ""
+        )
+        if self.placeholder != placeholder:
+            self.placeholder = placeholder
+
+    def on_focus(self, event: events.Focus) -> None:
+        self._sync_placeholder_visibility()
+
+    def on_blur(self, event: events.Blur) -> None:
+        self._sync_placeholder_visibility()
+
+    def watch_has_focus(self, has_focus: bool) -> None:
+        super().watch_has_focus(has_focus)
+        self._sync_placeholder_visibility()
+
+    def on_text_area_changed(self, event: TextArea.Changed) -> None:
+        if event.text_area is self:
+            self._sync_placeholder_visibility()
+
+    async def _on_key(self, event: events.Key) -> None:
+        self._sync_placeholder_visibility()
+        await super()._on_key(event)
+        self._sync_placeholder_visibility()
 
     def action_submit_or_accept(self) -> None:
         parent = self.parent
@@ -97,8 +127,10 @@ class ComposerTextArea(TextArea):
                 self.move_cursor(result.end_location)
                 self.focus()
             parent._refresh_command_palette()
+            self._sync_placeholder_visibility()
             return
         await super()._on_paste(event)
+        self._sync_placeholder_visibility()
 
 
 class PromptComposer(Vertical):

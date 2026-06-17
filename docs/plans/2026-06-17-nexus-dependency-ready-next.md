@@ -4,7 +4,7 @@
 
 브랜치: `feature/nexus-dependency-ready-next`
 
-상태: 구현 예정
+상태: 구현 완료
 
 ## 배경
 
@@ -158,6 +158,41 @@ entry는 다음 정보를 담는다.
   /home/user/workspace/Trinity/tests/test_textual_workflow_controller.py \
   /home/user/workspace/Trinity/tests/test_textual_smoke.py \
   -q
+```
+
+## 구현 결과
+
+- `progress_summary.py`에 dependency-aware `NextWorkPackageEntry` projection을 추가했다.
+- `blocked_dependency_ids()`는 snapshot 내부에 존재하고 compact state가 `done`이 아닌 dependency만
+  waiting blocker로 계산한다.
+- `next_work_package_entries()`는 ready waiting WP를 먼저 정렬하고, dependency가 남은 waiting WP를 뒤에 둔다.
+- 기존 `next_work_packages()`는 compatibility wrapper로 유지하되 dependency-ready 우선순위를 반영한다.
+- `next_work_package_line()`은 ready WP의 `parallel_group` 힌트를 `group N`으로 표시한다.
+- `waiting_on_detail_line()`은 dependency-waiting WP의 이유를 `waiting on WP-xxx`로 렌더한다.
+- `WorkflowInspector`의 `Next` 섹션은 새 entry projection을 사용해 ready WP를 먼저 보여주고,
+  dependency-waiting WP에는 다음 줄에 waiting reason을 표시한다.
+- 중앙 `Work Packages` 요약은 기존 compact 계약을 유지했다.
+
+## 검증 결과
+
+```text
+/home/user/workspace/Trinity/.venv/bin/python -m pytest \
+  /home/user/workspace/Trinity/tests/test_progress_summary.py \
+  /home/user/workspace/Trinity/tests/test_central_agent_view.py \
+  /home/user/workspace/Trinity/tests/test_textual_app.py \
+  -q
+
+134 passed in 64.71s (0:01:04)
+```
+
+```text
+/home/user/workspace/Trinity/.venv/bin/python -m pytest \
+  /home/user/workspace/Trinity/tests/test_textual_snapshot.py \
+  /home/user/workspace/Trinity/tests/test_textual_workflow_controller.py \
+  /home/user/workspace/Trinity/tests/test_textual_smoke.py \
+  -q
+
+66 passed in 2.24s
 ```
 
 ## 리스크

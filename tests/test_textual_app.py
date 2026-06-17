@@ -2625,6 +2625,29 @@ async def test_screen_and_composer_bindings_use_configured_language(tmp_path) ->
 
 
 @pytest.mark.asyncio
+async def test_prompt_composer_hides_placeholder_while_focused_for_ime_preedit(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+        text_area = composer.query_one(ComposerTextArea)
+        await pilot.pause()
+
+        assert text_area.has_focus is True
+        assert text_area.placeholder == ""
+
+        text_area.blur()
+        await pilot.pause()
+        assert text_area.placeholder == "What should Trinity work on?"
+
+        text_area.focus()
+        await pilot.pause()
+        assert text_area.placeholder == ""
+
+
+@pytest.mark.asyncio
 async def test_prompt_composer_modified_enter_inserts_newline(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

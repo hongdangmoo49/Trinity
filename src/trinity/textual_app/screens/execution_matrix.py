@@ -9,6 +9,7 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, RichLog, Static
 
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
+from trinity.textual_app.widgets.status_label import compact_status_label
 from trinity.textual_app.widgets.work_package_detail_modal import WorkPackageDetailModal
 from trinity.textual_app.widgets.workspace_picker import WorkspacePreflight
 
@@ -182,7 +183,7 @@ class ExecutionMatrixScreen(Screen[None]):
                             package.last_executor,
                             package.owner_agent,
                         ),
-                        status=package.status or "pending",
+                        status=compact_status_label(package.status or "pending"),
                         review_status=package.review_status,
                         risk=package.risk or "unknown",
                         button_id=f"wp-detail-{index}",
@@ -203,7 +204,7 @@ class ExecutionMatrixScreen(Screen[None]):
                     task=task,
                     assignee=assignee,
                     executor="-",
-                    status=status,
+                    status=compact_status_label(status),
                     review_status="-",
                     risk="unknown",
                     button_id=f"wp-detail-legacy-{index}",

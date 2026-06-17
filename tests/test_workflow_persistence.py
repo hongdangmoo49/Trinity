@@ -1,6 +1,7 @@
 """Tests for workflow persistence helpers."""
 
 import json
+import logging
 from pathlib import Path
 
 from trinity.workflow import (
@@ -168,6 +169,24 @@ def test_workflow_persistence_uses_event_index_for_workflow_filter(tmp_path, mon
     assert persistence.load_events_for_workflow("wf-a", tail=1) == [
         {"event": "completed", "workflow_id": "wf-a"}
     ]
+
+
+def test_workflow_persistence_returns_empty_events_without_live_log(tmp_path, caplog):
+    persistence = WorkflowPersistence(tmp_path / ".trinity")
+    caplog.set_level(logging.ERROR, logger="trinity.workflow.persistence")
+
+    assert persistence.load_events_for_workflow("wf-missing") == []
+    assert "Failed to load workflow events from index" not in caplog.text
+
+
+def test_workflow_persistence_ignores_index_when_live_log_was_removed(tmp_path, caplog):
+    persistence = WorkflowPersistence(tmp_path / ".trinity")
+    persistence.append_event({"event": "started", "workflow_id": "wf-a"})
+    persistence.events_path.unlink()
+    caplog.set_level(logging.ERROR, logger="trinity.workflow.persistence")
+
+    assert persistence.load_events_for_workflow("wf-a") == []
+    assert "Failed to load workflow events from index" not in caplog.text
 
 
 def test_workflow_persistence_rebuilds_stale_event_index(tmp_path):

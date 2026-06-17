@@ -346,6 +346,141 @@ def test_mark_deliberation_result_applies_structured_blueprint(tmp_path):
     assert loaded.session.blueprint.title == "Route Bot"
 
 
+def test_mark_deliberation_result_gates_retryable_provider_failures(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design", ["claude", "antigravity"])
+    result = DeliberationResult(
+        user_prompt="Design",
+        rounds_completed=1,
+        consensus=ConsensusResult(
+            reached=True,
+            agreement_count=1,
+            total_agents=1,
+            opinions={"claude": "yes"},
+            summary="Blueprint summary",
+        ),
+        metadata={
+            "structured_consensus": {
+                "reached": True,
+                "final_blueprint": {
+                    "title": "Route Bot",
+                    "summary": "Find bridge routes.",
+                    "architecture": [],
+                    "data_flow": ["request -> quote -> score"],
+                    "external_dependencies": [],
+                    "risks": [],
+                    "acceptance_criteria": ["rank paths"],
+                    "open_questions": [],
+                },
+                "open_questions": [],
+            },
+            "provider_failures": [
+                {
+                    "agent": "antigravity",
+                    "status": "auth_required",
+                    "classification": "auth_wait",
+                    "reasons": ["login required"],
+                    "retryable": True,
+                }
+            ],
+        },
+    )
+
+    engine.mark_deliberation_result(result)
+
+    assert engine.state == WorkflowState.NEEDS_USER_DECISION
+    assert engine.session.blueprint is None
+    assert engine.session.provider_error_gate["failed_agents"] == ["antigravity"]
+    assert engine.pending_questions[0].id == "q-provider-error-retry"
+    assert engine.pending_questions[0].options == [
+        "Retry failed providers",
+        "Continue without failed providers",
+        "Stop workflow",
+    ]
+
+
+def test_provider_error_gate_continue_applies_pending_deliberation_result(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design", ["claude", "antigravity"])
+    result = DeliberationResult(
+        user_prompt="Design",
+        rounds_completed=1,
+        consensus=ConsensusResult(
+            reached=True,
+            agreement_count=1,
+            total_agents=1,
+            opinions={"claude": "yes"},
+            summary="Blueprint summary",
+        ),
+        metadata={
+            "structured_consensus": {
+                "reached": True,
+                "final_blueprint": {
+                    "title": "Route Bot",
+                    "summary": "Find bridge routes.",
+                    "architecture": [],
+                    "data_flow": ["request -> quote -> score"],
+                    "external_dependencies": [],
+                    "risks": [],
+                    "acceptance_criteria": ["rank paths"],
+                    "open_questions": [],
+                },
+                "open_questions": [],
+            },
+            "provider_failures": [
+                {
+                    "agent": "antigravity",
+                    "status": "auth_required",
+                    "classification": "auth_wait",
+                    "reasons": [],
+                    "retryable": True,
+                }
+            ],
+        },
+    )
+    engine.mark_deliberation_result(result)
+
+    action = engine.answer_question(
+        "q-provider-error-retry",
+        "Continue without failed providers",
+    )
+
+    assert action.should_deliberate is False
+    assert engine.state == WorkflowState.BLUEPRINT_READY
+    assert engine.session.provider_error_gate == {}
+    assert engine.session.blueprint is not None
+    assert engine.session.blueprint.title == "Route Bot"
+
+
+def test_provider_error_gate_single_failed_provider_omits_continue(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design", ["claude"])
+    result = DeliberationResult(
+        user_prompt="Design",
+        rounds_completed=1,
+        consensus=None,
+        metadata={
+            "provider_failures": [
+                {
+                    "agent": "claude",
+                    "status": "invalid",
+                    "classification": "agent_error",
+                    "reasons": ["exit code 1"],
+                    "retryable": True,
+                }
+            ],
+        },
+    )
+
+    engine.mark_deliberation_result(result)
+
+    assert engine.state == WorkflowState.NEEDS_USER_DECISION
+    assert engine.pending_questions[0].options == [
+        "Retry failed providers",
+        "Stop workflow",
+    ]
+
+
 def test_structured_followup_with_korean_modified_sections_decomposes_packages(tmp_path):
     synthesizer = StructuredConsensusSynthesizer()
     structured = synthesizer.evaluate(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 
 from trinity.textual_app.snapshot import WorkPackageSnapshot
 
@@ -19,6 +20,22 @@ DONE_STATUSES = {"completed", "done", "success"}
 RUNNING_STATUSES = {"executing", "reviewing", "running"}
 WAITING_STATUSES = {"pending", "queued", "waiting"}
 BLOCKED_STATUSES = {"blocked", "failed"}
+
+
+@dataclass(frozen=True)
+class NextWorkPackageEntry:
+    """Dependency-aware projection for the Inspector Next section."""
+
+    package: WorkPackageSnapshot
+    waiting_on: tuple[str, ...] = ()
+
+    @property
+    def ready(self) -> bool:
+        return not self.waiting_on
+
+    @property
+    def parallel_group(self) -> int | None:
+        return self.package.parallel_group
 
 
 def work_package_state(package: WorkPackageSnapshot) -> str:
@@ -68,12 +85,46 @@ def next_work_packages(
     *,
     limit: int = 3,
 ) -> list[WorkPackageSnapshot]:
-    """Return the next waiting packages to surface."""
+    """Return dependency-ready waiting packages first, then dependency-waiting ones."""
     return [
-        package
-        for package in packages
-        if work_package_state(package) == "waiting"
-    ][:limit]
+        entry.package
+        for entry in next_work_package_entries(packages, limit=limit)
+    ]
+
+
+def next_work_package_entries(
+    packages: Iterable[WorkPackageSnapshot],
+    *,
+    limit: int | None = 3,
+) -> list[NextWorkPackageEntry]:
+    """Return dependency-aware Next entries for waiting work packages."""
+    package_list = list(packages)
+    packages_by_id = {package.id: package for package in package_list if package.id}
+    entries = [
+        NextWorkPackageEntry(
+            package=package,
+            waiting_on=tuple(blocked_dependency_ids(package, packages_by_id)),
+        )
+        for package in package_list
+        if package.requires_execution and work_package_state(package) == "waiting"
+    ]
+    entries.sort(key=lambda entry: (0 if entry.ready else 1))
+    if limit is None:
+        return entries
+    return entries[:limit]
+
+
+def blocked_dependency_ids(
+    package: WorkPackageSnapshot,
+    packages_by_id: dict[str, WorkPackageSnapshot],
+) -> list[str]:
+    """Return internal dependencies that have not reached the compact done state."""
+    return [
+        dep_id
+        for dep_id in package.dependencies
+        if packages_by_id.get(dep_id)
+        and work_package_state(packages_by_id[dep_id]) != "done"
+    ]
 
 
 def blocked_work_packages(
@@ -171,6 +222,25 @@ def compact_wp_line(package: WorkPackageSnapshot) -> str:
     return f"{package.id} {actor.title()} · {title}"
 
 
+def next_work_package_line(entry: NextWorkPackageEntry) -> str:
+    """Render a compact Next entry line with parallel-group hints."""
+    line = compact_wp_line(entry.package)
+    if entry.ready and entry.parallel_group is not None:
+        line = f"{line} · group {entry.parallel_group}"
+    return line
+
+
+def waiting_on_detail_line(entry: NextWorkPackageEntry) -> str:
+    """Render a compact dependency-waiting reason for a Next entry."""
+    if not entry.waiting_on:
+        return ""
+    dependencies = ", ".join(entry.waiting_on[:2])
+    remaining = len(entry.waiting_on) - 2
+    if remaining > 0:
+        dependencies = f"{dependencies}, +{remaining} more"
+    return f"waiting on {dependencies}"
+
+
 def blocked_detail_line(package: WorkPackageSnapshot) -> str:
     """Render a compact blocked reason line."""
     details: list[str] = []
@@ -186,4 +256,3 @@ def blocked_detail_line(package: WorkPackageSnapshot) -> str:
     if reason:
         details.append(reason)
     return " · ".join(details)
-

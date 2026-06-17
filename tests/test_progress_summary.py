@@ -3,12 +3,16 @@ from __future__ import annotations
 from trinity.textual_app.snapshot import WorkPackageSnapshot
 from trinity.textual_app.widgets.progress_summary import (
     blocked_detail_line,
+    blocked_dependency_ids,
     blocked_work_packages,
     compact_wp_line,
     current_work_packages,
+    next_work_package_entries,
+    next_work_package_line,
     next_work_packages,
     progress_bar,
     progress_summary_line,
+    waiting_on_detail_line,
     work_package_counts,
     work_package_state,
 )
@@ -21,6 +25,9 @@ def _package(
     title: str = "Task",
     owner: str = "codex",
     current_executor: str = "",
+    dependencies: list[str] | None = None,
+    parallel_group: int | None = None,
+    requires_execution: bool = True,
     repair_blocked_reason: str = "",
     last_result_status: str = "",
 ) -> WorkPackageSnapshot:
@@ -30,6 +37,9 @@ def _package(
         owner_agent=owner,
         status=status,
         current_executor=current_executor,
+        dependencies=dependencies or [],
+        parallel_group=parallel_group,
+        requires_execution=requires_execution,
         repair_blocked_reason=repair_blocked_reason,
         repair_attempt_count=2 if repair_blocked_reason else 0,
         repair_max_attempts=2 if repair_blocked_reason else 0,
@@ -91,3 +101,65 @@ def test_work_package_progress_summary_supports_korean() -> None:
         "3 WP · 완료 1 · 실행 1 · 대기 1"
     )
 
+
+def test_next_work_package_entries_prioritize_dependency_ready_packages() -> None:
+    packages = [
+        _package("WP-001", "running", title="Foundation"),
+        _package("WP-002", "done", title="Schema"),
+        _package(
+            "WP-003",
+            "pending",
+            title="Renderer",
+            owner="claude",
+            dependencies=["WP-001"],
+        ),
+        _package(
+            "WP-004",
+            "pending",
+            title="Parser",
+            dependencies=["WP-002"],
+            parallel_group=1,
+        ),
+        _package(
+            "WP-005",
+            "queued",
+            title="Validator",
+            owner="antigravity",
+            parallel_group=1,
+        ),
+    ]
+
+    entries = next_work_package_entries(packages, limit=None)
+
+    assert [entry.package.id for entry in entries] == ["WP-004", "WP-005", "WP-003"]
+    assert [entry.ready for entry in entries] == [True, True, False]
+    assert entries[2].waiting_on == ("WP-001",)
+    assert [item.id for item in next_work_packages(packages)] == [
+        "WP-004",
+        "WP-005",
+        "WP-003",
+    ]
+    assert next_work_package_line(entries[0]) == "WP-004 Codex · Parser · group 1"
+    assert waiting_on_detail_line(entries[2]) == "waiting on WP-001"
+
+
+def test_blocked_dependency_ids_ignore_unknown_or_done_dependencies() -> None:
+    packages = [
+        _package("WP-001", "done"),
+        _package("WP-002", "blocked"),
+        _package("WP-003", "pending", dependencies=["WP-001", "WP-002", "WP-999"]),
+    ]
+    packages_by_id = {package.id: package for package in packages}
+
+    assert blocked_dependency_ids(packages[2], packages_by_id) == ["WP-002"]
+
+
+def test_next_work_package_entries_skip_non_executable_waiting_packages() -> None:
+    packages = [
+        _package("WP-001", "pending", requires_execution=False),
+        _package("WP-002", "pending"),
+    ]
+
+    assert [entry.package.id for entry in next_work_package_entries(packages)] == [
+        "WP-002"
+    ]

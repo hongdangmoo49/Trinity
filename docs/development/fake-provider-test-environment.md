@@ -42,6 +42,123 @@ def test_provider_flow(tmp_path):
 - `PATH`: fake `bin` 디렉터리를 맨 앞에 둔 PATH
 - `TRINITY_FAKE_PROVIDER_LOG`: provider 호출 기록 JSONL 경로
 
+## 테스트 방법
+
+아래 명령은 `feature/fake-provider-smoke-harness` 브랜치에서 실행한다.
+
+```bash
+cd /home/user/workspace/Trinity
+git switch feature/fake-provider-smoke-harness
+```
+
+### 1. Harness 자체 검증
+
+fake CLI가 생성되고, `--version`, 모델 탐색, one-shot invoker 출력 계약을 만족하는지 확인한다. fake provider 환경을 수정했을 때 가장 먼저 실행한다.
+
+```bash
+uv run pytest tests/test_fake_provider_harness.py -q
+```
+
+검증 범위:
+
+- `claude`, `codex`, `agy` fake 실행 파일 생성
+- `--version` probe 성공
+- `codex debug models`, `agy models` 출력 파싱
+- `OneShotProviderPreflight`와 실제 invoker가 fake CLI를 통해 성공 상태를 반환
+- provider별 호출 인자/stdin/cwd JSONL 기록
+
+### 2. Provider 연동 회귀 테스트
+
+fake harness가 기존 provider 모델 탐색, readiness, invoker 테스트와 충돌하지 않는지 확인한다. provider 호출 규약을 바꾸거나 preflight를 수정했을 때 실행한다.
+
+```bash
+uv run pytest \
+  tests/test_provider_model_discovery.py \
+  tests/test_provider_readiness.py \
+  tests/test_provider_invoker_codex.py \
+  tests/test_provider_invoker_claude.py \
+  tests/test_provider_invoker_antigravity.py \
+  tests/test_fake_provider_harness.py \
+  -q
+```
+
+검증 범위:
+
+- Codex/Antigravity 모델 목록 파싱
+- one-shot provider readiness preflight
+- Claude/Codex/Antigravity invoker command build 및 output parse
+- fake provider harness와 실제 provider abstraction의 연결
+
+### 3. 기존 harness 회귀 테스트
+
+`tests/__init__.py` 추가나 harness 패키지 import 변경이 replay/performance harness에 영향을 주지 않는지 확인한다.
+
+```bash
+uv run pytest \
+  tests/test_performance_harness.py \
+  tests/test_replay_harness.py \
+  -q
+```
+
+### 4. 전체 테스트
+
+릴리스 전, PR 병합 전, provider 공통 경로를 크게 수정했을 때 실행한다.
+
+```bash
+uv run pytest -q
+```
+
+### 5. Fake CLI 수동 확인
+
+pytest가 아닌 짧은 Python 스크립트로 fake CLI 출력과 호출 로그를 눈으로 확인한다. provider command contract를 디버깅할 때 유용하다.
+
+```bash
+uv run python - <<'PY'
+from pathlib import Path
+from tests.harness.fake_providers import install_fake_provider_clis, run_fake_cli
+
+root = Path("/tmp/trinity-fake-providers")
+fake = install_fake_provider_clis(root)
+env = fake.env()
+
+for cli in [fake.claude, fake.codex, fake.agy]:
+    result = run_fake_cli([str(cli), "--version"], cwd=Path("/tmp"), env=env)
+    print(cli.name, result.returncode, result.stdout.strip())
+
+result = run_fake_cli([str(fake.codex), "debug", "models"], cwd=Path("/tmp"), env=env)
+print(result.stdout)
+
+print(fake.read_calls())
+PY
+```
+
+### 6. 실패 시나리오 수동 재현
+
+환경 변수로 provider 실패 상태를 만든다. 인증 실패, probe 실패, 모델 탐색 실패, 빈 응답을 UI/preflight/orchestrator 회귀 테스트에 붙이기 전에 빠르게 확인할 수 있다.
+
+```bash
+uv run python - <<'PY'
+from pathlib import Path
+from tests.harness.fake_providers import install_fake_provider_clis, run_fake_cli
+
+fake = install_fake_provider_clis(Path("/tmp/trinity-fake-providers"))
+env = fake.env(TRINITY_FAKE_CODEX_MODE="probe_exit1")
+
+result = run_fake_cli([str(fake.codex), "--version"], cwd=Path("/tmp"), env=env)
+print("returncode:", result.returncode)
+print("stderr:", result.stderr.strip())
+print("calls:", fake.read_calls())
+PY
+```
+
+자주 쓰는 실패 모드:
+
+- `TRINITY_FAKE_CODEX_MODE=probe_exit1`: Codex `--version` probe 실패
+- `TRINITY_FAKE_CLAUDE_MODE=auth_required`: Claude 인증 필요 상태
+- `TRINITY_FAKE_AGY_MODE=models_empty`: Antigravity 모델 탐색 결과 없음
+- `TRINITY_FAKE_PROVIDER_MODE=empty`: 모든 provider 호출이 빈 응답 반환
+- `TRINITY_FAKE_PROVIDER_MODE=slow`: timeout 테스트용 지연 응답
+
 ## 지원하는 provider 동작
 
 Claude fake CLI:

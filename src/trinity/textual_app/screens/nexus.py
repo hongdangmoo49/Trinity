@@ -130,11 +130,6 @@ class NexusScreen(Screen[None]):
             with Horizontal(id="nexus-action-bar"):
                 yield Button("Open Provider Inspector", id="open-provider-inspector")
                 yield Button(
-                    "Execute",
-                    id="request-execute",
-                    variant="primary",
-                )
-                yield Button(
                     "Select Workspace",
                     id="select-workspace",
                     variant="default",
@@ -142,6 +137,11 @@ class NexusScreen(Screen[None]):
                 yield Static(
                     self._workspace_label(),
                     id="nexus-target-workspace",
+                )
+                yield Button(
+                    "Execute",
+                    id="request-execute",
+                    variant="primary",
                 )
             with Horizontal(id="nexus-main"):
                 with Vertical(id="nexus-center-stack"):

@@ -4159,6 +4159,12 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
         assert str(nexus.query_one("#select-workspace", Button).label) == (
             "Select Workspace"
         )
+        assert [child.id for child in nexus.query_one("#nexus-action-bar").children] == [
+            "open-provider-inspector",
+            "select-workspace",
+            "nexus-target-workspace",
+            "request-execute",
+        ]
         assert str(target.resolve()) in str(
             nexus.query_one("#nexus-target-workspace", Static).content
         )

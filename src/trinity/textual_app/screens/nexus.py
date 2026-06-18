@@ -6,7 +6,7 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Header
+from textual.widgets import Button, Footer, Header, Static
 
 from trinity.config import TrinityConfig
 from trinity.models import AgentSpec
@@ -115,6 +115,7 @@ class NexusScreen(Screen[None]):
         self._selected_agents: tuple[str, ...] = ()
         self._agent_model_overrides: dict[str, str] = {}
         self._agent_model_choices: dict[str, tuple[ProviderModelChoice, ...]] = {}
+        self._workspace_candidate: str = ""
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -137,6 +138,10 @@ class NexusScreen(Screen[None]):
                     "Select Workspace",
                     id="select-workspace",
                     variant="default",
+                )
+                yield Static(
+                    self._workspace_label(),
+                    id="nexus-target-workspace",
                 )
             with Horizontal(id="nexus-main"):
                 with Vertical(id="nexus-center-stack"):
@@ -191,6 +196,12 @@ class NexusScreen(Screen[None]):
         if self._agent_model_overrides:
             selector.set_model_overrides(self._agent_model_overrides)
 
+    def set_workspace_candidate(self, path: object | None) -> None:
+        """Update the visible workspace fallback when no workflow target exists."""
+        self._workspace_candidate = str(path or "")
+        if self.is_mounted:
+            self._refresh_workspace_label()
+
     def set_agent_model_choices(
         self,
         choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]],
@@ -236,6 +247,7 @@ class NexusScreen(Screen[None]):
         self._refresh_central()
         self._refresh_questions()
         self._refresh_inspector()
+        self._refresh_workspace_label()
         self._apply_activity_frame()
 
     def on_question_panel_question_answered(
@@ -311,6 +323,21 @@ class NexusScreen(Screen[None]):
 
     def action_request_workspace(self) -> None:
         self.post_message(self.WorkspaceRequested(self.snapshot))
+
+    def _refresh_workspace_label(self) -> None:
+        matches = self.query("#nexus-target-workspace")
+        if not matches:
+            return
+        matches.first(Static).update(self._workspace_label())
+
+    def _workspace_label(self) -> str:
+        target = self._current_workspace_text()
+        return f"Workspace: {target}" if target else "Workspace: not selected"
+
+    def _current_workspace_text(self) -> str:
+        if self.snapshot and self.snapshot.target_workspace.strip():
+            return self.snapshot.target_workspace.strip()
+        return self._workspace_candidate.strip()
 
     def _submit_follow_up(self, text: str) -> None:
         cleaned = text.strip()

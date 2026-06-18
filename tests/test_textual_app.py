@@ -10,6 +10,7 @@ from textual.containers import VerticalScroll
 from textual.widgets import (
     Button,
     DataTable,
+    Input,
     Markdown,
     OptionList,
     RichLog,
@@ -4085,6 +4086,50 @@ async def test_start_select_workspace_updates_workspace_candidate(tmp_path) -> N
 
 
 @pytest.mark.asyncio
+async def test_start_selected_workspace_overrides_launch_cwd_on_submit(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    control_repo = tmp_path / "control"
+    launch_cwd = tmp_path / "launch-cwd"
+    selected = tmp_path / "selected-target"
+    control_repo.mkdir()
+    launch_cwd.mkdir()
+    selected.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        controller,
+        launch_cwd=launch_cwd,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#choose-workspace")
+        await pilot.pause()
+        picker = app.screen
+        assert isinstance(picker, WorkspacePicker)
+        picker.query_one("#workspace-path-input", Input).value = str(selected)
+        picker.action_confirm()
+        await pilot.pause()
+
+        start = app.get_screen("start", StartScreen)
+        assert str(selected) in str(start.query_one("#workspace-candidate").content)
+
+        composer = start.query_one(PromptComposer)
+        composer.set_text("선택한 폴더에서 작업해줘")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.target_workspace == selected.resolve()
+        assert controller.target_workspace != launch_cwd.resolve()
+        assert app.confirmed_preflight is not None
+        assert app.confirmed_preflight.path == selected.resolve()
+        nexus = app.get_screen("nexus", NexusScreen)
+        assert str(selected.resolve()) in str(
+            nexus.query_one("#nexus-target-workspace", Static).content
+        )
+
+
+@pytest.mark.asyncio
 async def test_nexus_select_workspace_cta_selects_target_without_execution(
     tmp_path,
 ) -> None:
@@ -4114,6 +4159,9 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
         assert str(nexus.query_one("#select-workspace", Button).label) == (
             "Select Workspace"
         )
+        assert str(target.resolve()) in str(
+            nexus.query_one("#nexus-target-workspace", Static).content
+        )
 
         await pilot.click("#select-workspace")
         await pilot.pause()
@@ -4136,6 +4184,9 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
         assert str(nexus.query_one("#request-execute", Button).label) == "Execute"
         assert str(nexus.query_one("#select-workspace", Button).label) == (
             "Select Workspace"
+        )
+        assert str(target.resolve()) in str(
+            nexus.query_one("#nexus-target-workspace", Static).content
         )
 
 
@@ -4266,6 +4317,28 @@ async def test_execution_matrix_renders_preflight_and_packages(tmp_path) -> None
         rows = screen.query("#execution-package-list .execution-package-row")
         assert len(rows) == 1
         assert "WAIT" in _widget_tree_text(rows.first())
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_header_uses_snapshot_target_without_preflight(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+    target = tmp_path / "snapshot-target"
+    target.mkdir()
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(target_workspace=str(target)),
+        )
+        await pilot.pause()
+
+        assert str(target) in str(screen.query_one("#execution-header").content)
 
 
 @pytest.mark.asyncio

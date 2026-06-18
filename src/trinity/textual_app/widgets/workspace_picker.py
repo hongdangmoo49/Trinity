@@ -338,7 +338,10 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
             self.query_one("#workspace-preflight", Static).update(self.preflight.render())
 
     def _input_path(self) -> Path:
-        return Path(self.query_one("#workspace-path-input", Input).value).expanduser()
+        path = Path(self.query_one("#workspace-path-input", Input).value).expanduser()
+        if path.is_absolute():
+            return path
+        return self.tree_root / path
 
     def _folder_creation_base(self) -> Path:
         path = self._input_path()

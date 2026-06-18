@@ -264,9 +264,20 @@ class ExecutionMatrixScreen(Screen[None]):
             log.write(line)
 
     def _header_text(self) -> str:
-        if self.preflight is None:
+        target = self._target_workspace_text()
+        if not target:
             return "Execution Matrix · workspace: not selected"
-        return f"Execution Matrix · workspace: {self.preflight.path}"
+        return f"Execution Matrix · workspace: {target}"
+
+    def _target_workspace_text(self) -> str:
+        if self.preflight is not None:
+            return str(self.preflight.path)
+        if self.snapshot.target_workspace:
+            return self.snapshot.target_workspace
+        recovery = self.snapshot.execution_recovery
+        if recovery is not None and recovery.target_workspace:
+            return recovery.target_workspace
+        return ""
 
     def _summary_text(self) -> str:
         packages = self.snapshot.work_package_details

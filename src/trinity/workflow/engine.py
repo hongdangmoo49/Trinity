@@ -67,6 +67,7 @@ class WorkflowInputAction:
     target_agents: tuple[str, ...] = ()
     agent_model_overrides: dict[str, str] = field(default_factory=dict)
     agent_selection_mode: str = "all"
+    provider_retry_merge_context: dict[str, Any] = field(default_factory=dict)
     decision_record: DecisionRecord | None = None
     started_new_workflow: bool = False
     replaced_decision: bool = False
@@ -791,7 +792,11 @@ class WorkflowEngine:
     def _open_provider_error_gate(self, result: DeliberationResult) -> None:
         failures = self._retryable_provider_failures(result)
         failed_agents = self._failure_agents(failures)
-        can_continue = bool(result.has_consensus and self._usable_consensus_agent_count(result) > 0)
+        successful_opinions = self._provider_successful_opinions(result)
+        can_continue = bool(
+            self._has_provider_error_gate_preview_consensus(result)
+            and self._usable_consensus_agent_count(result) > 0
+        )
         if can_continue and len(failed_agents) >= len(set(self.session.active_agents)):
             can_continue = False
 
@@ -813,6 +818,7 @@ class WorkflowEngine:
             metadata={
                 "kind": "provider_error_gate",
                 "failed_agents": failed_agents,
+                "successful_agents": list(successful_opinions.keys()),
                 "can_continue": can_continue,
             },
         )
@@ -827,6 +833,7 @@ class WorkflowEngine:
             "question_id": question.id,
             "failures": failures,
             "failed_agents": failed_agents,
+            "successful_opinions": successful_opinions,
             "can_continue": can_continue,
             "result": self._deliberation_result_to_dict(result),
             "created_at": time.time(),
@@ -928,6 +935,7 @@ class WorkflowEngine:
                 failed_agents,
             ),
             agent_selection_mode="targeted",
+            provider_retry_merge_context=self._provider_error_retry_context(gate),
             decision_record=decision,
             replaced_decision=replaced_decision,
             message="Retrying failed providers.",
@@ -957,6 +965,9 @@ class WorkflowEngine:
     def _provider_error_retry_prompt(gate: dict[str, Any]) -> str:
         failures = gate.get("failures", [])
         failed_agents = ", ".join(str(agent) for agent in gate.get("failed_agents", []))
+        successful_agents = ", ".join(
+            str(agent) for agent in gate.get("successful_opinions", {})
+        )
         reason_lines = []
         if isinstance(failures, list):
             for failure in failures:
@@ -970,10 +981,39 @@ class WorkflowEngine:
         return (
             "Retry the failed provider response for the previous Trinity request.\n\n"
             f"Failed providers: {failed_agents or '(unknown)'}\n"
+            f"Previously successful providers preserved by Trinity: "
+            f"{successful_agents or '(none)'}\n"
             + "\n".join(reason_lines)
             + "\n\nOriginal request:\n"
             + original_prompt
         )
+
+    @staticmethod
+    def _provider_error_retry_context(gate: dict[str, Any]) -> dict[str, Any]:
+        successful = gate.get("successful_opinions", {})
+        result = gate.get("result", {}) if isinstance(gate.get("result", {}), dict) else {}
+        return {
+            "successful_opinions": (
+                {
+                    str(agent).strip(): str(opinion)
+                    for agent, opinion in successful.items()
+                    if str(agent).strip() and str(opinion).strip()
+                }
+                if isinstance(successful, dict)
+                else {}
+            ),
+            "retry_agents": [
+                str(agent).strip()
+                for agent in gate.get("failed_agents", [])
+                if str(agent).strip()
+            ],
+            "original_prompt": str(
+                result.get("user_prompt")
+                or gate.get("original_prompt")
+                or ""
+            ),
+            "source_question_id": str(gate.get("question_id", "")),
+        }
 
     @staticmethod
     def _retryable_provider_failures(result: DeliberationResult) -> list[dict[str, object]]:
@@ -985,6 +1025,25 @@ class WorkflowEngine:
             for item in failures
             if isinstance(item, dict) and bool(item.get("retryable", False))
         ]
+
+    @staticmethod
+    def _provider_successful_opinions(result: DeliberationResult) -> dict[str, str]:
+        opinions = result.metadata.get("provider_successful_opinions", {})
+        if isinstance(opinions, dict):
+            normalized = {
+                str(agent).strip(): str(opinion)
+                for agent, opinion in opinions.items()
+                if str(agent).strip() and str(opinion).strip()
+            }
+            if normalized:
+                return normalized
+        if result.consensus is None:
+            return {}
+        return {
+            str(agent).strip(): str(opinion)
+            for agent, opinion in result.consensus.opinions.items()
+            if str(agent).strip() and str(opinion).strip()
+        }
 
     @staticmethod
     def _failure_agents(failures: list[dict[str, object]]) -> list[str]:
@@ -1002,6 +1061,10 @@ class WorkflowEngine:
         if result.consensus is None:
             return 0
         return len(result.consensus.opinions)
+
+    @staticmethod
+    def _has_provider_error_gate_preview_consensus(result: DeliberationResult) -> bool:
+        return result.consensus is not None and result.consensus.reached
 
     @staticmethod
     def _provider_error_gate_rationale(failures: list[dict[str, object]]) -> str:

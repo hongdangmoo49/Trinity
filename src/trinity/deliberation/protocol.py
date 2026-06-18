@@ -9,7 +9,7 @@ import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 from uuid import uuid4
 
 from trinity.agents.base import AgentWrapper
@@ -96,6 +96,7 @@ class DeliberationProtocol:
         synthesis_agent: SynthesisAgent | None = None,
         lifecycle_guard: LifecycleGuard | None = None,
         rotation_callback: Callable[[str], object] | None = None,
+        provider_retry_merge_context: dict[str, object] | None = None,
     ):
         self.agents = agents
         self.shared = shared
@@ -138,6 +139,7 @@ class DeliberationProtocol:
         )
         self.lifecycle_guard = lifecycle_guard
         self._rotation_callback = rotation_callback
+        self.provider_retry_merge_context = dict(provider_retry_merge_context or {})
 
     def _emit(self, event_type: TUIEventType, **kwargs) -> None:
         """Emit a TUI event if callback is registered."""
@@ -168,6 +170,10 @@ class DeliberationProtocol:
         runtime_models: dict[str, dict[str, object]] = {}
         resource_projections: dict[str, dict[str, object]] = {}
         provider_failures: list[dict[str, object]] = []
+        provider_successful_opinions: dict[str, str] = {}
+        provider_error_gate_status = ""
+        provider_retry_merge: dict[str, object] = {}
+        provider_error_gate_pending = False
 
         self._emit(TUIEventType.DELIBERATION_STARTED, prompt=user_prompt)
 
@@ -229,6 +235,30 @@ class DeliberationProtocol:
             provider_failures = self._provider_failures_from_diagnostics(
                 invalid_response_diagnostics
             )
+            opinion_texts = self._merge_provider_retry_opinions(opinion_texts)
+            provider_successful_opinions = dict(opinion_texts)
+            provider_retry_merge = self._provider_retry_merge_metadata(
+                merged_opinions=provider_successful_opinions,
+                provider_failures=provider_failures,
+            )
+            if provider_retry_merge:
+                provider_error_gate_status = "merged_retry"
+            retryable_provider_failures = self._retryable_provider_failures(
+                provider_failures
+            )
+            provider_error_gate_pending = bool(retryable_provider_failures)
+            if provider_error_gate_pending:
+                provider_error_gate_status = provider_error_gate_status or "provisional"
+
+            synthesis_input_metadata: dict[str, Any] = {
+                "invalid_response_diagnostics": invalid_response_diagnostics,
+                "provider_failures": provider_failures,
+                "provider_successful_opinions": provider_successful_opinions,
+                "provider_error_gate_status": provider_error_gate_status,
+            }
+            if provider_retry_merge:
+                synthesis_input_metadata["provider_retry_merge"] = provider_retry_merge
+
             self._emit(TUIEventType.DELIBERATION_PHASE, phase="synthesis", round_num=round_num)
             synthesis_result = await self.synthesis_agent.synthesize(
                 SynthesisInput(
@@ -240,10 +270,7 @@ class DeliberationProtocol:
                         if synthesis_result is not None
                         else ""
                     ),
-                    metadata={
-                        "invalid_response_diagnostics": invalid_response_diagnostics,
-                        "provider_failures": provider_failures,
-                    },
+                    metadata=synthesis_input_metadata,
                 )
             )
             consensus = synthesis_result.consensus
@@ -257,11 +284,39 @@ class DeliberationProtocol:
                     summary="No synthesis result was produced.",
                 )
             synthesis_metadata = synthesis_result.metadata
+            synthesis_metadata.setdefault(
+                "provider_successful_opinions",
+                dict(provider_successful_opinions),
+            )
+            synthesis_metadata["provider_error_gate_status"] = provider_error_gate_status
+            if provider_retry_merge:
+                synthesis_metadata["provider_retry_merge"] = dict(provider_retry_merge)
             self._collect_synthesis_provider_observations(
                 synthesis_metadata,
                 provider_sessions=provider_sessions,
                 runtime_models=runtime_models,
             )
+            if provider_error_gate_pending:
+                gate_summary = self._provider_error_gate_pending_summary(
+                    provider_successful_opinions,
+                    retryable_provider_failures,
+                )
+                self._emit(
+                    TUIEventType.CONSENSUS_RESULT,
+                    reached=False,
+                    agreement_count=consensus.agreement_count,
+                    total_agents=consensus.total_agents,
+                    summary=gate_summary,
+                    round_num=round_num,
+                    synthesis_source="provider-error-gate",
+                    fallback_used=synthesis_metadata.get("fallback_used"),
+                    fallback_reason=str(
+                        synthesis_metadata.get("fallback_reason", "")
+                    ),
+                    next_round_prompt="",
+                )
+                break
+
             self.shared.write_synthesis_summary(
                 round_num=round_num,
                 summary=synthesis_result.summary_for_shared_md,
@@ -336,7 +391,7 @@ class DeliberationProtocol:
         await self._update_pane_titles("Distributing tasks...")
 
         # If no consensus after all rounds, keep that semantic state explicit.
-        if consensus and not consensus.reached:
+        if consensus and not consensus.reached and not provider_error_gate_pending:
             logger.warning(
                 f"Max rounds ({self.max_rounds}) reached without consensus."
             )
@@ -361,7 +416,7 @@ class DeliberationProtocol:
 
         # Distribute tasks only when there is an actual agreed conclusion.
         tasks = []
-        if consensus and consensus.reached:
+        if consensus and consensus.reached and not provider_error_gate_pending:
             tasks = self.distributor.distribute(
                 consensus_text=consensus.summary,
                 agents={name: ag.spec for name, ag in self.agents.items()},
@@ -369,7 +424,8 @@ class DeliberationProtocol:
 
         # Write tasks to shared.md
         task_dict = {t.agent_name: t.task_description for t in tasks}
-        self.shared.update_tasks(task_dict)
+        if not provider_error_gate_pending:
+            self.shared.update_tasks(task_dict)
 
         # Calculate totals
         total_tokens = sum(
@@ -401,6 +457,9 @@ class DeliberationProtocol:
                 "runtime_models": runtime_models,
                 "resource_projections": resource_projections,
                 "provider_failures": provider_failures,
+                "provider_successful_opinions": provider_successful_opinions,
+                "provider_error_gate_status": provider_error_gate_status,
+                "provider_retry_merge": provider_retry_merge,
             },
         )
 
@@ -766,6 +825,92 @@ class DeliberationProtocol:
                 }
             )
         return diagnostics
+
+    def _merge_provider_retry_opinions(
+        self,
+        current_opinions: dict[str, str],
+    ) -> dict[str, str]:
+        """Merge retry successes with successful opinions saved by the gate."""
+        prior = self._provider_retry_successful_opinions()
+        if not prior:
+            return dict(current_opinions)
+        merged = dict(prior)
+        merged.update(current_opinions)
+        return merged
+
+    def _provider_retry_successful_opinions(self) -> dict[str, str]:
+        raw = self.provider_retry_merge_context.get("successful_opinions")
+        if not isinstance(raw, dict):
+            return {}
+        return {
+            str(agent).strip(): str(opinion)
+            for agent, opinion in raw.items()
+            if str(agent).strip() and str(opinion).strip()
+        }
+
+    def _provider_retry_merge_metadata(
+        self,
+        *,
+        merged_opinions: dict[str, str],
+        provider_failures: list[dict[str, object]],
+    ) -> dict[str, object]:
+        prior = self._provider_retry_successful_opinions()
+        if not prior:
+            return {}
+        retry_agents = [
+            str(agent).strip()
+            for agent in self.provider_retry_merge_context.get("retry_agents", [])
+            if str(agent).strip()
+        ]
+        failed_agents = self._failure_agents(
+            self._retryable_provider_failures(provider_failures)
+        )
+        return {
+            "source": "provider_error_gate",
+            "prior_successful_agents": list(prior.keys()),
+            "retry_agents": retry_agents,
+            "merged_agents": list(merged_opinions.keys()),
+            "remaining_failed_agents": failed_agents,
+            "original_prompt": str(
+                self.provider_retry_merge_context.get("original_prompt", "")
+                or ""
+            ),
+        }
+
+    @staticmethod
+    def _retryable_provider_failures(
+        failures: list[dict[str, object]],
+    ) -> list[dict[str, object]]:
+        return [
+            dict(item)
+            for item in failures
+            if isinstance(item, dict) and bool(item.get("retryable", False))
+        ]
+
+    @staticmethod
+    def _failure_agents(failures: list[dict[str, object]]) -> list[str]:
+        seen: set[str] = set()
+        agents: list[str] = []
+        for failure in failures:
+            agent = str(failure.get("agent", "") or "").strip()
+            if agent and agent not in seen:
+                agents.append(agent)
+                seen.add(agent)
+        return agents
+
+    @staticmethod
+    def _provider_error_gate_pending_summary(
+        successful_opinions: dict[str, str],
+        failures: list[dict[str, object]],
+    ) -> str:
+        failed_agents = DeliberationProtocol._failure_agents(failures)
+        success_text = ", ".join(successful_opinions) or "none"
+        failure_text = ", ".join(failed_agents) or "unknown"
+        return (
+            "Provider failures require a retry decision before synthesis is applied.\n\n"
+            f"Successful provider opinions collected: {success_text}.\n"
+            f"Failed providers pending decision: {failure_text}."
+        )
 
     @staticmethod
     def _provider_failures_from_diagnostics(

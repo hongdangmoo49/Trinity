@@ -301,7 +301,9 @@ class TestCollectOpinions:
 
         result = await protocol.run("Test prompt")
 
-        assert result.has_consensus
+        assert not result.has_consensus
+        assert result.consensus is not None
+        assert result.consensus.reached is True
         assert result.consensus.agreement_count == 1
         assert result.consensus.total_agents == 1
         assert result.consensus.opinions == {"claude": "I agree with the plan."}
@@ -312,13 +314,63 @@ class TestCollectOpinions:
         assert failures[0]["classification"] == "auth_wait"
         assert failures[0]["retryable"] is True
         assert failures[0]["reasons"]
+        assert result.metadata["provider_error_gate_status"] == "provisional"
+        assert result.metadata["provider_successful_opinions"] == {
+            "claude": "I agree with the plan."
+        }
 
+        assert engine.read_section("Round 1 Synthesis") is None
         assert engine.read_section("Round 1 Opinions") is None
         round_responses = engine.read_section("Round 1 Responses")
         assert round_responses is not None
         assert "claude" in round_responses
         assert "antigravity" in round_responses
         assert "clean_output_path" in round_responses
+
+    @pytest.mark.asyncio
+    async def test_provider_retry_merge_synthesizes_prior_and_retry_opinions(
+        self,
+        tmp_path,
+    ):
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        agents = {"antigravity": _make_mock_agent("antigravity")}
+        agents["antigravity"].send_and_wait = AsyncMock(
+            return_value=_make_opinion(
+                "antigravity",
+                1,
+                "Retry agrees with the preserved plan.",
+            )
+        )
+        synthesis = RecordingSynthesisAgent()
+        protocol = DeliberationProtocol(
+            agents=agents,
+            shared=engine,
+            consensus_engine=ConsensusEngine(required_fraction=1.0),
+            max_rounds=1,
+            synthesis_agent=synthesis,
+            provider_retry_merge_context={
+                "successful_opinions": {"claude": "Prior successful plan."},
+                "retry_agents": ["antigravity"],
+                "original_prompt": "Design",
+            },
+        )
+
+        result = await protocol.run("Retry failed provider")
+
+        assert synthesis.inputs
+        assert synthesis.inputs[0].opinions == {
+            "claude": "Prior successful plan.",
+            "antigravity": "Retry agrees with the preserved plan.",
+        }
+        assert result.metadata["provider_error_gate_status"] == "merged_retry"
+        assert result.metadata["provider_retry_merge"]["prior_successful_agents"] == [
+            "claude"
+        ]
+        assert result.metadata["provider_retry_merge"]["retry_agents"] == [
+            "antigravity"
+        ]
+        assert result.has_consensus
+        assert engine.read_section("Round 1 Synthesis") is not None
 
     @pytest.mark.asyncio
     async def test_budget_checker_runs_before_agent_sends(self, tmp_path):

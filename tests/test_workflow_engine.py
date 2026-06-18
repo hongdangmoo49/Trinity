@@ -391,6 +391,7 @@ def test_mark_deliberation_result_gates_retryable_provider_failures(tmp_path):
     assert engine.state == WorkflowState.NEEDS_USER_DECISION
     assert engine.session.blueprint is None
     assert engine.session.provider_error_gate["failed_agents"] == ["antigravity"]
+    assert engine.session.provider_error_gate["successful_opinions"] == {"claude": "yes"}
     assert engine.pending_questions[0].id == "q-provider-error-retry"
     assert engine.pending_questions[0].options == [
         "Retry failed providers",
@@ -479,6 +480,53 @@ def test_provider_error_gate_single_failed_provider_omits_continue(tmp_path):
         "Retry failed providers",
         "Stop workflow",
     ]
+
+
+def test_provider_error_gate_retry_targets_failed_agents_with_merge_context(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design", ["claude", "antigravity"])
+    result = DeliberationResult(
+        user_prompt="Design",
+        rounds_completed=1,
+        consensus=ConsensusResult(
+            reached=True,
+            agreement_count=1,
+            total_agents=1,
+            opinions={"claude": "vote rationale"},
+            summary="Provisional summary",
+        ),
+        metadata={
+            "provider_successful_opinions": {"claude": "Preserved Claude plan."},
+            "provider_error_gate_status": "provisional",
+            "provider_failures": [
+                {
+                    "agent": "antigravity",
+                    "status": "auth_required",
+                    "classification": "auth_wait",
+                    "reasons": ["login required"],
+                    "retryable": True,
+                }
+            ],
+        },
+    )
+    engine.mark_deliberation_result(result)
+
+    action = engine.answer_question(
+        "q-provider-error-retry",
+        "Retry failed providers",
+    )
+
+    assert action.should_deliberate is True
+    assert action.target_agents == ("antigravity",)
+    assert action.agent_selection_mode == "targeted"
+    assert action.provider_retry_merge_context == {
+        "successful_opinions": {"claude": "Preserved Claude plan."},
+        "retry_agents": ["antigravity"],
+        "original_prompt": "Design",
+        "source_question_id": "q-provider-error-retry",
+    }
+    assert "Previously successful providers preserved" in action.prompt
+    assert engine.state == WorkflowState.DELIBERATING
 
 
 def test_structured_followup_with_korean_modified_sections_decomposes_packages(tmp_path):

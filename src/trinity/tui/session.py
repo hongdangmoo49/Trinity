@@ -1283,14 +1283,20 @@ class InteractiveSession:
             self.console.print(f"[green]{verb} decision {action.decision_record.id}.[/green]")
 
         if action.should_deliberate:
+            retry_kwargs = (
+                {"provider_retry_merge_context": action.provider_retry_merge_context}
+                if action.provider_retry_merge_context
+                else {}
+            )
             if action.agent_selection_mode == "targeted" or action.agent_model_overrides:
                 self._run_deliberation(
                     action.prompt,
                     target_agents=action.target_agents,
                     agent_model_overrides=action.agent_model_overrides,
+                    **retry_kwargs,
                 )
             else:
-                self._run_deliberation(action.prompt)
+                self._run_deliberation(action.prompt, **retry_kwargs)
         elif action.execution_requested:
             self._run_enabled_execution()
         elif (
@@ -1359,6 +1365,7 @@ class InteractiveSession:
         *,
         target_agents: tuple[str, ...] | list[str] = (),
         agent_model_overrides: dict[str, str] | None = None,
+        provider_retry_merge_context: dict[str, object] | None = None,
     ) -> None:
         """Run a deliberation on the user's prompt with real-time TUI updates.
 
@@ -1408,6 +1415,7 @@ class InteractiveSession:
             interactive=use_tmux,
             active_agent_names=selected_agents,
             agent_model_overrides=agent_model_overrides or {},
+            provider_retry_merge_context=provider_retry_merge_context or {},
         )
 
         # Reset TUI state for new deliberation

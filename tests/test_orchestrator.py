@@ -1,7 +1,7 @@
 """Tests for trinity.orchestrator — TrinityOrchestrator."""
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from trinity.config import TrinityConfig
 from trinity.models import AgentSpec, DeliberationResult, ConsensusResult, Provider
@@ -11,6 +11,7 @@ from trinity.deliberation.synthesis import (
     HeuristicSynthesisAgent,
     ModelBackedSynthesisAgent,
 )
+from trinity.providers.policy import InvocationAccess
 from trinity.providers.readiness import ProviderState, ReadinessResult
 from trinity.workflow import ExecutionResult, WorkPackage, WorkStatus
 from trinity.workflow.models import ProviderSessionRef
@@ -657,6 +658,32 @@ class TestAsk:
             assert "auth_required" in result.consensus.summary
 
     @pytest.mark.asyncio
+    async def test_ask_skips_protocol_when_one_shot_preflight_fails(self, tmp_path):
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=tmp_path / ".trinity",
+            provider_readiness_timeout_seconds=1.0,
+            synthesis_mode="heuristic",
+            agents={
+                "codex": AgentSpec(
+                    name="codex",
+                    provider=Provider.CODEX,
+                    cli_command="trinity-definitely-missing-provider-cli",
+                    enabled=True,
+                ),
+            },
+        )
+        orch = TrinityOrchestrator(config)
+
+        result = await orch.ask("test prompt")
+
+        assert result.rounds_completed == 0
+        assert not result.has_consensus
+        assert "Deliberation was not started" in result.consensus.summary
+        assert "cli_not_found" in result.consensus.summary
+        assert orch.readiness_results["codex"].state == ProviderState.CLI_NOT_FOUND
+
+    @pytest.mark.asyncio
     async def test_ask_degraded_mode_uses_ready_agents_only(self, tmp_path):
         config = TrinityConfig(
             project_dir=tmp_path,
@@ -734,6 +761,61 @@ class TestAsk:
             mock_protocol.run.assert_called_once_with("test prompt")
             assert set(orch.agents) == {"claude"}
             assert set(mock_protocol.agents) == {"claude"}
+
+    def test_one_shot_preflight_degraded_mode_uses_ready_agents_only(self, tmp_path):
+        config = TrinityConfig(
+            project_dir=tmp_path,
+            state_dir=tmp_path / ".trinity",
+            provider_readiness_mode="degraded",
+            agents={
+                "claude": AgentSpec(
+                    name="claude",
+                    provider=Provider.CLAUDE_CODE,
+                    cli_command="claude",
+                    enabled=True,
+                ),
+                "codex": AgentSpec(
+                    name="codex",
+                    provider=Provider.CODEX,
+                    cli_command="codex",
+                    enabled=True,
+                ),
+            },
+        )
+        orch = TrinityOrchestrator(config)
+        claude = MagicMock()
+        claude.spec = config.agents["claude"]
+        codex = MagicMock()
+        codex.spec = config.agents["codex"]
+        orch.agents = {"claude": claude, "codex": codex}
+        orch.one_shot_preflight = MagicMock()
+        orch.one_shot_preflight.check_all.return_value = {
+            "claude": ReadinessResult(
+                agent_name="claude",
+                provider=Provider.CLAUDE_CODE,
+                ready=True,
+                state=ProviderState.READY,
+                reason="ready",
+                action_hint="",
+            ),
+            "codex": ReadinessResult(
+                agent_name="codex",
+                provider=Provider.CODEX,
+                ready=False,
+                state=ProviderState.CLI_NOT_FOUND,
+                reason="codex CLI missing",
+                action_hint="Install codex.",
+            ),
+        }
+
+        result = orch._check_one_shot_provider_readiness(
+            prompt="test",
+            start_time=0,
+            access=InvocationAccess.READ_ONLY,
+        )
+
+        assert result is None
+        assert set(orch.agents) == {"claude"}
 
     @pytest.mark.asyncio
     async def test_execute_work_packages_delegates_to_execution_protocol(self, tmp_path):

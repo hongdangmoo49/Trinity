@@ -220,6 +220,20 @@ def _read_jsonl(path: Path) -> list[dict[str, object]]:
     ]
 
 
+def _provider_turn_calls(calls: list[dict[str, object]]) -> list[dict[str, object]]:
+    preflight_argv = {
+        ("--version",),
+        ("debug", "models"),
+        ("debug", "models", "--bundled"),
+        ("models",),
+    }
+    return [
+        call
+        for call in calls
+        if tuple(str(item) for item in call.get("argv", [])) not in preflight_argv
+    ]
+
+
 def test_question_answer_continuation_invokes_only_saved_target_agent_model_and_session(
     tmp_path,
 ) -> None:
@@ -291,8 +305,8 @@ def test_question_answer_continuation_invokes_only_saved_target_agent_model_and_
     assert final is not None
     assert final.snapshot.state == "blueprint_ready"
 
-    codex_calls = _read_jsonl(codex_log)
-    claude_calls = _read_jsonl(claude_log)
+    codex_calls = _provider_turn_calls(_read_jsonl(codex_log))
+    claude_calls = _provider_turn_calls(_read_jsonl(claude_log))
     assert len(codex_calls) == 1
     assert claude_calls == []
 
@@ -381,8 +395,8 @@ def test_question_answer_continuation_invokes_claude_resume_for_targeted_agent(
     assert final is not None
     assert final.snapshot.state == "blueprint_ready"
 
-    claude_calls = _read_jsonl(claude_log)
-    codex_calls = _read_jsonl(codex_log)
+    claude_calls = _provider_turn_calls(_read_jsonl(claude_log))
+    codex_calls = _provider_turn_calls(_read_jsonl(codex_log))
     assert len(claude_calls) == 1
     assert codex_calls == []
 
@@ -471,8 +485,8 @@ def test_question_answer_continuation_invokes_agy_conversation_for_targeted_agen
     assert final is not None
     assert final.snapshot.state == "blueprint_ready"
 
-    agy_calls = _read_jsonl(agy_log)
-    claude_calls = _read_jsonl(claude_log)
+    agy_calls = _provider_turn_calls(_read_jsonl(agy_log))
+    claude_calls = _provider_turn_calls(_read_jsonl(claude_log))
     assert len(agy_calls) == 1
     assert claude_calls == []
 

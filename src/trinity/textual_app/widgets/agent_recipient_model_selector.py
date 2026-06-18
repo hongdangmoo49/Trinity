@@ -262,6 +262,7 @@ class AgentRecipientModelSelector(Horizontal):
                     source=choice.source,
                     is_default=choice.is_default,
                     context_budget=choice.context_budget,
+                    source_reason=choice.source_reason,
                 )
             )
         if not normalized or normalized[0].model != "default":

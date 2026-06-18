@@ -2,14 +2,26 @@
 
 from __future__ import annotations
 
+import os
 import re
+import shutil
+import subprocess
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import Iterable
+from pathlib import Path
+from typing import Iterable, Sequence
 
 from trinity.agents.base import AgentWrapper
 from trinity.models import Provider
+from trinity.platform.process import CommandSpec, ProcessRunner
+from trinity.providers.model_discovery import (
+    ModelChoiceSource,
+    ProviderModelChoice,
+    discover_provider_models,
+)
+from trinity.providers.permissions import ProviderPermissionPolicy
+from trinity.providers.policy import InvocationAccess
 
 
 class ProviderState(str, Enum):
@@ -22,6 +34,11 @@ class ProviderState(str, Enum):
     CLI_BANNER_ONLY = "cli_banner_only"
     PROMPT_NOT_SENT = "prompt_not_sent"
     PROCESS_DEAD = "process_dead"
+    CWD_INACCESSIBLE = "cwd_inaccessible"
+    CLI_NOT_FOUND = "cli_not_found"
+    CLI_PROBE_FAILED = "cli_probe_failed"
+    MODEL_UNAVAILABLE = "model_unavailable"
+    PERMISSION_PLAN_INVALID = "permission_plan_invalid"
     UNKNOWN_NOT_READY = "unknown_not_ready"
 
 
@@ -36,6 +53,25 @@ class ReadinessResult:
     reason: str
     action_hint: str
     excerpt: str = ""
+
+
+@dataclass(frozen=True)
+class OneShotPreflightResult(ReadinessResult):
+    """Runtime preflight result for a one-shot provider invocation."""
+
+    cwd: str = ""
+    cli_command: str = ""
+    resolved_executable: str = ""
+    probe_command: tuple[str, ...] = ()
+    probe_returncode: int | None = None
+    model: str = "default"
+    model_source: ModelChoiceSource | str = "unavailable"
+    model_source_reason: str = ""
+    discovered_models: tuple[str, ...] = ()
+    access: InvocationAccess = InvocationAccess.READ_ONLY
+    permission_args: tuple[str, ...] = ()
+    permission_extra_args: tuple[str, ...] = ()
+    permission_diagnostics: tuple[str, ...] = field(default_factory=tuple)
 
 
 _PROMPT_RE = re.compile(
@@ -69,10 +105,434 @@ def _provider_label(provider: Provider) -> str:
     return provider.value
 
 
+class OneShotProviderPreflight:
+    """Validate one-shot provider runtime prerequisites before first use."""
+
+    def __init__(
+        self,
+        timeout_seconds: float = 3.0,
+        *,
+        runner: ProcessRunner | None = None,
+        permission_policy: ProviderPermissionPolicy | None = None,
+        use_model_cache: bool = True,
+    ) -> None:
+        self.timeout_seconds = timeout_seconds
+        self.runner = runner or ProcessRunner()
+        self.permission_policy = permission_policy or ProviderPermissionPolicy()
+        self.use_model_cache = use_model_cache
+
+    def check_all(
+        self,
+        agents: dict[str, AgentWrapper],
+        *,
+        access: InvocationAccess = InvocationAccess.READ_ONLY,
+    ) -> dict[str, OneShotPreflightResult]:
+        """Check all configured one-shot agents."""
+        return {
+            name: self.check(agent, access=access)
+            for name, agent in agents.items()
+        }
+
+    def check(
+        self,
+        agent: AgentWrapper,
+        *,
+        access: InvocationAccess = InvocationAccess.READ_ONLY,
+    ) -> OneShotPreflightResult:
+        """Validate cwd, CLI probe, model selection, and permission plan."""
+        spec = agent.spec
+        provider = spec.provider
+        cwd = Path(getattr(agent, "launch_cwd", None) or Path.cwd())
+        env = dict(getattr(agent, "env_overrides", {}) or {})
+        model = (spec.model or "default").strip() or "default"
+        cli_command = (spec.cli_command or "").strip()
+
+        cwd_error = self._validate_cwd(cwd)
+        if cwd_error:
+            return self._result(
+                agent,
+                state=ProviderState.CWD_INACCESSIBLE,
+                reason=cwd_error,
+                cwd=cwd,
+                cli_command=cli_command,
+                model=model,
+                access=access,
+            )
+
+        resolved = self._resolve_executable(cli_command, cwd=cwd, env=env)
+        if not resolved:
+            return self._result(
+                agent,
+                state=ProviderState.CLI_NOT_FOUND,
+                reason=(
+                    f"{provider.value} CLI command {cli_command!r} was not found"
+                    if cli_command
+                    else f"{provider.value} CLI command is empty"
+                ),
+                cwd=cwd,
+                cli_command=cli_command,
+                model=model,
+                access=access,
+            )
+
+        probe_result = self._probe_cli(
+            provider=provider,
+            cli_command=cli_command,
+            cwd=cwd,
+            env=env,
+        )
+        if probe_result is not None:
+            state, reason, probe_command, returncode, excerpt = probe_result
+            return self._result(
+                agent,
+                state=state,
+                reason=reason,
+                cwd=cwd,
+                cli_command=cli_command,
+                resolved_executable=resolved,
+                probe_command=probe_command,
+                probe_returncode=returncode,
+                model=model,
+                access=access,
+                excerpt=excerpt,
+            )
+
+        permission = self._permission_plan(agent, cwd=cwd, access=access)
+        if isinstance(permission, OneShotPreflightResult):
+            return permission
+
+        choices, model_source, source_reason, discoverable = self._discover_models(
+            provider=provider,
+            cli_command=cli_command,
+            cwd=cwd,
+            env=env,
+        )
+        discovered = tuple(
+            choice.model
+            for choice in choices
+            if choice.model and choice.model != "default"
+        )
+        if discoverable and model != "default":
+            available = {choice.model for choice in choices}
+            if model not in available:
+                return self._result(
+                    agent,
+                    state=ProviderState.MODEL_UNAVAILABLE,
+                    reason=(
+                        f"{provider.value} model {model!r} was not found in "
+                        f"discoverable {model_source} choices"
+                    ),
+                    cwd=cwd,
+                    cli_command=cli_command,
+                    resolved_executable=resolved,
+                    probe_command=self._probe_argv(cli_command, provider),
+                    probe_returncode=0,
+                    model=model,
+                    model_source=model_source,
+                    model_source_reason=source_reason,
+                    discovered_models=discovered,
+                    access=access,
+                    permission_args=permission.args,
+                    permission_extra_args=permission.extra_args,
+                    permission_diagnostics=permission.diagnostics,
+                    excerpt=self._model_excerpt(discovered),
+                )
+
+        return self._result(
+            agent,
+            state=ProviderState.READY,
+            reason=f"{provider.value} one-shot preflight passed",
+            cwd=cwd,
+            cli_command=cli_command,
+            resolved_executable=resolved,
+            probe_command=self._probe_argv(cli_command, provider),
+            probe_returncode=0,
+            model=model,
+            model_source=model_source,
+            model_source_reason=source_reason,
+            discovered_models=discovered,
+            access=access,
+            permission_args=permission.args,
+            permission_extra_args=permission.extra_args,
+            permission_diagnostics=permission.diagnostics,
+        )
+
+    def _permission_plan(
+        self,
+        agent: AgentWrapper,
+        *,
+        cwd: Path,
+        access: InvocationAccess,
+    ):
+        spec = agent.spec
+        try:
+            return self.permission_policy.plan(
+                provider=spec.provider,
+                access=access,
+                cwd=cwd,
+                extra_args=tuple(spec.extra_args),
+            )
+        except Exception as exc:
+            return self._result(
+                agent,
+                state=ProviderState.PERMISSION_PLAN_INVALID,
+                reason=f"could not build provider permission plan: {exc}",
+                cwd=cwd,
+                cli_command=spec.cli_command,
+                model=(spec.model or "default").strip() or "default",
+                access=access,
+            )
+
+    def _discover_models(
+        self,
+        *,
+        provider: Provider,
+        cli_command: str,
+        cwd: Path,
+        env: dict[str, str],
+    ) -> tuple[tuple[ProviderModelChoice, ...], str, str, bool]:
+        def run(argv: Sequence[str], timeout_seconds: float) -> subprocess.CompletedProcess[str]:
+            return self.runner.run(
+                CommandSpec(
+                    argv=tuple(argv),
+                    cwd=cwd,
+                    env=env,
+                    timeout_seconds=timeout_seconds,
+                )
+            )
+
+        try:
+            choices = tuple(
+                discover_provider_models(
+                    provider,
+                    cli_command,
+                    timeout_seconds=self.timeout_seconds,
+                    use_cache=self.use_model_cache,
+                    runner=run,
+                )
+            )
+        except Exception as exc:
+            return (), "unavailable", f"model discovery failed: {exc}", False
+
+        first_with_source = next((choice for choice in choices if choice.source), None)
+        model_source = first_with_source.source if first_with_source else "unavailable"
+        source_reason = (
+            first_with_source.source_reason
+            if first_with_source and first_with_source.source_reason
+            else ""
+        )
+        discoverable = any(
+            choice.source in {"cli-live", "cli-bundled"}
+            for choice in choices
+            if choice.model != "default"
+        )
+        if discoverable:
+            first_live = next(
+                choice
+                for choice in choices
+                if choice.model != "default" and choice.source in {"cli-live", "cli-bundled"}
+            )
+            model_source = first_live.source
+            source_reason = first_live.source_reason
+        return choices, model_source, source_reason, discoverable
+
+    def _probe_cli(
+        self,
+        *,
+        provider: Provider,
+        cli_command: str,
+        cwd: Path,
+        env: dict[str, str],
+    ) -> tuple[ProviderState, str, tuple[str, ...], int | None, str] | None:
+        argv = self._probe_argv(cli_command, provider)
+        try:
+            completed = self.runner.run(
+                CommandSpec(
+                    argv=argv,
+                    cwd=cwd,
+                    env=env,
+                    timeout_seconds=self.timeout_seconds,
+                )
+            )
+        except FileNotFoundError:
+            return (
+                ProviderState.CLI_NOT_FOUND,
+                f"{provider.value} CLI command {cli_command!r} was not found",
+                argv,
+                None,
+                "",
+            )
+        except subprocess.TimeoutExpired:
+            return (
+                ProviderState.CLI_PROBE_FAILED,
+                f"{provider.value} CLI probe timed out after {self.timeout_seconds}s",
+                argv,
+                None,
+                "",
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            return (
+                ProviderState.CLI_PROBE_FAILED,
+                f"{provider.value} CLI probe failed: {exc}",
+                argv,
+                None,
+                "",
+            )
+
+        if completed.returncode != 0:
+            return (
+                ProviderState.CLI_PROBE_FAILED,
+                (
+                    f"{provider.value} CLI probe failed with exit code "
+                    f"{completed.returncode}"
+                ),
+                argv,
+                completed.returncode,
+                self._completed_excerpt(completed),
+            )
+        return None
+
+    @staticmethod
+    def _probe_argv(cli_command: str, provider: Provider) -> tuple[str, ...]:
+        if provider in {
+            Provider.CLAUDE_CODE,
+            Provider.CODEX,
+            Provider.ANTIGRAVITY_CLI,
+        }:
+            return (cli_command, "--version")
+        return (cli_command, "--version")
+
+    @staticmethod
+    def _validate_cwd(cwd: Path) -> str:
+        if not cwd.exists():
+            return f"provider cwd does not exist: {cwd}"
+        if not cwd.is_dir():
+            return f"provider cwd is not a directory: {cwd}"
+        try:
+            with os.scandir(cwd) as entries:
+                next(entries, None)
+        except OSError as exc:
+            return f"provider cwd is not accessible: {exc}"
+        return ""
+
+    @staticmethod
+    def _resolve_executable(
+        cli_command: str,
+        *,
+        cwd: Path,
+        env: dict[str, str],
+    ) -> str:
+        command = (cli_command or "").strip()
+        if not command:
+            return ""
+
+        separators = [os.sep]
+        if os.altsep:
+            separators.append(os.altsep)
+        has_path_separator = any(separator in command for separator in separators)
+        if has_path_separator:
+            path = Path(command).expanduser()
+            candidate = path if path.is_absolute() else cwd / path
+            return str(candidate) if candidate.exists() and candidate.is_file() else ""
+
+        path_value = env.get("PATH")
+        if path_value is None:
+            path_value = os.environ.get("PATH")
+        resolved = shutil.which(command, path=path_value)
+        return resolved or ""
+
+    @staticmethod
+    def _completed_excerpt(completed: subprocess.CompletedProcess[str]) -> str:
+        text = "\n".join(
+            part
+            for part in (completed.stdout or "", completed.stderr or "")
+            if part.strip()
+        )
+        return _excerpt(text.splitlines())
+
+    @staticmethod
+    def _model_excerpt(models: tuple[str, ...]) -> str:
+        if not models:
+            return "No non-default models were discovered."
+        visible = ", ".join(models[:12])
+        if len(models) > 12:
+            visible = f"{visible}, ... (+{len(models) - 12} more)"
+        return f"Discovered models: {visible}"
+
+    def _result(
+        self,
+        agent: AgentWrapper,
+        *,
+        state: ProviderState,
+        reason: str,
+        cwd: Path,
+        cli_command: str,
+        resolved_executable: str = "",
+        probe_command: tuple[str, ...] = (),
+        probe_returncode: int | None = None,
+        model: str = "default",
+        model_source: ModelChoiceSource | str = "unavailable",
+        model_source_reason: str = "",
+        discovered_models: tuple[str, ...] = (),
+        access: InvocationAccess = InvocationAccess.READ_ONLY,
+        permission_args: tuple[str, ...] = (),
+        permission_extra_args: tuple[str, ...] = (),
+        permission_diagnostics: tuple[str, ...] = (),
+        excerpt: str = "",
+    ) -> OneShotPreflightResult:
+        return OneShotPreflightResult(
+            agent_name=agent.name,
+            provider=agent.spec.provider,
+            ready=state == ProviderState.READY,
+            state=state,
+            reason=reason,
+            action_hint=_action_hint(agent.spec.provider, state),
+            excerpt=excerpt,
+            cwd=str(cwd),
+            cli_command=cli_command,
+            resolved_executable=resolved_executable,
+            probe_command=probe_command,
+            probe_returncode=probe_returncode,
+            model=model,
+            model_source=model_source,
+            model_source_reason=model_source_reason,
+            discovered_models=discovered_models,
+            access=access,
+            permission_args=permission_args,
+            permission_extra_args=permission_extra_args,
+            permission_diagnostics=tuple(permission_diagnostics),
+        )
+
+
 def _action_hint(provider: Provider, state: ProviderState) -> str:
     provider_name = _provider_label(provider)
     if state == ProviderState.READY:
         return ""
+    if state == ProviderState.CWD_INACCESSIBLE:
+        return (
+            "Choose an existing target workspace directory that Trinity can list, "
+            "then retry."
+        )
+    if state == ProviderState.CLI_NOT_FOUND:
+        return (
+            f"Install the {provider_name} CLI or update the agent cli_command "
+            "to the executable path."
+        )
+    if state == ProviderState.CLI_PROBE_FAILED:
+        return (
+            f"Run the configured {provider_name} CLI with `--version` in your "
+            "normal shell and fix the reported runtime error."
+        )
+    if state == ProviderState.MODEL_UNAVAILABLE:
+        return (
+            "Choose an available model for this provider, or use `default` to "
+            "let the provider CLI choose."
+        )
+    if state == ProviderState.PERMISSION_PLAN_INVALID:
+        return (
+            "Review the provider extra_args and Trinity permission policy for "
+            "this invocation access level."
+        )
     if state == ProviderState.AUTH_REQUIRED:
         if provider == Provider.CLAUDE_CODE:
             return (

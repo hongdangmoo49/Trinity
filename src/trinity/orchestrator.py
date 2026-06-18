@@ -33,8 +33,10 @@ from trinity.providers.invoker import (
     CodexExecInvoker,
     ProviderInvoker,
 )
-from trinity.providers.policy import ParallelExecutionPolicy
+from trinity.providers.policy import InvocationAccess, ParallelExecutionPolicy
 from trinity.providers.readiness import (
+    OneShotProviderPreflight,
+    OneShotPreflightResult,
     ProviderReadinessGate,
     ReadinessResult,
 )
@@ -140,8 +142,10 @@ class TrinityOrchestrator:
         self.session_rotator: SessionRotator | None = None
         self.health_checker: HealthChecker | None = None
         self.readiness_gate: ProviderReadinessGate | None = None
+        self.one_shot_preflight: OneShotProviderPreflight | None = None
         self.lifecycle_guard: LifecycleGuard | None = None
         self.readiness_results: dict[str, ReadinessResult] = {}
+        self.one_shot_readiness_results: dict[str, OneShotPreflightResult] = {}
         self.synthesis_status: dict[str, object] = {}
         self.managed_home: ManagedHome | None = None
         self.workspace_isolation: WorkspaceIsolation | None = None
@@ -292,6 +296,16 @@ class TrinityOrchestrator:
         )
         self.readiness_gate = ProviderReadinessGate(
             timeout=self.config.provider_readiness_timeout_seconds,
+        )
+        self.one_shot_preflight = (
+            OneShotProviderPreflight(
+                timeout_seconds=min(
+                    max(float(self.config.provider_readiness_timeout_seconds), 1.0),
+                    5.0,
+                )
+            )
+            if not self.interactive
+            else None
         )
 
     def _prepare_agent_launch_contexts(
@@ -685,6 +699,9 @@ class TrinityOrchestrator:
         if not self.execution_protocol:
             raise RuntimeError("Execution protocol was not initialized")
         await self._ensure_agents_started()
+        self._ensure_one_shot_preflight_or_raise(
+            access=InvocationAccess.WORKSPACE_WRITE,
+        )
         run_kwargs = {"decisions": decisions or []}
         if result_callback is not None:
             run_kwargs["result_callback"] = result_callback
@@ -704,6 +721,7 @@ class TrinityOrchestrator:
         if not self.review_protocol:
             raise RuntimeError("Review protocol was not initialized")
         await self._ensure_agents_started()
+        self._ensure_one_shot_preflight_or_raise(access=InvocationAccess.READ_ONLY)
         return await self.review_protocol.review_work_packages(
             review_packages,
             work_packages,
@@ -721,6 +739,7 @@ class TrinityOrchestrator:
         if not self.review_protocol:
             raise RuntimeError("Review protocol was not initialized")
         await self._ensure_agents_started()
+        self._ensure_one_shot_preflight_or_raise(access=InvocationAccess.READ_ONLY)
         return await self.review_protocol.review_final_execution(
             work_packages,
             execution_results,
@@ -752,6 +771,12 @@ class TrinityOrchestrator:
         start_time: float,
     ) -> DeliberationResult | None:
         """Run provider readiness checks and enforce configured policy."""
+        if not self.interactive and self.one_shot_preflight:
+            return self._check_one_shot_provider_readiness(
+                prompt=prompt,
+                start_time=start_time,
+                access=InvocationAccess.READ_ONLY,
+            )
         if not self.readiness_gate:
             return None
 
@@ -792,6 +817,105 @@ class TrinityOrchestrator:
         self._emit_deliberation_done()
         return result
 
+    def _check_one_shot_provider_readiness(
+        self,
+        *,
+        prompt: str,
+        start_time: float,
+        access: InvocationAccess,
+    ) -> DeliberationResult | None:
+        """Run one-shot runtime preflight and enforce configured policy."""
+        if not self.one_shot_preflight:
+            return None
+
+        self.one_shot_readiness_results = self.one_shot_preflight.check_all(
+            self.agents,
+            access=access,
+        )
+        self.readiness_results = dict(self.one_shot_readiness_results)
+        for result in self.one_shot_readiness_results.values():
+            self._emit_readiness(result)
+
+        not_ready = {
+            name: result
+            for name, result in self.one_shot_readiness_results.items()
+            if not result.ready
+        }
+        if not not_ready:
+            return None
+
+        mode = self.config.provider_readiness_mode.lower()
+        ready_agents = {
+            name: agent
+            for name, agent in self.agents.items()
+            if self.one_shot_readiness_results.get(name)
+            and self.one_shot_readiness_results[name].ready
+        }
+        if mode == "degraded" and ready_agents:
+            logger.warning(
+                "One-shot provider preflight degraded mode: continuing with "
+                "ready agents: %s",
+                ", ".join(ready_agents),
+            )
+            self._apply_ready_agents(ready_agents)
+            return None
+
+        logger.warning("One-shot provider preflight failed; deliberation will not start")
+        result = self._build_readiness_failure_result(
+            prompt=prompt,
+            readiness=not_ready,
+            start_time=start_time,
+        )
+        self._emit_deliberation_done()
+        return result
+
+    def _ensure_one_shot_preflight_or_raise(
+        self,
+        *,
+        access: InvocationAccess,
+    ) -> None:
+        """Fail fast before execution/review one-shot provider dispatch."""
+        if self.interactive or not self.one_shot_preflight:
+            return
+
+        self.one_shot_readiness_results = self.one_shot_preflight.check_all(
+            self.agents,
+            access=access,
+        )
+        self.readiness_results = dict(self.one_shot_readiness_results)
+        for result in self.one_shot_readiness_results.values():
+            self._emit_readiness(result)
+
+        not_ready = {
+            name: result
+            for name, result in self.one_shot_readiness_results.items()
+            if not result.ready
+        }
+        if not not_ready:
+            return
+
+        mode = self.config.provider_readiness_mode.lower()
+        ready_agents = {
+            name: agent
+            for name, agent in self.agents.items()
+            if self.one_shot_readiness_results.get(name)
+            and self.one_shot_readiness_results[name].ready
+        }
+        if mode == "degraded" and ready_agents:
+            logger.warning(
+                "One-shot provider preflight degraded mode: continuing with "
+                "ready agents: %s",
+                ", ".join(ready_agents),
+            )
+            self._apply_ready_agents(ready_agents)
+            return
+
+        summary = self._format_readiness_failure(
+            not_ready,
+            intro="Provider readiness check failed. Provider dispatch was not started.",
+        )
+        raise RuntimeError(summary)
+
     def _apply_ready_agents(self, ready_agents: dict[str, AgentWrapper]) -> None:
         """Restrict runtime components to the agents that passed readiness."""
         self.agents = ready_agents
@@ -819,23 +943,7 @@ class TrinityOrchestrator:
         start_time: float,
     ) -> DeliberationResult:
         """Build a user-facing result explaining readiness failures."""
-        lines = [
-            "Provider readiness check failed. Deliberation was not started.",
-            "",
-        ]
-        for name, result in readiness.items():
-            lines.append(
-                f"- {name} ({result.provider.value}): {result.state.value} - "
-                f"{result.reason}"
-            )
-            if result.action_hint:
-                lines.append(f"  Action: {result.action_hint}")
-            if result.excerpt:
-                lines.append("  Pane excerpt:")
-                for excerpt_line in result.excerpt.splitlines()[-4:]:
-                    lines.append(f"    {excerpt_line}")
-
-        summary = "\n".join(lines)
+        summary = self._format_readiness_failure(readiness)
         return DeliberationResult(
             user_prompt=prompt,
             rounds_completed=0,
@@ -850,6 +958,30 @@ class TrinityOrchestrator:
             total_tokens_used=0,
             duration_seconds=time.time() - start_time,
         )
+
+    def _format_readiness_failure(
+        self,
+        readiness: dict[str, ReadinessResult],
+        *,
+        intro: str = "Provider readiness check failed. Deliberation was not started.",
+    ) -> str:
+        """Format provider readiness failures for user-facing messages."""
+        lines = [
+            intro,
+            "",
+        ]
+        for name, result in readiness.items():
+            lines.append(
+                f"- {name} ({result.provider.value}): {result.state.value} - "
+                f"{result.reason}"
+            )
+            if result.action_hint:
+                lines.append(f"  Action: {result.action_hint}")
+            if result.excerpt:
+                lines.append("  Excerpt:")
+                for excerpt_line in result.excerpt.splitlines()[-4:]:
+                    lines.append(f"    {excerpt_line}")
+        return "\n".join(lines)
 
     def _emit_readiness(self, result: ReadinessResult) -> None:
         """Emit a provider readiness TUI event."""
@@ -921,6 +1053,7 @@ class TrinityOrchestrator:
                         if name in self.readiness_results
                         else ""
                     ),
+                    "one_shot_preflight": self._one_shot_status(name),
                 }
                 for name, agent in self.agents.items()
             },
@@ -933,6 +1066,25 @@ class TrinityOrchestrator:
                 self.config.session_name if self.tmux_manager else None
             ),
             "synthesis": dict(self.synthesis_status),
+        }
+
+    def _one_shot_status(self, agent_name: str) -> dict[str, object]:
+        """Return one-shot preflight diagnostics for status output."""
+        result = self.one_shot_readiness_results.get(agent_name)
+        if result is None:
+            return {}
+        return {
+            "cwd": result.cwd,
+            "cli_command": result.cli_command,
+            "resolved_executable": result.resolved_executable,
+            "model": result.model,
+            "model_source": result.model_source,
+            "model_source_reason": result.model_source_reason,
+            "discovered_models": list(result.discovered_models),
+            "access": result.access.value,
+            "permission_args": list(result.permission_args),
+            "permission_extra_args": list(result.permission_extra_args),
+            "permission_diagnostics": list(result.permission_diagnostics),
         }
 
     async def shutdown(self) -> None:

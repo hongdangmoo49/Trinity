@@ -362,6 +362,13 @@ class DeliberationResult:
 
     @property
     def has_consensus(self) -> bool:
+        if self.metadata.get("provider_error_gate_bypassed") is not True:
+            failures = self.metadata.get("provider_failures", [])
+            if isinstance(failures, list) and any(
+                isinstance(item, dict) and bool(item.get("retryable", False))
+                for item in failures
+            ):
+                return False
         return self.consensus is not None and self.consensus.reached
 
 

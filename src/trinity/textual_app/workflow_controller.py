@@ -555,6 +555,7 @@ class TextualWorkflowController:
                 action.prompt,
                 target_agents=action.target_agents,
                 agent_model_overrides=action.agent_model_overrides,
+                provider_retry_merge_context=action.provider_retry_merge_context,
             )
         elif action.execution_requested:
             execution_started = self._start_execution()
@@ -571,6 +572,7 @@ class TextualWorkflowController:
         *,
         target_agents: tuple[str, ...] | list[str] = (),
         agent_model_overrides: dict[str, str] | None = None,
+        provider_retry_merge_context: dict[str, object] | None = None,
     ) -> None:
         bus = TUIEventBus()
         use_tmux = self._uses_tmux_transport()
@@ -595,6 +597,7 @@ class TextualWorkflowController:
                     provider_sessions=self.workflow.session.provider_sessions,
                     active_agent_names=tuple(target_agents),
                     agent_model_overrides=agent_model_overrides or {},
+                    provider_retry_merge_context=provider_retry_merge_context or {},
                 )
                 orchestrator.set_event_bus(bus)
                 result = asyncio.run(orchestrator.ask(prompt))

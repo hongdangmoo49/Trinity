@@ -109,6 +109,7 @@ class TrinityOrchestrator:
         provider_sessions: Mapping[str, object] | None = None,
         active_agent_names: tuple[str, ...] | list[str] = (),
         agent_model_overrides: Mapping[str, str] | None = None,
+        provider_retry_merge_context: Mapping[str, object] | None = None,
     ):
         self.config = config
         self.target_workspace = target_workspace.resolve() if target_workspace else None
@@ -122,6 +123,7 @@ class TrinityOrchestrator:
             for name, model in dict(agent_model_overrides or {}).items()
             if str(name).strip() and str(model).strip()
         }
+        self.provider_retry_merge_context = dict(provider_retry_merge_context or {})
         self.transport_mode = config.transport_mode
         self.interactive = (
             self.transport_mode == "tmux" if interactive is None else interactive
@@ -244,6 +246,7 @@ class TrinityOrchestrator:
             synthesis_agent=synthesis_agent,
             lifecycle_guard=self.lifecycle_guard,
             rotation_callback=self._rotate_agent_for_lifecycle,
+            provider_retry_merge_context=self.provider_retry_merge_context,
         )
         self.execution_protocol = ExecutionProtocol(
             agents=self.agents,

@@ -449,6 +449,66 @@ def test_textual_workflow_controller_preserves_targeted_agents_when_answering_qu
     assert call["agent_model_overrides"] == {"codex": "gpt-5"}
 
 
+def test_textual_workflow_controller_passes_provider_retry_merge_context(
+    tmp_path,
+) -> None:
+    CapturingOrchestrator.calls = []
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("Design", ["claude", "antigravity"])
+    workflow.mark_deliberation_result(
+        DeliberationResult(
+            user_prompt="Design",
+            rounds_completed=1,
+            consensus=ConsensusResult(
+                reached=True,
+                agreement_count=1,
+                total_agents=1,
+                opinions={"claude": "vote rationale"},
+                summary="Provisional summary",
+            ),
+            metadata={
+                "provider_successful_opinions": {
+                    "claude": "Preserved Claude plan."
+                },
+                "provider_error_gate_status": "provisional",
+                "provider_failures": [
+                    {
+                        "agent": "antigravity",
+                        "status": "auth_required",
+                        "classification": "auth_wait",
+                        "reasons": ["login required"],
+                        "retryable": True,
+                    }
+                ],
+            },
+        )
+    )
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=CapturingOrchestrator,
+        archive_active_session=False,
+    )
+
+    outcome = controller.answer_question(
+        "q-provider-error-retry",
+        "Retry failed providers",
+    )
+
+    assert outcome.running is True
+    assert controller.wait_until_idle(timeout=2.0)
+    assert CapturingOrchestrator.calls
+    call = CapturingOrchestrator.calls[-1]
+    assert call["active_agent_names"] == ("antigravity",)
+    assert call["provider_retry_merge_context"] == {
+        "successful_opinions": {"claude": "Preserved Claude plan."},
+        "retry_agents": ["antigravity"],
+        "original_prompt": "Design",
+        "source_question_id": "q-provider-error-retry",
+    }
+
+
 def test_textual_workflow_controller_reports_active_synthesis(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     controller = TextualWorkflowController(

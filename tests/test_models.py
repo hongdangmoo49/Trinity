@@ -200,6 +200,28 @@ class TestDeliberationResult:
         )
         assert not result.has_consensus
 
+    def test_provider_error_gate_pending_consensus_is_not_authoritative(self):
+        result = DeliberationResult(
+            user_prompt="test",
+            rounds_completed=1,
+            consensus=ConsensusResult(
+                reached=True,
+                agreement_count=1,
+                total_agents=1,
+                opinions={"claude": "yes"},
+            ),
+            metadata={
+                "provider_failures": [
+                    {"agent": "codex", "retryable": True, "status": "timeout"}
+                ],
+                "provider_error_gate_status": "provisional",
+            },
+        )
+
+        assert not result.has_consensus
+        result.metadata["provider_error_gate_bypassed"] = True
+        assert result.has_consensus
+
 
 class TestAgentHealth:
     def test_healthy_agent(self):

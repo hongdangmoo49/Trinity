@@ -6,7 +6,7 @@ import json
 import subprocess
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from trinity.models import (
@@ -34,6 +34,7 @@ class ProviderModelChoice:
     source: ModelChoiceSource
     is_default: bool = False
     context_budget: int | None = None
+    source_reason: str = field(default="", compare=False)
 
 
 CommandRunner = Callable[
@@ -73,7 +74,11 @@ def discover_provider_models(
     return choices
 
 
-def fallback_provider_models(provider: Provider) -> list[ProviderModelChoice]:
+def fallback_provider_models(
+    provider: Provider,
+    *,
+    source_reason: str = "using Trinity static provider model catalog",
+) -> list[ProviderModelChoice]:
     """Return static provider model choices with a provider default first."""
     return _choices_from_models(
         provider,
@@ -83,6 +88,7 @@ def fallback_provider_models(provider: Provider) -> list[ProviderModelChoice]:
             if spec.model != "default"
         ],
         source="static-fallback",
+        source_reason=source_reason,
     )
 
 
@@ -111,7 +117,11 @@ def parse_codex_model_slugs(text: str) -> list[str]:
 
 def parse_antigravity_model_lines(text: str) -> list[str]:
     """Parse `agy models` output, one model per non-empty line."""
-    return _dedupe(line.strip() for line in text.splitlines() if line.strip())
+    return _dedupe(
+        line.strip()
+        for line in text.splitlines()
+        if line.strip() and not _looks_like_structured_payload(line.strip())
+    )
 
 
 def clear_model_discovery_cache() -> None:
@@ -133,11 +143,26 @@ def _discover_uncached(
         bundled = _run_and_parse_codex(cli_command, timeout_seconds, runner, bundled=True)
         if bundled:
             return _choices_from_names(provider, bundled, source="cli-bundled")
+        return fallback_provider_models(
+            provider,
+            source_reason=(
+                "Codex model discovery returned no listable live or bundled models"
+            ),
+        )
     if provider == Provider.ANTIGRAVITY_CLI and cli_command:
         models = _run_and_parse_antigravity(cli_command, timeout_seconds, runner)
         if models:
             return _choices_from_names(provider, models, source="cli-live")
-    return fallback_provider_models(provider)
+        return fallback_provider_models(
+            provider,
+            source_reason="Antigravity model discovery returned no models",
+        )
+    reason = (
+        "provider does not expose CLI model discovery"
+        if provider == Provider.CLAUDE_CODE
+        else "no CLI command configured for provider model discovery"
+    )
+    return fallback_provider_models(provider, source_reason=reason)
 
 
 def _run_and_parse_codex(
@@ -214,8 +239,9 @@ def _choices_from_models(
     specs: list[ModelContextSpec],
     *,
     source: ModelChoiceSource,
+    source_reason: str = "",
 ) -> list[ProviderModelChoice]:
-    choices = [_default_choice(provider)]
+    choices = [_default_choice(provider, source_reason=source_reason)]
     seen = {"default"}
     for spec in specs:
         model = spec.model.strip()
@@ -229,12 +255,17 @@ def _choices_from_models(
                 label=model,
                 source=source,
                 context_budget=spec.context_budget or None,
+                source_reason=source_reason,
             )
         )
     return choices
 
 
-def _default_choice(provider: Provider) -> ProviderModelChoice:
+def _default_choice(
+    provider: Provider,
+    *,
+    source_reason: str = "",
+) -> ProviderModelChoice:
     return ProviderModelChoice(
         provider=provider,
         model="default",
@@ -242,6 +273,7 @@ def _default_choice(provider: Provider) -> ProviderModelChoice:
         source="static-fallback",
         is_default=True,
         context_budget=model_context_budget(provider, "default"),
+        source_reason=source_reason,
     )
 
 
@@ -264,3 +296,11 @@ def _dedupe(values: Sequence[str] | object) -> list[str]:
         seen.add(value)
         output.append(value)
     return output
+
+
+def _looks_like_structured_payload(text: str) -> bool:
+    """Return whether a line looks like provider response data, not a model name."""
+    return (
+        (text.startswith("{") and text.endswith("}"))
+        or (text.startswith("[") and text.endswith("]"))
+    )

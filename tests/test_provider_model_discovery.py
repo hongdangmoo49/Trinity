@@ -58,6 +58,12 @@ def test_parse_antigravity_model_lines_dedupes_non_empty_lines() -> None:
     ]
 
 
+def test_parse_antigravity_model_lines_ignores_structured_payloads() -> None:
+    assert parse_antigravity_model_lines(
+        '{"vote": "APPROVE", "blueprint": {}}\nGemini 3.5 Flash (Medium)\n'
+    ) == ["Gemini 3.5 Flash (Medium)"]
+
+
 def test_discover_codex_models_uses_live_json() -> None:
     clear_model_discovery_cache()
 
@@ -162,6 +168,7 @@ def test_discover_claude_models_uses_static_fallback() -> None:
         context_budget=200_000,
     )
     assert "opus[1m]" in [choice.model for choice in choices]
+    assert choices[0].source_reason == "provider does not expose CLI model discovery"
 
 
 def test_fallback_provider_models_puts_default_first() -> None:
@@ -170,3 +177,4 @@ def test_fallback_provider_models_puts_default_first() -> None:
     assert choices[0].model == "default"
     assert choices[0].label == "agy(default)"
     assert choices[0].is_default is True
+    assert choices[0].source_reason == "using Trinity static provider model catalog"

@@ -45,6 +45,7 @@ class ReviewExecutionProtocol:
         timeout: float = 300.0,
         event_callback=None,
         final_reviewer_priority: tuple[str, ...] = FINAL_REVIEW_FALLBACK_PRIORITY,
+        target_workspace: Path | None = None,
     ) -> None:
         self.agents = agents
         self.shared = shared
@@ -52,6 +53,7 @@ class ReviewExecutionProtocol:
         self.timeout = timeout
         self._event_callback = event_callback
         self.final_reviewer_priority = final_reviewer_priority
+        self.target_workspace = target_workspace.resolve() if target_workspace else None
 
     async def review_work_packages(
         self,
@@ -377,6 +379,7 @@ class ReviewExecutionProtocol:
             f"Owner: {package.owner_agent}\n"
             f"Executor: {review_package.target_agent}\n"
             f"Objective: {package.objective}\n\n"
+            f"{self._target_workspace_block()}"
             "Scope:\n"
             f"{self._format_list(package.scope)}\n\n"
             "Expected Files:\n"
@@ -429,6 +432,7 @@ class ReviewExecutionProtocol:
         return (
             "[Final Project Review]\n"
             "Review the whole completed project after execution.\n\n"
+            f"{self._target_workspace_block()}"
             "Work Packages:\n"
             f"{self._format_list(package_lines)}\n\n"
             "Execution Results:\n"
@@ -440,6 +444,16 @@ class ReviewExecutionProtocol:
             "instructions, and additional features that appear necessary. "
             "Do not modify files. Report exactly in this format:\n"
             f"{render_output_contract(FINAL_REVIEW_CONTRACT_ID)}\n"
+        )
+
+    def _target_workspace_block(self) -> str:
+        if self.target_workspace is None:
+            return ""
+        return (
+            "Target Workspace Context:\n"
+            f"- Target workspace: {self.target_workspace}\n"
+            "- Review project files and implementation artifacts in this workspace.\n"
+            "- Do not modify files during review.\n\n"
         )
 
     def _context_projection_block(self, agent_name: str) -> str:

@@ -287,6 +287,16 @@ class WorkflowEngine:
     ) -> WorkflowInputAction:
         """Start a new workflow for a user goal."""
         now = time.time()
+        target_workspace = (
+            self.session.target_workspace
+            if self._should_carry_target_workspace_into_new_workflow()
+            else None
+        )
+        control_repo_target_confirmed = (
+            self.session.control_repo_target_confirmed
+            if target_workspace is not None
+            else False
+        )
         effective_targets = self._effective_target_agents(active_agents, target_agents)
         model_overrides = self._normalized_model_overrides(
             agent_model_overrides,
@@ -299,6 +309,8 @@ class WorkflowEngine:
             active_agents=list(active_agents),
             last_target_agents=list(effective_targets),
             agent_model_overrides=model_overrides,
+            target_workspace=target_workspace,
+            control_repo_target_confirmed=control_repo_target_confirmed,
             created_at=now,
             updated_at=now,
         )
@@ -322,6 +334,14 @@ class WorkflowEngine:
                 "targeted" if set(effective_targets) != set(active_agents) else "all"
             ),
             started_new_workflow=True,
+        )
+
+    def _should_carry_target_workspace_into_new_workflow(self) -> bool:
+        """Return whether an idle preselected target should survive workflow start."""
+        return (
+            self.session.state == WorkflowState.IDLE
+            and not self.session.goal
+            and self.session.target_workspace is not None
         )
 
     def answer_pending_question(self, answer: str) -> WorkflowInputAction:
@@ -3476,6 +3496,7 @@ class WorkflowEngine:
         return (
             "Continue the existing workflow using the user's decision below.\n\n"
             f"Original goal:\n{self.session.goal}\n\n"
+            f"{self._target_workspace_prompt_block()}"
             f"Latest decision ({decision.id}):\n{decision.decision}\n\n"
             f"All decisions:\n{decisions}\n\n"
             "Update the design based on these decisions and continue deliberation. "
@@ -3500,6 +3521,7 @@ class WorkflowEngine:
         return (
             "Continue the existing workflow instead of starting a new one.\n\n"
             f"Original goal:\n{self.session.goal}\n\n"
+            f"{self._target_workspace_prompt_block()}"
             "Current approved blueprint:\n"
             f"- Title: {blueprint_title}\n"
             f"- Summary: {blueprint_summary}\n"
@@ -3512,4 +3534,17 @@ class WorkflowEngine:
             "work package graph with owners, dependencies, expected files, "
             "acceptance criteria, risk, and parallelization metadata. If more "
             "user input is required, raise OPEN QUESTIONS."
+        )
+
+    def _target_workspace_prompt_block(self) -> str:
+        target = self.session.target_workspace
+        if target is None:
+            return ""
+        return (
+            "Target Workspace Context:\n"
+            f"- Target workspace: {target}\n"
+            "- Scope project file references and implementation artifacts to this "
+            "workspace.\n"
+            "- The Trinity control repository is orchestration state unless it "
+            "was explicitly selected as the target workspace.\n\n"
         )

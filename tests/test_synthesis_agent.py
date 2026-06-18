@@ -272,6 +272,29 @@ async def test_model_backed_synthesis_parses_valid_json_and_writes_artifacts(tmp
 
 
 @pytest.mark.asyncio
+async def test_model_backed_synthesis_payload_includes_target_workspace(tmp_path):
+    agent, invoker = _model_synthesis_agent(
+        tmp_path,
+        _provider_result(_valid_model_payload()),
+    )
+    target = tmp_path / "route-bot"
+
+    await agent.synthesize(
+        SynthesisInput(
+            user_prompt="Design route bot",
+            round_num=1,
+            opinions={"claude": "Approved blueprint."},
+            target_workspace=str(target),
+        )
+    )
+
+    prompt = invoker.requests[0].prompt
+    payload = json.loads(prompt[prompt.index("{") :])
+    assert payload["target_workspace"] == str(target)
+    assert any("target_workspace is present" in rule for rule in payload["rules"])
+
+
+@pytest.mark.asyncio
 async def test_model_backed_synthesis_continues_provider_session_and_exposes_metadata(
     tmp_path,
 ):

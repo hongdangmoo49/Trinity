@@ -372,6 +372,10 @@ class TestWorkspaceHomeIsolation:
 
         assert orch.get_agent_cwd("claude") == target_workspace.resolve()
         assert orch.agents["claude"].launch_cwd == target_workspace.resolve()
+        assert orch.protocol is not None
+        assert orch.protocol.target_workspace == target_workspace.resolve()
+        assert orch.review_protocol is not None
+        assert orch.review_protocol.target_workspace == target_workspace.resolve()
         assert config.effective_state_dir == state_dir
 
     def test_git_worktree_workspace_mode_uses_target_workspace_root(self, tmp_path):

@@ -4165,9 +4165,10 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
             "nexus-target-workspace",
             "request-execute",
         ]
-        assert str(target.resolve()) in str(
-            nexus.query_one("#nexus-target-workspace", Static).content
-        )
+        workspace_label = nexus.query_one("#nexus-target-workspace", Static)
+        assert str(target.resolve()) in str(workspace_label.content)
+        assert workspace_label.styles.height.value == 3
+        assert workspace_label.styles.content_align_vertical == "bottom"
 
         await pilot.click("#select-workspace")
         await pilot.pause()

@@ -629,7 +629,12 @@ class TrinityTextualApp(App[None]):
     }
 
     #request-execute {
-        width: 16;
+        width: 12;
+        margin-left: 1;
+    }
+
+    #select-workspace {
+        width: 20;
         margin-left: 1;
     }
 
@@ -3109,7 +3114,9 @@ class TrinityTextualApp(App[None]):
                 "Target",
                 f"Current target: `{current or '(not set)'}`",
                 empty=current is None,
-                action_hint="Use `/target <path>` or Choose now before execution.",
+                action_hint=(
+                    "Use `/target <path>` or Select Workspace before execution."
+                ),
             )
             return
         action = args[0].lower()

@@ -129,9 +129,14 @@ class NexusScreen(Screen[None]):
             with Horizontal(id="nexus-action-bar"):
                 yield Button("Open Provider Inspector", id="open-provider-inspector")
                 yield Button(
-                    self._primary_action_label(),
+                    "Execute",
                     id="request-execute",
                     variant="primary",
+                )
+                yield Button(
+                    "Select Workspace",
+                    id="select-workspace",
+                    variant="default",
                 )
             with Horizontal(id="nexus-main"):
                 with Vertical(id="nexus-center-stack"):
@@ -231,7 +236,6 @@ class NexusScreen(Screen[None]):
         self._refresh_central()
         self._refresh_questions()
         self._refresh_inspector()
-        self._refresh_primary_action()
         self._apply_activity_frame()
 
     def on_question_panel_question_answered(
@@ -291,6 +295,9 @@ class NexusScreen(Screen[None]):
         elif event.button.id == "request-execute":
             event.stop()
             self.action_request_execute()
+        elif event.button.id == "select-workspace":
+            event.stop()
+            self.action_request_workspace()
 
     def action_submit_follow_up(self) -> None:
         composer = self.query_one("#nexus-composer", PromptComposer)
@@ -300,22 +307,10 @@ class NexusScreen(Screen[None]):
         self.post_message(self.InspectorRequested(self.snapshot))
 
     def action_request_execute(self) -> None:
-        if not self._has_target_workspace():
-            self.post_message(self.WorkspaceRequested(self.snapshot))
-            return
         self.post_message(self.ExecuteRequested(self.snapshot))
 
-    def _refresh_primary_action(self) -> None:
-        matches = self.query("#request-execute")
-        if not matches:
-            return
-        matches.first(Button).label = self._primary_action_label()
-
-    def _primary_action_label(self) -> str:
-        return "Execute" if self._has_target_workspace() else "Choose now"
-
-    def _has_target_workspace(self) -> bool:
-        return bool(self.snapshot and self.snapshot.target_workspace.strip())
+    def action_request_workspace(self) -> None:
+        self.post_message(self.WorkspaceRequested(self.snapshot))
 
     def _submit_follow_up(self, text: str) -> None:
         cleaned = text.strip()

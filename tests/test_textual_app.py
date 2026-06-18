@@ -4042,7 +4042,7 @@ async def test_provider_inspector_truncates_large_raw_output(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_start_choose_now_opens_workspace_picker(tmp_path) -> None:
+async def test_start_select_workspace_opens_workspace_picker(tmp_path) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),
         FakeWorkflowController(),
@@ -4057,13 +4057,13 @@ async def test_start_choose_now_opens_workspace_picker(tmp_path) -> None:
         picker = app.screen
         assert picker.intent == "select"
         assert str(picker.query_one("#workspace-picker-title", Static).content) == (
-            "Choose Workspace"
+            "Select Workspace"
         )
         assert str(picker.query_one("#confirm-execute", Button).label) == "Use Workspace"
 
 
 @pytest.mark.asyncio
-async def test_start_choose_now_updates_workspace_candidate(tmp_path) -> None:
+async def test_start_select_workspace_updates_workspace_candidate(tmp_path) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),
         FakeWorkflowController(),
@@ -4085,7 +4085,9 @@ async def test_start_choose_now_updates_workspace_candidate(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_nexus_choose_now_selects_target_without_execution(tmp_path) -> None:
+async def test_nexus_select_workspace_cta_selects_target_without_execution(
+    tmp_path,
+) -> None:
     control_repo = tmp_path / "control"
     target = tmp_path / "target-app"
     control_repo.mkdir()
@@ -4105,9 +4107,15 @@ async def test_nexus_choose_now_selects_target_without_execution(tmp_path) -> No
 
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
-        assert str(nexus.query_one("#request-execute", Button).label) == "Choose now"
+        assert str(nexus.query_one("#open-provider-inspector", Button).label) == (
+            "Open Provider Inspector"
+        )
+        assert str(nexus.query_one("#request-execute", Button).label) == "Execute"
+        assert str(nexus.query_one("#select-workspace", Button).label) == (
+            "Select Workspace"
+        )
 
-        await pilot.click("#request-execute")
+        await pilot.click("#select-workspace")
         await pilot.pause()
 
         assert controller.execution_requests == 0
@@ -4115,7 +4123,7 @@ async def test_nexus_choose_now_selects_target_without_execution(tmp_path) -> No
         assert isinstance(picker, WorkspacePicker)
         assert picker.intent == "select"
         assert str(picker.query_one("#workspace-picker-title", Static).content) == (
-            "Choose Workspace"
+            "Select Workspace"
         )
 
         picker.action_confirm()
@@ -4126,6 +4134,9 @@ async def test_nexus_choose_now_selects_target_without_execution(tmp_path) -> No
         assert app.current_route == "nexus"
         nexus = app.get_screen("nexus", NexusScreen)
         assert str(nexus.query_one("#request-execute", Button).label) == "Execute"
+        assert str(nexus.query_one("#select-workspace", Button).label) == (
+            "Select Workspace"
+        )
 
 
 @pytest.mark.asyncio

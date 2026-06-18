@@ -213,7 +213,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         yield Footer()
 
     def _title(self) -> str:
-        return "Choose Workspace" if self.intent == "select" else "Execute Preflight"
+        return "Select Workspace" if self.intent == "select" else "Execute Preflight"
 
     def _confirm_label(self) -> str:
         return "Use Workspace" if self.intent == "select" else "Confirm Execute"

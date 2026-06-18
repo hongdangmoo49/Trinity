@@ -388,6 +388,30 @@ def test_textual_workflow_controller_passes_targeted_agents_to_orchestrator(
     assert call["agent_model_overrides"] == {"codex": "gpt-5"}
 
 
+def test_textual_workflow_controller_passes_target_workspace_to_deliberation(
+    tmp_path,
+) -> None:
+    CapturingOrchestrator.calls = []
+    config = TrinityConfig.default_config(project_dir=tmp_path / "control")
+    target = tmp_path / "msu"
+    target.mkdir(parents=True)
+    controller = TextualWorkflowController(
+        config,
+        orchestrator_factory=CapturingOrchestrator,
+        archive_active_session=False,
+    )
+
+    outcome = controller.start_prompt("프로젝트를 분석해라.", target_workspace=target)
+
+    assert outcome.running is True
+    assert controller.workflow.session.target_workspace == target.resolve()
+    assert controller.wait_until_idle(timeout=2.0)
+    assert CapturingOrchestrator.calls
+    call = CapturingOrchestrator.calls[-1]
+    assert call["target_workspace"] == target.resolve()
+    assert call["allow_control_repo_writes"] is False
+
+
 def test_textual_workflow_controller_preserves_targeted_agents_when_answering_question(
     tmp_path,
 ) -> None:

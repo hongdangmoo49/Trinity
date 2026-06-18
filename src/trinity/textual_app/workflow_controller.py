@@ -588,6 +588,10 @@ class TextualWorkflowController:
                 orchestrator = self.orchestrator_factory(
                     self.config,
                     interactive=use_tmux,
+                    target_workspace=self.workflow.session.target_workspace,
+                    allow_control_repo_writes=(
+                        self.workflow.session.control_repo_target_confirmed
+                    ),
                     provider_sessions=self.workflow.session.provider_sessions,
                     active_agent_names=tuple(target_agents),
                     agent_model_overrides=agent_model_overrides or {},

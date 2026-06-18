@@ -111,7 +111,11 @@ class StartScreen(Screen[None]):
                 )
                 with Horizontal(id="start-actions"):
                     yield Static(self._workspace_label(), id="workspace-candidate")
-                    yield Button("Choose now", id="choose-workspace", variant="default")
+                    yield Button(
+                        "Select Workspace",
+                        id="choose-workspace",
+                        variant="default",
+                    )
                     yield Button("Plan first", id="plan-first", variant="primary")
         yield Footer()
 

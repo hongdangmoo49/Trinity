@@ -629,8 +629,21 @@ class TrinityTextualApp(App[None]):
     }
 
     #request-execute {
-        width: 16;
+        width: 12;
         margin-left: 1;
+    }
+
+    #select-workspace {
+        width: 20;
+        margin-left: 1;
+    }
+
+    #nexus-target-workspace {
+        width: 1fr;
+        height: 3;
+        margin-left: 2;
+        content-align: left bottom;
+        color: $text-muted;
     }
 
     ProviderInspector {
@@ -1111,6 +1124,7 @@ class TrinityTextualApp(App[None]):
         self.install_screen(ReportScreen(), "report")
 
         self._screens_installed = True
+        self._sync_nexus_workspace_candidate()
 
     def _start_model_discovery(self) -> None:
         if self._model_discovery_started:
@@ -1179,11 +1193,13 @@ class TrinityTextualApp(App[None]):
     def on_start_screen_submitted(self, event: StartScreen.Submitted) -> None:
         event.stop()
         self.initial_prompt = event.prompt
-        self.workspace_candidate = event.workspace_candidate
+        if self.workspace_candidate is None:
+            self.workspace_candidate = event.workspace_candidate
         nexus = self.get_screen("nexus", NexusScreen)
         nexus.set_initial_prompt(event.prompt)
         nexus.set_agent_selection(event.target_agents, event.agent_model_overrides)
-        target_workspace = self._safe_start_target_workspace(event.workspace_candidate)
+        self._sync_nexus_workspace_candidate()
+        target_workspace = self._safe_start_target_workspace(self.workspace_candidate)
         start_kwargs = {
             "target_workspace": target_workspace,
             "target_agents": event.target_agents,
@@ -1392,6 +1408,7 @@ class TrinityTextualApp(App[None]):
         self.workspace_candidate = preflight.path
         start = self.get_screen("start", StartScreen)
         start.set_workspace_candidate(preflight.path)
+        self._sync_nexus_workspace_candidate()
 
     def _on_nexus_workspace_selected(
         self,
@@ -1447,6 +1464,7 @@ class TrinityTextualApp(App[None]):
             preflight.path,
             control_repo_confirmed=control_repo_confirmed,
         )
+        self._sync_nexus_workspace_candidate()
 
     def _safe_start_target_workspace(self, path: Path | None) -> Path | None:
         """Return a start-screen target that can be persisted without confirmation."""
@@ -1964,6 +1982,7 @@ class TrinityTextualApp(App[None]):
             or self.snapshot_adapter.load_snapshot()
         )
         if self.current_route == "nexus":
+            self._sync_nexus_workspace_candidate()
             self.get_screen("nexus", NexusScreen).apply_snapshot(snapshot)
         elif self.current_route == "execution" and self.confirmed_preflight is not None:
             self.get_screen("execution", ExecutionMatrixScreen).apply_execution_state(
@@ -3109,7 +3128,9 @@ class TrinityTextualApp(App[None]):
                 "Target",
                 f"Current target: `{current or '(not set)'}`",
                 empty=current is None,
-                action_hint="Use `/target <path>` or Choose now before execution.",
+                action_hint=(
+                    "Use `/target <path>` or Select Workspace before execution."
+                ),
             )
             return
         action = args[0].lower()
@@ -3197,6 +3218,8 @@ class TrinityTextualApp(App[None]):
                 or self.workflow_controller.snapshot()
                 or self.snapshot_adapter.load_snapshot(),
             )
+        self.workspace_candidate = resolved
+        self._sync_nexus_workspace_candidate()
         self._record_slash_command_result(
             "/target",
             "Target",
@@ -3213,6 +3236,13 @@ class TrinityTextualApp(App[None]):
                     "yes" if control_repo_confirmed else "no",
                 ),
             ),
+        )
+
+    def _sync_nexus_workspace_candidate(self) -> None:
+        if not self._screens_installed:
+            return
+        self.get_screen("nexus", NexusScreen).set_workspace_candidate(
+            self.workspace_candidate,
         )
 
     def _resolve_target_path(self, value: str) -> Path:

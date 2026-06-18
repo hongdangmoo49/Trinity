@@ -99,6 +99,30 @@ class TestInteractiveSession:
         MockOrch.assert_called_once()
         assert MockOrch.call_args.kwargs["interactive"] is False
 
+    def test_run_deliberation_passes_selected_target_workspace(self, session, tmp_path):
+        result = DeliberationResult(
+            user_prompt="test",
+            rounds_completed=1,
+            consensus=ConsensusResult(
+                reached=True,
+                agreement_count=1,
+                total_agents=1,
+                opinions={"claude": "yes"},
+                summary="Done.",
+            ),
+        )
+        target = tmp_path / "route-bot"
+        session.workflow.set_target_workspace(target)
+
+        with patch("trinity.orchestrator.TrinityOrchestrator") as MockOrch:
+            with patch.object(session, "_run_with_live", return_value=result):
+                session.workflow.start("test", ["claude"])
+                session._run_deliberation("test")
+
+        MockOrch.assert_called_once()
+        assert MockOrch.call_args.kwargs["target_workspace"] == target.resolve()
+        assert MockOrch.call_args.kwargs["allow_control_repo_writes"] is False
+
     def test_run_deliberation_uses_tmux_when_configured(self, session):
         session.config.transport_mode = "tmux"
         result = DeliberationResult(

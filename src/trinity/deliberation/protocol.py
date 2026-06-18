@@ -97,6 +97,7 @@ class DeliberationProtocol:
         lifecycle_guard: LifecycleGuard | None = None,
         rotation_callback: Callable[[str], object] | None = None,
         provider_retry_merge_context: dict[str, object] | None = None,
+        target_workspace: Path | None = None,
     ):
         self.agents = agents
         self.shared = shared
@@ -140,6 +141,7 @@ class DeliberationProtocol:
         self.lifecycle_guard = lifecycle_guard
         self._rotation_callback = rotation_callback
         self.provider_retry_merge_context = dict(provider_retry_merge_context or {})
+        self.target_workspace = target_workspace.resolve() if target_workspace else None
 
     def _emit(self, event_type: TUIEventType, **kwargs) -> None:
         """Emit a TUI event if callback is registered."""
@@ -270,6 +272,7 @@ class DeliberationProtocol:
                         if synthesis_result is not None
                         else ""
                     ),
+                    target_workspace=str(self.target_workspace or ""),
                     metadata=synthesis_input_metadata,
                 )
             )
@@ -1156,6 +1159,7 @@ class DeliberationProtocol:
 
         if round_num == 1:
             prompt = get_round_prompt("round1_prefix", self.lang, prompt=user_prompt)
+            prompt = self._append_target_workspace_context(prompt)
             return self._append_caveman(
                 self._append_structured_instructions(prompt, round_num)
             )
@@ -1184,15 +1188,32 @@ class DeliberationProtocol:
                 prev_context = "(previous round opinions not available)"
 
         round2_prefix = get_round_prompt("round2_plus_prefix", self.lang)
+        prompt = (
+            f"Previous round opinions:\n\n"
+            f"{prev_context}\n\n"
+            f"---\n\n"
+            f"{round2_prefix}"
+        )
+        prompt = self._append_target_workspace_context(prompt)
 
         return self._append_caveman(
-            self._append_structured_instructions(
-                f"Previous round opinions:\n\n"
-                f"{prev_context}\n\n"
-                f"---\n\n"
-                f"{round2_prefix}",
-                round_num,
-            )
+            self._append_structured_instructions(prompt, round_num)
+        )
+
+    def _append_target_workspace_context(self, prompt: str) -> str:
+        """Append selected target workspace context to provider round prompts."""
+        if self.target_workspace is None:
+            return prompt
+        return "\n\n".join(
+            [
+                prompt,
+                "Target Workspace Context:\n"
+                f"- Target workspace: {self.target_workspace}\n"
+                "- Scope project file references and implementation artifacts to "
+                "this workspace.\n"
+                "- The Trinity control repository is orchestration state unless "
+                "it was explicitly selected as the target workspace.",
+            ]
         )
 
     def _append_structured_instructions(self, prompt: str, round_num: int) -> str:

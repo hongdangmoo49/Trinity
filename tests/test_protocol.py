@@ -120,6 +120,23 @@ class TestBuildRoundPrompt:
         assert "What framework to use?" in prompt
         assert "initial opinion" in prompt.lower()
 
+    def test_round_prompt_includes_selected_target_workspace(self, tmp_path):
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        agents = {"claude": _make_mock_agent("claude")}
+        target = tmp_path / "route-bot"
+        protocol = DeliberationProtocol(
+            agents=agents,
+            shared=engine,
+            max_rounds=5,
+            target_workspace=target,
+        )
+
+        prompt = protocol._build_round_prompt(1, "Design route bot")
+
+        assert "Target Workspace Context" in prompt
+        assert str(target.resolve()) in prompt
+        assert "Design route bot" in prompt
+
     def test_round_2_prompt_includes_previous(self, tmp_path):
         engine = SharedContextEngine(path=tmp_path / "shared.md")
         agents = {"claude": _make_mock_agent("claude")}
@@ -687,12 +704,14 @@ VOTE: APPROVE
             return_value=_make_opinion("claude", 1, "I agree with the plan.")
         )
         synthesis_agent = RecordingSynthesisAgent()
+        target = tmp_path / "route-bot"
 
         protocol = DeliberationProtocol(
             agents=agents,
             shared=engine,
             max_rounds=3,
             synthesis_agent=synthesis_agent,
+            target_workspace=target,
         )
 
         result = await protocol.run("Design route bot")
@@ -703,6 +722,7 @@ VOTE: APPROVE
         assert synthesis_input.user_prompt == "Design route bot"
         assert synthesis_input.round_num == 1
         assert synthesis_input.opinions == {"claude": "I agree with the plan."}
+        assert synthesis_input.target_workspace == str(target.resolve())
         assert result.metadata["synthesis"]["source"] == "test-synthesis"
         synthesis_section = engine.read_section("Round 1 Synthesis")
         assert synthesis_section is not None

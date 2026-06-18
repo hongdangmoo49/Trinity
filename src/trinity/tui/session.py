@@ -1416,6 +1416,10 @@ class InteractiveSession:
             active_agent_names=selected_agents,
             agent_model_overrides=agent_model_overrides or {},
             provider_retry_merge_context=provider_retry_merge_context or {},
+            target_workspace=self.workflow.session.target_workspace,
+            allow_control_repo_writes=(
+                self.workflow.session.control_repo_target_confirmed
+            ),
         )
 
         # Reset TUI state for new deliberation

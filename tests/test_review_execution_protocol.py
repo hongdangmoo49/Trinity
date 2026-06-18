@@ -59,6 +59,7 @@ async def test_review_execution_protocol_reviews_work_package(tmp_path):
         shared=shared,
         artifact_dir=tmp_path / "reviews",
         event_callback=events.append,
+        target_workspace=tmp_path / "route-bot",
     )
 
     results = await protocol.review_work_packages(
@@ -103,6 +104,9 @@ async def test_review_execution_protocol_reviews_work_package(tmp_path):
     assert result.raw_response_path is not None
     assert result.raw_response_path.exists()
     assert agent.send_and_wait.call_args.kwargs["access"] == InvocationAccess.READ_ONLY
+    prompt = agent.send_and_wait.call_args.args[0]
+    assert "Target Workspace Context" in prompt
+    assert str((tmp_path / "route-bot").resolve()) in prompt
     assert [event.type for event in events] == [
         TUIEventType.REVIEW_START,
         TUIEventType.REVIEW_PACKAGE_QUEUED,
@@ -192,6 +196,7 @@ async def test_final_review_falls_back_from_codex_to_claude(tmp_path):
         agents={"codex": codex, "claude": claude},
         shared=shared,
         artifact_dir=tmp_path / "reviews",
+        target_workspace=tmp_path / "route-bot",
     )
 
     result = await protocol.review_final_execution(
@@ -222,3 +227,6 @@ async def test_final_review_falls_back_from_codex_to_claude(tmp_path):
     assert result.follow_up == ["uv run trinity"]
     codex.send_and_wait.assert_called_once()
     claude.send_and_wait.assert_called_once()
+    prompt = claude.send_and_wait.call_args.args[0]
+    assert "Target Workspace Context" in prompt
+    assert str((tmp_path / "route-bot").resolve()) in prompt

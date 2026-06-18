@@ -34,6 +34,7 @@ class SynthesisInput:
     previous_summary: str = ""
     open_questions: list[OpenQuestion] = field(default_factory=list)
     decisions: list[DecisionRecord] = field(default_factory=list)
+    target_workspace: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -322,6 +323,7 @@ class ModelBackedSynthesisAgent:
         payload = {
             "original_user_prompt": synthesis_input.user_prompt,
             "round_number": synthesis_input.round_num,
+            "target_workspace": synthesis_input.target_workspace or None,
             "previous_synthesis_summary": synthesis_input.previous_summary,
             "recorded_user_decisions": [
                 decision.to_dict() for decision in synthesis_input.decisions
@@ -347,6 +349,9 @@ class ModelBackedSynthesisAgent:
                 "packages should have no dependency.",
                 "Set expected_files to the narrowest relative files or directories "
                 "each package may write.",
+                "When target_workspace is present, treat relative file paths, "
+                "expected_files, and implementation artifact references as scoped "
+                "to that target workspace.",
                 "Use parallel_group as execution waves; lower groups are planned "
                 "before higher groups, but local policy can still serialize work.",
                 "Set parallelizable=false for shared config, global refactors, "

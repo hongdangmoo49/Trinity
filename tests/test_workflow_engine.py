@@ -763,6 +763,58 @@ def test_target_workspace_persists_with_session(tmp_path):
     assert loaded.session.target_workspace == target.resolve()
 
 
+def test_start_carries_idle_preselected_target_workspace_without_changing_prompt(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    target = tmp_path / "route-bot"
+    engine.set_target_workspace(target)
+
+    action = engine.start("Design route bot", ["claude"])
+
+    assert action.prompt == "Design route bot"
+    assert engine.session.goal == "Design route bot"
+    assert engine.session.target_workspace == target.resolve()
+
+
+def test_question_answer_continuation_includes_target_workspace(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design route bot", ["claude"])
+    target = tmp_path / "route-bot"
+    engine.set_target_workspace(target)
+    engine.add_open_question(
+        OpenQuestion(
+            id="q-001",
+            question="Optimize for cost or latency?",
+        )
+    )
+
+    action = engine.answer_question("q-001", "Use a mixed score.")
+
+    assert action.should_deliberate is True
+    assert "Target Workspace Context" in action.prompt
+    assert str(target.resolve()) in action.prompt
+    assert "Use a mixed score." in action.prompt
+
+
+def test_blueprint_followup_continuation_includes_target_workspace(tmp_path):
+    engine = WorkflowEngine(tmp_path / ".trinity")
+    engine.start("Design route bot", ["claude"])
+    target = tmp_path / "route-bot"
+    engine.set_target_workspace(target)
+    engine.session.blueprint = Blueprint(
+        title="Route Bot",
+        summary="Finds bridge routes.",
+        acceptance_criteria=["returns ranked paths"],
+    )
+    engine.set_state(WorkflowState.BLUEPRINT_READY, reason="test")
+
+    action = engine.continue_from_blueprint("Add a CLI summary.", ["claude"])
+
+    assert action.should_deliberate is True
+    assert "Target Workspace Context" in action.prompt
+    assert str(target.resolve()) in action.prompt
+    assert "Add a CLI summary." in action.prompt
+
+
 def test_mark_deliberation_result_waits_on_structured_question(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
     engine.start("Design", ["antigravity"])

@@ -247,6 +247,7 @@ class TrinityOrchestrator:
             lifecycle_guard=self.lifecycle_guard,
             rotation_callback=self._rotate_agent_for_lifecycle,
             provider_retry_merge_context=self.provider_retry_merge_context,
+            target_workspace=self.target_workspace,
         )
         self.execution_protocol = ExecutionProtocol(
             agents=self.agents,
@@ -270,6 +271,7 @@ class TrinityOrchestrator:
             artifact_dir=state_dir / "reviews",
             timeout=self.config.execution_timeout_seconds,
             event_callback=event_callback,
+            target_workspace=self.target_workspace,
         )
 
         # Create context monitor and session rotator

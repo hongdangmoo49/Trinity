@@ -305,9 +305,15 @@ class NexusSnapshotAdapter:
             return self._cached_snapshot
 
         session = self.persistence.load()
-        session_events = (
-            self.persistence.load_events_for_workflow(session.id) if session else []
-        )
+        session_event_total = 0
+        session_events: list[dict[str, object]] = []
+        if session:
+            session_event_slice = self.persistence.load_event_slice_for_workflow(
+                session.id,
+                tail=WORKFLOW_EVENT_DISPLAY_LIMIT,
+            )
+            session_events = session_event_slice.events
+            session_event_total = session_event_slice.total
         review_index = self._review_index(session, recent)
         provider_states = self._provider_states(session)
         self._fold_recent_events(provider_states, recent)
@@ -334,7 +340,11 @@ class NexusSnapshotAdapter:
             work_package_details=self._work_package_details(session, review_index),
             subtasks=self._subtasks(session),
             work_package_repairs=self._work_package_repairs(session),
-            workflow_events=self._workflow_events(session, session_events),
+            workflow_events=self._workflow_events(
+                session,
+                session_events,
+                total=session_event_total,
+            ),
             execution_log=self._execution_log(session, session_events),
             execution_recovery=self._execution_recovery(session, session_events),
             final_review=self._final_review(review_index),
@@ -1572,22 +1582,24 @@ class NexusSnapshotAdapter:
         self,
         session: WorkflowSession | None,
         session_events: Iterable[dict[str, object]] | None = None,
+        *,
+        total: int | None = None,
     ) -> list[str]:
         if session is None:
             return []
         session_events = list(session_events) if session_events is not None else (
             self.persistence.load_events_for_workflow(session.id)
         )
-        total = len(session_events)
+        total_count = len(session_events) if total is None else max(0, total)
         display_events = session_events[-WORKFLOW_EVENT_DISPLAY_LIMIT:]
         lines = [
             self._format_workflow_event(event)
             for event in display_events
         ]
-        if total > len(display_events):
+        if total_count > len(display_events):
             lines.insert(
                 0,
-                f"... {total - len(display_events)} older workflow events omitted",
+                f"... {total_count - len(display_events)} older workflow events omitted",
             )
         return lines
 

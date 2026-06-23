@@ -13,6 +13,7 @@ from trinity.providers.policy import (
     InvocationAccess,
     ParallelExecutionPolicy,
 )
+from trinity.routing.quality import QualityLedger
 from trinity.workflow.models import (
     ExecutionResult,
     PostReviewActionItem,
@@ -299,10 +300,121 @@ class WorkflowExecutionFlow:
             return
 
         for result in results:
-            self.engine._record_execution_result(result, emit_event=emit_events)
+            self.record_execution_result(result, emit_event=emit_events)
 
         if finalize:
-            self.engine._finalize_execution_state()
+            self.finalize_execution_state()
+
+    def record_execution_result(
+        self,
+        result: ExecutionResult,
+        *,
+        emit_event: bool,
+    ) -> None:
+        session = self.engine.session
+        package = self.engine._work_package_by_id(result.package_id)
+        if package:
+            package.status = result.status
+            package.current_executor = ""
+            package.last_executor = result.agent_name or package.last_executor
+            if (
+                result.status == WorkStatus.DONE
+                and package.origin == "post_review_followup"
+            ):
+                self.engine._post_review_flow().mark_items_done(
+                    package.origin_action_item_ids
+                )
+
+        existing_by_package = {item.package_id: item for item in session.execution_results}
+        existing_by_package[result.package_id] = result
+
+        for decision in result.decisions_made:
+            if not any(existing.id == decision.id for existing in session.decisions):
+                session.decisions.append(decision)
+        for subtask in result.subtasks:
+            self.engine._upsert_subtask_result(subtask)
+        self.record_execution_quality(result)
+
+        ordered_package_ids = [package.id for package in session.work_packages]
+        session.execution_results = [
+            existing_by_package[package_id]
+            for package_id in ordered_package_ids
+            if package_id in existing_by_package
+        ]
+        ordered_package_id_set = set(ordered_package_ids)
+        extras = [
+            result
+            for package_id, result in existing_by_package.items()
+            if package_id not in ordered_package_id_set
+        ]
+        session.execution_results.extend(extras)
+        session.updated_at = time.time()
+
+        if emit_event:
+            event_data: dict[str, object] = {
+                "package_id": result.package_id,
+                "agent": result.agent_name,
+                "status": result.status.value,
+            }
+            if result.attempt_chain:
+                event_data["attempt_chain"] = list(result.attempt_chain)
+            if result.raw_response_path:
+                event_data["raw_response_path"] = str(result.raw_response_path)
+            if session.quality_signals:
+                event_data["quality_signal"] = session.quality_signals[-1]
+            self.engine._persist(
+                "execution_result_recorded",
+                event_data,
+            )
+        else:
+            self.engine.save()
+
+    def finalize_execution_state(self) -> None:
+        session = self.engine.session
+        executable = [
+            package for package in session.work_packages if package.requires_execution
+        ]
+        if any(package.status == WorkStatus.FAILED for package in executable):
+            self.engine._finish_execution_run("failed")
+            self.engine.set_state(
+                WorkflowState.FAILED,
+                reason="work package execution failed",
+            )
+            return
+        if any(
+            package.status in {WorkStatus.BLOCKED, WorkStatus.WAITING_ON_DECISION}
+            for package in executable
+        ):
+            self.engine._finish_execution_run("blocked")
+            self.engine.set_state(
+                WorkflowState.NEEDS_USER_DECISION,
+                reason="work package execution is blocked",
+            )
+            return
+        if executable and all(
+            package.status in {WorkStatus.DONE, WorkStatus.NEEDS_REVIEW}
+            for package in executable
+        ):
+            self.engine._finish_execution_run("completed")
+            self.engine._plan_review_packages()
+            self.engine.set_state(
+                WorkflowState.REVIEWING,
+                reason="all work packages completed",
+            )
+            return
+        self.engine.set_state(
+            WorkflowState.EXECUTING,
+            reason="work package execution still in progress",
+        )
+
+    def record_execution_quality(self, result: ExecutionResult) -> None:
+        ledger = QualityLedger(self.engine.session.quality_signals)
+        signal = ledger.record_execution(result)
+        self.engine.session.quality_signals = ledger.to_dicts()
+        self.engine._persist(
+            "quality_signal_recorded",
+            signal.to_dict(),
+        )
 
 
 class WorkflowReviewFlow:
@@ -374,9 +486,9 @@ class WorkflowReviewFlow:
         if not review_results:
             return
         for result in review_results:
-            self.engine._record_review_result(result)
+            self.record_review_result(result)
         if finalize:
-            self.engine._finalize_review_state(review_results)
+            self.finalize_review_state(review_results)
 
     def prepare_review_repairs(
         self,
@@ -410,7 +522,7 @@ class WorkflowReviewFlow:
             )
             if package.repair_attempt_count >= max_attempts:
                 blocked.append(
-                    self.engine._block_review_repair(
+                    self.block_review_repair(
                         package,
                         result,
                         reason="max_attempts_exceeded",
@@ -425,7 +537,7 @@ class WorkflowReviewFlow:
                 continue
             if package.last_repair_signature == signature and package.repair_attempt_count > 0:
                 blocked.append(
-                    self.engine._block_review_repair(
+                    self.block_review_repair(
                         package,
                         result,
                         reason="duplicate_required_changes",
@@ -671,6 +783,144 @@ class WorkflowReviewFlow:
         session.execution_run = run
         session.updated_at = time.time()
         self.engine.set_state(WorkflowState.NEEDS_USER_DECISION, reason=reason)
+
+    def block_review_repair(
+        self,
+        package: WorkPackage,
+        result: ReviewResult,
+        *,
+        reason: str,
+        signature: str,
+        max_attempts: int,
+        required_changes: Iterable[str] | None = None,
+        review_package_ids: Iterable[str] | None = None,
+    ) -> dict[str, Any]:
+        previous_status = package.status.value
+        package.status = WorkStatus.BLOCKED
+        package.current_executor = ""
+        package.last_repair_signature = signature
+        package.last_repair_review_id = result.review_package_id
+        package.repair_blocked_reason = reason
+        package.repair_blocked_at = time.time()
+        payload = {
+            "package_id": package.id,
+            "previous_status": previous_status,
+            "reason": reason,
+            "review_package_id": result.review_package_id,
+            "review_package_ids": (
+                list(review_package_ids)
+                if review_package_ids is not None
+                else [result.review_package_id]
+            ),
+            "reviewer": result.reviewer_agent,
+            "target": result.target_agent,
+            "required_changes": (
+                list(required_changes)
+                if required_changes is not None
+                else list(result.required_changes)
+            ),
+            "repair_attempt_count": package.repair_attempt_count,
+            "max_attempts": max_attempts,
+            "repair_signature": signature,
+        }
+        self.engine._persist("work_package_repair_blocked", payload)
+        return payload
+
+    def record_review_result(self, result: ReviewResult) -> None:
+        session = self.engine.session
+        session.review_results.append(result.to_dict())
+        self.apply_review_result_to_package(result)
+        self.record_review_quality(result)
+        session.updated_at = time.time()
+        self.engine._persist(
+            "review_result_recorded",
+            {
+                "review_package_id": result.review_package_id,
+                "package_id": result.package_id,
+                "reviewer": result.reviewer_agent,
+                "target": result.target_agent,
+                "status": result.status.value,
+                "severity": result.severity,
+                "scope": result.scope,
+                "quality_signal": (
+                    session.quality_signals[-1] if session.quality_signals else {}
+                ),
+            },
+        )
+
+    def record_review_quality(self, result: ReviewResult) -> None:
+        ledger = QualityLedger(self.engine.session.quality_signals)
+        signal = ledger.record_review(result)
+        self.engine.session.quality_signals = ledger.to_dicts()
+        self.engine._persist(
+            "quality_signal_recorded",
+            signal.to_dict(),
+        )
+
+    def apply_review_result_to_package(self, result: ReviewResult) -> None:
+        if result.scope == "final" or result.package_id == FINAL_REVIEW_PACKAGE_ID:
+            return
+        package = self.engine._work_package_by_id(result.package_id)
+        if package is None:
+            return
+        if result.status == ReviewStatus.APPROVED:
+            if package.status == WorkStatus.NEEDS_REVIEW:
+                package.status = WorkStatus.DONE
+            return
+        if result.status == ReviewStatus.CHANGES_REQUESTED:
+            package.status = WorkStatus.NEEDS_REVIEW
+            for change in result.required_changes:
+                note = f"review {result.review_package_id}: {change}"
+                if note not in package.repair_notes:
+                    package.repair_notes.append(note)
+            return
+        if result.status == ReviewStatus.BLOCKED:
+            package.status = WorkStatus.BLOCKED
+            return
+        if result.status == ReviewStatus.FAILED:
+            package.status = WorkStatus.FAILED
+
+    def finalize_review_state(self, latest_results: list[ReviewResult]) -> None:
+        final_results = [
+            result
+            for result in latest_results
+            if result.scope == "final" or result.package_id == FINAL_REVIEW_PACKAGE_ID
+        ]
+        if final_results:
+            final = final_results[-1]
+            if final.status in {
+                ReviewStatus.APPROVED,
+                ReviewStatus.CHANGES_REQUESTED,
+            }:
+                self.engine.finalize_post_review(final)
+            elif final.status == ReviewStatus.BLOCKED:
+                self.engine.set_state(
+                    WorkflowState.NEEDS_USER_DECISION,
+                    reason="final review blocked",
+                )
+            else:
+                self.engine.set_state(WorkflowState.FAILED, reason="final review failed")
+            return
+
+        if any(result.status == ReviewStatus.FAILED for result in latest_results):
+            self.engine.set_state(
+                WorkflowState.FAILED,
+                reason="work package review failed",
+            )
+            return
+        if any(result.status == ReviewStatus.BLOCKED for result in latest_results):
+            self.engine.set_state(
+                WorkflowState.NEEDS_USER_DECISION,
+                reason="work package review blocked",
+            )
+            return
+        if any(result.status == ReviewStatus.CHANGES_REQUESTED for result in latest_results):
+            self.engine.set_state(
+                WorkflowState.REVIEWING,
+                reason="work package review requested changes",
+            )
+            return
+        self.engine.set_state(WorkflowState.REVIEWING, reason="work package review completed")
 
 
 class WorkflowPostReviewFlow:

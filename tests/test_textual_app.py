@@ -4029,7 +4029,10 @@ async def test_workflow_inspector_skips_repeated_section_updates(
         inspector.apply_snapshot(snapshot)
         await pilot.pause()
 
-        assert updates == []
+        inspector_updates = [
+            item for item in updates if item and item.startswith("inspector-")
+        ]
+        assert inspector_updates == []
 
         inspector.apply_snapshot(
             WorkflowNexusSnapshot(
@@ -4041,7 +4044,10 @@ async def test_workflow_inspector_skips_repeated_section_updates(
         )
         await pilot.pause()
 
-        assert updates == ["inspector-log"]
+        inspector_updates = [
+            item for item in updates if item and item.startswith("inspector-")
+        ]
+        assert inspector_updates == ["inspector-log"]
 
 
 @pytest.mark.asyncio

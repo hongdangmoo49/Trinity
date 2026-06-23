@@ -26,6 +26,14 @@ class WorkflowArchive:
     events_path: Path | None = None
 
 
+@dataclass(frozen=True)
+class WorkflowEventSlice:
+    """A bounded event view plus the total matching event count."""
+
+    events: list[dict[str, Any]]
+    total: int
+
+
 class WorkflowPersistence:
     """Serialize workflow sessions and append-only event logs."""
 
@@ -138,12 +146,26 @@ class WorkflowPersistence:
         event_names: Iterable[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Read events for one workflow, optionally filtered and tail-limited."""
+        return self.load_event_slice_for_workflow(
+            workflow_id,
+            tail=tail,
+            event_names=event_names,
+        ).events
+
+    def load_event_slice_for_workflow(
+        self,
+        workflow_id: str,
+        *,
+        tail: int | None = None,
+        event_names: Iterable[str] | None = None,
+    ) -> WorkflowEventSlice:
+        """Read a bounded event slice and keep the total matching count."""
         normalized_workflow_id = str(workflow_id).strip()
         if not normalized_workflow_id:
-            return []
+            return WorkflowEventSlice(events=[], total=0)
 
         names = {str(name) for name in event_names or ()}
-        indexed = self._load_indexed_events_for_workflow(
+        indexed = self._load_indexed_event_slice_for_workflow(
             normalized_workflow_id,
             tail=tail,
             event_names=names,
@@ -157,12 +179,13 @@ class WorkflowPersistence:
             if str(event.get("workflow_id", "")) == normalized_workflow_id
             and (not names or str(event.get("event", "")) in names)
         ]
+        total = len(events)
         if tail is None:
-            return events
+            return WorkflowEventSlice(events=events, total=total)
         limit = max(0, int(tail or 0))
         if limit == 0:
-            return []
-        return events[-limit:]
+            return WorkflowEventSlice(events=[], total=total)
+        return WorkflowEventSlice(events=events[-limit:], total=total)
 
     def last_event_for_workflow(self, workflow_id: str) -> dict[str, Any] | None:
         """Return the latest persisted event for one workflow."""
@@ -431,13 +454,13 @@ class WorkflowPersistence:
             fh.write(json.dumps(entry, ensure_ascii=False).encode("utf-8") + b"\n")
             return
 
-    def _load_indexed_events_for_workflow(
+    def _load_indexed_event_slice_for_workflow(
         self,
         workflow_id: str,
         *,
         tail: int | None,
         event_names: set[str],
-    ) -> list[dict[str, Any]] | None:
+    ) -> WorkflowEventSlice | None:
         index = self._load_event_index(rebuild=True)
         if index is None:
             return None
@@ -450,17 +473,18 @@ class WorkflowPersistence:
             if isinstance(item, dict)
             and (not event_names or str(item.get("event", "")) in event_names)
         ]
+        total = len(selected)
         if tail is not None:
             limit = max(0, int(tail or 0))
             if limit == 0:
-                return []
+                return WorkflowEventSlice(events=[], total=total)
             selected = selected[-limit:]
         if not selected:
-            return []
+            return WorkflowEventSlice(events=[], total=total)
         events = self._read_indexed_events(selected)
         if events is None:
             return None
-        return events
+        return WorkflowEventSlice(events=events, total=total)
 
     def _read_indexed_events(
         self,

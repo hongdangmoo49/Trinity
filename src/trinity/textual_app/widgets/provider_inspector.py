@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from textual.app import ComposeResult
 from textual.containers import Vertical
@@ -31,6 +32,7 @@ class ProviderInspector(ModalScreen[None]):
         super().__init__()
         self.providers = providers
         self.lang = lang
+        self._output_cache: dict[str, str] = {}
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
@@ -70,7 +72,12 @@ class ProviderInspector(ModalScreen[None]):
         return output
 
     def _provider_output(self, provider: ProviderSnapshot) -> str:
-        output = provider.raw_output or provider.summary or "No raw output captured yet."
+        output = (
+            provider.raw_output
+            or self._read_provider_output_path(provider.raw_output_path)
+            or provider.summary
+            or "No raw output captured yet."
+        )
         return self._format_output(output)
 
     def _provider_meta(self, provider: ProviderSnapshot) -> str:
@@ -138,6 +145,43 @@ class ProviderInspector(ModalScreen[None]):
             + "\n\n"
             + output[-MAX_DISPLAY_CHARS:]
         )
+
+    def _read_provider_output_path(self, raw_output_path: str) -> str:
+        path_text = raw_output_path.strip()
+        if not path_text:
+            return ""
+        cached = self._output_cache.get(path_text)
+        if cached is not None:
+            return cached
+        path = Path(path_text)
+        output = self._read_bounded_output(path)
+        self._output_cache[path_text] = output
+        return output
+
+    @staticmethod
+    def _read_bounded_output(path: Path) -> str:
+        try:
+            size = path.stat().st_size
+        except OSError:
+            return ""
+        if size <= MAX_DISPLAY_CHARS:
+            try:
+                return path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                return ""
+
+        marker = (
+            f"[truncated {size} bytes to last {MAX_DISPLAY_CHARS} display "
+            "characters; inspect the raw artifact for full output]"
+        )
+        tail_limit = max(0, MAX_DISPLAY_CHARS - len(marker) - 2)
+        try:
+            with path.open("rb") as fh:
+                fh.seek(max(0, size - tail_limit))
+                data = fh.read(tail_limit)
+        except OSError:
+            return ""
+        return marker + "\n\n" + data.decode("utf-8", errors="replace")
 
     @staticmethod
     def _strip_json_fence(text: str) -> str | None:

@@ -4156,6 +4156,65 @@ async def test_provider_inspector_truncates_large_raw_output(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_provider_inspector_reads_raw_output_path_lazily(tmp_path) -> None:
+    raw_path = tmp_path / "codex.raw.txt"
+    raw_path.write_text("raw artifact body", encoding="utf-8")
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.push_screen(
+            ProviderInspector(
+                [
+                    ProviderSnapshot(
+                        name="codex",
+                        provider="codex",
+                        enabled=True,
+                        status="Ready",
+                        summary="summary only",
+                        raw_output_path=str(raw_path),
+                    )
+                ]
+            )
+        )
+        await pilot.pause()
+
+        output = app.screen.query_one("#inspect-codex .provider-inspector-output", RichLog)
+        text = "\n".join(line.text for line in output.lines)
+        assert "raw artifact body" in text
+        assert "summary only" not in text
+
+
+@pytest.mark.asyncio
+async def test_provider_inspector_bounds_large_raw_output_path(tmp_path) -> None:
+    raw_path = tmp_path / "codex-large.raw.txt"
+    raw_path.write_text("head-" + ("x" * 59_990) + "-tail", encoding="utf-8")
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.push_screen(
+            ProviderInspector(
+                [
+                    ProviderSnapshot(
+                        name="codex",
+                        provider="codex",
+                        enabled=True,
+                        status="Ready",
+                        raw_output_path=str(raw_path),
+                    )
+                ]
+            )
+        )
+        await pilot.pause()
+
+        output = app.screen.query_one("#inspect-codex .provider-inspector-output", RichLog)
+        text = "\n".join(line.text for line in output.lines)
+        assert "[truncated" in text
+        assert "head-" not in text
+        assert "-tail" in text
+        assert len(text) <= 51_000
+
+
+@pytest.mark.asyncio
 async def test_start_select_workspace_opens_workspace_picker(tmp_path) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),

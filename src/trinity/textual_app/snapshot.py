@@ -39,6 +39,7 @@ class ProviderSnapshot:
     readiness: str = "unknown"
     readiness_reason: str = ""
     raw_output: str = ""
+    raw_output_path: str = ""
     configured_model: str = ""
     actual_model: str = ""
     model_label: str = ""
@@ -414,14 +415,48 @@ class NexusSnapshotAdapter:
         )
 
     @staticmethod
-    def _recent_events_cache_key(events: list[TUIEvent]) -> tuple[tuple[str, str], ...]:
-        return tuple(
-            (
-                event.type.value,
-                json.dumps(event.data, ensure_ascii=False, sort_keys=True, default=str),
-            )
-            for event in events
+    def _recent_events_cache_key(events: list[TUIEvent]) -> tuple[tuple[str, ...], ...]:
+        return tuple(NexusSnapshotAdapter._recent_event_cache_item(event) for event in events)
+
+    @staticmethod
+    def _recent_event_cache_item(event: TUIEvent) -> tuple[str, ...]:
+        data = event.data
+        fields = (
+            "agent",
+            "package_id",
+            "review_package_id",
+            "reviewer_agent",
+            "target_agent",
+            "status",
+            "response_status",
+            "state",
+            "round_num",
+            "occurred_at",
+            "request_id",
+            "reason",
+            "readiness_reason",
+            "scope",
         )
+        values = [event.type.value]
+        values.extend(str(data.get(field, "")) for field in fields)
+        metadata = data.get("metadata", {})
+        if isinstance(metadata, dict):
+            values.append(str(metadata.get("response_status", "")))
+            values.append(str(metadata.get("output_contract", "")))
+        else:
+            values.extend(("", ""))
+        for field in ("content", "error", "summary"):
+            text = data.get(field)
+            if text:
+                values.append(
+                    hashlib.blake2b(
+                        str(text).encode("utf-8", errors="replace"),
+                        digest_size=8,
+                    ).hexdigest()
+                )
+            else:
+                values.append("")
+        return tuple(values)
 
     def _work_package_details(
         self,
@@ -1271,15 +1306,16 @@ class NexusSnapshotAdapter:
             artifact = artifacts.get(name)
             summary = ""
             raw_output = ""
+            raw_output_path = ""
             response_status = ""
             status = "Queued" if enabled else "Disabled"
             if enabled and not targeted:
                 status = "Idle"
             elif enabled and artifact is not None:
-                clean_output = self._read_artifact_text(artifact[0])
-                raw_output = self._read_artifact_text(artifact[1]) or clean_output
+                clean_output = self._read_artifact_text(artifact[0], limit=8_000)
+                raw_output_path = str(artifact[1] or artifact[0])
                 response_status = artifact[2]
-                summary = self._short_summary(clean_output or raw_output)
+                summary = self._short_summary(clean_output)
                 status = "Error" if self._is_non_ok_response_status(response_status) else "Ready"
             elif enabled and session and session.state.value == "deliberating":
                 status = "Running"
@@ -1311,6 +1347,7 @@ class NexusSnapshotAdapter:
                 summary=summary,
                 response_status=response_status,
                 raw_output=raw_output,
+                raw_output_path=raw_output_path,
                 configured_model=configured_model,
                 actual_model=actual_model,
                 model_label=model_label,
@@ -1888,6 +1925,7 @@ class NexusSnapshotAdapter:
             "readiness": snapshot.readiness,
             "readiness_reason": snapshot.readiness_reason,
             "raw_output": snapshot.raw_output,
+            "raw_output_path": snapshot.raw_output_path,
             "configured_model": snapshot.configured_model,
             "actual_model": snapshot.actual_model,
             "model_label": snapshot.model_label,

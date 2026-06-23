@@ -13,10 +13,7 @@ from uuid import uuid4
 
 from trinity.models import (
     AgentSpec,
-    ConsensusResult,
     DeliberationResult,
-    TaskAssignment,
-    TaskIntent,
 )
 from trinity.providers.policy import (
     ExecutionAuthority,
@@ -47,6 +44,18 @@ from trinity.workflow.models import (
     WorkflowState,
 )
 from trinity.workflow.persistence import WorkflowPersistence
+import trinity.workflow.provider_error_gate as provider_error_gate
+from trinity.workflow.provider_error_gate import (
+    PROVIDER_ERROR_CONTINUE_OPTION,
+    PROVIDER_ERROR_GATE_QUESTION_ID,
+    PROVIDER_ERROR_RETRY_OPTION,
+    PROVIDER_ERROR_STOP_OPTION,
+)
+from trinity.workflow.recovery_flow import (
+    ExecutionRecoveryFlow,
+    ExecutionRetryPlan,
+    RetrySkip,
+)
 from trinity.workflow.review import (
     FINAL_REVIEW_PACKAGE_ID,
     ReviewPackage,
@@ -74,32 +83,6 @@ class WorkflowInputAction:
     execution_requested: bool = False
     target_workspace_required: bool = False
     message: str = ""
-
-
-@dataclass(frozen=True)
-class RetrySkip:
-    """A work package omitted from an execution retry plan."""
-
-    package_id: str
-    status: str
-    reason: str
-
-
-@dataclass(frozen=True)
-class ExecutionRetryPlan:
-    """Preview of the work packages that an execution retry will restart."""
-
-    selector: str
-    requested: tuple[str, ...]
-    selected: tuple[str, ...]
-    skipped: tuple[RetrySkip, ...]
-    target_workspace: Path | None
-
-
-PROVIDER_ERROR_GATE_QUESTION_ID = "q-provider-error-retry"
-PROVIDER_ERROR_RETRY_OPTION = "Retry failed providers"
-PROVIDER_ERROR_CONTINUE_OPTION = "Continue without failed providers"
-PROVIDER_ERROR_STOP_OPTION = "Stop workflow"
 
 
 class WorkflowEngine:
@@ -205,6 +188,14 @@ class WorkflowEngine:
     def has_interrupted_execution(self) -> bool:
         """Return whether the persisted execution run needs recovery."""
         return self.execution_recovery_summary() is not None
+
+    def _execution_recovery_flow(self) -> ExecutionRecoveryFlow:
+        return ExecutionRecoveryFlow(
+            session=self.session,
+            persistence=self.persistence,
+            persist=self._persist,
+            set_state=self.set_state,
+        )
 
     @staticmethod
     def _effective_target_agents(
@@ -802,70 +793,29 @@ class WorkflowEngine:
             self.set_state(WorkflowState.FAILED, reason="deliberation ended without consensus")
 
     def _should_open_provider_error_gate(self, result: DeliberationResult) -> bool:
-        if result.metadata.get("provider_error_gate_bypassed") is True:
-            return False
-        failures = self._retryable_provider_failures(result)
-        if not failures:
-            return False
-        return bool(result.has_consensus or failures)
+        return provider_error_gate.should_open_provider_error_gate(result)
 
     def _open_provider_error_gate(self, result: DeliberationResult) -> None:
-        failures = self._retryable_provider_failures(result)
-        failed_agents = self._failure_agents(failures)
-        successful_opinions = self._provider_successful_opinions(result)
-        can_continue = bool(
-            self._has_provider_error_gate_preview_consensus(result)
-            and self._usable_consensus_agent_count(result) > 0
-        )
-        if can_continue and len(failed_agents) >= len(set(self.session.active_agents)):
-            can_continue = False
-
-        options = [PROVIDER_ERROR_RETRY_OPTION]
-        if can_continue:
-            options.append(PROVIDER_ERROR_CONTINUE_OPTION)
-        options.append(PROVIDER_ERROR_STOP_OPTION)
-
-        question = OpenQuestion(
-            id=PROVIDER_ERROR_GATE_QUESTION_ID,
-            question=(
-                "One or more providers returned errors before central synthesis. "
-                "Retry the failed providers, continue without them, or stop?"
-            ),
-            options=options,
-            recommended_option=PROVIDER_ERROR_RETRY_OPTION,
-            raised_by=failed_agents,
-            rationale=self._provider_error_gate_rationale(failures),
-            metadata={
-                "kind": "provider_error_gate",
-                "failed_agents": failed_agents,
-                "successful_agents": list(successful_opinions.keys()),
-                "can_continue": can_continue,
-            },
+        plan = provider_error_gate.build_provider_error_gate_plan(
+            result,
+            active_agents=self.session.active_agents,
+            created_at=time.time(),
         )
         self.session.pending_questions = [
             item
             for item in self.session.pending_questions
             if item.id != PROVIDER_ERROR_GATE_QUESTION_ID
         ]
-        self.session.pending_questions.append(question)
-        self.session.provider_error_gate = {
-            "state": "waiting",
-            "question_id": question.id,
-            "failures": failures,
-            "failed_agents": failed_agents,
-            "successful_opinions": successful_opinions,
-            "can_continue": can_continue,
-            "result": self._deliberation_result_to_dict(result),
-            "created_at": time.time(),
-        }
+        self.session.pending_questions.append(plan.question)
+        self.session.provider_error_gate = dict(plan.gate)
         self.session.updated_at = time.time()
         self._persist(
             "provider_error_gate_opened",
             {
-                "question_id": question.id,
-                "failed_agents": failed_agents,
-                "can_continue": can_continue,
-                "failures": failures,
+                "question_id": plan.question.id,
+                "failed_agents": plan.failed_agents,
+                "can_continue": plan.can_continue,
+                "failures": plan.failures,
             },
         )
         self.set_state(
@@ -880,7 +830,7 @@ class WorkflowEngine:
         *,
         replaced_decision: bool,
     ) -> WorkflowInputAction:
-        choice = self._provider_error_gate_choice(answer)
+        choice = provider_error_gate.provider_error_gate_choice(answer)
         gate = dict(self.session.provider_error_gate)
         failed_agents = tuple(
             str(agent)
@@ -900,7 +850,7 @@ class WorkflowEngine:
                     replaced_decision=replaced_decision,
                     message="Continue is not available because no usable consensus exists.",
                 )
-            result = self._deliberation_result_from_dict(
+            result = provider_error_gate.deliberation_result_from_dict(
                 gate.get("result", {})
                 if isinstance(gate.get("result", {}), dict)
                 else {}
@@ -948,14 +898,14 @@ class WorkflowEngine:
         )
         return WorkflowInputAction(
             should_deliberate=True,
-            prompt=self._provider_error_retry_prompt(gate),
+            prompt=provider_error_gate.provider_error_retry_prompt(gate),
             target_agents=failed_agents,
             agent_model_overrides=self._normalized_model_overrides(
                 self.session.agent_model_overrides,
                 failed_agents,
             ),
             agent_selection_mode="targeted",
-            provider_retry_merge_context=self._provider_error_retry_context(gate),
+            provider_retry_merge_context=provider_error_gate.provider_error_retry_context(gate),
             decision_record=decision,
             replaced_decision=replaced_decision,
             message="Retrying failed providers.",
@@ -963,215 +913,51 @@ class WorkflowEngine:
 
     @staticmethod
     def _is_provider_error_gate_question(question: OpenQuestion) -> bool:
-        return (
-            question.id == PROVIDER_ERROR_GATE_QUESTION_ID
-            or question.metadata.get("kind") == "provider_error_gate"
-        )
+        return provider_error_gate.is_provider_error_gate_question(question)
 
     @staticmethod
     def _provider_error_gate_choice(answer: str) -> str:
-        normalized = answer.strip().lower()
-        if normalized in {"2", "continue", "continue without failed providers"}:
-            return "continue"
-        if normalized in {"3", "stop", "stop workflow", "abort"}:
-            return "stop"
-        if "continue" in normalized:
-            return "continue"
-        if "stop" in normalized or "abort" in normalized:
-            return "stop"
-        return "retry"
+        return provider_error_gate.provider_error_gate_choice(answer)
 
     @staticmethod
     def _provider_error_retry_prompt(gate: dict[str, Any]) -> str:
-        failures = gate.get("failures", [])
-        failed_agents = ", ".join(str(agent) for agent in gate.get("failed_agents", []))
-        successful_agents = ", ".join(
-            str(agent) for agent in gate.get("successful_opinions", {})
-        )
-        reason_lines = []
-        if isinstance(failures, list):
-            for failure in failures:
-                if not isinstance(failure, dict):
-                    continue
-                agent = str(failure.get("agent", "") or "provider")
-                status = str(failure.get("status", "") or "unknown")
-                reason_lines.append(f"- {agent}: {status}")
-        result = gate.get("result", {}) if isinstance(gate.get("result", {}), dict) else {}
-        original_prompt = str(result.get("user_prompt", "") or "the previous request")
-        return (
-            "Retry the failed provider response for the previous Trinity request.\n\n"
-            f"Failed providers: {failed_agents or '(unknown)'}\n"
-            f"Previously successful providers preserved by Trinity: "
-            f"{successful_agents or '(none)'}\n"
-            + "\n".join(reason_lines)
-            + "\n\nOriginal request:\n"
-            + original_prompt
-        )
+        return provider_error_gate.provider_error_retry_prompt(gate)
 
     @staticmethod
     def _provider_error_retry_context(gate: dict[str, Any]) -> dict[str, Any]:
-        successful = gate.get("successful_opinions", {})
-        result = gate.get("result", {}) if isinstance(gate.get("result", {}), dict) else {}
-        return {
-            "successful_opinions": (
-                {
-                    str(agent).strip(): str(opinion)
-                    for agent, opinion in successful.items()
-                    if str(agent).strip() and str(opinion).strip()
-                }
-                if isinstance(successful, dict)
-                else {}
-            ),
-            "retry_agents": [
-                str(agent).strip()
-                for agent in gate.get("failed_agents", [])
-                if str(agent).strip()
-            ],
-            "original_prompt": str(
-                result.get("user_prompt")
-                or gate.get("original_prompt")
-                or ""
-            ),
-            "source_question_id": str(gate.get("question_id", "")),
-        }
+        return provider_error_gate.provider_error_retry_context(gate)
 
     @staticmethod
     def _retryable_provider_failures(result: DeliberationResult) -> list[dict[str, object]]:
-        failures = result.metadata.get("provider_failures", [])
-        if not isinstance(failures, list):
-            return []
-        return [
-            dict(item)
-            for item in failures
-            if isinstance(item, dict) and bool(item.get("retryable", False))
-        ]
+        return provider_error_gate.retryable_provider_failures(result)
 
     @staticmethod
     def _provider_successful_opinions(result: DeliberationResult) -> dict[str, str]:
-        opinions = result.metadata.get("provider_successful_opinions", {})
-        if isinstance(opinions, dict):
-            normalized = {
-                str(agent).strip(): str(opinion)
-                for agent, opinion in opinions.items()
-                if str(agent).strip() and str(opinion).strip()
-            }
-            if normalized:
-                return normalized
-        if result.consensus is None:
-            return {}
-        return {
-            str(agent).strip(): str(opinion)
-            for agent, opinion in result.consensus.opinions.items()
-            if str(agent).strip() and str(opinion).strip()
-        }
+        return provider_error_gate.provider_successful_opinions(result)
 
     @staticmethod
     def _failure_agents(failures: list[dict[str, object]]) -> list[str]:
-        seen: set[str] = set()
-        agents: list[str] = []
-        for failure in failures:
-            agent = str(failure.get("agent", "") or "").strip()
-            if agent and agent not in seen:
-                agents.append(agent)
-                seen.add(agent)
-        return agents
+        return provider_error_gate.failure_agents(failures)
 
     @staticmethod
     def _usable_consensus_agent_count(result: DeliberationResult) -> int:
-        if result.consensus is None:
-            return 0
-        return len(result.consensus.opinions)
+        return provider_error_gate.usable_consensus_agent_count(result)
 
     @staticmethod
     def _has_provider_error_gate_preview_consensus(result: DeliberationResult) -> bool:
-        return result.consensus is not None and result.consensus.reached
+        return provider_error_gate.has_provider_error_gate_preview_consensus(result)
 
     @staticmethod
     def _provider_error_gate_rationale(failures: list[dict[str, object]]) -> str:
-        lines = []
-        for failure in failures:
-            agent = str(failure.get("agent", "") or "provider")
-            status = str(failure.get("status", "") or "unknown")
-            classification = str(failure.get("classification", "") or status)
-            lines.append(f"{agent}: {status} ({classification})")
-        return "; ".join(lines)
+        return provider_error_gate.provider_error_gate_rationale(failures)
 
     @staticmethod
     def _deliberation_result_to_dict(result: DeliberationResult) -> dict[str, Any]:
-        consensus = None
-        if result.consensus is not None:
-            consensus = {
-                "reached": result.consensus.reached,
-                "agreement_count": result.consensus.agreement_count,
-                "total_agents": result.consensus.total_agents,
-                "opinions": dict(result.consensus.opinions),
-                "summary": result.consensus.summary,
-            }
-        return {
-            "user_prompt": result.user_prompt,
-            "rounds_completed": result.rounds_completed,
-            "consensus": consensus,
-            "tasks": [
-                {
-                    "agent_name": task.agent_name,
-                    "task_description": task.task_description,
-                    "priority": task.priority,
-                    "intent": task.intent.value,
-                    "requires_execution": task.requires_execution,
-                }
-                for task in result.tasks
-            ],
-            "total_tokens_used": result.total_tokens_used,
-            "duration_seconds": result.duration_seconds,
-            "metadata": dict(result.metadata),
-        }
+        return provider_error_gate.deliberation_result_to_dict(result)
 
     @staticmethod
     def _deliberation_result_from_dict(data: dict[str, Any]) -> DeliberationResult:
-        consensus_data = data.get("consensus", {})
-        consensus = None
-        if isinstance(consensus_data, dict):
-            opinions = consensus_data.get("opinions", {})
-            consensus = ConsensusResult(
-                reached=bool(consensus_data.get("reached", False)),
-                agreement_count=int(consensus_data.get("agreement_count", 0)),
-                total_agents=int(consensus_data.get("total_agents", 0)),
-                opinions={
-                    str(key): str(value)
-                    for key, value in (
-                        opinions.items() if isinstance(opinions, dict) else []
-                    )
-                },
-                summary=str(consensus_data.get("summary", "")),
-            )
-        tasks: list[TaskAssignment] = []
-        for item in data.get("tasks", []):
-            if not isinstance(item, dict):
-                continue
-            intent_value = str(item.get("intent", TaskIntent.PLAN.value))
-            try:
-                intent = TaskIntent(intent_value)
-            except ValueError:
-                intent = TaskIntent.PLAN
-            tasks.append(
-                TaskAssignment(
-                    agent_name=str(item.get("agent_name", "")),
-                    task_description=str(item.get("task_description", "")),
-                    priority=int(item.get("priority", 0)),
-                    intent=intent,
-                    requires_execution=bool(item.get("requires_execution", False)),
-                )
-            )
-        metadata = data.get("metadata", {})
-        return DeliberationResult(
-            user_prompt=str(data.get("user_prompt", "")),
-            rounds_completed=int(data.get("rounds_completed", 0)),
-            consensus=consensus,
-            tasks=tasks,
-            total_tokens_used=int(data.get("total_tokens_used", 0)),
-            duration_seconds=float(data.get("duration_seconds", 0.0)),
-            metadata=dict(metadata) if isinstance(metadata, dict) else {},
-        )
+        return provider_error_gate.deliberation_result_from_dict(data)
 
     def _record_central_conversation(
         self,
@@ -2576,86 +2362,14 @@ class WorkflowEngine:
         reason: str = "process_lost",
     ) -> dict[str, Any] | None:
         """Mark and return stale execution recovery metadata."""
-        if worker_running:
-            return None
-        if self.session.state != WorkflowState.EXECUTING:
-            return None
-        run = self.session.execution_run
-        run_state = str(run.get("state", "")) if isinstance(run, dict) else ""
-        running_packages = self._packages_with_status(WorkStatus.RUNNING)
-        if run_state == "completed":
-            return None
-        if run_state not in {"running", "interrupted"} and not running_packages:
-            return None
-        if run_state != "interrupted":
-            now = time.time()
-            run = dict(run) if isinstance(run, dict) else {}
-            run.setdefault("run_id", f"exec-run-{uuid4().hex[:12]}")
-            run.setdefault("target_workspace", str(self.session.target_workspace or ""))
-            run["state"] = "interrupted"
-            run["interrupted_reason"] = reason
-            run["interrupted_at"] = now
-            run["running_packages"] = [package.id for package in running_packages]
-            self.session.execution_run = run
-            self.session.updated_at = now
-            summary = self.execution_recovery_summary()
-            self._persist(
-                "execution_interrupted_detected",
-                {
-                    "run_id": run.get("run_id", ""),
-                    "running_packages": run.get("running_packages", []),
-                    "last_event_at": summary.get("last_event_at") if summary else None,
-                    "reason": reason,
-                },
-                timestamp=now,
-            )
-            return summary
-        return self.execution_recovery_summary()
+        return self._execution_recovery_flow().detect_interrupted_execution(
+            worker_running=worker_running,
+            reason=reason,
+        )
 
     def execution_recovery_summary(self) -> dict[str, Any] | None:
         """Return a serializable execution recovery summary when applicable."""
-        run = self.session.execution_run
-        if not isinstance(run, dict) or not run:
-            return None
-        run_state = str(run.get("state", "") or "")
-        if run_state not in {
-            "running",
-            "interrupted",
-            "aborted",
-            "failed",
-            "repair_blocked",
-        }:
-            return None
-        running_packages = self._packages_with_status(WorkStatus.RUNNING)
-        if run_state == "running" and self.session.state != WorkflowState.EXECUTING:
-            return None
-        retry_candidates = [
-            package.id
-            for package in self.session.work_packages
-            if package.requires_execution
-            and package.status in {WorkStatus.RUNNING, WorkStatus.BLOCKED, WorkStatus.FAILED}
-        ]
-        done_packages = [
-            package.id
-            for package in self.session.work_packages
-            if package.requires_execution and package.status == WorkStatus.DONE
-        ]
-        last_event = self._last_workflow_event()
-        return {
-            "run_id": str(run.get("run_id", "")),
-            "state": run_state,
-            "target_workspace": str(
-                run.get("target_workspace") or self.session.target_workspace or ""
-            ),
-            "started_at": run.get("started_at"),
-            "heartbeat_at": run.get("heartbeat_at"),
-            "interrupted_reason": str(run.get("interrupted_reason", "") or ""),
-            "running_packages": [package.id for package in running_packages],
-            "done_packages": done_packages,
-            "retry_candidates": retry_candidates,
-            "last_event_at": last_event.get("timestamp") if last_event else None,
-            "last_event": str(last_event.get("event", "")) if last_event else "",
-        }
+        return self._execution_recovery_flow().execution_recovery_summary()
 
     def build_execution_retry_plan(
         self,
@@ -2663,50 +2377,9 @@ class WorkflowEngine:
         package_ids: Iterable[str] = (),
     ) -> ExecutionRetryPlan:
         """Build a non-destructive retry plan for failed/blocked/stale packages."""
-        normalized_selector = self._normalize_execution_retry_selector(selector, package_ids)
-        requested = tuple(
-            str(package_id).strip() for package_id in package_ids if str(package_id).strip()
-        )
-        summary = self.execution_recovery_summary()
-        interrupted_ids = {
-            str(package_id)
-            for package_id in ((summary or {}).get("running_packages", []) if summary else [])
-        }
-
-        selected: list[str] = []
-        skipped: list[RetrySkip] = []
-        if normalized_selector == "custom":
-            for package_id in requested:
-                package = self._work_package_by_id(package_id)
-                if package is None:
-                    skipped.append(RetrySkip(package_id, "missing", "package not found"))
-                    continue
-                reason = self._execution_retry_disabled_reason(package, interrupted_ids)
-                if reason:
-                    skipped.append(RetrySkip(package.id, package.status.value, reason))
-                    continue
-                if package.id not in selected:
-                    selected.append(package.id)
-        else:
-            for package in self.session.work_packages:
-                if not self._matches_execution_retry_selector(
-                    package,
-                    normalized_selector,
-                    interrupted_ids,
-                ):
-                    continue
-                reason = self._execution_retry_disabled_reason(package, interrupted_ids)
-                if reason:
-                    skipped.append(RetrySkip(package.id, package.status.value, reason))
-                    continue
-                selected.append(package.id)
-
-        return ExecutionRetryPlan(
-            selector=normalized_selector,
-            requested=requested,
-            selected=tuple(selected),
-            skipped=tuple(skipped),
-            target_workspace=self.session.target_workspace,
+        return self._execution_recovery_flow().build_execution_retry_plan(
+            selector=selector,
+            package_ids=package_ids,
         )
 
     def prepare_execution_retry(
@@ -2715,115 +2388,34 @@ class WorkflowEngine:
         package_ids: Iterable[str] = (),
     ) -> ExecutionRetryPlan:
         """Mark selected retry packages pending without deleting prior results."""
-        self.detect_interrupted_execution(worker_running=False)
-        plan = self.build_execution_retry_plan(selector=selector, package_ids=package_ids)
-        candidates = set(plan.selected)
-        if not candidates:
-            return plan
-
-        summary = self.execution_recovery_summary()
-        stale_running_ids = {
-            str(package_id)
-            for package_id in ((summary or {}).get("running_packages", []) if summary else [])
-        }
-        for package in self.session.work_packages:
-            if package.id in candidates:
-                previous_status = package.status.value
-                package.status = WorkStatus.PENDING
-                package.current_executor = ""
-                package.repair_blocked_reason = ""
-                package.repair_blocked_at = 0.0
-                self._persist(
-                    "work_package_retry_requested",
-                    {
-                        "package_id": package.id,
-                        "previous_status": previous_status,
-                        "agent": package.owner_agent,
-                        "selector": plan.selector,
-                    },
-                )
-                continue
-            if package.id in stale_running_ids and package.status == WorkStatus.RUNNING:
-                previous_status = package.status.value
-                package.status = WorkStatus.BLOCKED
-                package.current_executor = ""
-                self._persist(
-                    "work_package_retry_skipped",
-                    {
-                        "package_id": package.id,
-                        "previous_status": previous_status,
-                        "status": package.status.value,
-                        "reason": "stale running package was not selected",
-                    },
-                )
-
-        run = dict(self.session.execution_run) if isinstance(self.session.execution_run, dict) else {}
-        run.setdefault("run_id", f"exec-run-{uuid4().hex[:12]}")
-        run.setdefault("target_workspace", str(self.session.target_workspace or ""))
-        run["state"] = "retry_requested"
-        run["retry_requested_at"] = time.time()
-        run["retry_selector"] = plan.selector
-        run["retry_packages"] = list(plan.selected)
-        self.session.execution_run = run
-        self.session.updated_at = time.time()
-        self._persist(
-            "execution_recovery_action",
-            {
-                "action": "retry",
-                "selector": plan.selector,
-                "packages": list(plan.selected),
-                "target_workspace": str(self.session.target_workspace or ""),
-            },
+        return self._execution_recovery_flow().prepare_execution_retry(
+            selector=selector,
+            package_ids=package_ids,
         )
-        self.set_state(
-            WorkflowState.BLUEPRINT_READY,
-            reason="work packages queued for retry",
-        )
-        return plan
 
     def retry_interrupted_execution(self) -> dict[str, Any] | None:
         """Prepare interrupted/failed packages for explicit user retry."""
-        summary = self.detect_interrupted_execution(worker_running=False)
-        if summary is None:
-            summary = self.execution_recovery_summary()
-        if summary is None:
-            return None
-        if summary.get("retry_candidates"):
-            self.prepare_execution_retry("all")
-        return summary
+        return self._execution_recovery_flow().retry_interrupted_execution()
 
     @staticmethod
     def _normalize_execution_retry_selector(
         selector: str,
         package_ids: Iterable[str],
     ) -> str:
-        normalized = selector.strip().lower() or "all"
-        if normalized in {"all", "failed", "blocked", "interrupted", "custom"}:
-            return normalized
-        if any(str(package_id).strip() for package_id in package_ids):
-            return "custom"
-        return "custom"
+        return ExecutionRecoveryFlow.normalize_execution_retry_selector(
+            selector,
+            package_ids,
+        )
 
     @staticmethod
     def _execution_retry_disabled_reason(
         package: WorkPackage,
         interrupted_ids: set[str],
     ) -> str:
-        if not package.requires_execution:
-            return "does not require execution"
-        if package.status == WorkStatus.DONE:
-            return "already done"
-        if package.status == WorkStatus.NEEDS_REVIEW:
-            return "already needs review"
-        if package.status not in {WorkStatus.RUNNING, WorkStatus.FAILED, WorkStatus.BLOCKED}:
-            return f"status is {package.status.value}"
-        if (
-            package.status == WorkStatus.RUNNING
-            and interrupted_ids
-            and package.id not in interrupted_ids
-        ):
-            return "running package is not part of the interrupted run"
-        return ""
+        return ExecutionRecoveryFlow.execution_retry_disabled_reason(
+            package,
+            interrupted_ids,
+        )
 
     @staticmethod
     def _matches_execution_retry_selector(
@@ -2831,98 +2423,34 @@ class WorkflowEngine:
         selector: str,
         interrupted_ids: set[str],
     ) -> bool:
-        if selector == "all":
-            return package.status in {WorkStatus.RUNNING, WorkStatus.FAILED, WorkStatus.BLOCKED}
-        if selector == "failed":
-            return package.status == WorkStatus.FAILED
-        if selector == "blocked":
-            return package.status == WorkStatus.BLOCKED
-        if selector == "interrupted":
-            return package.id in interrupted_ids or (
-                not interrupted_ids and package.status == WorkStatus.RUNNING
-            )
-        return False
+        return ExecutionRecoveryFlow.matches_execution_retry_selector(
+            package,
+            selector,
+            interrupted_ids,
+        )
 
     def mark_interrupted_execution(self) -> dict[str, Any] | None:
         """Turn stale running packages into blocked work that needs user review."""
-        summary = self.detect_interrupted_execution(worker_running=False)
-        if summary is None:
-            summary = self.execution_recovery_summary()
-        if summary is None:
-            return None
-        running_ids = set(summary.get("running_packages", []))
-        for package in self.session.work_packages:
-            if package.id in running_ids:
-                package.status = WorkStatus.BLOCKED
-                package.current_executor = ""
-        self._persist_recovery_action("mark_interrupted", sorted(running_ids))
-        self.set_state(WorkflowState.NEEDS_USER_DECISION, reason="execution marked interrupted")
-        return self.execution_recovery_summary()
+        return self._execution_recovery_flow().mark_interrupted_execution()
 
     def abort_interrupted_execution(self) -> dict[str, Any] | None:
         """Abort a stale execution and require an explicit user decision."""
-        summary = self.detect_interrupted_execution(worker_running=False)
-        if summary is None:
-            summary = self.execution_recovery_summary()
-        if summary is None:
-            return None
-        candidates = set(summary.get("retry_candidates", []))
-        for package in self.session.work_packages:
-            if package.id in candidates and package.status == WorkStatus.RUNNING:
-                package.status = WorkStatus.BLOCKED
-                package.current_executor = ""
-        run = dict(self.session.execution_run)
-        run["state"] = "aborted"
-        run["aborted_at"] = time.time()
-        self.session.execution_run = run
-        self._persist_recovery_action("abort_execution", sorted(candidates))
-        self.set_state(WorkflowState.NEEDS_USER_DECISION, reason="execution aborted")
-        return self.execution_recovery_summary()
+        return self._execution_recovery_flow().abort_interrupted_execution()
 
     def _touch_execution_run(self, occurred_at: float | None = None) -> None:
-        run = self.session.execution_run
-        if not isinstance(run, dict) or not run:
-            return
-        if str(run.get("state", "")) != "running":
-            return
-        run["heartbeat_at"] = occurred_at if occurred_at is not None else time.time()
-        self.session.execution_run = run
+        self._execution_recovery_flow().touch_execution_run(occurred_at)
 
     def _finish_execution_run(self, outcome: str) -> None:
-        run = self.session.execution_run
-        if not isinstance(run, dict) or not run:
-            return
-        if str(run.get("state", "")) == "interrupted":
-            return
-        run["state"] = "failed" if outcome == "failed" else "completed"
-        run["outcome"] = outcome
-        run["completed_at"] = time.time()
-        self.session.execution_run = run
+        self._execution_recovery_flow().finish_execution_run(outcome)
 
     def _persist_recovery_action(self, action: str, packages: list[str]) -> None:
-        run = dict(self.session.execution_run)
-        run["last_recovery_action"] = action
-        run["last_recovery_action_at"] = time.time()
-        self.session.execution_run = run
-        self.session.updated_at = time.time()
-        self._persist(
-            "execution_recovery_action",
-            {
-                "action": action,
-                "packages": list(packages),
-                "target_workspace": str(self.session.target_workspace or ""),
-            },
-        )
+        self._execution_recovery_flow().persist_recovery_action(action, packages)
 
     def _packages_with_status(self, status: WorkStatus) -> list[WorkPackage]:
-        return [
-            package
-            for package in self.session.work_packages
-            if package.requires_execution and package.status == status
-        ]
+        return self._execution_recovery_flow().packages_with_status(status)
 
     def _last_workflow_event(self) -> dict[str, Any] | None:
-        return self.persistence.last_event_for_workflow(self.session.id)
+        return self._execution_recovery_flow().last_workflow_event()
 
     def _work_package_by_id(self, package_id: str) -> WorkPackage | None:
         return next(

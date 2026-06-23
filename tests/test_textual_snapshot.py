@@ -99,6 +99,8 @@ def test_snapshot_marks_non_ok_persisted_response_artifact_as_error(tmp_path) ->
     assert claude.status == "Error"
     assert claude.response_status == "invalid"
     assert claude.summary == "[Error: exit code 1]"
+    assert claude.raw_output == ""
+    assert claude.raw_output_path == str(raw_path)
 
 
 def test_snapshot_does_not_project_stale_agreed_conclusion_without_workflow(
@@ -1598,7 +1600,8 @@ def test_snapshot_restores_provider_status_from_response_artifacts(tmp_path) -> 
     claude = snapshot.providers[0]
     assert claude.status == "Ready"
     assert claude.summary == "Use a compact dashboard."
-    assert claude.raw_output == "RAW: Use a compact dashboard."
+    assert claude.raw_output == ""
+    assert claude.raw_output_path == str(raw_path)
 
 
 def test_snapshot_reads_only_bounded_artifact_preview(tmp_path, monkeypatch) -> None:

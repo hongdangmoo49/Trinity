@@ -3492,6 +3492,56 @@ async def test_execution_matrix_separates_owner_and_executor(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_execution_matrix_updates_existing_rows_without_remount(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Runtime sync",
+                        owner_agent="codex",
+                        status="pending",
+                    )
+                ]
+            ),
+        )
+        await pilot.pause()
+
+        row = screen.query("#execution-package-list .execution-package-row").first()
+        assert "WAIT" in _widget_tree_text(row)
+
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Runtime sync",
+                        owner_agent="codex",
+                        current_executor="codex",
+                        status="running",
+                    )
+                ]
+            ),
+        )
+        await pilot.pause()
+
+        updated_row = screen.query("#execution-package-list .execution-package-row").first()
+        assert updated_row is row
+        row_text = _widget_tree_text(updated_row)
+        assert "RUN" in row_text
+        assert "codex" in row_text
+
+
+@pytest.mark.asyncio
 async def test_execution_matrix_renders_compact_status_labels(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

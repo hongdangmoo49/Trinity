@@ -3990,6 +3990,61 @@ async def test_workflow_inspector_renders_snapshot_counts(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_workflow_inspector_skips_repeated_section_updates(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    updates: list[str | None] = []
+    original_update = Static.update
+
+    def counted_update(self, *args, **kwargs):
+        updates.append(self.id)
+        return original_update(self, *args, **kwargs)
+
+    monkeypatch.setattr(Static, "update", counted_update)
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-inspector-cache",
+        state="executing",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Renderer",
+                owner_agent="claude",
+                status="running",
+            )
+        ],
+        execution_log=["state_changed: executing"],
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        inspector = app.screen.query_one(WorkflowInspector)
+
+        inspector.apply_snapshot(snapshot)
+        await pilot.pause()
+        updates.clear()
+
+        inspector.apply_snapshot(snapshot)
+        await pilot.pause()
+
+        assert updates == []
+
+        inspector.apply_snapshot(
+            WorkflowNexusSnapshot(
+                session_id="wf-inspector-cache",
+                state="executing",
+                work_package_details=list(snapshot.work_package_details),
+                execution_log=["state_changed: reviewing"],
+            )
+        )
+        await pilot.pause()
+
+        assert updates == ["inspector-log"]
+
+
+@pytest.mark.asyncio
 async def test_provider_inspector_modal_opens_from_nexus(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

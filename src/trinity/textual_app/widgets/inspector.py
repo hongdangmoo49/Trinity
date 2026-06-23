@@ -28,6 +28,7 @@ class WorkflowInspector(Vertical):
     def __init__(self, *, id: str | None = None) -> None:
         super().__init__(id=id)
         self.snapshot = WorkflowNexusSnapshot()
+        self._section_text: dict[str, str] = {}
 
     def compose(self) -> ComposeResult:
         yield Static("Progress", classes="inspector-title")
@@ -55,52 +56,65 @@ class WorkflowInspector(Vertical):
         self.snapshot = snapshot
         if not self.is_mounted:
             return
-        self.query_one("#inspector-progress", Static).update(
-            self._progress_summary(snapshot)
-        )
-        self.query_one("#inspector-current", Static).update(
+        self._update_section("#inspector-progress", self._progress_summary(snapshot))
+        self._update_section(
+            "#inspector-current",
             self._list_or_empty(
                 [
                     compact_wp_line(package)
                     for package in current_work_packages(snapshot.work_package_details)
                 ]
-            )
+            ),
         )
-        self.query_one("#inspector-next", Static).update(
-            self._list_or_empty(self._next_lines(snapshot), limit=8)
+        self._update_section(
+            "#inspector-next",
+            self._list_or_empty(self._next_lines(snapshot), limit=8),
         )
-        self.query_one("#inspector-blocked", Static).update(
-            self._list_or_empty(self._blocked_lines(snapshot))
+        self._update_section(
+            "#inspector-blocked",
+            self._list_or_empty(self._blocked_lines(snapshot)),
         )
-        self.query_one("#inspector-workflow", Static).update(
+        self._update_section(
+            "#inspector-workflow",
             "\n".join(
                 [
                     f"ID: {snapshot.session_id or '(new)'}",
                     f"State: {snapshot.state}",
                     f"Round: {snapshot.round_num}",
                 ]
-            )
+            ),
         )
-        self.query_one("#inspector-providers", Static).update(
-            self._list_or_empty(self._provider_lines(snapshot))
+        self._update_section(
+            "#inspector-providers",
+            self._list_or_empty(self._provider_lines(snapshot)),
         )
-        self.query_one("#inspector-questions", Static).update(
-            self._list_or_empty([question.question for question in snapshot.questions])
+        self._update_section(
+            "#inspector-questions",
+            self._list_or_empty([question.question for question in snapshot.questions]),
         )
-        self.query_one("#inspector-decisions", Static).update(
-            self._list_or_empty(snapshot.decisions)
+        self._update_section(
+            "#inspector-decisions",
+            self._list_or_empty(snapshot.decisions),
         )
-        self.query_one("#inspector-post-review", Static).update(
+        self._update_section(
+            "#inspector-post-review",
             self._list_or_empty(
                 [
                     f"{item.id} [{item.severity}/{item.status}] {item.title or item.summary}"
                     for item in snapshot.post_review_items
                 ]
-            )
+            ),
         )
-        self.query_one("#inspector-log", Static).update(
-            self._list_or_empty(snapshot.execution_log[-5:])
+        self._update_section(
+            "#inspector-log",
+            self._list_or_empty(snapshot.execution_log[-5:]),
         )
+
+    def _update_section(self, selector: str, text: str) -> None:
+        if self._section_text.get(selector) == text:
+            return
+        self.query_one(selector, Static).update(text)
+        self._section_text[selector] = text
 
     @staticmethod
     def _list_or_empty(items: list[str], *, limit: int = 5) -> str:
@@ -146,16 +160,15 @@ class WorkflowInspector(Vertical):
 
     @staticmethod
     def _next_lines(snapshot: WorkflowNexusSnapshot) -> list[str]:
-        entries = next_work_package_entries(snapshot.work_package_details, limit=3)
+        all_entries = next_work_package_entries(snapshot.work_package_details, limit=None)
+        entries = all_entries[:3]
         lines: list[str] = []
         for entry in entries:
             lines.append(next_work_package_line(entry))
             detail = waiting_on_detail_line(entry)
             if detail:
                 lines.append(f"  {detail}")
-        next_count = len(
-            next_work_package_entries(snapshot.work_package_details, limit=None)
-        )
+        next_count = len(all_entries)
         if next_count > len(entries):
             lines.append(f"+{next_count - len(entries)} more")
         return lines

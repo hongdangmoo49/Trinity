@@ -59,6 +59,8 @@ class ProviderPanel(Vertical):
         yield Static(self._summary_line(), classes="provider-summary")
 
     def update_state(self, state: ProviderPanelState) -> None:
+        if state == self.state:
+            return
         self.state = state
         self.set_classes(self._classes_for(state))
         self.query_one(".provider-name", Static).update(state.name.title())

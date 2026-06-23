@@ -25,6 +25,14 @@ from trinity.models import Provider
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import COMMAND_SPECS, SESSION_ONLY_SETTING_NOTICE
 from trinity.textual_app.app import TrinityTextualApp
+from trinity.textual_app.presenters import (
+    review_repair_blocked_ids,
+    review_repair_details_markdown,
+    review_repair_rows,
+    snapshot_context_markdown,
+    snapshot_status_markdown,
+    snapshot_status_rows,
+)
 from trinity.textual_app.report_export import (
     snapshot_report_markdown,
     unique_report_path,
@@ -447,8 +455,8 @@ def test_status_reports_interrupted_execution() -> None:
         ),
     )
 
-    markdown = TrinityTextualApp._snapshot_status_markdown(snapshot)
-    rows = TrinityTextualApp._snapshot_status_rows(snapshot)
+    markdown = snapshot_status_markdown(snapshot)
+    rows = snapshot_status_rows(snapshot)
 
     assert "### Execution Recovery" in markdown
     assert "Execution: `interrupted`" in markdown
@@ -468,7 +476,7 @@ def test_context_markdown_includes_full_workflow_history() -> None:
         ],
     )
 
-    markdown = TrinityTextualApp._snapshot_context_markdown(snapshot)
+    markdown = snapshot_context_markdown(snapshot)
 
     assert "### Workflow History" in markdown
     assert "- event-1" in markdown
@@ -4472,15 +4480,15 @@ async def test_nexus_provider_error_gate_actions_answer_question(tmp_path) -> No
 def test_review_repair_details_markdown_summarizes_blocked_packages() -> None:
     snapshot = _review_repair_blocked_snapshot()
 
-    assert TrinityTextualApp._review_repair_blocked_ids(snapshot) == ("WP-002",)
-    assert TrinityTextualApp._review_repair_rows(snapshot) == (
+    assert review_repair_blocked_ids(snapshot) == ("WP-002",)
+    assert review_repair_rows(snapshot) == (
         (
             "WP-002",
             "duplicate_required_changes; attempts=2/3; review=changes_requested",
         ),
     )
 
-    body = TrinityTextualApp._review_repair_details_markdown(snapshot)
+    body = review_repair_details_markdown(snapshot)
 
     assert "Review-repair loop guard has paused these work packages" in body
     assert "WP-002" in body
@@ -4496,7 +4504,7 @@ def test_review_repair_blocked_ids_include_recovery_retry_candidates() -> None:
         )
     )
 
-    assert TrinityTextualApp._review_repair_blocked_ids(snapshot) == (
+    assert review_repair_blocked_ids(snapshot) == (
         "WP-003",
         "WP-004",
     )
@@ -4510,14 +4518,14 @@ def test_review_repair_details_include_recovery_only_candidates() -> None:
         )
     )
 
-    assert TrinityTextualApp._review_repair_rows(snapshot) == (
+    assert review_repair_rows(snapshot) == (
         (
             "WP-003",
             "repair_blocked; attempts=(unknown); review=(recovery)",
         ),
     )
 
-    body = TrinityTextualApp._review_repair_details_markdown(snapshot)
+    body = review_repair_details_markdown(snapshot)
 
     assert "WP-003" in body
     assert "repair_blocked" in body

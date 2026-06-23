@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -12,6 +14,38 @@ from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.status_label import compact_status_label
 from trinity.textual_app.widgets.work_package_detail_modal import WorkPackageDetailModal
 from trinity.textual_app.widgets.workspace_picker import WorkspacePreflight
+
+
+@dataclass(frozen=True)
+class _PackageRowProjection:
+    """Rendered row values used to detect stable execution matrix updates."""
+
+    identity: str
+    package_id: str
+    task: str
+    assignee: str
+    executor: str
+    status: str
+    review_status: str
+    risk: str
+    button_id: str
+    task_width: int
+    detail_enabled: bool = True
+
+    @property
+    def render_key(self) -> tuple[object, ...]:
+        return (
+            self.package_id,
+            self.task,
+            self.assignee,
+            self.executor,
+            self.status,
+            self.review_status,
+            self.risk,
+            self.button_id,
+            self.task_width,
+            self.detail_enabled,
+        )
 
 
 class ExecutionPackageRow(Horizontal):
@@ -74,6 +108,40 @@ class ExecutionPackageRow(Horizontal):
                     classes="execution-package-spec",
                 )
 
+    def update_projection(self, projection: _PackageRowProjection) -> None:
+        """Update row labels without remounting the row widget."""
+        self.package_id = projection.package_id
+        self.task_label = projection.task
+        self.assignee = projection.assignee
+        self.executor = projection.executor
+        self.status = projection.status
+        self.review_status = projection.review_status
+        self.risk = projection.risk
+        self.button_id = projection.button_id
+        self.task_width = projection.task_width
+        self.detail_enabled = projection.detail_enabled
+
+        self.query_one(".execution-package-task", Static).update(
+            _clip(f"{self.package_id} {self.task_label}", self.task_width)
+        )
+        self.query_one(".execution-package-executor", Static).update(
+            _clip(self.executor, 18)
+        )
+        self.query_one(".execution-package-status", Static).update(
+            _clip(self.status, 10)
+        )
+        self.query_one(".execution-package-assignee", Static).update(
+            _clip(f"owner: {self.assignee}", 18)
+        )
+        self.query_one(".execution-package-review", Static).update(
+            _clip(f"review: {self.review_status or '-'}", 18)
+        )
+        self.query_one(".execution-package-risk", Static).update(
+            _clip(f"risk: {self.risk}", 14)
+        )
+        button = self.query_one(".execution-package-spec", Button)
+        button.disabled = not self.detail_enabled
+
 
 class ExecutionPackageHeader(Vertical):
     """Column header aligned to the same CSS grid as package rows."""
@@ -105,6 +173,10 @@ class ExecutionMatrixScreen(Screen[None]):
         self.preflight: WorkspacePreflight | None = None
         self.snapshot = WorkflowNexusSnapshot()
         self.tasks_expanded = False
+        self._package_list_identity: tuple[str, ...] | None = None
+        self._package_row_keys: dict[str, tuple[object, ...]] = {}
+        self._package_rows: dict[str, ExecutionPackageRow] = {}
+        self._activity_lines_key: tuple[str, ...] = ()
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -184,38 +256,67 @@ class ExecutionMatrixScreen(Screen[None]):
         )
 
     def _render_package_list(self) -> None:
+        projections = self._package_row_projections()
+        identity = tuple(projection.identity for projection in projections)
+        if identity == self._package_list_identity:
+            if not projections:
+                return
+            for projection in projections:
+                if self._package_row_keys.get(projection.identity) == projection.render_key:
+                    continue
+                row = self._package_rows.get(projection.identity)
+                if row is not None:
+                    row.update_projection(projection)
+                    self._package_row_keys[projection.identity] = projection.render_key
+            return
+
         package_list = self.query_one("#execution-package-list", VerticalScroll)
         package_list.remove_children()
+        self._package_rows = {}
+        self._package_row_keys = {}
         package_list.mount(ExecutionPackageHeader())
-        if self.snapshot.work_package_details:
-            for index, package in enumerate(self.snapshot.work_package_details):
-                package_list.mount(
-                    self._package_row(
-                        package_id=package.id,
-                        task=package.title or package.topic or package.id,
-                        assignee=package.owner_agent or "-",
-                        executor=_executor_label(
-                            package.current_executor,
-                            package.last_executor,
-                            package.owner_agent,
-                        ),
-                        status=compact_status_label(package.status or "pending"),
-                        review_status=_review_label(package),
-                        risk=package.risk or "unknown",
-                        button_id=f"wp-detail-{index}",
-                        task_width=self._task_clip_width(),
-                    )
-                )
-            return
-        if not self.snapshot.work_packages:
+        if not projections:
             package_list.mount(
                 Static("(no work packages)", classes="execution-package-empty")
             )
+            self._package_list_identity = ()
             return
+        for projection in projections:
+            row = self._package_row(projection)
+            package_list.mount(row)
+            self._package_rows[projection.identity] = row
+            self._package_row_keys[projection.identity] = projection.render_key
+        self._package_list_identity = identity
+
+    def _package_row_projections(self) -> list[_PackageRowProjection]:
+        task_width = self._task_clip_width()
+        if self.snapshot.work_package_details:
+            return [
+                _PackageRowProjection(
+                    identity=f"detail:{index}:{package.id}",
+                    package_id=package.id,
+                    task=package.title or package.topic or package.id,
+                    assignee=package.owner_agent or "-",
+                    executor=_executor_label(
+                        package.current_executor,
+                        package.last_executor,
+                        package.owner_agent,
+                    ),
+                    status=compact_status_label(package.status or "pending"),
+                    review_status=_review_label(package),
+                    risk=package.risk or "unknown",
+                    button_id=f"wp-detail-{index}",
+                    task_width=task_width,
+                )
+                for index, package in enumerate(self.snapshot.work_package_details)
+            ]
+
+        projections: list[_PackageRowProjection] = []
         for index, package in enumerate(self.snapshot.work_packages):
             task, assignee, status = _parse_package_line(package)
-            package_list.mount(
-                self._package_row(
+            projections.append(
+                _PackageRowProjection(
+                    identity=f"legacy:{index}:{task}",
                     package_id=task,
                     task=task,
                     assignee=assignee,
@@ -224,44 +325,37 @@ class ExecutionMatrixScreen(Screen[None]):
                     review_status="-",
                     risk="unknown",
                     button_id=f"wp-detail-legacy-{index}",
-                    task_width=self._task_clip_width(),
+                    task_width=task_width,
                     detail_enabled=False,
                 )
             )
+        return projections
 
     @staticmethod
-    def _package_row(
-        *,
-        package_id: str,
-        task: str,
-        assignee: str,
-        executor: str,
-        status: str,
-        review_status: str,
-        risk: str,
-        button_id: str,
-        task_width: int,
-        detail_enabled: bool = True,
-    ) -> ExecutionPackageRow:
+    def _package_row(projection: _PackageRowProjection) -> ExecutionPackageRow:
         return ExecutionPackageRow(
-            package_id=package_id,
-            task=task,
-            assignee=assignee,
-            executor=executor,
-            status=status,
-            review_status=review_status,
-            risk=risk,
-            button_id=button_id,
-            task_width=task_width,
-            detail_enabled=detail_enabled,
+            package_id=projection.package_id,
+            task=projection.task,
+            assignee=projection.assignee,
+            executor=projection.executor,
+            status=projection.status,
+            review_status=projection.review_status,
+            risk=projection.risk,
+            button_id=projection.button_id,
+            task_width=projection.task_width,
+            detail_enabled=projection.detail_enabled,
         )
 
     def _render_log(self) -> None:
+        lines = self._activity_lines()
+        lines_key = tuple(lines)
+        if lines_key == self._activity_lines_key:
+            return
         log = self.query_one("#execution-log", RichLog)
         log.clear()
-        lines = self._activity_lines()
         for line in lines:
             log.write(line)
+        self._activity_lines_key = lines_key
 
     def _header_text(self) -> str:
         target = self._target_workspace_text()

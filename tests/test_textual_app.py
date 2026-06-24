@@ -52,6 +52,8 @@ from trinity.textual_app.presenters import (
     caveman_set_markdown,
     caveman_title,
     caveman_usage_markdown,
+    context_no_current_markdown,
+    context_title,
     decisions_action_hint,
     decisions_markdown,
     decisions_rows,
@@ -730,6 +732,14 @@ def test_context_markdown_uses_korean_labels() -> None:
     assert "### 작업 패키지" in markdown
     assert "### 워크플로우 이력" in markdown
     assert "### 실행 결과" in markdown
+
+
+def test_context_presenter_uses_korean_empty_labels() -> None:
+    message = "현재 세션 컨텍스트가 없습니다. 먼저 프롬프트를 시작하거나 워크플로우를 재개하세요."
+
+    assert context_title(lang="ko") == "컨텍스트"
+    assert context_no_current_markdown(lang="ko") == message
+    assert snapshot_context_markdown(WorkflowNexusSnapshot(), lang="ko") == message
 
 
 def test_workflow_presenter_uses_korean_labels() -> None:
@@ -4646,6 +4656,30 @@ async def test_nexus_context_without_session_records_empty_message(tmp_path) -> 
 
 
 @pytest.mark.asyncio
+async def test_nexus_context_without_session_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/context")
+        await pilot.pause()
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/context"
+        assert result.title == "컨텍스트"
+        assert result.body == (
+            "현재 세션 컨텍스트가 없습니다. 먼저 프롬프트를 시작하거나 워크플로우를 재개하세요."
+        )
+
+
+@pytest.mark.asyncio
 async def test_nexus_exact_context_enter_executes_without_palette_accept(
     tmp_path,
 ) -> None:
@@ -4672,6 +4706,31 @@ async def test_nexus_exact_context_enter_executes_without_palette_accept(
         result = central.snapshot.local_commands[-1]
         assert result.command == "/context"
         assert "No current session context" in result.body
+
+
+@pytest.mark.asyncio
+async def test_nexus_context_with_session_uses_korean_title(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-current",
+            goal="현재 목표",
+            state="blueprint_ready",
+        )
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)):
+        app._handle_textual_slash_command("/context")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/context"
+        assert result.title == "컨텍스트"
+        assert "- 워크플로우: `wf-current`" in result.body
+        assert "- 목표: 현재 목표" in result.body
 
 
 @pytest.mark.asyncio

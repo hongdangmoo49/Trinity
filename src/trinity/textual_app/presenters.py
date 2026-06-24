@@ -42,6 +42,8 @@ STATUS_CONTEXT_LABELS = {
         "central": "central",
         "command": "Command",
         "continue_until_question": "Continue planning until the central agent raises a question.",
+        "context": "Context",
+        "context_no_current": NO_CURRENT_CONTEXT_MESSAGE,
         "control_repo_confirmed": "Control repo confirmed",
         "current_max_rounds": "Current max rounds",
         "current_target": "Current target",
@@ -223,6 +225,8 @@ STATUS_CONTEXT_LABELS = {
         "central": "중앙",
         "command": "명령",
         "continue_until_question": "중앙 에이전트가 질문을 만들 때까지 계획을 계속 진행하세요.",
+        "context": "컨텍스트",
+        "context_no_current": "현재 세션 컨텍스트가 없습니다. 먼저 프롬프트를 시작하거나 워크플로우를 재개하세요.",
         "control_repo_confirmed": "제어 저장소 확인",
         "current_max_rounds": "현재 최대 라운드",
         "current_target": "현재 대상",
@@ -1204,7 +1208,7 @@ def snapshot_context_markdown(
     lang: str = "en",
 ) -> str:
     if not snapshot_has_current_context(snapshot):
-        return NO_CURRENT_CONTEXT_MESSAGE
+        return context_no_current_markdown(lang=lang)
 
     lines = [
         f"- {_sc_label(lang, 'workflow')}: `{snapshot.session_id or '(new)'}`",
@@ -1280,6 +1284,14 @@ def snapshot_context_markdown(
         lines.extend(["", f"### {_sc_label(lang, 'execution_results')}"])
         lines.extend(f"- {item}" for item in extra_execution_log)
     return "\n".join(lines)
+
+
+def context_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "context")
+
+
+def context_no_current_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "context_no_current")
 
 
 def questions_action_hint(*, has_questions: bool, lang: str = "en") -> str:

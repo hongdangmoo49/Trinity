@@ -33,7 +33,6 @@ from trinity.slash_commands import (
     parse_slash_command,
 )
 from trinity.textual_app import presenters as textual_presenters
-from trinity.textual_app.presenters import NO_CURRENT_CONTEXT_MESSAGE
 from trinity.textual_app.report_export import (
     snapshot_has_report_data,
     snapshot_report_markdown,
@@ -2563,15 +2562,25 @@ class TrinityTextualApp(App[None]):
         if not self._snapshot_has_current_context(snapshot):
             if self.current_route == "start":
                 self.notify(
-                    NO_CURRENT_CONTEXT_MESSAGE,
-                    title="Context",
+                    textual_presenters.context_no_current_markdown(
+                        lang=self.config.lang
+                    ),
+                    title=textual_presenters.context_title(lang=self.config.lang),
                     severity="warning",
                 )
                 return
-            self._record_slash_command_result(command, "Context", body)
+            self._record_slash_command_result(
+                command,
+                textual_presenters.context_title(lang=self.config.lang),
+                body,
+            )
             return
 
-        result = self._local_command_snapshot(command, "Context", body)
+        result = self._local_command_snapshot(
+            command,
+            textual_presenters.context_title(lang=self.config.lang),
+            body,
+        )
         self._replace_local_command_result(result)
         snapshot = self._with_local_command_results(snapshot)
         self.active_snapshot = snapshot

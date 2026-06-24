@@ -556,6 +556,7 @@ def test_execution_retry_note_summarizes_repair_attempts() -> None:
     )
 
     assert _retry_note(retryable) == "repair 2/3: duplicate_required_changes"
+    assert _retry_note(retryable, lang="ko") == "복구 2/3: duplicate_required_changes"
     assert _retry_note(disabled) == "already done"
 
 
@@ -3604,6 +3605,10 @@ async def test_execution_retry_modal_localizes_korean_status_cells(tmp_path) -> 
                     owner_agent="claude",
                     status="blocked",
                     retryable=True,
+                    current_executor="codex",
+                    repair_attempt_count=2,
+                    repair_max_attempts=3,
+                    repair_blocked_reason="duplicate_required_changes",
                 ),
                 WorkPackageSnapshot(
                     id="WP-003",
@@ -3625,8 +3630,18 @@ async def test_execution_retry_modal_localizes_korean_status_cells(tmp_path) -> 
             str(status.render())
             for status in app.screen.query(".retry-row .retry-status")
         ]
+        executors = [
+            str(executor.render())
+            for executor in app.screen.query(".retry-row .retry-executor")
+        ]
+        notes = [
+            str(note.render())
+            for note in app.screen.query(".retry-row .retry-note")
+        ]
 
     assert statuses == ["실패", "차단", "실행중"]
+    assert executors == ["-", "codex 폴백", "-"]
+    assert notes[1] == "복구 2/3: duplicate_required_changes"
 
 
 def test_execution_retry_modal_keeps_english_chrome_labels() -> None:

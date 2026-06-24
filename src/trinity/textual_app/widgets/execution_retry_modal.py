@@ -98,9 +98,12 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
                             classes="retry-cell retry-topic",
                         )
                         yield Static(package.owner_agent or "-", classes="retry-cell retry-owner")
-                        yield Static(_executor_label(package), classes="retry-cell retry-executor")
                         yield Static(
-                            _retry_note(package),
+                            _executor_label(package, lang=self.lang),
+                            classes="retry-cell retry-executor",
+                        )
+                        yield Static(
+                            _retry_note(package, lang=self.lang),
                             classes="retry-cell retry-note",
                         )
             yield Static(self._selected_text(), id="execution-retry-selected")
@@ -282,21 +285,23 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
         return labels.get(self.lang, labels["en"]).get(key, key)
 
 
-def _executor_label(package: WorkPackageSnapshot) -> str:
+def _executor_label(package: WorkPackageSnapshot, *, lang: str = "en") -> str:
     executor = package.current_executor or package.last_executor or "-"
     if executor not in {"", "-"} and package.owner_agent and executor != package.owner_agent:
-        return f"{executor} fallback"
+        suffix = "폴백" if lang == "ko" else "fallback"
+        return f"{executor} {suffix}"
     return executor
 
 
-def _retry_note(package: WorkPackageSnapshot) -> str:
+def _retry_note(package: WorkPackageSnapshot, *, lang: str = "en") -> str:
     if not package.retryable:
         return package.retry_disabled_reason
+    repair = "복구" if lang == "ko" else "repair"
     if package.repair_blocked_reason:
         return (
-            f"repair {package.repair_attempt_count}/{package.repair_max_attempts}: "
+            f"{repair} {package.repair_attempt_count}/{package.repair_max_attempts}: "
             f"{package.repair_blocked_reason}"
         )
     if package.repair_attempt_count:
-        return f"repair {package.repair_attempt_count}/{package.repair_max_attempts}"
+        return f"{repair} {package.repair_attempt_count}/{package.repair_max_attempts}"
     return ""

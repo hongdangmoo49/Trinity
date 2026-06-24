@@ -856,6 +856,8 @@ def _review_label(package: object, lang: str = "en") -> str:
         return "-"
     normalized = status.lower().replace("_", " ")
     labels = _review_status_labels(lang)
+    if normalized == "skipped" and _is_no_peer_review_skip(package):
+        return labels["no peer"]
     label = labels.get(normalized, normalized)
     standalone_labels = {
         labels["changes requested"],
@@ -881,6 +883,7 @@ def _review_status_labels(lang: str) -> dict[str, str]:
             "failed": "문제",
             "skipped": "생략",
             "needs second review": "2차필요",
+            "no peer": "peer 없음",
         }
     return {
         "queued": "queued",
@@ -892,7 +895,23 @@ def _review_status_labels(lang: str) -> dict[str, str]:
         "failed": "issue",
         "skipped": "skip",
         "needs second review": "needs 2nd",
+        "no peer": "no peer",
     }
+
+
+def _is_no_peer_review_skip(package: object) -> bool:
+    reviewer = str(getattr(package, "reviewer_agent", "") or "").strip()
+    if reviewer:
+        return False
+    summary_parts = [
+        str(getattr(package, "review_summary", "") or ""),
+        str(getattr(package, "review_skipped_reason", "") or ""),
+        str(getattr(package, "skipped_reason", "") or ""),
+    ]
+    summary = " ".join(summary_parts).lower()
+    if "no non-owner peer reviewer" in summary or "no peer reviewer" in summary:
+        return True
+    return "only " in summary and " active" in summary
 
 
 def _reviewer_status_label(reviewer: str, label: str, *, lang: str = "en") -> str:

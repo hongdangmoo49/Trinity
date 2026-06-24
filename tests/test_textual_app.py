@@ -4343,6 +4343,21 @@ def test_execution_matrix_compacts_reviewer_status_labels() -> None:
     assert (
         _review_label(
             WorkPackageSnapshot(
+                id="WP-010",
+                title="No peer reviewer",
+                owner_agent="codex",
+                status="done",
+                review_status="skipped",
+                review_summary=(
+                    "only codex is active; no non-owner peer reviewer is available"
+                ),
+            )
+        )
+        == "no peer"
+    )
+    assert (
+        _review_label(
+            WorkPackageSnapshot(
                 id="WP-006",
                 title="Korean queued review",
                 owner_agent="codex",
@@ -4384,6 +4399,22 @@ def test_execution_matrix_compacts_reviewer_status_labels() -> None:
     assert (
         _review_label(
             WorkPackageSnapshot(
+                id="WP-010",
+                title="Korean no peer reviewer",
+                owner_agent="codex",
+                status="done",
+                review_status="skipped",
+                review_summary=(
+                    "only codex is active; no non-owner peer reviewer is available"
+                ),
+            ),
+            lang="ko",
+        )
+        == "peer 없음"
+    )
+    assert (
+        _review_label(
+            WorkPackageSnapshot(
                 id="WP-009",
                 title="Korean escalation",
                 owner_agent="claude",
@@ -4395,6 +4426,41 @@ def test_execution_matrix_compacts_reviewer_status_labels() -> None:
         )
         == "2차필요"
     )
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_row_labels_no_peer_review_skip(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Single provider package",
+                        owner_agent="codex",
+                        status="done",
+                        review_status="skipped",
+                        review_summary=(
+                            "only codex is active; "
+                            "no non-owner peer reviewer is available"
+                        ),
+                    )
+                ]
+            ),
+        )
+        await pilot.pause()
+
+        row = screen.query("#execution-package-list .execution-package-row").first()
+        row_text = _widget_tree_text(row)
+
+        assert "리뷰: peer 없음" in row_text
 
 
 def test_execution_matrix_detail_button_labels_review_escalation() -> None:
@@ -4789,7 +4855,7 @@ async def test_execution_matrix_surfaces_skipped_review_reason(tmp_path) -> None
         await pilot.pause()
 
         row = screen.query("#execution-package-list .execution-package-row").first()
-        assert "review: skip" in _widget_tree_text(row)
+        assert "review: no peer" in _widget_tree_text(row)
         row.query_one("#wp-detail-0", Button).press()
         await pilot.pause()
 

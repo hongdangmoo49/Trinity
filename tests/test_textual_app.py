@@ -8891,6 +8891,28 @@ async def test_workflow_inspector_uses_configured_korean_labels(tmp_path) -> Non
         assert "상태: blueprint_ready" in workflow_content
         assert "라운드: 1" in workflow_content
 
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                state="idle",
+                providers=[
+                    ProviderSnapshot(
+                        name="codex",
+                        provider="codex",
+                        enabled=True,
+                        status="Ready",
+                    )
+                ],
+            )
+        )
+        await pilot.pause()
+
+        workflow_content = str(inspector.query_one("#inspector-workflow").content)
+        provider_content = str(inspector.query_one("#inspector-providers").content)
+        assert "ID: (새 워크플로우)" in workflow_content
+        assert "codex: 기본값; 컨텍스트 알 수 없음 (알 수 없음); 세션 없음" in (
+            provider_content
+        )
+
 
 @pytest.mark.asyncio
 async def test_workflow_inspector_skips_repeated_section_updates(

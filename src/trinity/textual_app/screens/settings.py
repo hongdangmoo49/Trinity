@@ -146,7 +146,8 @@ class SettingsScreen(Screen[None]):
             (
                 f"{self._agent_label(name)}: {spec.model or 'default'} · "
                 f"{spec.profile.context_profile} · "
-                f"{self._profile_strength_summary(spec)}"
+                f"{self._profile_strength_summary(spec)} · "
+                f"{self._profile_contract_summary(spec)}"
             )
             for name, spec in self.config.agents.items()
         ]
@@ -201,6 +202,18 @@ class SettingsScreen(Screen[None]):
             return "profile balanced"
         name, score = strengths[0]
         return f"{name} {score:.2f}"
+
+    @staticmethod
+    def _profile_contract_summary(spec) -> str:
+        contracts = spec.profile.output_contracts
+        pairs = [
+            f"{mode}:{contracts[mode]}"
+            for mode in ("execute", "review")
+            if contracts.get(mode)
+        ]
+        if not pairs:
+            return "contracts default"
+        return f"contracts {' '.join(pairs)}"
 
     def _agent_label(self, name: str) -> str:
         labels = {

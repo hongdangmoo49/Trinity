@@ -20,6 +20,7 @@ from trinity.workflow import (
     PostReviewActionStatus,
     ProviderSessionRef,
     WorkflowPersistence,
+    ReviewDepth,
     ReviewPackage,
     ReviewResult,
     ReviewStatus,
@@ -735,6 +736,51 @@ def test_snapshot_projects_planned_review_as_queued_before_reviewing(tmp_path) -
     snapshot = NexusSnapshotAdapter(config).load_snapshot()
 
     assert snapshot.work_package_details[0].review_status == "queued"
+
+
+def test_snapshot_projects_single_provider_review_skip_reason(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-review-skipped",
+            goal="Build UI",
+            state=WorkflowState.REVIEWING,
+            active_agents=["codex"],
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="CLI fallback",
+                    owner_agent="codex",
+                    objective="Build the fallback.",
+                    status=WorkStatus.DONE,
+                )
+            ],
+            review_packages=[
+                ReviewPackage(
+                    id="RP-WP-001-skipped-no-peer",
+                    package_id="WP-001",
+                    reviewer_agent="",
+                    target_agent="codex",
+                    depth=ReviewDepth.NONE,
+                    required=False,
+                    skipped_reason=(
+                        "only codex is active; no non-owner peer reviewer is available"
+                    ),
+                ).to_dict()
+            ],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    package = snapshot.work_package_details[0]
+    assert package.review_status == "skipped"
+    assert package.reviewer_agent == ""
+    assert (
+        package.review_summary
+        == "only codex is active; no non-owner peer reviewer is available"
+    )
 
 
 def test_snapshot_folds_runtime_review_started_over_queued_plan(tmp_path) -> None:

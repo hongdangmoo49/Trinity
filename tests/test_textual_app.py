@@ -3855,6 +3855,45 @@ async def test_execution_matrix_80_columns_keeps_review_risk_and_spec_visible(
         assert "event-11" in activity_lines
 
 
+@pytest.mark.asyncio
+async def test_execution_matrix_surfaces_skipped_review_reason(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Single provider package",
+                        owner_agent="codex",
+                        status="done",
+                        review_status="skipped",
+                        review_summary=(
+                            "only codex is active; no non-owner peer reviewer is available"
+                        ),
+                    )
+                ],
+            ),
+        )
+        await pilot.pause()
+
+        row = screen.query("#execution-package-list .execution-package-row").first()
+        assert "review: skip" in _widget_tree_text(row)
+        row.query_one("#wp-detail-0", Button).press()
+        await pilot.pause()
+
+        assert isinstance(app.screen, WorkPackageDetailModal)
+        markdown = app.screen._markdown()
+        assert "- Status: `skipped`" in markdown
+        assert "no non-owner peer reviewer is available" in markdown
+
+
 def test_work_package_detail_modal_orders_execution_sections_first() -> None:
     modal = WorkPackageDetailModal(
         WorkPackageSnapshot(

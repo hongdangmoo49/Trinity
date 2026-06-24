@@ -59,6 +59,13 @@ STATUS_CONTEXT_LABELS = {
         "execution": "Execution",
         "execute": "Execute",
         "execute_finish_planning_hint": "Finish planning first, then run `/execute` from Nexus.",
+        "execute_retry": "Execute Retry",
+        "execute_retry_no_packages": (
+            "No work packages are available in the current workflow."
+        ),
+        "execute_retry_no_packages_hint": (
+            "Finish planning and execute at least one package first."
+        ),
         "execute_recovery_hint": (
             "Use `/execute-retry`, `/execute mark-interrupted`, or `/execute abort`."
         ),
@@ -277,6 +284,13 @@ STATUS_CONTEXT_LABELS = {
         "execution": "실행",
         "execute": "실행",
         "execute_finish_planning_hint": "먼저 계획을 완료한 뒤 Nexus에서 `/execute`를 실행하세요.",
+        "execute_retry": "실행 재시도",
+        "execute_retry_no_packages": (
+            "현재 워크플로우에 사용할 수 있는 작업 패키지가 없습니다."
+        ),
+        "execute_retry_no_packages_hint": (
+            "먼저 계획을 완료하고 하나 이상의 WP를 실행하세요."
+        ),
         "execute_recovery_hint": (
             "`/execute-retry`, `/execute mark-interrupted`, "
             "`/execute abort` 중 하나를 실행하세요."
@@ -751,6 +765,18 @@ def execution_recovery_rows(
 
 def execute_title(*, lang: str = "en") -> str:
     return _sc_label(lang, "execute")
+
+
+def execute_retry_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "execute_retry")
+
+
+def execute_retry_no_packages_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "execute_retry_no_packages")
+
+
+def execute_retry_no_packages_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "execute_retry_no_packages_hint")
 
 
 def execute_finish_planning_action_hint(*, lang: str = "en") -> str:

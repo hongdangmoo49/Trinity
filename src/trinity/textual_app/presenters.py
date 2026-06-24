@@ -20,6 +20,8 @@ STATUS_CONTEXT_LABELS = {
         "answer_usage": "Usage: /answer <question-id|index|next> <answer>",
         "central": "central",
         "continue_until_question": "Continue planning until the central agent raises a question.",
+        "control_repo_confirmed": "Control repo confirmed",
+        "current_target": "Current target",
         "decision": "Decision",
         "decision_hint": "Answer pending questions with `/answer` to add decisions.",
         "decisions": "Decisions",
@@ -40,6 +42,7 @@ STATUS_CONTEXT_LABELS = {
             "Use `/improve high`, `/improve all`, `/improve AI-001`, "
             "or `/improve done`."
         ),
+        "inside_control_repo": "Inside control repo",
         "item": "Item",
         "kind": "Kind",
         "last_event": "Last event",
@@ -54,6 +57,7 @@ STATUS_CONTEXT_LABELS = {
         "no_pending_questions_select": "No pending workflow questions to select.",
         "no_predefined_options": "This question has no predefined options.",
         "no_subtasks": "No provider delegation subtasks recorded in the current session.",
+        "not_set": "(not set)",
         "not_checked": "not checked",
         "options": "Options",
         "package": "Package",
@@ -110,6 +114,14 @@ STATUS_CONTEXT_LABELS = {
         "supplemental_rounds": "Supplemental rounds",
         "synthesis": "Synthesis",
         "target": "Target",
+        "target_action_hint": "Use `/target <path>` or Select Workspace before execution.",
+        "target_cleared": "Target workspace cleared.",
+        "target_control_repo_hint": "Choose a workspace outside the Trinity control repo.",
+        "target_not_directory": "Target path exists but is not a directory",
+        "target_preflight_cancelled": "Workspace preflight cancelled.",
+        "target_prepare_failed": "Could not prepare target workspace",
+        "target_selection_cancelled": "Target workspace selection cancelled.",
+        "target_workspace": "Target workspace",
         "value": "Value",
         "workflow": "Workflow",
         "workflow_history": "Workflow History",
@@ -127,6 +139,8 @@ STATUS_CONTEXT_LABELS = {
         "answer_usage": "사용법: /answer <question-id|index|next> <answer>",
         "central": "중앙",
         "continue_until_question": "중앙 에이전트가 질문을 만들 때까지 계획을 계속 진행하세요.",
+        "control_repo_confirmed": "제어 저장소 확인",
+        "current_target": "현재 대상",
         "decision": "결정",
         "decision_hint": "대기 중인 질문에 `/answer`로 답하면 결정이 추가됩니다.",
         "decisions": "결정",
@@ -147,6 +161,7 @@ STATUS_CONTEXT_LABELS = {
             "`/improve high`, `/improve all`, `/improve AI-001`, "
             "`/improve done` 중 하나를 실행하세요."
         ),
+        "inside_control_repo": "제어 저장소 내부",
         "item": "항목",
         "kind": "종류",
         "last_event": "최근 이벤트",
@@ -161,6 +176,7 @@ STATUS_CONTEXT_LABELS = {
         "no_pending_questions_select": "선택할 대기 질문이 없습니다.",
         "no_predefined_options": "이 질문에는 미리 정의된 선택지가 없습니다.",
         "no_subtasks": "현재 세션에 기록된 프로바이더 위임 하위 작업이 없습니다.",
+        "not_set": "(미설정)",
         "not_checked": "미확인",
         "options": "선택지",
         "package": "작업 패키지",
@@ -216,6 +232,14 @@ STATUS_CONTEXT_LABELS = {
         "supplemental_rounds": "보충 라운드",
         "synthesis": "종합",
         "target": "대상",
+        "target_action_hint": "실행 전에 `/target <path>`를 사용하거나 워크스페이스를 선택하세요.",
+        "target_cleared": "대상 워크스페이스를 초기화했습니다.",
+        "target_control_repo_hint": "Trinity 제어 저장소 밖의 워크스페이스를 선택하세요.",
+        "target_not_directory": "대상 경로가 이미 존재하지만 디렉터리가 아닙니다",
+        "target_preflight_cancelled": "워크스페이스 사전 확인을 취소했습니다.",
+        "target_prepare_failed": "대상 워크스페이스를 준비할 수 없습니다",
+        "target_selection_cancelled": "대상 워크스페이스 선택을 취소했습니다.",
+        "target_workspace": "대상 워크스페이스",
         "value": "값",
         "workflow": "워크플로우",
         "workflow_history": "워크플로우 이력",
@@ -654,6 +678,64 @@ def save_title(*, lang: str = "en") -> str:
 
 def save_auto_persist_markdown(*, lang: str = "en") -> str:
     return _sc_label(lang, "save_auto_persist_body")
+
+
+def target_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "target")
+
+
+def target_selection_cancelled_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "target_selection_cancelled")
+
+
+def target_preflight_cancelled_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "target_preflight_cancelled")
+
+
+def target_control_repo_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "target_control_repo_hint")
+
+
+def target_current_markdown(current: str | None, *, lang: str = "en") -> str:
+    value = current or _sc_label(lang, "not_set")
+    return f"{_sc_label(lang, 'current_target')}: `{value}`"
+
+
+def target_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "target_action_hint")
+
+
+def target_cleared_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "target_cleared")
+
+
+def target_not_directory_markdown(path: str, *, lang: str = "en") -> str:
+    return f"{_sc_label(lang, 'target_not_directory')}: `{path}`"
+
+
+def target_prepare_failed_markdown(error: str, *, lang: str = "en") -> str:
+    return f"{_sc_label(lang, 'target_prepare_failed')}: {error}"
+
+
+def target_workspace_markdown(path: str, *, lang: str = "en") -> str:
+    return f"{_sc_label(lang, 'target_workspace')}: `{path}`"
+
+
+def target_rows(
+    path: str,
+    *,
+    inside_control_repo: bool,
+    control_repo_confirmed: bool,
+    lang: str = "en",
+) -> tuple[tuple[str, str], ...]:
+    return (
+        (_sc_label(lang, "path"), path),
+        (_sc_label(lang, "inside_control_repo"), _yes_no(inside_control_repo, lang=lang)),
+        (
+            _sc_label(lang, "control_repo_confirmed"),
+            _yes_no(control_repo_confirmed, lang=lang),
+        ),
+    )
 
 
 def slash_command_suggestions(token: str) -> tuple[str, ...]:

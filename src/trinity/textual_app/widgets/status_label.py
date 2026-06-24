@@ -138,6 +138,8 @@ def display_review_skip_reason(reason: str, *, lang: str = "en") -> str:
     if not raw or lang != "ko":
         return raw
     text = raw.lower()
+    if text.rstrip(".") in {"peer review skipped", "peer review was skipped"}:
+        return "동료 리뷰가 생략되었습니다."
     if "no non-owner peer reviewer" not in text and "no peer reviewer" not in text:
         return raw
     agent = _only_active_agent(raw)

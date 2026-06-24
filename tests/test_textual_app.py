@@ -2840,6 +2840,26 @@ def test_snapshot_report_markdown_uses_korean_labels() -> None:
     assert "## 미해결 질문" in md
 
 
+def test_snapshot_report_markdown_localizes_korean_generic_review_skip_summary() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="리뷰 생략",
+                owner_agent="codex",
+                status="done",
+                review_status="skipped",
+                review_summary="Peer review skipped.",
+            )
+        ],
+    )
+
+    md = snapshot_report_markdown(snapshot, lang="ko")
+
+    assert "이유 동료 리뷰가 생략되었습니다\\." in md
+    assert "Peer review skipped" not in md
+
+
 def test_snapshot_report_markdown_uses_korean_placeholder_values() -> None:
     snapshot = WorkflowNexusSnapshot(
         providers=[
@@ -8644,6 +8664,25 @@ def test_work_package_detail_modal_surfaces_korean_review_skip_reason() -> None:
         "peer 리뷰어가 없습니다."
     ) in markdown
     assert "## 리뷰 계획" in markdown
+
+
+def test_work_package_detail_modal_localizes_korean_generic_review_skip_summary() -> None:
+    modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-005",
+            title="일반 생략 리뷰",
+            owner_agent="codex",
+            status="done",
+            review_status="skipped",
+            review_summary="Peer review skipped.",
+        ),
+        lang="ko",
+    )
+
+    markdown = modal._markdown()
+
+    assert "- 리뷰 생략 사유: 동료 리뷰가 생략되었습니다." in markdown
+    assert "Peer review skipped" not in markdown
 
 
 def test_work_package_detail_modal_surfaces_second_review_plan() -> None:

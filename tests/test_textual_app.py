@@ -6822,6 +6822,52 @@ async def test_central_agent_view_keeps_answered_question_history(tmp_path) -> N
 
 
 @pytest.mark.asyncio
+async def test_question_panel_localizes_korean_status_tokens(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                state="needs_user_decision",
+                questions=[
+                    QuestionSnapshot(
+                        id="q-1",
+                        question="엔진?",
+                        options=["Godot", "Unity"],
+                    ),
+                    QuestionSnapshot(
+                        id="q-2",
+                        question="플랫폼?",
+                        options=["PC", "Mobile"],
+                        status="answered",
+                        answer="PC",
+                    ),
+                ],
+            )
+        )
+        await pilot.pause()
+
+        question_panel = screen.query_one(QuestionPanel)
+        rendered_questions = [
+            str(item.content) for item in question_panel.query(".question-text")
+        ]
+        answers = [
+            str(item.content) for item in question_panel.query(".question-answer")
+        ]
+
+        assert rendered_questions == [
+            "1. [열림] 엔진?",
+            "2. [답변됨] 플랫폼?",
+        ]
+        assert "답변: PC" in answers
+
+
+@pytest.mark.asyncio
 async def test_central_agent_question_options_use_two_column_grid(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

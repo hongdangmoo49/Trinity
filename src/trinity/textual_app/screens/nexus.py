@@ -278,6 +278,9 @@ class NexusScreen(Screen[None]):
                     )
                 )
             return
+        if event.action == "execution-retry":
+            self.post_message(self.SlashCommandSubmitted("/execute-retry all"))
+            return
         if event.action == "execute":
             self.post_message(self.ExecuteRequested(self.snapshot))
             return

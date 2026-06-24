@@ -1808,6 +1808,55 @@ async def test_nexus_execute_retry_slash_opens_retry_modal(tmp_path) -> None:
         assert composer.text == ""
 
 
+@pytest.mark.asyncio
+async def test_nexus_central_execution_retry_action_opens_retry_modal(tmp_path) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-central-retry",
+        goal="game",
+        state="failed",
+        execution_recovery=ExecutionRecoverySnapshot(
+            state="failed",
+            retry_candidates=("WP-001",),
+        ),
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Client",
+                owner_agent="codex",
+                status="failed",
+                topic="Client",
+                retryable=True,
+            ),
+        ],
+    )
+    controller = FakeWorkflowController(snapshot)
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        screen.apply_snapshot(controller.snapshot())
+        await pilot.pause()
+
+        assert screen.query_one("#central-action-title", Static).content == (
+            "실행 재시도 결정"
+        )
+        buttons = list(screen.query("#central-actions Button"))
+        assert [str(button.label) for button in buttons] == ["실패 WP 재시도"]
+
+        buttons[0].press()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ExecutionRetryModal)
+
+    assert controller.retry_previews == [("all", [])]
+
+
 def test_execution_retry_modal_limits_rows_to_retry_candidates() -> None:
     modal = ExecutionRetryModal(
         WorkflowNexusSnapshot(

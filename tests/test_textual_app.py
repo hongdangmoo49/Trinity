@@ -10124,6 +10124,28 @@ async def test_settings_preview_shows_profile_output_contracts(tmp_path) -> None
 
 
 @pytest.mark.asyncio
+async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        preview = str(screen.query_one("#theme-preview", Static).content)
+
+        assert screen._label("central_provider") == "중앙 프로바이더"
+        assert "테마 모드:" in preview
+        assert "밀도:" in preview
+        assert "중앙:" in preview
+        assert "Mode:" not in preview
+        assert "Density:" not in preview
+        assert "Central:" not in preview
+
+
+@pytest.mark.asyncio
 async def test_settings_screen_saves_agent_and_central_models(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     app = TrinityTextualApp(config)

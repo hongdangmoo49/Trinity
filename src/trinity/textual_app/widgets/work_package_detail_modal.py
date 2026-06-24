@@ -55,6 +55,7 @@ _LABELS = {
         "reviewer_count": "리뷰어 수",
         "reviewer": "리뷰어",
         "second_review_pending": "2차 리뷰가 대기 중입니다.",
+        "serial_lane": "직렬",
         "risk": "리스크",
         "routing_reason": "라우팅 사유",
         "routing_score": "라우팅 점수",
@@ -66,6 +67,7 @@ _LABELS = {
         "task_kind": "작업 유형",
         "title": "제목",
         "topic": "주제",
+        "unspecified_lane": "미지정",
         "yes": "예",
         "no": "아니오",
     },
@@ -113,6 +115,7 @@ _LABELS = {
         "reviewer_count": "Reviewer count",
         "reviewer": "Reviewer",
         "second_review_pending": "Second review is pending.",
+        "serial_lane": "serial",
         "risk": "Risk",
         "routing_reason": "Routing reason",
         "routing_score": "Routing score",
@@ -124,6 +127,7 @@ _LABELS = {
         "task_kind": "Task kind",
         "title": "Title",
         "topic": "Topic",
+        "unspecified_lane": "unspecified",
         "yes": "yes",
         "no": "no",
     },
@@ -370,13 +374,12 @@ class WorkPackageDetailModal(ModalScreen[None]):
         labels = _LABELS.get(self.lang, _LABELS["en"])
         return labels.get(key, _LABELS["en"].get(key, key))
 
-    @staticmethod
-    def _execution_lane_label(package: WorkPackageSnapshot) -> str:
+    def _execution_lane_label(self, package: WorkPackageSnapshot) -> str:
         if not package.parallelizable:
-            return "serial"
+            return self._label("serial_lane")
         if package.parallel_group is not None:
             return f"g{package.parallel_group}"
-        return "unspecified"
+        return self._label("unspecified_lane")
 
 
 def _clip(value: str, width: int) -> str:

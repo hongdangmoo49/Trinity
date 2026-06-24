@@ -31,7 +31,10 @@ STATUS_CONTEXT_LABELS = {
         "caveman_change_hint": "Use `/caveman <mode>` to change it for this session.",
         "caveman_set": "Caveman set",
         "caveman_usage": "Use: /caveman [on|off|lite|full|ultra]",
+        "categories": "Categories",
+        "category": "Category",
         "central": "central",
+        "command": "Command",
         "continue_until_question": "Continue planning until the central agent raises a question.",
         "control_repo_confirmed": "Control repo confirmed",
         "current_max_rounds": "Current max rounds",
@@ -50,6 +53,15 @@ STATUS_CONTEXT_LABELS = {
         "final_review": "Final Review",
         "follow_up_requests": "Follow-up Requests",
         "goal": "Goal",
+        "help_agent_call": "Agent Call",
+        "help_exact_hint": (
+            "Use Tab to complete a command without running it. "
+            "Use Enter to run an exact command."
+        ),
+        "help_intro_agent": "Local UI, settings, and file commands do not call agents.",
+        "help_intro_trinity": (
+            "Trinity-owned slash commands are handled before provider prompts."
+        ),
         "history_hint": "Run a prompt, execute a workflow, or use local slash commands first.",
         "id": "ID",
         "improve_hint": (
@@ -145,6 +157,7 @@ STATUS_CONTEXT_LABELS = {
         "subtasks_hint": "Subtasks appear after an executing provider reports delegated work.",
         "supplemental_rounds": "Supplemental rounds",
         "synthesis": "Synthesis",
+        "syntax_error": "Syntax Error",
         "target": "Target",
         "target_action_hint": "Use `/target <path>` or Select Workspace before execution.",
         "target_cleared": "Target workspace cleared.",
@@ -159,6 +172,12 @@ STATUS_CONTEXT_LABELS = {
         "workflow_history": "Workflow History",
         "work_packages": "Work Packages",
         "local": "local",
+        "trinity_commands": "Trinity Commands",
+        "unknown_command": "Unknown Command",
+        "unknown_command_body": "is not a Trinity slash command.",
+        "unknown_command_did_you_mean": "Did you mean:",
+        "unknown_command_help": "Run `/help` to see Trinity-owned commands.",
+        "suggestion": "Suggestion",
         "yes": "yes",
         "selected_question": "Selected question",
         "free_text": "(free text)",
@@ -182,7 +201,10 @@ STATUS_CONTEXT_LABELS = {
         "caveman_change_hint": "`/caveman <mode>`로 이 세션의 값을 변경하세요.",
         "caveman_set": "간결 모드 설정",
         "caveman_usage": "사용법: /caveman [on|off|lite|full|ultra]",
+        "categories": "카테고리",
+        "category": "카테고리",
         "central": "중앙",
+        "command": "명령",
         "continue_until_question": "중앙 에이전트가 질문을 만들 때까지 계획을 계속 진행하세요.",
         "control_repo_confirmed": "제어 저장소 확인",
         "current_max_rounds": "현재 최대 라운드",
@@ -201,6 +223,10 @@ STATUS_CONTEXT_LABELS = {
         "final_review": "최종 리뷰",
         "follow_up_requests": "후속 요청",
         "goal": "목표",
+        "help_agent_call": "에이전트 호출",
+        "help_exact_hint": "Tab으로 명령을 완성하고 Enter로 정확한 명령을 실행하세요.",
+        "help_intro_agent": "로컬 UI, 설정, 파일 명령은 에이전트를 호출하지 않습니다.",
+        "help_intro_trinity": "Trinity 소유 slash 명령은 provider 프롬프트보다 먼저 처리됩니다.",
         "history_hint": "프롬프트 실행, 워크플로우 실행, 로컬 slash 명령 사용 후 이력이 표시됩니다.",
         "id": "ID",
         "improve_hint": (
@@ -295,6 +321,7 @@ STATUS_CONTEXT_LABELS = {
         "subtasks_hint": "실행 중인 프로바이더가 위임 작업을 보고하면 하위 작업이 표시됩니다.",
         "supplemental_rounds": "보충 라운드",
         "synthesis": "종합",
+        "syntax_error": "구문 오류",
         "target": "대상",
         "target_action_hint": "실행 전에 `/target <path>`를 사용하거나 워크스페이스를 선택하세요.",
         "target_cleared": "대상 워크스페이스를 초기화했습니다.",
@@ -309,6 +336,12 @@ STATUS_CONTEXT_LABELS = {
         "workflow_history": "워크플로우 이력",
         "work_packages": "작업 패키지",
         "local": "로컬",
+        "trinity_commands": "Trinity 명령",
+        "unknown_command": "알 수 없는 명령",
+        "unknown_command_body": "은 Trinity slash 명령이 아닙니다.",
+        "unknown_command_did_you_mean": "다음 명령을 찾으셨나요:",
+        "unknown_command_help": "`/help`로 Trinity 로컬 명령을 확인하세요.",
+        "suggestion": "추천",
         "yes": "예",
         "selected_question": "선택된 질문",
         "free_text": "(자유 입력)",
@@ -926,46 +959,87 @@ def slash_command_suggestions(token: str) -> tuple[str, ...]:
     return tuple(get_close_matches(token.lower(), names, n=3, cutoff=0.45))
 
 
-def unknown_command_markdown(token: str, suggestions: tuple[str, ...]) -> str:
-    lines = [f"`{token}` is not a Trinity slash command."]
+def syntax_error_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "syntax_error")
+
+
+def unknown_command_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "unknown_command")
+
+
+def unknown_command_table_columns(*, lang: str = "en") -> tuple[str, str]:
+    return (_sc_label(lang, "suggestion"), _sc_label(lang, "summary"))
+
+
+def unknown_command_markdown(
+    token: str,
+    suggestions: tuple[str, ...],
+    *,
+    lang: str = "en",
+) -> str:
+    if lang == "ko":
+        lines = [f"`{token}`{_sc_label(lang, 'unknown_command_body')}"]
+    else:
+        lines = [f"`{token}` {_sc_label(lang, 'unknown_command_body')}"]
     if suggestions:
-        lines.extend(["", "Did you mean:"])
+        lines.extend(["", _sc_label(lang, "unknown_command_did_you_mean")])
         lines.extend(f"- `{name}`" for name in suggestions)
     else:
-        lines.extend(["", "Run `/help` to see Trinity-owned commands."])
+        lines.extend(["", _sc_label(lang, "unknown_command_help")])
     return "\n".join(lines)
 
 
-def unknown_command_rows(suggestions: tuple[str, ...]) -> tuple[tuple[str, str], ...]:
+def unknown_command_rows(
+    suggestions: tuple[str, ...],
+    *,
+    lang: str = "en",
+) -> tuple[tuple[str, str], ...]:
     summary_by_name = {name: spec.summary for spec in COMMAND_SPECS for name in spec.names}
+    if lang == "ko":
+        summary_by_name = {
+            name: spec.summary_ko for spec in COMMAND_SPECS for name in spec.names
+        }
     return tuple((name, summary_by_name.get(name, "")) for name in suggestions)
 
 
-def help_markdown() -> str:
+def help_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "trinity_commands")
+
+
+def help_table_columns(*, lang: str = "en") -> tuple[str, str, str, str]:
+    return (
+        _sc_label(lang, "command"),
+        _sc_label(lang, "category"),
+        _sc_label(lang, "help_agent_call"),
+        _sc_label(lang, "summary"),
+    )
+
+
+def help_markdown(*, lang: str = "en") -> str:
     """Return registry-backed help text for Trinity-owned slash commands."""
     category_counts: dict[str, int] = {}
     for spec in COMMAND_SPECS:
         category = spec.category.value
         category_counts[category] = category_counts.get(category, 0) + 1
     lines = [
-        "Trinity-owned slash commands are handled before provider prompts.",
-        "Local UI, settings, and file commands do not call agents.",
+        _sc_label(lang, "help_intro_trinity"),
+        _sc_label(lang, "help_intro_agent"),
         "",
-        "### Categories",
+        f"### {_sc_label(lang, 'categories')}",
     ]
     lines.extend(f"- `{category}`: {count}" for category, count in sorted(category_counts.items()))
-    lines.extend(
-        [
-            "",
-            "Use Tab to complete a command without running it. "
-            "Use Enter to run an exact command.",
-        ]
-    )
+    lines.extend(["", _sc_label(lang, "help_exact_hint")])
     return "\n".join(lines)
 
 
-def help_rows(*, use_korean: bool = False) -> tuple[tuple[str, str, str, str], ...]:
+def help_rows(
+    *,
+    lang: str = "en",
+    use_korean: bool | None = None,
+) -> tuple[tuple[str, str, str, str], ...]:
     """Return slash command registry rows for read-only help tables."""
+    if use_korean is None:
+        use_korean = lang == "ko"
     rows: list[tuple[str, str, str, str]] = []
     for spec in COMMAND_SPECS:
         command = spec.name

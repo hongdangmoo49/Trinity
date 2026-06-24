@@ -53,6 +53,10 @@ from trinity.textual_app.presenters import (
     history_markdown,
     history_rows,
     history_table_columns,
+    help_markdown,
+    help_rows,
+    help_table_columns,
+    help_title,
     improve_action_hint,
     improve_rows,
     improve_table_columns,
@@ -111,6 +115,7 @@ from trinity.textual_app.presenters import (
     subtasks_markdown,
     subtasks_rows,
     subtasks_table_columns,
+    syntax_error_title,
     target_action_hint,
     target_cleared_markdown,
     target_control_repo_action_hint,
@@ -122,6 +127,10 @@ from trinity.textual_app.presenters import (
     target_selection_cancelled_markdown,
     target_title,
     target_workspace_markdown,
+    unknown_command_markdown,
+    unknown_command_rows,
+    unknown_command_table_columns,
+    unknown_command_title,
 )
 from trinity.textual_app.report_export import (
     snapshot_report_markdown,
@@ -1138,6 +1147,34 @@ def test_resume_presenter_uses_korean_labels() -> None:
         ("목표", "게임 만들기"),
         ("라운드", "2"),
     )
+
+
+def test_help_unknown_presenter_uses_korean_labels() -> None:
+    suggestions = ("/status",)
+
+    assert syntax_error_title(lang="ko") == "구문 오류"
+    assert unknown_command_title(lang="ko") == "알 수 없는 명령"
+    assert unknown_command_table_columns(lang="ko") == ("추천", "요약")
+    assert unknown_command_markdown("/stats", suggestions, lang="ko").startswith(
+        "`/stats`은 Trinity slash 명령이 아닙니다."
+    )
+    assert "다음 명령을 찾으셨나요:" in unknown_command_markdown(
+        "/stats",
+        suggestions,
+        lang="ko",
+    )
+    assert unknown_command_rows(suggestions, lang="ko")[0][0] == "/status"
+    assert help_title(lang="ko") == "Trinity 명령"
+    assert help_table_columns(lang="ko") == (
+        "명령",
+        "카테고리",
+        "에이전트 호출",
+        "요약",
+    )
+    assert help_markdown(lang="ko").startswith(
+        "Trinity 소유 slash 명령은 provider 프롬프트보다 먼저 처리됩니다."
+    )
+    assert help_rows(lang="ko")
 
 
 def test_improve_presenter_uses_korean_labels() -> None:
@@ -3734,6 +3771,29 @@ async def test_start_slash_help_uses_registry_backed_local_modal(tmp_path) -> No
 
 
 @pytest.mark.asyncio
+async def test_start_slash_help_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app._handle_textual_slash_command("/help")
+        await pilot.pause()
+
+        assert isinstance(app.screen, LocalCommandModal)
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/help"
+        assert result.title == "Trinity 명령"
+        assert result.table_columns == ("명령", "카테고리", "에이전트 호출", "요약")
+        assert any(row[0] == "/status" for row in result.table_rows)
+        assert "Trinity 소유 slash 명령" in result.body
+        assert "### 카테고리" in result.body
+
+
+@pytest.mark.asyncio
 async def test_nexus_lookup_commands_record_tables_from_current_snapshot(
     tmp_path,
 ) -> None:
@@ -4301,6 +4361,49 @@ async def test_nexus_unknown_slash_suggests_close_commands(tmp_path) -> None:
         assert "/status" in result.body
         assert controller.started_prompts == []
         assert controller.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_nexus_unknown_command_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/stats")
+        await pilot.pause()
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/stats"
+        assert result.title == "알 수 없는 명령"
+        assert result.table_columns == ("추천", "요약")
+        assert any(row[0] == "/status" for row in result.table_rows)
+        assert "`/stats`은 Trinity slash 명령이 아닙니다." in result.body
+        assert "다음 명령을 찾으셨나요:" in result.body
+
+
+@pytest.mark.asyncio
+async def test_nexus_syntax_error_uses_korean_title(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)):
+        app._handle_textual_slash_command('/ask "unterminated')
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == '/ask "unterminated'
+        assert result.title == "구문 오류"
+        assert result.severity == "warning"
 
 
 @pytest.mark.asyncio

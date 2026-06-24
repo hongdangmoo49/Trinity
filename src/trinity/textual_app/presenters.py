@@ -868,9 +868,150 @@ def readiness_label(readiness: str, *, lang: str = "en") -> str:
     return readiness
 
 
+WORKFLOW_OUTCOME_MESSAGES_KO = {
+    "Workflow is still running.": "워크플로우가 아직 실행 중입니다.",
+    "Workflow is already running.": "워크플로우가 이미 실행 중입니다.",
+    "No active agents are configured.": "활성화된 에이전트가 없습니다.",
+    "No interrupted execution to mark.": "표시할 중단된 실행이 없습니다.",
+    "Execution marked as interrupted.": "실행을 중단 상태로 표시했습니다.",
+    "No interrupted execution to abort.": "중단을 취소할 실행이 없습니다.",
+    "Interrupted execution aborted.": "중단된 실행을 취소했습니다.",
+    "Choose a target workspace before restarting repairs.": (
+        "복구 재시작 전에 대상 워크스페이스를 선택하세요."
+    ),
+    "Previous execution was interrupted. Review running packages before retrying.": (
+        "이전 실행이 중단되었습니다. 재시도 전에 실행 중이던 작업 패키지를 확인하세요."
+    ),
+    "Previous execution was interrupted.": "이전 실행이 중단되었습니다.",
+    "No blueprint is ready. Finish planning before execution.": (
+        "준비된 설계안이 없습니다. 실행 전에 계획을 완료하세요."
+    ),
+    "No retryable work packages match the request.": (
+        "요청과 일치하는 재시도 가능한 작업 패키지가 없습니다."
+    ),
+    "Choose a target workspace before retrying execution.": (
+        "실행 재시도 전에 대상 워크스페이스를 선택하세요."
+    ),
+    "No review-repair blocked packages to retry.": (
+        "재시도할 리뷰 복구 차단 패키지가 없습니다."
+    ),
+    "No review-repair blocked packages to accept.": (
+        "완료 처리할 리뷰 복구 차단 패키지가 없습니다."
+    ),
+    "No review-repair blocked packages to stop.": (
+        "중단할 리뷰 복구 차단 패키지가 없습니다."
+    ),
+    "Choose a target workspace before running review.": (
+        "리뷰 실행 전에 대상 워크스페이스를 선택하세요."
+    ),
+    "No pending work package reviews match the request.": (
+        "요청과 일치하는 대기 중인 작업 패키지 리뷰가 없습니다."
+    ),
+    "No saved workflow sessions to resume.": (
+        "재개할 저장된 워크플로우 세션이 없습니다."
+    ),
+    "Execution failed. Review failed packages before retrying.": (
+        "실행이 실패했습니다. 재시도 전에 실패한 패키지를 확인하세요."
+    ),
+    "Review started after execution.": "실행 후 리뷰를 시작했습니다.",
+    "Review requires a user decision before continuing.": (
+        "계속하기 전에 리뷰에 대한 사용자 결정이 필요합니다."
+    ),
+    "Answer cannot be empty.": "답변은 비워둘 수 없습니다.",
+    "Instruction cannot be empty.": "지시문은 비워둘 수 없습니다.",
+    "Workflow action cancelled.": "워크플로우 작업을 취소했습니다.",
+    "No approved blueprint is available to execute.": "실행할 승인된 설계안이 없습니다.",
+    "No active agents are attached to this workflow.": (
+        "이 워크플로우에 연결된 활성 에이전트가 없습니다."
+    ),
+    "Target workspace is required before implementation.": (
+        "구현 전에 대상 워크스페이스가 필요합니다."
+    ),
+    "Current blueprint work packages are ready for execution.": (
+        "현재 설계안의 작업 패키지가 실행 준비되었습니다."
+    ),
+    "Continue is not available because no usable consensus exists.": (
+        "사용 가능한 합의가 없어 계속할 수 없습니다."
+    ),
+    "Continuing without failed providers.": "실패한 provider를 제외하고 계속합니다.",
+    "Workflow stopped after provider errors.": (
+        "provider 오류 이후 워크플로우를 중단했습니다."
+    ),
+    "Retrying failed providers.": "실패한 provider를 재시도합니다.",
+    "No post-review follow-up is ready for this workflow.": (
+        "이 워크플로우에는 준비된 리뷰 후속 작업이 없습니다."
+    ),
+    "Post-review follow-up closed. Workflow is done.": (
+        "리뷰 후속 작업을 닫았습니다. 워크플로우가 완료되었습니다."
+    ),
+    "Target workspace is required before post-review improvement.": (
+        "리뷰 후속 개선 전에 대상 워크스페이스가 필요합니다."
+    ),
+    "No matching post-review action items. Use /improve, /improve high, /improve all, /improve AI-001, or /improve done.": (
+        "일치하는 리뷰 후속 작업 항목이 없습니다. /improve, /improve high, "
+        "/improve all, /improve AI-001, 또는 /improve done을 사용하세요."
+    ),
+    "Selected post-review items do not require execution.": (
+        "선택한 리뷰 후속 항목은 실행이 필요하지 않습니다."
+    ),
+    "Accepted blocked review repairs.": "차단된 리뷰 복구를 완료 처리했습니다.",
+    "Stopped blocked review repairs.": "차단된 리뷰 복구를 중단했습니다.",
+}
+
+WORKFLOW_OUTCOME_PREFIXES_KO = (
+    ("Workflow error: ", "워크플로우 오류: "),
+    ("Retrying work packages: ", "작업 패키지를 재시도합니다: "),
+    ("Accepted blocked review repairs: ", "차단된 리뷰 복구를 완료 처리했습니다: "),
+    (
+        "Stopped workflow after blocked review repairs: ",
+        "리뷰 복구 차단 이후 워크플로우를 중단했습니다: ",
+    ),
+    ("Review started: ", "리뷰를 시작했습니다: "),
+    ("No matching workflow session: ", "일치하는 워크플로우 세션이 없습니다: "),
+    ("Resumed workflow ", "워크플로우를 재개했습니다: "),
+    ("No matching workflow question: ", "일치하는 워크플로우 질문이 없습니다: "),
+    ("Option must be a number: ", "옵션은 숫자여야 합니다: "),
+    ("Queued post-review improvement from ", "리뷰 후속 개선을 대기열에 추가했습니다: "),
+    ("Improvement requested: ", "개선을 요청했습니다: "),
+)
+
+WORKFLOW_OUTCOME_FRAGMENT_REPLACEMENTS_KO = (
+    (
+        "Review requested repairs; restarting execution for: ",
+        "리뷰가 수정을 요청했습니다. 다음 작업 패키지의 실행을 다시 시작합니다: ",
+    ),
+    ("Blocked by repair guard: ", "복구 루프 가드에 의해 차단됨: "),
+    (
+        "Choose a target workspace before restarting repairs.",
+        "복구 재시작 전에 대상 워크스페이스를 선택하세요.",
+    ),
+    (
+        " is already answered. Use /answer --replace to update it.",
+        " 질문은 이미 답변되었습니다. 업데이트하려면 /answer --replace를 사용하세요.",
+    ),
+    ("Question ", "질문 "),
+    (" has no option ", "에는 해당 옵션이 없습니다: "),
+)
+
+
 def _sc_label(lang: str, key: str) -> str:
     labels = STATUS_CONTEXT_LABELS.get(lang, STATUS_CONTEXT_LABELS["en"])
     return labels.get(key, STATUS_CONTEXT_LABELS["en"][key])
+
+
+def workflow_outcome_message_markdown(message: str, *, lang: str = "en") -> str:
+    if not message or lang != "ko":
+        return message
+    exact = WORKFLOW_OUTCOME_MESSAGES_KO.get(message)
+    if exact is not None:
+        return exact
+    for prefix, localized_prefix in WORKFLOW_OUTCOME_PREFIXES_KO:
+        if message.startswith(prefix):
+            return f"{localized_prefix}{message[len(prefix):]}"
+    localized = message
+    for source, replacement in WORKFLOW_OUTCOME_FRAGMENT_REPLACEMENTS_KO:
+        localized = localized.replace(source, replacement)
+    return localized
 
 
 def _yes_no(value: bool, *, lang: str = "en") -> str:

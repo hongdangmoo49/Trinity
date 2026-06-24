@@ -166,6 +166,7 @@ from trinity.textual_app.presenters import (
     unknown_command_rows,
     unknown_command_table_columns,
     unknown_command_title,
+    workflow_outcome_message_markdown,
 )
 from trinity.textual_app.report_export import (
     snapshot_report_markdown,
@@ -247,6 +248,7 @@ class FakeWorkflowController:
         self.follow_up_models: list[dict[str, str]] = []
         self.answers: list[tuple[str, str, bool]] = []
         self.option_answers: list[tuple[str, str, bool]] = []
+        self.answer_outcome: TextualWorkflowOutcome | None = None
         self.resumes: list[str] = []
         self.resume_options: list[TextualWorkflowArchiveOption] = []
         self.execution_outcome: TextualWorkflowOutcome | None = None
@@ -324,6 +326,8 @@ class FakeWorkflowController:
         replace: bool = False,
     ) -> TextualWorkflowOutcome:
         self.answers.append((question_id, answer, replace))
+        if self.answer_outcome is not None:
+            return self.answer_outcome
         self.current_snapshot = WorkflowNexusSnapshot(
             session_id="wf-fake",
             goal=self.current_snapshot.goal,
@@ -340,6 +344,8 @@ class FakeWorkflowController:
         replace: bool = False,
     ) -> TextualWorkflowOutcome:
         self.option_answers.append((option_index, question_selector, replace))
+        if self.answer_outcome is not None:
+            return self.answer_outcome
         self.current_snapshot = WorkflowNexusSnapshot(
             session_id="wf-fake",
             goal=self.current_snapshot.goal,
@@ -1339,6 +1345,35 @@ def test_improve_presenter_uses_korean_labels() -> None:
     assert improve_table_columns(lang="ko") == ("항목", "값")
     assert improve_title(lang="ko") == "개선"
     assert improve_action_hint(lang="ko").startswith("`/improve high`")
+
+
+def test_workflow_outcome_message_uses_korean_labels() -> None:
+    assert (
+        workflow_outcome_message_markdown(
+            "No blueprint is ready. Finish planning before execution.",
+            lang="ko",
+        )
+        == "준비된 설계안이 없습니다. 실행 전에 계획을 완료하세요."
+    )
+    assert (
+        workflow_outcome_message_markdown("Review started: wp.", lang="ko")
+        == "리뷰를 시작했습니다: wp."
+    )
+    assert (
+        workflow_outcome_message_markdown(
+            "Review requested repairs; restarting execution for: WP-001. "
+            "Blocked by repair guard: WP-002. "
+            "Choose a target workspace before restarting repairs.",
+            lang="ko",
+        )
+        == "리뷰가 수정을 요청했습니다. 다음 작업 패키지의 실행을 다시 시작합니다: "
+        "WP-001. 복구 루프 가드에 의해 차단됨: WP-002. "
+        "복구 재시작 전에 대상 워크스페이스를 선택하세요."
+    )
+    assert (
+        workflow_outcome_message_markdown("Workflow is still running.", lang="en")
+        == "Workflow is still running."
+    )
 
 
 def test_model_discovery_applies_fast_provider_before_slow_provider(
@@ -4305,6 +4340,7 @@ async def test_start_slash_review_uses_korean_labels(tmp_path) -> None:
         result = app.active_snapshot.local_commands[-1]
         assert result.command == "/review"
         assert result.title == "리뷰"
+        assert result.body == "리뷰를 시작했습니다: wp."
         assert result.table_columns == ("항목", "값")
         assert ("워크플로우", "wf-review") in result.table_rows
         assert ("대기 중 WP 리뷰", "WP-001") in result.table_rows
@@ -4342,6 +4378,7 @@ async def test_start_slash_improve_uses_korean_labels(tmp_path) -> None:
         result = app.active_snapshot.local_commands[-1]
         assert result.command == "/improve"
         assert result.title == "개선"
+        assert result.body == "개선을 요청했습니다: high."
         assert result.table_columns == ("항목", "값")
         assert ("워크플로우", "wf-improve") in result.table_rows
         assert ("보충 라운드", "1") in result.table_rows
@@ -4709,7 +4746,7 @@ async def test_nexus_execute_error_uses_korean_labels(tmp_path) -> None:
         result = app.active_snapshot.local_commands[-1]
         assert result.command == "/execute"
         assert result.title == "실행"
-        assert result.body == "No blueprint is ready. Finish planning before execution."
+        assert result.body == "준비된 설계안이 없습니다. 실행 전에 계획을 완료하세요."
         assert result.action_hint == (
             "먼저 계획을 완료한 뒤 Nexus에서 `/execute`를 실행하세요."
         )
@@ -4750,6 +4787,7 @@ async def test_nexus_execute_recovery_uses_korean_labels(tmp_path) -> None:
         result = app.active_snapshot.local_commands[-1]
         assert result.command == "/execute"
         assert result.title == "실행 복구"
+        assert result.body.startswith("이전 실행이 중단되었습니다.")
         assert result.table_columns == ("항목", "값")
         assert ("실행", "interrupted") in result.table_rows
         assert ("재시도 후보", "WP-001") in result.table_rows
@@ -4760,6 +4798,58 @@ async def test_nexus_execute_recovery_uses_korean_labels(tmp_path) -> None:
         assert "###" not in result.body.splitlines()[0]
         assert "실행 복구" not in result.body.splitlines()[0]
         assert "- 실행: `interrupted`" in result.body
+
+
+@pytest.mark.asyncio
+async def test_nexus_answer_outcome_uses_korean_message(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    controller.answer_outcome = TextualWorkflowOutcome(
+        controller.current_snapshot,
+        message="No matching workflow question: next",
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)):
+        app._handle_textual_slash_command("/answer next 네")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/answer"
+        assert result.title == "답변"
+        assert result.body == "일치하는 워크플로우 질문이 없습니다: next"
+        assert result.severity == "warning"
+        assert result.empty is True
+
+
+@pytest.mark.asyncio
+async def test_nexus_resume_outcome_uses_korean_message(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/resume latest")
+        await pilot.pause()
+
+        assert app.active_snapshot is not None
+        result = next(
+            item
+            for item in app.active_snapshot.local_commands
+            if item.command == "/resume"
+        )
+        assert result.command == "/resume"
+        assert result.title == "재개"
+        assert result.body == "워크플로우를 재개했습니다: wf-resumed-latest."
+        assert result.severity == "info"
+        assert result.empty is False
 
 
 @pytest.mark.asyncio

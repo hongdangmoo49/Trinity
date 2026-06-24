@@ -1388,7 +1388,7 @@ class TrinityTextualApp(App[None]):
         self._apply_workflow_outcome(outcome)
         if message:
             self.notify(
-                message,
+                self._workflow_outcome_message(message),
                 severity=(
                     "warning"
                     if message.startswith("No pending")
@@ -1664,9 +1664,15 @@ class TrinityTextualApp(App[None]):
             execution = self.get_screen("execution", ExecutionMatrixScreen)
             execution.apply_execution_state(self.confirmed_preflight, snapshot)
         if outcome.message:
-            self.notify(outcome.message)
+            self.notify(self._workflow_outcome_message(outcome.message))
         if outcome.running:
             self._ensure_workflow_polling()
+
+    def _workflow_outcome_message(self, message: str) -> str:
+        return textual_presenters.workflow_outcome_message_markdown(
+            message,
+            lang=self.config.lang,
+        )
 
     def _handle_textual_slash_command(self, text: str) -> None:
         """Execute a Trinity slash command without routing it as model input."""
@@ -1886,7 +1892,7 @@ class TrinityTextualApp(App[None]):
                 self._record_slash_command_result(
                     parsed.spec.name,
                     textual_presenters.review_title(lang=self.config.lang),
-                    message,
+                    self._workflow_outcome_message(message),
                     severity=(
                         "warning"
                         if message.startswith("No review") or "not connected" in message
@@ -1914,7 +1920,7 @@ class TrinityTextualApp(App[None]):
                 self._record_slash_command_result(
                     parsed.spec.name,
                     textual_presenters.improve_title(lang=self.config.lang),
-                    message,
+                    self._workflow_outcome_message(message),
                     severity=(
                         "warning"
                         if message.startswith("No matching")
@@ -1950,7 +1956,7 @@ class TrinityTextualApp(App[None]):
                 self._record_slash_command_result(
                     parsed.spec.name,
                     textual_presenters.execute_title(lang=self.config.lang),
-                    message,
+                    self._workflow_outcome_message(message),
                     severity="warning",
                     empty=True,
                     action_hint=textual_presenters.execute_finish_planning_action_hint(
@@ -2277,7 +2283,8 @@ class TrinityTextualApp(App[None]):
         message: str = "",
     ) -> None:
         """Show interrupted execution recovery details as a local command result."""
-        body_parts = [message.strip()] if message.strip() else []
+        localized_message = self._workflow_outcome_message(message).strip()
+        body_parts = [localized_message] if localized_message else []
         body_parts.append(
             self._execution_recovery_markdown(snapshot, lang=self.config.lang)
         )
@@ -3147,7 +3154,7 @@ class TrinityTextualApp(App[None]):
             self._record_slash_command_result(
                 "/resume",
                 textual_presenters.resume_title(lang=self.config.lang),
-                message,
+                self._workflow_outcome_message(message),
                 severity="warning" if failed else "info",
                 empty=failed,
                 table_columns=textual_presenters.resume_result_table_columns(
@@ -3206,11 +3213,11 @@ class TrinityTextualApp(App[None]):
                 ),
             )
             return
-        replace = False
+        replace_answer = False
         filtered: list[str] = []
         for arg in args:
             if arg in {"--replace", "-r"}:
-                replace = True
+                replace_answer = True
             else:
                 filtered.append(arg)
         if not filtered:
@@ -3228,19 +3235,19 @@ class TrinityTextualApp(App[None]):
         if len(filtered) == 1 and filtered[0].isdigit():
             outcome = self.workflow_controller.answer_question_option(
                 filtered[0],
-                replace=replace,
+                replace=replace_answer,
             )
         elif len(filtered) == 1:
             outcome = self.workflow_controller.answer_question(
                 "next",
                 filtered[0],
-                replace=replace,
+                replace=replace_answer,
             )
         else:
             outcome = self.workflow_controller.answer_question(
                 filtered[0],
                 " ".join(filtered[1:]),
-                replace=replace,
+                replace=replace_answer,
             )
         message = outcome.message
         if message:
@@ -3250,7 +3257,7 @@ class TrinityTextualApp(App[None]):
             self._record_slash_command_result(
                 "/answer",
                 textual_presenters.answer_title(lang=self.config.lang),
-                message,
+                self._workflow_outcome_message(message),
                 severity="warning" if message.startswith("No ") else "info",
                 empty=message.startswith("No "),
             )

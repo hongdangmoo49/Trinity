@@ -1829,6 +1829,64 @@ def test_snapshot_formats_legacy_execution_result_event(tmp_path) -> None:
     assert snapshot.execution_log == ["work_package_completed: WP-002 codex done"]
 
 
+def test_snapshot_formats_review_package_activity_events(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-review-activity",
+            goal="Build UI",
+            state=WorkflowState.REVIEWING,
+            active_agents=["claude", "codex"],
+        )
+    )
+    for event_name, status, summary in [
+        ("review_package_queued", "queued", ""),
+        ("review_package_started", "reviewing", ""),
+        (
+            "review_package_completed",
+            ReviewStatus.CHANGES_REQUESTED.value,
+            "Needs safer terminal handling.",
+        ),
+        (
+            "review_package_skipped",
+            "skipped",
+            "Review agent 'codex' is not available.",
+        ),
+    ]:
+        persistence.append_event(
+            {
+                "event": event_name,
+                "state": "reviewing",
+                "workflow_id": "wf-review-activity",
+                "data": {
+                    "package_id": "WP-001",
+                    "reviewer_agent": "codex",
+                    "target_agent": "claude",
+                    "status": status,
+                    "summary": summary,
+                },
+            }
+        )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    expected = [
+        "review_package_queued: WP-001 codex queued",
+        "review_package_started: WP-001 codex reviewing",
+        (
+            "review_package_completed: WP-001 codex changes_requested - "
+            "Needs safer terminal handling."
+        ),
+        (
+            "review_package_skipped: WP-001 codex skipped - "
+            "Review agent 'codex' is not available."
+        ),
+    ]
+    assert snapshot.execution_log == expected
+    assert snapshot.workflow_events == expected
+
+
 def test_snapshot_hides_session_result_when_finished_event_is_visible(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     persistence = WorkflowPersistence(config.effective_state_dir)

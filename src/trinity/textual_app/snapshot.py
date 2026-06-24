@@ -1905,6 +1905,31 @@ class NexusSnapshotAdapter:
             line = f"work_package_completed: {details}" if details else event_name
             return f"{prefix}{line}"
 
+        if event_name in {
+            "review_package_queued",
+            "review_package_started",
+            "review_package_completed",
+            "review_package_skipped",
+        }:
+            package_id = str(data.get("package_id", "")).strip()
+            reviewer = str(
+                data.get("reviewer_agent") or data.get("reviewer") or ""
+            ).strip()
+            status = str(data.get("status", "")).strip()
+            if not status:
+                status = {
+                    "review_package_queued": "queued",
+                    "review_package_started": "reviewing",
+                    "review_package_skipped": "skipped",
+                }.get(event_name, "")
+            summary = str(data.get("summary", "")).strip()
+            details = " ".join(part for part in (package_id, reviewer, status) if part)
+            if summary:
+                summary = NexusSnapshotAdapter._short_summary(summary, limit=120)
+                details = f"{details} - {summary}" if details else summary
+            line = f"{event_name}: {details}" if details else event_name
+            return f"{prefix}{line}"
+
         if event_name == "execution_run_started":
             packages = data.get("work_packages", [])
             package_count = len(packages) if isinstance(packages, list) else 0

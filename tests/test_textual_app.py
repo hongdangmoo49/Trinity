@@ -5129,6 +5129,68 @@ def test_work_package_detail_modal_surfaces_second_review_plan() -> None:
     assert "- Second review is pending." in markdown
 
 
+def test_work_package_detail_modal_localizes_korean_status_values() -> None:
+    modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-011",
+            title="상태 표시",
+            owner_agent="codex",
+            status="failed",
+            last_result_status="failed",
+            last_result_summary="Could not finish.",
+            review_status="changes_requested",
+            review_required_changes=["Add retry regression coverage."],
+        ),
+        lang="ko",
+    )
+
+    markdown = modal._markdown()
+
+    assert "- 상태: `실패`" in markdown
+    assert "- 리뷰: `변경 요청`" in markdown
+    assert "## 리뷰 계획\n- 상태: `변경 요청`" in markdown
+    assert "## 리뷰\n- 리뷰어: `-`\n- 상태: `변경 요청`" in markdown
+    assert "- 리뷰가 완료 전 1개 변경을 요청했습니다." in markdown
+    assert "`changes_requested`" not in markdown
+
+
+def test_work_package_detail_modal_localizes_korean_second_review_status() -> None:
+    modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-012",
+            title="2차 리뷰",
+            owner_agent="claude",
+            status="done",
+            review_status="needs_second_review",
+            reviewer_agent="codex, antigravity",
+            review_summary="Primary review requested changes.",
+        ),
+        lang="ko",
+    )
+
+    markdown = modal._markdown()
+
+    assert "- 상태: `완료`" in markdown
+    assert "- 리뷰: `2차 리뷰 필요`" in markdown
+    assert "## 리뷰 계획\n- 상태: `2차 리뷰 필요`" in markdown
+    assert "- 2차 리뷰가 대기 중입니다." in markdown
+    assert "`needs_second_review`" not in markdown
+
+
+def test_work_package_detail_modal_preserves_unknown_status_values() -> None:
+    modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-013",
+            title="Unknown status",
+            owner_agent="codex",
+            status="waiting_for_external_input",
+        ),
+        lang="ko",
+    )
+
+    assert "- 상태: `waiting_for_external_input`" in modal._markdown()
+
+
 @pytest.mark.asyncio
 async def test_work_package_detail_modal_supports_korean_chrome_labels(
     tmp_path,
@@ -5172,7 +5234,8 @@ async def test_work_package_detail_modal_supports_korean_chrome_labels(
         markdown = app.screen._markdown()
         assert "## 요약" in markdown
         assert "- 제목: Client" in markdown
-        assert "- 상태: `failed`" in markdown
+        assert "- 상태: `실패`" in markdown
+        assert "- 리뷰: `변경 요청`" in markdown
         assert "- 소유자: `codex`" in markdown
         assert "- 실행 필요: `예`" in markdown
         assert "## 액션 컨텍스트" in markdown

@@ -79,6 +79,9 @@ class WorkPackageDetailModal(ModalScreen[None]):
                 ]
             )
 
+        lines.extend(["", "## Action Context"])
+        lines.extend(self._action_context_lines(package))
+
         lines.extend(["", "## Result"])
         if package.last_result_status or package.last_result_summary:
             lines.extend(
@@ -131,6 +134,49 @@ class WorkPackageDetailModal(ModalScreen[None]):
             return
         lines.extend(["", f"## {title}"])
         lines.extend(f"- {value}" for value in values)
+
+    @staticmethod
+    def _action_context_lines(package: WorkPackageSnapshot) -> list[str]:
+        lines: list[str] = []
+        if package.retryable:
+            lines.append(f"- Retry candidate: `{package.id}`")
+        elif package.retry_disabled_reason:
+            lines.append(f"- Retry unavailable: {package.retry_disabled_reason}")
+        else:
+            lines.append("- Retry unavailable: no retry candidate is recorded.")
+
+        blockers = [value for value in package.last_result_blockers if value]
+        if blockers:
+            lines.append(f"- Blocking evidence: {blockers[0]}")
+            if len(blockers) > 1:
+                lines.append(f"- Additional blockers: {len(blockers) - 1}")
+
+        if package.repair_blocked_reason:
+            attempts = (
+                f"{package.repair_attempt_count}/{package.repair_max_attempts}"
+                if package.repair_max_attempts
+                else str(package.repair_attempt_count)
+            )
+            lines.append(
+                f"- Repair loop blocked after `{attempts}` attempts: "
+                f"{package.repair_blocked_reason}"
+            )
+
+        if package.review_status == "changes_requested":
+            change_count = len(package.review_required_changes)
+            if change_count:
+                lines.append(
+                    f"- Review requested {change_count} change"
+                    f"{'' if change_count == 1 else 's'} before completion."
+                )
+            else:
+                lines.append("- Review requested changes before completion.")
+        elif package.review_status in {"blocked", "failed"}:
+            lines.append(f"- Review is `{package.review_status}`; inspect review notes.")
+        elif package.review_status == "skipped":
+            lines.append("- Peer review was skipped; treat confidence as lower.")
+
+        return lines
 
     @staticmethod
     def _execution_lane_label(package: WorkPackageSnapshot) -> str:

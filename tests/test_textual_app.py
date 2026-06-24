@@ -1494,6 +1494,74 @@ def test_central_agent_view_keeps_english_status_values() -> None:
     assert "- **AI-001** [high][pending] Add smoke test" in markdown
 
 
+def test_central_agent_view_localizes_korean_execution_progress() -> None:
+    view = CentralAgentView(lang="ko")
+    snapshot = WorkflowNexusSnapshot(
+        state="executing",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Done",
+                owner_agent="codex",
+                status="done",
+            ),
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="Run",
+                owner_agent="codex",
+                status="running",
+            ),
+            WorkPackageSnapshot(
+                id="WP-003",
+                title="Wait",
+                owner_agent="codex",
+                status="pending",
+            ),
+            WorkPackageSnapshot(
+                id="WP-004",
+                title="Blocked",
+                owner_agent="codex",
+                status="blocked",
+            ),
+        ],
+    )
+
+    assert view._execution_progress(snapshot) == (
+        "실행 중: 1 완료 / 1 실행중 / 1 대기 / 1 막힘"
+    )
+
+
+def test_central_agent_view_keeps_english_execution_progress() -> None:
+    view = CentralAgentView()
+    snapshot = WorkflowNexusSnapshot(
+        state="executing",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Done",
+                owner_agent="codex",
+                status="done",
+            ),
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="Run",
+                owner_agent="codex",
+                status="running",
+            ),
+            WorkPackageSnapshot(
+                id="WP-003",
+                title="Wait",
+                owner_agent="codex",
+                status="pending",
+            ),
+        ],
+    )
+
+    assert view._execution_progress(snapshot) == (
+        "Executing: 1 done / 1 running / 1 waiting"
+    )
+
+
 def test_unique_report_path_avoids_existing_file_and_sanitizes_session_id(
     tmp_path,
 ) -> None:

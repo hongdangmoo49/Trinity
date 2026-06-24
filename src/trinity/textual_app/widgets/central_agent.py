@@ -405,14 +405,23 @@ class CentralAgentView(VerticalScroll):
         running = counts.get("running", 0)
         blocked = counts.get("blocked", 0)
         waiting = counts.get("waiting", 0)
+        parts = [
+            self._progress_count(done, "done"),
+            self._progress_count(running, "running"),
+            self._progress_count(waiting, "waiting"),
+        ]
+        if blocked:
+            parts.append(self._progress_count(blocked, "blocked"))
         return (
             f"{self._label('executing')}: "
-            f"{done} done / {running} running / {waiting} waiting"
-            + (f" / {blocked} blocked" if blocked else "")
+            + " / ".join(parts)
         )
 
     def _status_value(self, value: str) -> str:
         return display_status_value(value, lang=self.lang)
+
+    def _progress_count(self, count: int, key: str) -> str:
+        return f"{count} {self._label(f'progress_{key}')}"
 
     @staticmethod
     def _blueprint_actions_key(snapshot: WorkflowNexusSnapshot) -> tuple[object, ...]:
@@ -494,6 +503,10 @@ class CentralAgentView(VerticalScroll):
             "provider_error_continue": "제외하고 계속",
             "provider_error_stop": "중단",
             "progress": "진행",
+            "progress_blocked": "막힘",
+            "progress_done": "완료",
+            "progress_running": "실행중",
+            "progress_waiting": "대기",
             "ready": "준비됨",
             "reviewing": "리뷰 중",
             "repair_action": "리뷰 수리 결정",
@@ -550,6 +563,10 @@ class CentralAgentView(VerticalScroll):
             "provider_error_continue": "Continue without",
             "provider_error_stop": "Stop",
             "progress": "Progress",
+            "progress_blocked": "blocked",
+            "progress_done": "done",
+            "progress_running": "running",
+            "progress_waiting": "waiting",
             "ready": "ready",
             "reviewing": "Reviewing",
             "repair_action": "Review repair decision",

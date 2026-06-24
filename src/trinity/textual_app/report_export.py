@@ -13,6 +13,7 @@ from trinity.textual_app.snapshot import (
 )
 from trinity.display_labels import display_kind_value, display_source_value
 from trinity.textual_app.widgets.status_label import (
+    display_review_skip_reason,
     display_review_status_value,
     display_status_value,
 )
@@ -456,9 +457,10 @@ def _work_package_lines(
             f"{_label(lang, 'reviewer')} {_md_inline(package.reviewer_agent or _none(lang))}"
         )
         if package.review_status == "skipped" and package.review_summary:
+            reason = display_review_skip_reason(package.review_summary, lang=lang)
             review = (
                 f"{review}; {_label(lang, 'review_reason')} "
-                f"{_md_inline(package.review_summary)}"
+                f"{_md_inline(reason)}"
             )
         lines.append(f"  - {_label(lang, 'review')}: {review}")
     return lines

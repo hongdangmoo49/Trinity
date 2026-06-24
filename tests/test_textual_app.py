@@ -8424,6 +8424,32 @@ def test_work_package_detail_modal_localizes_korean_status_values() -> None:
     assert "`changes_requested`" not in markdown
 
 
+def test_work_package_detail_modal_localizes_empty_risk_placeholder() -> None:
+    korean = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-014",
+            title="리스크 표시",
+            owner_agent="codex",
+            status="pending",
+            risk="",
+        ),
+        lang="ko",
+    )
+    english = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-014",
+            title="Risk display",
+            owner_agent="codex",
+            status="pending",
+            risk="",
+        ),
+        lang="en",
+    )
+
+    assert "- 리스크: `알 수 없음`" in korean._markdown()
+    assert "- Risk: `unknown`" in english._markdown()
+
+
 def test_work_package_detail_modal_localizes_korean_second_review_status() -> None:
     modal = WorkPackageDetailModal(
         WorkPackageSnapshot(

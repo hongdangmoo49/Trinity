@@ -4423,6 +4423,14 @@ async def test_workspace_preflight_inside_control_repo_requires_confirmation(
         assert controller.target_control_confirmed is True
 
 
+def test_workspace_preflight_localizes_branch_placeholder(tmp_path) -> None:
+    preflight = build_preflight(tmp_path, WorkflowNexusSnapshot())
+
+    assert preflight.branch == "(none)"
+    assert "Branch: (none)" in preflight.render(lang="en")
+    assert "브랜치: (없음)" in preflight.render(lang="ko")
+
+
 @pytest.mark.asyncio
 async def test_start_slash_help_uses_registry_backed_local_modal(tmp_path) -> None:
     controller = FakeWorkflowController()

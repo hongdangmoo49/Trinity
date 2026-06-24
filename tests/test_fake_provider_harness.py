@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
 
 import pytest
 
 from tests.harness.fake_providers import (
+    _windows_wrapper_script,
     install_fake_provider_clis,
     provider_calls,
     run_fake_cli,
@@ -55,6 +57,22 @@ class FakeAgent(AgentWrapper):
 
     async def graceful_shutdown(self) -> None:
         pass
+
+
+def test_fake_provider_clis_use_platform_executable_names(tmp_path) -> None:
+    fake = install_fake_provider_clis(tmp_path / "fake-providers")
+
+    expected_suffix = ".cmd" if os.name == "nt" else ""
+    assert fake.claude.name == f"claude{expected_suffix}"
+    assert fake.codex.name == f"codex{expected_suffix}"
+    assert fake.agy.name == f"agy{expected_suffix}"
+
+
+def test_windows_fake_provider_wrapper_invokes_python_script() -> None:
+    script = _windows_wrapper_script("codex.py")
+
+    assert '"%~dp0codex.py" %*' in script
+    assert "exit /b %ERRORLEVEL%" in script
 
 
 def test_fake_provider_clis_support_versions_and_model_discovery(tmp_path) -> None:

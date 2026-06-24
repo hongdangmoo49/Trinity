@@ -38,6 +38,7 @@ jobs:
           tests/test_platform_process.py
           tests/test_log_tail.py
           tests/test_provider_bootstrap.py
+          tests/test_fake_provider_harness.py
           tests/test_tui_rendering.py
           tests/test_cli.py
 

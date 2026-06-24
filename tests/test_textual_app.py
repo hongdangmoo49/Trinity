@@ -41,6 +41,7 @@ from trinity.textual_app.report_export import (
 from trinity.textual_app.screens.execution_matrix import (
     ExecutionPackageRow,
     ExecutionMatrixScreen,
+    _detail_button_label,
     _review_label,
 )
 from trinity.textual_app.screens.nexus import NexusScreen
@@ -4311,6 +4312,36 @@ def test_execution_matrix_compacts_reviewer_status_labels() -> None:
     )
 
 
+def test_execution_matrix_detail_button_labels_review_escalation() -> None:
+    package = WorkPackageSnapshot(
+        id="WP-001",
+        title="Needs escalation",
+        owner_agent="claude",
+        status="done",
+        review_status="needs_second_review",
+    )
+    blocked = WorkPackageSnapshot(
+        id="WP-002",
+        title="Blocked escalation",
+        owner_agent="claude",
+        status="blocked",
+        review_status="needs_second_review",
+    )
+    default = WorkPackageSnapshot(
+        id="WP-003",
+        title="Normal",
+        owner_agent="codex",
+        status="done",
+    )
+
+    assert _detail_button_label(package) == "2nd Review"
+    assert _detail_button_label(package, lang="ko") == "2차리뷰"
+    assert _detail_button_label(blocked) == "Blocked"
+    assert _detail_button_label(blocked, lang="ko") == "차단됨"
+    assert _detail_button_label(default) == "Spec"
+    assert _detail_button_label(default, lang="ko") == "상세"
+
+
 @pytest.mark.asyncio
 async def test_execution_matrix_header_uses_two_line_row_layout(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
@@ -4458,6 +4489,36 @@ async def test_execution_matrix_80_columns_keeps_review_risk_and_spec_visible(
         assert activity_lines[0] == "Activity"
         assert "... 4 earlier log lines hidden" in activity_lines
         assert "event-11" in activity_lines
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_row_labels_second_review_action(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Review escalation",
+                        owner_agent="claude",
+                        status="done",
+                        review_status="needs_second_review",
+                        reviewer_agent="codex, antigravity",
+                    )
+                ],
+            ),
+        )
+        await pilot.pause()
+
+        button = screen.query_one("#wp-detail-0", Button)
+        assert str(button.label) == "2nd Review"
 
 
 @pytest.mark.asyncio

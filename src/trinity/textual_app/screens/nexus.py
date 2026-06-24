@@ -30,6 +30,28 @@ from trinity.workflow.engine import (
 )
 
 
+NEXUS_LABELS = {
+    "en": {
+        "composer_placeholder": "Reply, refine direction, or type / for commands",
+        "execute": "Execute",
+        "open_provider_inspector": "Open Provider Inspector",
+        "select_agent_warning": "Select at least one agent.",
+        "select_workspace": "Select Workspace",
+        "workspace_not_selected": "Workspace: not selected",
+        "workspace_selected": "Workspace: {target}",
+    },
+    "ko": {
+        "composer_placeholder": "답변하거나 방향을 조정하세요. / 로 명령 입력",
+        "execute": "실행",
+        "open_provider_inspector": "프로바이더 인스펙터",
+        "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
+        "select_workspace": "작업 폴더 선택",
+        "workspace_not_selected": "작업 폴더: 선택 안됨",
+        "workspace_selected": "작업 폴더: {target}",
+    },
+}
+
+
 class NexusScreen(Screen[None]):
     """Provider dashboard and central synthesis conversation."""
 
@@ -128,9 +150,12 @@ class NexusScreen(Screen[None]):
                         lang=self.config.lang,
                     )
             with Horizontal(id="nexus-action-bar"):
-                yield Button("Open Provider Inspector", id="open-provider-inspector")
                 yield Button(
-                    "Select Workspace",
+                    self._label("open_provider_inspector"),
+                    id="open-provider-inspector",
+                )
+                yield Button(
+                    self._label("select_workspace"),
                     id="select-workspace",
                     variant="default",
                 )
@@ -139,7 +164,7 @@ class NexusScreen(Screen[None]):
                     id="nexus-target-workspace",
                 )
                 yield Button(
-                    "Execute",
+                    self._label("execute"),
                     id="request-execute",
                     variant="primary",
                 )
@@ -154,7 +179,7 @@ class NexusScreen(Screen[None]):
                 lang=self.config.lang,
             )
             yield PromptComposer(
-                placeholder="Reply, refine direction, or type / for commands",
+                placeholder=self._label("composer_placeholder"),
                 id="nexus-composer",
                 lang=self.config.lang,
             )
@@ -339,7 +364,9 @@ class NexusScreen(Screen[None]):
 
     def _workspace_label(self) -> str:
         target = self._current_workspace_text()
-        return f"Workspace: {target}" if target else "Workspace: not selected"
+        if target:
+            return self._label("workspace_selected").format(target=target)
+        return self._label("workspace_not_selected")
 
     def _current_workspace_text(self) -> str:
         if self.snapshot and self.snapshot.target_workspace.strip():
@@ -357,7 +384,7 @@ class NexusScreen(Screen[None]):
         selector = self.query_one(AgentRecipientModelSelector)
         target_agents = selector.selected_agents()
         if not target_agents:
-            self.app.notify("Select at least one agent.", severity="warning")
+            self.app.notify(self._label("select_agent_warning"), severity="warning")
             return
         self.follow_ups.append(cleaned)
         self.query_one("#nexus-composer", PromptComposer).clear()
@@ -422,6 +449,10 @@ class NexusScreen(Screen[None]):
             self._state_from_spec(name, spec)
             for name, spec in self.config.agents.items()
         ]
+
+    def _label(self, key: str) -> str:
+        labels = NEXUS_LABELS.get(self.config.lang, NEXUS_LABELS["en"])
+        return labels.get(key, NEXUS_LABELS["en"][key])
 
     def _state_from_spec(
         self,

@@ -6268,6 +6268,49 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
 
 
 @pytest.mark.asyncio
+async def test_nexus_action_bar_uses_configured_korean_labels(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target-app"
+    control_repo.mkdir()
+    target.mkdir()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo, lang="ko"),
+        controller,
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        assert str(nexus.query_one("#open-provider-inspector", Button).label) == (
+            "프로바이더 인스펙터"
+        )
+        assert str(nexus.query_one("#request-execute", Button).label) == "실행"
+        assert str(nexus.query_one("#select-workspace", Button).label) == (
+            "작업 폴더 선택"
+        )
+        workspace_label = str(
+            nexus.query_one("#nexus-target-workspace", Static).content
+        )
+        assert workspace_label.startswith("작업 폴더: ")
+        assert str(target.resolve()) in workspace_label
+        assert nexus.query_one("#nexus-composer", PromptComposer).placeholder == (
+            "답변하거나 방향을 조정하세요. / 로 명령 입력"
+        )
+
+    screen = NexusScreen(
+        TrinityConfig.default_config(project_dir=control_repo, lang="ko")
+    )
+    assert screen._workspace_label() == "작업 폴더: 선택 안됨"
+
+
+@pytest.mark.asyncio
 async def test_nexus_execute_requests_execution_when_target_is_selected(
     tmp_path,
 ) -> None:

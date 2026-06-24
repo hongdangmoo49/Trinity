@@ -461,6 +461,23 @@ def test_status_modal_centers_and_uses_read_only_table() -> None:
     assert "Workflow" in text
 
 
+def test_status_modal_uses_korean_chrome_labels() -> None:
+    result = LocalCommandSnapshot(command="/status", title="Status", body="status")
+    modal = StatusCommandModal(result, lang="ko")
+
+    assert modal._label("title") == "상태"
+    assert modal._label("body").startswith("현재 로컬 상태")
+    assert modal._label("close") == "닫기"
+    assert modal._status_table_text() == "(상태 행 없음)"
+
+
+def test_local_command_modal_uses_korean_close_label() -> None:
+    result = LocalCommandSnapshot(command="/workflow", title="Workflow", body="body")
+    modal = LocalCommandModal(result, lang="ko")
+
+    assert modal._label("close") == "닫기"
+
+
 def test_resume_picker_modal_centers() -> None:
     assert "align: center middle" in ResumeWorkflowPicker.DEFAULT_CSS
 
@@ -1820,6 +1837,31 @@ async def test_start_slash_status_does_not_start_workflow(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_start_slash_status_uses_korean_modal_chrome(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/status ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, StatusCommandModal)
+        assert str(app.screen.query_one("#status-command-title", Static).content) == "상태"
+        assert "현재 로컬 상태" in str(
+            app.screen.query_one("#status-command-body", Static).content
+        )
+        assert str(app.screen.query_one("#close-status-command", Button).label) == "닫기"
+
+
+@pytest.mark.asyncio
 async def test_start_unknown_slash_does_not_start_workflow(tmp_path) -> None:
     controller = FakeWorkflowController()
     app = TrinityTextualApp(
@@ -2309,6 +2351,33 @@ async def test_start_slash_workflow_uses_generic_local_command_modal(
         table = app.screen.query_one("#local-command-table", Static)
         assert "Workflow" not in str(table.render())
         assert "State" in str(table.render())
+
+
+@pytest.mark.asyncio
+async def test_start_slash_workflow_uses_korean_local_command_modal_chrome(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", goal="game", state="blueprint_ready")
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/workflow ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, LocalCommandModal)
+        assert str(app.screen.query_one("#close-local-command", Button).label) == "닫기"
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.local_commands[-1].title == "Workflow"
 
 
 @pytest.mark.asyncio

@@ -7,7 +7,14 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Markdown, Static
 
+from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import LocalCommandSnapshot
+
+
+LOCAL_COMMAND_MODAL_LABELS = {
+    "en": {"close": "Close"},
+    "ko": {"close": "닫기"},
+}
 
 
 class LocalCommandModal(ModalScreen[None]):
@@ -23,9 +30,15 @@ class LocalCommandModal(ModalScreen[None]):
         ("escape", "close", "Close"),
     ]
 
-    def __init__(self, result: LocalCommandSnapshot) -> None:
+    LOCALIZED_BINDINGS = {
+        ("escape", "close"): ("binding_close", None),
+    }
+
+    def __init__(self, result: LocalCommandSnapshot, *, lang: str = "en") -> None:
         super().__init__()
         self.result = result
+        self.lang = lang
+        localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
         with Vertical(id="local-command-modal"):
@@ -39,7 +52,7 @@ class LocalCommandModal(ModalScreen[None]):
                 )
             if self.result.action_hint:
                 yield Static(self.result.action_hint, id="local-command-hint")
-            yield Button("Close", id="close-local-command")
+            yield Button(self._label("close"), id="close-local-command")
         yield Footer()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -68,3 +81,9 @@ class LocalCommandModal(ModalScreen[None]):
             ]
             lines.append("  ".join(cells).rstrip())
         return "\n".join(lines)
+
+    def _label(self, key: str) -> str:
+        labels = LOCAL_COMMAND_MODAL_LABELS.get(
+            self.lang, LOCAL_COMMAND_MODAL_LABELS["en"]
+        )
+        return labels.get(key, LOCAL_COMMAND_MODAL_LABELS["en"][key])

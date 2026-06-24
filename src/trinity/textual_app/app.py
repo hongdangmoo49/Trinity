@@ -2140,7 +2140,7 @@ class TrinityTextualApp(App[None]):
         snapshot = self._with_local_command_results(self._current_textual_snapshot())
         self.active_snapshot = snapshot
         if self.current_route == "start" and start_modal:
-            self.push_screen(LocalCommandModal(result))
+            self.push_screen(LocalCommandModal(result, lang=self.config.lang))
         else:
             self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
         if notify and self.current_route != "start":
@@ -2166,7 +2166,7 @@ class TrinityTextualApp(App[None]):
         snapshot = self._with_local_command_results(snapshot)
         self.active_snapshot = snapshot
         if self.current_route == "start":
-            self.push_screen(StatusCommandModal(result))
+            self.push_screen(StatusCommandModal(result, lang=self.config.lang))
             return
         self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
 

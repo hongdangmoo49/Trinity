@@ -428,7 +428,7 @@ class ExecutionMatrixScreen(Screen[None]):
             None,
         )
         if package is not None:
-            self.app.push_screen(WorkPackageDetailModal(package))
+            self.app.push_screen(WorkPackageDetailModal(package, lang=self.lang))
 
     def action_toggle_task_expanded(self) -> None:
         """Toggle the package list between compact and expanded task view."""

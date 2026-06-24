@@ -5,7 +5,7 @@ from __future__ import annotations
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, Footer, RichLog, Static
+from textual.widgets import Button, Footer, Input, RichLog, Static
 
 from trinity.textual_app.i18n import localize_bindings
 
@@ -13,13 +13,17 @@ _LABELS = {
     "ko": {
         "close": "닫기",
         "empty": "실행 로그가 아직 없습니다.",
+        "empty_filtered": "일치하는 실행 로그가 없습니다.",
         "earlier_lines_hidden": "... 이전 로그 {count}줄 숨김",
+        "search_placeholder": "로그 검색",
         "title": "전체 실행 로그",
     },
     "en": {
         "close": "Close",
         "empty": "No execution log yet.",
+        "empty_filtered": "No matching execution log lines.",
         "earlier_lines_hidden": "... {count} earlier log lines hidden",
+        "search_placeholder": "Search log",
         "title": "Full Execution Log",
     },
 }
@@ -76,31 +80,55 @@ class ExecutionLogModal(ModalScreen[None]):
         super().__init__()
         self.lines = list(lines)
         self.lang = lang
+        self.filter_query = ""
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
         with Vertical(id="execution-log-modal"):
             yield Static(self._label("title"), id="execution-log-modal-title")
+            yield Input(
+                placeholder=self._label("search_placeholder"),
+                id="execution-log-search",
+            )
             yield RichLog(id="execution-log-modal-body", wrap=True, markup=False)
             yield Button(self._label("close"), id="close-execution-log")
         yield Footer()
 
     def on_mount(self) -> None:
+        self._refresh_log()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id != "execution-log-search":
+            return
+        self.filter_query = event.value.strip()
+        self._refresh_log()
+
+    def _refresh_log(self) -> None:
         log = self.query_one("#execution-log-modal-body", RichLog)
-        for line in self._render_lines():
+        log.clear()
+        for line in self._render_lines(self.filter_query):
             log.write(line)
 
-    def _render_lines(self) -> list[str]:
-        if not self.lines:
+    def _render_lines(self, query: str = "") -> list[str]:
+        source = self._filtered_lines(query)
+        if not source:
+            if query.strip():
+                return [self._label("empty_filtered")]
             return [self._label("empty")]
-        hidden_count = max(0, len(self.lines) - MAX_RENDERED_LOG_LINES)
-        visible = self.lines[-MAX_RENDERED_LOG_LINES:]
+        hidden_count = max(0, len(source) - MAX_RENDERED_LOG_LINES)
+        visible = source[-MAX_RENDERED_LOG_LINES:]
         if hidden_count:
             return [
                 self._label("earlier_lines_hidden").format(count=hidden_count),
                 *visible,
             ]
         return visible
+
+    def _filtered_lines(self, query: str) -> list[str]:
+        needle = query.strip().lower()
+        if not needle:
+            return list(self.lines)
+        return [line for line in self.lines if needle in str(line).lower()]
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id != "close-execution-log":

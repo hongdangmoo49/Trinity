@@ -4808,6 +4808,41 @@ def test_execution_log_modal_windows_large_logs() -> None:
     assert len(rendered) == MAX_RENDERED_LOG_LINES + 1
 
 
+def test_execution_log_modal_filters_lines_case_insensitively() -> None:
+    modal = ExecutionLogModal(
+        [
+            "WP-001 started by codex",
+            "WP-002 failed with provider error",
+            "WP-003 review completed",
+            "wp-004 FAILED after retry",
+        ]
+    )
+
+    assert modal._render_lines("FAILED") == [
+        "WP-002 failed with provider error",
+        "wp-004 FAILED after retry",
+    ]
+    assert modal._render_lines("review") == ["WP-003 review completed"]
+
+
+def test_execution_log_modal_filters_large_match_sets() -> None:
+    lines = [f"WP-{index:03d} failed" for index in range(1, MAX_RENDERED_LOG_LINES + 4)]
+    modal = ExecutionLogModal(lines)
+    rendered = modal._render_lines("failed")
+
+    assert rendered[0] == "... 3 earlier log lines hidden"
+    assert rendered[1] == "WP-004 failed"
+    assert rendered[-1] == f"WP-{MAX_RENDERED_LOG_LINES + 3:03d} failed"
+
+
+def test_execution_log_modal_shows_empty_filtered_state() -> None:
+    modal = ExecutionLogModal(["WP-001 started"])
+    korean = ExecutionLogModal(["WP-001 started"], lang="ko")
+
+    assert modal._render_lines("missing") == ["No matching execution log lines."]
+    assert korean._render_lines("missing") == ["일치하는 실행 로그가 없습니다."]
+
+
 def test_execution_log_modal_localizes_large_log_window() -> None:
     lines = [f"event-{index}" for index in range(1, MAX_RENDERED_LOG_LINES + 3)]
     modal = ExecutionLogModal(lines, lang="ko")
@@ -4820,6 +4855,35 @@ def test_execution_log_modal_keeps_empty_state() -> None:
     assert ExecutionLogModal([], lang="ko")._render_lines() == [
         "실행 로그가 아직 없습니다."
     ]
+
+
+@pytest.mark.asyncio
+async def test_execution_log_modal_search_input_refreshes_log(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        app.push_screen(
+            ExecutionLogModal(
+                [
+                    "WP-001 started",
+                    "WP-002 failed with provider error",
+                    "WP-003 completed",
+                ]
+            )
+        )
+        await pilot.pause()
+
+        modal = app.screen
+        assert isinstance(modal, ExecutionLogModal)
+        await pilot.click("#execution-log-search")
+        await pilot.press("f", "a", "i", "l")
+        await pilot.pause()
+
+        output = modal.query_one("#execution-log-modal-body", RichLog)
+        text = "\n".join(line.text for line in output.lines)
+        assert modal.filter_query == "fail"
+        assert "WP-002 failed with provider error" in text
+        assert "WP-001 started" not in text
 
 
 def test_work_package_detail_modal_orders_execution_sections_first() -> None:

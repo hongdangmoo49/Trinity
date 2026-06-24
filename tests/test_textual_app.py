@@ -1480,7 +1480,7 @@ def test_improve_presenter_uses_korean_labels() -> None:
         ("워크플로우", "wf-improve"),
         ("상태", "후속 조치 대기"),
         ("보충 라운드", "2"),
-        ("AI-001", "대기; 심각도=높음; kind=test; title=Fix tests"),
+        ("AI-001", "대기; 심각도=높음; 종류=테스트; title=Fix tests"),
     )
     assert improve_table_columns(lang="ko") == ("항목", "값")
     assert improve_title(lang="ko") == "개선"
@@ -2087,7 +2087,7 @@ async def test_report_screen_snapshot_uses_korean_body_labels(tmp_path) -> None:
     assert "상태 실행중" in rendered
     assert "상태 완료" in rendered
     assert "소유자 codex" in rendered
-    assert "종류 implementation" in rendered
+    assert "종류 구현" in rendered
     assert "이유: implementation strength 0.95" in rendered
     assert "레인 직렬" in rendered
     assert "리뷰 peer 없음/(없음); 이유 only claude is active" in rendered
@@ -2826,7 +2826,7 @@ def test_snapshot_report_markdown_uses_korean_labels() -> None:
     assert "**진행**: 진행중" in md
     assert "## WP 라우팅" in md
     assert "상태: 완료; 담당 codex; 실행자 codex; 레인 직렬" in md
-    assert "라우팅: 종류 implementation; 프로필 default\\-v1; 점수 0\\.95" in md
+    assert "라우팅: 종류 구현; 프로필 default\\-v1; 점수 0\\.95" in md
     assert (
         "리뷰: peer 없음; 리뷰어 \\(없음\\); 이유 only codex is active; "
         "no non\\-owner peer reviewer is available"
@@ -4803,7 +4803,7 @@ async def test_start_slash_improve_uses_korean_labels(tmp_path) -> None:
         assert ("보충 라운드", "1") in result.table_rows
         assert (
             "AI-001",
-            "대기; 심각도=높음; kind=test; title=Fix tests",
+            "대기; 심각도=높음; 종류=테스트; title=Fix tests",
         ) in result.table_rows
         assert result.action_hint.startswith("`/improve high`")
         assert controller.improve_requests == [("high",)]
@@ -8627,6 +8627,25 @@ def test_work_package_detail_modal_localizes_korean_risk_and_severity_values() -
     assert "- 심각도: `보통`" in markdown
     assert "`high`" not in markdown
     assert "`medium`" not in markdown
+
+
+def test_work_package_detail_modal_localizes_korean_task_kind_value() -> None:
+    modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-015",
+            title="작업 유형 표시",
+            owner_agent="codex",
+            status="pending",
+            task_kind="implementation",
+            routing_reason="implementation strength",
+        ),
+        lang="ko",
+    )
+
+    markdown = modal._markdown()
+
+    assert "- 작업 유형: `구현`" in markdown
+    assert "`implementation`" not in markdown
 
 
 def test_work_package_detail_modal_localizes_empty_risk_placeholder() -> None:

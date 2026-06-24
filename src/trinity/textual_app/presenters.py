@@ -7,7 +7,7 @@ from difflib import get_close_matches
 from typing import Sequence
 
 from trinity.slash_commands import COMMAND_SPECS
-from trinity.display_labels import display_severity_value
+from trinity.display_labels import display_kind_value, display_severity_value
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.status_label import (
     display_readiness_value,
@@ -1921,12 +1921,14 @@ def improve_rows(
     for item in snapshot.post_review_items:
         status = _status_value(item.status, lang=lang)
         severity = display_severity_value(item.severity, lang=lang)
+        kind = display_kind_value(item.kind, lang=lang)
         rows.append(
             (
                 item.id,
                 (
                     f"{status}; {_sc_label(lang, 'severity')}={severity}; "
-                    f"kind={item.kind}; title={item.title or item.summary}"
+                    f"{_sc_label(lang, 'kind')}={kind}; "
+                    f"title={item.title or item.summary}"
                 ),
             )
         )

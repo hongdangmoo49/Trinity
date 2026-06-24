@@ -59,6 +59,28 @@ SEVERITY_VALUE_LABELS = {
     "en": {},
 }
 
+KIND_VALUE_LABELS = {
+    "ko": {
+        "architecture": "아키텍처",
+        "bugfix": "버그 수정",
+        "component": "컴포넌트",
+        "dependency": "의존성",
+        "documentation": "문서화",
+        "enhancement": "개선",
+        "implementation": "구현",
+        "integration": "통합",
+        "large_implementation": "대규모 구현",
+        "planning": "계획",
+        "repair": "복구",
+        "research": "조사",
+        "review": "리뷰",
+        "test": "테스트",
+        "testing": "테스트",
+        "validation": "검증",
+    },
+    "en": {},
+}
+
 
 def display_source_value(
     source: str,
@@ -108,6 +130,21 @@ def display_severity_value(
     return _display_labeled_value(
         severity,
         labels_by_lang=SEVERITY_VALUE_LABELS,
+        lang=lang,
+        empty=empty,
+    )
+
+
+def display_kind_value(
+    kind: str,
+    *,
+    lang: str = "en",
+    empty: str = "-",
+) -> str:
+    """Return a localized display value for a task/action kind string."""
+    return _display_labeled_value(
+        kind,
+        labels_by_lang=KIND_VALUE_LABELS,
         lang=lang,
         empty=empty,
     )

@@ -22,7 +22,7 @@ from trinity.textual_app.snapshot import (
     WorkflowNexusSnapshot,
     WorkPackageSnapshot,
 )
-from trinity.display_labels import display_source_value
+from trinity.display_labels import display_kind_value, display_source_value
 from trinity.textual_app.widgets.status_label import (
     display_review_status_value,
     display_status_value,
@@ -724,7 +724,10 @@ def _package_routing_summary(
 ) -> str:
     parts: list[str] = []
     if package.task_kind:
-        parts.append(f"{_term_label('kind', lang=lang)} {escape(package.task_kind)}")
+        parts.append(
+            f"{_term_label('kind', lang=lang)} "
+            f"{escape(display_kind_value(package.task_kind, lang=lang))}"
+        )
     if package.profile_revision:
         parts.append(
             f"{_term_label('profile', lang=lang)} {escape(package.profile_revision)}"

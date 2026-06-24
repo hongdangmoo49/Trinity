@@ -1,17 +1,22 @@
 """Tests for InteractiveClaudeAgent — tmux interactive mode."""
 
-import asyncio
 import pytest
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from trinity.agents.claude_agent import InteractiveClaudeAgent
-from trinity.completion.base import CompletionDetector, CompletionResult, FallbackChainDetector
-from trinity.completion.hook import HookDetector
-from trinity.completion.idle import IdleDetector
-from trinity.completion.prompt import PromptReturnDetector
+from trinity.completion.base import CompletionResult
 from trinity.models import AgentSpec, ContextUsage, MessageRole, Provider
 from trinity.legacy.tmux.pane import TmuxPane
+
+
+class FakeCompletionDetector:
+    name = "MockDetector"
+
+    def __init__(self, result: CompletionResult) -> None:
+        self.result = result
+
+    async def wait_for_completion(self, *args, **kwargs) -> CompletionResult:
+        return self.result
 
 
 @pytest.fixture
@@ -33,15 +38,14 @@ def signal_path(tmp_path):
 
 @pytest.fixture
 def mock_detector():
-    det = MagicMock(spec=CompletionDetector)
-    det.name = "MockDetector"
-    det.wait_for_completion = AsyncMock(return_value=CompletionResult(
-        completed=True,
-        output="AI response text\n> ",
-        detector_name="MockDetector",
-        elapsed_seconds=1.0,
-    ))
-    return det
+    return FakeCompletionDetector(
+        CompletionResult(
+            completed=True,
+            output="AI response text\n> ",
+            detector_name="MockDetector",
+            elapsed_seconds=1.0,
+        )
+    )
 
 
 @pytest.fixture

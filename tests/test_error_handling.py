@@ -11,9 +11,9 @@ from trinity.error_handler import CrashEvent, ErrorHandler, RecoveryAction, Reco
 from trinity.models import AgentSpec, Provider
 
 
-def _make_agent(name: str, alive: bool = True) -> AsyncMock:
+def _make_agent(name: str, alive: bool = True) -> MagicMock:
     spec = AgentSpec(name=name, provider=Provider.CLAUDE_CODE, cli_command="claude")
-    agent = AsyncMock(spec=spec)
+    agent = MagicMock()
     agent.name = name
     agent.spec = spec
     agent.is_alive = AsyncMock(return_value=alive)

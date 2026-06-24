@@ -73,7 +73,10 @@ from trinity.textual_app.widgets.agent_recipient_model_selector import (
 from trinity.textual_app.widgets.composer import COMMAND_LIMIT, ComposerTextArea, PromptComposer
 from trinity.textual_app.widgets.confirm_quit_modal import ConfirmQuitModal
 from trinity.textual_app.widgets.context_modal import ContextCommandModal
-from trinity.textual_app.widgets.execution_log_modal import ExecutionLogModal
+from trinity.textual_app.widgets.execution_log_modal import (
+    ExecutionLogModal,
+    MAX_RENDERED_LOG_LINES,
+)
 from trinity.textual_app.widgets.execution_retry_modal import ExecutionRetryModal, _retry_note
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
@@ -4718,6 +4721,39 @@ async def test_execution_matrix_supports_korean_chrome_labels(tmp_path) -> None:
         assert str(app.screen.query_one("#execution-log-modal-title", Static).content) == (
             "전체 실행 로그"
         )
+
+
+def test_execution_log_modal_keeps_short_logs_complete() -> None:
+    lines = [f"event-{index}" for index in range(1, MAX_RENDERED_LOG_LINES + 1)]
+    modal = ExecutionLogModal(lines)
+
+    assert modal._render_lines() == lines
+
+
+def test_execution_log_modal_windows_large_logs() -> None:
+    lines = [f"event-{index}" for index in range(1, MAX_RENDERED_LOG_LINES + 26)]
+    modal = ExecutionLogModal(lines)
+    rendered = modal._render_lines()
+
+    assert rendered[0] == "... 25 earlier log lines hidden"
+    assert rendered[1] == "event-26"
+    assert rendered[-1] == f"event-{MAX_RENDERED_LOG_LINES + 25}"
+    assert "event-1" not in rendered
+    assert len(rendered) == MAX_RENDERED_LOG_LINES + 1
+
+
+def test_execution_log_modal_localizes_large_log_window() -> None:
+    lines = [f"event-{index}" for index in range(1, MAX_RENDERED_LOG_LINES + 3)]
+    modal = ExecutionLogModal(lines, lang="ko")
+
+    assert modal._render_lines()[0] == "... 이전 로그 2줄 숨김"
+
+
+def test_execution_log_modal_keeps_empty_state() -> None:
+    assert ExecutionLogModal([])._render_lines() == ["No execution log yet."]
+    assert ExecutionLogModal([], lang="ko")._render_lines() == [
+        "실행 로그가 아직 없습니다."
+    ]
 
 
 def test_work_package_detail_modal_orders_execution_sections_first() -> None:

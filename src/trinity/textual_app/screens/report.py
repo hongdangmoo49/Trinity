@@ -24,6 +24,7 @@ from trinity.textual_app.snapshot import (
 )
 from trinity.display_labels import display_kind_value, display_source_value
 from trinity.textual_app.widgets.status_label import (
+    display_review_skip_reason,
     display_review_status_value,
     display_status_value,
 )
@@ -665,9 +666,10 @@ def _render_package_routing(
         if package.review_status or package.reviewer_agent:
             review_reason = ""
             if package.review_status == "skipped" and package.review_summary:
+                reason = display_review_skip_reason(package.review_summary, lang=lang)
                 review_reason = (
                     f"; {_term_label('reason', lang=lang)} "
-                    f"{escape(package.review_summary)}"
+                    f"{escape(reason)}"
                 )
             review_status = display_review_status_value(
                 package.review_status,

@@ -2090,7 +2090,10 @@ async def test_report_screen_snapshot_uses_korean_body_labels(tmp_path) -> None:
     assert "종류 구현" in rendered
     assert "이유: implementation strength 0.95" in rendered
     assert "레인 직렬" in rendered
-    assert "리뷰 peer 없음/(없음); 이유 only claude is active" in rendered
+    assert (
+        "리뷰 peer 없음/(없음); 이유 활성 에이전트가 claude뿐이라 "
+        "peer 리뷰어가 없습니다."
+    ) in rendered
     assert "실행 복구" in rendered
     assert "상태: 중단" in rendered
     assert "열린 질문" in rendered
@@ -2828,8 +2831,8 @@ def test_snapshot_report_markdown_uses_korean_labels() -> None:
     assert "상태: 완료; 담당 codex; 실행자 codex; 레인 직렬" in md
     assert "라우팅: 종류 구현; 프로필 default\\-v1; 점수 0\\.95" in md
     assert (
-        "리뷰: peer 없음; 리뷰어 \\(없음\\); 이유 only codex is active; "
-        "no non\\-owner peer reviewer is available"
+        "리뷰: peer 없음; 리뷰어 \\(없음\\); 이유 활성 에이전트가 codex뿐이라 "
+        "peer 리뷰어가 없습니다\\."
     ) in md
     assert "## 실행 로그" in md
     assert "## 실행 복구" in md
@@ -8619,8 +8622,8 @@ def test_work_package_detail_modal_surfaces_korean_review_skip_reason() -> None:
     markdown = modal._markdown()
 
     assert (
-        "- 리뷰 생략 사유: only codex is active; "
-        "no non-owner peer reviewer is available"
+        "- 리뷰 생략 사유: 활성 에이전트가 codex뿐이라 "
+        "peer 리뷰어가 없습니다."
     ) in markdown
     assert "## 리뷰 계획" in markdown
 

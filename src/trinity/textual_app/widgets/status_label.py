@@ -132,6 +132,20 @@ def display_review_status_value(
     return display_status_value(raw, lang=lang, empty=empty)
 
 
+def display_review_skip_reason(reason: str, *, lang: str = "en") -> str:
+    """Return a localized display value for known review skip reasons."""
+    raw = str(reason or "").strip()
+    if not raw or lang != "ko":
+        return raw
+    text = raw.lower()
+    if "no non-owner peer reviewer" not in text and "no peer reviewer" not in text:
+        return raw
+    agent = _only_active_agent(raw)
+    if agent:
+        return f"활성 에이전트가 {agent}뿐이라 peer 리뷰어가 없습니다."
+    return "사용 가능한 peer 리뷰어가 없습니다."
+
+
 def is_no_peer_review_skip(
     *,
     reviewer_agent: str = "",
@@ -145,6 +159,19 @@ def is_no_peer_review_skip(
     if "no non-owner peer reviewer" in text or "no peer reviewer" in text:
         return True
     return "only " in text and " active" in text
+
+
+def _only_active_agent(reason: str) -> str:
+    lower = reason.lower()
+    prefix = "only "
+    suffix = " is active"
+    start = lower.find(prefix)
+    if start == -1:
+        return ""
+    end = lower.find(suffix, start + len(prefix))
+    if end == -1:
+        return ""
+    return reason[start + len(prefix) : end].strip()
 
 
 def compact_status_group(status: str) -> str:

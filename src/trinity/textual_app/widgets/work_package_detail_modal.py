@@ -14,7 +14,10 @@ from trinity.display_labels import (
 )
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkPackageSnapshot
-from trinity.textual_app.widgets.status_label import display_status_value
+from trinity.textual_app.widgets.status_label import (
+    display_review_skip_reason,
+    display_status_value,
+)
 
 _LABELS = {
     "ko": {
@@ -248,12 +251,13 @@ class WorkPackageDetailModal(ModalScreen[None]):
 
         lines.extend(["", f"## {self._label('review')}"])
         if package.review_status or package.review_summary:
+            review_summary = self._review_summary(package)
             lines.extend(
                 [
                     f"- {self._label('reviewer')}: `{package.reviewer_agent or '-'}`",
                     f"- {self._label('status')}: `{self._status_value(package.review_status)}`",
                     f"- {self._label('severity')}: `{self._severity_value(package.review_severity)}`",
-                    f"- {self._label('summary')}: {package.review_summary or self._label('none')}",
+                    f"- {self._label('summary')}: {review_summary or self._label('none')}",
                 ]
             )
             self._append_list(
@@ -342,7 +346,7 @@ class WorkPackageDetailModal(ModalScreen[None]):
             if package.review_summary:
                 lines.append(
                     f"- {self._label('review_skipped_reason')}: "
-                    f"{package.review_summary}"
+                    f"{self._review_summary(package)}"
                 )
             else:
                 lines.append(f"- {self._label('peer_review_skipped')}")
@@ -362,7 +366,7 @@ class WorkPackageDetailModal(ModalScreen[None]):
         if package.review_status == "skipped" and package.review_summary:
             lines.append(
                 f"- {self._label('review_skipped_reason')}: "
-                f"{package.review_summary}"
+                f"{self._review_summary(package)}"
             )
         if package.review_status == "needs_second_review":
             lines.append(f"- {self._label('second_review_pending')}")
@@ -372,6 +376,11 @@ class WorkPackageDetailModal(ModalScreen[None]):
         if package.retryable:
             return self._label("available")
         return package.retry_disabled_reason or self._label("not_available")
+
+    def _review_summary(self, package: WorkPackageSnapshot) -> str:
+        if package.review_status == "skipped":
+            return display_review_skip_reason(package.review_summary, lang=self.lang)
+        return package.review_summary
 
     def _title_text(self) -> str:
         return _clip(f"{self.package.id}: {self.package.title or self.package.topic}", 86)

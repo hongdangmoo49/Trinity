@@ -2040,6 +2040,50 @@ def test_execution_retry_modal_supports_korean_chrome_labels() -> None:
     assert modal._selected_text() == "선택됨: WP-001"
 
 
+@pytest.mark.asyncio
+async def test_execution_retry_modal_localizes_korean_status_cells(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
+    modal = ExecutionRetryModal(
+        WorkflowNexusSnapshot(
+            work_package_details=[
+                WorkPackageSnapshot(
+                    id="WP-001",
+                    title="Client",
+                    owner_agent="codex",
+                    status="failed",
+                    retryable=True,
+                ),
+                WorkPackageSnapshot(
+                    id="WP-002",
+                    title="Backend",
+                    owner_agent="claude",
+                    status="blocked",
+                    retryable=True,
+                ),
+                WorkPackageSnapshot(
+                    id="WP-003",
+                    title="Runtime",
+                    owner_agent="antigravity",
+                    status="running",
+                    retryable=True,
+                ),
+            ],
+        ),
+        lang="ko",
+    )
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        app.push_screen(modal)
+        await pilot.pause()
+
+        statuses = [
+            str(status.render())
+            for status in app.screen.query(".retry-row .retry-status")
+        ]
+
+    assert statuses == ["실패", "차단", "실행중"]
+
+
 def test_execution_retry_modal_keeps_english_chrome_labels() -> None:
     modal = ExecutionRetryModal(
         WorkflowNexusSnapshot(
@@ -2060,6 +2104,35 @@ def test_execution_retry_modal_keeps_english_chrome_labels() -> None:
     assert modal._summary_text() == "Recovery: none  Target: (not selected)"
     assert modal._header_text().startswith("WP      Status")
     assert modal._selected_text() == "Selected: WP-001"
+
+
+@pytest.mark.asyncio
+async def test_execution_retry_modal_keeps_english_status_cells(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+    modal = ExecutionRetryModal(
+        WorkflowNexusSnapshot(
+            work_package_details=[
+                WorkPackageSnapshot(
+                    id="WP-001",
+                    title="Client",
+                    owner_agent="codex",
+                    status="failed",
+                    retryable=True,
+                ),
+            ],
+        )
+    )
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        app.push_screen(modal)
+        await pilot.pause()
+
+        statuses = [
+            str(status.render())
+            for status in app.screen.query(".retry-row .retry-status")
+        ]
+
+    assert statuses == ["failed"]
 
 
 @pytest.mark.asyncio

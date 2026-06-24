@@ -10,6 +10,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Footer, Static
 
 from trinity.textual_app.snapshot import WorkPackageSnapshot, WorkflowNexusSnapshot
+from trinity.textual_app.widgets.status_label import display_status_value
 
 
 @dataclass(frozen=True)
@@ -85,7 +86,13 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
                                 compact=True,
                             )
                         yield Static(package.id, classes="retry-cell retry-id")
-                        yield Static(package.status or "pending", classes="retry-cell retry-status")
+                        yield Static(
+                            display_status_value(
+                                package.status or "pending",
+                                lang=self.lang,
+                            ),
+                            classes="retry-cell retry-status",
+                        )
                         yield Static(
                             package.topic or package.title or package.id,
                             classes="retry-cell retry-topic",

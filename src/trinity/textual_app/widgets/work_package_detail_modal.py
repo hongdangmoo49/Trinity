@@ -9,6 +9,7 @@ from textual.widgets import Button, Footer, Markdown, Static
 
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkPackageSnapshot
+from trinity.textual_app.widgets.status_label import display_status_value
 
 _LABELS = {
     "ko": {
@@ -132,28 +133,6 @@ _LABELS = {
         "no": "no",
     },
 }
-
-_STATUS_VALUES = {
-    "ko": {
-        "approved": "승인",
-        "blocked": "차단",
-        "changes_requested": "변경 요청",
-        "done": "완료",
-        "failed": "실패",
-        "idle": "대기",
-        "interrupted": "중단",
-        "needs_review": "리뷰 필요",
-        "needs_second_review": "2차 리뷰 필요",
-        "pending": "대기",
-        "queued": "대기",
-        "reviewing": "리뷰중",
-        "running": "실행중",
-        "skipped": "생략",
-        "succeeded": "성공",
-    },
-    "en": {},
-}
-
 
 class WorkPackageDetailModal(ModalScreen[None]):
     """Show the full design and latest execution state for one work package."""
@@ -394,11 +373,7 @@ class WorkPackageDetailModal(ModalScreen[None]):
         return self._label("yes" if value else "no")
 
     def _status_value(self, value: str) -> str:
-        status = str(value or "").strip()
-        if not status:
-            return "-"
-        labels = _STATUS_VALUES.get(self.lang, _STATUS_VALUES["en"])
-        return labels.get(status.lower(), status)
+        return display_status_value(value, lang=self.lang)
 
     def _label(self, key: str) -> str:
         labels = _LABELS.get(self.lang, _LABELS["en"])

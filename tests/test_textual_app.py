@@ -1443,7 +1443,7 @@ def test_help_unknown_presenter_uses_korean_labels() -> None:
         "요약",
     )
     assert help_markdown(lang="ko").startswith(
-        "Trinity 소유 slash 명령은 provider 프롬프트보다 먼저 처리됩니다."
+        "Trinity 소유 slash 명령은 프로바이더 프롬프트보다 먼저 처리됩니다."
     )
     assert help_rows(lang="ko")
 
@@ -1513,6 +1513,27 @@ def test_workflow_outcome_message_uses_korean_labels() -> None:
     assert (
         workflow_outcome_message_markdown("Workflow is still running.", lang="en")
         == "Workflow is still running."
+    )
+    assert (
+        workflow_outcome_message_markdown(
+            "Continuing without failed providers.",
+            lang="ko",
+        )
+        == "실패한 프로바이더를 제외하고 계속합니다."
+    )
+    assert (
+        workflow_outcome_message_markdown(
+            "Workflow stopped after provider errors.",
+            lang="ko",
+        )
+        == "프로바이더 오류 이후 워크플로우를 중단했습니다."
+    )
+    assert (
+        workflow_outcome_message_markdown(
+            "Retrying failed providers.",
+            lang="ko",
+        )
+        == "실패한 프로바이더를 재시도합니다."
     )
 
 

@@ -317,7 +317,7 @@ STATUS_CONTEXT_LABELS = {
         "help_agent_call": "에이전트 호출",
         "help_exact_hint": "Tab으로 명령을 완성하고 Enter로 정확한 명령을 실행하세요.",
         "help_intro_agent": "로컬 UI, 설정, 파일 명령은 에이전트를 호출하지 않습니다.",
-        "help_intro_trinity": "Trinity 소유 slash 명령은 provider 프롬프트보다 먼저 처리됩니다.",
+        "help_intro_trinity": "Trinity 소유 slash 명령은 프로바이더 프롬프트보다 먼저 처리됩니다.",
         "history_hint": "프롬프트 실행, 워크플로우 실행, 로컬 slash 명령 사용 후 이력이 표시됩니다.",
         "id": "ID",
         "improve_hint": (
@@ -959,11 +959,11 @@ WORKFLOW_OUTCOME_MESSAGES_KO = {
     "Continue is not available because no usable consensus exists.": (
         "사용 가능한 합의가 없어 계속할 수 없습니다."
     ),
-    "Continuing without failed providers.": "실패한 provider를 제외하고 계속합니다.",
+    "Continuing without failed providers.": "실패한 프로바이더를 제외하고 계속합니다.",
     "Workflow stopped after provider errors.": (
-        "provider 오류 이후 워크플로우를 중단했습니다."
+        "프로바이더 오류 이후 워크플로우를 중단했습니다."
     ),
-    "Retrying failed providers.": "실패한 provider를 재시도합니다.",
+    "Retrying failed providers.": "실패한 프로바이더를 재시도합니다.",
     "No post-review follow-up is ready for this workflow.": (
         "이 워크플로우에는 준비된 리뷰 후속 작업이 없습니다."
     ),

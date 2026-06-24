@@ -1767,6 +1767,29 @@ def test_model_settings_applied_uses_korean_notification(tmp_path, monkeypatch) 
     ]
 
 
+def test_model_settings_modal_uses_korean_source_labels(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    config.agents["codex"].enabled = True
+    modal = ModelSettingsModal(
+        config.agents,
+        {
+            "codex": (
+                ProviderModelChoice(
+                    provider=Provider.CODEX,
+                    model="gpt-5.5",
+                    label="gpt-5.5",
+                    source="cli-live",
+                    context_budget=None,
+                ),
+            )
+        },
+        {"codex": "gpt-5.5"},
+        lang="ko",
+    )
+
+    assert modal._choice_labels("codex") == ["gpt-5.5  CLI 실시간"]
+
+
 @pytest.mark.asyncio
 async def test_model_slash_refreshes_provider_models_without_cache(
     tmp_path,

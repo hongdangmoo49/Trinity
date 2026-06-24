@@ -9,6 +9,7 @@ from textual.widgets import Button, Footer, OptionList, Static
 
 from trinity.models import AgentSpec
 from trinity.providers.model_discovery import ProviderModelChoice
+from trinity.textual_app.widgets.status_label import display_source_value
 
 
 class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
@@ -211,7 +212,7 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
     def _choice_label(self, choice: ProviderModelChoice) -> str:
         details: list[str] = [choice.label]
         if choice.source:
-            details.append(choice.source)
+            details.append(display_source_value(choice.source, lang=self.lang))
         if choice.context_budget:
             details.append(f"{choice.context_budget:,} ctx")
         return "  ".join(details)

@@ -192,6 +192,7 @@ STATUS_CONTEXT_LABELS = {
             "Textual workflows are persisted automatically. "
             "Use /report save for Markdown export."
         ),
+        "slash_command": "Slash Command",
         "source": "Source",
         "running_packages": "Running packages",
         "running_packages_at_exit": "Running packages at exit",
@@ -402,6 +403,7 @@ STATUS_CONTEXT_LABELS = {
             "Textual 워크플로우는 자동으로 저장됩니다. "
             "Markdown 리포트 내보내기는 /report save를 사용하세요."
         ),
+        "slash_command": "슬래시 명령",
         "source": "출처",
         "running_packages": "실행 중 WP",
         "running_packages_at_exit": "종료 시 실행 중 WP",
@@ -859,6 +861,10 @@ def model_settings_unavailable_markdown(*, lang: str = "en") -> str:
 
 def model_settings_updated_markdown(*, lang: str = "en") -> str:
     return _sc_label(lang, "model_settings_updated")
+
+
+def slash_command_notification_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "slash_command")
 
 
 def answer_title(*, lang: str = "en") -> str:

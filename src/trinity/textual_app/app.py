@@ -2187,7 +2187,13 @@ class TrinityTextualApp(App[None]):
             notify_severity = (
                 "warning" if result.severity in {"warning", "error"} else "information"
             )
-            self.notify(result.title, title="Slash Command", severity=notify_severity)
+            self.notify(
+                result.title,
+                title=textual_presenters.slash_command_notification_title(
+                    lang=self.config.lang
+                ),
+                severity=notify_severity,
+            )
 
     def _show_textual_status(
         self,

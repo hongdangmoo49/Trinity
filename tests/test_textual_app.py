@@ -138,6 +138,7 @@ from trinity.textual_app.presenters import (
     snapshot_status_rows,
     snapshot_workflow_markdown,
     snapshot_workflow_rows,
+    slash_command_notification_title,
     status_table_columns,
     status_title,
     subtasks_action_hint,
@@ -789,6 +790,10 @@ def test_model_settings_presenter_uses_korean_labels() -> None:
     assert model_settings_updated_markdown(lang="ko") == (
         "모델 설정을 업데이트했습니다."
     )
+
+
+def test_slash_command_notification_title_uses_korean_label() -> None:
+    assert slash_command_notification_title(lang="ko") == "슬래시 명령"
 
 
 def test_workflow_presenter_uses_korean_labels() -> None:
@@ -4919,6 +4924,35 @@ async def test_nexus_memory_cleanup_error_uses_korean_message(tmp_path) -> None:
         assert result.title == "메모리 정리"
         assert result.body == "`--keep-latest`에는 숫자를 입력하세요."
         assert result.severity == "warning"
+
+
+@pytest.mark.asyncio
+async def test_nexus_local_command_notify_uses_korean_title(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+    notifications: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(
+        app,
+        "notify",
+        lambda message, **kwargs: notifications.append(
+            (message, str(kwargs.get("title", "")), str(kwargs.get("severity", "info")))
+        ),
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/memory")
+        await pilot.pause()
+
+        assert ("메모리 통계", "슬래시 명령", "information") in notifications
 
 
 @pytest.mark.asyncio

@@ -4237,6 +4237,61 @@ def test_execution_matrix_compacts_reviewer_status_labels() -> None:
         )
         == "needs 2nd"
     )
+    assert (
+        _review_label(
+            WorkPackageSnapshot(
+                id="WP-006",
+                title="Korean queued review",
+                owner_agent="codex",
+                status="done",
+                review_status="queued",
+                reviewer_agent="antigravity",
+            ),
+            lang="ko",
+        )
+        == "agy 대기"
+    )
+    assert (
+        _review_label(
+            WorkPackageSnapshot(
+                id="WP-007",
+                title="Korean multi review",
+                owner_agent="claude",
+                status="done",
+                review_status="reviewing",
+                reviewer_agent="codex, antigravity",
+            ),
+            lang="ko",
+        )
+        == "2명 검토"
+    )
+    assert (
+        _review_label(
+            WorkPackageSnapshot(
+                id="WP-008",
+                title="Korean skipped review",
+                owner_agent="codex",
+                status="done",
+                review_status="skipped",
+            ),
+            lang="ko",
+        )
+        == "생략"
+    )
+    assert (
+        _review_label(
+            WorkPackageSnapshot(
+                id="WP-009",
+                title="Korean escalation",
+                owner_agent="claude",
+                status="done",
+                review_status="needs_second_review",
+                reviewer_agent="codex, antigravity",
+            ),
+            lang="ko",
+        )
+        == "2차필요"
+    )
 
 
 @pytest.mark.asyncio
@@ -4466,7 +4521,7 @@ async def test_execution_matrix_viewport_qa_matrix_with_long_workspace(
 
             rows = list(screen.query("#execution-package-list .execution-package-row"))
             assert len(rows) == 2
-            assert "리뷰: agy queued" in _widget_tree_text(rows[0])
+            assert "리뷰: agy 대기" in _widget_tree_text(rows[0])
             assert "리스크: medium g1" in _widget_tree_text(rows[0])
             assert "리스크: high serial" in _widget_tree_text(rows[1])
 
@@ -4634,7 +4689,7 @@ async def test_execution_matrix_supports_korean_chrome_labels(tmp_path) -> None:
         row_text = _widget_tree_text(
             screen.query("#execution-package-list .execution-package-row").first()
         )
-        assert "리뷰: agy queued" in row_text
+        assert "리뷰: agy 대기" in row_text
         assert "리스크: medium" in row_text
         assert "상세" in row_text
 

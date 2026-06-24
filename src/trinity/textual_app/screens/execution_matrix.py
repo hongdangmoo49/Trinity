@@ -537,7 +537,7 @@ class ExecutionMatrixScreen(Screen[None]):
                         package.owner_agent,
                     ),
                     status=compact_status_label(package.status or "pending"),
-                    review_status=_review_label(package),
+                    review_status=_review_label(package, self.lang),
                     risk=_risk_lane_label(package),
                     button_id=f"wp-detail-{index}",
                     button_label=_detail_button_label(package, self.lang),
@@ -769,13 +769,40 @@ def _executor_label(current: str, last: str, owner: str) -> str:
     return executor
 
 
-def _review_label(package: object) -> str:
+def _review_label(package: object, lang: str = "en") -> str:
     status = str(getattr(package, "review_status", "") or "").strip()
     reviewer = str(getattr(package, "reviewer_agent", "") or "").strip()
     if not status:
         return "-"
     normalized = status.lower().replace("_", " ")
-    labels = {
+    labels = _review_status_labels(lang)
+    label = labels.get(normalized, normalized)
+    standalone_labels = {
+        labels["changes requested"],
+        labels["approved"],
+        labels["blocked"],
+        labels["skipped"],
+        labels["needs second review"],
+    }
+    if reviewer and label not in standalone_labels:
+        return _reviewer_status_label(reviewer, label, lang=lang)
+    return label
+
+
+def _review_status_labels(lang: str) -> dict[str, str]:
+    if lang == "ko":
+        return {
+            "queued": "대기",
+            "reviewing": "검토",
+            "pending": "대기",
+            "changes requested": "변경요청",
+            "approved": "승인",
+            "blocked": "문제",
+            "failed": "문제",
+            "skipped": "생략",
+            "needs second review": "2차필요",
+        }
+    return {
         "queued": "queued",
         "reviewing": "reviewing",
         "pending": "queued",
@@ -786,16 +813,13 @@ def _review_label(package: object) -> str:
         "skipped": "skip",
         "needs second review": "needs 2nd",
     }
-    label = labels.get(normalized, normalized)
-    standalone_labels = {"changes", "approved", "issue", "skip", "needs 2nd"}
-    if reviewer and label not in standalone_labels:
-        return _reviewer_status_label(reviewer, label)
-    return label
 
 
-def _reviewer_status_label(reviewer: str, label: str) -> str:
+def _reviewer_status_label(reviewer: str, label: str, *, lang: str = "en") -> str:
     reviewers = _reviewer_names(reviewer)
     if len(reviewers) > 1:
+        if lang == "ko":
+            return f"{len(reviewers)}명 {label}"
         if label == "reviewing":
             return f"{len(reviewers)}p review"
         return f"{len(reviewers)}p {label}"
@@ -804,11 +828,11 @@ def _reviewer_status_label(reviewer: str, label: str) -> str:
     preferred = f"{short} {label}"
     if len(preferred) <= 10:
         return preferred
-    if label == "reviewing":
+    if label in {"reviewing", "검토"}:
         compact = f"{short} rev"
         if len(compact) <= 10:
             return compact
-    if label == "queued":
+    if label in {"queued", "대기"}:
         compact = f"{short} q"
         if len(compact) <= 10:
             return compact

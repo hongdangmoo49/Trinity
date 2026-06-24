@@ -73,9 +73,10 @@ class QuestionPanel(VerticalScroll):
 
         for question_number, question in enumerate(questions, start=1):
             status = question.status or ("answered" if question.answer else "open")
+            status_label = self._status_label(status)
             container.mount(
                 Static(
-                    f"{question_number}. [{status}] {question.question}",
+                    f"{question_number}. [{status_label}] {question.question}",
                     classes=(
                         "question-text "
                         + ("question-open" if not question.answer else "question-answered")
@@ -161,3 +162,12 @@ class QuestionPanel(VerticalScroll):
         }
         labels = ko if self.lang == "ko" else en
         return labels.get(key, key)
+
+    def _status_label(self, status: str) -> str:
+        if self.lang != "ko":
+            return status
+        labels = {
+            "answered": "답변됨",
+            "open": "열림",
+        }
+        return labels.get(status, status)

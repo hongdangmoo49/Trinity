@@ -49,6 +49,8 @@ class WorkflowPersistence:
         self.events_path = events_file or workflow_dir / "events.jsonl"
         self._cached_events_key: tuple[int, int] | None = None
         self._cached_events: list[dict[str, Any]] | None = None
+        self._cached_event_index_key: tuple[int, int, int, int] | None = None
+        self._cached_event_index: dict[str, list[dict[str, Any]]] | None = None
 
     @property
     def workflow_dir(self) -> Path:
@@ -427,6 +429,8 @@ class WorkflowPersistence:
         """Drop cached JSONL events after a local write or remove operation."""
         self._cached_events_key = None
         self._cached_events = None
+        self._cached_event_index_key = None
+        self._cached_event_index = None
 
     def _append_event_index(
         self,
@@ -522,6 +526,14 @@ class WorkflowPersistence:
     def _read_event_index_unchecked(self) -> dict[str, list[dict[str, Any]]] | None:
         if not self.event_index_path.exists():
             return None
+        cache_key = self._event_index_cache_key()
+        if (
+            cache_key is not None
+            and self._cached_event_index_key == cache_key
+            and self._cached_event_index is not None
+        ):
+            return self._clone_event_index(self._cached_event_index)
+
         entries: list[dict[str, Any]] = []
         try:
             with self.event_index_path.open("r", encoding="utf-8") as fh:
@@ -542,7 +554,9 @@ class WorkflowPersistence:
             return None
         if not self._event_index_entries_match(entries):
             return None
-        return self._group_event_index_entries(entries)
+        grouped = self._group_event_index_entries(entries)
+        self._cache_event_index(grouped)
+        return grouped
 
     def _rebuild_event_index(self) -> dict[str, list[dict[str, Any]]]:
         if not self.events_path.exists():
@@ -577,7 +591,9 @@ class WorkflowPersistence:
             logger.exception("Failed to rebuild workflow event index from %s", self.events_path)
             return {}
         self._write_event_index_entries(entries)
-        return self._group_event_index_entries(entries)
+        grouped = self._group_event_index_entries(entries)
+        self._cache_event_index(grouped)
+        return grouped
 
     def _write_event_index_entries(self, entries: list[dict[str, Any]]) -> None:
         if not entries:
@@ -647,9 +663,40 @@ class WorkflowPersistence:
             return None
         return (stat.st_mtime_ns, stat.st_size)
 
+    def _event_index_cache_key(self) -> tuple[int, int, int, int] | None:
+        try:
+            index_stat = self.event_index_path.stat()
+            events_stat = self.events_path.stat()
+        except OSError:
+            return None
+        return (
+            index_stat.st_mtime_ns,
+            index_stat.st_size,
+            events_stat.st_mtime_ns,
+            events_stat.st_size,
+        )
+
+    def _cache_event_index(self, index: dict[str, list[dict[str, Any]]]) -> None:
+        cache_key = self._event_index_cache_key()
+        if cache_key is None:
+            self._cached_event_index_key = None
+            self._cached_event_index = None
+            return
+        self._cached_event_index_key = cache_key
+        self._cached_event_index = self._clone_event_index(index)
+
     @staticmethod
     def _clone_events(events: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
         return [dict(event) for event in events]
+
+    @staticmethod
+    def _clone_event_index(
+        index: Mapping[str, Iterable[Mapping[str, Any]]],
+    ) -> dict[str, list[dict[str, Any]]]:
+        return {
+            str(workflow_id): [dict(item) for item in entries]
+            for workflow_id, entries in index.items()
+        }
 
     @staticmethod
     def _has_meaningful_session(session: WorkflowSession) -> bool:

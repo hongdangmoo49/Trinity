@@ -60,6 +60,43 @@ def display_status_value(status: str, *, lang: str = "en", empty: str = "-") -> 
     return labels.get(raw.lower(), raw)
 
 
+def display_review_status_value(
+    status: str,
+    *,
+    reviewer_agent: str = "",
+    summary: str = "",
+    skipped_reason: str = "",
+    lang: str = "en",
+    empty: str = "(none)",
+) -> str:
+    """Return a display value for a review status string."""
+    raw = str(status or "").strip()
+    if not raw:
+        return empty
+    if raw.lower() == "skipped" and is_no_peer_review_skip(
+        reviewer_agent=reviewer_agent,
+        summary=summary,
+        skipped_reason=skipped_reason,
+    ):
+        return "peer 없음" if lang == "ko" else "no peer"
+    return display_status_value(raw, lang=lang, empty=empty)
+
+
+def is_no_peer_review_skip(
+    *,
+    reviewer_agent: str = "",
+    summary: str = "",
+    skipped_reason: str = "",
+) -> bool:
+    """Return whether a skipped review means no peer reviewer was available."""
+    if str(reviewer_agent or "").strip():
+        return False
+    text = f"{summary or ''} {skipped_reason or ''}".lower()
+    if "no non-owner peer reviewer" in text or "no peer reviewer" in text:
+        return True
+    return "only " in text and " active" in text
+
+
 def compact_status_group(status: str) -> str:
     """Return the compact UI state bucket for a raw status string."""
     raw = str(status or "").strip().lower()

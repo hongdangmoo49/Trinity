@@ -14,7 +14,10 @@ from textual.widgets import Button, Footer, Header, RichLog, Static
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.execution_log_modal import ExecutionLogModal
-from trinity.textual_app.widgets.status_label import compact_status_label
+from trinity.textual_app.widgets.status_label import (
+    compact_status_label,
+    is_no_peer_review_skip,
+)
 from trinity.textual_app.widgets.work_package_detail_modal import WorkPackageDetailModal
 from trinity.textual_app.widgets.workspace_picker import WorkspacePreflight
 
@@ -856,7 +859,15 @@ def _review_label(package: object, lang: str = "en") -> str:
         return "-"
     normalized = status.lower().replace("_", " ")
     labels = _review_status_labels(lang)
-    if normalized == "skipped" and _is_no_peer_review_skip(package):
+    skipped_reason = (
+        str(getattr(package, "review_skipped_reason", "") or "")
+        or str(getattr(package, "skipped_reason", "") or "")
+    )
+    if normalized == "skipped" and is_no_peer_review_skip(
+        reviewer_agent=reviewer,
+        summary=str(getattr(package, "review_summary", "") or ""),
+        skipped_reason=skipped_reason,
+    ):
         return labels["no peer"]
     label = labels.get(normalized, normalized)
     standalone_labels = {
@@ -897,21 +908,6 @@ def _review_status_labels(lang: str) -> dict[str, str]:
         "needs second review": "needs 2nd",
         "no peer": "no peer",
     }
-
-
-def _is_no_peer_review_skip(package: object) -> bool:
-    reviewer = str(getattr(package, "reviewer_agent", "") or "").strip()
-    if reviewer:
-        return False
-    summary_parts = [
-        str(getattr(package, "review_summary", "") or ""),
-        str(getattr(package, "review_skipped_reason", "") or ""),
-        str(getattr(package, "skipped_reason", "") or ""),
-    ]
-    summary = " ".join(summary_parts).lower()
-    if "no non-owner peer reviewer" in summary or "no peer reviewer" in summary:
-        return True
-    return "only " in summary and " active" in summary
 
 
 def _reviewer_status_label(reviewer: str, label: str, *, lang: str = "en") -> str:

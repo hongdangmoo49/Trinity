@@ -21,6 +21,7 @@ from trinity.textual_app.snapshot import (
     WorkflowNexusSnapshot,
     WorkPackageSnapshot,
 )
+from trinity.textual_app.widgets.status_label import display_review_status_value
 
 if TYPE_CHECKING:
     from trinity.tui.report import DeliberationReport
@@ -352,8 +353,13 @@ def _render_package_routing(packages: list[WorkPackageSnapshot]) -> str:
             review_reason = ""
             if package.review_status == "skipped" and package.review_summary:
                 review_reason = f"; reason {escape(package.review_summary)}"
+            review_status = display_review_status_value(
+                package.review_status,
+                reviewer_agent=package.reviewer_agent,
+                summary=package.review_summary,
+            )
             review = (
-                f" · review {escape(package.review_status or '(none)')}"
+                f" · review {escape(review_status)}"
                 f"/{escape(package.reviewer_agent or '(none)')}"
                 f"{review_reason}"
             )

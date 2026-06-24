@@ -28,6 +28,7 @@ _EXECUTION_MATRIX_LABELS = {
         "executor": "실행자",
         "expand_tasks": "작업 펼치기",
         "full_log": "전체 로그",
+        "lane": "레인",
         "no_work_packages": "(작업 패키지 없음)",
         "not_selected": "선택 안 됨",
         "owner": "소유자",
@@ -39,6 +40,7 @@ _EXECUTION_MATRIX_LABELS = {
         "review_prefix": "리뷰",
         "risk_lane": "리스크/레인",
         "risk_prefix": "리스크",
+        "serial_lane": "직렬",
         "spec": "상세",
         "status": "상태",
         "workspace": "workspace",
@@ -53,6 +55,7 @@ _EXECUTION_MATRIX_LABELS = {
         "executor": "Executor",
         "expand_tasks": "Expand Tasks",
         "full_log": "Full Log",
+        "lane": "Lane",
         "no_work_packages": "(no work packages)",
         "not_selected": "not selected",
         "owner": "Owner",
@@ -64,6 +67,7 @@ _EXECUTION_MATRIX_LABELS = {
         "review_prefix": "review",
         "risk_lane": "Risk/Lane",
         "risk_prefix": "risk",
+        "serial_lane": "Serial",
         "spec": "Spec",
         "status": "Status",
         "workspace": "workspace",
@@ -92,6 +96,7 @@ class _PackageRowProjection:
     button_id: str
     button_label: str
     task_width: int
+    lane_label: str = ""
     detail_enabled: bool = True
 
     @property
@@ -107,6 +112,7 @@ class _PackageRowProjection:
             self.button_id,
             self.button_label,
             self.task_width,
+            self.lane_label,
             self.detail_enabled,
         )
 
@@ -397,7 +403,10 @@ class ExecutionMatrixScreen(Screen[None]):
 
     def _render_package_list(self) -> None:
         projections = self._package_row_projections()
-        identity = tuple(projection.identity for projection in projections)
+        identity = tuple(
+            f"{projection.lane_label}|{projection.identity}"
+            for projection in projections
+        )
         if identity == self._package_list_identity:
             if not projections:
                 return
@@ -424,7 +433,15 @@ class ExecutionMatrixScreen(Screen[None]):
             )
             self._package_list_identity = ()
             return
+        last_lane_label = ""
         for projection in projections:
+            if projection.lane_label and projection.lane_label != last_lane_label:
+                package_list.mount(
+                    Static(projection.lane_label, classes="execution-lane-header")
+                )
+                last_lane_label = projection.lane_label
+            elif not projection.lane_label:
+                last_lane_label = ""
             row = self._package_row(projection)
             package_list.mount(row)
             self._package_rows[projection.identity] = row
@@ -451,6 +468,7 @@ class ExecutionMatrixScreen(Screen[None]):
                     button_id=f"wp-detail-{index}",
                     button_label=_detail_button_label(package, self.lang),
                     task_width=task_width,
+                    lane_label=_execution_lane_label(package, self.lang),
                 )
                 for index, package in enumerate(self.snapshot.work_package_details)
             ]
@@ -725,6 +743,15 @@ def _risk_lane_label(package: object) -> str:
     if group is None:
         return risk
     return f"{risk} g{group}"
+
+
+def _execution_lane_label(package: object, lang: str = "en") -> str:
+    if not bool(getattr(package, "parallelizable", True)):
+        return _label(lang, "serial_lane")
+    group = getattr(package, "parallel_group", None)
+    if group is None:
+        return ""
+    return f"{_label(lang, 'lane')} g{group}"
 
 
 def _detail_button_label(package: object, lang: str = "en") -> str:

@@ -14,6 +14,20 @@ from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.workflow_controller import TextualWorkflowArchiveOption
 
 
+RESUME_PICKER_LABELS = {
+    "en": {
+        "cancel": "Cancel",
+        "empty": "No saved workflow sessions.",
+        "title": "Resume Workflow",
+    },
+    "ko": {
+        "cancel": "취소",
+        "empty": "저장된 워크플로우 세션이 없습니다.",
+        "title": "워크플로우 재개",
+    },
+}
+
+
 class ResumeWorkflowPicker(ModalScreen[str | None]):
     """Select an archived workflow to restore."""
 
@@ -48,9 +62,9 @@ class ResumeWorkflowPicker(ModalScreen[str | None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="resume-picker"):
-            yield Static("Resume Workflow", id="resume-picker-title")
+            yield Static(self._label("title"), id="resume-picker-title")
             if not self.archives:
-                yield Static("No saved workflow sessions.", id="resume-picker-empty")
+                yield Static(self._label("empty"), id="resume-picker-empty")
             else:
                 with VerticalScroll(id="resume-archive-list"):
                     for archive in self.archives:
@@ -62,7 +76,7 @@ class ResumeWorkflowPicker(ModalScreen[str | None]):
                             id=f"resume-archive-{archive.selector}",
                             classes=classes,
                         )
-            yield Button("Cancel", id="cancel-resume-picker")
+            yield Button(self._label("cancel"), id="cancel-resume-picker")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -144,3 +158,7 @@ class ResumeWorkflowPicker(ModalScreen[str | None]):
             f"{archive.selector}. {archive.session_id} "
             f"[{archive.state}] {goal} - {updated}"
         )
+
+    def _label(self, key: str) -> str:
+        labels = RESUME_PICKER_LABELS.get(self.lang, RESUME_PICKER_LABELS["en"])
+        return labels.get(key, RESUME_PICKER_LABELS["en"][key])

@@ -7,6 +7,26 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Static
 
+from trinity.textual_app.i18n import localize_bindings
+
+
+CONFIRM_QUIT_LABELS = {
+    "en": {
+        "body": "Exit Trinity Textual workbench?",
+        "cancel": "Cancel",
+        "quit": "Quit",
+        "running_body": "A workflow is still running. Exit Trinity Textual workbench?",
+        "title": "Quit Trinity",
+    },
+    "ko": {
+        "body": "Trinity Textual 워크벤치를 종료할까요?",
+        "cancel": "취소",
+        "quit": "종료",
+        "running_body": "워크플로우가 아직 실행 중입니다. Trinity Textual 워크벤치를 종료할까요?",
+        "title": "Trinity 종료",
+    },
+}
+
 
 class ConfirmQuitModal(ModalScreen[bool]):
     """Ask the user to confirm exiting the Textual workbench."""
@@ -45,20 +65,26 @@ class ConfirmQuitModal(ModalScreen[bool]):
         ("escape", "cancel", "Cancel"),
     ]
 
-    def __init__(self, *, running: bool = False) -> None:
+    LOCALIZED_BINDINGS = {
+        ("escape", "cancel"): ("binding_cancel", None),
+    }
+
+    def __init__(self, *, running: bool = False, lang: str = "en") -> None:
         super().__init__()
         self.running = running
+        self.lang = lang
+        localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
-        body = "Exit Trinity Textual workbench?"
+        body = self._label("body")
         if self.running:
-            body = "A workflow is still running. Exit Trinity Textual workbench?"
+            body = self._label("running_body")
         with Vertical(id="confirm-quit-modal"):
-            yield Static("Quit Trinity", id="confirm-quit-title")
+            yield Static(self._label("title"), id="confirm-quit-title")
             yield Static(body, id="confirm-quit-body")
             with Horizontal(id="confirm-quit-actions"):
-                yield Button("Cancel", id="cancel-quit")
-                yield Button("Quit", id="confirm-quit", variant="warning")
+                yield Button(self._label("cancel"), id="cancel-quit")
+                yield Button(self._label("quit"), id="confirm-quit", variant="warning")
         yield Footer()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -71,3 +97,7 @@ class ConfirmQuitModal(ModalScreen[bool]):
 
     def action_cancel(self) -> None:
         self.dismiss(False)
+
+    def _label(self, key: str) -> str:
+        labels = CONFIRM_QUIT_LABELS.get(self.lang, CONFIRM_QUIT_LABELS["en"])
+        return labels.get(key, CONFIRM_QUIT_LABELS["en"][key])

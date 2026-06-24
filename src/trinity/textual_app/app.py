@@ -1486,6 +1486,7 @@ class TrinityTextualApp(App[None]):
                 TargetWorkspaceConfirmModal(
                     target_path=preflight.path,
                     control_repo=self.config.project_dir,
+                    lang=self.config.lang,
                 ),
                 lambda confirmed: self._on_nexus_workspace_selected_confirmed(
                     preflight,
@@ -1569,6 +1570,7 @@ class TrinityTextualApp(App[None]):
                 TargetWorkspaceConfirmModal(
                     target_path=preflight.path,
                     control_repo=self.config.project_dir,
+                    lang=self.config.lang,
                 ),
                 lambda confirmed: self._on_workspace_preflight_confirmed(
                     preflight,
@@ -1713,7 +1715,8 @@ class TrinityTextualApp(App[None]):
         if command in {"quit", "exit", "q"}:
             self.push_screen(
                 ConfirmQuitModal(
-                    running=bool(getattr(self.workflow_controller, "is_running", False))
+                    running=bool(getattr(self.workflow_controller, "is_running", False)),
+                    lang=self.config.lang,
                 ),
                 self._on_quit_confirmed,
             )
@@ -2974,6 +2977,7 @@ class TrinityTextualApp(App[None]):
                 TargetWorkspaceConfirmModal(
                     target_path=path,
                     control_repo=self.config.project_dir,
+                    lang=self.config.lang,
                 ),
                 lambda confirmed: self._on_target_workspace_confirmed(
                     path,

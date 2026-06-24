@@ -330,7 +330,7 @@ class ReportScreen(Screen[None]):
             sections.append(
                 _section(
                     "Execution Timeline",
-                    _render_execution_events(report.execution_events[-80:]),
+                    _render_execution_events(report.execution_events[-80:], lang=lang),
                     lang=lang,
                 )
             )
@@ -346,7 +346,7 @@ class ReportScreen(Screen[None]):
 
         if report.reviews:
             sections.append(
-                _section("Reviews", _render_reviews(report.reviews), lang=lang)
+                _section("Reviews", _render_reviews(report.reviews, lang=lang), lang=lang)
             )
 
         if report.repairs:
@@ -371,7 +371,7 @@ class ReportScreen(Screen[None]):
             sections.append(
                 _section(
                     "Central Agent Conversation",
-                    _render_conversation(report.conversation[-12:]),
+                    _render_conversation(report.conversation[-12:], lang=lang),
                     lang=lang,
                 )
             )
@@ -632,11 +632,15 @@ def _render_package_routing(
         if package.review_status or package.reviewer_agent:
             review_reason = ""
             if package.review_status == "skipped" and package.review_summary:
-                review_reason = f"; reason {escape(package.review_summary)}"
+                review_reason = (
+                    f"; {_term_label('reason', lang=lang)} "
+                    f"{escape(package.review_summary)}"
+                )
             review_status = display_review_status_value(
                 package.review_status,
                 reviewer_agent=package.reviewer_agent,
                 summary=package.review_summary,
+                lang=lang,
             )
             review = (
                 f" · {_term_label('review', lang=lang)} {escape(review_status)}"
@@ -672,7 +676,7 @@ def _package_executor(package: WorkPackageSnapshot, *, lang: str = "en") -> str:
 
 def _package_lane(package: WorkPackageSnapshot, *, lang: str = "en") -> str:
     if not package.parallelizable:
-        return "serial"
+        return "직렬" if lang == "ko" else "serial"
     if package.parallel_group is not None:
         return f"g{package.parallel_group}"
     return _term_label("unspecified", lang=lang)
@@ -731,7 +735,7 @@ def _render_providers(providers, *, lang: str = "en") -> str:
         )
         lines.append(
             f"  • [cyan]{escape(provider.name)}[/cyan] "
-            f"{escape(provider.provider or 'unknown')} · "
+            f"{escape(provider.provider or _term_label('unknown', lang=lang))} · "
             f"{escape(model)} · {_term_label('context', lang=lang)} "
             f"{escape(context)} · {_term_label('session', lang=lang)} "
             f"{escape(session)}"
@@ -739,7 +743,7 @@ def _render_providers(providers, *, lang: str = "en") -> str:
     return "\n".join(lines) if lines else _empty_value(lang=lang)
 
 
-def _render_execution_events(events) -> str:
+def _render_execution_events(events, *, lang: str = "en") -> str:
     lines: list[str] = []
     for event in events:
         package = event.package_id or "-"
@@ -753,7 +757,7 @@ def _render_execution_events(events) -> str:
             f"{escape(package)} {escape(agent)} {escape(status)}"
             f" [dim]{escape(summary)}[/dim]"
         )
-    return "\n".join(lines) if lines else "(none)"
+    return "\n".join(lines) if lines else _empty_value(lang=lang)
 
 
 def _render_artifacts(artifacts, *, lang: str = "en") -> str:
@@ -837,7 +841,7 @@ def _render_agent_quality(
     lines: list[str] = []
     for item in items:
         lines.append(
-            f"  • [cyan]{escape(item.agent_name or '(unknown)')}[/cyan] "
+            f"  • [cyan]{escape(item.agent_name or _unknown_value(lang=lang))}[/cyan] "
             f"{_term_label('score', lang=lang)} {escape(_format_score(item.score))} · "
             f"{_term_label('success', lang=lang)} {item.success_count}/{item.signal_count} · "
             f"{_term_label('blockers', lang=lang)} {item.blocker_count} · "
@@ -847,7 +851,7 @@ def _render_agent_quality(
     return "\n".join(lines) if lines else _empty_value(lang=lang)
 
 
-def _render_reviews(reviews) -> str:
+def _render_reviews(reviews, *, lang: str = "en") -> str:
     lines: list[str] = []
     for review in reviews:
         lines.append(
@@ -856,7 +860,7 @@ def _render_reviews(reviews) -> str:
             f"{escape(review.target_agent or '-')} · {escape(review.status or '-')}: "
             f"{escape(review.summary or '')}"
         )
-    return "\n".join(lines) if lines else "(none)"
+    return "\n".join(lines) if lines else _empty_value(lang=lang)
 
 
 def _render_repairs(repairs, *, lang: str = "en") -> str:
@@ -894,7 +898,7 @@ def _render_recovery(recovery, *, lang: str = "en") -> str:
     return "\n".join(lines)
 
 
-def _render_conversation(messages) -> str:
+def _render_conversation(messages, *, lang: str = "en") -> str:
     lines: list[str] = []
     for message in messages:
         body = " ".join(message.body.split())
@@ -905,7 +909,7 @@ def _render_conversation(messages) -> str:
             f"  • [cyan]{escape(message.role or 'entry')}[/cyan] "
             f"{escape(title)}: [dim]{escape(body)}[/dim]"
         )
-    return "\n".join(lines) if lines else "(none)"
+    return "\n".join(lines) if lines else _empty_value(lang=lang)
 
 
 def _render_list(items: list[str], *, lang: str = "en") -> str:

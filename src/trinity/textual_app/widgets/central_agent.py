@@ -13,6 +13,7 @@ from trinity.textual_app.snapshot import (
     LocalCommandSnapshot,
     WorkflowNexusSnapshot,
 )
+from trinity.textual_app.presenters import central_action_plan
 from trinity.textual_app.widgets.progress_summary import (
     blocked_work_packages,
     compact_wp_line,
@@ -443,132 +444,24 @@ class CentralAgentView(VerticalScroll):
         self._button_actions = {}
         self._action_render_version += 1
         render_version = self._action_render_version
-        provider_error_options = self._provider_error_gate_options(snapshot)
-        if provider_error_options:
-            title.update(self._label("provider_error_action"))
-            actions = [
-                (
-                    "provider-error-retry",
-                    self._label("provider_error_retry"),
-                    "primary",
-                )
-            ]
-            if "Continue without failed providers" in provider_error_options:
-                actions.append(
-                    (
-                        "provider-error-continue",
-                        self._label("provider_error_continue"),
-                        "default",
-                    )
-                )
-            actions.append(
-                (
-                    "provider-error-stop",
-                    self._label("provider_error_stop"),
-                    "error",
-                )
-            )
-            for action, label, variant in actions:
-                button_id = f"central-action-{render_version}-{action}"
-                self._button_actions[button_id] = action
-                container.mount(
-                    Button(
-                        label,
-                        id=button_id,
-                        variant=variant,
-                        tooltip=self._label(f"{action}_tooltip"),
-                    )
-                )
-            return
-        if self._should_show_repair_actions(snapshot):
-            title.update(self._label("repair_action"))
-            for action, label, variant in (
-                ("repair-retry-once", self._label("repair_retry_once"), "primary"),
-                ("repair-mark-done", self._label("repair_mark_done"), "default"),
-                ("repair-open-review", self._label("repair_open_review"), "default"),
-                ("repair-stop", self._label("repair_stop"), "error"),
-            ):
-                button_id = f"central-action-{render_version}-{action}"
-                self._button_actions[button_id] = action
-                container.mount(
-                    Button(
-                        label,
-                        id=button_id,
-                        variant=variant,
-                        tooltip=self._label(f"{action}_tooltip"),
-                    )
-                )
-            return
 
-        if self._should_show_execution_retry_action(snapshot):
-            title.update(self._label("execution_recovery_action"))
-            button_id = f"central-action-{render_version}-execution-retry"
-            self._button_actions[button_id] = "execution-retry"
-            container.mount(
-                Button(
-                    self._label("execution_retry"),
-                    id=button_id,
-                    variant="primary",
-                    tooltip=self._label("execution-retry_tooltip"),
-                )
-            )
-            return
-
-        if not self._should_show_blueprint_actions(snapshot):
+        plan = central_action_plan(snapshot)
+        if not plan.buttons:
             title.update("")
             return
 
-        title.update(self._label("next_action"))
-        for action, label, variant in (
-            ("execute", self._label("execute"), "primary"),
-            ("refine-features", self._label("refine_features"), "default"),
-            ("refine-risks", self._label("refine_risks"), "default"),
-            ("refine-work-packages", self._label("refine_work_packages"), "default"),
-        ):
-            button_id = f"central-action-{render_version}-{action}"
-            self._button_actions[button_id] = action
+        title.update(self._label(plan.title_key))
+        for button in plan.buttons:
+            button_id = f"central-action-{render_version}-{button.action}"
+            self._button_actions[button_id] = button.action
             container.mount(
                 Button(
-                    label,
+                    self._label(button.label_key),
                     id=button_id,
-                    variant=variant,
-                    tooltip=self._label(f"{action}_tooltip"),
+                    variant=button.variant,
+                    tooltip=self._label(button.tooltip_key),
                 )
             )
-
-    @staticmethod
-    def _should_show_blueprint_actions(snapshot: WorkflowNexusSnapshot) -> bool:
-        if snapshot.state != "blueprint_ready":
-            return False
-        return bool(snapshot.work_packages or snapshot.central_work_packages)
-
-    @staticmethod
-    def _should_show_repair_actions(snapshot: WorkflowNexusSnapshot) -> bool:
-        recovery = snapshot.execution_recovery
-        if recovery and recovery.state == "repair_blocked":
-            return True
-        if snapshot.state != "needs_user_decision":
-            return False
-        return any(
-            package.status == "blocked" and package.repair_blocked_reason
-            for package in snapshot.work_package_details
-        )
-
-    @staticmethod
-    def _should_show_execution_retry_action(snapshot: WorkflowNexusSnapshot) -> bool:
-        recovery = snapshot.execution_recovery
-        if recovery is None:
-            return False
-        if recovery.state == "repair_blocked":
-            return False
-        return bool(recovery.retry_candidates)
-
-    @staticmethod
-    def _provider_error_gate_options(snapshot: WorkflowNexusSnapshot) -> set[str]:
-        for question in snapshot.questions:
-            if question.id == "q-provider-error-retry" and not question.answer:
-                return set(question.options)
-        return set()
 
     def _label(self, key: str) -> str:
         ko = {

@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 from trinity.textual_app.snapshot import (
+    ExecutionRecoverySnapshot,
     LocalCommandSnapshot,
+    QuestionSnapshot,
     SynthesisSnapshot,
     SubtaskSnapshot,
     WorkPackageSnapshot,
     WorkflowNexusSnapshot,
+)
+from trinity.textual_app.presenters import (
+    central_action_plan,
+    should_show_blueprint_actions,
 )
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 
@@ -120,21 +126,122 @@ def test_central_markdown_compacts_verbose_blueprint_for_user_view() -> None:
 
 
 def test_blueprint_next_actions_only_show_when_ready_with_packages() -> None:
-    assert CentralAgentView._should_show_blueprint_actions(
+    assert should_show_blueprint_actions(
         WorkflowNexusSnapshot(
             state="blueprint_ready",
             work_packages=["WP-001 codex: Build loop (pending)"],
         )
     )
-    assert not CentralAgentView._should_show_blueprint_actions(
+    assert not should_show_blueprint_actions(
         WorkflowNexusSnapshot(
             state="executing",
             work_packages=["WP-001 codex: Build loop (running)"],
         )
     )
-    assert not CentralAgentView._should_show_blueprint_actions(
+    assert not should_show_blueprint_actions(
         WorkflowNexusSnapshot(state="blueprint_ready")
     )
+
+
+def test_central_action_plan_prioritizes_provider_error_gate() -> None:
+    plan = central_action_plan(
+        WorkflowNexusSnapshot(
+            state="needs_user_decision",
+            questions=[
+                QuestionSnapshot(
+                    id="q-provider-error-retry",
+                    question="Provider errors occurred.",
+                    options=[
+                        "Retry failed providers",
+                        "Continue without failed providers",
+                        "Stop workflow",
+                    ],
+                )
+            ],
+            execution_recovery=ExecutionRecoverySnapshot(
+                state="failed",
+                retry_candidates=("WP-001",),
+            ),
+            work_package_details=[
+                WorkPackageSnapshot(
+                    id="WP-001",
+                    title="Client",
+                    owner_agent="codex",
+                    status="blocked",
+                    repair_blocked_reason="duplicate_required_changes",
+                )
+            ],
+        )
+    )
+
+    assert plan.title_key == "provider_error_action"
+    assert [button.action for button in plan.buttons] == [
+        "provider-error-retry",
+        "provider-error-continue",
+        "provider-error-stop",
+    ]
+
+
+def test_central_action_plan_prioritizes_repair_over_execution_retry() -> None:
+    plan = central_action_plan(
+        WorkflowNexusSnapshot(
+            state="needs_user_decision",
+            execution_recovery=ExecutionRecoverySnapshot(
+                state="repair_blocked",
+                retry_candidates=("WP-001",),
+            ),
+            work_package_details=[
+                WorkPackageSnapshot(
+                    id="WP-001",
+                    title="Client",
+                    owner_agent="codex",
+                    status="blocked",
+                    repair_blocked_reason="duplicate_required_changes",
+                )
+            ],
+        )
+    )
+
+    assert plan.title_key == "repair_action"
+    assert [button.action for button in plan.buttons] == [
+        "repair-retry-once",
+        "repair-mark-done",
+        "repair-open-review",
+        "repair-stop",
+    ]
+
+
+def test_central_action_plan_uses_execution_retry_before_blueprint_actions() -> None:
+    plan = central_action_plan(
+        WorkflowNexusSnapshot(
+            state="blueprint_ready",
+            work_packages=["WP-001 codex: Build loop (failed)"],
+            execution_recovery=ExecutionRecoverySnapshot(
+                state="failed",
+                retry_candidates=("WP-001",),
+            ),
+        )
+    )
+
+    assert plan.title_key == "execution_recovery_action"
+    assert [button.action for button in plan.buttons] == ["execution-retry"]
+
+
+def test_central_action_plan_falls_back_to_blueprint_actions() -> None:
+    plan = central_action_plan(
+        WorkflowNexusSnapshot(
+            state="blueprint_ready",
+            work_packages=["WP-001 codex: Build loop (pending)"],
+        )
+    )
+
+    assert plan.title_key == "next_action"
+    assert [button.action for button in plan.buttons] == [
+        "execute",
+        "refine-features",
+        "refine-risks",
+        "refine-work-packages",
+    ]
 
 
 def test_central_markdown_summarizes_execution_progress_without_result_dump() -> None:

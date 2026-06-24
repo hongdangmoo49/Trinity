@@ -1023,16 +1023,16 @@ def test_subtasks_presenter_uses_korean_labels() -> None:
     assert subtasks_markdown(empty, lang="ko") == (
         "현재 세션에 기록된 프로바이더 위임 하위 작업이 없습니다."
     )
-    assert "1. **ST-001** [done] WP-001 -> codex: 완료" in subtasks_markdown(
+    assert "1. **ST-001** [완료] WP-001 -> codex: 완료" in subtasks_markdown(
         snapshot,
         lang="ko",
     )
-    assert "2. **(이름 없음)** [waiting] (패키지 없음) -> (알 수 없음): (없음)" in (
+    assert "2. **(이름 없음)** [대기] (패키지 없음) -> (알 수 없음): (없음)" in (
         subtasks_markdown(snapshot, lang="ko")
     )
     assert subtasks_rows(snapshot, lang="ko") == (
-        ("ST-001", "WP-001", "codex", "done", "완료"),
-        ("(이름 없음)", "(없음)", "(알 수 없음)", "waiting", "(없음)"),
+        ("ST-001", "WP-001", "codex", "완료", "완료"),
+        ("(이름 없음)", "(없음)", "(알 수 없음)", "대기", "(없음)"),
     )
     assert subtasks_table_columns(lang="ko") == (
         "ID",
@@ -1468,7 +1468,7 @@ def test_improve_presenter_uses_korean_labels() -> None:
         ("워크플로우", "wf-improve"),
         ("상태", "post_review_ready"),
         ("보충 라운드", "2"),
-        ("AI-001", "pending; severity=high; kind=test; title=Fix tests"),
+        ("AI-001", "대기; severity=high; kind=test; title=Fix tests"),
     )
     assert improve_table_columns(lang="ko") == ("항목", "값")
     assert improve_title(lang="ko") == "개선"
@@ -4207,8 +4207,8 @@ async def test_start_slash_subtasks_uses_korean_labels(tmp_path) -> None:
         result = app.active_snapshot.local_commands[-1]
         assert result.command == "/subtasks"
         assert result.table_columns == ("ID", "작업 패키지", "위임 대상", "상태", "요약")
-        assert result.table_rows[0] == ("ST-001", "WP-001", "codex", "done", "Done")
-        assert "1. **ST-001** [done] WP-001 -> codex: Done" in result.body
+        assert result.table_rows[0] == ("ST-001", "WP-001", "codex", "완료", "Done")
+        assert "1. **ST-001** [완료] WP-001 -> codex: Done" in result.body
         table = app.screen.query_one("#local-command-table", Static)
         assert "위임 대상" in str(table.render())
 
@@ -4767,7 +4767,7 @@ async def test_start_slash_improve_uses_korean_labels(tmp_path) -> None:
         assert ("보충 라운드", "1") in result.table_rows
         assert (
             "AI-001",
-            "pending; severity=high; kind=test; title=Fix tests",
+            "대기; severity=high; kind=test; title=Fix tests",
         ) in result.table_rows
         assert result.action_hint.startswith("`/improve high`")
         assert controller.improve_requests == [("high",)]

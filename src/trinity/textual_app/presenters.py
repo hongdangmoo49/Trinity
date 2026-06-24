@@ -1898,11 +1898,12 @@ def improve_rows(
         rows.append((_sc_label(lang, "action_items"), _none_value(lang)))
         return tuple(rows)
     for item in snapshot.post_review_items:
+        status = _status_value(item.status, lang=lang)
         rows.append(
             (
                 item.id,
                 (
-                    f"{item.status}; severity={item.severity}; "
+                    f"{status}; severity={item.severity}; "
                     f"kind={item.kind}; title={item.title or item.summary}"
                 ),
             )
@@ -1934,9 +1935,10 @@ def subtasks_markdown(
     lines = []
     for index, subtask in enumerate(snapshot.subtasks, start=1):
         summary = subtask.result_summary or subtask.objective or _none_value(lang)
+        status = _status_value(subtask.status, lang=lang)
         lines.append(
             f"{index}. **{subtask.id or _unnamed_value(lang)}** "
-            f"[{subtask.status}] "
+            f"[{status}] "
             f"{subtask.parent_package_id or _no_package_value(lang)} -> "
             f"{subtask.delegated_to or _unknown_value(lang)}: {summary}"
         )
@@ -1953,7 +1955,7 @@ def subtasks_rows(
             subtask.id or _unnamed_value(lang),
             subtask.parent_package_id or _none_value(lang),
             subtask.delegated_to or _unknown_value(lang),
-            subtask.status,
+            _status_value(subtask.status, lang=lang),
             subtask.result_summary or subtask.objective or _none_value(lang),
         )
         for subtask in snapshot.subtasks

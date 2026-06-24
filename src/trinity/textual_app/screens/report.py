@@ -15,7 +15,11 @@ from textual.widgets import Button, Footer, Header, Static
 
 from rich.markup import escape
 
-from trinity.textual_app.snapshot import WorkflowNexusSnapshot, WorkPackageSnapshot
+from trinity.textual_app.snapshot import (
+    ProviderSnapshot,
+    WorkflowNexusSnapshot,
+    WorkPackageSnapshot,
+)
 
 if TYPE_CHECKING:
     from trinity.tui.report import DeliberationReport
@@ -205,6 +209,9 @@ class ReportScreen(Screen[None]):
         sections: list[str] = []
 
         sections.append(_section("Overview", _render_overview_snap(snap)))
+
+        if snap.providers:
+            sections.append(_section("Providers", _render_snapshot_providers(snap.providers)))
 
         synthesis = snap.synthesis
         if synthesis.summary:
@@ -432,6 +439,44 @@ def _render_artifacts(artifacts) -> str:
             f"    [dim]{escape(artifact.path)}[/dim]"
         )
     return "\n".join(lines) if lines else "(none)"
+
+
+def _render_snapshot_providers(providers: list[ProviderSnapshot]) -> str:
+    lines: list[str] = []
+    for provider in providers:
+        if not provider.enabled:
+            continue
+        model = provider.actual_model or provider.model_label or provider.configured_model or "default"
+        context = f"{provider.context_window:,}" if provider.context_window else "unknown"
+        source = provider.budget_source or "unknown"
+        session = provider.session_id[:12] if provider.session_id else "none"
+        profile = _provider_profile_summary(provider)
+        if profile:
+            profile = f" · {profile}"
+        lines.append(
+            f"  • [cyan]{escape(provider.name)}[/cyan] "
+            f"{escape(model)} · context {escape(context)} "
+            f"({escape(source)}) · session {escape(session)}{profile}"
+        )
+    return "\n".join(lines) if lines else "(none)"
+
+
+def _provider_profile_summary(provider: ProviderSnapshot) -> str:
+    parts: list[str] = []
+    if provider.context_profile:
+        parts.append(f"profile {escape(provider.context_profile)}")
+    if provider.profile_modes:
+        parts.append(f"modes {escape(', '.join(provider.profile_modes))}")
+    if provider.output_contract:
+        parts.append(f"output {escape(provider.output_contract)}")
+    if provider.profile_strengths:
+        strengths = ", ".join(provider.profile_strengths[:3])
+        if len(provider.profile_strengths) > 3:
+            strengths = f"{strengths}, +{len(provider.profile_strengths) - 3}"
+        parts.append(f"strengths {escape(strengths)}")
+    if provider.profile_mission:
+        parts.append(f"mission {escape(provider.profile_mission)}")
+    return " · ".join(parts)
 
 
 def _render_reviews(reviews) -> str:

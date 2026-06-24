@@ -5,7 +5,11 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from trinity.textual_app.snapshot import WorkflowNexusSnapshot, WorkPackageSnapshot
+from trinity.textual_app.snapshot import (
+    ProviderSnapshot,
+    WorkflowNexusSnapshot,
+    WorkPackageSnapshot,
+)
 
 _MD_SPECIAL_CHARS = "\\`*_{}[]<>()#+-.!|"
 
@@ -162,14 +166,36 @@ def _provider_lines(snapshot: WorkflowNexusSnapshot) -> list[str]:
         )
         source = provider.budget_source or "unknown"
         session = provider.session_id[:12] if provider.session_id else "none"
+        profile = _provider_profile_summary(provider)
+        if profile:
+            profile = f"; {profile}"
         lines.append(
             "- "
             f"**{_md_inline(provider.name)}**: "
             f"{_md_inline(model)}; "
             f"context {_md_inline(context)} ({_md_inline(source)}); "
             f"session {_md_inline(session)}"
+            f"{profile}"
         )
     return lines
+
+
+def _provider_profile_summary(provider: ProviderSnapshot) -> str:
+    parts: list[str] = []
+    if provider.context_profile:
+        parts.append(f"profile {_md_inline(provider.context_profile)}")
+    if provider.profile_modes:
+        parts.append(f"modes {_md_inline(', '.join(provider.profile_modes))}")
+    if provider.output_contract:
+        parts.append(f"output {_md_inline(provider.output_contract)}")
+    if provider.profile_strengths:
+        strengths = ", ".join(provider.profile_strengths[:3])
+        if len(provider.profile_strengths) > 3:
+            strengths = f"{strengths}, +{len(provider.profile_strengths) - 3}"
+        parts.append(f"strengths {_md_inline(strengths)}")
+    if provider.profile_mission:
+        parts.append(f"mission {_md_inline(provider.profile_mission)}")
+    return "; ".join(parts)
 
 
 def _work_package_detail_lines(snapshot: WorkflowNexusSnapshot) -> list[str]:

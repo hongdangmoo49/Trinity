@@ -1219,6 +1219,16 @@ def test_snapshot_report_markdown_includes_provider_metadata() -> None:
                 context_window=272000,
                 budget_source="local_cli_cache",
                 session_id="019ea9e3-426f",
+                profile_mission="Implement and test approved work packages",
+                profile_modes=["execute", "review"],
+                profile_strengths=[
+                    "implementation",
+                    "testing",
+                    "repair",
+                    "integration",
+                ],
+                context_profile="implementer",
+                output_contract="execution_v1",
             )
         ],
     )
@@ -1228,6 +1238,57 @@ def test_snapshot_report_markdown_includes_provider_metadata() -> None:
     assert "## Providers" in md
     assert "**codex**: gpt\\-5\\.5; context 272,000 (local\\_cli\\_cache)" in md
     assert "session 019ea9e3\\-426" in md
+    assert "profile implementer" in md
+    assert "modes execute, review" in md
+    assert "output execution\\_v1" in md
+    assert "strengths implementation, testing, repair, \\+1" in md
+    assert "mission Implement and test approved work packages" in md
+
+
+@pytest.mark.asyncio
+async def test_report_screen_snapshot_shows_provider_profile_metadata(
+    tmp_path,
+) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-provider",
+        goal="route work",
+        state="blueprint_ready",
+        providers=[
+            ProviderSnapshot(
+                name="codex",
+                provider="codex",
+                enabled=True,
+                status="Ready",
+                actual_model="gpt-5.5",
+                context_window=272000,
+                budget_source="local_cli_cache",
+                session_id="019ea9e3-426f",
+                profile_modes=["execute", "review"],
+                context_profile="implementer",
+                output_contract="execution_v1",
+            )
+        ],
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        workflow_controller=FakeWorkflowController(snapshot),
+    )
+    app.active_snapshot = snapshot
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("report")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, ReportScreen)
+        body = screen.query_one("#report-body")
+        rendered = "\n".join(str(child.render()) for child in body.children)
+
+    assert "Providers" in rendered
+    assert "codex" in rendered
+    assert "profile implementer" in rendered
+    assert "modes execute, review" in rendered
+    assert "output execution_v1" in rendered
 
 
 def test_snapshot_report_markdown_includes_work_package_routing_metadata() -> None:

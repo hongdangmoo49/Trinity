@@ -1331,6 +1331,32 @@ class TrinityTextualApp(App[None]):
             intent="select",
         )
 
+    def on_execution_matrix_screen_retry_requested(
+        self,
+        event: ExecutionMatrixScreen.RetryRequested,
+    ) -> None:
+        event.stop()
+        selector = "all"
+        package_ids: list[str] = []
+        self.workflow_controller.preview_execution_retry(selector, package_ids)
+        snapshot = self.workflow_controller.snapshot() or event.snapshot
+        self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
+        if not snapshot.work_package_details:
+            self.notify(
+                "No work packages are available in the current workflow.",
+                severity="warning",
+            )
+            return
+        self.push_screen(
+            ExecutionRetryModal(
+                snapshot,
+                selector=selector,
+                package_ids=tuple(package_ids),
+                lang=self.config.lang,
+            ),
+            self._on_execute_retry_selected,
+        )
+
     def on_nexus_screen_repair_action_requested(
         self,
         event: NexusScreen.RepairActionRequested,

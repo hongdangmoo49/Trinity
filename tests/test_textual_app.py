@@ -31,6 +31,10 @@ from trinity.textual_app.presenters import (
     decisions_markdown,
     decisions_rows,
     decisions_table_columns,
+    history_action_hint,
+    history_markdown,
+    history_rows,
+    history_table_columns,
     packages_action_hint,
     packages_markdown,
     packages_rows,
@@ -789,6 +793,43 @@ def test_subtasks_presenter_uses_korean_labels() -> None:
     )
     assert subtasks_action_hint(has_subtasks=False, lang="ko").startswith("실행 중인")
     assert subtasks_action_hint(has_subtasks=True, lang="ko") == ""
+
+
+def test_history_presenter_uses_korean_labels() -> None:
+    command = LocalCommandSnapshot(command="/status", title="Status", body="status")
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-ko",
+        goal="이력 확인",
+        state="reviewing",
+        round_num=2,
+        execution_log=["WP-001 codex: done"],
+    )
+
+    rows = history_rows(snapshot, [command], lang="ko")
+    markdown = history_markdown(snapshot, rows, lang="ko")
+
+    assert rows == (
+        ("워크플로우", "wf-ko"),
+        ("상태", "reviewing"),
+        ("라운드", "2"),
+        ("목표", "이력 확인"),
+        ("로컬 명령", "/status - Status"),
+        ("실행", "WP-001 codex: done"),
+    )
+    assert "- 워크플로우: `wf-ko`" in markdown
+    assert "- 상태: `reviewing`" in markdown
+    assert "### 최근 실행 로그" in markdown
+    assert "### 최근 로컬 항목" in markdown
+    assert "- **로컬 명령**: /status - Status" in markdown
+    assert history_table_columns(lang="ko") == ("종류", "항목")
+    assert history_action_hint(has_history=False, lang="ko").startswith("프롬프트 실행")
+    assert history_action_hint(has_history=True, lang="ko") == ""
+
+
+def test_history_empty_presenter_uses_korean_labels() -> None:
+    assert history_markdown(WorkflowNexusSnapshot(), (), lang="ko") == (
+        "현재 Textual 세션에 기록된 로컬 이력이 없습니다."
+    )
 
 
 def test_model_discovery_applies_fast_provider_before_slow_provider(
@@ -3323,6 +3364,62 @@ async def test_nexus_empty_lookup_commands_record_empty_states(tmp_path) -> None
 
         assert controller.started_prompts == []
         assert controller.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_start_slash_history_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            goal="game",
+            state="reviewing",
+            execution_log=["WP-001 codex: done"],
+        )
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/history ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, LocalCommandModal)
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/history"
+        assert result.table_columns == ("종류", "항목")
+        assert ("워크플로우", "wf-fake") in result.table_rows
+        assert ("실행", "WP-001 codex: done") in result.table_rows
+        assert "### 최근 실행 로그" in result.body
+        assert "### 최근 로컬 항목" in result.body
+        table = app.screen.query_one("#local-command-table", Static)
+        assert "워크플로우" in str(table.render())
+
+
+@pytest.mark.asyncio
+async def test_start_slash_empty_history_uses_korean_hint(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(100, 30)):
+        app._handle_textual_slash_command("/history")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.empty is True
+        assert result.body == "현재 Textual 세션에 기록된 로컬 이력이 없습니다."
+        assert result.action_hint.startswith("프롬프트 실행")
+        assert result.table_columns == ("종류", "항목")
 
 
 @pytest.mark.asyncio

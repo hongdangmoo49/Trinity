@@ -32,13 +32,17 @@ STATUS_CONTEXT_LABELS = {
         "final_review": "Final Review",
         "follow_up_requests": "Follow-up Requests",
         "goal": "Goal",
+        "history_hint": "Run a prompt, execute a workflow, or use local slash commands first.",
         "id": "ID",
         "item": "Item",
+        "kind": "Kind",
         "last_event": "Last event",
+        "local_command": "Local command",
         "local_policy_repairs": "Local Policy Repairs",
         "next": "Next",
         "no": "no",
         "no_decisions": "No workflow decisions recorded in the current session.",
+        "no_history": "No local history recorded in this Textual session.",
         "no_packages": "No workflow work packages generated in the current session.",
         "no_pending_questions": "No pending workflow questions.",
         "no_pending_questions_select": "No pending workflow questions to select.",
@@ -61,6 +65,8 @@ STATUS_CONTEXT_LABELS = {
             "or run `/answer <option-number>`."
         ),
         "readiness": "Readiness",
+        "recent_execution_log": "Recent Execution Log",
+        "recent_local_items": "Recent Local Items",
         "recommended": "Recommended",
         "reattach_note": (
             "Provider process reattach is not supported. Retry starts a new "
@@ -108,13 +114,17 @@ STATUS_CONTEXT_LABELS = {
         "final_review": "최종 리뷰",
         "follow_up_requests": "후속 요청",
         "goal": "목표",
+        "history_hint": "프롬프트 실행, 워크플로우 실행, 로컬 slash 명령 사용 후 이력이 표시됩니다.",
         "id": "ID",
         "item": "항목",
+        "kind": "종류",
         "last_event": "최근 이벤트",
+        "local_command": "로컬 명령",
         "local_policy_repairs": "로컬 정책 복구",
         "next": "다음",
         "no": "아니오",
         "no_decisions": "현재 세션에 기록된 워크플로우 결정이 없습니다.",
+        "no_history": "현재 Textual 세션에 기록된 로컬 이력이 없습니다.",
         "no_packages": "현재 세션에 생성된 워크플로우 작업 패키지가 없습니다.",
         "no_pending_questions": "대기 중인 워크플로우 질문이 없습니다.",
         "no_pending_questions_select": "선택할 대기 질문이 없습니다.",
@@ -136,6 +146,8 @@ STATUS_CONTEXT_LABELS = {
             "질문 패널의 선택지 버튼을 사용하거나 `/answer <option-number>`를 실행하세요."
         ),
         "readiness": "준비 상태",
+        "recent_execution_log": "최근 실행 로그",
+        "recent_local_items": "최근 로컬 항목",
         "recommended": "추천",
         "reattach_note": (
             "프로바이더 프로세스 재연결은 지원하지 않습니다. 재시도는 중단, 실패, "
@@ -987,47 +999,59 @@ def subtasks_rows(
     )
 
 
+def history_action_hint(*, has_history: bool, lang: str = "en") -> str:
+    return "" if has_history else _sc_label(lang, "history_hint")
+
+
+def history_table_columns(*, lang: str = "en") -> tuple[str, str]:
+    return (_sc_label(lang, "kind"), _sc_label(lang, "item"))
+
+
 def history_rows(
     snapshot: WorkflowNexusSnapshot,
     local_command_results: Sequence[object] = (),
+    *,
+    lang: str = "en",
 ) -> tuple[tuple[str, str], ...]:
     rows: list[tuple[str, str]] = []
     if snapshot.session_id or snapshot.goal:
-        rows.append(("Workflow", snapshot.session_id or "(new)"))
-        rows.append(("State", snapshot.state or "idle"))
-        rows.append(("Round", str(snapshot.round_num)))
+        rows.append((_sc_label(lang, "workflow"), snapshot.session_id or "(new)"))
+        rows.append((_sc_label(lang, "state"), snapshot.state or "idle"))
+        rows.append((_sc_label(lang, "round"), str(snapshot.round_num)))
         if snapshot.goal:
-            rows.append(("Goal", snapshot.goal))
+            rows.append((_sc_label(lang, "goal"), snapshot.goal))
     for command in local_command_results[-10:]:
         rows.append(
             (
-                "Local command",
+                _sc_label(lang, "local_command"),
                 f"{getattr(command, 'command', '')} - {getattr(command, 'title', '')}",
             )
         )
     for entry in snapshot.execution_log[-10:]:
-        rows.append(("Execution", entry))
+        rows.append((_sc_label(lang, "execution"), entry))
     return tuple(rows)
 
 
 def history_markdown(
     snapshot: WorkflowNexusSnapshot,
     rows: tuple[tuple[str, str], ...],
+    *,
+    lang: str = "en",
 ) -> str:
     if not rows:
-        return "No local history recorded in this Textual session."
+        return _sc_label(lang, "no_history")
     lines = [
-        f"- Workflow: `{snapshot.session_id or '(new)'}`",
-        f"- State: `{snapshot.state or 'idle'}`",
-        f"- Round: `{snapshot.round_num}`",
+        f"- {_sc_label(lang, 'workflow')}: `{snapshot.session_id or '(new)'}`",
+        f"- {_sc_label(lang, 'state')}: `{snapshot.state or 'idle'}`",
+        f"- {_sc_label(lang, 'round')}: `{snapshot.round_num}`",
     ]
     if snapshot.goal:
-        lines.append(f"- Goal: {snapshot.goal}")
+        lines.append(f"- {_sc_label(lang, 'goal')}: {snapshot.goal}")
     if snapshot.execution_log:
-        lines.extend(["", "### Recent Execution Log"])
+        lines.extend(["", f"### {_sc_label(lang, 'recent_execution_log')}"])
         lines.extend(f"- {entry}" for entry in snapshot.execution_log[-10:])
     if rows:
-        lines.extend(["", "### Recent Local Items"])
+        lines.extend(["", f"### {_sc_label(lang, 'recent_local_items')}"])
         lines.extend(f"- **{kind}**: {item}" for kind, item in rows[-12:])
     return "\n".join(lines)
 

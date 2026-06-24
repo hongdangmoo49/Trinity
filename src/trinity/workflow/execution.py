@@ -17,10 +17,12 @@ from trinity.context.shared import SharedContextEngine
 from trinity.models import DeliberationMessage, ResponseStatus
 from trinity.prompts.context_projection import (
     agent_context_profile,
+    agent_output_contract_id,
+    render_agent_output_contract,
     render_context_projection_block,
     render_operating_profile_block,
 )
-from trinity.prompts.contracts import EXECUTION_CONTRACT_ID, render_output_contract
+from trinity.prompts.contracts import EXECUTION_CONTRACT_ID
 from trinity.providers.policy import (
     ExecutionAuthority,
     ExecutionScope,
@@ -373,7 +375,11 @@ class ExecutionProtocol:
             package_id=package.id,
             agent=agent_name,
             status=package.status.value,
-            output_contract=EXECUTION_CONTRACT_ID,
+            output_contract=self._agent_output_contract_id(
+                agent_name,
+                mode="execute",
+                default=EXECUTION_CONTRACT_ID,
+            ),
             context_profile=self._agent_context_profile(agent_name),
         )
 
@@ -522,7 +528,11 @@ class ExecutionProtocol:
             agent=result.agent_name,
             status=result.status.value,
             summary=result.summary,
-            output_contract=EXECUTION_CONTRACT_ID,
+            output_contract=self._agent_output_contract_id(
+                result.agent_name,
+                mode="execute",
+                default=EXECUTION_CONTRACT_ID,
+            ),
             context_profile=self._agent_context_profile(result.agent_name),
             attempt_chain=list(result.attempt_chain),
             raw_response_path=(
@@ -663,8 +673,15 @@ class ExecutionProtocol:
             execution_agent,
             mode="execute",
             heading="[Operating Profile]",
+            default_output_contract=EXECUTION_CONTRACT_ID,
         )
         context_projection = self._context_projection_block(execution_agent)
+        output_contract = render_agent_output_contract(
+            self.agents,
+            execution_agent,
+            mode="execute",
+            default=EXECUTION_CONTRACT_ID,
+        )
         fallback_note = ""
         if execution_agent != package.owner_agent:
             fallback_note = (
@@ -719,7 +736,7 @@ class ExecutionProtocol:
             "- unresolved issues\n\n"
             "Perform this work package. When finished, report exactly in this "
             "format:\n"
-            f"{render_output_contract(EXECUTION_CONTRACT_ID)}\n"
+            f"{output_contract}\n"
         )
 
     def _context_projection_block(self, agent_name: str) -> str:
@@ -731,6 +748,20 @@ class ExecutionProtocol:
 
     def _agent_context_profile(self, agent_name: str) -> str:
         return agent_context_profile(self.agents, agent_name)
+
+    def _agent_output_contract_id(
+        self,
+        agent_name: str,
+        *,
+        mode: str,
+        default: str,
+    ) -> str:
+        return agent_output_contract_id(
+            self.agents,
+            agent_name,
+            mode=mode,
+            default=default,
+        )
 
     @staticmethod
     def _format_list(items: Iterable[str]) -> str:

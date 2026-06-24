@@ -15,13 +15,14 @@ from trinity.context.shared import SharedContextEngine
 from trinity.models import DeliberationMessage, ResponseStatus
 from trinity.prompts.context_projection import (
     agent_context_profile,
+    agent_output_contract_id,
+    render_agent_output_contract,
     render_context_projection_block,
     render_operating_profile_block,
 )
 from trinity.prompts.contracts import (
     FINAL_REVIEW_CONTRACT_ID,
     REVIEW_CONTRACT_ID,
-    render_output_contract,
 )
 from trinity.providers.policy import InvocationAccess
 from trinity.tui.events import TUIEvent, TUIEventType
@@ -196,7 +197,11 @@ class ReviewExecutionProtocol:
             TUIEventType.REVIEW_PACKAGE_STARTED,
             review_package,
             status="reviewing",
-            output_contract=REVIEW_CONTRACT_ID,
+            output_contract=self._agent_output_contract_id(
+                review_package.reviewer_agent,
+                mode="review",
+                default=REVIEW_CONTRACT_ID,
+            ),
             context_profile=self._agent_context_profile(
                 review_package.reviewer_agent
             ),
@@ -257,7 +262,11 @@ class ReviewExecutionProtocol:
         self._emit(
             TUIEventType.FINAL_REVIEW_STARTED,
             reviewer=review_package.reviewer_agent,
-            output_contract=FINAL_REVIEW_CONTRACT_ID,
+            output_contract=self._agent_output_contract_id(
+                review_package.reviewer_agent,
+                mode="final_review",
+                default=FINAL_REVIEW_CONTRACT_ID,
+            ),
             context_profile=self._agent_context_profile(
                 review_package.reviewer_agent
             ),
@@ -304,7 +313,11 @@ class ReviewExecutionProtocol:
             status=result.status.value,
             severity=result.severity,
             summary=result.summary,
-            output_contract=FINAL_REVIEW_CONTRACT_ID,
+            output_contract=self._agent_output_contract_id(
+                result.reviewer_agent,
+                mode="final_review",
+                default=FINAL_REVIEW_CONTRACT_ID,
+            ),
         )
         return result
 
@@ -377,9 +390,16 @@ class ReviewExecutionProtocol:
             review_package.reviewer_agent,
             mode="review",
             heading="[Operating Profile]",
+            default_output_contract=REVIEW_CONTRACT_ID,
         )
         context_projection = self._context_projection_block(
             review_package.reviewer_agent
+        )
+        output_contract = render_agent_output_contract(
+            self.agents,
+            review_package.reviewer_agent,
+            mode="review",
+            default=REVIEW_CONTRACT_ID,
         )
         return (
             "[Work Package Review]\n"
@@ -413,7 +433,7 @@ class ReviewExecutionProtocol:
             "Review the completed work package. Focus on severe runtime errors, "
             "anti-patterns, and performance concerns. Do not modify files. "
             "Report exactly in this format:\n"
-            f"{render_output_contract(REVIEW_CONTRACT_ID)}\n"
+            f"{output_contract}\n"
         )
 
     def _build_final_review_prompt(
@@ -445,6 +465,13 @@ class ReviewExecutionProtocol:
             reviewer_agent,
             mode="final_review",
             heading="[Operating Profile]",
+            default_output_contract=FINAL_REVIEW_CONTRACT_ID,
+        )
+        output_contract = render_agent_output_contract(
+            self.agents,
+            reviewer_agent,
+            mode="final_review",
+            default=FINAL_REVIEW_CONTRACT_ID,
         )
         return (
             "[Final Project Review]\n"
@@ -461,7 +488,7 @@ class ReviewExecutionProtocol:
             "Focus on whole-project compatibility, project overview, run "
             "instructions, and additional features that appear necessary. "
             "Do not modify files. Report exactly in this format:\n"
-            f"{render_output_contract(FINAL_REVIEW_CONTRACT_ID)}\n"
+            f"{output_contract}\n"
         )
 
     def _target_workspace_block(self) -> str:
@@ -483,6 +510,20 @@ class ReviewExecutionProtocol:
 
     def _agent_context_profile(self, agent_name: str) -> str:
         return agent_context_profile(self.agents, agent_name)
+
+    def _agent_output_contract_id(
+        self,
+        agent_name: str,
+        *,
+        mode: str,
+        default: str,
+    ) -> str:
+        return agent_output_contract_id(
+            self.agents,
+            agent_name,
+            mode=mode,
+            default=default,
+        )
 
     @classmethod
     def _parse_review_response(cls, content: str) -> dict:
@@ -738,10 +779,14 @@ class ReviewExecutionProtocol:
             severity=result.severity,
             summary=result.summary,
             scope=result.scope,
-            output_contract=(
-                FINAL_REVIEW_CONTRACT_ID
-                if result.scope == "final"
-                else REVIEW_CONTRACT_ID
+            output_contract=self._agent_output_contract_id(
+                result.reviewer_agent,
+                mode="final_review" if result.scope == "final" else "review",
+                default=(
+                    FINAL_REVIEW_CONTRACT_ID
+                    if result.scope == "final"
+                    else REVIEW_CONTRACT_ID
+                ),
             ),
             context_profile=self._agent_context_profile(result.reviewer_agent),
             required_changes=list(result.required_changes),

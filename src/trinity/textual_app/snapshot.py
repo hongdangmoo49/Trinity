@@ -601,7 +601,14 @@ class NexusSnapshotAdapter:
                 else:
                     results_by_id.pop(review_id, None)
             results = list(results_by_id.values())
-            pending_status = NexusSnapshotAdapter._pending_review_status(session)
+            planned_skip_reason = NexusSnapshotAdapter._planned_review_skip_reason(
+                planned
+            )
+            pending_status = (
+                "skipped"
+                if planned_skip_reason
+                else NexusSnapshotAdapter._pending_review_status(session)
+            )
             status = NexusSnapshotAdapter._runtime_review_status(runtime, pending_status)
             if results:
                 status = NexusSnapshotAdapter._aggregate_review_status(results)
@@ -633,10 +640,11 @@ class NexusSnapshotAdapter:
                     results,
                     runtime,
                 ),
-                summary=(
-                    representative.summary
-                    if representative
-                    else runtime_representative.summary if runtime_representative else ""
+                summary=NexusSnapshotAdapter._review_projection_summary(
+                    representative,
+                    runtime_representative,
+                    planned_skip_reason,
+                    status,
                 ),
                 required_changes=NexusSnapshotAdapter._review_required_changes(results),
                 severity=NexusSnapshotAdapter._aggregate_review_severity(results),
@@ -666,6 +674,27 @@ class NexusSnapshotAdapter:
     def _pending_review_status(session: WorkflowSession) -> str:
         state = str(getattr(getattr(session, "state", ""), "value", "") or "")
         return "reviewing" if state == "reviewing" else "queued"
+
+    @staticmethod
+    def _planned_review_skip_reason(planned: list[ReviewPackage]) -> str:
+        if not planned:
+            return ""
+        skipped = [
+            review
+            for review in planned
+            if (
+                not review.required
+                or bool(review.skipped_reason)
+                or not review.reviewer_agent
+            )
+        ]
+        if len(skipped) != len(planned):
+            return ""
+        for review in skipped:
+            reason = (review.skipped_reason or review.reason).strip()
+            if reason:
+                return reason
+        return "Peer review skipped."
 
     @staticmethod
     def _aggregate_review_status(results: list[ReviewResult]) -> str:
@@ -715,6 +744,21 @@ class NexusSnapshotAdapter:
         if len(names) <= 2:
             return ", ".join(names)
         return f"{', '.join(names[:2])}, +{len(names) - 2}"
+
+    @staticmethod
+    def _review_projection_summary(
+        representative: ReviewResult | None,
+        runtime_representative: _RuntimeReviewState | None,
+        planned_skip_reason: str,
+        status: str,
+    ) -> str:
+        if representative is not None and representative.summary:
+            return representative.summary
+        if runtime_representative is not None and runtime_representative.summary:
+            return runtime_representative.summary
+        if status == "skipped":
+            return planned_skip_reason
+        return ""
 
     @staticmethod
     def _review_required_changes(results: list[ReviewResult]) -> list[str]:

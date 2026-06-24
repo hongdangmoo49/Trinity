@@ -125,6 +125,7 @@ STATUS_CONTEXT_LABELS = {
         "no_subtasks": "No provider delegation subtasks recorded in the current session.",
         "no_goal": "(no goal)",
         "new_workflow": "(new)",
+        "no_package": "(no package)",
         "not_set": "(not set)",
         "not_checked": "not checked",
         "options": "Options",
@@ -230,6 +231,7 @@ STATUS_CONTEXT_LABELS = {
         "work_packages": "Work Packages",
         "local": "local",
         "trinity_commands": "Trinity Commands",
+        "unnamed": "(unnamed)",
         "unknown_command": "Unknown Command",
         "unknown_command_body": "is not a Trinity slash command.",
         "unknown_command_did_you_mean": "Did you mean:",
@@ -351,6 +353,7 @@ STATUS_CONTEXT_LABELS = {
         "no_subtasks": "현재 세션에 기록된 프로바이더 위임 하위 작업이 없습니다.",
         "no_goal": "(목표 없음)",
         "new_workflow": "(새 워크플로우)",
+        "no_package": "(패키지 없음)",
         "not_set": "(미설정)",
         "not_checked": "미확인",
         "options": "선택지",
@@ -451,6 +454,7 @@ STATUS_CONTEXT_LABELS = {
         "work_packages": "작업 패키지",
         "local": "로컬",
         "trinity_commands": "Trinity 명령",
+        "unnamed": "(이름 없음)",
         "unknown_command": "알 수 없는 명령",
         "unknown_command_body": "은 Trinity slash 명령이 아닙니다.",
         "unknown_command_did_you_mean": "다음 명령을 찾으셨나요:",
@@ -1020,6 +1024,14 @@ def _new_workflow_value(lang: str = "en") -> str:
     return _sc_label(lang, "new_workflow")
 
 
+def _unnamed_value(lang: str = "en") -> str:
+    return _sc_label(lang, "unnamed")
+
+
+def _no_package_value(lang: str = "en") -> str:
+    return _sc_label(lang, "no_package")
+
+
 def workflow_outcome_message_markdown(message: str, *, lang: str = "en") -> str:
     if not message or lang != "ko":
         return message
@@ -1121,7 +1133,7 @@ def report_summary_rows(
     lang: str = "en",
 ) -> tuple[tuple[str, str], ...]:
     return (
-        (_sc_label(lang, "workflow"), snapshot.session_id or "(new)"),
+        (_sc_label(lang, "workflow"), snapshot.session_id or _new_workflow_value(lang)),
         (_sc_label(lang, "state"), snapshot.state or "idle"),
         (_sc_label(lang, "questions"), str(len(snapshot.questions))),
         (_sc_label(lang, "decisions"), str(len(snapshot.decisions))),
@@ -1454,9 +1466,9 @@ def snapshot_workflow_markdown(
     lang: str = "en",
 ) -> str:
     state = snapshot.state or "idle"
-    goal = snapshot.goal or "(none)"
+    goal = snapshot.goal or _none_value(lang)
     lines = [
-        f"- {_sc_label(lang, 'id')}: `{snapshot.session_id or '(new)'}`",
+        f"- {_sc_label(lang, 'id')}: `{snapshot.session_id or _new_workflow_value(lang)}`",
         f"- {_sc_label(lang, 'state')}: `{state}`",
         f"- {_sc_label(lang, 'goal')}: {goal}",
         f"- {_sc_label(lang, 'round')}: `{snapshot.round_num}`",
@@ -1481,9 +1493,9 @@ def snapshot_workflow_rows(
     lang: str = "en",
 ) -> tuple[tuple[str, str], ...]:
     rows = [
-        (_sc_label(lang, "id"), snapshot.session_id or "(new)"),
+        (_sc_label(lang, "id"), snapshot.session_id or _new_workflow_value(lang)),
         (_sc_label(lang, "state"), snapshot.state or "idle"),
-        (_sc_label(lang, "goal"), snapshot.goal or "(none)"),
+        (_sc_label(lang, "goal"), snapshot.goal or _none_value(lang)),
         (_sc_label(lang, "round"), str(snapshot.round_num)),
         (_sc_label(lang, "pending_questions"), str(len(snapshot.questions))),
         (_sc_label(lang, "decisions"), str(len(snapshot.decisions))),
@@ -1804,7 +1816,7 @@ def review_rows(
     lang: str = "en",
 ) -> tuple[tuple[str, str], ...]:
     rows: list[tuple[str, str]] = [
-        (_sc_label(lang, "workflow"), snapshot.session_id or "(new)"),
+        (_sc_label(lang, "workflow"), snapshot.session_id or _new_workflow_value(lang)),
         (_sc_label(lang, "state"), snapshot.state or "idle"),
         (_sc_label(lang, "work_packages"), str(len(snapshot.work_package_details))),
     ]
@@ -1816,10 +1828,10 @@ def review_rows(
         for package in snapshot.work_package_details
         if package.review_status
     ]
-    rows.append((_sc_label(lang, "pending_wp_review"), ", ".join(pending) or "(none)"))
-    rows.append((_sc_label(lang, "reviewed_wp"), ", ".join(reviewed) or "(none)"))
+    rows.append((_sc_label(lang, "pending_wp_review"), ", ".join(pending) or _none_value(lang)))
+    rows.append((_sc_label(lang, "reviewed_wp"), ", ".join(reviewed) or _none_value(lang)))
     if snapshot.final_review is not None:
-        reviewer = snapshot.final_review.reviewer_agent or "(unknown)"
+        reviewer = snapshot.final_review.reviewer_agent or _unknown_value(lang)
         final_review_value = (
             f"{snapshot.final_review.status} / {_sc_label(lang, 'reviewer')} {reviewer}"
             if lang == "ko"
@@ -1832,7 +1844,7 @@ def review_rows(
             )
         )
     else:
-        rows.append((_sc_label(lang, "final_review"), "(none)"))
+        rows.append((_sc_label(lang, "final_review"), _none_value(lang)))
     return tuple(rows)
 
 
@@ -1854,12 +1866,12 @@ def improve_rows(
     lang: str = "en",
 ) -> tuple[tuple[str, str], ...]:
     rows: list[tuple[str, str]] = [
-        (_sc_label(lang, "workflow"), snapshot.session_id or "(new)"),
+        (_sc_label(lang, "workflow"), snapshot.session_id or _new_workflow_value(lang)),
         (_sc_label(lang, "state"), snapshot.state or "idle"),
         (_sc_label(lang, "supplemental_rounds"), str(snapshot.supplemental_round)),
     ]
     if not snapshot.post_review_items:
-        rows.append((_sc_label(lang, "action_items"), "(none)"))
+        rows.append((_sc_label(lang, "action_items"), _none_value(lang)))
         return tuple(rows)
     for item in snapshot.post_review_items:
         rows.append(
@@ -1897,12 +1909,12 @@ def subtasks_markdown(
         return _sc_label(lang, "no_subtasks")
     lines = []
     for index, subtask in enumerate(snapshot.subtasks, start=1):
-        summary = subtask.result_summary or subtask.objective
+        summary = subtask.result_summary or subtask.objective or _none_value(lang)
         lines.append(
-            f"{index}. **{subtask.id or '(unnamed)'}** "
+            f"{index}. **{subtask.id or _unnamed_value(lang)}** "
             f"[{subtask.status}] "
-            f"{subtask.parent_package_id or '(no package)'} -> "
-            f"{subtask.delegated_to or '(unknown)'}: {summary}"
+            f"{subtask.parent_package_id or _no_package_value(lang)} -> "
+            f"{subtask.delegated_to or _unknown_value(lang)}: {summary}"
         )
     return "\n".join(lines)
 
@@ -1914,11 +1926,11 @@ def subtasks_rows(
 ) -> tuple[tuple[str, str, str, str, str], ...]:
     return tuple(
         (
-            subtask.id or "(unnamed)",
-            subtask.parent_package_id or "(none)",
-            subtask.delegated_to or "(unknown)",
+            subtask.id or _unnamed_value(lang),
+            subtask.parent_package_id or _none_value(lang),
+            subtask.delegated_to or _unknown_value(lang),
             subtask.status,
-            subtask.result_summary or subtask.objective or "(none)",
+            subtask.result_summary or subtask.objective or _none_value(lang),
         )
         for subtask in snapshot.subtasks
     )
@@ -1940,7 +1952,7 @@ def history_rows(
 ) -> tuple[tuple[str, str], ...]:
     rows: list[tuple[str, str]] = []
     if snapshot.session_id or snapshot.goal:
-        rows.append((_sc_label(lang, "workflow"), snapshot.session_id or "(new)"))
+        rows.append((_sc_label(lang, "workflow"), snapshot.session_id or _new_workflow_value(lang)))
         rows.append((_sc_label(lang, "state"), snapshot.state or "idle"))
         rows.append((_sc_label(lang, "round"), str(snapshot.round_num)))
         if snapshot.goal:
@@ -1966,7 +1978,7 @@ def history_markdown(
     if not rows:
         return _sc_label(lang, "no_history")
     lines = [
-        f"- {_sc_label(lang, 'workflow')}: `{snapshot.session_id or '(new)'}`",
+        f"- {_sc_label(lang, 'workflow')}: `{snapshot.session_id or _new_workflow_value(lang)}`",
         f"- {_sc_label(lang, 'state')}: `{snapshot.state or 'idle'}`",
         f"- {_sc_label(lang, 'round')}: `{snapshot.round_num}`",
     ]
@@ -2051,8 +2063,8 @@ def resume_result_rows(
     lang: str = "en",
 ) -> tuple[tuple[str, str], ...]:
     return (
-        (_sc_label(lang, "workflow"), snapshot.session_id or "(new)"),
+        (_sc_label(lang, "workflow"), snapshot.session_id or _new_workflow_value(lang)),
         (_sc_label(lang, "state"), snapshot.state or "idle"),
-        (_sc_label(lang, "goal"), snapshot.goal or "(none)"),
+        (_sc_label(lang, "goal"), snapshot.goal or _none_value(lang)),
         (_sc_label(lang, "round"), str(snapshot.round_num)),
     )

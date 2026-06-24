@@ -875,7 +875,16 @@ class TrinityTextualApp(App[None]):
         color: $text-muted;
     }
 
+    .execution-package-actions {
+        width: 16;
+        height: 1;
+    }
+
     .execution-package-spec {
+        width: 8;
+    }
+
+    .execution-package-retry {
         width: 8;
     }
 
@@ -1343,8 +1352,8 @@ class TrinityTextualApp(App[None]):
         event: ExecutionMatrixScreen.RetryRequested,
     ) -> None:
         event.stop()
-        selector = "all"
-        package_ids: list[str] = []
+        selector = event.selector
+        package_ids = list(event.package_ids)
         self.workflow_controller.preview_execution_retry(selector, package_ids)
         snapshot = self.workflow_controller.snapshot() or event.snapshot
         self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))

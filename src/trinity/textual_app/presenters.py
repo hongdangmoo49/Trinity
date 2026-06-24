@@ -25,6 +25,12 @@ STATUS_CONTEXT_LABELS = {
         "agent_enabled": "enabled",
         "agent_usage": "Usage: `/agent <name> on|off`",
         "agent_unknown": "Unknown agent",
+        "allowed": "Allowed",
+        "caveman": "Caveman",
+        "caveman_allowed_modes": "Allowed modes: on, off, lite, full, ultra.",
+        "caveman_change_hint": "Use `/caveman <mode>` to change it for this session.",
+        "caveman_set": "Caveman set",
+        "caveman_usage": "Use: /caveman [on|off|lite|full|ultra]",
         "central": "central",
         "continue_until_question": "Continue planning until the central agent raises a question.",
         "control_repo_confirmed": "Control repo confirmed",
@@ -51,11 +57,13 @@ STATUS_CONTEXT_LABELS = {
             "or `/improve done`."
         ),
         "inside_control_repo": "Inside control repo",
+        "intensity": "Intensity",
         "item": "Item",
         "kind": "Kind",
         "last_event": "Last event",
         "local_command": "Local command",
         "local_policy_repairs": "Local Policy Repairs",
+        "mode": "Mode",
         "next": "Next",
         "no": "no",
         "no_decisions": "No workflow decisions recorded in the current session.",
@@ -159,6 +167,12 @@ STATUS_CONTEXT_LABELS = {
         "agent_enabled": "활성화",
         "agent_usage": "사용법: `/agent <name> on|off`",
         "agent_unknown": "알 수 없는 에이전트",
+        "allowed": "허용값",
+        "caveman": "간결 모드",
+        "caveman_allowed_modes": "허용 모드: on, off, lite, full, ultra.",
+        "caveman_change_hint": "`/caveman <mode>`로 이 세션의 값을 변경하세요.",
+        "caveman_set": "간결 모드 설정",
+        "caveman_usage": "사용법: /caveman [on|off|lite|full|ultra]",
         "central": "중앙",
         "continue_until_question": "중앙 에이전트가 질문을 만들 때까지 계획을 계속 진행하세요.",
         "control_repo_confirmed": "제어 저장소 확인",
@@ -185,11 +199,13 @@ STATUS_CONTEXT_LABELS = {
             "`/improve done` 중 하나를 실행하세요."
         ),
         "inside_control_repo": "제어 저장소 내부",
+        "intensity": "강도",
         "item": "항목",
         "kind": "종류",
         "last_event": "최근 이벤트",
         "local_command": "로컬 명령",
         "local_policy_repairs": "로컬 정책 복구",
+        "mode": "모드",
         "next": "다음",
         "no": "아니오",
         "no_decisions": "현재 세션에 기록된 워크플로우 결정이 없습니다.",
@@ -842,6 +858,49 @@ def agent_table_columns(*, lang: str = "en") -> tuple[str, str, str]:
 
 def agent_enabled_value(value: bool, *, lang: str = "en") -> str:
     return _yes_no(value, lang=lang)
+
+
+def caveman_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "caveman")
+
+
+def caveman_current_markdown(mode: str, intensity: str, *, lang: str = "en") -> str:
+    label = _sc_label(lang, "caveman")
+    return f"{label}: `{mode}` (`{intensity}`)."
+
+
+def caveman_set_markdown(mode: str, intensity: str, *, lang: str = "en") -> str:
+    if lang == "ko":
+        return f"이 세션의 간결 모드를 `{mode}` (`{intensity}`)로 설정했습니다."
+    return (
+        f"{_sc_label(lang, 'caveman_set')} to `{mode}` (`{intensity}`) "
+        "for this session only."
+    )
+
+
+def caveman_usage_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "caveman_usage")
+
+
+def caveman_allowed_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "caveman_allowed_modes")
+
+
+def caveman_change_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "caveman_change_hint")
+
+
+def caveman_rows(
+    mode: str,
+    intensity: str,
+    *,
+    lang: str = "en",
+) -> tuple[tuple[str, str], ...]:
+    return (
+        (_sc_label(lang, "mode"), mode),
+        (_sc_label(lang, "intensity"), intensity),
+        (_sc_label(lang, "allowed"), "on, off, lite, full, ultra"),
+    )
 
 
 def slash_command_suggestions(token: str) -> tuple[str, ...]:

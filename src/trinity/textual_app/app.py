@@ -2800,17 +2800,25 @@ class TrinityTextualApp(App[None]):
             mode = "on" if self.config.caveman_mode else "off"
             self._record_slash_command_result(
                 command_name,
-                "Caveman",
+                textual_presenters.caveman_title(lang=self.config.lang),
                 self._session_setting_body(
-                    f"Caveman: `{mode}` (`{self.config.caveman_intensity}`)."
+                    textual_presenters.caveman_current_markdown(
+                        mode,
+                        self.config.caveman_intensity,
+                        lang=self.config.lang,
+                    )
                 ),
-                table_columns=("Item", "Value"),
-                table_rows=(
-                    ("Mode", mode),
-                    ("Intensity", self.config.caveman_intensity),
-                    ("Allowed", "on, off, lite, full, ultra"),
+                table_columns=textual_presenters.status_table_columns(
+                    lang=self.config.lang
                 ),
-                action_hint="Use `/caveman <mode>` to change it for this session.",
+                table_rows=textual_presenters.caveman_rows(
+                    mode,
+                    self.config.caveman_intensity,
+                    lang=self.config.lang,
+                ),
+                action_hint=textual_presenters.caveman_change_action_hint(
+                    lang=self.config.lang
+                ),
             )
             return
         action = args[0].lower()
@@ -2824,25 +2832,30 @@ class TrinityTextualApp(App[None]):
         else:
             self._record_slash_command_result(
                 command_name,
-                "Caveman",
-                "Use: /caveman [on|off|lite|full|ultra]",
+                textual_presenters.caveman_title(lang=self.config.lang),
+                textual_presenters.caveman_usage_markdown(lang=self.config.lang),
                 severity="warning",
-                action_hint="Allowed modes: on, off, lite, full, ultra.",
+                action_hint=textual_presenters.caveman_allowed_action_hint(
+                    lang=self.config.lang
+                ),
             )
             return
         mode = "on" if self.config.caveman_mode else "off"
         self._record_slash_command_result(
             command_name,
-            "Caveman",
+            textual_presenters.caveman_title(lang=self.config.lang),
             self._session_setting_body(
-                f"Caveman set to `{mode}` (`{self.config.caveman_intensity}`) "
-                "for this session only."
+                textual_presenters.caveman_set_markdown(
+                    mode,
+                    self.config.caveman_intensity,
+                    lang=self.config.lang,
+                )
             ),
-            table_columns=("Item", "Value"),
-            table_rows=(
-                ("Mode", mode),
-                ("Intensity", self.config.caveman_intensity),
-                ("Allowed", "on, off, lite, full, ultra"),
+            table_columns=textual_presenters.status_table_columns(lang=self.config.lang),
+            table_rows=textual_presenters.caveman_rows(
+                mode,
+                self.config.caveman_intensity,
+                lang=self.config.lang,
             ),
         )
 

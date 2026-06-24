@@ -38,6 +38,13 @@ from trinity.textual_app.presenters import (
     answer_action_hint,
     answer_title,
     answer_usage_markdown,
+    caveman_allowed_action_hint,
+    caveman_change_action_hint,
+    caveman_current_markdown,
+    caveman_rows,
+    caveman_set_markdown,
+    caveman_title,
+    caveman_usage_markdown,
     decisions_action_hint,
     decisions_markdown,
     decisions_rows,
@@ -1050,6 +1057,30 @@ def test_agent_presenter_uses_korean_labels() -> None:
     assert agent_table_columns(lang="ko") == ("에이전트", "활성화", "프로바이더")
     assert agent_enabled_value(True, lang="ko") == "예"
     assert agent_enabled_value(False, lang="ko") == "아니오"
+
+
+def test_caveman_presenter_uses_korean_labels() -> None:
+    assert caveman_title(lang="ko") == "간결 모드"
+    assert caveman_current_markdown("on", "lite", lang="ko") == (
+        "간결 모드: `on` (`lite`)."
+    )
+    assert caveman_set_markdown("on", "full", lang="ko") == (
+        "이 세션의 간결 모드를 `on` (`full`)로 설정했습니다."
+    )
+    assert caveman_usage_markdown(lang="ko") == (
+        "사용법: /caveman [on|off|lite|full|ultra]"
+    )
+    assert caveman_allowed_action_hint(lang="ko") == (
+        "허용 모드: on, off, lite, full, ultra."
+    )
+    assert caveman_change_action_hint(lang="ko") == (
+        "`/caveman <mode>`로 이 세션의 값을 변경하세요."
+    )
+    assert caveman_rows("on", "lite", lang="ko") == (
+        ("모드", "on"),
+        ("강도", "lite"),
+        ("허용값", "on, off, lite, full, ultra"),
+    )
 
 
 def test_improve_presenter_uses_korean_labels() -> None:
@@ -4110,6 +4141,60 @@ async def test_nexus_agent_errors_use_korean_labels(tmp_path) -> None:
         assert result.command == "/agent"
         assert result.title == "에이전트"
         assert result.body == "사용법: `/agent <name> on|off`"
+        assert result.severity == "warning"
+
+
+@pytest.mark.asyncio
+async def test_nexus_caveman_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config, controller)
+
+    async with app.run_test(size=(120, 40)):
+        app._handle_textual_slash_command("/caveman")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/caveman"
+        assert result.title == "간결 모드"
+        assert result.body.startswith("간결 모드:")
+        assert result.table_columns == ("항목", "값")
+        expected_mode = "on" if config.caveman_mode else "off"
+        assert ("모드", expected_mode) in result.table_rows
+        assert ("강도", config.caveman_intensity) in result.table_rows
+        assert result.action_hint == "`/caveman <mode>`로 이 세션의 값을 변경하세요."
+
+        app._handle_textual_slash_command("/caveman lite")
+
+        result = app.active_snapshot.local_commands[-1]
+        assert config.caveman_mode is True
+        assert config.caveman_intensity == "lite"
+        assert result.command == "/caveman"
+        assert result.title == "간결 모드"
+        assert result.body.startswith(
+            "이 세션의 간결 모드를 `on` (`lite`)로 설정했습니다."
+        )
+        assert ("모드", "on") in result.table_rows
+        assert ("강도", "lite") in result.table_rows
+
+
+@pytest.mark.asyncio
+async def test_nexus_caveman_error_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)):
+        app._handle_textual_slash_command("/caveman strange")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/caveman"
+        assert result.title == "간결 모드"
+        assert result.body == "사용법: /caveman [on|off|lite|full|ultra]"
+        assert result.action_hint == "허용 모드: on, off, lite, full, ultra."
         assert result.severity == "warning"
 
 

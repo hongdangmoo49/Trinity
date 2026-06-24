@@ -228,6 +228,57 @@ def test_snapshot_projects_work_package_routing_metadata(tmp_path) -> None:
     assert package.profile_revision == "default-v1"
 
 
+def test_snapshot_projects_agent_quality_summaries(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-quality",
+            goal="Track quality",
+            state=WorkflowState.REVIEWING,
+            active_agents=["codex", "claude"],
+            quality_signals=[
+                {
+                    "agent_name": "codex",
+                    "source": "execution",
+                    "package_id": "WP-001",
+                    "status": "done",
+                    "success": True,
+                    "files_changed_count": 2,
+                    "score_delta": 1.0,
+                },
+                {
+                    "agent_name": "codex",
+                    "source": "execution",
+                    "package_id": "WP-002",
+                    "status": "failed",
+                    "success": False,
+                    "blockers_count": 1,
+                    "score_delta": -2.0,
+                },
+                {
+                    "agent_name": "claude",
+                    "source": "review",
+                    "package_id": "WP-001",
+                    "status": "changes_requested",
+                    "success": False,
+                    "required_changes_count": 2,
+                    "score_delta": -2.5,
+                },
+            ],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    summaries = {item.agent_name: item for item in snapshot.agent_quality}
+    assert summaries["codex"].signal_count == 2
+    assert summaries["codex"].success_count == 1
+    assert summaries["codex"].blocker_count == 1
+    assert summaries["codex"].score == -0.5
+    assert summaries["claude"].required_change_count == 2
+
+
 def test_snapshot_marks_non_target_agents_idle_during_targeted_deliberation(
     tmp_path,
 ) -> None:

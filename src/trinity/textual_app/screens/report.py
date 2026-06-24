@@ -16,6 +16,7 @@ from textual.widgets import Button, Footer, Header, Static
 from rich.markup import escape
 
 from trinity.textual_app.snapshot import (
+    AgentQualitySnapshot,
     ProviderSnapshot,
     WorkflowNexusSnapshot,
     WorkPackageSnapshot,
@@ -212,6 +213,14 @@ class ReportScreen(Screen[None]):
 
         if snap.providers:
             sections.append(_section("Providers", _render_snapshot_providers(snap.providers)))
+
+        if snap.agent_quality:
+            sections.append(
+                _section(
+                    "Advisory Agent Quality",
+                    _render_agent_quality(snap.agent_quality),
+                )
+            )
 
         synthesis = snap.synthesis
         if synthesis.summary:
@@ -477,6 +486,19 @@ def _provider_profile_summary(provider: ProviderSnapshot) -> str:
     if provider.profile_mission:
         parts.append(f"mission {escape(provider.profile_mission)}")
     return " · ".join(parts)
+
+
+def _render_agent_quality(items: list[AgentQualitySnapshot]) -> str:
+    lines: list[str] = []
+    for item in items:
+        lines.append(
+            f"  • [cyan]{escape(item.agent_name or '(unknown)')}[/cyan] "
+            f"score {escape(_format_score(item.score))} · "
+            f"success {item.success_count}/{item.signal_count} · "
+            f"blockers {item.blocker_count} · "
+            f"required changes {item.required_change_count}"
+        )
+    return "\n".join(lines) if lines else "(none)"
 
 
 def _render_reviews(reviews) -> str:

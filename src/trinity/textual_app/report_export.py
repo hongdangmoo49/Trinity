@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 
 from trinity.textual_app.snapshot import (
+    AgentQualitySnapshot,
     ProviderSnapshot,
     WorkflowNexusSnapshot,
     WorkPackageSnapshot,
@@ -20,6 +21,7 @@ def snapshot_has_report_data(snapshot: WorkflowNexusSnapshot) -> bool:
         (
             snapshot.session_id,
             snapshot.goal,
+            snapshot.agent_quality,
             snapshot.synthesis.summary,
             snapshot.decisions,
             snapshot.central_work_packages,
@@ -50,6 +52,10 @@ def snapshot_report_markdown(snapshot: WorkflowNexusSnapshot) -> str:
     if provider_lines:
         lines.extend(["", "## Providers", ""])
         lines.extend(provider_lines)
+    quality_lines = _agent_quality_lines(snapshot)
+    if quality_lines:
+        lines.extend(["", "## Advisory Agent Quality", ""])
+        lines.extend(quality_lines)
     if snapshot.synthesis.summary:
         lines.extend(
             [
@@ -196,6 +202,20 @@ def _provider_profile_summary(provider: ProviderSnapshot) -> str:
     if provider.profile_mission:
         parts.append(f"mission {_md_inline(provider.profile_mission)}")
     return "; ".join(parts)
+
+
+def _agent_quality_lines(snapshot: WorkflowNexusSnapshot) -> list[str]:
+    return [_agent_quality_line(item) for item in snapshot.agent_quality]
+
+
+def _agent_quality_line(item: AgentQualitySnapshot) -> str:
+    return (
+        f"- **{_md_inline(item.agent_name or '(unknown)')}**: "
+        f"score {_md_inline(_format_score(item.score))}; "
+        f"success {item.success_count}/{item.signal_count}; "
+        f"blockers {item.blocker_count}; "
+        f"required changes {item.required_change_count}"
+    )
 
 
 def _work_package_detail_lines(snapshot: WorkflowNexusSnapshot) -> list[str]:

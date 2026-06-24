@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from trinity.config import TrinityConfig
 from trinity.context.shared import SharedContextEngine
+from trinity.routing.quality import QualityLedger
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workflow import (
     FINAL_REVIEW_PACKAGE_ID,
@@ -242,6 +243,18 @@ class ExecutionRecoverySnapshot:
 
 
 @dataclass(frozen=True)
+class AgentQualitySnapshot:
+    """Projected advisory quality signal summary for one agent."""
+
+    agent_name: str
+    signal_count: int = 0
+    success_count: int = 0
+    blocker_count: int = 0
+    required_change_count: int = 0
+    score: float = 0.0
+
+
+@dataclass(frozen=True)
 class WorkflowNexusSnapshot:
     """Read-only UI projection of the current workflow."""
 
@@ -251,6 +264,7 @@ class WorkflowNexusSnapshot:
     round_num: int = 0
     target_workspace: str = ""
     providers: list[ProviderSnapshot] = field(default_factory=list)
+    agent_quality: list[AgentQualitySnapshot] = field(default_factory=list)
     synthesis: SynthesisSnapshot = field(default_factory=SynthesisSnapshot)
     questions: list[QuestionSnapshot] = field(default_factory=list)
     decisions: list[str] = field(default_factory=list)
@@ -329,6 +343,7 @@ class NexusSnapshotAdapter:
             round_num=round_num,
             target_workspace=str(session.target_workspace or "") if session else "",
             providers=list(provider_states.values()),
+            agent_quality=self._agent_quality(session),
             synthesis=self._synthesis(session, recent, round_num),
             questions=self._questions(session),
             decisions=[d.decision for d in session.decisions] if session else [],
@@ -358,6 +373,23 @@ class NexusSnapshotAdapter:
         self._cached_snapshot_key = cache_key
         self._cached_snapshot = snapshot
         return snapshot
+
+    @staticmethod
+    def _agent_quality(session: WorkflowSession | None) -> list[AgentQualitySnapshot]:
+        if session is None:
+            return []
+        summaries = QualityLedger(session.quality_signals).summaries()
+        return [
+            AgentQualitySnapshot(
+                agent_name=summary.agent_name,
+                signal_count=summary.signal_count,
+                success_count=summary.success_count,
+                blocker_count=summary.blocker_count,
+                required_change_count=summary.required_change_count,
+                score=summary.score,
+            )
+            for _, summary in sorted(summaries.items())
+        ]
 
     def _make_snapshot_cache_key(
         self,

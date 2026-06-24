@@ -1718,9 +1718,9 @@ class TrinityTextualApp(App[None]):
             self._record_slash_command_result(
                 parsed.spec.name,
                 "Workflow",
-                self._snapshot_workflow_markdown(snapshot),
-                table_columns=("Item", "Value"),
-                table_rows=self._snapshot_workflow_rows(snapshot),
+                self._snapshot_workflow_markdown(snapshot, lang=self.config.lang),
+                table_columns=textual_presenters.status_table_columns(lang=self.config.lang),
+                table_rows=self._snapshot_workflow_rows(snapshot, lang=self.config.lang),
             )
             return
         if command == "questions":
@@ -2356,14 +2356,20 @@ class TrinityTextualApp(App[None]):
         return textual_presenters.help_rows(use_korean=self.config.lang == "ko")
 
     @staticmethod
-    def _snapshot_workflow_markdown(snapshot: WorkflowNexusSnapshot) -> str:
-        return textual_presenters.snapshot_workflow_markdown(snapshot)
+    def _snapshot_workflow_markdown(
+        snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
+    ) -> str:
+        return textual_presenters.snapshot_workflow_markdown(snapshot, lang=lang)
 
     @staticmethod
     def _snapshot_workflow_rows(
         snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
     ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.snapshot_workflow_rows(snapshot)
+        return textual_presenters.snapshot_workflow_rows(snapshot, lang=lang)
 
     @staticmethod
     def _snapshot_has_current_context(snapshot: WorkflowNexusSnapshot) -> bool:

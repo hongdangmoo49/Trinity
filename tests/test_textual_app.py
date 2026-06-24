@@ -33,6 +33,8 @@ from trinity.textual_app.presenters import (
     snapshot_context_markdown,
     snapshot_status_markdown,
     snapshot_status_rows,
+    snapshot_workflow_markdown,
+    snapshot_workflow_rows,
     status_table_columns,
 )
 from trinity.textual_app.report_export import (
@@ -609,6 +611,53 @@ def test_context_markdown_uses_korean_labels() -> None:
     assert "### 작업 패키지" in markdown
     assert "### 워크플로우 이력" in markdown
     assert "### 실행 결과" in markdown
+
+
+def test_workflow_presenter_uses_korean_labels() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-ko",
+        goal="워크플로우 확인",
+        state="blueprint_ready",
+        round_num=3,
+        questions=[QuestionSnapshot(id="q1", question="진행할까요?")],
+        decisions=["결정 A"],
+        work_packages=["WP-001 codex"],
+        subtasks=[
+            SubtaskSnapshot(
+                id="sub-1",
+                parent_package_id="WP-001",
+                parent_agent="claude",
+                delegated_to="codex",
+                objective="테스트",
+                result_summary="완료",
+                status="done",
+            )
+        ],
+        work_package_repairs=["repair note"],
+        execution_log=["event-1"],
+        execution_recovery=ExecutionRecoverySnapshot(
+            run_id="exec-run-test",
+            state="interrupted",
+            retry_candidates=("WP-001",),
+        ),
+    )
+
+    markdown = snapshot_workflow_markdown(snapshot, lang="ko")
+    rows = snapshot_workflow_rows(snapshot, lang="ko")
+
+    assert "- 상태: `blueprint_ready`" in markdown
+    assert "- 목표: 워크플로우 확인" in markdown
+    assert "- 대기 중 질문: `1`" in markdown
+    assert "- 결정: `1`" in markdown
+    assert "- 작업 패키지: `1`" in markdown
+    assert "- 하위 작업: `1`" in markdown
+    assert "- 로컬 정책 복구: `1`" in markdown
+    assert "- 실행 로그 항목: `1`" in markdown
+    assert "### 실행 복구" in markdown
+    assert "재시도 후보: `WP-001`" in markdown
+    assert ("상태", "blueprint_ready") in rows
+    assert ("대기 중 질문", "1") in rows
+    assert ("실행 ID", "exec-run-test") in rows
 
 
 def test_model_discovery_applies_fast_provider_before_slow_provider(
@@ -2660,7 +2709,14 @@ async def test_start_slash_workflow_uses_korean_local_command_modal_chrome(
         assert isinstance(app.screen, LocalCommandModal)
         assert str(app.screen.query_one("#close-local-command", Button).label) == "닫기"
         assert app.active_snapshot is not None
-        assert app.active_snapshot.local_commands[-1].title == "Workflow"
+        result = app.active_snapshot.local_commands[-1]
+        assert result.title == "Workflow"
+        assert result.table_columns == ("항목", "값")
+        assert ("상태", "blueprint_ready") in result.table_rows
+        assert "- 상태: `blueprint_ready`" in result.body
+        assert "- 목표: game" in result.body
+        table = app.screen.query_one("#local-command-table", Static)
+        assert "상태" in str(table.render())
 
 
 @pytest.mark.asyncio

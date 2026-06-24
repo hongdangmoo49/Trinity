@@ -3670,7 +3670,10 @@ async def test_execution_matrix_shows_parallel_group_lane(tmp_path) -> None:
 
         header = screen.query_one(".execution-package-header")
         rows = list(screen.query("#execution-package-list .execution-package-row"))
+        summary = str(screen.query_one("#execution-summary", Static).content)
 
+        assert "lanes 1" in summary
+        assert "serial 1" in summary
         assert "Risk/Lane" in _widget_tree_text(header)
         assert "risk: medium g1" in _widget_tree_text(rows[0])
         assert "risk: high serial" in _widget_tree_text(rows[1])

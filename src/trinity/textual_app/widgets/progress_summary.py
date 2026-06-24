@@ -191,7 +191,7 @@ def progress_summary_line(
             "blocked": "막힘",
             "done": "완료",
             "running": "실행",
-            "unknown": "알수없음",
+            "unknown": "알 수 없음",
             "waiting": "대기",
         }
         parts = [f"{total} WP"]

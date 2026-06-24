@@ -20,10 +20,8 @@ from trinity.textual_app.widgets.progress_summary import (
     work_package_counts,
     work_package_state,
 )
-from trinity.textual_app.widgets.status_label import (
-    display_source_value,
-    display_status_value,
-)
+from trinity.display_labels import display_source_value
+from trinity.textual_app.widgets.status_label import display_status_value
 
 
 INSPECTOR_LABELS = {

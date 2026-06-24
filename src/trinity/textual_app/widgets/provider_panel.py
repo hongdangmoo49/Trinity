@@ -8,10 +8,10 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Static
 
+from trinity.display_labels import compact_source_value
 from trinity.textual_app.widgets.status_label import (
     COMPACT_STATUS_LABELS,
     compact_status_group,
-    compact_source_value,
 )
 
 

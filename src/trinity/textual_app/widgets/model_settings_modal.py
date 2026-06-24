@@ -7,9 +7,9 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, OptionList, Static
 
+from trinity.display_labels import display_source_value
 from trinity.models import AgentSpec
 from trinity.providers.model_discovery import ProviderModelChoice
-from trinity.textual_app.widgets.status_label import display_source_value
 
 
 class ModelSettingsModal(ModalScreen[dict[str, str] | None]):

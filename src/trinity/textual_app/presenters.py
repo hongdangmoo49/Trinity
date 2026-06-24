@@ -16,6 +16,8 @@ NO_CURRENT_CONTEXT_MESSAGE = (
 STATUS_CONTEXT_LABELS = {
     "en": {
         "answer": "Answer",
+        "answer_inspect_questions_hint": "Run `/questions` to inspect pending questions first.",
+        "answer_usage": "Usage: /answer <question-id|index|next> <answer>",
         "central": "central",
         "continue_until_question": "Continue planning until the central agent raises a question.",
         "decision": "Decision",
@@ -106,6 +108,10 @@ STATUS_CONTEXT_LABELS = {
     },
     "ko": {
         "answer": "답변",
+        "answer_inspect_questions_hint": (
+            "먼저 `/questions`를 실행해 대기 중인 질문을 확인하세요."
+        ),
+        "answer_usage": "사용법: /answer <question-id|index|next> <answer>",
         "central": "중앙",
         "continue_until_question": "중앙 에이전트가 질문을 만들 때까지 계획을 계속 진행하세요.",
         "decision": "결정",
@@ -552,6 +558,18 @@ def _sc_label(lang: str, key: str) -> str:
 
 def _yes_no(value: bool, *, lang: str = "en") -> str:
     return _sc_label(lang, "yes" if value else "no")
+
+
+def answer_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "answer")
+
+
+def answer_usage_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "answer_usage")
+
+
+def answer_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "answer_inspect_questions_hint")
 
 
 def slash_command_suggestions(token: str) -> tuple[str, ...]:

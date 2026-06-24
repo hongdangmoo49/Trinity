@@ -3056,11 +3056,13 @@ class TrinityTextualApp(App[None]):
         if not args:
             self._record_slash_command_result(
                 "/answer",
-                "Answer",
-                "Usage: /answer <question-id|index|next> <answer>",
+                textual_presenters.answer_title(lang=self.config.lang),
+                textual_presenters.answer_usage_markdown(lang=self.config.lang),
                 severity="warning",
                 empty=True,
-                action_hint="Run `/questions` to inspect pending questions first.",
+                action_hint=textual_presenters.answer_action_hint(
+                    lang=self.config.lang
+                ),
             )
             return
         replace = False
@@ -3073,11 +3075,13 @@ class TrinityTextualApp(App[None]):
         if not filtered:
             self._record_slash_command_result(
                 "/answer",
-                "Answer",
-                "Usage: /answer <question-id|index|next> <answer>",
+                textual_presenters.answer_title(lang=self.config.lang),
+                textual_presenters.answer_usage_markdown(lang=self.config.lang),
                 severity="warning",
                 empty=True,
-                action_hint="Run `/questions` to inspect pending questions first.",
+                action_hint=textual_presenters.answer_action_hint(
+                    lang=self.config.lang
+                ),
             )
             return
         if len(filtered) == 1 and filtered[0].isdigit():
@@ -3104,7 +3108,7 @@ class TrinityTextualApp(App[None]):
         if message:
             self._record_slash_command_result(
                 "/answer",
-                "Answer",
+                textual_presenters.answer_title(lang=self.config.lang),
                 message,
                 severity="warning" if message.startswith("No ") else "info",
                 empty=message.startswith("No "),

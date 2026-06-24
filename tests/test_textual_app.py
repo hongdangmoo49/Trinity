@@ -27,6 +27,9 @@ from trinity.slash_commands import COMMAND_SPECS, SESSION_ONLY_SETTING_NOTICE
 from trinity.textual_app import app as textual_app_module
 from trinity.textual_app.app import TrinityTextualApp
 from trinity.textual_app.presenters import (
+    answer_action_hint,
+    answer_title,
+    answer_usage_markdown,
     decisions_action_hint,
     decisions_markdown,
     decisions_rows,
@@ -887,6 +890,16 @@ def test_review_presenter_uses_korean_labels() -> None:
     )
     assert review_table_columns(lang="ko") == ("항목", "값")
     assert review_action_hint(lang="ko").startswith("`/review wp`")
+
+
+def test_answer_presenter_uses_korean_labels() -> None:
+    assert answer_title(lang="ko") == "답변"
+    assert answer_usage_markdown(lang="ko") == (
+        "사용법: /answer <question-id|index|next> <answer>"
+    )
+    assert answer_action_hint(lang="ko") == (
+        "먼저 `/questions`를 실행해 대기 중인 질문을 확인하세요."
+    )
 
 
 def test_improve_presenter_uses_korean_labels() -> None:
@@ -4002,6 +4015,48 @@ async def test_nexus_slash_answer_option_routes_to_controller(tmp_path) -> None:
         assert controller.follow_ups == []
         assert controller.option_answers == [("1", "next", False)]
         assert screen.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_start_slash_answer_without_args_uses_korean_usage(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(100, 30)):
+        app._handle_textual_slash_command("/answer")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/answer"
+        assert result.title == "답변"
+        assert result.body == "사용법: /answer <question-id|index|next> <answer>"
+        assert result.action_hint == (
+            "먼저 `/questions`를 실행해 대기 중인 질문을 확인하세요."
+        )
+        assert result.empty is True
+        assert result.severity == "warning"
+
+
+@pytest.mark.asyncio
+async def test_start_slash_answer_replace_only_uses_korean_usage(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(100, 30)):
+        app._handle_textual_slash_command("/answer --replace")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/answer"
+        assert result.title == "답변"
+        assert result.body == "사용법: /answer <question-id|index|next> <answer>"
+        assert result.action_hint.startswith("먼저 `/questions`")
 
 
 @pytest.mark.asyncio

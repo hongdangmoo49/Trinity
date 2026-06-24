@@ -5056,6 +5056,21 @@ async def test_settings_screen_saves_theme_preferences(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_settings_preview_shows_profile_output_contracts(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        preview = str(screen.query_one("#theme-preview", Static).content)
+
+        assert "contracts execute:execution_v1 review:review_v1" in preview
+
+
+@pytest.mark.asyncio
 async def test_settings_screen_saves_agent_and_central_models(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     app = TrinityTextualApp(config)

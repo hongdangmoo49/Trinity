@@ -60,6 +60,8 @@ _LABELS = {
         "status": "상태",
         "summary": "요약",
         "task_kind": "작업 유형",
+        "title": "제목",
+        "topic": "주제",
         "yes": "예",
         "no": "아니오",
     },
@@ -112,6 +114,8 @@ _LABELS = {
         "status": "Status",
         "summary": "Summary",
         "task_kind": "Task kind",
+        "title": "Title",
+        "topic": "Topic",
         "yes": "yes",
         "no": "no",
     },
@@ -144,7 +148,7 @@ class WorkPackageDetailModal(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="work-package-detail-modal"):
             yield Static(
-                f"{self.package.id}: {self.package.title or self.package.topic}",
+                self._title_text(),
                 id="work-package-detail-title",
             )
             with VerticalScroll(id="work-package-detail-body"):
@@ -165,6 +169,7 @@ class WorkPackageDetailModal(ModalScreen[None]):
         package = self.package
         lines = [
             f"## {self._label('summary')}",
+            f"- {self._label('title')}: {package.title or package.topic or package.id}",
             f"- {self._label('status')}: `{package.status or 'pending'}`",
             f"- {self._label('owner')}: `{package.owner_agent or '-'}`",
             f"- {self._label('executor')}: `{package.current_executor or package.last_executor or '-'}`",
@@ -174,6 +179,8 @@ class WorkPackageDetailModal(ModalScreen[None]):
             f"- {self._label('requires_execution')}: `{self._yes_no(package.requires_execution)}`",
             f"- {self._label('retry')}: `{self._retry_summary(package)}`",
         ]
+        if package.topic and package.topic != package.title:
+            lines.insert(2, f"- {self._label('topic')}: {package.topic}")
         if package.repair_attempt_count or package.repair_blocked_reason:
             attempts = (
                 f"{package.repair_attempt_count}/{package.repair_max_attempts}"
@@ -315,6 +322,9 @@ class WorkPackageDetailModal(ModalScreen[None]):
             return self._label("available")
         return package.retry_disabled_reason or self._label("not_available")
 
+    def _title_text(self) -> str:
+        return _clip(f"{self.package.id}: {self.package.title or self.package.topic}", 86)
+
     def _yes_no(self, value: bool) -> str:
         return self._label("yes" if value else "no")
 
@@ -329,3 +339,12 @@ class WorkPackageDetailModal(ModalScreen[None]):
         if package.parallel_group is not None:
             return f"g{package.parallel_group}"
         return "unspecified"
+
+
+def _clip(value: str, width: int) -> str:
+    clean = " ".join(str(value).split())
+    if len(clean) <= width:
+        return clean
+    if width <= 3:
+        return clean[:width]
+    return clean[: width - 3] + "..."

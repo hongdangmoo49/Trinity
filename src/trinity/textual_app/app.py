@@ -1962,11 +1962,11 @@ class TrinityTextualApp(App[None]):
         if error:
             self._record_slash_command_result(
                 command_name,
-                "Ask",
+                textual_presenters.ask_title(lang=self.config.lang),
                 error,
                 severity="warning",
                 empty=True,
-                action_hint="/ask <all|agent[,agent...]> [--model MODEL] <prompt>",
+                action_hint=textual_presenters.ask_action_hint(lang=self.config.lang),
             )
             return
 
@@ -2002,8 +2002,9 @@ class TrinityTextualApp(App[None]):
         self,
         args: list[str],
     ) -> tuple[tuple[str, ...], dict[str, str], str, str]:
+        lang = self.config.lang
         if not args:
-            return (), {}, "", "Usage: /ask <all|agent[,agent...]> [--model MODEL] <prompt>"
+            return (), {}, "", textual_presenters.ask_usage_markdown(lang=lang)
 
         active_agents = tuple(self.config.active_agents.keys())
         selector = args[0].strip().lower()
@@ -2017,11 +2018,16 @@ class TrinityTextualApp(App[None]):
             )
             unknown = [name for name in requested if name not in self.config.active_agents]
             if unknown:
-                return (), {}, "", f"Unknown or disabled agent: {', '.join(unknown)}"
+                return (
+                    (),
+                    {},
+                    "",
+                    textual_presenters.ask_unknown_agent_markdown(unknown, lang=lang),
+                )
             target_agents = requested
 
         if not target_agents:
-            return (), {}, "", "No active agents are available for /ask."
+            return (), {}, "", textual_presenters.ask_no_active_agents_markdown(lang=lang)
 
         model = ""
         prompt_parts: list[str] = []
@@ -2030,7 +2036,9 @@ class TrinityTextualApp(App[None]):
             value = args[index]
             if value in {"--model", "-m"}:
                 if index + 1 >= len(args):
-                    return (), {}, "", "Missing model after --model."
+                    return (), {}, "", textual_presenters.ask_missing_model_markdown(
+                        lang=lang
+                    )
                 model = args[index + 1].strip()
                 index += 2
                 continue
@@ -2039,7 +2047,7 @@ class TrinityTextualApp(App[None]):
 
         prompt = " ".join(prompt_parts).strip()
         if not prompt:
-            return (), {}, "", "Prompt cannot be empty."
+            return (), {}, "", textual_presenters.ask_prompt_empty_markdown(lang=lang)
 
         model_overrides = {agent: model for agent in target_agents} if model else {}
         return target_agents, model_overrides, prompt, ""

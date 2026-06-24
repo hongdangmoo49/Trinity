@@ -1998,6 +1998,14 @@ async def test_report_screen_snapshot_uses_korean_body_labels(tmp_path) -> None:
                 recommended_option="예",
             )
         ],
+        execution_recovery=ExecutionRecoverySnapshot(
+            run_id="run-ko",
+            state="interrupted",
+            target_workspace="/tmp/project",
+            running_packages=("WP-001",),
+            retry_candidates=("WP-002",),
+            done_packages=("WP-000",),
+        ),
     )
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
@@ -2025,11 +2033,15 @@ async def test_report_screen_snapshot_uses_korean_body_labels(tmp_path) -> None:
     assert "변경 요청 4" in rendered
     assert "알 수 없음" in rendered
     assert "작업 패키지 라우팅" in rendered
+    assert "상태 실행중" in rendered
+    assert "상태 완료" in rendered
     assert "소유자 codex" in rendered
     assert "종류 implementation" in rendered
     assert "이유: implementation strength 0.95" in rendered
     assert "레인 직렬" in rendered
     assert "리뷰 peer 없음/(없음); 이유 only claude is active" in rendered
+    assert "실행 복구" in rendered
+    assert "상태: 중단" in rendered
     assert "열린 질문" in rendered
     assert "예 (추천)" in rendered
 
@@ -2762,7 +2774,7 @@ def test_snapshot_report_markdown_uses_korean_labels() -> None:
     assert "## 합의" in md
     assert "**진행**: 진행중" in md
     assert "## WP 라우팅" in md
-    assert "상태: done; 담당 codex; 실행자 codex; 레인 직렬" in md
+    assert "상태: 완료; 담당 codex; 실행자 codex; 레인 직렬" in md
     assert "라우팅: 종류 implementation; 프로필 default\\-v1; 점수 0\\.95" in md
     assert (
         "리뷰: peer 없음; 리뷰어 \\(없음\\); 이유 only codex is active; "
@@ -2770,6 +2782,7 @@ def test_snapshot_report_markdown_uses_korean_labels() -> None:
     ) in md
     assert "## 실행 로그" in md
     assert "## 실행 복구" in md
+    assert "- 실행: 중단" in md
     assert "## 미해결 질문" in md
 
 

@@ -22,7 +22,10 @@ from trinity.textual_app.snapshot import (
     WorkflowNexusSnapshot,
     WorkPackageSnapshot,
 )
-from trinity.textual_app.widgets.status_label import display_review_status_value
+from trinity.textual_app.widgets.status_label import (
+    display_review_status_value,
+    display_status_value,
+)
 
 if TYPE_CHECKING:
     from trinity.tui.report import DeliberationReport
@@ -120,6 +123,7 @@ REPORT_TERM_LABELS_KO = {
     "score": "점수",
     "session": "세션",
     "steps": "단계",
+    "status": "상태",
     "strengths": "강점",
     "success": "성공",
     "unknown": "알 수 없음",
@@ -478,6 +482,15 @@ class ReportScreen(Screen[None]):
                 )
             )
 
+        if snap.execution_recovery is not None:
+            sections.append(
+                _section(
+                    "Execution Recovery",
+                    _render_recovery(snap.execution_recovery, lang=lang),
+                    lang=lang,
+                )
+            )
+
         if snap.questions:
             sections.append(
                 _section(
@@ -523,6 +536,19 @@ def _empty_value(*, lang: str = "en") -> str:
 
 def _unknown_value(*, lang: str = "en") -> str:
     return _term_label("unknown", lang=lang) if lang == "ko" else "(unknown)"
+
+
+def _status_value(
+    status: str,
+    *,
+    lang: str = "en",
+    empty: str | None = None,
+) -> str:
+    return display_status_value(
+        status,
+        lang=lang,
+        empty=_unknown_value(lang=lang) if empty is None else empty,
+    )
 
 
 def _render_overview_meta(meta, *, lang: str = "en") -> str:
@@ -610,7 +636,11 @@ def _render_decisions(decisions, *, lang: str = "en") -> str:
 def _render_packages(packages, *, lang: str = "en") -> str:
     lines: list[str] = []
     for pkg in packages:
-        status = f" ({pkg.status})" if pkg.requires_execution else ""
+        status = (
+            f" ({_status_value(pkg.status, lang=lang, empty='-')})"
+            if pkg.requires_execution
+            else ""
+        )
         lines.append(
             f"  • [cyan]{escape(pkg.id)}[/cyan] {escape(pkg.title)} "
             f"[dim]({escape(pkg.owner_agent)}){status}[/dim]"
@@ -650,7 +680,9 @@ def _render_package_routing(
         lines.append(
             f"  • [cyan]{escape(package.id or _unknown_value(lang=lang))}[/cyan] "
             f"{escape(package.title or _unknown_value(lang=lang))} "
-            f"[dim]{_term_label('owner', lang=lang)} "
+            f"[dim]{_term_label('status', lang=lang)} "
+            f"{escape(_status_value(package.status, lang=lang))} · "
+            f"{_term_label('owner', lang=lang)} "
             f"{escape(package.owner_agent or _unknown_value(lang=lang))} · "
             f"{_term_label('executor', lang=lang)} "
             f"{escape(_package_executor(package, lang=lang))} · "
@@ -715,7 +747,11 @@ def _render_executions(executions, *, lang: str = "en") -> str:
             if ex.files_count
             else ""
         )
-        lines.append(f"  • [cyan]{escape(ex.package_id)}[/cyan] {escape(ex.agent_name)}: {escape(ex.status)}{files}")
+        status = _status_value(ex.status, lang=lang, empty="-")
+        lines.append(
+            f"  • [cyan]{escape(ex.package_id)}[/cyan] "
+            f"{escape(ex.agent_name)}: {escape(status)}{files}"
+        )
     return "\n".join(lines) if lines else _empty_value(lang=lang)
 
 
@@ -748,7 +784,7 @@ def _render_execution_events(events, *, lang: str = "en") -> str:
     for event in events:
         package = event.package_id or "-"
         agent = event.agent or "-"
-        status = event.status or event.state or "-"
+        status = _status_value(event.status or event.state, lang=lang, empty="-")
         summary = " ".join(event.summary.split())
         if len(summary) > 120:
             summary = f"{summary[:117]}..."
@@ -854,10 +890,17 @@ def _render_agent_quality(
 def _render_reviews(reviews, *, lang: str = "en") -> str:
     lines: list[str] = []
     for review in reviews:
+        status = display_review_status_value(
+            review.status,
+            reviewer_agent=review.reviewer_agent,
+            summary=review.summary,
+            lang=lang,
+            empty="-",
+        )
         lines.append(
             f"  • [cyan]{escape(review.review_package_id or review.package_id)}[/cyan] "
             f"{escape(review.reviewer_agent or '-')} → "
-            f"{escape(review.target_agent or '-')} · {escape(review.status or '-')}: "
+            f"{escape(review.target_agent or '-')} · {escape(status)}: "
             f"{escape(review.summary or '')}"
         )
     return "\n".join(lines) if lines else _empty_value(lang=lang)
@@ -866,9 +909,10 @@ def _render_reviews(reviews, *, lang: str = "en") -> str:
 def _render_repairs(repairs, *, lang: str = "en") -> str:
     lines: list[str] = []
     for repair in repairs:
+        status = _status_value(repair.status, lang=lang, empty="-")
         lines.append(
             f"  • [cyan]{escape(repair.package_id)}[/cyan] "
-            f"{escape(repair.status or '-')} · "
+            f"{escape(status)} · "
             f"{_term_label('attempts', lang=lang)} {repair.attempt_count}: "
             f"{escape(repair.summary or '')}"
         )
@@ -880,7 +924,7 @@ def _render_recovery(recovery, *, lang: str = "en") -> str:
         f"[bold]{_field_label('Run', lang=lang)}[/bold]: "
         f"{escape(recovery.run_id or _unknown_value(lang=lang))}",
         f"[bold]{_field_label('State', lang=lang)}[/bold]: "
-        f"{escape(recovery.state or _unknown_value(lang=lang))}",
+        f"{escape(_status_value(recovery.state, lang=lang))}",
         f"[bold]{_field_label('Target', lang=lang)}[/bold]: "
         f"{escape(recovery.target_workspace or _empty_value(lang=lang))}",
         f"[bold]{_field_label('Running', lang=lang)}[/bold]: "

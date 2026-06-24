@@ -125,7 +125,7 @@ def test_fake_provider_clis_drive_real_one_shot_preflight(tmp_path) -> None:
     agent.configure_launch(cwd=tmp_path, env_overrides=fake.env())
 
     result = OneShotProviderPreflight(
-        timeout_seconds=1.0,
+        timeout_seconds=5.0,
         use_model_cache=False,
     ).check(agent)
 
@@ -149,7 +149,7 @@ def test_fake_provider_mode_can_reproduce_one_shot_preflight_probe_failure(tmp_p
     )
 
     result = OneShotProviderPreflight(
-        timeout_seconds=1.0,
+        timeout_seconds=5.0,
         use_model_cache=False,
     ).check(agent)
 

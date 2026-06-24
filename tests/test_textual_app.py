@@ -5940,6 +5940,62 @@ async def test_screen_and_composer_bindings_use_configured_language(tmp_path) ->
 
 
 @pytest.mark.asyncio
+async def test_start_and_central_chrome_uses_korean_labels(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
+    notifications: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        app,
+        "notify",
+        lambda message, **kwargs: notifications.append(
+            (message, str(kwargs.get("severity", "info")))
+        ),
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        assert str(start.query_one("#start-subtitle", Static).content) == (
+            "세 개의 관점, 하나의 컨텍스트"
+        )
+        assert str(start.query_one("#choose-workspace", Button).label) == (
+            "작업 폴더 선택"
+        )
+        assert str(start.query_one("#plan-first", Button).label) == "먼저 계획"
+        assert str(start.query_one("#workspace-candidate", Static).content).startswith(
+            "작업 폴더: "
+        )
+        start.set_workspace_candidate(None)
+        assert str(start.query_one("#workspace-candidate", Static).content) == (
+            "작업 폴더: 선택 안됨"
+        )
+
+        composer = start.query_one(PromptComposer)
+        assert composer.placeholder == "Trinity가 무엇을 진행하면 될까요?"
+        text_area = composer.query_one(ComposerTextArea)
+        text_area.blur()
+        await pilot.pause()
+        assert text_area.placeholder == "Trinity가 무엇을 진행하면 될까요?"
+
+        selector = start.query_one(AgentRecipientModelSelector)
+        selector.set_selected_agents(())
+        composer.set_text("작업해줘")
+        composer.action_submit()
+        await pilot.pause()
+        assert notifications[-1] == ("에이전트를 하나 이상 선택하세요.", "warning")
+
+        app.switch_to("nexus")
+        await pilot.pause()
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        assert str(nexus.query_one("#central-title", Static).content) == (
+            "중앙 에이전트"
+        )
+
+
+@pytest.mark.asyncio
 async def test_prompt_composer_hides_placeholder_while_focused_for_ime_preedit(
     tmp_path,
 ) -> None:

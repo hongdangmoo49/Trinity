@@ -72,7 +72,7 @@ class CentralAgentView(VerticalScroll):
         self._actions_key: tuple[object, ...] = ()
 
     def compose(self) -> ComposeResult:
-        yield Static("Central Agent", id="central-title")
+        yield Static(self._label("title"), id="central-title")
         yield Markdown(self._markdown(), id="central-markdown")
         with Vertical(id="central-local-command-tables"):
             pass
@@ -524,6 +524,7 @@ class CentralAgentView(VerticalScroll):
             "repair_action": "리뷰 수리 결정",
             "synthesis": "종합",
             "synthesizing": "중앙 에이전트 종합 중",
+            "title": "중앙 에이전트",
             "waiting": "종합 대기 중",
             "work_packages": "작업 패키지",
             "execute": "실행",
@@ -584,6 +585,7 @@ class CentralAgentView(VerticalScroll):
             "repair_action": "Review repair decision",
             "synthesis": "Synthesis",
             "synthesizing": "Central agent is synthesizing",
+            "title": "Central Agent",
             "waiting": "Waiting for synthesis",
             "work_packages": "Work Packages",
             "execute": "Execute",
@@ -615,7 +617,7 @@ class CentralAgentView(VerticalScroll):
     def _refresh_title(self) -> None:
         if not self.is_mounted:
             return
-        title = "Central Agent"
+        title = self._label("title")
         if self._is_running():
             title = f"{title} {ACTIVITY_FRAMES[self._activity_frame]}"
         self.query_one("#central-title", Static).update(title)

@@ -15,6 +15,109 @@ from trinity.textual_app.widgets.status_label import display_review_status_value
 
 _MD_SPECIAL_CHARS = "\\`*_{}[]<>()#+-.!|"
 
+REPORT_MARKDOWN_LABELS = {
+    "en": {
+        "agent_quality": "Advisory Agent Quality",
+        "blockers": "blockers",
+        "central_wp_graph": "Central WP Graph",
+        "consensus": "Consensus",
+        "context": "context",
+        "decisions": "Decisions",
+        "done_packages": "Done packages",
+        "execution": "Execution",
+        "execution_log": "Execution Log",
+        "execution_recovery": "Execution Recovery",
+        "executor": "executor",
+        "goal": "Goal",
+        "last_event": "Last event",
+        "kind": "kind",
+        "lane": "lane",
+        "local_policy_repairs": "Local Policy Repairs",
+        "local_wp_graph": "Local WP Graph",
+        "mission": "mission",
+        "modes": "modes",
+        "open_questions": "Open Questions",
+        "output": "output",
+        "owner": "owner",
+        "progress": "Progress",
+        "profile": "profile",
+        "provider_session": "session",
+        "providers": "Providers",
+        "reason": "Reason",
+        "required_changes": "required changes",
+        "retry_candidates": "Retry candidates",
+        "review": "Review",
+        "review_reason": "reason",
+        "reviewer": "reviewer",
+        "routing": "Routing",
+        "round": "Round",
+        "run": "Run",
+        "running_packages": "Running packages",
+        "score": "score",
+        "session": "Session",
+        "source": "Source",
+        "state": "State",
+        "status": "Status",
+        "strengths": "strengths",
+        "subtasks": "Subtasks",
+        "success": "success",
+        "target": "Target",
+        "title": "Deliberation Report",
+        "work_package_routing": "Work Package Routing",
+        "work_packages": "Work Packages",
+    },
+    "ko": {
+        "agent_quality": "자문 에이전트 품질",
+        "blockers": "차단",
+        "central_wp_graph": "중앙 WP 그래프",
+        "consensus": "합의",
+        "context": "컨텍스트",
+        "decisions": "결정",
+        "done_packages": "완료 WP",
+        "execution": "실행",
+        "execution_log": "실행 로그",
+        "execution_recovery": "실행 복구",
+        "executor": "실행자",
+        "goal": "목표",
+        "last_event": "최근 이벤트",
+        "kind": "종류",
+        "lane": "레인",
+        "local_policy_repairs": "로컬 정책 복구",
+        "local_wp_graph": "로컬 WP 그래프",
+        "mission": "미션",
+        "modes": "모드",
+        "open_questions": "미해결 질문",
+        "output": "출력",
+        "owner": "담당",
+        "progress": "진행",
+        "profile": "프로필",
+        "provider_session": "세션",
+        "providers": "프로바이더",
+        "reason": "이유",
+        "required_changes": "변경 요청",
+        "retry_candidates": "재시도 후보",
+        "review": "리뷰",
+        "review_reason": "이유",
+        "reviewer": "리뷰어",
+        "routing": "라우팅",
+        "round": "라운드",
+        "run": "실행 ID",
+        "running_packages": "실행 중 WP",
+        "score": "점수",
+        "session": "세션",
+        "source": "출처",
+        "state": "상태",
+        "status": "상태",
+        "strengths": "강점",
+        "subtasks": "하위 작업",
+        "success": "성공",
+        "target": "대상",
+        "title": "워크플로우 리포트",
+        "work_package_routing": "WP 라우팅",
+        "work_packages": "작업 패키지",
+    },
+}
+
 
 def snapshot_has_report_data(snapshot: WorkflowNexusSnapshot) -> bool:
     """Return whether a snapshot has enough user-visible data to export."""
@@ -37,54 +140,65 @@ def snapshot_has_report_data(snapshot: WorkflowNexusSnapshot) -> bool:
     )
 
 
-def snapshot_report_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+def snapshot_report_markdown(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> str:
     """Build a minimal Markdown report from an in-memory UI snapshot."""
     lines = [
-        "# Deliberation Report",
+        f"# {_label(lang, 'title')}",
         "",
-        f"**Session**: {_md_inline(snapshot.session_id or '(none)')}  ",
-        f"**Goal**: {_md_inline(snapshot.goal or '(none)')}  ",
-        f"**State**: {_md_inline(snapshot.state)}  ",
-        f"**Round**: {snapshot.round_num}  ",
-        f"**Providers**: {len(snapshot.providers)}",
+        f"**{_label(lang, 'session')}**: {_md_inline(snapshot.session_id or '(none)')}  ",
+        f"**{_label(lang, 'goal')}**: {_md_inline(snapshot.goal or '(none)')}  ",
+        f"**{_label(lang, 'state')}**: {_md_inline(snapshot.state)}  ",
+        f"**{_label(lang, 'round')}**: {snapshot.round_num}  ",
+        f"**{_label(lang, 'providers')}**: {len(snapshot.providers)}",
     ]
 
-    provider_lines = _provider_lines(snapshot)
+    provider_lines = _provider_lines(snapshot, lang=lang)
     if provider_lines:
-        lines.extend(["", "## Providers", ""])
+        lines.extend(["", f"## {_label(lang, 'providers')}", ""])
         lines.extend(provider_lines)
-    quality_lines = _agent_quality_lines(snapshot)
+    quality_lines = _agent_quality_lines(snapshot, lang=lang)
     if quality_lines:
-        lines.extend(["", "## Advisory Agent Quality", ""])
+        lines.extend(["", f"## {_label(lang, 'agent_quality')}", ""])
         lines.extend(quality_lines)
     if snapshot.synthesis.summary:
         lines.extend(
             [
                 "",
-                "## Consensus",
+                f"## {_label(lang, 'consensus')}",
                 "",
-                f"**Progress**: {_md_inline(snapshot.synthesis.consensus_progress or '(none)')}  ",
-                f"**Source**: {_md_inline(snapshot.synthesis.source)}",
+                (
+                    f"**{_label(lang, 'progress')}**: "
+                    f"{_md_inline(snapshot.synthesis.consensus_progress or '(none)')}  "
+                ),
+                f"**{_label(lang, 'source')}**: {_md_inline(snapshot.synthesis.source)}",
                 "",
                 _md_block(snapshot.synthesis.summary),
             ]
         )
     if snapshot.decisions:
-        lines.extend(["", "## Decisions", ""])
+        lines.extend(["", f"## {_label(lang, 'decisions')}", ""])
         lines.extend(f"- {_md_inline(decision)}" for decision in snapshot.decisions)
     if snapshot.central_work_packages:
-        lines.extend(["", "## Central WP Graph", ""])
+        lines.extend(["", f"## {_label(lang, 'central_wp_graph')}", ""])
         lines.extend(f"- {_md_inline(package)}" for package in snapshot.central_work_packages)
     if snapshot.work_packages:
-        heading = "## Local WP Graph" if snapshot.central_work_packages else "## Work Packages"
+        heading = (
+            f"## {_label(lang, 'local_wp_graph')}"
+            if snapshot.central_work_packages
+            else f"## {_label(lang, 'work_packages')}"
+        )
         lines.extend(["", heading, ""])
         lines.extend(f"- {_md_inline(package)}" for package in snapshot.work_packages)
-    package_detail_lines = _work_package_detail_lines(snapshot)
+    package_detail_lines = _work_package_detail_lines(snapshot, lang=lang)
     if package_detail_lines:
-        lines.extend(["", "## Work Package Routing", ""])
+        lines.extend(["", f"## {_label(lang, 'work_package_routing')}", ""])
         lines.extend(package_detail_lines)
     if snapshot.subtasks:
-        lines.extend(["", "## Subtasks", ""])
+        lines.extend(["", f"## {_label(lang, 'subtasks')}", ""])
         lines.extend(
             (
                 f"- **{_md_inline(subtask.id or '(unnamed)')}** "
@@ -96,35 +210,41 @@ def snapshot_report_markdown(snapshot: WorkflowNexusSnapshot) -> str:
             for subtask in snapshot.subtasks
         )
     if snapshot.work_package_repairs:
-        lines.extend(["", "## Local Policy Repairs", ""])
+        lines.extend(["", f"## {_label(lang, 'local_policy_repairs')}", ""])
         lines.extend(f"- {_md_inline(note)}" for note in snapshot.work_package_repairs)
     if snapshot.execution_log:
-        lines.extend(["", "## Execution Log", ""])
+        lines.extend(["", f"## {_label(lang, 'execution_log')}", ""])
         lines.extend(f"- {_md_inline(entry)}" for entry in snapshot.execution_log)
     if snapshot.execution_recovery is not None:
         recovery = snapshot.execution_recovery
         lines.extend(
             [
                 "",
-                "## Execution Recovery",
+                f"## {_label(lang, 'execution_recovery')}",
                 "",
-                f"- Execution: {_md_inline(recovery.state)}",
-                f"- Run: {_md_inline(recovery.run_id or '(unknown)')}",
-                f"- Target: {_md_inline(recovery.target_workspace or '(not set)')}",
+                f"- {_label(lang, 'execution')}: {_md_inline(recovery.state)}",
+                f"- {_label(lang, 'run')}: {_md_inline(recovery.run_id or '(unknown)')}",
                 (
-                    "- Running packages: "
+                    f"- {_label(lang, 'target')}: "
+                    f"{_md_inline(recovery.target_workspace or '(not set)')}"
+                ),
+                (
+                    f"- {_label(lang, 'running_packages')}: "
                     f"{_md_inline(', '.join(recovery.running_packages) or '(none)')}"
                 ),
                 (
-                    "- Retry candidates: "
+                    f"- {_label(lang, 'retry_candidates')}: "
                     f"{_md_inline(', '.join(recovery.retry_candidates) or '(none)')}"
                 ),
-                f"- Done packages: {_md_inline(', '.join(recovery.done_packages) or '(none)')}",
-                f"- Last event: {_md_inline(recovery.last_event or '(none)')}",
+                (
+                    f"- {_label(lang, 'done_packages')}: "
+                    f"{_md_inline(', '.join(recovery.done_packages) or '(none)')}"
+                ),
+                f"- {_label(lang, 'last_event')}: {_md_inline(recovery.last_event or '(none)')}",
             ]
         )
     if snapshot.questions:
-        lines.extend(["", "## Open Questions", ""])
+        lines.extend(["", f"## {_label(lang, 'open_questions')}", ""])
         lines.extend(
             f"- **{_md_inline(q.id)}**: {_md_inline(q.question)}" for q in snapshot.questions
         )
@@ -160,12 +280,26 @@ def _md_block(value: str) -> str:
     return f"{fence}\n{text}\n{fence}"
 
 
-def _provider_lines(snapshot: WorkflowNexusSnapshot) -> list[str]:
+def _label(lang: str, key: str) -> str:
+    labels = REPORT_MARKDOWN_LABELS.get(lang, REPORT_MARKDOWN_LABELS["en"])
+    return labels.get(key, REPORT_MARKDOWN_LABELS["en"][key])
+
+
+def _provider_lines(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> list[str]:
     lines: list[str] = []
     for provider in snapshot.providers:
         if not provider.enabled:
             continue
-        model = provider.actual_model or provider.model_label or provider.configured_model or "default"
+        model = (
+            provider.actual_model
+            or provider.model_label
+            or provider.configured_model
+            or "default"
+        )
         context = (
             f"{provider.context_window:,}"
             if provider.context_window > 0
@@ -173,89 +307,109 @@ def _provider_lines(snapshot: WorkflowNexusSnapshot) -> list[str]:
         )
         source = provider.budget_source or "unknown"
         session = provider.session_id[:12] if provider.session_id else "none"
-        profile = _provider_profile_summary(provider)
+        profile = _provider_profile_summary(provider, lang=lang)
         if profile:
             profile = f"; {profile}"
         lines.append(
             "- "
             f"**{_md_inline(provider.name)}**: "
             f"{_md_inline(model)}; "
-            f"context {_md_inline(context)} ({_md_inline(source)}); "
-            f"session {_md_inline(session)}"
+            f"{_label(lang, 'context')} {_md_inline(context)} ({_md_inline(source)}); "
+            f"{_label(lang, 'provider_session')} {_md_inline(session)}"
             f"{profile}"
         )
     return lines
 
 
-def _provider_profile_summary(provider: ProviderSnapshot) -> str:
+def _provider_profile_summary(
+    provider: ProviderSnapshot,
+    *,
+    lang: str = "en",
+) -> str:
     parts: list[str] = []
     if provider.context_profile:
-        parts.append(f"profile {_md_inline(provider.context_profile)}")
+        parts.append(f"{_label(lang, 'profile')} {_md_inline(provider.context_profile)}")
     if provider.profile_modes:
-        parts.append(f"modes {_md_inline(', '.join(provider.profile_modes))}")
+        parts.append(f"{_label(lang, 'modes')} {_md_inline(', '.join(provider.profile_modes))}")
     if provider.output_contract:
-        parts.append(f"output {_md_inline(provider.output_contract)}")
+        parts.append(f"{_label(lang, 'output')} {_md_inline(provider.output_contract)}")
     if provider.profile_strengths:
         strengths = ", ".join(provider.profile_strengths[:3])
         if len(provider.profile_strengths) > 3:
             strengths = f"{strengths}, +{len(provider.profile_strengths) - 3}"
-        parts.append(f"strengths {_md_inline(strengths)}")
+        parts.append(f"{_label(lang, 'strengths')} {_md_inline(strengths)}")
     if provider.profile_mission:
-        parts.append(f"mission {_md_inline(provider.profile_mission)}")
+        parts.append(f"{_label(lang, 'mission')} {_md_inline(provider.profile_mission)}")
     return "; ".join(parts)
 
 
-def _agent_quality_lines(snapshot: WorkflowNexusSnapshot) -> list[str]:
-    return [_agent_quality_line(item) for item in snapshot.agent_quality]
+def _agent_quality_lines(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> list[str]:
+    return [_agent_quality_line(item, lang=lang) for item in snapshot.agent_quality]
 
 
-def _agent_quality_line(item: AgentQualitySnapshot) -> str:
+def _agent_quality_line(item: AgentQualitySnapshot, *, lang: str = "en") -> str:
     return (
         f"- **{_md_inline(item.agent_name or '(unknown)')}**: "
-        f"score {_md_inline(_format_score(item.score))}; "
-        f"success {item.success_count}/{item.signal_count}; "
-        f"blockers {item.blocker_count}; "
-        f"required changes {item.required_change_count}"
+        f"{_label(lang, 'score')} {_md_inline(_format_score(item.score))}; "
+        f"{_label(lang, 'success')} {item.success_count}/{item.signal_count}; "
+        f"{_label(lang, 'blockers')} {item.blocker_count}; "
+        f"{_label(lang, 'required_changes')} {item.required_change_count}"
     )
 
 
-def _work_package_detail_lines(snapshot: WorkflowNexusSnapshot) -> list[str]:
+def _work_package_detail_lines(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> list[str]:
     lines: list[str] = []
     for package in snapshot.work_package_details:
-        lines.extend(_work_package_lines(package))
+        lines.extend(_work_package_lines(package, lang=lang))
     return lines
 
 
-def _work_package_lines(package: WorkPackageSnapshot) -> list[str]:
+def _work_package_lines(
+    package: WorkPackageSnapshot,
+    *,
+    lang: str = "en",
+) -> list[str]:
     title = package.title or "(untitled)"
     lines = [
         f"- **{_md_inline(package.id or '(unnamed)')}** {_md_inline(title)}",
         (
-            "  - Status: "
+            f"  - {_label(lang, 'status')}: "
             f"{_md_inline(package.status or 'unknown')}; "
-            f"owner {_md_inline(package.owner_agent or '(unknown)')}; "
-            f"executor {_md_inline(_package_executor(package))}; "
-            f"lane {_md_inline(_package_lane(package))}"
+            f"{_label(lang, 'owner')} {_md_inline(package.owner_agent or '(unknown)')}; "
+            f"{_label(lang, 'executor')} {_md_inline(_package_executor(package))}; "
+            f"{_label(lang, 'lane')} {_md_inline(_package_lane(package, lang=lang))}"
         ),
     ]
-    routing = _package_routing_summary(package)
+    routing = _package_routing_summary(package, lang=lang)
     if routing:
-        lines.append(f"  - Routing: {routing}")
+        lines.append(f"  - {_label(lang, 'routing')}: {routing}")
     if package.routing_reason:
-        lines.append(f"  - Reason: {_md_inline(package.routing_reason)}")
+        lines.append(f"  - {_label(lang, 'reason')}: {_md_inline(package.routing_reason)}")
     if package.review_status or package.reviewer_agent:
         review_status = display_review_status_value(
             package.review_status,
             reviewer_agent=package.reviewer_agent,
             summary=package.review_summary,
+            lang=lang,
         )
         review = (
             f"{_md_inline(review_status)}; "
-            f"reviewer {_md_inline(package.reviewer_agent or '(none)')}"
+            f"{_label(lang, 'reviewer')} {_md_inline(package.reviewer_agent or '(none)')}"
         )
         if package.review_status == "skipped" and package.review_summary:
-            review = f"{review}; reason {_md_inline(package.review_summary)}"
-        lines.append(f"  - Review: {review}")
+            review = (
+                f"{review}; {_label(lang, 'review_reason')} "
+                f"{_md_inline(package.review_summary)}"
+            )
+        lines.append(f"  - {_label(lang, 'review')}: {review}")
     return lines
 
 
@@ -268,22 +422,26 @@ def _package_executor(package: WorkPackageSnapshot) -> str:
     )
 
 
-def _package_lane(package: WorkPackageSnapshot) -> str:
+def _package_lane(package: WorkPackageSnapshot, *, lang: str = "en") -> str:
     if not package.parallelizable:
-        return "serial"
+        return "직렬" if lang == "ko" else "serial"
     if package.parallel_group is not None:
         return f"g{package.parallel_group}"
-    return "unspecified"
+    return "미지정" if lang == "ko" else "unspecified"
 
 
-def _package_routing_summary(package: WorkPackageSnapshot) -> str:
+def _package_routing_summary(
+    package: WorkPackageSnapshot,
+    *,
+    lang: str = "en",
+) -> str:
     parts: list[str] = []
     if package.task_kind:
-        parts.append(f"kind {_md_inline(package.task_kind)}")
+        parts.append(f"{_label(lang, 'kind')} {_md_inline(package.task_kind)}")
     if package.profile_revision:
-        parts.append(f"profile {_md_inline(package.profile_revision)}")
+        parts.append(f"{_label(lang, 'profile')} {_md_inline(package.profile_revision)}")
     if package.routing_score:
-        parts.append(f"score {_md_inline(_format_score(package.routing_score))}")
+        parts.append(f"{_label(lang, 'score')} {_md_inline(_format_score(package.routing_score))}")
     return "; ".join(parts)
 
 

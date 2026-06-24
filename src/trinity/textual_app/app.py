@@ -3182,7 +3182,7 @@ class TrinityTextualApp(App[None]):
             markdown = report.to_markdown()
         elif snapshot_has_report_data(snapshot):
             filepath = unique_report_path(report_dir, snapshot.session_id)
-            markdown = snapshot_report_markdown(snapshot)
+            markdown = snapshot_report_markdown(snapshot, lang=self.config.lang)
         else:
             self.notify(
                 "No workflow data available to export.",

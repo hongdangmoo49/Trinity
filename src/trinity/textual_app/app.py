@@ -1730,17 +1730,18 @@ class TrinityTextualApp(App[None]):
             self._record_slash_command_result(
                 parsed.spec.name,
                 "Questions",
-                self._questions_select_markdown(snapshot)
+                self._questions_select_markdown(snapshot, lang=self.config.lang)
                 if select_requested
-                else self._questions_markdown(snapshot),
+                else self._questions_markdown(snapshot, lang=self.config.lang),
                 empty=not has_questions,
-                action_hint=(
-                    "Use question panel buttons or `/answer <id|index|next> <answer>`."
-                    if has_questions
-                    else "Continue planning until the central agent raises a question."
+                action_hint=textual_presenters.questions_action_hint(
+                    has_questions=has_questions,
+                    lang=self.config.lang,
                 ),
-                table_columns=("ID", "Status", "Question", "Options"),
-                table_rows=self._questions_rows(snapshot),
+                table_columns=textual_presenters.questions_table_columns(
+                    lang=self.config.lang
+                ),
+                table_rows=self._questions_rows(snapshot, lang=self.config.lang),
             )
             return
         if command == "decisions":
@@ -2384,18 +2385,28 @@ class TrinityTextualApp(App[None]):
         return textual_presenters.snapshot_context_markdown(snapshot, lang=lang)
 
     @staticmethod
-    def _questions_markdown(snapshot: WorkflowNexusSnapshot) -> str:
-        return textual_presenters.questions_markdown(snapshot)
+    def _questions_markdown(
+        snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
+    ) -> str:
+        return textual_presenters.questions_markdown(snapshot, lang=lang)
 
     @staticmethod
-    def _questions_select_markdown(snapshot: WorkflowNexusSnapshot) -> str:
-        return textual_presenters.questions_select_markdown(snapshot)
+    def _questions_select_markdown(
+        snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
+    ) -> str:
+        return textual_presenters.questions_select_markdown(snapshot, lang=lang)
 
     @staticmethod
     def _questions_rows(
         snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
     ) -> tuple[tuple[str, str, str, str], ...]:
-        return textual_presenters.questions_rows(snapshot)
+        return textual_presenters.questions_rows(snapshot, lang=lang)
 
     @staticmethod
     def _decisions_markdown(snapshot: WorkflowNexusSnapshot) -> str:

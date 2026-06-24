@@ -16,6 +16,7 @@ NO_CURRENT_CONTEXT_MESSAGE = (
 STATUS_CONTEXT_LABELS = {
     "en": {
         "answer": "Answer",
+        "continue_until_question": "Continue planning until the central agent raises a question.",
         "decisions": "Decisions",
         "done_packages": "Done packages",
         "enabled": "Enabled",
@@ -33,13 +34,25 @@ STATUS_CONTEXT_LABELS = {
         "local_policy_repairs": "Local Policy Repairs",
         "next": "Next",
         "no": "no",
+        "no_pending_questions": "No pending workflow questions.",
+        "no_pending_questions_select": "No pending workflow questions to select.",
+        "no_predefined_options": "This question has no predefined options.",
         "not_checked": "not checked",
+        "options": "Options",
         "pending_questions": "Pending questions",
         "post_review_action_items": "Post Review Action Items",
         "post_review_items": "Post-review items",
         "provider": "Provider",
         "questions": "Questions",
+        "question": "Question",
+        "question_hint": "Use question panel buttons or `/answer <id|index|next> <answer>`.",
+        "question_answer_usage": "Use `/answer <id|index|next> <answer>`.",
+        "question_select_hint": (
+            "Use the option buttons in the question panel, "
+            "or run `/answer <option-number>`."
+        ),
         "readiness": "Readiness",
+        "recommended": "Recommended",
         "reattach_note": (
             "Provider process reattach is not supported. Retry starts a new "
             "one-shot execution only for interrupted, failed, or blocked packages."
@@ -61,9 +74,12 @@ STATUS_CONTEXT_LABELS = {
         "workflow_history": "Workflow History",
         "work_packages": "Work Packages",
         "yes": "yes",
+        "selected_question": "Selected question",
+        "free_text": "(free text)",
     },
     "ko": {
         "answer": "답변",
+        "continue_until_question": "중앙 에이전트가 질문을 만들 때까지 계획을 계속 진행하세요.",
         "decisions": "결정",
         "done_packages": "완료 WP",
         "enabled": "활성화",
@@ -81,13 +97,24 @@ STATUS_CONTEXT_LABELS = {
         "local_policy_repairs": "로컬 정책 복구",
         "next": "다음",
         "no": "아니오",
+        "no_pending_questions": "대기 중인 워크플로우 질문이 없습니다.",
+        "no_pending_questions_select": "선택할 대기 질문이 없습니다.",
+        "no_predefined_options": "이 질문에는 미리 정의된 선택지가 없습니다.",
         "not_checked": "미확인",
+        "options": "선택지",
         "pending_questions": "대기 중 질문",
         "post_review_action_items": "리뷰 후 조치",
         "post_review_items": "리뷰 후 조치",
         "provider": "프로바이더",
         "questions": "질문",
+        "question": "질문",
+        "question_hint": "질문 패널 버튼을 사용하거나 `/answer <id|index|next> <answer>`를 실행하세요.",
+        "question_answer_usage": "`/answer <id|index|next> <answer>`를 실행하세요.",
+        "question_select_hint": (
+            "질문 패널의 선택지 버튼을 사용하거나 `/answer <option-number>`를 실행하세요."
+        ),
         "readiness": "준비 상태",
+        "recommended": "추천",
         "reattach_note": (
             "프로바이더 프로세스 재연결은 지원하지 않습니다. 재시도는 중단, 실패, "
             "차단된 작업에 대해 새 단발 실행을 시작합니다."
@@ -109,6 +136,8 @@ STATUS_CONTEXT_LABELS = {
         "workflow_history": "워크플로우 이력",
         "work_packages": "작업 패키지",
         "yes": "예",
+        "selected_question": "선택된 질문",
+        "free_text": "(자유 입력)",
     },
 }
 
@@ -687,53 +716,78 @@ def snapshot_context_markdown(
     return "\n".join(lines)
 
 
-def questions_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+def questions_action_hint(*, has_questions: bool, lang: str = "en") -> str:
+    key = "question_hint" if has_questions else "continue_until_question"
+    return _sc_label(lang, key)
+
+
+def questions_table_columns(*, lang: str = "en") -> tuple[str, str, str, str]:
+    return (
+        _sc_label(lang, "id"),
+        _sc_label(lang, "status"),
+        _sc_label(lang, "question"),
+        _sc_label(lang, "options"),
+    )
+
+
+def questions_markdown(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> str:
     if not snapshot.questions:
-        return "No pending workflow questions."
+        return _sc_label(lang, "no_pending_questions")
     lines: list[str] = []
     for index, question in enumerate(snapshot.questions, start=1):
         lines.append(f"{index}. **{question.id}** [{question.status}] {question.question}")
         if question.answer:
-            lines.append(f"   - Answer: {question.answer}")
+            lines.append(f"   - {_sc_label(lang, 'answer')}: {question.answer}")
         if question.recommended_option:
-            lines.append(f"   - Recommended: {question.recommended_option}")
+            lines.append(
+                f"   - {_sc_label(lang, 'recommended')}: {question.recommended_option}"
+            )
         for option_index, option in enumerate(question.options, start=1):
             lines.append(f"   - {option_index}. {option}")
     lines.append("")
-    lines.append("Use question panel buttons or `/answer <id|index|next> <answer>`.")
+    lines.append(_sc_label(lang, "question_hint"))
     return "\n".join(lines)
 
 
-def questions_select_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+def questions_select_markdown(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> str:
     if not snapshot.questions:
-        return "No pending workflow questions to select."
+        return _sc_label(lang, "no_pending_questions_select")
     question = snapshot.questions[0]
     lines = [
-        f"Selected question: **{question.id}**",
+        f"{_sc_label(lang, 'selected_question')}: **{question.id}**",
         question.question,
     ]
     if question.options:
         lines.append("")
-        lines.append(
-            "Use the option buttons in the question panel, "
-            "or run `/answer <option-number>`."
-        )
+        lines.append(_sc_label(lang, "question_select_hint"))
         for index, option in enumerate(question.options, start=1):
             lines.append(f"- {index}. {option}")
     else:
         lines.append("")
-        lines.append("This question has no predefined options.")
-        lines.append("Use `/answer <id|index|next> <answer>`.")
+        lines.append(_sc_label(lang, "no_predefined_options"))
+        lines.append(_sc_label(lang, "question_answer_usage"))
     return "\n".join(lines)
 
 
-def questions_rows(snapshot: WorkflowNexusSnapshot) -> tuple[tuple[str, str, str, str], ...]:
+def questions_rows(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> tuple[tuple[str, str, str, str], ...]:
     return tuple(
         (
             question.id,
             question.status or "open",
             question.question,
-            ", ".join(question.options) if question.options else "(free text)",
+            ", ".join(question.options) if question.options else _sc_label(lang, "free_text"),
         )
         for question in snapshot.questions
     )

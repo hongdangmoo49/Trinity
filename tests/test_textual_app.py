@@ -27,6 +27,11 @@ from trinity.slash_commands import COMMAND_SPECS, SESSION_ONLY_SETTING_NOTICE
 from trinity.textual_app import app as textual_app_module
 from trinity.textual_app.app import TrinityTextualApp
 from trinity.textual_app.presenters import (
+    questions_action_hint,
+    questions_markdown,
+    questions_rows,
+    questions_select_markdown,
+    questions_table_columns,
     review_repair_blocked_ids,
     review_repair_details_markdown,
     review_repair_rows,
@@ -658,6 +663,48 @@ def test_workflow_presenter_uses_korean_labels() -> None:
     assert ("상태", "blueprint_ready") in rows
     assert ("대기 중 질문", "1") in rows
     assert ("실행 ID", "exec-run-test") in rows
+
+
+def test_questions_presenter_uses_korean_labels() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-ko",
+        questions=[
+            QuestionSnapshot(
+                id="q1",
+                question="테마를 선택할까요?",
+                answer="dark",
+                options=["dark", "light"],
+                recommended_option="dark",
+                status="answered",
+            ),
+            QuestionSnapshot(
+                id="q2",
+                question="추가 요청이 있나요?",
+            ),
+        ],
+    )
+
+    markdown = questions_markdown(snapshot, lang="ko")
+    select_markdown = questions_select_markdown(snapshot, lang="ko")
+    rows = questions_rows(snapshot, lang="ko")
+
+    assert "   - 답변: dark" in markdown
+    assert "   - 추천: dark" in markdown
+    assert "질문 패널 버튼을 사용하거나" in markdown
+    assert "선택된 질문: **q1**" in select_markdown
+    assert "질문 패널의 선택지 버튼" in select_markdown
+    assert rows[0] == ("q1", "answered", "테마를 선택할까요?", "dark, light")
+    assert rows[1] == ("q2", "open", "추가 요청이 있나요?", "(자유 입력)")
+    assert questions_table_columns(lang="ko") == ("ID", "상태", "질문", "선택지")
+    assert questions_action_hint(has_questions=True, lang="ko").startswith("질문 패널")
+    assert "중앙 에이전트" in questions_action_hint(has_questions=False, lang="ko")
+
+
+def test_questions_empty_presenter_uses_korean_labels() -> None:
+    snapshot = WorkflowNexusSnapshot()
+
+    assert questions_markdown(snapshot, lang="ko") == "대기 중인 워크플로우 질문이 없습니다."
+    assert questions_select_markdown(snapshot, lang="ko") == "선택할 대기 질문이 없습니다."
 
 
 def test_model_discovery_applies_fast_provider_before_slow_provider(
@@ -2720,6 +2767,49 @@ async def test_start_slash_workflow_uses_korean_local_command_modal_chrome(
 
 
 @pytest.mark.asyncio
+async def test_start_slash_questions_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            goal="game",
+            state="needs_user_decision",
+            questions=[
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Theme?",
+                    options=["dark", "light"],
+                    recommended_option="dark",
+                )
+            ],
+        )
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/questions ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, LocalCommandModal)
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/questions"
+        assert result.table_columns == ("ID", "상태", "질문", "선택지")
+        assert result.action_hint.startswith("질문 패널")
+        assert "추천: dark" in result.body
+        assert "질문 패널 버튼을 사용하거나" in result.body
+        table = app.screen.query_one("#local-command-table", Static)
+        assert "선택지" in str(table.render())
+
+
+@pytest.mark.asyncio
 async def test_nexus_unknown_slash_does_not_submit_followup(tmp_path) -> None:
     controller = FakeWorkflowController()
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
@@ -3319,6 +3409,47 @@ async def test_nexus_questions_select_uses_local_question_ui(tmp_path) -> None:
             central.snapshot.local_commands[-1].body
         )
         assert screen.query_one(QuestionPanel).query_one("#answer-q-1-1")
+
+
+@pytest.mark.asyncio
+async def test_nexus_questions_select_uses_korean_local_copy(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            goal="game",
+            state="needs_user_decision",
+            questions=[
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Theme?",
+                    options=["dark", "light"],
+                )
+            ],
+        )
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/questions --select")
+        composer.action_submit()
+        await pilot.pause()
+
+        central = screen.query_one(CentralAgentView)
+        assert central.snapshot is not None
+        result = central.snapshot.local_commands[-1]
+        assert result.command == "/questions"
+        assert "선택된 질문: **q-1**" in result.body
+        assert "질문 패널의 선택지 버튼" in result.body
+        assert result.table_columns == ("ID", "상태", "질문", "선택지")
 
 
 @pytest.mark.asyncio

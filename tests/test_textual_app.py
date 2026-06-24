@@ -784,6 +784,7 @@ def test_context_markdown_uses_korean_labels() -> None:
     assert "- 상태: `blueprint_ready`" in markdown
     assert "### 종합" in markdown
     assert "### 질문" in markdown
+    assert "- **q1** [답변됨] 진행할까요?" in markdown
     assert "  - 답변: 네" in markdown
     assert "### 결정" in markdown
     assert "### 작업 패키지" in markdown
@@ -952,11 +953,13 @@ def test_questions_presenter_uses_korean_labels() -> None:
 
     assert "   - 답변: dark" in markdown
     assert "   - 추천: dark" in markdown
+    assert "1. **q1** [답변됨] 테마를 선택할까요?" in markdown
+    assert "2. **q2** [열림] 추가 요청이 있나요?" in markdown
     assert "질문 패널 버튼을 사용하거나" in markdown
     assert "선택된 질문: **q1**" in select_markdown
     assert "질문 패널의 선택지 버튼" in select_markdown
-    assert rows[0] == ("q1", "answered", "테마를 선택할까요?", "dark, light")
-    assert rows[1] == ("q2", "open", "추가 요청이 있나요?", "(자유 입력)")
+    assert rows[0] == ("q1", "답변됨", "테마를 선택할까요?", "dark, light")
+    assert rows[1] == ("q2", "열림", "추가 요청이 있나요?", "(자유 입력)")
     assert questions_table_columns(lang="ko") == ("ID", "상태", "질문", "선택지")
     assert questions_action_hint(has_questions=True, lang="ko").startswith("질문 패널")
     assert "중앙 에이전트" in questions_action_hint(has_questions=False, lang="ko")
@@ -4066,6 +4069,7 @@ async def test_start_slash_questions_uses_korean_labels(tmp_path) -> None:
         result = app.active_snapshot.local_commands[-1]
         assert result.command == "/questions"
         assert result.table_columns == ("ID", "상태", "질문", "선택지")
+        assert result.table_rows[0] == ("q-1", "열림", "Theme?", "dark, light")
         assert result.action_hint.startswith("질문 패널")
         assert "추천: dark" in result.body
         assert "질문 패널 버튼을 사용하거나" in result.body
@@ -9080,6 +9084,14 @@ async def test_workflow_inspector_uses_configured_korean_labels(tmp_path) -> Non
                         status="paused",
                     ),
                 ],
+                post_review_items=[
+                    PostReviewActionSnapshot(
+                        id="AI-001",
+                        severity="high",
+                        status="pending",
+                        title="테스트 보강",
+                    )
+                ],
             )
         )
         await pilot.pause()
@@ -9094,6 +9106,9 @@ async def test_workflow_inspector_uses_configured_korean_labels(tmp_path) -> Non
         assert "대기: WP-002" in next_content
         assert "복구 2/2 · missing token" in str(
             inspector.query_one("#inspector-blocked").content
+        )
+        assert "AI-001 [high/대기] 테스트 보강" in str(
+            inspector.query_one("#inspector-post-review").content
         )
         workflow_content = str(inspector.query_one("#inspector-workflow").content)
         assert "상태: blueprint_ready" in workflow_content

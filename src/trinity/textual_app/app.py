@@ -3373,6 +3373,7 @@ class TrinityTextualApp(App[None]):
         from trinity.tui.report import DeliberationReportBuilder
         from trinity.workflow import WorkflowPersistence
 
+        lang = self.config.lang
         report_dir = self.config.effective_state_dir / "reports"
 
         # Build from the full WorkflowSession for richer output
@@ -3394,8 +3395,8 @@ class TrinityTextualApp(App[None]):
             markdown = snapshot_report_markdown(snapshot, lang=self.config.lang)
         else:
             self.notify(
-                "No workflow data available to export.",
-                title="Export Unavailable",
+                textual_presenters.report_no_export_data_markdown(lang=lang),
+                title=textual_presenters.report_export_unavailable_title(lang=lang),
                 severity="warning",
             )
             return None
@@ -3403,7 +3404,10 @@ class TrinityTextualApp(App[None]):
         filepath.write_text(markdown, encoding="utf-8")
         if self._screens_installed:
             self.get_screen("report", ReportScreen).show_export_path(filepath)
-        self.notify(f"Report saved: {filepath}", title="Export Complete")
+        self.notify(
+            textual_presenters.report_saved_notification(str(filepath), lang=lang),
+            title=textual_presenters.report_export_complete_title(lang=lang),
+        )
         return filepath
 
 

@@ -1017,6 +1017,69 @@ def test_snapshot_aggregates_multiple_work_package_review_results(tmp_path) -> N
     assert package.review_severity == "critical"
 
 
+def test_snapshot_marks_pending_escalated_review_as_needs_second_review(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    primary = ReviewPackage(
+        id="RP-WP-001-codex",
+        package_id="WP-001",
+        reviewer_agent="codex",
+        target_agent="claude",
+    )
+    persistence.save(
+        WorkflowSession(
+            id="wf-review-escalated-pending",
+            goal="Build UI",
+            state=WorkflowState.REVIEWING,
+            active_agents=["claude", "codex", "antigravity"],
+            work_packages=[
+                WorkPackage(
+                    id="WP-001",
+                    title="Frontend shell",
+                    owner_agent="claude",
+                    objective="Build the shell.",
+                    status=WorkStatus.DONE,
+                )
+            ],
+            review_packages=[
+                primary.to_dict(),
+                ReviewPackage(
+                    id="RP-WP-001-antigravity",
+                    package_id="WP-001",
+                    reviewer_agent="antigravity",
+                    target_agent="claude",
+                    depth=ReviewDepth.ESCALATED_PEER,
+                    escalation_parent_id=primary.id,
+                    reason="primary review status is changes_requested",
+                ).to_dict(),
+            ],
+            review_results=[
+                ReviewResult(
+                    review_package_id=primary.id,
+                    package_id="WP-001",
+                    reviewer_agent="codex",
+                    target_agent="claude",
+                    status=ReviewStatus.CHANGES_REQUESTED,
+                    severity="high",
+                    summary="Needs a second look.",
+                    required_changes=["Check terminal resize handling."],
+                ).to_dict()
+            ],
+        )
+    )
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot()
+
+    package = snapshot.work_package_details[0]
+    assert package.review_status == "needs_second_review"
+    assert package.reviewer_agent == "codex, antigravity"
+    assert package.review_summary == "Needs a second look."
+    assert package.review_required_changes == ["Check terminal resize handling."]
+    assert package.review_severity == "high"
+
+
 def test_snapshot_reuses_review_index_for_package_and_final_review(
     tmp_path,
     monkeypatch,

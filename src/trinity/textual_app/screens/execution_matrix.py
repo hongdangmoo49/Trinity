@@ -554,9 +554,11 @@ def _review_label(package: object) -> str:
         "blocked": "issue",
         "failed": "issue",
         "skipped": "skip",
+        "needs second review": "needs 2nd",
     }
     label = labels.get(normalized, normalized)
-    if reviewer and label not in {"changes", "approved", "issue", "skip"}:
+    standalone_labels = {"changes", "approved", "issue", "skip", "needs 2nd"}
+    if reviewer and label not in standalone_labels:
         return _reviewer_status_label(reviewer, label)
     return label
 

@@ -326,9 +326,13 @@ Action: Request second review
 
 ## 문서화할 개선 사항 체크리스트
 
-- [ ] 실행 status는 event 기반 준실시간이며 provider 비용을 만들지 않는다고 설명한다.
-- [ ] review status는 현재 coarse이고, reviewer별 실시간 상태는 이벤트 추가가 필요하다고 설명한다.
-- [ ] poll interval을 줄이는 대신 event granularity와 row-level rendering을 개선한다.
+2026-06-24 기준 최신 상태:
+
+- [x] 실행 status는 workflow event/snapshot 기반 준실시간이며 provider 호출 비용을 만들지 않는다.
+- [x] poll interval을 줄이는 대신 snapshot event tail, event index cache, row-level rendering으로 갱신 비용을 낮춘다.
+- [x] execution log가 길어져도 화면 projection은 bounded activity로 제한한다.
+- [x] large workflow snapshot projection이 full event scan으로 회귀하지 않도록 performance budget test를 둔다.
+- [ ] review status는 아직 coarse하다. reviewer별 queued/started/completed/skipped 실시간 상태는 이벤트 추가가 필요하다.
 - [ ] 기본 reviewer 수를 1명으로 줄이는 선택형 리뷰 정책을 반영한다.
 - [ ] provider 1개/2개/3개 UI 표현을 분리한다.
 - [ ] 병렬 실행 batch/lane을 화면에 노출한다.

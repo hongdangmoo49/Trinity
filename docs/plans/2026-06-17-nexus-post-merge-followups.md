@@ -109,8 +109,18 @@ Execution Matrix와 Nexus 상태 표현 통일, Inspector 복잡도 관리다.
 66 passed in 2.27s
 ```
 
-## 남은 후속
+## 최신 후속 상태
+
+2026-06-24 기준 추가 완료:
+
+- Report 화면 진입 시 workflow event tail만 읽도록 제한했다.
+- Workflow event index JSONL은 동일 파일 상태에서 반복 파싱하지 않도록 캐시한다.
+- `NexusSnapshotAdapter` fallback helper도 full event load로 되돌아가지 않도록 tail/slice 기반으로 제한했다.
+- large workflow snapshot projection이 full event scan으로 회귀하지 않도록 performance budget test를 추가했다.
+- 위 후속 PR들은 GitHub Actions cross-platform smoke를 통과했다.
+
+남은 후속:
 
 - 실제 터미널에서 `80x24`, `100x30`, `120x40` 크기와 한국어 설정으로 눈검증한다.
 - Inspector 섹션이 더 늘어나는 경우 `Overview`, `Details`, `Log` 탭화 또는 접힘 구조를 별도 브랜치에서 검토한다.
-- GitHub Actions cross-platform smoke 완료 후 필요 시 플랫폼별 실패를 보정한다.
+- review queued/started/completed/skipped 이벤트를 추가해 reviewer별 상태를 더 세밀하게 표시한다.

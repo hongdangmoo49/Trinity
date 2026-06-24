@@ -30,6 +30,7 @@ class _PackageRowProjection:
     review_status: str
     risk: str
     button_id: str
+    button_label: str
     task_width: int
     detail_enabled: bool = True
 
@@ -44,6 +45,7 @@ class _PackageRowProjection:
             self.review_status,
             self.risk,
             self.button_id,
+            self.button_label,
             self.task_width,
             self.detail_enabled,
         )
@@ -63,6 +65,7 @@ class ExecutionPackageRow(Horizontal):
         review_status: str,
         risk: str,
         button_id: str,
+        button_label: str = "Spec",
         task_width: int,
         detail_enabled: bool = True,
     ) -> None:
@@ -75,6 +78,7 @@ class ExecutionPackageRow(Horizontal):
         self.review_status = review_status
         self.risk = risk
         self.button_id = button_id
+        self.button_label = button_label
         self.task_width = task_width
         self.detail_enabled = detail_enabled
 
@@ -101,7 +105,7 @@ class ExecutionPackageRow(Horizontal):
                     classes="execution-package-risk",
                 )
                 yield Button(
-                    "Spec",
+                    self.button_label,
                     id=self.button_id,
                     name=self.package_id,
                     disabled=not self.detail_enabled,
@@ -119,6 +123,7 @@ class ExecutionPackageRow(Horizontal):
         self.review_status = projection.review_status
         self.risk = projection.risk
         self.button_id = projection.button_id
+        self.button_label = projection.button_label
         self.task_width = projection.task_width
         self.detail_enabled = projection.detail_enabled
 
@@ -138,9 +143,10 @@ class ExecutionPackageRow(Horizontal):
             _clip(f"review: {self.review_status or '-'}", 18)
         )
         self.query_one(".execution-package-risk", Static).update(
-            _clip(f"risk: {self.risk}", 14)
+            _clip(f"risk: {self.risk}", 18)
         )
         button = self.query_one(".execution-package-spec", Button)
+        button.label = self.button_label
         button.disabled = not self.detail_enabled
 
 
@@ -358,6 +364,7 @@ class ExecutionMatrixScreen(Screen[None]):
                     review_status=_review_label(package),
                     risk=_risk_lane_label(package),
                     button_id=f"wp-detail-{index}",
+                    button_label=_detail_button_label(package),
                     task_width=task_width,
                 )
                 for index, package in enumerate(self.snapshot.work_package_details)
@@ -377,6 +384,7 @@ class ExecutionMatrixScreen(Screen[None]):
                     review_status="-",
                     risk="unknown",
                     button_id=f"wp-detail-legacy-{index}",
+                    button_label="Spec",
                     task_width=task_width,
                     detail_enabled=False,
                 )
@@ -394,6 +402,7 @@ class ExecutionMatrixScreen(Screen[None]):
             review_status=projection.review_status,
             risk=projection.risk,
             button_id=projection.button_id,
+            button_label=projection.button_label,
             task_width=projection.task_width,
             detail_enabled=projection.detail_enabled,
         )
@@ -609,6 +618,16 @@ def _risk_lane_label(package: object) -> str:
     if group is None:
         return risk
     return f"{risk} g{group}"
+
+
+def _detail_button_label(package: object) -> str:
+    status = str(getattr(package, "status", "") or "").strip().lower()
+    blocked_reason = str(
+        getattr(package, "repair_blocked_reason", "") or ""
+    ).strip()
+    if status == "blocked" or blocked_reason:
+        return "Blocked"
+    return "Spec"
 
 
 def _reviewer_names(reviewer: str) -> list[str]:

@@ -79,6 +79,9 @@ from trinity.textual_app.presenters import (
     improve_table_columns,
     memory_cleanup_error_markdown,
     memory_title,
+    model_settings_title,
+    model_settings_unavailable_markdown,
+    model_settings_updated_markdown,
     packages_action_hint,
     packages_markdown,
     packages_rows,
@@ -776,6 +779,16 @@ def test_memory_presenter_uses_korean_labels() -> None:
 def test_artifact_presenter_uses_korean_labels() -> None:
     assert artifact_title(lang="ko") == "아티팩트"
     assert artifact_usage_markdown(lang="ko") == "사용법: `/artifact <memory-id>`"
+
+
+def test_model_settings_presenter_uses_korean_labels() -> None:
+    assert model_settings_title(lang="ko") == "모델 설정"
+    assert model_settings_unavailable_markdown(lang="ko") == (
+        "모델 설정은 시작 화면과 Nexus에서 사용할 수 있습니다."
+    )
+    assert model_settings_updated_markdown(lang="ko") == (
+        "모델 설정을 업데이트했습니다."
+    )
 
 
 def test_workflow_presenter_uses_korean_labels() -> None:
@@ -1500,6 +1513,64 @@ async def test_model_slash_modal_updates_selector_model_override(tmp_path) -> No
         await pilot.pause()
 
         assert controller.started_models[-1] == {"codex": "gpt-5.5"}
+
+
+def test_open_model_settings_unavailable_uses_korean_notification(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+    notifications: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(app, "_active_agent_selector", lambda: None)
+    monkeypatch.setattr(
+        app,
+        "notify",
+        lambda message, **kwargs: notifications.append(
+            (message, str(kwargs.get("title", "")), str(kwargs.get("severity", "info")))
+        ),
+    )
+
+    app._open_model_settings_modal()
+
+    assert notifications == [
+        (
+            "모델 설정은 시작 화면과 Nexus에서 사용할 수 있습니다.",
+            "모델 설정",
+            "warning",
+        )
+    ]
+
+
+def test_model_settings_applied_uses_korean_notification(tmp_path, monkeypatch) -> None:
+    class FakeSelector:
+        def __init__(self) -> None:
+            self.selections: dict[str, str] = {}
+
+        def set_model_selections(self, selections: dict[str, str]) -> None:
+            self.selections = dict(selections)
+
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+    selector = FakeSelector()
+    notifications: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(app, "_active_agent_selector", lambda: selector)
+    monkeypatch.setattr(
+        app,
+        "notify",
+        lambda message, **kwargs: notifications.append(
+            (message, str(kwargs.get("title", "")), str(kwargs.get("severity", "info")))
+        ),
+    )
+
+    app._on_model_settings_applied({"codex": "gpt-5.5"})
+
+    assert selector.selections == {"codex": "gpt-5.5"}
+    assert notifications == [
+        ("모델 설정을 업데이트했습니다.", "모델 설정", "info"),
+    ]
 
 
 @pytest.mark.asyncio

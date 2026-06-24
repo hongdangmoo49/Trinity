@@ -59,6 +59,15 @@ class WorkPackageDetailModal(ModalScreen[None]):
             f"- Requires execution: `{'yes' if package.requires_execution else 'no'}`",
             f"- Retry: `{('available' if package.retryable else package.retry_disabled_reason or 'not available')}`",
         ]
+        if package.repair_attempt_count or package.repair_blocked_reason:
+            attempts = (
+                f"{package.repair_attempt_count}/{package.repair_max_attempts}"
+                if package.repair_max_attempts
+                else str(package.repair_attempt_count)
+            )
+            lines.append(f"- Repair attempts: `{attempts}`")
+        if package.repair_blocked_reason:
+            lines.append(f"- Blocked reason: `{package.repair_blocked_reason}`")
         if package.task_kind or package.routing_reason:
             lines.extend(
                 [

@@ -3680,6 +3680,41 @@ async def test_execution_matrix_shows_parallel_group_lane(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_execution_matrix_labels_blocked_detail_action(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Repair loop",
+                        owner_agent="codex",
+                        status="blocked",
+                        repair_blocked_reason="duplicate_required_changes",
+                    )
+                ],
+            ),
+        )
+        await pilot.pause()
+
+        button = screen.query_one("#wp-detail-0", Button)
+        assert str(button.label) == "Blocked"
+
+        button.press()
+        await pilot.pause()
+
+        assert isinstance(app.screen, WorkPackageDetailModal)
+        assert "duplicate_required_changes" in app.screen._markdown()
+
+
+@pytest.mark.asyncio
 async def test_execution_matrix_renders_compact_status_labels(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

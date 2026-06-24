@@ -38,7 +38,10 @@ from trinity.textual_app.report_export import (
     snapshot_report_markdown,
     unique_report_path,
 )
-from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
+from trinity.textual_app.screens.execution_matrix import (
+    ExecutionMatrixScreen,
+    _review_label,
+)
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.report import ReportScreen
 from trinity.textual_app.screens.settings import SettingsScreen
@@ -3704,6 +3707,61 @@ async def test_execution_matrix_renders_compact_status_labels(tmp_path) -> None:
             "IDLE",
             "?",
         ]
+
+
+def test_execution_matrix_compacts_reviewer_status_labels() -> None:
+    assert (
+        _review_label(
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Queued by agy",
+                owner_agent="codex",
+                status="done",
+                review_status="queued",
+                reviewer_agent="antigravity",
+            )
+        )
+        == "agy queued"
+    )
+    assert (
+        _review_label(
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="Review by claude",
+                owner_agent="codex",
+                status="done",
+                review_status="reviewing",
+                reviewer_agent="claude",
+            )
+        )
+        == "claude rev"
+    )
+    assert (
+        _review_label(
+            WorkPackageSnapshot(
+                id="WP-003",
+                title="Two reviewers",
+                owner_agent="claude",
+                status="done",
+                review_status="reviewing",
+                reviewer_agent="codex, antigravity",
+            )
+        )
+        == "2p review"
+    )
+    assert (
+        _review_label(
+            WorkPackageSnapshot(
+                id="WP-004",
+                title="Three reviewers",
+                owner_agent="claude",
+                status="done",
+                review_status="queued",
+                reviewer_agent="codex, claude, antigravity",
+            )
+        )
+        == "3p queued"
+    )
 
 
 @pytest.mark.asyncio

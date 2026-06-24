@@ -58,6 +58,7 @@ STATUS_CONTEXT_LABELS = {
         "options": "Options",
         "package": "Package",
         "packages_hint": "Finish planning until a blueprint or local WP graph is generated.",
+        "path": "Path",
         "pending_questions": "Pending questions",
         "pending_wp_review": "Pending WP review",
         "post_review_action_items": "Post Review Action Items",
@@ -80,6 +81,13 @@ STATUS_CONTEXT_LABELS = {
             "Provider process reattach is not supported. Retry starts a new "
             "one-shot execution only for interrupted, failed, or blocked packages."
         ),
+        "report": "Report",
+        "report_export_hint": "Start or resume a workflow before exporting a report.",
+        "report_no_export_data": "No workflow data available to export.",
+        "report_no_open_data": "No workflow data available for a report.",
+        "report_open_hint": "Start or resume a workflow before opening a report.",
+        "report_opened": "Report screen opened.",
+        "report_saved": "Report saved",
         "retry_candidates": "Retry candidates",
         "review_hint": "Run `/review wp`, `/review final`, or `/review all`.",
         "reviewed_wp": "Reviewed WP",
@@ -152,6 +160,7 @@ STATUS_CONTEXT_LABELS = {
         "options": "선택지",
         "package": "작업 패키지",
         "packages_hint": "blueprint 또는 로컬 WP 그래프가 생성될 때까지 계획을 진행하세요.",
+        "path": "경로",
         "pending_questions": "대기 중 질문",
         "pending_wp_review": "대기 중 WP 리뷰",
         "post_review_action_items": "리뷰 후 조치",
@@ -173,6 +182,13 @@ STATUS_CONTEXT_LABELS = {
             "프로바이더 프로세스 재연결은 지원하지 않습니다. 재시도는 중단, 실패, "
             "차단된 작업에 대해 새 단발 실행을 시작합니다."
         ),
+        "report": "리포트",
+        "report_export_hint": "리포트를 내보내려면 먼저 워크플로우를 시작하거나 재개하세요.",
+        "report_no_export_data": "내보낼 워크플로우 데이터가 없습니다.",
+        "report_no_open_data": "리포트로 표시할 워크플로우 데이터가 없습니다.",
+        "report_open_hint": "리포트를 열려면 먼저 워크플로우를 시작하거나 재개하세요.",
+        "report_opened": "리포트 화면을 열었습니다.",
+        "report_saved": "리포트 저장됨",
         "retry_candidates": "재시도 후보",
         "review_hint": "`/review wp`, `/review final`, `/review all` 중 하나를 실행하세요.",
         "reviewed_wp": "리뷰된 WP",
@@ -570,6 +586,56 @@ def answer_usage_markdown(*, lang: str = "en") -> str:
 
 def answer_action_hint(*, lang: str = "en") -> str:
     return _sc_label(lang, "answer_inspect_questions_hint")
+
+
+def report_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "report")
+
+
+def report_no_export_data_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "report_no_export_data")
+
+
+def report_no_open_data_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "report_no_open_data")
+
+
+def report_export_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "report_export_hint")
+
+
+def report_open_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "report_open_hint")
+
+
+def report_opened_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "report_opened")
+
+
+def report_saved_markdown(path: str, *, lang: str = "en") -> str:
+    return f"{_sc_label(lang, 'report_saved')}: `{path}`"
+
+
+def report_saved_rows(path: str, *, lang: str = "en") -> tuple[tuple[str, str], ...]:
+    return ((_sc_label(lang, "path"), path),)
+
+
+def report_summary_rows(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> tuple[tuple[str, str], ...]:
+    return (
+        (_sc_label(lang, "workflow"), snapshot.session_id or "(new)"),
+        (_sc_label(lang, "state"), snapshot.state or "idle"),
+        (_sc_label(lang, "questions"), str(len(snapshot.questions))),
+        (_sc_label(lang, "decisions"), str(len(snapshot.decisions))),
+        (
+            _sc_label(lang, "work_packages"),
+            str(len(snapshot.central_work_packages) + len(snapshot.work_packages)),
+        ),
+        (_sc_label(lang, "subtasks"), str(len(snapshot.subtasks))),
+    )
 
 
 def slash_command_suggestions(token: str) -> tuple[str, ...]:

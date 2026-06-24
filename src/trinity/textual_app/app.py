@@ -2590,53 +2590,44 @@ class TrinityTextualApp(App[None]):
 
     def _handle_textual_report_command(self, args: list[str]) -> None:
         snapshot = self._refresh_textual_snapshot()
+        lang = self.config.lang
         if args and args[0].lower() in {"save", "s"}:
             path = self._export_report_markdown(snapshot)
             if path is None:
                 self._record_slash_command_result(
                     "/report",
-                    "Report",
-                    "No workflow data available to export.",
+                    textual_presenters.report_title(lang=lang),
+                    textual_presenters.report_no_export_data_markdown(lang=lang),
                     severity="warning",
                     empty=True,
-                    action_hint="Start or resume a workflow before exporting a report.",
+                    action_hint=textual_presenters.report_export_action_hint(lang=lang),
                 )
                 return
             self._record_slash_command_result(
                 "/report",
-                "Report",
-                f"Report saved: `{path}`",
+                textual_presenters.report_title(lang=lang),
+                textual_presenters.report_saved_markdown(str(path), lang=lang),
                 result_kind="path",
-                table_columns=("Item", "Value"),
-                table_rows=(("Path", str(path)),),
+                table_columns=textual_presenters.status_table_columns(lang=lang),
+                table_rows=textual_presenters.report_saved_rows(str(path), lang=lang),
             )
             return
         if not snapshot_has_report_data(snapshot):
             self._record_slash_command_result(
                 "/report",
-                "Report",
-                "No workflow data available for a report.",
+                textual_presenters.report_title(lang=lang),
+                textual_presenters.report_no_open_data_markdown(lang=lang),
                 severity="warning",
                 empty=True,
-                action_hint="Start or resume a workflow before opening a report.",
+                action_hint=textual_presenters.report_open_action_hint(lang=lang),
             )
             return
         self._record_slash_command_result(
             "/report",
-            "Report",
-            "Report screen opened.",
-            table_columns=("Item", "Value"),
-            table_rows=(
-                ("Workflow", snapshot.session_id or "(new)"),
-                ("State", snapshot.state or "idle"),
-                ("Questions", str(len(snapshot.questions))),
-                ("Decisions", str(len(snapshot.decisions))),
-                (
-                    "Work packages",
-                    str(len(snapshot.central_work_packages) + len(snapshot.work_packages)),
-                ),
-                ("Subtasks", str(len(snapshot.subtasks))),
-            ),
+            textual_presenters.report_title(lang=lang),
+            textual_presenters.report_opened_markdown(lang=lang),
+            table_columns=textual_presenters.status_table_columns(lang=lang),
+            table_rows=textual_presenters.report_summary_rows(snapshot, lang=lang),
             start_modal=False,
         )
         self.switch_to("report")

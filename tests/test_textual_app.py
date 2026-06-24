@@ -50,6 +50,15 @@ from trinity.textual_app.presenters import (
     questions_rows,
     questions_select_markdown,
     questions_table_columns,
+    report_export_action_hint,
+    report_no_export_data_markdown,
+    report_no_open_data_markdown,
+    report_open_action_hint,
+    report_opened_markdown,
+    report_saved_markdown,
+    report_saved_rows,
+    report_summary_rows,
+    report_title,
     review_action_hint,
     review_repair_blocked_ids,
     review_repair_details_markdown,
@@ -899,6 +908,41 @@ def test_answer_presenter_uses_korean_labels() -> None:
     )
     assert answer_action_hint(lang="ko") == (
         "먼저 `/questions`를 실행해 대기 중인 질문을 확인하세요."
+    )
+
+
+def test_report_presenter_uses_korean_labels() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-report",
+        state="done",
+        decisions=["Ship it."],
+        central_work_packages=["Plan"],
+        work_packages=["Build"],
+    )
+
+    assert report_title(lang="ko") == "리포트"
+    assert report_no_export_data_markdown(lang="ko") == (
+        "내보낼 워크플로우 데이터가 없습니다."
+    )
+    assert report_no_open_data_markdown(lang="ko") == (
+        "리포트로 표시할 워크플로우 데이터가 없습니다."
+    )
+    assert report_export_action_hint(lang="ko").startswith("리포트를 내보내려면")
+    assert report_open_action_hint(lang="ko").startswith("리포트를 열려면")
+    assert report_opened_markdown(lang="ko") == "리포트 화면을 열었습니다."
+    assert report_saved_markdown("/tmp/report.md", lang="ko") == (
+        "리포트 저장됨: `/tmp/report.md`"
+    )
+    assert report_saved_rows("/tmp/report.md", lang="ko") == (
+        ("경로", "/tmp/report.md"),
+    )
+    assert report_summary_rows(snapshot, lang="ko") == (
+        ("워크플로우", "wf-report"),
+        ("상태", "done"),
+        ("질문", "0"),
+        ("결정", "1"),
+        ("작업 패키지", "2"),
+        ("하위 작업", "0"),
     )
 
 
@@ -3628,6 +3672,32 @@ async def test_nexus_report_without_data_records_empty_result(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_nexus_report_without_data_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/report")
+        await pilot.pause()
+
+        assert app.current_route == "nexus"
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/report"
+        assert result.title == "리포트"
+        assert result.empty is True
+        assert result.body == "리포트로 표시할 워크플로우 데이터가 없습니다."
+        assert result.action_hint == (
+            "리포트를 열려면 먼저 워크플로우를 시작하거나 재개하세요."
+        )
+
+
+@pytest.mark.asyncio
 async def test_nexus_report_save_records_export_path(tmp_path) -> None:
     controller = FakeWorkflowController(
         WorkflowNexusSnapshot(
@@ -3653,6 +3723,38 @@ async def test_nexus_report_save_records_export_path(tmp_path) -> None:
         path = Path(result.table_rows[0][1])
         assert path.exists()
         assert path.read_text(encoding="utf-8").startswith("# Deliberation Report")
+
+
+@pytest.mark.asyncio
+async def test_nexus_report_save_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-current",
+            goal="게임 만들기",
+            state="done",
+            decisions=["출시한다."],
+        )
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/report save")
+        await pilot.pause()
+
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/report"
+        assert result.title == "리포트"
+        assert result.body.startswith("리포트 저장됨:")
+        assert result.table_columns == ("항목", "값")
+        assert result.table_rows[0][0] == "경로"
+        path = Path(result.table_rows[0][1])
+        assert path.exists()
 
 
 @pytest.mark.asyncio

@@ -144,6 +144,21 @@ def test_provider_panel_shows_compact_model_context_and_session_metadata() -> No
     )
 
 
+def test_provider_panel_localizes_compact_source_metadata() -> None:
+    state = ProviderPanelState(
+        name="codex",
+        provider="codex",
+        enabled=True,
+        status="Ready",
+        actual_model="gpt-5.5",
+        context_window=272000,
+        budget_source="local_cli_cache",
+    )
+    panel = ProviderPanel(state, lang="ko")
+
+    assert "ctx 272K/로컬" in panel._provider_line()
+
+
 def test_provider_panel_shows_compact_quality_signal_metadata() -> None:
     state = ProviderPanelState(
         name="codex",

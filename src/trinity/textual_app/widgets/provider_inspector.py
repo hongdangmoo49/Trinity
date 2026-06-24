@@ -12,6 +12,10 @@ from textual.widgets import Button, Footer, RichLog, Static, TabbedContent, TabP
 
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import ProviderSnapshot
+from trinity.textual_app.widgets.status_label import (
+    display_readiness_value,
+    display_status_value,
+)
 
 MAX_PRETTY_PRINT_CHARS = 200_000
 MAX_DISPLAY_CHARS = 50_000
@@ -129,8 +133,8 @@ class ProviderInspector(ModalScreen[None]):
         lines = [
             provider.name.title(),
             f"{self._label('provider')}: {provider.provider}",
-            f"{self._label('status')}: {provider.status}",
-            f"{self._label('readiness')}: {provider.readiness}",
+            f"{self._label('status')}: {self._status_value(provider.status)}",
+            f"{self._label('readiness')}: {self._readiness_value(provider.readiness)}",
         ]
         if provider.profile_mission:
             lines.append(f"{self._label('mission')}: {provider.profile_mission}")
@@ -157,8 +161,9 @@ class ProviderInspector(ModalScreen[None]):
                 [
                     f"## {provider.name.title()}",
                     f"{self._label('provider')}: {provider.provider}",
-                    f"{self._label('status')}: {provider.status}",
-                    f"{self._label('readiness')}: {provider.readiness}",
+                    f"{self._label('status')}: {self._status_value(provider.status)}",
+                    f"{self._label('readiness')}: "
+                    f"{self._readiness_value(provider.readiness)}",
                     f"{self._label('mission')}: {provider.profile_mission or '-'}",
                     (
                         f"{self._label('context_profile')}: "
@@ -187,6 +192,12 @@ class ProviderInspector(ModalScreen[None]):
             f"{self._label('required_changes')} "
             f"{provider.quality_required_change_count}"
         )
+
+    def _status_value(self, status: str) -> str:
+        return display_status_value(status, lang=self.lang)
+
+    def _readiness_value(self, readiness: str) -> str:
+        return display_readiness_value(readiness, lang=self.lang)
 
     def _label(self, key: str) -> str:
         labels = PROVIDER_INSPECTOR_LABELS.get(

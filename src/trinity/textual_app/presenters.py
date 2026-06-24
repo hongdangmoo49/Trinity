@@ -9,6 +9,7 @@ from typing import Sequence
 from trinity.slash_commands import COMMAND_SPECS
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.status_label import (
+    display_readiness_value,
     display_review_status_value,
     display_status_value,
 )
@@ -842,7 +843,8 @@ def snapshot_status_markdown(
         lines.extend(
             (
                 f"| {provider.name} | {_yes_no(provider.enabled, lang=lang)} "
-                f"| {provider.status} | {readiness_label(provider.readiness, lang=lang)} |"
+                f"| {_status_value(provider.status, lang=lang)} "
+                f"| {readiness_label(provider.readiness, lang=lang)} |"
             )
             for provider in snapshot.providers
         )
@@ -870,7 +872,8 @@ def snapshot_status_rows(
             (
                 f"{_sc_label(lang, 'provider')}: {provider.name}",
                 (
-                    f"{provider.status}; {_sc_label(lang, 'enabled').lower()}="
+                    f"{_status_value(provider.status, lang=lang)}; "
+                    f"{_sc_label(lang, 'enabled').lower()}="
                     f"{_yes_no(provider.enabled, lang=lang)}; "
                     f"{_sc_label(lang, 'readiness').lower()}="
                     f"{readiness_label(provider.readiness, lang=lang)}"
@@ -885,7 +888,7 @@ def snapshot_status_rows(
 def readiness_label(readiness: str, *, lang: str = "en") -> str:
     if readiness == "unknown":
         return _sc_label(lang, "not_checked")
-    return readiness
+    return display_readiness_value(readiness, lang=lang, empty=_sc_label(lang, "empty"))
 
 
 WORKFLOW_OUTCOME_MESSAGES_KO = {

@@ -11,6 +11,7 @@ from textual.widgets import Static
 from trinity.textual_app.widgets.status_label import (
     COMPACT_STATUS_LABELS,
     compact_status_group,
+    compact_source_value,
 )
 
 
@@ -139,16 +140,7 @@ class ProviderPanel(Vertical):
         )
 
     def _budget_source_label(self) -> str:
-        source = self.state.budget_source.strip()
-        if not source or source == "unsupported":
-            return ""
-        labels = {
-            "local_cli_cache": "local",
-            "provider_log": "log",
-            "runtime_metadata": "runtime",
-            "trinity_config": "config",
-        }
-        return labels.get(source, source)
+        return compact_source_value(self.state.budget_source, lang=self.lang)
 
     @staticmethod
     def _format_context_window(context_window: int) -> str:

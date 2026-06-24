@@ -700,11 +700,11 @@ def test_status_presenter_uses_korean_labels() -> None:
     assert status_table_columns(lang="ko") == ("항목", "값")
     assert "- 워크플로우: `wf-ko`" in markdown
     assert "| 프로바이더 | 활성화 | 상태 | 준비 상태 |" in markdown
-    assert "| claude | 예 | Queued | 미확인 |" in markdown
+    assert "| claude | 예 | 대기 | 미확인 |" in markdown
     assert "### 실행 복구" in markdown
     assert "실행: `중단`" in markdown
     assert ("워크플로우", "wf-ko") in rows
-    assert ("프로바이더: claude", "Queued; 활성화=예; 준비 상태=미확인") in rows
+    assert ("프로바이더: claude", "대기; 활성화=예; 준비 상태=미확인") in rows
     assert ("재시도 후보", "WP-001, WP-003") in rows
 
 
@@ -2791,7 +2791,7 @@ def test_snapshot_report_markdown_uses_korean_labels() -> None:
     assert "# 워크플로우 리포트" in md
     assert "**세션**: wf\\-ko" in md
     assert "## 프로바이더" in md
-    assert "컨텍스트 1,000 (runtime)" in md
+    assert "컨텍스트 1,000 (런타임)" in md
     assert "세션 session\\-1234" in md
     assert "프로필 implementer" in md
     assert "모드 execute, review" in md
@@ -8838,8 +8838,8 @@ def test_provider_inspector_meta_uses_korean_labels() -> None:
     all_output = inspector._all_output()
 
     assert "프로바이더: codex" in meta
-    assert "상태: Ready" in meta
-    assert "준비 상태: ready" in meta
+    assert "상태: 준비됨" in meta
+    assert "준비 상태: 준비됨" in meta
     assert "미션: Implementation and testing" in meta
     assert "모드: execute, review" in meta
     assert "강점: implementation 0.95" in meta

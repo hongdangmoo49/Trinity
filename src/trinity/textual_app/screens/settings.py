@@ -155,9 +155,9 @@ class SettingsScreen(Screen[None]):
         return "\n".join(
             [
                 self._label("preview"),
-                f"Mode: {self.settings.theme_mode}",
-                f"Density: {self.settings.density}",
-                f"Central: {central_provider} / {self.config.synthesis_model}",
+                f"{self._label('theme_mode')}: {self.settings.theme_mode}",
+                f"{self._label('density')}: {self.settings.density}",
+                f"{self._label('central')}: {central_provider} / {self.config.synthesis_model}",
                 *model_lines,
             ]
         )
@@ -240,8 +240,9 @@ class SettingsScreen(Screen[None]):
             "motion": "애니메이션",
             "unicode": "유니코드",
             "agent_models": "에이전트 모델",
+            "central": "중앙",
             "central_agent": "중앙 에이전트",
-            "central_provider": "중앙 Provider",
+            "central_provider": "중앙 프로바이더",
             "central_model": "중앙 모델",
             "agent_default": "에이전트 기본값",
             "auto": "자동",
@@ -258,6 +259,7 @@ class SettingsScreen(Screen[None]):
             "motion": "Motion",
             "unicode": "Unicode",
             "agent_models": "Agent models",
+            "central": "Central",
             "central_agent": "Central agent",
             "central_provider": "Central provider",
             "central_model": "Central model",

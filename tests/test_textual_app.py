@@ -5221,6 +5221,43 @@ def test_work_package_detail_modal_marks_serial_execution_lane() -> None:
     assert "- Execution lane: `serial`" in modal._markdown()
 
 
+def test_work_package_detail_modal_localizes_korean_execution_lane() -> None:
+    serial = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-008",
+            title="직렬 작업",
+            owner_agent="codex",
+            status="pending",
+            parallelizable=False,
+        ),
+        lang="ko",
+    )
+    unspecified = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-009",
+            title="미지정 작업",
+            owner_agent="codex",
+            status="pending",
+            parallelizable=True,
+        ),
+        lang="ko",
+    )
+    grouped = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-010",
+            title="그룹 작업",
+            owner_agent="codex",
+            status="pending",
+            parallel_group=3,
+        ),
+        lang="ko",
+    )
+
+    assert "- 실행 레인: `직렬`" in serial._markdown()
+    assert "- 실행 레인: `미지정`" in unspecified._markdown()
+    assert "- 실행 레인: `g3`" in grouped._markdown()
+
+
 def test_provider_inspector_meta_includes_profile_summary() -> None:
     inspector = ProviderInspector(
         [

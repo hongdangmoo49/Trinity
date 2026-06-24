@@ -20,6 +20,11 @@ from trinity.textual_app.i18n import (
 COMMAND_LIMIT = 6
 PASTE_SUMMARY_THRESHOLD = 1_000
 
+_PASTE_PLACEHOLDERS = {
+    "en": "[Pasted Content {count} chars]",
+    "ko": "[붙여넣은 콘텐츠 {count}자]",
+}
+
 
 class ComposerTextArea(TextArea):
     """TextArea tuned for Trinity prompt submission."""
@@ -367,9 +372,13 @@ class PromptComposer(Vertical):
         return bool(text) and (len(text) >= PASTE_SUMMARY_THRESHOLD or "\n" in text)
 
     def register_pasted_content(self, text: str) -> str:
-        placeholder = f"[Pasted Content {len(text)} chars]"
+        placeholder = self._pasted_content_placeholder(len(text))
         self._pasted_content.append((placeholder, text))
         return placeholder
+
+    def _pasted_content_placeholder(self, count: int) -> str:
+        template = _PASTE_PLACEHOLDERS.get(self.lang, _PASTE_PLACEHOLDERS["en"])
+        return template.format(count=count)
 
     def _visible_command_matches(self) -> list[str]:
         return self._command_matches[

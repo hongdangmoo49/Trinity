@@ -5808,6 +5808,80 @@ async def test_workflow_inspector_renders_snapshot_counts(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_workflow_inspector_uses_configured_korean_labels(tmp_path) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+
+    async with app.run_test(size=(140, 42)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                session_id="wf-inspector-ko",
+                state="blueprint_ready",
+                round_num=1,
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="UI shell",
+                        owner_agent="codex",
+                        status="done",
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-002",
+                        title="Renderer",
+                        owner_agent="claude",
+                        status="running",
+                        current_executor="claude",
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-003",
+                        title="Validation",
+                        owner_agent="antigravity",
+                        status="pending",
+                        dependencies=["WP-002"],
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-004",
+                        title="Adapter",
+                        owner_agent="codex",
+                        status="blocked",
+                        repair_blocked_reason="missing token",
+                        repair_attempt_count=2,
+                        repair_max_attempts=2,
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-005",
+                        title="Docs",
+                        owner_agent="codex",
+                        status="pending",
+                        dependencies=["WP-001"],
+                        parallel_group=2,
+                    ),
+                ],
+            )
+        )
+        await pilot.pause()
+
+        inspector = screen.query_one(WorkflowInspector)
+        assert "5 WP · 완료 1 · 실행 1 · 대기 2 · 막힘 1" in str(
+            inspector.query_one("#inspector-progress").content
+        )
+        next_content = str(inspector.query_one("#inspector-next").content)
+        assert "WP-005 Codex · Docs · 그룹 2" in next_content
+        assert "대기: WP-002" in next_content
+        assert "복구 2/2 · missing token" in str(
+            inspector.query_one("#inspector-blocked").content
+        )
+        workflow_content = str(inspector.query_one("#inspector-workflow").content)
+        assert "상태: blueprint_ready" in workflow_content
+        assert "라운드: 1" in workflow_content
+
+
+@pytest.mark.asyncio
 async def test_workflow_inspector_skips_repeated_section_updates(
     tmp_path,
     monkeypatch,

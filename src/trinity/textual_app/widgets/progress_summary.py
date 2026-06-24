@@ -222,31 +222,50 @@ def compact_wp_line(package: WorkPackageSnapshot) -> str:
     return f"{package.id} {actor.title()} · {title}"
 
 
-def next_work_package_line(entry: NextWorkPackageEntry) -> str:
+def next_work_package_line(
+    entry: NextWorkPackageEntry,
+    *,
+    lang: str = "en",
+) -> str:
     """Render a compact Next entry line with parallel-group hints."""
     line = compact_wp_line(entry.package)
     if entry.ready and entry.parallel_group is not None:
-        line = f"{line} · group {entry.parallel_group}"
+        group_label = "그룹" if lang == "ko" else "group"
+        line = f"{line} · {group_label} {entry.parallel_group}"
     return line
 
 
-def waiting_on_detail_line(entry: NextWorkPackageEntry) -> str:
+def waiting_on_detail_line(
+    entry: NextWorkPackageEntry,
+    *,
+    lang: str = "en",
+) -> str:
     """Render a compact dependency-waiting reason for a Next entry."""
     if not entry.waiting_on:
         return ""
     dependencies = ", ".join(entry.waiting_on[:2])
     remaining = len(entry.waiting_on) - 2
     if remaining > 0:
-        dependencies = f"{dependencies}, +{remaining} more"
+        if lang == "ko":
+            dependencies = f"{dependencies} 외 {remaining}개"
+        else:
+            dependencies = f"{dependencies}, +{remaining} more"
+    if lang == "ko":
+        return f"대기: {dependencies}"
     return f"waiting on {dependencies}"
 
 
-def blocked_detail_line(package: WorkPackageSnapshot) -> str:
+def blocked_detail_line(
+    package: WorkPackageSnapshot,
+    *,
+    lang: str = "en",
+) -> str:
     """Render a compact blocked reason line."""
     details: list[str] = []
     if package.repair_max_attempts:
+        repair_label = "복구" if lang == "ko" else "repair"
         details.append(
-            f"repair {package.repair_attempt_count}/{package.repair_max_attempts}"
+            f"{repair_label} {package.repair_attempt_count}/{package.repair_max_attempts}"
         )
     reason = (
         package.repair_blocked_reason

@@ -22,34 +22,73 @@ from trinity.textual_app.widgets.progress_summary import (
 )
 
 
+INSPECTOR_LABELS = {
+    "en": {
+        "blocked": "Blocked",
+        "current": "Current",
+        "decisions": "Decisions",
+        "empty": "(none)",
+        "execution_log": "Execution Log",
+        "id": "ID",
+        "more": "+{count} more",
+        "next": "Next",
+        "post_review": "Post Review",
+        "progress": "Progress",
+        "providers": "Providers",
+        "questions": "Questions",
+        "round": "Round",
+        "state": "State",
+        "workflow": "Workflow",
+    },
+    "ko": {
+        "blocked": "차단",
+        "current": "현재",
+        "decisions": "결정",
+        "empty": "(없음)",
+        "execution_log": "실행 로그",
+        "id": "ID",
+        "more": "외 {count}개",
+        "next": "다음",
+        "post_review": "사후 리뷰",
+        "progress": "진행",
+        "providers": "프로바이더",
+        "questions": "질문",
+        "round": "라운드",
+        "state": "상태",
+        "workflow": "워크플로우",
+    },
+}
+
+
 class WorkflowInspector(Vertical):
     """Compact read-only workflow status side surface."""
 
-    def __init__(self, *, id: str | None = None) -> None:
+    def __init__(self, *, id: str | None = None, lang: str = "en") -> None:
         super().__init__(id=id)
+        self.lang = lang
         self.snapshot = WorkflowNexusSnapshot()
         self._section_text: dict[str, str] = {}
 
     def compose(self) -> ComposeResult:
-        yield Static("Progress", classes="inspector-title")
+        yield Static(self._label("progress"), classes="inspector-title")
         yield Static("", id="inspector-progress")
-        yield Static("Current", classes="inspector-title")
+        yield Static(self._label("current"), classes="inspector-title")
         yield Static("", id="inspector-current")
-        yield Static("Next", classes="inspector-title")
+        yield Static(self._label("next"), classes="inspector-title")
         yield Static("", id="inspector-next")
-        yield Static("Blocked", classes="inspector-title")
+        yield Static(self._label("blocked"), classes="inspector-title")
         yield Static("", id="inspector-blocked")
-        yield Static("Workflow", classes="inspector-title")
+        yield Static(self._label("workflow"), classes="inspector-title")
         yield Static("", id="inspector-workflow")
-        yield Static("Providers", classes="inspector-title")
+        yield Static(self._label("providers"), classes="inspector-title")
         yield Static("", id="inspector-providers")
-        yield Static("Questions", classes="inspector-title")
+        yield Static(self._label("questions"), classes="inspector-title")
         yield Static("", id="inspector-questions")
-        yield Static("Decisions", classes="inspector-title")
+        yield Static(self._label("decisions"), classes="inspector-title")
         yield Static("", id="inspector-decisions")
-        yield Static("Post Review", classes="inspector-title")
+        yield Static(self._label("post_review"), classes="inspector-title")
         yield Static("", id="inspector-post-review")
-        yield Static("Execution Log", classes="inspector-title")
+        yield Static(self._label("execution_log"), classes="inspector-title")
         yield Static("", id="inspector-log")
 
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
@@ -78,9 +117,9 @@ class WorkflowInspector(Vertical):
             "#inspector-workflow",
             "\n".join(
                 [
-                    f"ID: {snapshot.session_id or '(new)'}",
-                    f"State: {snapshot.state}",
-                    f"Round: {snapshot.round_num}",
+                    f"{self._label('id')}: {snapshot.session_id or '(new)'}",
+                    f"{self._label('state')}: {snapshot.state}",
+                    f"{self._label('round')}: {snapshot.round_num}",
                 ]
             ),
         )
@@ -116,10 +155,9 @@ class WorkflowInspector(Vertical):
         self.query_one(selector, Static).update(text)
         self._section_text[selector] = text
 
-    @staticmethod
-    def _list_or_empty(items: list[str], *, limit: int = 5) -> str:
+    def _list_or_empty(self, items: list[str], *, limit: int = 5) -> str:
         if not items:
-            return "(none)"
+            return self._label("empty")
         lines: list[str] = []
         for item in items[:limit]:
             if item.startswith("  "):
@@ -128,23 +166,21 @@ class WorkflowInspector(Vertical):
                 lines.append(f"- {item}")
         return "\n".join(lines)
 
-    @staticmethod
-    def _progress_summary(snapshot: WorkflowNexusSnapshot) -> str:
+    def _progress_summary(self, snapshot: WorkflowNexusSnapshot) -> str:
         if not snapshot.work_package_details:
-            return "(none)"
+            return self._label("empty")
         return "\n".join(
             [
-                progress_summary_line(snapshot.work_package_details),
+                progress_summary_line(snapshot.work_package_details, lang=self.lang),
                 progress_bar(work_package_counts(snapshot.work_package_details), width=12),
             ]
         )
 
-    @staticmethod
-    def _blocked_lines(snapshot: WorkflowNexusSnapshot) -> list[str]:
+    def _blocked_lines(self, snapshot: WorkflowNexusSnapshot) -> list[str]:
         lines: list[str] = []
         for package in blocked_work_packages(snapshot.work_package_details, limit=3):
             lines.append(compact_wp_line(package))
-            detail = blocked_detail_line(package)
+            detail = blocked_detail_line(package, lang=self.lang)
             if detail:
                 lines.append(f"  {detail}")
         blocked_count = len(
@@ -155,23 +191,29 @@ class WorkflowInspector(Vertical):
             ]
         )
         if blocked_count > 3:
-            lines.append(f"+{blocked_count - 3} more")
+            lines.append(self._remaining_line(blocked_count - 3))
         return lines
 
-    @staticmethod
-    def _next_lines(snapshot: WorkflowNexusSnapshot) -> list[str]:
+    def _next_lines(self, snapshot: WorkflowNexusSnapshot) -> list[str]:
         all_entries = next_work_package_entries(snapshot.work_package_details, limit=None)
         entries = all_entries[:3]
         lines: list[str] = []
         for entry in entries:
-            lines.append(next_work_package_line(entry))
-            detail = waiting_on_detail_line(entry)
+            lines.append(next_work_package_line(entry, lang=self.lang))
+            detail = waiting_on_detail_line(entry, lang=self.lang)
             if detail:
                 lines.append(f"  {detail}")
         next_count = len(all_entries)
         if next_count > len(entries):
-            lines.append(f"+{next_count - len(entries)} more")
+            lines.append(self._remaining_line(next_count - len(entries)))
         return lines
+
+    def _label(self, key: str) -> str:
+        labels = INSPECTOR_LABELS.get(self.lang, INSPECTOR_LABELS["en"])
+        return labels.get(key, INSPECTOR_LABELS["en"][key])
+
+    def _remaining_line(self, count: int) -> str:
+        return self._label("more").format(count=count)
 
     @staticmethod
     def _provider_lines(snapshot: WorkflowNexusSnapshot) -> list[str]:

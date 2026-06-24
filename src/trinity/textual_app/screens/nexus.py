@@ -147,7 +147,7 @@ class NexusScreen(Screen[None]):
                 with Vertical(id="nexus-center-stack"):
                     yield CentralAgentView(id="central-agent", lang=self.config.lang)
                     yield QuestionPanel(id="nexus-question-panel", lang=self.config.lang)
-                yield WorkflowInspector(id="workflow-inspector")
+                yield WorkflowInspector(id="workflow-inspector", lang=self.config.lang)
             yield AgentRecipientModelSelector(
                 self.config.agents,
                 id="nexus-recipient-selector",

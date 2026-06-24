@@ -16,6 +16,47 @@ from trinity.textual_app.snapshot import ProviderSnapshot
 MAX_PRETTY_PRINT_CHARS = 200_000
 MAX_DISPLAY_CHARS = 50_000
 
+PROVIDER_INSPECTOR_LABELS = {
+    "en": {
+        "all": "All",
+        "blockers": "blockers",
+        "close": "Close",
+        "context_profile": "Context profile",
+        "mission": "Mission",
+        "modes": "Modes",
+        "no_raw_output": "No raw output captured yet.",
+        "output_contract": "Output contract",
+        "provider": "Provider",
+        "quality_signals": "Quality signals",
+        "readiness": "Readiness",
+        "required_changes": "required changes",
+        "score": "score",
+        "status": "Status",
+        "strengths": "Strengths",
+        "success": "success",
+        "title": "Provider Inspector",
+    },
+    "ko": {
+        "all": "전체",
+        "blockers": "차단",
+        "close": "닫기",
+        "context_profile": "컨텍스트 프로필",
+        "mission": "미션",
+        "modes": "모드",
+        "no_raw_output": "아직 캡처된 원본 출력이 없습니다.",
+        "output_contract": "출력 계약",
+        "provider": "프로바이더",
+        "quality_signals": "품질 신호",
+        "readiness": "준비 상태",
+        "required_changes": "변경 요청",
+        "score": "점수",
+        "status": "상태",
+        "strengths": "강점",
+        "success": "성공",
+        "title": "프로바이더 인스펙터",
+    },
+}
+
 
 class ProviderInspector(ModalScreen[None]):
     """Tabbed modal for provider raw output inspection."""
@@ -37,14 +78,18 @@ class ProviderInspector(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="provider-inspector"):
-            yield Static("Provider Inspector", id="provider-inspector-title")
+            yield Static(self._label("title"), id="provider-inspector-title")
             with TabbedContent(id="provider-inspector-tabs"):
                 for provider in self.providers:
                     with TabPane(provider.name.title(), id=f"inspect-{provider.name}"):
                         yield from self._provider_output_widgets(provider)
-                with TabPane("All", id="inspect-all"):
+                with TabPane(self._label("all"), id="inspect-all"):
                     yield self._output_area(self._all_output())
-            yield Button("Close", id="close-provider-inspector", variant="primary")
+            yield Button(
+                self._label("close"),
+                id="close-provider-inspector",
+                variant="primary",
+            )
         yield Footer()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -76,36 +121,33 @@ class ProviderInspector(ModalScreen[None]):
             provider.raw_output
             or self._read_provider_output_path(provider.raw_output_path)
             or provider.summary
-            or "No raw output captured yet."
+            or self._label("no_raw_output")
         )
         return self._format_output(output)
 
     def _provider_meta(self, provider: ProviderSnapshot) -> str:
         lines = [
             provider.name.title(),
-            f"Provider: {provider.provider}",
-            f"Status: {provider.status}",
-            f"Readiness: {provider.readiness}",
+            f"{self._label('provider')}: {provider.provider}",
+            f"{self._label('status')}: {provider.status}",
+            f"{self._label('readiness')}: {provider.readiness}",
         ]
         if provider.profile_mission:
-            lines.append(f"Mission: {provider.profile_mission}")
+            lines.append(f"{self._label('mission')}: {provider.profile_mission}")
         if provider.profile_modes:
-            lines.append(f"Modes: {', '.join(provider.profile_modes)}")
+            lines.append(f"{self._label('modes')}: {', '.join(provider.profile_modes)}")
         if provider.profile_strengths:
-            lines.append(f"Strengths: {', '.join(provider.profile_strengths)}")
-        if provider.context_profile:
-            lines.append(f"Context profile: {provider.context_profile}")
-        if provider.output_contract:
-            lines.append(f"Output contract: {provider.output_contract}")
-        if provider.quality_signal_count:
             lines.append(
-                "Quality signals: "
-                f"score {_format_score(provider.quality_score)}, "
-                f"success {provider.quality_success_count}/"
-                f"{provider.quality_signal_count}, "
-                f"blockers {provider.quality_blocker_count}, "
-                f"required changes {provider.quality_required_change_count}"
+                f"{self._label('strengths')}: {', '.join(provider.profile_strengths)}"
             )
+        if provider.context_profile:
+            lines.append(
+                f"{self._label('context_profile')}: {provider.context_profile}"
+            )
+        if provider.output_contract:
+            lines.append(f"{self._label('output_contract')}: {provider.output_contract}")
+        if provider.quality_signal_count:
+            lines.append(self._quality_signals_line(provider))
         return "\n".join(lines)
 
     def _all_output(self) -> str:
@@ -114,28 +156,43 @@ class ProviderInspector(ModalScreen[None]):
             sections.extend(
                 [
                     f"## {provider.name.title()}",
-                    f"Provider: {provider.provider}",
-                    f"Status: {provider.status}",
-                    f"Readiness: {provider.readiness}",
-                    f"Mission: {provider.profile_mission or '-'}",
-                    f"Context profile: {provider.context_profile or '-'}",
-                    f"Output contract: {provider.output_contract or '-'}",
+                    f"{self._label('provider')}: {provider.provider}",
+                    f"{self._label('status')}: {provider.status}",
+                    f"{self._label('readiness')}: {provider.readiness}",
+                    f"{self._label('mission')}: {provider.profile_mission or '-'}",
                     (
-                        "Quality signals: "
-                        f"score {_format_score(provider.quality_score)}, "
-                        f"success {provider.quality_success_count}/"
-                        f"{provider.quality_signal_count}, "
-                        f"blockers {provider.quality_blocker_count}, "
-                        "required changes "
-                        f"{provider.quality_required_change_count}"
-                    )
+                        f"{self._label('context_profile')}: "
+                        f"{provider.context_profile or '-'}"
+                    ),
+                    (
+                        f"{self._label('output_contract')}: "
+                        f"{provider.output_contract or '-'}"
+                    ),
+                    self._quality_signals_line(provider)
                     if provider.quality_signal_count
-                    else "Quality signals: -",
+                    else f"{self._label('quality_signals')}: -",
                     "",
                     self._provider_output(provider),
                 ]
             )
         return "\n\n---\n\n".join(sections)
+
+    def _quality_signals_line(self, provider: ProviderSnapshot) -> str:
+        return (
+            f"{self._label('quality_signals')}: "
+            f"{self._label('score')} {_format_score(provider.quality_score)}, "
+            f"{self._label('success')} {provider.quality_success_count}/"
+            f"{provider.quality_signal_count}, "
+            f"{self._label('blockers')} {provider.quality_blocker_count}, "
+            f"{self._label('required_changes')} "
+            f"{provider.quality_required_change_count}"
+        )
+
+    def _label(self, key: str) -> str:
+        labels = PROVIDER_INSPECTOR_LABELS.get(
+            self.lang, PROVIDER_INSPECTOR_LABELS["en"]
+        )
+        return labels.get(key, PROVIDER_INSPECTOR_LABELS["en"][key])
 
     @classmethod
     def _format_output(cls, output: str) -> str:

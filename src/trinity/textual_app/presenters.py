@@ -824,7 +824,7 @@ def snapshot_status_markdown(
     *,
     lang: str = "en",
 ) -> str:
-    state = snapshot.state or "idle"
+    state = _status_value(snapshot.state or "idle", lang=lang)
     goal = snapshot.goal or _none_value(lang)
     lines = [
         f"- {_sc_label(lang, 'workflow')}: `{snapshot.session_id or _new_workflow_value(lang)}`",
@@ -861,7 +861,7 @@ def snapshot_status_rows(
 ) -> tuple[tuple[str, str], ...]:
     rows = [
         (_sc_label(lang, "workflow"), snapshot.session_id or _new_workflow_value(lang)),
-        (_sc_label(lang, "state"), snapshot.state or "idle"),
+        (_sc_label(lang, "state"), _status_value(snapshot.state or "idle", lang=lang)),
         (_sc_label(lang, "round"), str(snapshot.round_num)),
         (_sc_label(lang, "goal"), snapshot.goal or _none_value(lang)),
     ]
@@ -1160,7 +1160,7 @@ def report_summary_rows(
 ) -> tuple[tuple[str, str], ...]:
     return (
         (_sc_label(lang, "workflow"), snapshot.session_id or _new_workflow_value(lang)),
-        (_sc_label(lang, "state"), snapshot.state or "idle"),
+        (_sc_label(lang, "state"), _status_value(snapshot.state or "idle", lang=lang)),
         (_sc_label(lang, "questions"), str(len(snapshot.questions))),
         (_sc_label(lang, "decisions"), str(len(snapshot.decisions))),
         (
@@ -1491,7 +1491,7 @@ def snapshot_workflow_markdown(
     *,
     lang: str = "en",
 ) -> str:
-    state = snapshot.state or "idle"
+    state = _status_value(snapshot.state or "idle", lang=lang)
     goal = snapshot.goal or _none_value(lang)
     lines = [
         f"- {_sc_label(lang, 'id')}: `{snapshot.session_id or _new_workflow_value(lang)}`",
@@ -1520,7 +1520,7 @@ def snapshot_workflow_rows(
 ) -> tuple[tuple[str, str], ...]:
     rows = [
         (_sc_label(lang, "id"), snapshot.session_id or _new_workflow_value(lang)),
-        (_sc_label(lang, "state"), snapshot.state or "idle"),
+        (_sc_label(lang, "state"), _status_value(snapshot.state or "idle", lang=lang)),
         (_sc_label(lang, "goal"), snapshot.goal or _none_value(lang)),
         (_sc_label(lang, "round"), str(snapshot.round_num)),
         (_sc_label(lang, "pending_questions"), str(len(snapshot.questions))),
@@ -1567,7 +1567,7 @@ def snapshot_context_markdown(
 
     lines = [
         f"- {_sc_label(lang, 'workflow')}: `{snapshot.session_id or _new_workflow_value(lang)}`",
-        f"- {_sc_label(lang, 'state')}: `{snapshot.state or 'idle'}`",
+        f"- {_sc_label(lang, 'state')}: `{_status_value(snapshot.state or 'idle', lang=lang)}`",
         f"- {_sc_label(lang, 'goal')}: {snapshot.goal or _none_value(lang)}",
         f"- {_sc_label(lang, 'round')}: `{snapshot.round_num}`",
     ]
@@ -1848,7 +1848,7 @@ def review_rows(
 ) -> tuple[tuple[str, str], ...]:
     rows: list[tuple[str, str]] = [
         (_sc_label(lang, "workflow"), snapshot.session_id or _new_workflow_value(lang)),
-        (_sc_label(lang, "state"), snapshot.state or "idle"),
+        (_sc_label(lang, "state"), _status_value(snapshot.state or "idle", lang=lang)),
         (_sc_label(lang, "work_packages"), str(len(snapshot.work_package_details))),
     ]
     pending = [
@@ -1905,7 +1905,7 @@ def improve_rows(
 ) -> tuple[tuple[str, str], ...]:
     rows: list[tuple[str, str]] = [
         (_sc_label(lang, "workflow"), snapshot.session_id or _new_workflow_value(lang)),
-        (_sc_label(lang, "state"), snapshot.state or "idle"),
+        (_sc_label(lang, "state"), _status_value(snapshot.state or "idle", lang=lang)),
         (_sc_label(lang, "supplemental_rounds"), str(snapshot.supplemental_round)),
     ]
     if not snapshot.post_review_items:
@@ -1993,7 +1993,7 @@ def history_rows(
     rows: list[tuple[str, str]] = []
     if snapshot.session_id or snapshot.goal:
         rows.append((_sc_label(lang, "workflow"), snapshot.session_id or _new_workflow_value(lang)))
-        rows.append((_sc_label(lang, "state"), snapshot.state or "idle"))
+        rows.append((_sc_label(lang, "state"), _status_value(snapshot.state or "idle", lang=lang)))
         rows.append((_sc_label(lang, "round"), str(snapshot.round_num)))
         if snapshot.goal:
             rows.append((_sc_label(lang, "goal"), snapshot.goal))
@@ -2019,7 +2019,7 @@ def history_markdown(
         return _sc_label(lang, "no_history")
     lines = [
         f"- {_sc_label(lang, 'workflow')}: `{snapshot.session_id or _new_workflow_value(lang)}`",
-        f"- {_sc_label(lang, 'state')}: `{snapshot.state or 'idle'}`",
+        f"- {_sc_label(lang, 'state')}: `{_status_value(snapshot.state or 'idle', lang=lang)}`",
         f"- {_sc_label(lang, 'round')}: `{snapshot.round_num}`",
     ]
     if snapshot.goal:
@@ -2075,7 +2075,7 @@ def resume_archives_markdown(archives: list[object], *, lang: str = "en") -> str
     for archive in archives:
         selector = str(getattr(archive, "selector", ""))
         session_id = str(getattr(archive, "session_id", ""))
-        state = str(getattr(archive, "state", ""))
+        state = _status_value(str(getattr(archive, "state", "")), lang=lang)
         goal = str(getattr(archive, "goal", "")).strip() or _sc_label(lang, "no_goal")
         lines.append(f"- `{selector}` {session_id} [{state}] {goal}")
     return "\n".join(lines)
@@ -2090,7 +2090,7 @@ def resume_archive_rows(
         (
             str(getattr(archive, "selector", "")),
             str(getattr(archive, "session_id", "")),
-            str(getattr(archive, "state", "")),
+            _status_value(str(getattr(archive, "state", "")), lang=lang),
             str(getattr(archive, "goal", "")).strip() or _sc_label(lang, "no_goal"),
         )
         for archive in archives
@@ -2104,7 +2104,7 @@ def resume_result_rows(
 ) -> tuple[tuple[str, str], ...]:
     return (
         (_sc_label(lang, "workflow"), snapshot.session_id or _new_workflow_value(lang)),
-        (_sc_label(lang, "state"), snapshot.state or "idle"),
+        (_sc_label(lang, "state"), _status_value(snapshot.state or "idle", lang=lang)),
         (_sc_label(lang, "goal"), snapshot.goal or _none_value(lang)),
         (_sc_label(lang, "round"), str(snapshot.round_num)),
     )

@@ -129,7 +129,7 @@ class WorkflowInspector(Vertical):
             "\n".join(
                 [
                     f"{self._label('id')}: {snapshot.session_id or self._label('new_workflow')}",
-                    f"{self._label('state')}: {snapshot.state}",
+                    f"{self._label('state')}: {self._status_value(snapshot.state)}",
                     f"{self._label('round')}: {snapshot.round_num}",
                 ]
             ),

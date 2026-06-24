@@ -65,6 +65,14 @@ from trinity.textual_app.presenters import (
     review_repair_rows,
     review_rows,
     review_table_columns,
+    rounds_change_action_hint,
+    rounds_current_markdown,
+    rounds_invalid_number_markdown,
+    rounds_range_error_markdown,
+    rounds_rows,
+    rounds_set_markdown,
+    rounds_title,
+    rounds_usage_action_hint,
     snapshot_context_markdown,
     save_auto_persist_markdown,
     save_title,
@@ -997,6 +1005,24 @@ def test_target_presenter_uses_korean_labels() -> None:
         ("경로", "/tmp/app"),
         ("제어 저장소 내부", "아니오"),
         ("제어 저장소 확인", "예"),
+    )
+
+
+def test_rounds_presenter_uses_korean_labels() -> None:
+    assert rounds_title(lang="ko") == "라운드"
+    assert rounds_current_markdown(3, lang="ko") == "현재 최대 라운드: `3`."
+    assert rounds_set_markdown(7, lang="ko") == (
+        "이 세션의 최대 라운드를 `7`로 설정했습니다."
+    )
+    assert rounds_invalid_number_markdown(lang="ko") == "숫자가 올바르지 않습니다."
+    assert rounds_range_error_markdown(lang="ko") == "라운드는 1에서 20 사이여야 합니다."
+    assert rounds_change_action_hint(lang="ko") == (
+        "`/rounds <1..20>`로 이 세션의 값을 변경하세요."
+    )
+    assert rounds_usage_action_hint(lang="ko") == "`/rounds <1..20>`를 사용하세요."
+    assert rounds_rows(7, lang="ko") == (
+        ("현재 최대 라운드", "7"),
+        ("허용 범위", "1..20"),
     )
 
 
@@ -3934,6 +3960,64 @@ async def test_nexus_setting_commands_show_current_tables(tmp_path) -> None:
 
         assert controller.started_prompts == []
         assert controller.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_nexus_rounds_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config, controller)
+
+    async with app.run_test(size=(120, 40)):
+        app._handle_textual_slash_command("/rounds")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/rounds"
+        assert result.title == "라운드"
+        assert result.body.startswith("현재 최대 라운드:")
+        assert result.table_columns == ("항목", "값")
+        assert ("현재 최대 라운드", str(config.max_deliberation_rounds)) in result.table_rows
+        assert ("허용 범위", "1..20") in result.table_rows
+        assert result.action_hint == "`/rounds <1..20>`로 이 세션의 값을 변경하세요."
+
+        app._handle_textual_slash_command("/rounds 7")
+
+        result = app.active_snapshot.local_commands[-1]
+        assert config.max_deliberation_rounds == 7
+        assert result.command == "/rounds"
+        assert result.title == "라운드"
+        assert result.body.startswith("이 세션의 최대 라운드를 `7`로 설정했습니다.")
+        assert ("현재 최대 라운드", "7") in result.table_rows
+
+
+@pytest.mark.asyncio
+async def test_nexus_rounds_errors_use_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)):
+        app._handle_textual_slash_command("/rounds abc")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/rounds"
+        assert result.title == "라운드"
+        assert result.body == "숫자가 올바르지 않습니다."
+        assert result.action_hint == "`/rounds <1..20>`를 사용하세요."
+        assert result.severity == "warning"
+
+        app._handle_textual_slash_command("/rounds 21")
+
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/rounds"
+        assert result.title == "라운드"
+        assert result.body == "라운드는 1에서 20 사이여야 합니다."
+        assert result.action_hint == "`/rounds <1..20>`를 사용하세요."
+        assert result.severity == "warning"
 
 
 @pytest.mark.asyncio

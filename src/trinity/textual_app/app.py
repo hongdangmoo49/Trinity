@@ -2658,16 +2658,23 @@ class TrinityTextualApp(App[None]):
         if not args:
             self._record_slash_command_result(
                 command_name,
-                "Rounds",
+                textual_presenters.rounds_title(lang=self.config.lang),
                 self._session_setting_body(
-                    f"Current max rounds: `{self.config.max_deliberation_rounds}`."
+                    textual_presenters.rounds_current_markdown(
+                        self.config.max_deliberation_rounds,
+                        lang=self.config.lang,
+                    )
                 ),
-                table_columns=("Item", "Value"),
-                table_rows=(
-                    ("Current max rounds", str(self.config.max_deliberation_rounds)),
-                    ("Allowed range", "1..20"),
+                table_columns=textual_presenters.status_table_columns(
+                    lang=self.config.lang
                 ),
-                action_hint="Use `/rounds <1..20>` to change it for this session.",
+                table_rows=textual_presenters.rounds_rows(
+                    self.config.max_deliberation_rounds,
+                    lang=self.config.lang,
+                ),
+                action_hint=textual_presenters.rounds_change_action_hint(
+                    lang=self.config.lang
+                ),
             )
             return
         try:
@@ -2675,30 +2682,36 @@ class TrinityTextualApp(App[None]):
         except ValueError:
             self._record_slash_command_result(
                 command_name,
-                "Rounds",
-                "Invalid number.",
+                textual_presenters.rounds_title(lang=self.config.lang),
+                textual_presenters.rounds_invalid_number_markdown(lang=self.config.lang),
                 severity="warning",
-                action_hint="Use `/rounds <1..20>`.",
+                action_hint=textual_presenters.rounds_usage_action_hint(
+                    lang=self.config.lang
+                ),
             )
             return
         if rounds < 1 or rounds > 20:
             self._record_slash_command_result(
                 command_name,
-                "Rounds",
-                "Rounds must be between 1 and 20.",
+                textual_presenters.rounds_title(lang=self.config.lang),
+                textual_presenters.rounds_range_error_markdown(lang=self.config.lang),
                 severity="warning",
-                action_hint="Use `/rounds <1..20>`.",
+                action_hint=textual_presenters.rounds_usage_action_hint(
+                    lang=self.config.lang
+                ),
             )
             return
         self.config.max_deliberation_rounds = rounds
         self._record_slash_command_result(
             command_name,
-            "Rounds",
-            self._session_setting_body(f"Max rounds set to `{rounds}` for this session only."),
-            table_columns=("Item", "Value"),
-            table_rows=(
-                ("Current max rounds", str(self.config.max_deliberation_rounds)),
-                ("Allowed range", "1..20"),
+            textual_presenters.rounds_title(lang=self.config.lang),
+            self._session_setting_body(
+                textual_presenters.rounds_set_markdown(rounds, lang=self.config.lang)
+            ),
+            table_columns=textual_presenters.status_table_columns(lang=self.config.lang),
+            table_rows=textual_presenters.rounds_rows(
+                self.config.max_deliberation_rounds,
+                lang=self.config.lang,
             ),
         )
 

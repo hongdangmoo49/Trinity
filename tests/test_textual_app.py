@@ -27,6 +27,14 @@ from trinity.slash_commands import COMMAND_SPECS, SESSION_ONLY_SETTING_NOTICE
 from trinity.textual_app import app as textual_app_module
 from trinity.textual_app.app import TrinityTextualApp
 from trinity.textual_app.presenters import (
+    agent_change_action_hint,
+    agent_current_settings_markdown,
+    agent_enabled_value,
+    agent_status_markdown,
+    agent_table_columns,
+    agent_title,
+    agent_unknown_markdown,
+    agent_usage_markdown,
     answer_action_hint,
     answer_title,
     answer_usage_markdown,
@@ -1024,6 +1032,24 @@ def test_rounds_presenter_uses_korean_labels() -> None:
         ("현재 최대 라운드", "7"),
         ("허용 범위", "1..20"),
     )
+
+
+def test_agent_presenter_uses_korean_labels() -> None:
+    assert agent_title(lang="ko") == "에이전트"
+    assert agent_current_settings_markdown(lang="ko") == "현재 에이전트 세션 설정입니다."
+    assert agent_change_action_hint(lang="ko") == (
+        "`/agent <name> on|off`로 에이전트 하나를 변경하세요."
+    )
+    assert agent_usage_markdown(lang="ko") == "사용법: `/agent <name> on|off`"
+    assert agent_unknown_markdown("missing", lang="ko") == (
+        "알 수 없는 에이전트: `missing`"
+    )
+    assert agent_status_markdown("claude", False, lang="ko") == (
+        "이 세션에서 에이전트 `claude`를 비활성화했습니다."
+    )
+    assert agent_table_columns(lang="ko") == ("에이전트", "활성화", "프로바이더")
+    assert agent_enabled_value(True, lang="ko") == "예"
+    assert agent_enabled_value(False, lang="ko") == "아니오"
 
 
 def test_improve_presenter_uses_korean_labels() -> None:
@@ -4017,6 +4043,73 @@ async def test_nexus_rounds_errors_use_korean_labels(tmp_path) -> None:
         assert result.title == "라운드"
         assert result.body == "라운드는 1에서 20 사이여야 합니다."
         assert result.action_hint == "`/rounds <1..20>`를 사용하세요."
+        assert result.severity == "warning"
+
+
+@pytest.mark.asyncio
+async def test_nexus_agent_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config, controller)
+
+    async with app.run_test(size=(120, 40)):
+        app._handle_textual_slash_command("/agent")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/agent"
+        assert result.title == "에이전트"
+        assert result.body.startswith("현재 에이전트 세션 설정입니다.")
+        assert result.table_columns == ("에이전트", "활성화", "프로바이더")
+        assert result.action_hint == "`/agent <name> on|off`로 에이전트 하나를 변경하세요."
+        assert any(row[0] == "claude" and row[1] == "예" for row in result.table_rows)
+
+        app._handle_textual_slash_command("/agent claude off")
+
+        result = app.active_snapshot.local_commands[-1]
+        assert config.agents["claude"].enabled is False
+        assert result.command == "/agent"
+        assert result.title == "에이전트"
+        assert result.body.startswith(
+            "이 세션에서 에이전트 `claude`를 비활성화했습니다."
+        )
+        assert any(row[0] == "claude" and row[1] == "아니오" for row in result.table_rows)
+
+
+@pytest.mark.asyncio
+async def test_nexus_agent_errors_use_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)):
+        app._handle_textual_slash_command("/agent claude")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/agent"
+        assert result.title == "에이전트"
+        assert result.body == "사용법: `/agent <name> on|off`"
+        assert result.table_columns == ("에이전트", "활성화", "프로바이더")
+        assert result.severity == "warning"
+
+        app._handle_textual_slash_command("/agent missing on")
+
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/agent"
+        assert result.title == "에이전트"
+        assert result.body == "알 수 없는 에이전트: `missing`"
+        assert result.table_columns == ("에이전트", "활성화", "프로바이더")
+        assert result.severity == "warning"
+
+        app._handle_textual_slash_command("/agent claude maybe")
+
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/agent"
+        assert result.title == "에이전트"
+        assert result.body == "사용법: `/agent <name> on|off`"
         assert result.severity == "warning"
 
 

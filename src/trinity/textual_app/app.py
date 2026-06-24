@@ -2640,11 +2640,11 @@ class TrinityTextualApp(App[None]):
     def _session_setting_body(message: str) -> str:
         return f"{message}\n\n{SESSION_ONLY_SETTING_NOTICE}"
 
-    def _agent_rows(self) -> tuple[tuple[str, str, str], ...]:
+    def _agent_rows(self, *, lang: str = "en") -> tuple[tuple[str, str, str], ...]:
         return tuple(
             (
                 name,
-                "yes" if spec.enabled else "no",
+                textual_presenters.agent_enabled_value(spec.enabled, lang=lang),
                 spec.provider.value if hasattr(spec.provider, "value") else str(spec.provider),
             )
             for name, spec in sorted(self.config.agents.items())
@@ -2723,21 +2723,31 @@ class TrinityTextualApp(App[None]):
         if not args:
             self._record_slash_command_result(
                 command_name,
-                "Agent",
-                self._session_setting_body("Current agent session settings."),
-                table_columns=("Agent", "Enabled", "Provider"),
-                table_rows=self._agent_rows(),
-                action_hint="Use `/agent <name> on|off` to change one agent.",
+                textual_presenters.agent_title(lang=self.config.lang),
+                self._session_setting_body(
+                    textual_presenters.agent_current_settings_markdown(
+                        lang=self.config.lang
+                    )
+                ),
+                table_columns=textual_presenters.agent_table_columns(
+                    lang=self.config.lang
+                ),
+                table_rows=self._agent_rows(lang=self.config.lang),
+                action_hint=textual_presenters.agent_change_action_hint(
+                    lang=self.config.lang
+                ),
             )
             return
         if len(args) < 2:
             self._record_slash_command_result(
                 command_name,
-                "Agent",
-                "Usage: `/agent <name> on|off`",
+                textual_presenters.agent_title(lang=self.config.lang),
+                textual_presenters.agent_usage_markdown(lang=self.config.lang),
                 severity="warning",
-                table_columns=("Agent", "Enabled", "Provider"),
-                table_rows=self._agent_rows(),
+                table_columns=textual_presenters.agent_table_columns(
+                    lang=self.config.lang
+                ),
+                table_rows=self._agent_rows(lang=self.config.lang),
             )
             return
         name, action = args[0].lower(), args[1].lower()
@@ -2745,31 +2755,40 @@ class TrinityTextualApp(App[None]):
         if spec is None:
             self._record_slash_command_result(
                 command_name,
-                "Agent",
-                f"Unknown agent: `{name}`",
+                textual_presenters.agent_title(lang=self.config.lang),
+                textual_presenters.agent_unknown_markdown(name, lang=self.config.lang),
                 severity="warning",
-                table_columns=("Agent", "Enabled", "Provider"),
-                table_rows=self._agent_rows(),
+                table_columns=textual_presenters.agent_table_columns(
+                    lang=self.config.lang
+                ),
+                table_rows=self._agent_rows(lang=self.config.lang),
             )
             return
         if action not in {"on", "off"}:
             self._record_slash_command_result(
                 command_name,
-                "Agent",
-                "Usage: `/agent <name> on|off`",
+                textual_presenters.agent_title(lang=self.config.lang),
+                textual_presenters.agent_usage_markdown(lang=self.config.lang),
                 severity="warning",
-                table_columns=("Agent", "Enabled", "Provider"),
-                table_rows=self._agent_rows(),
+                table_columns=textual_presenters.agent_table_columns(
+                    lang=self.config.lang
+                ),
+                table_rows=self._agent_rows(lang=self.config.lang),
             )
             return
         spec.enabled = action == "on"
-        status = "enabled" if spec.enabled else "disabled"
         self._record_slash_command_result(
             command_name,
-            "Agent",
-            self._session_setting_body(f"Agent `{name}` {status} for this session only."),
-            table_columns=("Agent", "Enabled", "Provider"),
-            table_rows=self._agent_rows(),
+            textual_presenters.agent_title(lang=self.config.lang),
+            self._session_setting_body(
+                textual_presenters.agent_status_markdown(
+                    name,
+                    spec.enabled,
+                    lang=self.config.lang,
+                )
+            ),
+            table_columns=textual_presenters.agent_table_columns(lang=self.config.lang),
+            table_rows=self._agent_rows(lang=self.config.lang),
         )
 
     def _handle_textual_caveman_command(

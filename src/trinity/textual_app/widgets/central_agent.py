@@ -13,7 +13,11 @@ from trinity.textual_app.snapshot import (
     LocalCommandSnapshot,
     WorkflowNexusSnapshot,
 )
-from trinity.textual_app.presenters import central_action_plan
+from trinity.textual_app.presenters import (
+    central_action_plan,
+    should_show_blueprint_actions,
+    should_show_repair_actions,
+)
 from trinity.textual_app.widgets.progress_summary import (
     blocked_work_packages,
     compact_wp_line,
@@ -449,6 +453,14 @@ class CentralAgentView(VerticalScroll):
                 for package in snapshot.work_package_details
             ),
         )
+
+    @staticmethod
+    def _should_show_repair_actions(snapshot: WorkflowNexusSnapshot) -> bool:
+        return should_show_repair_actions(snapshot)
+
+    @staticmethod
+    def _should_show_blueprint_actions(snapshot: WorkflowNexusSnapshot) -> bool:
+        return should_show_blueprint_actions(snapshot)
 
     def _render_blueprint_actions(self, snapshot: WorkflowNexusSnapshot) -> None:
         title = self.query_one("#central-action-title", Static)

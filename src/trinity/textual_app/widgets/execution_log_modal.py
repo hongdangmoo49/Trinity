@@ -13,14 +13,18 @@ _LABELS = {
     "ko": {
         "close": "닫기",
         "empty": "실행 로그가 아직 없습니다.",
+        "earlier_lines_hidden": "... 이전 로그 {count}줄 숨김",
         "title": "전체 실행 로그",
     },
     "en": {
         "close": "Close",
         "empty": "No execution log yet.",
+        "earlier_lines_hidden": "... {count} earlier log lines hidden",
         "title": "Full Execution Log",
     },
 }
+
+MAX_RENDERED_LOG_LINES = 500
 
 
 class ExecutionLogModal(ModalScreen[None]):
@@ -83,8 +87,20 @@ class ExecutionLogModal(ModalScreen[None]):
 
     def on_mount(self) -> None:
         log = self.query_one("#execution-log-modal-body", RichLog)
-        for line in self.lines or [self._label("empty")]:
+        for line in self._render_lines():
             log.write(line)
+
+    def _render_lines(self) -> list[str]:
+        if not self.lines:
+            return [self._label("empty")]
+        hidden_count = max(0, len(self.lines) - MAX_RENDERED_LOG_LINES)
+        visible = self.lines[-MAX_RENDERED_LOG_LINES:]
+        if hidden_count:
+            return [
+                self._label("earlier_lines_hidden").format(count=hidden_count),
+                *visible,
+            ]
+        return visible
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id != "close-execution-log":

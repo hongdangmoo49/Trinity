@@ -2158,9 +2158,9 @@ class TrinityTextualApp(App[None]):
         result = self._local_command_snapshot(
             command,
             "Status",
-            self._snapshot_status_markdown(snapshot),
-            table_columns=("Item", "Value"),
-            table_rows=self._snapshot_status_rows(snapshot),
+            self._snapshot_status_markdown(snapshot, lang=self.config.lang),
+            table_columns=textual_presenters.status_table_columns(lang=self.config.lang),
+            table_rows=self._snapshot_status_rows(snapshot, lang=self.config.lang),
         )
         self._replace_local_command_result(result)
         snapshot = self._with_local_command_results(snapshot)
@@ -2314,14 +2314,20 @@ class TrinityTextualApp(App[None]):
         self._local_command_results.append(result)
 
     @staticmethod
-    def _snapshot_status_markdown(snapshot: WorkflowNexusSnapshot) -> str:
-        return textual_presenters.snapshot_status_markdown(snapshot)
+    def _snapshot_status_markdown(
+        snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
+    ) -> str:
+        return textual_presenters.snapshot_status_markdown(snapshot, lang=lang)
 
     @staticmethod
     def _snapshot_status_rows(
         snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
     ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.snapshot_status_rows(snapshot)
+        return textual_presenters.snapshot_status_rows(snapshot, lang=lang)
 
     @staticmethod
     def _readiness_label(readiness: str) -> str:
@@ -2364,8 +2370,12 @@ class TrinityTextualApp(App[None]):
         return textual_presenters.snapshot_has_current_context(snapshot)
 
     @staticmethod
-    def _snapshot_context_markdown(snapshot: WorkflowNexusSnapshot) -> str:
-        return textual_presenters.snapshot_context_markdown(snapshot)
+    def _snapshot_context_markdown(
+        snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
+    ) -> str:
+        return textual_presenters.snapshot_context_markdown(snapshot, lang=lang)
 
     @staticmethod
     def _questions_markdown(snapshot: WorkflowNexusSnapshot) -> str:
@@ -2439,7 +2449,7 @@ class TrinityTextualApp(App[None]):
     def _handle_textual_context_command(self, command: str) -> None:
         """Show the current session context without reading stale shared.md state."""
         snapshot = self._fresh_textual_snapshot()
-        body = self._snapshot_context_markdown(snapshot)
+        body = self._snapshot_context_markdown(snapshot, lang=self.config.lang)
         if not self._snapshot_has_current_context(snapshot):
             if self.current_route == "start":
                 self.notify(
@@ -2456,7 +2466,7 @@ class TrinityTextualApp(App[None]):
         snapshot = self._with_local_command_results(snapshot)
         self.active_snapshot = snapshot
         if self.current_route == "start":
-            self.push_screen(ContextCommandModal(result))
+            self.push_screen(ContextCommandModal(result, lang=self.config.lang))
             return
         self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
 

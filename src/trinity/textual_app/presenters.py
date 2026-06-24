@@ -13,6 +13,105 @@ NO_CURRENT_CONTEXT_MESSAGE = (
     "No current session context. Start a prompt or resume a workflow first."
 )
 
+STATUS_CONTEXT_LABELS = {
+    "en": {
+        "answer": "Answer",
+        "decisions": "Decisions",
+        "done_packages": "Done packages",
+        "enabled": "Enabled",
+        "execution": "Execution",
+        "execution_log_entries": "Execution log entries",
+        "execution_recovery": "Execution Recovery",
+        "execution_recovery_none": "No interrupted execution is recorded for this workflow.",
+        "execution_results": "Execution Results",
+        "final_review": "Final Review",
+        "follow_up_requests": "Follow-up Requests",
+        "goal": "Goal",
+        "id": "ID",
+        "item": "Item",
+        "last_event": "Last event",
+        "local_policy_repairs": "Local Policy Repairs",
+        "next": "Next",
+        "no": "no",
+        "not_checked": "not checked",
+        "pending_questions": "Pending questions",
+        "post_review_action_items": "Post Review Action Items",
+        "post_review_items": "Post-review items",
+        "provider": "Provider",
+        "questions": "Questions",
+        "readiness": "Readiness",
+        "reattach_note": (
+            "Provider process reattach is not supported. Retry starts a new "
+            "one-shot execution only for interrupted, failed, or blocked packages."
+        ),
+        "retry_candidates": "Retry candidates",
+        "reviewer": "reviewer",
+        "round": "Round",
+        "run": "Run",
+        "running_packages": "Running packages",
+        "running_packages_at_exit": "Running packages at exit",
+        "state": "State",
+        "status": "Status",
+        "subtasks": "Subtasks",
+        "supplemental_rounds": "Supplemental rounds",
+        "synthesis": "Synthesis",
+        "target": "Target",
+        "value": "Value",
+        "workflow": "Workflow",
+        "workflow_history": "Workflow History",
+        "work_packages": "Work Packages",
+        "yes": "yes",
+    },
+    "ko": {
+        "answer": "답변",
+        "decisions": "결정",
+        "done_packages": "완료 WP",
+        "enabled": "활성화",
+        "execution": "실행",
+        "execution_log_entries": "실행 로그 항목",
+        "execution_recovery": "실행 복구",
+        "execution_recovery_none": "이 워크플로우에 기록된 중단 실행이 없습니다.",
+        "execution_results": "실행 결과",
+        "final_review": "최종 리뷰",
+        "follow_up_requests": "후속 요청",
+        "goal": "목표",
+        "id": "ID",
+        "item": "항목",
+        "last_event": "최근 이벤트",
+        "local_policy_repairs": "로컬 정책 복구",
+        "next": "다음",
+        "no": "아니오",
+        "not_checked": "미확인",
+        "pending_questions": "대기 중 질문",
+        "post_review_action_items": "리뷰 후 조치",
+        "post_review_items": "리뷰 후 조치",
+        "provider": "프로바이더",
+        "questions": "질문",
+        "readiness": "준비 상태",
+        "reattach_note": (
+            "프로바이더 프로세스 재연결은 지원하지 않습니다. 재시도는 중단, 실패, "
+            "차단된 작업에 대해 새 단발 실행을 시작합니다."
+        ),
+        "retry_candidates": "재시도 후보",
+        "reviewer": "리뷰어",
+        "round": "라운드",
+        "run": "실행 ID",
+        "running_packages": "실행 중 WP",
+        "running_packages_at_exit": "종료 시 실행 중 WP",
+        "state": "상태",
+        "status": "상태",
+        "subtasks": "하위 작업",
+        "supplemental_rounds": "보충 라운드",
+        "synthesis": "종합",
+        "target": "대상",
+        "value": "값",
+        "workflow": "워크플로우",
+        "workflow_history": "워크플로우 이력",
+        "work_packages": "작업 패키지",
+        "yes": "예",
+    },
+}
+
 
 @dataclass(frozen=True)
 class CentralActionButton:
@@ -237,96 +336,139 @@ def review_repair_rows(snapshot: WorkflowNexusSnapshot) -> tuple[tuple[str, str]
     return tuple(rows)
 
 
-def execution_recovery_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+def status_table_columns(*, lang: str = "en") -> tuple[str, str]:
+    return (_sc_label(lang, "item"), _sc_label(lang, "value"))
+
+
+def execution_recovery_markdown(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> str:
     recovery = snapshot.execution_recovery
     if recovery is None:
-        return "No interrupted execution is recorded for this workflow."
+        return _sc_label(lang, "execution_recovery_none")
     lines = [
-        f"- Execution: `{recovery.state}`",
-        f"- Run: `{recovery.run_id or '(unknown)'}`",
-        f"- Target: `{recovery.target_workspace or '(not set)'}`",
-        f"- Running packages at exit: `{', '.join(recovery.running_packages) or '(none)'}`",
-        f"- Retry candidates: `{', '.join(recovery.retry_candidates) or '(none)'}`",
-        f"- Done packages: `{', '.join(recovery.done_packages) or '(none)'}`",
-        f"- Last event: `{recovery.last_event or '(none)'}`",
+        f"- {_sc_label(lang, 'execution')}: `{recovery.state}`",
+        f"- {_sc_label(lang, 'run')}: `{recovery.run_id or '(unknown)'}`",
+        f"- {_sc_label(lang, 'target')}: `{recovery.target_workspace or '(not set)'}`",
+        (
+            f"- {_sc_label(lang, 'running_packages_at_exit')}: "
+            f"`{', '.join(recovery.running_packages) or '(none)'}`"
+        ),
+        f"- {_sc_label(lang, 'retry_candidates')}: "
+        f"`{', '.join(recovery.retry_candidates) or '(none)'}`",
+        f"- {_sc_label(lang, 'done_packages')}: "
+        f"`{', '.join(recovery.done_packages) or '(none)'}`",
+        f"- {_sc_label(lang, 'last_event')}: `{recovery.last_event or '(none)'}`",
         "",
-        "Provider process reattach is not supported. Retry starts a new "
-        "one-shot execution only for interrupted, failed, or blocked packages.",
+        _sc_label(lang, "reattach_note"),
     ]
     return "\n".join(lines)
 
 
-def execution_recovery_rows(snapshot: WorkflowNexusSnapshot) -> tuple[tuple[str, str], ...]:
+def execution_recovery_rows(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> tuple[tuple[str, str], ...]:
     recovery = snapshot.execution_recovery
     if recovery is None:
-        return (("Execution", "none"),)
+        return ((_sc_label(lang, "execution"), "none"),)
     return (
-        ("Execution", recovery.state),
-        ("Run", recovery.run_id or "(unknown)"),
-        ("Target", recovery.target_workspace or "(not set)"),
-        ("Running packages", ", ".join(recovery.running_packages) or "(none)"),
-        ("Retry candidates", ", ".join(recovery.retry_candidates) or "(none)"),
-        ("Done packages", ", ".join(recovery.done_packages) or "(none)"),
-        ("Last event", recovery.last_event or "(none)"),
-        ("Next", "/execute-retry | /execute mark-interrupted | /execute abort"),
+        (_sc_label(lang, "execution"), recovery.state),
+        (_sc_label(lang, "run"), recovery.run_id or "(unknown)"),
+        (_sc_label(lang, "target"), recovery.target_workspace or "(not set)"),
+        (
+            _sc_label(lang, "running_packages"),
+            ", ".join(recovery.running_packages) or "(none)",
+        ),
+        (
+            _sc_label(lang, "retry_candidates"),
+            ", ".join(recovery.retry_candidates) or "(none)",
+        ),
+        (_sc_label(lang, "done_packages"), ", ".join(recovery.done_packages) or "(none)"),
+        (_sc_label(lang, "last_event"), recovery.last_event or "(none)"),
+        (_sc_label(lang, "next"), "/execute-retry | /execute mark-interrupted | /execute abort"),
     )
 
 
-def snapshot_status_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+def snapshot_status_markdown(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> str:
     state = snapshot.state or "idle"
     goal = snapshot.goal or "(none)"
     lines = [
-        f"- Workflow: `{snapshot.session_id or '(new)'}`",
-        f"- State: `{state}`",
-        f"- Round: `{snapshot.round_num}`",
-        f"- Goal: {goal}",
+        f"- {_sc_label(lang, 'workflow')}: `{snapshot.session_id or '(new)'}`",
+        f"- {_sc_label(lang, 'state')}: `{state}`",
+        f"- {_sc_label(lang, 'round')}: `{snapshot.round_num}`",
+        f"- {_sc_label(lang, 'goal')}: {goal}",
         "",
-        "| Provider | Enabled | Status | Readiness |",
+        (
+            f"| {_sc_label(lang, 'provider')} | {_sc_label(lang, 'enabled')} "
+            f"| {_sc_label(lang, 'status')} | {_sc_label(lang, 'readiness')} |"
+        ),
         "| :--- | :--- | :--- | :--- |",
     ]
     if snapshot.providers:
         lines.extend(
             (
-                f"| {provider.name} | {'yes' if provider.enabled else 'no'} "
-                f"| {provider.status} | {readiness_label(provider.readiness)} |"
+                f"| {provider.name} | {_yes_no(provider.enabled, lang=lang)} "
+                f"| {provider.status} | {readiness_label(provider.readiness, lang=lang)} |"
             )
             for provider in snapshot.providers
         )
     else:
         lines.append("| - | - | - | - |")
     if snapshot.execution_recovery is not None:
-        lines.extend(["", "### Execution Recovery"])
-        lines.append(execution_recovery_markdown(snapshot))
+        lines.extend(["", f"### {_sc_label(lang, 'execution_recovery')}"])
+        lines.append(execution_recovery_markdown(snapshot, lang=lang))
     return "\n".join(lines)
 
 
-def snapshot_status_rows(snapshot: WorkflowNexusSnapshot) -> tuple[tuple[str, str], ...]:
+def snapshot_status_rows(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> tuple[tuple[str, str], ...]:
     rows = [
-        ("Workflow", snapshot.session_id or "(new)"),
-        ("State", snapshot.state or "idle"),
-        ("Round", str(snapshot.round_num)),
-        ("Goal", snapshot.goal or "(none)"),
+        (_sc_label(lang, "workflow"), snapshot.session_id or "(new)"),
+        (_sc_label(lang, "state"), snapshot.state or "idle"),
+        (_sc_label(lang, "round"), str(snapshot.round_num)),
+        (_sc_label(lang, "goal"), snapshot.goal or "(none)"),
     ]
     for provider in snapshot.providers:
         rows.append(
             (
-                f"Provider: {provider.name}",
+                f"{_sc_label(lang, 'provider')}: {provider.name}",
                 (
-                    f"{provider.status}; enabled="
-                    f"{'yes' if provider.enabled else 'no'}; "
-                    f"readiness={readiness_label(provider.readiness)}"
+                    f"{provider.status}; {_sc_label(lang, 'enabled').lower()}="
+                    f"{_yes_no(provider.enabled, lang=lang)}; "
+                    f"{_sc_label(lang, 'readiness').lower()}="
+                    f"{readiness_label(provider.readiness, lang=lang)}"
                 ),
             )
         )
     if snapshot.execution_recovery is not None:
-        rows.extend(execution_recovery_rows(snapshot))
+        rows.extend(execution_recovery_rows(snapshot, lang=lang))
     return tuple(rows)
 
 
-def readiness_label(readiness: str) -> str:
+def readiness_label(readiness: str, *, lang: str = "en") -> str:
     if readiness == "unknown":
-        return "not checked"
+        return _sc_label(lang, "not_checked")
     return readiness
+
+
+def _sc_label(lang: str, key: str) -> str:
+    labels = STATUS_CONTEXT_LABELS.get(lang, STATUS_CONTEXT_LABELS["en"])
+    return labels.get(key, STATUS_CONTEXT_LABELS["en"][key])
+
+
+def _yes_no(value: bool, *, lang: str = "en") -> str:
+    return _sc_label(lang, "yes" if value else "no")
 
 
 def slash_command_suggestions(token: str) -> tuple[str, ...]:
@@ -453,36 +595,43 @@ def snapshot_has_current_context(snapshot: WorkflowNexusSnapshot) -> bool:
     )
 
 
-def snapshot_context_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+def snapshot_context_markdown(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> str:
     if not snapshot_has_current_context(snapshot):
         return NO_CURRENT_CONTEXT_MESSAGE
 
     lines = [
-        f"- Workflow: `{snapshot.session_id or '(new)'}`",
-        f"- State: `{snapshot.state or 'idle'}`",
-        f"- Goal: {snapshot.goal or '(none)'}",
-        f"- Round: `{snapshot.round_num}`",
+        f"- {_sc_label(lang, 'workflow')}: `{snapshot.session_id or '(new)'}`",
+        f"- {_sc_label(lang, 'state')}: `{snapshot.state or 'idle'}`",
+        f"- {_sc_label(lang, 'goal')}: {snapshot.goal or '(none)'}",
+        f"- {_sc_label(lang, 'round')}: `{snapshot.round_num}`",
     ]
     if snapshot.synthesis.consensus_progress:
-        lines.append(f"- Synthesis: `{snapshot.synthesis.consensus_progress}`")
+        lines.append(
+            f"- {_sc_label(lang, 'synthesis')}: "
+            f"`{snapshot.synthesis.consensus_progress}`"
+        )
     if snapshot.synthesis.summary:
-        lines.extend(["", "### Synthesis", snapshot.synthesis.summary])
+        lines.extend(["", f"### {_sc_label(lang, 'synthesis')}", snapshot.synthesis.summary])
     if snapshot.questions:
-        lines.extend(["", "### Questions"])
+        lines.extend(["", f"### {_sc_label(lang, 'questions')}"])
         for question in snapshot.questions:
             status = question.status or "open"
             lines.append(f"- **{question.id}** [{status}] {question.question}")
             if question.answer:
-                lines.append(f"  - Answer: {question.answer}")
+                lines.append(f"  - {_sc_label(lang, 'answer')}: {question.answer}")
     if snapshot.decisions:
-        lines.extend(["", "### Decisions"])
+        lines.extend(["", f"### {_sc_label(lang, 'decisions')}"])
         lines.extend(f"- {item}" for item in snapshot.decisions)
     packages = snapshot.work_packages or snapshot.central_work_packages
     if packages:
-        lines.extend(["", "### Work Packages"])
+        lines.extend(["", f"### {_sc_label(lang, 'work_packages')}"])
         lines.extend(f"- {item}" for item in packages)
     if snapshot.subtasks:
-        lines.extend(["", "### Subtasks"])
+        lines.extend(["", f"### {_sc_label(lang, 'subtasks')}"])
         for subtask in snapshot.subtasks:
             summary = subtask.result_summary or subtask.objective
             lines.append(
@@ -492,33 +641,40 @@ def snapshot_context_markdown(snapshot: WorkflowNexusSnapshot) -> str:
                 f"{subtask.delegated_to or '(unknown)'}: {summary}"
             )
     if snapshot.work_package_repairs:
-        lines.extend(["", "### Local Policy Repairs"])
+        lines.extend(["", f"### {_sc_label(lang, 'local_policy_repairs')}"])
         lines.extend(f"- {item}" for item in snapshot.work_package_repairs)
     if snapshot.final_review is not None:
-        lines.extend(["", "### Final Review"])
-        lines.append(
-            f"- `{snapshot.final_review.status}` by `{snapshot.final_review.reviewer_agent}`"
-        )
+        lines.extend(["", f"### {_sc_label(lang, 'final_review')}"])
+        if lang == "ko":
+            lines.append(
+                f"- `{snapshot.final_review.status}` / "
+                f"{_sc_label(lang, 'reviewer')} `{snapshot.final_review.reviewer_agent}`"
+            )
+        else:
+            lines.append(
+                f"- `{snapshot.final_review.status}` by "
+                f"`{snapshot.final_review.reviewer_agent}`"
+            )
         if snapshot.final_review.summary:
             lines.append(f"- {snapshot.final_review.summary}")
     if snapshot.post_review_items:
-        lines.extend(["", "### Post Review Action Items"])
+        lines.extend(["", f"### {_sc_label(lang, 'post_review_action_items')}"])
         for item in snapshot.post_review_items:
             lines.append(
                 f"- **{item.id}** [{item.severity}][{item.status}] "
                 f"{item.title or item.summary}"
             )
     if snapshot.follow_up_requests:
-        lines.extend(["", "### Follow-up Requests"])
+        lines.extend(["", f"### {_sc_label(lang, 'follow_up_requests')}"])
         lines.extend(f"- {item}" for item in snapshot.follow_up_requests)
     if snapshot.workflow_events:
-        lines.extend(["", "### Workflow History"])
+        lines.extend(["", f"### {_sc_label(lang, 'workflow_history')}"])
         lines.extend(f"- {item}" for item in snapshot.workflow_events)
     extra_execution_log = [
         item for item in snapshot.execution_log if item not in snapshot.workflow_events
     ]
     if extra_execution_log:
-        lines.extend(["", "### Execution Results"])
+        lines.extend(["", f"### {_sc_label(lang, 'execution_results')}"])
         lines.extend(f"- {item}" for item in extra_execution_log)
     return "\n".join(lines)
 

@@ -33,6 +33,7 @@ from trinity.textual_app.presenters import (
     snapshot_context_markdown,
     snapshot_status_markdown,
     snapshot_status_rows,
+    status_table_columns,
 )
 from trinity.textual_app.report_export import (
     snapshot_report_markdown,
@@ -471,6 +472,14 @@ def test_status_modal_uses_korean_chrome_labels() -> None:
     assert modal._status_table_text() == "(상태 행 없음)"
 
 
+def test_context_modal_uses_korean_chrome_labels() -> None:
+    result = LocalCommandSnapshot(command="/context", title="Context", body="context")
+    modal = ContextCommandModal(result, lang="ko")
+
+    assert modal._label("title") == "현재 세션 컨텍스트"
+    assert modal._label("close") == "닫기"
+
+
 def test_local_command_modal_uses_korean_close_label() -> None:
     result = LocalCommandSnapshot(command="/workflow", title="Workflow", body="body")
     modal = LocalCommandModal(result, lang="ko")
@@ -506,6 +515,45 @@ def test_status_reports_interrupted_execution() -> None:
     assert ("Retry candidates", "WP-001, WP-003") in rows
 
 
+def test_status_presenter_uses_korean_labels() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-ko",
+        goal="상태 확인",
+        state="executing",
+        providers=[
+            ProviderSnapshot(
+                name="claude",
+                provider="claude-code",
+                enabled=True,
+                status="Queued",
+                readiness="unknown",
+            )
+        ],
+        execution_recovery=ExecutionRecoverySnapshot(
+            run_id="exec-run-test",
+            state="interrupted",
+            target_workspace="/home/user/workspace/msu",
+            running_packages=("WP-001",),
+            retry_candidates=("WP-001", "WP-003"),
+            done_packages=("WP-002",),
+            last_event="work_package_started",
+        ),
+    )
+
+    markdown = snapshot_status_markdown(snapshot, lang="ko")
+    rows = snapshot_status_rows(snapshot, lang="ko")
+
+    assert status_table_columns(lang="ko") == ("항목", "값")
+    assert "- 워크플로우: `wf-ko`" in markdown
+    assert "| 프로바이더 | 활성화 | 상태 | 준비 상태 |" in markdown
+    assert "| claude | 예 | Queued | 미확인 |" in markdown
+    assert "### 실행 복구" in markdown
+    assert "실행: `interrupted`" in markdown
+    assert ("워크플로우", "wf-ko") in rows
+    assert ("프로바이더: claude", "Queued; 활성화=예; 준비 상태=미확인") in rows
+    assert ("재시도 후보", "WP-001, WP-003") in rows
+
+
 def test_context_markdown_includes_full_workflow_history() -> None:
     snapshot = WorkflowNexusSnapshot(
         session_id="wf-history",
@@ -525,6 +573,42 @@ def test_context_markdown_includes_full_workflow_history() -> None:
     assert "- event-12" in markdown
     assert "### Execution Results" in markdown
     assert "WP-001 claude: failed - missing file" in markdown
+
+
+def test_context_markdown_uses_korean_labels() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-ko",
+        goal="컨텍스트 확인",
+        state="blueprint_ready",
+        synthesis=SynthesisSnapshot(
+            summary="현재 종합",
+            consensus_progress="blueprint ready",
+        ),
+        questions=[
+            QuestionSnapshot(
+                id="q1",
+                question="진행할까요?",
+                answer="네",
+                status="answered",
+            )
+        ],
+        decisions=["결정 A"],
+        work_packages=["WP-001 codex"],
+        workflow_events=["event-1"],
+        execution_log=["event-1", "WP-001 codex: done"],
+    )
+
+    markdown = snapshot_context_markdown(snapshot, lang="ko")
+
+    assert "- 워크플로우: `wf-ko`" in markdown
+    assert "- 상태: `blueprint_ready`" in markdown
+    assert "### 종합" in markdown
+    assert "### 질문" in markdown
+    assert "  - 답변: 네" in markdown
+    assert "### 결정" in markdown
+    assert "### 작업 패키지" in markdown
+    assert "### 워크플로우 이력" in markdown
+    assert "### 실행 결과" in markdown
 
 
 def test_model_discovery_applies_fast_provider_before_slow_provider(
@@ -2015,6 +2099,11 @@ async def test_start_slash_status_uses_korean_modal_chrome(tmp_path) -> None:
             app.screen.query_one("#status-command-body", Static).content
         )
         assert str(app.screen.query_one("#close-status-command", Button).label) == "닫기"
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.local_commands[-1].table_columns == ("항목", "값")
+        assert ("상태", "idle") in app.active_snapshot.local_commands[-1].table_rows
+        table_text = str(app.screen.query_one("#status-command-table", Static).render())
+        assert "워크플로우" in table_text
 
 
 @pytest.mark.asyncio
@@ -2099,6 +2188,44 @@ async def test_start_slash_context_with_current_snapshot_shows_modal(tmp_path) -
         assert "Current session goal" in app.active_snapshot.local_commands[-1].body
         body = app.screen.query_one("#context-command-body", Markdown)
         assert body is not None
+
+
+@pytest.mark.asyncio
+async def test_start_slash_context_uses_korean_modal_and_body(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-current",
+            goal="현재 세션 목표",
+            state="blueprint_ready",
+            synthesis=SynthesisSnapshot(
+                summary="현재 세션 요약.",
+                consensus_progress="blueprint ready",
+            ),
+        )
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/context ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ContextCommandModal)
+        assert str(app.screen.query_one("#context-command-title", Static).content) == (
+            "현재 세션 컨텍스트"
+        )
+        assert str(app.screen.query_one("#close-context-command", Button).label) == "닫기"
+        assert app.active_snapshot is not None
+        body = app.active_snapshot.local_commands[-1].body
+        assert "- 워크플로우: `wf-current`" in body
+        assert "### 종합" in body
 
 
 @pytest.mark.asyncio

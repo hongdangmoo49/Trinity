@@ -124,6 +124,7 @@ STATUS_CONTEXT_LABELS = {
         "no_predefined_options": "This question has no predefined options.",
         "no_subtasks": "No provider delegation subtasks recorded in the current session.",
         "no_goal": "(no goal)",
+        "new_workflow": "(new)",
         "not_set": "(not set)",
         "not_checked": "not checked",
         "options": "Options",
@@ -349,6 +350,7 @@ STATUS_CONTEXT_LABELS = {
         "no_predefined_options": "이 질문에는 미리 정의된 선택지가 없습니다.",
         "no_subtasks": "현재 세션에 기록된 프로바이더 위임 하위 작업이 없습니다.",
         "no_goal": "(목표 없음)",
+        "new_workflow": "(새 워크플로우)",
         "not_set": "(미설정)",
         "not_checked": "미확인",
         "options": "선택지",
@@ -724,17 +726,17 @@ def execution_recovery_markdown(
         return _sc_label(lang, "execution_recovery_none")
     lines = [
         f"- {_sc_label(lang, 'execution')}: `{recovery.state}`",
-        f"- {_sc_label(lang, 'run')}: `{recovery.run_id or '(unknown)'}`",
-        f"- {_sc_label(lang, 'target')}: `{recovery.target_workspace or '(not set)'}`",
+        f"- {_sc_label(lang, 'run')}: `{recovery.run_id or _unknown_value(lang)}`",
+        f"- {_sc_label(lang, 'target')}: `{recovery.target_workspace or _not_set_value(lang)}`",
         (
             f"- {_sc_label(lang, 'running_packages_at_exit')}: "
-            f"`{', '.join(recovery.running_packages) or '(none)'}`"
+            f"`{', '.join(recovery.running_packages) or _none_value(lang)}`"
         ),
         f"- {_sc_label(lang, 'retry_candidates')}: "
-        f"`{', '.join(recovery.retry_candidates) or '(none)'}`",
+        f"`{', '.join(recovery.retry_candidates) or _none_value(lang)}`",
         f"- {_sc_label(lang, 'done_packages')}: "
-        f"`{', '.join(recovery.done_packages) or '(none)'}`",
-        f"- {_sc_label(lang, 'last_event')}: `{recovery.last_event or '(none)'}`",
+        f"`{', '.join(recovery.done_packages) or _none_value(lang)}`",
+        f"- {_sc_label(lang, 'last_event')}: `{recovery.last_event or _none_value(lang)}`",
         "",
         _sc_label(lang, "reattach_note"),
     ]
@@ -748,21 +750,24 @@ def execution_recovery_rows(
 ) -> tuple[tuple[str, str], ...]:
     recovery = snapshot.execution_recovery
     if recovery is None:
-        return ((_sc_label(lang, "execution"), "none"),)
+        return ((_sc_label(lang, "execution"), _none_value(lang)),)
     return (
         (_sc_label(lang, "execution"), recovery.state),
-        (_sc_label(lang, "run"), recovery.run_id or "(unknown)"),
-        (_sc_label(lang, "target"), recovery.target_workspace or "(not set)"),
+        (_sc_label(lang, "run"), recovery.run_id or _unknown_value(lang)),
+        (_sc_label(lang, "target"), recovery.target_workspace or _not_set_value(lang)),
         (
             _sc_label(lang, "running_packages"),
-            ", ".join(recovery.running_packages) or "(none)",
+            ", ".join(recovery.running_packages) or _none_value(lang),
         ),
         (
             _sc_label(lang, "retry_candidates"),
-            ", ".join(recovery.retry_candidates) or "(none)",
+            ", ".join(recovery.retry_candidates) or _none_value(lang),
         ),
-        (_sc_label(lang, "done_packages"), ", ".join(recovery.done_packages) or "(none)"),
-        (_sc_label(lang, "last_event"), recovery.last_event or "(none)"),
+        (
+            _sc_label(lang, "done_packages"),
+            ", ".join(recovery.done_packages) or _none_value(lang),
+        ),
+        (_sc_label(lang, "last_event"), recovery.last_event or _none_value(lang)),
         (_sc_label(lang, "next"), _sc_label(lang, "execute_recovery_hint")),
     )
 
@@ -805,9 +810,9 @@ def snapshot_status_markdown(
     lang: str = "en",
 ) -> str:
     state = snapshot.state or "idle"
-    goal = snapshot.goal or "(none)"
+    goal = snapshot.goal or _none_value(lang)
     lines = [
-        f"- {_sc_label(lang, 'workflow')}: `{snapshot.session_id or '(new)'}`",
+        f"- {_sc_label(lang, 'workflow')}: `{snapshot.session_id or _new_workflow_value(lang)}`",
         f"- {_sc_label(lang, 'state')}: `{state}`",
         f"- {_sc_label(lang, 'round')}: `{snapshot.round_num}`",
         f"- {_sc_label(lang, 'goal')}: {goal}",
@@ -840,10 +845,10 @@ def snapshot_status_rows(
     lang: str = "en",
 ) -> tuple[tuple[str, str], ...]:
     rows = [
-        (_sc_label(lang, "workflow"), snapshot.session_id or "(new)"),
+        (_sc_label(lang, "workflow"), snapshot.session_id or _new_workflow_value(lang)),
         (_sc_label(lang, "state"), snapshot.state or "idle"),
         (_sc_label(lang, "round"), str(snapshot.round_num)),
-        (_sc_label(lang, "goal"), snapshot.goal or "(none)"),
+        (_sc_label(lang, "goal"), snapshot.goal or _none_value(lang)),
     ]
     for provider in snapshot.providers:
         rows.append(
@@ -997,6 +1002,22 @@ WORKFLOW_OUTCOME_FRAGMENT_REPLACEMENTS_KO = (
 def _sc_label(lang: str, key: str) -> str:
     labels = STATUS_CONTEXT_LABELS.get(lang, STATUS_CONTEXT_LABELS["en"])
     return labels.get(key, STATUS_CONTEXT_LABELS["en"][key])
+
+
+def _none_value(lang: str = "en") -> str:
+    return _sc_label(lang, "none")
+
+
+def _unknown_value(lang: str = "en") -> str:
+    return _sc_label(lang, "unknown")
+
+
+def _not_set_value(lang: str = "en") -> str:
+    return _sc_label(lang, "not_set")
+
+
+def _new_workflow_value(lang: str = "en") -> str:
+    return _sc_label(lang, "new_workflow")
 
 
 def workflow_outcome_message_markdown(message: str, *, lang: str = "en") -> str:

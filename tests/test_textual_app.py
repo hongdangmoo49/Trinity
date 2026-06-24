@@ -706,6 +706,32 @@ def test_status_presenter_uses_korean_labels() -> None:
     assert ("재시도 후보", "WP-001, WP-003") in rows
 
 
+def test_status_presenter_uses_korean_placeholder_values() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        execution_recovery=ExecutionRecoverySnapshot(),
+    )
+
+    markdown = snapshot_status_markdown(snapshot, lang="ko")
+    rows = snapshot_status_rows(snapshot, lang="ko")
+
+    assert "- 워크플로우: `(새 워크플로우)`" in markdown
+    assert "- 목표: (없음)" in markdown
+    assert "- 실행 ID: `(알 수 없음)`" in markdown
+    assert "- 대상: `(미설정)`" in markdown
+    assert "- 종료 시 실행 중 WP: `(없음)`" in markdown
+    assert "- 재시도 후보: `(없음)`" in markdown
+    assert "- 완료 WP: `(없음)`" in markdown
+    assert "- 최근 이벤트: `(없음)`" in markdown
+    assert ("워크플로우", "(새 워크플로우)") in rows
+    assert ("목표", "(없음)") in rows
+    assert ("실행 ID", "(알 수 없음)") in rows
+    assert ("대상", "(미설정)") in rows
+    assert ("실행 중 WP", "(없음)") in rows
+    assert ("재시도 후보", "(없음)") in rows
+    assert ("완료 WP", "(없음)") in rows
+    assert ("최근 이벤트", "(없음)") in rows
+
+
 def test_context_markdown_includes_full_workflow_history() -> None:
     snapshot = WorkflowNexusSnapshot(
         session_id="wf-history",
@@ -2632,12 +2658,50 @@ def test_snapshot_report_markdown_uses_korean_labels() -> None:
     assert "상태: done; 담당 codex; 실행자 codex; 레인 직렬" in md
     assert "라우팅: 종류 implementation; 프로필 default\\-v1; 점수 0\\.95" in md
     assert (
-        "리뷰: peer 없음; 리뷰어 \\(none\\); 이유 only codex is active; "
+        "리뷰: peer 없음; 리뷰어 \\(없음\\); 이유 only codex is active; "
         "no non\\-owner peer reviewer is available"
     ) in md
     assert "## 실행 로그" in md
     assert "## 실행 복구" in md
     assert "## 미해결 질문" in md
+
+
+def test_snapshot_report_markdown_uses_korean_placeholder_values() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        providers=[
+            ProviderSnapshot(
+                name="codex",
+                provider="codex",
+                enabled=True,
+                status="",
+            )
+        ],
+        agent_quality=[AgentQualitySnapshot(agent_name="")],
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="",
+                title="",
+                owner_agent="",
+                status="",
+            )
+        ],
+        execution_recovery=ExecutionRecoverySnapshot(),
+    )
+
+    md = snapshot_report_markdown(snapshot, lang="ko")
+
+    assert "**세션**: \\(없음\\)" in md
+    assert "**목표**: \\(없음\\)" in md
+    assert "컨텍스트 \\(알 수 없음\\) (\\(알 수 없음\\)); 세션 \\(없음\\)" in md
+    assert "- **\\(알 수 없음\\)**: 점수 0; 성공 0/0; 차단 0; 변경 요청 0" in md
+    assert "- **\\(이름 없음\\)** \\(제목 없음\\)" in md
+    assert "상태: \\(알 수 없음\\); 담당 \\(알 수 없음\\); 실행자 \\(없음\\)" in md
+    assert "- 실행 ID: \\(알 수 없음\\)" in md
+    assert "- 대상: \\(미설정\\)" in md
+    assert "- 실행 중 WP: \\(없음\\)" in md
+    assert "- 재시도 후보: \\(없음\\)" in md
+    assert "- 완료 WP: \\(없음\\)" in md
+    assert "- 최근 이벤트: \\(없음\\)" in md
 
 
 def test_central_agent_view_localizes_korean_status_values() -> None:

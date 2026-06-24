@@ -4,11 +4,13 @@ from pathlib import Path
 
 import pytest
 from textual.app import App
-from textual.widgets import DirectoryTree, Input, Static
+from textual.widgets import Button, DirectoryTree, Input, Static
 
 from trinity.textual_app.widgets import workspace_picker as workspace_picker_module
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.workspace_picker import (
+    CreateMissingDirectoryPrompt,
+    FolderNamePrompt,
     WorkspacePicker,
     build_preflight,
     default_workspace_tree_root,
@@ -68,6 +70,19 @@ def test_build_preflight_respects_creatable_override(tmp_path) -> None:
     assert "Create supported" not in preflight.render()
 
 
+def test_workspace_preflight_render_uses_korean_labels(tmp_path) -> None:
+    preflight = build_preflight(tmp_path / "new-app", WorkflowNexusSnapshot())
+
+    rendered = preflight.render(lang="ko")
+
+    assert f"경로: {tmp_path / 'new-app'}" in rendered
+    assert "존재: False" in rendered
+    assert "생성 가능: True" in rendered
+    assert "변경사항: 알 수 없음" in rendered
+    assert "프로바이더 준비: 현재 세션 스냅샷" in rendered
+    assert "작업 패키지: 0" in rendered
+
+
 def test_build_preflight_supports_nested_missing_directories(tmp_path) -> None:
     preflight = build_preflight(tmp_path / "new-app" / "src", WorkflowNexusSnapshot())
 
@@ -125,6 +140,92 @@ def test_default_workspace_tree_root_uses_control_repo_parent(tmp_path) -> None:
     control_repo = tmp_path / "Trinity"
 
     assert default_workspace_tree_root(control_repo) == tmp_path
+
+
+@pytest.mark.asyncio
+async def test_workspace_picker_uses_korean_labels(tmp_path) -> None:
+    control_repo = tmp_path / "Trinity"
+    selected_workspace = tmp_path / "customer-app"
+    control_repo.mkdir()
+    selected_workspace.mkdir()
+
+    picker = WorkspacePicker(
+        candidate=selected_workspace,
+        snapshot=WorkflowNexusSnapshot(work_packages=["WP-001 codex: UI"]),
+        cwd=control_repo,
+        tree_root=tmp_path,
+        lang="ko",
+    )
+    app = WorkspacePickerHarness()
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.push_screen(picker)
+        await pilot.pause(0.25)
+
+        assert str(picker.query_one("#workspace-picker-title", Static).content) == (
+            "실행 전 확인"
+        )
+        assert picker.query_one("#workspace-path-input", Input).placeholder == (
+            "작업 폴더 경로"
+        )
+        assert str(picker.query_one("#new-workspace-folder", Button).label) == "새 폴더"
+        assert str(picker.query_one("#cancel-execute", Button).label) == "취소"
+        assert str(picker.query_one("#confirm-execute", Button).label) == "실행 확인"
+        assert "경로:" in str(picker.query_one("#workspace-preflight", Static).content)
+
+    select_picker = WorkspacePicker(
+        candidate=selected_workspace,
+        snapshot=WorkflowNexusSnapshot(),
+        cwd=control_repo,
+        tree_root=tmp_path,
+        intent="select",
+        lang="ko",
+    )
+    assert select_picker._title() == "작업 폴더 선택"
+    assert select_picker._confirm_label() == "작업 폴더 사용"
+
+
+@pytest.mark.asyncio
+async def test_workspace_folder_prompts_use_korean_labels(tmp_path) -> None:
+    app = WorkspacePickerHarness()
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.push_screen(FolderNamePrompt(tmp_path, lang="ko"))
+        await pilot.pause()
+
+        assert str(app.screen.query_one("#workspace-create-title", Static).content) == (
+            "새 폴더"
+        )
+        assert str(app.screen.query_one("#workspace-create-copy", Static).content) == (
+            f"상위 폴더: {tmp_path}"
+        )
+        assert app.screen.query_one("#workspace-folder-name", Input).placeholder == (
+            "폴더 이름"
+        )
+        assert str(app.screen.query_one("#cancel-folder-name", Button).label) == "취소"
+        assert str(app.screen.query_one("#confirm-folder-name", Button).label) == (
+            "폴더 사용"
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_missing_directory_prompt_uses_korean_labels() -> None:
+    app = WorkspacePickerHarness()
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.push_screen(CreateMissingDirectoryPrompt(lang="ko"))
+        await pilot.pause()
+
+        assert str(app.screen.query_one("#workspace-create-title", Static).content) == (
+            "디렉터리 생성을 활성화할까요?"
+        )
+        assert str(app.screen.query_one("#workspace-create-copy", Static).content) == (
+            "선택한 경로는 현재 생성 가능으로 표시되어 있지 않습니다."
+        )
+        assert str(app.screen.query_one("#cancel-create-folder", Button).label) == "취소"
+        assert str(app.screen.query_one("#enable-create-folder", Button).label) == (
+            "활성화"
+        )
 
 
 @pytest.mark.asyncio
@@ -288,6 +389,44 @@ async def test_workspace_picker_new_folder_blocks_unwritable_base(
         status = picker.query_one("#workspace-picker-status", Static)
         assert "Cannot create folders under" in str(status.content)
         assert isinstance(app.screen, WorkspacePicker)
+
+
+@pytest.mark.asyncio
+async def test_workspace_picker_uses_korean_status_messages(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    control_repo = tmp_path / "Trinity"
+    control_repo.mkdir()
+
+    picker = WorkspacePicker(
+        candidate=control_repo,
+        snapshot=WorkflowNexusSnapshot(),
+        cwd=control_repo,
+        tree_root=tmp_path,
+        lang="ko",
+    )
+    app = WorkspacePickerHarness()
+    monkeypatch.setattr(
+        workspace_picker_module,
+        "_directory_accepts_child_creation",
+        lambda directory: False,
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.push_screen(picker)
+        await pilot.pause()
+
+        picker.action_new_folder()
+        await pilot.pause()
+
+        status = picker.query_one("#workspace-picker-status", Static)
+        assert "폴더를 만들 수 없습니다" in str(status.content)
+
+        picker._on_folder_name_submitted("../nope")
+        await pilot.pause()
+
+        assert "폴더 이름 하나만 입력하세요." in str(status.content)
 
 
 @pytest.mark.asyncio

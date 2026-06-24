@@ -27,34 +27,44 @@ INSPECTOR_LABELS = {
         "blocked": "Blocked",
         "current": "Current",
         "decisions": "Decisions",
+        "context": "context",
+        "default": "default",
         "empty": "(none)",
         "execution_log": "Execution Log",
         "id": "ID",
         "more": "+{count} more",
+        "new_workflow": "(new)",
         "next": "Next",
         "post_review": "Post Review",
         "progress": "Progress",
         "providers": "Providers",
         "questions": "Questions",
         "round": "Round",
+        "session": "session",
         "state": "State",
+        "unknown": "unknown",
         "workflow": "Workflow",
     },
     "ko": {
         "blocked": "차단",
         "current": "현재",
         "decisions": "결정",
+        "context": "컨텍스트",
+        "default": "기본값",
         "empty": "(없음)",
         "execution_log": "실행 로그",
         "id": "ID",
         "more": "외 {count}개",
+        "new_workflow": "(새 워크플로우)",
         "next": "다음",
         "post_review": "사후 리뷰",
         "progress": "진행",
         "providers": "프로바이더",
         "questions": "질문",
         "round": "라운드",
+        "session": "세션",
         "state": "상태",
+        "unknown": "알 수 없음",
         "workflow": "워크플로우",
     },
 }
@@ -117,7 +127,7 @@ class WorkflowInspector(Vertical):
             "#inspector-workflow",
             "\n".join(
                 [
-                    f"{self._label('id')}: {snapshot.session_id or '(new)'}",
+                    f"{self._label('id')}: {snapshot.session_id or self._label('new_workflow')}",
                     f"{self._label('state')}: {snapshot.state}",
                     f"{self._label('round')}: {snapshot.round_num}",
                 ]
@@ -215,8 +225,7 @@ class WorkflowInspector(Vertical):
     def _remaining_line(self, count: int) -> str:
         return self._label("more").format(count=count)
 
-    @staticmethod
-    def _provider_lines(snapshot: WorkflowNexusSnapshot) -> list[str]:
+    def _provider_lines(self, snapshot: WorkflowNexusSnapshot) -> list[str]:
         lines: list[str] = []
         for provider in snapshot.providers:
             if not provider.enabled:
@@ -225,16 +234,17 @@ class WorkflowInspector(Vertical):
             context = (
                 f"{provider.context_window:,}"
                 if provider.context_window > 0
-                else "unknown"
+                else self._label("unknown")
             )
             session = (
                 provider.session_id[:12]
                 if provider.session_id
-                else "none"
+                else self._label("empty").strip("()")
             )
-            source = provider.budget_source or "unknown"
+            source = provider.budget_source or self._label("unknown")
             lines.append(
-                f"{provider.name}: {model or 'default'}; context {context} "
-                f"({source}); session {session}"
+                f"{provider.name}: {model or self._label('default')}; "
+                f"{self._label('context')} {context} "
+                f"({source}); {self._label('session')} {session}"
             )
         return lines

@@ -1808,6 +1808,99 @@ async def test_report_screen_uses_korean_chrome_labels(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_report_screen_snapshot_uses_korean_body_labels(tmp_path) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-ko-report",
+        goal="한국어 본문",
+        state="blueprint_ready",
+        synthesis=SynthesisSnapshot(
+            summary="합의 요약",
+            consensus_progress="blueprint ready",
+            source="central",
+        ),
+        decisions=["결정 기록"],
+        providers=[
+            ProviderSnapshot(
+                name="codex",
+                provider="codex-cli",
+                enabled=True,
+                status="Ready",
+                actual_model="gpt-5.5",
+                context_window=272000,
+                budget_source="local_cli_cache",
+                session_id="019ea9e3-426f",
+                profile_modes=["execute", "review"],
+                context_profile="implementer",
+                output_contract="execution_v1",
+                profile_strengths=["implementation"],
+            )
+        ],
+        agent_quality=[
+            AgentQualitySnapshot(
+                agent_name="codex",
+                signal_count=3,
+                success_count=2,
+                blocker_count=1,
+                required_change_count=4,
+                score=0.667,
+            )
+        ],
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Execution UI",
+                owner_agent="codex",
+                status="running",
+                current_executor="codex",
+                task_kind="implementation",
+                routing_reason="implementation strength 0.95",
+                routing_score=111.0,
+                profile_revision="default-v1",
+                parallel_group=1,
+            )
+        ],
+        questions=[
+            QuestionSnapshot(
+                id="q-1",
+                question="계속할까요?",
+                options=["예", "아니오"],
+                recommended_option="예",
+            )
+        ],
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        workflow_controller=FakeWorkflowController(snapshot),
+    )
+    app.active_snapshot = snapshot
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("report")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, ReportScreen)
+        body = screen.query_one("#report-body")
+        rendered = "\n".join(str(child.render()) for child in body.children)
+
+    assert "개요" in rendered
+    assert "세션" in rendered
+    assert "목표" in rendered
+    assert "프로바이더" in rendered
+    assert "컨텍스트 272,000" in rendered
+    assert "프로필 implementer" in rendered
+    assert "자문 에이전트 품질" in rendered
+    assert "점수 0.667" in rendered
+    assert "변경 요청 4" in rendered
+    assert "작업 패키지 라우팅" in rendered
+    assert "소유자 codex" in rendered
+    assert "종류 implementation" in rendered
+    assert "이유: implementation strength 0.95" in rendered
+    assert "열린 질문" in rendered
+    assert "예 (추천)" in rendered
+
+
+@pytest.mark.asyncio
 async def test_report_screen_escapes_snapshot_markup(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

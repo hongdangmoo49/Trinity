@@ -4008,6 +4008,103 @@ async def test_execution_matrix_80_columns_keeps_review_risk_and_spec_visible(
 
 
 @pytest.mark.asyncio
+async def test_execution_matrix_viewport_qa_matrix_with_long_workspace(
+    tmp_path,
+) -> None:
+    target = (
+        tmp_path
+        / "workspace"
+        / "very-long-project-name-for-terminal-qa"
+        / "nested-package"
+    )
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-viewport-qa",
+        state="executing",
+        target_workspace=str(target),
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Parallel implementation lane with a deliberately long title",
+                owner_agent="codex",
+                current_executor="codex",
+                status="running",
+                review_status="queued",
+                reviewer_agent="antigravity",
+                risk="medium",
+                parallel_group=1,
+            ),
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="Blocked repair follow-up lane",
+                owner_agent="claude",
+                status="blocked",
+                risk="high",
+                parallel_group=2,
+                parallelizable=False,
+                retryable=True,
+                repair_blocked_reason="duplicate_required_changes",
+            ),
+        ],
+        execution_log=[f"event-{index}" for index in range(1, 14)],
+        execution_recovery=ExecutionRecoverySnapshot(
+            run_id="exec-run-viewport-qa",
+            state="running",
+            retry_candidates=("WP-002",),
+            target_workspace=str(target),
+        ),
+    )
+
+    for width, height in ((80, 24), (100, 30), (120, 40)):
+        config = TrinityConfig.default_config(project_dir=tmp_path)
+        config.lang = "ko"
+        app = TrinityTextualApp(config)
+
+        async with app.run_test(size=(width, height)) as pilot:
+            app.switch_to("execution")
+            await pilot.pause()
+            screen = app.screen
+            assert isinstance(screen, ExecutionMatrixScreen)
+            screen.apply_execution_state(None, snapshot)
+            await pilot.pause()
+
+            summary = str(screen.query_one("#execution-summary", Static).content)
+            assert "lanes 1" in summary
+            assert "serial 1" in summary
+            assert "retry 1" in summary
+
+            for selector in (
+                "#toggle-task-expanded",
+                "#toggle-activity-expanded",
+                "#execution-retry",
+            ):
+                widget = screen.query_one(selector, Button)
+                assert widget.region.x + widget.region.width <= width
+
+            rows = list(screen.query("#execution-package-list .execution-package-row"))
+            assert len(rows) == 2
+            assert "review: agy queued" in _widget_tree_text(rows[0])
+            assert "risk: medium g1" in _widget_tree_text(rows[0])
+            assert "risk: high serial" in _widget_tree_text(rows[1])
+
+            blocked_button = screen.query_one("#wp-detail-1", Button)
+            assert str(blocked_button.label) == "Blocked"
+            assert blocked_button.region.x + blocked_button.region.width <= width
+
+            for row in rows:
+                for widget in row.query(
+                    ".execution-package-review, "
+                    ".execution-package-risk, "
+                    ".execution-package-spec"
+                ):
+                    assert widget.region.x + widget.region.width <= width
+
+            activity_lines = screen._activity_lines()
+            assert activity_lines[0] == "Activity"
+            assert len(activity_lines) <= 9
+            assert "event-13" in activity_lines
+
+
+@pytest.mark.asyncio
 async def test_execution_matrix_surfaces_skipped_review_reason(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

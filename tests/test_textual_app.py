@@ -80,6 +80,17 @@ from trinity.textual_app.presenters import (
     review_repair_rows,
     review_rows,
     review_table_columns,
+    resume_archive_rows,
+    resume_archive_table_columns,
+    resume_archives_markdown,
+    resume_cancel_action_hint,
+    resume_cancelled_markdown,
+    resume_no_saved_action_hint,
+    resume_no_saved_markdown,
+    resume_pick_action_hint,
+    resume_result_rows,
+    resume_result_table_columns,
+    resume_title,
     rounds_change_action_hint,
     rounds_current_markdown,
     rounds_invalid_number_markdown,
@@ -1080,6 +1091,52 @@ def test_caveman_presenter_uses_korean_labels() -> None:
         ("모드", "on"),
         ("강도", "lite"),
         ("허용값", "on, off, lite, full, ultra"),
+    )
+
+
+def test_resume_presenter_uses_korean_labels() -> None:
+    archives = [
+        TextualWorkflowArchiveOption(
+            selector="1",
+            session_id="wf-1",
+            state="done",
+            goal="",
+            updated_at=1.0,
+        )
+    ]
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-resumed",
+        state="blueprint_ready",
+        goal="게임 만들기",
+        round_num=2,
+    )
+
+    assert resume_title(lang="ko") == "재개"
+    assert resume_no_saved_markdown(lang="ko") == "재개할 저장된 워크플로우가 없습니다."
+    assert resume_no_saved_action_hint(lang="ko").startswith("`/resume`을 사용하려면")
+    assert resume_archives_markdown(archives, lang="ko").splitlines()[0] == (
+        "재개할 수 있는 저장된 워크플로우가 있습니다."
+    )
+    assert resume_archive_table_columns(lang="ko") == (
+        "선택자",
+        "워크플로우",
+        "상태",
+        "목표",
+    )
+    assert resume_archive_rows(archives, lang="ko") == (
+        ("1", "wf-1", "done", "(목표 없음)"),
+    )
+    assert resume_pick_action_hint(lang="ko") == (
+        "재개 모달에서 워크플로우를 선택하세요."
+    )
+    assert resume_cancelled_markdown(lang="ko") == "재개 선택을 취소했습니다."
+    assert resume_cancel_action_hint(lang="ko").startswith("보관된 워크플로우")
+    assert resume_result_table_columns(lang="ko") == ("항목", "값")
+    assert resume_result_rows(snapshot, lang="ko") == (
+        ("워크플로우", "wf-resumed"),
+        ("상태", "blueprint_ready"),
+        ("목표", "게임 만들기"),
+        ("라운드", "2"),
     )
 
 
@@ -4806,6 +4863,93 @@ async def test_nexus_slash_resume_picker_cancel_records_result(tmp_path) -> None
         assert result.command == "/resume"
         assert "cancelled" in result.body
         assert result.empty is True
+
+
+@pytest.mark.asyncio
+async def test_nexus_resume_without_archives_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)):
+        app._handle_textual_slash_command("/resume")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/resume"
+        assert result.title == "재개"
+        assert result.body == "재개할 저장된 워크플로우가 없습니다."
+        assert result.action_hint == (
+            "`/resume`을 사용하려면 먼저 워크플로우를 시작하고 보관하세요."
+        )
+        assert result.empty is True
+
+
+@pytest.mark.asyncio
+async def test_nexus_resume_archive_picker_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    controller.resume_options = [
+        TextualWorkflowArchiveOption(
+            selector="1",
+            session_id="wf-archived",
+            goal="",
+            state="blueprint_ready",
+            updated_at=1000.0,
+        )
+    ]
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app._handle_textual_slash_command("/resume")
+        await pilot.pause()
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/resume"
+        assert result.title == "재개"
+        assert result.body.startswith("재개할 수 있는 저장된 워크플로우")
+        assert result.table_columns == ("선택자", "워크플로우", "상태", "목표")
+        assert result.table_rows[0] == ("1", "wf-archived", "blueprint_ready", "(목표 없음)")
+        assert result.action_hint == "재개 모달에서 워크플로우를 선택하세요."
+        assert isinstance(app.screen, ResumeWorkflowPicker)
+
+        app.screen.query_one("#cancel-resume-picker", Button).press()
+        await pilot.pause()
+
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/resume"
+        assert result.title == "재개"
+        assert result.body == "재개 선택을 취소했습니다."
+        assert result.action_hint == (
+            "보관된 워크플로우를 선택하려면 `/resume`을 다시 실행하세요."
+        )
+
+
+@pytest.mark.asyncio
+async def test_nexus_resume_success_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app._handle_textual_slash_command("/resume latest")
+        await pilot.pause()
+
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.session_id == "wf-resumed-latest"
+        result = _local_command(app.active_snapshot, "/resume")
+        assert result.title == "재개"
+        assert result.table_columns == ("항목", "값")
+        assert ("워크플로우", "wf-resumed-latest") in result.table_rows
+        assert ("상태", "blueprint_ready") in result.table_rows
+        assert ("라운드", "0") in result.table_rows
 
 
 @pytest.mark.asyncio

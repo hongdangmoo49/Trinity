@@ -24,10 +24,40 @@ COMPACT_STATUS_LABELS = {
     "waiting": "WAIT",
 }
 
+STATUS_VALUE_LABELS = {
+    "ko": {
+        "approved": "승인",
+        "blocked": "차단",
+        "changes_requested": "변경 요청",
+        "done": "완료",
+        "failed": "실패",
+        "idle": "대기",
+        "interrupted": "중단",
+        "needs_review": "리뷰 필요",
+        "needs_second_review": "2차 리뷰 필요",
+        "pending": "대기",
+        "queued": "대기",
+        "reviewing": "리뷰중",
+        "running": "실행중",
+        "skipped": "생략",
+        "succeeded": "성공",
+    },
+    "en": {},
+}
+
 
 def compact_status_label(status: str) -> str:
     """Return the Nexus-style compact label for a raw status string."""
     return COMPACT_STATUS_LABELS[compact_status_group(status)]
+
+
+def display_status_value(status: str, *, lang: str = "en", empty: str = "-") -> str:
+    """Return a localized display value for a raw status string."""
+    raw = str(status or "").strip()
+    if not raw:
+        return empty
+    labels = STATUS_VALUE_LABELS.get(lang, STATUS_VALUE_LABELS["en"])
+    return labels.get(raw.lower(), raw)
 
 
 def compact_status_group(status: str) -> str:

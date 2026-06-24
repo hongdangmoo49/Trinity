@@ -4728,10 +4728,12 @@ def test_work_package_detail_modal_orders_execution_sections_first() -> None:
 
     assert markdown.index("## Summary") < markdown.index("## Result")
     assert markdown.index("## Action Context") < markdown.index("## Result")
-    assert markdown.index("## Result") < markdown.index("## Review")
-    assert markdown.index("## Review") < markdown.index("## Spec")
+    assert markdown.index("## Result") < markdown.index("## Review Plan")
+    assert markdown.index("## Review Plan") < markdown.index("\n## Review\n")
+    assert markdown.index("\n## Review\n") < markdown.index("## Spec")
     assert "- Execution lane: `g1`" in markdown
     assert "Routing reason: implementation strength 0.95" in markdown
+    assert "- Reviewer count: `0`" in markdown
 
 
 def test_work_package_detail_modal_surfaces_retry_action_context() -> None:
@@ -4797,6 +4799,8 @@ def test_work_package_detail_modal_surfaces_review_skip_reason() -> None:
         "- Review skipped reason: only codex is active; "
         "no non-owner peer reviewer is available"
     ) in markdown
+    assert "## Review Plan" in markdown
+    assert "- Reviewer count: `0`" in markdown
     assert "Peer review was skipped; treat confidence as lower." not in markdown
 
 
@@ -4837,6 +4841,29 @@ def test_work_package_detail_modal_surfaces_korean_review_skip_reason() -> None:
         "- 리뷰 생략 사유: only codex is active; "
         "no non-owner peer reviewer is available"
     ) in markdown
+    assert "## 리뷰 계획" in markdown
+
+
+def test_work_package_detail_modal_surfaces_second_review_plan() -> None:
+    modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-006",
+            title="Needs second review",
+            owner_agent="claude",
+            status="done",
+            review_status="needs_second_review",
+            reviewer_agent="codex, antigravity",
+            review_summary="Primary review requested changes.",
+        )
+    )
+
+    markdown = modal._markdown()
+
+    assert "## Review Plan" in markdown
+    assert "- Status: `needs_second_review`" in markdown
+    assert "- Reviewer: `codex, antigravity`" in markdown
+    assert "- Reviewer count: `2`" in markdown
+    assert "- Second review is pending." in markdown
 
 
 @pytest.mark.asyncio

@@ -50,8 +50,11 @@ _LABELS = {
         "review_blocked": "리뷰가 `{status}` 상태입니다. 리뷰 메모를 확인하세요.",
         "review_changes": "리뷰가 완료 전 {count}개 변경을 요청했습니다.",
         "review_changes_no_count": "리뷰가 완료 전 변경을 요청했습니다.",
+        "review_plan": "리뷰 계획",
         "review_skipped_reason": "리뷰 생략 사유",
+        "reviewer_count": "리뷰어 수",
         "reviewer": "리뷰어",
+        "second_review_pending": "2차 리뷰가 대기 중입니다.",
         "risk": "리스크",
         "routing_reason": "라우팅 사유",
         "routing_score": "라우팅 점수",
@@ -105,8 +108,11 @@ _LABELS = {
         "review_blocked": "Review is `{status}`; inspect review notes.",
         "review_changes": "Review requested {count} change{plural} before completion.",
         "review_changes_no_count": "Review requested changes before completion.",
+        "review_plan": "Review Plan",
         "review_skipped_reason": "Review skipped reason",
+        "reviewer_count": "Reviewer count",
         "reviewer": "Reviewer",
+        "second_review_pending": "Second review is pending.",
         "risk": "Risk",
         "routing_reason": "Routing reason",
         "routing_score": "Routing score",
@@ -224,6 +230,11 @@ class WorkPackageDetailModal(ModalScreen[None]):
         else:
             lines.append(self._label("no_execution_result"))
 
+        review_plan_lines = self._review_plan_lines(package)
+        if review_plan_lines:
+            lines.extend(["", f"## {self._label('review_plan')}"])
+            lines.extend(review_plan_lines)
+
         lines.extend(["", f"## {self._label('review')}"])
         if package.review_status or package.review_summary:
             lines.extend(
@@ -325,6 +336,25 @@ class WorkPackageDetailModal(ModalScreen[None]):
 
         return lines
 
+    def _review_plan_lines(self, package: WorkPackageSnapshot) -> list[str]:
+        if not (package.review_status or package.reviewer_agent or package.review_summary):
+            return []
+
+        reviewer_names = _reviewer_names(package.reviewer_agent)
+        lines = [
+            f"- {self._label('status')}: `{package.review_status or '-'}`",
+            f"- {self._label('reviewer')}: `{package.reviewer_agent or '-'}`",
+            f"- {self._label('reviewer_count')}: `{len(reviewer_names)}`",
+        ]
+        if package.review_status == "skipped" and package.review_summary:
+            lines.append(
+                f"- {self._label('review_skipped_reason')}: "
+                f"{package.review_summary}"
+            )
+        if package.review_status == "needs_second_review":
+            lines.append(f"- {self._label('second_review_pending')}")
+        return lines
+
     def _retry_summary(self, package: WorkPackageSnapshot) -> str:
         if package.retryable:
             return self._label("available")
@@ -356,3 +386,7 @@ def _clip(value: str, width: int) -> str:
     if width <= 3:
         return clean[:width]
     return clean[: width - 3] + "..."
+
+
+def _reviewer_names(value: str) -> list[str]:
+    return [item.strip() for item in str(value or "").split(",") if item.strip()]

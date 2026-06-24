@@ -15,6 +15,107 @@ from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 
 
+WORKSPACE_PICKER_LABELS = {
+    "en": {
+        "branch": "Branch",
+        "cancel": "Cancel",
+        "confirm_execute": "Confirm Execute",
+        "could_not_create_directory": "Could not create directory: {error}",
+        "creatable": "Creatable",
+        "current_session_snapshot": "current session snapshot",
+        "directory": "Directory",
+        "dirty_worktree": "Dirty worktree",
+        "enable": "Enable",
+        "enable_create_copy": "The selected path is not currently marked creatable.",
+        "enable_create_title": "Enable directory creation?",
+        "enter_single_folder_name": "Enter a single folder name.",
+        "exists": "Exists",
+        "folder_already_exists": "Folder already exists: {path}",
+        "folder_name": "Folder name",
+        "git_repo": "Git repo",
+        "invalid_missing_not_creatable": (
+            "Enable Create missing directory or select an existing writable directory."
+        ),
+        "invalid_select_existing": (
+            "Select an existing writable directory or a creatable new path."
+        ),
+        "invalid_writable_parent": (
+            "Choose a path under a writable existing parent before creating it."
+        ),
+        "loading_folders": "Loading folders from {root}...",
+        "new_folder": "New Folder",
+        "new_folder_created": "New folder created: {path}",
+        "parent": "Parent",
+        "path": "Path",
+        "path_exists_not_directory": (
+            "Path already exists and is not a directory: {path}"
+        ),
+        "provider_readiness": "Provider readiness",
+        "select_workspace_title": "Select Workspace",
+        "target_workspace_path": "Target workspace path",
+        "unknown": "unknown",
+        "use_folder": "Use Folder",
+        "use_workspace": "Use Workspace",
+        "work_packages": "Work packages",
+        "writable": "Writable",
+        "cannot_create_under": "Cannot create folders under: {path}",
+        "execute_preflight_title": "Execute Preflight",
+    },
+    "ko": {
+        "branch": "브랜치",
+        "cancel": "취소",
+        "confirm_execute": "실행 확인",
+        "could_not_create_directory": "디렉터리를 만들 수 없습니다: {error}",
+        "creatable": "생성 가능",
+        "current_session_snapshot": "현재 세션 스냅샷",
+        "directory": "디렉터리",
+        "dirty_worktree": "변경사항",
+        "enable": "활성화",
+        "enable_create_copy": "선택한 경로는 현재 생성 가능으로 표시되어 있지 않습니다.",
+        "enable_create_title": "디렉터리 생성을 활성화할까요?",
+        "enter_single_folder_name": "폴더 이름 하나만 입력하세요.",
+        "exists": "존재",
+        "folder_already_exists": "이미 있는 폴더입니다: {path}",
+        "folder_name": "폴더 이름",
+        "git_repo": "Git 저장소",
+        "invalid_missing_not_creatable": (
+            "누락된 디렉터리 생성을 활성화하거나 기존의 쓰기 가능한 디렉터리를 선택하세요."
+        ),
+        "invalid_select_existing": (
+            "기존의 쓰기 가능한 디렉터리 또는 생성 가능한 새 경로를 선택하세요."
+        ),
+        "invalid_writable_parent": (
+            "생성하기 전에 쓰기 가능한 기존 상위 경로 아래를 선택하세요."
+        ),
+        "loading_folders": "폴더를 불러오는 중: {root}...",
+        "new_folder": "새 폴더",
+        "new_folder_created": "새 폴더를 만들었습니다: {path}",
+        "parent": "상위 폴더",
+        "path": "경로",
+        "path_exists_not_directory": "경로가 이미 있고 디렉터리가 아닙니다: {path}",
+        "provider_readiness": "프로바이더 준비",
+        "select_workspace_title": "작업 폴더 선택",
+        "target_workspace_path": "작업 폴더 경로",
+        "unknown": "알 수 없음",
+        "use_folder": "폴더 사용",
+        "use_workspace": "작업 폴더 사용",
+        "work_packages": "작업 패키지",
+        "writable": "쓰기 가능",
+        "cannot_create_under": "다음 위치 아래에는 폴더를 만들 수 없습니다: {path}",
+        "execute_preflight_title": "실행 전 확인",
+    },
+}
+
+
+def _label(lang: str, key: str) -> str:
+    labels = WORKSPACE_PICKER_LABELS.get(lang, WORKSPACE_PICKER_LABELS["en"])
+    return labels.get(key, WORKSPACE_PICKER_LABELS["en"][key])
+
+
+def _format_label(lang: str, key: str, **values: object) -> str:
+    return _label(lang, key).format(**values)
+
+
 @dataclass(frozen=True)
 class WorkspacePreflight:
     """Workspace preflight result shown before execution."""
@@ -37,19 +138,22 @@ class WorkspacePreflight:
         """Return whether the target directory can be created before execution."""
         return not self.exists and self.creatable
 
-    def render(self) -> str:
+    def render(self, *, lang: str = "en") -> str:
         return "\n".join(
             [
-                f"Path: {self.path}",
-                f"Exists: {self.exists}",
-                f"Directory: {self.is_dir}",
-                f"Writable: {self.writable}",
-                f"Git repo: {self.git_repo}",
-                f"Creatable: {self.creatable}",
-                f"Branch: {self.branch}",
-                "Dirty worktree: unknown",
-                "Provider readiness: current session snapshot",
-                f"Work packages: {self.package_count}",
+                f"{_label(lang, 'path')}: {self.path}",
+                f"{_label(lang, 'exists')}: {self.exists}",
+                f"{_label(lang, 'directory')}: {self.is_dir}",
+                f"{_label(lang, 'writable')}: {self.writable}",
+                f"{_label(lang, 'git_repo')}: {self.git_repo}",
+                f"{_label(lang, 'creatable')}: {self.creatable}",
+                f"{_label(lang, 'branch')}: {self.branch}",
+                f"{_label(lang, 'dirty_worktree')}: {_label(lang, 'unknown')}",
+                (
+                    f"{_label(lang, 'provider_readiness')}: "
+                    f"{_label(lang, 'current_session_snapshot')}"
+                ),
+                f"{_label(lang, 'work_packages')}: {self.package_count}",
             ]
         )
 
@@ -70,15 +174,15 @@ class CreateMissingDirectoryPrompt(ModalScreen[bool]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="workspace-create-prompt"):
-            yield Static("Enable directory creation?", id="workspace-create-title")
+            yield Static(self._label("enable_create_title"), id="workspace-create-title")
             yield Static(
-                "The selected path is not currently marked creatable.",
+                self._label("enable_create_copy"),
                 id="workspace-create-copy",
             )
             with Horizontal(id="workspace-create-actions"):
-                yield Button("Cancel", id="cancel-create-folder")
+                yield Button(self._label("cancel"), id="cancel-create-folder")
                 yield Button(
-                    "Enable",
+                    self._label("enable"),
                     id="enable-create-folder",
                     variant="primary",
                 )
@@ -94,6 +198,9 @@ class CreateMissingDirectoryPrompt(ModalScreen[bool]):
 
     def action_cancel(self) -> None:
         self.dismiss(False)
+
+    def _label(self, key: str) -> str:
+        return _label(self.lang, key)
 
 
 class FolderNamePrompt(ModalScreen[str | None]):
@@ -117,12 +224,22 @@ class FolderNamePrompt(ModalScreen[str | None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="workspace-create-prompt"):
-            yield Static("New Folder", id="workspace-create-title")
-            yield Static(f"Parent: {self.folder_parent}", id="workspace-create-copy")
-            yield Input(placeholder="Folder name", id="workspace-folder-name")
+            yield Static(self._label("new_folder"), id="workspace-create-title")
+            yield Static(
+                f"{self._label('parent')}: {self.folder_parent}",
+                id="workspace-create-copy",
+            )
+            yield Input(
+                placeholder=self._label("folder_name"),
+                id="workspace-folder-name",
+            )
             with Horizontal(id="workspace-create-actions"):
-                yield Button("Cancel", id="cancel-folder-name")
-                yield Button("Use Folder", id="confirm-folder-name", variant="primary")
+                yield Button(self._label("cancel"), id="cancel-folder-name")
+                yield Button(
+                    self._label("use_folder"),
+                    id="confirm-folder-name",
+                    variant="primary",
+                )
         yield Footer()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -144,6 +261,9 @@ class FolderNamePrompt(ModalScreen[str | None]):
 
     def action_cancel(self) -> None:
         self.dismiss(None)
+
+    def _label(self, key: str) -> str:
+        return _label(self.lang, key)
 
 
 class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
@@ -189,21 +309,24 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
             yield Static(self._title(), id="workspace-picker-title")
             yield Input(
                 value=str(self.preflight.path),
-                placeholder="Target workspace path",
+                placeholder=self._label("target_workspace_path"),
                 id="workspace-path-input",
             )
             with Horizontal(id="workspace-picker-body"):
                 with Vertical(id="workspace-tree-pane"):
                     yield Static(
-                        f"Loading folders from {self.tree_root}...",
+                        self._format("loading_folders", root=self.tree_root),
                         id="workspace-directory-tree-placeholder",
                     )
-                yield Static(self.preflight.render(), id="workspace-preflight")
+                yield Static(
+                    self.preflight.render(lang=self.lang),
+                    id="workspace-preflight",
+                )
             with Horizontal(id="workspace-picker-bottom"):
                 with Horizontal(id="workspace-tree-actions"):
-                    yield Button("New Folder", id="new-workspace-folder")
+                    yield Button(self._label("new_folder"), id="new-workspace-folder")
                 with Horizontal(id="workspace-picker-actions"):
-                    yield Button("Cancel", id="cancel-execute")
+                    yield Button(self._label("cancel"), id="cancel-execute")
                     yield Button(
                         self._confirm_label(),
                         id="confirm-execute",
@@ -213,10 +336,14 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         yield Footer()
 
     def _title(self) -> str:
-        return "Select Workspace" if self.intent == "select" else "Execute Preflight"
+        if self.intent == "select":
+            return self._label("select_workspace_title")
+        return self._label("execute_preflight_title")
 
     def _confirm_label(self) -> str:
-        return "Use Workspace" if self.intent == "select" else "Confirm Execute"
+        if self.intent == "select":
+            return self._label("use_workspace")
+        return self._label("confirm_execute")
 
     def on_mount(self) -> None:
         self.set_timer(0.05, self._mount_directory_tree)
@@ -277,7 +404,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
     def _open_folder_name_prompt(self, base: Path | None = None) -> None:
         folder_parent = base or self._folder_creation_base()
         if not _directory_accepts_child_creation(folder_parent):
-            self._set_status(f"Cannot create folders under: {folder_parent}")
+            self._set_status(self._format("cannot_create_under", path=folder_parent))
             return
         self.app.push_screen(
             FolderNamePrompt(folder_parent, lang=self.lang),
@@ -287,22 +414,22 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
     def _on_folder_name_submitted(self, folder_name: str | None) -> None:
         clean_name = self._clean_folder_name(folder_name or "")
         if not clean_name:
-            self._set_status("Enter a single folder name.")
+            self._set_status(self._label("enter_single_folder_name"))
             return
         target = self._folder_creation_base() / clean_name
         try:
             if target.exists():
                 if not target.is_dir():
                     self._set_status(
-                        f"Path already exists and is not a directory: {target}"
+                        self._format("path_exists_not_directory", path=target)
                     )
                     return
-                status = f"Folder already exists: {target}"
+                status = self._format("folder_already_exists", path=target)
             else:
                 target.mkdir(parents=True, exist_ok=False)
-                status = f"New folder created: {target}"
+                status = self._format("new_folder_created", path=target)
         except OSError as exc:
-            self._set_status(f"Could not create directory: {exc}")
+            self._set_status(self._format("could_not_create_directory", error=exc))
             return
 
         self.query_one("#workspace-path-input", Input).value = str(target)
@@ -318,7 +445,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
                 self.preflight.path.mkdir(parents=True, exist_ok=True)
             except OSError as exc:
                 self.query_one("#workspace-picker-status", Static).update(
-                    f"Could not create directory: {exc}"
+                    self._format("could_not_create_directory", error=exc)
                 )
                 return
             self._update_preflight(self.preflight.path)
@@ -335,7 +462,9 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
             creatable=self.create_missing,
         )
         if self.is_mounted:
-            self.query_one("#workspace-preflight", Static).update(self.preflight.render())
+            self.query_one("#workspace-preflight", Static).update(
+                self.preflight.render(lang=self.lang)
+            )
 
     def _input_path(self) -> Path:
         path = Path(self.query_one("#workspace-path-input", Input).value).expanduser()
@@ -374,22 +503,21 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
 
     def _show_invalid_preflight(self) -> None:
         if not self.preflight.exists and not self.preflight.creatable:
-            message = (
-                "Enable Create missing directory or select an existing writable "
-                "directory."
-            )
+            message = self._label("invalid_missing_not_creatable")
         elif (
             not self.preflight.exists
             and not _path_creation_supported(self.preflight.path)
         ):
-            message = (
-                "Choose a path under a writable existing parent before creating it."
-            )
+            message = self._label("invalid_writable_parent")
         else:
-            message = (
-                "Select an existing writable directory or a creatable new path."
-            )
+            message = self._label("invalid_select_existing")
         self.query_one("#workspace-picker-status", Static).update(message)
+
+    def _label(self, key: str) -> str:
+        return _label(self.lang, key)
+
+    def _format(self, key: str, **values: object) -> str:
+        return _format_label(self.lang, key, **values)
 
 
 def _same_resolved_path(left: Path, right: Path) -> bool:

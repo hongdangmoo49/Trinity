@@ -15,7 +15,7 @@ from textual.widgets import Button, Footer, Header, Static
 
 from rich.markup import escape
 
-from trinity.textual_app.snapshot import WorkflowNexusSnapshot
+from trinity.textual_app.snapshot import WorkflowNexusSnapshot, WorkPackageSnapshot
 
 if TYPE_CHECKING:
     from trinity.tui.report import DeliberationReport
@@ -222,6 +222,14 @@ class ReportScreen(Screen[None]):
             title = "Local WP Graph" if snap.central_work_packages else "Work Packages"
             sections.append(_section(title, _render_bullets(snap.work_packages)))
 
+        if snap.work_package_details:
+            sections.append(
+                _section(
+                    "Work Package Routing",
+                    _render_package_routing(snap.work_package_details),
+                )
+            )
+
         if snap.work_package_repairs:
             sections.append(
                 _section(
@@ -315,6 +323,63 @@ def _render_packages(packages) -> str:
         status = f" ({pkg.status})" if pkg.requires_execution else ""
         lines.append(f"  • [cyan]{escape(pkg.id)}[/cyan] {escape(pkg.title)} [dim]({escape(pkg.owner_agent)}){status}[/dim]")
     return "\n".join(lines) if lines else "(none)"
+
+
+def _render_package_routing(packages: list[WorkPackageSnapshot]) -> str:
+    lines: list[str] = []
+    for package in packages:
+        routing = _package_routing_summary(package)
+        if routing:
+            routing = f" · {routing}"
+        review = ""
+        if package.review_status or package.reviewer_agent:
+            review = (
+                f" · review {escape(package.review_status or '(none)')}"
+                f"/{escape(package.reviewer_agent or '(none)')}"
+            )
+        lines.append(
+            f"  • [cyan]{escape(package.id or '(unnamed)')}[/cyan] "
+            f"{escape(package.title or '(untitled)')} "
+            f"[dim]owner {escape(package.owner_agent or '(unknown)')} · "
+            f"executor {escape(_package_executor(package))} · "
+            f"lane {escape(_package_lane(package))}{routing}{review}[/dim]"
+        )
+        if package.routing_reason:
+            lines.append(f"    [dim]reason: {escape(package.routing_reason)}[/dim]")
+    return "\n".join(lines) if lines else "(none)"
+
+
+def _package_executor(package: WorkPackageSnapshot) -> str:
+    return (
+        package.current_executor
+        or package.last_executor
+        or package.last_result_agent
+        or "(none)"
+    )
+
+
+def _package_lane(package: WorkPackageSnapshot) -> str:
+    if not package.parallelizable:
+        return "serial"
+    if package.parallel_group is not None:
+        return f"g{package.parallel_group}"
+    return "unspecified"
+
+
+def _package_routing_summary(package: WorkPackageSnapshot) -> str:
+    parts: list[str] = []
+    if package.task_kind:
+        parts.append(f"kind {escape(package.task_kind)}")
+    if package.profile_revision:
+        parts.append(f"profile {escape(package.profile_revision)}")
+    if package.routing_score:
+        parts.append(f"score {escape(_format_score(package.routing_score))}")
+    return " · ".join(parts)
+
+
+def _format_score(score: float) -> str:
+    text = f"{score:.3f}".rstrip("0").rstrip(".")
+    return text or "0"
 
 
 def _render_executions(executions) -> str:

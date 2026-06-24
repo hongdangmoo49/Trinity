@@ -927,6 +927,51 @@ async def test_report_screen_escapes_export_status_path(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_report_screen_snapshot_shows_work_package_routing_metadata(
+    tmp_path,
+) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-routing",
+        goal="route work",
+        state="blueprint_ready",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Execution UI",
+                owner_agent="codex",
+                status="running",
+                current_executor="codex",
+                task_kind="implementation",
+                routing_reason="implementation strength 0.95",
+                routing_score=111.0,
+                profile_revision="default-v1",
+                parallel_group=1,
+            )
+        ],
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        workflow_controller=FakeWorkflowController(snapshot),
+    )
+    app.active_snapshot = snapshot
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("report")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, ReportScreen)
+        body = screen.query_one("#report-body")
+        rendered = "\n".join(str(child.render()) for child in body.children)
+
+    assert "Work Package Routing" in rendered
+    assert "WP-001" in rendered
+    assert "kind implementation" in rendered
+    assert "profile default-v1" in rendered
+    assert "reason: implementation strength 0.95" in rendered
+
+
+@pytest.mark.asyncio
 async def test_textual_export_uses_snapshot_when_session_is_not_persisted(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
     snapshot = WorkflowNexusSnapshot(
@@ -1183,6 +1228,39 @@ def test_snapshot_report_markdown_includes_provider_metadata() -> None:
     assert "## Providers" in md
     assert "**codex**: gpt\\-5\\.5; context 272,000 (local\\_cli\\_cache)" in md
     assert "session 019ea9e3\\-426" in md
+
+
+def test_snapshot_report_markdown_includes_work_package_routing_metadata() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-routing",
+        goal="ship feature",
+        state="blueprint_ready",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Execution UI",
+                owner_agent="codex",
+                status="done",
+                last_executor="claude",
+                task_kind="implementation",
+                routing_reason="implementation strength 0.95",
+                routing_score=111.0,
+                profile_revision="default-v1",
+                parallel_group=2,
+                review_status="approved",
+                reviewer_agent="antigravity",
+            )
+        ],
+    )
+
+    md = snapshot_report_markdown(snapshot)
+
+    assert "## Work Package Routing" in md
+    assert "**WP\\-001** Execution UI" in md
+    assert "owner codex; executor claude; lane g2" in md
+    assert "Routing: kind implementation; profile default\\-v1; score 111" in md
+    assert "Reason: implementation strength 0\\.95" in md
+    assert "Review: approved; reviewer antigravity" in md
 
 
 def test_unique_report_path_avoids_existing_file_and_sanitizes_session_id(

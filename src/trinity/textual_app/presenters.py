@@ -837,6 +837,10 @@ def _yes_no(value: bool, *, lang: str = "en") -> str:
     return _sc_label(lang, "yes" if value else "no")
 
 
+def status_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "status")
+
+
 def answer_title(*, lang: str = "en") -> str:
     return _sc_label(lang, "answer")
 

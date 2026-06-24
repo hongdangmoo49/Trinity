@@ -2197,7 +2197,7 @@ class TrinityTextualApp(App[None]):
         """Show status in the surface appropriate for the current Textual route."""
         result = self._local_command_snapshot(
             command,
-            "Status",
+            textual_presenters.status_title(lang=self.config.lang),
             self._snapshot_status_markdown(snapshot, lang=self.config.lang),
             table_columns=textual_presenters.status_table_columns(lang=self.config.lang),
             table_rows=self._snapshot_status_rows(snapshot, lang=self.config.lang),

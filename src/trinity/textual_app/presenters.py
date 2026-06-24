@@ -18,6 +18,8 @@ STATUS_CONTEXT_LABELS = {
         "answer": "Answer",
         "answer_inspect_questions_hint": "Run `/questions` to inspect pending questions first.",
         "answer_usage": "Usage: /answer <question-id|index|next> <answer>",
+        "artifact": "Artifact",
+        "artifact_usage": "Usage: `/artifact <memory-id>`",
         "ask": "Ask",
         "ask_missing_model": "Missing model after --model.",
         "ask_no_active_agents": "No active agents are available for /ask.",
@@ -211,6 +213,8 @@ STATUS_CONTEXT_LABELS = {
             "먼저 `/questions`를 실행해 대기 중인 질문을 확인하세요."
         ),
         "answer_usage": "사용법: /answer <question-id|index|next> <answer>",
+        "artifact": "아티팩트",
+        "artifact_usage": "사용법: `/artifact <memory-id>`",
         "ask": "질문",
         "ask_missing_model": "--model 뒤에 모델을 입력하세요.",
         "ask_no_active_agents": "/ask에 사용할 활성 에이전트가 없습니다.",
@@ -1337,6 +1341,14 @@ def memory_cleanup_error_markdown(error: str, *, lang: str = "en") -> str:
     if error.startswith(prefix):
         return f"{_sc_label(lang, 'memory_cleanup_unknown_option')}: {error[len(prefix):]}"
     return error
+
+
+def artifact_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "artifact")
+
+
+def artifact_usage_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "artifact_usage")
 
 
 def questions_action_hint(*, has_questions: bool, lang: str = "en") -> str:

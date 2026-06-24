@@ -9,6 +9,45 @@ from trinity.config import TrinityConfig
 from trinity.context.shared import SharedContextEngine
 
 
+ARTIFACT_LABELS = {
+    "en": {
+        "agent": "agent",
+        "artifact": "Artifact",
+        "artifact_path": "artifact_path",
+        "compressed_path": "compressed_path",
+        "estimated_tokens": "estimated_tokens",
+        "kind": "kind",
+        "memory_disabled": "Memory index is disabled.",
+        "none": "(none)",
+        "not_found": "No memory record found for",
+        "summary": "Summary",
+        "title": "title",
+        "unknown": "(unknown)",
+        "work_package": "work_package",
+    },
+    "ko": {
+        "agent": "에이전트",
+        "artifact": "아티팩트",
+        "artifact_path": "아티팩트 경로",
+        "compressed_path": "압축 경로",
+        "estimated_tokens": "예상 토큰",
+        "kind": "종류",
+        "memory_disabled": "메모리 인덱스가 비활성화되어 있습니다.",
+        "none": "(없음)",
+        "not_found": "메모리 레코드를 찾을 수 없습니다",
+        "summary": "요약",
+        "title": "제목",
+        "unknown": "(알 수 없음)",
+        "work_package": "작업 패키지",
+    },
+}
+
+
+def _artifact_label(lang: str, key: str) -> str:
+    labels = ARTIFACT_LABELS.get(lang, ARTIFACT_LABELS["en"])
+    return labels.get(key, ARTIFACT_LABELS["en"].get(key, key))
+
+
 @dataclass(frozen=True)
 class OversizedBackupEntry:
     path: Path
@@ -272,24 +311,40 @@ def cleanup_oversized_backups_markdown(
     return "\n".join(lines)
 
 
-def artifact_markdown(engine: SharedContextEngine, record_id: str) -> str:
+def artifact_markdown(
+    engine: SharedContextEngine,
+    record_id: str,
+    *,
+    lang: str = "en",
+) -> str:
     if engine.memory_store is None:
-        return "Memory index is disabled."
+        return _artifact_label(lang, "memory_disabled")
     record = engine.memory_store.get(record_id)
     if record is None:
-        return f"No memory record found for `{record_id}`."
+        if lang != "ko":
+            return f"No memory record found for `{record_id}`."
+        return f"{_artifact_label(lang, 'not_found')}: `{record_id}`."
     lines = [
-        f"## Artifact {record.id}",
-        f"- kind: {record.kind}",
-        f"- title: {record.title}",
-        f"- agent: {record.agent or '(unknown)'}",
-        f"- work_package: `{record.work_package_id or '(none)'}`",
-        f"- artifact_path: `{record.artifact_path or '(none)'}`",
-        f"- compressed_path: `{record.compressed_path or '(none)'}`",
-        f"- estimated_tokens: {record.token_estimate}",
+        f"## {_artifact_label(lang, 'artifact')} {record.id}",
+        f"- {_artifact_label(lang, 'kind')}: {record.kind}",
+        f"- {_artifact_label(lang, 'title')}: {record.title}",
+        f"- {_artifact_label(lang, 'agent')}: {record.agent or _artifact_label(lang, 'unknown')}",
+        (
+            f"- {_artifact_label(lang, 'work_package')}: "
+            f"`{record.work_package_id or _artifact_label(lang, 'none')}`"
+        ),
+        (
+            f"- {_artifact_label(lang, 'artifact_path')}: "
+            f"`{record.artifact_path or _artifact_label(lang, 'none')}`"
+        ),
+        (
+            f"- {_artifact_label(lang, 'compressed_path')}: "
+            f"`{record.compressed_path or _artifact_label(lang, 'none')}`"
+        ),
+        f"- {_artifact_label(lang, 'estimated_tokens')}: {record.token_estimate}",
         "",
-        "### Summary",
-        record.summary or "(none)",
+        f"### {_artifact_label(lang, 'summary')}",
+        record.summary or _artifact_label(lang, "none"),
     ]
     return "\n".join(lines)
 

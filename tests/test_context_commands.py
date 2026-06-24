@@ -36,6 +36,28 @@ def test_memory_command_helpers_render_stats_and_artifact(tmp_path):
     assert "WP-001 / codex" in artifact
 
 
+def test_artifact_markdown_uses_korean_labels(tmp_path):
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    engine = engine_from_config(config)
+    engine.initialize("Build app", ["codex"])
+    engine.append_task_result(
+        package_id="WP-001",
+        agent="codex",
+        status="done",
+        summary="Implemented endpoint.",
+    )
+
+    record_id = engine.memory_store.recent(limit=1)[0].id if engine.memory_store else ""
+    artifact = artifact_markdown(engine, record_id, lang="ko")
+    missing = artifact_markdown(engine, "missing-record", lang="ko")
+
+    assert "## 아티팩트" in artifact
+    assert "- 종류:" in artifact
+    assert "- 작업 패키지:" in artifact
+    assert "### 요약" in artifact
+    assert "메모리 레코드를 찾을 수 없습니다: `missing-record`." == missing
+
+
 def test_compact_memory_command_rebuilds_projection(tmp_path):
     config = TrinityConfig.default_config(project_dir=tmp_path)
     engine = engine_from_config(config)

@@ -61,7 +61,7 @@ _EXECUTION_MATRIX_LABELS = {
         "summary_wait": "대기",
         "status": "상태",
         "target": "대상",
-        "workspace": "workspace",
+        "workspace": "작업 폴더",
         "workflow": "워크플로우",
     },
     "en": {

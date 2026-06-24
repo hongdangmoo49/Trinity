@@ -3019,19 +3019,25 @@ class TrinityTextualApp(App[None]):
             if not archives:
                 self._record_slash_command_result(
                     "/resume",
-                    "Resume",
-                    "No saved workflow sessions to resume.",
+                    textual_presenters.resume_title(lang=self.config.lang),
+                    textual_presenters.resume_no_saved_markdown(lang=self.config.lang),
                     empty=True,
-                    action_hint="Start and archive a workflow before using `/resume`.",
+                    action_hint=textual_presenters.resume_no_saved_action_hint(
+                        lang=self.config.lang
+                    ),
                 )
                 return
             self._record_slash_command_result(
                 "/resume",
-                "Resume",
-                self._resume_archives_markdown(archives),
-                table_columns=("Selector", "Workflow", "State", "Goal"),
-                table_rows=self._resume_archive_rows(archives),
-                action_hint="Pick a workflow from the resume modal.",
+                textual_presenters.resume_title(lang=self.config.lang),
+                self._resume_archives_markdown(archives, lang=self.config.lang),
+                table_columns=textual_presenters.resume_archive_table_columns(
+                    lang=self.config.lang
+                ),
+                table_rows=self._resume_archive_rows(archives, lang=self.config.lang),
+                action_hint=textual_presenters.resume_pick_action_hint(
+                    lang=self.config.lang
+                ),
                 start_modal=False,
             )
             self.push_screen(
@@ -3046,10 +3052,12 @@ class TrinityTextualApp(App[None]):
         if selector is None:
             self._record_slash_command_result(
                 "/resume",
-                "Resume",
-                "Resume selection cancelled.",
+                textual_presenters.resume_title(lang=self.config.lang),
+                textual_presenters.resume_cancelled_markdown(lang=self.config.lang),
                 empty=True,
-                action_hint="Run `/resume` again to choose an archived workflow.",
+                action_hint=textual_presenters.resume_cancel_action_hint(
+                    lang=self.config.lang
+                ),
             )
             return
         self._resume_textual_workflow(selector)
@@ -3064,12 +3072,17 @@ class TrinityTextualApp(App[None]):
         if message:
             self._record_slash_command_result(
                 "/resume",
-                "Resume",
+                textual_presenters.resume_title(lang=self.config.lang),
                 message,
                 severity="warning" if failed else "info",
                 empty=failed,
-                table_columns=("Item", "Value"),
-                table_rows=self._resume_result_rows(outcome.snapshot),
+                table_columns=textual_presenters.resume_result_table_columns(
+                    lang=self.config.lang
+                ),
+                table_rows=self._resume_result_rows(
+                    outcome.snapshot,
+                    lang=self.config.lang,
+                ),
                 start_modal=failed,
             )
         if not failed:
@@ -3085,20 +3098,26 @@ class TrinityTextualApp(App[None]):
     @staticmethod
     def _resume_archives_markdown(
         archives: list[object],
+        *,
+        lang: str = "en",
     ) -> str:
-        return textual_presenters.resume_archives_markdown(archives)
+        return textual_presenters.resume_archives_markdown(archives, lang=lang)
 
     @staticmethod
     def _resume_archive_rows(
         archives: list[object],
+        *,
+        lang: str = "en",
     ) -> tuple[tuple[str, str, str, str], ...]:
-        return textual_presenters.resume_archive_rows(archives)
+        return textual_presenters.resume_archive_rows(archives, lang=lang)
 
     @staticmethod
     def _resume_result_rows(
         snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
     ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.resume_result_rows(snapshot)
+        return textual_presenters.resume_result_rows(snapshot, lang=lang)
 
     def _handle_textual_answer_command(self, args: list[str]) -> None:
         if not args:

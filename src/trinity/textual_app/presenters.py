@@ -73,6 +73,7 @@ STATUS_CONTEXT_LABELS = {
         "no_pending_questions_select": "No pending workflow questions to select.",
         "no_predefined_options": "This question has no predefined options.",
         "no_subtasks": "No provider delegation subtasks recorded in the current session.",
+        "no_goal": "(no goal)",
         "not_set": "(not set)",
         "not_checked": "not checked",
         "options": "Options",
@@ -108,6 +109,13 @@ STATUS_CONTEXT_LABELS = {
         "report_open_hint": "Start or resume a workflow before opening a report.",
         "report_opened": "Report screen opened.",
         "report_saved": "Report saved",
+        "resume": "Resume",
+        "resume_archives_available": "Saved workflow sessions available to resume.",
+        "resume_cancel_hint": "Run `/resume` again to choose an archived workflow.",
+        "resume_cancelled": "Resume selection cancelled.",
+        "resume_empty_hint": "Start and archive a workflow before using `/resume`.",
+        "resume_no_saved": "No saved workflow sessions to resume.",
+        "resume_pick_hint": "Pick a workflow from the resume modal.",
         "retry_candidates": "Retry candidates",
         "review_hint": "Run `/review wp`, `/review final`, or `/review all`.",
         "reviewed_wp": "Reviewed WP",
@@ -129,6 +137,7 @@ STATUS_CONTEXT_LABELS = {
         "source": "Source",
         "running_packages": "Running packages",
         "running_packages_at_exit": "Running packages at exit",
+        "selector": "Selector",
         "state": "State",
         "status": "Status",
         "summary": "Summary",
@@ -215,6 +224,7 @@ STATUS_CONTEXT_LABELS = {
         "no_pending_questions_select": "선택할 대기 질문이 없습니다.",
         "no_predefined_options": "이 질문에는 미리 정의된 선택지가 없습니다.",
         "no_subtasks": "현재 세션에 기록된 프로바이더 위임 하위 작업이 없습니다.",
+        "no_goal": "(목표 없음)",
         "not_set": "(미설정)",
         "not_checked": "미확인",
         "options": "선택지",
@@ -249,6 +259,13 @@ STATUS_CONTEXT_LABELS = {
         "report_open_hint": "리포트를 열려면 먼저 워크플로우를 시작하거나 재개하세요.",
         "report_opened": "리포트 화면을 열었습니다.",
         "report_saved": "리포트 저장됨",
+        "resume": "재개",
+        "resume_archives_available": "재개할 수 있는 저장된 워크플로우가 있습니다.",
+        "resume_cancel_hint": "보관된 워크플로우를 선택하려면 `/resume`을 다시 실행하세요.",
+        "resume_cancelled": "재개 선택을 취소했습니다.",
+        "resume_empty_hint": "`/resume`을 사용하려면 먼저 워크플로우를 시작하고 보관하세요.",
+        "resume_no_saved": "재개할 저장된 워크플로우가 없습니다.",
+        "resume_pick_hint": "재개 모달에서 워크플로우를 선택하세요.",
         "retry_candidates": "재시도 후보",
         "review_hint": "`/review wp`, `/review final`, `/review all` 중 하나를 실행하세요.",
         "reviewed_wp": "리뷰된 WP",
@@ -270,6 +287,7 @@ STATUS_CONTEXT_LABELS = {
         "source": "출처",
         "running_packages": "실행 중 WP",
         "running_packages_at_exit": "종료 시 실행 중 WP",
+        "selector": "선택자",
         "state": "상태",
         "status": "상태",
         "summary": "요약",
@@ -1448,33 +1466,78 @@ def history_markdown(
     return "\n".join(lines)
 
 
-def resume_archives_markdown(archives: list[object]) -> str:
-    lines = ["Saved workflow sessions available to resume."]
+def resume_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "resume")
+
+
+def resume_no_saved_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "resume_no_saved")
+
+
+def resume_no_saved_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "resume_empty_hint")
+
+
+def resume_pick_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "resume_pick_hint")
+
+
+def resume_cancelled_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "resume_cancelled")
+
+
+def resume_cancel_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "resume_cancel_hint")
+
+
+def resume_archive_table_columns(*, lang: str = "en") -> tuple[str, str, str, str]:
+    return (
+        _sc_label(lang, "selector"),
+        _sc_label(lang, "workflow"),
+        _sc_label(lang, "state"),
+        _sc_label(lang, "goal"),
+    )
+
+
+def resume_result_table_columns(*, lang: str = "en") -> tuple[str, str]:
+    return status_table_columns(lang=lang)
+
+
+def resume_archives_markdown(archives: list[object], *, lang: str = "en") -> str:
+    lines = [_sc_label(lang, "resume_archives_available")]
     for archive in archives:
         selector = str(getattr(archive, "selector", ""))
         session_id = str(getattr(archive, "session_id", ""))
         state = str(getattr(archive, "state", ""))
-        goal = str(getattr(archive, "goal", "")).strip() or "(no goal)"
+        goal = str(getattr(archive, "goal", "")).strip() or _sc_label(lang, "no_goal")
         lines.append(f"- `{selector}` {session_id} [{state}] {goal}")
     return "\n".join(lines)
 
 
-def resume_archive_rows(archives: list[object]) -> tuple[tuple[str, str, str, str], ...]:
+def resume_archive_rows(
+    archives: list[object],
+    *,
+    lang: str = "en",
+) -> tuple[tuple[str, str, str, str], ...]:
     return tuple(
         (
             str(getattr(archive, "selector", "")),
             str(getattr(archive, "session_id", "")),
             str(getattr(archive, "state", "")),
-            str(getattr(archive, "goal", "")).strip() or "(no goal)",
+            str(getattr(archive, "goal", "")).strip() or _sc_label(lang, "no_goal"),
         )
         for archive in archives
     )
 
 
-def resume_result_rows(snapshot: WorkflowNexusSnapshot) -> tuple[tuple[str, str], ...]:
+def resume_result_rows(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> tuple[tuple[str, str], ...]:
     return (
-        ("Workflow", snapshot.session_id or "(new)"),
-        ("State", snapshot.state or "idle"),
-        ("Goal", snapshot.goal or "(none)"),
-        ("Round", str(snapshot.round_num)),
+        (_sc_label(lang, "workflow"), snapshot.session_id or "(new)"),
+        (_sc_label(lang, "state"), snapshot.state or "idle"),
+        (_sc_label(lang, "goal"), snapshot.goal or "(none)"),
+        (_sc_label(lang, "round"), str(snapshot.round_num)),
     )

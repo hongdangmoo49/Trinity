@@ -4582,6 +4582,11 @@ async def test_execution_matrix_viewport_qa_matrix_with_long_workspace(
             await pilot.pause()
 
             summary = str(screen.query_one("#execution-summary", Static).content)
+            assert "실행중 1" in summary
+            assert "리뷰 0" in summary
+            assert "대기 0" in summary
+            assert "완료 0" in summary
+            assert "문제 1" in summary
             assert "레인 1" in summary
             assert "직렬 1" in summary
             assert "재시도 1" in summary

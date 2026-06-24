@@ -349,9 +349,13 @@ def _render_package_routing(packages: list[WorkPackageSnapshot]) -> str:
             routing = f" · {routing}"
         review = ""
         if package.review_status or package.reviewer_agent:
+            review_reason = ""
+            if package.review_status == "skipped" and package.review_summary:
+                review_reason = f"; reason {escape(package.review_summary)}"
             review = (
                 f" · review {escape(package.review_status or '(none)')}"
                 f"/{escape(package.reviewer_agent or '(none)')}"
+                f"{review_reason}"
             )
         lines.append(
             f"  • [cyan]{escape(package.id or '(unnamed)')}[/cyan] "

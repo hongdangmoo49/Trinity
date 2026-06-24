@@ -6325,6 +6325,23 @@ async def test_prompt_composer_summarizes_large_paste_for_display(tmp_path) -> N
 
 
 @pytest.mark.asyncio
+async def test_prompt_composer_summarizes_large_paste_with_korean_placeholder(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
+
+    async with app.run_test(size=(100, 30)):
+        composer = app.screen.query_one(PromptComposer)
+        text_area = composer.query_one(TextArea)
+        pasted = "가" * 1200
+
+        await text_area._on_paste(events.Paste(pasted))
+
+        assert composer.text == "[붙여넣은 콘텐츠 1200자]"
+        assert composer.submission_text == pasted
+
+
+@pytest.mark.asyncio
 async def test_prompt_composer_arrow_selects_slash_command(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

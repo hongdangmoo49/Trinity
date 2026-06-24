@@ -34,6 +34,10 @@ STATUS_CONTEXT_LABELS = {
         "goal": "Goal",
         "history_hint": "Run a prompt, execute a workflow, or use local slash commands first.",
         "id": "ID",
+        "improve_hint": (
+            "Use `/improve high`, `/improve all`, `/improve AI-001`, "
+            "or `/improve done`."
+        ),
         "item": "Item",
         "kind": "Kind",
         "last_event": "Last event",
@@ -56,6 +60,7 @@ STATUS_CONTEXT_LABELS = {
         "pending_wp_review": "Pending WP review",
         "post_review_action_items": "Post Review Action Items",
         "post_review_items": "Post-review items",
+        "action_items": "Action items",
         "provider": "Provider",
         "questions": "Questions",
         "question": "Question",
@@ -119,6 +124,10 @@ STATUS_CONTEXT_LABELS = {
         "goal": "목표",
         "history_hint": "프롬프트 실행, 워크플로우 실행, 로컬 slash 명령 사용 후 이력이 표시됩니다.",
         "id": "ID",
+        "improve_hint": (
+            "`/improve high`, `/improve all`, `/improve AI-001`, "
+            "`/improve done` 중 하나를 실행하세요."
+        ),
         "item": "항목",
         "kind": "종류",
         "last_event": "최근 이벤트",
@@ -141,6 +150,7 @@ STATUS_CONTEXT_LABELS = {
         "pending_wp_review": "대기 중 WP 리뷰",
         "post_review_action_items": "리뷰 후 조치",
         "post_review_items": "리뷰 후 조치",
+        "action_items": "조치 항목",
         "provider": "프로바이더",
         "questions": "질문",
         "question": "질문",
@@ -948,14 +958,26 @@ def review_rows(
     return tuple(rows)
 
 
-def improve_rows(snapshot: WorkflowNexusSnapshot) -> tuple[tuple[str, str], ...]:
+def improve_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "improve_hint")
+
+
+def improve_table_columns(*, lang: str = "en") -> tuple[str, str]:
+    return status_table_columns(lang=lang)
+
+
+def improve_rows(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> tuple[tuple[str, str], ...]:
     rows: list[tuple[str, str]] = [
-        ("Workflow", snapshot.session_id or "(new)"),
-        ("State", snapshot.state or "idle"),
-        ("Supplemental rounds", str(snapshot.supplemental_round)),
+        (_sc_label(lang, "workflow"), snapshot.session_id or "(new)"),
+        (_sc_label(lang, "state"), snapshot.state or "idle"),
+        (_sc_label(lang, "supplemental_rounds"), str(snapshot.supplemental_round)),
     ]
     if not snapshot.post_review_items:
-        rows.append(("Action items", "(none)"))
+        rows.append((_sc_label(lang, "action_items"), "(none)"))
         return tuple(rows)
     for item in snapshot.post_review_items:
         rows.append(

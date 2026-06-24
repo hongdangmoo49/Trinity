@@ -1907,9 +1907,16 @@ class TrinityTextualApp(App[None]):
                         or "required" in message
                         else "info"
                     ),
-                    table_columns=("Item", "Value"),
-                    table_rows=self._improve_rows(outcome.snapshot),
-                    action_hint="Use `/improve high`, `/improve all`, `/improve AI-001`, or `/improve done`.",
+                    table_columns=textual_presenters.improve_table_columns(
+                        lang=self.config.lang
+                    ),
+                    table_rows=self._improve_rows(
+                        outcome.snapshot,
+                        lang=self.config.lang,
+                    ),
+                    action_hint=textual_presenters.improve_action_hint(
+                        lang=self.config.lang
+                    ),
                 )
             return
         if command == "execute":
@@ -2462,8 +2469,10 @@ class TrinityTextualApp(App[None]):
     @staticmethod
     def _improve_rows(
         snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
     ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.improve_rows(snapshot)
+        return textual_presenters.improve_rows(snapshot, lang=lang)
 
     @staticmethod
     def _subtasks_markdown(

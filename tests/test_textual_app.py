@@ -1480,7 +1480,7 @@ def test_improve_presenter_uses_korean_labels() -> None:
         ("워크플로우", "wf-improve"),
         ("상태", "후속 조치 대기"),
         ("보충 라운드", "2"),
-        ("AI-001", "대기; 심각도=높음; 종류=테스트; title=Fix tests"),
+        ("AI-001", "대기; 심각도=높음; 종류=테스트; 제목=Fix tests"),
     )
     assert improve_table_columns(lang="ko") == ("항목", "값")
     assert improve_title(lang="ko") == "개선"
@@ -4847,7 +4847,7 @@ async def test_start_slash_improve_uses_korean_labels(tmp_path) -> None:
         assert ("보충 라운드", "1") in result.table_rows
         assert (
             "AI-001",
-            "대기; 심각도=높음; 종류=테스트; title=Fix tests",
+            "대기; 심각도=높음; 종류=테스트; 제목=Fix tests",
         ) in result.table_rows
         assert result.action_hint.startswith("`/improve high`")
         assert controller.improve_requests == [("high",)]

@@ -232,6 +232,7 @@ STATUS_CONTEXT_LABELS = {
         "target_prepare_failed": "Could not prepare target workspace",
         "target_selection_cancelled": "Target workspace selection cancelled.",
         "target_workspace": "Target workspace",
+        "title": "title",
         "value": "Value",
         "workflow": "Workflow",
         "workflow_history": "Workflow History",
@@ -456,6 +457,7 @@ STATUS_CONTEXT_LABELS = {
         "target_prepare_failed": "대상 워크스페이스를 준비할 수 없습니다",
         "target_selection_cancelled": "대상 워크스페이스 선택을 취소했습니다.",
         "target_workspace": "대상 워크스페이스",
+        "title": "제목",
         "value": "값",
         "workflow": "워크플로우",
         "workflow_history": "워크플로우 이력",
@@ -1928,7 +1930,7 @@ def improve_rows(
                 (
                     f"{status}; {_sc_label(lang, 'severity')}={severity}; "
                     f"{_sc_label(lang, 'kind')}={kind}; "
-                    f"title={item.title or item.summary}"
+                    f"{_sc_label(lang, 'title')}={item.title or item.summary}"
                 ),
             )
         )

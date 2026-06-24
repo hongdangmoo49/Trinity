@@ -11,7 +11,10 @@ from trinity.textual_app.snapshot import (
     WorkflowNexusSnapshot,
     WorkPackageSnapshot,
 )
-from trinity.textual_app.widgets.status_label import display_review_status_value
+from trinity.textual_app.widgets.status_label import (
+    display_review_status_value,
+    display_status_value,
+)
 
 _MD_SPECIAL_CHARS = "\\`*_{}[]<>()#+-.!|"
 
@@ -216,7 +219,7 @@ def snapshot_report_markdown(
         lines.extend(
             (
                 f"- **{_md_inline(subtask.id or _unnamed(lang))}** "
-                f"[{_md_inline(subtask.status)}] "
+                f"[{_md_inline(_status_value(subtask.status, lang=lang))}] "
                 f"{_md_inline(subtask.parent_package_id or _no_package(lang))} -> "
                 f"{_md_inline(subtask.delegated_to or _unknown(lang))}: "
                 f"{_md_inline(subtask.result_summary or subtask.objective)}"
@@ -236,7 +239,8 @@ def snapshot_report_markdown(
                 "",
                 f"## {_label(lang, 'execution_recovery')}",
                 "",
-                f"- {_label(lang, 'execution')}: {_md_inline(recovery.state)}",
+                f"- {_label(lang, 'execution')}: "
+                f"{_md_inline(_status_value(recovery.state, lang=lang))}",
                 f"- {_label(lang, 'run')}: {_md_inline(recovery.run_id or _unknown(lang))}",
                 (
                     f"- {_label(lang, 'target')}: "
@@ -305,6 +309,10 @@ def _none(lang: str = "en") -> str:
 
 def _unknown(lang: str = "en") -> str:
     return _label(lang, "unknown")
+
+
+def _status_value(status: str, *, lang: str = "en") -> str:
+    return display_status_value(status, lang=lang, empty=_unknown(lang))
 
 
 def _not_set(lang: str = "en") -> str:
@@ -420,7 +428,7 @@ def _work_package_lines(
         f"- **{_md_inline(package.id or _unnamed(lang))}** {_md_inline(title)}",
         (
             f"  - {_label(lang, 'status')}: "
-            f"{_md_inline(package.status or _unknown(lang))}; "
+            f"{_md_inline(_status_value(package.status, lang=lang))}; "
             f"{_label(lang, 'owner')} {_md_inline(package.owner_agent or _unknown(lang))}; "
             f"{_label(lang, 'executor')} {_md_inline(_package_executor(package, lang=lang))}; "
             f"{_label(lang, 'lane')} {_md_inline(_package_lane(package, lang=lang))}"

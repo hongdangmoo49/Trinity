@@ -50,6 +50,7 @@ _LABELS = {
         "review_blocked": "리뷰가 `{status}` 상태입니다. 리뷰 메모를 확인하세요.",
         "review_changes": "리뷰가 완료 전 {count}개 변경을 요청했습니다.",
         "review_changes_no_count": "리뷰가 완료 전 변경을 요청했습니다.",
+        "review_skipped_reason": "리뷰 생략 사유",
         "reviewer": "리뷰어",
         "risk": "리스크",
         "routing_reason": "라우팅 사유",
@@ -104,6 +105,7 @@ _LABELS = {
         "review_blocked": "Review is `{status}`; inspect review notes.",
         "review_changes": "Review requested {count} change{plural} before completion.",
         "review_changes_no_count": "Review requested changes before completion.",
+        "review_skipped_reason": "Review skipped reason",
         "reviewer": "Reviewer",
         "risk": "Risk",
         "routing_reason": "Routing reason",
@@ -313,7 +315,13 @@ class WorkPackageDetailModal(ModalScreen[None]):
                 + self._label("review_blocked").format(status=package.review_status)
             )
         elif package.review_status == "skipped":
-            lines.append(f"- {self._label('peer_review_skipped')}")
+            if package.review_summary:
+                lines.append(
+                    f"- {self._label('review_skipped_reason')}: "
+                    f"{package.review_summary}"
+                )
+            else:
+                lines.append(f"- {self._label('peer_review_skipped')}")
 
         return lines
 

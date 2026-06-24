@@ -28,6 +28,7 @@ REPORT_MARKDOWN_LABELS = {
         "execution_log": "Execution Log",
         "execution_recovery": "Execution Recovery",
         "executor": "executor",
+        "default": "default",
         "goal": "Goal",
         "last_event": "Last event",
         "kind": "kind",
@@ -43,6 +44,9 @@ REPORT_MARKDOWN_LABELS = {
         "profile": "profile",
         "provider_session": "session",
         "providers": "Providers",
+        "no_package": "(no package)",
+        "none": "(none)",
+        "not_set": "(not set)",
         "reason": "Reason",
         "required_changes": "required changes",
         "retry_candidates": "Retry candidates",
@@ -63,6 +67,9 @@ REPORT_MARKDOWN_LABELS = {
         "success": "success",
         "target": "Target",
         "title": "Deliberation Report",
+        "unnamed": "(unnamed)",
+        "unknown": "(unknown)",
+        "untitled": "(untitled)",
         "work_package_routing": "Work Package Routing",
         "work_packages": "Work Packages",
     },
@@ -78,6 +85,7 @@ REPORT_MARKDOWN_LABELS = {
         "execution_log": "실행 로그",
         "execution_recovery": "실행 복구",
         "executor": "실행자",
+        "default": "기본값",
         "goal": "목표",
         "last_event": "최근 이벤트",
         "kind": "종류",
@@ -93,6 +101,9 @@ REPORT_MARKDOWN_LABELS = {
         "profile": "프로필",
         "provider_session": "세션",
         "providers": "프로바이더",
+        "no_package": "(패키지 없음)",
+        "none": "(없음)",
+        "not_set": "(미설정)",
         "reason": "이유",
         "required_changes": "변경 요청",
         "retry_candidates": "재시도 후보",
@@ -113,6 +124,9 @@ REPORT_MARKDOWN_LABELS = {
         "success": "성공",
         "target": "대상",
         "title": "워크플로우 리포트",
+        "unnamed": "(이름 없음)",
+        "unknown": "(알 수 없음)",
+        "untitled": "(제목 없음)",
         "work_package_routing": "WP 라우팅",
         "work_packages": "작업 패키지",
     },
@@ -149,8 +163,8 @@ def snapshot_report_markdown(
     lines = [
         f"# {_label(lang, 'title')}",
         "",
-        f"**{_label(lang, 'session')}**: {_md_inline(snapshot.session_id or '(none)')}  ",
-        f"**{_label(lang, 'goal')}**: {_md_inline(snapshot.goal or '(none)')}  ",
+        f"**{_label(lang, 'session')}**: {_md_inline(snapshot.session_id or _none(lang))}  ",
+        f"**{_label(lang, 'goal')}**: {_md_inline(snapshot.goal or _none(lang))}  ",
         f"**{_label(lang, 'state')}**: {_md_inline(snapshot.state)}  ",
         f"**{_label(lang, 'round')}**: {snapshot.round_num}  ",
         f"**{_label(lang, 'providers')}**: {len(snapshot.providers)}",
@@ -172,7 +186,7 @@ def snapshot_report_markdown(
                 "",
                 (
                     f"**{_label(lang, 'progress')}**: "
-                    f"{_md_inline(snapshot.synthesis.consensus_progress or '(none)')}  "
+                    f"{_md_inline(snapshot.synthesis.consensus_progress or _none(lang))}  "
                 ),
                 f"**{_label(lang, 'source')}**: {_md_inline(snapshot.synthesis.source)}",
                 "",
@@ -201,10 +215,10 @@ def snapshot_report_markdown(
         lines.extend(["", f"## {_label(lang, 'subtasks')}", ""])
         lines.extend(
             (
-                f"- **{_md_inline(subtask.id or '(unnamed)')}** "
+                f"- **{_md_inline(subtask.id or _unnamed(lang))}** "
                 f"[{_md_inline(subtask.status)}] "
-                f"{_md_inline(subtask.parent_package_id or '(no package)')} -> "
-                f"{_md_inline(subtask.delegated_to or '(unknown)')}: "
+                f"{_md_inline(subtask.parent_package_id or _no_package(lang))} -> "
+                f"{_md_inline(subtask.delegated_to or _unknown(lang))}: "
                 f"{_md_inline(subtask.result_summary or subtask.objective)}"
             )
             for subtask in snapshot.subtasks
@@ -223,24 +237,24 @@ def snapshot_report_markdown(
                 f"## {_label(lang, 'execution_recovery')}",
                 "",
                 f"- {_label(lang, 'execution')}: {_md_inline(recovery.state)}",
-                f"- {_label(lang, 'run')}: {_md_inline(recovery.run_id or '(unknown)')}",
+                f"- {_label(lang, 'run')}: {_md_inline(recovery.run_id or _unknown(lang))}",
                 (
                     f"- {_label(lang, 'target')}: "
-                    f"{_md_inline(recovery.target_workspace or '(not set)')}"
+                    f"{_md_inline(recovery.target_workspace or _not_set(lang))}"
                 ),
                 (
                     f"- {_label(lang, 'running_packages')}: "
-                    f"{_md_inline(', '.join(recovery.running_packages) or '(none)')}"
+                    f"{_md_inline(', '.join(recovery.running_packages) or _none(lang))}"
                 ),
                 (
                     f"- {_label(lang, 'retry_candidates')}: "
-                    f"{_md_inline(', '.join(recovery.retry_candidates) or '(none)')}"
+                    f"{_md_inline(', '.join(recovery.retry_candidates) or _none(lang))}"
                 ),
                 (
                     f"- {_label(lang, 'done_packages')}: "
-                    f"{_md_inline(', '.join(recovery.done_packages) or '(none)')}"
+                    f"{_md_inline(', '.join(recovery.done_packages) or _none(lang))}"
                 ),
-                f"- {_label(lang, 'last_event')}: {_md_inline(recovery.last_event or '(none)')}",
+                f"- {_label(lang, 'last_event')}: {_md_inline(recovery.last_event or _none(lang))}",
             ]
         )
     if snapshot.questions:
@@ -285,6 +299,30 @@ def _label(lang: str, key: str) -> str:
     return labels.get(key, REPORT_MARKDOWN_LABELS["en"][key])
 
 
+def _none(lang: str = "en") -> str:
+    return _label(lang, "none")
+
+
+def _unknown(lang: str = "en") -> str:
+    return _label(lang, "unknown")
+
+
+def _not_set(lang: str = "en") -> str:
+    return _label(lang, "not_set")
+
+
+def _unnamed(lang: str = "en") -> str:
+    return _label(lang, "unnamed")
+
+
+def _untitled(lang: str = "en") -> str:
+    return _label(lang, "untitled")
+
+
+def _no_package(lang: str = "en") -> str:
+    return _label(lang, "no_package")
+
+
 def _provider_lines(
     snapshot: WorkflowNexusSnapshot,
     *,
@@ -298,15 +336,15 @@ def _provider_lines(
             provider.actual_model
             or provider.model_label
             or provider.configured_model
-            or "default"
+            or _label(lang, "default")
         )
         context = (
             f"{provider.context_window:,}"
             if provider.context_window > 0
-            else "unknown"
+            else _unknown(lang)
         )
-        source = provider.budget_source or "unknown"
-        session = provider.session_id[:12] if provider.session_id else "none"
+        source = provider.budget_source or _unknown(lang)
+        session = provider.session_id[:12] if provider.session_id else _none(lang)
         profile = _provider_profile_summary(provider, lang=lang)
         if profile:
             profile = f"; {profile}"
@@ -353,7 +391,7 @@ def _agent_quality_lines(
 
 def _agent_quality_line(item: AgentQualitySnapshot, *, lang: str = "en") -> str:
     return (
-        f"- **{_md_inline(item.agent_name or '(unknown)')}**: "
+        f"- **{_md_inline(item.agent_name or _unknown(lang))}**: "
         f"{_label(lang, 'score')} {_md_inline(_format_score(item.score))}; "
         f"{_label(lang, 'success')} {item.success_count}/{item.signal_count}; "
         f"{_label(lang, 'blockers')} {item.blocker_count}; "
@@ -377,14 +415,14 @@ def _work_package_lines(
     *,
     lang: str = "en",
 ) -> list[str]:
-    title = package.title or "(untitled)"
+    title = package.title or _untitled(lang)
     lines = [
-        f"- **{_md_inline(package.id or '(unnamed)')}** {_md_inline(title)}",
+        f"- **{_md_inline(package.id or _unnamed(lang))}** {_md_inline(title)}",
         (
             f"  - {_label(lang, 'status')}: "
-            f"{_md_inline(package.status or 'unknown')}; "
-            f"{_label(lang, 'owner')} {_md_inline(package.owner_agent or '(unknown)')}; "
-            f"{_label(lang, 'executor')} {_md_inline(_package_executor(package))}; "
+            f"{_md_inline(package.status or _unknown(lang))}; "
+            f"{_label(lang, 'owner')} {_md_inline(package.owner_agent or _unknown(lang))}; "
+            f"{_label(lang, 'executor')} {_md_inline(_package_executor(package, lang=lang))}; "
             f"{_label(lang, 'lane')} {_md_inline(_package_lane(package, lang=lang))}"
         ),
     ]
@@ -402,7 +440,7 @@ def _work_package_lines(
         )
         review = (
             f"{_md_inline(review_status)}; "
-            f"{_label(lang, 'reviewer')} {_md_inline(package.reviewer_agent or '(none)')}"
+            f"{_label(lang, 'reviewer')} {_md_inline(package.reviewer_agent or _none(lang))}"
         )
         if package.review_status == "skipped" and package.review_summary:
             review = (
@@ -413,12 +451,12 @@ def _work_package_lines(
     return lines
 
 
-def _package_executor(package: WorkPackageSnapshot) -> str:
+def _package_executor(package: WorkPackageSnapshot, *, lang: str = "en") -> str:
     return (
         package.current_executor
         or package.last_executor
         or package.last_result_agent
-        or "(none)"
+        or _none(lang)
     )
 
 

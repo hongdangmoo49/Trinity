@@ -4760,6 +4760,7 @@ async def test_work_package_detail_modal_supports_korean_chrome_labels(
         )
         markdown = app.screen._markdown()
         assert "## 요약" in markdown
+        assert "- 제목: Client" in markdown
         assert "- 상태: `failed`" in markdown
         assert "- 소유자: `codex`" in markdown
         assert "- 실행 필요: `예`" in markdown
@@ -4771,6 +4772,27 @@ async def test_work_package_detail_modal_supports_korean_chrome_labels(
         assert "## 리뷰" in markdown
         assert "## 명세" in markdown
         assert "### 목표" in markdown
+
+
+def test_work_package_detail_modal_clips_header_and_preserves_full_title() -> None:
+    long_title = "Build " + "very long package title " * 8
+    modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-999",
+            title=long_title,
+            topic="Execution detail topic",
+            owner_agent="codex",
+            status="pending",
+        )
+    )
+
+    title_text = modal._title_text()
+    markdown = modal._markdown()
+
+    assert len(title_text) <= 86
+    assert title_text.endswith("...")
+    assert f"- Title: {long_title}" in markdown
+    assert "- Topic: Execution detail topic" in markdown
 
 
 def test_work_package_detail_modal_marks_serial_execution_lane() -> None:

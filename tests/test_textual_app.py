@@ -8090,7 +8090,7 @@ async def test_execution_matrix_viewport_qa_matrix_with_long_workspace(
             assert "레인 1" in summary
             assert "직렬 1" in summary
             assert "재시도 1" in summary
-            assert "워크플로우 running" in summary
+            assert "워크플로우 실행중" in summary
             assert "실행 exec-run-viewport-qa" in summary
             assert "대상:" in summary
 

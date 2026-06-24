@@ -17,6 +17,7 @@ from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.execution_log_modal import ExecutionLogModal
 from trinity.textual_app.widgets.status_label import (
     compact_status_label,
+    display_status_value,
     is_no_peer_review_skip,
 )
 from trinity.textual_app.widgets.work_package_detail_modal import WorkPackageDetailModal
@@ -740,12 +741,13 @@ class ExecutionMatrixScreen(Screen[None]):
             else self.snapshot.session_id
             or "-"
         )
-        state = (
+        state_value = (
             recovery.state
             if recovery is not None and recovery.state
             else self.snapshot.state
             or "idle"
         )
+        state = display_status_value(state_value, lang=self.lang)
         parts = [
             f"{self._label('summary_run')} {counts['RUN']}",
             f"{self._label('summary_review')} {counts['REVIEW']}",

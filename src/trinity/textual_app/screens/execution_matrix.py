@@ -97,7 +97,7 @@ class ExecutionPackageRow(Horizontal):
                     classes="execution-package-review",
                 )
                 yield Static(
-                    _clip(f"risk: {self.risk}", 14),
+                    _clip(f"risk: {self.risk}", 18),
                     classes="execution-package-risk",
                 )
                 yield Button(
@@ -158,7 +158,7 @@ class ExecutionPackageHeader(Vertical):
         with Horizontal(classes="execution-package-secondary"):
             yield Static("Owner", classes="execution-package-assignee")
             yield Static("Review", classes="execution-package-review")
-            yield Static("Risk", classes="execution-package-risk")
+            yield Static("Risk/Lane", classes="execution-package-risk")
             yield Static("Spec", classes="execution-package-spec")
 
 
@@ -356,7 +356,7 @@ class ExecutionMatrixScreen(Screen[None]):
                     ),
                     status=compact_status_label(package.status or "pending"),
                     review_status=_review_label(package),
-                    risk=package.risk or "unknown",
+                    risk=_risk_lane_label(package),
                     button_id=f"wp-detail-{index}",
                     task_width=task_width,
                 )
@@ -581,6 +581,16 @@ def _reviewer_status_label(reviewer: str, label: str) -> str:
         if len(compact) <= 10:
             return compact
     return _clip(preferred, 10)
+
+
+def _risk_lane_label(package: object) -> str:
+    risk = str(getattr(package, "risk", "") or "unknown").strip() or "unknown"
+    if not bool(getattr(package, "parallelizable", True)):
+        return f"{risk} serial"
+    group = getattr(package, "parallel_group", None)
+    if group is None:
+        return risk
+    return f"{risk} g{group}"
 
 
 def _reviewer_names(reviewer: str) -> list[str]:

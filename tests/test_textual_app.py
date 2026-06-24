@@ -3634,6 +3634,49 @@ async def test_execution_matrix_updates_existing_rows_without_remount(tmp_path) 
 
 
 @pytest.mark.asyncio
+async def test_execution_matrix_shows_parallel_group_lane(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Frontend shell",
+                        owner_agent="codex",
+                        status="running",
+                        risk="medium",
+                        parallel_group=1,
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-002",
+                        title="Shared config",
+                        owner_agent="claude",
+                        status="pending",
+                        risk="high",
+                        parallel_group=2,
+                        parallelizable=False,
+                    ),
+                ],
+            ),
+        )
+        await pilot.pause()
+
+        header = screen.query_one(".execution-package-header")
+        rows = list(screen.query("#execution-package-list .execution-package-row"))
+
+        assert "Risk/Lane" in _widget_tree_text(header)
+        assert "risk: medium g1" in _widget_tree_text(rows[0])
+        assert "risk: high serial" in _widget_tree_text(rows[1])
+
+
+@pytest.mark.asyncio
 async def test_execution_matrix_renders_compact_status_labels(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

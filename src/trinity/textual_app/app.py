@@ -864,7 +864,7 @@ class TrinityTextualApp(App[None]):
     }
 
     .execution-package-risk {
-        width: 16;
+        width: 18;
         color: $text-muted;
     }
 

@@ -2879,6 +2879,52 @@ def test_central_agent_view_keeps_english_status_values() -> None:
     assert "- **AI-001** [high][pending] Add smoke test" in markdown
 
 
+def test_central_agent_view_localizes_korean_guidance_labels() -> None:
+    view = CentralAgentView(lang="ko")
+    view.snapshot = WorkflowNexusSnapshot(
+        local_commands=[
+            LocalCommandSnapshot(
+                command="/questions",
+                title="질문",
+                body="대기 중인 질문이 있습니다.",
+                action_hint="질문 패널 버튼을 사용하세요.",
+            )
+        ]
+    )
+
+    command_markdown = view._markdown()
+
+    assert "_다음:_ 질문 패널 버튼을 사용하세요." in command_markdown
+    assert "_Next:_" not in command_markdown
+
+    view.snapshot = WorkflowNexusSnapshot(
+        state="post_review_ready",
+        post_review_items=[
+            PostReviewActionSnapshot(
+                id="AI-001",
+                severity="high",
+                status="pending",
+                title="테스트 보강",
+            )
+        ],
+    )
+
+    follow_up_markdown = view._markdown()
+
+    assert (
+        "`/improve high`, `/improve all`, `/improve AI-001`, "
+        "`/improve done` 중 하나를 실행하세요."
+    ) in follow_up_markdown
+    assert "Use `/improve" not in follow_up_markdown
+
+    view.snapshot = WorkflowNexusSnapshot(state="post_review_ready")
+
+    done_markdown = view._markdown()
+
+    assert "`/improve done`으로 워크플로우를 종료하세요." in done_markdown
+    assert "Use `/improve done`" not in done_markdown
+
+
 def test_central_agent_view_localizes_korean_execution_progress() -> None:
     view = CentralAgentView(lang="ko")
     snapshot = WorkflowNexusSnapshot(

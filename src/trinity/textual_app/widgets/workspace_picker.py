@@ -45,6 +45,7 @@ WORKSPACE_PICKER_LABELS = {
         "loading_folders": "Loading folders from {root}...",
         "new_folder": "New Folder",
         "new_folder_created": "New folder created: {path}",
+        "none": "(none)",
         "parent": "Parent",
         "path": "Path",
         "path_exists_not_directory": (
@@ -90,6 +91,7 @@ WORKSPACE_PICKER_LABELS = {
         "loading_folders": "폴더를 불러오는 중: {root}...",
         "new_folder": "새 폴더",
         "new_folder_created": "새 폴더를 만들었습니다: {path}",
+        "none": "(없음)",
         "parent": "상위 폴더",
         "path": "경로",
         "path_exists_not_directory": "경로가 이미 있고 디렉터리가 아닙니다: {path}",
@@ -139,6 +141,7 @@ class WorkspacePreflight:
         return not self.exists and self.creatable
 
     def render(self, *, lang: str = "en") -> str:
+        branch = _label(lang, "none") if self.branch == "(none)" else self.branch
         return "\n".join(
             [
                 f"{_label(lang, 'path')}: {self.path}",
@@ -147,7 +150,7 @@ class WorkspacePreflight:
                 f"{_label(lang, 'writable')}: {self.writable}",
                 f"{_label(lang, 'git_repo')}: {self.git_repo}",
                 f"{_label(lang, 'creatable')}: {self.creatable}",
-                f"{_label(lang, 'branch')}: {self.branch}",
+                f"{_label(lang, 'branch')}: {branch}",
                 f"{_label(lang, 'dirty_worktree')}: {_label(lang, 'unknown')}",
                 (
                     f"{_label(lang, 'provider_readiness')}: "

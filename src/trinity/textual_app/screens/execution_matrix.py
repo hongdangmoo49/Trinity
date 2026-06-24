@@ -61,6 +61,7 @@ _EXECUTION_MATRIX_LABELS = {
         "summary_wait": "대기",
         "status": "상태",
         "target": "대상",
+        "unknown_risk": "알 수 없음",
         "workspace": "작업 폴더",
         "workflow": "워크플로우",
     },
@@ -103,6 +104,7 @@ _EXECUTION_MATRIX_LABELS = {
         "summary_wait": "WAIT",
         "status": "Status",
         "target": "target",
+        "unknown_risk": "unknown",
         "workspace": "workspace",
         "workflow": "workflow",
     },
@@ -616,7 +618,7 @@ class ExecutionMatrixScreen(Screen[None]):
                     ),
                     status=compact_status_label(package.status or "pending"),
                     review_status=_review_label(package, self.lang),
-                    risk=_risk_lane_label(package),
+                    risk=_risk_lane_label(package, self.lang),
                     button_id=f"wp-detail-{index}",
                     button_label=_detail_button_label(package, self.lang),
                     task_width=task_width,
@@ -643,7 +645,7 @@ class ExecutionMatrixScreen(Screen[None]):
                     executor="-",
                     status=compact_status_label(status),
                     review_status="-",
-                    risk="unknown",
+                    risk=_label(self.lang, "unknown_risk"),
                     button_id=f"wp-detail-legacy-{index}",
                     button_label=self._label("spec"),
                     task_width=task_width,
@@ -936,10 +938,12 @@ def _reviewer_status_label(reviewer: str, label: str, *, lang: str = "en") -> st
     return _clip(preferred, 10)
 
 
-def _risk_lane_label(package: object) -> str:
-    risk = str(getattr(package, "risk", "") or "unknown").strip() or "unknown"
+def _risk_lane_label(package: object, lang: str = "en") -> str:
+    risk = str(getattr(package, "risk", "") or "").strip()
+    if not risk:
+        risk = _label(lang, "unknown_risk")
     if not bool(getattr(package, "parallelizable", True)):
-        return f"{risk} serial"
+        return f"{risk} {_label(lang, 'serial_summary')}"
     group = getattr(package, "parallel_group", None)
     if group is None:
         return risk

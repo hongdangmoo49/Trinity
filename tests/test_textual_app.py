@@ -8041,7 +8041,7 @@ async def test_execution_matrix_viewport_qa_matrix_with_long_workspace(
             assert len(rows) == 2
             assert "리뷰: agy 대기" in _widget_tree_text(rows[0])
             assert "리스크: medium g1" in _widget_tree_text(rows[0])
-            assert "리스크: high serial" in _widget_tree_text(rows[1])
+            assert "리스크: high 직렬" in _widget_tree_text(rows[1])
 
             blocked_button = screen.query_one("#wp-detail-1", Button)
             assert str(blocked_button.label) == "차단됨"
@@ -8191,6 +8191,13 @@ async def test_execution_matrix_supports_korean_chrome_labels(tmp_path) -> None:
                         reviewer_agent="antigravity",
                         risk="medium",
                     ),
+                    WorkPackageSnapshot(
+                        id="WP-002",
+                        title="Docs",
+                        owner_agent="claude",
+                        status="pending",
+                        risk="",
+                    ),
                 ],
                 execution_recovery=ExecutionRecoverySnapshot(
                     state="failed",
@@ -8208,13 +8215,14 @@ async def test_execution_matrix_supports_korean_chrome_labels(tmp_path) -> None:
         assert "실행자" in header_text
         assert "리스크/레인" in header_text
 
-        row_text = _widget_tree_text(
-            screen.query("#execution-package-list .execution-package-row").first()
-        )
-        assert "claude 폴백" in row_text
-        assert "리뷰: agy 대기" in row_text
-        assert "리스크: medium" in row_text
-        assert "상세" in row_text
+        rows = list(screen.query("#execution-package-list .execution-package-row"))
+        first_row_text = _widget_tree_text(rows[0])
+        second_row_text = _widget_tree_text(rows[1])
+        assert "claude 폴백" in first_row_text
+        assert "리뷰: agy 대기" in first_row_text
+        assert "리스크: medium" in first_row_text
+        assert "상세" in first_row_text
+        assert "리스크: 알 수 없음" in second_row_text
 
         activity_lines = screen._activity_lines()
         assert activity_lines[0] == "활동"

@@ -1843,8 +1843,8 @@ class TrinityTextualApp(App[None]):
         if command == "save":
             self._record_slash_command_result(
                 parsed.spec.name,
-                "Save",
-                "Textual workflows are persisted automatically. Use /report save for Markdown export.",
+                textual_presenters.save_title(lang=self.config.lang),
+                textual_presenters.save_auto_persist_markdown(lang=self.config.lang),
             )
             return
         if command == "target":

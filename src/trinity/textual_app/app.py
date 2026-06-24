@@ -1812,18 +1812,19 @@ class TrinityTextualApp(App[None]):
             return
         if command == "history":
             snapshot = self._refresh_textual_snapshot()
-            history_rows = self._history_rows(snapshot)
+            history_rows = self._history_rows(snapshot, lang=self.config.lang)
             self._record_slash_command_result(
                 parsed.spec.name,
                 "History",
-                self._history_markdown(snapshot, history_rows),
+                self._history_markdown(snapshot, history_rows, lang=self.config.lang),
                 empty=not history_rows,
-                action_hint=(
-                    "Run a prompt, execute a workflow, or use local slash commands first."
-                    if not history_rows
-                    else ""
+                action_hint=textual_presenters.history_action_hint(
+                    has_history=bool(history_rows),
+                    lang=self.config.lang,
                 ),
-                table_columns=("Kind", "Item"),
+                table_columns=textual_presenters.history_table_columns(
+                    lang=self.config.lang
+                ),
                 table_rows=history_rows,
             )
             return
@@ -2474,15 +2475,23 @@ class TrinityTextualApp(App[None]):
     def _history_rows(
         self,
         snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
     ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.history_rows(snapshot, self._local_command_results)
+        return textual_presenters.history_rows(
+            snapshot,
+            self._local_command_results,
+            lang=lang,
+        )
 
     @staticmethod
     def _history_markdown(
         snapshot: WorkflowNexusSnapshot,
         rows: tuple[tuple[str, str], ...],
+        *,
+        lang: str = "en",
     ) -> str:
-        return textual_presenters.history_markdown(snapshot, rows)
+        return textual_presenters.history_markdown(snapshot, rows, lang=lang)
 
     def _handle_textual_context_command(self, command: str) -> None:
         """Show the current session context without reading stale shared.md state."""

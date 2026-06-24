@@ -136,6 +136,7 @@ from trinity.textual_app.presenters import (
     snapshot_workflow_markdown,
     snapshot_workflow_rows,
     status_table_columns,
+    status_title,
     subtasks_action_hint,
     subtasks_markdown,
     subtasks_rows,
@@ -677,6 +678,7 @@ def test_status_presenter_uses_korean_labels() -> None:
     markdown = snapshot_status_markdown(snapshot, lang="ko")
     rows = snapshot_status_rows(snapshot, lang="ko")
 
+    assert status_title(lang="ko") == "상태"
     assert status_table_columns(lang="ko") == ("항목", "값")
     assert "- 워크플로우: `wf-ko`" in markdown
     assert "| 프로바이더 | 활성화 | 상태 | 준비 상태 |" in markdown
@@ -2900,6 +2902,7 @@ async def test_start_slash_status_uses_korean_modal_chrome(tmp_path) -> None:
         )
         assert str(app.screen.query_one("#close-status-command", Button).label) == "닫기"
         assert app.active_snapshot is not None
+        assert app.active_snapshot.local_commands[-1].title == "상태"
         assert app.active_snapshot.local_commands[-1].table_columns == ("항목", "값")
         assert ("상태", "idle") in app.active_snapshot.local_commands[-1].table_rows
         table_text = str(app.screen.query_one("#status-command-table", Static).render())

@@ -1981,6 +1981,56 @@ def test_execution_retry_modal_custom_keeps_selected_retry_candidates() -> None:
     assert modal._selected_package_ids() == ("WP-003",)
 
 
+def test_execution_retry_modal_supports_korean_chrome_labels() -> None:
+    modal = ExecutionRetryModal(
+        WorkflowNexusSnapshot(
+            target_workspace="/workspace/game",
+            execution_recovery=ExecutionRecoverySnapshot(
+                state="failed",
+                target_workspace="/workspace/game",
+            ),
+            work_package_details=[
+                WorkPackageSnapshot(
+                    id="WP-001",
+                    title="Client",
+                    owner_agent="codex",
+                    status="failed",
+                    retryable=True,
+                ),
+            ],
+        ),
+        lang="ko",
+    )
+
+    assert modal._label("title") == "실행 재시도"
+    assert modal._filter_label("failed") == "실패"
+    assert modal._summary_text() == "복구: failed  대상: /workspace/game"
+    assert modal._header_text().startswith("WP      상태")
+    assert modal._selected_text() == "선택됨: WP-001"
+
+
+def test_execution_retry_modal_keeps_english_chrome_labels() -> None:
+    modal = ExecutionRetryModal(
+        WorkflowNexusSnapshot(
+            work_package_details=[
+                WorkPackageSnapshot(
+                    id="WP-001",
+                    title="Client",
+                    owner_agent="codex",
+                    status="failed",
+                    retryable=True,
+                ),
+            ],
+        )
+    )
+
+    assert modal._label("title") == "Execute Retry"
+    assert modal._filter_label("failed") == "Failed"
+    assert modal._summary_text() == "Recovery: none  Target: (not selected)"
+    assert modal._header_text().startswith("WP      Status")
+    assert modal._selected_text() == "Selected: WP-001"
+
+
 @pytest.mark.asyncio
 async def test_start_slash_workflow_uses_generic_local_command_modal(
     tmp_path,

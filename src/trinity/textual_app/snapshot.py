@@ -52,6 +52,7 @@ class ProviderSnapshot:
     profile_modes: list[str] = field(default_factory=list)
     profile_strengths: list[str] = field(default_factory=list)
     context_profile: str = ""
+    output_contract: str = ""
 
 
 @dataclass(frozen=True)
@@ -437,6 +438,7 @@ class NexusSnapshotAdapter:
             "reason",
             "readiness_reason",
             "scope",
+            "output_contract",
         )
         values = [event.type.value]
         values.extend(str(data.get(field, "")) for field in fields)
@@ -1469,11 +1471,20 @@ class NexusSnapshotAdapter:
     ) -> None:
         for event in recent_events:
             data = event.data
-            agent = str(data.get("agent", ""))
+            agent = str(
+                data.get("agent")
+                or data.get("reviewer_agent")
+                or data.get("reviewer")
+                or ""
+            )
             if not agent or agent not in states:
                 continue
 
             current = states[agent]
+            output_contract = self._event_output_contract(data)
+            if output_contract:
+                current = self._replace(current, output_contract=output_contract)
+                states[agent] = current
             if event.type == TUIEventType.AGENT_THINKING:
                 states[agent] = self._replace(current, status="Running")
             elif event.type == TUIEventType.AGENT_RESPONDED:
@@ -2021,9 +2032,20 @@ class NexusSnapshotAdapter:
             "profile_modes": list(snapshot.profile_modes),
             "profile_strengths": list(snapshot.profile_strengths),
             "context_profile": snapshot.context_profile,
+            "output_contract": snapshot.output_contract,
         }
         data.update(updates)
         return ProviderSnapshot(**data)
+
+    @staticmethod
+    def _event_output_contract(data: dict[str, object]) -> str:
+        output_contract = str(data.get("output_contract") or "").strip()
+        if output_contract:
+            return output_contract
+        metadata = data.get("metadata", {})
+        if isinstance(metadata, dict):
+            return str(metadata.get("output_contract") or "").strip()
+        return ""
 
     @staticmethod
     def _event_response_status(data: dict[str, object]) -> str:

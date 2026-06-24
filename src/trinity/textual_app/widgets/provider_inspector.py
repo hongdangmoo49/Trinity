@@ -95,6 +95,8 @@ class ProviderInspector(ModalScreen[None]):
             lines.append(f"Strengths: {', '.join(provider.profile_strengths)}")
         if provider.context_profile:
             lines.append(f"Context profile: {provider.context_profile}")
+        if provider.output_contract:
+            lines.append(f"Output contract: {provider.output_contract}")
         return "\n".join(lines)
 
     def _all_output(self) -> str:
@@ -108,6 +110,7 @@ class ProviderInspector(ModalScreen[None]):
                     f"Readiness: {provider.readiness}",
                     f"Mission: {provider.profile_mission or '-'}",
                     f"Context profile: {provider.context_profile or '-'}",
+                    f"Output contract: {provider.output_contract or '-'}",
                     "",
                     self._provider_output(provider),
                 ]

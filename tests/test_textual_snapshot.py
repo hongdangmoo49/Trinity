@@ -72,6 +72,38 @@ def test_snapshot_marks_non_ok_provider_response_event_as_error(tmp_path) -> Non
     assert claude.summary == "[Error: exit code 1]"
 
 
+def test_snapshot_projects_provider_output_contract_from_runtime_event(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot(
+        [
+            TUIEvent(
+                type=TUIEventType.WORK_PACKAGE_STARTED,
+                data={
+                    "agent": "codex",
+                    "package_id": "WP-001",
+                    "status": "running",
+                    "output_contract": "execution_v1",
+                },
+            ),
+            TUIEvent(
+                type=TUIEventType.REVIEW_PACKAGE_STARTED,
+                data={
+                    "reviewer_agent": "antigravity",
+                    "review_package_id": "RP-WP-001-antigravity",
+                    "package_id": "WP-001",
+                    "status": "reviewing",
+                    "output_contract": "review_v1",
+                },
+            ),
+        ]
+    )
+
+    by_name = {provider.name: provider for provider in snapshot.providers}
+    assert by_name["codex"].output_contract == "execution_v1"
+    assert by_name["antigravity"].output_contract == "review_v1"
+
+
 def test_snapshot_marks_non_ok_persisted_response_artifact_as_error(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     persistence = WorkflowPersistence(config.effective_state_dir)

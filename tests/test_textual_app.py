@@ -4234,6 +4234,7 @@ def test_provider_inspector_meta_includes_profile_summary() -> None:
                 profile_modes=["execute", "review"],
                 profile_strengths=["implementation 0.95"],
                 context_profile="implementer",
+                output_contract="execution_v1",
             )
         ]
     )
@@ -4244,6 +4245,7 @@ def test_provider_inspector_meta_includes_profile_summary() -> None:
     assert "Modes: execute, review" in meta
     assert "Strengths: implementation 0.95" in meta
     assert "Context profile: implementer" in meta
+    assert "Output contract: execution_v1" in meta
 
 
 @pytest.mark.asyncio

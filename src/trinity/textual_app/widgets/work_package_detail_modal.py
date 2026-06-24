@@ -7,7 +7,11 @@ from textual.containers import Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Markdown, Static
 
-from trinity.display_labels import display_risk_value, display_severity_value
+from trinity.display_labels import (
+    display_kind_value,
+    display_risk_value,
+    display_severity_value,
+)
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkPackageSnapshot
 from trinity.textual_app.widgets.status_label import display_status_value
@@ -208,7 +212,7 @@ class WorkPackageDetailModal(ModalScreen[None]):
         if package.task_kind or package.routing_reason:
             lines.extend(
                 [
-                    f"- {self._label('task_kind')}: `{package.task_kind or '-'}`",
+                    f"- {self._label('task_kind')}: `{self._kind_value(package.task_kind)}`",
                     f"- {self._label('routing_score')}: `{package.routing_score:.1f}`",
                     f"- {self._label('routing_reason')}: {package.routing_reason or self._label('none')}",
                     f"- {self._label('profile_revision')}: `{package.profile_revision or '-'}`",
@@ -383,6 +387,9 @@ class WorkPackageDetailModal(ModalScreen[None]):
 
     def _severity_value(self, value: str) -> str:
         return display_severity_value(value, lang=self.lang)
+
+    def _kind_value(self, value: str) -> str:
+        return display_kind_value(value, lang=self.lang)
 
     def _label(self, key: str) -> str:
         labels = _LABELS.get(self.lang, _LABELS["en"])

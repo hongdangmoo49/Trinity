@@ -16,6 +16,7 @@ NO_CURRENT_CONTEXT_MESSAGE = (
 STATUS_CONTEXT_LABELS = {
     "en": {
         "answer": "Answer",
+        "central": "central",
         "continue_until_question": "Continue planning until the central agent raises a question.",
         "decision": "Decision",
         "decision_hint": "Answer pending questions with `/answer` to add decisions.",
@@ -37,11 +38,14 @@ STATUS_CONTEXT_LABELS = {
         "next": "Next",
         "no": "no",
         "no_decisions": "No workflow decisions recorded in the current session.",
+        "no_packages": "No workflow work packages generated in the current session.",
         "no_pending_questions": "No pending workflow questions.",
         "no_pending_questions_select": "No pending workflow questions to select.",
         "no_predefined_options": "This question has no predefined options.",
         "not_checked": "not checked",
         "options": "Options",
+        "package": "Package",
+        "packages_hint": "Finish planning until a blueprint or local WP graph is generated.",
         "pending_questions": "Pending questions",
         "post_review_action_items": "Post Review Action Items",
         "post_review_items": "Post-review items",
@@ -64,6 +68,7 @@ STATUS_CONTEXT_LABELS = {
         "reviewer": "reviewer",
         "round": "Round",
         "run": "Run",
+        "source": "Source",
         "running_packages": "Running packages",
         "running_packages_at_exit": "Running packages at exit",
         "state": "State",
@@ -76,12 +81,14 @@ STATUS_CONTEXT_LABELS = {
         "workflow": "Workflow",
         "workflow_history": "Workflow History",
         "work_packages": "Work Packages",
+        "local": "local",
         "yes": "yes",
         "selected_question": "Selected question",
         "free_text": "(free text)",
     },
     "ko": {
         "answer": "답변",
+        "central": "중앙",
         "continue_until_question": "중앙 에이전트가 질문을 만들 때까지 계획을 계속 진행하세요.",
         "decision": "결정",
         "decision_hint": "대기 중인 질문에 `/answer`로 답하면 결정이 추가됩니다.",
@@ -103,11 +110,14 @@ STATUS_CONTEXT_LABELS = {
         "next": "다음",
         "no": "아니오",
         "no_decisions": "현재 세션에 기록된 워크플로우 결정이 없습니다.",
+        "no_packages": "현재 세션에 생성된 워크플로우 작업 패키지가 없습니다.",
         "no_pending_questions": "대기 중인 워크플로우 질문이 없습니다.",
         "no_pending_questions_select": "선택할 대기 질문이 없습니다.",
         "no_predefined_options": "이 질문에는 미리 정의된 선택지가 없습니다.",
         "not_checked": "미확인",
         "options": "선택지",
+        "package": "작업 패키지",
+        "packages_hint": "blueprint 또는 로컬 WP 그래프가 생성될 때까지 계획을 진행하세요.",
         "pending_questions": "대기 중 질문",
         "post_review_action_items": "리뷰 후 조치",
         "post_review_items": "리뷰 후 조치",
@@ -129,6 +139,7 @@ STATUS_CONTEXT_LABELS = {
         "reviewer": "리뷰어",
         "round": "라운드",
         "run": "실행 ID",
+        "source": "출처",
         "running_packages": "실행 중 WP",
         "running_packages_at_exit": "종료 시 실행 중 WP",
         "state": "상태",
@@ -141,6 +152,7 @@ STATUS_CONTEXT_LABELS = {
         "workflow": "워크플로우",
         "workflow_history": "워크플로우 이력",
         "work_packages": "작업 패키지",
+        "local": "로컬",
         "yes": "예",
         "selected_question": "선택된 질문",
         "free_text": "(자유 입력)",
@@ -829,22 +841,38 @@ def decisions_rows(
     )
 
 
-def packages_markdown(snapshot: WorkflowNexusSnapshot) -> str:
-    rows = packages_rows(snapshot)
+def packages_action_hint(*, has_packages: bool, lang: str = "en") -> str:
+    return "" if has_packages else _sc_label(lang, "packages_hint")
+
+
+def packages_table_columns(*, lang: str = "en") -> tuple[str, str, str]:
+    return ("#", _sc_label(lang, "source"), _sc_label(lang, "package"))
+
+
+def packages_markdown(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> str:
+    rows = packages_rows(snapshot, lang=lang)
     if not rows:
-        return "No workflow work packages generated in the current session."
+        return _sc_label(lang, "no_packages")
     lines = []
     for index, source, package in rows:
         lines.append(f"{index}. **{source}** {package}")
     return "\n".join(lines)
 
 
-def packages_rows(snapshot: WorkflowNexusSnapshot) -> tuple[tuple[str, str, str], ...]:
+def packages_rows(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> tuple[tuple[str, str, str], ...]:
     rows: list[tuple[str, str, str]] = []
     for package in snapshot.central_work_packages:
-        rows.append((str(len(rows) + 1), "central", package))
+        rows.append((str(len(rows) + 1), _sc_label(lang, "central"), package))
     for package in snapshot.work_packages:
-        rows.append((str(len(rows) + 1), "local", package))
+        rows.append((str(len(rows) + 1), _sc_label(lang, "local"), package))
     return tuple(rows)
 
 

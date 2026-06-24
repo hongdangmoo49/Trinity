@@ -52,9 +52,11 @@ from trinity.textual_app.slash_palette import SlashCommandPaletteProvider
 from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import (
     AgentQualitySnapshot,
+    PostReviewActionSnapshot,
     LocalCommandSnapshot,
     ProviderSnapshot,
     QuestionSnapshot,
+    ReviewSnapshot,
     SubtaskSnapshot,
     SynthesisSnapshot,
     ExecutionRecoverySnapshot,
@@ -1420,6 +1422,64 @@ def test_snapshot_report_markdown_includes_work_package_routing_metadata() -> No
         "Review: skipped; reviewer \\(none\\); reason only codex is active; "
         "no non\\-owner peer reviewer is available"
     ) in md
+
+
+def test_central_agent_view_localizes_korean_status_values() -> None:
+    view = CentralAgentView(lang="ko")
+    view.snapshot = WorkflowNexusSnapshot(
+        state="post_review_ready",
+        final_review=ReviewSnapshot(
+            status="approved",
+            reviewer_agent="codex",
+            summary="Looks good.",
+        ),
+        post_review_items=[
+            PostReviewActionSnapshot(
+                id="AI-001",
+                severity="high",
+                status="pending",
+                title="Add smoke test",
+            ),
+            PostReviewActionSnapshot(
+                id="AI-002",
+                severity="low",
+                status="done",
+                title="Update docs",
+            ),
+        ],
+    )
+
+    markdown = view._markdown()
+
+    assert "- `승인` by `codex`" in markdown
+    assert "- **AI-001** [high][대기] Add smoke test" in markdown
+    assert "- **AI-002** [low][완료] Update docs" in markdown
+    assert "`approved`" not in markdown
+    assert "[pending]" not in markdown
+
+
+def test_central_agent_view_keeps_english_status_values() -> None:
+    view = CentralAgentView()
+    view.snapshot = WorkflowNexusSnapshot(
+        state="post_review_ready",
+        final_review=ReviewSnapshot(
+            status="approved",
+            reviewer_agent="codex",
+        ),
+        post_review_items=[
+            PostReviewActionSnapshot(
+                id="AI-001",
+                severity="high",
+                status="pending",
+                title="Add smoke test",
+            )
+        ],
+    )
+
+    markdown = view._markdown()
+
+    assert "- `approved` by `codex`" in markdown
+    assert "- **AI-001** [high][pending] Add smoke test" in markdown
 
 
 def test_unique_report_path_avoids_existing_file_and_sanitizes_session_id(

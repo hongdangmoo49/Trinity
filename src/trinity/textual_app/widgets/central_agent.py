@@ -21,6 +21,7 @@ from trinity.textual_app.widgets.progress_summary import (
     progress_summary_line,
     work_package_counts,
 )
+from trinity.textual_app.widgets.status_label import display_status_value
 
 
 ACTIVITY_FRAMES = ("|", "/", "-", "\\")
@@ -150,7 +151,7 @@ class CentralAgentView(VerticalScroll):
                     "",
                     f"### {self._label('final_review')}",
                     (
-                        f"- `{review.status or 'unknown'}` by "
+                        f"- `{self._status_value(review.status or 'unknown')}` by "
                         f"`{review.reviewer_agent or '(unknown)'}`"
                     ),
                 ]
@@ -161,9 +162,9 @@ class CentralAgentView(VerticalScroll):
             lines.extend(["", f"### {self._label('follow_up_work')}"])
             for item in snapshot.post_review_items:
                 title = item.title or item.summary or item.id
+                status = self._status_value(item.status)
                 lines.append(
-                    f"- **{item.id}** [{item.severity}][{item.status}] "
-                    f"{title}"
+                    f"- **{item.id}** [{item.severity}][{status}] {title}"
                 )
             lines.append("")
             lines.append("Use `/improve high`, `/improve all`, `/improve AI-001`, or `/improve done`.")
@@ -409,6 +410,9 @@ class CentralAgentView(VerticalScroll):
             f"{done} done / {running} running / {waiting} waiting"
             + (f" / {blocked} blocked" if blocked else "")
         )
+
+    def _status_value(self, value: str) -> str:
+        return display_status_value(value, lang=self.lang)
 
     @staticmethod
     def _blueprint_actions_key(snapshot: WorkflowNexusSnapshot) -> tuple[object, ...]:

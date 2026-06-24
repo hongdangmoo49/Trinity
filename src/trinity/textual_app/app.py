@@ -1878,9 +1878,16 @@ class TrinityTextualApp(App[None]):
                         if message.startswith("No review") or "not connected" in message
                         else "info"
                     ),
-                    table_columns=("Item", "Value"),
-                    table_rows=self._review_rows(outcome.snapshot),
-                    action_hint="Run `/review wp`, `/review final`, or `/review all`.",
+                    table_columns=textual_presenters.review_table_columns(
+                        lang=self.config.lang
+                    ),
+                    table_rows=self._review_rows(
+                        outcome.snapshot,
+                        lang=self.config.lang,
+                    ),
+                    action_hint=textual_presenters.review_action_hint(
+                        lang=self.config.lang
+                    ),
                 )
             return
         if command == "improve":
@@ -2447,8 +2454,10 @@ class TrinityTextualApp(App[None]):
     @staticmethod
     def _review_rows(
         snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
     ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.review_rows(snapshot)
+        return textual_presenters.review_rows(snapshot, lang=lang)
 
     @staticmethod
     def _improve_rows(

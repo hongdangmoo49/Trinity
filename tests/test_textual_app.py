@@ -44,9 +44,12 @@ from trinity.textual_app.presenters import (
     questions_rows,
     questions_select_markdown,
     questions_table_columns,
+    review_action_hint,
     review_repair_blocked_ids,
     review_repair_details_markdown,
     review_repair_rows,
+    review_rows,
+    review_table_columns,
     snapshot_context_markdown,
     snapshot_status_markdown,
     snapshot_status_rows,
@@ -830,6 +833,45 @@ def test_history_empty_presenter_uses_korean_labels() -> None:
     assert history_markdown(WorkflowNexusSnapshot(), (), lang="ko") == (
         "현재 Textual 세션에 기록된 로컬 이력이 없습니다."
     )
+
+
+def test_review_presenter_uses_korean_labels() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-review",
+        state="reviewing",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Plan",
+                owner_agent="claude",
+                status="done",
+            ),
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="Build",
+                owner_agent="codex",
+                status="done",
+                review_status="approved",
+            ),
+        ],
+        final_review=ReviewSnapshot(
+            reviewer_agent="codex",
+            status="approved",
+        ),
+    )
+
+    rows = review_rows(snapshot, lang="ko")
+
+    assert rows == (
+        ("워크플로우", "wf-review"),
+        ("상태", "reviewing"),
+        ("작업 패키지", "2"),
+        ("대기 중 WP 리뷰", "WP-001"),
+        ("리뷰된 WP", "WP-002:approved"),
+        ("최종 리뷰", "approved / 리뷰어 codex"),
+    )
+    assert review_table_columns(lang="ko") == ("항목", "값")
+    assert review_action_hint(lang="ko").startswith("`/review wp`")
 
 
 def test_model_discovery_applies_fast_provider_before_slow_provider(
@@ -3420,6 +3462,40 @@ async def test_start_slash_empty_history_uses_korean_hint(tmp_path) -> None:
         assert result.body == "현재 Textual 세션에 기록된 로컬 이력이 없습니다."
         assert result.action_hint.startswith("프롬프트 실행")
         assert result.table_columns == ("종류", "항목")
+
+
+@pytest.mark.asyncio
+async def test_start_slash_review_uses_korean_labels(tmp_path) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-review",
+        state="reviewing",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Plan",
+                owner_agent="claude",
+                status="done",
+            )
+        ],
+    )
+    controller = FakeWorkflowController(snapshot)
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(100, 30)):
+        app._handle_textual_slash_command("/review wp")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/review"
+        assert result.title == "Review"
+        assert result.table_columns == ("항목", "값")
+        assert ("워크플로우", "wf-review") in result.table_rows
+        assert ("대기 중 WP 리뷰", "WP-001") in result.table_rows
+        assert result.action_hint.startswith("`/review wp`")
+        assert controller.review_requests == [("wp",)]
 
 
 @pytest.mark.asyncio

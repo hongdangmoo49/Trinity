@@ -826,7 +826,7 @@ def test_context_markdown_uses_korean_labels() -> None:
         placeholder_markdown
     )
     assert "- `승인` / 리뷰어 `(알 수 없음)`" in placeholder_markdown
-    assert "- **AI-001** [high][대기] 테스트 보강" in placeholder_markdown
+    assert "- **AI-001** [높음][대기] 테스트 보강" in placeholder_markdown
 
 
 def test_context_presenter_uses_korean_empty_labels() -> None:
@@ -1480,7 +1480,7 @@ def test_improve_presenter_uses_korean_labels() -> None:
         ("워크플로우", "wf-improve"),
         ("상태", "후속 조치 대기"),
         ("보충 라운드", "2"),
-        ("AI-001", "대기; severity=high; kind=test; title=Fix tests"),
+        ("AI-001", "대기; 심각도=높음; kind=test; title=Fix tests"),
     )
     assert improve_table_columns(lang="ko") == ("항목", "값")
     assert improve_title(lang="ko") == "개선"
@@ -2903,8 +2903,8 @@ def test_central_agent_view_localizes_korean_status_values() -> None:
     markdown = view._markdown()
 
     assert "- `승인` / 리뷰어 `codex`" in markdown
-    assert "- **AI-001** [high][대기] Add smoke test" in markdown
-    assert "- **AI-002** [low][완료] Update docs" in markdown
+    assert "- **AI-001** [높음][대기] Add smoke test" in markdown
+    assert "- **AI-002** [낮음][완료] Update docs" in markdown
     assert "`approved`" not in markdown
     assert "[pending]" not in markdown
 
@@ -4803,7 +4803,7 @@ async def test_start_slash_improve_uses_korean_labels(tmp_path) -> None:
         assert ("보충 라운드", "1") in result.table_rows
         assert (
             "AI-001",
-            "대기; severity=high; kind=test; title=Fix tests",
+            "대기; 심각도=높음; kind=test; title=Fix tests",
         ) in result.table_rows
         assert result.action_hint.startswith("`/improve high`")
         assert controller.improve_requests == [("high",)]
@@ -8105,8 +8105,8 @@ async def test_execution_matrix_viewport_qa_matrix_with_long_workspace(
             rows = list(screen.query("#execution-package-list .execution-package-row"))
             assert len(rows) == 2
             assert "리뷰: agy 대기" in _widget_tree_text(rows[0])
-            assert "리스크: medium g1" in _widget_tree_text(rows[0])
-            assert "리스크: high 직렬" in _widget_tree_text(rows[1])
+            assert "리스크: 보통 g1" in _widget_tree_text(rows[0])
+            assert "리스크: 높음 직렬" in _widget_tree_text(rows[1])
 
             blocked_button = screen.query_one("#wp-detail-1", Button)
             assert str(blocked_button.label) == "차단됨"
@@ -8285,7 +8285,7 @@ async def test_execution_matrix_supports_korean_chrome_labels(tmp_path) -> None:
         second_row_text = _widget_tree_text(rows[1])
         assert "claude 폴백" in first_row_text
         assert "리뷰: agy 대기" in first_row_text
-        assert "리스크: medium" in first_row_text
+        assert "리스크: 보통" in first_row_text
         assert "상세" in first_row_text
         assert "리스크: 알 수 없음" in second_row_text
 
@@ -8604,6 +8604,29 @@ def test_work_package_detail_modal_localizes_korean_status_values() -> None:
     assert "## 리뷰\n- 리뷰어: `-`\n- 상태: `변경 요청`" in markdown
     assert "- 리뷰가 완료 전 1개 변경을 요청했습니다." in markdown
     assert "`changes_requested`" not in markdown
+
+
+def test_work_package_detail_modal_localizes_korean_risk_and_severity_values() -> None:
+    modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-013",
+            title="리스크 표시",
+            owner_agent="codex",
+            status="done",
+            risk="high",
+            review_status="changes_requested",
+            review_severity="medium",
+            review_summary="보통 심각도 리뷰",
+        ),
+        lang="ko",
+    )
+
+    markdown = modal._markdown()
+
+    assert "- 리스크: `높음`" in markdown
+    assert "- 심각도: `보통`" in markdown
+    assert "`high`" not in markdown
+    assert "`medium`" not in markdown
 
 
 def test_work_package_detail_modal_localizes_empty_risk_placeholder() -> None:
@@ -9130,7 +9153,7 @@ async def test_workflow_inspector_uses_configured_korean_labels(tmp_path) -> Non
         assert "복구 2/2 · missing token" in str(
             inspector.query_one("#inspector-blocked").content
         )
-        assert "AI-001 [high/대기] 테스트 보강" in str(
+        assert "AI-001 [높음/대기] 테스트 보강" in str(
             inspector.query_one("#inspector-post-review").content
         )
         workflow_content = str(inspector.query_one("#inspector-workflow").content)

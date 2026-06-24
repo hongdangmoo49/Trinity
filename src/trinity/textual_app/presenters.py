@@ -7,6 +7,7 @@ from difflib import get_close_matches
 from typing import Sequence
 
 from trinity.slash_commands import COMMAND_SPECS
+from trinity.display_labels import display_severity_value
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.status_label import (
     display_readiness_value,
@@ -209,6 +210,7 @@ STATUS_CONTEXT_LABELS = {
             "Use /report save for Markdown export."
         ),
         "slash_command": "Slash Command",
+        "severity": "severity",
         "source": "Source",
         "running_packages": "Running packages",
         "running_packages_at_exit": "Running packages at exit",
@@ -432,6 +434,7 @@ STATUS_CONTEXT_LABELS = {
             "Markdown 리포트 내보내기는 /report save를 사용하세요."
         ),
         "slash_command": "슬래시 명령",
+        "severity": "심각도",
         "source": "출처",
         "running_packages": "실행 중 WP",
         "running_packages_at_exit": "종료 시 실행 중 WP",
@@ -1629,8 +1632,9 @@ def snapshot_context_markdown(
         lines.extend(["", f"### {_sc_label(lang, 'post_review_action_items')}"])
         for item in snapshot.post_review_items:
             status = _status_value(item.status, lang=lang)
+            severity = display_severity_value(item.severity, lang=lang)
             lines.append(
-                f"- **{item.id}** [{item.severity}][{status}] "
+                f"- **{item.id}** [{severity}][{status}] "
                 f"{item.title or item.summary}"
             )
     if snapshot.follow_up_requests:
@@ -1916,11 +1920,12 @@ def improve_rows(
         return tuple(rows)
     for item in snapshot.post_review_items:
         status = _status_value(item.status, lang=lang)
+        severity = display_severity_value(item.severity, lang=lang)
         rows.append(
             (
                 item.id,
                 (
-                    f"{status}; severity={item.severity}; "
+                    f"{status}; {_sc_label(lang, 'severity')}={severity}; "
                     f"kind={item.kind}; title={item.title or item.summary}"
                 ),
             )

@@ -9,6 +9,7 @@ from textual.containers import Grid, Vertical, VerticalScroll
 from textual.message import Message
 from textual.widgets import Button, DataTable, Markdown, Static
 
+from trinity.display_labels import display_severity_value
 from trinity.textual_app.snapshot import (
     LocalCommandSnapshot,
     WorkflowNexusSnapshot,
@@ -164,8 +165,9 @@ class CentralAgentView(VerticalScroll):
             for item in snapshot.post_review_items:
                 title = item.title or item.summary or item.id
                 status = self._status_value(item.status)
+                severity = display_severity_value(item.severity, lang=self.lang)
                 lines.append(
-                    f"- **{item.id}** [{item.severity}][{status}] {title}"
+                    f"- **{item.id}** [{severity}][{status}] {title}"
                 )
             lines.append("")
             lines.append(self._label("improve_follow_up_hint"))

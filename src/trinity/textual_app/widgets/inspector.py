@@ -20,7 +20,7 @@ from trinity.textual_app.widgets.progress_summary import (
     work_package_counts,
     work_package_state,
 )
-from trinity.display_labels import display_source_value
+from trinity.display_labels import display_severity_value, display_source_value
 from trinity.textual_app.widgets.status_label import display_status_value
 
 
@@ -151,7 +151,9 @@ class WorkflowInspector(Vertical):
             "#inspector-post-review",
             self._list_or_empty(
                 [
-                    f"{item.id} [{item.severity}/{self._status_value(item.status)}] "
+                    f"{item.id} "
+                    f"[{display_severity_value(item.severity, lang=self.lang)}/"
+                    f"{self._status_value(item.status)}] "
                     f"{item.title or item.summary}"
                     for item in snapshot.post_review_items
                 ]

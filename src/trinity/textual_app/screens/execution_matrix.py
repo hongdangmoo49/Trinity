@@ -11,6 +11,7 @@ from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, RichLog, Static
 
+from trinity.display_labels import display_risk_value
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.execution_log_modal import ExecutionLogModal
@@ -942,6 +943,8 @@ def _risk_lane_label(package: object, lang: str = "en") -> str:
     risk = str(getattr(package, "risk", "") or "").strip()
     if not risk:
         risk = _label(lang, "unknown_risk")
+    else:
+        risk = display_risk_value(risk, lang=lang)
     if not bool(getattr(package, "parallelizable", True)):
         return f"{risk} {_label(lang, 'serial_summary')}"
     group = getattr(package, "parallel_group", None)

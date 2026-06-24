@@ -21,6 +21,7 @@ STATUS_CONTEXT_LABELS = {
         "artifact": "Artifact",
         "artifact_usage": "Usage: `/artifact <memory-id>`",
         "ask": "Ask",
+        "attempts": "attempts",
         "ask_missing_model": "Missing model after --model.",
         "ask_no_active_agents": "No active agents are available for /ask.",
         "ask_prompt_empty": "Prompt cannot be empty.",
@@ -104,6 +105,7 @@ STATUS_CONTEXT_LABELS = {
         "next": "Next",
         "no": "no",
         "no_decisions": "No workflow decisions recorded in the current session.",
+        "none": "(none)",
         "no_history": "No local history recorded in this Textual session.",
         "no_packages": "No workflow work packages generated in the current session.",
         "no_pending_questions": "No pending workflow questions.",
@@ -134,11 +136,13 @@ STATUS_CONTEXT_LABELS = {
         "readiness": "Readiness",
         "recent_execution_log": "Recent Execution Log",
         "recent_local_items": "Recent Local Items",
+        "recent_repair_notes": "Recent repair notes",
         "recommended": "Recommended",
         "reattach_note": (
             "Provider process reattach is not supported. Retry starts a new "
             "one-shot execution only for interrupted, failed, or blocked packages."
         ),
+        "recovery": "(recovery)",
         "report": "Report",
         "report_export_hint": "Start or resume a workflow before exporting a report.",
         "report_no_export_data": "No workflow data available to export.",
@@ -154,6 +158,18 @@ STATUS_CONTEXT_LABELS = {
         "resume_no_saved": "No saved workflow sessions to resume.",
         "resume_pick_hint": "Pick a workflow from the resume modal.",
         "retry_candidates": "Retry candidates",
+        "review_repair": "Review Repair",
+        "review_repair_action_hint": (
+            "Choose Retry once, Mark done, or Stop from the central panel."
+        ),
+        "review_repair_none": (
+            "No review-repair blocked work packages are recorded."
+        ),
+        "review_repair_paused": (
+            "Review-repair loop guard has paused these work packages:"
+        ),
+        "repair_state": "Repair state",
+        "review": "review",
         "review_hint": "Run `/review wp`, `/review final`, or `/review all`.",
         "reviewed_wp": "Reviewed WP",
         "reviewer": "reviewer",
@@ -202,6 +218,7 @@ STATUS_CONTEXT_LABELS = {
         "unknown_command_body": "is not a Trinity slash command.",
         "unknown_command_did_you_mean": "Did you mean:",
         "unknown_command_help": "Run `/help` to see Trinity-owned commands.",
+        "unknown": "(unknown)",
         "suggestion": "Suggestion",
         "yes": "yes",
         "selected_question": "Selected question",
@@ -216,6 +233,7 @@ STATUS_CONTEXT_LABELS = {
         "artifact": "아티팩트",
         "artifact_usage": "사용법: `/artifact <memory-id>`",
         "ask": "질문",
+        "attempts": "시도",
         "ask_missing_model": "--model 뒤에 모델을 입력하세요.",
         "ask_no_active_agents": "/ask에 사용할 활성 에이전트가 없습니다.",
         "ask_prompt_empty": "프롬프트를 입력하세요.",
@@ -295,6 +313,7 @@ STATUS_CONTEXT_LABELS = {
         "next": "다음",
         "no": "아니오",
         "no_decisions": "현재 세션에 기록된 워크플로우 결정이 없습니다.",
+        "none": "(없음)",
         "no_history": "현재 Textual 세션에 기록된 로컬 이력이 없습니다.",
         "no_packages": "현재 세션에 생성된 워크플로우 작업 패키지가 없습니다.",
         "no_pending_questions": "대기 중인 워크플로우 질문이 없습니다.",
@@ -324,11 +343,13 @@ STATUS_CONTEXT_LABELS = {
         "readiness": "준비 상태",
         "recent_execution_log": "최근 실행 로그",
         "recent_local_items": "최근 로컬 항목",
+        "recent_repair_notes": "최근 보정 메모",
         "recommended": "추천",
         "reattach_note": (
             "프로바이더 프로세스 재연결은 지원하지 않습니다. 재시도는 중단, 실패, "
             "차단된 작업에 대해 새 단발 실행을 시작합니다."
         ),
+        "recovery": "(복구)",
         "report": "리포트",
         "report_export_hint": "리포트를 내보내려면 먼저 워크플로우를 시작하거나 재개하세요.",
         "report_no_export_data": "내보낼 워크플로우 데이터가 없습니다.",
@@ -344,6 +365,14 @@ STATUS_CONTEXT_LABELS = {
         "resume_no_saved": "재개할 저장된 워크플로우가 없습니다.",
         "resume_pick_hint": "재개 모달에서 워크플로우를 선택하세요.",
         "retry_candidates": "재시도 후보",
+        "review_repair": "리뷰 보정",
+        "review_repair_action_hint": (
+            "중앙 패널에서 한 번 재시도, 완료 처리, 중지 중 하나를 선택하세요."
+        ),
+        "review_repair_none": "리뷰 보정으로 중단된 WP가 기록되어 있지 않습니다.",
+        "review_repair_paused": "리뷰 보정 루프 가드가 다음 WP를 일시 중지했습니다:",
+        "repair_state": "보정 상태",
+        "review": "리뷰",
         "review_hint": "`/review wp`, `/review final`, `/review all` 중 하나를 실행하세요.",
         "reviewed_wp": "리뷰된 WP",
         "reviewer": "리뷰어",
@@ -392,6 +421,7 @@ STATUS_CONTEXT_LABELS = {
         "unknown_command_body": "은 Trinity slash 명령이 아닙니다.",
         "unknown_command_did_you_mean": "다음 명령을 찾으셨나요:",
         "unknown_command_help": "`/help`로 Trinity 로컬 명령을 확인하세요.",
+        "unknown": "(알 수 없음)",
         "suggestion": "추천",
         "yes": "예",
         "selected_question": "선택된 질문",
@@ -576,20 +606,40 @@ def review_repair_blocked_ids(snapshot: WorkflowNexusSnapshot) -> tuple[str, ...
     return tuple(package_ids)
 
 
-def review_repair_details_markdown(snapshot: WorkflowNexusSnapshot) -> str:
-    rows = review_repair_rows(snapshot)
+def review_repair_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "review_repair")
+
+
+def review_repair_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "review_repair_action_hint")
+
+
+def review_repair_table_columns(*, lang: str = "en") -> tuple[str, str]:
+    return ("WP", _sc_label(lang, "repair_state"))
+
+
+def review_repair_details_markdown(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> str:
+    rows = review_repair_rows(snapshot, lang=lang)
     if not rows:
-        return "No review-repair blocked work packages are recorded."
-    lines = ["Review-repair loop guard has paused these work packages:"]
+        return _sc_label(lang, "review_repair_none")
+    lines = [_sc_label(lang, "review_repair_paused")]
     for package_id, detail in rows:
         lines.append(f"- **{package_id}**: {detail}")
     if snapshot.work_package_repairs:
-        lines.extend(["", "### Recent repair notes"])
+        lines.extend(["", f"### {_sc_label(lang, 'recent_repair_notes')}"])
         lines.extend(f"- {item}" for item in snapshot.work_package_repairs)
     return "\n".join(lines)
 
 
-def review_repair_rows(snapshot: WorkflowNexusSnapshot) -> tuple[tuple[str, str], ...]:
+def review_repair_rows(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> tuple[tuple[str, str], ...]:
     rows: list[tuple[str, str]] = []
     seen: set[str] = set()
     for package in snapshot.work_package_details:
@@ -601,9 +651,10 @@ def review_repair_rows(snapshot: WorkflowNexusSnapshot) -> tuple[tuple[str, str]
                 package.id,
                 (
                     f"{package.repair_blocked_reason}; "
-                    f"attempts={package.repair_attempt_count}/"
+                    f"{_sc_label(lang, 'attempts')}={package.repair_attempt_count}/"
                     f"{package.repair_max_attempts}; "
-                    f"review={package.review_status or '(none)'}"
+                    f"{_sc_label(lang, 'review')}="
+                    f"{package.review_status or _sc_label(lang, 'none')}"
                 ),
             )
         )
@@ -617,7 +668,11 @@ def review_repair_rows(snapshot: WorkflowNexusSnapshot) -> tuple[tuple[str, str]
             rows.append(
                 (
                     normalized,
-                    "repair_blocked; attempts=(unknown); review=(recovery)",
+                    (
+                        f"repair_blocked; {_sc_label(lang, 'attempts')}="
+                        f"{_sc_label(lang, 'unknown')}; "
+                        f"{_sc_label(lang, 'review')}={_sc_label(lang, 'recovery')}"
+                    ),
                 )
             )
     return tuple(rows)

@@ -2286,14 +2286,15 @@ class TrinityTextualApp(App[None]):
         )
 
     def _present_review_repair_details(self, snapshot: WorkflowNexusSnapshot) -> None:
+        lang = self.config.lang
         self._record_slash_command_result(
             "/review",
-            "Review Repair",
-            self._review_repair_details_markdown(snapshot),
+            textual_presenters.review_repair_title(lang=lang),
+            self._review_repair_details_markdown(snapshot, lang=lang),
             severity="warning",
-            action_hint="Choose Retry once, Mark done, or Stop from the central panel.",
-            table_columns=("WP", "Repair state"),
-            table_rows=self._review_repair_rows(snapshot),
+            action_hint=textual_presenters.review_repair_action_hint(lang=lang),
+            table_columns=textual_presenters.review_repair_table_columns(lang=lang),
+            table_rows=self._review_repair_rows(snapshot, lang=lang),
             start_modal=False,
         )
 
@@ -2304,14 +2305,20 @@ class TrinityTextualApp(App[None]):
         return textual_presenters.review_repair_blocked_ids(snapshot)
 
     @staticmethod
-    def _review_repair_details_markdown(snapshot: WorkflowNexusSnapshot) -> str:
-        return textual_presenters.review_repair_details_markdown(snapshot)
+    def _review_repair_details_markdown(
+        snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
+    ) -> str:
+        return textual_presenters.review_repair_details_markdown(snapshot, lang=lang)
 
     @staticmethod
     def _review_repair_rows(
         snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
     ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.review_repair_rows(snapshot)
+        return textual_presenters.review_repair_rows(snapshot, lang=lang)
 
     @staticmethod
     def _execution_recovery_markdown(

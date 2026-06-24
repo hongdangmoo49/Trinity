@@ -98,9 +98,12 @@ from trinity.textual_app.presenters import (
     report_summary_rows,
     report_title,
     review_action_hint,
+    review_repair_action_hint,
     review_repair_blocked_ids,
     review_repair_details_markdown,
     review_repair_rows,
+    review_repair_table_columns,
+    review_repair_title,
     review_rows,
     review_table_columns,
     resume_archive_rows,
@@ -9071,6 +9074,29 @@ def test_review_repair_details_markdown_summarizes_blocked_packages() -> None:
     assert "Recent repair notes" in body
 
 
+def test_review_repair_details_markdown_uses_korean_labels() -> None:
+    snapshot = _review_repair_blocked_snapshot()
+
+    assert review_repair_title(lang="ko") == "리뷰 보정"
+    assert review_repair_action_hint(lang="ko") == (
+        "중앙 패널에서 한 번 재시도, 완료 처리, 중지 중 하나를 선택하세요."
+    )
+    assert review_repair_table_columns(lang="ko") == ("WP", "보정 상태")
+    assert review_repair_rows(snapshot, lang="ko") == (
+        (
+            "WP-002",
+            "duplicate_required_changes; 시도=2/3; 리뷰=changes_requested",
+        ),
+    )
+
+    body = review_repair_details_markdown(snapshot, lang="ko")
+
+    assert "리뷰 보정 루프 가드가 다음 WP를 일시 중지했습니다" in body
+    assert "WP-002" in body
+    assert "duplicate_required_changes" in body
+    assert "최근 보정 메모" in body
+
+
 def test_review_repair_blocked_ids_include_recovery_retry_candidates() -> None:
     snapshot = WorkflowNexusSnapshot(
         execution_recovery=ExecutionRecoverySnapshot(
@@ -9106,6 +9132,27 @@ def test_review_repair_details_include_recovery_only_candidates() -> None:
     assert "repair_blocked" in body
 
 
+def test_review_repair_details_include_korean_recovery_only_candidates() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        execution_recovery=ExecutionRecoverySnapshot(
+            state="repair_blocked",
+            retry_candidates=("WP-003",),
+        )
+    )
+
+    assert review_repair_rows(snapshot, lang="ko") == (
+        (
+            "WP-003",
+            "repair_blocked; 시도=(알 수 없음); 리뷰=(복구)",
+        ),
+    )
+
+    body = review_repair_details_markdown(snapshot, lang="ko")
+
+    assert "WP-003" in body
+    assert "repair_blocked" in body
+
+
 @pytest.mark.asyncio
 async def test_nexus_repair_open_review_records_local_command(tmp_path) -> None:
     controller = FakeWorkflowController(_review_repair_blocked_snapshot())
@@ -9123,13 +9170,16 @@ async def test_nexus_repair_open_review_records_local_command(tmp_path) -> None:
 
         assert app.active_snapshot is not None
         result = _local_command(app.active_snapshot, "/review")
-        assert result.title == "Review Repair"
+        assert result.title == "리뷰 보정"
         assert result.severity == "warning"
-        assert result.table_columns == ("WP", "Repair state")
+        assert result.action_hint == (
+            "중앙 패널에서 한 번 재시도, 완료 처리, 중지 중 하나를 선택하세요."
+        )
+        assert result.table_columns == ("WP", "보정 상태")
         assert result.table_rows == (
             (
                 "WP-002",
-                "duplicate_required_changes; attempts=2/3; review=changes_requested",
+                "duplicate_required_changes; 시도=2/3; 리뷰=changes_requested",
             ),
         )
         assert "duplicate_required_changes" in result.body

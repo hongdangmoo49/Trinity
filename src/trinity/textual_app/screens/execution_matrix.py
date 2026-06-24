@@ -41,6 +41,7 @@ _EXECUTION_MATRIX_LABELS = {
         "retry_action": "재시도",
         "retry_summary": "재시도",
         "run": "실행",
+        "run_second_review_action": "2차실행",
         "review": "리뷰",
         "review_prefix": "리뷰",
         "risk_lane": "리스크/레인",
@@ -82,6 +83,7 @@ _EXECUTION_MATRIX_LABELS = {
         "retry_action": "Retry",
         "retry_summary": "retry",
         "run": "run",
+        "run_second_review_action": "Run 2nd",
         "review": "Review",
         "review_prefix": "review",
         "risk_lane": "Risk/Lane",
@@ -129,6 +131,9 @@ class _PackageRowProjection:
     retry_button_id: str = ""
     retry_label: str = ""
     retry_enabled: bool = False
+    review_button_id: str = ""
+    review_label: str = ""
+    review_enabled: bool = False
     detail_enabled: bool = True
 
     @property
@@ -148,6 +153,9 @@ class _PackageRowProjection:
             self.retry_button_id,
             self.retry_label,
             self.retry_enabled,
+            self.review_button_id,
+            self.review_label,
+            self.review_enabled,
             self.detail_enabled,
         )
 
@@ -171,6 +179,9 @@ class ExecutionPackageRow(Horizontal):
         retry_button_id: str = "",
         retry_label: str = "Retry",
         retry_enabled: bool = False,
+        review_button_id: str = "",
+        review_label: str = "",
+        review_enabled: bool = False,
         detail_enabled: bool = True,
         lang: str = "en",
     ) -> None:
@@ -188,6 +199,9 @@ class ExecutionPackageRow(Horizontal):
         self.retry_button_id = retry_button_id
         self.retry_label = retry_label
         self.retry_enabled = retry_enabled
+        self.review_button_id = review_button_id
+        self.review_label = review_label
+        self.review_enabled = review_enabled
         self.detail_enabled = detail_enabled
         self.lang = lang
 
@@ -234,6 +248,14 @@ class ExecutionPackageRow(Horizontal):
                             compact=True,
                             classes="execution-package-retry",
                         )
+                    if self.review_enabled:
+                        yield Button(
+                            self.review_label,
+                            id=self.review_button_id,
+                            name=self.package_id,
+                            compact=True,
+                            classes="execution-package-review-action",
+                        )
 
     def update_projection(self, projection: _PackageRowProjection) -> None:
         """Update row labels without remounting the row widget."""
@@ -250,6 +272,9 @@ class ExecutionPackageRow(Horizontal):
         self.retry_button_id = projection.retry_button_id
         self.retry_label = projection.retry_label
         self.retry_enabled = projection.retry_enabled
+        self.review_button_id = projection.review_button_id
+        self.review_label = projection.review_label
+        self.review_enabled = projection.review_enabled
         self.detail_enabled = projection.detail_enabled
 
         self.query_one(".execution-package-task", Static).update(
@@ -282,6 +307,11 @@ class ExecutionPackageRow(Horizontal):
             retry_button = retry_buttons[0]
             if isinstance(retry_button, Button):
                 retry_button.label = self.retry_label
+        review_buttons = list(self.query(".execution-package-review-action"))
+        if review_buttons:
+            review_button = review_buttons[0]
+            if isinstance(review_button, Button):
+                review_button.label = self.review_label
 
 
 class ExecutionPackageHeader(Vertical):
@@ -322,6 +352,19 @@ class ExecutionMatrixScreen(Screen[None]):
             super().__init__()
             self.snapshot = snapshot
             self.selector = selector
+            self.package_ids = tuple(package_ids)
+
+    class ReviewRequested(Message):
+        """Posted when the user wants to run pending WP review packages."""
+
+        def __init__(
+            self,
+            snapshot: WorkflowNexusSnapshot,
+            *,
+            package_ids: tuple[str, ...] = (),
+        ) -> None:
+            super().__init__()
+            self.snapshot = snapshot
             self.package_ids = tuple(package_ids)
 
     BINDINGS = [
@@ -427,6 +470,12 @@ class ExecutionMatrixScreen(Screen[None]):
                     package_ids=(package_id,),
                 )
             return
+        if event.button.id and event.button.id.startswith("wp-review-"):
+            event.stop()
+            package_id = str(event.button.name or "")
+            if package_id:
+                self.action_request_review(package_ids=(package_id,))
+            return
         if not event.button.id or not event.button.id.startswith("wp-detail-"):
             return
         event.stop()
@@ -476,6 +525,19 @@ class ExecutionMatrixScreen(Screen[None]):
             )
         )
 
+    def action_request_review(
+        self,
+        *,
+        package_ids: tuple[str, ...] = (),
+    ) -> None:
+        """Ask the app shell to start pending review packages."""
+        self.post_message(
+            self.ReviewRequested(
+                self.snapshot,
+                package_ids=package_ids,
+            )
+        )
+
     def _sync_task_expanded_view(self) -> None:
         if not self.is_mounted:
             return
@@ -489,7 +551,7 @@ class ExecutionMatrixScreen(Screen[None]):
         identity = tuple(
             (
                 f"{projection.lane_label}|{projection.identity}|"
-                f"retry:{projection.retry_enabled}"
+                f"retry:{projection.retry_enabled}|review:{projection.review_enabled}"
             )
             for projection in projections
         )
@@ -558,6 +620,9 @@ class ExecutionMatrixScreen(Screen[None]):
                     retry_button_id=f"wp-retry-{index}",
                     retry_label=self._label("retry_action"),
                     retry_enabled=bool(package.retryable),
+                    review_button_id=f"wp-review-{index}",
+                    review_label=self._label("run_second_review_action"),
+                    review_enabled=_has_pending_second_review(package),
                 )
                 for index, package in enumerate(self.snapshot.work_package_details)
             ]
@@ -598,6 +663,9 @@ class ExecutionMatrixScreen(Screen[None]):
             retry_button_id=projection.retry_button_id,
             retry_label=projection.retry_label,
             retry_enabled=projection.retry_enabled,
+            review_button_id=projection.review_button_id,
+            review_label=projection.review_label,
+            review_enabled=projection.review_enabled,
             detail_enabled=projection.detail_enabled,
             lang=self.lang,
         )
@@ -881,6 +949,11 @@ def _detail_button_label(package: object, lang: str = "en") -> str:
     if review_status == "needs_second_review":
         return _label(lang, "second_review_action")
     return _label(lang, "spec")
+
+
+def _has_pending_second_review(package: object) -> bool:
+    review_status = str(getattr(package, "review_status", "") or "").strip().lower()
+    return review_status == "needs_second_review"
 
 
 def _reviewer_names(reviewer: str) -> list[str]:

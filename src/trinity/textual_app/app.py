@@ -1373,6 +1373,29 @@ class TrinityTextualApp(App[None]):
             self._on_execute_retry_selected,
         )
 
+    def on_execution_matrix_screen_review_requested(
+        self,
+        event: ExecutionMatrixScreen.ReviewRequested,
+    ) -> None:
+        event.stop()
+        args = ("wp", *event.package_ids)
+        outcome = self.workflow_controller.request_review(args)
+        message = outcome.message
+        if message:
+            outcome = replace(outcome, message="")
+        self._apply_workflow_outcome(outcome)
+        if message:
+            self.notify(
+                message,
+                severity=(
+                    "warning"
+                    if message.startswith("No pending")
+                    or "target workspace" in message.lower()
+                    or "still running" in message.lower()
+                    else "info"
+                ),
+            )
+
     def on_nexus_screen_repair_action_requested(
         self,
         event: NexusScreen.RepairActionRequested,

@@ -880,6 +880,13 @@ def test_workflow_presenter_uses_korean_labels() -> None:
     assert ("대기 중 질문", "1") in rows
     assert ("실행 ID", "exec-run-test") in rows
 
+    empty_markdown = snapshot_workflow_markdown(WorkflowNexusSnapshot(), lang="ko")
+    empty_rows = snapshot_workflow_rows(WorkflowNexusSnapshot(), lang="ko")
+    assert "- ID: `(새 워크플로우)`" in empty_markdown
+    assert "- 목표: (없음)" in empty_markdown
+    assert ("ID", "(새 워크플로우)") in empty_rows
+    assert ("목표", "(없음)") in empty_rows
+
 
 def test_questions_presenter_uses_korean_labels() -> None:
     snapshot = WorkflowNexusSnapshot(
@@ -970,6 +977,15 @@ def test_subtasks_presenter_uses_korean_labels() -> None:
                 objective="테스트",
                 result_summary="완료",
                 status="done",
+            ),
+            SubtaskSnapshot(
+                id="",
+                parent_package_id="",
+                parent_agent="",
+                delegated_to="",
+                objective="",
+                result_summary="",
+                status="waiting",
             )
         ]
     )
@@ -981,8 +997,12 @@ def test_subtasks_presenter_uses_korean_labels() -> None:
         snapshot,
         lang="ko",
     )
+    assert "2. **(이름 없음)** [waiting] (패키지 없음) -> (알 수 없음): (없음)" in (
+        subtasks_markdown(snapshot, lang="ko")
+    )
     assert subtasks_rows(snapshot, lang="ko") == (
         ("ST-001", "WP-001", "codex", "done", "완료"),
+        ("(이름 없음)", "(없음)", "(알 수 없음)", "waiting", "(없음)"),
     )
     assert subtasks_table_columns(lang="ko") == (
         "ID",
@@ -1021,6 +1041,18 @@ def test_history_presenter_uses_korean_labels() -> None:
     assert "### 최근 실행 로그" in markdown
     assert "### 최근 로컬 항목" in markdown
     assert "- **로컬 명령**: /status - Status" in markdown
+    placeholder_rows = history_rows(
+        WorkflowNexusSnapshot(goal="이력 확인"),
+        (),
+        lang="ko",
+    )
+    placeholder_markdown = history_markdown(
+        WorkflowNexusSnapshot(goal="이력 확인"),
+        placeholder_rows,
+        lang="ko",
+    )
+    assert ("워크플로우", "(새 워크플로우)") in placeholder_rows
+    assert "- 워크플로우: `(새 워크플로우)`" in placeholder_markdown
     assert history_table_columns(lang="ko") == ("종류", "항목")
     assert history_action_hint(has_history=False, lang="ko").startswith("프롬프트 실행")
     assert history_action_hint(has_history=True, lang="ko") == ""
@@ -1067,6 +1099,21 @@ def test_review_presenter_uses_korean_labels() -> None:
         ("리뷰된 WP", "WP-002:approved"),
         ("최종 리뷰", "approved / 리뷰어 codex"),
     )
+    placeholder_rows = review_rows(WorkflowNexusSnapshot(), lang="ko")
+    reviewer_rows = review_rows(
+        WorkflowNexusSnapshot(
+            final_review=ReviewSnapshot(
+                reviewer_agent="",
+                status="approved",
+            )
+        ),
+        lang="ko",
+    )
+    assert ("워크플로우", "(새 워크플로우)") in placeholder_rows
+    assert ("대기 중 WP 리뷰", "(없음)") in placeholder_rows
+    assert ("리뷰된 WP", "(없음)") in placeholder_rows
+    assert ("최종 리뷰", "(없음)") in placeholder_rows
+    assert ("최종 리뷰", "approved / 리뷰어 (알 수 없음)") in reviewer_rows
     assert review_table_columns(lang="ko") == ("항목", "값")
     assert review_title(lang="ko") == "리뷰"
     assert review_action_hint(lang="ko").startswith("`/review wp`")
@@ -1157,6 +1204,10 @@ def test_report_presenter_uses_korean_labels() -> None:
         ("결정", "1"),
         ("작업 패키지", "2"),
         ("하위 작업", "0"),
+    )
+    assert report_summary_rows(WorkflowNexusSnapshot(), lang="ko")[0] == (
+        "워크플로우",
+        "(새 워크플로우)",
     )
 
 
@@ -1305,6 +1356,12 @@ def test_resume_presenter_uses_korean_labels() -> None:
         ("목표", "게임 만들기"),
         ("라운드", "2"),
     )
+    assert resume_result_rows(WorkflowNexusSnapshot(), lang="ko") == (
+        ("워크플로우", "(새 워크플로우)"),
+        ("상태", "idle"),
+        ("목표", "(없음)"),
+        ("라운드", "0"),
+    )
 
 
 def test_help_unknown_presenter_uses_korean_labels() -> None:
@@ -1361,7 +1418,7 @@ def test_improve_presenter_uses_korean_labels() -> None:
         ("워크플로우", "wf-improve"),
         ("상태", "post_review_ready"),
         ("보충 라운드", "1"),
-        ("조치 항목", "(none)"),
+        ("조치 항목", "(없음)"),
     )
     assert improve_rows(snapshot, lang="ko") == (
         ("워크플로우", "wf-improve"),

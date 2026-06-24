@@ -4116,6 +4116,17 @@ async def test_nexus_target_cancel_uses_korean_labels(tmp_path) -> None:
         app._handle_textual_slash_command(f"/target {inside_target}")
         await pilot.pause()
         assert isinstance(app.screen, TargetWorkspaceConfirmModal)
+        assert str(app.screen.query_one("#target-confirm-title", Static).content) == (
+            "제어 저장소 대상 확인"
+        )
+        assert "Trinity 제어 저장소 안" in str(
+            app.screen.query_one("#target-confirm-body", Static).content
+        )
+        paths = str(app.screen.query_one("#target-confirm-paths", Static).content)
+        assert "대상:" in paths
+        assert "제어 저장소:" in paths
+        assert str(app.screen.query_one("#cancel-target-confirm", Button).label) == "취소"
+        assert str(app.screen.query_one("#confirm-target", Button).label) == "그래도 사용"
 
         app.screen.query_one("#cancel-target-confirm", Button).press()
         await pilot.pause()
@@ -5033,6 +5044,32 @@ async def test_start_quit_slash_uses_confirmation_modal(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_start_quit_modal_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    controller.is_running = True
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+        composer.set_text("/quit")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ConfirmQuitModal)
+        assert str(app.screen.query_one("#confirm-quit-title", Static).content) == (
+            "Trinity 종료"
+        )
+        assert "워크플로우가 아직 실행 중입니다." in str(
+            app.screen.query_one("#confirm-quit-body", Static).content
+        )
+        assert str(app.screen.query_one("#cancel-quit", Button).label) == "취소"
+        assert str(app.screen.query_one("#confirm-quit", Button).label) == "종료"
+
+
+@pytest.mark.asyncio
 async def test_nexus_context_without_session_records_empty_message(tmp_path) -> None:
     controller = FakeWorkflowController()
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
@@ -5595,6 +5632,37 @@ async def test_start_slash_resume_picker_selection_switches_to_nexus(tmp_path) -
         context_result = _local_command(app.active_snapshot, "/context")
         assert context_result.title == "Context"
         assert "wf-resumed-1" in context_result.body
+
+
+@pytest.mark.asyncio
+async def test_resume_picker_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    controller.resume_options = [
+        TextualWorkflowArchiveOption(
+            selector="1",
+            session_id="wf-ko",
+            goal="한국어 세션",
+            state="blueprint_ready",
+            updated_at=1000.0,
+        )
+    ]
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+        composer.set_text("/resume")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ResumeWorkflowPicker)
+        assert str(app.screen.query_one("#resume-picker-title", Static).content) == (
+            "워크플로우 재개"
+        )
+        assert str(app.screen.query_one("#cancel-resume-picker", Button).label) == "취소"
+        assert "wf-ko" in str(app.screen.query_one("#resume-archive-1", Button).label)
 
 
 @pytest.mark.asyncio

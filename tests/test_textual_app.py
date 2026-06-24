@@ -1080,6 +1080,28 @@ async def test_textual_export_uses_snapshot_when_session_is_not_persisted(tmp_pa
 
 
 @pytest.mark.asyncio
+async def test_textual_export_snapshot_uses_korean_markdown_labels(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config)
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-ko",
+        goal="한국어 리포트",
+        state="preflight",
+        decisions=["스냅샷 fallback 사용"],
+    )
+
+    async with app.run_test(size=(100, 30)):
+        app._export_report_markdown(snapshot)
+
+    reports = list((app.config.effective_state_dir / "reports").glob("report-*.md"))
+    assert len(reports) == 1
+    md = reports[0].read_text(encoding="utf-8")
+    assert "# 워크플로우 리포트" in md
+    assert "**목표**: 한국어 리포트" in md
+    assert "## 결정" in md
+
+
+@pytest.mark.asyncio
 async def test_textual_export_uses_persisted_session_when_available(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     persistence = WorkflowPersistence(config.effective_state_dir)
@@ -1481,6 +1503,110 @@ def test_snapshot_report_markdown_includes_work_package_routing_metadata() -> No
         "Review: no peer; reviewer \\(none\\); reason only codex is active; "
         "no non\\-owner peer reviewer is available"
     ) in md
+
+
+def test_snapshot_report_markdown_uses_korean_labels() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-ko",
+        goal="한국어 리포트",
+        state="blueprint_ready",
+        round_num=2,
+        providers=[
+            ProviderSnapshot(
+                name="codex",
+                provider="codex",
+                enabled=True,
+                status="Ready",
+                actual_model="gpt-5.5",
+                context_window=1000,
+                budget_source="runtime",
+                session_id="session-123456",
+                profile_mission="Implement work",
+                profile_modes=["execute", "review"],
+                profile_strengths=[
+                    "implementation",
+                    "testing",
+                    "repair",
+                    "integration",
+                ],
+                context_profile="implementer",
+                output_contract="execution_v1",
+            )
+        ],
+        agent_quality=[
+            AgentQualitySnapshot(
+                agent_name="codex",
+                signal_count=3,
+                success_count=2,
+                blocker_count=1,
+                required_change_count=4,
+                score=0.667,
+            )
+        ],
+        synthesis=SynthesisSnapshot(
+            summary="요약",
+            consensus_progress="진행중",
+            source="shared",
+        ),
+        decisions=["결정 A"],
+        central_work_packages=["WP-001 central"],
+        work_packages=["WP-002 local"],
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="클라이언트",
+                owner_agent="codex",
+                status="done",
+                current_executor="codex",
+                parallelizable=False,
+                task_kind="implementation",
+                profile_revision="default-v1",
+                routing_score=0.95,
+                routing_reason="implementation strength",
+                review_status="skipped",
+                review_summary=(
+                    "only codex is active; no non-owner peer reviewer is available"
+                ),
+            )
+        ],
+        execution_log=["event-1"],
+        execution_recovery=ExecutionRecoverySnapshot(
+            run_id="run-1",
+            state="interrupted",
+            target_workspace="/tmp/project",
+            running_packages=("WP-001",),
+            retry_candidates=("WP-001",),
+            done_packages=("WP-000",),
+            last_event="agent failed",
+        ),
+        questions=[QuestionSnapshot(id="q1", question="질문?")],
+    )
+
+    md = snapshot_report_markdown(snapshot, lang="ko")
+
+    assert "# 워크플로우 리포트" in md
+    assert "**세션**: wf\\-ko" in md
+    assert "## 프로바이더" in md
+    assert "컨텍스트 1,000 (runtime)" in md
+    assert "세션 session\\-1234" in md
+    assert "프로필 implementer" in md
+    assert "모드 execute, review" in md
+    assert "출력 execution\\_v1" in md
+    assert "강점 implementation, testing, repair, \\+1" in md
+    assert "## 자문 에이전트 품질" in md
+    assert "점수 0\\.667; 성공 2/3; 차단 1; 변경 요청 4" in md
+    assert "## 합의" in md
+    assert "**진행**: 진행중" in md
+    assert "## WP 라우팅" in md
+    assert "상태: done; 담당 codex; 실행자 codex; 레인 직렬" in md
+    assert "라우팅: 종류 implementation; 프로필 default\\-v1; 점수 0\\.95" in md
+    assert (
+        "리뷰: peer 없음; 리뷰어 \\(none\\); 이유 only codex is active; "
+        "no non\\-owner peer reviewer is available"
+    ) in md
+    assert "## 실행 로그" in md
+    assert "## 실행 복구" in md
+    assert "## 미해결 질문" in md
 
 
 def test_central_agent_view_localizes_korean_status_values() -> None:

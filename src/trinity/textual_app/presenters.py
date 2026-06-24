@@ -8,6 +8,7 @@ from typing import Sequence
 
 from trinity.slash_commands import COMMAND_SPECS
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
+from trinity.textual_app.widgets.status_label import display_review_status_value
 
 NO_CURRENT_CONTEXT_MESSAGE = (
     "No current session context. Start a prompt or resume a workflow first."
@@ -1581,15 +1582,16 @@ def snapshot_context_markdown(
         lines.extend(f"- {item}" for item in snapshot.work_package_repairs)
     if snapshot.final_review is not None:
         lines.extend(["", f"### {_sc_label(lang, 'final_review')}"])
+        status = display_review_status_value(snapshot.final_review.status, lang=lang)
         if lang == "ko":
             lines.append(
-                f"- `{snapshot.final_review.status}` / "
+                f"- `{status}` / "
                 f"{_sc_label(lang, 'reviewer')} "
                 f"`{snapshot.final_review.reviewer_agent or _unknown_value(lang)}`"
             )
         else:
             lines.append(
-                f"- `{snapshot.final_review.status}` by "
+                f"- `{status}` by "
                 f"`{snapshot.final_review.reviewer_agent or _unknown_value(lang)}`"
             )
         if snapshot.final_review.summary:
@@ -1824,19 +1826,26 @@ def review_rows(
     pending = [
         package.id for package in snapshot.work_package_details if not package.review_status
     ]
-    reviewed = [
-        f"{package.id}:{package.review_status}"
-        for package in snapshot.work_package_details
-        if package.review_status
-    ]
+    reviewed = []
+    for package in snapshot.work_package_details:
+        if not package.review_status:
+            continue
+        status = display_review_status_value(
+            package.review_status,
+            reviewer_agent=package.reviewer_agent,
+            summary=package.review_summary,
+            lang=lang,
+        )
+        reviewed.append(f"{package.id}:{status}")
     rows.append((_sc_label(lang, "pending_wp_review"), ", ".join(pending) or _none_value(lang)))
     rows.append((_sc_label(lang, "reviewed_wp"), ", ".join(reviewed) or _none_value(lang)))
     if snapshot.final_review is not None:
         reviewer = snapshot.final_review.reviewer_agent or _unknown_value(lang)
+        status = display_review_status_value(snapshot.final_review.status, lang=lang)
         final_review_value = (
-            f"{snapshot.final_review.status} / {_sc_label(lang, 'reviewer')} {reviewer}"
+            f"{status} / {_sc_label(lang, 'reviewer')} {reviewer}"
             if lang == "ko"
-            else f"{snapshot.final_review.status} by {reviewer}"
+            else f"{status} by {reviewer}"
         )
         rows.append(
             (

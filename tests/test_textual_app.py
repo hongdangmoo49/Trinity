@@ -814,7 +814,7 @@ def test_context_markdown_uses_korean_labels() -> None:
     assert "- **(이름 없음)** [waiting] (패키지 없음) -> (알 수 없음): (없음)" in (
         placeholder_markdown
     )
-    assert "- `approved` / 리뷰어 `(알 수 없음)`" in placeholder_markdown
+    assert "- `승인` / 리뷰어 `(알 수 없음)`" in placeholder_markdown
 
 
 def test_context_presenter_uses_korean_empty_labels() -> None:
@@ -1124,8 +1124,8 @@ def test_review_presenter_uses_korean_labels() -> None:
         ("상태", "reviewing"),
         ("작업 패키지", "2"),
         ("대기 중 WP 리뷰", "WP-001"),
-        ("리뷰된 WP", "WP-002:approved"),
-        ("최종 리뷰", "approved / 리뷰어 codex"),
+        ("리뷰된 WP", "WP-002:승인"),
+        ("최종 리뷰", "승인 / 리뷰어 codex"),
     )
     placeholder_rows = review_rows(WorkflowNexusSnapshot(), lang="ko")
     reviewer_rows = review_rows(
@@ -1141,7 +1141,7 @@ def test_review_presenter_uses_korean_labels() -> None:
     assert ("대기 중 WP 리뷰", "(없음)") in placeholder_rows
     assert ("리뷰된 WP", "(없음)") in placeholder_rows
     assert ("최종 리뷰", "(없음)") in placeholder_rows
-    assert ("최종 리뷰", "approved / 리뷰어 (알 수 없음)") in reviewer_rows
+    assert ("최종 리뷰", "승인 / 리뷰어 (알 수 없음)") in reviewer_rows
     assert review_table_columns(lang="ko") == ("항목", "값")
     assert review_title(lang="ko") == "리뷰"
     assert review_action_hint(lang="ko").startswith("`/review wp`")

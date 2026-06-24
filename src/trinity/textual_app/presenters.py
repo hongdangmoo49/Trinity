@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from difflib import get_close_matches
 from typing import Sequence
 
@@ -11,6 +12,162 @@ from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 NO_CURRENT_CONTEXT_MESSAGE = (
     "No current session context. Start a prompt or resume a workflow first."
 )
+
+
+@dataclass(frozen=True)
+class CentralActionButton:
+    """One central Nexus action button to render."""
+
+    action: str
+    label_key: str
+    variant: str = "default"
+    tooltip_key: str = ""
+
+
+@dataclass(frozen=True)
+class CentralActionPlan:
+    """Pure presenter result for central Nexus action buttons."""
+
+    title_key: str = ""
+    buttons: tuple[CentralActionButton, ...] = ()
+
+
+def central_action_plan(snapshot: WorkflowNexusSnapshot) -> CentralActionPlan:
+    """Return the highest-priority central action group for a snapshot."""
+    provider_error_options = provider_error_gate_options(snapshot)
+    if provider_error_options:
+        buttons = [
+            CentralActionButton(
+                "provider-error-retry",
+                "provider_error_retry",
+                "primary",
+                "provider-error-retry_tooltip",
+            )
+        ]
+        if "Continue without failed providers" in provider_error_options:
+            buttons.append(
+                CentralActionButton(
+                    "provider-error-continue",
+                    "provider_error_continue",
+                    "default",
+                    "provider-error-continue_tooltip",
+                )
+            )
+        buttons.append(
+            CentralActionButton(
+                "provider-error-stop",
+                "provider_error_stop",
+                "error",
+                "provider-error-stop_tooltip",
+            )
+        )
+        return CentralActionPlan("provider_error_action", tuple(buttons))
+
+    if should_show_repair_actions(snapshot):
+        return CentralActionPlan(
+            "repair_action",
+            (
+                CentralActionButton(
+                    "repair-retry-once",
+                    "repair_retry_once",
+                    "primary",
+                    "repair-retry-once_tooltip",
+                ),
+                CentralActionButton(
+                    "repair-mark-done",
+                    "repair_mark_done",
+                    "default",
+                    "repair-mark-done_tooltip",
+                ),
+                CentralActionButton(
+                    "repair-open-review",
+                    "repair_open_review",
+                    "default",
+                    "repair-open-review_tooltip",
+                ),
+                CentralActionButton(
+                    "repair-stop",
+                    "repair_stop",
+                    "error",
+                    "repair-stop_tooltip",
+                ),
+            ),
+        )
+
+    if should_show_execution_retry_action(snapshot):
+        return CentralActionPlan(
+            "execution_recovery_action",
+            (
+                CentralActionButton(
+                    "execution-retry",
+                    "execution_retry",
+                    "primary",
+                    "execution-retry_tooltip",
+                ),
+            ),
+        )
+
+    if should_show_blueprint_actions(snapshot):
+        return CentralActionPlan(
+            "next_action",
+            (
+                CentralActionButton("execute", "execute", "primary", "execute_tooltip"),
+                CentralActionButton(
+                    "refine-features",
+                    "refine_features",
+                    "default",
+                    "refine-features_tooltip",
+                ),
+                CentralActionButton(
+                    "refine-risks",
+                    "refine_risks",
+                    "default",
+                    "refine-risks_tooltip",
+                ),
+                CentralActionButton(
+                    "refine-work-packages",
+                    "refine_work_packages",
+                    "default",
+                    "refine-work-packages_tooltip",
+                ),
+            ),
+        )
+
+    return CentralActionPlan()
+
+
+def should_show_blueprint_actions(snapshot: WorkflowNexusSnapshot) -> bool:
+    return snapshot.state == "blueprint_ready" and bool(
+        snapshot.work_packages or snapshot.central_work_packages
+    )
+
+
+def should_show_repair_actions(snapshot: WorkflowNexusSnapshot) -> bool:
+    recovery = snapshot.execution_recovery
+    if recovery and recovery.state == "repair_blocked":
+        return True
+    if snapshot.state != "needs_user_decision":
+        return False
+    return any(
+        package.status == "blocked" and package.repair_blocked_reason
+        for package in snapshot.work_package_details
+    )
+
+
+def should_show_execution_retry_action(snapshot: WorkflowNexusSnapshot) -> bool:
+    recovery = snapshot.execution_recovery
+    if recovery is None:
+        return False
+    if recovery.state == "repair_blocked":
+        return False
+    return bool(recovery.retry_candidates)
+
+
+def provider_error_gate_options(snapshot: WorkflowNexusSnapshot) -> set[str]:
+    for question in snapshot.questions:
+        if question.id == "q-provider-error-retry" and not question.answer:
+            return set(question.options)
+    return set()
 
 
 def review_repair_blocked_ids(snapshot: WorkflowNexusSnapshot) -> tuple[str, ...]:

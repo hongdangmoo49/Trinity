@@ -21,6 +21,28 @@ from trinity.textual_app.widgets.composer import PromptComposer
 from trinity.tui.sacred_geometry import SacredGeometryAnimator
 
 
+START_LABELS = {
+    "en": {
+        "plan_first": "Plan first",
+        "placeholder": "What should Trinity work on?",
+        "select_agent_warning": "Select at least one agent.",
+        "select_workspace": "Select Workspace",
+        "subtitle": "Three minds, one context",
+        "workspace_not_selected": "Target workspace: Not selected",
+        "workspace_selected": "Target workspace: {target}",
+    },
+    "ko": {
+        "plan_first": "먼저 계획",
+        "placeholder": "Trinity가 무엇을 진행하면 될까요?",
+        "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
+        "select_workspace": "작업 폴더 선택",
+        "subtitle": "세 개의 관점, 하나의 컨텍스트",
+        "workspace_not_selected": "작업 폴더: 선택 안됨",
+        "workspace_selected": "작업 폴더: {target}",
+    },
+}
+
+
 class SacredGeometryAnimation(Static):
     """Textual wrapper for the Trinity ASCII geometry animation."""
 
@@ -98,9 +120,9 @@ class StartScreen(Screen[None]):
             with Vertical(id="start-shell"):
                 yield SacredGeometryAnimation()
                 yield Static("TRINITY", id="start-title")
-                yield Static("Three minds, one context", id="start-subtitle")
+                yield Static(self._label("subtitle"), id="start-subtitle")
                 yield PromptComposer(
-                    placeholder="What should Trinity work on?",
+                    placeholder=self._label("placeholder"),
                     id="start-composer",
                     lang=self.lang,
                 )
@@ -112,11 +134,15 @@ class StartScreen(Screen[None]):
                 with Horizontal(id="start-actions"):
                     yield Static(self._workspace_label(), id="workspace-candidate")
                     yield Button(
-                        "Select Workspace",
+                        self._label("select_workspace"),
                         id="choose-workspace",
                         variant="default",
                     )
-                    yield Button("Plan first", id="plan-first", variant="primary")
+                    yield Button(
+                        self._label("plan_first"),
+                        id="plan-first",
+                        variant="primary",
+                    )
         yield Footer()
 
     def on_mount(self) -> None:
@@ -175,7 +201,7 @@ class StartScreen(Screen[None]):
         selector = self.query_one(AgentRecipientModelSelector)
         target_agents = selector.selected_agents()
         if not target_agents:
-            self.app.notify("Select at least one agent.", severity="warning")
+            self.app.notify(self._label("select_agent_warning"), severity="warning")
             return
         self.post_message(
             self.Submitted(
@@ -188,5 +214,9 @@ class StartScreen(Screen[None]):
 
     def _workspace_label(self) -> str:
         if self.workspace_candidate is None:
-            return "Target workspace: Not selected"
-        return f"Target workspace: {self.workspace_candidate}"
+            return self._label("workspace_not_selected")
+        return self._label("workspace_selected").format(target=self.workspace_candidate)
+
+    def _label(self, key: str) -> str:
+        labels = START_LABELS.get(self.lang, START_LABELS["en"])
+        return labels.get(key, START_LABELS["en"][key])

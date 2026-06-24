@@ -5062,6 +5062,9 @@ async def test_execution_matrix_supports_korean_chrome_labels(tmp_path) -> None:
         assert str(screen.query_one("#execution-header", Static).content).startswith(
             "실행 매트릭스"
         )
+        assert "작업 폴더: 선택 안 됨" in str(
+            screen.query_one("#execution-header", Static).content
+        )
         assert str(screen.query_one("#toggle-task-expanded", Button).label) == (
             "작업 펼치기"
         )

@@ -1955,6 +1955,14 @@ async def test_report_screen_snapshot_uses_korean_body_labels(tmp_path) -> None:
                 blocker_count=1,
                 required_change_count=4,
                 score=0.667,
+            ),
+            AgentQualitySnapshot(
+                agent_name="",
+                signal_count=0,
+                success_count=0,
+                blocker_count=0,
+                required_change_count=0,
+                score=0.0,
             )
         ],
         work_package_details=[
@@ -1969,6 +1977,17 @@ async def test_report_screen_snapshot_uses_korean_body_labels(tmp_path) -> None:
                 routing_score=111.0,
                 profile_revision="default-v1",
                 parallel_group=1,
+            ),
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="Serial fallback",
+                owner_agent="claude",
+                status="done",
+                parallelizable=False,
+                review_status="skipped",
+                review_summary=(
+                    "only claude is active; no non-owner peer reviewer is available"
+                ),
             )
         ],
         questions=[
@@ -2004,10 +2023,13 @@ async def test_report_screen_snapshot_uses_korean_body_labels(tmp_path) -> None:
     assert "자문 에이전트 품질" in rendered
     assert "점수 0.667" in rendered
     assert "변경 요청 4" in rendered
+    assert "알 수 없음" in rendered
     assert "작업 패키지 라우팅" in rendered
     assert "소유자 codex" in rendered
     assert "종류 implementation" in rendered
     assert "이유: implementation strength 0.95" in rendered
+    assert "레인 직렬" in rendered
+    assert "리뷰 peer 없음/(없음); 이유 only claude is active" in rendered
     assert "열린 질문" in rendered
     assert "예 (추천)" in rendered
 

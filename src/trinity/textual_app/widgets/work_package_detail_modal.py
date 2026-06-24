@@ -56,6 +56,7 @@ class WorkPackageDetailModal(ModalScreen[None]):
             f"- Executor: `{package.current_executor or package.last_executor or '-'}`",
             f"- Review: `{package.review_status or '-'}`",
             f"- Risk: `{package.risk or 'unknown'}`",
+            f"- Execution lane: `{self._execution_lane_label(package)}`",
             f"- Requires execution: `{'yes' if package.requires_execution else 'no'}`",
             f"- Retry: `{('available' if package.retryable else package.retry_disabled_reason or 'not available')}`",
         ]
@@ -130,3 +131,11 @@ class WorkPackageDetailModal(ModalScreen[None]):
             return
         lines.extend(["", f"## {title}"])
         lines.extend(f"- {value}" for value in values)
+
+    @staticmethod
+    def _execution_lane_label(package: WorkPackageSnapshot) -> str:
+        if not package.parallelizable:
+            return "serial"
+        if package.parallel_group is not None:
+            return f"g{package.parallel_group}"
+        return "unspecified"

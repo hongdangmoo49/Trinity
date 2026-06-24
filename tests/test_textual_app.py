@@ -4194,6 +4194,7 @@ def test_work_package_detail_modal_orders_execution_sections_first() -> None:
             routing_reason="implementation strength 0.95",
             routing_score=111.0,
             profile_revision="default-v1",
+            parallel_group=1,
         )
     )
     markdown = modal._markdown()
@@ -4201,7 +4202,23 @@ def test_work_package_detail_modal_orders_execution_sections_first() -> None:
     assert markdown.index("## Summary") < markdown.index("## Result")
     assert markdown.index("## Result") < markdown.index("## Review")
     assert markdown.index("## Review") < markdown.index("## Spec")
+    assert "- Execution lane: `g1`" in markdown
     assert "Routing reason: implementation strength 0.95" in markdown
+
+
+def test_work_package_detail_modal_marks_serial_execution_lane() -> None:
+    modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-001",
+            title="Shared config",
+            owner_agent="claude",
+            status="pending",
+            parallel_group=2,
+            parallelizable=False,
+        )
+    )
+
+    assert "- Execution lane: `serial`" in modal._markdown()
 
 
 def test_provider_inspector_meta_includes_profile_summary() -> None:

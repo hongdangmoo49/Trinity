@@ -486,8 +486,39 @@ def _review_label(package: object) -> str:
     }
     label = labels.get(normalized, normalized)
     if reviewer and label not in {"changes", "approved", "issue", "skip"}:
-        return f"{_agent_short_label(reviewer)} {label}"
+        return _reviewer_status_label(reviewer, label)
     return label
+
+
+def _reviewer_status_label(reviewer: str, label: str) -> str:
+    reviewers = _reviewer_names(reviewer)
+    if len(reviewers) > 1:
+        if label == "reviewing":
+            return f"{len(reviewers)}p review"
+        return f"{len(reviewers)}p {label}"
+
+    short = _agent_short_label(reviewers[0] if reviewers else reviewer)
+    preferred = f"{short} {label}"
+    if len(preferred) <= 10:
+        return preferred
+    if label == "reviewing":
+        compact = f"{short} rev"
+        if len(compact) <= 10:
+            return compact
+    if label == "queued":
+        compact = f"{short} q"
+        if len(compact) <= 10:
+            return compact
+    return _clip(preferred, 10)
+
+
+def _reviewer_names(reviewer: str) -> list[str]:
+    names: list[str] = []
+    for part in reviewer.split(","):
+        name = part.strip()
+        if name:
+            names.append(name)
+    return names or [reviewer.strip()]
 
 
 def _agent_short_label(agent: str) -> str:

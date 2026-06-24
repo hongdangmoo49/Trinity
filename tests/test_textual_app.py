@@ -35,6 +35,9 @@ from trinity.textual_app.presenters import (
     history_markdown,
     history_rows,
     history_table_columns,
+    improve_action_hint,
+    improve_rows,
+    improve_table_columns,
     packages_action_hint,
     packages_markdown,
     packages_rows,
@@ -150,6 +153,8 @@ class FakeWorkflowController:
         self.retry_outcome: TextualWorkflowOutcome | None = None
         self.review_requests: list[tuple[str, ...]] = []
         self.review_outcome: TextualWorkflowOutcome | None = None
+        self.improve_requests: list[tuple[str, ...]] = []
+        self.improve_outcome: TextualWorkflowOutcome | None = None
         self.repair_actions: list[str] = []
         self.drain_outcome: TextualWorkflowOutcome | None = None
         self.target_workspace = None
@@ -271,6 +276,16 @@ class FakeWorkflowController:
             self.current_snapshot,
             message=f"Review started: {' '.join(str(arg) for arg in args)}.",
             running=True,
+        )
+
+    def request_improvement(self, args=()):
+        self.improve_requests.append(tuple(args))
+        if self.improve_outcome is not None:
+            return self.improve_outcome
+        return TextualWorkflowOutcome(
+            self.current_snapshot,
+            message=f"Improvement requested: {' '.join(str(arg) for arg in args)}.",
+            running=False,
         )
 
     def retry_blocked_review_repairs(self) -> TextualWorkflowOutcome:
@@ -872,6 +887,44 @@ def test_review_presenter_uses_korean_labels() -> None:
     )
     assert review_table_columns(lang="ko") == ("항목", "값")
     assert review_action_hint(lang="ko").startswith("`/review wp`")
+
+
+def test_improve_presenter_uses_korean_labels() -> None:
+    empty = WorkflowNexusSnapshot(
+        session_id="wf-improve",
+        state="post_review_ready",
+        supplemental_round=1,
+    )
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-improve",
+        state="post_review_ready",
+        supplemental_round=2,
+        post_review_items=[
+            PostReviewActionSnapshot(
+                id="AI-001",
+                title="Fix tests",
+                summary="Fix tests",
+                severity="high",
+                status="pending",
+                kind="test",
+            )
+        ],
+    )
+
+    assert improve_rows(empty, lang="ko") == (
+        ("워크플로우", "wf-improve"),
+        ("상태", "post_review_ready"),
+        ("보충 라운드", "1"),
+        ("조치 항목", "(none)"),
+    )
+    assert improve_rows(snapshot, lang="ko") == (
+        ("워크플로우", "wf-improve"),
+        ("상태", "post_review_ready"),
+        ("보충 라운드", "2"),
+        ("AI-001", "pending; severity=high; kind=test; title=Fix tests"),
+    )
+    assert improve_table_columns(lang="ko") == ("항목", "값")
+    assert improve_action_hint(lang="ko").startswith("`/improve high`")
 
 
 def test_model_discovery_applies_fast_provider_before_slow_provider(
@@ -3496,6 +3549,47 @@ async def test_start_slash_review_uses_korean_labels(tmp_path) -> None:
         assert ("대기 중 WP 리뷰", "WP-001") in result.table_rows
         assert result.action_hint.startswith("`/review wp`")
         assert controller.review_requests == [("wp",)]
+
+
+@pytest.mark.asyncio
+async def test_start_slash_improve_uses_korean_labels(tmp_path) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-improve",
+        state="post_review_ready",
+        supplemental_round=1,
+        post_review_items=[
+            PostReviewActionSnapshot(
+                id="AI-001",
+                title="Fix tests",
+                summary="Fix tests",
+                severity="high",
+                status="pending",
+                kind="test",
+            )
+        ],
+    )
+    controller = FakeWorkflowController(snapshot)
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(100, 30)):
+        app._handle_textual_slash_command("/improve high")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/improve"
+        assert result.title == "Improve"
+        assert result.table_columns == ("항목", "값")
+        assert ("워크플로우", "wf-improve") in result.table_rows
+        assert ("보충 라운드", "1") in result.table_rows
+        assert (
+            "AI-001",
+            "pending; severity=high; kind=test; title=Fix tests",
+        ) in result.table_rows
+        assert result.action_hint.startswith("`/improve high`")
+        assert controller.improve_requests == [("high",)]
 
 
 @pytest.mark.asyncio

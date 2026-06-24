@@ -56,6 +56,11 @@ from trinity.textual_app.presenters import (
     decisions_markdown,
     decisions_rows,
     decisions_table_columns,
+    execute_finish_planning_action_hint,
+    execute_title,
+    execution_recovery_action_hint,
+    execution_recovery_table_columns,
+    execution_recovery_title,
     history_action_hint,
     history_markdown,
     history_rows,
@@ -990,6 +995,19 @@ def test_ask_presenter_uses_korean_labels() -> None:
     assert ask_action_hint(lang="ko") == (
         "/ask <all|agent[,agent...]> [--model MODEL] <prompt>"
     )
+
+
+def test_execute_presenter_uses_korean_labels() -> None:
+    assert execute_title(lang="ko") == "실행"
+    assert execute_finish_planning_action_hint(lang="ko") == (
+        "먼저 계획을 완료한 뒤 Nexus에서 `/execute`를 실행하세요."
+    )
+    assert execution_recovery_title(lang="ko") == "실행 복구"
+    assert execution_recovery_action_hint(lang="ko") == (
+        "`/execute-retry`, `/execute mark-interrupted`, "
+        "`/execute abort` 중 하나를 실행하세요."
+    )
+    assert execution_recovery_table_columns(lang="ko") == ("항목", "값")
 
 
 def test_report_presenter_uses_korean_labels() -> None:
@@ -4439,6 +4457,78 @@ async def test_nexus_resume_answer_and_execute_errors_record_local_results(
         assert controller.started_prompts == []
         assert controller.follow_ups == []
         assert controller.execution_requests == 1
+
+
+@pytest.mark.asyncio
+async def test_nexus_execute_error_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    controller.execution_outcome = TextualWorkflowOutcome(
+        controller.current_snapshot,
+        message="No blueprint is ready. Finish planning before execution.",
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)):
+        app._handle_textual_slash_command("/execute")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/execute"
+        assert result.title == "실행"
+        assert result.body == "No blueprint is ready. Finish planning before execution."
+        assert result.action_hint == (
+            "먼저 계획을 완료한 뒤 Nexus에서 `/execute`를 실행하세요."
+        )
+        assert result.severity == "warning"
+        assert result.empty is True
+
+
+@pytest.mark.asyncio
+async def test_nexus_execute_recovery_uses_korean_labels(tmp_path) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-recovery",
+        state="failed",
+        execution_recovery=ExecutionRecoverySnapshot(
+            state="interrupted",
+            run_id="run-1",
+            target_workspace="/workspace/app",
+            running_packages=("WP-001",),
+            retry_candidates=("WP-001",),
+            done_packages=("WP-002",),
+            last_event="provider exit",
+        ),
+    )
+    controller = FakeWorkflowController(snapshot)
+    controller.execution_outcome = TextualWorkflowOutcome(
+        snapshot,
+        message="Previous execution was interrupted.",
+        execution_recovery_required=True,
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)):
+        app._handle_textual_slash_command("/execute")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/execute"
+        assert result.title == "실행 복구"
+        assert result.table_columns == ("항목", "값")
+        assert ("실행", "interrupted") in result.table_rows
+        assert ("재시도 후보", "WP-001") in result.table_rows
+        assert result.action_hint == (
+            "`/execute-retry`, `/execute mark-interrupted`, "
+            "`/execute abort` 중 하나를 실행하세요."
+        )
+        assert "###" not in result.body.splitlines()[0]
+        assert "실행 복구" not in result.body.splitlines()[0]
+        assert "- 실행: `interrupted`" in result.body
 
 
 @pytest.mark.asyncio

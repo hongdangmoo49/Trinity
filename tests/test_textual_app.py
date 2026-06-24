@@ -3952,6 +3952,42 @@ async def test_execution_matrix_surfaces_skipped_review_reason(tmp_path) -> None
         assert "no non-owner peer reviewer is available" in markdown
 
 
+@pytest.mark.asyncio
+async def test_execution_matrix_toggles_full_activity_log(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                execution_log=[f"event-{index}" for index in range(1, 12)],
+            ),
+        )
+        await pilot.pause()
+
+        assert "Full Log" in str(
+            screen.query_one("#toggle-activity-expanded", Button).label
+        )
+        recent_lines = screen._activity_lines()
+        assert "... 4 earlier log lines hidden" in recent_lines
+        assert "event-1" not in recent_lines
+
+        screen.query_one("#toggle-activity-expanded", Button).press()
+        await pilot.pause()
+
+        assert "Recent Log" in str(
+            screen.query_one("#toggle-activity-expanded", Button).label
+        )
+        full_lines = screen._activity_lines()
+        assert "... 4 earlier log lines hidden" not in full_lines
+        assert "event-1" in full_lines
+        assert "event-11" in full_lines
+
+
 def test_work_package_detail_modal_orders_execution_sections_first() -> None:
     modal = WorkPackageDetailModal(
         WorkPackageSnapshot(

@@ -9035,13 +9035,19 @@ async def test_workflow_inspector_uses_configured_korean_labels(tmp_path) -> Non
                         dependencies=["WP-001"],
                         parallel_group=2,
                     ),
+                    WorkPackageSnapshot(
+                        id="WP-006",
+                        title="Paused",
+                        owner_agent="codex",
+                        status="paused",
+                    ),
                 ],
             )
         )
         await pilot.pause()
 
         inspector = screen.query_one(WorkflowInspector)
-        assert "5 WP · 완료 1 · 실행 1 · 대기 2 · 막힘 1" in str(
+        assert "6 WP · 완료 1 · 실행 1 · 대기 2 · 막힘 1 · 알 수 없음 1" in str(
             inspector.query_one("#inspector-progress").content
         )
         next_content = str(inspector.query_one("#inspector-next").content)

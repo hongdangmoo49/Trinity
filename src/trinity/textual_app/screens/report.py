@@ -15,6 +15,7 @@ from textual.widgets import Button, Footer, Header, Static
 
 from rich.markup import escape
 
+from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import (
     AgentQualitySnapshot,
     ProviderSnapshot,
@@ -25,6 +26,24 @@ from trinity.textual_app.widgets.status_label import display_review_status_value
 
 if TYPE_CHECKING:
     from trinity.tui.report import DeliberationReport
+
+
+REPORT_LABELS = {
+    "en": {
+        "empty": "No workflow data available.",
+        "export": "💾 Export Markdown",
+        "loading": "Loading workflow data...",
+        "saved": "Saved: {path}",
+        "title": "📋 Deliberation Report",
+    },
+    "ko": {
+        "empty": "사용 가능한 워크플로우 데이터가 없습니다.",
+        "export": "💾 마크다운 내보내기",
+        "loading": "워크플로우 데이터를 불러오는 중...",
+        "saved": "저장됨: {path}",
+        "title": "📋 워크플로우 리포트",
+    },
+}
 
 
 class ReportScreen(Screen[None]):
@@ -47,26 +66,33 @@ class ReportScreen(Screen[None]):
         Binding("escape", "go_back", "Back"),
     ]
 
-    def __init__(self) -> None:
+    LOCALIZED_BINDINGS = {
+        ("ctrl+s", "export_report"): ("binding_export_markdown", None),
+        ("escape", "go_back"): ("binding_back", None),
+    }
+
+    def __init__(self, *, lang: str = "en") -> None:
         super().__init__(name="report")
+        self.lang = lang
         self.snapshot: WorkflowNexusSnapshot | None = None
         self._report: DeliberationReport | None = None
         self._last_rendered_id: str = ""
+        localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
         with Vertical(id="report-screen"):
             with Vertical(id="report-header"):
-                yield Static("📋 Deliberation Report", id="report-title")
+                yield Static(self._label("title"), id="report-title")
                 yield Button(
-                    "💾 Export Markdown",
+                    self._label("export"),
                     id="report-export-btn",
                     variant="primary",
                 )
                 yield Static("", id="report-export-status")
             with VerticalScroll(id="report-body"):
                 yield Static(
-                    "워크플로우 데이터를 불러오는 중…",
+                    self._label("loading"),
                     id="report-placeholder",
                 )
         yield Footer()
@@ -94,7 +120,7 @@ class ReportScreen(Screen[None]):
         if not self.is_mounted:
             return
         self.query_one("#report-export-status", Static).update(
-            f"[dim]Saved: {escape(str(path))}[/dim]"
+            f"[dim]{self._label('saved').format(path=escape(str(path)))}[/dim]"
         )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -127,7 +153,7 @@ class ReportScreen(Screen[None]):
         elif self.snapshot is not None:
             self._render_from_snapshot(body, self.snapshot)
         else:
-            body.mount(Static("No workflow data available."))
+            body.mount(Static(self._label("empty")))
 
     def _compute_render_id(self) -> str:
         if self._report is not None:
@@ -137,6 +163,10 @@ class ReportScreen(Screen[None]):
             digest = hashlib.sha1(repr(self.snapshot).encode("utf-8")).hexdigest()
             return f"snap:{digest}"
         return ""
+
+    def _label(self, key: str) -> str:
+        labels = REPORT_LABELS.get(self.lang, REPORT_LABELS["en"])
+        return labels.get(key, REPORT_LABELS["en"][key])
 
     # ── Structured report path (preferred) ──────────────────────────────
 

@@ -1135,7 +1135,7 @@ class TrinityTextualApp(App[None]):
             "settings",
         )
         self.install_screen(ExecutionMatrixScreen(lang=self.config.lang), "execution")
-        self.install_screen(ReportScreen(), "report")
+        self.install_screen(ReportScreen(lang=self.config.lang), "report")
 
         self._screens_installed = True
         self._sync_nexus_workspace_candidate()

@@ -871,6 +871,36 @@ async def test_textual_app_switches_to_report_screen_without_render_crash(tmp_pa
 
 
 @pytest.mark.asyncio
+async def test_report_screen_uses_korean_chrome_labels(tmp_path) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("report")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, ReportScreen)
+        assert str(screen.query_one("#report-title", Static).content) == (
+            "📋 워크플로우 리포트"
+        )
+        assert str(screen.query_one("#report-export-btn", Button).label) == (
+            "💾 마크다운 내보내기"
+        )
+        assert _binding_description(
+            screen._bindings, "ctrl+s", "export_report"
+        ) == "마크다운 내보내기"
+        assert _binding_description(screen._bindings, "escape", "go_back") == "뒤로"
+
+        screen.show_export_path(tmp_path / "report-[/dim].md")
+        await pilot.pause()
+
+        status = screen.query_one("#report-export-status", Static)
+        assert "저장됨:" in str(status.render())
+
+
+@pytest.mark.asyncio
 async def test_report_screen_escapes_snapshot_markup(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

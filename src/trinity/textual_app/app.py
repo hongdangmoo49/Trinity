@@ -49,6 +49,7 @@ from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import (
     LocalCommandSnapshot,
     NexusSnapshotAdapter,
+    WORKFLOW_EVENT_DISPLAY_LIMIT,
     WorkflowNexusSnapshot,
 )
 from trinity.textual_app.i18n import localize_bindings
@@ -3040,7 +3041,10 @@ class TrinityTextualApp(App[None]):
                 persistence = WorkflowPersistence(self.config.effective_state_dir)
                 session = persistence.load()
                 if session and session.goal:
-                    events = persistence.load_events_for_workflow(session.id)
+                    events = persistence.load_events_for_workflow(
+                        session.id,
+                        tail=WORKFLOW_EVENT_DISPLAY_LIMIT,
+                    )
                     structured = DeliberationReportBuilder(
                         session,
                         result=None,

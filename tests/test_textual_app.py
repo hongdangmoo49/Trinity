@@ -24,6 +24,7 @@ from trinity.context.shared import SharedContextEngine
 from trinity.models import Provider
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import COMMAND_SPECS, SESSION_ONLY_SETTING_NOTICE
+from trinity.textual_app import app as textual_app_module
 from trinity.textual_app.app import TrinityTextualApp
 from trinity.textual_app.presenters import (
     review_repair_blocked_ids,
@@ -1020,6 +1021,94 @@ async def test_textual_export_uses_persisted_session_when_available(tmp_path) ->
     assert "Persisted central transcript" in md
     assert "## Execution Timeline" in md
     assert "exec-run-persisted" in md
+
+
+@pytest.mark.asyncio
+async def test_report_screen_bounds_events_but_export_uses_full_history(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="bounded-report-session",
+            goal="bounded report",
+            state=WorkflowState.BLUEPRINT_READY,
+            current_round=1,
+        )
+    )
+    for index, body in enumerate(
+        (
+            "oldest persisted transcript",
+            "middle persisted transcript",
+            "latest persisted transcript",
+        )
+    ):
+        persistence.append_event(
+            {
+                "timestamp": 1781136000.0 + index,
+                "workflow_id": "bounded-report-session",
+                "event": "central_conversation_recorded",
+                "state": "blueprint_ready",
+                "data": {
+                    "role": "central",
+                    "channel": "nexus",
+                    "title": "Central Agent Response",
+                    "body": body,
+                },
+            }
+        )
+
+    original_load_events = WorkflowPersistence.load_events_for_workflow
+    load_tails: list[int | None] = []
+
+    def record_load_events(
+        self,
+        workflow_id: str,
+        *,
+        tail: int | None = None,
+        event_names=None,
+    ):
+        load_tails.append(tail)
+        return original_load_events(
+            self,
+            workflow_id,
+            tail=tail,
+            event_names=event_names,
+        )
+
+    monkeypatch.setattr(textual_app_module, "WORKFLOW_EVENT_DISPLAY_LIMIT", 2)
+    monkeypatch.setattr(
+        WorkflowPersistence,
+        "load_events_for_workflow",
+        record_load_events,
+    )
+
+    app = TrinityTextualApp(config, workflow_controller=FakeWorkflowController())
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("report")
+        await pilot.pause()
+        assert load_tails == [2]
+
+        screen = app.screen
+        assert isinstance(screen, ReportScreen)
+        body = screen.query_one("#report-body")
+        rendered = "\n".join(str(child.render()) for child in body.children)
+        assert "latest persisted transcript" in rendered
+
+        app._export_report_markdown(
+            WorkflowNexusSnapshot(session_id="bounded-report-session")
+        )
+        await pilot.pause()
+
+    assert load_tails == [2, None]
+    reports = list((config.effective_state_dir / "reports").glob("report-*.md"))
+    assert len(reports) == 1
+    md = reports[0].read_text(encoding="utf-8")
+    assert "oldest persisted transcript" in md
+    assert "latest persisted transcript" in md
 
 
 @pytest.mark.asyncio

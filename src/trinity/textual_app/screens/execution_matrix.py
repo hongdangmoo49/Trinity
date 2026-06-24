@@ -166,6 +166,7 @@ class ExecutionMatrixScreen(Screen[None]):
 
     BINDINGS = [
         Binding("f", "toggle_task_expanded", "Expand Tasks"),
+        Binding("l", "toggle_activity_expanded", "Full Log"),
     ]
 
     def __init__(self) -> None:
@@ -173,6 +174,7 @@ class ExecutionMatrixScreen(Screen[None]):
         self.preflight: WorkspacePreflight | None = None
         self.snapshot = WorkflowNexusSnapshot()
         self.tasks_expanded = False
+        self.activity_expanded = False
         self._package_list_identity: tuple[str, ...] | None = None
         self._package_row_keys: dict[str, tuple[object, ...]] = {}
         self._package_rows: dict[str, ExecutionPackageRow] = {}
@@ -186,6 +188,11 @@ class ExecutionMatrixScreen(Screen[None]):
                 yield Button(
                     self._task_toggle_label(),
                     id="toggle-task-expanded",
+                    compact=True,
+                )
+                yield Button(
+                    self._activity_toggle_label(),
+                    id="toggle-activity-expanded",
                     compact=True,
                 )
             yield Static("", id="execution-summary")
@@ -209,6 +216,9 @@ class ExecutionMatrixScreen(Screen[None]):
         self.query_one("#execution-header", Static).update(self._header_text())
         self.query_one("#execution-summary", Static).update(self._summary_text())
         self.query_one("#toggle-task-expanded", Button).label = self._task_toggle_label()
+        self.query_one("#toggle-activity-expanded", Button).label = (
+            self._activity_toggle_label()
+        )
         self._sync_task_expanded_view()
         self._render_package_list()
         self._render_log()
@@ -222,6 +232,10 @@ class ExecutionMatrixScreen(Screen[None]):
         if event.button.id == "toggle-task-expanded":
             event.stop()
             self.action_toggle_task_expanded()
+            return
+        if event.button.id == "toggle-activity-expanded":
+            event.stop()
+            self.action_toggle_activity_expanded()
             return
         if not event.button.id or not event.button.id.startswith("wp-detail-"):
             return
@@ -246,6 +260,16 @@ class ExecutionMatrixScreen(Screen[None]):
         self.query_one("#toggle-task-expanded", Button).label = self._task_toggle_label()
         self._sync_task_expanded_view()
         self._render_package_list()
+
+    def action_toggle_activity_expanded(self) -> None:
+        """Toggle the activity feed between recent and full log views."""
+        self.activity_expanded = not self.activity_expanded
+        if not self.is_mounted:
+            return
+        self.query_one("#toggle-activity-expanded", Button).label = (
+            self._activity_toggle_label()
+        )
+        self._render_log()
 
     def _sync_task_expanded_view(self) -> None:
         if not self.is_mounted:
@@ -431,8 +455,11 @@ class ExecutionMatrixScreen(Screen[None]):
             source = list(self.snapshot.workflow_events)
         if not source:
             return ["Activity", "Execution not started."]
-        recent = source[-7:]
         lines = ["Activity"]
+        if self.activity_expanded:
+            lines.extend(source)
+            return lines
+        recent = source[-7:]
         if len(source) > len(recent):
             lines.append(f"... {len(source) - len(recent)} earlier log lines hidden")
         lines.extend(recent)
@@ -440,6 +467,9 @@ class ExecutionMatrixScreen(Screen[None]):
 
     def _task_toggle_label(self) -> str:
         return "Compact Tasks" if self.tasks_expanded else "Expand Tasks"
+
+    def _activity_toggle_label(self) -> str:
+        return "Recent Log" if self.activity_expanded else "Full Log"
 
     def _task_clip_width(self) -> int:
         return 72 if self.tasks_expanded else 28

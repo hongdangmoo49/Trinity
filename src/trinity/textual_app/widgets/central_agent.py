@@ -420,6 +420,11 @@ class CentralAgentView(VerticalScroll):
                 if snapshot.execution_recovery is not None
                 else ""
             ),
+            (
+                tuple(snapshot.execution_recovery.retry_candidates)
+                if snapshot.execution_recovery is not None
+                else ()
+            ),
             tuple(
                 (
                     package.id,
@@ -495,6 +500,20 @@ class CentralAgentView(VerticalScroll):
                 )
             return
 
+        if self._should_show_execution_retry_action(snapshot):
+            title.update(self._label("execution_recovery_action"))
+            button_id = f"central-action-{render_version}-execution-retry"
+            self._button_actions[button_id] = "execution-retry"
+            container.mount(
+                Button(
+                    self._label("execution_retry"),
+                    id=button_id,
+                    variant="primary",
+                    tooltip=self._label("execution-retry_tooltip"),
+                )
+            )
+            return
+
         if not self._should_show_blueprint_actions(snapshot):
             title.update("")
             return
@@ -534,6 +553,15 @@ class CentralAgentView(VerticalScroll):
             package.status == "blocked" and package.repair_blocked_reason
             for package in snapshot.work_package_details
         )
+
+    @staticmethod
+    def _should_show_execution_retry_action(snapshot: WorkflowNexusSnapshot) -> bool:
+        recovery = snapshot.execution_recovery
+        if recovery is None:
+            return False
+        if recovery.state == "repair_blocked":
+            return False
+        return bool(recovery.retry_candidates)
 
     @staticmethod
     def _provider_error_gate_options(snapshot: WorkflowNexusSnapshot) -> set[str]:
@@ -577,6 +605,8 @@ class CentralAgentView(VerticalScroll):
             "waiting": "종합 대기 중",
             "work_packages": "작업 패키지",
             "execute": "실행",
+            "execution_recovery_action": "실행 재시도 결정",
+            "execution_retry": "실패 WP 재시도",
             "refine_features": "기능 보강",
             "refine_risks": "리스크 보강",
             "refine_work_packages": "WP 재분배",
@@ -585,6 +615,7 @@ class CentralAgentView(VerticalScroll):
             "repair_open_review": "리뷰 보기",
             "repair_stop": "중단",
             "execute_tooltip": "현재 WP를 실행합니다.",
+            "execution-retry_tooltip": "실패, 막힘, 중단 상태의 WP를 선택해서 다시 실행합니다.",
             "refine-features_tooltip": "기능 범위와 사용자 경험을 더 구체화합니다.",
             "refine-risks_tooltip": "실행 리스크와 검증 기준을 더 구체화합니다.",
             "refine-work-packages_tooltip": "WP 분해, 담당자, 의존성을 다시 정리합니다.",
@@ -630,6 +661,8 @@ class CentralAgentView(VerticalScroll):
             "waiting": "Waiting for synthesis",
             "work_packages": "Work Packages",
             "execute": "Execute",
+            "execution_recovery_action": "Execution retry decision",
+            "execution_retry": "Retry failed WPs",
             "refine_features": "Refine features",
             "refine_risks": "Refine risks",
             "refine_work_packages": "Rebalance WPs",
@@ -638,6 +671,7 @@ class CentralAgentView(VerticalScroll):
             "repair_open_review": "Open review",
             "repair_stop": "Stop",
             "execute_tooltip": "Run the current work packages.",
+            "execution-retry_tooltip": "Choose failed, blocked, or interrupted WPs to run again.",
             "refine-features_tooltip": "Clarify feature scope and user experience.",
             "refine-risks_tooltip": "Clarify execution risks and validation criteria.",
             "refine-work-packages_tooltip": "Revise WP ownership, scope, and dependencies.",

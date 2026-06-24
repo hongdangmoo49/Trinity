@@ -115,7 +115,11 @@ class TestE2EAsk:
                 mock_instance.ask = AsyncMock(return_value=mock_result)
                 MockOrch.return_value = mock_instance
 
-                with patch("asyncio.run", return_value=mock_result):
+                def close_mocked_coroutine(coro):
+                    coro.close()
+                    return mock_result
+
+                with patch("asyncio.run", side_effect=close_mocked_coroutine):
                     result = runner.invoke(main, ["ask", "test question"])
 
         assert result.exit_code == 0

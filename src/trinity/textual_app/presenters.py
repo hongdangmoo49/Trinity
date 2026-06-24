@@ -18,6 +18,13 @@ STATUS_CONTEXT_LABELS = {
         "answer": "Answer",
         "answer_inspect_questions_hint": "Run `/questions` to inspect pending questions first.",
         "answer_usage": "Usage: /answer <question-id|index|next> <answer>",
+        "agent": "Agent",
+        "agent_change_hint": "Use `/agent <name> on|off` to change one agent.",
+        "agent_current_settings": "Current agent session settings.",
+        "agent_disabled": "disabled",
+        "agent_enabled": "enabled",
+        "agent_usage": "Usage: `/agent <name> on|off`",
+        "agent_unknown": "Unknown agent",
         "central": "central",
         "continue_until_question": "Continue planning until the central agent raises a question.",
         "control_repo_confirmed": "Control repo confirmed",
@@ -145,6 +152,13 @@ STATUS_CONTEXT_LABELS = {
             "먼저 `/questions`를 실행해 대기 중인 질문을 확인하세요."
         ),
         "answer_usage": "사용법: /answer <question-id|index|next> <answer>",
+        "agent": "에이전트",
+        "agent_change_hint": "`/agent <name> on|off`로 에이전트 하나를 변경하세요.",
+        "agent_current_settings": "현재 에이전트 세션 설정입니다.",
+        "agent_disabled": "비활성화",
+        "agent_enabled": "활성화",
+        "agent_usage": "사용법: `/agent <name> on|off`",
+        "agent_unknown": "알 수 없는 에이전트",
         "central": "중앙",
         "continue_until_question": "중앙 에이전트가 질문을 만들 때까지 계획을 계속 진행하세요.",
         "control_repo_confirmed": "제어 저장소 확인",
@@ -789,6 +803,45 @@ def rounds_rows(value: int, *, lang: str = "en") -> tuple[tuple[str, str], ...]:
         (_sc_label(lang, "current_max_rounds"), str(value)),
         (_sc_label(lang, "rounds_allowed_range"), "1..20"),
     )
+
+
+def agent_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "agent")
+
+
+def agent_current_settings_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "agent_current_settings")
+
+
+def agent_change_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "agent_change_hint")
+
+
+def agent_usage_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "agent_usage")
+
+
+def agent_unknown_markdown(name: str, *, lang: str = "en") -> str:
+    return f"{_sc_label(lang, 'agent_unknown')}: `{name}`"
+
+
+def agent_status_markdown(name: str, enabled: bool, *, lang: str = "en") -> str:
+    status = _sc_label(lang, "agent_enabled" if enabled else "agent_disabled")
+    if lang == "ko":
+        return f"이 세션에서 에이전트 `{name}`를 {status}했습니다."
+    return f"Agent `{name}` {status} for this session only."
+
+
+def agent_table_columns(*, lang: str = "en") -> tuple[str, str, str]:
+    return (
+        _sc_label(lang, "agent"),
+        _sc_label(lang, "enabled"),
+        _sc_label(lang, "provider"),
+    )
+
+
+def agent_enabled_value(value: bool, *, lang: str = "en") -> str:
+    return _yes_no(value, lang=lang)
 
 
 def slash_command_suggestions(token: str) -> tuple[str, ...]:

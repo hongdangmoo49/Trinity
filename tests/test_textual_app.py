@@ -2844,6 +2844,16 @@ def test_central_agent_view_localizes_korean_status_values() -> None:
     assert "`approved`" not in markdown
     assert "[pending]" not in markdown
 
+    view.snapshot = WorkflowNexusSnapshot(
+        state="post_review_ready",
+        final_review=ReviewSnapshot(
+            status="approved",
+            reviewer_agent="",
+        ),
+    )
+
+    assert "- `승인` by `(알 수 없음)`" in view._markdown()
+
 
 def test_central_agent_view_keeps_english_status_values() -> None:
     view = CentralAgentView()

@@ -156,7 +156,7 @@ class CentralAgentView(VerticalScroll):
                     f"### {self._label('final_review')}",
                     (
                         f"- `{self._status_value(review.status or 'unknown')}` by "
-                        f"`{review.reviewer_agent or '(unknown)'}`"
+                        f"`{review.reviewer_agent or self._label('unknown')}`"
                     ),
                 ]
             )
@@ -525,6 +525,7 @@ class CentralAgentView(VerticalScroll):
             "synthesis": "종합",
             "synthesizing": "중앙 에이전트 종합 중",
             "title": "중앙 에이전트",
+            "unknown": "(알 수 없음)",
             "waiting": "종합 대기 중",
             "work_packages": "작업 패키지",
             "execute": "실행",
@@ -586,6 +587,7 @@ class CentralAgentView(VerticalScroll):
             "synthesis": "Synthesis",
             "synthesizing": "Central agent is synthesizing",
             "title": "Central Agent",
+            "unknown": "(unknown)",
             "waiting": "Waiting for synthesis",
             "work_packages": "Work Packages",
             "execute": "Execute",

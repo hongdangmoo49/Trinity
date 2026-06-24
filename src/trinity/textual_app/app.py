@@ -1750,15 +1750,16 @@ class TrinityTextualApp(App[None]):
             self._record_slash_command_result(
                 parsed.spec.name,
                 "Decisions",
-                self._decisions_markdown(snapshot),
+                self._decisions_markdown(snapshot, lang=self.config.lang),
                 empty=not has_decisions,
-                action_hint=(
-                    "Answer pending questions with `/answer` to add decisions."
-                    if not has_decisions
-                    else ""
+                action_hint=textual_presenters.decisions_action_hint(
+                    has_decisions=has_decisions,
+                    lang=self.config.lang,
                 ),
-                table_columns=("#", "Decision"),
-                table_rows=self._decisions_rows(snapshot),
+                table_columns=textual_presenters.decisions_table_columns(
+                    lang=self.config.lang
+                ),
+                table_rows=self._decisions_rows(snapshot, lang=self.config.lang),
             )
             return
         if command == "packages":
@@ -2409,14 +2410,20 @@ class TrinityTextualApp(App[None]):
         return textual_presenters.questions_rows(snapshot, lang=lang)
 
     @staticmethod
-    def _decisions_markdown(snapshot: WorkflowNexusSnapshot) -> str:
-        return textual_presenters.decisions_markdown(snapshot)
+    def _decisions_markdown(
+        snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
+    ) -> str:
+        return textual_presenters.decisions_markdown(snapshot, lang=lang)
 
     @staticmethod
     def _decisions_rows(
         snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
     ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.decisions_rows(snapshot)
+        return textual_presenters.decisions_rows(snapshot, lang=lang)
 
     @staticmethod
     def _packages_markdown(snapshot: WorkflowNexusSnapshot) -> str:

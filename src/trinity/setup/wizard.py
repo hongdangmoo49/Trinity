@@ -18,6 +18,7 @@ from rich.panel import Panel
 from rich.prompt import Confirm, IntPrompt, Prompt
 from rich.table import Table
 
+from trinity.display_labels import display_source_value
 from trinity.i18n import Lang, get_strings, localized_roles_with_caveman
 from trinity.models import (
     AgentSpec,
@@ -315,7 +316,7 @@ class SetupWizard:
                 str(idx),
                 self._model_choice_label(choice),
                 self._model_budget_label(choice.context_budget),
-                choice.source,
+                display_source_value(choice.source, lang=self.lang),
             )
         table.add_row("c", S.custom_model, "-", S.custom_model_hint)
         self.console.print(table)

@@ -22,8 +22,8 @@ from trinity.textual_app.snapshot import (
     WorkflowNexusSnapshot,
     WorkPackageSnapshot,
 )
+from trinity.display_labels import display_source_value
 from trinity.textual_app.widgets.status_label import (
-    display_source_value,
     display_review_status_value,
     display_status_value,
 )

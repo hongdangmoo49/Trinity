@@ -302,6 +302,51 @@ class TestSetupWizard:
         assert selected.model == "gpt-5.5"
         assert selected.source == "cli-live"
 
+    def test_ask_model_choice_localizes_source_labels_in_korean(self):
+        """Korean setup should render model source labels without changing metadata."""
+        console = Console(force_terminal=True, width=120, record=True)
+        wizard = SetupWizard(console=console)
+        wizard.lang = "ko"
+        spec = AgentSpec(
+            name="codex",
+            provider=Provider.CODEX,
+            cli_command="codex",
+            model="default",
+            role_prompt="You are the Implementer.",
+            context_budget=128_000,
+            enabled=True,
+        )
+
+        discovered = [
+            ProviderModelChoice(
+                provider=Provider.CODEX,
+                model="default",
+                label="codex(default)",
+                source="static-fallback",
+                is_default=True,
+                context_budget=128_000,
+            ),
+            ProviderModelChoice(
+                provider=Provider.CODEX,
+                model="gpt-5.5",
+                label="gpt-5.5",
+                source="cli-live",
+                context_budget=None,
+            ),
+        ]
+        with patch(
+            "trinity.setup.wizard.discover_provider_models",
+            return_value=discovered,
+        ):
+            with patch("trinity.setup.wizard.Prompt.ask", return_value="2"):
+                selected = wizard._ask_model_choice(spec)
+
+        assert selected is not None
+        assert selected.source == "cli-live"
+        output = console.export_text()
+        assert "정적 기본값" in output
+        assert "CLI 실시간" in output
+
     def test_step_review_accept(self, console, mock_detector):
         """Test review step with acceptance."""
         wizard = SetupWizard(console=console, detector=mock_detector)

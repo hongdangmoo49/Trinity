@@ -18,6 +18,12 @@ STATUS_CONTEXT_LABELS = {
         "answer": "Answer",
         "answer_inspect_questions_hint": "Run `/questions` to inspect pending questions first.",
         "answer_usage": "Usage: /answer <question-id|index|next> <answer>",
+        "ask": "Ask",
+        "ask_missing_model": "Missing model after --model.",
+        "ask_no_active_agents": "No active agents are available for /ask.",
+        "ask_prompt_empty": "Prompt cannot be empty.",
+        "ask_unknown_agent": "Unknown or disabled agent",
+        "ask_usage": "Usage: /ask <all|agent[,agent...]> [--model MODEL] <prompt>",
         "agent": "Agent",
         "agent_change_hint": "Use `/agent <name> on|off` to change one agent.",
         "agent_current_settings": "Current agent session settings.",
@@ -188,6 +194,12 @@ STATUS_CONTEXT_LABELS = {
             "먼저 `/questions`를 실행해 대기 중인 질문을 확인하세요."
         ),
         "answer_usage": "사용법: /answer <question-id|index|next> <answer>",
+        "ask": "질문",
+        "ask_missing_model": "--model 뒤에 모델을 입력하세요.",
+        "ask_no_active_agents": "/ask에 사용할 활성 에이전트가 없습니다.",
+        "ask_prompt_empty": "프롬프트를 입력하세요.",
+        "ask_unknown_agent": "알 수 없거나 비활성화된 에이전트",
+        "ask_usage": "사용법: /ask <all|agent[,agent...]> [--model MODEL] <prompt>",
         "agent": "에이전트",
         "agent_change_hint": "`/agent <name> on|off`로 에이전트 하나를 변경하세요.",
         "agent_current_settings": "현재 에이전트 세션 설정입니다.",
@@ -952,6 +964,34 @@ def caveman_rows(
         (_sc_label(lang, "intensity"), intensity),
         (_sc_label(lang, "allowed"), "on, off, lite, full, ultra"),
     )
+
+
+def ask_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "ask")
+
+
+def ask_usage_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "ask_usage")
+
+
+def ask_unknown_agent_markdown(names: Sequence[str], *, lang: str = "en") -> str:
+    return f"{_sc_label(lang, 'ask_unknown_agent')}: {', '.join(names)}"
+
+
+def ask_no_active_agents_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "ask_no_active_agents")
+
+
+def ask_missing_model_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "ask_missing_model")
+
+
+def ask_prompt_empty_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "ask_prompt_empty")
+
+
+def ask_action_hint(*, lang: str = "en") -> str:
+    return "/ask <all|agent[,agent...]> [--model MODEL] <prompt>"
 
 
 def slash_command_suggestions(token: str) -> tuple[str, ...]:

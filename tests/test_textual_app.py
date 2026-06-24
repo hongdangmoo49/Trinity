@@ -38,6 +38,13 @@ from trinity.textual_app.presenters import (
     answer_action_hint,
     answer_title,
     answer_usage_markdown,
+    ask_action_hint,
+    ask_missing_model_markdown,
+    ask_no_active_agents_markdown,
+    ask_prompt_empty_markdown,
+    ask_title,
+    ask_unknown_agent_markdown,
+    ask_usage_markdown,
     caveman_allowed_action_hint,
     caveman_change_action_hint,
     caveman_current_markdown,
@@ -964,6 +971,24 @@ def test_answer_presenter_uses_korean_labels() -> None:
     )
     assert answer_action_hint(lang="ko") == (
         "먼저 `/questions`를 실행해 대기 중인 질문을 확인하세요."
+    )
+
+
+def test_ask_presenter_uses_korean_labels() -> None:
+    assert ask_title(lang="ko") == "질문"
+    assert ask_usage_markdown(lang="ko") == (
+        "사용법: /ask <all|agent[,agent...]> [--model MODEL] <prompt>"
+    )
+    assert ask_unknown_agent_markdown(["missing"], lang="ko") == (
+        "알 수 없거나 비활성화된 에이전트: missing"
+    )
+    assert ask_no_active_agents_markdown(lang="ko") == (
+        "/ask에 사용할 활성 에이전트가 없습니다."
+    )
+    assert ask_missing_model_markdown(lang="ko") == "--model 뒤에 모델을 입력하세요."
+    assert ask_prompt_empty_markdown(lang="ko") == "프롬프트를 입력하세요."
+    assert ask_action_hint(lang="ko") == (
+        "/ask <all|agent[,agent...]> [--model MODEL] <prompt>"
     )
 
 
@@ -2584,6 +2609,80 @@ async def test_start_ask_slash_starts_targeted_workflow(tmp_path) -> None:
         assert controller.target_workspace == target
         assert app.current_route == "nexus"
         assert isinstance(app.screen, NexusScreen)
+
+
+@pytest.mark.asyncio
+async def test_start_ask_slash_errors_use_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 34)):
+        app._handle_textual_slash_command("/ask")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/ask"
+        assert result.title == "질문"
+        assert result.body == (
+            "사용법: /ask <all|agent[,agent...]> [--model MODEL] <prompt>"
+        )
+        assert result.action_hint == (
+            "/ask <all|agent[,agent...]> [--model MODEL] <prompt>"
+        )
+        assert result.severity == "warning"
+        assert result.empty is True
+
+        app._handle_textual_slash_command("/ask missing 안녕")
+
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/ask"
+        assert result.title == "질문"
+        assert result.body == "알 수 없거나 비활성화된 에이전트: missing"
+        assert result.severity == "warning"
+
+        app._handle_textual_slash_command("/ask all --model")
+
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/ask"
+        assert result.title == "질문"
+        assert result.body == "--model 뒤에 모델을 입력하세요."
+        assert result.severity == "warning"
+
+        app._handle_textual_slash_command("/ask all")
+
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/ask"
+        assert result.title == "질문"
+        assert result.body == "프롬프트를 입력하세요."
+        assert result.severity == "warning"
+        assert controller.started_prompts == []
+
+
+@pytest.mark.asyncio
+async def test_start_ask_slash_no_active_agents_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    for spec in config.agents.values():
+        spec.enabled = False
+    app = TrinityTextualApp(config, controller)
+
+    async with app.run_test(size=(120, 34)):
+        app._handle_textual_slash_command("/ask all 안녕")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/ask"
+        assert result.title == "질문"
+        assert result.body == "/ask에 사용할 활성 에이전트가 없습니다."
+        assert result.action_hint == (
+            "/ask <all|agent[,agent...]> [--model MODEL] <prompt>"
+        )
+        assert result.severity == "warning"
+        assert result.empty is True
+        assert controller.started_prompts == []
 
 
 @pytest.mark.asyncio

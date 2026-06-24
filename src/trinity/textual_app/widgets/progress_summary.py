@@ -210,16 +210,16 @@ def progress_summary_line(
     return " · ".join(parts)
 
 
-def compact_wp_line(package: WorkPackageSnapshot) -> str:
+def compact_wp_line(package: WorkPackageSnapshot, *, lang: str = "en") -> str:
     """Render a compact WP identity line."""
     actor = (
         package.current_executor
         or package.last_executor
         or package.owner_agent
-        or "unassigned"
     )
+    actor_label = actor.title() if actor else ("미지정" if lang == "ko" else "Unassigned")
     title = package.title or package.topic or package.id
-    return f"{package.id} {actor.title()} · {title}"
+    return f"{package.id} {actor_label} · {title}"
 
 
 def next_work_package_line(
@@ -228,7 +228,7 @@ def next_work_package_line(
     lang: str = "en",
 ) -> str:
     """Render a compact Next entry line with parallel-group hints."""
-    line = compact_wp_line(entry.package)
+    line = compact_wp_line(entry.package, lang=lang)
     if entry.ready and entry.parallel_group is not None:
         group_label = "그룹" if lang == "ko" else "group"
         line = f"{line} · {group_label} {entry.parallel_group}"

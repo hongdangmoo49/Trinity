@@ -110,7 +110,7 @@ class WorkflowInspector(Vertical):
             "#inspector-current",
             self._list_or_empty(
                 [
-                    compact_wp_line(package)
+                    compact_wp_line(package, lang=self.lang)
                     for package in current_work_packages(snapshot.work_package_details)
                 ]
             ),
@@ -189,7 +189,7 @@ class WorkflowInspector(Vertical):
     def _blocked_lines(self, snapshot: WorkflowNexusSnapshot) -> list[str]:
         lines: list[str] = []
         for package in blocked_work_packages(snapshot.work_package_details, limit=3):
-            lines.append(compact_wp_line(package))
+            lines.append(compact_wp_line(package, lang=self.lang))
             detail = blocked_detail_line(package, lang=self.lang)
             if detail:
                 lines.append(f"  {detail}")

@@ -9014,7 +9014,7 @@ async def test_workflow_inspector_uses_configured_korean_labels(tmp_path) -> Non
                     WorkPackageSnapshot(
                         id="WP-003",
                         title="Validation",
-                        owner_agent="antigravity",
+                        owner_agent="",
                         status="pending",
                         dependencies=["WP-002"],
                     ),
@@ -9046,6 +9046,7 @@ async def test_workflow_inspector_uses_configured_korean_labels(tmp_path) -> Non
         )
         next_content = str(inspector.query_one("#inspector-next").content)
         assert "WP-005 Codex · Docs · 그룹 2" in next_content
+        assert "WP-003 미지정 · Validation" in next_content
         assert "대기: WP-002" in next_content
         assert "복구 2/2 · missing token" in str(
             inspector.query_one("#inspector-blocked").content

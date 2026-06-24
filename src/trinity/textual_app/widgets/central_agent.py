@@ -203,10 +203,16 @@ class CentralAgentView(VerticalScroll):
             lines.append(f"- {count_text} · {self._label('ready')}")
         current = current_work_packages(snapshot.work_package_details, limit=1)
         if current:
-            lines.append(f"- {self._label('current')}: {compact_wp_line(current[0])}")
+            lines.append(
+                f"- {self._label('current')}: "
+                f"{compact_wp_line(current[0], lang=self.lang)}"
+            )
         blocked = blocked_work_packages(snapshot.work_package_details, limit=1)
         if blocked:
-            lines.append(f"- {self._label('blocked')}: {compact_wp_line(blocked[0])}")
+            lines.append(
+                f"- {self._label('blocked')}: "
+                f"{compact_wp_line(blocked[0], lang=self.lang)}"
+            )
         lines.append(f"- {self._label('details_in_inspector')}")
 
     def _append_execution_overview(

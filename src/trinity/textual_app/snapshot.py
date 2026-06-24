@@ -1586,8 +1586,10 @@ class NexusSnapshotAdapter:
             return []
 
         lines: list[str] = []
-        session_events = list(session_events) if session_events is not None else (
-            self.persistence.load_events_for_workflow(session.id)
+        session_events = (
+            list(session_events)
+            if session_events is not None
+            else self.persistence.load_events_for_workflow(session.id, tail=80)
         )
         completed_event_package_ids = {
             self._event_package_id(event)
@@ -1624,9 +1626,16 @@ class NexusSnapshotAdapter:
     ) -> list[str]:
         if session is None:
             return []
-        session_events = list(session_events) if session_events is not None else (
-            self.persistence.load_events_for_workflow(session.id)
-        )
+        if session_events is None:
+            event_slice = self.persistence.load_event_slice_for_workflow(
+                session.id,
+                tail=WORKFLOW_EVENT_DISPLAY_LIMIT,
+            )
+            session_events = event_slice.events
+            if total is None:
+                total = event_slice.total
+        else:
+            session_events = list(session_events)
         total_count = len(session_events) if total is None else max(0, total)
         display_events = session_events[-WORKFLOW_EVENT_DISPLAY_LIMIT:]
         lines = [
@@ -1645,8 +1654,10 @@ class NexusSnapshotAdapter:
         session: WorkflowSession,
         session_events: Iterable[dict[str, object]] | None = None,
     ) -> dict[str, object] | None:
-        events = list(session_events) if session_events is not None else (
-            self.persistence.load_events_for_workflow(session.id)
+        events = (
+            list(session_events)
+            if session_events is not None
+            else self.persistence.load_events_for_workflow(session.id, tail=1)
         )
         return events[-1] if events else None
 

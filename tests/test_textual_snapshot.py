@@ -6,7 +6,10 @@ from pathlib import Path
 
 from trinity.config import TrinityConfig
 from trinity.context.shared import SharedContextEngine
-from trinity.textual_app.snapshot import NexusSnapshotAdapter
+from trinity.textual_app.snapshot import (
+    NexusSnapshotAdapter,
+    WORKFLOW_EVENT_DISPLAY_LIMIT,
+)
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workflow import (
     AgentRuntimeModel,
@@ -26,6 +29,7 @@ from trinity.workflow import (
     WorkStatus,
     DecisionRecord,
 )
+from trinity.workflow.persistence import WorkflowEventSlice
 
 
 def test_snapshot_loads_provider_defaults_without_workflow(tmp_path) -> None:
@@ -331,6 +335,77 @@ def test_snapshot_large_event_log_uses_event_index_and_tail_limit(
     assert snapshot.execution_recovery is not None
     assert snapshot.execution_recovery.last_event == "work_package_started"
     assert snapshot.execution_recovery.retry_candidates == ("WP-001",)
+
+
+def test_snapshot_fallback_helpers_use_bounded_event_loads(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    adapter = NexusSnapshotAdapter(config)
+    session = WorkflowSession(
+        id="wf-fallback",
+        goal="Build UI",
+        state=WorkflowState.EXECUTING,
+    )
+    event_tail = [
+        {
+            "event": "work_package_started",
+            "workflow_id": "wf-fallback",
+            "data": {"package_id": "WP-2", "agent": "codex"},
+        },
+        {
+            "event": "work_package_completed",
+            "workflow_id": "wf-fallback",
+            "data": {"package_id": "WP-2", "agent": "codex"},
+        },
+    ]
+    load_event_tails: list[int | None] = []
+    slice_tails: list[int | None] = []
+
+    def fake_load_events_for_workflow(
+        workflow_id: str,
+        *,
+        tail: int | None = None,
+        event_names=None,
+    ):
+        assert workflow_id == "wf-fallback"
+        load_event_tails.append(tail)
+        return event_tail[-1:] if tail == 1 else list(event_tail)
+
+    def fake_load_event_slice_for_workflow(
+        workflow_id: str,
+        *,
+        tail: int | None = None,
+        event_names=None,
+    ):
+        assert workflow_id == "wf-fallback"
+        slice_tails.append(tail)
+        return WorkflowEventSlice(events=list(event_tail), total=3)
+
+    monkeypatch.setattr(
+        adapter.persistence,
+        "load_events_for_workflow",
+        fake_load_events_for_workflow,
+    )
+    monkeypatch.setattr(
+        adapter.persistence,
+        "load_event_slice_for_workflow",
+        fake_load_event_slice_for_workflow,
+    )
+
+    assert adapter._execution_log(session) == [
+        "work_package_started: WP-2 codex",
+        "work_package_completed: WP-2 codex",
+    ]
+    assert adapter._workflow_events(session) == [
+        "... 1 older workflow events omitted",
+        "work_package_started: WP-2 codex",
+        "work_package_completed: WP-2 codex",
+    ]
+    assert adapter._last_session_event(session) == event_tail[-1]
+    assert load_event_tails == [80, 1]
+    assert slice_tails == [WORKFLOW_EVENT_DISPLAY_LIMIT]
 
 
 def test_snapshot_reuses_cached_projection_until_events_change(

@@ -94,6 +94,22 @@ def test_provider_panel_supports_all_korean_status_labels(
     assert expected_label in panel._status_label()
 
 
+def test_provider_panel_treats_error_summary_as_issue() -> None:
+    state = ProviderPanelState(
+        name="claude",
+        provider="claude-code",
+        enabled=True,
+        status="Ready",
+        summary="[Error: exit code 1]",
+    )
+    panel = ProviderPanel(state)
+    ko_panel = ProviderPanel(state, lang="ko")
+
+    assert ProviderPanel._state_group(state) == "issue"
+    assert "ISSUE" in panel._status_label()
+    assert "문제" in ko_panel._status_label()
+
+
 def test_provider_panel_compacts_long_summary() -> None:
     state = ProviderPanelState(
         name="claude",

@@ -21,6 +21,7 @@ STATUS_CONTEXT_LABELS = {
         "central": "central",
         "continue_until_question": "Continue planning until the central agent raises a question.",
         "control_repo_confirmed": "Control repo confirmed",
+        "current_max_rounds": "Current max rounds",
         "current_target": "Current target",
         "decision": "Decision",
         "decision_hint": "Answer pending questions with `/answer` to add decisions.",
@@ -97,6 +98,13 @@ STATUS_CONTEXT_LABELS = {
         "reviewed_wp": "Reviewed WP",
         "reviewer": "reviewer",
         "round": "Round",
+        "rounds": "Rounds",
+        "rounds_allowed_range": "Allowed range",
+        "rounds_change_hint": "Use `/rounds <1..20>` to change it for this session.",
+        "rounds_invalid_number": "Invalid number.",
+        "rounds_range_error": "Rounds must be between 1 and 20.",
+        "rounds_set": "Max rounds set",
+        "rounds_usage": "Use `/rounds <1..20>`.",
         "run": "Run",
         "save": "Save",
         "save_auto_persist_body": (
@@ -140,6 +148,7 @@ STATUS_CONTEXT_LABELS = {
         "central": "중앙",
         "continue_until_question": "중앙 에이전트가 질문을 만들 때까지 계획을 계속 진행하세요.",
         "control_repo_confirmed": "제어 저장소 확인",
+        "current_max_rounds": "현재 최대 라운드",
         "current_target": "현재 대상",
         "decision": "결정",
         "decision_hint": "대기 중인 질문에 `/answer`로 답하면 결정이 추가됩니다.",
@@ -215,6 +224,13 @@ STATUS_CONTEXT_LABELS = {
         "reviewed_wp": "리뷰된 WP",
         "reviewer": "리뷰어",
         "round": "라운드",
+        "rounds": "라운드",
+        "rounds_allowed_range": "허용 범위",
+        "rounds_change_hint": "`/rounds <1..20>`로 이 세션의 값을 변경하세요.",
+        "rounds_invalid_number": "숫자가 올바르지 않습니다.",
+        "rounds_range_error": "라운드는 1에서 20 사이여야 합니다.",
+        "rounds_set": "최대 라운드 설정",
+        "rounds_usage": "`/rounds <1..20>`를 사용하세요.",
         "run": "실행 ID",
         "save": "저장",
         "save_auto_persist_body": (
@@ -735,6 +751,43 @@ def target_rows(
             _sc_label(lang, "control_repo_confirmed"),
             _yes_no(control_repo_confirmed, lang=lang),
         ),
+    )
+
+
+def rounds_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "rounds")
+
+
+def rounds_current_markdown(value: int, *, lang: str = "en") -> str:
+    return f"{_sc_label(lang, 'current_max_rounds')}: `{value}`."
+
+
+def rounds_set_markdown(value: int, *, lang: str = "en") -> str:
+    if lang == "ko":
+        return f"이 세션의 최대 라운드를 `{value}`로 설정했습니다."
+    return f"{_sc_label(lang, 'rounds_set')} to `{value}` for this session only."
+
+
+def rounds_invalid_number_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "rounds_invalid_number")
+
+
+def rounds_range_error_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "rounds_range_error")
+
+
+def rounds_change_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "rounds_change_hint")
+
+
+def rounds_usage_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "rounds_usage")
+
+
+def rounds_rows(value: int, *, lang: str = "en") -> tuple[tuple[str, str], ...]:
+    return (
+        (_sc_label(lang, "current_max_rounds"), str(value)),
+        (_sc_label(lang, "rounds_allowed_range"), "1..20"),
     )
 
 

@@ -101,6 +101,9 @@ STATUS_CONTEXT_LABELS = {
         ),
         "memory_compact": "Memory Compact",
         "memory_stats": "Memory Stats",
+        "model_settings": "Model Settings",
+        "model_settings_unavailable": "Model settings are available on Start and Nexus.",
+        "model_settings_updated": "Model settings updated.",
         "mode": "Mode",
         "next": "Next",
         "no": "no",
@@ -311,6 +314,11 @@ STATUS_CONTEXT_LABELS = {
         ),
         "memory_compact": "메모리 압축",
         "memory_stats": "메모리 통계",
+        "model_settings": "모델 설정",
+        "model_settings_unavailable": (
+            "모델 설정은 시작 화면과 Nexus에서 사용할 수 있습니다."
+        ),
+        "model_settings_updated": "모델 설정을 업데이트했습니다.",
         "mode": "모드",
         "next": "다음",
         "no": "아니오",
@@ -839,6 +847,18 @@ def _yes_no(value: bool, *, lang: str = "en") -> str:
 
 def status_title(*, lang: str = "en") -> str:
     return _sc_label(lang, "status")
+
+
+def model_settings_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "model_settings")
+
+
+def model_settings_unavailable_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "model_settings_unavailable")
+
+
+def model_settings_updated_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "model_settings_updated")
 
 
 def answer_title(*, lang: str = "en") -> str:

@@ -2215,8 +2215,10 @@ class TrinityTextualApp(App[None]):
         selector = self._active_agent_selector()
         if selector is None:
             self.notify(
-                "Model settings are available on Start and Nexus.",
-                title="Model Settings",
+                textual_presenters.model_settings_unavailable_markdown(
+                    lang=self.config.lang
+                ),
+                title=textual_presenters.model_settings_title(lang=self.config.lang),
                 severity="warning",
             )
             return
@@ -2244,8 +2246,8 @@ class TrinityTextualApp(App[None]):
             return
         selector.set_model_selections(selections)
         self.notify(
-            "Model settings updated.",
-            title="Model Settings",
+            textual_presenters.model_settings_updated_markdown(lang=self.config.lang),
+            title=textual_presenters.model_settings_title(lang=self.config.lang),
         )
 
     def _active_agent_selector(self) -> AgentRecipientModelSelector | None:

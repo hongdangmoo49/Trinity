@@ -205,4 +205,18 @@ class ProviderPanel(Vertical):
         response_status = state.response_status.strip().lower()
         if response_status and response_status != "ok":
             return "issue"
+        if ProviderPanel._looks_like_error_output(state.details or state.summary):
+            return "issue"
         return compact_status_group(state.status)
+
+    @staticmethod
+    def _looks_like_error_output(text: str) -> bool:
+        normalized = " ".join(text.strip().split()).lower()
+        if not normalized:
+            return False
+        return (
+            normalized.startswith("[error:")
+            or normalized.startswith("error:")
+            or normalized.startswith("traceback ")
+            or "exit code " in normalized
+        )

@@ -4869,6 +4869,20 @@ def test_execution_log_modal_windows_large_logs() -> None:
     assert len(rendered) == MAX_RENDERED_LOG_LINES + 1
 
 
+def test_execution_log_modal_reports_visible_line_count() -> None:
+    short = ExecutionLogModal(["event-1", "event-2"])
+    large = ExecutionLogModal(
+        [f"event-{index}" for index in range(1, MAX_RENDERED_LOG_LINES + 26)]
+    )
+    korean = ExecutionLogModal(["event-1", "event-2"], lang="ko")
+
+    assert short._status_text() == "Showing 2 of 2 lines"
+    assert large._status_text() == (
+        f"Showing {MAX_RENDERED_LOG_LINES} of {MAX_RENDERED_LOG_LINES + 25} lines"
+    )
+    assert korean._status_text() == "2/2줄 표시"
+
+
 def test_execution_log_modal_filters_lines_case_insensitively() -> None:
     modal = ExecutionLogModal(
         [
@@ -4884,6 +4898,7 @@ def test_execution_log_modal_filters_lines_case_insensitively() -> None:
         "wp-004 FAILED after retry",
     ]
     assert modal._render_lines("review") == ["WP-003 review completed"]
+    assert modal._status_text("FAILED") == "Showing 2 of 2 matches"
 
 
 def test_execution_log_modal_filters_large_match_sets() -> None:
@@ -4894,6 +4909,9 @@ def test_execution_log_modal_filters_large_match_sets() -> None:
     assert rendered[0] == "... 3 earlier log lines hidden"
     assert rendered[1] == "WP-004 failed"
     assert rendered[-1] == f"WP-{MAX_RENDERED_LOG_LINES + 3:03d} failed"
+    assert modal._status_text("failed") == (
+        f"Showing {MAX_RENDERED_LOG_LINES} of {MAX_RENDERED_LOG_LINES + 3} matches"
+    )
 
 
 def test_execution_log_modal_shows_empty_filtered_state() -> None:
@@ -4902,6 +4920,8 @@ def test_execution_log_modal_shows_empty_filtered_state() -> None:
 
     assert modal._render_lines("missing") == ["No matching execution log lines."]
     assert korean._render_lines("missing") == ["일치하는 실행 로그가 없습니다."]
+    assert modal._status_text("missing") == "0 matches"
+    assert korean._status_text("missing") == "0개 결과"
 
 
 def test_execution_log_modal_localizes_large_log_window() -> None:
@@ -4941,8 +4961,10 @@ async def test_execution_log_modal_search_input_refreshes_log(tmp_path) -> None:
         await pilot.pause()
 
         output = modal.query_one("#execution-log-modal-body", RichLog)
+        status = modal.query_one("#execution-log-search-status", Static)
         text = "\n".join(line.text for line in output.lines)
         assert modal.filter_query == "fail"
+        assert str(status.content) == "Showing 1 of 1 matches"
         assert "WP-002 failed with provider error" in text
         assert "WP-001 started" not in text
 

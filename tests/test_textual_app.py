@@ -2838,7 +2838,7 @@ def test_central_agent_view_localizes_korean_status_values() -> None:
 
     markdown = view._markdown()
 
-    assert "- `승인` by `codex`" in markdown
+    assert "- `승인` / 리뷰어 `codex`" in markdown
     assert "- **AI-001** [high][대기] Add smoke test" in markdown
     assert "- **AI-002** [low][완료] Update docs" in markdown
     assert "`approved`" not in markdown
@@ -2852,7 +2852,7 @@ def test_central_agent_view_localizes_korean_status_values() -> None:
         ),
     )
 
-    assert "- `승인` by `(알 수 없음)`" in view._markdown()
+    assert "- `승인` / 리뷰어 `(알 수 없음)`" in view._markdown()
 
 
 def test_central_agent_view_keeps_english_status_values() -> None:

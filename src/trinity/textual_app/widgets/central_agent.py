@@ -154,10 +154,7 @@ class CentralAgentView(VerticalScroll):
                 [
                     "",
                     f"### {self._label('final_review')}",
-                    (
-                        f"- `{self._status_value(review.status or 'unknown')}` by "
-                        f"`{review.reviewer_agent or self._label('unknown')}`"
-                    ),
+                    self._final_review_line(review),
                 ]
             )
             if review.summary:
@@ -433,6 +430,13 @@ class CentralAgentView(VerticalScroll):
     def _progress_count(self, count: int, key: str) -> str:
         return f"{count} {self._label(f'progress_{key}')}"
 
+    def _final_review_line(self, review) -> str:
+        status = self._status_value(review.status or "unknown")
+        reviewer = review.reviewer_agent or self._label("unknown")
+        if self.lang == "ko":
+            return f"- `{status}` / {self._label('reviewer')} `{reviewer}`"
+        return f"- `{status}` by `{reviewer}`"
+
     @staticmethod
     def _blueprint_actions_key(snapshot: WorkflowNexusSnapshot) -> tuple[object, ...]:
         return (
@@ -533,6 +537,7 @@ class CentralAgentView(VerticalScroll):
             "progress_waiting": "대기",
             "ready": "준비됨",
             "reviewing": "리뷰 중",
+            "reviewer": "리뷰어",
             "repair_action": "리뷰 수리 결정",
             "synthesis": "종합",
             "synthesizing": "중앙 에이전트 종합 중",
@@ -601,6 +606,7 @@ class CentralAgentView(VerticalScroll):
             "progress_waiting": "waiting",
             "ready": "ready",
             "reviewing": "Reviewing",
+            "reviewer": "reviewer",
             "repair_action": "Review repair decision",
             "synthesis": "Synthesis",
             "synthesizing": "Central agent is synthesizing",

@@ -20,6 +20,7 @@ from trinity.textual_app.widgets.progress_summary import (
     work_package_counts,
     work_package_state,
 )
+from trinity.textual_app.widgets.status_label import display_status_value
 
 
 INSPECTOR_LABELS = {
@@ -149,7 +150,8 @@ class WorkflowInspector(Vertical):
             "#inspector-post-review",
             self._list_or_empty(
                 [
-                    f"{item.id} [{item.severity}/{item.status}] {item.title or item.summary}"
+                    f"{item.id} [{item.severity}/{self._status_value(item.status)}] "
+                    f"{item.title or item.summary}"
                     for item in snapshot.post_review_items
                 ]
             ),
@@ -221,6 +223,13 @@ class WorkflowInspector(Vertical):
     def _label(self, key: str) -> str:
         labels = INSPECTOR_LABELS.get(self.lang, INSPECTOR_LABELS["en"])
         return labels.get(key, INSPECTOR_LABELS["en"][key])
+
+    def _status_value(self, status: str) -> str:
+        return display_status_value(
+            status,
+            lang=self.lang,
+            empty=self._label("unknown"),
+        )
 
     def _remaining_line(self, count: int) -> str:
         return self._label("more").format(count=count)

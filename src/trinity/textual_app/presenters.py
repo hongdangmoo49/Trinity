@@ -1031,6 +1031,17 @@ def _status_value(status: str, *, lang: str = "en") -> str:
     return display_status_value(status, lang=lang, empty=_unknown_value(lang))
 
 
+def _question_status_value(status: str, *, lang: str = "en") -> str:
+    raw = str(status or "open").strip() or "open"
+    if lang == "ko":
+        labels = {
+            "answered": "답변됨",
+            "open": "열림",
+        }
+        return labels.get(raw, _status_value(raw, lang=lang))
+    return raw
+
+
 def _not_set_value(lang: str = "en") -> str:
     return _sc_label(lang, "not_set")
 
@@ -1570,7 +1581,7 @@ def snapshot_context_markdown(
     if snapshot.questions:
         lines.extend(["", f"### {_sc_label(lang, 'questions')}"])
         for question in snapshot.questions:
-            status = question.status or "open"
+            status = _question_status_value(question.status, lang=lang)
             lines.append(f"- **{question.id}** [{status}] {question.question}")
             if question.answer:
                 lines.append(f"  - {_sc_label(lang, 'answer')}: {question.answer}")
@@ -1698,7 +1709,8 @@ def questions_markdown(
         return _sc_label(lang, "no_pending_questions")
     lines: list[str] = []
     for index, question in enumerate(snapshot.questions, start=1):
-        lines.append(f"{index}. **{question.id}** [{question.status}] {question.question}")
+        status = _question_status_value(question.status, lang=lang)
+        lines.append(f"{index}. **{question.id}** [{status}] {question.question}")
         if question.answer:
             lines.append(f"   - {_sc_label(lang, 'answer')}: {question.answer}")
         if question.recommended_option:
@@ -1744,7 +1756,7 @@ def questions_rows(
     return tuple(
         (
             question.id,
-            question.status or "open",
+            _question_status_value(question.status, lang=lang),
             question.question,
             ", ".join(question.options) if question.options else _sc_label(lang, "free_text"),
         )

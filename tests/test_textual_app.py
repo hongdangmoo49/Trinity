@@ -4668,10 +4668,54 @@ def test_work_package_detail_modal_orders_execution_sections_first() -> None:
     markdown = modal._markdown()
 
     assert markdown.index("## Summary") < markdown.index("## Result")
+    assert markdown.index("## Action Context") < markdown.index("## Result")
     assert markdown.index("## Result") < markdown.index("## Review")
     assert markdown.index("## Review") < markdown.index("## Spec")
     assert "- Execution lane: `g1`" in markdown
     assert "Routing reason: implementation strength 0.95" in markdown
+
+
+def test_work_package_detail_modal_surfaces_retry_action_context() -> None:
+    modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-001",
+            title="Client",
+            owner_agent="codex",
+            status="failed",
+            retryable=True,
+            last_result_status="failed",
+            last_result_summary="Could not finish.",
+            last_result_blockers=["Missing schema.", "Tests failed."],
+            review_status="changes_requested",
+            review_required_changes=["Add retry regression coverage."],
+        )
+    )
+
+    markdown = modal._markdown()
+
+    assert "## Action Context" in markdown
+    assert "- Retry candidate: `WP-001`" in markdown
+    assert "- Blocking evidence: Missing schema." in markdown
+    assert "- Additional blockers: 1" in markdown
+    assert "- Review requested 1 change before completion." in markdown
+
+
+def test_work_package_detail_modal_surfaces_retry_disabled_reason() -> None:
+    modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-002",
+            title="Docs",
+            owner_agent="claude",
+            status="done",
+            retryable=False,
+            retry_disabled_reason="already done",
+        )
+    )
+
+    markdown = modal._markdown()
+
+    assert "- Retry unavailable: already done" in markdown
+    assert "- Retry candidate: `WP-002`" not in markdown
 
 
 def test_work_package_detail_modal_marks_serial_execution_lane() -> None:

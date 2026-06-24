@@ -52,6 +52,11 @@ STATUS_CONTEXT_LABELS = {
         "delegated_to": "Delegated To",
         "enabled": "Enabled",
         "execution": "Execution",
+        "execute": "Execute",
+        "execute_finish_planning_hint": "Finish planning first, then run `/execute` from Nexus.",
+        "execute_recovery_hint": (
+            "Use `/execute-retry`, `/execute mark-interrupted`, or `/execute abort`."
+        ),
         "execution_log_entries": "Execution log entries",
         "execution_recovery": "Execution Recovery",
         "execution_recovery_none": "No interrupted execution is recorded for this workflow.",
@@ -228,6 +233,12 @@ STATUS_CONTEXT_LABELS = {
         "delegated_to": "위임 대상",
         "enabled": "활성화",
         "execution": "실행",
+        "execute": "실행",
+        "execute_finish_planning_hint": "먼저 계획을 완료한 뒤 Nexus에서 `/execute`를 실행하세요.",
+        "execute_recovery_hint": (
+            "`/execute-retry`, `/execute mark-interrupted`, "
+            "`/execute abort` 중 하나를 실행하세요."
+        ),
         "execution_log_entries": "실행 로그 항목",
         "execution_recovery": "실행 복구",
         "execution_recovery_none": "이 워크플로우에 기록된 중단 실행이 없습니다.",
@@ -637,8 +648,28 @@ def execution_recovery_rows(
         ),
         (_sc_label(lang, "done_packages"), ", ".join(recovery.done_packages) or "(none)"),
         (_sc_label(lang, "last_event"), recovery.last_event or "(none)"),
-        (_sc_label(lang, "next"), "/execute-retry | /execute mark-interrupted | /execute abort"),
+        (_sc_label(lang, "next"), _sc_label(lang, "execute_recovery_hint")),
     )
+
+
+def execute_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "execute")
+
+
+def execute_finish_planning_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "execute_finish_planning_hint")
+
+
+def execution_recovery_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "execution_recovery")
+
+
+def execution_recovery_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "execute_recovery_hint")
+
+
+def execution_recovery_table_columns(*, lang: str = "en") -> tuple[str, str]:
+    return status_table_columns(lang=lang)
 
 
 def snapshot_status_markdown(

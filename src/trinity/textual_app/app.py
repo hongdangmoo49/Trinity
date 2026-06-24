@@ -1947,11 +1947,13 @@ class TrinityTextualApp(App[None]):
             if message:
                 self._record_slash_command_result(
                     parsed.spec.name,
-                    "Execute",
+                    textual_presenters.execute_title(lang=self.config.lang),
                     message,
                     severity="warning",
                     empty=True,
-                    action_hint=("Finish planning first, then run `/execute` from Nexus."),
+                    action_hint=textual_presenters.execute_finish_planning_action_hint(
+                        lang=self.config.lang
+                    ),
                 )
             if outcome.target_workspace_required:
                 self._open_execute_workspace_picker(outcome.snapshot)
@@ -2266,15 +2268,21 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         """Show interrupted execution recovery details as a local command result."""
         body_parts = [message.strip()] if message.strip() else []
-        body_parts.append(self._execution_recovery_markdown(snapshot))
+        body_parts.append(
+            self._execution_recovery_markdown(snapshot, lang=self.config.lang)
+        )
         self._record_slash_command_result(
             command,
-            "Execution Recovery",
+            textual_presenters.execution_recovery_title(lang=self.config.lang),
             "\n\n".join(body_parts),
             severity="warning",
-            action_hint=("Use `/execute-retry`, `/execute mark-interrupted`, or `/execute abort`."),
-            table_columns=("Item", "Value"),
-            table_rows=self._execution_recovery_rows(snapshot),
+            action_hint=textual_presenters.execution_recovery_action_hint(
+                lang=self.config.lang
+            ),
+            table_columns=textual_presenters.execution_recovery_table_columns(
+                lang=self.config.lang
+            ),
+            table_rows=self._execution_recovery_rows(snapshot, lang=self.config.lang),
             start_modal=False,
         )
 
@@ -2307,14 +2315,20 @@ class TrinityTextualApp(App[None]):
         return textual_presenters.review_repair_rows(snapshot)
 
     @staticmethod
-    def _execution_recovery_markdown(snapshot: WorkflowNexusSnapshot) -> str:
-        return textual_presenters.execution_recovery_markdown(snapshot)
+    def _execution_recovery_markdown(
+        snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
+    ) -> str:
+        return textual_presenters.execution_recovery_markdown(snapshot, lang=lang)
 
     @staticmethod
     def _execution_recovery_rows(
         snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
     ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.execution_recovery_rows(snapshot)
+        return textual_presenters.execution_recovery_rows(snapshot, lang=lang)
 
     def _local_command_snapshot(
         self,

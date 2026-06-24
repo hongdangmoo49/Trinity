@@ -171,6 +171,44 @@ def test_workflow_persistence_uses_event_index_for_workflow_filter(tmp_path, mon
     ]
 
 
+def test_workflow_persistence_caches_event_index_until_file_changes(
+    tmp_path,
+    monkeypatch,
+):
+    persistence = WorkflowPersistence(tmp_path / ".trinity")
+    persistence.append_event({"event": "started", "workflow_id": "wf-a"})
+    persistence.append_event({"event": "ignored", "workflow_id": "wf-b"})
+    persistence.append_event({"event": "completed", "workflow_id": "wf-a"})
+
+    read_count = 0
+    original_open = Path.open
+
+    def counted_open(path, *args, **kwargs):
+        nonlocal read_count
+        mode = args[0] if args else kwargs.get("mode", "r")
+        if path == persistence.event_index_path and "r" in str(mode):
+            read_count += 1
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", counted_open)
+
+    assert persistence.load_events_for_workflow("wf-a", tail=1) == [
+        {"event": "completed", "workflow_id": "wf-a"}
+    ]
+    assert read_count == 1
+
+    assert persistence.load_events_for_workflow("wf-a", tail=1) == [
+        {"event": "completed", "workflow_id": "wf-a"}
+    ]
+    assert read_count == 1
+
+    persistence.append_event({"event": "state_changed", "workflow_id": "wf-a"})
+    assert persistence.load_events_for_workflow("wf-a", tail=1) == [
+        {"event": "state_changed", "workflow_id": "wf-a"}
+    ]
+    assert read_count == 2
+
+
 def test_workflow_persistence_returns_empty_events_without_live_log(tmp_path, caplog):
     persistence = WorkflowPersistence(tmp_path / ".trinity")
     caplog.set_level(logging.ERROR, logger="trinity.workflow.persistence")

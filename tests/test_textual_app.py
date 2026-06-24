@@ -80,6 +80,7 @@ from trinity.textual_app.presenters import (
     improve_action_hint,
     improve_rows,
     improve_table_columns,
+    improve_title,
     memory_cleanup_error_markdown,
     memory_title,
     model_settings_title,
@@ -115,6 +116,7 @@ from trinity.textual_app.presenters import (
     review_repair_title,
     review_rows,
     review_table_columns,
+    review_title,
     resume_archive_rows,
     resume_archive_table_columns,
     resume_archives_markdown,
@@ -1033,6 +1035,7 @@ def test_review_presenter_uses_korean_labels() -> None:
         ("최종 리뷰", "approved / 리뷰어 codex"),
     )
     assert review_table_columns(lang="ko") == ("항목", "값")
+    assert review_title(lang="ko") == "리뷰"
     assert review_action_hint(lang="ko").startswith("`/review wp`")
 
 
@@ -1334,6 +1337,7 @@ def test_improve_presenter_uses_korean_labels() -> None:
         ("AI-001", "pending; severity=high; kind=test; title=Fix tests"),
     )
     assert improve_table_columns(lang="ko") == ("항목", "값")
+    assert improve_title(lang="ko") == "개선"
     assert improve_action_hint(lang="ko").startswith("`/improve high`")
 
 
@@ -4300,7 +4304,7 @@ async def test_start_slash_review_uses_korean_labels(tmp_path) -> None:
         assert app.active_snapshot is not None
         result = app.active_snapshot.local_commands[-1]
         assert result.command == "/review"
-        assert result.title == "Review"
+        assert result.title == "리뷰"
         assert result.table_columns == ("항목", "값")
         assert ("워크플로우", "wf-review") in result.table_rows
         assert ("대기 중 WP 리뷰", "WP-001") in result.table_rows
@@ -4337,7 +4341,7 @@ async def test_start_slash_improve_uses_korean_labels(tmp_path) -> None:
         assert app.active_snapshot is not None
         result = app.active_snapshot.local_commands[-1]
         assert result.command == "/improve"
-        assert result.title == "Improve"
+        assert result.title == "개선"
         assert result.table_columns == ("항목", "값")
         assert ("워크플로우", "wf-improve") in result.table_rows
         assert ("보충 라운드", "1") in result.table_rows

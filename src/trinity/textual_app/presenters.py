@@ -91,6 +91,7 @@ STATUS_CONTEXT_LABELS = {
             "Use `/improve high`, `/improve all`, `/improve AI-001`, "
             "or `/improve done`."
         ),
+        "improve": "Improve",
         "inside_control_repo": "Inside control repo",
         "intensity": "Intensity",
         "item": "Item",
@@ -182,6 +183,7 @@ STATUS_CONTEXT_LABELS = {
         ),
         "repair_state": "Repair state",
         "review": "review",
+        "review_title": "Review",
         "review_hint": "Run `/review wp`, `/review final`, or `/review all`.",
         "reviewed_wp": "Reviewed WP",
         "reviewer": "reviewer",
@@ -312,6 +314,7 @@ STATUS_CONTEXT_LABELS = {
             "`/improve high`, `/improve all`, `/improve AI-001`, "
             "`/improve done` 중 하나를 실행하세요."
         ),
+        "improve": "개선",
         "inside_control_repo": "제어 저장소 내부",
         "intensity": "강도",
         "item": "항목",
@@ -400,6 +403,7 @@ STATUS_CONTEXT_LABELS = {
         "review_repair_paused": "리뷰 보정 루프 가드가 다음 WP를 일시 중지했습니다:",
         "repair_state": "보정 상태",
         "review": "리뷰",
+        "review_title": "리뷰",
         "review_hint": "`/review wp`, `/review final`, `/review all` 중 하나를 실행하세요.",
         "reviewed_wp": "리뷰된 WP",
         "reviewer": "리뷰어",
@@ -1624,6 +1628,10 @@ def review_action_hint(*, lang: str = "en") -> str:
     return _sc_label(lang, "review_hint")
 
 
+def review_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "review_title")
+
+
 def review_table_columns(*, lang: str = "en") -> tuple[str, str]:
     return status_table_columns(lang=lang)
 
@@ -1668,6 +1676,10 @@ def review_rows(
 
 def improve_action_hint(*, lang: str = "en") -> str:
     return _sc_label(lang, "improve_hint")
+
+
+def improve_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "improve")
 
 
 def improve_table_columns(*, lang: str = "en") -> tuple[str, str]:

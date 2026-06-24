@@ -1885,7 +1885,7 @@ class TrinityTextualApp(App[None]):
             if message:
                 self._record_slash_command_result(
                     parsed.spec.name,
-                    "Review",
+                    textual_presenters.review_title(lang=self.config.lang),
                     message,
                     severity=(
                         "warning"
@@ -1913,7 +1913,7 @@ class TrinityTextualApp(App[None]):
             if message:
                 self._record_slash_command_result(
                     parsed.spec.name,
-                    "Improve",
+                    textual_presenters.improve_title(lang=self.config.lang),
                     message,
                     severity=(
                         "warning"

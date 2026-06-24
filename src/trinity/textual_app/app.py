@@ -1768,15 +1768,16 @@ class TrinityTextualApp(App[None]):
             self._record_slash_command_result(
                 parsed.spec.name,
                 "Packages",
-                self._packages_markdown(snapshot),
+                self._packages_markdown(snapshot, lang=self.config.lang),
                 empty=not has_packages,
-                action_hint=(
-                    "Finish planning until a blueprint or local WP graph is generated."
-                    if not has_packages
-                    else ""
+                action_hint=textual_presenters.packages_action_hint(
+                    has_packages=has_packages,
+                    lang=self.config.lang,
                 ),
-                table_columns=("#", "Source", "Package"),
-                table_rows=self._packages_rows(snapshot),
+                table_columns=textual_presenters.packages_table_columns(
+                    lang=self.config.lang
+                ),
+                table_rows=self._packages_rows(snapshot, lang=self.config.lang),
             )
             return
         if command == "subtasks":
@@ -2426,14 +2427,20 @@ class TrinityTextualApp(App[None]):
         return textual_presenters.decisions_rows(snapshot, lang=lang)
 
     @staticmethod
-    def _packages_markdown(snapshot: WorkflowNexusSnapshot) -> str:
-        return textual_presenters.packages_markdown(snapshot)
+    def _packages_markdown(
+        snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
+    ) -> str:
+        return textual_presenters.packages_markdown(snapshot, lang=lang)
 
     @staticmethod
     def _packages_rows(
         snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
     ) -> tuple[tuple[str, str, str], ...]:
-        return textual_presenters.packages_rows(snapshot)
+        return textual_presenters.packages_rows(snapshot, lang=lang)
 
     @staticmethod
     def _review_rows(

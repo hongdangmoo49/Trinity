@@ -31,6 +31,10 @@ from trinity.textual_app.presenters import (
     decisions_markdown,
     decisions_rows,
     decisions_table_columns,
+    packages_action_hint,
+    packages_markdown,
+    packages_rows,
+    packages_table_columns,
     questions_action_hint,
     questions_markdown,
     questions_rows,
@@ -723,6 +727,27 @@ def test_decisions_presenter_uses_korean_labels() -> None:
     assert decisions_table_columns(lang="ko") == ("#", "결정")
     assert decisions_action_hint(has_decisions=False, lang="ko").startswith("대기 중인 질문")
     assert decisions_action_hint(has_decisions=True, lang="ko") == ""
+
+
+def test_packages_presenter_uses_korean_labels() -> None:
+    empty = WorkflowNexusSnapshot()
+    snapshot = WorkflowNexusSnapshot(
+        central_work_packages=["WP-001 claude: 설계"],
+        work_packages=["WP-002 codex: 구현"],
+    )
+
+    assert packages_markdown(empty, lang="ko") == (
+        "현재 세션에 생성된 워크플로우 작업 패키지가 없습니다."
+    )
+    assert "1. **중앙** WP-001 claude: 설계" in packages_markdown(snapshot, lang="ko")
+    assert "2. **로컬** WP-002 codex: 구현" in packages_markdown(snapshot, lang="ko")
+    assert packages_rows(snapshot, lang="ko") == (
+        ("1", "중앙", "WP-001 claude: 설계"),
+        ("2", "로컬", "WP-002 codex: 구현"),
+    )
+    assert packages_table_columns(lang="ko") == ("#", "출처", "작업 패키지")
+    assert packages_action_hint(has_packages=False, lang="ko").startswith("blueprint")
+    assert packages_action_hint(has_packages=True, lang="ko") == ""
 
 
 def test_model_discovery_applies_fast_provider_before_slow_provider(
@@ -2878,6 +2903,59 @@ async def test_start_slash_empty_decisions_uses_korean_hint(tmp_path) -> None:
         assert result.empty is True
         assert result.body == "현재 세션에 기록된 워크플로우 결정이 없습니다."
         assert result.action_hint.startswith("대기 중인 질문")
+
+
+@pytest.mark.asyncio
+async def test_start_slash_packages_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            central_work_packages=["WP-001 claude: Plan"],
+            work_packages=["WP-002 codex: Build"],
+        )
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/packages ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, LocalCommandModal)
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/packages"
+        assert result.table_columns == ("#", "출처", "작업 패키지")
+        assert result.table_rows[0] == ("1", "중앙", "WP-001 claude: Plan")
+        assert result.table_rows[1] == ("2", "로컬", "WP-002 codex: Build")
+        assert "1. **중앙** WP-001 claude: Plan" in result.body
+        table = app.screen.query_one("#local-command-table", Static)
+        assert "작업 패키지" in str(table.render())
+
+
+@pytest.mark.asyncio
+async def test_start_slash_empty_packages_uses_korean_hint(tmp_path) -> None:
+    controller = FakeWorkflowController(WorkflowNexusSnapshot(session_id="wf-fake"))
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(100, 30)):
+        app._handle_textual_slash_command("/packages")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.empty is True
+        assert result.body == "현재 세션에 생성된 워크플로우 작업 패키지가 없습니다."
+        assert result.action_hint.startswith("blueprint")
 
 
 @pytest.mark.asyncio

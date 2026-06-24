@@ -7574,6 +7574,72 @@ async def test_execution_matrix_renders_compact_status_labels(tmp_path) -> None:
         ]
 
 
+@pytest.mark.asyncio
+async def test_execution_matrix_renders_korean_compact_status_labels(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Run task",
+                        owner_agent="codex",
+                        status="running",
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-002",
+                        title="Wait task",
+                        owner_agent="claude",
+                        status="pending",
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-003",
+                        title="Done task",
+                        owner_agent="claude",
+                        status="done",
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-004",
+                        title="Issue task",
+                        owner_agent="codex",
+                        status="blocked",
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-005",
+                        title="Unknown task",
+                        owner_agent="codex",
+                        status="paused",
+                    ),
+                ]
+            ),
+        )
+        await pilot.pause()
+
+        statuses = screen.query(
+            "#execution-package-list "
+            ".execution-package-row .execution-package-status"
+        )
+
+        assert [str(status.render()) for status in statuses] == [
+            "실행",
+            "대기",
+            "완료",
+            "문제",
+            "?",
+        ]
+
+
 def test_execution_matrix_compacts_reviewer_status_labels() -> None:
     assert (
         _review_label(

@@ -1378,7 +1378,17 @@ def test_snapshot_report_markdown_includes_work_package_routing_metadata() -> No
                 parallel_group=2,
                 review_status="approved",
                 reviewer_agent="antigravity",
-            )
+            ),
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="Single provider review",
+                owner_agent="codex",
+                status="done",
+                review_status="skipped",
+                review_summary=(
+                    "only codex is active; no non-owner peer reviewer is available"
+                ),
+            ),
         ],
     )
 
@@ -1390,6 +1400,10 @@ def test_snapshot_report_markdown_includes_work_package_routing_metadata() -> No
     assert "Routing: kind implementation; profile default\\-v1; score 111" in md
     assert "Reason: implementation strength 0\\.95" in md
     assert "Review: approved; reviewer antigravity" in md
+    assert (
+        "Review: skipped; reviewer \\(none\\); reason only codex is active; "
+        "no non\\-owner peer reviewer is available"
+    ) in md
 
 
 def test_unique_report_path_avoids_existing_file_and_sanitizes_session_id(

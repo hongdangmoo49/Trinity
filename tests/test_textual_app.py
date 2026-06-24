@@ -8604,6 +8604,24 @@ def test_work_package_detail_modal_keeps_review_skip_fallback() -> None:
     assert "- Peer review was skipped; treat confidence as lower." in markdown
 
 
+def test_work_package_detail_modal_keeps_korean_review_skip_fallback() -> None:
+    modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-004",
+            title="레거시 생략 리뷰",
+            owner_agent="codex",
+            status="done",
+            review_status="skipped",
+        ),
+        lang="ko",
+    )
+
+    markdown = modal._markdown()
+
+    assert "- 동료 리뷰가 생략되었습니다. 신뢰도를 낮게 보세요." in markdown
+    assert "Peer review가 생략되었습니다" not in markdown
+
+
 def test_work_package_detail_modal_surfaces_korean_review_skip_reason() -> None:
     modal = WorkPackageDetailModal(
         WorkPackageSnapshot(

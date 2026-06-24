@@ -8,7 +8,10 @@ from typing import Sequence
 
 from trinity.slash_commands import COMMAND_SPECS
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
-from trinity.textual_app.widgets.status_label import display_review_status_value
+from trinity.textual_app.widgets.status_label import (
+    display_review_status_value,
+    display_status_value,
+)
 
 NO_CURRENT_CONTEXT_MESSAGE = (
     "No current session context. Start a prompt or resume a workflow first."
@@ -685,6 +688,13 @@ def review_repair_rows(
         if package.status != "blocked" or not package.repair_blocked_reason:
             continue
         seen.add(package.id)
+        review_status = display_review_status_value(
+            package.review_status,
+            reviewer_agent=package.reviewer_agent,
+            summary=package.review_summary,
+            lang=lang,
+            empty=_none_value(lang),
+        )
         rows.append(
             (
                 package.id,
@@ -692,8 +702,7 @@ def review_repair_rows(
                     f"{package.repair_blocked_reason}; "
                     f"{_sc_label(lang, 'attempts')}={package.repair_attempt_count}/"
                     f"{package.repair_max_attempts}; "
-                    f"{_sc_label(lang, 'review')}="
-                    f"{package.review_status or _sc_label(lang, 'none')}"
+                    f"{_sc_label(lang, 'review')}={review_status}"
                 ),
             )
         )
@@ -708,7 +717,8 @@ def review_repair_rows(
                 (
                     normalized,
                     (
-                        f"repair_blocked; {_sc_label(lang, 'attempts')}="
+                        f"{_status_value('repair_blocked', lang=lang)}; "
+                        f"{_sc_label(lang, 'attempts')}="
                         f"{_sc_label(lang, 'unknown')}; "
                         f"{_sc_label(lang, 'review')}={_sc_label(lang, 'recovery')}"
                     ),
@@ -730,7 +740,7 @@ def execution_recovery_markdown(
     if recovery is None:
         return _sc_label(lang, "execution_recovery_none")
     lines = [
-        f"- {_sc_label(lang, 'execution')}: `{recovery.state}`",
+        f"- {_sc_label(lang, 'execution')}: `{_status_value(recovery.state, lang=lang)}`",
         f"- {_sc_label(lang, 'run')}: `{recovery.run_id or _unknown_value(lang)}`",
         f"- {_sc_label(lang, 'target')}: `{recovery.target_workspace or _not_set_value(lang)}`",
         (
@@ -757,7 +767,7 @@ def execution_recovery_rows(
     if recovery is None:
         return ((_sc_label(lang, "execution"), _none_value(lang)),)
     return (
-        (_sc_label(lang, "execution"), recovery.state),
+        (_sc_label(lang, "execution"), _status_value(recovery.state, lang=lang)),
         (_sc_label(lang, "run"), recovery.run_id or _unknown_value(lang)),
         (_sc_label(lang, "target"), recovery.target_workspace or _not_set_value(lang)),
         (
@@ -1015,6 +1025,10 @@ def _none_value(lang: str = "en") -> str:
 
 def _unknown_value(lang: str = "en") -> str:
     return _sc_label(lang, "unknown")
+
+
+def _status_value(status: str, *, lang: str = "en") -> str:
+    return display_status_value(status, lang=lang, empty=_unknown_value(lang))
 
 
 def _not_set_value(lang: str = "en") -> str:

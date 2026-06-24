@@ -67,6 +67,8 @@ from trinity.textual_app.presenters import (
     execute_retry_title,
     execute_title,
     execution_recovery_action_hint,
+    execution_recovery_markdown,
+    execution_recovery_rows,
     execution_recovery_table_columns,
     execution_recovery_title,
     history_action_hint,
@@ -700,7 +702,7 @@ def test_status_presenter_uses_korean_labels() -> None:
     assert "| 프로바이더 | 활성화 | 상태 | 준비 상태 |" in markdown
     assert "| claude | 예 | Queued | 미확인 |" in markdown
     assert "### 실행 복구" in markdown
-    assert "실행: `interrupted`" in markdown
+    assert "실행: `중단`" in markdown
     assert ("워크플로우", "wf-ko") in rows
     assert ("프로바이더: claude", "Queued; 활성화=예; 준비 상태=미확인") in rows
     assert ("재시도 후보", "WP-001, WP-003") in rows
@@ -1193,6 +1195,20 @@ def test_execute_presenter_uses_korean_labels() -> None:
         "`/execute abort` 중 하나를 실행하세요."
     )
     assert execution_recovery_table_columns(lang="ko") == ("항목", "값")
+    recovery_snapshot = WorkflowNexusSnapshot(
+        execution_recovery=ExecutionRecoverySnapshot(
+            state="repair_blocked",
+            run_id="run-1",
+        )
+    )
+    assert "- 실행: `복구 차단`" in execution_recovery_markdown(
+        recovery_snapshot,
+        lang="ko",
+    )
+    assert ("실행", "복구 차단") in execution_recovery_rows(
+        recovery_snapshot,
+        lang="ko",
+    )
 
 
 def test_report_presenter_uses_korean_labels() -> None:
@@ -5156,7 +5172,7 @@ async def test_nexus_execute_recovery_uses_korean_labels(tmp_path) -> None:
         assert result.title == "실행 복구"
         assert result.body.startswith("이전 실행이 중단되었습니다.")
         assert result.table_columns == ("항목", "값")
-        assert ("실행", "interrupted") in result.table_rows
+        assert ("실행", "중단") in result.table_rows
         assert ("재시도 후보", "WP-001") in result.table_rows
         assert result.action_hint == (
             "`/execute-retry`, `/execute mark-interrupted`, "
@@ -5164,7 +5180,7 @@ async def test_nexus_execute_recovery_uses_korean_labels(tmp_path) -> None:
         )
         assert "###" not in result.body.splitlines()[0]
         assert "실행 복구" not in result.body.splitlines()[0]
-        assert "- 실행: `interrupted`" in result.body
+        assert "- 실행: `중단`" in result.body
 
 
 @pytest.mark.asyncio
@@ -10002,7 +10018,7 @@ def test_review_repair_details_markdown_uses_korean_labels() -> None:
     assert review_repair_rows(snapshot, lang="ko") == (
         (
             "WP-002",
-            "duplicate_required_changes; 시도=2/3; 리뷰=changes_requested",
+            "duplicate_required_changes; 시도=2/3; 리뷰=변경 요청",
         ),
     )
 
@@ -10060,14 +10076,14 @@ def test_review_repair_details_include_korean_recovery_only_candidates() -> None
     assert review_repair_rows(snapshot, lang="ko") == (
         (
             "WP-003",
-            "repair_blocked; 시도=(알 수 없음); 리뷰=(복구)",
+            "복구 차단; 시도=(알 수 없음); 리뷰=(복구)",
         ),
     )
 
     body = review_repair_details_markdown(snapshot, lang="ko")
 
     assert "WP-003" in body
-    assert "repair_blocked" in body
+    assert "복구 차단" in body
 
 
 @pytest.mark.asyncio
@@ -10096,7 +10112,7 @@ async def test_nexus_repair_open_review_records_local_command(tmp_path) -> None:
         assert result.table_rows == (
             (
                 "WP-002",
-                "duplicate_required_changes; 시도=2/3; 리뷰=changes_requested",
+                "duplicate_required_changes; 시도=2/3; 리뷰=변경 요청",
             ),
         )
         assert "duplicate_required_changes" in result.body

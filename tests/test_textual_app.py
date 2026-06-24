@@ -781,7 +781,7 @@ def test_context_markdown_uses_korean_labels() -> None:
     markdown = snapshot_context_markdown(snapshot, lang="ko")
 
     assert "- 워크플로우: `wf-ko`" in markdown
-    assert "- 상태: `blueprint_ready`" in markdown
+    assert "- 상태: `설계 준비`" in markdown
     assert "### 종합" in markdown
     assert "### 질문" in markdown
     assert "- **q1** [답변됨] 진행할까요?" in markdown
@@ -906,7 +906,7 @@ def test_workflow_presenter_uses_korean_labels() -> None:
     markdown = snapshot_workflow_markdown(snapshot, lang="ko")
     rows = snapshot_workflow_rows(snapshot, lang="ko")
 
-    assert "- 상태: `blueprint_ready`" in markdown
+    assert "- 상태: `설계 준비`" in markdown
     assert "- 목표: 워크플로우 확인" in markdown
     assert "- 대기 중 질문: `1`" in markdown
     assert "- 결정: `1`" in markdown
@@ -916,7 +916,7 @@ def test_workflow_presenter_uses_korean_labels() -> None:
     assert "- 실행 로그 항목: `1`" in markdown
     assert "### 실행 복구" in markdown
     assert "재시도 후보: `WP-001`" in markdown
-    assert ("상태", "blueprint_ready") in rows
+    assert ("상태", "설계 준비") in rows
     assert ("대기 중 질문", "1") in rows
     assert ("실행 ID", "exec-run-test") in rows
 
@@ -1072,14 +1072,14 @@ def test_history_presenter_uses_korean_labels() -> None:
 
     assert rows == (
         ("워크플로우", "wf-ko"),
-        ("상태", "reviewing"),
+        ("상태", "리뷰중"),
         ("라운드", "2"),
         ("목표", "이력 확인"),
         ("로컬 명령", "/status - Status"),
         ("실행", "WP-001 codex: done"),
     )
     assert "- 워크플로우: `wf-ko`" in markdown
-    assert "- 상태: `reviewing`" in markdown
+    assert "- 상태: `리뷰중`" in markdown
     assert "### 최근 실행 로그" in markdown
     assert "### 최근 로컬 항목" in markdown
     assert "- **로컬 명령**: /status - Status" in markdown
@@ -1135,7 +1135,7 @@ def test_review_presenter_uses_korean_labels() -> None:
 
     assert rows == (
         ("워크플로우", "wf-review"),
-        ("상태", "reviewing"),
+        ("상태", "리뷰중"),
         ("작업 패키지", "2"),
         ("대기 중 WP 리뷰", "WP-001"),
         ("리뷰된 WP", "WP-002:승인"),
@@ -1255,7 +1255,7 @@ def test_report_presenter_uses_korean_labels() -> None:
     )
     assert report_summary_rows(snapshot, lang="ko") == (
         ("워크플로우", "wf-report"),
-        ("상태", "done"),
+        ("상태", "완료"),
         ("질문", "0"),
         ("결정", "1"),
         ("작업 패키지", "2"),
@@ -1398,7 +1398,7 @@ def test_resume_presenter_uses_korean_labels() -> None:
         "목표",
     )
     assert resume_archive_rows(archives, lang="ko") == (
-        ("1", "wf-1", "done", "(목표 없음)"),
+        ("1", "wf-1", "완료", "(목표 없음)"),
     )
     assert resume_pick_action_hint(lang="ko") == (
         "재개 모달에서 워크플로우를 선택하세요."
@@ -1408,13 +1408,13 @@ def test_resume_presenter_uses_korean_labels() -> None:
     assert resume_result_table_columns(lang="ko") == ("항목", "값")
     assert resume_result_rows(snapshot, lang="ko") == (
         ("워크플로우", "wf-resumed"),
-        ("상태", "blueprint_ready"),
+        ("상태", "설계 준비"),
         ("목표", "게임 만들기"),
         ("라운드", "2"),
     )
     assert resume_result_rows(WorkflowNexusSnapshot(), lang="ko") == (
         ("워크플로우", "(새 워크플로우)"),
-        ("상태", "idle"),
+        ("상태", "대기"),
         ("목표", "(없음)"),
         ("라운드", "0"),
     )
@@ -1472,13 +1472,13 @@ def test_improve_presenter_uses_korean_labels() -> None:
 
     assert improve_rows(empty, lang="ko") == (
         ("워크플로우", "wf-improve"),
-        ("상태", "post_review_ready"),
+        ("상태", "후속 조치 대기"),
         ("보충 라운드", "1"),
         ("조치 항목", "(없음)"),
     )
     assert improve_rows(snapshot, lang="ko") == (
         ("워크플로우", "wf-improve"),
-        ("상태", "post_review_ready"),
+        ("상태", "후속 조치 대기"),
         ("보충 라운드", "2"),
         ("AI-001", "대기; severity=high; kind=test; title=Fix tests"),
     )
@@ -3391,7 +3391,7 @@ async def test_start_slash_status_uses_korean_modal_chrome(tmp_path) -> None:
         assert app.active_snapshot is not None
         assert app.active_snapshot.local_commands[-1].title == "상태"
         assert app.active_snapshot.local_commands[-1].table_columns == ("항목", "값")
-        assert ("상태", "idle") in app.active_snapshot.local_commands[-1].table_rows
+        assert ("상태", "대기") in app.active_snapshot.local_commands[-1].table_rows
         table_text = str(app.screen.query_one("#status-command-table", Static).render())
         assert "워크플로우" in table_text
 
@@ -4026,8 +4026,8 @@ async def test_start_slash_workflow_uses_korean_local_command_modal_chrome(
         result = app.active_snapshot.local_commands[-1]
         assert result.title == "Workflow"
         assert result.table_columns == ("항목", "값")
-        assert ("상태", "blueprint_ready") in result.table_rows
-        assert "- 상태: `blueprint_ready`" in result.body
+        assert ("상태", "설계 준비") in result.table_rows
+        assert "- 상태: `설계 준비`" in result.body
         assert "- 목표: game" in result.body
         table = app.screen.query_one("#local-command-table", Static)
         assert "상태" in str(table.render())
@@ -6156,7 +6156,7 @@ async def test_nexus_resume_archive_picker_uses_korean_labels(tmp_path) -> None:
         assert result.title == "재개"
         assert result.body.startswith("재개할 수 있는 저장된 워크플로우")
         assert result.table_columns == ("선택자", "워크플로우", "상태", "목표")
-        assert result.table_rows[0] == ("1", "wf-archived", "blueprint_ready", "(목표 없음)")
+        assert result.table_rows[0] == ("1", "wf-archived", "설계 준비", "(목표 없음)")
         assert result.action_hint == "재개 모달에서 워크플로우를 선택하세요."
         assert isinstance(app.screen, ResumeWorkflowPicker)
 
@@ -6190,7 +6190,7 @@ async def test_nexus_resume_success_uses_korean_labels(tmp_path) -> None:
         assert result.title == "재개"
         assert result.table_columns == ("항목", "값")
         assert ("워크플로우", "wf-resumed-latest") in result.table_rows
-        assert ("상태", "blueprint_ready") in result.table_rows
+        assert ("상태", "설계 준비") in result.table_rows
         assert ("라운드", "0") in result.table_rows
 
 
@@ -9111,7 +9111,7 @@ async def test_workflow_inspector_uses_configured_korean_labels(tmp_path) -> Non
             inspector.query_one("#inspector-post-review").content
         )
         workflow_content = str(inspector.query_one("#inspector-workflow").content)
-        assert "상태: blueprint_ready" in workflow_content
+        assert "상태: 설계 준비" in workflow_content
         assert "라운드: 1" in workflow_content
 
         screen.apply_snapshot(

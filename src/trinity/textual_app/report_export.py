@@ -168,7 +168,7 @@ def snapshot_report_markdown(
         "",
         f"**{_label(lang, 'session')}**: {_md_inline(snapshot.session_id or _none(lang))}  ",
         f"**{_label(lang, 'goal')}**: {_md_inline(snapshot.goal or _none(lang))}  ",
-        f"**{_label(lang, 'state')}**: {_md_inline(snapshot.state)}  ",
+        f"**{_label(lang, 'state')}**: {_md_inline(_status_value(snapshot.state, lang=lang))}  ",
         f"**{_label(lang, 'round')}**: {snapshot.round_num}  ",
         f"**{_label(lang, 'providers')}**: {len(snapshot.providers)}",
     ]

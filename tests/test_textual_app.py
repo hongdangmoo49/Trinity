@@ -4444,6 +4444,11 @@ def test_provider_inspector_meta_includes_profile_summary() -> None:
                 profile_strengths=["implementation 0.95"],
                 context_profile="implementer",
                 output_contract="execution_v1",
+                quality_signal_count=3,
+                quality_success_count=2,
+                quality_blocker_count=1,
+                quality_required_change_count=4,
+                quality_score=0.667,
             )
         ]
     )
@@ -4455,6 +4460,8 @@ def test_provider_inspector_meta_includes_profile_summary() -> None:
     assert "Strengths: implementation 0.95" in meta
     assert "Context profile: implementer" in meta
     assert "Output contract: execution_v1" in meta
+    assert "Quality signals: score 0.667, success 2/3" in meta
+    assert "blockers 1, required changes 4" in meta
 
 
 @pytest.mark.asyncio

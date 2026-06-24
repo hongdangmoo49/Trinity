@@ -277,6 +277,11 @@ def test_snapshot_projects_agent_quality_summaries(tmp_path) -> None:
     assert summaries["codex"].blocker_count == 1
     assert summaries["codex"].score == -0.5
     assert summaries["claude"].required_change_count == 2
+    codex = next(provider for provider in snapshot.providers if provider.name == "codex")
+    assert codex.quality_signal_count == 2
+    assert codex.quality_success_count == 1
+    assert codex.quality_blocker_count == 1
+    assert codex.quality_score == -0.5
 
 
 def test_snapshot_marks_non_target_agents_idle_during_targeted_deliberation(

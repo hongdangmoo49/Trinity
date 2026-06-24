@@ -128,6 +128,21 @@ def test_provider_panel_shows_compact_model_context_and_session_metadata() -> No
     )
 
 
+def test_provider_panel_shows_compact_quality_signal_metadata() -> None:
+    state = ProviderPanelState(
+        name="codex",
+        provider="codex",
+        enabled=True,
+        status="Ready",
+        quality_signal_count=3,
+        quality_success_count=2,
+        quality_score=0.667,
+    )
+    panel = ProviderPanel(state)
+
+    assert panel._provider_line() == "codex · q 0.667 2/3"
+
+
 def test_provider_panel_does_not_duplicate_snapshot_provider_model_label() -> None:
     state = ProviderPanelState(
         name="codex",

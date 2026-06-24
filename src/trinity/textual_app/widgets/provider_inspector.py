@@ -97,6 +97,15 @@ class ProviderInspector(ModalScreen[None]):
             lines.append(f"Context profile: {provider.context_profile}")
         if provider.output_contract:
             lines.append(f"Output contract: {provider.output_contract}")
+        if provider.quality_signal_count:
+            lines.append(
+                "Quality signals: "
+                f"score {_format_score(provider.quality_score)}, "
+                f"success {provider.quality_success_count}/"
+                f"{provider.quality_signal_count}, "
+                f"blockers {provider.quality_blocker_count}, "
+                f"required changes {provider.quality_required_change_count}"
+            )
         return "\n".join(lines)
 
     def _all_output(self) -> str:
@@ -111,6 +120,17 @@ class ProviderInspector(ModalScreen[None]):
                     f"Mission: {provider.profile_mission or '-'}",
                     f"Context profile: {provider.context_profile or '-'}",
                     f"Output contract: {provider.output_contract or '-'}",
+                    (
+                        "Quality signals: "
+                        f"score {_format_score(provider.quality_score)}, "
+                        f"success {provider.quality_success_count}/"
+                        f"{provider.quality_signal_count}, "
+                        f"blockers {provider.quality_blocker_count}, "
+                        "required changes "
+                        f"{provider.quality_required_change_count}"
+                    )
+                    if provider.quality_signal_count
+                    else "Quality signals: -",
                     "",
                     self._provider_output(provider),
                 ]
@@ -195,3 +215,10 @@ class ProviderInspector(ModalScreen[None]):
         if first not in {"```json", "```"} or lines[-1].strip() != "```":
             return None
         return "\n".join(lines[1:-1]).strip()
+
+
+def _format_score(score: float) -> str:
+    text = f"{score:.3f}".rstrip("0").rstrip(".")
+    if text == "-0":
+        return "0"
+    return text or "0"

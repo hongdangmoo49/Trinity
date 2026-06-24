@@ -32,6 +32,9 @@ class ProviderPanelState:
     budget_source: str = ""
     session_id: str = ""
     output_contract: str = ""
+    quality_signal_count: int = 0
+    quality_success_count: int = 0
+    quality_score: float = 0.0
 
 
 ACTIVITY_FRAMES = ("|", "/", "-", "\\")
@@ -88,6 +91,9 @@ class ProviderPanel(Vertical):
         output_contract = self.state.output_contract.strip()
         if output_contract:
             parts.append(f"out {output_contract}")
+        quality = self._quality_label()
+        if quality:
+            parts.append(quality)
         return self._compact_line(" · ".join(part for part in parts if part))
 
     def _status_label(self) -> str:
@@ -124,6 +130,14 @@ class ProviderPanel(Vertical):
             label = f"{label}/{source}"
         return label
 
+    def _quality_label(self) -> str:
+        if self.state.quality_signal_count <= 0:
+            return ""
+        return (
+            f"q {self._format_score(self.state.quality_score)} "
+            f"{self.state.quality_success_count}/{self.state.quality_signal_count}"
+        )
+
     def _budget_source_label(self) -> str:
         source = self.state.budget_source.strip()
         if not source or source == "unsupported":
@@ -145,6 +159,13 @@ class ProviderPanel(Vertical):
             value = context_window / 1_000
             return f"{value:g}K"
         return str(context_window)
+
+    @staticmethod
+    def _format_score(score: float) -> str:
+        text = f"{score:.3f}".rstrip("0").rstrip(".")
+        if text == "-0":
+            return "0"
+        return text or "0"
 
     def _label_for_state(self, state: str) -> str:
         ko = {

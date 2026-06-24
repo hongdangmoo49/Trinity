@@ -243,6 +243,9 @@ class NexusScreen(Screen[None]):
                     budget_source=provider.budget_source,
                     session_id=provider.session_id,
                     output_contract=provider.output_contract,
+                    quality_signal_count=provider.quality_signal_count,
+                    quality_success_count=provider.quality_success_count,
+                    quality_score=provider.quality_score,
                 )
             )
         self._refresh_central()

@@ -825,6 +825,13 @@ class TrinityTextualApp(App[None]):
         height: 2;
     }
 
+    .execution-lane-header {
+        height: 1;
+        width: 100%;
+        color: $accent;
+        text-style: bold;
+    }
+
     .execution-package-lines {
         width: 100%;
         height: 2;

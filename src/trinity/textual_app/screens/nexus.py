@@ -242,6 +242,7 @@ class NexusScreen(Screen[None]):
                     context_window=provider.context_window,
                     budget_source=provider.budget_source,
                     session_id=provider.session_id,
+                    output_contract=provider.output_contract,
                 )
             )
         self._refresh_central()
@@ -434,6 +435,7 @@ class NexusScreen(Screen[None]):
             configured_model=spec.model,
             context_window=spec.effective_context_budget,
             budget_source="trinity_config",
+            output_contract=spec.profile.output_contracts.get("execute", ""),
         )
 
     def _refresh_central(self) -> None:

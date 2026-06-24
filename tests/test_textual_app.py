@@ -3406,6 +3406,7 @@ async def test_nexus_provider_strip_stays_compact_on_small_viewport(tmp_path) ->
                         context_window=272000,
                         budget_source="local_cli_cache",
                         session_id="codex-session-123456789",
+                        output_contract="execution_v1",
                     ),
                     ProviderSnapshot(
                         name="antigravity",
@@ -3439,6 +3440,9 @@ async def test_nexus_provider_strip_stays_compact_on_small_viewport(tmp_path) ->
             assert str(panel.query_one(".provider-meta").content)
         assert "Antigravity" in str(
             screen.query_one("#provider-antigravity .provider-name").content
+        )
+        assert "out execution_v1" in str(
+            screen.query_one("#provider-codex .provider-meta").content
         )
 
 

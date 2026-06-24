@@ -119,11 +119,12 @@ def test_provider_panel_shows_compact_model_context_and_session_metadata() -> No
         context_window=272000,
         budget_source="local_cli_cache",
         session_id="019ea9e3-426f",
+        output_contract="execution_v1",
     )
     panel = ProviderPanel(state)
 
     assert panel._provider_line() == (
-        "codex · gpt-5.5 · ctx 272K/local · sid 019ea9e3"
+        "codex · gpt-5.5 · ctx 272K/local · sid 019ea9e3 · out execution_v1"
     )
 
 

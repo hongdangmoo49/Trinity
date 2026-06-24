@@ -31,6 +31,7 @@ class ProviderPanelState:
     context_window: int = 0
     budget_source: str = ""
     session_id: str = ""
+    output_contract: str = ""
 
 
 ACTIVITY_FRAMES = ("|", "/", "-", "\\")
@@ -84,6 +85,9 @@ class ProviderPanel(Vertical):
         session = self.state.session_id.strip()
         if session:
             parts.append(f"sid {session[:8]}")
+        output_contract = self.state.output_contract.strip()
+        if output_contract:
+            parts.append(f"out {output_contract}")
         return self._compact_line(" · ".join(part for part in parts if part))
 
     def _status_label(self) -> str:

@@ -53,6 +53,7 @@ STATUS_CONTEXT_LABELS = {
         "package": "Package",
         "packages_hint": "Finish planning until a blueprint or local WP graph is generated.",
         "pending_questions": "Pending questions",
+        "pending_wp_review": "Pending WP review",
         "post_review_action_items": "Post Review Action Items",
         "post_review_items": "Post-review items",
         "provider": "Provider",
@@ -73,6 +74,8 @@ STATUS_CONTEXT_LABELS = {
             "one-shot execution only for interrupted, failed, or blocked packages."
         ),
         "retry_candidates": "Retry candidates",
+        "review_hint": "Run `/review wp`, `/review final`, or `/review all`.",
+        "reviewed_wp": "Reviewed WP",
         "reviewer": "reviewer",
         "round": "Round",
         "run": "Run",
@@ -135,6 +138,7 @@ STATUS_CONTEXT_LABELS = {
         "package": "작업 패키지",
         "packages_hint": "blueprint 또는 로컬 WP 그래프가 생성될 때까지 계획을 진행하세요.",
         "pending_questions": "대기 중 질문",
+        "pending_wp_review": "대기 중 WP 리뷰",
         "post_review_action_items": "리뷰 후 조치",
         "post_review_items": "리뷰 후 조치",
         "provider": "프로바이더",
@@ -154,6 +158,8 @@ STATUS_CONTEXT_LABELS = {
             "차단된 작업에 대해 새 단발 실행을 시작합니다."
         ),
         "retry_candidates": "재시도 후보",
+        "review_hint": "`/review wp`, `/review final`, `/review all` 중 하나를 실행하세요.",
+        "reviewed_wp": "리뷰된 WP",
         "reviewer": "리뷰어",
         "round": "라운드",
         "run": "실행 ID",
@@ -896,11 +902,23 @@ def packages_rows(
     return tuple(rows)
 
 
-def review_rows(snapshot: WorkflowNexusSnapshot) -> tuple[tuple[str, str], ...]:
+def review_action_hint(*, lang: str = "en") -> str:
+    return _sc_label(lang, "review_hint")
+
+
+def review_table_columns(*, lang: str = "en") -> tuple[str, str]:
+    return status_table_columns(lang=lang)
+
+
+def review_rows(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> tuple[tuple[str, str], ...]:
     rows: list[tuple[str, str]] = [
-        ("Workflow", snapshot.session_id or "(new)"),
-        ("State", snapshot.state or "idle"),
-        ("Work packages", str(len(snapshot.work_package_details))),
+        (_sc_label(lang, "workflow"), snapshot.session_id or "(new)"),
+        (_sc_label(lang, "state"), snapshot.state or "idle"),
+        (_sc_label(lang, "work_packages"), str(len(snapshot.work_package_details))),
     ]
     pending = [
         package.id for package in snapshot.work_package_details if not package.review_status
@@ -910,20 +928,23 @@ def review_rows(snapshot: WorkflowNexusSnapshot) -> tuple[tuple[str, str], ...]:
         for package in snapshot.work_package_details
         if package.review_status
     ]
-    rows.append(("Pending WP review", ", ".join(pending) or "(none)"))
-    rows.append(("Reviewed WP", ", ".join(reviewed) or "(none)"))
+    rows.append((_sc_label(lang, "pending_wp_review"), ", ".join(pending) or "(none)"))
+    rows.append((_sc_label(lang, "reviewed_wp"), ", ".join(reviewed) or "(none)"))
     if snapshot.final_review is not None:
+        reviewer = snapshot.final_review.reviewer_agent or "(unknown)"
+        final_review_value = (
+            f"{snapshot.final_review.status} / {_sc_label(lang, 'reviewer')} {reviewer}"
+            if lang == "ko"
+            else f"{snapshot.final_review.status} by {reviewer}"
+        )
         rows.append(
             (
-                "Final review",
-                (
-                    f"{snapshot.final_review.status} by "
-                    f"{snapshot.final_review.reviewer_agent or '(unknown)'}"
-                ),
+                _sc_label(lang, "final_review"),
+                final_review_value,
             )
         )
     else:
-        rows.append(("Final review", "(none)"))
+        rows.append((_sc_label(lang, "final_review"), "(none)"))
     return tuple(rows)
 
 

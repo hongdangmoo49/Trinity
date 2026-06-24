@@ -14,6 +14,14 @@
 - `tests/test_performance_harness.py`에 smoke 테스트를 추가해 fixture가 session, events,
   shared context, Nexus snapshot 경로를 실제로 자극하는지 검증했다.
 
+## 2026-06-24 업데이트
+
+- large workflow snapshot projection budget test를 추가했다.
+- 해당 테스트는 wall-clock threshold 대신 full event scan 금지, execution log cap,
+  workflow event display cap을 검증한다.
+- 이 테스트는 Report 화면 event tail, Workflow event index cache, snapshot fallback tail
+  보강 이후의 회귀 방지 기준으로 사용한다.
+
 ## 검증
 
 ```text
@@ -45,7 +53,7 @@ git diff --check
 
 ## 남은 작업
 
-- 성능 fixture를 사용해 events cache와 snapshot memoization 변경의 before/after를 비교한다.
+- events cache, snapshot memoization, event index cache의 before/after 수치는 필요 시
+  로컬 benchmark로 수집한다. CI gate는 안정성을 위해 구조적 budget test를 사용한다.
 - provider model discovery cache-first/parallel refresh 작업에 별도 delay fixture를 추가한다.
 - execution partial result의 UI/report 통합 계약을 하네스 scenario로 고정한다.
-

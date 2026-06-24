@@ -66,6 +66,8 @@ from trinity.textual_app.presenters import (
     review_rows,
     review_table_columns,
     snapshot_context_markdown,
+    save_auto_persist_markdown,
+    save_title,
     snapshot_status_markdown,
     snapshot_status_rows,
     snapshot_workflow_markdown,
@@ -943,6 +945,14 @@ def test_report_presenter_uses_korean_labels() -> None:
         ("결정", "1"),
         ("작업 패키지", "2"),
         ("하위 작업", "0"),
+    )
+
+
+def test_save_presenter_uses_korean_labels() -> None:
+    assert save_title(lang="ko") == "저장"
+    assert save_auto_persist_markdown(lang="ko") == (
+        "Textual 워크플로우는 자동으로 저장됩니다. "
+        "Markdown 리포트 내보내기는 /report save를 사용하세요."
     )
 
 
@@ -3316,6 +3326,29 @@ async def test_nexus_save_and_target_commands_record_local_results(
         assert target_result.title == "Target"
         assert "Current target" in target_result.body
         assert "Use `/target <path>`" in central._markdown()
+        assert controller.started_prompts == []
+        assert controller.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_nexus_save_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)):
+        app._handle_textual_slash_command("/save")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/save"
+        assert result.title == "저장"
+        assert result.body == (
+            "Textual 워크플로우는 자동으로 저장됩니다. "
+            "Markdown 리포트 내보내기는 /report save를 사용하세요."
+        )
         assert controller.started_prompts == []
         assert controller.follow_ups == []
 

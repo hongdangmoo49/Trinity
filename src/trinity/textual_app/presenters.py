@@ -94,6 +94,11 @@ STATUS_CONTEXT_LABELS = {
         "reviewer": "reviewer",
         "round": "Round",
         "run": "Run",
+        "save": "Save",
+        "save_auto_persist_body": (
+            "Textual workflows are persisted automatically. "
+            "Use /report save for Markdown export."
+        ),
         "source": "Source",
         "running_packages": "Running packages",
         "running_packages_at_exit": "Running packages at exit",
@@ -195,6 +200,11 @@ STATUS_CONTEXT_LABELS = {
         "reviewer": "리뷰어",
         "round": "라운드",
         "run": "실행 ID",
+        "save": "저장",
+        "save_auto_persist_body": (
+            "Textual 워크플로우는 자동으로 저장됩니다. "
+            "Markdown 리포트 내보내기는 /report save를 사용하세요."
+        ),
         "source": "출처",
         "running_packages": "실행 중 WP",
         "running_packages_at_exit": "종료 시 실행 중 WP",
@@ -636,6 +646,14 @@ def report_summary_rows(
         ),
         (_sc_label(lang, "subtasks"), str(len(snapshot.subtasks))),
     )
+
+
+def save_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "save")
+
+
+def save_auto_persist_markdown(*, lang: str = "en") -> str:
+    return _sc_label(lang, "save_auto_persist_body")
 
 
 def slash_command_suggestions(token: str) -> tuple[str, ...]:

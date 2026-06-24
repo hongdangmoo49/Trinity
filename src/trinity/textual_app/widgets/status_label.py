@@ -37,6 +37,7 @@ STATUS_VALUE_LABELS = {
         "needs_second_review": "2차 리뷰 필요",
         "pending": "대기",
         "queued": "대기",
+        "repair_blocked": "복구 차단",
         "reviewing": "리뷰중",
         "running": "실행중",
         "skipped": "생략",

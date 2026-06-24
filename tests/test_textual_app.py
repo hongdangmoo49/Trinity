@@ -74,6 +74,8 @@ from trinity.textual_app.presenters import (
     improve_action_hint,
     improve_rows,
     improve_table_columns,
+    memory_cleanup_error_markdown,
+    memory_title,
     packages_action_hint,
     packages_markdown,
     packages_rows,
@@ -740,6 +742,24 @@ def test_context_presenter_uses_korean_empty_labels() -> None:
     assert context_title(lang="ko") == "컨텍스트"
     assert context_no_current_markdown(lang="ko") == message
     assert snapshot_context_markdown(WorkflowNexusSnapshot(), lang="ko") == message
+
+
+def test_memory_presenter_uses_korean_labels() -> None:
+    assert memory_title(lang="ko") == "메모리 통계"
+    assert memory_title("compact", lang="ko") == "메모리 압축"
+    assert memory_title("cleanup", lang="ko") == "메모리 정리"
+    assert memory_cleanup_error_markdown(
+        "--keep-latest requires a number.",
+        lang="ko",
+    ) == "`--keep-latest`에는 숫자를 입력하세요."
+    assert memory_cleanup_error_markdown(
+        "Usage: `/memory cleanup --oversized-backups [--apply] [--keep-latest N]`",
+        lang="ko",
+    ) == "사용법: `/memory cleanup --oversized-backups [--apply] [--keep-latest N]`"
+    assert memory_cleanup_error_markdown(
+        "Unknown cleanup option: `--oops`",
+        lang="ko",
+    ) == "알 수 없는 cleanup 옵션: `--oops`"
 
 
 def test_workflow_presenter_uses_korean_labels() -> None:
@@ -4731,6 +4751,51 @@ async def test_nexus_context_with_session_uses_korean_title(tmp_path) -> None:
         assert result.title == "컨텍스트"
         assert "- 워크플로우: `wf-current`" in result.body
         assert "- 목표: 현재 목표" in result.body
+
+
+@pytest.mark.asyncio
+async def test_nexus_memory_uses_korean_title_and_columns(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/memory")
+        await pilot.pause()
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/memory"
+        assert result.title == "메모리 통계"
+        assert result.table_columns == ("항목", "값")
+
+
+@pytest.mark.asyncio
+async def test_nexus_memory_cleanup_error_uses_korean_message(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/memory cleanup --keep-latest nope")
+        await pilot.pause()
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/memory"
+        assert result.title == "메모리 정리"
+        assert result.body == "`--keep-latest`에는 숫자를 입력하세요."
+        assert result.severity == "warning"
 
 
 @pytest.mark.asyncio

@@ -54,6 +54,11 @@ class ProviderSnapshot:
     profile_strengths: list[str] = field(default_factory=list)
     context_profile: str = ""
     output_contract: str = ""
+    quality_signal_count: int = 0
+    quality_success_count: int = 0
+    quality_blocker_count: int = 0
+    quality_required_change_count: int = 0
+    quality_score: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -1402,6 +1407,9 @@ class NexusSnapshotAdapter:
         active = set(session.active_agents) if session else set()
         targets = set(session.last_target_agents) if session else set()
         artifacts = self._latest_response_artifacts(session)
+        quality_by_agent = {
+            item.agent_name: item for item in self._agent_quality(session)
+        }
         states: dict[str, ProviderSnapshot] = {}
         for name, spec in self.config.agents.items():
             enabled = spec.enabled
@@ -1446,6 +1454,7 @@ class NexusSnapshotAdapter:
             display_model = actual_model or model_label
             if display_model:
                 provider_line = f"{provider_line} · {display_model}"
+            quality = quality_by_agent.get(name)
             states[name] = ProviderSnapshot(
                 name=name,
                 provider=provider_line,
@@ -1466,6 +1475,13 @@ class NexusSnapshotAdapter:
                 profile_modes=list(spec.profile.supported_turn_modes),
                 profile_strengths=self._profile_strength_lines(spec),
                 context_profile=spec.profile.context_profile,
+                quality_signal_count=quality.signal_count if quality else 0,
+                quality_success_count=quality.success_count if quality else 0,
+                quality_blocker_count=quality.blocker_count if quality else 0,
+                quality_required_change_count=(
+                    quality.required_change_count if quality else 0
+                ),
+                quality_score=quality.score if quality else 0.0,
             )
         return states
 
@@ -2065,6 +2081,11 @@ class NexusSnapshotAdapter:
             "profile_strengths": list(snapshot.profile_strengths),
             "context_profile": snapshot.context_profile,
             "output_contract": snapshot.output_contract,
+            "quality_signal_count": snapshot.quality_signal_count,
+            "quality_success_count": snapshot.quality_success_count,
+            "quality_blocker_count": snapshot.quality_blocker_count,
+            "quality_required_change_count": snapshot.quality_required_change_count,
+            "quality_score": snapshot.quality_score,
         }
         data.update(updates)
         return ProviderSnapshot(**data)

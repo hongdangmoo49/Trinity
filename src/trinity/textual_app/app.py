@@ -1358,7 +1358,10 @@ class TrinityTextualApp(App[None]):
         self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
         if not snapshot.work_package_details:
             self.notify(
-                "No work packages are available in the current workflow.",
+                textual_presenters.execute_retry_no_packages_markdown(
+                    lang=self.config.lang
+                ),
+                title=textual_presenters.execute_retry_title(lang=self.config.lang),
                 severity="warning",
             )
             return
@@ -3259,11 +3262,15 @@ class TrinityTextualApp(App[None]):
         if not snapshot.work_package_details:
             self._record_slash_command_result(
                 "/execute-retry",
-                "Execute Retry",
-                "No work packages are available in the current workflow.",
+                textual_presenters.execute_retry_title(lang=self.config.lang),
+                textual_presenters.execute_retry_no_packages_markdown(
+                    lang=self.config.lang
+                ),
                 severity="warning",
                 empty=True,
-                action_hint="Finish planning and execute at least one package first.",
+                action_hint=textual_presenters.execute_retry_no_packages_action_hint(
+                    lang=self.config.lang
+                ),
             )
             return
         self.push_screen(

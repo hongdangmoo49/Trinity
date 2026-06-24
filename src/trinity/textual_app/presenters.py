@@ -532,46 +532,54 @@ def help_rows(*, use_korean: bool = False) -> tuple[tuple[str, str, str, str], .
     return tuple(rows)
 
 
-def snapshot_workflow_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+def snapshot_workflow_markdown(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> str:
     state = snapshot.state or "idle"
     goal = snapshot.goal or "(none)"
     lines = [
-        f"- ID: `{snapshot.session_id or '(new)'}`",
-        f"- State: `{state}`",
-        f"- Goal: {goal}",
-        f"- Round: `{snapshot.round_num}`",
-        f"- Pending questions: `{len(snapshot.questions)}`",
-        f"- Decisions: `{len(snapshot.decisions)}`",
-        f"- Work packages: `{len(snapshot.work_packages)}`",
-        f"- Subtasks: `{len(snapshot.subtasks)}`",
-        f"- Local policy repairs: `{len(snapshot.work_package_repairs)}`",
-        f"- Post-review items: `{len(snapshot.post_review_items)}`",
-        f"- Supplemental rounds: `{snapshot.supplemental_round}`",
-        f"- Execution log entries: `{len(snapshot.execution_log)}`",
+        f"- {_sc_label(lang, 'id')}: `{snapshot.session_id or '(new)'}`",
+        f"- {_sc_label(lang, 'state')}: `{state}`",
+        f"- {_sc_label(lang, 'goal')}: {goal}",
+        f"- {_sc_label(lang, 'round')}: `{snapshot.round_num}`",
+        f"- {_sc_label(lang, 'pending_questions')}: `{len(snapshot.questions)}`",
+        f"- {_sc_label(lang, 'decisions')}: `{len(snapshot.decisions)}`",
+        f"- {_sc_label(lang, 'work_packages')}: `{len(snapshot.work_packages)}`",
+        f"- {_sc_label(lang, 'subtasks')}: `{len(snapshot.subtasks)}`",
+        f"- {_sc_label(lang, 'local_policy_repairs')}: `{len(snapshot.work_package_repairs)}`",
+        f"- {_sc_label(lang, 'post_review_items')}: `{len(snapshot.post_review_items)}`",
+        f"- {_sc_label(lang, 'supplemental_rounds')}: `{snapshot.supplemental_round}`",
+        f"- {_sc_label(lang, 'execution_log_entries')}: `{len(snapshot.execution_log)}`",
     ]
     if snapshot.execution_recovery is not None:
-        lines.extend(["", "### Execution Recovery"])
-        lines.append(execution_recovery_markdown(snapshot))
+        lines.extend(["", f"### {_sc_label(lang, 'execution_recovery')}"])
+        lines.append(execution_recovery_markdown(snapshot, lang=lang))
     return "\n".join(lines)
 
 
-def snapshot_workflow_rows(snapshot: WorkflowNexusSnapshot) -> tuple[tuple[str, str], ...]:
+def snapshot_workflow_rows(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> tuple[tuple[str, str], ...]:
     rows = [
-        ("ID", snapshot.session_id or "(new)"),
-        ("State", snapshot.state or "idle"),
-        ("Goal", snapshot.goal or "(none)"),
-        ("Round", str(snapshot.round_num)),
-        ("Pending questions", str(len(snapshot.questions))),
-        ("Decisions", str(len(snapshot.decisions))),
-        ("Work packages", str(len(snapshot.work_packages))),
-        ("Subtasks", str(len(snapshot.subtasks))),
-        ("Local policy repairs", str(len(snapshot.work_package_repairs))),
-        ("Post-review items", str(len(snapshot.post_review_items))),
-        ("Supplemental rounds", str(snapshot.supplemental_round)),
-        ("Execution log entries", str(len(snapshot.execution_log))),
+        (_sc_label(lang, "id"), snapshot.session_id or "(new)"),
+        (_sc_label(lang, "state"), snapshot.state or "idle"),
+        (_sc_label(lang, "goal"), snapshot.goal or "(none)"),
+        (_sc_label(lang, "round"), str(snapshot.round_num)),
+        (_sc_label(lang, "pending_questions"), str(len(snapshot.questions))),
+        (_sc_label(lang, "decisions"), str(len(snapshot.decisions))),
+        (_sc_label(lang, "work_packages"), str(len(snapshot.work_packages))),
+        (_sc_label(lang, "subtasks"), str(len(snapshot.subtasks))),
+        (_sc_label(lang, "local_policy_repairs"), str(len(snapshot.work_package_repairs))),
+        (_sc_label(lang, "post_review_items"), str(len(snapshot.post_review_items))),
+        (_sc_label(lang, "supplemental_rounds"), str(snapshot.supplemental_round)),
+        (_sc_label(lang, "execution_log_entries"), str(len(snapshot.execution_log))),
     ]
     if snapshot.execution_recovery is not None:
-        rows.extend(execution_recovery_rows(snapshot))
+        rows.extend(execution_recovery_rows(snapshot, lang=lang))
     return tuple(rows)
 
 

@@ -5634,6 +5634,46 @@ def test_provider_inspector_meta_includes_profile_summary() -> None:
     assert "blockers 1, required changes 4" in meta
 
 
+def test_provider_inspector_meta_uses_korean_labels() -> None:
+    inspector = ProviderInspector(
+        [
+            ProviderSnapshot(
+                name="codex",
+                provider="codex",
+                enabled=True,
+                status="Ready",
+                readiness="ready",
+                profile_mission="Implementation and testing",
+                profile_modes=["execute", "review"],
+                profile_strengths=["implementation 0.95"],
+                context_profile="implementer",
+                output_contract="execution_v1",
+                quality_signal_count=3,
+                quality_success_count=2,
+                quality_blocker_count=1,
+                quality_required_change_count=4,
+                quality_score=0.667,
+            )
+        ],
+        lang="ko",
+    )
+
+    meta = inspector._provider_meta(inspector.providers[0])
+    all_output = inspector._all_output()
+
+    assert "프로바이더: codex" in meta
+    assert "상태: Ready" in meta
+    assert "준비 상태: ready" in meta
+    assert "미션: Implementation and testing" in meta
+    assert "모드: execute, review" in meta
+    assert "강점: implementation 0.95" in meta
+    assert "컨텍스트 프로필: implementer" in meta
+    assert "출력 계약: execution_v1" in meta
+    assert "품질 신호: 점수 0.667, 성공 2/3" in meta
+    assert "차단 1, 변경 요청 4" in meta
+    assert "품질 신호: 점수 0.667, 성공 2/3" in all_output
+
+
 @pytest.mark.asyncio
 async def test_execution_matrix_expands_task_area(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
@@ -5956,6 +5996,38 @@ async def test_provider_inspector_modal_opens_from_nexus(tmp_path) -> None:
 
         assert isinstance(app.screen, ProviderInspector)
         assert app.screen.query_one("#inspect-claude")
+
+
+@pytest.mark.asyncio
+async def test_provider_inspector_modal_uses_korean_chrome(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.push_screen(
+            ProviderInspector(
+                [
+                    ProviderSnapshot(
+                        name="codex",
+                        provider="codex",
+                        enabled=True,
+                        status="Ready",
+                    )
+                ],
+                lang="ko",
+            )
+        )
+        await pilot.pause()
+
+        assert str(app.screen.query_one("#provider-inspector-title", Static).content) == (
+            "프로바이더 인스펙터"
+        )
+        assert str(app.screen.query_one("#close-provider-inspector", Button).label) == (
+            "닫기"
+        )
+        assert app.screen._label("all") == "전체"
+        output = app.screen.query_one("#inspect-codex .provider-inspector-output", RichLog)
+        text = "\n".join(line.text for line in output.lines)
+        assert "아직 캡처된 원본 출력이 없습니다." in text
 
 
 @pytest.mark.asyncio

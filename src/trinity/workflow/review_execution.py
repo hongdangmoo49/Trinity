@@ -16,6 +16,7 @@ from trinity.models import DeliberationMessage, ResponseStatus
 from trinity.prompts.context_projection import (
     agent_context_profile,
     render_context_projection_block,
+    render_operating_profile_block,
 )
 from trinity.prompts.contracts import (
     FINAL_REVIEW_CONTRACT_ID,
@@ -371,6 +372,12 @@ class ReviewExecutionProtocol:
         follow_up = self._format_list(execution_result.follow_up) if execution_result else "- none"
         criteria = self._format_list(review_package.criteria)
         shared_decisions = self.shared.read_section("Agreed Conclusion") or ""
+        operating_profile = render_operating_profile_block(
+            self.agents,
+            review_package.reviewer_agent,
+            mode="review",
+            heading="[Operating Profile]",
+        )
         context_projection = self._context_projection_block(
             review_package.reviewer_agent
         )
@@ -382,6 +389,7 @@ class ReviewExecutionProtocol:
             f"Owner: {package.owner_agent}\n"
             f"Executor: {review_package.target_agent}\n"
             f"Objective: {package.objective}\n\n"
+            f"{operating_profile}"
             f"{self._target_workspace_block()}"
             "Scope:\n"
             f"{self._format_list(package.scope)}\n\n"
@@ -432,9 +440,16 @@ class ReviewExecutionProtocol:
             if result.scope != "final"
         ]
         context_projection = self._context_projection_block(reviewer_agent)
+        operating_profile = render_operating_profile_block(
+            self.agents,
+            reviewer_agent,
+            mode="final_review",
+            heading="[Operating Profile]",
+        )
         return (
             "[Final Project Review]\n"
             "Review the whole completed project after execution.\n\n"
+            f"{operating_profile}"
             f"{self._target_workspace_block()}"
             "Work Packages:\n"
             f"{self._format_list(package_lines)}\n\n"

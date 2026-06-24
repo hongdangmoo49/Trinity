@@ -11,10 +11,70 @@ from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, RichLog, Static
 
+from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.status_label import compact_status_label
 from trinity.textual_app.widgets.work_package_detail_modal import WorkPackageDetailModal
 from trinity.textual_app.widgets.workspace_picker import WorkspacePreflight
+
+_EXECUTION_MATRIX_LABELS = {
+    "ko": {
+        "activity": "활동",
+        "blocked": "차단됨",
+        "compact_tasks": "작업 접기",
+        "earlier_log_lines_hidden": "... 이전 로그 {count}줄 숨김",
+        "execution_matrix": "실행 매트릭스",
+        "execution_not_started": "실행이 시작되지 않았습니다.",
+        "executor": "실행자",
+        "expand_tasks": "작업 펼치기",
+        "full_log": "전체 로그",
+        "no_work_packages": "(작업 패키지 없음)",
+        "not_selected": "선택 안 됨",
+        "owner": "소유자",
+        "owner_prefix": "소유자",
+        "package_task": "패키지 / 작업",
+        "recent_log": "최근 로그",
+        "retry": "재시도",
+        "review": "리뷰",
+        "review_prefix": "리뷰",
+        "risk_lane": "리스크/레인",
+        "risk_prefix": "리스크",
+        "spec": "상세",
+        "status": "상태",
+        "workspace": "workspace",
+    },
+    "en": {
+        "activity": "Activity",
+        "blocked": "Blocked",
+        "compact_tasks": "Compact Tasks",
+        "earlier_log_lines_hidden": "... {count} earlier log lines hidden",
+        "execution_matrix": "Execution Matrix",
+        "execution_not_started": "Execution not started.",
+        "executor": "Executor",
+        "expand_tasks": "Expand Tasks",
+        "full_log": "Full Log",
+        "no_work_packages": "(no work packages)",
+        "not_selected": "not selected",
+        "owner": "Owner",
+        "owner_prefix": "owner",
+        "package_task": "Package / Task",
+        "recent_log": "Recent Log",
+        "retry": "Retry",
+        "review": "Review",
+        "review_prefix": "review",
+        "risk_lane": "Risk/Lane",
+        "risk_prefix": "risk",
+        "spec": "Spec",
+        "status": "Status",
+        "workspace": "workspace",
+    },
+}
+
+
+def _label(lang: str, key: str) -> str:
+    labels = _EXECUTION_MATRIX_LABELS.get(lang, _EXECUTION_MATRIX_LABELS["en"])
+    fallback = _EXECUTION_MATRIX_LABELS["en"]
+    return labels.get(key, fallback.get(key, key))
 
 
 @dataclass(frozen=True)
@@ -68,6 +128,7 @@ class ExecutionPackageRow(Horizontal):
         button_label: str = "Spec",
         task_width: int,
         detail_enabled: bool = True,
+        lang: str = "en",
     ) -> None:
         super().__init__(classes="execution-package-row")
         self.package_id = package_id
@@ -81,6 +142,7 @@ class ExecutionPackageRow(Horizontal):
         self.button_label = button_label
         self.task_width = task_width
         self.detail_enabled = detail_enabled
+        self.lang = lang
 
     def compose(self) -> ComposeResult:
         with Vertical(classes="execution-package-lines"):
@@ -93,15 +155,19 @@ class ExecutionPackageRow(Horizontal):
                 yield Static(_clip(self.status, 10), classes="execution-package-status")
             with Horizontal(classes="execution-package-secondary"):
                 yield Static(
-                    _clip(f"owner: {self.assignee}", 18),
+                    _clip(f"{_label(self.lang, 'owner_prefix')}: {self.assignee}", 18),
                     classes="execution-package-assignee",
                 )
                 yield Static(
-                    _clip(f"review: {self.review_status or '-'}", 18),
+                    _clip(
+                        f"{_label(self.lang, 'review_prefix')}: "
+                        f"{self.review_status or '-'}",
+                        18,
+                    ),
                     classes="execution-package-review",
                 )
                 yield Static(
-                    _clip(f"risk: {self.risk}", 18),
+                    _clip(f"{_label(self.lang, 'risk_prefix')}: {self.risk}", 18),
                     classes="execution-package-risk",
                 )
                 yield Button(
@@ -137,13 +203,17 @@ class ExecutionPackageRow(Horizontal):
             _clip(self.status, 10)
         )
         self.query_one(".execution-package-assignee", Static).update(
-            _clip(f"owner: {self.assignee}", 18)
+            _clip(f"{_label(self.lang, 'owner_prefix')}: {self.assignee}", 18)
         )
         self.query_one(".execution-package-review", Static).update(
-            _clip(f"review: {self.review_status or '-'}", 18)
+            _clip(
+                f"{_label(self.lang, 'review_prefix')}: "
+                f"{self.review_status or '-'}",
+                18,
+            )
         )
         self.query_one(".execution-package-risk", Static).update(
-            _clip(f"risk: {self.risk}", 18)
+            _clip(f"{_label(self.lang, 'risk_prefix')}: {self.risk}", 18)
         )
         button = self.query_one(".execution-package-spec", Button)
         button.label = self.button_label
@@ -153,19 +223,23 @@ class ExecutionPackageRow(Horizontal):
 class ExecutionPackageHeader(Vertical):
     """Column header aligned to the same CSS grid as package rows."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, lang: str = "en") -> None:
         super().__init__(classes="execution-package-header")
+        self.lang = lang
 
     def compose(self) -> ComposeResult:
         with Horizontal(classes="execution-package-primary"):
-            yield Static("Package / Task", classes="execution-package-task")
-            yield Static("Executor", classes="execution-package-executor")
-            yield Static("Status", classes="execution-package-status")
+            yield Static(self._label("package_task"), classes="execution-package-task")
+            yield Static(self._label("executor"), classes="execution-package-executor")
+            yield Static(self._label("status"), classes="execution-package-status")
         with Horizontal(classes="execution-package-secondary"):
-            yield Static("Owner", classes="execution-package-assignee")
-            yield Static("Review", classes="execution-package-review")
-            yield Static("Risk/Lane", classes="execution-package-risk")
-            yield Static("Spec", classes="execution-package-spec")
+            yield Static(self._label("owner"), classes="execution-package-assignee")
+            yield Static(self._label("review"), classes="execution-package-review")
+            yield Static(self._label("risk_lane"), classes="execution-package-risk")
+            yield Static(self._label("spec"), classes="execution-package-spec")
+
+    def _label(self, key: str) -> str:
+        return _label(self.lang, key)
 
 
 class ExecutionMatrixScreen(Screen[None]):
@@ -184,8 +258,16 @@ class ExecutionMatrixScreen(Screen[None]):
         Binding("r", "request_retry", "Retry"),
     ]
 
-    def __init__(self) -> None:
+    LOCALIZED_BINDINGS = {
+        ("f", "toggle_task_expanded"): ("binding_expand_tasks", None),
+        ("l", "toggle_activity_expanded"): ("binding_full_log", None),
+        ("r", "request_retry"): ("binding_retry", None),
+    }
+
+    def __init__(self, *, lang: str = "en") -> None:
         super().__init__(name="execution")
+        self.lang = lang
+        localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
         self.preflight: WorkspacePreflight | None = None
         self.snapshot = WorkflowNexusSnapshot()
         self.tasks_expanded = False
@@ -332,10 +414,13 @@ class ExecutionMatrixScreen(Screen[None]):
         package_list.remove_children()
         self._package_rows = {}
         self._package_row_keys = {}
-        package_list.mount(ExecutionPackageHeader())
+        package_list.mount(ExecutionPackageHeader(lang=self.lang))
         if not projections:
             package_list.mount(
-                Static("(no work packages)", classes="execution-package-empty")
+                Static(
+                    self._label("no_work_packages"),
+                    classes="execution-package-empty",
+                )
             )
             self._package_list_identity = ()
             return
@@ -364,7 +449,7 @@ class ExecutionMatrixScreen(Screen[None]):
                     review_status=_review_label(package),
                     risk=_risk_lane_label(package),
                     button_id=f"wp-detail-{index}",
-                    button_label=_detail_button_label(package),
+                    button_label=_detail_button_label(package, self.lang),
                     task_width=task_width,
                 )
                 for index, package in enumerate(self.snapshot.work_package_details)
@@ -384,15 +469,14 @@ class ExecutionMatrixScreen(Screen[None]):
                     review_status="-",
                     risk="unknown",
                     button_id=f"wp-detail-legacy-{index}",
-                    button_label="Spec",
+                    button_label=self._label("spec"),
                     task_width=task_width,
                     detail_enabled=False,
                 )
             )
         return projections
 
-    @staticmethod
-    def _package_row(projection: _PackageRowProjection) -> ExecutionPackageRow:
+    def _package_row(self, projection: _PackageRowProjection) -> ExecutionPackageRow:
         return ExecutionPackageRow(
             package_id=projection.package_id,
             task=projection.task,
@@ -405,6 +489,7 @@ class ExecutionMatrixScreen(Screen[None]):
             button_label=projection.button_label,
             task_width=projection.task_width,
             detail_enabled=projection.detail_enabled,
+            lang=self.lang,
         )
 
     def _render_log(self) -> None:
@@ -421,8 +506,14 @@ class ExecutionMatrixScreen(Screen[None]):
     def _header_text(self) -> str:
         target = self._target_workspace_text()
         if not target:
-            return "Execution Matrix · workspace: not selected"
-        return f"Execution Matrix · workspace: {target}"
+            return (
+                f"{self._label('execution_matrix')} · "
+                f"{self._label('workspace')}: {self._label('not_selected')}"
+            )
+        return (
+            f"{self._label('execution_matrix')} · "
+            f"{self._label('workspace')}: {target}"
+        )
 
     def _target_workspace_text(self) -> str:
         if self.preflight is not None:
@@ -490,26 +581,39 @@ class ExecutionMatrixScreen(Screen[None]):
         if not source and self.snapshot.workflow_events:
             source = list(self.snapshot.workflow_events)
         if not source:
-            return ["Activity", "Execution not started."]
-        lines = ["Activity"]
+            return [self._label("activity"), self._label("execution_not_started")]
+        lines = [self._label("activity")]
         if self.activity_expanded:
             lines.extend(source)
             return lines
         recent = source[-7:]
         if len(source) > len(recent):
-            lines.append(f"... {len(source) - len(recent)} earlier log lines hidden")
+            lines.append(
+                self._label("earlier_log_lines_hidden").format(
+                    count=len(source) - len(recent)
+                )
+            )
         lines.extend(recent)
         return lines
 
     def _task_toggle_label(self) -> str:
-        return "Compact Tasks" if self.tasks_expanded else "Expand Tasks"
+        return (
+            self._label("compact_tasks")
+            if self.tasks_expanded
+            else self._label("expand_tasks")
+        )
 
     def _activity_toggle_label(self) -> str:
-        return "Recent Log" if self.activity_expanded else "Full Log"
+        return (
+            self._label("recent_log")
+            if self.activity_expanded
+            else self._label("full_log")
+        )
 
     def _retry_button_label(self) -> str:
         retry_count = self._retry_count()
-        return f"Retry {retry_count}" if retry_count else "Retry"
+        label = self._label("retry")
+        return f"{label} {retry_count}" if retry_count else label
 
     def _has_retry_candidates(self) -> bool:
         return self._retry_count() > 0
@@ -539,6 +643,9 @@ class ExecutionMatrixScreen(Screen[None]):
 
     def _task_clip_width(self) -> int:
         return 72 if self.tasks_expanded else 28
+
+    def _label(self, key: str) -> str:
+        return _label(self.lang, key)
 
 
 def _parse_package_line(line: str) -> tuple[str, str, str]:
@@ -620,14 +727,14 @@ def _risk_lane_label(package: object) -> str:
     return f"{risk} g{group}"
 
 
-def _detail_button_label(package: object) -> str:
+def _detail_button_label(package: object, lang: str = "en") -> str:
     status = str(getattr(package, "status", "") or "").strip().lower()
     blocked_reason = str(
         getattr(package, "repair_blocked_reason", "") or ""
     ).strip()
     if status == "blocked" or blocked_reason:
-        return "Blocked"
-    return "Spec"
+        return _label(lang, "blocked")
+    return _label(lang, "spec")
 
 
 def _reviewer_names(reviewer: str) -> list[str]:

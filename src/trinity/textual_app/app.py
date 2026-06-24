@@ -1118,7 +1118,7 @@ class TrinityTextualApp(App[None]):
             SettingsScreen(self.settings_store, self.config, lang=self.config.lang),
             "settings",
         )
-        self.install_screen(ExecutionMatrixScreen(), "execution")
+        self.install_screen(ExecutionMatrixScreen(lang=self.config.lang), "execution")
         self.install_screen(ReportScreen(), "report")
 
         self._screens_installed = True

@@ -4457,12 +4457,12 @@ async def test_execution_matrix_viewport_qa_matrix_with_long_workspace(
 
             rows = list(screen.query("#execution-package-list .execution-package-row"))
             assert len(rows) == 2
-            assert "review: agy queued" in _widget_tree_text(rows[0])
-            assert "risk: medium g1" in _widget_tree_text(rows[0])
-            assert "risk: high serial" in _widget_tree_text(rows[1])
+            assert "리뷰: agy queued" in _widget_tree_text(rows[0])
+            assert "리스크: medium g1" in _widget_tree_text(rows[0])
+            assert "리스크: high serial" in _widget_tree_text(rows[1])
 
             blocked_button = screen.query_one("#wp-detail-1", Button)
-            assert str(blocked_button.label) == "Blocked"
+            assert str(blocked_button.label) == "차단됨"
             assert blocked_button.region.x + blocked_button.region.width <= width
 
             for row in rows:
@@ -4474,7 +4474,7 @@ async def test_execution_matrix_viewport_qa_matrix_with_long_workspace(
                     assert widget.region.x + widget.region.width <= width
 
             activity_lines = screen._activity_lines()
-            assert activity_lines[0] == "Activity"
+            assert activity_lines[0] == "활동"
             assert len(activity_lines) <= 9
             assert "event-13" in activity_lines
 
@@ -4552,6 +4552,82 @@ async def test_execution_matrix_toggles_full_activity_log(tmp_path) -> None:
         assert "... 4 earlier log lines hidden" not in full_lines
         assert "event-1" in full_lines
         assert "event-11" in full_lines
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_supports_korean_chrome_labels(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+
+        assert _binding_description(
+            screen._bindings, "f", "toggle_task_expanded"
+        ) == "작업 펼치기"
+        assert str(screen.query_one("#execution-header", Static).content).startswith(
+            "실행 매트릭스"
+        )
+        assert str(screen.query_one("#toggle-task-expanded", Button).label) == (
+            "작업 펼치기"
+        )
+        assert str(screen.query_one("#toggle-activity-expanded", Button).label) == (
+            "전체 로그"
+        )
+        screen.apply_execution_state(None, WorkflowNexusSnapshot())
+        await pilot.pause()
+        empty_text = str(
+            screen.query("#execution-package-list .execution-package-empty")
+            .first()
+            .render()
+        )
+        assert "(작업 패키지 없음)" in empty_text
+
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                execution_log=[f"event-{index}" for index in range(1, 10)],
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Client",
+                        owner_agent="codex",
+                        status="failed",
+                        retryable=True,
+                        review_status="queued",
+                        reviewer_agent="antigravity",
+                        risk="medium",
+                    ),
+                ],
+                execution_recovery=ExecutionRecoverySnapshot(
+                    state="failed",
+                    retry_candidates=("WP-001",),
+                ),
+            ),
+        )
+        await pilot.pause()
+
+        assert str(screen.query_one("#execution-retry", Button).label) == "재시도 1"
+        header_text = _widget_tree_text(
+            screen.query("#execution-package-list .execution-package-header").first()
+        )
+        assert "패키지 / 작업" in header_text
+        assert "실행자" in header_text
+        assert "리스크/레인" in header_text
+
+        row_text = _widget_tree_text(
+            screen.query("#execution-package-list .execution-package-row").first()
+        )
+        assert "리뷰: agy queued" in row_text
+        assert "리스크: medium" in row_text
+        assert "상세" in row_text
+
+        activity_lines = screen._activity_lines()
+        assert activity_lines[0] == "활동"
+        assert "... 이전 로그 2줄 숨김" in activity_lines
 
 
 def test_work_package_detail_modal_orders_execution_sections_first() -> None:

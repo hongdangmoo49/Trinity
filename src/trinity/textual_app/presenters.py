@@ -1585,9 +1585,10 @@ def snapshot_context_markdown(
         lines.extend(["", f"### {_sc_label(lang, 'subtasks')}"])
         for subtask in snapshot.subtasks:
             summary = subtask.result_summary or subtask.objective or _none_value(lang)
+            status = _status_value(subtask.status, lang=lang)
             lines.append(
                 f"- **{subtask.id or _unnamed_value(lang)}** "
-                f"[{subtask.status}] "
+                f"[{status}] "
                 f"{subtask.parent_package_id or _no_package_value(lang)} -> "
                 f"{subtask.delegated_to or _unknown_value(lang)}: {summary}"
             )
@@ -1613,8 +1614,9 @@ def snapshot_context_markdown(
     if snapshot.post_review_items:
         lines.extend(["", f"### {_sc_label(lang, 'post_review_action_items')}"])
         for item in snapshot.post_review_items:
+            status = _status_value(item.status, lang=lang)
             lines.append(
-                f"- **{item.id}** [{item.severity}][{item.status}] "
+                f"- **{item.id}** [{item.severity}][{status}] "
                 f"{item.title or item.summary}"
             )
     if snapshot.follow_up_requests:

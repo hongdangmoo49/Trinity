@@ -808,15 +808,24 @@ def test_context_markdown_uses_korean_labels() -> None:
                 reviewer_agent="",
                 status="approved",
             ),
+            post_review_items=[
+                PostReviewActionSnapshot(
+                    id="AI-001",
+                    severity="high",
+                    status="pending",
+                    title="테스트 보강",
+                )
+            ],
         ),
         lang="ko",
     )
     assert "- 워크플로우: `(새 워크플로우)`" in placeholder_markdown
     assert "- 목표: (없음)" in placeholder_markdown
-    assert "- **(이름 없음)** [waiting] (패키지 없음) -> (알 수 없음): (없음)" in (
+    assert "- **(이름 없음)** [대기] (패키지 없음) -> (알 수 없음): (없음)" in (
         placeholder_markdown
     )
     assert "- `승인` / 리뷰어 `(알 수 없음)`" in placeholder_markdown
+    assert "- **AI-001** [high][대기] 테스트 보강" in placeholder_markdown
 
 
 def test_context_presenter_uses_korean_empty_labels() -> None:

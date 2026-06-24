@@ -88,15 +88,18 @@ from trinity.textual_app.presenters import (
     questions_rows,
     questions_select_markdown,
     questions_table_columns,
+    report_export_complete_title,
     report_export_action_hint,
     report_no_export_data_markdown,
     report_no_open_data_markdown,
     report_open_action_hint,
     report_opened_markdown,
     report_saved_markdown,
+    report_saved_notification,
     report_saved_rows,
     report_summary_rows,
     report_title,
+    report_export_unavailable_title,
     review_action_hint,
     review_repair_action_hint,
     review_repair_blocked_ids,
@@ -1067,11 +1070,16 @@ def test_report_presenter_uses_korean_labels() -> None:
     assert report_no_open_data_markdown(lang="ko") == (
         "리포트로 표시할 워크플로우 데이터가 없습니다."
     )
+    assert report_export_unavailable_title(lang="ko") == "내보내기 불가"
+    assert report_export_complete_title(lang="ko") == "내보내기 완료"
     assert report_export_action_hint(lang="ko").startswith("리포트를 내보내려면")
     assert report_open_action_hint(lang="ko").startswith("리포트를 열려면")
     assert report_opened_markdown(lang="ko") == "리포트 화면을 열었습니다."
     assert report_saved_markdown("/tmp/report.md", lang="ko") == (
         "리포트 저장됨: `/tmp/report.md`"
+    )
+    assert report_saved_notification("/tmp/report.md", lang="ko") == (
+        "리포트 저장됨: /tmp/report.md"
     )
     assert report_saved_rows("/tmp/report.md", lang="ko") == (
         ("경로", "/tmp/report.md"),
@@ -1852,9 +1860,20 @@ async def test_textual_export_uses_snapshot_when_session_is_not_persisted(tmp_pa
 
 
 @pytest.mark.asyncio
-async def test_textual_export_snapshot_uses_korean_markdown_labels(tmp_path) -> None:
+async def test_textual_export_snapshot_uses_korean_markdown_labels(
+    tmp_path,
+    monkeypatch,
+) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
     app = TrinityTextualApp(config)
+    notifications: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(
+        app,
+        "notify",
+        lambda message, **kwargs: notifications.append(
+            (message, str(kwargs.get("title", "")), str(kwargs.get("severity", "info")))
+        ),
+    )
     snapshot = WorkflowNexusSnapshot(
         session_id="wf-ko",
         goal="한국어 리포트",
@@ -1871,6 +1890,9 @@ async def test_textual_export_snapshot_uses_korean_markdown_labels(tmp_path) -> 
     assert "# 워크플로우 리포트" in md
     assert "**목표**: 한국어 리포트" in md
     assert "## 결정" in md
+    assert notifications == [
+        (f"리포트 저장됨: {reports[0]}", "내보내기 완료", "info"),
+    ]
 
 
 @pytest.mark.asyncio
@@ -2034,14 +2056,30 @@ async def test_report_screen_bounds_events_but_export_uses_full_history(
 
 
 @pytest.mark.asyncio
-async def test_textual_export_empty_snapshot_does_not_create_report(tmp_path) -> None:
-    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+async def test_textual_export_empty_snapshot_does_not_create_report(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+    notifications: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(
+        app,
+        "notify",
+        lambda message, **kwargs: notifications.append(
+            (message, str(kwargs.get("title", "")), str(kwargs.get("severity", "info")))
+        ),
+    )
 
     async with app.run_test(size=(100, 30)):
         app._export_report_markdown(WorkflowNexusSnapshot())
 
     report_dir = app.config.effective_state_dir / "reports"
     assert not list(report_dir.glob("report-*.md"))
+    assert notifications == [
+        ("내보낼 워크플로우 데이터가 없습니다.", "내보내기 불가", "warning"),
+    ]
 
 
 def test_snapshot_report_markdown_escapes_user_markdown() -> None:

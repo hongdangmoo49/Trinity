@@ -144,7 +144,9 @@ STATUS_CONTEXT_LABELS = {
         ),
         "recovery": "(recovery)",
         "report": "Report",
+        "report_export_complete": "Export Complete",
         "report_export_hint": "Start or resume a workflow before exporting a report.",
+        "report_export_unavailable": "Export Unavailable",
         "report_no_export_data": "No workflow data available to export.",
         "report_no_open_data": "No workflow data available for a report.",
         "report_open_hint": "Start or resume a workflow before opening a report.",
@@ -351,7 +353,9 @@ STATUS_CONTEXT_LABELS = {
         ),
         "recovery": "(복구)",
         "report": "리포트",
+        "report_export_complete": "내보내기 완료",
         "report_export_hint": "리포트를 내보내려면 먼저 워크플로우를 시작하거나 재개하세요.",
+        "report_export_unavailable": "내보내기 불가",
         "report_no_export_data": "내보낼 워크플로우 데이터가 없습니다.",
         "report_no_open_data": "리포트로 표시할 워크플로우 데이터가 없습니다.",
         "report_open_hint": "리포트를 열려면 먼저 워크플로우를 시작하거나 재개하세요.",
@@ -849,6 +853,14 @@ def report_title(*, lang: str = "en") -> str:
     return _sc_label(lang, "report")
 
 
+def report_export_unavailable_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "report_export_unavailable")
+
+
+def report_export_complete_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "report_export_complete")
+
+
 def report_no_export_data_markdown(*, lang: str = "en") -> str:
     return _sc_label(lang, "report_no_export_data")
 
@@ -871,6 +883,10 @@ def report_opened_markdown(*, lang: str = "en") -> str:
 
 def report_saved_markdown(path: str, *, lang: str = "en") -> str:
     return f"{_sc_label(lang, 'report_saved')}: `{path}`"
+
+
+def report_saved_notification(path: str, *, lang: str = "en") -> str:
+    return f"{_sc_label(lang, 'report_saved')}: {path}"
 
 
 def report_saved_rows(path: str, *, lang: str = "en") -> tuple[tuple[str, str], ...]:

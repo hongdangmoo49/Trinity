@@ -967,7 +967,17 @@ async def test_report_screen_snapshot_shows_work_package_routing_metadata(
                 routing_score=111.0,
                 profile_revision="default-v1",
                 parallel_group=1,
-            )
+            ),
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="Single provider review",
+                owner_agent="codex",
+                status="done",
+                review_status="skipped",
+                review_summary=(
+                    "only codex is active; no non-owner peer reviewer is available"
+                ),
+            ),
         ],
     )
     app = TrinityTextualApp(
@@ -990,6 +1000,8 @@ async def test_report_screen_snapshot_shows_work_package_routing_metadata(
     assert "kind implementation" in rendered
     assert "profile default-v1" in rendered
     assert "reason: implementation strength 0.95" in rendered
+    assert "review no peer/(none)" in rendered
+    assert "no non-owner peer reviewer is available" in rendered
 
 
 @pytest.mark.asyncio
@@ -1419,7 +1431,7 @@ def test_snapshot_report_markdown_includes_work_package_routing_metadata() -> No
     assert "Reason: implementation strength 0\\.95" in md
     assert "Review: approved; reviewer antigravity" in md
     assert (
-        "Review: skipped; reviewer \\(none\\); reason only codex is active; "
+        "Review: no peer; reviewer \\(none\\); reason only codex is active; "
         "no non\\-owner peer reviewer is available"
     ) in md
 

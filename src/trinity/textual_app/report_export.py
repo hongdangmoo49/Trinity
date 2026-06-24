@@ -11,6 +11,7 @@ from trinity.textual_app.snapshot import (
     WorkflowNexusSnapshot,
     WorkPackageSnapshot,
 )
+from trinity.textual_app.widgets.status_label import display_review_status_value
 
 _MD_SPECIAL_CHARS = "\\`*_{}[]<>()#+-.!|"
 
@@ -243,8 +244,13 @@ def _work_package_lines(package: WorkPackageSnapshot) -> list[str]:
     if package.routing_reason:
         lines.append(f"  - Reason: {_md_inline(package.routing_reason)}")
     if package.review_status or package.reviewer_agent:
+        review_status = display_review_status_value(
+            package.review_status,
+            reviewer_agent=package.reviewer_agent,
+            summary=package.review_summary,
+        )
         review = (
-            f"{_md_inline(package.review_status or '(none)')}; "
+            f"{_md_inline(review_status)}; "
             f"reviewer {_md_inline(package.reviewer_agent or '(none)')}"
         )
         if package.review_status == "skipped" and package.review_summary:

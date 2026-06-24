@@ -15,7 +15,10 @@ _LABELS = {
         "empty": "실행 로그가 아직 없습니다.",
         "empty_filtered": "일치하는 실행 로그가 없습니다.",
         "earlier_lines_hidden": "... 이전 로그 {count}줄 숨김",
+        "match_count": "{visible}/{total}개 결과 표시",
+        "no_matches": "0개 결과",
         "search_placeholder": "로그 검색",
+        "line_count": "{visible}/{total}줄 표시",
         "title": "전체 실행 로그",
     },
     "en": {
@@ -23,7 +26,10 @@ _LABELS = {
         "empty": "No execution log yet.",
         "empty_filtered": "No matching execution log lines.",
         "earlier_lines_hidden": "... {count} earlier log lines hidden",
+        "match_count": "Showing {visible} of {total} matches",
+        "no_matches": "0 matches",
         "search_placeholder": "Search log",
+        "line_count": "Showing {visible} of {total} lines",
         "title": "Full Execution Log",
     },
 }
@@ -90,6 +96,7 @@ class ExecutionLogModal(ModalScreen[None]):
                 placeholder=self._label("search_placeholder"),
                 id="execution-log-search",
             )
+            yield Static("", id="execution-log-search-status")
             yield RichLog(id="execution-log-modal-body", wrap=True, markup=False)
             yield Button(self._label("close"), id="close-execution-log")
         yield Footer()
@@ -104,6 +111,9 @@ class ExecutionLogModal(ModalScreen[None]):
         self._refresh_log()
 
     def _refresh_log(self) -> None:
+        self.query_one("#execution-log-search-status", Static).update(
+            self._status_text(self.filter_query)
+        )
         log = self.query_one("#execution-log-modal-body", RichLog)
         log.clear()
         for line in self._render_lines(self.filter_query):
@@ -129,6 +139,15 @@ class ExecutionLogModal(ModalScreen[None]):
         if not needle:
             return list(self.lines)
         return [line for line in self.lines if needle in str(line).lower()]
+
+    def _status_text(self, query: str = "") -> str:
+        total = len(self._filtered_lines(query))
+        visible = min(total, MAX_RENDERED_LOG_LINES)
+        if query.strip():
+            if total == 0:
+                return self._label("no_matches")
+            return self._label("match_count").format(visible=visible, total=total)
+        return self._label("line_count").format(visible=visible, total=total)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id != "close-execution-log":

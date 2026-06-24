@@ -39,6 +39,7 @@ from trinity.textual_app.report_export import (
     unique_report_path,
 )
 from trinity.textual_app.screens.execution_matrix import (
+    ExecutionPackageRow,
     ExecutionMatrixScreen,
     _review_label,
 )
@@ -3838,6 +3839,72 @@ async def test_execution_matrix_updates_existing_rows_without_remount(tmp_path) 
         updated_row = screen.query("#execution-package-list .execution-package-row").first()
         assert updated_row is row
         row_text = _widget_tree_text(updated_row)
+        assert "RUN" in row_text
+        assert "codex" in row_text
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_large_snapshot_updates_single_row_only(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    packages = [
+        WorkPackageSnapshot(
+            id=f"WP-{index:03d}",
+            title=f"Package {index}",
+            owner_agent="codex",
+            status="pending",
+            parallel_group=(index % 8) + 1,
+        )
+        for index in range(1, 501)
+    ]
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(work_package_details=packages),
+        )
+        await pilot.pause()
+
+        rows_before = list(screen.query("#execution-package-list .execution-package-row"))
+        assert len(rows_before) == 500
+        original_identity = screen._package_list_identity
+        update_calls: list[str] = []
+        original_update = ExecutionPackageRow.update_projection
+
+        def counted_update(
+            row: ExecutionPackageRow,
+            projection,
+        ) -> None:
+            update_calls.append(row.package_id)
+            original_update(row, projection)
+
+        monkeypatch.setattr(ExecutionPackageRow, "update_projection", counted_update)
+        changed = list(packages)
+        changed[249] = replace(
+            packages[249],
+            status="running",
+            current_executor="codex",
+        )
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(work_package_details=changed),
+        )
+        await pilot.pause()
+
+        rows_after = list(screen.query("#execution-package-list .execution-package-row"))
+        assert len(rows_after) == 500
+        assert screen._package_list_identity == original_identity
+        assert rows_after[0] is rows_before[0]
+        assert rows_after[249] is rows_before[249]
+        assert rows_after[-1] is rows_before[-1]
+        assert update_calls == ["WP-250"]
+        row_text = _widget_tree_text(rows_after[249])
         assert "RUN" in row_text
         assert "codex" in row_text
 

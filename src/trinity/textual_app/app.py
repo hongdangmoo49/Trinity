@@ -1786,15 +1786,16 @@ class TrinityTextualApp(App[None]):
             self._record_slash_command_result(
                 parsed.spec.name,
                 "Subtasks",
-                self._subtasks_markdown(snapshot),
+                self._subtasks_markdown(snapshot, lang=self.config.lang),
                 empty=not has_subtasks,
-                action_hint=(
-                    "Subtasks appear after an executing provider reports delegated work."
-                    if not has_subtasks
-                    else ""
+                action_hint=textual_presenters.subtasks_action_hint(
+                    has_subtasks=has_subtasks,
+                    lang=self.config.lang,
                 ),
-                table_columns=("ID", "Package", "Delegated To", "Status", "Summary"),
-                table_rows=self._subtasks_rows(snapshot),
+                table_columns=textual_presenters.subtasks_table_columns(
+                    lang=self.config.lang
+                ),
+                table_rows=self._subtasks_rows(snapshot, lang=self.config.lang),
             )
             return
         if command == "context":
@@ -2455,14 +2456,20 @@ class TrinityTextualApp(App[None]):
         return textual_presenters.improve_rows(snapshot)
 
     @staticmethod
-    def _subtasks_markdown(snapshot: WorkflowNexusSnapshot) -> str:
-        return textual_presenters.subtasks_markdown(snapshot)
+    def _subtasks_markdown(
+        snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
+    ) -> str:
+        return textual_presenters.subtasks_markdown(snapshot, lang=lang)
 
     @staticmethod
     def _subtasks_rows(
         snapshot: WorkflowNexusSnapshot,
+        *,
+        lang: str = "en",
     ) -> tuple[tuple[str, str, str, str, str], ...]:
-        return textual_presenters.subtasks_rows(snapshot)
+        return textual_presenters.subtasks_rows(snapshot, lang=lang)
 
     def _history_rows(
         self,

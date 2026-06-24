@@ -22,6 +22,7 @@ STATUS_CONTEXT_LABELS = {
         "decision_hint": "Answer pending questions with `/answer` to add decisions.",
         "decisions": "Decisions",
         "done_packages": "Done packages",
+        "delegated_to": "Delegated To",
         "enabled": "Enabled",
         "execution": "Execution",
         "execution_log_entries": "Execution log entries",
@@ -42,6 +43,7 @@ STATUS_CONTEXT_LABELS = {
         "no_pending_questions": "No pending workflow questions.",
         "no_pending_questions_select": "No pending workflow questions to select.",
         "no_predefined_options": "This question has no predefined options.",
+        "no_subtasks": "No provider delegation subtasks recorded in the current session.",
         "not_checked": "not checked",
         "options": "Options",
         "package": "Package",
@@ -73,7 +75,9 @@ STATUS_CONTEXT_LABELS = {
         "running_packages_at_exit": "Running packages at exit",
         "state": "State",
         "status": "Status",
+        "summary": "Summary",
         "subtasks": "Subtasks",
+        "subtasks_hint": "Subtasks appear after an executing provider reports delegated work.",
         "supplemental_rounds": "Supplemental rounds",
         "synthesis": "Synthesis",
         "target": "Target",
@@ -94,6 +98,7 @@ STATUS_CONTEXT_LABELS = {
         "decision_hint": "대기 중인 질문에 `/answer`로 답하면 결정이 추가됩니다.",
         "decisions": "결정",
         "done_packages": "완료 WP",
+        "delegated_to": "위임 대상",
         "enabled": "활성화",
         "execution": "실행",
         "execution_log_entries": "실행 로그 항목",
@@ -114,6 +119,7 @@ STATUS_CONTEXT_LABELS = {
         "no_pending_questions": "대기 중인 워크플로우 질문이 없습니다.",
         "no_pending_questions_select": "선택할 대기 질문이 없습니다.",
         "no_predefined_options": "이 질문에는 미리 정의된 선택지가 없습니다.",
+        "no_subtasks": "현재 세션에 기록된 프로바이더 위임 하위 작업이 없습니다.",
         "not_checked": "미확인",
         "options": "선택지",
         "package": "작업 패키지",
@@ -144,7 +150,9 @@ STATUS_CONTEXT_LABELS = {
         "running_packages_at_exit": "종료 시 실행 중 WP",
         "state": "상태",
         "status": "상태",
+        "summary": "요약",
         "subtasks": "하위 작업",
+        "subtasks_hint": "실행 중인 프로바이더가 위임 작업을 보고하면 하위 작업이 표시됩니다.",
         "supplemental_rounds": "보충 라운드",
         "synthesis": "종합",
         "target": "대상",
@@ -929,9 +937,27 @@ def improve_rows(snapshot: WorkflowNexusSnapshot) -> tuple[tuple[str, str], ...]
     return tuple(rows)
 
 
-def subtasks_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+def subtasks_action_hint(*, has_subtasks: bool, lang: str = "en") -> str:
+    return "" if has_subtasks else _sc_label(lang, "subtasks_hint")
+
+
+def subtasks_table_columns(*, lang: str = "en") -> tuple[str, str, str, str, str]:
+    return (
+        _sc_label(lang, "id"),
+        _sc_label(lang, "package"),
+        _sc_label(lang, "delegated_to"),
+        _sc_label(lang, "status"),
+        _sc_label(lang, "summary"),
+    )
+
+
+def subtasks_markdown(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> str:
     if not snapshot.subtasks:
-        return "No provider delegation subtasks recorded in the current session."
+        return _sc_label(lang, "no_subtasks")
     lines = []
     for index, subtask in enumerate(snapshot.subtasks, start=1):
         summary = subtask.result_summary or subtask.objective
@@ -946,6 +972,8 @@ def subtasks_markdown(snapshot: WorkflowNexusSnapshot) -> str:
 
 def subtasks_rows(
     snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
 ) -> tuple[tuple[str, str, str, str, str], ...]:
     return tuple(
         (

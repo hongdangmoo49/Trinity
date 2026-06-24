@@ -17,6 +17,8 @@ STATUS_CONTEXT_LABELS = {
     "en": {
         "answer": "Answer",
         "continue_until_question": "Continue planning until the central agent raises a question.",
+        "decision": "Decision",
+        "decision_hint": "Answer pending questions with `/answer` to add decisions.",
         "decisions": "Decisions",
         "done_packages": "Done packages",
         "enabled": "Enabled",
@@ -34,6 +36,7 @@ STATUS_CONTEXT_LABELS = {
         "local_policy_repairs": "Local Policy Repairs",
         "next": "Next",
         "no": "no",
+        "no_decisions": "No workflow decisions recorded in the current session.",
         "no_pending_questions": "No pending workflow questions.",
         "no_pending_questions_select": "No pending workflow questions to select.",
         "no_predefined_options": "This question has no predefined options.",
@@ -80,6 +83,8 @@ STATUS_CONTEXT_LABELS = {
     "ko": {
         "answer": "답변",
         "continue_until_question": "중앙 에이전트가 질문을 만들 때까지 계획을 계속 진행하세요.",
+        "decision": "결정",
+        "decision_hint": "대기 중인 질문에 `/answer`로 답하면 결정이 추가됩니다.",
         "decisions": "결정",
         "done_packages": "완료 WP",
         "enabled": "활성화",
@@ -97,6 +102,7 @@ STATUS_CONTEXT_LABELS = {
         "local_policy_repairs": "로컬 정책 복구",
         "next": "다음",
         "no": "아니오",
+        "no_decisions": "현재 세션에 기록된 워크플로우 결정이 없습니다.",
         "no_pending_questions": "대기 중인 워크플로우 질문이 없습니다.",
         "no_pending_questions_select": "선택할 대기 질문이 없습니다.",
         "no_predefined_options": "이 질문에는 미리 정의된 선택지가 없습니다.",
@@ -793,15 +799,31 @@ def questions_rows(
     )
 
 
-def decisions_markdown(snapshot: WorkflowNexusSnapshot) -> str:
+def decisions_action_hint(*, has_decisions: bool, lang: str = "en") -> str:
+    return "" if has_decisions else _sc_label(lang, "decision_hint")
+
+
+def decisions_table_columns(*, lang: str = "en") -> tuple[str, str]:
+    return ("#", _sc_label(lang, "decision"))
+
+
+def decisions_markdown(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> str:
     if not snapshot.decisions:
-        return "No workflow decisions recorded in the current session."
+        return _sc_label(lang, "no_decisions")
     return "\n".join(
         f"{index}. {decision}" for index, decision in enumerate(snapshot.decisions, start=1)
     )
 
 
-def decisions_rows(snapshot: WorkflowNexusSnapshot) -> tuple[tuple[str, str], ...]:
+def decisions_rows(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> tuple[tuple[str, str], ...]:
     return tuple(
         (str(index), decision) for index, decision in enumerate(snapshot.decisions, start=1)
     )

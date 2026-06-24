@@ -27,6 +27,10 @@ from trinity.slash_commands import COMMAND_SPECS, SESSION_ONLY_SETTING_NOTICE
 from trinity.textual_app import app as textual_app_module
 from trinity.textual_app.app import TrinityTextualApp
 from trinity.textual_app.presenters import (
+    decisions_action_hint,
+    decisions_markdown,
+    decisions_rows,
+    decisions_table_columns,
     questions_action_hint,
     questions_markdown,
     questions_rows,
@@ -705,6 +709,20 @@ def test_questions_empty_presenter_uses_korean_labels() -> None:
 
     assert questions_markdown(snapshot, lang="ko") == "대기 중인 워크플로우 질문이 없습니다."
     assert questions_select_markdown(snapshot, lang="ko") == "선택할 대기 질문이 없습니다."
+
+
+def test_decisions_presenter_uses_korean_labels() -> None:
+    empty = WorkflowNexusSnapshot()
+    snapshot = WorkflowNexusSnapshot(decisions=["결정 A"])
+
+    assert decisions_markdown(empty, lang="ko") == (
+        "현재 세션에 기록된 워크플로우 결정이 없습니다."
+    )
+    assert decisions_markdown(snapshot, lang="ko") == "1. 결정 A"
+    assert decisions_rows(snapshot, lang="ko") == (("1", "결정 A"),)
+    assert decisions_table_columns(lang="ko") == ("#", "결정")
+    assert decisions_action_hint(has_decisions=False, lang="ko").startswith("대기 중인 질문")
+    assert decisions_action_hint(has_decisions=True, lang="ko") == ""
 
 
 def test_model_discovery_applies_fast_provider_before_slow_provider(
@@ -2807,6 +2825,59 @@ async def test_start_slash_questions_uses_korean_labels(tmp_path) -> None:
         assert "질문 패널 버튼을 사용하거나" in result.body
         table = app.screen.query_one("#local-command-table", Static)
         assert "선택지" in str(table.render())
+
+
+@pytest.mark.asyncio
+async def test_start_slash_decisions_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            goal="game",
+            decisions=["Use dark theme."],
+        )
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/decisions ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, LocalCommandModal)
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/decisions"
+        assert result.table_columns == ("#", "결정")
+        assert result.table_rows == (("1", "Use dark theme."),)
+        assert result.action_hint == ""
+        assert "1. Use dark theme." in result.body
+        table = app.screen.query_one("#local-command-table", Static)
+        assert "결정" in str(table.render())
+
+
+@pytest.mark.asyncio
+async def test_start_slash_empty_decisions_uses_korean_hint(tmp_path) -> None:
+    controller = FakeWorkflowController(WorkflowNexusSnapshot(session_id="wf-fake"))
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(100, 30)):
+        app._handle_textual_slash_command("/decisions")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.empty is True
+        assert result.body == "현재 세션에 기록된 워크플로우 결정이 없습니다."
+        assert result.action_hint.startswith("대기 중인 질문")
 
 
 @pytest.mark.asyncio

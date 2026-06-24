@@ -467,6 +467,7 @@ class ExecutionMatrixScreen(Screen[None]):
             f"WAIT {counts['WAIT']}",
             f"DONE {counts['DONE']}",
             f"ISSUE {counts['ISSUE']}",
+            *self._parallel_summary_parts(),
             f"retry {retry_count}",
             f"workflow {state}",
             f"run {run}",
@@ -511,6 +512,21 @@ class ExecutionMatrixScreen(Screen[None]):
         if recovery is not None:
             retry_count = max(retry_count, len(recovery.retry_candidates))
         return retry_count
+
+    def _parallel_summary_parts(self) -> list[str]:
+        packages = self.snapshot.work_package_details
+        groups = {
+            package.parallel_group
+            for package in packages
+            if package.parallelizable and package.parallel_group is not None
+        }
+        serial_count = sum(1 for package in packages if not package.parallelizable)
+        parts: list[str] = []
+        if groups:
+            parts.append(f"lanes {len(groups)}")
+        if serial_count:
+            parts.append(f"serial {serial_count}")
+        return parts
 
     def _task_clip_width(self) -> int:
         return 72 if self.tasks_expanded else 28

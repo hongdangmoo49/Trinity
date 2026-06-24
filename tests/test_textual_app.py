@@ -119,6 +119,8 @@ class FakeWorkflowController:
         self.retry_previews: list[tuple[str, list[str]]] = []
         self.retry_confirms: list[tuple[str, list[str]]] = []
         self.retry_outcome: TextualWorkflowOutcome | None = None
+        self.review_requests: list[tuple[str, ...]] = []
+        self.review_outcome: TextualWorkflowOutcome | None = None
         self.repair_actions: list[str] = []
         self.drain_outcome: TextualWorkflowOutcome | None = None
         self.target_workspace = None
@@ -230,6 +232,16 @@ class FakeWorkflowController:
             self.current_snapshot,
             message=f"Retrying work packages: {', '.join(package_ids)}.",
             execution_requested=True,
+        )
+
+    def request_review(self, args=()):
+        self.review_requests.append(tuple(args))
+        if self.review_outcome is not None:
+            return self.review_outcome
+        return TextualWorkflowOutcome(
+            self.current_snapshot,
+            message=f"Review started: {' '.join(str(arg) for arg in args)}.",
+            running=True,
         )
 
     def retry_blocked_review_repairs(self) -> TextualWorkflowOutcome:
@@ -1854,7 +1866,7 @@ async def test_nexus_central_execution_retry_action_opens_retry_modal(tmp_path) 
         controller,
     )
 
-    async with app.run_test(size=(140, 44)) as pilot:
+    async with app.run_test(size=(100, 30)) as pilot:
         app.switch_to("nexus")
         await pilot.pause()
         screen = app.screen
@@ -4519,6 +4531,55 @@ async def test_execution_matrix_row_labels_second_review_action(tmp_path) -> Non
 
         button = screen.query_one("#wp-detail-0", Button)
         assert str(button.label) == "2nd Review"
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_row_requests_second_review(tmp_path) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-second-review",
+        goal="review escalation",
+        state="reviewing",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Review escalation",
+                owner_agent="claude",
+                status="done",
+                review_status="needs_second_review",
+                reviewer_agent="codex, antigravity",
+            ),
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="Normal package",
+                owner_agent="codex",
+                status="done",
+                review_status="approved",
+                reviewer_agent="antigravity",
+            ),
+        ],
+    )
+    controller = FakeWorkflowController(snapshot)
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(None, snapshot)
+        await pilot.pause()
+
+        review_button = screen.query_one("#wp-review-0", Button)
+        assert str(review_button.label) == "Run 2nd"
+        assert review_button.region.x + review_button.region.width <= 100
+        detail_button = screen.query_one("#wp-detail-0", Button)
+        assert detail_button.region.x + detail_button.region.width <= 100
+        assert not screen.query("#wp-review-1")
+
+        review_button.press()
+        await pilot.pause()
+
+        assert controller.review_requests == [("wp", "WP-001")]
 
 
 @pytest.mark.asyncio

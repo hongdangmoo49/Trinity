@@ -5,6 +5,8 @@ from tests.harness.perf import (
     measure_ms,
     snapshot_probe,
 )
+from trinity.textual_app.snapshot import WORKFLOW_EVENT_DISPLAY_LIMIT
+from trinity.workflow import WorkflowPersistence
 
 
 def test_workflow_perf_fixture_generates_scalable_state(tmp_path) -> None:
@@ -64,3 +66,30 @@ def test_workflow_perf_fixture_can_measure_event_load(tmp_path) -> None:
     assert stats.count == 3
     assert len(events) == 250
 
+
+def test_snapshot_probe_keeps_large_workflow_within_projection_budgets(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    fixture = create_workflow_perf_fixture(
+        tmp_path,
+        package_count=120,
+        event_count=2_500,
+        review_result_count=200,
+        shared_bytes=32_768,
+    )
+
+    def fail_full_scan(self):
+        raise AssertionError("snapshot projection should not full-scan workflow events")
+
+    monkeypatch.setattr(WorkflowPersistence, "load_events", fail_full_scan)
+
+    stats, snapshot = measure_ms(lambda: snapshot_probe(fixture), repeat=2)
+
+    assert stats.count == 2
+    assert snapshot.session_id == "wf-perf"
+    assert len(snapshot.work_packages) == 120
+    assert len(snapshot.execution_log) <= 90
+    assert len(snapshot.workflow_events) <= WORKFLOW_EVENT_DISPLAY_LIMIT + 1
+    assert snapshot.workflow_events[0].startswith("... ")
+    assert snapshot.execution_recovery is not None

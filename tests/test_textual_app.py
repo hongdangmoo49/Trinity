@@ -8067,6 +8067,7 @@ async def test_execution_matrix_supports_korean_chrome_labels(tmp_path) -> None:
                         id="WP-001",
                         title="Client",
                         owner_agent="codex",
+                        current_executor="claude",
                         status="failed",
                         retryable=True,
                         review_status="queued",
@@ -8093,6 +8094,7 @@ async def test_execution_matrix_supports_korean_chrome_labels(tmp_path) -> None:
         row_text = _widget_tree_text(
             screen.query("#execution-package-list .execution-package-row").first()
         )
+        assert "claude 폴백" in row_text
         assert "리뷰: agy 대기" in row_text
         assert "리스크: medium" in row_text
         assert "상세" in row_text

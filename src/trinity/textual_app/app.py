@@ -2592,21 +2592,22 @@ class TrinityTextualApp(App[None]):
     def _handle_textual_memory_command(self, args: list[str]) -> None:
         engine = engine_from_config(self.config)
         action = args[0].lower() if args else "stats"
+        lang = self.config.lang
         if action == "compact":
             body = compact_memory_markdown(
                 engine,
                 target_bytes=self.config.shared_compact_target_bytes,
                 recent_records=self.config.memory_recent_records,
             )
-            title = "Memory Compact"
+            title = textual_presenters.memory_title("compact", lang=lang)
             rows = memory_stats_rows(engine)
         elif action == "cleanup":
             apply, keep_latest, error = parse_oversized_cleanup_options(args[1:])
             if error:
                 self._record_slash_command_result(
                     "/memory",
-                    "Memory Cleanup",
-                    error,
+                    textual_presenters.memory_title("cleanup", lang=lang),
+                    textual_presenters.memory_cleanup_error_markdown(error, lang=lang),
                     severity="warning",
                 )
                 return
@@ -2615,17 +2616,17 @@ class TrinityTextualApp(App[None]):
                 apply=apply,
                 keep_latest=keep_latest,
             )
-            title = "Memory Cleanup"
+            title = textual_presenters.memory_title("cleanup", lang=lang)
             rows = ()
         else:
             body = memory_stats_markdown(engine)
-            title = "Memory Stats"
+            title = textual_presenters.memory_title("stats", lang=lang)
             rows = memory_stats_rows(engine)
         self._record_slash_command_result(
             "/memory",
             title,
             body,
-            table_columns=("Item", "Value"),
+            table_columns=textual_presenters.status_table_columns(lang=lang),
             table_rows=rows,
         )
 

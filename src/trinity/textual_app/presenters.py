@@ -88,6 +88,16 @@ STATUS_CONTEXT_LABELS = {
         "last_event": "Last event",
         "local_command": "Local command",
         "local_policy_repairs": "Local Policy Repairs",
+        "memory_cleanup": "Memory Cleanup",
+        "memory_cleanup_keep_latest_number": "--keep-latest requires a number.",
+        "memory_cleanup_keep_latest_range": "--keep-latest must be 0 or greater.",
+        "memory_cleanup_unknown_option": "Unknown cleanup option",
+        "memory_cleanup_usage": (
+            "Usage: `/memory cleanup --oversized-backups "
+            "[--apply] [--keep-latest N]`"
+        ),
+        "memory_compact": "Memory Compact",
+        "memory_stats": "Memory Stats",
         "mode": "Mode",
         "next": "Next",
         "no": "no",
@@ -267,6 +277,16 @@ STATUS_CONTEXT_LABELS = {
         "last_event": "최근 이벤트",
         "local_command": "로컬 명령",
         "local_policy_repairs": "로컬 정책 복구",
+        "memory_cleanup": "메모리 정리",
+        "memory_cleanup_keep_latest_number": "`--keep-latest`에는 숫자를 입력하세요.",
+        "memory_cleanup_keep_latest_range": "`--keep-latest`는 0 이상이어야 합니다.",
+        "memory_cleanup_unknown_option": "알 수 없는 cleanup 옵션",
+        "memory_cleanup_usage": (
+            "사용법: `/memory cleanup --oversized-backups "
+            "[--apply] [--keep-latest N]`"
+        ),
+        "memory_compact": "메모리 압축",
+        "memory_stats": "메모리 통계",
         "mode": "모드",
         "next": "다음",
         "no": "아니오",
@@ -1292,6 +1312,31 @@ def context_title(*, lang: str = "en") -> str:
 
 def context_no_current_markdown(*, lang: str = "en") -> str:
     return _sc_label(lang, "context_no_current")
+
+
+def memory_title(action: str = "stats", *, lang: str = "en") -> str:
+    normalized = action.lower().strip()
+    if normalized == "compact":
+        return _sc_label(lang, "memory_compact")
+    if normalized == "cleanup":
+        return _sc_label(lang, "memory_cleanup")
+    return _sc_label(lang, "memory_stats")
+
+
+def memory_cleanup_error_markdown(error: str, *, lang: str = "en") -> str:
+    if lang != "ko":
+        return error
+    if error == "--keep-latest requires a number.":
+        return _sc_label(lang, "memory_cleanup_keep_latest_number")
+    if error == "--keep-latest must be 0 or greater.":
+        return _sc_label(lang, "memory_cleanup_keep_latest_range")
+    usage = "Usage: `/memory cleanup --oversized-backups [--apply] [--keep-latest N]`"
+    if error == usage:
+        return _sc_label(lang, "memory_cleanup_usage")
+    prefix = "Unknown cleanup option: "
+    if error.startswith(prefix):
+        return f"{_sc_label(lang, 'memory_cleanup_unknown_option')}: {error[len(prefix):]}"
+    return error
 
 
 def questions_action_hint(*, has_questions: bool, lang: str = "en") -> str:

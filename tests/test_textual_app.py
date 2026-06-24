@@ -4275,7 +4275,7 @@ async def test_execution_matrix_header_uses_two_line_row_layout(tmp_path) -> Non
             "execution-package-assignee",
             "execution-package-review",
             "execution-package-risk",
-            "execution-package-spec",
+            "execution-package-actions",
         ]
         header = screen.query("#execution-package-list .execution-package-header").first()
         row = screen.query("#execution-package-list .execution-package-row").first()
@@ -5476,6 +5476,56 @@ async def test_execution_matrix_retry_button_opens_retry_modal(tmp_path) -> None
 
         assert isinstance(app.screen, ExecutionRetryModal)
         assert controller.retry_previews == [("all", [])]
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_row_retry_button_opens_custom_retry_modal(
+    tmp_path,
+) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-row-retry",
+        goal="game",
+        state="failed",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Client",
+                owner_agent="codex",
+                status="failed",
+                retryable=True,
+            ),
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="Docs",
+                owner_agent="claude",
+                status="done",
+                retryable=False,
+            ),
+        ],
+    )
+    controller = FakeWorkflowController(snapshot)
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(None, snapshot)
+        await pilot.pause()
+
+        assert str(screen.query_one("#wp-detail-0", Button).label) == "Spec"
+        retry_button = screen.query_one("#wp-retry-0", Button)
+        assert str(retry_button.label) == "Retry"
+        assert not screen.query("#wp-retry-1")
+
+        retry_button.press()
+        await pilot.pause()
+
+        assert controller.retry_previews == [("custom", ["WP-001"])]
+        assert isinstance(app.screen, ExecutionRetryModal)
+        assert app.screen.selector == "custom"
+        assert app.screen.selected_ids == {"WP-001"}
 
 
 @pytest.mark.asyncio

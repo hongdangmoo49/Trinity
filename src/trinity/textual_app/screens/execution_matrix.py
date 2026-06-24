@@ -38,6 +38,7 @@ _EXECUTION_MATRIX_LABELS = {
         "package_task": "패키지 / 작업",
         "recent_log": "최근 로그",
         "retry": "재시도",
+        "retry_action": "재시도",
         "retry_summary": "재시도",
         "run": "실행",
         "review": "리뷰",
@@ -47,6 +48,7 @@ _EXECUTION_MATRIX_LABELS = {
         "serial_lane": "직렬",
         "serial_summary": "직렬",
         "spec": "상세",
+        "actions": "작업",
         "status": "상태",
         "target": "대상",
         "workspace": "workspace",
@@ -71,6 +73,7 @@ _EXECUTION_MATRIX_LABELS = {
         "package_task": "Package / Task",
         "recent_log": "Recent Log",
         "retry": "Retry",
+        "retry_action": "Retry",
         "retry_summary": "retry",
         "run": "run",
         "review": "Review",
@@ -80,6 +83,7 @@ _EXECUTION_MATRIX_LABELS = {
         "serial_lane": "Serial",
         "serial_summary": "serial",
         "spec": "Spec",
+        "actions": "Actions",
         "status": "Status",
         "target": "target",
         "workspace": "workspace",
@@ -110,6 +114,9 @@ class _PackageRowProjection:
     button_label: str
     task_width: int
     lane_label: str = ""
+    retry_button_id: str = ""
+    retry_label: str = ""
+    retry_enabled: bool = False
     detail_enabled: bool = True
 
     @property
@@ -126,6 +133,9 @@ class _PackageRowProjection:
             self.button_label,
             self.task_width,
             self.lane_label,
+            self.retry_button_id,
+            self.retry_label,
+            self.retry_enabled,
             self.detail_enabled,
         )
 
@@ -146,6 +156,9 @@ class ExecutionPackageRow(Horizontal):
         button_id: str,
         button_label: str = "Spec",
         task_width: int,
+        retry_button_id: str = "",
+        retry_label: str = "Retry",
+        retry_enabled: bool = False,
         detail_enabled: bool = True,
         lang: str = "en",
     ) -> None:
@@ -160,6 +173,9 @@ class ExecutionPackageRow(Horizontal):
         self.button_id = button_id
         self.button_label = button_label
         self.task_width = task_width
+        self.retry_button_id = retry_button_id
+        self.retry_label = retry_label
+        self.retry_enabled = retry_enabled
         self.detail_enabled = detail_enabled
         self.lang = lang
 
@@ -189,14 +205,23 @@ class ExecutionPackageRow(Horizontal):
                     _clip(f"{_label(self.lang, 'risk_prefix')}: {self.risk}", 18),
                     classes="execution-package-risk",
                 )
-                yield Button(
-                    self.button_label,
-                    id=self.button_id,
-                    name=self.package_id,
-                    disabled=not self.detail_enabled,
-                    compact=True,
-                    classes="execution-package-spec",
-                )
+                with Horizontal(classes="execution-package-actions"):
+                    yield Button(
+                        self.button_label,
+                        id=self.button_id,
+                        name=self.package_id,
+                        disabled=not self.detail_enabled,
+                        compact=True,
+                        classes="execution-package-spec",
+                    )
+                    if self.retry_enabled:
+                        yield Button(
+                            self.retry_label,
+                            id=self.retry_button_id,
+                            name=self.package_id,
+                            compact=True,
+                            classes="execution-package-retry",
+                        )
 
     def update_projection(self, projection: _PackageRowProjection) -> None:
         """Update row labels without remounting the row widget."""
@@ -210,6 +235,9 @@ class ExecutionPackageRow(Horizontal):
         self.button_id = projection.button_id
         self.button_label = projection.button_label
         self.task_width = projection.task_width
+        self.retry_button_id = projection.retry_button_id
+        self.retry_label = projection.retry_label
+        self.retry_enabled = projection.retry_enabled
         self.detail_enabled = projection.detail_enabled
 
         self.query_one(".execution-package-task", Static).update(
@@ -234,9 +262,14 @@ class ExecutionPackageRow(Horizontal):
         self.query_one(".execution-package-risk", Static).update(
             _clip(f"{_label(self.lang, 'risk_prefix')}: {self.risk}", 18)
         )
-        button = self.query_one(".execution-package-spec", Button)
-        button.label = self.button_label
-        button.disabled = not self.detail_enabled
+        detail_button = self.query_one(".execution-package-spec", Button)
+        detail_button.label = self.button_label
+        detail_button.disabled = not self.detail_enabled
+        retry_buttons = list(self.query(".execution-package-retry"))
+        if retry_buttons:
+            retry_button = retry_buttons[0]
+            if isinstance(retry_button, Button):
+                retry_button.label = self.retry_label
 
 
 class ExecutionPackageHeader(Vertical):
@@ -255,7 +288,7 @@ class ExecutionPackageHeader(Vertical):
             yield Static(self._label("owner"), classes="execution-package-assignee")
             yield Static(self._label("review"), classes="execution-package-review")
             yield Static(self._label("risk_lane"), classes="execution-package-risk")
-            yield Static(self._label("spec"), classes="execution-package-spec")
+            yield Static(self._label("actions"), classes="execution-package-actions")
 
     def _label(self, key: str) -> str:
         return _label(self.lang, key)
@@ -267,9 +300,17 @@ class ExecutionMatrixScreen(Screen[None]):
     class RetryRequested(Message):
         """Posted when the user wants to retry failed or blocked work packages."""
 
-        def __init__(self, snapshot: WorkflowNexusSnapshot) -> None:
+        def __init__(
+            self,
+            snapshot: WorkflowNexusSnapshot,
+            *,
+            selector: str = "all",
+            package_ids: tuple[str, ...] = (),
+        ) -> None:
             super().__init__()
             self.snapshot = snapshot
+            self.selector = selector
+            self.package_ids = tuple(package_ids)
 
     BINDINGS = [
         Binding("f", "toggle_task_expanded", "Expand Tasks"),
@@ -365,6 +406,15 @@ class ExecutionMatrixScreen(Screen[None]):
             event.stop()
             self.action_request_retry()
             return
+        if event.button.id and event.button.id.startswith("wp-retry-"):
+            event.stop()
+            package_id = str(event.button.name or "")
+            if package_id:
+                self.action_request_retry(
+                    selector="custom",
+                    package_ids=(package_id,),
+                )
+            return
         if not event.button.id or not event.button.id.startswith("wp-detail-"):
             return
         event.stop()
@@ -397,11 +447,22 @@ class ExecutionMatrixScreen(Screen[None]):
             ExecutionLogModal(self._full_activity_lines(), lang=self.lang)
         )
 
-    def action_request_retry(self) -> None:
+    def action_request_retry(
+        self,
+        *,
+        selector: str = "all",
+        package_ids: tuple[str, ...] = (),
+    ) -> None:
         """Ask the app shell to open the execution retry modal."""
         if not self._has_retry_candidates():
             return
-        self.post_message(self.RetryRequested(self.snapshot))
+        self.post_message(
+            self.RetryRequested(
+                self.snapshot,
+                selector=selector,
+                package_ids=package_ids,
+            )
+        )
 
     def _sync_task_expanded_view(self) -> None:
         if not self.is_mounted:
@@ -414,7 +475,10 @@ class ExecutionMatrixScreen(Screen[None]):
     def _render_package_list(self) -> None:
         projections = self._package_row_projections()
         identity = tuple(
-            f"{projection.lane_label}|{projection.identity}"
+            (
+                f"{projection.lane_label}|{projection.identity}|"
+                f"retry:{projection.retry_enabled}"
+            )
             for projection in projections
         )
         if identity == self._package_list_identity:
@@ -479,6 +543,9 @@ class ExecutionMatrixScreen(Screen[None]):
                     button_label=_detail_button_label(package, self.lang),
                     task_width=task_width,
                     lane_label=_execution_lane_label(package, self.lang),
+                    retry_button_id=f"wp-retry-{index}",
+                    retry_label=self._label("retry_action"),
+                    retry_enabled=bool(package.retryable),
                 )
                 for index, package in enumerate(self.snapshot.work_package_details)
             ]
@@ -516,6 +583,9 @@ class ExecutionMatrixScreen(Screen[None]):
             button_id=projection.button_id,
             button_label=projection.button_label,
             task_width=projection.task_width,
+            retry_button_id=projection.retry_button_id,
+            retry_label=projection.retry_label,
+            retry_enabled=projection.retry_enabled,
             detail_enabled=projection.detail_enabled,
             lang=self.lang,
         )

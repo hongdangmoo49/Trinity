@@ -4749,6 +4749,83 @@ async def test_execution_matrix_header_uses_snapshot_target_without_preflight(
 
 
 @pytest.mark.asyncio
+async def test_execution_matrix_retry_button_opens_retry_modal(tmp_path) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-retry-action",
+        goal="game",
+        state="failed",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Client",
+                owner_agent="codex",
+                status="failed",
+                retryable=True,
+            ),
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="Docs",
+                owner_agent="claude",
+                status="done",
+                retryable=False,
+            ),
+        ],
+    )
+    controller = FakeWorkflowController(snapshot)
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(None, snapshot)
+        await pilot.pause()
+
+        retry_button = screen.query_one("#execution-retry", Button)
+        assert str(retry_button.label) == "Retry 1"
+        assert retry_button.disabled is False
+
+        retry_button.press()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ExecutionRetryModal)
+        assert controller.retry_previews == [("all", [])]
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_retry_button_disables_without_candidates(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Docs",
+                        owner_agent="claude",
+                        status="done",
+                        retryable=False,
+                    ),
+                ],
+            ),
+        )
+        await pilot.pause()
+
+        retry_button = screen.query_one("#execution-retry", Button)
+        assert str(retry_button.label) == "Retry"
+        assert retry_button.disabled is True
+
+
+@pytest.mark.asyncio
 async def test_settings_screen_saves_theme_preferences(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

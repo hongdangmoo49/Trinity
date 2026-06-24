@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, RichLog, Static
 
@@ -164,9 +165,17 @@ class ExecutionPackageHeader(Vertical):
 class ExecutionMatrixScreen(Screen[None]):
     """Monitor work package execution and logs."""
 
+    class RetryRequested(Message):
+        """Posted when the user wants to retry failed or blocked work packages."""
+
+        def __init__(self, snapshot: WorkflowNexusSnapshot) -> None:
+            super().__init__()
+            self.snapshot = snapshot
+
     BINDINGS = [
         Binding("f", "toggle_task_expanded", "Expand Tasks"),
         Binding("l", "toggle_activity_expanded", "Full Log"),
+        Binding("r", "request_retry", "Retry"),
     ]
 
     def __init__(self) -> None:
@@ -195,6 +204,12 @@ class ExecutionMatrixScreen(Screen[None]):
                     id="toggle-activity-expanded",
                     compact=True,
                 )
+                yield Button(
+                    self._retry_button_label(),
+                    id="execution-retry",
+                    compact=True,
+                    disabled=not self._has_retry_candidates(),
+                )
             yield Static("", id="execution-summary")
             yield VerticalScroll(id="execution-package-list")
             yield RichLog(id="execution-log", wrap=True, markup=False)
@@ -219,6 +234,9 @@ class ExecutionMatrixScreen(Screen[None]):
         self.query_one("#toggle-activity-expanded", Button).label = (
             self._activity_toggle_label()
         )
+        retry_button = self.query_one("#execution-retry", Button)
+        retry_button.label = self._retry_button_label()
+        retry_button.disabled = not self._has_retry_candidates()
         self._sync_task_expanded_view()
         self._render_package_list()
         self._render_log()
@@ -236,6 +254,10 @@ class ExecutionMatrixScreen(Screen[None]):
         if event.button.id == "toggle-activity-expanded":
             event.stop()
             self.action_toggle_activity_expanded()
+            return
+        if event.button.id == "execution-retry":
+            event.stop()
+            self.action_request_retry()
             return
         if not event.button.id or not event.button.id.startswith("wp-detail-"):
             return
@@ -270,6 +292,12 @@ class ExecutionMatrixScreen(Screen[None]):
             self._activity_toggle_label()
         )
         self._render_log()
+
+    def action_request_retry(self) -> None:
+        """Ask the app shell to open the execution retry modal."""
+        if not self._has_retry_candidates():
+            return
+        self.post_message(self.RetryRequested(self.snapshot))
 
     def _sync_task_expanded_view(self) -> None:
         if not self.is_mounted:
@@ -413,10 +441,8 @@ class ExecutionMatrixScreen(Screen[None]):
             else:
                 counts["WAIT"] += 1
 
-        retry_count = sum(1 for package in packages if package.retryable)
+        retry_count = self._retry_count()
         recovery = self.snapshot.execution_recovery
-        if recovery is not None:
-            retry_count = max(retry_count, len(recovery.retry_candidates))
         target = (
             str(self.preflight.path)
             if self.preflight is not None
@@ -470,6 +496,21 @@ class ExecutionMatrixScreen(Screen[None]):
 
     def _activity_toggle_label(self) -> str:
         return "Recent Log" if self.activity_expanded else "Full Log"
+
+    def _retry_button_label(self) -> str:
+        retry_count = self._retry_count()
+        return f"Retry {retry_count}" if retry_count else "Retry"
+
+    def _has_retry_candidates(self) -> bool:
+        return self._retry_count() > 0
+
+    def _retry_count(self) -> int:
+        packages = self.snapshot.work_package_details
+        retry_count = sum(1 for package in packages if package.retryable)
+        recovery = self.snapshot.execution_recovery
+        if recovery is not None:
+            retry_count = max(retry_count, len(recovery.retry_candidates))
+        return retry_count
 
     def _task_clip_width(self) -> int:
         return 72 if self.tasks_expanded else 28

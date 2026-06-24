@@ -60,12 +60,12 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="execution-retry-modal"):
-            yield Static("Execute Retry", id="execution-retry-title")
+            yield Static(self._label("title"), id="execution-retry-title")
             yield Static(self._summary_text(), id="execution-retry-summary")
             with Horizontal(id="execution-retry-filters"):
                 for filter_name in self.FILTERS:
                     yield Button(
-                        filter_name.title(),
+                        self._filter_label(filter_name),
                         id=f"retry-filter-{filter_name}",
                         variant="primary" if filter_name == self.selector else "default",
                     )
@@ -73,7 +73,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
                 yield Static(self._header_text(), id="execution-retry-header")
                 packages = self._display_packages()
                 if not packages:
-                    yield Static("No work packages match this retry filter.", classes="retry-row")
+                    yield Static(self._label("empty"), classes="retry-row")
                 for package in packages:
                     with Horizontal(classes="retry-row"):
                         if self.selector == "custom":
@@ -98,9 +98,9 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
                         )
             yield Static(self._selected_text(), id="execution-retry-selected")
             with Horizontal(id="execution-retry-actions"):
-                yield Button("Cancel", id="cancel-execute-retry")
+                yield Button(self._label("cancel"), id="cancel-execute-retry")
                 yield Button(
-                    "Retry selected",
+                    self._label("confirm"),
                     id="confirm-execute-retry",
                     variant="primary",
                     disabled=not self._selected_package_ids(),
@@ -210,17 +210,69 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
             if self.snapshot.execution_recovery
             else "none"
         )
-        return f"Recovery: {recovery}  Target: {target or '(not selected)'}"
+        return (
+            f"{self._label('recovery')}: {recovery}  "
+            f"{self._label('target')}: {target or self._label('not_selected')}"
+        )
 
     def _header_text(self) -> str:
+        if self.lang == "ko":
+            prefix = "선택  " if self.selector == "custom" else ""
+            return f"{prefix}WP      상태       주제                          소유자       실행자       메모"
         prefix = "Use  " if self.selector == "custom" else ""
         return f"{prefix}WP      Status     Topic                         Owner      Executor    Note"
 
     def _selected_text(self) -> str:
         selected = self._selected_package_ids()
         if selected:
-            return f"Selected: {', '.join(selected)}"
-        return "Selected: (none)"
+            return f"{self._label('selected')}: {', '.join(selected)}"
+        return f"{self._label('selected')}: {self._label('none')}"
+
+    def _filter_label(self, selector: str) -> str:
+        labels = {
+            "ko": {
+                "all": "전체",
+                "failed": "실패",
+                "blocked": "막힘",
+                "interrupted": "중단",
+                "custom": "선택",
+            },
+            "en": {
+                "all": "All",
+                "failed": "Failed",
+                "blocked": "Blocked",
+                "interrupted": "Interrupted",
+                "custom": "Custom",
+            },
+        }
+        return labels.get(self.lang, labels["en"]).get(selector, selector.title())
+
+    def _label(self, key: str) -> str:
+        labels = {
+            "ko": {
+                "cancel": "취소",
+                "confirm": "선택 항목 재시도",
+                "empty": "이 재시도 필터에 맞는 작업 패키지가 없습니다.",
+                "none": "(없음)",
+                "not_selected": "(선택 안 됨)",
+                "recovery": "복구",
+                "selected": "선택됨",
+                "target": "대상",
+                "title": "실행 재시도",
+            },
+            "en": {
+                "cancel": "Cancel",
+                "confirm": "Retry selected",
+                "empty": "No work packages match this retry filter.",
+                "none": "(none)",
+                "not_selected": "(not selected)",
+                "recovery": "Recovery",
+                "selected": "Selected",
+                "target": "Target",
+                "title": "Execute Retry",
+            },
+        }
+        return labels.get(self.lang, labels["en"]).get(key, key)
 
 
 def _executor_label(package: WorkPackageSnapshot) -> str:

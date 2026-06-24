@@ -7,6 +7,7 @@ from textual.containers import Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Markdown, Static
 
+from trinity.display_labels import display_risk_value, display_severity_value
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkPackageSnapshot
 from trinity.textual_app.widgets.status_label import display_status_value
@@ -188,7 +189,7 @@ class WorkPackageDetailModal(ModalScreen[None]):
             f"- {self._label('owner')}: `{package.owner_agent or '-'}`",
             f"- {self._label('executor')}: `{package.current_executor or package.last_executor or '-'}`",
             f"- {self._label('review')}: `{self._status_value(package.review_status)}`",
-            f"- {self._label('risk')}: `{package.risk or self._label('unknown')}`",
+            f"- {self._label('risk')}: `{self._risk_value(package.risk)}`",
             f"- {self._label('execution_lane')}: `{self._execution_lane_label(package)}`",
             f"- {self._label('requires_execution')}: `{self._yes_no(package.requires_execution)}`",
             f"- {self._label('retry')}: `{self._retry_summary(package)}`",
@@ -247,7 +248,7 @@ class WorkPackageDetailModal(ModalScreen[None]):
                 [
                     f"- {self._label('reviewer')}: `{package.reviewer_agent or '-'}`",
                     f"- {self._label('status')}: `{self._status_value(package.review_status)}`",
-                    f"- {self._label('severity')}: `{package.review_severity or '-'}`",
+                    f"- {self._label('severity')}: `{self._severity_value(package.review_severity)}`",
                     f"- {self._label('summary')}: {package.review_summary or self._label('none')}",
                 ]
             )
@@ -376,6 +377,12 @@ class WorkPackageDetailModal(ModalScreen[None]):
 
     def _status_value(self, value: str) -> str:
         return display_status_value(value, lang=self.lang)
+
+    def _risk_value(self, value: str) -> str:
+        return display_risk_value(value, lang=self.lang, empty=self._label("unknown"))
+
+    def _severity_value(self, value: str) -> str:
+        return display_severity_value(value, lang=self.lang)
 
     def _label(self, key: str) -> str:
         labels = _LABELS.get(self.lang, _LABELS["en"])

@@ -34,6 +34,31 @@ COMPACT_SOURCE_LABELS = {
     },
 }
 
+RISK_VALUE_LABELS = {
+    "ko": {
+        "critical": "치명적",
+        "high": "높음",
+        "medium": "보통",
+        "low": "낮음",
+        "unknown": "알 수 없음",
+    },
+    "en": {},
+}
+
+SEVERITY_VALUE_LABELS = {
+    "ko": {
+        "critical": "치명적",
+        "error": "오류",
+        "high": "높음",
+        "info": "정보",
+        "low": "낮음",
+        "medium": "보통",
+        "warning": "경고",
+        "unknown": "알 수 없음",
+    },
+    "en": {},
+}
+
 
 def display_source_value(
     source: str,
@@ -56,3 +81,47 @@ def compact_source_value(source: str, *, lang: str = "en") -> str:
         return ""
     labels = COMPACT_SOURCE_LABELS.get(lang, COMPACT_SOURCE_LABELS["en"])
     return labels.get(raw, display_source_value(raw, lang=lang, empty=""))
+
+
+def display_risk_value(
+    risk: str,
+    *,
+    lang: str = "en",
+    empty: str = "-",
+) -> str:
+    """Return a localized display value for a risk level string."""
+    return _display_labeled_value(
+        risk,
+        labels_by_lang=RISK_VALUE_LABELS,
+        lang=lang,
+        empty=empty,
+    )
+
+
+def display_severity_value(
+    severity: str,
+    *,
+    lang: str = "en",
+    empty: str = "-",
+) -> str:
+    """Return a localized display value for a severity level string."""
+    return _display_labeled_value(
+        severity,
+        labels_by_lang=SEVERITY_VALUE_LABELS,
+        lang=lang,
+        empty=empty,
+    )
+
+
+def _display_labeled_value(
+    value: str,
+    *,
+    labels_by_lang: dict[str, dict[str, str]],
+    lang: str,
+    empty: str,
+) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return empty
+    labels = labels_by_lang.get(lang, labels_by_lang["en"])
+    return labels.get(raw.lower(), raw)

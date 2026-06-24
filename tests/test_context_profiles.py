@@ -16,6 +16,7 @@ from trinity.models import (
 from trinity.prompts.context_projection import (
     agent_context_profile,
     render_context_projection_block,
+    render_operating_profile_block,
 )
 from trinity.tui.events import TUIEventType
 from trinity.workflow import (
@@ -66,6 +67,37 @@ def test_agent_context_profile_defaults_to_balanced() -> None:
     assert agent_context_profile({}, "missing") == "balanced"
 
 
+def test_operating_profile_prompt_helper_renders_concise_profile() -> None:
+    agent = AsyncMock()
+    agent.spec = AgentSpec(
+        name="codex",
+        provider=Provider.CODEX,
+        cli_command="codex",
+        profile=AgentProfile(
+            mission="Implementer",
+            strengths={"implementation": 1.0, "testing": 0.8},
+            supported_turn_modes=["execute", "review"],
+            output_contracts={"execute": "execution_v1"},
+            context_profile="implementer",
+        ),
+    )
+
+    block = render_operating_profile_block(
+        {"codex": agent},
+        "codex",
+        mode="execute",
+    )
+
+    assert block.startswith("[Operating Profile]\n")
+    assert "Agent: codex" in block
+    assert "Turn mode: execute" in block
+    assert "Context profile: implementer" in block
+    assert "Mission: Implementer" in block
+    assert "Supported modes: execute, review (yes)" in block
+    assert "Output contract: execution_v1" in block
+    assert "Strengths: implementation 1.00, testing 0.80" in block
+
+
 @pytest.mark.asyncio
 async def test_execution_prompt_includes_agent_context_profile(tmp_path):
     shared = SharedContextEngine(tmp_path / "shared.md")
@@ -80,6 +112,7 @@ async def test_execution_prompt_includes_agent_context_profile(tmp_path):
             mission="Implementer",
             strengths={"implementation": 1.0},
             supported_turn_modes=["execute"],
+            output_contracts={"execute": "execution_v1"},
             context_profile="implementer",
         ),
     )
@@ -112,6 +145,9 @@ async def test_execution_prompt_includes_agent_context_profile(tmp_path):
 
     prompt = agent.send_and_wait.call_args.args[0]
     assert results[0].status == WorkStatus.DONE
+    assert "[Operating Profile]" in prompt
+    assert "Mission: Implementer" in prompt
+    assert "Output contract: execution_v1" in prompt
     assert "[Context Projection]" in prompt
     assert "Profile: implementer" in prompt
     assert "Earlier package completed." in prompt
@@ -134,7 +170,9 @@ async def test_review_prompt_includes_agent_context_profile(tmp_path):
         profile=AgentProfile(
             mission="Reviewer",
             strengths={"review": 1.0},
+            review_focus=["runtime_correctness"],
             supported_turn_modes=["review"],
+            output_contracts={"review": "review_v1"},
             context_profile="reviewer",
         ),
     )
@@ -189,6 +227,10 @@ async def test_review_prompt_includes_agent_context_profile(tmp_path):
 
     prompt = agent.send_and_wait.call_args.args[0]
     assert results[0].status == ReviewStatus.APPROVED
+    assert "[Operating Profile]" in prompt
+    assert "Mission: Reviewer" in prompt
+    assert "Output contract: review_v1" in prompt
+    assert "Review focus: runtime_correctness" in prompt
     assert "Context Projection:" in prompt
     assert "Profile: reviewer" in prompt
     assert "WP-001 changed routing files." in prompt

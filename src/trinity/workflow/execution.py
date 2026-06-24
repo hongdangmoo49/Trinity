@@ -18,6 +18,7 @@ from trinity.models import DeliberationMessage, ResponseStatus
 from trinity.prompts.context_projection import (
     agent_context_profile,
     render_context_projection_block,
+    render_operating_profile_block,
 )
 from trinity.prompts.contracts import EXECUTION_CONTRACT_ID, render_output_contract
 from trinity.providers.policy import (
@@ -657,6 +658,12 @@ class ExecutionProtocol:
         expected_files = self._format_list(package.expected_files)
         repair_notes = self._format_list(package.repair_notes)
         shared_decisions = self.shared.read_section("Agreed Conclusion") or ""
+        operating_profile = render_operating_profile_block(
+            self.agents,
+            execution_agent,
+            mode="execute",
+            heading="[Operating Profile]",
+        )
         context_projection = self._context_projection_block(execution_agent)
         fallback_note = ""
         if execution_agent != package.owner_agent:
@@ -676,6 +683,7 @@ class ExecutionProtocol:
             f"Objective: {package.objective}\n"
             f"Title: {package.title}\n"
             f"Estimated Weight: {package.estimated_weight}\n\n"
+            f"{operating_profile}"
             f"{fallback_note}"
             "Scope:\n"
             f"{scope}\n\n"

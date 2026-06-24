@@ -4524,6 +4524,10 @@ async def test_execution_matrix_surfaces_skipped_review_reason(tmp_path) -> None
         assert isinstance(app.screen, WorkPackageDetailModal)
         markdown = app.screen._markdown()
         assert "- Status: `skipped`" in markdown
+        assert (
+            "- Review skipped reason: only codex is active; "
+            "no non-owner peer reviewer is available"
+        ) in markdown
         assert "no non-owner peer reviewer is available" in markdown
 
 
@@ -4716,6 +4720,68 @@ def test_work_package_detail_modal_surfaces_retry_disabled_reason() -> None:
 
     assert "- Retry unavailable: already done" in markdown
     assert "- Retry candidate: `WP-002`" not in markdown
+
+
+def test_work_package_detail_modal_surfaces_review_skip_reason() -> None:
+    modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-003",
+            title="Single provider",
+            owner_agent="codex",
+            status="done",
+            review_status="skipped",
+            review_summary=(
+                "only codex is active; no non-owner peer reviewer is available"
+            ),
+        )
+    )
+
+    markdown = modal._markdown()
+
+    assert (
+        "- Review skipped reason: only codex is active; "
+        "no non-owner peer reviewer is available"
+    ) in markdown
+    assert "Peer review was skipped; treat confidence as lower." not in markdown
+
+
+def test_work_package_detail_modal_keeps_review_skip_fallback() -> None:
+    modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-004",
+            title="Legacy skipped review",
+            owner_agent="codex",
+            status="done",
+            review_status="skipped",
+        )
+    )
+
+    markdown = modal._markdown()
+
+    assert "- Peer review was skipped; treat confidence as lower." in markdown
+
+
+def test_work_package_detail_modal_surfaces_korean_review_skip_reason() -> None:
+    modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-005",
+            title="단일 provider",
+            owner_agent="codex",
+            status="done",
+            review_status="skipped",
+            review_summary=(
+                "only codex is active; no non-owner peer reviewer is available"
+            ),
+        ),
+        lang="ko",
+    )
+
+    markdown = modal._markdown()
+
+    assert (
+        "- 리뷰 생략 사유: only codex is active; "
+        "no non-owner peer reviewer is available"
+    ) in markdown
 
 
 @pytest.mark.asyncio

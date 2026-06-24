@@ -13,6 +13,7 @@ from textual.widgets import Button, Footer, Header, RichLog, Static
 
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
+from trinity.textual_app.widgets.execution_log_modal import ExecutionLogModal
 from trinity.textual_app.widgets.status_label import compact_status_label
 from trinity.textual_app.widgets.work_package_detail_modal import WorkPackageDetailModal
 from trinity.textual_app.widgets.workspace_picker import WorkspacePreflight
@@ -260,13 +261,13 @@ class ExecutionMatrixScreen(Screen[None]):
 
     BINDINGS = [
         Binding("f", "toggle_task_expanded", "Expand Tasks"),
-        Binding("l", "toggle_activity_expanded", "Full Log"),
+        Binding("l", "open_full_log", "Full Log"),
         Binding("r", "request_retry", "Retry"),
     ]
 
     LOCALIZED_BINDINGS = {
         ("f", "toggle_task_expanded"): ("binding_expand_tasks", None),
-        ("l", "toggle_activity_expanded"): ("binding_full_log", None),
+        ("l", "open_full_log"): ("binding_full_log", None),
         ("r", "request_retry"): ("binding_retry", None),
     }
 
@@ -277,7 +278,6 @@ class ExecutionMatrixScreen(Screen[None]):
         self.preflight: WorkspacePreflight | None = None
         self.snapshot = WorkflowNexusSnapshot()
         self.tasks_expanded = False
-        self.activity_expanded = False
         self._package_list_identity: tuple[str, ...] | None = None
         self._package_row_keys: dict[str, tuple[object, ...]] = {}
         self._package_rows: dict[str, ExecutionPackageRow] = {}
@@ -347,7 +347,7 @@ class ExecutionMatrixScreen(Screen[None]):
             return
         if event.button.id == "toggle-activity-expanded":
             event.stop()
-            self.action_toggle_activity_expanded()
+            self.action_open_full_log()
             return
         if event.button.id == "execution-retry":
             event.stop()
@@ -377,15 +377,13 @@ class ExecutionMatrixScreen(Screen[None]):
         self._sync_task_expanded_view()
         self._render_package_list()
 
-    def action_toggle_activity_expanded(self) -> None:
-        """Toggle the activity feed between recent and full log views."""
-        self.activity_expanded = not self.activity_expanded
+    def action_open_full_log(self) -> None:
+        """Open the full activity log while keeping the page feed compact."""
         if not self.is_mounted:
             return
-        self.query_one("#toggle-activity-expanded", Button).label = (
-            self._activity_toggle_label()
+        self.app.push_screen(
+            ExecutionLogModal(self._full_activity_lines(), lang=self.lang)
         )
-        self._render_log()
 
     def action_request_retry(self) -> None:
         """Ask the app shell to open the execution retry modal."""
@@ -595,15 +593,10 @@ class ExecutionMatrixScreen(Screen[None]):
         return " · ".join(parts)
 
     def _activity_lines(self) -> list[str]:
-        source = list(self.snapshot.execution_log)
-        if not source and self.snapshot.workflow_events:
-            source = list(self.snapshot.workflow_events)
+        source = self._activity_source_lines()
         if not source:
             return [self._label("activity"), self._label("execution_not_started")]
         lines = [self._label("activity")]
-        if self.activity_expanded:
-            lines.extend(source)
-            return lines
         recent = source[-7:]
         if len(source) > len(recent):
             lines.append(
@@ -614,6 +607,15 @@ class ExecutionMatrixScreen(Screen[None]):
         lines.extend(recent)
         return lines
 
+    def _activity_source_lines(self) -> list[str]:
+        source = list(self.snapshot.execution_log)
+        if not source and self.snapshot.workflow_events:
+            source = list(self.snapshot.workflow_events)
+        return source
+
+    def _full_activity_lines(self) -> list[str]:
+        return self._activity_source_lines()
+
     def _task_toggle_label(self) -> str:
         return (
             self._label("compact_tasks")
@@ -622,11 +624,7 @@ class ExecutionMatrixScreen(Screen[None]):
         )
 
     def _activity_toggle_label(self) -> str:
-        return (
-            self._label("recent_log")
-            if self.activity_expanded
-            else self._label("full_log")
-        )
+        return self._label("full_log")
 
     def _retry_button_label(self) -> str:
         retry_count = self._retry_count()

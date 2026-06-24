@@ -73,6 +73,7 @@ from trinity.textual_app.widgets.agent_recipient_model_selector import (
 from trinity.textual_app.widgets.composer import COMMAND_LIMIT, ComposerTextArea, PromptComposer
 from trinity.textual_app.widgets.confirm_quit_modal import ConfirmQuitModal
 from trinity.textual_app.widgets.context_modal import ContextCommandModal
+from trinity.textual_app.widgets.execution_log_modal import ExecutionLogModal
 from trinity.textual_app.widgets.execution_retry_modal import ExecutionRetryModal, _retry_note
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
@@ -4524,7 +4525,7 @@ async def test_execution_matrix_surfaces_skipped_review_reason(tmp_path) -> None
 
 
 @pytest.mark.asyncio
-async def test_execution_matrix_toggles_full_activity_log(tmp_path) -> None:
+async def test_execution_matrix_opens_full_activity_log_modal(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
     async with app.run_test(size=(120, 36)) as pilot:
@@ -4550,13 +4551,13 @@ async def test_execution_matrix_toggles_full_activity_log(tmp_path) -> None:
         screen.query_one("#toggle-activity-expanded", Button).press()
         await pilot.pause()
 
-        assert "Recent Log" in str(
-            screen.query_one("#toggle-activity-expanded", Button).label
+        assert isinstance(app.screen, ExecutionLogModal)
+        assert app.screen.lines[0] == "event-1"
+        assert app.screen.lines[-1] == "event-11"
+        assert str(app.screen.query_one("#execution-log-modal-title", Static).content) == (
+            "Full Execution Log"
         )
-        full_lines = screen._activity_lines()
-        assert "... 4 earlier log lines hidden" not in full_lines
-        assert "event-1" in full_lines
-        assert "event-11" in full_lines
+        assert screen._activity_lines() == recent_lines
 
 
 @pytest.mark.asyncio
@@ -4633,6 +4634,14 @@ async def test_execution_matrix_supports_korean_chrome_labels(tmp_path) -> None:
         activity_lines = screen._activity_lines()
         assert activity_lines[0] == "활동"
         assert "... 이전 로그 2줄 숨김" in activity_lines
+
+        screen.query_one("#toggle-activity-expanded", Button).press()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ExecutionLogModal)
+        assert str(app.screen.query_one("#execution-log-modal-title", Static).content) == (
+            "전체 실행 로그"
+        )
 
 
 def test_work_package_detail_modal_orders_execution_sections_first() -> None:

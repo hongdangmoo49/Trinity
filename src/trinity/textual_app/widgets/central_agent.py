@@ -171,14 +171,14 @@ class CentralAgentView(VerticalScroll):
                     f"- **{item.id}** [{item.severity}][{status}] {title}"
                 )
             lines.append("")
-            lines.append("Use `/improve high`, `/improve all`, `/improve AI-001`, or `/improve done`.")
+            lines.append(self._label("improve_follow_up_hint"))
         elif snapshot.state == "post_review_ready":
             lines.extend(
                 [
                     "",
                     f"### {self._label('follow_up_work')}",
                     self._label("no_follow_up_items"),
-                    "Use `/improve done` to close the workflow.",
+                    self._label("improve_done_hint"),
                 ]
             )
         return "\n".join(lines)
@@ -252,7 +252,7 @@ class CentralAgentView(VerticalScroll):
             ]
         )
         if command.action_hint:
-            lines.append(f"_Next:_ {command.action_hint}")
+            lines.append(f"_{self._label('next')}:_ {command.action_hint}")
 
     @staticmethod
     def _compact_list(values: list[str], *, limit: int = 5) -> str:
@@ -506,6 +506,12 @@ class CentralAgentView(VerticalScroll):
             "follow_up_work": "후속 보강 작업",
             "goal": "목표",
             "idle": "대기",
+            "improve_done_hint": "`/improve done`으로 워크플로우를 종료하세요.",
+            "improve_follow_up_hint": (
+                "`/improve high`, `/improve all`, `/improve AI-001`, "
+                "`/improve done` 중 하나를 실행하세요."
+            ),
+            "next": "다음",
             "next_action": "다음 작업",
             "no_follow_up_items": "최종 리뷰에서 추가 작업 항목이 추출되지 않았습니다.",
             "planning_no_workspace": "기획은 작업 폴더 없이 진행할 수 있습니다. 실행 시 작업 폴더를 선택합니다.",
@@ -568,6 +574,12 @@ class CentralAgentView(VerticalScroll):
             "follow_up_work": "Suggested Follow-up Work",
             "goal": "Goal",
             "idle": "Idle",
+            "improve_done_hint": "Use `/improve done` to close the workflow.",
+            "improve_follow_up_hint": (
+                "Use `/improve high`, `/improve all`, `/improve AI-001`, "
+                "or `/improve done`."
+            ),
+            "next": "Next",
             "next_action": "Next action",
             "no_follow_up_items": "No action items were extracted from the final review.",
             "planning_no_workspace": "Planning does not require a workspace. Execute will ask for one.",

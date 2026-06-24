@@ -1674,7 +1674,7 @@ class TrinityTextualApp(App[None]):
         if parsed.error:
             self._record_slash_command_result(
                 text,
-                "Syntax Error",
+                textual_presenters.syntax_error_title(lang=self.config.lang),
                 parsed.error,
                 severity="warning",
             )
@@ -1685,11 +1685,17 @@ class TrinityTextualApp(App[None]):
             suggestions = self._slash_command_suggestions(parsed.token)
             self._record_slash_command_result(
                 parsed.token,
-                "Unknown Command",
-                self._unknown_command_markdown(parsed.token, suggestions),
+                textual_presenters.unknown_command_title(lang=self.config.lang),
+                self._unknown_command_markdown(
+                    parsed.token,
+                    suggestions,
+                    lang=self.config.lang,
+                ),
                 severity="warning",
-                table_columns=("Suggestion", "Summary"),
-                table_rows=self._unknown_command_rows(suggestions),
+                table_columns=textual_presenters.unknown_command_table_columns(
+                    lang=self.config.lang
+                ),
+                table_rows=self._unknown_command_rows(suggestions, lang=self.config.lang),
             )
             return
 
@@ -1707,10 +1713,12 @@ class TrinityTextualApp(App[None]):
         if command == "help":
             self._record_slash_command_result(
                 parsed.spec.name,
-                "Trinity Commands",
-                self._help_markdown(),
-                table_columns=("Command", "Category", "Agent Call", "Summary"),
-                table_rows=self._help_rows(),
+                textual_presenters.help_title(lang=self.config.lang),
+                self._help_markdown(lang=self.config.lang),
+                table_columns=textual_presenters.help_table_columns(
+                    lang=self.config.lang
+                ),
+                table_rows=self._help_rows(lang=self.config.lang),
             )
             return
         if command == "status":
@@ -2361,22 +2369,33 @@ class TrinityTextualApp(App[None]):
         return textual_presenters.slash_command_suggestions(token)
 
     @staticmethod
-    def _unknown_command_markdown(token: str, suggestions: tuple[str, ...]) -> str:
-        return textual_presenters.unknown_command_markdown(token, suggestions)
+    def _unknown_command_markdown(
+        token: str,
+        suggestions: tuple[str, ...],
+        *,
+        lang: str = "en",
+    ) -> str:
+        return textual_presenters.unknown_command_markdown(
+            token,
+            suggestions,
+            lang=lang,
+        )
 
     @staticmethod
     def _unknown_command_rows(
         suggestions: tuple[str, ...],
+        *,
+        lang: str = "en",
     ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.unknown_command_rows(suggestions)
+        return textual_presenters.unknown_command_rows(suggestions, lang=lang)
 
-    def _help_markdown(self) -> str:
+    def _help_markdown(self, *, lang: str = "en") -> str:
         """Return registry-backed help text for Trinity-owned slash commands."""
-        return textual_presenters.help_markdown()
+        return textual_presenters.help_markdown(lang=lang)
 
-    def _help_rows(self) -> tuple[tuple[str, str, str, str], ...]:
+    def _help_rows(self, *, lang: str = "en") -> tuple[tuple[str, str, str, str], ...]:
         """Return slash command registry rows for read-only help tables."""
-        return textual_presenters.help_rows(use_korean=self.config.lang == "ko")
+        return textual_presenters.help_rows(lang=lang)
 
     @staticmethod
     def _snapshot_workflow_markdown(

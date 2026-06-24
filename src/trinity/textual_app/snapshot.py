@@ -16,6 +16,7 @@ from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workflow import (
     FINAL_REVIEW_PACKAGE_ID,
     PostReviewActionItem,
+    ReviewDepth,
     ReviewPackage,
     ReviewResult,
     ReviewStatus,
@@ -629,6 +630,17 @@ class NexusSnapshotAdapter:
                     status,
                     runtime,
                 )
+                if NexusSnapshotAdapter._has_pending_escalated_review(
+                    planned,
+                    results,
+                ):
+                    status = NexusSnapshotAdapter._merge_runtime_review_status(
+                        NexusSnapshotAdapter._runtime_review_status(
+                            runtime,
+                            "needs_second_review",
+                        ),
+                        runtime,
+                    )
             representative = NexusSnapshotAdapter._representative_review_result(results)
             runtime_representative = NexusSnapshotAdapter._representative_runtime_review_state(
                 runtime
@@ -711,6 +723,23 @@ class NexusSnapshotAdapter:
             (result.status.value for result in results),
             key=lambda status: priority.get(status, 0),
         )
+
+    @staticmethod
+    def _has_pending_escalated_review(
+        planned: list[ReviewPackage],
+        results: list[ReviewResult],
+    ) -> bool:
+        completed_ids = {
+            result.review_package_id for result in results if result.review_package_id
+        }
+        for review in planned:
+            if review.depth != ReviewDepth.ESCALATED_PEER:
+                continue
+            if not review.required or not review.reviewer_agent:
+                continue
+            if review.id not in completed_ids:
+                return True
+        return False
 
     @staticmethod
     def _representative_review_result(results: list[ReviewResult]) -> ReviewResult | None:

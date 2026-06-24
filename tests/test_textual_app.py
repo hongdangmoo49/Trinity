@@ -3805,6 +3805,19 @@ def test_execution_matrix_compacts_reviewer_status_labels() -> None:
         )
         == "3p queued"
     )
+    assert (
+        _review_label(
+            WorkPackageSnapshot(
+                id="WP-005",
+                title="Needs escalation",
+                owner_agent="claude",
+                status="done",
+                review_status="needs_second_review",
+                reviewer_agent="codex, antigravity",
+            )
+        )
+        == "needs 2nd"
+    )
 
 
 @pytest.mark.asyncio

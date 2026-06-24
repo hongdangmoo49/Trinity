@@ -30,6 +30,7 @@ _EXECUTION_MATRIX_LABELS = {
         "expand_tasks": "작업 펼치기",
         "full_log": "전체 로그",
         "lane": "레인",
+        "lanes": "레인",
         "no_work_packages": "(작업 패키지 없음)",
         "not_selected": "선택 안 됨",
         "owner": "소유자",
@@ -37,14 +38,19 @@ _EXECUTION_MATRIX_LABELS = {
         "package_task": "패키지 / 작업",
         "recent_log": "최근 로그",
         "retry": "재시도",
+        "retry_summary": "재시도",
+        "run": "실행",
         "review": "리뷰",
         "review_prefix": "리뷰",
         "risk_lane": "리스크/레인",
         "risk_prefix": "리스크",
         "serial_lane": "직렬",
+        "serial_summary": "직렬",
         "spec": "상세",
         "status": "상태",
+        "target": "대상",
         "workspace": "workspace",
+        "workflow": "워크플로우",
     },
     "en": {
         "activity": "Activity",
@@ -57,6 +63,7 @@ _EXECUTION_MATRIX_LABELS = {
         "expand_tasks": "Expand Tasks",
         "full_log": "Full Log",
         "lane": "Lane",
+        "lanes": "lanes",
         "no_work_packages": "(no work packages)",
         "not_selected": "not selected",
         "owner": "Owner",
@@ -64,14 +71,19 @@ _EXECUTION_MATRIX_LABELS = {
         "package_task": "Package / Task",
         "recent_log": "Recent Log",
         "retry": "Retry",
+        "retry_summary": "retry",
+        "run": "run",
         "review": "Review",
         "review_prefix": "review",
         "risk_lane": "Risk/Lane",
         "risk_prefix": "risk",
         "serial_lane": "Serial",
+        "serial_summary": "serial",
         "spec": "Spec",
         "status": "Status",
+        "target": "target",
         "workspace": "workspace",
+        "workflow": "workflow",
     },
 }
 
@@ -584,12 +596,12 @@ class ExecutionMatrixScreen(Screen[None]):
             f"DONE {counts['DONE']}",
             f"ISSUE {counts['ISSUE']}",
             *self._parallel_summary_parts(),
-            f"retry {retry_count}",
-            f"workflow {state}",
-            f"run {run}",
+            f"{self._label('retry_summary')} {retry_count}",
+            f"{self._label('workflow')} {state}",
+            f"{self._label('run')} {run}",
         ]
         if target:
-            parts.append(f"target: {_clip(target, 28)}")
+            parts.append(f"{self._label('target')}: {_clip(target, 28)}")
         return " · ".join(parts)
 
     def _activity_lines(self) -> list[str]:
@@ -652,9 +664,9 @@ class ExecutionMatrixScreen(Screen[None]):
         serial_count = sum(1 for package in packages if not package.parallelizable)
         parts: list[str] = []
         if groups:
-            parts.append(f"lanes {len(groups)}")
+            parts.append(f"{self._label('lanes')} {len(groups)}")
         if serial_count:
-            parts.append(f"serial {serial_count}")
+            parts.append(f"{self._label('serial_summary')} {serial_count}")
         return parts
 
     def _task_clip_width(self) -> int:

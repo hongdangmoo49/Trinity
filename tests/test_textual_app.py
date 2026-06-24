@@ -77,6 +77,17 @@ from trinity.textual_app.presenters import (
     subtasks_markdown,
     subtasks_rows,
     subtasks_table_columns,
+    target_action_hint,
+    target_cleared_markdown,
+    target_control_repo_action_hint,
+    target_current_markdown,
+    target_not_directory_markdown,
+    target_prepare_failed_markdown,
+    target_preflight_cancelled_markdown,
+    target_rows,
+    target_selection_cancelled_markdown,
+    target_title,
+    target_workspace_markdown,
 )
 from trinity.textual_app.report_export import (
     snapshot_report_markdown,
@@ -953,6 +964,39 @@ def test_save_presenter_uses_korean_labels() -> None:
     assert save_auto_persist_markdown(lang="ko") == (
         "Textual 워크플로우는 자동으로 저장됩니다. "
         "Markdown 리포트 내보내기는 /report save를 사용하세요."
+    )
+
+
+def test_target_presenter_uses_korean_labels() -> None:
+    assert target_title(lang="ko") == "대상"
+    assert target_selection_cancelled_markdown(lang="ko") == (
+        "대상 워크스페이스 선택을 취소했습니다."
+    )
+    assert target_preflight_cancelled_markdown(lang="ko") == (
+        "워크스페이스 사전 확인을 취소했습니다."
+    )
+    assert target_control_repo_action_hint(lang="ko").startswith("Trinity 제어 저장소")
+    assert target_current_markdown(None, lang="ko") == "현재 대상: `(미설정)`"
+    assert target_action_hint(lang="ko").startswith("실행 전에 `/target <path>`")
+    assert target_cleared_markdown(lang="ko") == "대상 워크스페이스를 초기화했습니다."
+    assert target_not_directory_markdown("/tmp/file", lang="ko") == (
+        "대상 경로가 이미 존재하지만 디렉터리가 아닙니다: `/tmp/file`"
+    )
+    assert target_prepare_failed_markdown("denied", lang="ko") == (
+        "대상 워크스페이스를 준비할 수 없습니다: denied"
+    )
+    assert target_workspace_markdown("/tmp/app", lang="ko") == (
+        "대상 워크스페이스: `/tmp/app`"
+    )
+    assert target_rows(
+        "/tmp/app",
+        inside_control_repo=False,
+        control_repo_confirmed=True,
+        lang="ko",
+    ) == (
+        ("경로", "/tmp/app"),
+        ("제어 저장소 내부", "아니오"),
+        ("제어 저장소 확인", "예"),
     )
 
 
@@ -3351,6 +3395,85 @@ async def test_nexus_save_uses_korean_labels(tmp_path) -> None:
         )
         assert controller.started_prompts == []
         assert controller.follow_ups == []
+
+
+@pytest.mark.asyncio
+async def test_nexus_target_current_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)):
+        app._handle_textual_slash_command("/target")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/target"
+        assert result.title == "대상"
+        assert result.body == "현재 대상: `(미설정)`"
+        assert result.action_hint == (
+            "실행 전에 `/target <path>`를 사용하거나 워크스페이스를 선택하세요."
+        )
+        assert result.empty is True
+
+
+@pytest.mark.asyncio
+async def test_nexus_target_path_outside_control_repo_uses_korean_labels(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        outside_target = tmp_path.parent / f"{tmp_path.name}-ko-target"
+        app._handle_textual_slash_command(f"/target {outside_target}")
+        await pilot.pause()
+
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/target"
+        assert result.title == "대상"
+        assert result.body.startswith("대상 워크스페이스:")
+        assert result.table_columns == ("항목", "값")
+        assert ("경로", str(outside_target.resolve())) in result.table_rows
+        assert ("제어 저장소 내부", "아니오") in result.table_rows
+        assert ("제어 저장소 확인", "아니오") in result.table_rows
+
+
+@pytest.mark.asyncio
+async def test_nexus_target_cancel_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        inside_target = tmp_path / "inside-control-repo"
+        app._handle_textual_slash_command(f"/target {inside_target}")
+        await pilot.pause()
+        assert isinstance(app.screen, TargetWorkspaceConfirmModal)
+
+        app.screen.query_one("#cancel-target-confirm", Button).press()
+        await pilot.pause()
+
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/target"
+        assert result.title == "대상"
+        assert result.body == "대상 워크스페이스 선택을 취소했습니다."
+        assert result.action_hint == (
+            "Trinity 제어 저장소 밖의 워크스페이스를 선택하세요."
+        )
 
 
 @pytest.mark.asyncio

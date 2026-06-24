@@ -1509,11 +1509,13 @@ class TrinityTextualApp(App[None]):
             return
         self._record_slash_command_result(
             "/target",
-            "Target",
-            "Target workspace selection cancelled.",
+            textual_presenters.target_title(lang=self.config.lang),
+            textual_presenters.target_selection_cancelled_markdown(lang=self.config.lang),
             severity="warning",
             empty=True,
-            action_hint="Choose a workspace outside the Trinity control repo.",
+            action_hint=textual_presenters.target_control_repo_action_hint(
+                lang=self.config.lang
+            ),
         )
 
     def _continue_nexus_workspace_selection(
@@ -1590,11 +1592,13 @@ class TrinityTextualApp(App[None]):
             return
         self._record_slash_command_result(
             "/target",
-            "Target",
-            "Workspace preflight cancelled.",
+            textual_presenters.target_title(lang=self.config.lang),
+            textual_presenters.target_preflight_cancelled_markdown(lang=self.config.lang),
             severity="warning",
             empty=True,
-            action_hint="Choose a workspace outside the Trinity control repo.",
+            action_hint=textual_presenters.target_control_repo_action_hint(
+                lang=self.config.lang
+            ),
         )
         self._pending_execute_retry = None
 
@@ -2818,12 +2822,13 @@ class TrinityTextualApp(App[None]):
                 current = target.session.target_workspace
             self._record_slash_command_result(
                 "/target",
-                "Target",
-                f"Current target: `{current or '(not set)'}`",
-                empty=current is None,
-                action_hint=(
-                    "Use `/target <path>` or Select Workspace before execution."
+                textual_presenters.target_title(lang=self.config.lang),
+                textual_presenters.target_current_markdown(
+                    str(current) if current else None,
+                    lang=self.config.lang,
                 ),
+                empty=current is None,
+                action_hint=textual_presenters.target_action_hint(lang=self.config.lang),
             )
             return
         action = args[0].lower()
@@ -2833,8 +2838,8 @@ class TrinityTextualApp(App[None]):
             self._apply_workflow_outcome(outcome)
             self._record_slash_command_result(
                 "/target",
-                "Target",
-                "Target workspace cleared.",
+                textual_presenters.target_title(lang=self.config.lang),
+                textual_presenters.target_cleared_markdown(lang=self.config.lang),
             )
             return
         path = self._resolve_target_path(" ".join(args))
@@ -2862,11 +2867,13 @@ class TrinityTextualApp(App[None]):
             return
         self._record_slash_command_result(
             "/target",
-            "Target",
-            "Target workspace selection cancelled.",
+            textual_presenters.target_title(lang=self.config.lang),
+            textual_presenters.target_selection_cancelled_markdown(lang=self.config.lang),
             severity="warning",
             empty=True,
-            action_hint="Choose a workspace outside the Trinity control repo.",
+            action_hint=textual_presenters.target_control_repo_action_hint(
+                lang=self.config.lang
+            ),
         )
 
     def _set_textual_target_workspace(
@@ -2879,8 +2886,11 @@ class TrinityTextualApp(App[None]):
             if path.exists() and not path.is_dir():
                 self._record_slash_command_result(
                     "/target",
-                    "Target",
-                    f"Target path exists but is not a directory: `{path}`",
+                    textual_presenters.target_title(lang=self.config.lang),
+                    textual_presenters.target_not_directory_markdown(
+                        str(path),
+                        lang=self.config.lang,
+                    ),
                     severity="warning",
                     empty=True,
                 )
@@ -2890,8 +2900,11 @@ class TrinityTextualApp(App[None]):
         except OSError as exc:
             self._record_slash_command_result(
                 "/target",
-                "Target",
-                f"Could not prepare target workspace: {exc}",
+                textual_presenters.target_title(lang=self.config.lang),
+                textual_presenters.target_prepare_failed_markdown(
+                    str(exc),
+                    lang=self.config.lang,
+                ),
                 severity="warning",
                 empty=True,
             )
@@ -2913,21 +2926,20 @@ class TrinityTextualApp(App[None]):
             )
         self.workspace_candidate = resolved
         self._sync_nexus_workspace_candidate()
+        inside_control_repo = self._is_control_repo_target(resolved)
         self._record_slash_command_result(
             "/target",
-            "Target",
-            f"Target workspace: `{resolved}`",
-            table_columns=("Item", "Value"),
-            table_rows=(
-                ("Path", str(resolved)),
-                (
-                    "Inside control repo",
-                    "yes" if self._is_control_repo_target(resolved) else "no",
-                ),
-                (
-                    "Control repo confirmed",
-                    "yes" if control_repo_confirmed else "no",
-                ),
+            textual_presenters.target_title(lang=self.config.lang),
+            textual_presenters.target_workspace_markdown(
+                str(resolved),
+                lang=self.config.lang,
+            ),
+            table_columns=textual_presenters.status_table_columns(lang=self.config.lang),
+            table_rows=textual_presenters.target_rows(
+                str(resolved),
+                inside_control_repo=inside_control_repo,
+                control_repo_confirmed=control_repo_confirmed,
+                lang=self.config.lang,
             ),
         )
 

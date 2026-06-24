@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from trinity.textual_app.snapshot import WorkflowNexusSnapshot
+from trinity.textual_app.snapshot import WorkflowNexusSnapshot, WorkPackageSnapshot
 
 _MD_SPECIAL_CHARS = "\\`*_{}[]<>()#+-.!|"
 
@@ -20,6 +20,7 @@ def snapshot_has_report_data(snapshot: WorkflowNexusSnapshot) -> bool:
             snapshot.decisions,
             snapshot.central_work_packages,
             snapshot.work_packages,
+            snapshot.work_package_details,
             snapshot.subtasks,
             snapshot.work_package_repairs,
             snapshot.execution_log,
@@ -67,6 +68,10 @@ def snapshot_report_markdown(snapshot: WorkflowNexusSnapshot) -> str:
         heading = "## Local WP Graph" if snapshot.central_work_packages else "## Work Packages"
         lines.extend(["", heading, ""])
         lines.extend(f"- {_md_inline(package)}" for package in snapshot.work_packages)
+    package_detail_lines = _work_package_detail_lines(snapshot)
+    if package_detail_lines:
+        lines.extend(["", "## Work Package Routing", ""])
+        lines.extend(package_detail_lines)
     if snapshot.subtasks:
         lines.extend(["", "## Subtasks", ""])
         lines.extend(
@@ -165,6 +170,72 @@ def _provider_lines(snapshot: WorkflowNexusSnapshot) -> list[str]:
             f"session {_md_inline(session)}"
         )
     return lines
+
+
+def _work_package_detail_lines(snapshot: WorkflowNexusSnapshot) -> list[str]:
+    lines: list[str] = []
+    for package in snapshot.work_package_details:
+        lines.extend(_work_package_lines(package))
+    return lines
+
+
+def _work_package_lines(package: WorkPackageSnapshot) -> list[str]:
+    title = package.title or "(untitled)"
+    lines = [
+        f"- **{_md_inline(package.id or '(unnamed)')}** {_md_inline(title)}",
+        (
+            "  - Status: "
+            f"{_md_inline(package.status or 'unknown')}; "
+            f"owner {_md_inline(package.owner_agent or '(unknown)')}; "
+            f"executor {_md_inline(_package_executor(package))}; "
+            f"lane {_md_inline(_package_lane(package))}"
+        ),
+    ]
+    routing = _package_routing_summary(package)
+    if routing:
+        lines.append(f"  - Routing: {routing}")
+    if package.routing_reason:
+        lines.append(f"  - Reason: {_md_inline(package.routing_reason)}")
+    if package.review_status or package.reviewer_agent:
+        lines.append(
+            "  - Review: "
+            f"{_md_inline(package.review_status or '(none)')}; "
+            f"reviewer {_md_inline(package.reviewer_agent or '(none)')}"
+        )
+    return lines
+
+
+def _package_executor(package: WorkPackageSnapshot) -> str:
+    return (
+        package.current_executor
+        or package.last_executor
+        or package.last_result_agent
+        or "(none)"
+    )
+
+
+def _package_lane(package: WorkPackageSnapshot) -> str:
+    if not package.parallelizable:
+        return "serial"
+    if package.parallel_group is not None:
+        return f"g{package.parallel_group}"
+    return "unspecified"
+
+
+def _package_routing_summary(package: WorkPackageSnapshot) -> str:
+    parts: list[str] = []
+    if package.task_kind:
+        parts.append(f"kind {_md_inline(package.task_kind)}")
+    if package.profile_revision:
+        parts.append(f"profile {_md_inline(package.profile_revision)}")
+    if package.routing_score:
+        parts.append(f"score {_md_inline(_format_score(package.routing_score))}")
+    return "; ".join(parts)
+
+
+def _format_score(score: float) -> str:
+    text = f"{score:.3f}".rstrip("0").rstrip(".")
+    return text or "0"
 
 
 def _safe_filename_part(value: str) -> str:

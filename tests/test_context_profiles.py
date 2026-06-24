@@ -15,9 +15,11 @@ from trinity.models import (
 )
 from trinity.prompts.context_projection import (
     agent_context_profile,
+    agent_output_contract_id,
     render_context_projection_block,
     render_operating_profile_block,
 )
+from trinity.prompts.contracts import EXECUTION_CONTRACT_ID
 from trinity.tui.events import TUIEventType
 from trinity.workflow import (
     ExecutionProtocol,
@@ -98,6 +100,66 @@ def test_operating_profile_prompt_helper_renders_concise_profile() -> None:
     assert "Strengths: implementation 1.00, testing 0.80" in block
 
 
+def test_agent_output_contract_id_falls_back_for_mode_mismatch() -> None:
+    agent = AsyncMock()
+    agent.spec = AgentSpec(
+        name="codex",
+        provider=Provider.CODEX,
+        cli_command="codex",
+        profile=AgentProfile(
+            output_contracts={"execute": "review_v1"},
+            context_profile="implementer",
+        ),
+    )
+
+    contract_id = agent_output_contract_id(
+        {"codex": agent},
+        "codex",
+        mode="execute",
+        default=EXECUTION_CONTRACT_ID,
+    )
+    block = render_operating_profile_block(
+        {"codex": agent},
+        "codex",
+        mode="execute",
+        default_output_contract=EXECUTION_CONTRACT_ID,
+    )
+
+    assert contract_id == EXECUTION_CONTRACT_ID
+    assert "Output contract: execution_v1" in block
+    assert "review_v1" not in block
+
+
+def test_agent_output_contract_id_falls_back_for_unknown_contract() -> None:
+    agent = AsyncMock()
+    agent.spec = AgentSpec(
+        name="codex",
+        provider=Provider.CODEX,
+        cli_command="codex",
+        profile=AgentProfile(
+            output_contracts={"execute": "custom_missing_v1"},
+            context_profile="implementer",
+        ),
+    )
+
+    contract_id = agent_output_contract_id(
+        {"codex": agent},
+        "codex",
+        mode="execute",
+        default=EXECUTION_CONTRACT_ID,
+    )
+    block = render_operating_profile_block(
+        {"codex": agent},
+        "codex",
+        mode="execute",
+        default_output_contract=EXECUTION_CONTRACT_ID,
+    )
+
+    assert contract_id == EXECUTION_CONTRACT_ID
+    assert "Output contract: execution_v1" in block
+    assert "custom_missing_v1" not in block
+
+
 @pytest.mark.asyncio
 async def test_execution_prompt_includes_agent_context_profile(tmp_path):
     shared = SharedContextEngine(tmp_path / "shared.md")
@@ -148,6 +210,7 @@ async def test_execution_prompt_includes_agent_context_profile(tmp_path):
     assert "[Operating Profile]" in prompt
     assert "Mission: Implementer" in prompt
     assert "Output contract: execution_v1" in prompt
+    assert "OUTPUT CONTRACT: execution_v1" in prompt
     assert "[Context Projection]" in prompt
     assert "Profile: implementer" in prompt
     assert "Earlier package completed." in prompt
@@ -155,6 +218,7 @@ async def test_execution_prompt_includes_agent_context_profile(tmp_path):
         event for event in events if event.type == TUIEventType.WORK_PACKAGE_STARTED
     )
     assert started_event.data["context_profile"] == "implementer"
+    assert started_event.data["output_contract"] == EXECUTION_CONTRACT_ID
 
 
 @pytest.mark.asyncio
@@ -230,6 +294,7 @@ async def test_review_prompt_includes_agent_context_profile(tmp_path):
     assert "[Operating Profile]" in prompt
     assert "Mission: Reviewer" in prompt
     assert "Output contract: review_v1" in prompt
+    assert "OUTPUT CONTRACT: review_v1" in prompt
     assert "Review focus: runtime_correctness" in prompt
     assert "Context Projection:" in prompt
     assert "Profile: reviewer" in prompt

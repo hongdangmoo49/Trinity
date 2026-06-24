@@ -49,6 +49,10 @@ from trinity.textual_app.presenters import (
     snapshot_workflow_markdown,
     snapshot_workflow_rows,
     status_table_columns,
+    subtasks_action_hint,
+    subtasks_markdown,
+    subtasks_rows,
+    subtasks_table_columns,
 )
 from trinity.textual_app.report_export import (
     snapshot_report_markdown,
@@ -748,6 +752,43 @@ def test_packages_presenter_uses_korean_labels() -> None:
     assert packages_table_columns(lang="ko") == ("#", "출처", "작업 패키지")
     assert packages_action_hint(has_packages=False, lang="ko").startswith("blueprint")
     assert packages_action_hint(has_packages=True, lang="ko") == ""
+
+
+def test_subtasks_presenter_uses_korean_labels() -> None:
+    empty = WorkflowNexusSnapshot()
+    snapshot = WorkflowNexusSnapshot(
+        subtasks=[
+            SubtaskSnapshot(
+                id="ST-001",
+                parent_package_id="WP-001",
+                parent_agent="claude",
+                delegated_to="codex",
+                objective="테스트",
+                result_summary="완료",
+                status="done",
+            )
+        ]
+    )
+
+    assert subtasks_markdown(empty, lang="ko") == (
+        "현재 세션에 기록된 프로바이더 위임 하위 작업이 없습니다."
+    )
+    assert "1. **ST-001** [done] WP-001 -> codex: 완료" in subtasks_markdown(
+        snapshot,
+        lang="ko",
+    )
+    assert subtasks_rows(snapshot, lang="ko") == (
+        ("ST-001", "WP-001", "codex", "done", "완료"),
+    )
+    assert subtasks_table_columns(lang="ko") == (
+        "ID",
+        "작업 패키지",
+        "위임 대상",
+        "상태",
+        "요약",
+    )
+    assert subtasks_action_hint(has_subtasks=False, lang="ko").startswith("실행 중인")
+    assert subtasks_action_hint(has_subtasks=True, lang="ko") == ""
 
 
 def test_model_discovery_applies_fast_provider_before_slow_provider(
@@ -2956,6 +2997,67 @@ async def test_start_slash_empty_packages_uses_korean_hint(tmp_path) -> None:
         assert result.empty is True
         assert result.body == "현재 세션에 생성된 워크플로우 작업 패키지가 없습니다."
         assert result.action_hint.startswith("blueprint")
+
+
+@pytest.mark.asyncio
+async def test_start_slash_subtasks_uses_korean_labels(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            subtasks=[
+                SubtaskSnapshot(
+                    id="ST-001",
+                    parent_package_id="WP-001",
+                    parent_agent="claude",
+                    delegated_to="codex",
+                    objective="Implement",
+                    result_summary="Done",
+                    status="done",
+                )
+            ],
+        )
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("/subtasks ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, LocalCommandModal)
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/subtasks"
+        assert result.table_columns == ("ID", "작업 패키지", "위임 대상", "상태", "요약")
+        assert result.table_rows[0] == ("ST-001", "WP-001", "codex", "done", "Done")
+        assert "1. **ST-001** [done] WP-001 -> codex: Done" in result.body
+        table = app.screen.query_one("#local-command-table", Static)
+        assert "위임 대상" in str(table.render())
+
+
+@pytest.mark.asyncio
+async def test_start_slash_empty_subtasks_uses_korean_hint(tmp_path) -> None:
+    controller = FakeWorkflowController(WorkflowNexusSnapshot(session_id="wf-fake"))
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(100, 30)):
+        app._handle_textual_slash_command("/subtasks")
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.empty is True
+        assert result.body == "현재 세션에 기록된 프로바이더 위임 하위 작업이 없습니다."
+        assert result.action_hint.startswith("실행 중인")
 
 
 @pytest.mark.asyncio

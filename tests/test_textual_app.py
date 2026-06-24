@@ -49,6 +49,7 @@ from trinity.textual_app.screens.start import SacredGeometryAnimation, StartScre
 from trinity.textual_app.slash_palette import SlashCommandPaletteProvider
 from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import (
+    AgentQualitySnapshot,
     LocalCommandSnapshot,
     ProviderSnapshot,
     QuestionSnapshot,
@@ -1245,6 +1246,30 @@ def test_snapshot_report_markdown_includes_provider_metadata() -> None:
     assert "mission Implement and test approved work packages" in md
 
 
+def test_snapshot_report_markdown_includes_agent_quality_metadata() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-quality",
+        goal="quality report",
+        state="reviewing",
+        agent_quality=[
+            AgentQualitySnapshot(
+                agent_name="codex",
+                signal_count=3,
+                success_count=2,
+                blocker_count=1,
+                required_change_count=4,
+                score=0.667,
+            )
+        ],
+    )
+
+    md = snapshot_report_markdown(snapshot)
+
+    assert "## Advisory Agent Quality" in md
+    assert "**codex**: score 0\\.667; success 2/3" in md
+    assert "blockers 1; required changes 4" in md
+
+
 @pytest.mark.asyncio
 async def test_report_screen_snapshot_shows_provider_profile_metadata(
     tmp_path,
@@ -1289,6 +1314,47 @@ async def test_report_screen_snapshot_shows_provider_profile_metadata(
     assert "profile implementer" in rendered
     assert "modes execute, review" in rendered
     assert "output execution_v1" in rendered
+
+
+@pytest.mark.asyncio
+async def test_report_screen_snapshot_shows_agent_quality_metadata(
+    tmp_path,
+) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-quality",
+        goal="quality report",
+        state="reviewing",
+        agent_quality=[
+            AgentQualitySnapshot(
+                agent_name="codex",
+                signal_count=3,
+                success_count=2,
+                blocker_count=1,
+                required_change_count=4,
+                score=0.667,
+            )
+        ],
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        workflow_controller=FakeWorkflowController(snapshot),
+    )
+    app.active_snapshot = snapshot
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("report")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, ReportScreen)
+        body = screen.query_one("#report-body")
+        rendered = "\n".join(str(child.render()) for child in body.children)
+
+    assert "Advisory Agent Quality" in rendered
+    assert "codex" in rendered
+    assert "score 0.667" in rendered
+    assert "success 2/3" in rendered
+    assert "required changes 4" in rendered
 
 
 def test_snapshot_report_markdown_includes_work_package_routing_metadata() -> None:

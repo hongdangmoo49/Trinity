@@ -215,10 +215,15 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
             target = self.snapshot.execution_recovery.target_workspace
         if not target:
             target = self.snapshot.target_workspace
-        recovery = (
+        recovery_state = (
             self.snapshot.execution_recovery.state
             if self.snapshot.execution_recovery
-            else "none"
+            else ""
+        )
+        recovery = display_status_value(
+            recovery_state,
+            lang=self.lang,
+            empty=self._label("none") if self.lang == "ko" else "none",
         )
         return (
             f"{self._label('recovery')}: {recovery}  "

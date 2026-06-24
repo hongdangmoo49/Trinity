@@ -612,6 +612,7 @@ class ExecutionMatrixScreen(Screen[None]):
                         package.current_executor,
                         package.last_executor,
                         package.owner_agent,
+                        lang=self.lang,
                     ),
                     status=compact_status_label(package.status or "pending"),
                     review_status=_review_label(package, self.lang),
@@ -845,10 +846,11 @@ def _parse_package_line(line: str) -> tuple[str, str, str]:
     return task, assignee, status
 
 
-def _executor_label(current: str, last: str, owner: str) -> str:
+def _executor_label(current: str, last: str, owner: str, *, lang: str = "en") -> str:
     executor = current or last or "-"
     if executor not in {"", "-"} and owner and executor != owner:
-        return f"{executor} fallback"
+        suffix = "폴백" if lang == "ko" else "fallback"
+        return f"{executor} {suffix}"
     return executor
 
 

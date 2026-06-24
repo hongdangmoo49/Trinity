@@ -788,6 +788,34 @@ def test_context_markdown_uses_korean_labels() -> None:
     assert "### 워크플로우 이력" in markdown
     assert "### 실행 결과" in markdown
 
+    placeholder_markdown = snapshot_context_markdown(
+        WorkflowNexusSnapshot(
+            round_num=1,
+            subtasks=[
+                SubtaskSnapshot(
+                    id="",
+                    parent_package_id="",
+                    parent_agent="",
+                    delegated_to="",
+                    objective="",
+                    result_summary="",
+                    status="waiting",
+                )
+            ],
+            final_review=ReviewSnapshot(
+                reviewer_agent="",
+                status="approved",
+            ),
+        ),
+        lang="ko",
+    )
+    assert "- 워크플로우: `(새 워크플로우)`" in placeholder_markdown
+    assert "- 목표: (없음)" in placeholder_markdown
+    assert "- **(이름 없음)** [waiting] (패키지 없음) -> (알 수 없음): (없음)" in (
+        placeholder_markdown
+    )
+    assert "- `approved` / 리뷰어 `(알 수 없음)`" in placeholder_markdown
+
 
 def test_context_presenter_uses_korean_empty_labels() -> None:
     message = "현재 세션 컨텍스트가 없습니다. 먼저 프롬프트를 시작하거나 워크플로우를 재개하세요."

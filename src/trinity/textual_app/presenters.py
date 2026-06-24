@@ -1540,9 +1540,9 @@ def snapshot_context_markdown(
         return context_no_current_markdown(lang=lang)
 
     lines = [
-        f"- {_sc_label(lang, 'workflow')}: `{snapshot.session_id or '(new)'}`",
+        f"- {_sc_label(lang, 'workflow')}: `{snapshot.session_id or _new_workflow_value(lang)}`",
         f"- {_sc_label(lang, 'state')}: `{snapshot.state or 'idle'}`",
-        f"- {_sc_label(lang, 'goal')}: {snapshot.goal or '(none)'}",
+        f"- {_sc_label(lang, 'goal')}: {snapshot.goal or _none_value(lang)}",
         f"- {_sc_label(lang, 'round')}: `{snapshot.round_num}`",
     ]
     if snapshot.synthesis.consensus_progress:
@@ -1569,12 +1569,12 @@ def snapshot_context_markdown(
     if snapshot.subtasks:
         lines.extend(["", f"### {_sc_label(lang, 'subtasks')}"])
         for subtask in snapshot.subtasks:
-            summary = subtask.result_summary or subtask.objective
+            summary = subtask.result_summary or subtask.objective or _none_value(lang)
             lines.append(
-                f"- **{subtask.id or '(unnamed)'}** "
+                f"- **{subtask.id or _unnamed_value(lang)}** "
                 f"[{subtask.status}] "
-                f"{subtask.parent_package_id or '(no package)'} -> "
-                f"{subtask.delegated_to or '(unknown)'}: {summary}"
+                f"{subtask.parent_package_id or _no_package_value(lang)} -> "
+                f"{subtask.delegated_to or _unknown_value(lang)}: {summary}"
             )
     if snapshot.work_package_repairs:
         lines.extend(["", f"### {_sc_label(lang, 'local_policy_repairs')}"])
@@ -1584,12 +1584,13 @@ def snapshot_context_markdown(
         if lang == "ko":
             lines.append(
                 f"- `{snapshot.final_review.status}` / "
-                f"{_sc_label(lang, 'reviewer')} `{snapshot.final_review.reviewer_agent}`"
+                f"{_sc_label(lang, 'reviewer')} "
+                f"`{snapshot.final_review.reviewer_agent or _unknown_value(lang)}`"
             )
         else:
             lines.append(
                 f"- `{snapshot.final_review.status}` by "
-                f"`{snapshot.final_review.reviewer_agent}`"
+                f"`{snapshot.final_review.reviewer_agent or _unknown_value(lang)}`"
             )
         if snapshot.final_review.summary:
             lines.append(f"- {snapshot.final_review.summary}")

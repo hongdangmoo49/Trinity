@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
@@ -52,12 +53,9 @@ def install_fake_provider_clis(root: Path) -> FakeProviderCLIs:
     log_dir.mkdir(parents=True, exist_ok=True)
     calls_log = log_dir / "provider-calls.jsonl"
 
-    claude = bin_dir / "claude"
-    codex = bin_dir / "codex"
-    agy = bin_dir / "agy"
-    _write_fake_provider(claude, provider="claude")
-    _write_fake_provider(codex, provider="codex")
-    _write_fake_provider(agy, provider="agy")
+    claude = _install_fake_provider(bin_dir, provider="claude")
+    codex = _install_fake_provider(bin_dir, provider="codex")
+    agy = _install_fake_provider(bin_dir, provider="agy")
     return FakeProviderCLIs(
         root=root,
         bin_dir=bin_dir,
@@ -67,6 +65,19 @@ def install_fake_provider_clis(root: Path) -> FakeProviderCLIs:
         codex=codex,
         agy=agy,
     )
+
+
+def _install_fake_provider(bin_dir: Path, *, provider: str) -> Path:
+    if os.name == "nt":
+        script = bin_dir / f"{provider}.py"
+        wrapper = bin_dir / f"{provider}.cmd"
+        _write_fake_provider(script, provider=provider)
+        _write_windows_wrapper(wrapper, script.name)
+        return wrapper
+
+    executable = bin_dir / provider
+    _write_fake_provider(executable, provider=provider)
+    return executable
 
 
 def read_jsonl(path: Path) -> list[dict[str, object]]:
@@ -119,6 +130,18 @@ def _write_fake_provider(path: Path, *, provider: str) -> None:
     script = _SCRIPT_TEMPLATE.replace("__PROVIDER__", provider)
     path.write_text(script, encoding="utf-8")
     path.chmod(0o755)
+
+
+def _write_windows_wrapper(path: Path, script_name: str) -> None:
+    path.write_text(_windows_wrapper_script(script_name), encoding="utf-8")
+
+
+def _windows_wrapper_script(script_name: str) -> str:
+    return (
+        "@echo off\r\n"
+        f'"{sys.executable}" "%~dp0{script_name}" %*\r\n'
+        "exit /b %ERRORLEVEL%\r\n"
+    )
 
 
 _SCRIPT_TEMPLATE = textwrap.dedent(

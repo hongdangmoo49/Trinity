@@ -23,6 +23,7 @@ from trinity.textual_app.snapshot import (
     WorkPackageSnapshot,
 )
 from trinity.textual_app.widgets.status_label import (
+    display_source_value,
     display_review_status_value,
     display_status_value,
 )
@@ -835,7 +836,11 @@ def _render_snapshot_providers(
             if provider.context_window
             else _term_label("unknown", lang=lang)
         )
-        source = provider.budget_source or _term_label("unknown", lang=lang)
+        source = display_source_value(
+            provider.budget_source,
+            lang=lang,
+            empty=_term_label("unknown", lang=lang),
+        )
         session = provider.session_id[:12] if provider.session_id else _empty_value(lang=lang)
         profile = _provider_profile_summary(provider, lang=lang)
         if profile:

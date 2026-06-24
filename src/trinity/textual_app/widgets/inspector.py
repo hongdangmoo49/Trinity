@@ -20,7 +20,10 @@ from trinity.textual_app.widgets.progress_summary import (
     work_package_counts,
     work_package_state,
 )
-from trinity.textual_app.widgets.status_label import display_status_value
+from trinity.textual_app.widgets.status_label import (
+    display_source_value,
+    display_status_value,
+)
 
 
 INSPECTOR_LABELS = {
@@ -250,7 +253,11 @@ class WorkflowInspector(Vertical):
                 if provider.session_id
                 else self._label("empty").strip("()")
             )
-            source = provider.budget_source or self._label("unknown")
+            source = display_source_value(
+                provider.budget_source,
+                lang=self.lang,
+                empty=self._label("unknown"),
+            )
             lines.append(
                 f"{provider.name}: {model or self._label('default')}; "
                 f"{self._label('context')} {context} "

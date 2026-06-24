@@ -11,9 +11,12 @@ from pathlib import Path
 from uuid import uuid4
 
 from trinity.agents.base import AgentWrapper
-from trinity.context.profiles import project_shared_context
 from trinity.context.shared import SharedContextEngine
 from trinity.models import DeliberationMessage, ResponseStatus
+from trinity.prompts.context_projection import (
+    agent_context_profile,
+    render_context_projection_block,
+)
 from trinity.prompts.contracts import (
     FINAL_REVIEW_CONTRACT_ID,
     REVIEW_CONTRACT_ID,
@@ -457,29 +460,14 @@ class ReviewExecutionProtocol:
         )
 
     def _context_projection_block(self, agent_name: str) -> str:
-        profile_id = self._agent_context_profile(agent_name)
-        projection = project_shared_context(self.shared, profile_id)
-        if not projection.text:
-            return (
-                "Context Projection:\n"
-                f"Profile: {profile_id}\n"
-                "Sections: none\n\n"
-            )
-        sections = ", ".join(projection.sections) or "none"
-        truncated = "yes" if projection.truncated else "no"
-        return (
-            "Context Projection:\n"
-            f"Profile: {projection.profile_id}\n"
-            f"Sections: {sections}\n"
-            f"Truncated: {truncated}\n"
-            f"{projection.text}\n\n"
+        return render_context_projection_block(
+            self.shared,
+            self._agent_context_profile(agent_name),
+            heading="Context Projection:",
         )
 
     def _agent_context_profile(self, agent_name: str) -> str:
-        agent = self.agents.get(agent_name)
-        spec = getattr(agent, "spec", None)
-        profile = getattr(spec, "profile", None)
-        return str(getattr(profile, "context_profile", "") or "balanced")
+        return agent_context_profile(self.agents, agent_name)
 
     @classmethod
     def _parse_review_response(cls, content: str) -> dict:

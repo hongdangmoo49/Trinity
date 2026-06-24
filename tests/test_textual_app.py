@@ -20,6 +20,7 @@ from textual.widgets import (
 )
 
 from trinity.config import TrinityConfig
+from trinity.context.commands import engine_from_config
 from trinity.context.shared import SharedContextEngine
 from trinity.models import Provider
 from trinity.providers.model_discovery import ProviderModelChoice
@@ -38,6 +39,8 @@ from trinity.textual_app.presenters import (
     answer_action_hint,
     answer_title,
     answer_usage_markdown,
+    artifact_title,
+    artifact_usage_markdown,
     ask_action_hint,
     ask_missing_model_markdown,
     ask_no_active_agents_markdown,
@@ -760,6 +763,11 @@ def test_memory_presenter_uses_korean_labels() -> None:
         "Unknown cleanup option: `--oops`",
         lang="ko",
     ) == "알 수 없는 cleanup 옵션: `--oops`"
+
+
+def test_artifact_presenter_uses_korean_labels() -> None:
+    assert artifact_title(lang="ko") == "아티팩트"
+    assert artifact_usage_markdown(lang="ko") == "사용법: `/artifact <memory-id>`"
 
 
 def test_workflow_presenter_uses_korean_labels() -> None:
@@ -4796,6 +4804,59 @@ async def test_nexus_memory_cleanup_error_uses_korean_message(tmp_path) -> None:
         assert result.title == "메모리 정리"
         assert result.body == "`--keep-latest`에는 숫자를 입력하세요."
         assert result.severity == "warning"
+
+
+@pytest.mark.asyncio
+async def test_nexus_artifact_usage_uses_korean_message(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/artifact")
+        await pilot.pause()
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/artifact"
+        assert result.title == "아티팩트"
+        assert result.body == "사용법: `/artifact <memory-id>`"
+        assert result.severity == "warning"
+
+
+@pytest.mark.asyncio
+async def test_nexus_artifact_body_uses_korean_labels(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    engine = engine_from_config(config)
+    engine.initialize("Build app", ["codex"])
+    engine.append_task_result(
+        package_id="WP-001",
+        agent="codex",
+        status="done",
+        summary="Implemented endpoint.",
+    )
+    record_id = engine.memory_store.recent(limit=1)[0].id if engine.memory_store else ""
+    app = TrinityTextualApp(config, FakeWorkflowController())
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command(f"/artifact {record_id}")
+        await pilot.pause()
+
+        assert app.active_snapshot is not None
+        result = app.active_snapshot.local_commands[-1]
+        assert result.command == "/artifact"
+        assert result.title == "아티팩트"
+        assert "## 아티팩트" in result.body
+        assert "- 작업 패키지:" in result.body
+        assert "### 요약" in result.body
 
 
 @pytest.mark.asyncio

@@ -4718,6 +4718,61 @@ def test_work_package_detail_modal_surfaces_retry_disabled_reason() -> None:
     assert "- Retry candidate: `WP-002`" not in markdown
 
 
+@pytest.mark.asyncio
+async def test_work_package_detail_modal_supports_korean_chrome_labels(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Client",
+                        owner_agent="codex",
+                        status="failed",
+                        retryable=True,
+                        last_result_status="failed",
+                        last_result_summary="Could not finish.",
+                        last_result_blockers=["Missing schema."],
+                        review_status="changes_requested",
+                        review_required_changes=["Add retry regression coverage."],
+                    )
+                ],
+            ),
+        )
+        await pilot.pause()
+
+        screen.query_one("#wp-detail-0", Button).press()
+        await pilot.pause()
+
+        assert isinstance(app.screen, WorkPackageDetailModal)
+        assert str(app.screen.query_one("#close-work-package-detail", Button).label) == (
+            "닫기"
+        )
+        markdown = app.screen._markdown()
+        assert "## 요약" in markdown
+        assert "- 상태: `failed`" in markdown
+        assert "- 소유자: `codex`" in markdown
+        assert "- 실행 필요: `예`" in markdown
+        assert "## 액션 컨텍스트" in markdown
+        assert "- 재시도 후보: `WP-001`" in markdown
+        assert "- 차단 근거: Missing schema." in markdown
+        assert "- 리뷰가 완료 전 1개 변경을 요청했습니다." in markdown
+        assert "## 결과" in markdown
+        assert "## 리뷰" in markdown
+        assert "## 명세" in markdown
+        assert "### 목표" in markdown
+
+
 def test_work_package_detail_modal_marks_serial_execution_lane() -> None:
     modal = WorkPackageDetailModal(
         WorkPackageSnapshot(

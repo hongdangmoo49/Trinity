@@ -104,6 +104,75 @@ def test_snapshot_projects_provider_output_contract_from_runtime_event(tmp_path)
     assert by_name["antigravity"].output_contract == "review_v1"
 
 
+def test_snapshot_marks_failed_work_package_event_as_provider_error(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot(
+        [
+            TUIEvent(
+                type=TUIEventType.WORK_PACKAGE_COMPLETED,
+                data={
+                    "agent": "claude",
+                    "package_id": "WP-001",
+                    "status": "failed",
+                    "summary": "Execution failed: exit code 1",
+                },
+            )
+        ]
+    )
+
+    claude = next(provider for provider in snapshot.providers if provider.name == "claude")
+    assert claude.status == "Error"
+    assert claude.response_status == "failed"
+    assert claude.summary == "Execution failed: exit code 1"
+
+
+def test_snapshot_marks_blocked_work_package_event_as_provider_issue(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot(
+        [
+            TUIEvent(
+                type=TUIEventType.WORK_PACKAGE_COMPLETED,
+                data={
+                    "agent": "claude",
+                    "package_id": "WP-001",
+                    "status": "blocked",
+                    "summary": "Provider permission approval is required.",
+                },
+            )
+        ]
+    )
+
+    claude = next(provider for provider in snapshot.providers if provider.name == "claude")
+    assert claude.status == "Blocked"
+    assert claude.response_status == "blocked"
+    assert claude.summary == "Provider permission approval is required."
+
+
+def test_snapshot_ignores_successful_work_package_event_for_provider_status(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+
+    snapshot = NexusSnapshotAdapter(config).load_snapshot(
+        [
+            TUIEvent(
+                type=TUIEventType.WORK_PACKAGE_COMPLETED,
+                data={
+                    "agent": "claude",
+                    "package_id": "WP-001",
+                    "status": "done",
+                    "summary": "Implemented route bot.",
+                },
+            )
+        ]
+    )
+
+    claude = next(provider for provider in snapshot.providers if provider.name == "claude")
+    assert claude.status == "Queued"
+    assert claude.response_status == ""
+    assert claude.summary == ""
+
+
 def test_snapshot_marks_non_ok_persisted_response_artifact_as_error(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     persistence = WorkflowPersistence(config.effective_state_dir)

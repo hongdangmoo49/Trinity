@@ -1558,6 +1558,17 @@ class NexusSnapshotAdapter:
                     response_status="invalid",
                     raw_output=error,
                 )
+            elif event.type == TUIEventType.WORK_PACKAGE_COMPLETED:
+                status = str(data.get("status", "")).strip().lower()
+                if status in {"failed", "blocked"}:
+                    summary = str(data.get("summary", "")).strip()
+                    states[agent] = self._replace(
+                        current,
+                        status="Error" if status == "failed" else "Blocked",
+                        summary=self._short_summary(summary),
+                        response_status=status,
+                        raw_output=summary,
+                    )
             elif event.type == TUIEventType.PROVIDER_READINESS:
                 states[agent] = self._replace(
                     current,

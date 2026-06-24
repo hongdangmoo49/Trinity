@@ -133,6 +133,27 @@ _LABELS = {
     },
 }
 
+_STATUS_VALUES = {
+    "ko": {
+        "approved": "승인",
+        "blocked": "차단",
+        "changes_requested": "변경 요청",
+        "done": "완료",
+        "failed": "실패",
+        "idle": "대기",
+        "interrupted": "중단",
+        "needs_review": "리뷰 필요",
+        "needs_second_review": "2차 리뷰 필요",
+        "pending": "대기",
+        "queued": "대기",
+        "reviewing": "리뷰중",
+        "running": "실행중",
+        "skipped": "생략",
+        "succeeded": "성공",
+    },
+    "en": {},
+}
+
 
 class WorkPackageDetailModal(ModalScreen[None]):
     """Show the full design and latest execution state for one work package."""
@@ -182,10 +203,10 @@ class WorkPackageDetailModal(ModalScreen[None]):
         lines = [
             f"## {self._label('summary')}",
             f"- {self._label('title')}: {package.title or package.topic or package.id}",
-            f"- {self._label('status')}: `{package.status or 'pending'}`",
+            f"- {self._label('status')}: `{self._status_value(package.status or 'pending')}`",
             f"- {self._label('owner')}: `{package.owner_agent or '-'}`",
             f"- {self._label('executor')}: `{package.current_executor or package.last_executor or '-'}`",
-            f"- {self._label('review')}: `{package.review_status or '-'}`",
+            f"- {self._label('review')}: `{self._status_value(package.review_status)}`",
             f"- {self._label('risk')}: `{package.risk or 'unknown'}`",
             f"- {self._label('execution_lane')}: `{self._execution_lane_label(package)}`",
             f"- {self._label('requires_execution')}: `{self._yes_no(package.requires_execution)}`",
@@ -220,7 +241,7 @@ class WorkPackageDetailModal(ModalScreen[None]):
             lines.extend(
                 [
                     f"- {self._label('agent')}: `{package.last_result_agent or '-'}`",
-                    f"- {self._label('status')}: `{package.last_result_status or '-'}`",
+                    f"- {self._label('status')}: `{self._status_value(package.last_result_status)}`",
                     f"- {self._label('summary')}: {package.last_result_summary or self._label('none')}",
                 ]
             )
@@ -244,7 +265,7 @@ class WorkPackageDetailModal(ModalScreen[None]):
             lines.extend(
                 [
                     f"- {self._label('reviewer')}: `{package.reviewer_agent or '-'}`",
-                    f"- {self._label('status')}: `{package.review_status or '-'}`",
+                    f"- {self._label('status')}: `{self._status_value(package.review_status)}`",
                     f"- {self._label('severity')}: `{package.review_severity or '-'}`",
                     f"- {self._label('summary')}: {package.review_summary or self._label('none')}",
                 ]
@@ -327,7 +348,9 @@ class WorkPackageDetailModal(ModalScreen[None]):
         elif package.review_status in {"blocked", "failed"}:
             lines.append(
                 "- "
-                + self._label("review_blocked").format(status=package.review_status)
+                + self._label("review_blocked").format(
+                    status=self._status_value(package.review_status)
+                )
             )
         elif package.review_status == "skipped":
             if package.review_summary:
@@ -346,7 +369,7 @@ class WorkPackageDetailModal(ModalScreen[None]):
 
         reviewer_names = _reviewer_names(package.reviewer_agent)
         lines = [
-            f"- {self._label('status')}: `{package.review_status or '-'}`",
+            f"- {self._label('status')}: `{self._status_value(package.review_status)}`",
             f"- {self._label('reviewer')}: `{package.reviewer_agent or '-'}`",
             f"- {self._label('reviewer_count')}: `{len(reviewer_names)}`",
         ]
@@ -369,6 +392,13 @@ class WorkPackageDetailModal(ModalScreen[None]):
 
     def _yes_no(self, value: bool) -> str:
         return self._label("yes" if value else "no")
+
+    def _status_value(self, value: str) -> str:
+        status = str(value or "").strip()
+        if not status:
+            return "-"
+        labels = _STATUS_VALUES.get(self.lang, _STATUS_VALUES["en"])
+        return labels.get(status.lower(), status)
 
     def _label(self, key: str) -> str:
         labels = _LABELS.get(self.lang, _LABELS["en"])

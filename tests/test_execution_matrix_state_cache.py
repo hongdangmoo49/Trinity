@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from textual.app import App
+from textual.containers import Vertical
 
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.snapshot import WorkPackageSnapshot, WorkflowNexusSnapshot
@@ -90,3 +91,41 @@ async def test_execution_matrix_append_log_invalidates_state_identity_cache() ->
         await pilot.pause()
 
         assert calls == ["log"]
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_skips_unchanged_task_expanded_class_sync() -> None:
+    screen = ExecutionMatrixScreen()
+    app = ExecutionHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        shell = screen.query_one("#execution-screen", Vertical)
+        class_calls: list[bool] = []
+        original_set_class = shell.set_class
+
+        def counted_set_class(add: bool, class_name: str) -> None:
+            if class_name == "execution-task-expanded":
+                class_calls.append(add)
+            original_set_class(add, class_name)
+
+        shell.set_class = counted_set_class
+
+        screen._sync_task_expanded_view()
+        await pilot.pause()
+        assert class_calls == [False]
+
+        class_calls.clear()
+        screen._sync_task_expanded_view()
+        await pilot.pause()
+        assert class_calls == []
+
+        screen.tasks_expanded = True
+        screen._sync_task_expanded_view()
+        await pilot.pause()
+        assert class_calls == [True]
+
+        screen._sync_task_expanded_view()
+        await pilot.pause()
+        assert class_calls == [True]

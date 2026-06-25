@@ -439,6 +439,7 @@ class ExecutionMatrixScreen(Screen[None]):
         self._chrome_render_key: tuple[object, ...] | None = None
         self._chrome_projection_cache: _ChromeProjection | None = None
         self._applied_state_identity: tuple[int | None, int] | None = None
+        self._task_expanded_view_key: bool | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -589,10 +590,13 @@ class ExecutionMatrixScreen(Screen[None]):
     def _sync_task_expanded_view(self) -> None:
         if not self.is_mounted:
             return
+        if self._task_expanded_view_key == self.tasks_expanded:
+            return
         self.query_one("#execution-screen", Vertical).set_class(
             self.tasks_expanded,
             "execution-task-expanded",
         )
+        self._task_expanded_view_key = self.tasks_expanded
 
     def _render_package_list(self) -> None:
         projections = self._package_row_projections()

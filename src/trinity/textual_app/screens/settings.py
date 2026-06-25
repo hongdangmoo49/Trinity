@@ -273,7 +273,7 @@ class SettingsScreen(Screen[None]):
             "preview": "미리보기",
             "profile": "프로필",
             "balanced": "균형",
-            "contracts": "출력 계약",
+            "contracts": "출력 형식",
             "default": "기본값",
             "fast": "빠름",
             "strong": "강력",

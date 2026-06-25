@@ -48,7 +48,7 @@ PROVIDER_INSPECTOR_LABELS = {
         "mission": "미션",
         "modes": "모드",
         "no_raw_output": "아직 캡처된 원본 출력이 없습니다.",
-        "output_contract": "출력 계약",
+        "output_contract": "출력 형식",
         "provider": "프로바이더",
         "quality_signals": "품질 신호",
         "readiness": "준비 상태",

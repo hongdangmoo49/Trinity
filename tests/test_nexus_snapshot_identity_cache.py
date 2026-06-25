@@ -6,6 +6,7 @@ from textual.app import App
 from trinity.config import TrinityConfig
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.snapshot import ProviderSnapshot, WorkflowNexusSnapshot
+from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
 
 
@@ -89,3 +90,33 @@ async def test_nexus_provider_update_invalidates_snapshot_identity_cache(tmp_pat
         await pilot.pause()
 
         assert "Ready." in str(panel.query_one(".provider-summary").content)
+
+
+@pytest.mark.asyncio
+async def test_nexus_rebinds_render_cache_after_recompose(tmp_path) -> None:
+    screen = NexusScreen(TrinityConfig.default_config(project_dir=tmp_path))
+    snapshot = _snapshot(status="Running", summary="Drafting.")
+    app = NexusHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        screen.apply_snapshot(snapshot)
+        await pilot.pause()
+
+        panel = screen.query_one("#provider-claude", ProviderPanel)
+        assert "Drafting." in str(panel.query_one(".provider-summary").content)
+        assert screen.query_one(CentralAgentView).snapshot is snapshot
+
+        screen.refresh(recompose=True)
+        await pilot.pause()
+
+        panel = screen.query_one("#provider-claude", ProviderPanel)
+        assert "Drafting." not in str(panel.query_one(".provider-summary").content)
+        assert screen.query_one(CentralAgentView).snapshot is None
+
+        screen.apply_snapshot(snapshot)
+        await pilot.pause()
+
+        panel = screen.query_one("#provider-claude", ProviderPanel)
+        assert "Drafting." in str(panel.query_one(".provider-summary").content)
+        assert screen.query_one(CentralAgentView).snapshot is snapshot

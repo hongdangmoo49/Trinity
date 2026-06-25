@@ -28,6 +28,7 @@ from trinity.display_labels import (
     display_source_value,
 )
 from trinity.textual_app.widgets.status_label import (
+    display_consensus_progress,
     display_review_skip_reason,
     display_review_status_value,
     display_status_value,
@@ -606,8 +607,9 @@ def _render_consensus(consensus, *, lang: str = "en") -> str:
 
 def _render_synthesis(synthesis, *, lang: str = "en") -> str:
     icon = "✅" if "blueprint" in synthesis.consensus_progress else "🔄"
+    progress = display_consensus_progress(synthesis.consensus_progress, lang=lang)
     lines = [
-        f"{icon} [bold]{escape(synthesis.consensus_progress)}[/bold]",
+        f"{icon} [bold]{escape(progress)}[/bold]",
         f"[bold]{_field_label('Source', lang=lang)}[/bold]: {escape(synthesis.source)}",
         f"\n{escape(synthesis.summary)}",
     ]

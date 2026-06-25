@@ -17,6 +17,7 @@ from trinity.display_labels import (
     display_source_value,
 )
 from trinity.textual_app.widgets.status_label import (
+    display_consensus_progress,
     display_review_skip_reason,
     display_review_status_value,
     display_status_value,
@@ -188,15 +189,17 @@ def snapshot_report_markdown(
         lines.extend(["", f"## {_label(lang, 'agent_quality')}", ""])
         lines.extend(quality_lines)
     if snapshot.synthesis.summary:
+        progress = display_consensus_progress(
+            snapshot.synthesis.consensus_progress,
+            lang=lang,
+            empty=_none(lang),
+        )
         lines.extend(
             [
                 "",
                 f"## {_label(lang, 'consensus')}",
                 "",
-                (
-                    f"**{_label(lang, 'progress')}**: "
-                    f"{_md_inline(snapshot.synthesis.consensus_progress or _none(lang))}  "
-                ),
+                f"**{_label(lang, 'progress')}**: {_md_inline(progress)}  ",
                 f"**{_label(lang, 'source')}**: {_md_inline(snapshot.synthesis.source)}",
                 "",
                 _md_block(snapshot.synthesis.summary),

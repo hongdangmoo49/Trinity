@@ -512,7 +512,7 @@ class CentralAgentView(VerticalScroll):
             "blocked": "막힘",
             "current": "현재",
             "current_focus": "현재 진행/주의 항목",
-            "details_in_inspector": "상세 설계와 WP 목록은 Inspector 또는 Report에서 확인하세요.",
+            "details_in_inspector": "상세 설계와 WP 목록은 인스펙터 또는 리포트에서 확인하세요.",
             "executing": "실행 중",
             "final_review": "최종 리뷰",
             "follow_up_work": "후속 보강 작업",

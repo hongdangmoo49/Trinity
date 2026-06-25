@@ -178,6 +178,8 @@ class PromptComposer(Vertical):
         self._ignore_next_submit = False
         self._pasted_content: list[tuple[str, str]] = []
         self._command_options_key: tuple[object, ...] | None = None
+        self._command_option_row_keys: dict[int, tuple[str, bool, bool, bool]] = {}
+        self._command_more_key: tuple[str, bool] | None = None
         self._command_palette_visible_key: bool | None = None
         self.lang = lang
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
@@ -345,30 +347,48 @@ class PromptComposer(Vertical):
         self._command_options_key = render_key
 
         if not visible_matches and slash_active:
-            first = self.query_one("#command-option-0", Static)
-            first.update(option_states[0][0])
-            first.display = True
-            first.set_class(True, "command-option-empty")
-            first.set_class(False, "command-option-selected")
+            self._sync_command_option(0, option_states[0])
             for index in range(1, COMMAND_LIMIT):
-                option = self.query_one(f"#command-option-{index}", Static)
-                option.update("")
-                option.display = False
-                option.set_class(False, "command-option-selected")
-                option.set_class(False, "command-option-empty")
-            self.query_one("#command-option-more", Static).display = False
+                self._sync_command_option(index, option_states[index])
+            self._sync_command_more("", False)
             return
 
-        for index, (label, display, selected, empty) in enumerate(option_states):
-            option = self.query_one(f"#command-option-{index}", Static)
-            option.update(label)
-            option.display = display
-            option.set_class(selected, "command-option-selected")
-            option.set_class(empty, "command-option-empty")
+        for index, state in enumerate(option_states):
+            self._sync_command_option(index, state)
 
+        self._sync_command_more(more_text, more_display)
+
+    def _sync_command_option(
+        self,
+        index: int,
+        state: tuple[str, bool, bool, bool],
+    ) -> None:
+        previous = self._command_option_row_keys.get(index)
+        if previous == state:
+            return
+        label, display, selected, empty = state
+        option = self.query_one(f"#command-option-{index}", Static)
+        if previous is None or previous[0] != label:
+            option.update(label)
+        if previous is None or previous[1] != display:
+            option.display = display
+        if previous is None or previous[2] != selected:
+            option.set_class(selected, "command-option-selected")
+        if previous is None or previous[3] != empty:
+            option.set_class(empty, "command-option-empty")
+        self._command_option_row_keys[index] = state
+
+    def _sync_command_more(self, text: str, display: bool) -> None:
+        state = (text, display)
+        previous = self._command_more_key
+        if previous == state:
+            return
         more = self.query_one("#command-option-more", Static)
-        more.update(more_text)
-        more.display = more_display
+        if previous is None or previous[0] != text:
+            more.update(text)
+        if previous is None or previous[1] != display:
+            more.display = display
+        self._command_more_key = state
 
     def _set_command_palette_visible(self, visible: bool) -> None:
         if not self.is_mounted:

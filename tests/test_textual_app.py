@@ -8966,6 +8966,7 @@ def test_work_package_detail_modal_localizes_korean_task_kind_value() -> None:
             status="pending",
             task_kind="implementation",
             routing_reason="implementation strength",
+            profile_revision="default-v1",
         ),
         lang="ko",
     )
@@ -8973,6 +8974,7 @@ def test_work_package_detail_modal_localizes_korean_task_kind_value() -> None:
     markdown = modal._markdown()
 
     assert "- 작업 유형: `구현`" in markdown
+    assert "- 프로필 버전: `default-v1`" in markdown
     assert "`implementation`" not in markdown
 
 

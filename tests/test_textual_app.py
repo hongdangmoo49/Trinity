@@ -7254,7 +7254,7 @@ async def test_question_panel_localizes_korean_status_tokens(tmp_path) -> None:
         ]
 
         assert rendered_questions == [
-            "1. [열림] 엔진?",
+            "1. [답변 대기] 엔진?",
             "2. [답변됨] 플랫폼?",
         ]
         assert "답변: PC" in answers

@@ -168,6 +168,6 @@ class QuestionPanel(VerticalScroll):
             return status
         labels = {
             "answered": "답변됨",
-            "open": "열림",
+            "open": "답변 대기",
         }
         return labels.get(status, status)

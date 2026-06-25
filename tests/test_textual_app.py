@@ -8005,7 +8005,7 @@ def test_execution_matrix_compacts_reviewer_status_labels() -> None:
             ),
             lang="ko",
         )
-        == "2차필요"
+        == "2차 필요"
     )
 
 
@@ -8067,7 +8067,7 @@ def test_execution_matrix_detail_button_labels_review_escalation() -> None:
     )
 
     assert _detail_button_label(package) == "2nd Review"
-    assert _detail_button_label(package, lang="ko") == "2차리뷰"
+    assert _detail_button_label(package, lang="ko") == "2차 리뷰"
     assert _detail_button_label(blocked) == "Blocked"
     assert _detail_button_label(blocked, lang="ko") == "차단됨"
     assert _detail_button_label(default) == "Spec"

@@ -192,19 +192,17 @@ class SettingsScreen(Screen[None]):
             values.append(current)
         return values
 
-    @staticmethod
-    def _profile_strength_summary(spec) -> str:
+    def _profile_strength_summary(self, spec) -> str:
         strengths = sorted(
             spec.profile.strengths.items(),
             key=lambda item: (-float(item[1]), item[0]),
         )
         if not strengths:
-            return "profile balanced"
+            return f"{self._label('profile')} {self._label('balanced')}"
         name, score = strengths[0]
         return f"{name} {score:.2f}"
 
-    @staticmethod
-    def _profile_contract_summary(spec) -> str:
+    def _profile_contract_summary(self, spec) -> str:
         contracts = spec.profile.output_contracts
         pairs = [
             f"{mode}:{contracts[mode]}"
@@ -212,8 +210,8 @@ class SettingsScreen(Screen[None]):
             if contracts.get(mode)
         ]
         if not pairs:
-            return "contracts default"
-        return f"contracts {' '.join(pairs)}"
+            return f"{self._label('contracts')} {self._label('default')}"
+        return f"{self._label('contracts')} {' '.join(pairs)}"
 
     def _agent_label(self, name: str) -> str:
         labels = {
@@ -249,6 +247,10 @@ class SettingsScreen(Screen[None]):
             "apply": "적용",
             "saved": "저장됨",
             "preview": "미리보기",
+            "profile": "프로필",
+            "balanced": "균형",
+            "contracts": "출력 계약",
+            "default": "기본값",
         }
         en = {
             "settings": "Settings",
@@ -268,6 +270,10 @@ class SettingsScreen(Screen[None]):
             "apply": "Apply",
             "saved": "Saved",
             "preview": "Preview",
+            "profile": "profile",
+            "balanced": "balanced",
+            "contracts": "contracts",
+            "default": "default",
         }
         labels = ko if self.lang == "ko" else en
         return labels.get(key, key)

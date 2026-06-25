@@ -96,6 +96,7 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         }
         self.lang = lang
         self.active_agent = next(iter(self.agents), "")
+        self._choice_highlight_key: tuple[object, ...] | None = None
 
     def compose(self) -> ComposeResult:
         with Vertical(id="model-settings-modal"):
@@ -188,17 +189,29 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         self.dismiss(None)
 
     def _refresh_choices(self) -> None:
+        self._choice_highlight_key = None
         self.refresh(recompose=True)
         self.call_after_refresh(self._sync_choice_highlight)
 
     def _sync_choice_highlight(self) -> None:
-        choice_list = self.query_one("#model-choice-list", OptionList)
         current = self.selected_models.get(self.active_agent, "default")
-        for index, choice in enumerate(self.choices_by_agent.get(self.active_agent, ())):
+        choices = self.choices_by_agent.get(self.active_agent, ())
+        target_index = 0
+        for index, choice in enumerate(choices):
             if choice.model == current:
-                choice_list.highlighted = index
-                return
-        choice_list.highlighted = 0
+                target_index = index
+                break
+        highlight_key = (
+            self.active_agent,
+            current,
+            tuple(choice.model for choice in choices),
+            target_index,
+        )
+        if highlight_key == self._choice_highlight_key:
+            return
+        choice_list = self.query_one("#model-choice-list", OptionList)
+        choice_list.highlighted = target_index
+        self._choice_highlight_key = highlight_key
 
     def _agent_button_label(self, name: str, spec: AgentSpec) -> str:
         prefix = "> " if name == self.active_agent else "  "

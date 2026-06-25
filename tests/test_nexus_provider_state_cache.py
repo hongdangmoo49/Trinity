@@ -93,4 +93,4 @@ async def test_nexus_skips_unchanged_direct_provider_update(
             summary="Runtime progress.",
         )
         await pilot.pause()
-        assert query_calls == ["#provider-claude"]
+        assert query_calls == []

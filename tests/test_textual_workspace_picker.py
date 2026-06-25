@@ -83,6 +83,23 @@ def test_workspace_preflight_render_uses_korean_labels(tmp_path) -> None:
     assert "작업 패키지: 0" in rendered
 
 
+def test_workspace_preflight_render_localizes_unknown_branch(tmp_path) -> None:
+    preflight = build_preflight(tmp_path, WorkflowNexusSnapshot())
+    preflight = workspace_picker_module.WorkspacePreflight(
+        path=preflight.path,
+        exists=preflight.exists,
+        is_dir=preflight.is_dir,
+        writable=preflight.writable,
+        git_repo=True,
+        branch="unknown",
+        package_count=preflight.package_count,
+        creatable=preflight.creatable,
+    )
+
+    assert "Branch: unknown" in preflight.render()
+    assert "브랜치: 알 수 없음" in preflight.render(lang="ko")
+
+
 def test_build_preflight_supports_nested_missing_directories(tmp_path) -> None:
     preflight = build_preflight(tmp_path / "new-app" / "src", WorkflowNexusSnapshot())
 

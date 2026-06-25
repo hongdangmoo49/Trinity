@@ -141,7 +141,7 @@ class WorkspacePreflight:
         return not self.exists and self.creatable
 
     def render(self, *, lang: str = "en") -> str:
-        branch = _label(lang, "none") if self.branch == "(none)" else self.branch
+        branch = self._branch_label(lang=lang)
         return "\n".join(
             [
                 f"{_label(lang, 'path')}: {self.path}",
@@ -159,6 +159,14 @@ class WorkspacePreflight:
                 f"{_label(lang, 'work_packages')}: {self.package_count}",
             ]
         )
+
+    def _branch_label(self, *, lang: str = "en") -> str:
+        raw = str(self.branch or "").strip()
+        if raw == "(none)":
+            return _label(lang, "none")
+        if not raw or raw.lower() == "unknown":
+            return _label(lang, "unknown")
+        return raw
 
 
 class CreateMissingDirectoryPrompt(ModalScreen[bool]):

@@ -61,6 +61,68 @@ def test_agent_recipient_selector_skips_unchanged_model_choices(tmp_path) -> Non
     assert selector.model_option_labels("claude") == ("default", "opus")
 
 
+def test_agent_recipient_selector_skips_unchanged_model_selections(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    selector = AgentRecipientModelSelector(config.agents)
+
+    selector.set_model_selections({"claude": "opus"})
+    ensure_calls: list[tuple[str, str]] = []
+    set_calls: list[tuple[str, str]] = []
+    original_ensure_model_choice = selector._ensure_model_choice
+    original_set_selected_model = selector._set_selected_model
+
+    def counted_ensure_model_choice(name: str, model: str) -> None:
+        ensure_calls.append((name, model))
+        original_ensure_model_choice(name, model)
+
+    def counted_set_selected_model(name: str, model: str) -> None:
+        set_calls.append((name, model))
+        original_set_selected_model(name, model)
+
+    selector._ensure_model_choice = counted_ensure_model_choice
+    selector._set_selected_model = counted_set_selected_model
+
+    selector.set_model_selections({"claude": "opus"})
+    assert ensure_calls == []
+    assert set_calls == []
+
+    selector.set_model_selections({"claude": "sonnet"})
+    assert ensure_calls == [("claude", "sonnet")]
+    assert set_calls == [("claude", "sonnet")]
+    assert selector.selected_model("claude") == "sonnet"
+
+
+def test_agent_recipient_selector_skips_unchanged_model_overrides(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    selector = AgentRecipientModelSelector(config.agents)
+
+    selector.set_model_overrides({"claude": "opus"})
+    ensure_calls: list[tuple[str, str]] = []
+    set_calls: list[tuple[str, str]] = []
+    original_ensure_model_choice = selector._ensure_model_choice
+    original_set_selected_model = selector._set_selected_model
+
+    def counted_ensure_model_choice(name: str, model: str) -> None:
+        ensure_calls.append((name, model))
+        original_ensure_model_choice(name, model)
+
+    def counted_set_selected_model(name: str, model: str) -> None:
+        set_calls.append((name, model))
+        original_set_selected_model(name, model)
+
+    selector._ensure_model_choice = counted_ensure_model_choice
+    selector._set_selected_model = counted_set_selected_model
+
+    selector.set_model_overrides({"claude": "opus"})
+    assert ensure_calls == []
+    assert set_calls == []
+
+    selector.set_model_overrides({"claude": "sonnet"})
+    assert ensure_calls == [("claude", "sonnet")]
+    assert set_calls == [("claude", "sonnet")]
+    assert selector.selected_model("claude") == "sonnet"
+
+
 @pytest.mark.asyncio
 async def test_start_screen_skips_unchanged_model_choices(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)

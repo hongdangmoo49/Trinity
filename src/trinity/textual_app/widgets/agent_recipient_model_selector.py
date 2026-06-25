@@ -180,6 +180,8 @@ class AgentRecipientModelSelector(Horizontal):
                 continue
             normalized = str(value).strip()
             if normalized:
+                if self._selected_model_matches(name, normalized):
+                    continue
                 self._ensure_model_choice(name, normalized)
                 self._set_selected_model(name, normalized)
 
@@ -189,6 +191,8 @@ class AgentRecipientModelSelector(Horizontal):
             if name not in self.agents:
                 continue
             normalized = str(value).strip() or "default"
+            if self._selected_model_matches(name, normalized):
+                continue
             self._ensure_model_choice(name, normalized)
             self._set_selected_model(name, normalized)
 
@@ -244,7 +248,15 @@ class AgentRecipientModelSelector(Horizontal):
         self._model_choices[name] = choices
 
     def _set_selected_model(self, name: str, model: str) -> None:
+        if self._selected_model_matches(name, model):
+            return
         self._selected_models[name] = model
+
+    def _selected_model_matches(self, name: str, model: str) -> bool:
+        spec = self.agents.get(name)
+        fallback = spec.model if spec is not None else "default"
+        current = self._selected_models.get(name, fallback or "default")
+        return (current.strip() or "default") == model
 
     def _initial_model_choices(self, spec: AgentSpec) -> list[ProviderModelChoice]:
         return self._normalize_choices(spec, fallback_provider_models(spec.provider))

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from textual.app import App
+from textual.widgets import Static
 
 from trinity.textual_app.screens.report import ReportScreen
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
@@ -97,3 +100,34 @@ async def test_report_screen_skips_same_structured_report_object_reapply() -> No
         screen.apply_report(_report())
         await pilot.pause()
         assert calls == ["render"]
+
+
+@pytest.mark.asyncio
+async def test_report_screen_skips_same_export_status_update() -> None:
+    screen = ReportScreen()
+    app = ReportHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        first_path = Path("/tmp/report.md")
+        screen.show_export_path(first_path)
+        await pilot.pause()
+
+        status = screen.query_one("#report-export-status", Static)
+        updates: list[str] = []
+        original_update = status.update
+
+        def counted_update(content) -> None:
+            updates.append(str(content))
+            original_update(content)
+
+        status.update = counted_update
+
+        screen.show_export_path(first_path)
+        await pilot.pause()
+        assert updates == []
+
+        screen.show_export_path(Path("/tmp/report-next.md"))
+        await pilot.pause()
+        assert len(updates) == 1
+        assert "report-next.md" in updates[0]

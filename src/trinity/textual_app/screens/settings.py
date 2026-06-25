@@ -40,6 +40,9 @@ class SettingsScreen(Screen[None]):
         self.settings = settings_store.load()
         self._preview_render_key: str | None = None
         self._status_key = ""
+        self._select_cache: dict[str, Select[str]] = {}
+        self._preview_widget: Static | None = None
+        self._status_widget: Static | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -103,9 +106,13 @@ class SettingsScreen(Screen[None]):
                 )
             preview_text = self._preview_text()
             self._preview_render_key = preview_text
-            yield Static(preview_text, id="theme-preview")
+            preview = Static(preview_text, id="theme-preview")
+            self._preview_widget = preview
+            yield preview
             yield Button(self._label("apply"), id="apply-settings", variant="primary")
-            yield Static("", id="settings-status")
+            status = Static("", id="settings-status")
+            self._status_widget = status
+            yield status
         yield Footer()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -135,28 +142,50 @@ class SettingsScreen(Screen[None]):
     def _set_preview_text(self, text: str) -> None:
         if text == self._preview_render_key:
             return
-        self.query_one("#theme-preview", Static).update(text)
+        self._preview_static().update(text)
         self._preview_render_key = text
 
     def _set_status_text(self, text: str) -> None:
         if text == self._status_key:
             return
-        self.query_one("#settings-status", Static).update(text)
+        self._status_static().update(text)
         self._status_key = text
 
     def _select(self, id: str, values: list[str], current: str) -> Select[str]:
         options = [(self._display_value(value), value) for value in values]
         if current not in values:
             options.append((self._display_value(current), current))
-        return Select(
+        select = Select(
             options,
             allow_blank=False,
             value=current,
             id=id,
         )
+        self._select_cache[id] = select
+        return select
 
     def _value(self, id: str) -> str:
-        return str(self.query_one(f"#{id}", Select).value)
+        return str(self._select_for(id).value)
+
+    def _select_for(self, id: str) -> Select[str]:
+        select = self._select_cache.get(id)
+        if select is not None:
+            return select
+        select = self.query_one(f"#{id}", Select)
+        self._select_cache[id] = select
+        return select
+
+    def _preview_static(self) -> Static:
+        if self._preview_widget is not None:
+            return self._preview_widget
+        self._preview_widget = self.query_one("#theme-preview", Static)
+        return self._preview_widget
+
+    def _status_static(self) -> Static:
+        if self._status_widget is not None:
+            return self._status_widget
+        self._status_widget = self.query_one("#settings-status", Static)
+        return self._status_widget
 
     def _preview_text(self) -> str:
         model_lines = []

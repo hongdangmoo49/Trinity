@@ -721,12 +721,14 @@ class ExecutionMatrixScreen(Screen[None]):
             label = compact_status_label(package.status or "pending")
             if label == "RUN":
                 counts["RUN"] += 1
+                continue
+            if label == "ISSUE":
+                counts["ISSUE"] += 1
+                continue
+            if _is_pending_review_package(package):
+                counts["REVIEW"] += 1
             elif label == "DONE":
                 counts["DONE"] += 1
-            elif label == "ISSUE":
-                counts["ISSUE"] += 1
-            elif (package.status or "") == "needs_review" or package.review_status:
-                counts["REVIEW"] += 1
             else:
                 counts["WAIT"] += 1
 
@@ -866,6 +868,9 @@ def _review_label(package: object, lang: str = "en") -> str:
     status = str(getattr(package, "review_status", "") or "").strip()
     reviewer = str(getattr(package, "reviewer_agent", "") or "").strip()
     if not status:
+        package_status = str(getattr(package, "status", "") or "").strip().lower()
+        if package_status == "needs_review":
+            return _review_status_labels(lang)["pending"]
         return "-"
     normalized = status.lower().replace("_", " ")
     labels = _review_status_labels(lang)
@@ -890,6 +895,14 @@ def _review_label(package: object, lang: str = "en") -> str:
     if reviewer and label not in standalone_labels:
         return _reviewer_status_label(reviewer, label, lang=lang)
     return label
+
+
+def _is_pending_review_package(package: object) -> bool:
+    package_status = str(getattr(package, "status", "") or "").strip().lower()
+    review_status = str(getattr(package, "review_status", "") or "").strip().lower()
+    if package_status == "needs_review":
+        return True
+    return review_status in {"pending", "queued", "reviewing", "needs_second_review"}
 
 
 def _review_status_labels(lang: str) -> dict[str, str]:

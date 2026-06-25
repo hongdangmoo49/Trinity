@@ -31,7 +31,7 @@ _LABELS = {
         "blocking_evidence": "차단 근거",
         "close": "닫기",
         "dependencies": "의존성",
-        "execution_lane": "실행 레인",
+        "execution_lane": "실행 그룹",
         "executor": "실행자",
         "expected_files": "예상 파일",
         "fallback_attempts": "폴백 시도",

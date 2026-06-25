@@ -110,7 +110,7 @@ REPORT_TERM_LABELS_KO = {
     "identified": "식별",
     "items": "항목",
     "kind": "종류",
-    "lane": "레인",
+    "lane": "그룹",
     "missing": "누락",
     "mission": "미션",
     "modes": "모드",

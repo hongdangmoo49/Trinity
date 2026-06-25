@@ -2140,7 +2140,7 @@ async def test_report_screen_snapshot_uses_korean_body_labels(tmp_path) -> None:
     assert "소유자 codex" in rendered
     assert "종류 구현" in rendered
     assert "이유: implementation strength 0.95" in rendered
-    assert "레인 직렬" in rendered
+    assert "그룹 직렬" in rendered
     assert (
         "리뷰 peer 없음/(없음); 이유 활성 에이전트가 claude뿐이라 "
         "peer 리뷰어가 없습니다."
@@ -2879,7 +2879,7 @@ def test_snapshot_report_markdown_uses_korean_labels() -> None:
     assert "## 합의" in md
     assert "**진행**: 진행중" in md
     assert "## WP 라우팅" in md
-    assert "상태: 완료; 소유자 codex; 실행자 codex; 레인 직렬" in md
+    assert "상태: 완료; 소유자 codex; 실행자 codex; 그룹 직렬" in md
     assert "라우팅: 종류 구현; 프로필 default\\-v1; 점수 0\\.95" in md
     assert (
         "리뷰: peer 없음; 리뷰어 \\(없음\\); 이유 활성 에이전트가 codex뿐이라 "
@@ -8368,7 +8368,7 @@ async def test_execution_matrix_viewport_qa_matrix_with_long_workspace(
             assert "대기 0" in summary
             assert "완료 0" in summary
             assert "문제 1" in summary
-            assert "레인 1" in summary
+            assert "그룹 1" in summary
             assert "직렬 1" in summary
             assert "재시도 1" in summary
             assert "워크플로우 실행중" in summary
@@ -8559,7 +8559,7 @@ async def test_execution_matrix_supports_korean_chrome_labels(tmp_path) -> None:
         )
         assert "패키지 / 작업" in header_text
         assert "실행자" in header_text
-        assert "리스크/레인" in header_text
+        assert "리스크/그룹" in header_text
 
         rows = list(screen.query("#execution-package-list .execution-package-row"))
         first_row_text = _widget_tree_text(rows[0])
@@ -9164,9 +9164,9 @@ def test_work_package_detail_modal_localizes_korean_execution_lane() -> None:
         lang="ko",
     )
 
-    assert "- 실행 레인: `직렬`" in serial._markdown()
-    assert "- 실행 레인: `미지정`" in unspecified._markdown()
-    assert "- 실행 레인: `g3`" in grouped._markdown()
+    assert "- 실행 그룹: `직렬`" in serial._markdown()
+    assert "- 실행 그룹: `미지정`" in unspecified._markdown()
+    assert "- 실행 그룹: `g3`" in grouped._markdown()
 
 
 def test_provider_inspector_meta_includes_profile_summary() -> None:

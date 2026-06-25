@@ -22,8 +22,12 @@ class ScreenHarness(App[None]):
         self.push_screen(self.target_screen)
 
 
-def _choices(config: TrinityConfig, *models: str) -> tuple[ProviderModelChoice, ...]:
-    spec = config.agents["claude"]
+def _choices(
+    config: TrinityConfig,
+    *models: str,
+    agent: str = "claude",
+) -> tuple[ProviderModelChoice, ...]:
+    spec = config.agents[agent]
     return tuple(
         ProviderModelChoice(
             provider=spec.provider,
@@ -132,7 +136,10 @@ async def test_start_screen_skips_unchanged_model_choices(tmp_path) -> None:
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
         initial = _choices(config, "default")
-        screen.set_agent_model_choices({"claude": initial})
+        codex_initial = _choices(config, "default", agent="codex")
+        screen.set_agent_model_choices(
+            {"claude": initial, "codex": codex_initial}
+        )
         await pilot.pause()
 
         selector = screen.query_one(AgentRecipientModelSelector)
@@ -164,7 +171,10 @@ async def test_nexus_screen_skips_unchanged_model_choices(tmp_path) -> None:
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
         initial = _choices(config, "default")
-        screen.set_agent_model_choices({"claude": initial})
+        codex_initial = _choices(config, "default", agent="codex")
+        screen.set_agent_model_choices(
+            {"claude": initial, "codex": codex_initial}
+        )
         await pilot.pause()
 
         selector = screen.query_one(AgentRecipientModelSelector)

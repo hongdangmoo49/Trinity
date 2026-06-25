@@ -318,8 +318,8 @@ STATUS_CONTEXT_LABELS = {
         "help_agent_call": "에이전트 호출",
         "help_exact_hint": "Tab으로 명령을 완성하고 Enter로 정확한 명령을 실행하세요.",
         "help_intro_agent": "로컬 UI, 설정, 파일 명령은 에이전트를 호출하지 않습니다.",
-        "help_intro_trinity": "Trinity 소유 slash 명령은 프로바이더 프롬프트보다 먼저 처리됩니다.",
-        "history_hint": "프롬프트 실행, 워크플로우 실행, 로컬 slash 명령 사용 후 이력이 표시됩니다.",
+        "help_intro_trinity": "Trinity 소유 슬래시 명령은 프로바이더 프롬프트보다 먼저 처리됩니다.",
+        "history_hint": "프롬프트 실행, 워크플로우 실행, 로컬 슬래시 명령 사용 후 이력이 표시됩니다.",
         "id": "ID",
         "improve_hint": (
             "`/improve high`, `/improve all`, `/improve AI-001`, "
@@ -466,7 +466,7 @@ STATUS_CONTEXT_LABELS = {
         "trinity_commands": "Trinity 명령",
         "unnamed": "(이름 없음)",
         "unknown_command": "알 수 없는 명령",
-        "unknown_command_body": "은 Trinity slash 명령이 아닙니다.",
+        "unknown_command_body": "은 Trinity 슬래시 명령이 아닙니다.",
         "unknown_command_did_you_mean": "다음 명령을 찾으셨나요:",
         "unknown_command_help": "`/help`로 Trinity 로컬 명령을 확인하세요.",
         "unknown": "(알 수 없음)",

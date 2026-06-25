@@ -171,6 +171,12 @@ async def test_provider_panel_activity_frame_updates_running_status() -> None:
 
         assert updates == ["/ RUN"]
 
+        updates.clear()
+        running_panel.set_activity_frame(1)
+        await pilot.pause()
+
+        assert updates == []
+
 
 @pytest.mark.asyncio
 async def test_provider_panel_status_change_updates_only_status_field() -> None:

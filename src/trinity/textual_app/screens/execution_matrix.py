@@ -904,7 +904,7 @@ def _review_status_labels(lang: str) -> dict[str, str]:
             "failed": "문제",
             "skipped": "생략",
             "needs second review": "2차 필요",
-            "no peer": "peer 없음",
+            "no peer": "동료 없음",
         }
     return {
         "queued": "queued",

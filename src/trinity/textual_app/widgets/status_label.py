@@ -128,7 +128,7 @@ def display_review_status_value(
         summary=summary,
         skipped_reason=skipped_reason,
     ):
-        return "peer 없음" if lang == "ko" else "no peer"
+        return "동료 없음" if lang == "ko" else "no peer"
     return display_status_value(raw, lang=lang, empty=empty)
 
 
@@ -144,8 +144,8 @@ def display_review_skip_reason(reason: str, *, lang: str = "en") -> str:
         return raw
     agent = _only_active_agent(raw)
     if agent:
-        return f"활성 에이전트가 {agent}뿐이라 peer 리뷰어가 없습니다."
-    return "사용 가능한 peer 리뷰어가 없습니다."
+        return f"활성 에이전트가 {agent}뿐이라 동료 리뷰어가 없습니다."
+    return "사용 가능한 동료 리뷰어가 없습니다."
 
 
 def is_no_peer_review_skip(

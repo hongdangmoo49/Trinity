@@ -84,3 +84,33 @@ async def test_workflow_inspector_skips_unchanged_projection_calculation() -> No
         inspector.apply_snapshot(_snapshot(status="done"))
         await pilot.pause()
         assert progress_calls == [True]
+
+
+@pytest.mark.asyncio
+async def test_workflow_inspector_rebinds_render_keys_after_recompose() -> None:
+    inspector = WorkflowInspector()
+    snapshot = _snapshot(status="running")
+    app = InspectorHarness(inspector)
+
+    async with app.run_test(size=(100, 28)) as pilot:
+        inspector.apply_snapshot(snapshot)
+        await pilot.pause()
+
+        assert "wf-inspector-cache" in str(
+            inspector.query_one("#inspector-workflow").content
+        )
+        assert "WP-001" in str(inspector.query_one("#inspector-current").content)
+
+        inspector.refresh(recompose=True)
+        await pilot.pause()
+
+        assert str(inspector.query_one("#inspector-workflow").content) == ""
+        assert str(inspector.query_one("#inspector-current").content) == ""
+
+        inspector.apply_snapshot(snapshot)
+        await pilot.pause()
+
+        assert "wf-inspector-cache" in str(
+            inspector.query_one("#inspector-workflow").content
+        )
+        assert "WP-001" in str(inspector.query_one("#inspector-current").content)

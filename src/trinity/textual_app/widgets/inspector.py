@@ -81,28 +81,30 @@ class WorkflowInspector(Vertical):
         self.snapshot = WorkflowNexusSnapshot()
         self._section_text: dict[str, str] = {}
         self._snapshot_render_key: tuple[object, ...] = ()
+        self._section_widgets: dict[str, Static] = {}
 
     def compose(self) -> ComposeResult:
+        self._section_widgets = {}
         yield Static(self._label("progress"), classes="inspector-title")
-        yield Static("", id="inspector-progress")
+        yield self._section_static("inspector-progress")
         yield Static(self._label("current"), classes="inspector-title")
-        yield Static("", id="inspector-current")
+        yield self._section_static("inspector-current")
         yield Static(self._label("next"), classes="inspector-title")
-        yield Static("", id="inspector-next")
+        yield self._section_static("inspector-next")
         yield Static(self._label("blocked"), classes="inspector-title")
-        yield Static("", id="inspector-blocked")
+        yield self._section_static("inspector-blocked")
         yield Static(self._label("workflow"), classes="inspector-title")
-        yield Static("", id="inspector-workflow")
+        yield self._section_static("inspector-workflow")
         yield Static(self._label("providers"), classes="inspector-title")
-        yield Static("", id="inspector-providers")
+        yield self._section_static("inspector-providers")
         yield Static(self._label("questions"), classes="inspector-title")
-        yield Static("", id="inspector-questions")
+        yield self._section_static("inspector-questions")
         yield Static(self._label("decisions"), classes="inspector-title")
-        yield Static("", id="inspector-decisions")
+        yield self._section_static("inspector-decisions")
         yield Static(self._label("post_review"), classes="inspector-title")
-        yield Static("", id="inspector-post-review")
+        yield self._section_static("inspector-post-review")
         yield Static(self._label("execution_log"), classes="inspector-title")
-        yield Static("", id="inspector-log")
+        yield self._section_static("inspector-log")
 
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
         self.snapshot = snapshot
@@ -230,8 +232,21 @@ class WorkflowInspector(Vertical):
     def _update_section(self, selector: str, text: str) -> None:
         if self._section_text.get(selector) == text:
             return
-        self.query_one(selector, Static).update(text)
+        self._section_widget(selector).update(text)
         self._section_text[selector] = text
+
+    def _section_static(self, widget_id: str) -> Static:
+        widget = Static("", id=widget_id)
+        self._section_widgets[f"#{widget_id}"] = widget
+        return widget
+
+    def _section_widget(self, selector: str) -> Static:
+        widget = self._section_widgets.get(selector)
+        if widget is not None:
+            return widget
+        widget = self.query_one(selector, Static)
+        self._section_widgets[selector] = widget
+        return widget
 
     def _list_or_empty(self, items: list[str], *, limit: int = 5) -> str:
         if not items:

@@ -3180,6 +3180,9 @@ def test_central_agent_view_localizes_korean_guidance_labels() -> None:
 def test_central_agent_view_localizes_korean_review_repair_action_labels() -> None:
     view = CentralAgentView(lang="ko")
 
+    assert view._label("details_in_inspector") == (
+        "상세 설계와 WP 목록은 인스펙터 또는 리포트에서 확인하세요."
+    )
     assert view._label("repair_action") == "리뷰 보정 결정"
     assert view._label("repair-retry-once_tooltip") == (
         "리뷰 보정으로 막힌 WP만 한 번 더 실행합니다."

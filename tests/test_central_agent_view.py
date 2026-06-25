@@ -122,7 +122,7 @@ def test_central_markdown_compacts_verbose_blueprint_for_user_view() -> None:
     assert "file://" not in markdown
     assert "WP-001 claude: 입력 채널" not in markdown
     assert "3개 작업 패키지" in markdown
-    assert "상세 설계와 WP 목록은 Inspector 또는 Report" in markdown
+    assert "상세 설계와 WP 목록은 인스펙터 또는 리포트" in markdown
 
 
 def test_blueprint_next_actions_only_show_when_ready_with_packages() -> None:

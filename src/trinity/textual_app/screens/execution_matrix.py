@@ -437,6 +437,7 @@ class ExecutionMatrixScreen(Screen[None]):
         self._package_rows: dict[str, ExecutionPackageRow] = {}
         self._activity_lines_key: tuple[str, ...] = ()
         self._chrome_render_key: tuple[object, ...] | None = None
+        self._chrome_projection_cache: _ChromeProjection | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -718,18 +719,32 @@ class ExecutionMatrixScreen(Screen[None]):
         render_key = projection.render_key
         if render_key == self._chrome_render_key:
             return
-        self.query_one("#execution-header", Static).update(projection.header_text)
-        self.query_one("#execution-summary", Static).update(projection.summary_text)
-        self.query_one("#toggle-task-expanded", Button).label = (
-            projection.task_toggle_label
-        )
-        self.query_one("#toggle-activity-expanded", Button).label = (
-            projection.activity_toggle_label
-        )
+        previous = self._chrome_projection_cache
+        if previous is None or projection.header_text != previous.header_text:
+            self.query_one("#execution-header", Static).update(projection.header_text)
+        if previous is None or projection.summary_text != previous.summary_text:
+            self.query_one("#execution-summary", Static).update(projection.summary_text)
+        if (
+            previous is None
+            or projection.task_toggle_label != previous.task_toggle_label
+        ):
+            self.query_one("#toggle-task-expanded", Button).label = (
+                projection.task_toggle_label
+            )
+        if (
+            previous is None
+            or projection.activity_toggle_label != previous.activity_toggle_label
+        ):
+            self.query_one("#toggle-activity-expanded", Button).label = (
+                projection.activity_toggle_label
+            )
         retry_button = self.query_one("#execution-retry", Button)
-        retry_button.label = projection.retry_label
-        retry_button.disabled = projection.retry_disabled
+        if previous is None or projection.retry_label != previous.retry_label:
+            retry_button.label = projection.retry_label
+        if previous is None or projection.retry_disabled != previous.retry_disabled:
+            retry_button.disabled = projection.retry_disabled
         self._chrome_render_key = render_key
+        self._chrome_projection_cache = projection
 
     def _chrome_projection(self) -> _ChromeProjection:
         summary_text, retry_count = self._summary_text_and_retry_count()

@@ -438,6 +438,7 @@ class ExecutionMatrixScreen(Screen[None]):
         self._activity_lines_key: tuple[str, ...] = ()
         self._chrome_render_key: tuple[object, ...] | None = None
         self._chrome_projection_cache: _ChromeProjection | None = None
+        self._applied_state_identity: tuple[int | None, int] | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -474,10 +475,16 @@ class ExecutionMatrixScreen(Screen[None]):
         preflight: WorkspacePreflight | None,
         snapshot: WorkflowNexusSnapshot,
     ) -> None:
+        state_identity = (id(preflight) if preflight is not None else None, id(snapshot))
+        if self.is_mounted and self._applied_state_identity == state_identity:
+            self.preflight = preflight
+            self.snapshot = snapshot
+            return
         self.preflight = preflight
         self.snapshot = snapshot
         if not self.is_mounted:
             return
+        self._applied_state_identity = state_identity
         self._render_chrome()
         self._sync_task_expanded_view()
         self._render_package_list()
@@ -486,6 +493,7 @@ class ExecutionMatrixScreen(Screen[None]):
     def append_log(self, line: str) -> None:
         if not self.is_mounted:
             return
+        self._applied_state_identity = None
         self.query_one("#execution-log", RichLog).write(line)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

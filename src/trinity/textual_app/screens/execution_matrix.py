@@ -235,22 +235,36 @@ class ExecutionPackageRow(Horizontal):
         self.review_enabled = review_enabled
         self.detail_enabled = detail_enabled
         self.lang = lang
+        self._static_cache: dict[str, Static] = {}
+        self._button_cache: dict[str, Button] = {}
 
     def compose(self) -> ComposeResult:
         with Vertical(classes="execution-package-lines"):
             with Horizontal(classes="execution-package-primary"):
-                yield Static(
+                task = Static(
                     _clip(f"{self.package_id} {self.task_label}", self.task_width),
                     classes="execution-package-task",
                 )
-                yield Static(_clip(self.executor, 18), classes="execution-package-executor")
-                yield Static(_clip(self.status, 10), classes="execution-package-status")
+                executor = Static(
+                    _clip(self.executor, 18),
+                    classes="execution-package-executor",
+                )
+                status = Static(
+                    _clip(self.status, 10),
+                    classes="execution-package-status",
+                )
+                self._static_cache[".execution-package-task"] = task
+                self._static_cache[".execution-package-executor"] = executor
+                self._static_cache[".execution-package-status"] = status
+                yield task
+                yield executor
+                yield status
             with Horizontal(classes="execution-package-secondary"):
-                yield Static(
+                assignee = Static(
                     _clip(f"{_label(self.lang, 'owner_prefix')}: {self.assignee}", 18),
                     classes="execution-package-assignee",
                 )
-                yield Static(
+                review = Static(
                     _clip(
                         f"{_label(self.lang, 'review_prefix')}: "
                         f"{self.review_status or '-'}",
@@ -258,12 +272,18 @@ class ExecutionPackageRow(Horizontal):
                     ),
                     classes="execution-package-review",
                 )
-                yield Static(
+                risk = Static(
                     _clip(f"{_label(self.lang, 'risk_prefix')}: {self.risk}", 18),
                     classes="execution-package-risk",
                 )
+                self._static_cache[".execution-package-assignee"] = assignee
+                self._static_cache[".execution-package-review"] = review
+                self._static_cache[".execution-package-risk"] = risk
+                yield assignee
+                yield review
+                yield risk
                 with Horizontal(classes="execution-package-actions"):
-                    yield Button(
+                    detail_button = Button(
                         self.button_label,
                         id=self.button_id,
                         name=self.package_id,
@@ -271,22 +291,30 @@ class ExecutionPackageRow(Horizontal):
                         compact=True,
                         classes="execution-package-spec",
                     )
+                    self._button_cache[".execution-package-spec"] = detail_button
+                    yield detail_button
                     if self.retry_enabled:
-                        yield Button(
+                        retry_button = Button(
                             self.retry_label,
                             id=self.retry_button_id,
                             name=self.package_id,
                             compact=True,
                             classes="execution-package-retry",
                         )
+                        self._button_cache[".execution-package-retry"] = retry_button
+                        yield retry_button
                     if self.review_enabled:
-                        yield Button(
+                        review_button = Button(
                             self.review_label,
                             id=self.review_button_id,
                             name=self.package_id,
                             compact=True,
                             classes="execution-package-review-action",
                         )
+                        self._button_cache[
+                            ".execution-package-review-action"
+                        ] = review_button
+                        yield review_button
 
     def update_projection(self, projection: _PackageRowProjection) -> None:
         """Update row labels without remounting the row widget."""
@@ -315,26 +343,24 @@ class ExecutionPackageRow(Horizontal):
         next_fields = self._field_texts()
         for selector, text in next_fields.items():
             if text != previous_fields[selector]:
-                self.query_one(selector, Static).update(text)
+                self._static_for(selector).update(text)
         if previous_detail != (self.button_label, self.detail_enabled):
-            detail_button = self.query_one(".execution-package-spec", Button)
+            detail_button = self._button_for(".execution-package-spec")
             if str(detail_button.label) != self.button_label:
                 detail_button.label = self.button_label
             disabled = not self.detail_enabled
             if detail_button.disabled != disabled:
                 detail_button.disabled = disabled
         if self.retry_enabled and previous_retry_label != self.retry_label:
-            retry_buttons = list(self.query(".execution-package-retry"))
-            if retry_buttons:
-                retry_button = retry_buttons[0]
-                if isinstance(retry_button, Button):
-                    retry_button.label = self.retry_label
+            retry_button = self._optional_button_for(".execution-package-retry")
+            if retry_button is not None:
+                retry_button.label = self.retry_label
         if self.review_enabled and previous_review_label != self.review_label:
-            review_buttons = list(self.query(".execution-package-review-action"))
-            if review_buttons:
-                review_button = review_buttons[0]
-                if isinstance(review_button, Button):
-                    review_button.label = self.review_label
+            review_button = self._optional_button_for(
+                ".execution-package-review-action"
+            )
+            if review_button is not None:
+                review_button.label = self.review_label
 
     def _field_texts(self) -> dict[str, str]:
         return {
@@ -358,6 +384,35 @@ class ExecutionPackageRow(Horizontal):
                 18,
             ),
         }
+
+    def _static_for(self, selector: str) -> Static:
+        widget = self._static_cache.get(selector)
+        if widget is not None:
+            return widget
+        widget = self.query_one(selector, Static)
+        self._static_cache[selector] = widget
+        return widget
+
+    def _button_for(self, selector: str) -> Button:
+        button = self._button_cache.get(selector)
+        if button is not None:
+            return button
+        button = self.query_one(selector, Button)
+        self._button_cache[selector] = button
+        return button
+
+    def _optional_button_for(self, selector: str) -> Button | None:
+        button = self._button_cache.get(selector)
+        if button is not None:
+            return button
+        buttons = list(self.query(selector))
+        if not buttons:
+            return None
+        button = buttons[0]
+        if not isinstance(button, Button):
+            return None
+        self._button_cache[selector] = button
+        return button
 
 
 class ExecutionPackageHeader(Vertical):

@@ -95,3 +95,27 @@ async def test_execution_log_modal_skips_unchanged_search_query() -> None:
         modal.on_input_changed(_input_event("complete"))
         assert calls == ["complete"]
         assert modal.filter_query == "complete"
+
+
+@pytest.mark.asyncio
+async def test_execution_log_modal_skips_case_only_search_query() -> None:
+    modal = ExecutionLogModal(["WP-001 failed", "WP-002 completed"])
+    app = ExecutionLogModalHarness(modal)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+        calls: list[str] = []
+        modal.filter_query = "fail"
+
+        def counted_refresh() -> None:
+            calls.append(modal.filter_query)
+
+        modal._refresh_log = counted_refresh
+
+        modal.on_input_changed(_input_event(" FAIL "))
+        assert calls == []
+        assert modal.filter_query == "fail"
+
+        modal.on_input_changed(_input_event("complete"))
+        assert calls == ["complete"]
+        assert modal.filter_query == "complete"

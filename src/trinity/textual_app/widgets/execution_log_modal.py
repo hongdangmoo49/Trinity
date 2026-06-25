@@ -110,7 +110,9 @@ class ExecutionLogModal(ModalScreen[None]):
         if event.input.id != "execution-log-search":
             return
         next_query = event.value.strip()
-        if next_query == self.filter_query:
+        if self._normalize_query(next_query) == self._normalize_query(
+            self.filter_query
+        ):
             return
         self.filter_query = next_query
         self._refresh_log()
@@ -174,10 +176,10 @@ class ExecutionLogModal(ModalScreen[None]):
         return visible
 
     def _filtered_lines(self, query: str) -> list[str]:
-        needle = query.strip().lower()
+        needle = self._normalize_query(query)
         if not needle:
             return list(self.lines)
-        return [line for line in self.lines if needle in str(line).lower()]
+        return [line for line in self.lines if needle in str(line).casefold()]
 
     def _status_text(self, query: str = "") -> str:
         if query.strip():
@@ -205,3 +207,7 @@ class ExecutionLogModal(ModalScreen[None]):
     def _label(self, key: str) -> str:
         labels = _LABELS.get(self.lang, _LABELS["en"])
         return labels.get(key, _LABELS["en"].get(key, key))
+
+    @staticmethod
+    def _normalize_query(query: str) -> str:
+        return query.strip().casefold()

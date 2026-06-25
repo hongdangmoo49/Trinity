@@ -396,6 +396,61 @@ async def test_central_apply_snapshot_skips_unchanged_title_update() -> None:
 
 
 @pytest.mark.asyncio
+async def test_central_apply_snapshot_skips_unchanged_action_plan_render() -> None:
+    view = CentralAgentView()
+    first = WorkflowNexusSnapshot(
+        state="executing",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Build API",
+                owner_agent="codex",
+                status="running",
+            )
+        ],
+    )
+    second = WorkflowNexusSnapshot(
+        state="executing",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Build API",
+                owner_agent="codex",
+                status="done",
+            )
+        ],
+    )
+    app = CentralAgentHarness(view)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        view.apply_snapshot(first)
+        await pilot.pause()
+
+        renders: list[object] = []
+        original_render = view._render_blueprint_actions
+
+        def counted_render(plan) -> None:
+            renders.append(plan)
+            original_render(plan)
+
+        view._render_blueprint_actions = counted_render
+
+        view.apply_snapshot(second)
+        await pilot.pause()
+        assert renders == []
+
+        view.apply_snapshot(
+            WorkflowNexusSnapshot(
+                state="blueprint_ready",
+                work_packages=["WP-001 codex: Build API (pending)"],
+            )
+        )
+        await pilot.pause()
+
+        assert len(renders) == 1
+
+
+@pytest.mark.asyncio
 async def test_central_activity_frame_updates_running_title() -> None:
     view = CentralAgentView()
     view.snapshot = WorkflowNexusSnapshot(state="executing")

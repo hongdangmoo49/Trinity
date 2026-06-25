@@ -8884,6 +8884,10 @@ def test_work_package_detail_modal_localizes_korean_status_values() -> None:
             review_status="changes_requested",
             review_required_changes=["Add retry regression coverage."],
             acceptance_criteria=["재시도 흐름이 문서화된다."],
+            repair_attempt_count=2,
+            repair_max_attempts=3,
+            repair_blocked_reason="duplicate_required_changes",
+            repair_notes=["필수 변경이 반복됨"],
         ),
         lang="ko",
     )
@@ -8892,9 +8896,13 @@ def test_work_package_detail_modal_localizes_korean_status_values() -> None:
 
     assert "- 상태: `실패`" in markdown
     assert "- 리뷰: `변경 요청`" in markdown
+    assert "- 보정 시도: `2/3`" in markdown
+    assert "- 차단 사유: `duplicate_required_changes`" in markdown
+    assert "- 보정 루프가 `2/3` 시도 후 차단됨: duplicate_required_changes" in markdown
     assert "## 리뷰 계획\n- 상태: `변경 요청`" in markdown
     assert "## 리뷰\n- 리뷰어: `-`\n- 상태: `변경 요청`" in markdown
     assert "## 인수 기준\n- 재시도 흐름이 문서화된다." in markdown
+    assert "## 보정 메모\n- 필수 변경이 반복됨" in markdown
     assert "- 리뷰가 완료 전 1개 변경을 요청했습니다." in markdown
     assert "`changes_requested`" not in markdown
 

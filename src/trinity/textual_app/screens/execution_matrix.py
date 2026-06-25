@@ -291,6 +291,9 @@ class ExecutionPackageRow(Horizontal):
     def update_projection(self, projection: _PackageRowProjection) -> None:
         """Update row labels without remounting the row widget."""
         previous_fields = self._field_texts()
+        previous_detail = (self.button_label, self.detail_enabled)
+        previous_retry_label = self.retry_label
+        previous_review_label = self.review_label
         self.package_id = projection.package_id
         self.task_label = projection.task
         self.assignee = projection.assignee
@@ -313,28 +316,25 @@ class ExecutionPackageRow(Horizontal):
         for selector, text in next_fields.items():
             if text != previous_fields[selector]:
                 self.query_one(selector, Static).update(text)
-        detail_button = self.query_one(".execution-package-spec", Button)
-        if str(detail_button.label) != self.button_label:
-            detail_button.label = self.button_label
-        disabled = not self.detail_enabled
-        if detail_button.disabled != disabled:
-            detail_button.disabled = disabled
-        retry_buttons = list(self.query(".execution-package-retry"))
-        if retry_buttons:
-            retry_button = retry_buttons[0]
-            if (
-                isinstance(retry_button, Button)
-                and str(retry_button.label) != self.retry_label
-            ):
-                retry_button.label = self.retry_label
-        review_buttons = list(self.query(".execution-package-review-action"))
-        if review_buttons:
-            review_button = review_buttons[0]
-            if (
-                isinstance(review_button, Button)
-                and str(review_button.label) != self.review_label
-            ):
-                review_button.label = self.review_label
+        if previous_detail != (self.button_label, self.detail_enabled):
+            detail_button = self.query_one(".execution-package-spec", Button)
+            if str(detail_button.label) != self.button_label:
+                detail_button.label = self.button_label
+            disabled = not self.detail_enabled
+            if detail_button.disabled != disabled:
+                detail_button.disabled = disabled
+        if self.retry_enabled and previous_retry_label != self.retry_label:
+            retry_buttons = list(self.query(".execution-package-retry"))
+            if retry_buttons:
+                retry_button = retry_buttons[0]
+                if isinstance(retry_button, Button):
+                    retry_button.label = self.retry_label
+        if self.review_enabled and previous_review_label != self.review_label:
+            review_buttons = list(self.query(".execution-package-review-action"))
+            if review_buttons:
+                review_button = review_buttons[0]
+                if isinstance(review_button, Button):
+                    review_button.label = self.review_label
 
     def _field_texts(self) -> dict[str, str]:
         return {

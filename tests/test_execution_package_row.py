@@ -61,6 +61,26 @@ async def test_execution_package_row_status_change_updates_only_status_field() -
 
             widget.update = counted_update
 
+        button_queries: list[str] = []
+        original_query_one = row.query_one
+        original_query = row.query
+
+        def counted_query_one(selector, *args, **kwargs):
+            if selector == ".execution-package-spec":
+                button_queries.append(str(selector))
+            return original_query_one(selector, *args, **kwargs)
+
+        def counted_query(selector, *args, **kwargs):
+            if selector in {
+                ".execution-package-retry",
+                ".execution-package-review-action",
+            }:
+                button_queries.append(str(selector))
+            return original_query(selector, *args, **kwargs)
+
+        row.query_one = counted_query_one
+        row.query = counted_query
+
         row.update_projection(
             _PackageRowProjection(
                 identity="WP-001",
@@ -86,3 +106,46 @@ async def test_execution_package_row_status_change_updates_only_status_field() -
             "review": [],
             "risk": [],
         }
+        assert button_queries == []
+
+
+@pytest.mark.asyncio
+async def test_execution_package_row_detail_button_updates_when_projection_changes() -> None:
+    row = ExecutionPackageRow(
+        package_id="WP-001",
+        task="Build API",
+        assignee="codex",
+        executor="codex",
+        status="running",
+        review_status="pending",
+        risk="low",
+        button_id="detail-WP-001",
+        button_label="Spec",
+        task_width=28,
+    )
+    app = ExecutionPackageRowHarness(row)
+
+    async with app.run_test(size=(100, 12)) as pilot:
+        await pilot.pause()
+
+        row.update_projection(
+            _PackageRowProjection(
+                identity="WP-001",
+                package_id="WP-001",
+                task="Build API",
+                assignee="codex",
+                executor="codex",
+                status="running",
+                review_status="pending",
+                risk="low",
+                button_id="detail-WP-001",
+                button_label="Details",
+                task_width=28,
+                detail_enabled=False,
+            )
+        )
+        await pilot.pause()
+
+        button = row.query_one(".execution-package-spec")
+        assert str(button.label) == "Details"
+        assert button.disabled is True

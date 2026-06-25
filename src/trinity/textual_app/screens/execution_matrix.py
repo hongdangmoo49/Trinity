@@ -495,31 +495,56 @@ class ExecutionMatrixScreen(Screen[None]):
         self._chrome_projection_cache: _ChromeProjection | None = None
         self._applied_state_identity: tuple[int | None, int] | None = None
         self._task_expanded_view_key: bool | None = None
+        self._screen_container: Vertical | None = None
+        self._header_widget: Static | None = None
+        self._summary_widget: Static | None = None
+        self._task_toggle_button: Button | None = None
+        self._activity_toggle_button: Button | None = None
+        self._retry_button: Button | None = None
+        self._package_list_widget: VerticalScroll | None = None
+        self._log_widget: RichLog | None = None
 
     def compose(self) -> ComposeResult:
+        self._reset_widget_cache()
         yield Header(show_clock=False)
-        with Vertical(id="execution-screen"):
+        screen = Vertical(id="execution-screen")
+        self._screen_container = screen
+        with screen:
             with Horizontal(id="execution-header-row"):
-                yield Static(self._header_text(), id="execution-header")
-                yield Button(
+                header = Static(self._header_text(), id="execution-header")
+                self._header_widget = header
+                yield header
+                task_toggle = Button(
                     self._task_toggle_label(),
                     id="toggle-task-expanded",
                     compact=True,
                 )
-                yield Button(
+                self._task_toggle_button = task_toggle
+                yield task_toggle
+                activity_toggle = Button(
                     self._activity_toggle_label(),
                     id="toggle-activity-expanded",
                     compact=True,
                 )
-                yield Button(
+                self._activity_toggle_button = activity_toggle
+                yield activity_toggle
+                retry_button = Button(
                     self._retry_button_label(),
                     id="execution-retry",
                     compact=True,
                     disabled=not self._has_retry_candidates(),
                 )
-            yield Static("", id="execution-summary")
-            yield VerticalScroll(id="execution-package-list")
-            yield RichLog(id="execution-log", wrap=True, markup=False)
+                self._retry_button = retry_button
+                yield retry_button
+            summary = Static("", id="execution-summary")
+            self._summary_widget = summary
+            yield summary
+            package_list = VerticalScroll(id="execution-package-list")
+            self._package_list_widget = package_list
+            yield package_list
+            log = RichLog(id="execution-log", wrap=True, markup=False)
+            self._log_widget = log
+            yield log
         yield Footer()
 
     def on_mount(self) -> None:
@@ -551,7 +576,7 @@ class ExecutionMatrixScreen(Screen[None]):
             return
         self._applied_state_identity = None
         self._activity_lines_key = ()
-        self.query_one("#execution-log", RichLog).write(line)
+        self._execution_log().write(line)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "toggle-task-expanded":
@@ -601,7 +626,7 @@ class ExecutionMatrixScreen(Screen[None]):
         self.tasks_expanded = not self.tasks_expanded
         if not self.is_mounted:
             return
-        self.query_one("#toggle-task-expanded", Button).label = self._task_toggle_label()
+        self._task_toggle().label = self._task_toggle_label()
         self._sync_task_expanded_view()
         self._render_package_list()
 
@@ -643,12 +668,68 @@ class ExecutionMatrixScreen(Screen[None]):
             )
         )
 
+    def _reset_widget_cache(self) -> None:
+        self._screen_container = None
+        self._header_widget = None
+        self._summary_widget = None
+        self._task_toggle_button = None
+        self._activity_toggle_button = None
+        self._retry_button = None
+        self._package_list_widget = None
+        self._log_widget = None
+
+    def _execution_screen(self) -> Vertical:
+        if self._screen_container is None:
+            self._screen_container = self.query_one("#execution-screen", Vertical)
+        return self._screen_container
+
+    def _execution_header(self) -> Static:
+        if self._header_widget is None:
+            self._header_widget = self.query_one("#execution-header", Static)
+        return self._header_widget
+
+    def _execution_summary(self) -> Static:
+        if self._summary_widget is None:
+            self._summary_widget = self.query_one("#execution-summary", Static)
+        return self._summary_widget
+
+    def _task_toggle(self) -> Button:
+        if self._task_toggle_button is None:
+            self._task_toggle_button = self.query_one("#toggle-task-expanded", Button)
+        return self._task_toggle_button
+
+    def _activity_toggle(self) -> Button:
+        if self._activity_toggle_button is None:
+            self._activity_toggle_button = self.query_one(
+                "#toggle-activity-expanded",
+                Button,
+            )
+        return self._activity_toggle_button
+
+    def _retry_control(self) -> Button:
+        if self._retry_button is None:
+            self._retry_button = self.query_one("#execution-retry", Button)
+        return self._retry_button
+
+    def _package_list(self) -> VerticalScroll:
+        if self._package_list_widget is None:
+            self._package_list_widget = self.query_one(
+                "#execution-package-list",
+                VerticalScroll,
+            )
+        return self._package_list_widget
+
+    def _execution_log(self) -> RichLog:
+        if self._log_widget is None:
+            self._log_widget = self.query_one("#execution-log", RichLog)
+        return self._log_widget
+
     def _sync_task_expanded_view(self) -> None:
         if not self.is_mounted:
             return
         if self._task_expanded_view_key == self.tasks_expanded:
             return
-        self.query_one("#execution-screen", Vertical).set_class(
+        self._execution_screen().set_class(
             self.tasks_expanded,
             "execution-task-expanded",
         )
@@ -675,7 +756,7 @@ class ExecutionMatrixScreen(Screen[None]):
                     self._package_row_keys[projection.identity] = projection.render_key
             return
 
-        package_list = self.query_one("#execution-package-list", VerticalScroll)
+        package_list = self._package_list()
         package_list.remove_children()
         self._package_rows = {}
         self._package_row_keys = {}
@@ -789,23 +870,19 @@ class ExecutionMatrixScreen(Screen[None]):
             return
         previous = self._chrome_projection_cache
         if previous is None or projection.header_text != previous.header_text:
-            self.query_one("#execution-header", Static).update(projection.header_text)
+            self._execution_header().update(projection.header_text)
         if previous is None or projection.summary_text != previous.summary_text:
-            self.query_one("#execution-summary", Static).update(projection.summary_text)
+            self._execution_summary().update(projection.summary_text)
         if (
             previous is None
             or projection.task_toggle_label != previous.task_toggle_label
         ):
-            self.query_one("#toggle-task-expanded", Button).label = (
-                projection.task_toggle_label
-            )
+            self._task_toggle().label = projection.task_toggle_label
         if (
             previous is None
             or projection.activity_toggle_label != previous.activity_toggle_label
         ):
-            self.query_one("#toggle-activity-expanded", Button).label = (
-                projection.activity_toggle_label
-            )
+            self._activity_toggle().label = projection.activity_toggle_label
         retry_label_changed = (
             previous is None or projection.retry_label != previous.retry_label
         )
@@ -813,7 +890,7 @@ class ExecutionMatrixScreen(Screen[None]):
             previous is None or projection.retry_disabled != previous.retry_disabled
         )
         if retry_label_changed or retry_disabled_changed:
-            retry_button = self.query_one("#execution-retry", Button)
+            retry_button = self._retry_control()
             if retry_label_changed:
                 retry_button.label = projection.retry_label
             if retry_disabled_changed:
@@ -838,7 +915,7 @@ class ExecutionMatrixScreen(Screen[None]):
         lines_key = tuple(lines)
         if lines_key == self._activity_lines_key:
             return
-        log = self.query_one("#execution-log", RichLog)
+        log = self._execution_log()
         previous_key = self._activity_lines_key
         if (
             previous_key

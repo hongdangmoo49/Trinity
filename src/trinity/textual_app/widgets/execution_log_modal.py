@@ -111,18 +111,28 @@ class ExecutionLogModal(ModalScreen[None]):
         self._refresh_log()
 
     def _refresh_log(self) -> None:
+        status_text, lines = self._render_state(self.filter_query)
         self.query_one("#execution-log-search-status", Static).update(
-            self._status_text(self.filter_query)
+            status_text
         )
         log = self.query_one("#execution-log-modal-body", RichLog)
         log.clear()
-        for line in self._render_lines(self.filter_query):
+        for line in lines:
             log.write(line)
+
+    def _render_state(self, query: str = "") -> tuple[str, list[str]]:
+        if not query.strip():
+            return self._status_text(), self._render_unfiltered_lines()
+        source = self._filtered_lines(query)
+        return self._filtered_status_text(source), self._render_filtered_lines(source)
 
     def _render_lines(self, query: str = "") -> list[str]:
         if not query.strip():
             return self._render_unfiltered_lines()
         source = self._filtered_lines(query)
+        return self._render_filtered_lines(source)
+
+    def _render_filtered_lines(self, source: list[str]) -> list[str]:
         if not source:
             return [self._label("empty_filtered")]
         hidden_count = max(0, len(source) - MAX_RENDERED_LOG_LINES)
@@ -156,14 +166,17 @@ class ExecutionLogModal(ModalScreen[None]):
 
     def _status_text(self, query: str = "") -> str:
         if query.strip():
-            total = len(self._filtered_lines(query))
-            visible = min(total, MAX_RENDERED_LOG_LINES)
-            if total == 0:
-                return self._label("no_matches")
-            return self._label("match_count").format(visible=visible, total=total)
+            return self._filtered_status_text(self._filtered_lines(query))
         total = len(self.lines)
         visible = min(total, MAX_RENDERED_LOG_LINES)
         return self._label("line_count").format(visible=visible, total=total)
+
+    def _filtered_status_text(self, source: list[str]) -> str:
+        total = len(source)
+        visible = min(total, MAX_RENDERED_LOG_LINES)
+        if total == 0:
+            return self._label("no_matches")
+        return self._label("match_count").format(visible=visible, total=total)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id != "close-execution-log":

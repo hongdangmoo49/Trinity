@@ -8865,6 +8865,35 @@ def test_execution_log_modal_filters_lines_case_insensitively() -> None:
     assert modal._status_text("FAILED") == "Showing 2 of 2 matches"
 
 
+def test_execution_log_modal_render_state_filters_once() -> None:
+    class CountingExecutionLogModal(ExecutionLogModal):
+        def __init__(self, lines: list[str]) -> None:
+            super().__init__(lines)
+            self.filter_calls = 0
+
+        def _filtered_lines(self, query: str) -> list[str]:
+            self.filter_calls += 1
+            return super()._filtered_lines(query)
+
+    modal = CountingExecutionLogModal(
+        [
+            "WP-001 started by codex",
+            "WP-002 failed with provider error",
+            "WP-003 review completed",
+            "wp-004 FAILED after retry",
+        ]
+    )
+
+    status, rendered = modal._render_state("FAILED")
+
+    assert status == "Showing 2 of 2 matches"
+    assert rendered == [
+        "WP-002 failed with provider error",
+        "wp-004 FAILED after retry",
+    ]
+    assert modal.filter_calls == 1
+
+
 def test_execution_log_modal_filters_large_match_sets() -> None:
     lines = [f"WP-{index:03d} failed" for index in range(1, MAX_RENDERED_LOG_LINES + 4)]
     modal = ExecutionLogModal(lines)

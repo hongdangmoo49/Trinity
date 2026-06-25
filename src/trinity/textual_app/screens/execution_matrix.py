@@ -764,9 +764,18 @@ class ExecutionMatrixScreen(Screen[None]):
         if lines_key == self._activity_lines_key:
             return
         log = self.query_one("#execution-log", RichLog)
-        log.clear()
-        for line in lines:
-            log.write(line)
+        previous_key = self._activity_lines_key
+        if (
+            previous_key
+            and len(lines_key) > len(previous_key)
+            and lines_key[: len(previous_key)] == previous_key
+        ):
+            for line in lines[len(previous_key) :]:
+                log.write(line)
+        else:
+            log.clear()
+            for line in lines:
+                log.write(line)
         self._activity_lines_key = lines_key
 
     def _header_text(self) -> str:

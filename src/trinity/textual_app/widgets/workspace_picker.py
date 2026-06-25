@@ -603,7 +603,7 @@ def _directory_accepts_child_creation(directory: Path) -> bool:
 
 
 def _git_branch(path: Path) -> str:
-    head = path / ".git" / "HEAD"
+    head = _git_head_path(path)
     if not head.exists():
         return "unknown"
     try:
@@ -614,3 +614,22 @@ def _git_branch(path: Path) -> str:
     if text.startswith(prefix):
         return text[len(prefix):]
     return text[:12] if text else "unknown"
+
+
+def _git_head_path(path: Path) -> Path:
+    marker = path / ".git"
+    if marker.is_dir():
+        return marker / "HEAD"
+    if not marker.is_file():
+        return marker / "HEAD"
+    try:
+        text = marker.read_text(encoding="utf-8").strip()
+    except OSError:
+        return marker / "HEAD"
+    prefix = "gitdir:"
+    if not text.lower().startswith(prefix):
+        return marker / "HEAD"
+    gitdir = Path(text[len(prefix) :].strip())
+    if not gitdir.is_absolute():
+        gitdir = path / gitdir
+    return gitdir / "HEAD"

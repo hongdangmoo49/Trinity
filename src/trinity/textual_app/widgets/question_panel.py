@@ -34,7 +34,7 @@ class QuestionPanel(VerticalScroll):
         super().__init__(id=id)
         self.lang = lang
         self._button_answers: dict[str, QuestionAnswer] = {}
-        self._questions_key: tuple[object, ...] = ()
+        self._questions_key: tuple[object, ...] | None = None
         self._title_key = ""
 
     def compose(self) -> ComposeResult:
@@ -43,6 +43,9 @@ class QuestionPanel(VerticalScroll):
             pass
 
     def apply_questions(self, questions: list[QuestionSnapshot]) -> None:
+        questions_key = self._question_key(questions)
+        if self.is_mounted and questions_key == self._questions_key:
+            return
         self.set_class(not questions, "question-panel-empty")
         if not self.is_mounted:
             return
@@ -50,9 +53,6 @@ class QuestionPanel(VerticalScroll):
         if title != self._title_key:
             self.query_one("#question-panel-title", Static).update(title)
             self._title_key = title
-        questions_key = self._question_key(questions)
-        if questions_key == self._questions_key:
-            return
         self._render_questions(questions)
         self._questions_key = questions_key
 

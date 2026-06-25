@@ -293,7 +293,7 @@ STATUS_CONTEXT_LABELS = {
         "decision": "결정",
         "decision_hint": "대기 중인 질문에 `/answer`로 답하면 결정이 추가됩니다.",
         "decisions": "결정",
-        "done_packages": "완료 WP",
+        "done_packages": "완료 작업 패키지",
         "delegated_to": "위임 대상",
         "enabled": "활성화",
         "execution": "실행",
@@ -304,7 +304,7 @@ STATUS_CONTEXT_LABELS = {
             "현재 워크플로우에 사용할 수 있는 작업 패키지가 없습니다."
         ),
         "execute_retry_no_packages_hint": (
-            "먼저 계획을 완료하고 하나 이상의 WP를 실행하세요."
+            "먼저 계획을 완료하고 하나 이상의 작업 패키지를 실행하세요."
         ),
         "execute_recovery_hint": (
             "`/execute-retry`, `/execute mark-interrupted`, "
@@ -370,10 +370,10 @@ STATUS_CONTEXT_LABELS = {
         "options": "선택지",
         "package": "작업 패키지",
         "packages": "작업 패키지",
-        "packages_hint": "설계안 또는 로컬 WP 그래프가 생성될 때까지 계획을 진행하세요.",
+        "packages_hint": "설계안 또는 로컬 작업 패키지 그래프가 생성될 때까지 계획을 진행하세요.",
         "path": "경로",
         "pending_questions": "대기 중 질문",
-        "pending_wp_review": "대기 중 WP 리뷰",
+        "pending_wp_review": "대기 중 작업 패키지 리뷰",
         "post_review_action_items": "리뷰 후 조치",
         "post_review_items": "리뷰 후 조치",
         "action_items": "조치 항목",
@@ -416,13 +416,13 @@ STATUS_CONTEXT_LABELS = {
         "review_repair_action_hint": (
             "중앙 패널에서 한 번 재시도, 완료 처리, 중지 중 하나를 선택하세요."
         ),
-        "review_repair_none": "리뷰 보정으로 중단된 WP가 기록되어 있지 않습니다.",
-        "review_repair_paused": "리뷰 보정 루프 가드가 다음 WP를 일시 중지했습니다:",
+        "review_repair_none": "리뷰 보정으로 중단된 작업 패키지가 기록되어 있지 않습니다.",
+        "review_repair_paused": "리뷰 보정 루프 가드가 다음 작업 패키지를 일시 중지했습니다:",
         "repair_state": "보정 상태",
         "review": "리뷰",
         "review_title": "리뷰",
         "review_hint": "`/review wp`, `/review final`, `/review all` 중 하나를 실행하세요.",
-        "reviewed_wp": "리뷰된 WP",
+        "reviewed_wp": "리뷰된 작업 패키지",
         "reviewer": "리뷰어",
         "round": "라운드",
         "rounds": "라운드",
@@ -441,8 +441,8 @@ STATUS_CONTEXT_LABELS = {
         "slash_command": "슬래시 명령",
         "severity": "심각도",
         "source": "출처",
-        "running_packages": "실행 중 WP",
-        "running_packages_at_exit": "종료 시 실행 중 WP",
+        "running_packages": "실행 중 작업 패키지",
+        "running_packages_at_exit": "종료 시 실행 중 작업 패키지",
         "selector": "선택자",
         "state": "상태",
         "status": "상태",
@@ -667,7 +667,10 @@ def review_repair_action_hint(*, lang: str = "en") -> str:
 
 
 def review_repair_table_columns(*, lang: str = "en") -> tuple[str, str]:
-    return ("WP", _sc_label(lang, "repair_state"))
+    return (
+        "작업 패키지" if lang == "ko" else "WP",
+        _sc_label(lang, "repair_state"),
+    )
 
 
 def review_repair_details_markdown(

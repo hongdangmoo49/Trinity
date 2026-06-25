@@ -197,10 +197,10 @@ class StartScreen(Screen[None]):
         if path == self.workspace_candidate:
             return
         self.workspace_candidate = path
-        label = self.query_one("#workspace-candidate", Static)
         workspace_label = self._workspace_label()
         if workspace_label == self._workspace_label_key:
             return
+        label = self.query_one("#workspace-candidate", Static)
         label.update(workspace_label)
         self._workspace_label_key = workspace_label
 

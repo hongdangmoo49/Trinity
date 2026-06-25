@@ -2139,7 +2139,7 @@ async def test_report_screen_snapshot_uses_korean_body_labels(tmp_path) -> None:
     ) in rendered
     assert "실행 복구" in rendered
     assert "상태: 중단" in rendered
-    assert "열린 질문" in rendered
+    assert "미해결 질문" in rendered
     assert "예 (추천)" in rendered
 
 

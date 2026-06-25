@@ -138,6 +138,7 @@ class NexusScreen(Screen[None]):
         self._agent_model_overrides: dict[str, str] = {}
         self._agent_model_choices: dict[str, tuple[ProviderModelChoice, ...]] = {}
         self._workspace_candidate: str = ""
+        self._workspace_label_key = ""
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -360,7 +361,11 @@ class NexusScreen(Screen[None]):
         matches = self.query("#nexus-target-workspace")
         if not matches:
             return
-        matches.first(Static).update(self._workspace_label())
+        label = self._workspace_label()
+        if label == self._workspace_label_key:
+            return
+        matches.first(Static).update(label)
+        self._workspace_label_key = label
 
     def _workspace_label(self) -> str:
         target = self._current_workspace_text()

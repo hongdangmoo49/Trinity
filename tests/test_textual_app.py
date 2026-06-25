@@ -9237,7 +9237,7 @@ def test_provider_inspector_meta_uses_korean_labels() -> None:
     assert "모드: execute, review" in meta
     assert "강점: implementation 0.95" in meta
     assert "컨텍스트 프로필: implementer" in meta
-    assert "출력 계약: execution_v1" in meta
+    assert "출력 형식: execution_v1" in meta
     assert "품질 신호: 점수 0.667, 성공 2/3" in meta
     assert "차단 1, 변경 요청 4" in meta
     assert "품질 신호: 점수 0.667, 성공 2/3" in all_output
@@ -10322,7 +10322,7 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
         assert "밀도: 여유" in preview
         assert "중앙: 자동 / 강력" in preview
         assert "Claude: 기본값" in preview
-        assert "출력 계약 execute:execution_v1 review:review_v1" in preview
+        assert "출력 형식 execute:execution_v1 review:review_v1" in preview
         assert "Mode:" not in preview
         assert "Density:" not in preview
         assert "Central:" not in preview

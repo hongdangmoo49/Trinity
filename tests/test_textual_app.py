@@ -2871,7 +2871,7 @@ def test_snapshot_report_markdown_uses_korean_labels() -> None:
     assert "## 합의" in md
     assert "**진행**: 진행중" in md
     assert "## WP 라우팅" in md
-    assert "상태: 완료; 담당 codex; 실행자 codex; 레인 직렬" in md
+    assert "상태: 완료; 소유자 codex; 실행자 codex; 레인 직렬" in md
     assert "라우팅: 종류 구현; 프로필 default\\-v1; 점수 0\\.95" in md
     assert (
         "리뷰: peer 없음; 리뷰어 \\(없음\\); 이유 활성 에이전트가 codex뿐이라 "
@@ -2932,7 +2932,7 @@ def test_snapshot_report_markdown_uses_korean_placeholder_values() -> None:
     assert "컨텍스트 \\(알 수 없음\\) (\\(알 수 없음\\)); 세션 \\(없음\\)" in md
     assert "- **\\(알 수 없음\\)**: 점수 0; 성공 0/0; 차단 0; 변경 요청 0" in md
     assert "- **\\(이름 없음\\)** \\(제목 없음\\)" in md
-    assert "상태: \\(알 수 없음\\); 담당 \\(알 수 없음\\); 실행자 \\(없음\\)" in md
+    assert "상태: \\(알 수 없음\\); 소유자 \\(알 수 없음\\); 실행자 \\(없음\\)" in md
     assert "- 실행 ID: \\(알 수 없음\\)" in md
     assert "- 대상: \\(미설정\\)" in md
     assert "- 실행 중 WP: \\(없음\\)" in md

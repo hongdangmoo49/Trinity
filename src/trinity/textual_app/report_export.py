@@ -101,7 +101,7 @@ REPORT_MARKDOWN_LABELS = {
         "modes": "모드",
         "open_questions": "미해결 질문",
         "output": "출력",
-        "owner": "담당",
+        "owner": "소유자",
         "progress": "진행",
         "profile": "프로필",
         "provider_session": "세션",

@@ -255,6 +255,14 @@ class PromptComposer(Vertical):
 
         query = self._slash_query()
         if query is None:
+            if (
+                self._last_slash_query is None
+                and not self._command_matches
+                and self._command_selection == 0
+                and self._command_window_start == 0
+                and self._command_palette_visible_key is False
+            ):
+                return
             self._command_matches = []
             self._command_selection = 0
             self._command_window_start = 0

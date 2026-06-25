@@ -46,3 +46,29 @@ async def test_prompt_composer_skips_unchanged_palette_render() -> None:
         await pilot.pause()
 
         assert updates
+
+
+@pytest.mark.asyncio
+async def test_prompt_composer_skips_inactive_palette_refresh() -> None:
+    composer = PromptComposer()
+    app = ComposerHarness(composer)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        composer.set_text("plain text")
+        await pilot.pause()
+
+        calls: list[str] = []
+
+        def counted_render_options() -> None:
+            calls.append("render")
+
+        def counted_set_visible(visible: bool) -> None:
+            calls.append(f"visible:{visible}")
+
+        composer._render_command_options = counted_render_options
+        composer._set_command_palette_visible = counted_set_visible
+
+        composer.set_text("plain text updated")
+        await pilot.pause()
+
+        assert calls == []

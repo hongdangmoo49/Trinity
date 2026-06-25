@@ -8883,6 +8883,7 @@ def test_work_package_detail_modal_localizes_korean_status_values() -> None:
             last_result_summary="Could not finish.",
             review_status="changes_requested",
             review_required_changes=["Add retry regression coverage."],
+            acceptance_criteria=["재시도 흐름이 문서화된다."],
         ),
         lang="ko",
     )
@@ -8893,6 +8894,7 @@ def test_work_package_detail_modal_localizes_korean_status_values() -> None:
     assert "- 리뷰: `변경 요청`" in markdown
     assert "## 리뷰 계획\n- 상태: `변경 요청`" in markdown
     assert "## 리뷰\n- 리뷰어: `-`\n- 상태: `변경 요청`" in markdown
+    assert "## 인수 기준\n- 재시도 흐름이 문서화된다." in markdown
     assert "- 리뷰가 완료 전 1개 변경을 요청했습니다." in markdown
     assert "`changes_requested`" not in markdown
 

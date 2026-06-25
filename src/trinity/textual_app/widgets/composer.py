@@ -177,6 +177,7 @@ class PromptComposer(Vertical):
         self._last_slash_query: str | None = None
         self._ignore_next_submit = False
         self._pasted_content: list[tuple[str, str]] = []
+        self._command_options_key: tuple[object, ...] | None = None
         self.lang = lang
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
@@ -284,9 +285,59 @@ class PromptComposer(Vertical):
             return
 
         visible_matches = self._visible_command_matches()
-        if not visible_matches and self._slash_query() is not None:
+        slash_active = self._slash_query() is not None
+        option_states: list[tuple[str, bool, bool, bool]] = []
+        if not visible_matches and slash_active:
+            option_states.append(
+                (
+                    command_palette_text("command_no_matches", self.lang),
+                    True,
+                    False,
+                    True,
+                )
+            )
+            option_states.extend(("", False, False, False) for _ in range(1, COMMAND_LIMIT))
+        else:
+            for index in range(COMMAND_LIMIT):
+                if index >= len(visible_matches):
+                    option_states.append(("", False, False, False))
+                    continue
+                command_index = self._command_window_start + index
+                command = visible_matches[index]
+                description = command_description(command, self.lang)
+                label = f"{command:<12} {description}" if description else command
+                option_states.append(
+                    (
+                        label,
+                        True,
+                        command_index == self._command_selection,
+                        False,
+                    )
+                )
+
+        hidden_above = self._command_window_start
+        visible_end = self._command_window_start + len(visible_matches)
+        hidden_below = max(0, len(self._command_matches) - visible_end)
+        more_text = ""
+        more_display = False
+        if hidden_above or hidden_below:
+            parts: list[str] = []
+            if hidden_above:
+                parts.append(f"↑ {hidden_above}")
+            if hidden_below:
+                parts.append(f"↓ {hidden_below}")
+            suffix = command_palette_text("command_more", self.lang)
+            more_text = " / ".join(parts) + f" {suffix}"
+            more_display = True
+
+        render_key = (tuple(option_states), more_text, more_display)
+        if render_key == self._command_options_key:
+            return
+        self._command_options_key = render_key
+
+        if not visible_matches and slash_active:
             first = self.query_one("#command-option-0", Static)
-            first.update(command_palette_text("command_no_matches", self.lang))
+            first.update(option_states[0][0])
             first.display = True
             first.set_class(True, "command-option-empty")
             first.set_class(False, "command-option-selected")
@@ -299,43 +350,16 @@ class PromptComposer(Vertical):
             self.query_one("#command-option-more", Static).display = False
             return
 
-        for index in range(COMMAND_LIMIT):
+        for index, (label, display, selected, empty) in enumerate(option_states):
             option = self.query_one(f"#command-option-{index}", Static)
-            if index >= len(visible_matches):
-                option.update("")
-                option.display = False
-                option.set_class(False, "command-option-selected")
-                option.set_class(False, "command-option-empty")
-                continue
-
-            command_index = self._command_window_start + index
-            command = visible_matches[index]
-            description = command_description(command, self.lang)
-            label = f"{command:<12} {description}" if description else command
             option.update(label)
-            option.display = True
-            option.set_class(
-                command_index == self._command_selection,
-                "command-option-selected",
-            )
-            option.set_class(False, "command-option-empty")
+            option.display = display
+            option.set_class(selected, "command-option-selected")
+            option.set_class(empty, "command-option-empty")
 
-        hidden_above = self._command_window_start
-        visible_end = self._command_window_start + len(visible_matches)
-        hidden_below = max(0, len(self._command_matches) - visible_end)
         more = self.query_one("#command-option-more", Static)
-        if hidden_above or hidden_below:
-            parts: list[str] = []
-            if hidden_above:
-                parts.append(f"↑ {hidden_above}")
-            if hidden_below:
-                parts.append(f"↓ {hidden_below}")
-            suffix = command_palette_text("command_more", self.lang)
-            more.update(" / ".join(parts) + f" {suffix}")
-            more.display = True
-        else:
-            more.update("")
-            more.display = False
+        more.update(more_text)
+        more.display = more_display
 
     def _set_command_palette_visible(self, visible: bool) -> None:
         if not self.is_mounted:

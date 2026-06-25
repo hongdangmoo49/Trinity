@@ -51,6 +51,11 @@ def test_work_package_state_groups_statuses() -> None:
     assert work_package_state(_package("WP-001", "done")) == "done"
     assert work_package_state(_package("WP-002", "running")) == "running"
     assert work_package_state(_package("WP-003", "pending")) == "waiting"
+    assert work_package_state(_package("WP-003A", "needs_user_decision")) == "waiting"
+    assert (
+        work_package_state(_package("WP-003B", "waiting_for_external_input"))
+        == "waiting"
+    )
     assert work_package_state(_package("WP-004", "blocked")) == "blocked"
     assert (
         work_package_state(
@@ -70,24 +75,35 @@ def test_work_package_progress_helpers_surface_current_next_blocked() -> None:
         _package("WP-002", "running", title="Parser", current_executor="codex"),
         _package("WP-003", "pending", title="Renderer", owner="claude"),
         _package("WP-004", "pending", title="Validator", owner="antigravity"),
+        _package("WP-004A", "needs_user_decision", title="Decision", owner="claude"),
+        _package(
+            "WP-004B",
+            "waiting_for_external_input",
+            title="External Input",
+            owner="codex",
+        ),
         _package("WP-005", "blocked", title="Adapter", repair_blocked_reason="missing token"),
     ]
 
     assert work_package_counts(packages) == {
         "done": 1,
         "running": 1,
-        "waiting": 2,
+        "waiting": 4,
         "blocked": 1,
     }
     assert [item.id for item in current_work_packages(packages)] == ["WP-002"]
-    assert [item.id for item in next_work_packages(packages)] == ["WP-003", "WP-004"]
+    assert [item.id for item in next_work_packages(packages)] == [
+        "WP-003",
+        "WP-004",
+        "WP-004A",
+    ]
     assert [item.id for item in blocked_work_packages(packages)] == ["WP-005"]
     assert progress_summary_line(packages) == (
-        "5 WP · 1 done · 1 running · 2 waiting · 1 blocked"
+        "7 WP · 1 done · 1 running · 4 waiting · 1 blocked"
     )
-    assert progress_bar(work_package_counts(packages)) == "[#>..!]"
+    assert progress_bar(work_package_counts(packages)) == "[#>....!]"
     assert compact_wp_line(packages[1]) == "WP-002 Codex · Parser"
-    assert blocked_detail_line(packages[4]) == "repair 2/2 · missing token"
+    assert blocked_detail_line(packages[-1]) == "repair 2/2 · missing token"
 
 
 def test_work_package_progress_summary_supports_korean() -> None:

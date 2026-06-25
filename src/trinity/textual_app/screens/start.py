@@ -113,27 +113,40 @@ class StartScreen(Screen[None]):
         self.lang = lang
         self._agent_model_choices: dict[str, tuple[ProviderModelChoice, ...]] = {}
         self._workspace_label_key = self._workspace_label()
+        self._composer: PromptComposer | None = None
+        self._recipient_selector: AgentRecipientModelSelector | None = None
+        self._workspace_label_widget: Static | None = None
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
+        self._reset_widget_cache()
         yield Header(show_clock=False)
         with Vertical(id="start-screen"):
             with Vertical(id="start-shell"):
                 yield SacredGeometryAnimation()
                 yield Static("TRINITY", id="start-title")
                 yield Static(self._label("subtitle"), id="start-subtitle")
-                yield PromptComposer(
+                composer = PromptComposer(
                     placeholder=self._label("placeholder"),
                     id="start-composer",
                     lang=self.lang,
                 )
-                yield AgentRecipientModelSelector(
+                self._composer = composer
+                yield composer
+                selector = AgentRecipientModelSelector(
                     self.config.agents,
                     id="start-recipient-selector",
                     lang=self.lang,
                 )
+                self._recipient_selector = selector
+                yield selector
                 with Horizontal(id="start-actions"):
-                    yield Static(self._workspace_label(), id="workspace-candidate")
+                    workspace_label = Static(
+                        self._workspace_label(),
+                        id="workspace-candidate",
+                    )
+                    self._workspace_label_widget = workspace_label
+                    yield workspace_label
                     yield Button(
                         self._label("select_workspace"),
                         id="choose-workspace",
@@ -148,7 +161,7 @@ class StartScreen(Screen[None]):
 
     def on_mount(self) -> None:
         self._apply_model_choices()
-        self.query_one("#start-composer", PromptComposer).focus_text_area()
+        self._prompt_composer().focus_text_area()
 
     def set_agent_model_choices(
         self,
@@ -171,7 +184,7 @@ class StartScreen(Screen[None]):
     ) -> None:
         if not self._agent_model_choices:
             return
-        selector = self.query_one(AgentRecipientModelSelector)
+        selector = self._agent_selector()
         for name, choices in (choices_by_agent or self._agent_model_choices).items():
             selector.set_model_choices(name, choices)
 
@@ -183,14 +196,14 @@ class StartScreen(Screen[None]):
         button_id = event.button.id
         if button_id == "plan-first":
             event.stop()
-            composer = self.query_one("#start-composer", PromptComposer)
+            composer = self._prompt_composer()
             self._submit(composer.submission_text)
         elif button_id == "choose-workspace":
             event.stop()
             self.post_message(self.WorkspaceRequested())
 
     def action_submit(self) -> None:
-        composer = self.query_one("#start-composer", PromptComposer)
+        composer = self._prompt_composer()
         self._submit(composer.submission_text)
 
     def set_workspace_candidate(self, path: Path | None) -> None:
@@ -200,21 +213,21 @@ class StartScreen(Screen[None]):
         workspace_label = self._workspace_label()
         if workspace_label == self._workspace_label_key:
             return
-        label = self.query_one("#workspace-candidate", Static)
+        label = self._workspace_label_static()
         label.update(workspace_label)
         self._workspace_label_key = workspace_label
 
     def _submit(self, prompt: str) -> None:
         text = prompt.strip()
         if not text:
-            composer = self.query_one("#start-composer", PromptComposer)
+            composer = self._prompt_composer()
             composer.focus_text_area()
             return
         if is_slash_command_text(text):
-            self.query_one("#start-composer", PromptComposer).clear()
+            self._prompt_composer().clear()
             self.post_message(self.SlashCommandSubmitted(text))
             return
-        selector = self.query_one(AgentRecipientModelSelector)
+        selector = self._agent_selector()
         target_agents = selector.selected_agents()
         if not target_agents:
             self.app.notify(self._label("select_agent_warning"), severity="warning")
@@ -227,6 +240,26 @@ class StartScreen(Screen[None]):
                 selector.model_overrides(),
             )
         )
+
+    def _reset_widget_cache(self) -> None:
+        self._composer = None
+        self._recipient_selector = None
+        self._workspace_label_widget = None
+
+    def _prompt_composer(self) -> PromptComposer:
+        if self._composer is None:
+            self._composer = self.query_one("#start-composer", PromptComposer)
+        return self._composer
+
+    def _agent_selector(self) -> AgentRecipientModelSelector:
+        if self._recipient_selector is None:
+            self._recipient_selector = self.query_one(AgentRecipientModelSelector)
+        return self._recipient_selector
+
+    def _workspace_label_static(self) -> Static:
+        if self._workspace_label_widget is None:
+            self._workspace_label_widget = self.query_one("#workspace-candidate", Static)
+        return self._workspace_label_widget
 
     def _workspace_label(self) -> str:
         if self.workspace_candidate is None:

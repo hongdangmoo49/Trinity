@@ -10494,6 +10494,46 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
 
 
 @pytest.mark.asyncio
+async def test_nexus_workspace_label_skips_unchanged_update(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target-app"
+    next_target = tmp_path / "next-app"
+    control_repo.mkdir()
+    target.mkdir()
+    next_target.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        workspace_label = nexus.query_one("#nexus-target-workspace", Static)
+        nexus._refresh_workspace_label()
+        updates: list[str] = []
+        original_update = workspace_label.update
+
+        def counted_update(content) -> None:
+            updates.append(str(content))
+            original_update(content)
+
+        workspace_label.update = counted_update
+
+        nexus._refresh_workspace_label()
+        await pilot.pause()
+        assert updates == []
+
+        nexus.set_workspace_candidate(next_target)
+        await pilot.pause()
+
+        assert updates == [f"Workspace: {next_target}"]
+
+
+@pytest.mark.asyncio
 async def test_nexus_action_bar_uses_configured_korean_labels(tmp_path) -> None:
     control_repo = tmp_path / "control"
     target = tmp_path / "target-app"

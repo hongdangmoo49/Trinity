@@ -106,6 +106,7 @@ class TrinityTextualApp(App[None]):
         ("ctrl+1", "go_start"): ("binding_start", None),
         ("ctrl+2", "go_nexus"): ("binding_nexus", None),
         ("ctrl+3", "go_execution"): ("binding_execute", None),
+        ("ctrl+4", "go_report"): ("binding_report", None),
         ("ctrl+comma", "go_settings"): ("binding_settings", None),
         ("ctrl+p", "command_palette"): ("binding_palette", "binding_palette_tooltip"),
     }

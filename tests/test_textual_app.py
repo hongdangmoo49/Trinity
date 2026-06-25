@@ -8797,6 +8797,42 @@ def test_execution_log_modal_windows_large_logs() -> None:
     assert len(rendered) == MAX_RENDERED_LOG_LINES + 1
 
 
+def test_execution_log_modal_unfiltered_window_avoids_full_iteration() -> None:
+    class CountingLog:
+        def __init__(self, lines: list[str]) -> None:
+            self.lines = lines
+            self.indexes: list[int] = []
+
+        def __len__(self) -> int:
+            return len(self.lines)
+
+        def __getitem__(self, index: int) -> str:
+            if isinstance(index, slice):
+                raise AssertionError("unfiltered log window should not slice all lines")
+            self.indexes.append(index)
+            return self.lines[index]
+
+        def __iter__(self):
+            raise AssertionError("unfiltered log window should not iterate all lines")
+
+    source = CountingLog(
+        [f"event-{index}" for index in range(1, MAX_RENDERED_LOG_LINES + 26)]
+    )
+    modal = ExecutionLogModal([])
+    modal.lines = source
+
+    assert modal._status_text() == (
+        f"Showing {MAX_RENDERED_LOG_LINES} of {MAX_RENDERED_LOG_LINES + 25} lines"
+    )
+
+    rendered = modal._render_lines()
+
+    assert rendered[0] == "... 25 earlier log lines hidden"
+    assert rendered[1] == "event-26"
+    assert rendered[-1] == f"event-{MAX_RENDERED_LOG_LINES + 25}"
+    assert source.indexes == list(range(25, MAX_RENDERED_LOG_LINES + 25))
+
+
 def test_execution_log_modal_reports_visible_line_count() -> None:
     short = ExecutionLogModal(["event-1", "event-2"])
     large = ExecutionLogModal(

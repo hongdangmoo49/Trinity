@@ -4,7 +4,11 @@ import pytest
 from textual.app import App, ComposeResult
 from textual.widgets import Static
 
-from trinity.textual_app.widgets.composer import ComposerTextArea, PromptComposer
+from trinity.textual_app.widgets.composer import (
+    COMMAND_LIMIT,
+    ComposerTextArea,
+    PromptComposer,
+)
 
 
 class ComposerHarness(App[None]):
@@ -110,7 +114,41 @@ async def test_prompt_composer_selection_move_updates_only_changed_option_rows()
         await pilot.pause()
 
         assert updates == []
-        assert option_queries == ["#command-option-0", "#command-option-1"]
+        assert option_queries == []
+
+
+@pytest.mark.asyncio
+async def test_prompt_composer_reuses_composed_fixed_widgets() -> None:
+    composer = PromptComposer()
+    app = ComposerHarness(composer)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+        query_calls: list[object] = []
+        original_query_one = composer.query_one
+        fixed_selectors = {
+            ComposerTextArea,
+            "#prompt-command-palette",
+            "#command-option-more",
+            *{f"#command-option-{index}" for index in range(COMMAND_LIMIT)},
+        }
+
+        def counted_query_one(selector, *args, **kwargs):
+            if selector in fixed_selectors:
+                query_calls.append(selector)
+            return original_query_one(selector, *args, **kwargs)
+
+        composer.query_one = counted_query_one
+
+        composer.set_text("/sta")
+        composer.move_command_selection(1)
+        composer.focus_text_area()
+        composer.action_insert_newline()
+        _ = composer.submission_text
+        _ = composer.command_palette_open
+        await pilot.pause()
+
+        assert query_calls == []
 
 
 @pytest.mark.asyncio

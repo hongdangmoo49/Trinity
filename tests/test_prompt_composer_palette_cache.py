@@ -72,3 +72,42 @@ async def test_prompt_composer_skips_inactive_palette_refresh() -> None:
         await pilot.pause()
 
         assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_prompt_composer_selection_move_updates_only_changed_option_rows() -> None:
+    composer = PromptComposer()
+    app = ComposerHarness(composer)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        composer.set_text("/")
+        await pilot.pause()
+        assert len(composer._command_matches) > 1
+
+        updates: list[str] = []
+        for option in composer.query(".command-option"):
+            static = option
+            assert isinstance(static, Static)
+            original_update = static.update
+
+            def counted_update(content, original_update=original_update) -> None:
+                updates.append(str(content))
+                original_update(content)
+
+            static.update = counted_update
+
+        option_queries: list[str] = []
+        original_query_one = composer.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if str(selector).startswith("#command-option-"):
+                option_queries.append(str(selector))
+            return original_query_one(selector, *args, **kwargs)
+
+        composer.query_one = counted_query_one
+
+        composer.move_command_selection(1)
+        await pilot.pause()
+
+        assert updates == []
+        assert option_queries == ["#command-option-0", "#command-option-1"]

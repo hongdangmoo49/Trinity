@@ -181,7 +181,7 @@ from trinity.textual_app.screens.execution_matrix import (
     _review_label,
 )
 from trinity.textual_app.screens.nexus import NexusScreen
-from trinity.textual_app.screens.report import ReportScreen, _section_label
+from trinity.textual_app.screens.report import ReportScreen, _field_label, _section_label
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import SacredGeometryAnimation, StartScreen
 from trinity.textual_app.slash_palette import SlashCommandPaletteProvider
@@ -1254,6 +1254,8 @@ def test_report_presenter_uses_korean_labels() -> None:
         ("경로", "/tmp/report.md"),
     )
     assert _section_label("Review Repairs", lang="ko") == "리뷰 보정"
+    assert _field_label("Risk", lang="ko") == "리스크"
+    assert _field_label("Risks", lang="ko") == "리스크"
     assert report_summary_rows(snapshot, lang="ko") == (
         ("워크플로우", "wf-report"),
         ("상태", "완료"),

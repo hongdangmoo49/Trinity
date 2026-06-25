@@ -61,6 +61,8 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
         else:
             base_selector = "all" if self.selector == "custom" else self.selector
             self.selected_ids = set(self._ids_for_selector(base_selector))
+        self._selected_text_key = self._selected_text()
+        self._confirm_disabled_key = not self._selected_package_ids()
 
     def compose(self) -> ComposeResult:
         with Vertical(id="execution-retry-modal"):
@@ -207,10 +209,16 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
         return tuple(ordered)
 
     def _refresh_selection_state(self) -> None:
-        selected = self.query_one("#execution-retry-selected", Static)
-        selected.update(self._selected_text())
+        selected_text = self._selected_text()
+        if selected_text != self._selected_text_key:
+            selected = self.query_one("#execution-retry-selected", Static)
+            selected.update(selected_text)
+            self._selected_text_key = selected_text
         button = self.query_one("#confirm-execute-retry", Button)
-        button.disabled = not self._selected_package_ids()
+        disabled = not self._selected_package_ids()
+        if disabled != self._confirm_disabled_key:
+            button.disabled = disabled
+            self._confirm_disabled_key = disabled
 
     def _summary_text(self) -> str:
         target = ""

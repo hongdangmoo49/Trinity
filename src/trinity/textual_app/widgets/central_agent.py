@@ -114,7 +114,8 @@ class CentralAgentView(VerticalScroll):
 
     def set_activity_frame(self, frame: int) -> None:
         self._activity_frame = frame % len(ACTIVITY_FRAMES)
-        self._refresh_title()
+        if self._is_running():
+            self._refresh_title()
 
     def _markdown(self) -> str:
         snapshot = self.snapshot

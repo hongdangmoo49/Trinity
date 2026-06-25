@@ -191,6 +191,8 @@ class StartScreen(Screen[None]):
         self._submit(composer.submission_text)
 
     def set_workspace_candidate(self, path: Path | None) -> None:
+        if path == self.workspace_candidate:
+            return
         self.workspace_candidate = path
         label = self.query_one("#workspace-candidate", Static)
         workspace_label = self._workspace_label()

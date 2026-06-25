@@ -79,14 +79,33 @@ class CentralAgentView(VerticalScroll):
         self._actions_key: tuple[object, ...] = ()
         self._applied_snapshot_identity: int | None = None
         self._running_class_key: bool | None = None
+        self._title_widget: Static | None = None
+        self._markdown_widget: Markdown | None = None
+        self._local_command_container: Vertical | None = None
+        self._action_title_widget: Static | None = None
+        self._actions_container: Grid | None = None
 
     def compose(self) -> ComposeResult:
-        yield Static(self._label("title"), id="central-title")
-        yield Markdown(self._markdown(), id="central-markdown")
-        with Vertical(id="central-local-command-tables"):
+        self._reset_widget_cache()
+        title = Static(self._label("title"), id="central-title")
+        self._title_widget = title
+        self._title_key = self._label("title")
+        yield title
+        markdown = self._markdown()
+        self._markdown_key = markdown
+        markdown_widget = Markdown(markdown, id="central-markdown")
+        self._markdown_widget = markdown_widget
+        yield markdown_widget
+        local_commands = Vertical(id="central-local-command-tables")
+        self._local_command_container = local_commands
+        with local_commands:
             pass
-        yield Static("", id="central-action-title")
-        with Grid(id="central-actions", classes="blueprint-actions"):
+        action_title = Static("", id="central-action-title")
+        self._action_title_widget = action_title
+        yield action_title
+        actions = Grid(id="central-actions", classes="blueprint-actions")
+        self._actions_container = actions
+        with actions:
             pass
 
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
@@ -105,7 +124,7 @@ class CentralAgentView(VerticalScroll):
         self._refresh_title()
         markdown = self._markdown()
         if markdown != self._markdown_key:
-            self.query_one("#central-markdown", Markdown).update(markdown)
+            self._markdown_view().update(markdown)
             self._markdown_key = markdown
         local_commands_key = self._local_command_key(snapshot.local_commands)
         if local_commands_key != self._local_commands_key:
@@ -382,7 +401,7 @@ class CentralAgentView(VerticalScroll):
         self,
         commands: list[LocalCommandSnapshot],
     ) -> None:
-        container = self.query_one("#central-local-command-tables", Vertical)
+        container = self._local_command_tables()
         container.remove_children()
         table_commands = [
             command
@@ -500,7 +519,7 @@ class CentralAgentView(VerticalScroll):
         return should_show_blueprint_actions(snapshot)
 
     def _render_blueprint_actions(self, plan: CentralActionPlan) -> None:
-        container = self.query_one("#central-actions", Grid)
+        container = self._actions_grid()
         container.remove_children()
         self._button_actions = {}
         self._action_render_version += 1
@@ -526,8 +545,43 @@ class CentralAgentView(VerticalScroll):
     def _set_action_title(self, text: str) -> None:
         if text == self._action_title_key:
             return
-        self.query_one("#central-action-title", Static).update(text)
+        self._action_title_static().update(text)
         self._action_title_key = text
+
+    def _reset_widget_cache(self) -> None:
+        self._title_widget = None
+        self._markdown_widget = None
+        self._local_command_container = None
+        self._action_title_widget = None
+        self._actions_container = None
+
+    def _title_static(self) -> Static:
+        if self._title_widget is None:
+            self._title_widget = self.query_one("#central-title", Static)
+        return self._title_widget
+
+    def _markdown_view(self) -> Markdown:
+        if self._markdown_widget is None:
+            self._markdown_widget = self.query_one("#central-markdown", Markdown)
+        return self._markdown_widget
+
+    def _local_command_tables(self) -> Vertical:
+        if self._local_command_container is None:
+            self._local_command_container = self.query_one(
+                "#central-local-command-tables",
+                Vertical,
+            )
+        return self._local_command_container
+
+    def _action_title_static(self) -> Static:
+        if self._action_title_widget is None:
+            self._action_title_widget = self.query_one("#central-action-title", Static)
+        return self._action_title_widget
+
+    def _actions_grid(self) -> Grid:
+        if self._actions_container is None:
+            self._actions_container = self.query_one("#central-actions", Grid)
+        return self._actions_container
 
     def _label(self, key: str) -> str:
         ko = {
@@ -681,7 +735,7 @@ class CentralAgentView(VerticalScroll):
             title = f"{title} {ACTIVITY_FRAMES[self._activity_frame]}"
         if title == self._title_key:
             return
-        self.query_one("#central-title", Static).update(title)
+        self._title_static().update(title)
         self._title_key = title
 
     def _is_running(self) -> bool:

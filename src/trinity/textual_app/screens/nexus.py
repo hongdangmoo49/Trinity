@@ -337,8 +337,10 @@ class NexusScreen(Screen[None]):
         spec = self.config.agents.get(name)
         if spec is None:
             return
-        panel = self.query_one(f"#provider-{name}", ProviderPanel)
         state = self._state_from_spec(name, spec, status=status, summary=summary)
+        if self._provider_state_cache.get(name) == state:
+            return
+        panel = self.query_one(f"#provider-{name}", ProviderPanel)
         panel.update_state(state)
         self._provider_state_cache[name] = state
         self._applied_snapshot_identity = None

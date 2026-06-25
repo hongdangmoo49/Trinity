@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from textual.app import ComposeResult
@@ -773,24 +774,27 @@ class ExecutionMatrixScreen(Screen[None]):
         if not source:
             return [self._label("activity"), self._label("execution_not_started")]
         lines = [self._label("activity")]
-        recent = source[-7:]
+        source_len = len(source)
+        recent_start = max(0, source_len - 7)
+        recent = [str(source[index]) for index in range(recent_start, source_len)]
         if len(source) > len(recent):
             lines.append(
                 self._label("earlier_log_lines_hidden").format(
-                    count=len(source) - len(recent)
+                    count=source_len - len(recent)
                 )
             )
         lines.extend(recent)
         return lines
 
-    def _activity_source_lines(self) -> list[str]:
-        source = list(self.snapshot.execution_log)
-        if not source and self.snapshot.workflow_events:
-            source = list(self.snapshot.workflow_events)
-        return source
+    def _activity_source_lines(self) -> Sequence[str]:
+        if self.snapshot.execution_log:
+            return self.snapshot.execution_log
+        if self.snapshot.workflow_events:
+            return self.snapshot.workflow_events
+        return ()
 
     def _full_activity_lines(self) -> list[str]:
-        return self._activity_source_lines()
+        return list(self._activity_source_lines())
 
     def _task_toggle_label(self) -> str:
         return (

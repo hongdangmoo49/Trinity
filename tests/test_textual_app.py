@@ -8388,6 +8388,36 @@ async def test_execution_matrix_80_columns_keeps_review_risk_and_spec_visible(
         assert "event-11" in activity_lines
 
 
+def test_execution_matrix_recent_activity_reads_only_recent_log_window() -> None:
+    class CountingLog:
+        def __init__(self, lines: list[str]) -> None:
+            self.lines = lines
+            self.indexes: list[int] = []
+
+        def __len__(self) -> int:
+            return len(self.lines)
+
+        def __getitem__(self, index: int) -> str:
+            if isinstance(index, slice):
+                raise AssertionError("recent activity should not slice the full log")
+            self.indexes.append(index)
+            return self.lines[index]
+
+        def __iter__(self):
+            raise AssertionError("recent activity should not iterate the full log")
+
+    source = CountingLog([f"event-{index}" for index in range(1, 101)])
+    screen = ExecutionMatrixScreen()
+    screen.snapshot = WorkflowNexusSnapshot(execution_log=source)
+
+    activity_lines = screen._activity_lines()
+
+    assert activity_lines[0] == "Activity"
+    assert "... 93 earlier log lines hidden" in activity_lines
+    assert activity_lines[-1] == "event-100"
+    assert source.indexes == list(range(93, 100))
+
+
 @pytest.mark.asyncio
 async def test_execution_matrix_row_labels_second_review_action(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))

@@ -508,6 +508,47 @@ async def test_central_apply_snapshot_skips_unchanged_action_plan_render() -> No
 
 
 @pytest.mark.asyncio
+async def test_central_apply_snapshot_skips_body_only_local_command_table_render() -> None:
+    view = CentralAgentView()
+    app = CentralAgentHarness(view)
+
+    def snapshot(body: str, rows: tuple[tuple[str, ...], ...]) -> WorkflowNexusSnapshot:
+        return WorkflowNexusSnapshot(
+            state="blueprint_ready",
+            local_commands=[
+                LocalCommandSnapshot(
+                    command="/status",
+                    title="Status",
+                    body=body,
+                    table_columns=("WP", "Status"),
+                    table_rows=rows,
+                )
+            ],
+        )
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        view.apply_snapshot(snapshot("Initial body.", (("WP-001", "done"),)))
+        await pilot.pause()
+
+        renders: list[list[LocalCommandSnapshot]] = []
+        original_render = view._render_local_command_tables
+
+        def counted_render(commands: list[LocalCommandSnapshot]) -> None:
+            renders.append(commands)
+            original_render(commands)
+
+        view._render_local_command_tables = counted_render
+
+        view.apply_snapshot(snapshot("Updated body.", (("WP-001", "done"),)))
+        await pilot.pause()
+        assert renders == []
+
+        view.apply_snapshot(snapshot("Updated body.", (("WP-001", "failed"),)))
+        await pilot.pause()
+        assert len(renders) == 1
+
+
+@pytest.mark.asyncio
 async def test_central_action_render_skips_unchanged_title_update() -> None:
     view = CentralAgentView()
     app = CentralAgentHarness(view)

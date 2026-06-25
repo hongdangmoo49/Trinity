@@ -415,9 +415,6 @@ class CentralAgentView(VerticalScroll):
             (
                 command.command,
                 command.title,
-                command.body,
-                command.action_hint,
-                command.empty,
                 tuple(command.table_columns),
                 tuple(tuple(row) for row in command.table_rows),
             )

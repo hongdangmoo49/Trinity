@@ -9801,7 +9801,7 @@ async def test_nexus_action_bar_uses_configured_korean_labels(tmp_path) -> None:
         assert workspace_label.startswith("작업 폴더: ")
         assert str(target.resolve()) in workspace_label
         assert nexus.query_one("#nexus-composer", PromptComposer).placeholder == (
-            "답변하거나 방향을 조정하세요. / 로 명령 입력"
+            "답변, 방향 조정 또는 /로 명령 입력"
         )
 
     screen = NexusScreen(

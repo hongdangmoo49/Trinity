@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 from textual.app import App
 from textual.containers import Vertical
+from textual.widgets import RichLog
 
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.snapshot import WorkPackageSnapshot, WorkflowNexusSnapshot
@@ -183,3 +184,68 @@ async def test_execution_matrix_skips_unchanged_task_expanded_class_sync() -> No
         screen._sync_task_expanded_view()
         await pilot.pause()
         assert class_calls == [True]
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_recompose_resets_render_identity_caches() -> None:
+    screen = ExecutionMatrixScreen()
+    snapshot = _snapshot()
+    app = ExecutionHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        screen.apply_execution_state(None, snapshot)
+        await pilot.pause()
+
+        first_summary = screen._summary_widget
+        first_package_list = screen._package_list_widget
+        first_log = screen._log_widget
+        assert screen._applied_state_identity == (None, id(snapshot))
+        assert screen._chrome_render_key is not None
+        assert screen._package_list_identity is not None
+        assert screen._activity_lines_key
+
+        screen.refresh(recompose=True)
+        await pilot.pause()
+
+        assert screen._summary_widget is not first_summary
+        assert screen._package_list_widget is not first_package_list
+        assert screen._log_widget is not first_log
+        assert screen._applied_state_identity is None
+        assert screen._chrome_render_key is None
+        assert screen._chrome_projection_cache is None
+        assert screen._package_list_identity is None
+        assert screen._package_row_keys == {}
+        assert screen._package_rows == {}
+        assert screen._activity_lines_key == ()
+        assert screen._task_expanded_view_key is None
+
+        query_calls: list[str] = []
+        original_query_one = screen.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if str(selector).startswith("#execution"):
+                query_calls.append(str(selector))
+            return original_query_one(selector, *args, **kwargs)
+
+        screen.query_one = counted_query_one
+        log = screen._log_widget
+        assert isinstance(log, RichLog)
+        writes: list[str] = []
+        original_write = log.write
+
+        def counted_write(content, *args, **kwargs) -> None:
+            writes.append(str(content))
+            original_write(content, *args, **kwargs)
+
+        log.write = counted_write
+
+        screen.apply_execution_state(None, snapshot)
+        await pilot.pause()
+
+        assert query_calls == []
+        assert "RUN" in str(screen._summary_widget.content)
+        assert screen._package_list_widget is not None
+        assert len(screen._package_list_widget.children) >= 2
+        assert writes == ["Activity", "event-1"]
+        assert screen._applied_state_identity == (None, id(snapshot))

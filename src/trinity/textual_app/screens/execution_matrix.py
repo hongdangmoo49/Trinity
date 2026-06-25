@@ -508,6 +508,7 @@ class ExecutionMatrixScreen(Screen[None]):
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
+        self._reset_render_cache()
         yield Header(show_clock=False)
         screen = Vertical(id="execution-screen")
         self._screen_container = screen
@@ -679,6 +680,16 @@ class ExecutionMatrixScreen(Screen[None]):
         self._retry_button = None
         self._package_list_widget = None
         self._log_widget = None
+
+    def _reset_render_cache(self) -> None:
+        self._package_list_identity = None
+        self._package_row_keys = {}
+        self._package_rows = {}
+        self._activity_lines_key = ()
+        self._chrome_render_key = None
+        self._chrome_projection_cache = None
+        self._applied_state_identity = None
+        self._task_expanded_view_key = None
 
     def _execution_screen(self) -> Vertical:
         if self._screen_container is None:

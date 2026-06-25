@@ -396,6 +396,33 @@ async def test_central_apply_snapshot_skips_unchanged_title_update() -> None:
 
 
 @pytest.mark.asyncio
+async def test_central_apply_snapshot_skips_same_snapshot_object_reapply() -> None:
+    view = CentralAgentView()
+    snapshot = WorkflowNexusSnapshot(state="blueprint_ready")
+    app = CentralAgentHarness(view)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        view.apply_snapshot(snapshot)
+        await pilot.pause()
+
+        calls: list[str] = []
+
+        def counted_markdown() -> str:
+            calls.append("markdown")
+            return ""
+
+        view._markdown = counted_markdown
+
+        view.apply_snapshot(snapshot)
+        await pilot.pause()
+        assert calls == []
+
+        view.apply_snapshot(WorkflowNexusSnapshot(state="blueprint_ready"))
+        await pilot.pause()
+        assert calls == ["markdown"]
+
+
+@pytest.mark.asyncio
 async def test_central_apply_snapshot_skips_unchanged_action_plan_render() -> None:
     view = CentralAgentView()
     first = WorkflowNexusSnapshot(

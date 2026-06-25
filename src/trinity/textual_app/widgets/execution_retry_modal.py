@@ -126,7 +126,10 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
         button_id = event.button.id or ""
         if button_id.startswith("retry-filter-"):
             event.stop()
-            self.selector = button_id.removeprefix("retry-filter-")
+            next_selector = button_id.removeprefix("retry-filter-")
+            if next_selector == self.selector:
+                return
+            self.selector = next_selector
             self.selected_ids = set(self._ids_for_selector(self.selector))
             self.refresh(recompose=True)
             return

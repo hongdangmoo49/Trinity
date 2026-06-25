@@ -87,6 +87,8 @@ class ExecutionLogModal(ModalScreen[None]):
         self.lines = list(lines)
         self.lang = lang
         self.filter_query = ""
+        self._status_text_key = ""
+        self._rendered_lines_key: tuple[str, ...] = ()
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
@@ -112,13 +114,23 @@ class ExecutionLogModal(ModalScreen[None]):
 
     def _refresh_log(self) -> None:
         status_text, lines = self._render_state(self.filter_query)
-        self.query_one("#execution-log-search-status", Static).update(
-            status_text
-        )
-        log = self.query_one("#execution-log-modal-body", RichLog)
-        log.clear()
-        for line in lines:
-            log.write(line)
+        lines_key = tuple(lines)
+        if (
+            status_text == self._status_text_key
+            and lines_key == self._rendered_lines_key
+        ):
+            return
+        if status_text != self._status_text_key:
+            self.query_one("#execution-log-search-status", Static).update(
+                status_text
+            )
+            self._status_text_key = status_text
+        if lines_key != self._rendered_lines_key:
+            log = self.query_one("#execution-log-modal-body", RichLog)
+            log.clear()
+            for line in lines:
+                log.write(line)
+            self._rendered_lines_key = lines_key
 
     def _render_state(self, query: str = "") -> tuple[str, list[str]]:
         if not query.strip():

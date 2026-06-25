@@ -423,6 +423,34 @@ async def test_central_apply_snapshot_skips_same_snapshot_object_reapply() -> No
 
 
 @pytest.mark.asyncio
+async def test_central_apply_snapshot_skips_unchanged_running_class_sync() -> None:
+    view = CentralAgentView()
+    app = CentralAgentHarness(view)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        view.apply_snapshot(WorkflowNexusSnapshot(state="executing"))
+        await pilot.pause()
+
+        class_calls: list[bool] = []
+        original_set_class = view.set_class
+
+        def counted_set_class(add: bool, class_name: str) -> None:
+            if class_name == "central-running":
+                class_calls.append(add)
+            original_set_class(add, class_name)
+
+        view.set_class = counted_set_class
+
+        view.apply_snapshot(WorkflowNexusSnapshot(state="reviewing"))
+        await pilot.pause()
+        assert class_calls == []
+
+        view.apply_snapshot(WorkflowNexusSnapshot(state="blueprint_ready"))
+        await pilot.pause()
+        assert class_calls == [False]
+
+
+@pytest.mark.asyncio
 async def test_central_apply_snapshot_skips_unchanged_action_plan_render() -> None:
     view = CentralAgentView()
     first = WorkflowNexusSnapshot(

@@ -1279,6 +1279,7 @@ def test_report_presenter_uses_korean_labels() -> None:
         lang="ko",
     )
     assert "1라운드 합의 미도달 (1/3) · 대체 종합 사용" in rendered
+    assert "[bold]출처[/bold]: 런타임" in rendered
     assert "round 1 consensus not reached" not in rendered
     assert report_summary_rows(snapshot, lang="ko") == (
         ("워크플로우", "wf-report"),
@@ -2683,6 +2684,7 @@ def test_snapshot_report_markdown_localizes_korean_consensus_progress() -> None:
     )
 
     assert "**진행**: 1라운드 종합 중" in markdown
+    assert "**출처**: 런타임" in markdown
     assert "round 1 synthesizing" not in markdown
 
 
@@ -2912,6 +2914,7 @@ def test_snapshot_report_markdown_uses_korean_labels() -> None:
     assert "점수 0\\.667; 성공 2/3; 차단 1; 변경 요청 4" in md
     assert "## 합의" in md
     assert "**진행**: 진행중" in md
+    assert "**출처**: 공유 컨텍스트" in md
     assert "## 작업 패키지 라우팅" in md
     assert "상태: 완료; 소유자 codex; 실행자 codex; 그룹 직렬" in md
     assert "라우팅: 종류 구현; 프로필 default\\-v1; 점수 0\\.95" in md

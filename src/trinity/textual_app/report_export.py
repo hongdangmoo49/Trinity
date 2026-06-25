@@ -194,13 +194,18 @@ def snapshot_report_markdown(
             lang=lang,
             empty=_none(lang),
         )
+        source = display_source_value(
+            snapshot.synthesis.source,
+            lang=lang,
+            empty=_none(lang),
+        )
         lines.extend(
             [
                 "",
                 f"## {_label(lang, 'consensus')}",
                 "",
                 f"**{_label(lang, 'progress')}**: {_md_inline(progress)}  ",
-                f"**{_label(lang, 'source')}**: {_md_inline(snapshot.synthesis.source)}",
+                f"**{_label(lang, 'source')}**: {_md_inline(source)}",
                 "",
                 _md_block(snapshot.synthesis.summary),
             ]

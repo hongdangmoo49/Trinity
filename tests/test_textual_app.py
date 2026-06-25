@@ -1427,7 +1427,7 @@ def test_help_unknown_presenter_uses_korean_labels() -> None:
     assert unknown_command_title(lang="ko") == "알 수 없는 명령"
     assert unknown_command_table_columns(lang="ko") == ("추천", "요약")
     assert unknown_command_markdown("/stats", suggestions, lang="ko").startswith(
-        "`/stats`은 Trinity slash 명령이 아닙니다."
+        "`/stats`은 Trinity 슬래시 명령이 아닙니다."
     )
     assert "다음 명령을 찾으셨나요:" in unknown_command_markdown(
         "/stats",
@@ -1443,7 +1443,7 @@ def test_help_unknown_presenter_uses_korean_labels() -> None:
         "요약",
     )
     assert help_markdown(lang="ko").startswith(
-        "Trinity 소유 slash 명령은 프로바이더 프롬프트보다 먼저 처리됩니다."
+        "Trinity 소유 슬래시 명령은 프로바이더 프롬프트보다 먼저 처리됩니다."
     )
     assert help_rows(lang="ko")
 
@@ -4635,7 +4635,7 @@ async def test_start_slash_help_uses_korean_labels(tmp_path) -> None:
         assert result.title == "Trinity 명령"
         assert result.table_columns == ("명령", "카테고리", "에이전트 호출", "요약")
         assert any(row[0] == "/status" for row in result.table_rows)
-        assert "Trinity 소유 slash 명령" in result.body
+        assert "Trinity 소유 슬래시 명령" in result.body
         assert "### 카테고리" in result.body
 
 
@@ -5357,7 +5357,7 @@ async def test_nexus_unknown_command_uses_korean_labels(tmp_path) -> None:
         assert result.title == "알 수 없는 명령"
         assert result.table_columns == ("추천", "요약")
         assert any(row[0] == "/status" for row in result.table_rows)
-        assert "`/stats`은 Trinity slash 명령이 아닙니다." in result.body
+        assert "`/stats`은 Trinity 슬래시 명령이 아닙니다." in result.body
         assert "다음 명령을 찾으셨나요:" in result.body
 
 

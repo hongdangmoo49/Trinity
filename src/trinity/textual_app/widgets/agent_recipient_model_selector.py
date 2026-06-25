@@ -52,7 +52,10 @@ class AgentToggle(Static):
 
     def set_value(self, value: bool) -> None:
         """Set selected state without posting a changed message."""
-        self.value = bool(value and self.agent_enabled)
+        next_value = bool(value and self.agent_enabled)
+        if next_value == self.value:
+            return
+        self.value = next_value
         self._refresh()
 
     def on_click(self, event: events.Click) -> None:

@@ -105,6 +105,7 @@ class AgentRecipientModelSelector(Horizontal):
         self._toggle_cache: dict[str, AgentToggle] = {}
 
     def compose(self) -> ComposeResult:
+        self._toggle_cache = {}
         yield Static(self._text("recipient_label") + ":", classes="recipient-label")
         for name, spec in self.agents.items():
             toggle = AgentToggle(

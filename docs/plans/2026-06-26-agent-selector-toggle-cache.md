@@ -2,34 +2,31 @@
 
 ## Context
 
-`AgentRecipientModelSelector` creates one stable `AgentToggle` widget per agent
-when composing the start and Nexus recipient selectors. Selection reads and
-restores currently use `query_one("#recipient-{name}")` for every agent.
-
-These selectors are touched during prompt submission, restored start-to-Nexus
-state, and follow-up commands. The toggle widgets are stable for the selector
-lifetime, so repeated DOM lookups are unnecessary.
+`AgentRecipientModelSelector` is shared by the Start and Nexus screens. It keeps
+an `_toggle_cache` and seeds it while composing agent toggles, so selected-agent
+reads and updates can avoid repeated selector lookups. The cache is not reset at
+the start of compose, which makes future recomposition less explicit than the
+other recently optimized widgets.
 
 ## Goal
 
-Avoid repeated selector queries for agent toggles after the widgets are
-composed.
+Make the selector toggle cache compose-scoped and verify common selection paths
+reuse composed toggles without selector lookups.
 
 ## Design
 
-- Cache `AgentToggle` instances by agent name when composing the selector.
-- Route `selected_agents()` and `set_selected_agents()` through a helper that
-  uses the cache.
-- Keep a query fallback in the helper so tests or unusual construction paths
-  still behave like the existing implementation.
+- Reset `_toggle_cache` before composing selector toggles.
+- Keep caching every `AgentToggle` by agent name during compose.
+- Preserve the existing `_toggle_for()` query fallback for unusual cases.
+- Keep model choice and model selection behavior unchanged.
 
 ## Tests
 
-- Add a focused selector cache test.
-- Verify selected-agent reads and programmatic selection updates do not call
-  `query_one()` for recipient toggles once the selector is mounted.
-- Keep existing model choice cache tests intact.
+- Add a focused selector test verifying `set_selected_agents()`,
+  `selected_agents()`, and `model_overrides()` reuse composed toggle widgets
+  without `query_one()`.
+- Keep Nexus agent selection cache tests intact.
 
 ## Versioning
 
-Patch release: `1.0.266` -> `1.0.267`.
+Patch release: `1.0.281` -> `1.0.282`.

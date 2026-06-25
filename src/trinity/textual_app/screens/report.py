@@ -70,7 +70,7 @@ REPORT_SECTION_LABELS_KO = {
     "Work Package Routing": "작업 패키지 라우팅",
     "Local Policy Repairs": "로컬 정책 복구",
     "Execution Log": "실행 로그",
-    "Open Questions": "열린 질문",
+    "Open Questions": "미해결 질문",
 }
 
 REPORT_FIELD_LABELS_KO = {

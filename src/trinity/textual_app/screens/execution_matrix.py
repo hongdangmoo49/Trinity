@@ -857,7 +857,7 @@ def _parse_package_line(line: str) -> tuple[str, str, str]:
 def _executor_label(current: str, last: str, owner: str, *, lang: str = "en") -> str:
     executor = current or last or "-"
     if executor not in {"", "-"} and owner and executor != owner:
-        suffix = "폴백" if lang == "ko" else "fallback"
+        suffix = "대체" if lang == "ko" else "fallback"
         return f"{executor} {suffix}"
     return executor
 

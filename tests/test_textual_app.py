@@ -181,7 +181,7 @@ from trinity.textual_app.screens.execution_matrix import (
     _review_label,
 )
 from trinity.textual_app.screens.nexus import NexusScreen
-from trinity.textual_app.screens.report import ReportScreen
+from trinity.textual_app.screens.report import ReportScreen, _section_label
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import SacredGeometryAnimation, StartScreen
 from trinity.textual_app.slash_palette import SlashCommandPaletteProvider
@@ -1253,6 +1253,7 @@ def test_report_presenter_uses_korean_labels() -> None:
     assert report_saved_rows("/tmp/report.md", lang="ko") == (
         ("경로", "/tmp/report.md"),
     )
+    assert _section_label("Review Repairs", lang="ko") == "리뷰 보정"
     assert report_summary_rows(snapshot, lang="ko") == (
         ("워크플로우", "wf-report"),
         ("상태", "완료"),
@@ -1507,8 +1508,29 @@ def test_workflow_outcome_message_uses_korean_labels() -> None:
             lang="ko",
         )
         == "리뷰가 수정을 요청했습니다. 다음 작업 패키지의 실행을 다시 시작합니다: "
-        "WP-001. 복구 루프 가드에 의해 차단됨: WP-002. "
-        "복구 재시작 전에 대상 워크스페이스를 선택하세요."
+        "WP-001. 보정 루프 가드에 의해 차단됨: WP-002. "
+        "보정 재시작 전에 대상 워크스페이스를 선택하세요."
+    )
+    assert (
+        workflow_outcome_message_markdown(
+            "No review-repair blocked packages to retry.",
+            lang="ko",
+        )
+        == "재시도할 리뷰 보정 차단 패키지가 없습니다."
+    )
+    assert (
+        workflow_outcome_message_markdown(
+            "Accepted blocked review repairs.",
+            lang="ko",
+        )
+        == "차단된 리뷰 보정을 완료 처리했습니다."
+    )
+    assert (
+        workflow_outcome_message_markdown(
+            "Stopped workflow after blocked review repairs: WP-002.",
+            lang="ko",
+        )
+        == "리뷰 보정 차단 이후 워크플로우를 중단했습니다: WP-002."
     )
     assert (
         workflow_outcome_message_markdown("Workflow is still running.", lang="en")

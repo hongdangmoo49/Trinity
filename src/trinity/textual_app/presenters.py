@@ -905,7 +905,7 @@ WORKFLOW_OUTCOME_MESSAGES_KO = {
     "No interrupted execution to abort.": "중단을 취소할 실행이 없습니다.",
     "Interrupted execution aborted.": "중단된 실행을 취소했습니다.",
     "Choose a target workspace before restarting repairs.": (
-        "복구 재시작 전에 대상 워크스페이스를 선택하세요."
+        "보정 재시작 전에 대상 워크스페이스를 선택하세요."
     ),
     "Previous execution was interrupted. Review running packages before retrying.": (
         "이전 실행이 중단되었습니다. 재시도 전에 실행 중이던 작업 패키지를 확인하세요."
@@ -921,13 +921,13 @@ WORKFLOW_OUTCOME_MESSAGES_KO = {
         "실행 재시도 전에 대상 워크스페이스를 선택하세요."
     ),
     "No review-repair blocked packages to retry.": (
-        "재시도할 리뷰 복구 차단 패키지가 없습니다."
+        "재시도할 리뷰 보정 차단 패키지가 없습니다."
     ),
     "No review-repair blocked packages to accept.": (
-        "완료 처리할 리뷰 복구 차단 패키지가 없습니다."
+        "완료 처리할 리뷰 보정 차단 패키지가 없습니다."
     ),
     "No review-repair blocked packages to stop.": (
-        "중단할 리뷰 복구 차단 패키지가 없습니다."
+        "중단할 리뷰 보정 차단 패키지가 없습니다."
     ),
     "Choose a target workspace before running review.": (
         "리뷰 실행 전에 대상 워크스페이스를 선택하세요."
@@ -982,17 +982,17 @@ WORKFLOW_OUTCOME_MESSAGES_KO = {
     "Selected post-review items do not require execution.": (
         "선택한 리뷰 후속 항목은 실행이 필요하지 않습니다."
     ),
-    "Accepted blocked review repairs.": "차단된 리뷰 복구를 완료 처리했습니다.",
-    "Stopped blocked review repairs.": "차단된 리뷰 복구를 중단했습니다.",
+    "Accepted blocked review repairs.": "차단된 리뷰 보정을 완료 처리했습니다.",
+    "Stopped blocked review repairs.": "차단된 리뷰 보정을 중단했습니다.",
 }
 
 WORKFLOW_OUTCOME_PREFIXES_KO = (
     ("Workflow error: ", "워크플로우 오류: "),
     ("Retrying work packages: ", "작업 패키지를 재시도합니다: "),
-    ("Accepted blocked review repairs: ", "차단된 리뷰 복구를 완료 처리했습니다: "),
+    ("Accepted blocked review repairs: ", "차단된 리뷰 보정을 완료 처리했습니다: "),
     (
         "Stopped workflow after blocked review repairs: ",
-        "리뷰 복구 차단 이후 워크플로우를 중단했습니다: ",
+        "리뷰 보정 차단 이후 워크플로우를 중단했습니다: ",
     ),
     ("Review started: ", "리뷰를 시작했습니다: "),
     ("No matching workflow session: ", "일치하는 워크플로우 세션이 없습니다: "),
@@ -1008,10 +1008,10 @@ WORKFLOW_OUTCOME_FRAGMENT_REPLACEMENTS_KO = (
         "Review requested repairs; restarting execution for: ",
         "리뷰가 수정을 요청했습니다. 다음 작업 패키지의 실행을 다시 시작합니다: ",
     ),
-    ("Blocked by repair guard: ", "복구 루프 가드에 의해 차단됨: "),
+    ("Blocked by repair guard: ", "보정 루프 가드에 의해 차단됨: "),
     (
         "Choose a target workspace before restarting repairs.",
-        "복구 재시작 전에 대상 워크스페이스를 선택하세요.",
+        "보정 재시작 전에 대상 워크스페이스를 선택하세요.",
     ),
     (
         " is already answered. Use /answer --replace to update it.",

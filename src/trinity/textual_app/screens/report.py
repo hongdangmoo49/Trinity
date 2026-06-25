@@ -61,7 +61,7 @@ REPORT_SECTION_LABELS_KO = {
     "Execution Timeline": "실행 타임라인",
     "Artifact Manifest": "산출물 목록",
     "Reviews": "리뷰",
-    "Review Repairs": "리뷰 복구",
+    "Review Repairs": "리뷰 보정",
     "Execution Recovery": "실행 복구",
     "Central Agent Conversation": "중앙 에이전트 대화",
     "Advisory Agent Quality": "자문 에이전트 품질",

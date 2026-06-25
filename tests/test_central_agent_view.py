@@ -14,6 +14,8 @@ from trinity.textual_app.snapshot import (
     WorkflowNexusSnapshot,
 )
 from trinity.textual_app.presenters import (
+    CentralActionButton,
+    CentralActionPlan,
     central_action_plan,
     should_show_blueprint_actions,
 )
@@ -503,6 +505,57 @@ async def test_central_apply_snapshot_skips_unchanged_action_plan_render() -> No
         await pilot.pause()
 
         assert len(renders) == 1
+
+
+@pytest.mark.asyncio
+async def test_central_action_render_skips_unchanged_title_update() -> None:
+    view = CentralAgentView()
+    app = CentralAgentHarness(view)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        first = CentralActionPlan(
+            "next_actions",
+            (
+                CentralActionButton(
+                    "execute",
+                    "execute",
+                    "primary",
+                    "execute_tooltip",
+                ),
+            ),
+        )
+        second = CentralActionPlan(
+            "next_actions",
+            (
+                CentralActionButton(
+                    "refine-features",
+                    "refine_features",
+                    "default",
+                    "refine-features_tooltip",
+                ),
+            ),
+        )
+
+        view._render_blueprint_actions(first)
+        await pilot.pause()
+
+        title = view.query_one("#central-action-title", Static)
+        updates: list[str] = []
+        original_update = title.update
+
+        def counted_update(content) -> None:
+            updates.append(str(content))
+            original_update(content)
+
+        title.update = counted_update
+
+        view._render_blueprint_actions(second)
+        await pilot.pause()
+        assert updates == []
+
+        view._render_blueprint_actions(CentralActionPlan())
+        await pilot.pause()
+        assert updates == [""]
 
 
 @pytest.mark.asyncio

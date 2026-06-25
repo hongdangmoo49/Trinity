@@ -233,7 +233,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
     def _header_text(self) -> str:
         if self.lang == "ko":
             prefix = "선택  " if self.selector == "custom" else ""
-            return f"{prefix}WP      상태       주제                          소유자       실행자       메모"
+            return f"{prefix}작업 ID 상태       주제                          소유자       실행자       메모"
         prefix = "Use  " if self.selector == "custom" else ""
         return f"{prefix}WP      Status     Topic                         Owner      Executor    Note"
 

@@ -75,7 +75,7 @@ class ProviderPanel(Vertical):
 
     def set_activity_frame(self, frame: int) -> None:
         self._activity_frame = frame % len(ACTIVITY_FRAMES)
-        if self.is_mounted:
+        if self.is_mounted and self._state_group(self.state) == "running":
             self.query_one(".provider-status", Static).update(self._status_label())
 
     def _provider_line(self) -> str:

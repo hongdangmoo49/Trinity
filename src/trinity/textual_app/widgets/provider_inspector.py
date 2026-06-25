@@ -79,6 +79,7 @@ class ProviderInspector(ModalScreen[None]):
         self.providers = providers
         self.lang = lang
         self._output_cache: dict[str, str] = {}
+        self._formatted_output_cache: dict[str, str] = {}
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
@@ -128,7 +129,12 @@ class ProviderInspector(ModalScreen[None]):
             or provider.summary
             or self._label("no_raw_output")
         )
-        return self._format_output(output, lang=self.lang)
+        cached = self._formatted_output_cache.get(output)
+        if cached is not None:
+            return cached
+        formatted = self._format_output(output, lang=self.lang)
+        self._formatted_output_cache[output] = formatted
+        return formatted
 
     def _provider_meta(self, provider: ProviderSnapshot) -> str:
         lines = [

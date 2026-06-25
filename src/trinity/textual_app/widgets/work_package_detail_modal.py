@@ -45,7 +45,7 @@ _LABELS = {
         "out_of_scope": "제외 범위",
         "owner": "소유자",
         "peer_review_skipped": "동료 리뷰가 생략되었습니다. 신뢰도를 낮게 보세요.",
-        "profile_revision": "프로필 리비전",
+        "profile_revision": "프로필 버전",
         "repair_attempts": "보정 시도",
         "repair_loop_blocked": "보정 루프가 `{attempts}` 시도 후 차단됨",
         "repair_notes": "보정 메모",

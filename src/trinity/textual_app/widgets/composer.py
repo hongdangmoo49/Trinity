@@ -181,11 +181,16 @@ class PromptComposer(Vertical):
         self._command_option_row_keys: dict[int, tuple[str, bool, bool, bool]] = {}
         self._command_more_key: tuple[str, bool] | None = None
         self._command_palette_visible_key: bool | None = None
+        self._text_area_widget: ComposerTextArea | None = None
+        self._command_palette_widget: Vertical | None = None
+        self._command_option_widgets: dict[int, Static] = {}
+        self._command_more_widget: Static | None = None
         self.lang = lang
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
-        yield ComposerTextArea(
+        self._reset_widget_cache()
+        text_area = ComposerTextArea(
             "",
             placeholder=self.placeholder,
             soft_wrap=True,
@@ -193,28 +198,40 @@ class PromptComposer(Vertical):
             show_line_numbers=False,
             id="prompt-textarea",
         )
-        with Vertical(id="prompt-command-palette", classes="composer-command-palette"):
+        self._text_area_widget = text_area
+        yield text_area
+        palette = Vertical(id="prompt-command-palette", classes="composer-command-palette")
+        self._command_palette_widget = palette
+        with palette:
             for index in range(COMMAND_LIMIT):
-                yield Static("", id=f"command-option-{index}", classes="command-option")
-            yield Static(
+                option = Static(
+                    "",
+                    id=f"command-option-{index}",
+                    classes="command-option",
+                )
+                self._command_option_widgets[index] = option
+                yield option
+            more = Static(
                 "",
                 id="command-option-more",
                 classes="command-option command-option-more",
             )
+            self._command_more_widget = more
+            yield more
 
     def on_mount(self) -> None:
         self._refresh_command_palette()
 
     def on_text_area_changed(self, event: TextArea.Changed) -> None:
-        if event.text_area is self.query_one(ComposerTextArea):
+        if event.text_area is self._text_area():
             self._refresh_command_palette()
 
     @property
     def text(self) -> str:
-        return self.query_one(ComposerTextArea).text
+        return self._text_area().text
 
     def set_text(self, text: str, *, clear_pastes: bool = True) -> None:
-        text_area = self.query_one(ComposerTextArea)
+        text_area = self._text_area()
         has_pastes_to_clear = bool(clear_pastes and self._pasted_content)
         if text_area.text == text and not has_pastes_to_clear:
             return
@@ -236,7 +253,7 @@ class PromptComposer(Vertical):
         self.set_text("")
 
     def focus_text_area(self) -> None:
-        self.query_one(ComposerTextArea).focus()
+        self._text_area().focus()
 
     def action_submit(self) -> None:
         if self._ignore_next_submit:
@@ -252,7 +269,7 @@ class PromptComposer(Vertical):
         self.post_message(self.Submitted(self.submission_text))
 
     def action_insert_newline(self) -> None:
-        self.query_one(ComposerTextArea).action_insert_newline()
+        self._text_area().action_insert_newline()
 
     def _refresh_command_palette(self) -> None:
         if not self.is_mounted:
@@ -370,7 +387,7 @@ class PromptComposer(Vertical):
         if previous == state:
             return
         label, display, selected, empty = state
-        option = self.query_one(f"#command-option-{index}", Static)
+        option = self._command_option(index)
         if previous is None or previous[0] != label:
             option.update(label)
         if previous is None or previous[1] != display:
@@ -386,7 +403,7 @@ class PromptComposer(Vertical):
         previous = self._command_more_key
         if previous == state:
             return
-        more = self.query_one("#command-option-more", Static)
+        more = self._command_more()
         if previous is None or previous[0] != text:
             more.update(text)
         if previous is None or previous[1] != display:
@@ -398,7 +415,7 @@ class PromptComposer(Vertical):
             return
         if visible == self._command_palette_visible_key:
             return
-        palette = self.query_one("#prompt-command-palette", Vertical)
+        palette = self._command_palette()
         palette.display = visible
         self.set_class(visible, "-commands-open")
         self._command_palette_visible_key = visible
@@ -460,7 +477,38 @@ class PromptComposer(Vertical):
     def command_palette_open(self) -> bool:
         if not self.is_mounted:
             return False
-        return bool(self.query_one("#prompt-command-palette", Vertical).display)
+        return bool(self._command_palette().display)
+
+    def _reset_widget_cache(self) -> None:
+        self._text_area_widget = None
+        self._command_palette_widget = None
+        self._command_option_widgets = {}
+        self._command_more_widget = None
+
+    def _text_area(self) -> ComposerTextArea:
+        if self._text_area_widget is None:
+            self._text_area_widget = self.query_one(ComposerTextArea)
+        return self._text_area_widget
+
+    def _command_palette(self) -> Vertical:
+        if self._command_palette_widget is None:
+            self._command_palette_widget = self.query_one(
+                "#prompt-command-palette",
+                Vertical,
+            )
+        return self._command_palette_widget
+
+    def _command_option(self, index: int) -> Static:
+        option = self._command_option_widgets.get(index)
+        if option is None:
+            option = self.query_one(f"#command-option-{index}", Static)
+            self._command_option_widgets[index] = option
+        return option
+
+    def _command_more(self) -> Static:
+        if self._command_more_widget is None:
+            self._command_more_widget = self.query_one("#command-option-more", Static)
+        return self._command_more_widget
 
     def _slash_query(self) -> str | None:
         text = self.text

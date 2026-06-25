@@ -7,10 +7,12 @@ import re
 
 RUNNING_STATUSES = {"deliberating", "executing", "reviewing", "running"}
 WAITING_STATUSES = {
+    "needs_user_decision",
     "needs_review",
     "pending",
     "queued",
     "waiting",
+    "waiting_for_external_input",
     "waiting_on_decision",
 }
 IDLE_STATUSES = {"idle"}

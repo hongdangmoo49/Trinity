@@ -356,7 +356,7 @@ STATUS_CONTEXT_LABELS = {
         "no": "아니오",
         "no_decisions": "현재 세션에 기록된 워크플로우 결정이 없습니다.",
         "none": "(없음)",
-        "no_history": "현재 Textual 세션에 기록된 로컬 이력이 없습니다.",
+        "no_history": "현재 세션에 기록된 로컬 이력이 없습니다.",
         "no_packages": "현재 세션에 생성된 워크플로우 작업 패키지가 없습니다.",
         "no_pending_questions": "대기 중인 워크플로우 질문이 없습니다.",
         "no_pending_questions_select": "선택할 대기 질문이 없습니다.",
@@ -435,8 +435,8 @@ STATUS_CONTEXT_LABELS = {
         "run": "실행 ID",
         "save": "저장",
         "save_auto_persist_body": (
-            "Textual 워크플로우는 자동으로 저장됩니다. "
-            "Markdown 리포트 내보내기는 /report save를 사용하세요."
+            "Trinity 워크플로우는 자동으로 저장됩니다. "
+            "마크다운 리포트 내보내기는 /report save를 사용하세요."
         ),
         "slash_command": "슬래시 명령",
         "severity": "심각도",

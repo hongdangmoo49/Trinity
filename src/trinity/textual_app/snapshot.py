@@ -1219,8 +1219,7 @@ class NexusSnapshotAdapter:
             for package in session.blueprint.work_packages
         ]
 
-    @staticmethod
-    def _central_blueprint_markdown(session: WorkflowSession | None) -> str:
+    def _central_blueprint_markdown(self, session: WorkflowSession | None) -> str:
         if session is None or session.blueprint is None:
             return ""
         blueprint = session.blueprint
@@ -1235,11 +1234,12 @@ class NexusSnapshotAdapter:
             lines.append(summary)
 
         if blueprint.architecture:
-            lines.extend(["", "#### Architecture"])
+            lines.extend(["", f"#### {self._blueprint_label('architecture')}"])
             for component in blueprint.architecture:
                 owner = f" `{component.owner_agent}`" if component.owner_agent else ""
                 dependencies = (
-                    f" Dependencies: {', '.join(component.dependencies)}."
+                    f" {self._blueprint_label('dependencies')}: "
+                    f"{', '.join(component.dependencies)}."
                     if component.dependencies
                     else ""
                 )
@@ -1250,40 +1250,46 @@ class NexusSnapshotAdapter:
 
         NexusSnapshotAdapter._append_blueprint_list(
             lines,
-            "Data Flow",
+            self._blueprint_label("data_flow"),
             blueprint.data_flow,
         )
         NexusSnapshotAdapter._append_blueprint_list(
             lines,
-            "External Dependencies",
+            self._blueprint_label("external_dependencies"),
             blueprint.external_dependencies,
         )
 
         if blueprint.risks:
-            lines.extend(["", "#### Risks"])
+            lines.extend(["", f"#### {self._blueprint_label('risks')}"])
             for risk in blueprint.risks:
                 owner = f" `{risk.owner_agent}`" if risk.owner_agent else ""
-                mitigation = f" Mitigation: {risk.mitigation}" if risk.mitigation else ""
+                mitigation = (
+                    f" {self._blueprint_label('mitigation')}: {risk.mitigation}"
+                    if risk.mitigation
+                    else ""
+                )
                 lines.append(
                     f"- **{risk.severity}**{owner}: {risk.description}{mitigation}"
                 )
 
         NexusSnapshotAdapter._append_blueprint_list(
             lines,
-            "Acceptance Criteria",
+            self._blueprint_label("acceptance_criteria"),
             blueprint.acceptance_criteria,
         )
 
         if blueprint.open_questions:
-            lines.extend(["", "#### Open Questions"])
+            lines.extend(["", f"#### {self._blueprint_label('open_questions')}"])
             for question in blueprint.open_questions:
                 options = (
-                    f" Options: {', '.join(question.options)}."
+                    f" {self._blueprint_label('options')}: "
+                    f"{', '.join(question.options)}."
                     if question.options
                     else ""
                 )
                 recommended = (
-                    f" Recommended: {question.recommended_option}."
+                    f" {self._blueprint_label('recommended')}: "
+                    f"{question.recommended_option}."
                     if question.recommended_option
                     else ""
                 )
@@ -1292,6 +1298,34 @@ class NexusSnapshotAdapter:
                 )
 
         return "\n".join(lines).strip()
+
+    def _blueprint_label(self, key: str) -> str:
+        ko = {
+            "architecture": "아키텍처",
+            "data_flow": "데이터 흐름",
+            "external_dependencies": "외부 의존성",
+            "risks": "리스크",
+            "acceptance_criteria": "인수 기준",
+            "open_questions": "미해결 질문",
+            "dependencies": "의존성",
+            "mitigation": "완화",
+            "options": "선택지",
+            "recommended": "추천",
+        }
+        en = {
+            "architecture": "Architecture",
+            "data_flow": "Data Flow",
+            "external_dependencies": "External Dependencies",
+            "risks": "Risks",
+            "acceptance_criteria": "Acceptance Criteria",
+            "open_questions": "Open Questions",
+            "dependencies": "Dependencies",
+            "mitigation": "Mitigation",
+            "options": "Options",
+            "recommended": "Recommended",
+        }
+        labels = ko if self.config.lang == "ko" else en
+        return labels.get(key, en.get(key, key))
 
     @staticmethod
     def _append_blueprint_list(

@@ -77,6 +77,7 @@ class CentralAgentView(VerticalScroll):
         self._local_commands_key: tuple[object, ...] = ()
         self._actions_key: tuple[object, ...] = ()
         self._applied_snapshot_identity: int | None = None
+        self._running_class_key: bool | None = None
 
     def compose(self) -> ComposeResult:
         yield Static(self._label("title"), id="central-title")
@@ -99,7 +100,7 @@ class CentralAgentView(VerticalScroll):
         if not self.is_mounted:
             return
         self._applied_snapshot_identity = snapshot_identity
-        self.set_class(self._is_running(), "central-running")
+        self._sync_running_class()
         self._refresh_title()
         markdown = self._markdown()
         if markdown != self._markdown_key:
@@ -134,6 +135,13 @@ class CentralAgentView(VerticalScroll):
 
     def has_running_activity(self) -> bool:
         return self._is_running()
+
+    def _sync_running_class(self) -> None:
+        running = self._is_running()
+        if running == self._running_class_key:
+            return
+        self.set_class(running, "central-running")
+        self._running_class_key = running
 
     def _markdown(self) -> str:
         snapshot = self.snapshot

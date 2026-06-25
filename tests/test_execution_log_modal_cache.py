@@ -23,6 +23,42 @@ def _input_event(value: str, *, input_id: str = "execution-log-search"):
 
 
 @pytest.mark.asyncio
+async def test_execution_log_modal_reuses_composed_refresh_widgets() -> None:
+    modal = ExecutionLogModal(
+        [
+            "WP-001 started",
+            "WP-002 failed with provider error",
+            "WP-003 completed",
+        ]
+    )
+    app = ExecutionLogModalHarness(modal)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+        query_calls: list[str] = []
+        original_query_one = modal.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if selector in {
+                "#execution-log-search-status",
+                "#execution-log-modal-body",
+            }:
+                query_calls.append(selector)
+            return original_query_one(selector, *args, **kwargs)
+
+        modal.query_one = counted_query_one
+
+        modal.filter_query = "fail"
+        modal._refresh_log()
+        await pilot.pause()
+        modal.filter_query = "complete"
+        modal._refresh_log()
+        await pilot.pause()
+
+        assert query_calls == []
+
+
+@pytest.mark.asyncio
 async def test_execution_log_modal_skips_unchanged_render_state() -> None:
     modal = ExecutionLogModal(
         [

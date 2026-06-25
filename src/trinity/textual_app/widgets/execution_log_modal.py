@@ -89,17 +89,24 @@ class ExecutionLogModal(ModalScreen[None]):
         self.filter_query = ""
         self._status_text_key = ""
         self._rendered_lines_key: tuple[str, ...] = ()
+        self._status_widget: Static | None = None
+        self._body_widget: RichLog | None = None
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
+        self._reset_widget_cache()
         with Vertical(id="execution-log-modal"):
             yield Static(self._label("title"), id="execution-log-modal-title")
             yield Input(
                 placeholder=self._label("search_placeholder"),
                 id="execution-log-search",
             )
-            yield Static("", id="execution-log-search-status")
-            yield RichLog(id="execution-log-modal-body", wrap=True, markup=False)
+            status = Static("", id="execution-log-search-status")
+            self._status_widget = status
+            yield status
+            body = RichLog(id="execution-log-modal-body", wrap=True, markup=False)
+            self._body_widget = body
+            yield body
             yield Button(self._label("close"), id="close-execution-log")
         yield Footer()
 
@@ -126,16 +133,31 @@ class ExecutionLogModal(ModalScreen[None]):
         ):
             return
         if status_text != self._status_text_key:
-            self.query_one("#execution-log-search-status", Static).update(
-                status_text
-            )
+            self._search_status().update(status_text)
             self._status_text_key = status_text
         if lines_key != self._rendered_lines_key:
-            log = self.query_one("#execution-log-modal-body", RichLog)
+            log = self._log_body()
             log.clear()
             for line in lines:
                 log.write(line)
             self._rendered_lines_key = lines_key
+
+    def _reset_widget_cache(self) -> None:
+        self._status_widget = None
+        self._body_widget = None
+
+    def _search_status(self) -> Static:
+        if self._status_widget is None:
+            self._status_widget = self.query_one(
+                "#execution-log-search-status",
+                Static,
+            )
+        return self._status_widget
+
+    def _log_body(self) -> RichLog:
+        if self._body_widget is None:
+            self._body_widget = self.query_one("#execution-log-modal-body", RichLog)
+        return self._body_widget
 
     def _render_state(self, query: str = "") -> tuple[str, list[str]]:
         if not query.strip():

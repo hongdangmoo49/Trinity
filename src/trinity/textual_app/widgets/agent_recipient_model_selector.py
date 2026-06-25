@@ -214,6 +214,11 @@ class AgentRecipientModelSelector(Horizontal):
                     context_budget=None,
                 )
             )
+        if (
+            tuple(self._model_choices.get(name, ())) == tuple(normalized)
+            and self._selected_models.get(name, spec.model or "default") == current
+        ):
+            return
         self._model_choices[name] = normalized
         self._set_selected_model(name, current)
 

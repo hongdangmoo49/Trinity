@@ -36,6 +36,31 @@ def _choices(config: TrinityConfig, *models: str) -> tuple[ProviderModelChoice, 
     )
 
 
+def test_agent_recipient_selector_skips_unchanged_model_choices(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    selector = AgentRecipientModelSelector(config.agents)
+    initial = _choices(config, "default")
+
+    selector.set_model_choices("claude", initial)
+    calls: list[tuple[str, str]] = []
+    original_set_selected_model = selector._set_selected_model
+
+    def counted_set_selected_model(name: str, model: str) -> None:
+        calls.append((name, model))
+        original_set_selected_model(name, model)
+
+    selector._set_selected_model = counted_set_selected_model
+
+    selector.set_model_choices("claude", tuple(initial))
+    assert calls == []
+
+    updated = _choices(config, "default", "opus")
+    selector.set_model_choices("claude", updated)
+
+    assert calls == [("claude", "default")]
+    assert selector.model_option_labels("claude") == ("default", "opus")
+
+
 @pytest.mark.asyncio
 async def test_start_screen_skips_unchanged_model_choices(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)

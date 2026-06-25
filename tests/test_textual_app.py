@@ -190,6 +190,7 @@ from trinity.textual_app.snapshot import (
     AgentQualitySnapshot,
     PostReviewActionSnapshot,
     LocalCommandSnapshot,
+    NexusSnapshotAdapter,
     ProviderSnapshot,
     QuestionSnapshot,
     ReviewSnapshot,
@@ -231,6 +232,10 @@ from trinity.textual_app.widgets.target_workspace_confirm_modal import (
 from trinity.textual_app.widgets.work_package_detail_modal import WorkPackageDetailModal
 from trinity.textual_app.widgets.workspace_picker import WorkspacePicker, build_preflight
 from trinity.workflow import (
+    ArchitectureComponent,
+    Blueprint,
+    OpenQuestion,
+    RiskItem,
     WorkPackage,
     WorkflowPersistence,
     WorkflowSession,
@@ -2941,6 +2946,121 @@ def test_snapshot_report_markdown_uses_korean_placeholder_values() -> None:
     assert "- 재시도 후보: \\(없음\\)" in md
     assert "- 완료 WP: \\(없음\\)" in md
     assert "- 최근 이벤트: \\(없음\\)" in md
+
+
+def test_snapshot_adapter_localizes_korean_central_blueprint_labels(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-blueprint-ko",
+            goal="설계안 확인",
+            state=WorkflowState.BLUEPRINT_READY,
+            blueprint=Blueprint(
+                title="Snake Game",
+                summary="Build the game.",
+                architecture=[
+                    ArchitectureComponent(
+                        name="Game Loop",
+                        responsibility="Render and update.",
+                        owner_agent="codex",
+                        dependencies=["Canvas"],
+                    )
+                ],
+                data_flow=["Input -> State -> Render"],
+                external_dependencies=["pygame"],
+                risks=[
+                    RiskItem(
+                        description="Frame drops",
+                        severity="high",
+                        mitigation="Profile rendering",
+                        owner_agent="claude",
+                    )
+                ],
+                acceptance_criteria=["Runs smoothly"],
+                open_questions=[
+                    OpenQuestion(
+                        id="q1",
+                        question="Grid size?",
+                        options=["20x20", "30x30"],
+                        recommended_option="20x20",
+                    )
+                ],
+            ),
+        )
+    )
+
+    markdown = NexusSnapshotAdapter(config).load_snapshot().central_blueprint
+
+    assert "#### 아키텍처" in markdown
+    assert "의존성: Canvas." in markdown
+    assert "#### 데이터 흐름" in markdown
+    assert "#### 외부 의존성" in markdown
+    assert "#### 리스크" in markdown
+    assert "완화: Profile rendering" in markdown
+    assert "#### 인수 기준" in markdown
+    assert "#### 미해결 질문" in markdown
+    assert "선택지: 20x20, 30x30." in markdown
+    assert "추천: 20x20." in markdown
+    assert "#### Architecture" not in markdown
+    assert "Dependencies:" not in markdown
+    assert "Recommended:" not in markdown
+
+
+def test_snapshot_adapter_keeps_english_central_blueprint_labels(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    persistence = WorkflowPersistence(config.effective_state_dir)
+    persistence.save(
+        WorkflowSession(
+            id="wf-blueprint-en",
+            goal="check blueprint",
+            state=WorkflowState.BLUEPRINT_READY,
+            blueprint=Blueprint(
+                title="Snake Game",
+                summary="Build the game.",
+                architecture=[
+                    ArchitectureComponent(
+                        name="Game Loop",
+                        responsibility="Render and update.",
+                        owner_agent="codex",
+                        dependencies=["Canvas"],
+                    )
+                ],
+                data_flow=["Input -> State -> Render"],
+                external_dependencies=["pygame"],
+                risks=[
+                    RiskItem(
+                        description="Frame drops",
+                        severity="high",
+                        mitigation="Profile rendering",
+                        owner_agent="claude",
+                    )
+                ],
+                acceptance_criteria=["Runs smoothly"],
+                open_questions=[
+                    OpenQuestion(
+                        id="q1",
+                        question="Grid size?",
+                        options=["20x20", "30x30"],
+                        recommended_option="20x20",
+                    )
+                ],
+            ),
+        )
+    )
+
+    markdown = NexusSnapshotAdapter(config).load_snapshot().central_blueprint
+
+    assert "#### Architecture" in markdown
+    assert "Dependencies: Canvas." in markdown
+    assert "#### Data Flow" in markdown
+    assert "#### External Dependencies" in markdown
+    assert "#### Risks" in markdown
+    assert "Mitigation: Profile rendering" in markdown
+    assert "#### Acceptance Criteria" in markdown
+    assert "#### Open Questions" in markdown
+    assert "Options: 20x20, 30x30." in markdown
+    assert "Recommended: 20x20." in markdown
 
 
 def test_central_agent_view_localizes_korean_status_values() -> None:

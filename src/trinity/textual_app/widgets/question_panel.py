@@ -35,6 +35,7 @@ class QuestionPanel(VerticalScroll):
         self.lang = lang
         self._button_answers: dict[str, QuestionAnswer] = {}
         self._questions_key: tuple[object, ...] | None = None
+        self._empty_state_key: bool | None = None
         self._title_key = ""
 
     def compose(self) -> ComposeResult:
@@ -46,7 +47,7 @@ class QuestionPanel(VerticalScroll):
         questions_key = self._question_key(questions)
         if self.is_mounted and questions_key == self._questions_key:
             return
-        self.set_class(not questions, "question-panel-empty")
+        self._sync_empty_state(not questions)
         if not self.is_mounted:
             return
         title = self._question_title(questions)
@@ -55,6 +56,12 @@ class QuestionPanel(VerticalScroll):
             self._title_key = title
         self._render_questions(questions)
         self._questions_key = questions_key
+
+    def _sync_empty_state(self, empty: bool) -> None:
+        if self._empty_state_key == empty:
+            return
+        self.set_class(empty, "question-panel-empty")
+        self._empty_state_key = empty
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         answer = self._button_answers.get(event.button.id or "")

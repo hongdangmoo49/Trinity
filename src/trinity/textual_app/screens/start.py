@@ -155,21 +155,24 @@ class StartScreen(Screen[None]):
         choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]],
     ) -> None:
         """Apply live model choices discovered from provider CLIs."""
-        changed = False
+        changed_choices: dict[str, tuple[ProviderModelChoice, ...]] = {}
         for name, choices in choices_by_agent.items():
             next_choices = tuple(choices)
             if tuple(self._agent_model_choices.get(name, ())) == next_choices:
                 continue
             self._agent_model_choices[name] = next_choices
-            changed = True
-        if changed and self.is_mounted:
-            self._apply_model_choices()
+            changed_choices[name] = next_choices
+        if changed_choices and self.is_mounted:
+            self._apply_model_choices(changed_choices)
 
-    def _apply_model_choices(self) -> None:
+    def _apply_model_choices(
+        self,
+        choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]] | None = None,
+    ) -> None:
         if not self._agent_model_choices:
             return
         selector = self.query_one(AgentRecipientModelSelector)
-        for name, choices in self._agent_model_choices.items():
+        for name, choices in (choices_by_agent or self._agent_model_choices).items():
             selector.set_model_choices(name, choices)
 
     def on_prompt_composer_submitted(self, event: PromptComposer.Submitted) -> None:

@@ -19,10 +19,10 @@ CONFIRM_QUIT_LABELS = {
         "title": "Quit Trinity",
     },
     "ko": {
-        "body": "Trinity Textual 워크벤치를 종료할까요?",
+        "body": "Trinity 워크벤치를 종료할까요?",
         "cancel": "취소",
         "quit": "종료",
-        "running_body": "워크플로우가 아직 실행 중입니다. Trinity Textual 워크벤치를 종료할까요?",
+        "running_body": "워크플로우가 아직 실행 중입니다. Trinity 워크벤치를 종료할까요?",
         "title": "Trinity 종료",
     },
 }

@@ -1108,7 +1108,7 @@ def test_history_presenter_uses_korean_labels() -> None:
 
 def test_history_empty_presenter_uses_korean_labels() -> None:
     assert history_markdown(WorkflowNexusSnapshot(), (), lang="ko") == (
-        "현재 Textual 세션에 기록된 로컬 이력이 없습니다."
+        "현재 세션에 기록된 로컬 이력이 없습니다."
     )
 
 
@@ -1279,8 +1279,8 @@ def test_report_presenter_uses_korean_labels() -> None:
 def test_save_presenter_uses_korean_labels() -> None:
     assert save_title(lang="ko") == "저장"
     assert save_auto_persist_markdown(lang="ko") == (
-        "Textual 워크플로우는 자동으로 저장됩니다. "
-        "Markdown 리포트 내보내기는 /report save를 사용하세요."
+        "Trinity 워크플로우는 자동으로 저장됩니다. "
+        "마크다운 리포트 내보내기는 /report save를 사용하세요."
     )
 
 
@@ -4561,8 +4561,8 @@ async def test_nexus_save_uses_korean_labels(tmp_path) -> None:
         assert result.command == "/save"
         assert result.title == "저장"
         assert result.body == (
-            "Textual 워크플로우는 자동으로 저장됩니다. "
-            "Markdown 리포트 내보내기는 /report save를 사용하세요."
+            "Trinity 워크플로우는 자동으로 저장됩니다. "
+            "마크다운 리포트 내보내기는 /report save를 사용하세요."
         )
         assert controller.started_prompts == []
         assert controller.follow_ups == []
@@ -4939,7 +4939,7 @@ async def test_start_slash_empty_history_uses_korean_hint(tmp_path) -> None:
         assert app.active_snapshot is not None
         result = app.active_snapshot.local_commands[-1]
         assert result.empty is True
-        assert result.body == "현재 Textual 세션에 기록된 로컬 이력이 없습니다."
+        assert result.body == "현재 세션에 기록된 로컬 이력이 없습니다."
         assert result.action_hint.startswith("프롬프트 실행")
         assert result.table_columns == ("종류", "항목")
 
@@ -5590,6 +5590,9 @@ async def test_start_quit_modal_uses_korean_labels(tmp_path) -> None:
             "Trinity 종료"
         )
         assert "워크플로우가 아직 실행 중입니다." in str(
+            app.screen.query_one("#confirm-quit-body", Static).content
+        )
+        assert "Textual" not in str(
             app.screen.query_one("#confirm-quit-body", Static).content
         )
         assert str(app.screen.query_one("#cancel-quit", Button).label) == "취소"

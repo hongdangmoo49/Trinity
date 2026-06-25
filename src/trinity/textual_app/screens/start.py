@@ -112,6 +112,7 @@ class StartScreen(Screen[None]):
         self.workspace_candidate = workspace_candidate
         self.lang = lang
         self._agent_model_choices: dict[str, tuple[ProviderModelChoice, ...]] = {}
+        self._workspace_label_key = self._workspace_label()
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
@@ -186,7 +187,11 @@ class StartScreen(Screen[None]):
     def set_workspace_candidate(self, path: Path | None) -> None:
         self.workspace_candidate = path
         label = self.query_one("#workspace-candidate", Static)
-        label.update(self._workspace_label())
+        workspace_label = self._workspace_label()
+        if workspace_label == self._workspace_label_key:
+            return
+        label.update(workspace_label)
+        self._workspace_label_key = workspace_label
 
     def _submit(self, prompt: str) -> None:
         text = prompt.strip()

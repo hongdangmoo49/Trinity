@@ -154,6 +154,7 @@ class CentralAgentView(VerticalScroll):
                 ]
             )
         self._append_work_package_overview(lines, snapshot)
+        self._append_execution_overview(lines, snapshot)
         if snapshot.local_commands:
             self._append_latest_command(lines, snapshot.local_commands[-1])
         if snapshot.final_review is not None:
@@ -241,14 +242,16 @@ class CentralAgentView(VerticalScroll):
         lines.extend(["", f"### {self._label('current_focus')}"])
         for package in active[:5]:
             executor = package.current_executor or package.last_executor or package.owner_agent
-            status = package.status or package.last_result_status or "unknown"
+            status = self._status_value(
+                package.status or package.last_result_status or "unknown"
+            )
             title = package.title or package.id
             lines.append(f"- **{package.id}** [{status}] `{executor}`: {title}")
             if package.last_result_summary:
                 lines.append(f"  - {package.last_result_summary}")
             blockers = self._compact_list(package.last_result_blockers, limit=2)
             if blockers:
-                lines.append(f"  - Blockers: {blockers}")
+                lines.append(f"  - {self._label('blockers')}: {blockers}")
 
     def _append_latest_command(
         self,
@@ -266,15 +269,17 @@ class CentralAgentView(VerticalScroll):
         if command.action_hint:
             lines.append(f"_{self._label('next')}:_ {command.action_hint}")
 
-    @staticmethod
-    def _compact_list(values: list[str], *, limit: int = 5) -> str:
+    def _compact_list(self, values: list[str], *, limit: int = 5) -> str:
         items = [value for value in values if value]
         if not items:
             return ""
         rendered = ", ".join(items[:limit])
         remaining = len(items) - limit
         if remaining > 0:
-            rendered = f"{rendered}, +{remaining} more"
+            if self.lang == "ko":
+                rendered = f"{rendered}, +{remaining}개 더"
+            else:
+                rendered = f"{rendered}, +{remaining} more"
         return rendered
 
     def _central_response(self, snapshot: WorkflowNexusSnapshot) -> str:
@@ -512,6 +517,7 @@ class CentralAgentView(VerticalScroll):
             "awaiting_answers": "사용자 답변 대기",
             "awaiting_decision": "사용자 결정 대기",
             "blueprint_ready": "설계가 준비되었습니다",
+            "blockers": "차단 요소",
             "central_response": "중앙 에이전트 응답",
             "collecting_provider_responses": "프로바이더 응답을 모으는 중",
             "command_result": "명령 결과",
@@ -581,6 +587,7 @@ class CentralAgentView(VerticalScroll):
             "awaiting_answers": "Waiting for your answer",
             "awaiting_decision": "Waiting for your decision",
             "blueprint_ready": "Blueprint ready",
+            "blockers": "Blockers",
             "central_response": "Central Agent Response",
             "collecting_provider_responses": "Collecting provider responses",
             "command_result": "Command Result",

@@ -3182,14 +3182,23 @@ def test_central_agent_view_localizes_korean_review_repair_action_labels() -> No
     view = CentralAgentView(lang="ko")
 
     assert view._label("details_in_inspector") == (
-        "상세 설계와 WP 목록은 인스펙터 또는 리포트에서 확인하세요."
+        "상세 설계와 작업 패키지 목록은 인스펙터 또는 리포트에서 확인하세요."
+    )
+    assert view._label("execution_retry") == "실패 작업 재시도"
+    assert view._label("refine_work_packages") == "작업 재분배"
+    assert view._label("execute_tooltip") == "현재 작업 패키지를 실행합니다."
+    assert view._label("execution-retry_tooltip") == (
+        "실패, 막힘, 중단 상태의 작업 패키지를 선택해서 다시 실행합니다."
+    )
+    assert view._label("refine-work-packages_tooltip") == (
+        "작업 패키지 분해, 담당자, 의존성을 다시 정리합니다."
     )
     assert view._label("repair_action") == "리뷰 보정 결정"
     assert view._label("repair-retry-once_tooltip") == (
-        "리뷰 보정으로 막힌 WP만 한 번 더 실행합니다."
+        "리뷰 보정으로 막힌 작업 패키지만 한 번 더 실행합니다."
     )
     assert view._label("repair-mark-done_tooltip") == (
-        "막힌 리뷰 보정을 사용자가 수용하고 WP를 완료 처리합니다."
+        "막힌 리뷰 보정을 사용자가 수용하고 작업 패키지를 완료 처리합니다."
     )
     assert view._label("repair-open-review_tooltip") == (
         "현재 리뷰 보정 차단 상세를 봅니다."
@@ -3922,7 +3931,7 @@ async def test_nexus_central_execution_retry_action_opens_retry_modal(tmp_path) 
             "실행 재시도 결정"
         )
         buttons = list(screen.query("#central-actions Button"))
-        assert [str(button.label) for button in buttons] == ["실패 WP 재시도"]
+        assert [str(button.label) for button in buttons] == ["실패 작업 재시도"]
 
         buttons[0].press()
         await pilot.pause()
@@ -6871,7 +6880,7 @@ async def test_nexus_follow_up_passes_selected_agents_and_models(tmp_path) -> No
     (
         ("기능 보강", "핵심 기능"),
         ("리스크 보강", "실행 리스크"),
-        ("WP 재분배", "WP의 범위"),
+        ("작업 재분배", "작업 패키지의 범위"),
     ),
 )
 @pytest.mark.asyncio
@@ -10724,4 +10733,4 @@ def test_nexus_refine_prompts_are_scope_specific(tmp_path) -> None:
 
     assert "핵심 기능" in feature_prompt
     assert "실행 리스크" in risk_prompt
-    assert "WP의 범위" in package_prompt
+    assert "작업 패키지의 범위" in package_prompt

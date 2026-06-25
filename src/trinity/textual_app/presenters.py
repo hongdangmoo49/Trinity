@@ -366,7 +366,7 @@ STATUS_CONTEXT_LABELS = {
         "not_checked": "미확인",
         "options": "선택지",
         "package": "작업 패키지",
-        "packages_hint": "blueprint 또는 로컬 WP 그래프가 생성될 때까지 계획을 진행하세요.",
+        "packages_hint": "설계안 또는 로컬 WP 그래프가 생성될 때까지 계획을 진행하세요.",
         "path": "경로",
         "pending_questions": "대기 중 질문",
         "pending_wp_review": "대기 중 WP 리뷰",

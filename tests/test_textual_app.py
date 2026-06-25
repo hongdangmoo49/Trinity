@@ -1003,7 +1003,7 @@ def test_packages_presenter_uses_korean_labels() -> None:
         ("2", "로컬", "WP-002 codex: 구현"),
     )
     assert packages_table_columns(lang="ko") == ("#", "출처", "작업 패키지")
-    assert packages_action_hint(has_packages=False, lang="ko").startswith("blueprint")
+    assert packages_action_hint(has_packages=False, lang="ko").startswith("설계안")
     assert packages_action_hint(has_packages=True, lang="ko") == ""
 
 
@@ -4247,7 +4247,7 @@ async def test_start_slash_empty_packages_uses_korean_hint(tmp_path) -> None:
         result = app.active_snapshot.local_commands[-1]
         assert result.empty is True
         assert result.body == "현재 세션에 생성된 워크플로우 작업 패키지가 없습니다."
-        assert result.action_hint.startswith("blueprint")
+        assert result.action_hint.startswith("설계안")
 
 
 @pytest.mark.asyncio

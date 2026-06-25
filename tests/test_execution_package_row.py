@@ -61,13 +61,13 @@ async def test_execution_package_row_status_change_updates_only_status_field() -
 
             widget.update = counted_update
 
-        button_queries: list[str] = []
+        child_queries: list[str] = []
         original_query_one = row.query_one
         original_query = row.query
 
         def counted_query_one(selector, *args, **kwargs):
-            if selector == ".execution-package-spec":
-                button_queries.append(str(selector))
+            if str(selector).startswith(".execution-package-"):
+                child_queries.append(str(selector))
             return original_query_one(selector, *args, **kwargs)
 
         def counted_query(selector, *args, **kwargs):
@@ -75,7 +75,7 @@ async def test_execution_package_row_status_change_updates_only_status_field() -
                 ".execution-package-retry",
                 ".execution-package-review-action",
             }:
-                button_queries.append(str(selector))
+                child_queries.append(str(selector))
             return original_query(selector, *args, **kwargs)
 
         row.query_one = counted_query_one
@@ -106,7 +106,7 @@ async def test_execution_package_row_status_change_updates_only_status_field() -
             "review": [],
             "risk": [],
         }
-        assert button_queries == []
+        assert child_queries == []
 
 
 @pytest.mark.asyncio
@@ -127,6 +127,15 @@ async def test_execution_package_row_detail_button_updates_when_projection_chang
 
     async with app.run_test(size=(100, 12)) as pilot:
         await pilot.pause()
+        queries: list[str] = []
+        original_query_one = row.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if selector == ".execution-package-spec":
+                queries.append(str(selector))
+            return original_query_one(selector, *args, **kwargs)
+
+        row.query_one = counted_query_one
 
         row.update_projection(
             _PackageRowProjection(
@@ -146,6 +155,7 @@ async def test_execution_package_row_detail_button_updates_when_projection_chang
         )
         await pilot.pause()
 
-        button = row.query_one(".execution-package-spec")
+        assert queries == []
+        button = row._button_cache[".execution-package-spec"]
         assert str(button.label) == "Details"
         assert button.disabled is True

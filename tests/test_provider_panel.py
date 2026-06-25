@@ -14,6 +14,8 @@ from trinity.textual_app.widgets.provider_panel import (
         ("Running", "running", "RUN"),
         ("Queued", "waiting", "WAIT"),
         ("Pending", "waiting", "WAIT"),
+        ("needs_user_decision", "waiting", "WAIT"),
+        ("waiting_for_external_input", "waiting", "WAIT"),
         ("Idle", "idle", "IDLE"),
         ("Ready", "done", "DONE"),
         ("Done", "done", "DONE"),
@@ -71,6 +73,8 @@ def test_provider_panel_supports_korean_status_labels() -> None:
     [
         ("Running", True, "실행"),
         ("Queued", True, "대기"),
+        ("needs_user_decision", True, "대기"),
+        ("waiting_for_external_input", True, "대기"),
         ("Idle", True, "휴식"),
         ("Done", True, "완료"),
         ("Failed", True, "문제"),

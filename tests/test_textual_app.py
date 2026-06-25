@@ -7806,6 +7806,18 @@ async def test_execution_matrix_renders_compact_status_labels(tmp_path) -> None:
                         status="pending",
                     ),
                     WorkPackageSnapshot(
+                        id="WP-002A",
+                        title="User decision task",
+                        owner_agent="codex",
+                        status="needs_user_decision",
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-002B",
+                        title="External input task",
+                        owner_agent="claude",
+                        status="waiting_for_external_input",
+                    ),
+                    WorkPackageSnapshot(
                         id="WP-003",
                         title="Review task",
                         owner_agent="codex",
@@ -7847,6 +7859,8 @@ async def test_execution_matrix_renders_compact_status_labels(tmp_path) -> None:
 
         assert [str(status.render()) for status in statuses] == [
             "RUN",
+            "WAIT",
+            "WAIT",
             "WAIT",
             "WAIT",
             "DONE",

@@ -16,7 +16,7 @@ PROGRESS_CHARS = {
     "unknown": "?",
     "waiting": ".",
 }
-DONE_STATUSES = {"completed", "done", "success"}
+DONE_STATUSES = {"completed", "done", "success", "succeeded"}
 RUNNING_STATUSES = {"executing", "reviewing", "running"}
 WAITING_STATUSES = {
     "needs_user_decision",
@@ -55,7 +55,7 @@ def work_package_state(package: WorkPackageSnapshot) -> str:
         or bool(package.repair_blocked_reason)
     ):
         return "blocked"
-    if status in DONE_STATUSES or result_status == "done":
+    if status in DONE_STATUSES or result_status in DONE_STATUSES:
         return "done"
     if status in RUNNING_STATUSES or bool(package.current_executor):
         return "running"

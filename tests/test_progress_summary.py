@@ -49,6 +49,11 @@ def _package(
 
 def test_work_package_state_groups_statuses() -> None:
     assert work_package_state(_package("WP-001", "done")) == "done"
+    assert work_package_state(_package("WP-001A", "succeeded")) == "done"
+    assert (
+        work_package_state(_package("WP-001B", "pending", last_result_status="succeeded"))
+        == "done"
+    )
     assert work_package_state(_package("WP-002", "running")) == "running"
     assert work_package_state(_package("WP-003", "pending")) == "waiting"
     assert work_package_state(_package("WP-003A", "needs_user_decision")) == "waiting"

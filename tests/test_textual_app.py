@@ -7830,6 +7830,12 @@ async def test_execution_matrix_renders_compact_status_labels(tmp_path) -> None:
                         status="done",
                     ),
                     WorkPackageSnapshot(
+                        id="WP-004A",
+                        title="Succeeded task",
+                        owner_agent="codex",
+                        status="succeeded",
+                    ),
+                    WorkPackageSnapshot(
                         id="WP-005",
                         title="Issue task",
                         owner_agent="codex",
@@ -7863,6 +7869,7 @@ async def test_execution_matrix_renders_compact_status_labels(tmp_path) -> None:
             "WAIT",
             "WAIT",
             "WAIT",
+            "DONE",
             "DONE",
             "ISSUE",
             "IDLE",

@@ -46,7 +46,7 @@ NEXUS_LABELS = {
         "open_provider_inspector": "프로바이더 인스펙터",
         "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
         "select_workspace": "작업 폴더 선택",
-        "workspace_not_selected": "작업 폴더: 선택 안됨",
+        "workspace_not_selected": "작업 폴더: 선택 안 됨",
         "workspace_selected": "작업 폴더: {target}",
     },
 }

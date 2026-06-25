@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from textual.app import App
+from textual.widgets import Button
 
 from trinity.config import TrinityConfig
 from trinity.providers.model_discovery import ProviderModelChoice
@@ -65,3 +66,44 @@ async def test_model_settings_modal_skips_unchanged_choice_refresh(tmp_path) -> 
 
         assert refresh_calls == [True]
         assert modal.choices_by_agent["codex"] == updated_choices
+
+
+@pytest.mark.asyncio
+async def test_model_settings_modal_skips_active_agent_reselect_refresh(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    choices = {
+        name: (
+            ProviderModelChoice(
+                provider=spec.provider,
+                model="default",
+                label="default",
+                source="static-fallback",
+                context_budget=None,
+            ),
+        )
+        for name, spec in config.agents.items()
+    }
+    modal = ModelSettingsModal(config.agents, choices, {})
+    app = ModelSettingsModalHarness(modal)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+        assert modal.active_agent == "claude"
+        refresh_calls: list[bool] = []
+
+        def counted_refresh() -> None:
+            refresh_calls.append(True)
+
+        modal._refresh_choices = counted_refresh
+
+        modal.query_one("#model-agent-claude", Button).press()
+        await pilot.pause()
+
+        assert refresh_calls == []
+        assert modal.active_agent == "claude"
+
+        modal.query_one("#model-agent-codex", Button).press()
+        await pilot.pause()
+
+        assert refresh_calls == [True]
+        assert modal.active_agent == "codex"

@@ -154,7 +154,10 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         button_id = event.button.id or ""
         if button_id.startswith("model-agent-"):
             event.stop()
-            self.active_agent = button_id.removeprefix("model-agent-")
+            next_agent = button_id.removeprefix("model-agent-")
+            if next_agent == self.active_agent:
+                return
+            self.active_agent = next_agent
             self._refresh_choices()
             return
         if button_id == "cancel-model-settings":

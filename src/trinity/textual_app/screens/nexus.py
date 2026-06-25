@@ -295,7 +295,8 @@ class NexusScreen(Screen[None]):
         self._refresh_questions()
         self._refresh_inspector()
         self._refresh_workspace_label()
-        self._apply_activity_frame()
+        if self._snapshot_has_activity_frame_targets(snapshot):
+            self._apply_activity_frame()
 
     def on_question_panel_question_answered(
         self,
@@ -478,6 +479,21 @@ class NexusScreen(Screen[None]):
         if central.has_running_activity():
             return True
         return any(panel.has_running_activity() for panel in self.query(ProviderPanel))
+
+    def _snapshot_has_activity_frame_targets(
+        self,
+        snapshot: WorkflowNexusSnapshot,
+    ) -> bool:
+        if snapshot.synthesis.status in {"running", "waiting"}:
+            return True
+        if snapshot.state in {"preflight", "deliberating", "executing", "reviewing"}:
+            return True
+        return any(
+            ProviderPanel._state_group(
+                self._provider_panel_state(provider)
+            ) == "running"
+            for provider in snapshot.providers
+        )
 
     def _initial_provider_states(self) -> list[ProviderPanelState]:
         return [

@@ -34,7 +34,7 @@ _LABELS = {
         "execution_lane": "실행 그룹",
         "executor": "실행자",
         "expected_files": "예상 파일",
-        "fallback_attempts": "폴백 시도",
+        "fallback_attempts": "대체 시도",
         "files_changed": "변경 파일",
         "no_execution_result": "(아직 실행 결과 없음)",
         "no_review": "(기록된 리뷰 없음)",

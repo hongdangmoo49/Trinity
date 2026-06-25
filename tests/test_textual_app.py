@@ -4138,7 +4138,7 @@ async def test_execution_retry_modal_localizes_korean_status_cells(tmp_path) -> 
         ]
 
     assert statuses == ["실패", "차단", "실행 중"]
-    assert executors == ["-", "codex 폴백", "-"]
+    assert executors == ["-", "codex 대체", "-"]
     assert notes[1] == "복구 2/3: duplicate_required_changes"
 
 
@@ -8564,7 +8564,7 @@ async def test_execution_matrix_supports_korean_chrome_labels(tmp_path) -> None:
         rows = list(screen.query("#execution-package-list .execution-package-row"))
         first_row_text = _widget_tree_text(rows[0])
         second_row_text = _widget_tree_text(rows[1])
-        assert "claude 폴백" in first_row_text
+        assert "claude 대체" in first_row_text
         assert "리뷰: agy 대기" in first_row_text
         assert "리스크: 보통" in first_row_text
         assert "상세" in first_row_text

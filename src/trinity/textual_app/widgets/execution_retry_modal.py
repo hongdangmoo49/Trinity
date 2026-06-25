@@ -293,7 +293,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
 def _executor_label(package: WorkPackageSnapshot, *, lang: str = "en") -> str:
     executor = package.current_executor or package.last_executor or "-"
     if executor not in {"", "-"} and package.owner_agent and executor != package.owner_agent:
-        suffix = "폴백" if lang == "ko" else "fallback"
+        suffix = "대체" if lang == "ko" else "fallback"
         return f"{executor} {suffix}"
     return executor
 

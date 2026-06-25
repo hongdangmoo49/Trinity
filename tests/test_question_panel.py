@@ -102,6 +102,60 @@ async def test_question_panel_skips_unchanged_question_render() -> None:
 
 
 @pytest.mark.asyncio
+async def test_question_panel_skips_equivalent_status_question_render() -> None:
+    panel = QuestionPanel()
+    app = QuestionPanelHarness(panel)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        panel.apply_questions(
+            [
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Choose a direction?",
+                    options=["fast", "safe"],
+                    status="",
+                )
+            ]
+        )
+        await pilot.pause()
+
+        renders: list[int] = []
+        original_render = panel._render_questions
+
+        def counted_render(questions) -> None:
+            renders.append(len(questions))
+            original_render(questions)
+
+        panel._render_questions = counted_render
+
+        panel.apply_questions(
+            [
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Choose a direction?",
+                    options=["fast", "safe"],
+                    status="open",
+                )
+            ]
+        )
+        await pilot.pause()
+        assert renders == []
+
+        panel.apply_questions(
+            [
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Choose a direction?",
+                    options=["fast", "safe"],
+                    status="waiting",
+                )
+            ]
+        )
+        await pilot.pause()
+        assert renders == [1]
+
+
+@pytest.mark.asyncio
 async def test_question_panel_skips_unchanged_empty_class_sync() -> None:
     panel = QuestionPanel()
     app = QuestionPanelHarness(panel)

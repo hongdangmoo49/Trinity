@@ -81,7 +81,7 @@ class QuestionPanel(VerticalScroll):
             return
 
         for question_number, question in enumerate(questions, start=1):
-            status = question.status or ("answered" if question.answer else "open")
+            status = self._rendered_status(question)
             status_label = self._status_label(status)
             container.mount(
                 Static(
@@ -134,11 +134,15 @@ class QuestionPanel(VerticalScroll):
                 question.question,
                 tuple(question.options),
                 question.recommended_option,
-                question.status,
+                QuestionPanel._rendered_status(question),
                 question.answer,
             )
             for question in questions
         )
+
+    @staticmethod
+    def _rendered_status(question: QuestionSnapshot) -> str:
+        return question.status or ("answered" if question.answer else "open")
 
     def _question_title(self, questions: list[QuestionSnapshot]) -> str:
         if not questions:

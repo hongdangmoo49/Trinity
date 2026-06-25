@@ -236,7 +236,10 @@ class NexusScreen(Screen[None]):
 
     def set_workspace_candidate(self, path: object | None) -> None:
         """Update the visible workspace fallback when no workflow target exists."""
-        self._workspace_candidate = str(path or "")
+        next_candidate = str(path or "")
+        if next_candidate == self._workspace_candidate:
+            return
+        self._workspace_candidate = next_candidate
         if self.is_mounted:
             self._refresh_workspace_label()
 

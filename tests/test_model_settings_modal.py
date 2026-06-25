@@ -209,5 +209,59 @@ async def test_model_settings_modal_skips_unchanged_highlight_sync(tmp_path) -> 
         modal._sync_choice_highlight()
         await pilot.pause()
 
-        assert query_calls == ["#model-choice-list"]
+        assert query_calls == []
         assert option_list.highlighted == 1
+
+
+@pytest.mark.asyncio
+async def test_model_settings_modal_rebinds_choice_list_cache_after_refresh(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    choices = {
+        name: (
+            ProviderModelChoice(
+                provider=spec.provider,
+                model="default",
+                label="default",
+                source="static-fallback",
+                context_budget=None,
+            ),
+            ProviderModelChoice(
+                provider=spec.provider,
+                model=f"{name}-next",
+                label=f"{name}-next",
+                source="cli-live",
+                context_budget=None,
+            ),
+        )
+        for name, spec in config.agents.items()
+    }
+    modal = ModelSettingsModal(
+        config.agents,
+        choices,
+        {"claude": "default", "codex": "codex-next"},
+    )
+    app = ModelSettingsModalHarness(modal)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+        first_choice_list = modal._choice_list_widget
+        codex_button = modal.query_one("#model-agent-codex", Button)
+        query_calls: list[str] = []
+        original_query_one = modal.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if selector == "#model-choice-list":
+                query_calls.append(str(selector))
+            return original_query_one(selector, *args, **kwargs)
+
+        modal.query_one = counted_query_one
+
+        codex_button.press()
+        await pilot.pause()
+
+        assert query_calls == []
+        assert modal._choice_list_widget is not None
+        assert modal._choice_list_widget is not first_choice_list
+        assert modal._choice_list_widget.highlighted == 1

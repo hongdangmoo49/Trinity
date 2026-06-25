@@ -151,6 +151,7 @@ class NexusScreen(Screen[None]):
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
+        self._reset_render_cache()
         yield Header(show_clock=False)
         with Vertical(id="nexus-screen"):
             with Horizontal(id="provider-strip"):
@@ -172,11 +173,13 @@ class NexusScreen(Screen[None]):
                     id="select-workspace",
                     variant="default",
                 )
+                workspace_label_text = self._workspace_label()
                 workspace_label = Static(
-                    self._workspace_label(),
+                    workspace_label_text,
                     id="nexus-target-workspace",
                 )
                 self._workspace_label_widget = workspace_label
+                self._workspace_label_key = workspace_label_text
                 yield workspace_label
                 yield Button(
                     self._label("execute"),
@@ -301,6 +304,11 @@ class NexusScreen(Screen[None]):
         self._inspector = None
         self._recipient_selector = None
         self._composer = None
+
+    def _reset_render_cache(self) -> None:
+        self._provider_state_cache = {}
+        self._applied_snapshot_identity = None
+        self._workspace_label_key = ""
 
     def _provider_panel(self, name: str) -> ProviderPanel | None:
         panel = self._provider_panels.get(name)

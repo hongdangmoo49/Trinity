@@ -41,7 +41,7 @@ NEXUS_LABELS = {
         "workspace_selected": "Workspace: {target}",
     },
     "ko": {
-        "composer_placeholder": "답변하거나 방향을 조정하세요. / 로 명령 입력",
+        "composer_placeholder": "답변, 방향 조정 또는 /로 명령 입력",
         "execute": "실행",
         "open_provider_inspector": "프로바이더 인스펙터",
         "select_agent_warning": "에이전트를 하나 이상 선택하세요.",

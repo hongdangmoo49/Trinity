@@ -18,6 +18,45 @@ class QuestionPanelHarness(App[None]):
 
 
 @pytest.mark.asyncio
+async def test_question_panel_reuses_composed_fixed_widgets() -> None:
+    panel = QuestionPanel()
+    question = QuestionSnapshot(
+        id="q-1",
+        question="Choose a direction?",
+        options=["fast", "safe"],
+    )
+    app = QuestionPanelHarness(panel)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        await pilot.pause()
+        query_calls: list[str] = []
+        original_query_one = panel.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if selector in {"#question-panel-title", "#question-panel-body"}:
+                query_calls.append(selector)
+            return original_query_one(selector, *args, **kwargs)
+
+        panel.query_one = counted_query_one
+
+        panel.apply_questions([question])
+        await pilot.pause()
+        panel.apply_questions(
+            [
+                QuestionSnapshot(
+                    id="q-1",
+                    question="Choose a direction?",
+                    options=["fast", "safe"],
+                    answer="fast",
+                )
+            ]
+        )
+        await pilot.pause()
+
+        assert query_calls == []
+
+
+@pytest.mark.asyncio
 async def test_question_panel_title_skips_unchanged_update() -> None:
     panel = QuestionPanel()
     question = QuestionSnapshot(

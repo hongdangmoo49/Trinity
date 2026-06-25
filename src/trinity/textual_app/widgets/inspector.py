@@ -80,6 +80,7 @@ class WorkflowInspector(Vertical):
         self.lang = lang
         self.snapshot = WorkflowNexusSnapshot()
         self._section_text: dict[str, str] = {}
+        self._snapshot_render_key: tuple[object, ...] = ()
 
     def compose(self) -> ComposeResult:
         yield Static(self._label("progress"), classes="inspector-title")
@@ -106,6 +107,9 @@ class WorkflowInspector(Vertical):
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
         self.snapshot = snapshot
         if not self.is_mounted:
+            return
+        render_key = self._render_key(snapshot)
+        if render_key == self._snapshot_render_key:
             return
         self._update_section("#inspector-progress", self._progress_summary(snapshot))
         self._update_section(
@@ -162,6 +166,65 @@ class WorkflowInspector(Vertical):
         self._update_section(
             "#inspector-log",
             self._list_or_empty(snapshot.execution_log[-5:]),
+        )
+        self._snapshot_render_key = render_key
+
+    @staticmethod
+    def _render_key(snapshot: WorkflowNexusSnapshot) -> tuple[object, ...]:
+        packages = tuple(
+            (
+                package.id,
+                package.title,
+                package.topic,
+                package.owner_agent,
+                package.current_executor,
+                package.last_executor,
+                package.status,
+                package.last_result_status,
+                package.requires_execution,
+                tuple(package.dependencies),
+                package.parallel_group,
+                package.repair_blocked_reason,
+                package.repair_attempt_count,
+                package.repair_max_attempts,
+                tuple(package.last_result_blockers),
+                package.last_result_summary,
+            )
+            for package in snapshot.work_package_details
+        )
+        providers = tuple(
+            (
+                provider.name,
+                provider.enabled,
+                provider.actual_model,
+                provider.model_label,
+                provider.configured_model,
+                provider.context_window,
+                provider.session_id,
+                provider.budget_source,
+            )
+            for provider in snapshot.providers
+        )
+        post_review = tuple(
+            (
+                item.id,
+                item.severity,
+                item.status,
+                item.title,
+                item.summary,
+            )
+            for item in snapshot.post_review_items
+        )
+        return (
+            snapshot.session_id,
+            snapshot.state,
+            snapshot.round_num,
+            packages,
+            providers,
+            tuple(question.question for question in snapshot.questions),
+            tuple(snapshot.decisions),
+            post_review,
+            tuple(snapshot.execution_log[-5:]),
         )
 
     def _update_section(self, selector: str, text: str) -> None:

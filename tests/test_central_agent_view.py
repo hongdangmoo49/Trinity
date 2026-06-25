@@ -127,6 +127,36 @@ def test_central_markdown_compacts_verbose_blueprint_for_user_view() -> None:
     assert "상세 설계와 작업 패키지 목록은 인스펙터 또는 리포트" in markdown
 
 
+def test_central_markdown_localizes_korean_current_focus() -> None:
+    view = CentralAgentView(lang="ko")
+    view.snapshot = WorkflowNexusSnapshot(
+        state="executing",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="클라이언트",
+                owner_agent="codex",
+                current_executor="codex",
+                status="blocked",
+                last_result_blockers=[
+                    "파일 없음",
+                    "테스트 실패",
+                    "리뷰 필요",
+                ],
+            )
+        ],
+    )
+
+    markdown = view._markdown()
+
+    assert "### 현재 진행/주의 항목" in markdown
+    assert "- **WP-001** [차단] `codex`: 클라이언트" in markdown
+    assert "  - 차단 요소: 파일 없음, 테스트 실패, +1개 더" in markdown
+    assert "[blocked]" not in markdown
+    assert "Blockers:" not in markdown
+    assert "+1 more" not in markdown
+
+
 def test_blueprint_next_actions_only_show_when_ready_with_packages() -> None:
     assert should_show_blueprint_actions(
         WorkflowNexusSnapshot(
@@ -291,6 +321,8 @@ def test_central_markdown_summarizes_execution_progress_without_result_dump() ->
     assert "3 WP · 1 done · 1 running · 1 blocked" in markdown
     assert "Current: WP-002 Claude · Wire UI" in markdown
     assert "Blocked: WP-003 Codex · Fix auth" in markdown
-    assert "### Current Focus" not in markdown
+    assert "### Current Focus" in markdown
+    assert "- **WP-002** [running] `claude`: Wire UI" in markdown
+    assert "- **WP-003** [blocked] `codex`: Fix auth" in markdown
     assert "### Execution Result Summary" not in markdown
     assert "Files: src/api.py, tests/test_api.py" not in markdown

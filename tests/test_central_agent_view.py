@@ -499,3 +499,9 @@ async def test_central_activity_frame_updates_running_title() -> None:
         await pilot.pause()
 
         assert updates == ["Central Agent /"]
+
+        updates.clear()
+        view.set_activity_frame(1)
+        await pilot.pause()
+
+        assert updates == []

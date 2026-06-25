@@ -98,3 +98,29 @@ async def test_settings_apply_skips_unchanged_display_updates(tmp_path) -> None:
 
         assert preview_updates == []
         assert status_updates == []
+
+
+@pytest.mark.asyncio
+async def test_settings_apply_uses_cached_controls(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        queries: list[str] = []
+        original_query_one = screen.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if str(selector).startswith("#"):
+                queries.append(str(selector))
+            return original_query_one(selector, *args, **kwargs)
+
+        screen.query_one = counted_query_one
+
+        screen.action_apply()
+        await pilot.pause()
+
+        assert queries == []
+        assert screen._status_widget is not None
+        assert str(screen._status_widget.content) == "Saved"

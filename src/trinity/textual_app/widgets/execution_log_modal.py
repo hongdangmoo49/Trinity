@@ -95,9 +95,11 @@ class ExecutionLogModal(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
+        self._reset_render_cache()
         with Vertical(id="execution-log-modal"):
             yield Static(self._label("title"), id="execution-log-modal-title")
             yield Input(
+                value=self.filter_query,
                 placeholder=self._label("search_placeholder"),
                 id="execution-log-search",
             )
@@ -145,6 +147,10 @@ class ExecutionLogModal(ModalScreen[None]):
     def _reset_widget_cache(self) -> None:
         self._status_widget = None
         self._body_widget = None
+
+    def _reset_render_cache(self) -> None:
+        self._status_text_key = ""
+        self._rendered_lines_key = ()
 
     def _search_status(self) -> Static:
         if self._status_widget is None:

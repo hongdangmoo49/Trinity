@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 from textual.app import App
-from textual.widgets import RichLog, Static
+from textual.widgets import Input, RichLog, Static
 
 from trinity.textual_app.widgets.execution_log_modal import ExecutionLogModal
 
@@ -155,3 +155,74 @@ async def test_execution_log_modal_skips_case_only_search_query() -> None:
         modal.on_input_changed(_input_event("complete"))
         assert calls == ["complete"]
         assert modal.filter_query == "complete"
+
+
+@pytest.mark.asyncio
+async def test_execution_log_modal_recompose_rebinds_render_keys() -> None:
+    modal = ExecutionLogModal(
+        [
+            "WP-001 started",
+            "WP-002 failed with provider error",
+            "WP-003 completed",
+        ]
+    )
+    app = ExecutionLogModalHarness(modal)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+        modal.filter_query = "failed"
+        modal._refresh_log()
+        await pilot.pause()
+
+        first_status = modal._status_widget
+        first_body = modal._body_widget
+        assert modal._status_text_key
+        assert modal._rendered_lines_key
+
+        modal.refresh(recompose=True)
+        await pilot.pause()
+
+        assert modal._status_widget is not first_status
+        assert modal._body_widget is not first_body
+        assert modal._status_text_key == ""
+        assert modal._rendered_lines_key == ()
+        assert modal.query_one("#execution-log-search", Input).value == "failed"
+
+        query_calls: list[str] = []
+        original_query_one = modal.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if selector in {
+                "#execution-log-search-status",
+                "#execution-log-modal-body",
+            }:
+                query_calls.append(str(selector))
+            return original_query_one(selector, *args, **kwargs)
+
+        modal.query_one = counted_query_one
+        status = modal._status_widget
+        body = modal._body_widget
+        assert isinstance(status, Static)
+        assert isinstance(body, RichLog)
+        status_updates: list[str] = []
+        writes: list[str] = []
+        original_status_update = status.update
+        original_write = body.write
+
+        def counted_status_update(content) -> None:
+            status_updates.append(str(content))
+            original_status_update(content)
+
+        def counted_write(content, *args, **kwargs) -> None:
+            writes.append(str(content))
+            original_write(content, *args, **kwargs)
+
+        status.update = counted_status_update
+        body.write = counted_write
+
+        modal._refresh_log()
+        await pilot.pause()
+
+        assert query_calls == []
+        assert status_updates == ["Showing 1 of 1 matches"]
+        assert writes == ["WP-002 failed with provider error"]

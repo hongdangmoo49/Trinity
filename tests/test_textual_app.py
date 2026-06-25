@@ -10137,13 +10137,17 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
         preview = str(screen.query_one("#theme-preview", Static).content)
 
         assert screen._label("central_provider") == "중앙 프로바이더"
-        assert "테마 모드:" in preview
-        assert "밀도:" in preview
-        assert "중앙:" in preview
+        assert "테마 모드: 시스템" in preview
+        assert "밀도: 여유" in preview
+        assert "중앙: 자동 / 강력" in preview
+        assert "Claude: 기본값" in preview
         assert "출력 계약 execute:execution_v1 review:review_v1" in preview
         assert "Mode:" not in preview
         assert "Density:" not in preview
         assert "Central:" not in preview
+        assert "테마 모드: system" not in preview
+        assert "밀도: comfortable" not in preview
+        assert "Claude: default" not in preview
         assert "contracts " not in preview
 
 

@@ -142,22 +142,31 @@ class SettingsScreen(Screen[None]):
         return str(self.query_one(f"#{id}", Select).value)
 
     def _preview_text(self) -> str:
-        model_lines = [
-            (
-                f"{self._agent_label(name)}: {spec.model or 'default'} · "
-                f"{spec.profile.context_profile} · "
-                f"{self._profile_strength_summary(spec)} · "
-                f"{self._profile_contract_summary(spec)}"
+        model_lines = []
+        for name, spec in self.config.agents.items():
+            model = self._display_value(spec.model or "default")
+            model_lines.append(
+                (
+                    f"{self._agent_label(name)}: {model} · "
+                    f"{spec.profile.context_profile} · "
+                    f"{self._profile_strength_summary(spec)} · "
+                    f"{self._profile_contract_summary(spec)}"
+                )
             )
-            for name, spec in self.config.agents.items()
-        ]
         central_provider = self.config.synthesis_agent or "auto"
+        central_model = self.config.synthesis_model or "agent-default"
         return "\n".join(
             [
                 self._label("preview"),
-                f"{self._label('theme_mode')}: {self.settings.theme_mode}",
-                f"{self._label('density')}: {self.settings.density}",
-                f"{self._label('central')}: {central_provider} / {self.config.synthesis_model}",
+                (
+                    f"{self._label('theme_mode')}: "
+                    f"{self._display_value(self.settings.theme_mode)}"
+                ),
+                f"{self._label('density')}: {self._display_value(self.settings.density)}",
+                (
+                    f"{self._label('central')}: {self._display_value(central_provider)} / "
+                    f"{self._display_value(central_model)}"
+                ),
                 *model_lines,
             ]
         )
@@ -225,6 +234,21 @@ class SettingsScreen(Screen[None]):
         labels = {
             "agent-default": self._label("agent_default"),
             "auto": self._label("auto"),
+            "default": self._label("default"),
+            "fast": self._label("fast"),
+            "strong": self._label("strong"),
+            "system": self._label("system"),
+            "dark": self._label("dark"),
+            "light": self._label("light"),
+            "truecolor": self._label("truecolor"),
+            "256color": self._label("256color"),
+            "ascii-safe": self._label("ascii_safe"),
+            "comfortable": self._label("comfortable"),
+            "compact": self._label("compact"),
+            "normal": self._label("normal"),
+            "reduced": self._label("reduced"),
+            "unicode": self._label("unicode_value"),
+            "ascii": self._label("ascii"),
         }
         return labels.get(value, value)
 
@@ -251,6 +275,20 @@ class SettingsScreen(Screen[None]):
             "balanced": "균형",
             "contracts": "출력 계약",
             "default": "기본값",
+            "fast": "빠름",
+            "strong": "강력",
+            "system": "시스템",
+            "dark": "다크",
+            "light": "라이트",
+            "truecolor": "트루컬러",
+            "256color": "256색",
+            "ascii_safe": "ASCII 안전",
+            "comfortable": "여유",
+            "compact": "간결",
+            "normal": "기본",
+            "reduced": "줄임",
+            "unicode_value": "유니코드",
+            "ascii": "ASCII",
         }
         en = {
             "settings": "Settings",
@@ -274,6 +312,20 @@ class SettingsScreen(Screen[None]):
             "balanced": "balanced",
             "contracts": "contracts",
             "default": "default",
+            "fast": "fast",
+            "strong": "strong",
+            "system": "system",
+            "dark": "dark",
+            "light": "light",
+            "truecolor": "truecolor",
+            "256color": "256color",
+            "ascii_safe": "ascii-safe",
+            "comfortable": "comfortable",
+            "compact": "compact",
+            "normal": "normal",
+            "reduced": "reduced",
+            "unicode_value": "unicode",
+            "ascii": "ascii",
         }
         labels = ko if self.lang == "ko" else en
         return labels.get(key, key)

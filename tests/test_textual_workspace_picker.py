@@ -174,6 +174,55 @@ def test_default_workspace_tree_root_uses_control_repo_parent(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_workspace_picker_reuses_composed_fixed_widgets(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    control_repo = tmp_path / "Trinity"
+    selected_workspace = tmp_path / "customer-app"
+    next_workspace = tmp_path / "next-app"
+    control_repo.mkdir()
+    selected_workspace.mkdir()
+    next_workspace.mkdir()
+
+    picker = WorkspacePicker(
+        candidate=control_repo,
+        snapshot=WorkflowNexusSnapshot(),
+        cwd=control_repo,
+        tree_root=tmp_path,
+    )
+    app = WorkspacePickerHarness()
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.push_screen(picker)
+        await pilot.pause(0.25)
+        query_calls: list[str] = []
+        original_query_one = picker.query_one
+        fixed_selectors = {
+            "#workspace-path-input",
+            "#workspace-tree-pane",
+            "#workspace-directory-tree-placeholder",
+            "#workspace-directory-tree",
+            "#workspace-preflight",
+            "#workspace-picker-status",
+        }
+
+        def counted_query_one(selector, *args, **kwargs):
+            if selector in fixed_selectors:
+                query_calls.append(selector)
+            return original_query_one(selector, *args, **kwargs)
+
+        monkeypatch.setattr(picker, "query_one", counted_query_one)
+
+        picker._update_preflight(next_workspace)
+        picker._set_status("Ready")
+        picker._on_folder_name_submitted("created-cache")
+        await pilot.pause()
+
+        assert query_calls == []
+
+
+@pytest.mark.asyncio
 async def test_workspace_picker_uses_korean_labels(tmp_path) -> None:
     control_repo = tmp_path / "Trinity"
     selected_workspace = tmp_path / "customer-app"

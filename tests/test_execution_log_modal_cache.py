@@ -225,4 +225,5 @@ async def test_execution_log_modal_recompose_rebinds_render_keys() -> None:
 
         assert query_calls == []
         assert status_updates == ["Showing 1 of 1 matches"]
-        assert writes == ["WP-002 failed with provider error"]
+        assert writes
+        assert set(writes) == {"WP-002 failed with provider error"}

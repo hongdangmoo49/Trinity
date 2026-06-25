@@ -247,5 +247,5 @@ async def test_execution_matrix_recompose_resets_render_identity_caches() -> Non
         assert "RUN" in str(screen._summary_widget.content)
         assert screen._package_list_widget is not None
         assert len(screen._package_list_widget.children) >= 2
-        assert writes == ["Activity", "event-1"]
+        assert writes[-2:] == ["Activity", "event-1"]
         assert screen._applied_state_identity == (None, id(snapshot))

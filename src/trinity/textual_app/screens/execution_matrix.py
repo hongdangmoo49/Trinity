@@ -168,6 +168,29 @@ class _PackageRowProjection:
         )
 
 
+@dataclass(frozen=True)
+class _ChromeProjection:
+    """Rendered execution screen chrome values."""
+
+    header_text: str
+    summary_text: str
+    task_toggle_label: str
+    activity_toggle_label: str
+    retry_label: str
+    retry_disabled: bool
+
+    @property
+    def render_key(self) -> tuple[object, ...]:
+        return (
+            self.header_text,
+            self.summary_text,
+            self.task_toggle_label,
+            self.activity_toggle_label,
+            self.retry_label,
+            self.retry_disabled,
+        )
+
+
 class ExecutionPackageRow(Horizontal):
     """One work package row with a detail button."""
 
@@ -676,30 +699,34 @@ class ExecutionMatrixScreen(Screen[None]):
         )
 
     def _render_chrome(self) -> None:
-        header_text = self._header_text()
-        summary_text = self._summary_text()
-        task_toggle_label = self._task_toggle_label()
-        activity_toggle_label = self._activity_toggle_label()
-        retry_label = self._retry_button_label()
-        retry_disabled = not self._has_retry_candidates()
-        render_key = (
-            header_text,
-            summary_text,
-            task_toggle_label,
-            activity_toggle_label,
-            retry_label,
-            retry_disabled,
-        )
+        projection = self._chrome_projection()
+        render_key = projection.render_key
         if render_key == self._chrome_render_key:
             return
-        self.query_one("#execution-header", Static).update(header_text)
-        self.query_one("#execution-summary", Static).update(summary_text)
-        self.query_one("#toggle-task-expanded", Button).label = task_toggle_label
-        self.query_one("#toggle-activity-expanded", Button).label = activity_toggle_label
+        self.query_one("#execution-header", Static).update(projection.header_text)
+        self.query_one("#execution-summary", Static).update(projection.summary_text)
+        self.query_one("#toggle-task-expanded", Button).label = (
+            projection.task_toggle_label
+        )
+        self.query_one("#toggle-activity-expanded", Button).label = (
+            projection.activity_toggle_label
+        )
         retry_button = self.query_one("#execution-retry", Button)
-        retry_button.label = retry_label
-        retry_button.disabled = retry_disabled
+        retry_button.label = projection.retry_label
+        retry_button.disabled = projection.retry_disabled
         self._chrome_render_key = render_key
+
+    def _chrome_projection(self) -> _ChromeProjection:
+        summary_text, retry_count = self._summary_text_and_retry_count()
+        retry_label = self._retry_button_label_for_count(retry_count)
+        return _ChromeProjection(
+            header_text=self._header_text(),
+            summary_text=summary_text,
+            task_toggle_label=self._task_toggle_label(),
+            activity_toggle_label=self._activity_toggle_label(),
+            retry_label=retry_label,
+            retry_disabled=retry_count <= 0,
+        )
 
     def _render_log(self) -> None:
         lines = self._activity_lines()
@@ -735,9 +762,22 @@ class ExecutionMatrixScreen(Screen[None]):
         return ""
 
     def _summary_text(self) -> str:
+        summary, _retry_count = self._summary_text_and_retry_count()
+        return summary
+
+    def _summary_text_and_retry_count(self) -> tuple[str, int]:
         packages = self.snapshot.work_package_details
         counts = {"RUN": 0, "WAIT": 0, "DONE": 0, "ISSUE": 0, "REVIEW": 0}
+        retry_count = 0
+        groups: set[object] = set()
+        serial_count = 0
         for package in packages:
+            if package.retryable:
+                retry_count += 1
+            if package.parallelizable and package.parallel_group is not None:
+                groups.add(package.parallel_group)
+            if not package.parallelizable:
+                serial_count += 1
             label = compact_status_label(package.status or "pending")
             if label == "RUN":
                 counts["RUN"] += 1
@@ -752,8 +792,9 @@ class ExecutionMatrixScreen(Screen[None]):
             else:
                 counts["WAIT"] += 1
 
-        retry_count = self._retry_count()
         recovery = self.snapshot.execution_recovery
+        if recovery is not None:
+            retry_count = max(retry_count, len(recovery.retry_candidates))
         target = (
             str(self.preflight.path)
             if self.preflight is not None
@@ -779,14 +820,17 @@ class ExecutionMatrixScreen(Screen[None]):
             f"{self._label('summary_wait')} {counts['WAIT']}",
             f"{self._label('summary_done')} {counts['DONE']}",
             f"{self._label('summary_issue')} {counts['ISSUE']}",
-            *self._parallel_summary_parts(),
+            *self._parallel_summary_parts_for_counts(
+                group_count=len(groups),
+                serial_count=serial_count,
+            ),
             f"{self._label('retry_summary')} {retry_count}",
             f"{self._label('workflow')} {state}",
             f"{self._label('run')} {run}",
         ]
         if target:
             parts.append(f"{self._label('target')}: {_clip(target, 28)}")
-        return " · ".join(parts)
+        return " · ".join(parts), retry_count
 
     def _activity_lines(self) -> list[str]:
         source = self._activity_source_lines()
@@ -827,6 +871,9 @@ class ExecutionMatrixScreen(Screen[None]):
 
     def _retry_button_label(self) -> str:
         retry_count = self._retry_count()
+        return self._retry_button_label_for_count(retry_count)
+
+    def _retry_button_label_for_count(self, retry_count: int) -> str:
         label = self._label("retry")
         return f"{label} {retry_count}" if retry_count else label
 
@@ -849,9 +896,20 @@ class ExecutionMatrixScreen(Screen[None]):
             if package.parallelizable and package.parallel_group is not None
         }
         serial_count = sum(1 for package in packages if not package.parallelizable)
+        return self._parallel_summary_parts_for_counts(
+            group_count=len(groups),
+            serial_count=serial_count,
+        )
+
+    def _parallel_summary_parts_for_counts(
+        self,
+        *,
+        group_count: int,
+        serial_count: int,
+    ) -> list[str]:
         parts: list[str] = []
-        if groups:
-            parts.append(f"{self._label('lanes')} {len(groups)}")
+        if group_count:
+            parts.append(f"{self._label('lanes')} {group_count}")
         if serial_count:
             parts.append(f"{self._label('serial_summary')} {serial_count}")
         return parts

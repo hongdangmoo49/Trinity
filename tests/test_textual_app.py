@@ -7741,6 +7741,52 @@ async def test_execution_matrix_skips_unchanged_chrome_updates(tmp_path) -> None
         assert updates == []
 
 
+def test_execution_matrix_chrome_projection_scans_packages_once() -> None:
+    class CountingPackages:
+        def __init__(self, packages: list[WorkPackageSnapshot]) -> None:
+            self.packages = packages
+            self.iterations = 0
+
+        def __iter__(self):
+            self.iterations += 1
+            return iter(self.packages)
+
+        def __bool__(self) -> bool:
+            return bool(self.packages)
+
+    packages = CountingPackages(
+        [
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Running",
+                owner_agent="codex",
+                status="running",
+                retryable=True,
+                parallel_group=1,
+            ),
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="Serial",
+                owner_agent="claude",
+                status="pending",
+                parallelizable=False,
+            ),
+        ]
+    )
+    screen = ExecutionMatrixScreen()
+    screen.snapshot = WorkflowNexusSnapshot(work_package_details=packages)
+
+    projection = screen._chrome_projection()
+
+    assert "RUN 1" in projection.summary_text
+    assert "WAIT 1" in projection.summary_text
+    assert "lanes 1" in projection.summary_text
+    assert "serial 1" in projection.summary_text
+    assert projection.retry_label == "Retry 1"
+    assert projection.retry_disabled is False
+    assert packages.iterations == 1
+
+
 @pytest.mark.asyncio
 async def test_execution_matrix_shows_parallel_group_lane(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))

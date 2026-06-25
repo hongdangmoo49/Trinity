@@ -43,7 +43,7 @@ NEXUS_LABELS = {
     "ko": {
         "composer_placeholder": "답변, 방향 조정 또는 /로 명령 입력",
         "execute": "실행",
-        "open_provider_inspector": "프로바이더 인스펙터",
+        "open_provider_inspector": "프로바이더 인스펙터 열기",
         "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
         "select_workspace": "작업 폴더 선택",
         "workspace_not_selected": "작업 폴더: 선택 안 됨",

@@ -109,7 +109,10 @@ class ExecutionLogModal(ModalScreen[None]):
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id != "execution-log-search":
             return
-        self.filter_query = event.value.strip()
+        next_query = event.value.strip()
+        if next_query == self.filter_query:
+            return
+        self.filter_query = next_query
         self._refresh_log()
 
     def _refresh_log(self) -> None:

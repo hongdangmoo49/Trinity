@@ -43,6 +43,20 @@ def test_build_preflight_detects_git_branch(tmp_path) -> None:
     assert preflight.branch == "feature/ui"
 
 
+def test_build_preflight_detects_git_worktree_file_branch(tmp_path) -> None:
+    worktree = tmp_path / "worktree"
+    gitdir = tmp_path / "repo" / ".git" / "worktrees" / "worktree"
+    worktree.mkdir()
+    gitdir.mkdir(parents=True)
+    (worktree / ".git").write_text("gitdir: ../repo/.git/worktrees/worktree\n", encoding="utf-8")
+    (gitdir / "HEAD").write_text("ref: refs/heads/feature/worktree\n", encoding="utf-8")
+
+    preflight = build_preflight(worktree, WorkflowNexusSnapshot())
+
+    assert preflight.git_repo is True
+    assert preflight.branch == "feature/worktree"
+
+
 def test_build_preflight_marks_missing_child_as_creatable(tmp_path) -> None:
     target = tmp_path / "new-app"
 

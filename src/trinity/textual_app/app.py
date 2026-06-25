@@ -1194,15 +1194,23 @@ class TrinityTextualApp(App[None]):
         self,
         choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]],
     ) -> None:
-        self._agent_model_choices.update(choices_by_agent)
+        changed_choices: dict[str, tuple[ProviderModelChoice, ...]] = {}
+        for name, choices in choices_by_agent.items():
+            next_choices = tuple(choices)
+            if self._agent_model_choices.get(name, ()) == next_choices:
+                continue
+            self._agent_model_choices[name] = next_choices
+            changed_choices[name] = next_choices
+        if not changed_choices:
+            return
         for screen_name, screen_type in (
             ("start", StartScreen),
             ("nexus", NexusScreen),
         ):
             screen = self.get_screen(screen_name, screen_type)
-            screen.set_agent_model_choices(choices_by_agent)
+            screen.set_agent_model_choices(changed_choices)
         if isinstance(self.screen, ModelSettingsModal):
-            self.screen.set_model_choices(choices_by_agent)
+            self.screen.set_model_choices(changed_choices)
 
     def on_start_screen_submitted(self, event: StartScreen.Submitted) -> None:
         event.stop()

@@ -1078,14 +1078,14 @@ def test_history_presenter_uses_korean_labels() -> None:
 
     assert rows == (
         ("워크플로우", "wf-ko"),
-        ("상태", "리뷰중"),
+        ("상태", "리뷰 중"),
         ("라운드", "2"),
         ("목표", "이력 확인"),
         ("로컬 명령", "/status - Status"),
         ("실행", "WP-001 codex: done"),
     )
     assert "- 워크플로우: `wf-ko`" in markdown
-    assert "- 상태: `리뷰중`" in markdown
+    assert "- 상태: `리뷰 중`" in markdown
     assert "### 최근 실행 로그" in markdown
     assert "### 최근 로컬 항목" in markdown
     assert "- **로컬 명령**: /status - Status" in markdown
@@ -1141,7 +1141,7 @@ def test_review_presenter_uses_korean_labels() -> None:
 
     assert rows == (
         ("워크플로우", "wf-review"),
-        ("상태", "리뷰중"),
+        ("상태", "리뷰 중"),
         ("작업 패키지", "2"),
         ("대기 중 WP 리뷰", "WP-001"),
         ("리뷰된 WP", "WP-002:승인"),
@@ -2135,7 +2135,7 @@ async def test_report_screen_snapshot_uses_korean_body_labels(tmp_path) -> None:
     assert "변경 요청 4" in rendered
     assert "알 수 없음" in rendered
     assert "작업 패키지 라우팅" in rendered
-    assert "상태 실행중" in rendered
+    assert "상태 실행 중" in rendered
     assert "상태 완료" in rendered
     assert "소유자 codex" in rendered
     assert "종류 구현" in rendered
@@ -3229,7 +3229,7 @@ def test_central_agent_view_localizes_korean_execution_progress() -> None:
     )
 
     assert view._execution_progress(snapshot) == (
-        "실행 중: 1 완료 / 1 실행중 / 1 대기 / 1 막힘"
+        "실행 중: 1 완료 / 1 실행 중 / 1 대기 / 1 막힘"
     )
 
 
@@ -4137,7 +4137,7 @@ async def test_execution_retry_modal_localizes_korean_status_cells(tmp_path) -> 
             for note in app.screen.query(".retry-row .retry-note")
         ]
 
-    assert statuses == ["실패", "차단", "실행중"]
+    assert statuses == ["실패", "차단", "실행 중"]
     assert executors == ["-", "codex 폴백", "-"]
     assert notes[1] == "복구 2/3: duplicate_required_changes"
 
@@ -8363,7 +8363,7 @@ async def test_execution_matrix_viewport_qa_matrix_with_long_workspace(
             await pilot.pause()
 
             summary = str(screen.query_one("#execution-summary", Static).content)
-            assert "실행중 1" in summary
+            assert "실행 중 1" in summary
             assert "리뷰 0" in summary
             assert "대기 0" in summary
             assert "완료 0" in summary
@@ -8371,7 +8371,7 @@ async def test_execution_matrix_viewport_qa_matrix_with_long_workspace(
             assert "그룹 1" in summary
             assert "직렬 1" in summary
             assert "재시도 1" in summary
-            assert "워크플로우 실행중" in summary
+            assert "워크플로우 실행 중" in summary
             assert "실행 exec-run-viewport-qa" in summary
             assert "대상:" in summary
 

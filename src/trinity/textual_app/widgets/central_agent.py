@@ -535,7 +535,7 @@ class CentralAgentView(VerticalScroll):
             "progress": "진행",
             "progress_blocked": "막힘",
             "progress_done": "완료",
-            "progress_running": "실행중",
+            "progress_running": "실행 중",
             "progress_waiting": "대기",
             "ready": "준비됨",
             "reviewing": "리뷰 중",

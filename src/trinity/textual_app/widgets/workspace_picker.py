@@ -314,6 +314,8 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         localize_bindings(self._bindings, self.lang, localized_bindings)
         self.preflight = build_preflight(candidate or self.cwd, snapshot)
         self.create_missing = self.preflight.creatable
+        self._preflight_render_key = self.preflight.render(lang=self.lang)
+        self._status_key = ""
 
     def compose(self) -> ComposeResult:
         with Vertical(id="workspace-picker"):
@@ -455,9 +457,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
             try:
                 self.preflight.path.mkdir(parents=True, exist_ok=True)
             except OSError as exc:
-                self.query_one("#workspace-picker-status", Static).update(
-                    self._format("could_not_create_directory", error=exc)
-                )
+                self._set_status(self._format("could_not_create_directory", error=exc))
                 return
             self._update_preflight(self.preflight.path)
 
@@ -472,10 +472,11 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
             self.snapshot,
             creatable=self.create_missing,
         )
+        preflight_text = self.preflight.render(lang=self.lang)
         if self.is_mounted:
-            self.query_one("#workspace-preflight", Static).update(
-                self.preflight.render(lang=self.lang)
-            )
+            self._set_preflight_text(preflight_text)
+        else:
+            self._preflight_render_key = preflight_text
 
     def _input_path(self) -> Path:
         path = Path(self.query_one("#workspace-path-input", Input).value).expanduser()
@@ -502,7 +503,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
 
     def _set_status(self, message: str) -> None:
         if self.is_mounted:
-            self.query_one("#workspace-picker-status", Static).update(message)
+            self._set_status_text(message)
 
     def _reload_tree(self) -> None:
         if not self.is_mounted:
@@ -522,7 +523,19 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
             message = self._label("invalid_writable_parent")
         else:
             message = self._label("invalid_select_existing")
+        self._set_status(message)
+
+    def _set_preflight_text(self, text: str) -> None:
+        if text == self._preflight_render_key:
+            return
+        self.query_one("#workspace-preflight", Static).update(text)
+        self._preflight_render_key = text
+
+    def _set_status_text(self, message: str) -> None:
+        if message == self._status_key:
+            return
         self.query_one("#workspace-picker-status", Static).update(message)
+        self._status_key = message
 
     def _label(self, key: str) -> str:
         return _label(self.lang, key)

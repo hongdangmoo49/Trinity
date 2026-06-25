@@ -11,6 +11,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Static
 
 from trinity.textual_app.i18n import localize_bindings
+from trinity.textual_app.widgets.status_label import display_status_value
 from trinity.textual_app.workflow_controller import TextualWorkflowArchiveOption
 
 
@@ -18,11 +19,13 @@ RESUME_PICKER_LABELS = {
     "en": {
         "cancel": "Cancel",
         "empty": "No saved workflow sessions.",
+        "no_goal": "(no goal)",
         "title": "Resume Workflow",
     },
     "ko": {
         "cancel": "취소",
         "empty": "저장된 워크플로우 세션이 없습니다.",
+        "no_goal": "(목표 없음)",
         "title": "워크플로우 재개",
     },
 }
@@ -145,18 +148,18 @@ class ResumeWorkflowPicker(ModalScreen[str | None]):
             immediate=True,
         )
 
-    @staticmethod
-    def _archive_label(archive: TextualWorkflowArchiveOption) -> str:
-        goal = archive.goal.strip() or "(no goal)"
+    def _archive_label(self, archive: TextualWorkflowArchiveOption) -> str:
+        goal = archive.goal.strip() or self._label("no_goal")
         if len(goal) > 64:
             goal = f"{goal[:61]}..."
         updated = dt.datetime.fromtimestamp(
             archive.updated_at,
             tz=dt.UTC,
         ).strftime("%Y-%m-%d %H:%M UTC")
+        state = display_status_value(archive.state, lang=self.lang)
         return (
             f"{archive.selector}. {archive.session_id} "
-            f"[{archive.state}] {goal} - {updated}"
+            f"[{state}] {goal} - {updated}"
         )
 
     def _label(self, key: str) -> str:

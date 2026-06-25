@@ -6203,7 +6203,27 @@ async def test_resume_picker_uses_korean_labels(tmp_path) -> None:
             "워크플로우 재개"
         )
         assert str(app.screen.query_one("#cancel-resume-picker", Button).label) == "취소"
-        assert "wf-ko" in str(app.screen.query_one("#resume-archive-1", Button).label)
+        archive_label = str(app.screen.query_one("#resume-archive-1", Button).label)
+        assert "wf-ko" in archive_label
+        assert "[설계 준비]" in archive_label
+        assert "blueprint_ready" not in archive_label
+
+
+def test_resume_picker_archive_label_uses_korean_empty_goal() -> None:
+    archive = TextualWorkflowArchiveOption(
+        selector="1",
+        session_id="wf-empty-goal",
+        goal="",
+        state="done",
+        updated_at=1000.0,
+    )
+    picker = ResumeWorkflowPicker([archive], lang="ko")
+
+    label = picker._archive_label(archive)
+
+    assert "[완료]" in label
+    assert "(목표 없음)" in label
+    assert "(no goal)" not in label
 
 
 @pytest.mark.asyncio

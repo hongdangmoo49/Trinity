@@ -10140,9 +10140,11 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
         assert "테마 모드:" in preview
         assert "밀도:" in preview
         assert "중앙:" in preview
+        assert "출력 계약 execute:execution_v1 review:review_v1" in preview
         assert "Mode:" not in preview
         assert "Density:" not in preview
         assert "Central:" not in preview
+        assert "contracts " not in preview
 
 
 @pytest.mark.asyncio

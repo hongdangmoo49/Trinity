@@ -39,6 +39,38 @@ def _retry_snapshot() -> WorkflowNexusSnapshot:
 
 
 @pytest.mark.asyncio
+async def test_execution_retry_modal_reuses_cached_state_widgets() -> None:
+    modal = ExecutionRetryModal(_retry_snapshot())
+    app = ExecutionRetryModalHarness(modal)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+        query_calls: list[str] = []
+        original_query_one = modal.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if selector in {
+                "#execution-retry-selected",
+                "#confirm-execute-retry",
+            }:
+                query_calls.append(selector)
+            return original_query_one(selector, *args, **kwargs)
+
+        modal.query_one = counted_query_one
+
+        modal.selected_ids.clear()
+        modal._refresh_selection_state()
+        modal.selected_ids = {"WP-001"}
+        modal._refresh_selection_state()
+        await pilot.pause()
+
+        assert query_calls == [
+            "#execution-retry-selected",
+            "#confirm-execute-retry",
+        ]
+
+
+@pytest.mark.asyncio
 async def test_execution_retry_modal_skips_unchanged_selection_update() -> None:
     modal = ExecutionRetryModal(_retry_snapshot())
     app = ExecutionRetryModalHarness(modal)

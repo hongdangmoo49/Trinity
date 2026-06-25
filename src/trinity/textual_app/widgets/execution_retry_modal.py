@@ -63,8 +63,13 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
             self.selected_ids = set(self._ids_for_selector(base_selector))
         self._selected_text_key = self._selected_text()
         self._confirm_disabled_key = not self._selected_package_ids()
+        self._selected_widget: Static | None = None
+        self._confirm_button: Button | None = None
 
     def compose(self) -> ComposeResult:
+        self._reset_widget_cache()
+        self._selected_text_key = self._selected_text()
+        self._confirm_disabled_key = not self._selected_package_ids()
         with Vertical(id="execution-retry-modal"):
             yield Static(self._label("title"), id="execution-retry-title")
             yield Static(self._summary_text(), id="execution-retry-summary")
@@ -111,14 +116,14 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
                             _retry_note(package, lang=self.lang),
                             classes="retry-cell retry-note",
                         )
-            yield Static(self._selected_text(), id="execution-retry-selected")
+            yield Static(self._selected_text_key, id="execution-retry-selected")
             with Horizontal(id="execution-retry-actions"):
                 yield Button(self._label("cancel"), id="cancel-execute-retry")
                 yield Button(
                     self._label("confirm"),
                     id="confirm-execute-retry",
                     variant="primary",
-                    disabled=not self._selected_package_ids(),
+                    disabled=self._confirm_disabled_key,
                 )
         yield Footer()
 
@@ -214,14 +219,26 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
     def _refresh_selection_state(self) -> None:
         selected_text = self._selected_text()
         if selected_text != self._selected_text_key:
-            selected = self.query_one("#execution-retry-selected", Static)
-            selected.update(selected_text)
+            self._selected_summary_widget().update(selected_text)
             self._selected_text_key = selected_text
-        button = self.query_one("#confirm-execute-retry", Button)
         disabled = not self._selected_package_ids()
         if disabled != self._confirm_disabled_key:
-            button.disabled = disabled
+            self._confirm_retry_button().disabled = disabled
             self._confirm_disabled_key = disabled
+
+    def _reset_widget_cache(self) -> None:
+        self._selected_widget = None
+        self._confirm_button = None
+
+    def _selected_summary_widget(self) -> Static:
+        if self._selected_widget is None:
+            self._selected_widget = self.query_one("#execution-retry-selected", Static)
+        return self._selected_widget
+
+    def _confirm_retry_button(self) -> Button:
+        if self._confirm_button is None:
+            self._confirm_button = self.query_one("#confirm-execute-retry", Button)
+        return self._confirm_button
 
     def _summary_text(self) -> str:
         target = ""

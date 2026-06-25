@@ -13,7 +13,7 @@ from trinity.models import AgentSpec
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
-from trinity.textual_app.snapshot import WorkflowNexusSnapshot
+from trinity.textual_app.snapshot import ProviderSnapshot, WorkflowNexusSnapshot
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
     AgentRecipientModelSelector,
 )
@@ -139,6 +139,7 @@ class NexusScreen(Screen[None]):
         self._agent_model_choices: dict[str, tuple[ProviderModelChoice, ...]] = {}
         self._workspace_candidate: str = ""
         self._workspace_label_key = ""
+        self._provider_state_cache: dict[str, ProviderPanelState] = {}
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -249,31 +250,16 @@ class NexusScreen(Screen[None]):
         if not self.is_mounted:
             return
         for provider in snapshot.providers:
+            state = self._provider_panel_state(provider)
+            if self._provider_state_cache.get(provider.name) == state:
+                continue
             panel_id = f"#provider-{provider.name}"
             matches = self.query(panel_id)
             if not matches:
                 continue
             panel = matches.first(ProviderPanel)
-            panel.update_state(
-                ProviderPanelState(
-                    name=provider.name,
-                    provider=provider.provider,
-                    enabled=provider.enabled,
-                    status=provider.status,
-                    summary=provider.summary,
-                    response_status=provider.response_status,
-                    configured_model=provider.configured_model,
-                    actual_model=provider.actual_model,
-                    model_label=provider.model_label,
-                    context_window=provider.context_window,
-                    budget_source=provider.budget_source,
-                    session_id=provider.session_id,
-                    output_contract=provider.output_contract,
-                    quality_signal_count=provider.quality_signal_count,
-                    quality_success_count=provider.quality_success_count,
-                    quality_score=provider.quality_score,
-                )
-            )
+            panel.update_state(state)
+            self._provider_state_cache[provider.name] = state
         self._refresh_central()
         self._refresh_questions()
         self._refresh_inspector()
@@ -324,9 +310,9 @@ class NexusScreen(Screen[None]):
         if spec is None:
             return
         panel = self.query_one(f"#provider-{name}", ProviderPanel)
-        panel.update_state(
-            self._state_from_spec(name, spec, status=status, summary=summary)
-        )
+        state = self._state_from_spec(name, spec, status=status, summary=summary)
+        panel.update_state(state)
+        self._provider_state_cache[name] = state
         panel.set_activity_frame(self._activity_frame)
 
     def on_prompt_composer_submitted(self, event: PromptComposer.Submitted) -> None:
@@ -464,6 +450,27 @@ class NexusScreen(Screen[None]):
             self._state_from_spec(name, spec)
             for name, spec in self.config.agents.items()
         ]
+
+    @staticmethod
+    def _provider_panel_state(provider: ProviderSnapshot) -> ProviderPanelState:
+        return ProviderPanelState(
+            name=provider.name,
+            provider=provider.provider,
+            enabled=provider.enabled,
+            status=provider.status,
+            summary=provider.summary,
+            response_status=provider.response_status,
+            configured_model=provider.configured_model,
+            actual_model=provider.actual_model,
+            model_label=provider.model_label,
+            context_window=provider.context_window,
+            budget_source=provider.budget_source,
+            session_id=provider.session_id,
+            output_contract=provider.output_contract,
+            quality_signal_count=provider.quality_signal_count,
+            quality_success_count=provider.quality_success_count,
+            quality_score=provider.quality_score,
+        )
 
     def _label(self, key: str) -> str:
         labels = NEXUS_LABELS.get(self.config.lang, NEXUS_LABELS["en"])

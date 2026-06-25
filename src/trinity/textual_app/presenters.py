@@ -92,6 +92,7 @@ STATUS_CONTEXT_LABELS = {
             "Trinity-owned slash commands are handled before provider prompts."
         ),
         "history_hint": "Run a prompt, execute a workflow, or use local slash commands first.",
+        "history": "History",
         "id": "ID",
         "improve_hint": (
             "Use `/improve high`, `/improve all`, `/improve AI-001`, "
@@ -136,6 +137,7 @@ STATUS_CONTEXT_LABELS = {
         "not_checked": "not checked",
         "options": "Options",
         "package": "Package",
+        "packages": "Packages",
         "packages_hint": "Finish planning until a blueprint or local WP graph is generated.",
         "path": "Path",
         "pending_questions": "Pending questions",
@@ -320,6 +322,7 @@ STATUS_CONTEXT_LABELS = {
         "help_intro_agent": "로컬 UI, 설정, 파일 명령은 에이전트를 호출하지 않습니다.",
         "help_intro_trinity": "Trinity 소유 슬래시 명령은 프로바이더 프롬프트보다 먼저 처리됩니다.",
         "history_hint": "프롬프트 실행, 워크플로우 실행, 로컬 슬래시 명령 사용 후 이력이 표시됩니다.",
+        "history": "워크플로우 이력",
         "id": "ID",
         "improve_hint": (
             "`/improve high`, `/improve all`, `/improve AI-001`, "
@@ -366,6 +369,7 @@ STATUS_CONTEXT_LABELS = {
         "not_checked": "미확인",
         "options": "선택지",
         "package": "작업 패키지",
+        "packages": "작업 패키지",
         "packages_hint": "설계안 또는 로컬 WP 그래프가 생성될 때까지 계획을 진행하세요.",
         "path": "경로",
         "pending_questions": "대기 중 질문",
@@ -1087,6 +1091,30 @@ def _yes_no(value: bool, *, lang: str = "en") -> str:
 
 def status_title(*, lang: str = "en") -> str:
     return _sc_label(lang, "status")
+
+
+def workflow_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "workflow")
+
+
+def questions_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "questions")
+
+
+def decisions_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "decisions")
+
+
+def packages_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "packages")
+
+
+def subtasks_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "subtasks")
+
+
+def history_title(*, lang: str = "en") -> str:
+    return _sc_label(lang, "history")
 
 
 def model_settings_title(*, lang: str = "en") -> str:

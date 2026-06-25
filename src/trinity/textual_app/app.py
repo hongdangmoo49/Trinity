@@ -1741,7 +1741,7 @@ class TrinityTextualApp(App[None]):
             snapshot = self._refresh_textual_snapshot()
             self._record_slash_command_result(
                 parsed.spec.name,
-                "Workflow",
+                textual_presenters.workflow_title(lang=self.config.lang),
                 self._snapshot_workflow_markdown(snapshot, lang=self.config.lang),
                 table_columns=textual_presenters.status_table_columns(lang=self.config.lang),
                 table_rows=self._snapshot_workflow_rows(snapshot, lang=self.config.lang),
@@ -1753,7 +1753,7 @@ class TrinityTextualApp(App[None]):
             has_questions = bool(snapshot.questions)
             self._record_slash_command_result(
                 parsed.spec.name,
-                "Questions",
+                textual_presenters.questions_title(lang=self.config.lang),
                 self._questions_select_markdown(snapshot, lang=self.config.lang)
                 if select_requested
                 else self._questions_markdown(snapshot, lang=self.config.lang),
@@ -1773,7 +1773,7 @@ class TrinityTextualApp(App[None]):
             has_decisions = bool(snapshot.decisions)
             self._record_slash_command_result(
                 parsed.spec.name,
-                "Decisions",
+                textual_presenters.decisions_title(lang=self.config.lang),
                 self._decisions_markdown(snapshot, lang=self.config.lang),
                 empty=not has_decisions,
                 action_hint=textual_presenters.decisions_action_hint(
@@ -1791,7 +1791,7 @@ class TrinityTextualApp(App[None]):
             has_packages = bool(snapshot.work_packages or snapshot.central_work_packages)
             self._record_slash_command_result(
                 parsed.spec.name,
-                "Packages",
+                textual_presenters.packages_title(lang=self.config.lang),
                 self._packages_markdown(snapshot, lang=self.config.lang),
                 empty=not has_packages,
                 action_hint=textual_presenters.packages_action_hint(
@@ -1809,7 +1809,7 @@ class TrinityTextualApp(App[None]):
             has_subtasks = bool(snapshot.subtasks)
             self._record_slash_command_result(
                 parsed.spec.name,
-                "Subtasks",
+                textual_presenters.subtasks_title(lang=self.config.lang),
                 self._subtasks_markdown(snapshot, lang=self.config.lang),
                 empty=not has_subtasks,
                 action_hint=textual_presenters.subtasks_action_hint(
@@ -1839,7 +1839,7 @@ class TrinityTextualApp(App[None]):
             history_rows = self._history_rows(snapshot, lang=self.config.lang)
             self._record_slash_command_result(
                 parsed.spec.name,
-                "History",
+                textual_presenters.history_title(lang=self.config.lang),
                 self._history_markdown(snapshot, history_rows, lang=self.config.lang),
                 empty=not history_rows,
                 action_hint=textual_presenters.history_action_hint(

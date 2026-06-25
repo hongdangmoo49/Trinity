@@ -344,6 +344,67 @@ def test_central_markdown_summarizes_execution_progress_without_result_dump() ->
 
 
 @pytest.mark.asyncio
+async def test_central_view_reuses_composed_fixed_widgets_for_updates() -> None:
+    view = CentralAgentView()
+    app = CentralAgentHarness(view)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        await pilot.pause()
+        query_calls: list[str] = []
+        original_query_one = view.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            fixed_selectors = {
+                "#central-title",
+                "#central-markdown",
+                "#central-local-command-tables",
+                "#central-action-title",
+                "#central-actions",
+            }
+            if selector in fixed_selectors:
+                query_calls.append(selector)
+            return original_query_one(selector, *args, **kwargs)
+
+        view.query_one = counted_query_one
+
+        view.apply_snapshot(
+            WorkflowNexusSnapshot(
+                state="blueprint_ready",
+                synthesis=SynthesisSnapshot(summary="Ready to build."),
+                work_packages=["WP-001 codex: Build API (pending)"],
+                local_commands=[
+                    LocalCommandSnapshot(
+                        command="/status",
+                        title="Status",
+                        body="Current state.",
+                        table_columns=("WP", "Status"),
+                        table_rows=(("WP-001", "done"),),
+                    )
+                ],
+            )
+        )
+        await pilot.pause()
+
+        view.apply_snapshot(
+            WorkflowNexusSnapshot(
+                state="executing",
+                synthesis=SynthesisSnapshot(status="running", summary="Running."),
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Build API",
+                        owner_agent="codex",
+                        status="running",
+                    )
+                ],
+            )
+        )
+        await pilot.pause()
+
+        assert query_calls == []
+
+
+@pytest.mark.asyncio
 async def test_central_activity_frame_skips_idle_title_update() -> None:
     view = CentralAgentView()
     view.snapshot = WorkflowNexusSnapshot(state="blueprint_ready")

@@ -125,7 +125,10 @@ class CentralAgentView(VerticalScroll):
         return
 
     def set_activity_frame(self, frame: int) -> None:
-        self._activity_frame = frame % len(ACTIVITY_FRAMES)
+        next_frame = frame % len(ACTIVITY_FRAMES)
+        if next_frame == self._activity_frame:
+            return
+        self._activity_frame = next_frame
         if self._is_running():
             self._refresh_title()
 

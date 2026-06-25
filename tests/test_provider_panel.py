@@ -172,6 +172,62 @@ async def test_provider_panel_activity_frame_updates_running_status() -> None:
         assert updates == ["/ RUN"]
 
 
+@pytest.mark.asyncio
+async def test_provider_panel_status_change_updates_only_status_field() -> None:
+    panel = ProviderPanel(
+        ProviderPanelState(
+            name="codex",
+            provider="codex",
+            enabled=True,
+            status="Running",
+            summary="Working on task.",
+        )
+    )
+    app = ProviderPanelHarness(panel)
+
+    async with app.run_test(size=(60, 10)) as pilot:
+        await pilot.pause()
+        widgets = {
+            "name": panel.query_one(".provider-name", Static),
+            "meta": panel.query_one(".provider-meta", Static),
+            "status": panel.query_one(".provider-status", Static),
+            "summary": panel.query_one(".provider-summary", Static),
+        }
+        updates: dict[str, list[str]] = {key: [] for key in widgets}
+
+        for key, widget in widgets.items():
+            original_update = widget.update
+
+            def counted_update(
+                content,
+                *,
+                key=key,
+                original_update=original_update,
+            ) -> None:
+                updates[key].append(str(content))
+                original_update(content)
+
+            widget.update = counted_update
+
+        panel.update_state(
+            ProviderPanelState(
+                name="codex",
+                provider="codex",
+                enabled=True,
+                status="Ready",
+                summary="Working on task.",
+            )
+        )
+        await pilot.pause()
+
+        assert updates == {
+            "name": [],
+            "meta": [],
+            "status": ["DONE"],
+            "summary": [],
+        }
+
+
 def test_provider_panel_treats_error_summary_as_issue() -> None:
     state = ProviderPanelState(
         name="claude",

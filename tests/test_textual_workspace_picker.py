@@ -390,6 +390,51 @@ async def test_workspace_picker_new_folder_flow_targets_tree_root_from_control_r
 
 
 @pytest.mark.asyncio
+async def test_workspace_picker_skips_unchanged_status_and_preflight_updates(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "Trinity"
+    control_repo.mkdir()
+    picker = WorkspacePicker(
+        candidate=control_repo,
+        snapshot=WorkflowNexusSnapshot(),
+        cwd=control_repo,
+        tree_root=tmp_path,
+    )
+    app = WorkspacePickerHarness()
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.push_screen(picker)
+        await pilot.pause()
+
+        preflight_panel = picker.query_one("#workspace-preflight", Static)
+        status = picker.query_one("#workspace-picker-status", Static)
+        preflight_updates: list[str] = []
+        status_updates: list[str] = []
+        original_preflight_update = preflight_panel.update
+        original_status_update = status.update
+
+        def counted_preflight_update(content) -> None:
+            preflight_updates.append(str(content))
+            original_preflight_update(content)
+
+        def counted_status_update(content) -> None:
+            status_updates.append(str(content))
+            original_status_update(content)
+
+        preflight_panel.update = counted_preflight_update
+        status.update = counted_status_update
+
+        picker._update_preflight(control_repo)
+        picker._set_status("Ready")
+        picker._set_status("Ready")
+        await pilot.pause()
+
+        assert preflight_updates == []
+        assert status_updates == ["Ready"]
+
+
+@pytest.mark.asyncio
 async def test_workspace_picker_new_folder_blocks_unwritable_base(
     tmp_path,
     monkeypatch,

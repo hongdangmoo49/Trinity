@@ -10494,7 +10494,10 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
 
 
 @pytest.mark.asyncio
-async def test_nexus_workspace_label_skips_unchanged_update(tmp_path) -> None:
+async def test_nexus_workspace_label_skips_unchanged_update(
+    tmp_path,
+    monkeypatch,
+) -> None:
     control_repo = tmp_path / "control"
     target = tmp_path / "target-app"
     next_target = tmp_path / "next-app"
@@ -10522,10 +10525,19 @@ async def test_nexus_workspace_label_skips_unchanged_update(tmp_path) -> None:
             original_update(content)
 
         workspace_label.update = counted_update
+        query_calls: list[str] = []
+        original_query = nexus.query
+
+        def counted_query(*args, **kwargs):
+            query_calls.append(str(args[0]) if args else "")
+            return original_query(*args, **kwargs)
+
+        monkeypatch.setattr(nexus, "query", counted_query)
 
         nexus._refresh_workspace_label()
         await pilot.pause()
         assert updates == []
+        assert "#nexus-target-workspace" not in query_calls
 
         nexus.set_workspace_candidate(next_target)
         await pilot.pause()

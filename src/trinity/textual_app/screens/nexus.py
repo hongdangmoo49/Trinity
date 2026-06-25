@@ -375,11 +375,11 @@ class NexusScreen(Screen[None]):
         self.post_message(self.WorkspaceRequested(self.snapshot))
 
     def _refresh_workspace_label(self) -> None:
-        matches = self.query("#nexus-target-workspace")
-        if not matches:
-            return
         label = self._workspace_label()
         if label == self._workspace_label_key:
+            return
+        matches = self.query("#nexus-target-workspace")
+        if not matches:
             return
         matches.first(Static).update(label)
         self._workspace_label_key = label

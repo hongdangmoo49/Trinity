@@ -223,6 +223,41 @@ async def test_workspace_picker_reuses_composed_fixed_widgets(
 
 
 @pytest.mark.asyncio
+async def test_workspace_picker_rebinds_status_key_after_recompose(tmp_path) -> None:
+    control_repo = tmp_path / "Trinity"
+    control_repo.mkdir()
+
+    picker = WorkspacePicker(
+        candidate=control_repo,
+        snapshot=WorkflowNexusSnapshot(),
+        cwd=control_repo,
+        tree_root=tmp_path,
+    )
+    app = WorkspacePickerHarness()
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.push_screen(picker)
+        await pilot.pause()
+
+        picker._set_status("Ready")
+        await pilot.pause()
+        status = picker.query_one("#workspace-picker-status", Static)
+        assert "Ready" in str(status.content)
+
+        picker.refresh(recompose=True)
+        await pilot.pause()
+
+        status = picker.query_one("#workspace-picker-status", Static)
+        assert str(status.content) == ""
+
+        picker._set_status("Ready")
+        await pilot.pause()
+
+        status = picker.query_one("#workspace-picker-status", Static)
+        assert "Ready" in str(status.content)
+
+
+@pytest.mark.asyncio
 async def test_workspace_picker_uses_korean_labels(tmp_path) -> None:
     control_repo = tmp_path / "Trinity"
     selected_workspace = tmp_path / "customer-app"

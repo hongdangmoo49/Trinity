@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 from textual.app import App, ComposeResult
-from textual.widgets import Static
+from textual.widgets import Button, Static
 
 from trinity.textual_app.screens.execution_matrix import (
     ExecutionPackageRow,
@@ -159,3 +159,68 @@ async def test_execution_package_row_detail_button_updates_when_projection_chang
         button = row._button_cache[".execution-package-spec"]
         assert str(button.label) == "Details"
         assert button.disabled is True
+
+
+@pytest.mark.asyncio
+async def test_execution_package_row_recompose_rebinds_cached_widgets() -> None:
+    row = ExecutionPackageRow(
+        package_id="WP-001",
+        task="Build API",
+        assignee="codex",
+        executor="codex",
+        status="running",
+        review_status="pending",
+        risk="low",
+        button_id="detail-WP-001",
+        button_label="Spec",
+        task_width=28,
+    )
+    app = ExecutionPackageRowHarness(row)
+
+    async with app.run_test(size=(100, 12)) as pilot:
+        await pilot.pause()
+        first_status = row._static_cache[".execution-package-status"]
+        first_detail = row._button_cache[".execution-package-spec"]
+
+        row.refresh(recompose=True)
+        await pilot.pause()
+
+        assert row._static_cache[".execution-package-status"] is not first_status
+        assert row._button_cache[".execution-package-spec"] is not first_detail
+
+        query_calls: list[str] = []
+        original_query_one = row.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if str(selector).startswith(".execution-package-"):
+                query_calls.append(str(selector))
+            return original_query_one(selector, *args, **kwargs)
+
+        row.query_one = counted_query_one
+
+        row.update_projection(
+            _PackageRowProjection(
+                identity="WP-001",
+                package_id="WP-001",
+                task="Build API",
+                assignee="codex",
+                executor="codex",
+                status="done",
+                review_status="pending",
+                risk="low",
+                button_id="detail-WP-001",
+                button_label="Details",
+                task_width=28,
+                detail_enabled=False,
+            )
+        )
+        await pilot.pause()
+
+        assert query_calls == []
+        status = row._static_cache[".execution-package-status"]
+        detail = row._button_cache[".execution-package-spec"]
+        assert isinstance(status, Static)
+        assert str(status.content) == "done"
+        assert isinstance(detail, Button)
+        assert str(detail.label) == "Details"
+        assert detail.disabled is True

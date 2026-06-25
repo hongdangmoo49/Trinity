@@ -239,6 +239,8 @@ class ExecutionPackageRow(Horizontal):
         self._button_cache: dict[str, Button] = {}
 
     def compose(self) -> ComposeResult:
+        self._static_cache = {}
+        self._button_cache = {}
         with Vertical(classes="execution-package-lines"):
             with Horizontal(classes="execution-package-primary"):
                 task = Static(

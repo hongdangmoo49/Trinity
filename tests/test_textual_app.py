@@ -726,17 +726,17 @@ def test_status_presenter_uses_korean_placeholder_values() -> None:
     assert "- 목표: (없음)" in markdown
     assert "- 실행 ID: `(알 수 없음)`" in markdown
     assert "- 대상: `(미설정)`" in markdown
-    assert "- 종료 시 실행 중 WP: `(없음)`" in markdown
+    assert "- 종료 시 실행 중 작업 패키지: `(없음)`" in markdown
     assert "- 재시도 후보: `(없음)`" in markdown
-    assert "- 완료 WP: `(없음)`" in markdown
+    assert "- 완료 작업 패키지: `(없음)`" in markdown
     assert "- 최근 이벤트: `(없음)`" in markdown
     assert ("워크플로우", "(새 워크플로우)") in rows
     assert ("목표", "(없음)") in rows
     assert ("실행 ID", "(알 수 없음)") in rows
     assert ("대상", "(미설정)") in rows
-    assert ("실행 중 WP", "(없음)") in rows
+    assert ("실행 중 작업 패키지", "(없음)") in rows
     assert ("재시도 후보", "(없음)") in rows
-    assert ("완료 WP", "(없음)") in rows
+    assert ("완료 작업 패키지", "(없음)") in rows
     assert ("최근 이벤트", "(없음)") in rows
 
 
@@ -1143,8 +1143,8 @@ def test_review_presenter_uses_korean_labels() -> None:
         ("워크플로우", "wf-review"),
         ("상태", "리뷰 중"),
         ("작업 패키지", "2"),
-        ("대기 중 WP 리뷰", "WP-001"),
-        ("리뷰된 WP", "WP-002:승인"),
+        ("대기 중 작업 패키지 리뷰", "WP-001"),
+        ("리뷰된 작업 패키지", "WP-002:승인"),
         ("최종 리뷰", "승인 / 리뷰어 codex"),
     )
     placeholder_rows = review_rows(WorkflowNexusSnapshot(), lang="ko")
@@ -1158,8 +1158,8 @@ def test_review_presenter_uses_korean_labels() -> None:
         lang="ko",
     )
     assert ("워크플로우", "(새 워크플로우)") in placeholder_rows
-    assert ("대기 중 WP 리뷰", "(없음)") in placeholder_rows
-    assert ("리뷰된 WP", "(없음)") in placeholder_rows
+    assert ("대기 중 작업 패키지 리뷰", "(없음)") in placeholder_rows
+    assert ("리뷰된 작업 패키지", "(없음)") in placeholder_rows
     assert ("최종 리뷰", "(없음)") in placeholder_rows
     assert ("최종 리뷰", "승인 / 리뷰어 (알 수 없음)") in reviewer_rows
     assert review_table_columns(lang="ko") == ("항목", "값")
@@ -1205,7 +1205,7 @@ def test_execute_presenter_uses_korean_labels() -> None:
         "현재 워크플로우에 사용할 수 있는 작업 패키지가 없습니다."
     )
     assert execute_retry_no_packages_action_hint(lang="ko") == (
-        "먼저 계획을 완료하고 하나 이상의 WP를 실행하세요."
+        "먼저 계획을 완료하고 하나 이상의 작업 패키지를 실행하세요."
     )
     assert execution_recovery_title(lang="ko") == "실행 복구"
     assert execution_recovery_action_hint(lang="ko") == (
@@ -2878,7 +2878,7 @@ def test_snapshot_report_markdown_uses_korean_labels() -> None:
     assert "점수 0\\.667; 성공 2/3; 차단 1; 변경 요청 4" in md
     assert "## 합의" in md
     assert "**진행**: 진행중" in md
-    assert "## WP 라우팅" in md
+    assert "## 작업 패키지 라우팅" in md
     assert "상태: 완료; 소유자 codex; 실행자 codex; 그룹 직렬" in md
     assert "라우팅: 종류 구현; 프로필 default\\-v1; 점수 0\\.95" in md
     assert (
@@ -2943,9 +2943,9 @@ def test_snapshot_report_markdown_uses_korean_placeholder_values() -> None:
     assert "상태: \\(알 수 없음\\); 소유자 \\(알 수 없음\\); 실행자 \\(없음\\)" in md
     assert "- 실행 ID: \\(알 수 없음\\)" in md
     assert "- 대상: \\(미설정\\)" in md
-    assert "- 실행 중 WP: \\(없음\\)" in md
+    assert "- 실행 중 작업 패키지: \\(없음\\)" in md
     assert "- 재시도 후보: \\(없음\\)" in md
-    assert "- 완료 WP: \\(없음\\)" in md
+    assert "- 완료 작업 패키지: \\(없음\\)" in md
     assert "- 최근 이벤트: \\(없음\\)" in md
 
 
@@ -3853,7 +3853,7 @@ async def test_nexus_execute_retry_empty_uses_korean_labels(tmp_path) -> None:
         assert result.command == "/execute-retry"
         assert result.title == "실행 재시도"
         assert result.body == "현재 워크플로우에 사용할 수 있는 작업 패키지가 없습니다."
-        assert result.action_hint == "먼저 계획을 완료하고 하나 이상의 WP를 실행하세요."
+        assert result.action_hint == "먼저 계획을 완료하고 하나 이상의 작업 패키지를 실행하세요."
         assert result.severity == "warning"
         assert result.empty is True
 
@@ -4983,7 +4983,7 @@ async def test_start_slash_review_uses_korean_labels(tmp_path) -> None:
         assert result.body == "리뷰를 시작했습니다: wp."
         assert result.table_columns == ("항목", "값")
         assert ("워크플로우", "wf-review") in result.table_rows
-        assert ("대기 중 WP 리뷰", "WP-001") in result.table_rows
+        assert ("대기 중 작업 패키지 리뷰", "WP-001") in result.table_rows
         assert result.action_hint.startswith("`/review wp`")
         assert controller.review_requests == [("wp",)]
 
@@ -10470,7 +10470,7 @@ def test_review_repair_details_markdown_uses_korean_labels() -> None:
     assert review_repair_action_hint(lang="ko") == (
         "중앙 패널에서 한 번 재시도, 완료 처리, 중지 중 하나를 선택하세요."
     )
-    assert review_repair_table_columns(lang="ko") == ("WP", "보정 상태")
+    assert review_repair_table_columns(lang="ko") == ("작업 패키지", "보정 상태")
     assert review_repair_rows(snapshot, lang="ko") == (
         (
             "WP-002",
@@ -10480,7 +10480,7 @@ def test_review_repair_details_markdown_uses_korean_labels() -> None:
 
     body = review_repair_details_markdown(snapshot, lang="ko")
 
-    assert "리뷰 보정 루프 가드가 다음 WP를 일시 중지했습니다" in body
+    assert "리뷰 보정 루프 가드가 다음 작업 패키지를 일시 중지했습니다" in body
     assert "WP-002" in body
     assert "duplicate_required_changes" in body
     assert "최근 보정 메모" in body
@@ -10564,7 +10564,7 @@ async def test_nexus_repair_open_review_records_local_command(tmp_path) -> None:
         assert result.action_hint == (
             "중앙 패널에서 한 번 재시도, 완료 처리, 중지 중 하나를 선택하세요."
         )
-        assert result.table_columns == ("WP", "보정 상태")
+        assert result.table_columns == ("작업 패키지", "보정 상태")
         assert result.table_rows == (
             (
                 "WP-002",

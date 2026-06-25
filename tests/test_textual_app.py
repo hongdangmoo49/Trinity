@@ -9167,7 +9167,7 @@ def test_work_package_detail_modal_localizes_korean_second_review_status() -> No
     assert "`needs_second_review`" not in markdown
 
 
-def test_work_package_detail_modal_preserves_unknown_status_values() -> None:
+def test_work_package_detail_modal_localizes_known_external_input_status() -> None:
     modal = WorkPackageDetailModal(
         WorkPackageSnapshot(
             id="WP-013",
@@ -9178,7 +9178,10 @@ def test_work_package_detail_modal_preserves_unknown_status_values() -> None:
         lang="ko",
     )
 
-    assert "- 상태: `waiting_for_external_input`" in modal._markdown()
+    markdown = modal._markdown()
+
+    assert "- 상태: `외부 입력 대기`" in markdown
+    assert "waiting_for_external_input" not in markdown
 
 
 @pytest.mark.asyncio

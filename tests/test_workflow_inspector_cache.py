@@ -35,6 +35,31 @@ def _snapshot(*, status: str) -> WorkflowNexusSnapshot:
 
 
 @pytest.mark.asyncio
+async def test_workflow_inspector_reuses_composed_section_widgets() -> None:
+    inspector = WorkflowInspector()
+    app = InspectorHarness(inspector)
+
+    async with app.run_test(size=(100, 28)) as pilot:
+        await pilot.pause()
+        query_calls: list[str] = []
+        original_query_one = inspector.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if isinstance(selector, str) and selector.startswith("#inspector-"):
+                query_calls.append(selector)
+            return original_query_one(selector, *args, **kwargs)
+
+        inspector.query_one = counted_query_one
+
+        inspector.apply_snapshot(_snapshot(status="running"))
+        await pilot.pause()
+        inspector.apply_snapshot(_snapshot(status="done"))
+        await pilot.pause()
+
+        assert query_calls == []
+
+
+@pytest.mark.asyncio
 async def test_workflow_inspector_skips_unchanged_projection_calculation() -> None:
     inspector = WorkflowInspector()
     app = InspectorHarness(inspector)

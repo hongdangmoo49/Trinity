@@ -168,6 +168,7 @@ class ReportScreen(Screen[None]):
         self.lang = lang
         self.snapshot: WorkflowNexusSnapshot | None = None
         self._report: DeliberationReport | None = None
+        self._applied_source_identity: tuple[str, int] | None = None
         self._last_rendered_id: str = ""
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
@@ -195,16 +196,26 @@ class ReportScreen(Screen[None]):
 
     def apply_report(self, report: DeliberationReport) -> None:
         """Render from a structured DeliberationReport (preferred path)."""
+        source_identity = ("report", id(report))
+        if self.is_mounted and self._applied_source_identity == source_identity:
+            self._report = report
+            return
         self._report = report
         if not self.is_mounted:
             return
+        self._applied_source_identity = source_identity
         self._render_report()
 
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
         """Render report content from a workflow snapshot (fallback path)."""
+        source_identity = ("snapshot", id(snapshot))
+        if self.is_mounted and self._applied_source_identity == source_identity:
+            self.snapshot = snapshot
+            return
         self.snapshot = snapshot
         if not self.is_mounted:
             return
+        self._applied_source_identity = source_identity
         self._render_report()
 
     def show_export_path(self, path: Path) -> None:

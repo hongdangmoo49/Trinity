@@ -37,10 +37,17 @@ class QuestionPanel(VerticalScroll):
         self._questions_key: tuple[object, ...] | None = None
         self._empty_state_key: bool | None = None
         self._title_key = ""
+        self._title_widget: Static | None = None
+        self._body_container: Vertical | None = None
 
     def compose(self) -> ComposeResult:
-        yield Static("", id="question-panel-title")
-        with Vertical(id="question-panel-body"):
+        self._reset_widget_cache()
+        title = Static("", id="question-panel-title")
+        self._title_widget = title
+        yield title
+        body = Vertical(id="question-panel-body")
+        self._body_container = body
+        with body:
             pass
 
     def apply_questions(self, questions: list[QuestionSnapshot]) -> None:
@@ -52,7 +59,7 @@ class QuestionPanel(VerticalScroll):
             return
         title = self._question_title(questions)
         if title != self._title_key:
-            self.query_one("#question-panel-title", Static).update(title)
+            self._title_static().update(title)
             self._title_key = title
         self._render_questions(questions)
         self._questions_key = questions_key
@@ -71,7 +78,7 @@ class QuestionPanel(VerticalScroll):
         self.post_message(self.QuestionAnswered(answer))
 
     def _render_questions(self, questions: list[QuestionSnapshot]) -> None:
-        container = self.query_one("#question-panel-body", Vertical)
+        container = self._body_widget()
         container.remove_children()
         self._button_answers = {}
         if not questions:
@@ -121,6 +128,20 @@ class QuestionPanel(VerticalScroll):
                             tooltip=label,
                         )
                     )
+
+    def _reset_widget_cache(self) -> None:
+        self._title_widget = None
+        self._body_container = None
+
+    def _title_static(self) -> Static:
+        if self._title_widget is None:
+            self._title_widget = self.query_one("#question-panel-title", Static)
+        return self._title_widget
+
+    def _body_widget(self) -> Vertical:
+        if self._body_container is None:
+            self._body_container = self.query_one("#question-panel-body", Vertical)
+        return self._body_container
 
     @staticmethod
     def _answer_button_id(question_number: int, option_index: int) -> str:

@@ -78,6 +78,9 @@ class ProviderPanel(Vertical):
         if self.is_mounted and self._state_group(self.state) == "running":
             self.query_one(".provider-status", Static).update(self._status_label())
 
+    def has_running_activity(self) -> bool:
+        return self._state_group(self.state) == "running"
+
     def _provider_line(self) -> str:
         parts = [self.state.provider]
         model = self._model_label()

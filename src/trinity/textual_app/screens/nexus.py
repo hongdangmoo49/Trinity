@@ -441,8 +441,18 @@ class NexusScreen(Screen[None]):
 
     def advance_activity_frame(self) -> None:
         """Advance running indicators for provider and central-agent surfaces."""
+        if not self._has_activity_frame_targets():
+            return
         self._activity_frame = (self._activity_frame + 1) % 4
         self._apply_activity_frame()
+
+    def _has_activity_frame_targets(self) -> bool:
+        if not self.is_mounted:
+            return False
+        central = self.query_one(CentralAgentView)
+        if central.has_running_activity():
+            return True
+        return any(panel.has_running_activity() for panel in self.query(ProviderPanel))
 
     def _initial_provider_states(self) -> list[ProviderPanelState]:
         return [

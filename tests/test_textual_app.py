@@ -6396,7 +6396,7 @@ async def test_start_and_central_chrome_uses_korean_labels(
         )
         start.set_workspace_candidate(None)
         assert str(start.query_one("#workspace-candidate", Static).content) == (
-            "작업 폴더: 선택 안됨"
+            "작업 폴더: 선택 안 됨"
         )
 
         composer = start.query_one(PromptComposer)
@@ -9807,7 +9807,7 @@ async def test_nexus_action_bar_uses_configured_korean_labels(tmp_path) -> None:
     screen = NexusScreen(
         TrinityConfig.default_config(project_dir=control_repo, lang="ko")
     )
-    assert screen._workspace_label() == "작업 폴더: 선택 안됨"
+    assert screen._workspace_label() == "작업 폴더: 선택 안 됨"
 
 
 @pytest.mark.asyncio

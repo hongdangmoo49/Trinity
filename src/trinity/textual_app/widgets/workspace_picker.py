@@ -325,6 +325,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
+        self._reset_render_cache()
         with Vertical(id="workspace-picker"):
             yield Static(self._title(), id="workspace-picker-title")
             path_input = Input(
@@ -344,11 +345,10 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
                     )
                     self._tree_placeholder_widget = placeholder
                     yield placeholder
-                preflight = Static(
-                    self.preflight.render(lang=self.lang),
-                    id="workspace-preflight",
-                )
+                preflight_text = self.preflight.render(lang=self.lang)
+                preflight = Static(preflight_text, id="workspace-preflight")
                 self._preflight_widget = preflight
+                self._preflight_render_key = preflight_text
                 yield preflight
             with Horizontal(id="workspace-picker-bottom"):
                 with Horizontal(id="workspace-tree-actions"):
@@ -362,6 +362,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
                     )
             status = Static("", id="workspace-picker-status")
             self._status_widget = status
+            self._status_key = ""
             yield status
         yield Footer()
 
@@ -559,6 +560,10 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         self._directory_tree_widget = None
         self._preflight_widget = None
         self._status_widget = None
+
+    def _reset_render_cache(self) -> None:
+        self._preflight_render_key = ""
+        self._status_key = ""
 
     def _path_input(self) -> Input:
         if self._path_input_widget is None:

@@ -169,6 +169,7 @@ class ReportScreen(Screen[None]):
         self.snapshot: WorkflowNexusSnapshot | None = None
         self._report: DeliberationReport | None = None
         self._applied_source_identity: tuple[str, int] | None = None
+        self._export_status_key = ""
         self._last_rendered_id: str = ""
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
@@ -222,9 +223,11 @@ class ReportScreen(Screen[None]):
         """Show the last Markdown export destination in the report header."""
         if not self.is_mounted:
             return
-        self.query_one("#report-export-status", Static).update(
-            f"[dim]{self._label('saved').format(path=escape(str(path)))}[/dim]"
-        )
+        status = f"[dim]{self._label('saved').format(path=escape(str(path)))}[/dim]"
+        if status == self._export_status_key:
+            return
+        self.query_one("#report-export-status", Static).update(status)
+        self._export_status_key = status
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "report-export-btn":

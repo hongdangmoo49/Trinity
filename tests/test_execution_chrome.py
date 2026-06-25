@@ -20,7 +20,7 @@ class ExecutionMatrixHarness(App[None]):
 
 
 @pytest.mark.asyncio
-async def test_execution_chrome_summary_change_updates_only_summary() -> None:
+async def test_execution_chrome_summary_change_updates_only_summary(monkeypatch) -> None:
     screen = ExecutionMatrixScreen()
     app = ExecutionMatrixHarness(screen)
 
@@ -53,6 +53,14 @@ async def test_execution_chrome_summary_change_updates_only_summary() -> None:
 
         header.update = counted_header_update
         summary.update = counted_summary_update
+        query_calls: list[str] = []
+        original_query_one = screen.query_one
+
+        def counted_query_one(*args, **kwargs):
+            query_calls.append(str(args[0]) if args else "")
+            return original_query_one(*args, **kwargs)
+
+        monkeypatch.setattr(screen, "query_one", counted_query_one)
         screen._chrome_projection = lambda: _ChromeProjection(
             header_text="Execution: ready",
             summary_text="1 package done",
@@ -69,3 +77,4 @@ async def test_execution_chrome_summary_change_updates_only_summary() -> None:
             "header": [],
             "summary": ["1 package done"],
         }
+        assert "#execution-retry" not in query_calls

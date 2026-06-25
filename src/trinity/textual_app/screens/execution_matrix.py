@@ -751,11 +751,18 @@ class ExecutionMatrixScreen(Screen[None]):
             self.query_one("#toggle-activity-expanded", Button).label = (
                 projection.activity_toggle_label
             )
-        retry_button = self.query_one("#execution-retry", Button)
-        if previous is None or projection.retry_label != previous.retry_label:
-            retry_button.label = projection.retry_label
-        if previous is None or projection.retry_disabled != previous.retry_disabled:
-            retry_button.disabled = projection.retry_disabled
+        retry_label_changed = (
+            previous is None or projection.retry_label != previous.retry_label
+        )
+        retry_disabled_changed = (
+            previous is None or projection.retry_disabled != previous.retry_disabled
+        )
+        if retry_label_changed or retry_disabled_changed:
+            retry_button = self.query_one("#execution-retry", Button)
+            if retry_label_changed:
+                retry_button.label = projection.retry_label
+            if retry_disabled_changed:
+                retry_button.disabled = projection.retry_disabled
         self._chrome_render_key = render_key
         self._chrome_projection_cache = projection
 

@@ -449,14 +449,14 @@ STATUS_CONTEXT_LABELS = {
         "synthesis": "종합",
         "syntax_error": "구문 오류",
         "target": "대상",
-        "target_action_hint": "실행 전에 `/target <path>`를 사용하거나 워크스페이스를 선택하세요.",
-        "target_cleared": "대상 워크스페이스를 초기화했습니다.",
-        "target_control_repo_hint": "Trinity 제어 저장소 밖의 워크스페이스를 선택하세요.",
+        "target_action_hint": "실행 전에 `/target <path>`를 사용하거나 작업 폴더를 선택하세요.",
+        "target_cleared": "대상 작업 폴더를 초기화했습니다.",
+        "target_control_repo_hint": "Trinity 제어 저장소 밖의 작업 폴더를 선택하세요.",
         "target_not_directory": "대상 경로가 이미 존재하지만 디렉터리가 아닙니다",
-        "target_preflight_cancelled": "워크스페이스 사전 확인을 취소했습니다.",
-        "target_prepare_failed": "대상 워크스페이스를 준비할 수 없습니다",
-        "target_selection_cancelled": "대상 워크스페이스 선택을 취소했습니다.",
-        "target_workspace": "대상 워크스페이스",
+        "target_preflight_cancelled": "작업 폴더 사전 확인을 취소했습니다.",
+        "target_prepare_failed": "대상 작업 폴더를 준비할 수 없습니다",
+        "target_selection_cancelled": "대상 작업 폴더 선택을 취소했습니다.",
+        "target_workspace": "대상 작업 폴더",
         "title": "제목",
         "value": "값",
         "workflow": "워크플로우",
@@ -905,7 +905,7 @@ WORKFLOW_OUTCOME_MESSAGES_KO = {
     "No interrupted execution to abort.": "중단을 취소할 실행이 없습니다.",
     "Interrupted execution aborted.": "중단된 실행을 취소했습니다.",
     "Choose a target workspace before restarting repairs.": (
-        "보정 재시작 전에 대상 워크스페이스를 선택하세요."
+        "보정 재시작 전에 대상 작업 폴더를 선택하세요."
     ),
     "Previous execution was interrupted. Review running packages before retrying.": (
         "이전 실행이 중단되었습니다. 재시도 전에 실행 중이던 작업 패키지를 확인하세요."
@@ -918,7 +918,7 @@ WORKFLOW_OUTCOME_MESSAGES_KO = {
         "요청과 일치하는 재시도 가능한 작업 패키지가 없습니다."
     ),
     "Choose a target workspace before retrying execution.": (
-        "실행 재시도 전에 대상 워크스페이스를 선택하세요."
+        "실행 재시도 전에 대상 작업 폴더를 선택하세요."
     ),
     "No review-repair blocked packages to retry.": (
         "재시도할 리뷰 보정 차단 패키지가 없습니다."
@@ -930,7 +930,7 @@ WORKFLOW_OUTCOME_MESSAGES_KO = {
         "중단할 리뷰 보정 차단 패키지가 없습니다."
     ),
     "Choose a target workspace before running review.": (
-        "리뷰 실행 전에 대상 워크스페이스를 선택하세요."
+        "리뷰 실행 전에 대상 작업 폴더를 선택하세요."
     ),
     "No pending work package reviews match the request.": (
         "요청과 일치하는 대기 중인 작업 패키지 리뷰가 없습니다."
@@ -953,7 +953,7 @@ WORKFLOW_OUTCOME_MESSAGES_KO = {
         "이 워크플로우에 연결된 활성 에이전트가 없습니다."
     ),
     "Target workspace is required before implementation.": (
-        "구현 전에 대상 워크스페이스가 필요합니다."
+        "구현 전에 대상 작업 폴더가 필요합니다."
     ),
     "Current blueprint work packages are ready for execution.": (
         "현재 설계안의 작업 패키지가 실행 준비되었습니다."
@@ -973,7 +973,7 @@ WORKFLOW_OUTCOME_MESSAGES_KO = {
         "리뷰 후속 작업을 닫았습니다. 워크플로우가 완료되었습니다."
     ),
     "Target workspace is required before post-review improvement.": (
-        "리뷰 후속 개선 전에 대상 워크스페이스가 필요합니다."
+        "리뷰 후속 개선 전에 대상 작업 폴더가 필요합니다."
     ),
     "No matching post-review action items. Use /improve, /improve high, /improve all, /improve AI-001, or /improve done.": (
         "일치하는 리뷰 후속 작업 항목이 없습니다. /improve, /improve high, "
@@ -1011,7 +1011,7 @@ WORKFLOW_OUTCOME_FRAGMENT_REPLACEMENTS_KO = (
     ("Blocked by repair guard: ", "보정 루프 가드에 의해 차단됨: "),
     (
         "Choose a target workspace before restarting repairs.",
-        "보정 재시작 전에 대상 워크스페이스를 선택하세요.",
+        "보정 재시작 전에 대상 작업 폴더를 선택하세요.",
     ),
     (
         " is already answered. Use /answer --replace to update it.",

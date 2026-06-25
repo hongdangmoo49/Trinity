@@ -178,7 +178,10 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         choices = self.choices_by_agent.get(self.active_agent, ())
         if event.option_index >= len(choices):
             return
-        self.selected_models[self.active_agent] = choices[event.option_index].model
+        selected_model = choices[event.option_index].model
+        if self.selected_models.get(self.active_agent, "default") == selected_model:
+            return
+        self.selected_models[self.active_agent] = selected_model
         self._refresh_choices()
 
     def action_cancel(self) -> None:

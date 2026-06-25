@@ -316,25 +316,40 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         self.create_missing = self.preflight.creatable
         self._preflight_render_key = self.preflight.render(lang=self.lang)
         self._status_key = ""
+        self._path_input_widget: Input | None = None
+        self._tree_pane_widget: Vertical | None = None
+        self._tree_placeholder_widget: Static | None = None
+        self._directory_tree_widget: DirectoryTree | None = None
+        self._preflight_widget: Static | None = None
+        self._status_widget: Static | None = None
 
     def compose(self) -> ComposeResult:
+        self._reset_widget_cache()
         with Vertical(id="workspace-picker"):
             yield Static(self._title(), id="workspace-picker-title")
-            yield Input(
+            path_input = Input(
                 value=str(self.preflight.path),
                 placeholder=self._label("target_workspace_path"),
                 id="workspace-path-input",
             )
+            self._path_input_widget = path_input
+            yield path_input
             with Horizontal(id="workspace-picker-body"):
-                with Vertical(id="workspace-tree-pane"):
-                    yield Static(
+                tree_pane = Vertical(id="workspace-tree-pane")
+                self._tree_pane_widget = tree_pane
+                with tree_pane:
+                    placeholder = Static(
                         self._format("loading_folders", root=self.tree_root),
                         id="workspace-directory-tree-placeholder",
                     )
-                yield Static(
+                    self._tree_placeholder_widget = placeholder
+                    yield placeholder
+                preflight = Static(
                     self.preflight.render(lang=self.lang),
                     id="workspace-preflight",
                 )
+                self._preflight_widget = preflight
+                yield preflight
             with Horizontal(id="workspace-picker-bottom"):
                 with Horizontal(id="workspace-tree-actions"):
                     yield Button(self._label("new_folder"), id="new-workspace-folder")
@@ -345,7 +360,9 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
                         id="confirm-execute",
                         variant="primary",
                     )
-            yield Static("", id="workspace-picker-status")
+            status = Static("", id="workspace-picker-status")
+            self._status_widget = status
+            yield status
         yield Footer()
 
     def _title(self) -> str:
@@ -364,13 +381,12 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
     def _mount_directory_tree(self) -> None:
         if self._tree_mounted or not self.is_mounted:
             return
-        pane = self.query_one("#workspace-tree-pane", Vertical)
-        placeholder = self.query_one(
-            "#workspace-directory-tree-placeholder",
-            Static,
-        )
+        pane = self._tree_pane()
+        placeholder = self._tree_placeholder()
         placeholder.remove()
-        pane.mount(DirectoryTree(self.tree_root, id="workspace-directory-tree"))
+        tree = DirectoryTree(self.tree_root, id="workspace-directory-tree")
+        self._directory_tree_widget = tree
+        pane.mount(tree)
         self._tree_mounted = True
 
     def on_input_changed(self, event: Input.Changed) -> None:
@@ -383,7 +399,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
     ) -> None:
         event.stop()
         path = event.path.expanduser()
-        self.query_one("#workspace-path-input", Input).value = str(path)
+        self._path_input().value = str(path)
         self._update_preflight(path)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -445,7 +461,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
             self._set_status(self._format("could_not_create_directory", error=exc))
             return
 
-        self.query_one("#workspace-path-input", Input).value = str(target)
+        self._path_input().value = str(target)
         self._update_preflight(target)
         self._reload_tree()
         self._set_status(status)
@@ -479,7 +495,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
             self._preflight_render_key = preflight_text
 
     def _input_path(self) -> Path:
-        path = Path(self.query_one("#workspace-path-input", Input).value).expanduser()
+        path = Path(self._path_input().value).expanduser()
         if path.is_absolute():
             return path
         return self.tree_root / path
@@ -510,8 +526,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
             return
         if not self._tree_mounted:
             return
-        tree = self.query_one("#workspace-directory-tree", DirectoryTree)
-        tree.reload()
+        self._directory_tree().reload()
 
     def _show_invalid_preflight(self) -> None:
         if not self.preflight.exists and not self.preflight.creatable:
@@ -528,14 +543,58 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
     def _set_preflight_text(self, text: str) -> None:
         if text == self._preflight_render_key:
             return
-        self.query_one("#workspace-preflight", Static).update(text)
+        self._preflight_static().update(text)
         self._preflight_render_key = text
 
     def _set_status_text(self, message: str) -> None:
         if message == self._status_key:
             return
-        self.query_one("#workspace-picker-status", Static).update(message)
+        self._status_static().update(message)
         self._status_key = message
+
+    def _reset_widget_cache(self) -> None:
+        self._path_input_widget = None
+        self._tree_pane_widget = None
+        self._tree_placeholder_widget = None
+        self._directory_tree_widget = None
+        self._preflight_widget = None
+        self._status_widget = None
+
+    def _path_input(self) -> Input:
+        if self._path_input_widget is None:
+            self._path_input_widget = self.query_one("#workspace-path-input", Input)
+        return self._path_input_widget
+
+    def _tree_pane(self) -> Vertical:
+        if self._tree_pane_widget is None:
+            self._tree_pane_widget = self.query_one("#workspace-tree-pane", Vertical)
+        return self._tree_pane_widget
+
+    def _tree_placeholder(self) -> Static:
+        if self._tree_placeholder_widget is None:
+            self._tree_placeholder_widget = self.query_one(
+                "#workspace-directory-tree-placeholder",
+                Static,
+            )
+        return self._tree_placeholder_widget
+
+    def _directory_tree(self) -> DirectoryTree:
+        if self._directory_tree_widget is None:
+            self._directory_tree_widget = self.query_one(
+                "#workspace-directory-tree",
+                DirectoryTree,
+            )
+        return self._directory_tree_widget
+
+    def _preflight_static(self) -> Static:
+        if self._preflight_widget is None:
+            self._preflight_widget = self.query_one("#workspace-preflight", Static)
+        return self._preflight_widget
+
+    def _status_static(self) -> Static:
+        if self._status_widget is None:
+            self._status_widget = self.query_one("#workspace-picker-status", Static)
+        return self._status_widget
 
     def _label(self, key: str) -> str:
         return _label(self.lang, key)

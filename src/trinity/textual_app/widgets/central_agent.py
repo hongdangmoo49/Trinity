@@ -15,6 +15,7 @@ from trinity.textual_app.snapshot import (
     WorkflowNexusSnapshot,
 )
 from trinity.textual_app.presenters import (
+    CentralActionPlan,
     central_action_plan,
     should_show_blueprint_actions,
     should_show_repair_actions,
@@ -99,9 +100,10 @@ class CentralAgentView(VerticalScroll):
         if local_commands_key != self._local_commands_key:
             self._render_local_command_tables(snapshot.local_commands)
             self._local_commands_key = local_commands_key
-        actions_key = self._blueprint_actions_key(snapshot)
+        action_plan = central_action_plan(snapshot)
+        actions_key = self._action_plan_key(action_plan)
         if actions_key != self._actions_key:
-            self._render_blueprint_actions(snapshot)
+            self._render_blueprint_actions(action_plan)
             self._actions_key = actions_key
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -457,29 +459,17 @@ class CentralAgentView(VerticalScroll):
         return f"- `{status}` by `{reviewer}`"
 
     @staticmethod
-    def _blueprint_actions_key(snapshot: WorkflowNexusSnapshot) -> tuple[object, ...]:
+    def _action_plan_key(plan: CentralActionPlan) -> tuple[object, ...]:
         return (
-            snapshot.state,
-            tuple(snapshot.central_work_packages),
-            tuple(snapshot.work_packages),
-            (
-                snapshot.execution_recovery.state
-                if snapshot.execution_recovery is not None
-                else ""
-            ),
-            (
-                tuple(snapshot.execution_recovery.retry_candidates)
-                if snapshot.execution_recovery is not None
-                else ()
-            ),
+            plan.title_key,
             tuple(
                 (
-                    package.id,
-                    package.status,
-                    package.repair_blocked_reason,
-                    package.repair_attempt_count,
+                    button.action,
+                    button.label_key,
+                    button.variant,
+                    button.tooltip_key,
                 )
-                for package in snapshot.work_package_details
+                for button in plan.buttons
             ),
         )
 
@@ -491,7 +481,7 @@ class CentralAgentView(VerticalScroll):
     def _should_show_blueprint_actions(snapshot: WorkflowNexusSnapshot) -> bool:
         return should_show_blueprint_actions(snapshot)
 
-    def _render_blueprint_actions(self, snapshot: WorkflowNexusSnapshot) -> None:
+    def _render_blueprint_actions(self, plan: CentralActionPlan) -> None:
         title = self.query_one("#central-action-title", Static)
         container = self.query_one("#central-actions", Grid)
         container.remove_children()
@@ -499,7 +489,6 @@ class CentralAgentView(VerticalScroll):
         self._action_render_version += 1
         render_version = self._action_render_version
 
-        plan = central_action_plan(snapshot)
         if not plan.buttons:
             title.update("")
             return

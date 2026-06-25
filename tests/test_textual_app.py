@@ -9088,7 +9088,7 @@ async def test_work_package_detail_modal_supports_korean_chrome_labels(
         assert "- 리뷰: `변경 요청`" in markdown
         assert "- 소유자: `codex`" in markdown
         assert "- 실행 필요: `예`" in markdown
-        assert "## 액션 컨텍스트" in markdown
+        assert "## 작업 맥락" in markdown
         assert "- 재시도 후보: `WP-001`" in markdown
         assert "- 차단 근거: Missing schema." in markdown
         assert "- 리뷰가 완료 전 1개 변경을 요청했습니다." in markdown

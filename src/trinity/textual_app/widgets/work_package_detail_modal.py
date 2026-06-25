@@ -22,7 +22,7 @@ from trinity.textual_app.widgets.status_label import (
 _LABELS = {
     "ko": {
         "acceptance_criteria": "인수 기준",
-        "action_context": "액션 컨텍스트",
+        "action_context": "작업 맥락",
         "additional_blockers": "추가 차단 요소",
         "agent": "에이전트",
         "available": "가능",

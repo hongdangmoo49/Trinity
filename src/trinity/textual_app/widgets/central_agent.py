@@ -76,6 +76,7 @@ class CentralAgentView(VerticalScroll):
         self._markdown_key = ""
         self._local_commands_key: tuple[object, ...] = ()
         self._actions_key: tuple[object, ...] = ()
+        self._applied_snapshot_identity: int | None = None
 
     def compose(self) -> ComposeResult:
         yield Static(self._label("title"), id="central-title")
@@ -87,9 +88,17 @@ class CentralAgentView(VerticalScroll):
             pass
 
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
+        snapshot_identity = id(snapshot)
+        if (
+            self.is_mounted
+            and self._applied_snapshot_identity == snapshot_identity
+        ):
+            self.snapshot = snapshot
+            return
         self.snapshot = snapshot
         if not self.is_mounted:
             return
+        self._applied_snapshot_identity = snapshot_identity
         self.set_class(self._is_running(), "central-running")
         self._refresh_title()
         markdown = self._markdown()

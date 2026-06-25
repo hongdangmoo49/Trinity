@@ -1980,6 +1980,65 @@ async def test_open_model_modal_receives_late_discovered_models(tmp_path) -> Non
 
 
 @pytest.mark.asyncio
+async def test_app_skips_unchanged_discovered_model_choice_sync(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config, FakeWorkflowController())
+    spec = config.agents["claude"]
+    initial = (
+        ProviderModelChoice(
+            provider=spec.provider,
+            model="default",
+            label="claude(default)",
+            source="static-fallback",
+            is_default=True,
+            context_budget=200_000,
+        ),
+    )
+    updated = (
+        *initial,
+        ProviderModelChoice(
+            provider=spec.provider,
+            model="opus",
+            label="opus",
+            source="cli-live",
+            context_budget=1_000_000,
+        ),
+    )
+
+    async with app.run_test(size=(120, 34)) as pilot:
+        await pilot.pause()
+        app._apply_discovered_model_choices({"claude": initial})
+        await pilot.pause()
+
+        start = app.get_screen("start", StartScreen)
+        nexus = app.get_screen("nexus", NexusScreen)
+        calls: list[tuple[str, dict[str, tuple[ProviderModelChoice, ...]]]] = []
+
+        def counted_start(choices_by_agent) -> None:
+            calls.append(("start", dict(choices_by_agent)))
+
+        def counted_nexus(choices_by_agent) -> None:
+            calls.append(("nexus", dict(choices_by_agent)))
+
+        monkeypatch.setattr(start, "set_agent_model_choices", counted_start)
+        monkeypatch.setattr(nexus, "set_agent_model_choices", counted_nexus)
+
+        app._apply_discovered_model_choices({"claude": tuple(initial)})
+        await pilot.pause()
+        assert calls == []
+
+        app._apply_discovered_model_choices({"claude": updated})
+        await pilot.pause()
+        assert calls == [
+            ("start", {"claude": updated}),
+            ("nexus", {"claude": updated}),
+        ]
+
+
+@pytest.mark.asyncio
 async def test_textual_app_switches_named_routes(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

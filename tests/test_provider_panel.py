@@ -1,11 +1,22 @@
 from __future__ import annotations
 
 import pytest
+from textual.app import App, ComposeResult
+from textual.widgets import Static
 
 from trinity.textual_app.widgets.provider_panel import (
     ProviderPanel,
     ProviderPanelState,
 )
+
+
+class ProviderPanelHarness(App[None]):
+    def __init__(self, panel: ProviderPanel) -> None:
+        super().__init__()
+        self.panel = panel
+
+    def compose(self) -> ComposeResult:
+        yield self.panel
 
 
 @pytest.mark.parametrize(
@@ -98,6 +109,67 @@ def test_provider_panel_supports_all_korean_status_labels(
     panel = ProviderPanel(state, lang="ko")
 
     assert expected_label in panel._status_label()
+
+
+@pytest.mark.asyncio
+async def test_provider_panel_activity_frame_updates_only_running_status() -> None:
+    ready_panel = ProviderPanel(
+        ProviderPanelState(
+            name="codex",
+            provider="codex",
+            enabled=True,
+            status="Ready",
+        )
+    )
+    app = ProviderPanelHarness(ready_panel)
+
+    async with app.run_test(size=(60, 10)) as pilot:
+        await pilot.pause()
+        status = ready_panel.query_one(".provider-status", Static)
+        updates: list[str] = []
+        original_update = status.update
+
+        def counted_update(content) -> None:
+            updates.append(str(content))
+            original_update(content)
+
+        status.update = counted_update
+
+        ready_panel.set_activity_frame(1)
+        await pilot.pause()
+
+        assert ready_panel._activity_frame == 1
+        assert updates == []
+
+
+@pytest.mark.asyncio
+async def test_provider_panel_activity_frame_updates_running_status() -> None:
+    running_panel = ProviderPanel(
+        ProviderPanelState(
+            name="codex",
+            provider="codex",
+            enabled=True,
+            status="Running",
+        )
+    )
+    app = ProviderPanelHarness(running_panel)
+
+    async with app.run_test(size=(60, 10)) as pilot:
+        await pilot.pause()
+        status = running_panel.query_one(".provider-status", Static)
+        updates: list[str] = []
+        original_update = status.update
+
+        def counted_update(content) -> None:
+            updates.append(str(content))
+            original_update(content)
+
+        status.update = counted_update
+
+        running_panel.set_activity_frame(1)
+        await pilot.pause()
+
+        assert updates == ["/ RUN"]
 
 
 def test_provider_panel_treats_error_summary_as_issue() -> None:

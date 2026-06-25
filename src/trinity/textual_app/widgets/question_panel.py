@@ -42,6 +42,7 @@ class QuestionPanel(VerticalScroll):
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
+        self._reset_render_cache()
         title = Static("", id="question-panel-title")
         self._title_widget = title
         yield title
@@ -132,6 +133,12 @@ class QuestionPanel(VerticalScroll):
     def _reset_widget_cache(self) -> None:
         self._title_widget = None
         self._body_container = None
+
+    def _reset_render_cache(self) -> None:
+        self._button_answers = {}
+        self._questions_key = None
+        self._empty_state_key = None
+        self._title_key = ""
 
     def _title_static(self) -> Static:
         if self._title_widget is None:

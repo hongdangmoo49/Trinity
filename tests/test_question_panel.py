@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 from textual.app import App, ComposeResult
-from textual.widgets import Static
+from textual.widgets import Button, Static
 
 from trinity.textual_app.snapshot import QuestionSnapshot
 from trinity.textual_app.widgets.question_panel import QuestionPanel
@@ -250,3 +250,67 @@ async def test_question_panel_renders_initial_empty_state() -> None:
 
         empty = panel.query_one(".question-empty", Static)
         assert str(empty.content) == "No questions waiting for an answer."
+
+
+@pytest.mark.asyncio
+async def test_question_panel_recompose_resets_render_identity_caches() -> None:
+    panel = QuestionPanel()
+    question = QuestionSnapshot(
+        id="q-1",
+        question="Choose a direction?",
+        options=["fast", "safe"],
+        recommended_option="safe",
+    )
+    app = QuestionPanelHarness(panel)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        await pilot.pause()
+        panel.apply_questions([question])
+        await pilot.pause()
+
+        first_title = panel._title_widget
+        first_body = panel._body_container
+        assert panel._questions_key is not None
+        assert panel._empty_state_key is False
+        assert panel._title_key == "Question for You"
+        assert panel._button_answers
+
+        panel.refresh(recompose=True)
+        await pilot.pause()
+
+        assert panel._title_widget is not first_title
+        assert panel._body_container is not first_body
+        assert panel._questions_key is None
+        assert panel._empty_state_key is None
+        assert panel._title_key == ""
+        assert panel._button_answers == {}
+
+        query_calls: list[str] = []
+        original_query_one = panel.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if selector in {"#question-panel-title", "#question-panel-body"}:
+                query_calls.append(str(selector))
+            return original_query_one(selector, *args, **kwargs)
+
+        panel.query_one = counted_query_one
+
+        panel.apply_questions([question])
+        await pilot.pause()
+
+        assert query_calls == []
+        assert str(panel._title_widget.content) == "Question for You"
+        assert panel._questions_key is not None
+        assert panel._empty_state_key is False
+        assert panel._button_answers["answer-q-1-1"].answer == "fast"
+        assert panel._button_answers["answer-q-1-2"].answer == "safe"
+        buttons = [
+            child
+            for row in panel._body_container.children
+            for child in getattr(row, "children", ())
+            if isinstance(child, Button)
+        ]
+        assert [str(button.label) for button in buttons] == [
+            "fast",
+            "safe (recommended)",
+        ]

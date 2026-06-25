@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 from textual.app import App
 from textual.widgets import RichLog, Static
@@ -14,6 +16,10 @@ class ExecutionLogModalHarness(App[None]):
 
     def on_mount(self) -> None:
         self.push_screen(self.modal)
+
+
+def _input_event(value: str, *, input_id: str = "execution-log-search"):
+    return SimpleNamespace(input=SimpleNamespace(id=input_id), value=value)
 
 
 @pytest.mark.asyncio
@@ -65,3 +71,27 @@ async def test_execution_log_modal_skips_unchanged_render_state() -> None:
         assert status_updates == []
         assert clears == []
         assert writes == []
+
+
+@pytest.mark.asyncio
+async def test_execution_log_modal_skips_unchanged_search_query() -> None:
+    modal = ExecutionLogModal(["WP-001 failed", "WP-002 completed"])
+    app = ExecutionLogModalHarness(modal)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+        calls: list[str] = []
+        modal.filter_query = "fail"
+
+        def counted_refresh() -> None:
+            calls.append(modal.filter_query)
+
+        modal._refresh_log = counted_refresh
+
+        modal.on_input_changed(_input_event(" fail "))
+        assert calls == []
+        assert modal.filter_query == "fail"
+
+        modal.on_input_changed(_input_event("complete"))
+        assert calls == ["complete"]
+        assert modal.filter_query == "complete"

@@ -4254,7 +4254,7 @@ async def test_start_slash_workflow_uses_korean_local_command_modal_chrome(
         assert str(app.screen.query_one("#close-local-command", Button).label) == "닫기"
         assert app.active_snapshot is not None
         result = app.active_snapshot.local_commands[-1]
-        assert result.title == "Workflow"
+        assert result.title == "워크플로우"
         assert result.table_columns == ("항목", "값")
         assert ("상태", "설계 준비") in result.table_rows
         assert "- 상태: `설계 준비`" in result.body
@@ -4298,6 +4298,7 @@ async def test_start_slash_questions_uses_korean_labels(tmp_path) -> None:
         assert app.active_snapshot is not None
         result = app.active_snapshot.local_commands[-1]
         assert result.command == "/questions"
+        assert result.title == "질문"
         assert result.table_columns == ("ID", "상태", "질문", "선택지")
         assert result.table_rows[0] == ("q-1", "열림", "Theme?", "dark, light")
         assert result.action_hint.startswith("질문 패널")
@@ -4334,6 +4335,7 @@ async def test_start_slash_decisions_uses_korean_labels(tmp_path) -> None:
         assert app.active_snapshot is not None
         result = app.active_snapshot.local_commands[-1]
         assert result.command == "/decisions"
+        assert result.title == "결정"
         assert result.table_columns == ("#", "결정")
         assert result.table_rows == (("1", "Use dark theme."),)
         assert result.action_hint == ""
@@ -4387,6 +4389,7 @@ async def test_start_slash_packages_uses_korean_labels(tmp_path) -> None:
         assert app.active_snapshot is not None
         result = app.active_snapshot.local_commands[-1]
         assert result.command == "/packages"
+        assert result.title == "작업 패키지"
         assert result.table_columns == ("#", "출처", "작업 패키지")
         assert result.table_rows[0] == ("1", "중앙", "WP-001 claude: Plan")
         assert result.table_rows[1] == ("2", "로컬", "WP-002 codex: Build")
@@ -4449,6 +4452,7 @@ async def test_start_slash_subtasks_uses_korean_labels(tmp_path) -> None:
         assert app.active_snapshot is not None
         result = app.active_snapshot.local_commands[-1]
         assert result.command == "/subtasks"
+        assert result.title == "하위 작업"
         assert result.table_columns == ("ID", "작업 패키지", "위임 대상", "상태", "요약")
         assert result.table_rows[0] == ("ST-001", "WP-001", "codex", "완료", "Done")
         assert "1. **ST-001** [완료] WP-001 -> codex: Done" in result.body
@@ -4911,6 +4915,7 @@ async def test_start_slash_history_uses_korean_labels(tmp_path) -> None:
         assert app.active_snapshot is not None
         result = app.active_snapshot.local_commands[-1]
         assert result.command == "/history"
+        assert result.title == "워크플로우 이력"
         assert result.table_columns == ("종류", "항목")
         assert ("워크플로우", "wf-fake") in result.table_rows
         assert ("실행", "WP-001 codex: done") in result.table_rows

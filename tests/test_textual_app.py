@@ -571,6 +571,7 @@ def test_textual_app_localizes_command_palette_bindings_in_korean(tmp_path) -> N
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
 
     assert _binding_description(app._bindings, "ctrl+q", "quit") == "종료"
+    assert _binding_description(app._bindings, "ctrl+4", "go_report") == "리포트"
     assert _binding_description(app._bindings, "ctrl+p", "command_palette") == "팔레트"
     assert _binding_tooltip(app._bindings, "ctrl+p", "command_palette") == "명령 팔레트 열기"
 

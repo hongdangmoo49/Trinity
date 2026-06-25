@@ -19,6 +19,14 @@ class StartScreenHarness(App[None]):
         self.push_screen(self.target_screen)
 
 
+class _DisplayPath:
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+    def __str__(self) -> str:
+        return self.text
+
+
 @pytest.mark.asyncio
 async def test_start_workspace_label_skips_unchanged_update(tmp_path: Path) -> None:
     control_repo = tmp_path / "control"
@@ -88,3 +96,35 @@ async def test_start_workspace_candidate_skips_unchanged_widget_query(
         screen.set_workspace_candidate(next_target)
         await pilot.pause()
         assert queries == ["#workspace-candidate"]
+
+
+@pytest.mark.asyncio
+async def test_start_workspace_label_skips_query_when_rendered_label_matches(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target"
+    control_repo.mkdir()
+    target.mkdir()
+    screen = StartScreen(
+        TrinityConfig.default_config(project_dir=control_repo),
+        workspace_candidate=target,
+    )
+    app = StartScreenHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        queries: list[str] = []
+        original_query_one = screen.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            queries.append(str(selector))
+            return original_query_one(selector, *args, **kwargs)
+
+        monkeypatch.setattr(screen, "query_one", counted_query_one)
+
+        screen.set_workspace_candidate(_DisplayPath(str(target)))
+        await pilot.pause()
+
+        assert queries == []

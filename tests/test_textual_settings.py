@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 from textual.app import App
-from textual.widgets import Static
+from textual.widgets import Select, Static
 
 from trinity.config import TrinityConfig
 from trinity.textual_app.screens.settings import SettingsScreen
@@ -123,4 +123,46 @@ async def test_settings_apply_uses_cached_controls(tmp_path) -> None:
 
         assert queries == []
         assert screen._status_widget is not None
+        assert str(screen._status_widget.content) == "Saved"
+
+
+@pytest.mark.asyncio
+async def test_settings_recompose_rebinds_cached_controls(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        first_select = screen._select_cache["theme-mode"]
+        first_status = screen._status_widget
+
+        screen.action_apply()
+        await pilot.pause()
+        assert screen._status_key == "Saved"
+
+        screen.refresh(recompose=True)
+        await pilot.pause()
+
+        assert screen._select_cache["theme-mode"] is not first_select
+        assert screen._status_widget is not None
+        assert screen._status_widget is not first_status
+        assert screen._status_key == ""
+        assert str(screen._status_widget.content) == ""
+
+        queries: list[str] = []
+        original_query_one = screen.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if selector in {"#theme-mode", "#settings-status"}:
+                queries.append(str(selector))
+            return original_query_one(selector, *args, **kwargs)
+
+        screen.query_one = counted_query_one
+
+        screen.action_apply()
+        await pilot.pause()
+
+        assert queries == []
+        assert isinstance(screen._select_cache["theme-mode"], Select)
         assert str(screen._status_widget.content) == "Saved"

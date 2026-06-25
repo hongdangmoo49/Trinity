@@ -45,6 +45,10 @@ class SettingsScreen(Screen[None]):
         self._status_widget: Static | None = None
 
     def compose(self) -> ComposeResult:
+        self._select_cache = {}
+        self._preview_widget = None
+        self._status_widget = None
+        self._status_key = ""
         yield Header(show_clock=False)
         with VerticalScroll(id="settings-screen"):
             yield Static(self._label("settings"), id="settings-title")

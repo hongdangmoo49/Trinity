@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 
 RUNNING_STATUSES = {"deliberating", "executing", "reviewing", "running"}
 WAITING_STATUSES = {
@@ -80,6 +82,23 @@ RETRY_DISABLED_REASON_LABELS = {
     "en": {},
 }
 
+CONSENSUS_PROGRESS_LABELS = {
+    "ko": {
+        "agreed": "합의됨",
+        "blueprint ready": "설계 준비됨",
+    },
+    "en": {},
+}
+
+ROUND_PROGRESS_RE = re.compile(
+    r"^round (?P<round>\d+)(?: (?P<detail>.*))?$",
+    re.IGNORECASE,
+)
+CONSENSUS_RESULT_RE = re.compile(
+    r"^consensus (?P<state>reached|not reached) \((?P<vote>[^)]+)\)$",
+    re.IGNORECASE,
+)
+
 READINESS_VALUE_LABELS = {
     "ko": {
         "ready": "준비됨",
@@ -125,6 +144,55 @@ def display_retry_disabled_reason(
             return "현재 상태를 알 수 없음"
         return f"현재 상태가 {display_status_value(status, lang=lang)} 상태임"
     return raw
+
+
+def display_consensus_progress(
+    progress: str,
+    *,
+    lang: str = "en",
+    empty: str = "",
+) -> str:
+    """Return a localized display value for consensus progress text."""
+    raw = str(progress or "").strip()
+    if not raw:
+        return empty
+    if lang != "ko":
+        return raw
+
+    normalized = raw.lower()
+    fallback_suffix = ""
+    if normalized.endswith("; fallback used"):
+        raw = raw[: -len("; fallback used")].strip()
+        normalized = raw.lower()
+        fallback_suffix = " · 대체 종합 사용"
+
+    labels = CONSENSUS_PROGRESS_LABELS.get(lang, CONSENSUS_PROGRESS_LABELS["en"])
+    if normalized in labels:
+        return f"{labels[normalized]}{fallback_suffix}"
+
+    round_match = ROUND_PROGRESS_RE.match(raw)
+    if not round_match:
+        return str(progress or "").strip()
+
+    round_num = round_match.group("round")
+    detail = (round_match.group("detail") or "").strip().lower()
+    if not detail:
+        return f"{round_num}라운드{fallback_suffix}"
+    if detail == "collecting":
+        return f"{round_num}라운드 응답 수집 중{fallback_suffix}"
+    if detail == "synthesizing":
+        return f"{round_num}라운드 종합 중{fallback_suffix}"
+
+    result_match = CONSENSUS_RESULT_RE.match(detail)
+    if result_match:
+        state = (
+            "합의 도달"
+            if result_match.group("state").lower() == "reached"
+            else "합의 미도달"
+        )
+        return f"{round_num}라운드 {state} ({result_match.group('vote')}){fallback_suffix}"
+
+    return str(progress or "").strip()
 
 
 def display_readiness_value(

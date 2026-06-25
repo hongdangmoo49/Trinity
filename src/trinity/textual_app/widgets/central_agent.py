@@ -26,7 +26,10 @@ from trinity.textual_app.widgets.progress_summary import (
     progress_summary_line,
     work_package_counts,
 )
-from trinity.textual_app.widgets.status_label import display_status_value
+from trinity.textual_app.widgets.status_label import (
+    display_consensus_progress,
+    display_status_value,
+)
 
 
 ACTIVITY_FRAMES = ("|", "/", "-", "\\")
@@ -123,8 +126,12 @@ class CentralAgentView(VerticalScroll):
 
         lines = [f"**{self._label('progress')}:** {self._progress_line(snapshot)}"]
         if snapshot.synthesis.consensus_progress:
+            progress = display_consensus_progress(
+                snapshot.synthesis.consensus_progress,
+                lang=self.lang,
+            )
             lines.append(
-                f"**{self._label('synthesis')}:** `{snapshot.synthesis.consensus_progress}`"
+                f"**{self._label('synthesis')}:** `{progress}`"
             )
         if snapshot.goal:
             lines.extend(["", f"### {self._label('goal')}", snapshot.goal])

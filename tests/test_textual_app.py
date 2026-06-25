@@ -181,7 +181,12 @@ from trinity.textual_app.screens.execution_matrix import (
     _review_label,
 )
 from trinity.textual_app.screens.nexus import NexusScreen
-from trinity.textual_app.screens.report import ReportScreen, _field_label, _section_label
+from trinity.textual_app.screens.report import (
+    ReportScreen,
+    _field_label,
+    _render_synthesis,
+    _section_label,
+)
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import SacredGeometryAnimation, StartScreen
 from trinity.textual_app.slash_palette import SlashCommandPaletteProvider
@@ -789,6 +794,8 @@ def test_context_markdown_uses_korean_labels() -> None:
 
     assert "- 워크플로우: `wf-ko`" in markdown
     assert "- 상태: `설계 준비`" in markdown
+    assert "- 종합: `설계 준비됨`" in markdown
+    assert "blueprint ready" not in markdown
     assert "### 종합" in markdown
     assert "### 질문" in markdown
     assert "- **q1** [답변됨] 진행할까요?" in markdown
@@ -1263,6 +1270,16 @@ def test_report_presenter_uses_korean_labels() -> None:
     assert _section_label("Review Repairs", lang="ko") == "리뷰 보정"
     assert _field_label("Risk", lang="ko") == "리스크"
     assert _field_label("Risks", lang="ko") == "리스크"
+    rendered = _render_synthesis(
+        SynthesisSnapshot(
+            summary="추가 합의가 필요합니다.",
+            consensus_progress="round 1 consensus not reached (1/3); fallback used",
+            source="runtime",
+        ),
+        lang="ko",
+    )
+    assert "1라운드 합의 미도달 (1/3) · 대체 종합 사용" in rendered
+    assert "round 1 consensus not reached" not in rendered
     assert report_summary_rows(snapshot, lang="ko") == (
         ("워크플로우", "wf-report"),
         ("상태", "완료"),
@@ -2651,6 +2668,22 @@ def test_snapshot_report_markdown_includes_agent_quality_metadata() -> None:
     assert "## Advisory Agent Quality" in md
     assert "**codex**: score 0\\.667; success 2/3" in md
     assert "blockers 1; required changes 4" in md
+
+
+def test_snapshot_report_markdown_localizes_korean_consensus_progress() -> None:
+    markdown = snapshot_report_markdown(
+        WorkflowNexusSnapshot(
+            synthesis=SynthesisSnapshot(
+                summary="중앙 에이전트가 응답을 종합 중입니다.",
+                consensus_progress="round 1 synthesizing",
+                source="runtime",
+            )
+        ),
+        lang="ko",
+    )
+
+    assert "**진행**: 1라운드 종합 중" in markdown
+    assert "round 1 synthesizing" not in markdown
 
 
 @pytest.mark.asyncio

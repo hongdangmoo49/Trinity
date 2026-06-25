@@ -10,6 +10,7 @@ from trinity.slash_commands import COMMAND_SPECS
 from trinity.display_labels import display_kind_value, display_severity_value
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.status_label import (
+    display_consensus_progress,
     display_readiness_value,
     display_review_status_value,
     display_status_value,
@@ -1611,9 +1612,13 @@ def snapshot_context_markdown(
         f"- {_sc_label(lang, 'round')}: `{snapshot.round_num}`",
     ]
     if snapshot.synthesis.consensus_progress:
+        progress = display_consensus_progress(
+            snapshot.synthesis.consensus_progress,
+            lang=lang,
+        )
         lines.append(
             f"- {_sc_label(lang, 'synthesis')}: "
-            f"`{snapshot.synthesis.consensus_progress}`"
+            f"`{progress}`"
         )
     if snapshot.synthesis.summary:
         lines.extend(["", f"### {_sc_label(lang, 'synthesis')}", snapshot.synthesis.summary])

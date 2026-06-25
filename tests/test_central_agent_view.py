@@ -121,6 +121,8 @@ def test_central_markdown_compacts_verbose_blueprint_for_user_view() -> None:
     assert "Acceptance Criteria" not in markdown
     assert "file://" not in markdown
     assert "WP-001 claude: 입력 채널" not in markdown
+    assert "**종합:** `설계 준비됨`" in markdown
+    assert "blueprint ready" not in markdown
     assert "3개 작업 패키지" in markdown
     assert "상세 설계와 작업 패키지 목록은 인스펙터 또는 리포트" in markdown
 

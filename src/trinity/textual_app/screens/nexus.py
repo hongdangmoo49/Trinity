@@ -475,18 +475,20 @@ class NexusScreen(Screen[None]):
     def _has_activity_frame_targets(self) -> bool:
         if not self.is_mounted:
             return False
-        central = self.query_one(CentralAgentView)
-        if central.has_running_activity():
+        if self.snapshot is not None and self._central_snapshot_is_running(
+            self.snapshot
+        ):
             return True
-        return any(panel.has_running_activity() for panel in self.query(ProviderPanel))
+        return any(
+            ProviderPanel._state_group(state) == "running"
+            for state in self._provider_state_cache.values()
+        )
 
     def _snapshot_has_activity_frame_targets(
         self,
         snapshot: WorkflowNexusSnapshot,
     ) -> bool:
-        if snapshot.synthesis.status in {"running", "waiting"}:
-            return True
-        if snapshot.state in {"preflight", "deliberating", "executing", "reviewing"}:
+        if self._central_snapshot_is_running(snapshot):
             return True
         return any(
             ProviderPanel._state_group(
@@ -494,6 +496,14 @@ class NexusScreen(Screen[None]):
             ) == "running"
             for provider in snapshot.providers
         )
+
+    @staticmethod
+    def _central_snapshot_is_running(snapshot: WorkflowNexusSnapshot) -> bool:
+        if snapshot.synthesis.status in {"running", "waiting"}:
+            return True
+        if snapshot.state in {"preflight", "deliberating", "executing", "reviewing"}:
+            return True
+        return False
 
     def _initial_provider_states(self) -> list[ProviderPanelState]:
         return [

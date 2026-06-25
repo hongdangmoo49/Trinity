@@ -66,12 +66,24 @@ class ProviderPanel(Vertical):
     def update_state(self, state: ProviderPanelState) -> None:
         if state == self.state:
             return
+        previous_name = self.state.name.title()
+        previous_provider_line = self._provider_line()
+        previous_status_label = self._status_label()
+        previous_summary_line = self._summary_line()
         self.state = state
         self.set_classes(self._classes_for(state))
-        self.query_one(".provider-name", Static).update(state.name.title())
-        self.query_one(".provider-meta", Static).update(self._provider_line())
-        self.query_one(".provider-status", Static).update(self._status_label())
-        self.query_one(".provider-summary", Static).update(self._summary_line())
+        name = state.name.title()
+        provider_line = self._provider_line()
+        status_label = self._status_label()
+        summary_line = self._summary_line()
+        if name != previous_name:
+            self.query_one(".provider-name", Static).update(name)
+        if provider_line != previous_provider_line:
+            self.query_one(".provider-meta", Static).update(provider_line)
+        if status_label != previous_status_label:
+            self.query_one(".provider-status", Static).update(status_label)
+        if summary_line != previous_summary_line:
+            self.query_one(".provider-summary", Static).update(summary_line)
 
     def set_activity_frame(self, frame: int) -> None:
         self._activity_frame = frame % len(ACTIVITY_FRAMES)

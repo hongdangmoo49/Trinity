@@ -367,6 +367,35 @@ async def test_central_activity_frame_skips_idle_title_update() -> None:
 
 
 @pytest.mark.asyncio
+async def test_central_apply_snapshot_skips_unchanged_title_update() -> None:
+    view = CentralAgentView()
+    snapshot = WorkflowNexusSnapshot(state="blueprint_ready")
+    app = CentralAgentHarness(view)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        view.apply_snapshot(snapshot)
+        await pilot.pause()
+        title = view.query_one("#central-title", Static)
+        updates: list[str] = []
+        original_update = title.update
+
+        def counted_update(content) -> None:
+            updates.append(str(content))
+            original_update(content)
+
+        title.update = counted_update
+
+        view.apply_snapshot(snapshot)
+        await pilot.pause()
+        assert updates == []
+
+        view.apply_snapshot(WorkflowNexusSnapshot(state="executing"))
+        await pilot.pause()
+
+        assert updates == ["Central Agent |"]
+
+
+@pytest.mark.asyncio
 async def test_central_activity_frame_updates_running_title() -> None:
     view = CentralAgentView()
     view.snapshot = WorkflowNexusSnapshot(state="executing")

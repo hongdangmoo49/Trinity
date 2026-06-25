@@ -71,6 +71,7 @@ class CentralAgentView(VerticalScroll):
         self._button_actions: dict[str, str] = {}
         self._action_render_version = 0
         self._activity_frame = 0
+        self._title_key = ""
         self._markdown_key = ""
         self._local_commands_key: tuple[object, ...] = ()
         self._actions_key: tuple[object, ...] = ()
@@ -666,7 +667,10 @@ class CentralAgentView(VerticalScroll):
         title = self._label("title")
         if self._is_running():
             title = f"{title} {ACTIVITY_FRAMES[self._activity_frame]}"
+        if title == self._title_key:
+            return
         self.query_one("#central-title", Static).update(title)
+        self._title_key = title
 
     def _is_running(self) -> bool:
         snapshot = self.snapshot

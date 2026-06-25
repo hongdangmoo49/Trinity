@@ -178,6 +178,7 @@ class PromptComposer(Vertical):
         self._ignore_next_submit = False
         self._pasted_content: list[tuple[str, str]] = []
         self._command_options_key: tuple[object, ...] | None = None
+        self._command_palette_visible_key: bool | None = None
         self.lang = lang
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
@@ -364,9 +365,12 @@ class PromptComposer(Vertical):
     def _set_command_palette_visible(self, visible: bool) -> None:
         if not self.is_mounted:
             return
+        if visible == self._command_palette_visible_key:
+            return
         palette = self.query_one("#prompt-command-palette", Vertical)
         palette.display = visible
         self.set_class(visible, "-commands-open")
+        self._command_palette_visible_key = visible
 
     def move_command_selection(self, delta: int) -> bool:
         if not self.command_palette_open or not self._command_matches:

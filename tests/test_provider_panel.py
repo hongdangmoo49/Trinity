@@ -228,6 +228,47 @@ async def test_provider_panel_status_change_updates_only_status_field() -> None:
         }
 
 
+@pytest.mark.asyncio
+async def test_provider_panel_summary_change_skips_unchanged_classes() -> None:
+    panel = ProviderPanel(
+        ProviderPanelState(
+            name="codex",
+            provider="codex",
+            enabled=True,
+            status="Running",
+            summary="First update.",
+        )
+    )
+    app = ProviderPanelHarness(panel)
+
+    async with app.run_test(size=(60, 10)) as pilot:
+        await pilot.pause()
+        class_updates: list[str] = []
+        original_set_classes = panel.set_classes
+
+        def counted_set_classes(classes: str) -> None:
+            class_updates.append(classes)
+            original_set_classes(classes)
+
+        panel.set_classes = counted_set_classes
+
+        panel.update_state(
+            ProviderPanelState(
+                name="codex",
+                provider="codex",
+                enabled=True,
+                status="Running",
+                summary="Second update.",
+            )
+        )
+        await pilot.pause()
+
+        assert class_updates == []
+        assert "Second update." in str(
+            panel.query_one(".provider-summary", Static).content
+        )
+
+
 def test_provider_panel_treats_error_summary_as_issue() -> None:
     state = ProviderPanelState(
         name="claude",

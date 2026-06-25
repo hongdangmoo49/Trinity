@@ -70,8 +70,11 @@ class ProviderPanel(Vertical):
         previous_provider_line = self._provider_line()
         previous_status_label = self._status_label()
         previous_summary_line = self._summary_line()
+        previous_classes = self._classes_for(self.state)
         self.state = state
-        self.set_classes(self._classes_for(state))
+        classes = self._classes_for(state)
+        if classes != previous_classes:
+            self.set_classes(classes)
         name = state.name.title()
         provider_line = self._provider_line()
         status_label = self._status_label()

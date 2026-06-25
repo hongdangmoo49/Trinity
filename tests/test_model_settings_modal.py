@@ -159,3 +159,55 @@ async def test_model_settings_modal_skips_selected_option_refresh(tmp_path) -> N
 
         assert refresh_calls == [True]
         assert modal.selected_models["claude"] == "opus"
+
+
+@pytest.mark.asyncio
+async def test_model_settings_modal_skips_unchanged_highlight_sync(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    spec = config.agents["claude"]
+    choices = (
+        ProviderModelChoice(
+            provider=spec.provider,
+            model="default",
+            label="default",
+            source="static-fallback",
+            context_budget=None,
+        ),
+        ProviderModelChoice(
+            provider=spec.provider,
+            model="opus",
+            label="opus",
+            source="cli-live",
+            context_budget=None,
+        ),
+    )
+    modal = ModelSettingsModal(
+        config.agents,
+        {"claude": choices},
+        {"claude": "default"},
+    )
+    app = ModelSettingsModalHarness(modal)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+        option_list = modal.query_one("#model-choice-list", OptionList)
+        query_calls: list[str] = []
+        original_query_one = modal.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if selector == "#model-choice-list":
+                query_calls.append(str(selector))
+            return original_query_one(selector, *args, **kwargs)
+
+        modal.query_one = counted_query_one
+
+        modal._sync_choice_highlight()
+        await pilot.pause()
+        assert query_calls == []
+
+        modal.selected_models["claude"] = "opus"
+        modal._sync_choice_highlight()
+        await pilot.pause()
+
+        assert query_calls == ["#model-choice-list"]
+        assert option_list.highlighted == 1

@@ -73,6 +73,7 @@ class CentralAgentView(VerticalScroll):
         self._action_render_version = 0
         self._activity_frame = 0
         self._title_key = ""
+        self._action_title_key = ""
         self._markdown_key = ""
         self._local_commands_key: tuple[object, ...] = ()
         self._actions_key: tuple[object, ...] = ()
@@ -502,7 +503,6 @@ class CentralAgentView(VerticalScroll):
         return should_show_blueprint_actions(snapshot)
 
     def _render_blueprint_actions(self, plan: CentralActionPlan) -> None:
-        title = self.query_one("#central-action-title", Static)
         container = self.query_one("#central-actions", Grid)
         container.remove_children()
         self._button_actions = {}
@@ -510,10 +510,10 @@ class CentralAgentView(VerticalScroll):
         render_version = self._action_render_version
 
         if not plan.buttons:
-            title.update("")
+            self._set_action_title("")
             return
 
-        title.update(self._label(plan.title_key))
+        self._set_action_title(self._label(plan.title_key))
         for button in plan.buttons:
             button_id = f"central-action-{render_version}-{button.action}"
             self._button_actions[button_id] = button.action
@@ -525,6 +525,12 @@ class CentralAgentView(VerticalScroll):
                     tooltip=self._label(button.tooltip_key),
                 )
             )
+
+    def _set_action_title(self, text: str) -> None:
+        if text == self._action_title_key:
+            return
+        self.query_one("#central-action-title", Static).update(text)
+        self._action_title_key = text
 
     def _label(self, key: str) -> str:
         ko = {

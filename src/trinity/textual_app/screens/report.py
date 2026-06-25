@@ -171,6 +171,8 @@ class ReportScreen(Screen[None]):
         self._applied_source_identity: tuple[str, int] | None = None
         self._export_status_key = ""
         self._last_rendered_id: str = ""
+        self._export_status_widget: Static | None = None
+        self._body_widget: VerticalScroll | None = None
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
@@ -183,8 +185,12 @@ class ReportScreen(Screen[None]):
                     id="report-export-btn",
                     variant="primary",
                 )
-                yield Static("", id="report-export-status")
-            with VerticalScroll(id="report-body"):
+                export_status = Static("", id="report-export-status")
+                self._export_status_widget = export_status
+                yield export_status
+            body = VerticalScroll(id="report-body")
+            self._body_widget = body
+            with body:
                 yield Static(
                     self._label("loading"),
                     id="report-placeholder",
@@ -226,7 +232,7 @@ class ReportScreen(Screen[None]):
         status = f"[dim]{self._label('saved').format(path=escape(str(path)))}[/dim]"
         if status == self._export_status_key:
             return
-        self.query_one("#report-export-status", Static).update(status)
+        self._export_status_static().update(status)
         self._export_status_key = status
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -247,7 +253,7 @@ class ReportScreen(Screen[None]):
             return
         self._last_rendered_id = render_id
 
-        body = self.query_one("#report-body", VerticalScroll)
+        body = self._report_body()
 
         # Remove all existing children safely
         for child in list(body.children):
@@ -273,6 +279,18 @@ class ReportScreen(Screen[None]):
     def _label(self, key: str) -> str:
         labels = REPORT_LABELS.get(self.lang, REPORT_LABELS["en"])
         return labels.get(key, REPORT_LABELS["en"][key])
+
+    def _export_status_static(self) -> Static:
+        if self._export_status_widget is not None:
+            return self._export_status_widget
+        self._export_status_widget = self.query_one("#report-export-status", Static)
+        return self._export_status_widget
+
+    def _report_body(self) -> VerticalScroll:
+        if self._body_widget is not None:
+            return self._body_widget
+        self._body_widget = self.query_one("#report-body", VerticalScroll)
+        return self._body_widget
 
     # ── Structured report path (preferred) ──────────────────────────────
 

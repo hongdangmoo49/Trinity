@@ -131,3 +131,52 @@ async def test_report_screen_skips_same_export_status_update() -> None:
         await pilot.pause()
         assert len(updates) == 1
         assert "report-next.md" in updates[0]
+
+
+@pytest.mark.asyncio
+async def test_report_screen_export_status_uses_cached_widget() -> None:
+    screen = ReportScreen()
+    app = ReportHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        queries: list[str] = []
+        original_query_one = screen.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if selector == "#report-export-status":
+                queries.append(str(selector))
+            return original_query_one(selector, *args, **kwargs)
+
+        screen.query_one = counted_query_one
+
+        screen.show_export_path(Path("/tmp/report-cache.md"))
+        await pilot.pause()
+
+        assert queries == []
+        assert "report-cache.md" in str(screen._export_status_widget.content)
+
+
+@pytest.mark.asyncio
+async def test_report_screen_render_uses_cached_body_widget() -> None:
+    screen = ReportScreen()
+    app = ReportHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        queries: list[str] = []
+        original_query_one = screen.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if selector == "#report-body":
+                queries.append(str(selector))
+            return original_query_one(selector, *args, **kwargs)
+
+        screen.query_one = counted_query_one
+
+        screen.apply_snapshot(_snapshot(goal="Render cached body"))
+        await pilot.pause()
+
+        assert queries == []
+        assert screen._body_widget is not None
+        assert screen._body_widget.children

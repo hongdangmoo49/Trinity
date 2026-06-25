@@ -84,7 +84,8 @@ class WorkflowInspector(Vertical):
         self._section_widgets: dict[str, Static] = {}
 
     def compose(self) -> ComposeResult:
-        self._section_widgets = {}
+        self._reset_widget_cache()
+        self._reset_render_cache()
         yield Static(self._label("progress"), classes="inspector-title")
         yield self._section_static("inspector-progress")
         yield Static(self._label("current"), classes="inspector-title")
@@ -247,6 +248,13 @@ class WorkflowInspector(Vertical):
         widget = self.query_one(selector, Static)
         self._section_widgets[selector] = widget
         return widget
+
+    def _reset_widget_cache(self) -> None:
+        self._section_widgets = {}
+
+    def _reset_render_cache(self) -> None:
+        self._section_text = {}
+        self._snapshot_render_key = ()
 
     def _list_or_empty(self, items: list[str], *, limit: int = 5) -> str:
         if not items:

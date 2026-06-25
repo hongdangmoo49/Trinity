@@ -156,7 +156,30 @@ def test_provider_panel_localizes_compact_source_metadata() -> None:
     )
     panel = ProviderPanel(state, lang="ko")
 
-    assert "ctx 272K/로컬" in panel._provider_line()
+    assert "컨텍스트 272K/로컬" in panel._provider_line()
+
+
+def test_provider_panel_localizes_korean_compact_metadata_labels() -> None:
+    state = ProviderPanelState(
+        name="codex",
+        provider="codex",
+        enabled=True,
+        status="Ready",
+        actual_model="gpt-5.5",
+        context_window=272000,
+        budget_source="local_cli_cache",
+        session_id="019ea9e3-426f",
+        output_contract="execution_v1",
+        quality_signal_count=3,
+        quality_success_count=2,
+        quality_score=0.667,
+    )
+    panel = ProviderPanel(state, lang="ko")
+
+    assert panel._provider_line() == (
+        "codex · gpt-5.5 · 컨텍스트 272K/로컬 · 세션 019ea9e3 · "
+        "출력 실행 v1 · 품질 0.667 2/3"
+    )
 
 
 def test_provider_panel_shows_compact_quality_signal_metadata() -> None:

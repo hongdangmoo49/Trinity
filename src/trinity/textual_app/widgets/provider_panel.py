@@ -8,7 +8,7 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Static
 
-from trinity.display_labels import compact_source_value
+from trinity.display_labels import compact_source_value, display_profile_value
 from trinity.textual_app.widgets.status_label import (
     COMPACT_STATUS_LABELS,
     compact_status_group,
@@ -88,10 +88,13 @@ class ProviderPanel(Vertical):
             parts.append(context)
         session = self.state.session_id.strip()
         if session:
-            parts.append(f"sid {session[:8]}")
+            parts.append(f"{self._meta_label('session')} {session[:8]}")
         output_contract = self.state.output_contract.strip()
         if output_contract:
-            parts.append(f"out {output_contract}")
+            parts.append(
+                f"{self._meta_label('output')} "
+                f"{display_profile_value(output_contract, lang=self.lang)}"
+            )
         quality = self._quality_label()
         if quality:
             parts.append(quality)
@@ -125,7 +128,10 @@ class ProviderPanel(Vertical):
     def _context_label(self) -> str:
         if self.state.context_window <= 0:
             return ""
-        label = f"ctx {self._format_context_window(self.state.context_window)}"
+        label = (
+            f"{self._meta_label('context')} "
+            f"{self._format_context_window(self.state.context_window)}"
+        )
         source = self._budget_source_label()
         if source:
             label = f"{label}/{source}"
@@ -134,13 +140,32 @@ class ProviderPanel(Vertical):
     def _quality_label(self) -> str:
         if self.state.quality_signal_count <= 0:
             return ""
+        label = self._meta_label("quality")
+        score = self._format_score(self.state.quality_score)
         return (
-            f"q {self._format_score(self.state.quality_score)} "
+            f"{label} {score} "
             f"{self.state.quality_success_count}/{self.state.quality_signal_count}"
         )
 
     def _budget_source_label(self) -> str:
         return compact_source_value(self.state.budget_source, lang=self.lang)
+
+    def _meta_label(self, key: str) -> str:
+        labels = {
+            "ko": {
+                "context": "컨텍스트",
+                "output": "출력",
+                "quality": "품질",
+                "session": "세션",
+            },
+            "en": {
+                "context": "ctx",
+                "output": "out",
+                "quality": "q",
+                "session": "sid",
+            },
+        }
+        return labels.get(self.lang, labels["en"]).get(key, key)
 
     @staticmethod
     def _format_context_window(context_window: int) -> str:

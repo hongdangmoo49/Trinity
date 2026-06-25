@@ -128,7 +128,7 @@ class ProviderInspector(ModalScreen[None]):
             or provider.summary
             or self._label("no_raw_output")
         )
-        return self._format_output(output)
+        return self._format_output(output, lang=self.lang)
 
     def _provider_meta(self, provider: ProviderSnapshot) -> str:
         lines = [
@@ -213,19 +213,19 @@ class ProviderInspector(ModalScreen[None]):
         return labels.get(key, PROVIDER_INSPECTOR_LABELS["en"][key])
 
     @classmethod
-    def _format_output(cls, output: str) -> str:
+    def _format_output(cls, output: str, *, lang: str = "en") -> str:
         text = output.strip()
         if not text:
             return output
         if len(text) > MAX_DISPLAY_CHARS:
-            return cls._truncate_output(output)
+            return cls._truncate_output(output, lang=lang)
 
         fenced = cls._strip_json_fence(text)
         candidate = fenced if fenced is not None else text
         if not candidate.startswith(("{", "[")):
             return output
         if len(candidate) > MAX_PRETTY_PRINT_CHARS:
-            return cls._truncate_output(output)
+            return cls._truncate_output(output, lang=lang)
 
         try:
             parsed = json.loads(candidate)
@@ -234,14 +234,23 @@ class ProviderInspector(ModalScreen[None]):
         return json.dumps(parsed, indent=2, ensure_ascii=False)
 
     @staticmethod
-    def _truncate_output(output: str) -> str:
+    def _truncate_output(output: str, *, lang: str = "en") -> str:
         if len(output) <= MAX_DISPLAY_CHARS:
             return output
         omitted = len(output) - MAX_DISPLAY_CHARS
         return (
-            f"[truncated {omitted} characters; inspect the raw artifact for full output]"
+            ProviderInspector._truncate_marker(omitted, lang=lang)
             + "\n\n"
             + output[-MAX_DISPLAY_CHARS:]
+        )
+
+    @staticmethod
+    def _truncate_marker(omitted: int, *, lang: str = "en") -> str:
+        if lang == "ko":
+            return f"[{omitted}자 생략됨; 전체 출력은 원본 아티팩트에서 확인하세요]"
+        return (
+            f"[truncated {omitted} characters; "
+            "inspect the raw artifact for full output]"
         )
 
     def _read_provider_output_path(self, raw_output_path: str) -> str:
@@ -252,12 +261,12 @@ class ProviderInspector(ModalScreen[None]):
         if cached is not None:
             return cached
         path = Path(path_text)
-        output = self._read_bounded_output(path)
+        output = self._read_bounded_output(path, lang=self.lang)
         self._output_cache[path_text] = output
         return output
 
     @staticmethod
-    def _read_bounded_output(path: Path) -> str:
+    def _read_bounded_output(path: Path, *, lang: str = "en") -> str:
         try:
             size = path.stat().st_size
         except OSError:
@@ -268,10 +277,7 @@ class ProviderInspector(ModalScreen[None]):
             except OSError:
                 return ""
 
-        marker = (
-            f"[truncated {size} bytes to last {MAX_DISPLAY_CHARS} display "
-            "characters; inspect the raw artifact for full output]"
-        )
+        marker = ProviderInspector._bounded_truncate_marker(size, lang=lang)
         tail_limit = max(0, MAX_DISPLAY_CHARS - len(marker) - 2)
         try:
             with path.open("rb") as fh:
@@ -280,6 +286,18 @@ class ProviderInspector(ModalScreen[None]):
         except OSError:
             return ""
         return marker + "\n\n" + data.decode("utf-8", errors="replace")
+
+    @staticmethod
+    def _bounded_truncate_marker(size: int, *, lang: str = "en") -> str:
+        if lang == "ko":
+            return (
+                f"[{size}바이트 중 마지막 {MAX_DISPLAY_CHARS}자만 표시합니다; "
+                "전체 출력은 원본 아티팩트에서 확인하세요]"
+            )
+        return (
+            f"[truncated {size} bytes to last {MAX_DISPLAY_CHARS} display "
+            "characters; inspect the raw artifact for full output]"
+        )
 
     @staticmethod
     def _strip_json_fence(text: str) -> str | None:

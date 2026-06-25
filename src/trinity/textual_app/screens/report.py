@@ -22,7 +22,11 @@ from trinity.textual_app.snapshot import (
     WorkflowNexusSnapshot,
     WorkPackageSnapshot,
 )
-from trinity.display_labels import display_kind_value, display_source_value
+from trinity.display_labels import (
+    display_kind_value,
+    display_profile_value,
+    display_source_value,
+)
 from trinity.textual_app.widgets.status_label import (
     display_review_skip_reason,
     display_review_status_value,
@@ -697,7 +701,7 @@ def _render_package_routing(
         if package.routing_reason:
             lines.append(
                 f"    [dim]{_term_label('reason', lang=lang)}: "
-                f"{escape(package.routing_reason)}[/dim]"
+                f"{escape(display_profile_value(package.routing_reason, lang=lang))}[/dim]"
             )
     return "\n".join(lines) if lines else _empty_value(lang=lang)
 
@@ -866,19 +870,32 @@ def _provider_profile_summary(
 ) -> str:
     parts: list[str] = []
     if provider.context_profile:
-        parts.append(f"{_term_label('profile', lang=lang)} {escape(provider.context_profile)}")
+        parts.append(
+            f"{_term_label('profile', lang=lang)} "
+            f"{escape(display_profile_value(provider.context_profile, lang=lang))}"
+        )
     if provider.profile_modes:
-        parts.append(f"{_term_label('modes', lang=lang)} {escape(', '.join(provider.profile_modes))}")
+        parts.append(
+            f"{_term_label('modes', lang=lang)} "
+            f"{escape(_profile_values(provider.profile_modes, lang=lang))}"
+        )
     if provider.output_contract:
-        parts.append(f"{_term_label('output', lang=lang)} {escape(provider.output_contract)}")
+        parts.append(
+            f"{_term_label('output', lang=lang)} "
+            f"{escape(display_profile_value(provider.output_contract, lang=lang))}"
+        )
     if provider.profile_strengths:
-        strengths = ", ".join(provider.profile_strengths[:3])
+        strengths = _profile_values(provider.profile_strengths[:3], lang=lang)
         if len(provider.profile_strengths) > 3:
             strengths = f"{strengths}, +{len(provider.profile_strengths) - 3}"
         parts.append(f"{_term_label('strengths', lang=lang)} {escape(strengths)}")
     if provider.profile_mission:
         parts.append(f"{_term_label('mission', lang=lang)} {escape(provider.profile_mission)}")
     return " · ".join(parts)
+
+
+def _profile_values(values: list[str], *, lang: str = "en") -> str:
+    return ", ".join(display_profile_value(value, lang=lang) for value in values)
 
 
 def _render_agent_quality(

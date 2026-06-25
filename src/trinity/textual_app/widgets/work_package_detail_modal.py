@@ -9,6 +9,7 @@ from textual.widgets import Button, Footer, Markdown, Static
 
 from trinity.display_labels import (
     display_kind_value,
+    display_profile_value,
     display_risk_value,
     display_severity_value,
 )
@@ -217,7 +218,8 @@ class WorkPackageDetailModal(ModalScreen[None]):
                 [
                     f"- {self._label('task_kind')}: `{self._kind_value(package.task_kind)}`",
                     f"- {self._label('routing_score')}: `{package.routing_score:.1f}`",
-                    f"- {self._label('routing_reason')}: {package.routing_reason or self._label('none')}",
+                    f"- {self._label('routing_reason')}: "
+                    f"{self._profile_value(package.routing_reason) if package.routing_reason else self._label('none')}",
                     f"- {self._label('profile_revision')}: `{package.profile_revision or '-'}`",
                 ]
             )
@@ -399,6 +401,9 @@ class WorkPackageDetailModal(ModalScreen[None]):
 
     def _kind_value(self, value: str) -> str:
         return display_kind_value(value, lang=self.lang)
+
+    def _profile_value(self, value: str) -> str:
+        return display_profile_value(value, lang=self.lang, empty=self._label("none"))
 
     def _label(self, key: str) -> str:
         labels = _LABELS.get(self.lang, _LABELS["en"])

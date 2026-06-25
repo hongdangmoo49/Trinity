@@ -10,6 +10,7 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, RichLog, Static, TabbedContent, TabPane
 
+from trinity.display_labels import display_profile_value
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import ProviderSnapshot
 from trinity.textual_app.widgets.status_label import (
@@ -139,17 +140,17 @@ class ProviderInspector(ModalScreen[None]):
         if provider.profile_mission:
             lines.append(f"{self._label('mission')}: {provider.profile_mission}")
         if provider.profile_modes:
-            lines.append(f"{self._label('modes')}: {', '.join(provider.profile_modes)}")
+            lines.append(f"{self._label('modes')}: {self._profile_values(provider.profile_modes)}")
         if provider.profile_strengths:
             lines.append(
-                f"{self._label('strengths')}: {', '.join(provider.profile_strengths)}"
+                f"{self._label('strengths')}: {self._profile_values(provider.profile_strengths)}"
             )
         if provider.context_profile:
             lines.append(
-                f"{self._label('context_profile')}: {provider.context_profile}"
+                f"{self._label('context_profile')}: {self._profile_value(provider.context_profile)}"
             )
         if provider.output_contract:
-            lines.append(f"{self._label('output_contract')}: {provider.output_contract}")
+            lines.append(f"{self._label('output_contract')}: {self._profile_value(provider.output_contract)}")
         if provider.quality_signal_count:
             lines.append(self._quality_signals_line(provider))
         return "\n".join(lines)
@@ -167,11 +168,11 @@ class ProviderInspector(ModalScreen[None]):
                     f"{self._label('mission')}: {provider.profile_mission or '-'}",
                     (
                         f"{self._label('context_profile')}: "
-                        f"{provider.context_profile or '-'}"
+                        f"{self._profile_value(provider.context_profile, empty='-')}"
                     ),
                     (
                         f"{self._label('output_contract')}: "
-                        f"{provider.output_contract or '-'}"
+                        f"{self._profile_value(provider.output_contract, empty='-')}"
                     ),
                     self._quality_signals_line(provider)
                     if provider.quality_signal_count
@@ -181,6 +182,12 @@ class ProviderInspector(ModalScreen[None]):
                 ]
             )
         return "\n\n---\n\n".join(sections)
+
+    def _profile_value(self, value: str, *, empty: str = "-") -> str:
+        return display_profile_value(value, lang=self.lang, empty=empty)
+
+    def _profile_values(self, values: list[str]) -> str:
+        return ", ".join(self._profile_value(value) for value in values)
 
     def _quality_signals_line(self, provider: ProviderSnapshot) -> str:
         return (

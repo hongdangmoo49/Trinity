@@ -2129,7 +2129,7 @@ async def test_report_screen_snapshot_uses_korean_body_labels(tmp_path) -> None:
     assert "목표" in rendered
     assert "프로바이더" in rendered
     assert "컨텍스트 272,000" in rendered
-    assert "프로필 implementer" in rendered
+    assert "프로필 구현자" in rendered
     assert "자문 에이전트 품질" in rendered
     assert "점수 0.667" in rendered
     assert "변경 요청 4" in rendered
@@ -2139,7 +2139,7 @@ async def test_report_screen_snapshot_uses_korean_body_labels(tmp_path) -> None:
     assert "상태 완료" in rendered
     assert "소유자 codex" in rendered
     assert "종류 구현" in rendered
-    assert "이유: implementation strength 0.95" in rendered
+    assert "이유: 구현 강점 0.95" in rendered
     assert "그룹 직렬" in rendered
     assert (
         "리뷰 동료 없음/(없음); 이유 활성 에이전트가 claude뿐이라 "
@@ -2870,10 +2870,10 @@ def test_snapshot_report_markdown_uses_korean_labels() -> None:
     assert "## 프로바이더" in md
     assert "컨텍스트 1,000 (런타임)" in md
     assert "세션 session\\-1234" in md
-    assert "프로필 implementer" in md
-    assert "모드 execute, review" in md
-    assert "출력 execution\\_v1" in md
-    assert "강점 implementation, testing, repair, \\+1" in md
+    assert "프로필 구현자" in md
+    assert "모드 실행, 리뷰" in md
+    assert "출력 실행 v1" in md
+    assert "강점 구현, 테스트, 복구, \\+1" in md
     assert "## 자문 에이전트 품질" in md
     assert "점수 0\\.667; 성공 2/3; 차단 1; 변경 요청 4" in md
     assert "## 합의" in md
@@ -2881,6 +2881,7 @@ def test_snapshot_report_markdown_uses_korean_labels() -> None:
     assert "## 작업 패키지 라우팅" in md
     assert "상태: 완료; 소유자 codex; 실행자 codex; 그룹 직렬" in md
     assert "라우팅: 종류 구현; 프로필 default\\-v1; 점수 0\\.95" in md
+    assert "이유: 구현 강점" in md
     assert (
         "리뷰: 동료 없음; 리뷰어 \\(없음\\); 이유 활성 에이전트가 codex뿐이라 "
         "동료 리뷰어가 없습니다\\."
@@ -8983,6 +8984,7 @@ def test_work_package_detail_modal_localizes_korean_task_kind_value() -> None:
     markdown = modal._markdown()
 
     assert "- 작업 유형: `구현`" in markdown
+    assert "- 라우팅 사유: 구현 강점" in markdown
     assert "- 프로필 버전: `default-v1`" in markdown
     assert "`implementation`" not in markdown
 
@@ -9245,10 +9247,10 @@ def test_provider_inspector_meta_uses_korean_labels() -> None:
     assert "상태: 준비됨" in meta
     assert "준비 상태: 준비됨" in meta
     assert "미션: Implementation and testing" in meta
-    assert "모드: execute, review" in meta
-    assert "강점: implementation 0.95" in meta
-    assert "컨텍스트 프로필: implementer" in meta
-    assert "출력 형식: execution_v1" in meta
+    assert "모드: 실행, 리뷰" in meta
+    assert "강점: 구현 0.95" in meta
+    assert "컨텍스트 프로필: 구현자" in meta
+    assert "출력 형식: 실행 v1" in meta
     assert "품질 신호: 점수 0.667, 성공 2/3" in meta
     assert "차단 1, 변경 요청 4" in meta
     assert "품질 신호: 점수 0.667, 성공 2/3" in all_output
@@ -10333,7 +10335,7 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
         assert "밀도: 여유" in preview
         assert "중앙: 자동 / 강력" in preview
         assert "Claude: 기본값" in preview
-        assert "출력 형식 execute:execution_v1 review:review_v1" in preview
+        assert "출력 형식 실행:실행 v1 리뷰:리뷰 v1" in preview
         assert "Mode:" not in preview
         assert "Density:" not in preview
         assert "Central:" not in preview

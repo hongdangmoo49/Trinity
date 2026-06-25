@@ -8,6 +8,7 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Label, Select, Static
 
 from trinity.config import TrinityConfig
+from trinity.display_labels import display_profile_value
 from trinity.models import Provider, provider_model_choices
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.settings import UISettings, UISettingsStore
@@ -148,7 +149,7 @@ class SettingsScreen(Screen[None]):
             model_lines.append(
                 (
                     f"{self._agent_label(name)}: {model} · "
-                    f"{spec.profile.context_profile} · "
+                    f"{display_profile_value(spec.profile.context_profile, lang=self.lang)} · "
                     f"{self._profile_strength_summary(spec)} · "
                     f"{self._profile_contract_summary(spec)}"
                 )
@@ -209,12 +210,15 @@ class SettingsScreen(Screen[None]):
         if not strengths:
             return f"{self._label('profile')} {self._label('balanced')}"
         name, score = strengths[0]
-        return f"{name} {score:.2f}"
+        return f"{display_profile_value(name, lang=self.lang)} {score:.2f}"
 
     def _profile_contract_summary(self, spec) -> str:
         contracts = spec.profile.output_contracts
         pairs = [
-            f"{mode}:{contracts[mode]}"
+            (
+                f"{display_profile_value(mode, lang=self.lang)}:"
+                f"{display_profile_value(contracts[mode], lang=self.lang)}"
+            )
             for mode in ("execute", "review")
             if contracts.get(mode)
         ]

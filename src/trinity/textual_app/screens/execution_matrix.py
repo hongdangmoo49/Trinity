@@ -398,6 +398,7 @@ class ExecutionMatrixScreen(Screen[None]):
         self._package_row_keys: dict[str, tuple[object, ...]] = {}
         self._package_rows: dict[str, ExecutionPackageRow] = {}
         self._activity_lines_key: tuple[str, ...] = ()
+        self._chrome_render_key: tuple[object, ...] | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -438,15 +439,7 @@ class ExecutionMatrixScreen(Screen[None]):
         self.snapshot = snapshot
         if not self.is_mounted:
             return
-        self.query_one("#execution-header", Static).update(self._header_text())
-        self.query_one("#execution-summary", Static).update(self._summary_text())
-        self.query_one("#toggle-task-expanded", Button).label = self._task_toggle_label()
-        self.query_one("#toggle-activity-expanded", Button).label = (
-            self._activity_toggle_label()
-        )
-        retry_button = self.query_one("#execution-retry", Button)
-        retry_button.label = self._retry_button_label()
-        retry_button.disabled = not self._has_retry_candidates()
+        self._render_chrome()
         self._sync_task_expanded_view()
         self._render_package_list()
         self._render_log()
@@ -681,6 +674,32 @@ class ExecutionMatrixScreen(Screen[None]):
             detail_enabled=projection.detail_enabled,
             lang=self.lang,
         )
+
+    def _render_chrome(self) -> None:
+        header_text = self._header_text()
+        summary_text = self._summary_text()
+        task_toggle_label = self._task_toggle_label()
+        activity_toggle_label = self._activity_toggle_label()
+        retry_label = self._retry_button_label()
+        retry_disabled = not self._has_retry_candidates()
+        render_key = (
+            header_text,
+            summary_text,
+            task_toggle_label,
+            activity_toggle_label,
+            retry_label,
+            retry_disabled,
+        )
+        if render_key == self._chrome_render_key:
+            return
+        self.query_one("#execution-header", Static).update(header_text)
+        self.query_one("#execution-summary", Static).update(summary_text)
+        self.query_one("#toggle-task-expanded", Button).label = task_toggle_label
+        self.query_one("#toggle-activity-expanded", Button).label = activity_toggle_label
+        retry_button = self.query_one("#execution-retry", Button)
+        retry_button.label = retry_label
+        retry_button.disabled = retry_disabled
+        self._chrome_render_key = render_key
 
     def _render_log(self) -> None:
         lines = self._activity_lines()

@@ -7695,6 +7695,53 @@ async def test_execution_matrix_large_snapshot_updates_single_row_only(
 
 
 @pytest.mark.asyncio
+async def test_execution_matrix_skips_unchanged_chrome_updates(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-cache",
+        state="executing",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Runtime sync",
+                owner_agent="codex",
+                status="pending",
+            )
+        ],
+    )
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(None, snapshot)
+        await pilot.pause()
+
+        header = screen.query_one("#execution-header", Static)
+        summary = screen.query_one("#execution-summary", Static)
+        updates: list[str] = []
+        original_header_update = header.update
+        original_summary_update = summary.update
+
+        def counted_header_update(content) -> None:
+            updates.append(f"header:{content}")
+            original_header_update(content)
+
+        def counted_summary_update(content) -> None:
+            updates.append(f"summary:{content}")
+            original_summary_update(content)
+
+        header.update = counted_header_update
+        summary.update = counted_summary_update
+
+        screen.apply_execution_state(None, snapshot)
+        await pilot.pause()
+
+        assert updates == []
+
+
+@pytest.mark.asyncio
 async def test_execution_matrix_shows_parallel_group_lane(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

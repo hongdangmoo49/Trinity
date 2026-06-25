@@ -10,7 +10,10 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Footer, Static
 
 from trinity.textual_app.snapshot import WorkPackageSnapshot, WorkflowNexusSnapshot
-from trinity.textual_app.widgets.status_label import display_status_value
+from trinity.textual_app.widgets.status_label import (
+    display_retry_disabled_reason,
+    display_status_value,
+)
 
 
 @dataclass(frozen=True)
@@ -300,7 +303,7 @@ def _executor_label(package: WorkPackageSnapshot, *, lang: str = "en") -> str:
 
 def _retry_note(package: WorkPackageSnapshot, *, lang: str = "en") -> str:
     if not package.retryable:
-        return package.retry_disabled_reason
+        return display_retry_disabled_reason(package.retry_disabled_reason, lang=lang)
     repair = "복구" if lang == "ko" else "repair"
     if package.repair_blocked_reason:
         return (

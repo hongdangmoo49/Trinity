@@ -71,6 +71,15 @@ STATUS_VALUE_LABELS = {
     "en": {},
 }
 
+RETRY_DISABLED_REASON_LABELS = {
+    "ko": {
+        "already done": "이미 완료됨",
+        "already needs review": "이미 리뷰 대기 중",
+        "does not require execution": "실행이 필요하지 않음",
+    },
+    "en": {},
+}
+
 READINESS_VALUE_LABELS = {
     "ko": {
         "ready": "준비됨",
@@ -94,6 +103,28 @@ def display_status_value(status: str, *, lang: str = "en", empty: str = "-") -> 
         return empty
     labels = STATUS_VALUE_LABELS.get(lang, STATUS_VALUE_LABELS["en"])
     return labels.get(raw.lower(), raw)
+
+
+def display_retry_disabled_reason(
+    reason: str,
+    *,
+    lang: str = "en",
+    empty: str = "",
+) -> str:
+    """Return a localized display value for a retry disabled reason."""
+    raw = str(reason or "").strip()
+    if not raw:
+        return empty
+    labels = RETRY_DISABLED_REASON_LABELS.get(lang, RETRY_DISABLED_REASON_LABELS["en"])
+    normalized = raw.lower()
+    if normalized in labels:
+        return labels[normalized]
+    if lang == "ko" and normalized.startswith("status is "):
+        status = raw[len("status is ") :].strip()
+        if not status or status.lower() == "unknown":
+            return "현재 상태를 알 수 없음"
+        return f"현재 상태가 {display_status_value(status, lang=lang)} 상태임"
+    return raw
 
 
 def display_readiness_value(

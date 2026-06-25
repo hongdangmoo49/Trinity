@@ -565,6 +565,7 @@ def test_execution_retry_note_summarizes_repair_attempts() -> None:
     assert _retry_note(retryable) == "repair 2/3: duplicate_required_changes"
     assert _retry_note(retryable, lang="ko") == "복구 2/3: duplicate_required_changes"
     assert _retry_note(disabled) == "already done"
+    assert _retry_note(disabled, lang="ko") == "이미 완료됨"
 
 
 def test_textual_app_localizes_command_palette_bindings_in_korean(tmp_path) -> None:
@@ -8803,6 +8804,58 @@ def test_work_package_detail_modal_localizes_korean_retry_disabled_reason() -> N
     assert "- 재시도 불가: 이미 완료됨" in markdown
     assert "- 재시도 후보: `WP-002`" not in markdown
     assert "already done" not in markdown
+
+
+def test_work_package_detail_modal_localizes_korean_retry_disabled_reason_variants() -> None:
+    modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-002",
+            title="문서",
+            owner_agent="claude",
+            status="needs_review",
+            retryable=False,
+            retry_disabled_reason="already needs review",
+        ),
+        lang="ko",
+    )
+    no_execution_modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-003",
+            title="문서",
+            owner_agent="codex",
+            status="pending",
+            retryable=False,
+            retry_disabled_reason="does not require execution",
+        ),
+        lang="ko",
+    )
+    pending_modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-004",
+            title="문서",
+            owner_agent="antigravity",
+            status="pending",
+            retryable=False,
+            retry_disabled_reason="status is pending",
+        ),
+        lang="ko",
+    )
+    custom_modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-005",
+            title="문서",
+            owner_agent="codex",
+            status="pending",
+            retryable=False,
+            retry_disabled_reason="custom policy",
+        ),
+        lang="ko",
+    )
+
+    assert "- 재시도 불가: 이미 리뷰 대기 중" in modal._markdown()
+    assert "- 재시도 불가: 실행이 필요하지 않음" in no_execution_modal._markdown()
+    assert "- 재시도 불가: 현재 상태가 대기 상태임" in pending_modal._markdown()
+    assert "- 재시도 불가: custom policy" in custom_modal._markdown()
 
 
 def test_work_package_detail_modal_surfaces_review_skip_reason() -> None:

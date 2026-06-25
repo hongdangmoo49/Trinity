@@ -17,6 +17,7 @@ from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkPackageSnapshot
 from trinity.textual_app.widgets.status_label import (
     display_review_skip_reason,
+    display_retry_disabled_reason,
     display_status_value,
 )
 
@@ -410,15 +411,11 @@ class WorkPackageDetailModal(ModalScreen[None]):
         return display_profile_value(value, lang=self.lang, empty=self._label("none"))
 
     def _retry_disabled_reason(self, value: str) -> str:
-        labels = {
-            "ko": {
-                "already done": "이미 완료됨",
-            }
-        }
-        raw = str(value or "").strip()
-        if not raw:
-            return self._label("not_available")
-        return labels.get(self.lang, {}).get(raw.lower(), raw)
+        return display_retry_disabled_reason(
+            value,
+            lang=self.lang,
+            empty=self._label("not_available"),
+        )
 
     def _label(self, key: str) -> str:
         labels = _LABELS.get(self.lang, _LABELS["en"])

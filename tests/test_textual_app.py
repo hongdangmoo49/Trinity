@@ -1286,23 +1286,23 @@ def test_save_presenter_uses_korean_labels() -> None:
 def test_target_presenter_uses_korean_labels() -> None:
     assert target_title(lang="ko") == "대상"
     assert target_selection_cancelled_markdown(lang="ko") == (
-        "대상 워크스페이스 선택을 취소했습니다."
+        "대상 작업 폴더 선택을 취소했습니다."
     )
     assert target_preflight_cancelled_markdown(lang="ko") == (
-        "워크스페이스 사전 확인을 취소했습니다."
+        "작업 폴더 사전 확인을 취소했습니다."
     )
     assert target_control_repo_action_hint(lang="ko").startswith("Trinity 제어 저장소")
     assert target_current_markdown(None, lang="ko") == "현재 대상: `(미설정)`"
     assert target_action_hint(lang="ko").startswith("실행 전에 `/target <path>`")
-    assert target_cleared_markdown(lang="ko") == "대상 워크스페이스를 초기화했습니다."
+    assert target_cleared_markdown(lang="ko") == "대상 작업 폴더를 초기화했습니다."
     assert target_not_directory_markdown("/tmp/file", lang="ko") == (
         "대상 경로가 이미 존재하지만 디렉터리가 아닙니다: `/tmp/file`"
     )
     assert target_prepare_failed_markdown("denied", lang="ko") == (
-        "대상 워크스페이스를 준비할 수 없습니다: denied"
+        "대상 작업 폴더를 준비할 수 없습니다: denied"
     )
     assert target_workspace_markdown("/tmp/app", lang="ko") == (
-        "대상 워크스페이스: `/tmp/app`"
+        "대상 작업 폴더: `/tmp/app`"
     )
     assert target_rows(
         "/tmp/app",
@@ -1516,7 +1516,7 @@ def test_workflow_outcome_message_uses_korean_labels() -> None:
         )
         == "리뷰가 수정을 요청했습니다. 다음 작업 패키지의 실행을 다시 시작합니다: "
         "WP-001. 보정 루프 가드에 의해 차단됨: WP-002. "
-        "보정 재시작 전에 대상 워크스페이스를 선택하세요."
+        "보정 재시작 전에 대상 작업 폴더를 선택하세요."
     )
     assert (
         workflow_outcome_message_markdown(
@@ -4580,7 +4580,7 @@ async def test_nexus_target_current_uses_korean_labels(tmp_path) -> None:
         assert result.title == "대상"
         assert result.body == "현재 대상: `(미설정)`"
         assert result.action_hint == (
-            "실행 전에 `/target <path>`를 사용하거나 워크스페이스를 선택하세요."
+            "실행 전에 `/target <path>`를 사용하거나 작업 폴더를 선택하세요."
         )
         assert result.empty is True
 
@@ -4606,7 +4606,7 @@ async def test_nexus_target_path_outside_control_repo_uses_korean_labels(
         result = app.active_snapshot.local_commands[-1]
         assert result.command == "/target"
         assert result.title == "대상"
-        assert result.body.startswith("대상 워크스페이스:")
+        assert result.body.startswith("대상 작업 폴더:")
         assert result.table_columns == ("항목", "값")
         assert ("경로", str(outside_target.resolve())) in result.table_rows
         assert ("제어 저장소 내부", "아니오") in result.table_rows
@@ -4647,9 +4647,9 @@ async def test_nexus_target_cancel_uses_korean_labels(tmp_path) -> None:
         result = app.active_snapshot.local_commands[-1]
         assert result.command == "/target"
         assert result.title == "대상"
-        assert result.body == "대상 워크스페이스 선택을 취소했습니다."
+        assert result.body == "대상 작업 폴더 선택을 취소했습니다."
         assert result.action_hint == (
-            "Trinity 제어 저장소 밖의 워크스페이스를 선택하세요."
+            "Trinity 제어 저장소 밖의 작업 폴더를 선택하세요."
         )
 
 

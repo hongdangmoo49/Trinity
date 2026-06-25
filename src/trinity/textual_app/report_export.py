@@ -11,7 +11,11 @@ from trinity.textual_app.snapshot import (
     WorkflowNexusSnapshot,
     WorkPackageSnapshot,
 )
-from trinity.display_labels import display_kind_value, display_source_value
+from trinity.display_labels import (
+    display_kind_value,
+    display_profile_value,
+    display_source_value,
+)
 from trinity.textual_app.widgets.status_label import (
     display_review_skip_reason,
     display_review_status_value,
@@ -380,19 +384,32 @@ def _provider_profile_summary(
 ) -> str:
     parts: list[str] = []
     if provider.context_profile:
-        parts.append(f"{_label(lang, 'profile')} {_md_inline(provider.context_profile)}")
+        parts.append(
+            f"{_label(lang, 'profile')} "
+            f"{_md_inline(display_profile_value(provider.context_profile, lang=lang))}"
+        )
     if provider.profile_modes:
-        parts.append(f"{_label(lang, 'modes')} {_md_inline(', '.join(provider.profile_modes))}")
+        parts.append(
+            f"{_label(lang, 'modes')} "
+            f"{_md_inline(_profile_values(provider.profile_modes, lang=lang))}"
+        )
     if provider.output_contract:
-        parts.append(f"{_label(lang, 'output')} {_md_inline(provider.output_contract)}")
+        parts.append(
+            f"{_label(lang, 'output')} "
+            f"{_md_inline(display_profile_value(provider.output_contract, lang=lang))}"
+        )
     if provider.profile_strengths:
-        strengths = ", ".join(provider.profile_strengths[:3])
+        strengths = _profile_values(provider.profile_strengths[:3], lang=lang)
         if len(provider.profile_strengths) > 3:
             strengths = f"{strengths}, +{len(provider.profile_strengths) - 3}"
         parts.append(f"{_label(lang, 'strengths')} {_md_inline(strengths)}")
     if provider.profile_mission:
         parts.append(f"{_label(lang, 'mission')} {_md_inline(provider.profile_mission)}")
     return "; ".join(parts)
+
+
+def _profile_values(values: list[str], *, lang: str = "en") -> str:
+    return ", ".join(display_profile_value(value, lang=lang) for value in values)
 
 
 def _agent_quality_lines(
@@ -444,7 +461,10 @@ def _work_package_lines(
     if routing:
         lines.append(f"  - {_label(lang, 'routing')}: {routing}")
     if package.routing_reason:
-        lines.append(f"  - {_label(lang, 'reason')}: {_md_inline(package.routing_reason)}")
+        lines.append(
+            f"  - {_label(lang, 'reason')}: "
+            f"{_md_inline(display_profile_value(package.routing_reason, lang=lang))}"
+        )
     if package.review_status or package.reviewer_agent:
         review_status = display_review_status_value(
             package.review_status,

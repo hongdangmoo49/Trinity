@@ -81,6 +81,30 @@ KIND_VALUE_LABELS = {
     "en": {},
 }
 
+PROFILE_VALUE_LABELS = {
+    "ko": {
+        "architect": "설계자",
+        "balanced": "균형",
+        "execute": "실행",
+        "execution_v1": "실행 v1",
+        "final_review_v1": "최종 리뷰 v1",
+        "implementer": "구현자",
+        "implementation": "구현",
+        "integration": "통합",
+        "planning": "계획",
+        "repair": "복구",
+        "review": "리뷰",
+        "review_v1": "리뷰 v1",
+        "reviewer": "리뷰어",
+        "strength": "강점",
+        "strengths": "강점",
+        "test": "테스트",
+        "testing": "테스트",
+        "validation": "검증",
+    },
+    "en": {},
+}
+
 
 def display_source_value(
     source: str,
@@ -148,6 +172,25 @@ def display_kind_value(
         lang=lang,
         empty=empty,
     )
+
+
+def display_profile_value(
+    value: str,
+    *,
+    lang: str = "en",
+    empty: str = "-",
+) -> str:
+    """Return a localized display value for profile metadata tokens."""
+    raw = str(value or "").strip()
+    if not raw:
+        return empty
+    labels = PROFILE_VALUE_LABELS.get(lang, PROFILE_VALUE_LABELS["en"])
+    direct = labels.get(raw.lower())
+    if direct:
+        return direct
+    if " " not in raw:
+        return raw
+    return " ".join(labels.get(part.lower(), part) for part in raw.split(" "))
 
 
 def _display_labeled_value(

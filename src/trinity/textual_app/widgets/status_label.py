@@ -69,6 +69,7 @@ STATUS_VALUE_LABELS = {
         "skipped": "생략",
         "succeeded": "성공",
         "waiting": "대기",
+        "waiting_for_external_input": "외부 입력 대기",
     },
     "en": {},
 }

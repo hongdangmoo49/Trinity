@@ -608,9 +608,10 @@ def _render_consensus(consensus, *, lang: str = "en") -> str:
 def _render_synthesis(synthesis, *, lang: str = "en") -> str:
     icon = "✅" if "blueprint" in synthesis.consensus_progress else "🔄"
     progress = display_consensus_progress(synthesis.consensus_progress, lang=lang)
+    source = display_source_value(synthesis.source, lang=lang, empty="-")
     lines = [
         f"{icon} [bold]{escape(progress)}[/bold]",
-        f"[bold]{_field_label('Source', lang=lang)}[/bold]: {escape(synthesis.source)}",
+        f"[bold]{_field_label('Source', lang=lang)}[/bold]: {escape(source)}",
         f"\n{escape(synthesis.summary)}",
     ]
     return "\n".join(lines)

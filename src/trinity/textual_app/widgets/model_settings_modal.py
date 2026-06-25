@@ -97,8 +97,10 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         self.lang = lang
         self.active_agent = next(iter(self.agents), "")
         self._choice_highlight_key: tuple[object, ...] | None = None
+        self._choice_list_widget: OptionList | None = None
 
     def compose(self) -> ComposeResult:
+        self._choice_list_widget = None
         with Vertical(id="model-settings-modal"):
             yield Static(self._text("title"), id="model-settings-title")
             with Horizontal(id="model-settings-body"):
@@ -119,11 +121,13 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
                         self._choice_header(),
                         id="model-choice-header",
                     )
-                    yield OptionList(
+                    choice_list = OptionList(
                         *self._choice_labels(self.active_agent),
                         id="model-choice-list",
                         compact=True,
                     )
+                    self._choice_list_widget = choice_list
+                    yield choice_list
             with Horizontal(id="model-settings-actions"):
                 yield Button(self._text("cancel"), id="cancel-model-settings")
                 yield Button(
@@ -209,9 +213,14 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         )
         if highlight_key == self._choice_highlight_key:
             return
-        choice_list = self.query_one("#model-choice-list", OptionList)
+        choice_list = self._choice_list()
         choice_list.highlighted = target_index
         self._choice_highlight_key = highlight_key
+
+    def _choice_list(self) -> OptionList:
+        if self._choice_list_widget is None:
+            self._choice_list_widget = self.query_one("#model-choice-list", OptionList)
+        return self._choice_list_widget
 
     def _agent_button_label(self, name: str, spec: AgentSpec) -> str:
         prefix = "> " if name == self.active_agent else "  "

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from textual.app import App
+from textual.app import App, ComposeResult
 from textual.screen import Screen
 
 from trinity.config import TrinityConfig
@@ -10,6 +10,7 @@ from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
     AgentRecipientModelSelector,
+    AgentToggle,
 )
 
 
@@ -20,6 +21,15 @@ class ScreenHarness(App[None]):
 
     def on_mount(self) -> None:
         self.push_screen(self.target_screen)
+
+
+class SelectorHarness(App[None]):
+    def __init__(self, selector: AgentRecipientModelSelector) -> None:
+        super().__init__()
+        self.selector = selector
+
+    def compose(self) -> ComposeResult:
+        yield self.selector
 
 
 def _choices(
@@ -38,6 +48,38 @@ def _choices(
         )
         for model in models
     )
+
+
+@pytest.mark.asyncio
+async def test_agent_recipient_selector_uses_cached_toggles(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    selector = AgentRecipientModelSelector(config.agents)
+    app = SelectorHarness(selector)
+    enabled_agents = tuple(
+        name for name, spec in config.agents.items() if spec.enabled
+    )
+    assert enabled_agents
+
+    async with app.run_test(size=(120, 20)) as pilot:
+        await pilot.pause()
+        recipient_queries: list[str] = []
+        original_query_one = selector.query_one
+
+        def counted_query_one(selector_text, *args, **kwargs):
+            if str(selector_text).startswith("#recipient-"):
+                recipient_queries.append(str(selector_text))
+            return original_query_one(selector_text, *args, **kwargs)
+
+        selector.query_one = counted_query_one
+
+        assert selector.selected_agents() == enabled_agents
+        selector.set_selected_agents(enabled_agents[:1])
+        await pilot.pause()
+
+        assert selector.selected_agents() == enabled_agents[:1]
+        assert recipient_queries == []
+        assert selector._toggle_cache[enabled_agents[0]].value is True
+        assert isinstance(selector._toggle_cache[enabled_agents[0]], AgentToggle)
 
 
 def test_agent_recipient_selector_skips_unchanged_model_choices(tmp_path) -> None:

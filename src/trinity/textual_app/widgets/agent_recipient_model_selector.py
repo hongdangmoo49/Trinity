@@ -102,17 +102,20 @@ class AgentRecipientModelSelector(Horizontal):
             name: self._initial_model_choices(spec)
             for name, spec in self.agents.items()
         }
+        self._toggle_cache: dict[str, AgentToggle] = {}
 
     def compose(self) -> ComposeResult:
         yield Static(self._text("recipient_label") + ":", classes="recipient-label")
         for name, spec in self.agents.items():
-            yield AgentToggle(
+            toggle = AgentToggle(
                 name,
                 self._agent_label(name),
                 value=bool(spec.enabled),
                 enabled=bool(spec.enabled),
                 id=f"recipient-{name}",
             )
+            self._toggle_cache[name] = toggle
+            yield toggle
 
     def selected_agents(self) -> tuple[str, ...]:
         """Return enabled agents selected for the next prompt."""
@@ -120,7 +123,7 @@ class AgentRecipientModelSelector(Horizontal):
         for name, spec in self.agents.items():
             if not spec.enabled:
                 continue
-            toggle = self.query_one(f"#recipient-{name}", AgentToggle)
+            toggle = self._toggle_for(name)
             if toggle.value:
                 selected.append(name)
         return tuple(selected)
@@ -170,7 +173,7 @@ class AgentRecipientModelSelector(Horizontal):
         """Update checked agents without changing model selections."""
         requested = {str(name).strip() for name in names if str(name).strip()}
         for name, spec in self.agents.items():
-            toggle = self.query_one(f"#recipient-{name}", AgentToggle)
+            toggle = self._toggle_for(name)
             toggle.set_value(spec.enabled and name in requested)
 
     def set_model_overrides(self, values: dict[str, str]) -> None:
@@ -257,6 +260,14 @@ class AgentRecipientModelSelector(Horizontal):
         fallback = spec.model if spec is not None else "default"
         current = self._selected_models.get(name, fallback or "default")
         return (current.strip() or "default") == model
+
+    def _toggle_for(self, name: str) -> AgentToggle:
+        toggle = self._toggle_cache.get(name)
+        if toggle is not None:
+            return toggle
+        toggle = self.query_one(f"#recipient-{name}", AgentToggle)
+        self._toggle_cache[name] = toggle
+        return toggle
 
     def _initial_model_choices(self, spec: AgentSpec) -> list[ProviderModelChoice]:
         return self._normalize_choices(spec, fallback_provider_models(spec.provider))

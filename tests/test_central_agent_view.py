@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 from textual.app import App, ComposeResult
-from textual.widgets import Static
+from textual.widgets import DataTable, Static
 
 from trinity.textual_app.snapshot import (
     ExecutionRecoverySnapshot,
@@ -483,6 +483,54 @@ async def test_central_apply_snapshot_skips_same_snapshot_object_reapply() -> No
         view.apply_snapshot(WorkflowNexusSnapshot(state="blueprint_ready"))
         await pilot.pause()
         assert calls == ["markdown"]
+
+
+@pytest.mark.asyncio
+async def test_central_apply_snapshot_rebinds_render_keys_after_recompose() -> None:
+    view = CentralAgentView()
+    snapshot = WorkflowNexusSnapshot(
+        state="blueprint_ready",
+        synthesis=SynthesisSnapshot(summary="Ready to build."),
+        work_packages=["WP-001 codex: Build API (pending)"],
+        local_commands=[
+            LocalCommandSnapshot(
+                command="/status",
+                title="Status",
+                body="Current state.",
+                table_columns=("WP", "Status"),
+                table_rows=(("WP-001", "ready"),),
+            )
+        ],
+    )
+    app = CentralAgentHarness(view)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        view.apply_snapshot(snapshot)
+        await pilot.pause()
+
+        assert len(list(view.query(".local-command-table"))) == 1
+        assert len(list(view.query("#central-actions Button"))) == 4
+
+        view.refresh(recompose=True)
+        await pilot.pause()
+
+        assert list(view.query(".local-command-table")) == []
+        assert list(view.query("#central-actions Button")) == []
+
+        view.apply_snapshot(snapshot)
+        await pilot.pause()
+
+        tables = list(view.query(".local-command-table"))
+        assert len(tables) == 1
+        assert isinstance(tables[0], DataTable)
+        assert tables[0].row_count == 1
+        assert len(list(view.query("#central-actions Button"))) == 4
+        assert set(view._button_actions.values()) == {
+            "execute",
+            "refine-features",
+            "refine-risks",
+            "refine-work-packages",
+        }
 
 
 @pytest.mark.asyncio

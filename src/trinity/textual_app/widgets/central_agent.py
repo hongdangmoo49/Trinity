@@ -87,6 +87,7 @@ class CentralAgentView(VerticalScroll):
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
+        self._reset_render_cache()
         title = Static(self._label("title"), id="central-title")
         self._title_widget = title
         self._title_key = self._label("title")
@@ -554,6 +555,16 @@ class CentralAgentView(VerticalScroll):
         self._local_command_container = None
         self._action_title_widget = None
         self._actions_container = None
+
+    def _reset_render_cache(self) -> None:
+        self._button_actions = {}
+        self._title_key = ""
+        self._action_title_key = ""
+        self._markdown_key = ""
+        self._local_commands_key = ()
+        self._actions_key = ()
+        self._applied_snapshot_identity = None
+        self._running_class_key = None
 
     def _title_static(self) -> Static:
         if self._title_widget is None:

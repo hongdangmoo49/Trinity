@@ -35,6 +35,60 @@ def _snapshot() -> WorkflowNexusSnapshot:
 
 
 @pytest.mark.asyncio
+async def test_execution_matrix_reuses_composed_fixed_widgets() -> None:
+    screen = ExecutionMatrixScreen()
+    app = ExecutionHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        query_calls: list[str] = []
+        original_query_one = screen.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            fixed_selectors = {
+                "#execution-screen",
+                "#execution-header",
+                "#execution-summary",
+                "#toggle-task-expanded",
+                "#toggle-activity-expanded",
+                "#execution-retry",
+                "#execution-package-list",
+                "#execution-log",
+            }
+            if selector in fixed_selectors:
+                query_calls.append(selector)
+            return original_query_one(selector, *args, **kwargs)
+
+        screen.query_one = counted_query_one
+
+        screen.apply_execution_state(None, _snapshot())
+        await pilot.pause()
+        screen.append_log("runtime-only-line")
+        screen.action_toggle_task_expanded()
+        await pilot.pause()
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                session_id="wf-execution-cache",
+                state="executing",
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Build API",
+                        owner_agent="codex",
+                        status="done",
+                        current_executor="codex",
+                    )
+                ],
+                execution_log=["event-1", "event-2"],
+            ),
+        )
+        await pilot.pause()
+
+        assert query_calls == []
+
+
+@pytest.mark.asyncio
 async def test_execution_matrix_skips_same_state_object_reapply() -> None:
     screen = ExecutionMatrixScreen()
     snapshot = _snapshot()

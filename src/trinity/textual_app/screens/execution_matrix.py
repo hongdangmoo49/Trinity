@@ -290,6 +290,7 @@ class ExecutionPackageRow(Horizontal):
 
     def update_projection(self, projection: _PackageRowProjection) -> None:
         """Update row labels without remounting the row widget."""
+        previous_fields = self._field_texts()
         self.package_id = projection.package_id
         self.task_label = projection.task
         self.assignee = projection.assignee
@@ -308,41 +309,55 @@ class ExecutionPackageRow(Horizontal):
         self.review_enabled = projection.review_enabled
         self.detail_enabled = projection.detail_enabled
 
-        self.query_one(".execution-package-task", Static).update(
-            _clip(f"{self.package_id} {self.task_label}", self.task_width)
-        )
-        self.query_one(".execution-package-executor", Static).update(
-            _clip(self.executor, 18)
-        )
-        self.query_one(".execution-package-status", Static).update(
-            _clip(self.status, 10)
-        )
-        self.query_one(".execution-package-assignee", Static).update(
-            _clip(f"{_label(self.lang, 'owner_prefix')}: {self.assignee}", 18)
-        )
-        self.query_one(".execution-package-review", Static).update(
-            _clip(
-                f"{_label(self.lang, 'review_prefix')}: "
-                f"{self.review_status or '-'}",
-                18,
-            )
-        )
-        self.query_one(".execution-package-risk", Static).update(
-            _clip(f"{_label(self.lang, 'risk_prefix')}: {self.risk}", 18)
-        )
+        next_fields = self._field_texts()
+        for selector, text in next_fields.items():
+            if text != previous_fields[selector]:
+                self.query_one(selector, Static).update(text)
         detail_button = self.query_one(".execution-package-spec", Button)
-        detail_button.label = self.button_label
-        detail_button.disabled = not self.detail_enabled
+        if str(detail_button.label) != self.button_label:
+            detail_button.label = self.button_label
+        disabled = not self.detail_enabled
+        if detail_button.disabled != disabled:
+            detail_button.disabled = disabled
         retry_buttons = list(self.query(".execution-package-retry"))
         if retry_buttons:
             retry_button = retry_buttons[0]
-            if isinstance(retry_button, Button):
+            if (
+                isinstance(retry_button, Button)
+                and str(retry_button.label) != self.retry_label
+            ):
                 retry_button.label = self.retry_label
         review_buttons = list(self.query(".execution-package-review-action"))
         if review_buttons:
             review_button = review_buttons[0]
-            if isinstance(review_button, Button):
+            if (
+                isinstance(review_button, Button)
+                and str(review_button.label) != self.review_label
+            ):
                 review_button.label = self.review_label
+
+    def _field_texts(self) -> dict[str, str]:
+        return {
+            ".execution-package-task": _clip(
+                f"{self.package_id} {self.task_label}",
+                self.task_width,
+            ),
+            ".execution-package-executor": _clip(self.executor, 18),
+            ".execution-package-status": _clip(self.status, 10),
+            ".execution-package-assignee": _clip(
+                f"{_label(self.lang, 'owner_prefix')}: {self.assignee}",
+                18,
+            ),
+            ".execution-package-review": _clip(
+                f"{_label(self.lang, 'review_prefix')}: "
+                f"{self.review_status or '-'}",
+                18,
+            ),
+            ".execution-package-risk": _clip(
+                f"{_label(self.lang, 'risk_prefix')}: {self.risk}",
+                18,
+            ),
+        }
 
 
 class ExecutionPackageHeader(Vertical):

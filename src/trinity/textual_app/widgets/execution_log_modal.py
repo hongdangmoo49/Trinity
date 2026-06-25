@@ -120,13 +120,27 @@ class ExecutionLogModal(ModalScreen[None]):
             log.write(line)
 
     def _render_lines(self, query: str = "") -> list[str]:
+        if not query.strip():
+            return self._render_unfiltered_lines()
         source = self._filtered_lines(query)
         if not source:
-            if query.strip():
-                return [self._label("empty_filtered")]
-            return [self._label("empty")]
+            return [self._label("empty_filtered")]
         hidden_count = max(0, len(source) - MAX_RENDERED_LOG_LINES)
         visible = source[-MAX_RENDERED_LOG_LINES:]
+        if hidden_count:
+            return [
+                self._label("earlier_lines_hidden").format(count=hidden_count),
+                *visible,
+            ]
+        return visible
+
+    def _render_unfiltered_lines(self) -> list[str]:
+        total = len(self.lines)
+        if total <= 0:
+            return [self._label("empty")]
+        hidden_count = max(0, total - MAX_RENDERED_LOG_LINES)
+        start = max(0, total - MAX_RENDERED_LOG_LINES)
+        visible = [str(self.lines[index]) for index in range(start, total)]
         if hidden_count:
             return [
                 self._label("earlier_lines_hidden").format(count=hidden_count),
@@ -141,12 +155,14 @@ class ExecutionLogModal(ModalScreen[None]):
         return [line for line in self.lines if needle in str(line).lower()]
 
     def _status_text(self, query: str = "") -> str:
-        total = len(self._filtered_lines(query))
-        visible = min(total, MAX_RENDERED_LOG_LINES)
         if query.strip():
+            total = len(self._filtered_lines(query))
+            visible = min(total, MAX_RENDERED_LOG_LINES)
             if total == 0:
                 return self._label("no_matches")
             return self._label("match_count").format(visible=visible, total=total)
+        total = len(self.lines)
+        visible = min(total, MAX_RENDERED_LOG_LINES)
         return self._label("line_count").format(visible=visible, total=total)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

@@ -94,7 +94,7 @@ REPORT_MARKDOWN_LABELS = {
         "goal": "목표",
         "last_event": "최근 이벤트",
         "kind": "종류",
-        "lane": "레인",
+        "lane": "그룹",
         "local_policy_repairs": "로컬 정책 복구",
         "local_wp_graph": "로컬 WP 그래프",
         "mission": "미션",

@@ -152,6 +152,33 @@ async def test_prompt_composer_reuses_composed_fixed_widgets() -> None:
 
 
 @pytest.mark.asyncio
+async def test_prompt_composer_rebinds_palette_render_keys_after_recompose() -> None:
+    composer = PromptComposer()
+    app = ComposerHarness(composer)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        composer.set_text("/sta")
+        await pilot.pause()
+
+        assert any(
+            "/status" in str(option.content)
+            for option in composer.query(".command-option")
+        )
+
+        composer.refresh(recompose=True)
+        await pilot.pause()
+
+        composer.set_text("/sta")
+        await pilot.pause()
+
+        assert composer.query_one("#prompt-command-palette").display is True
+        assert any(
+            "/status" in str(option.content)
+            for option in composer.query(".command-option")
+        )
+
+
+@pytest.mark.asyncio
 async def test_prompt_composer_set_text_skips_same_text_without_pastes() -> None:
     composer = PromptComposer()
     app = ComposerHarness(composer)

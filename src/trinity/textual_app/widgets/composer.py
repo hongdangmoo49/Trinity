@@ -190,6 +190,7 @@ class PromptComposer(Vertical):
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
+        self._reset_render_cache()
         text_area = ComposerTextArea(
             "",
             placeholder=self.placeholder,
@@ -484,6 +485,12 @@ class PromptComposer(Vertical):
         self._command_palette_widget = None
         self._command_option_widgets = {}
         self._command_more_widget = None
+
+    def _reset_render_cache(self) -> None:
+        self._command_options_key = None
+        self._command_option_row_keys = {}
+        self._command_more_key = None
+        self._command_palette_visible_key = None
 
     def _text_area(self) -> ComposerTextArea:
         if self._text_area_widget is None:

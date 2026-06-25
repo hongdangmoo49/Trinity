@@ -185,7 +185,7 @@ def progress_summary_line(
     counts = work_package_counts(package_list)
     total = sum(counts.values())
     if total <= 0:
-        return "WP 없음" if lang == "ko" else "No WPs"
+        return "작업 패키지 없음" if lang == "ko" else "No WPs"
     if lang == "ko":
         labels = {
             "blocked": "막힘",
@@ -194,7 +194,7 @@ def progress_summary_line(
             "unknown": "알 수 없음",
             "waiting": "대기",
         }
-        parts = [f"{total} WP"]
+        parts = [f"작업 패키지 {total}개"]
         parts.extend(
             f"{labels[key]} {counts[key]}"
             for key in PROGRESS_ORDER

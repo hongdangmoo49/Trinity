@@ -97,8 +97,9 @@ def test_work_package_progress_summary_supports_korean() -> None:
         _package("WP-003", "pending"),
     ]
 
+    assert progress_summary_line([], lang="ko") == "작업 패키지 없음"
     assert progress_summary_line(packages, lang="ko") == (
-        "3 WP · 완료 1 · 실행 1 · 대기 1"
+        "작업 패키지 3개 · 완료 1 · 실행 1 · 대기 1"
     )
 
 

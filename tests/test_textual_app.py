@@ -9501,7 +9501,7 @@ async def test_workflow_inspector_uses_configured_korean_labels(tmp_path) -> Non
         await pilot.pause()
 
         inspector = screen.query_one(WorkflowInspector)
-        assert "6 WP · 완료 1 · 실행 1 · 대기 2 · 막힘 1 · 알 수 없음 1" in str(
+        assert "작업 패키지 6개 · 완료 1 · 실행 1 · 대기 2 · 막힘 1 · 알 수 없음 1" in str(
             inspector.query_one("#inspector-progress").content
         )
         next_content = str(inspector.query_one("#inspector-next").content)

@@ -8785,6 +8785,26 @@ def test_work_package_detail_modal_surfaces_retry_disabled_reason() -> None:
     assert "- Retry candidate: `WP-002`" not in markdown
 
 
+def test_work_package_detail_modal_localizes_korean_retry_disabled_reason() -> None:
+    modal = WorkPackageDetailModal(
+        WorkPackageSnapshot(
+            id="WP-002",
+            title="문서",
+            owner_agent="claude",
+            status="done",
+            retryable=False,
+            retry_disabled_reason="already done",
+        ),
+        lang="ko",
+    )
+
+    markdown = modal._markdown()
+
+    assert "- 재시도 불가: 이미 완료됨" in markdown
+    assert "- 재시도 후보: `WP-002`" not in markdown
+    assert "already done" not in markdown
+
+
 def test_work_package_detail_modal_surfaces_review_skip_reason() -> None:
     modal = WorkPackageDetailModal(
         WorkPackageSnapshot(

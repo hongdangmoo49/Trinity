@@ -299,7 +299,7 @@ class WorkPackageDetailModal(ModalScreen[None]):
         elif package.retry_disabled_reason:
             lines.append(
                 f"- {self._label('retry_unavailable')}: "
-                f"{package.retry_disabled_reason}"
+                f"{self._retry_disabled_reason(package.retry_disabled_reason)}"
             )
         else:
             lines.append(
@@ -377,7 +377,11 @@ class WorkPackageDetailModal(ModalScreen[None]):
     def _retry_summary(self, package: WorkPackageSnapshot) -> str:
         if package.retryable:
             return self._label("available")
-        return package.retry_disabled_reason or self._label("not_available")
+        return (
+            self._retry_disabled_reason(package.retry_disabled_reason)
+            if package.retry_disabled_reason
+            else self._label("not_available")
+        )
 
     def _review_summary(self, package: WorkPackageSnapshot) -> str:
         if package.review_status == "skipped":
@@ -404,6 +408,17 @@ class WorkPackageDetailModal(ModalScreen[None]):
 
     def _profile_value(self, value: str) -> str:
         return display_profile_value(value, lang=self.lang, empty=self._label("none"))
+
+    def _retry_disabled_reason(self, value: str) -> str:
+        labels = {
+            "ko": {
+                "already done": "이미 완료됨",
+            }
+        }
+        raw = str(value or "").strip()
+        if not raw:
+            return self._label("not_available")
+        return labels.get(self.lang, {}).get(raw.lower(), raw)
 
     def _label(self, key: str) -> str:
         labels = _LABELS.get(self.lang, _LABELS["en"])

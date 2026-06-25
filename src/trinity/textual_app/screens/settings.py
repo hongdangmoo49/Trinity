@@ -38,6 +38,8 @@ class SettingsScreen(Screen[None]):
         self.lang = lang
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
         self.settings = settings_store.load()
+        self._preview_render_key: str | None = None
+        self._status_key = ""
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -99,7 +101,9 @@ class SettingsScreen(Screen[None]):
                     self._central_model_values(self.config.synthesis_model),
                     self.config.synthesis_model or "agent-default",
                 )
-            yield Static(self._preview_text(), id="theme-preview")
+            preview_text = self._preview_text()
+            self._preview_render_key = preview_text
+            yield Static(preview_text, id="theme-preview")
             yield Button(self._label("apply"), id="apply-settings", variant="primary")
             yield Static("", id="settings-status")
         yield Footer()
@@ -125,8 +129,20 @@ class SettingsScreen(Screen[None]):
         self.config.synthesis_agent = "" if central_provider == "auto" else central_provider
         self.config.synthesis_model = self._value("central-model")
         self.config.save(self.config.effective_state_dir / "trinity.config")
-        self.query_one("#theme-preview", Static).update(self._preview_text())
-        self.query_one("#settings-status", Static).update(self._label("saved"))
+        self._set_preview_text(self._preview_text())
+        self._set_status_text(self._label("saved"))
+
+    def _set_preview_text(self, text: str) -> None:
+        if text == self._preview_render_key:
+            return
+        self.query_one("#theme-preview", Static).update(text)
+        self._preview_render_key = text
+
+    def _set_status_text(self, text: str) -> None:
+        if text == self._status_key:
+            return
+        self.query_one("#settings-status", Static).update(text)
+        self._status_key = text
 
     def _select(self, id: str, values: list[str], current: str) -> Select[str]:
         options = [(self._display_value(value), value) for value in values]

@@ -140,8 +140,14 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]],
     ) -> None:
         """Refresh available choices while preserving modal selections."""
-        self.choices_by_agent.update(choices_by_agent)
-        if self.is_mounted:
+        changed = False
+        for name, choices in choices_by_agent.items():
+            next_choices = tuple(choices)
+            if tuple(self.choices_by_agent.get(name, ())) == next_choices:
+                continue
+            self.choices_by_agent[name] = next_choices
+            changed = True
+        if changed and self.is_mounted:
             self._refresh_choices()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

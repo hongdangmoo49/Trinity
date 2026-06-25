@@ -214,9 +214,12 @@ class PromptComposer(Vertical):
         return self.query_one(ComposerTextArea).text
 
     def set_text(self, text: str, *, clear_pastes: bool = True) -> None:
+        text_area = self.query_one(ComposerTextArea)
+        has_pastes_to_clear = bool(clear_pastes and self._pasted_content)
+        if text_area.text == text and not has_pastes_to_clear:
+            return
         if clear_pastes:
             self._pasted_content.clear()
-        text_area = self.query_one(ComposerTextArea)
         text_area.load_text(text)
         lines = text.split("\n")
         text_area.move_cursor((len(lines) - 1, len(lines[-1])))

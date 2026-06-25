@@ -4,7 +4,7 @@ import pytest
 from textual.app import App, ComposeResult
 from textual.widgets import Static
 
-from trinity.textual_app.widgets.composer import PromptComposer
+from trinity.textual_app.widgets.composer import ComposerTextArea, PromptComposer
 
 
 class ComposerHarness(App[None]):
@@ -111,3 +111,76 @@ async def test_prompt_composer_selection_move_updates_only_changed_option_rows()
 
         assert updates == []
         assert option_queries == ["#command-option-0", "#command-option-1"]
+
+
+@pytest.mark.asyncio
+async def test_prompt_composer_set_text_skips_same_text_without_pastes() -> None:
+    composer = PromptComposer()
+    app = ComposerHarness(composer)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        composer.set_text("plain text")
+        await pilot.pause()
+
+        text_area = composer.query_one(ComposerTextArea)
+        load_calls: list[str] = []
+        refresh_calls: list[str] = []
+        original_load_text = text_area.load_text
+        original_refresh = composer._refresh_command_palette
+
+        def counted_load_text(text: str) -> None:
+            load_calls.append(text)
+            original_load_text(text)
+
+        def counted_refresh() -> None:
+            refresh_calls.append("refresh")
+            original_refresh()
+
+        text_area.load_text = counted_load_text
+        composer._refresh_command_palette = counted_refresh
+
+        composer.set_text("plain text")
+        await pilot.pause()
+        assert load_calls == []
+        assert refresh_calls == []
+
+        composer.set_text("changed text")
+        await pilot.pause()
+        assert load_calls == ["changed text"]
+        assert refresh_calls
+
+
+@pytest.mark.asyncio
+async def test_prompt_composer_set_text_preserves_paste_clear_refresh() -> None:
+    composer = PromptComposer()
+    app = ComposerHarness(composer)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        placeholder = composer.register_pasted_content("long\npaste")
+        composer.set_text(placeholder, clear_pastes=False)
+        await pilot.pause()
+        assert composer._pasted_content
+
+        text_area = composer.query_one(ComposerTextArea)
+        load_calls: list[str] = []
+        refresh_calls: list[str] = []
+        original_load_text = text_area.load_text
+        original_refresh = composer._refresh_command_palette
+
+        def counted_load_text(text: str) -> None:
+            load_calls.append(text)
+            original_load_text(text)
+
+        def counted_refresh() -> None:
+            refresh_calls.append("refresh")
+            original_refresh()
+
+        text_area.load_text = counted_load_text
+        composer._refresh_command_palette = counted_refresh
+
+        composer.set_text(placeholder)
+        await pilot.pause()
+
+        assert composer._pasted_content == []
+        assert load_calls == [placeholder]
+        assert refresh_calls

@@ -7334,6 +7334,57 @@ async def test_nexus_running_surfaces_show_activity(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_nexus_activity_frame_skips_when_no_running_surfaces(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                state="blueprint_ready",
+                providers=[
+                    ProviderSnapshot(
+                        name="claude",
+                        provider="claude-code",
+                        enabled=True,
+                        status="Ready",
+                    )
+                ],
+            )
+        )
+        await pilot.pause()
+
+        panel = screen.query_one("#provider-claude", ProviderPanel)
+        central = screen.query_one(CentralAgentView)
+        panel_frames: list[int] = []
+        central_frames: list[int] = []
+        original_panel_frame = panel.set_activity_frame
+        original_central_frame = central.set_activity_frame
+
+        def counted_panel_frame(frame: int) -> None:
+            panel_frames.append(frame)
+            original_panel_frame(frame)
+
+        def counted_central_frame(frame: int) -> None:
+            central_frames.append(frame)
+            original_central_frame(frame)
+
+        panel.set_activity_frame = counted_panel_frame
+        central.set_activity_frame = counted_central_frame
+        previous_frame = screen._activity_frame
+
+        screen.advance_activity_frame()
+        await pilot.pause()
+
+        assert screen._activity_frame == previous_frame
+        assert panel_frames == []
+        assert central_frames == []
+
+
+@pytest.mark.asyncio
 async def test_nexus_provider_panel_marks_non_ok_response_as_issue(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

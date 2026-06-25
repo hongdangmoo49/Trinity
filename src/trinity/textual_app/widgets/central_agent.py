@@ -117,6 +117,9 @@ class CentralAgentView(VerticalScroll):
         if self._is_running():
             self._refresh_title()
 
+    def has_running_activity(self) -> bool:
+        return self._is_running()
+
     def _markdown(self) -> str:
         snapshot = self.snapshot
         if snapshot is None:

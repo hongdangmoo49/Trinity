@@ -176,6 +176,11 @@ class ReportScreen(Screen[None]):
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
+        self._export_status_widget = None
+        self._body_widget = None
+        self._export_status_key = ""
+        self._last_rendered_id = ""
+        self._applied_source_identity = None
         yield Header(show_clock=False)
         with Vertical(id="report-screen"):
             with Vertical(id="report-header"):

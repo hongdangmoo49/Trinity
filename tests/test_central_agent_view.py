@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import pytest
+from textual.app import App, ComposeResult
+from textual.widgets import Static
+
 from trinity.textual_app.snapshot import (
     ExecutionRecoverySnapshot,
     LocalCommandSnapshot,
@@ -14,6 +18,15 @@ from trinity.textual_app.presenters import (
     should_show_blueprint_actions,
 )
 from trinity.textual_app.widgets.central_agent import CentralAgentView
+
+
+class CentralAgentHarness(App[None]):
+    def __init__(self, view: CentralAgentView) -> None:
+        super().__init__()
+        self.view = view
+
+    def compose(self) -> ComposeResult:
+        yield self.view
 
 
 def test_central_markdown_keeps_conversation_and_hides_internal_dump() -> None:
@@ -326,3 +339,52 @@ def test_central_markdown_summarizes_execution_progress_without_result_dump() ->
     assert "- **WP-003** [blocked] `codex`: Fix auth" in markdown
     assert "### Execution Result Summary" not in markdown
     assert "Files: src/api.py, tests/test_api.py" not in markdown
+
+
+@pytest.mark.asyncio
+async def test_central_activity_frame_skips_idle_title_update() -> None:
+    view = CentralAgentView()
+    view.snapshot = WorkflowNexusSnapshot(state="blueprint_ready")
+    app = CentralAgentHarness(view)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        await pilot.pause()
+        title = view.query_one("#central-title", Static)
+        updates: list[str] = []
+        original_update = title.update
+
+        def counted_update(content) -> None:
+            updates.append(str(content))
+            original_update(content)
+
+        title.update = counted_update
+
+        view.set_activity_frame(1)
+        await pilot.pause()
+
+        assert view._activity_frame == 1
+        assert updates == []
+
+
+@pytest.mark.asyncio
+async def test_central_activity_frame_updates_running_title() -> None:
+    view = CentralAgentView()
+    view.snapshot = WorkflowNexusSnapshot(state="executing")
+    app = CentralAgentHarness(view)
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        await pilot.pause()
+        title = view.query_one("#central-title", Static)
+        updates: list[str] = []
+        original_update = title.update
+
+        def counted_update(content) -> None:
+            updates.append(str(content))
+            original_update(content)
+
+        title.update = counted_update
+
+        view.set_activity_frame(1)
+        await pilot.pause()
+
+        assert updates == ["Central Agent /"]

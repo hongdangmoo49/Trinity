@@ -852,7 +852,7 @@ def test_memory_presenter_uses_korean_labels() -> None:
     assert memory_cleanup_error_markdown(
         "Unknown cleanup option: `--oops`",
         lang="ko",
-    ) == "알 수 없는 cleanup 옵션: `--oops`"
+    ) == "알 수 없는 정리 옵션: `--oops`"
 
 
 def test_artifact_presenter_uses_korean_labels() -> None:

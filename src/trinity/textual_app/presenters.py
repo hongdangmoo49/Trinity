@@ -336,7 +336,7 @@ STATUS_CONTEXT_LABELS = {
         "memory_cleanup": "메모리 정리",
         "memory_cleanup_keep_latest_number": "`--keep-latest`에는 숫자를 입력하세요.",
         "memory_cleanup_keep_latest_range": "`--keep-latest`는 0 이상이어야 합니다.",
-        "memory_cleanup_unknown_option": "알 수 없는 cleanup 옵션",
+        "memory_cleanup_unknown_option": "알 수 없는 정리 옵션",
         "memory_cleanup_usage": (
             "사용법: `/memory cleanup --oversized-backups "
             "[--apply] [--keep-latest N]`"

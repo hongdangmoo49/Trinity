@@ -495,6 +495,7 @@ class ExecutionMatrixScreen(Screen[None]):
         if not self.is_mounted:
             return
         self._applied_state_identity = None
+        self._activity_lines_key = ()
         self.query_one("#execution-log", RichLog).write(line)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

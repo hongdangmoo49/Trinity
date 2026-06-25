@@ -18,7 +18,14 @@ PROGRESS_CHARS = {
 }
 DONE_STATUSES = {"completed", "done", "success"}
 RUNNING_STATUSES = {"executing", "reviewing", "running"}
-WAITING_STATUSES = {"pending", "queued", "waiting"}
+WAITING_STATUSES = {
+    "needs_user_decision",
+    "pending",
+    "queued",
+    "waiting",
+    "waiting_for_external_input",
+    "waiting_on_decision",
+}
 BLOCKED_STATUSES = {"blocked", "failed"}
 
 

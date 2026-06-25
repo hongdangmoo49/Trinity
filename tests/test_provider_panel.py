@@ -179,6 +179,39 @@ async def test_provider_panel_activity_frame_updates_running_status() -> None:
 
 
 @pytest.mark.asyncio
+async def test_provider_panel_activity_frame_uses_cached_status_widget() -> None:
+    running_panel = ProviderPanel(
+        ProviderPanelState(
+            name="codex",
+            provider="codex",
+            enabled=True,
+            status="Running",
+        )
+    )
+    app = ProviderPanelHarness(running_panel)
+
+    async with app.run_test(size=(60, 10)) as pilot:
+        await pilot.pause()
+        queries: list[str] = []
+        original_query_one = running_panel.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if selector == ".provider-status":
+                queries.append(str(selector))
+            return original_query_one(selector, *args, **kwargs)
+
+        running_panel.query_one = counted_query_one
+
+        running_panel.set_activity_frame(1)
+        await pilot.pause()
+
+        assert queries == []
+        assert str(
+            running_panel._static_cache[".provider-status"].content
+        ) == "/ RUN"
+
+
+@pytest.mark.asyncio
 async def test_provider_panel_status_change_updates_only_status_field() -> None:
     panel = ProviderPanel(
         ProviderPanelState(

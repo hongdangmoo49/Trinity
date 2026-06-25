@@ -55,13 +55,22 @@ class ProviderPanel(Vertical):
         self.state = state
         self.lang = lang
         self._activity_frame = 0
+        self._static_cache: dict[str, Static] = {}
 
     def compose(self) -> ComposeResult:
         with Horizontal(classes="provider-heading"):
-            yield Static(self.state.name.title(), classes="provider-name")
-            yield Static(self._status_label(), classes="provider-status")
-        yield Static(self._provider_line(), classes="provider-meta")
-        yield Static(self._summary_line(), classes="provider-summary")
+            name = Static(self.state.name.title(), classes="provider-name")
+            status = Static(self._status_label(), classes="provider-status")
+            self._static_cache[".provider-name"] = name
+            self._static_cache[".provider-status"] = status
+            yield name
+            yield status
+        meta = Static(self._provider_line(), classes="provider-meta")
+        summary = Static(self._summary_line(), classes="provider-summary")
+        self._static_cache[".provider-meta"] = meta
+        self._static_cache[".provider-summary"] = summary
+        yield meta
+        yield summary
 
     def update_state(self, state: ProviderPanelState) -> None:
         if state == self.state:
@@ -80,13 +89,13 @@ class ProviderPanel(Vertical):
         status_label = self._status_label()
         summary_line = self._summary_line()
         if name != previous_name:
-            self.query_one(".provider-name", Static).update(name)
+            self._static_for(".provider-name").update(name)
         if provider_line != previous_provider_line:
-            self.query_one(".provider-meta", Static).update(provider_line)
+            self._static_for(".provider-meta").update(provider_line)
         if status_label != previous_status_label:
-            self.query_one(".provider-status", Static).update(status_label)
+            self._static_for(".provider-status").update(status_label)
         if summary_line != previous_summary_line:
-            self.query_one(".provider-summary", Static).update(summary_line)
+            self._static_for(".provider-summary").update(summary_line)
 
     def set_activity_frame(self, frame: int) -> None:
         next_frame = frame % len(ACTIVITY_FRAMES)
@@ -94,7 +103,7 @@ class ProviderPanel(Vertical):
             return
         self._activity_frame = next_frame
         if self.is_mounted and self._state_group(self.state) == "running":
-            self.query_one(".provider-status", Static).update(self._status_label())
+            self._static_for(".provider-status").update(self._status_label())
 
     def has_running_activity(self) -> bool:
         return self._state_group(self.state) == "running"
@@ -131,6 +140,14 @@ class ProviderPanel(Vertical):
     def _summary_line(self) -> str:
         text = self.state.details or self.state.summary or self._empty_summary()
         return self._compact_line(text)
+
+    def _static_for(self, selector: str) -> Static:
+        widget = self._static_cache.get(selector)
+        if widget is not None:
+            return widget
+        widget = self.query_one(selector, Static)
+        self._static_cache[selector] = widget
+        return widget
 
     @staticmethod
     def _compact_line(text: str, limit: int = 72) -> str:

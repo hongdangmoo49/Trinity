@@ -140,6 +140,7 @@ class NexusScreen(Screen[None]):
         self._workspace_candidate: str = ""
         self._workspace_label_key = ""
         self._provider_state_cache: dict[str, ProviderPanelState] = {}
+        self._applied_snapshot_identity: int | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=False)
@@ -252,9 +253,17 @@ class NexusScreen(Screen[None]):
             selector.set_model_choices(name, choices)
 
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
+        snapshot_identity = id(snapshot)
+        if (
+            self.is_mounted
+            and self._applied_snapshot_identity == snapshot_identity
+        ):
+            self.snapshot = snapshot
+            return
         self.snapshot = snapshot
         if not self.is_mounted:
             return
+        self._applied_snapshot_identity = snapshot_identity
         for provider in snapshot.providers:
             state = self._provider_panel_state(provider)
             if self._provider_state_cache.get(provider.name) == state:
@@ -319,6 +328,7 @@ class NexusScreen(Screen[None]):
         state = self._state_from_spec(name, spec, status=status, summary=summary)
         panel.update_state(state)
         self._provider_state_cache[name] = state
+        self._applied_snapshot_identity = None
         panel.set_activity_frame(self._activity_frame)
 
     def on_prompt_composer_submitted(self, event: PromptComposer.Submitted) -> None:

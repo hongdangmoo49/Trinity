@@ -59,7 +59,7 @@ _EXECUTION_MATRIX_LABELS = {
         "summary_done": "완료",
         "summary_issue": "문제",
         "summary_review": "리뷰",
-        "summary_run": "실행중",
+        "summary_run": "실행 중",
         "summary_wait": "대기",
         "status": "상태",
         "target": "대상",

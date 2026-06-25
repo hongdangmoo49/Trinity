@@ -3177,6 +3177,21 @@ def test_central_agent_view_localizes_korean_guidance_labels() -> None:
     assert "Use `/improve done`" not in done_markdown
 
 
+def test_central_agent_view_localizes_korean_review_repair_action_labels() -> None:
+    view = CentralAgentView(lang="ko")
+
+    assert view._label("repair_action") == "리뷰 보정 결정"
+    assert view._label("repair-retry-once_tooltip") == (
+        "리뷰 보정으로 막힌 WP만 한 번 더 실행합니다."
+    )
+    assert view._label("repair-mark-done_tooltip") == (
+        "막힌 리뷰 보정을 사용자가 수용하고 WP를 완료 처리합니다."
+    )
+    assert view._label("repair-open-review_tooltip") == (
+        "현재 리뷰 보정 차단 상세를 봅니다."
+    )
+
+
 def test_central_agent_view_localizes_korean_execution_progress() -> None:
     view = CentralAgentView(lang="ko")
     snapshot = WorkflowNexusSnapshot(

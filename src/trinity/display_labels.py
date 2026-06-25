@@ -84,7 +84,10 @@ KIND_VALUE_LABELS = {
 PROFILE_VALUE_LABELS = {
     "ko": {
         "architect": "설계자",
+        "architecture": "아키텍처",
         "balanced": "균형",
+        "documentation": "문서화",
+        "enhancement": "개선",
         "execute": "실행",
         "execution_v1": "실행 v1",
         "final_review_v1": "최종 리뷰 v1",
@@ -92,7 +95,9 @@ PROFILE_VALUE_LABELS = {
         "implementation": "구현",
         "integration": "통합",
         "planning": "계획",
+        "refactor": "리팩터링",
         "repair": "복구",
+        "research": "조사",
         "review": "리뷰",
         "review_v1": "리뷰 v1",
         "reviewer": "리뷰어",

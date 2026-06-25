@@ -10335,10 +10335,12 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
         assert "밀도: 여유" in preview
         assert "중앙: 자동 / 강력" in preview
         assert "Claude: 기본값" in preview
+        assert "Claude: 기본값 · 설계자 · 아키텍처 0.95" in preview
         assert "출력 형식 실행:실행 v1 리뷰:리뷰 v1" in preview
         assert "Mode:" not in preview
         assert "Density:" not in preview
         assert "Central:" not in preview
+        assert "architecture 0.95" not in preview
         assert "테마 모드: system" not in preview
         assert "밀도: comfortable" not in preview
         assert "Claude: default" not in preview

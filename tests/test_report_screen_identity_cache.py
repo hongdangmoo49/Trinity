@@ -180,3 +180,53 @@ async def test_report_screen_render_uses_cached_body_widget() -> None:
         assert queries == []
         assert screen._body_widget is not None
         assert screen._body_widget.children
+
+
+@pytest.mark.asyncio
+async def test_report_screen_recompose_rebinds_cached_widgets_and_render_keys() -> None:
+    screen = ReportScreen()
+    snapshot = _snapshot(goal="Rebind report cache")
+    app = ReportHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        export_path = Path("/tmp/rebound-report.md")
+        screen.apply_snapshot(snapshot)
+        screen.show_export_path(export_path)
+        await pilot.pause()
+
+        first_status = screen._export_status_widget
+        first_body = screen._body_widget
+        assert screen._applied_source_identity == ("snapshot", id(snapshot))
+        assert screen._last_rendered_id
+        assert screen._export_status_key
+
+        screen.refresh(recompose=True)
+        await pilot.pause()
+
+        assert screen._export_status_widget is not None
+        assert screen._export_status_widget is not first_status
+        assert screen._body_widget is not None
+        assert screen._body_widget is not first_body
+        assert screen._applied_source_identity is None
+        assert screen._last_rendered_id == ""
+        assert screen._export_status_key == ""
+
+        queries: list[str] = []
+        original_query_one = screen.query_one
+
+        def counted_query_one(selector, *args, **kwargs):
+            if selector in {"#report-export-status", "#report-body"}:
+                queries.append(str(selector))
+            return original_query_one(selector, *args, **kwargs)
+
+        screen.query_one = counted_query_one
+
+        screen.apply_snapshot(snapshot)
+        screen.show_export_path(export_path)
+        await pilot.pause()
+
+        assert queries == []
+        assert "rebound-report.md" in str(screen._export_status_widget.content)
+        body_text = "\n".join(str(child.render()) for child in screen._body_widget.children)
+        assert "Rebind report cache" in body_text

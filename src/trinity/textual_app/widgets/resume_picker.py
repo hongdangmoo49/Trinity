@@ -61,24 +61,32 @@ class ResumeWorkflowPicker(ModalScreen[str | None]):
         self.archives = archives
         self.lang = lang
         self.selected_index = 0
+        self._archive_buttons: list[Button] = []
+        self._archive_list_widget: VerticalScroll | None = None
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
+        self._archive_buttons = []
+        self._archive_list_widget = None
         with Vertical(id="resume-picker"):
             yield Static(self._label("title"), id="resume-picker-title")
             if not self.archives:
                 yield Static(self._label("empty"), id="resume-picker-empty")
             else:
-                with VerticalScroll(id="resume-archive-list"):
+                archive_list = VerticalScroll(id="resume-archive-list")
+                self._archive_list_widget = archive_list
+                with archive_list:
                     for archive in self.archives:
                         classes = "resume-archive-option"
                         if archive.selector == self.archives[self.selected_index].selector:
                             classes += " resume-archive-option-selected"
-                        yield Button(
+                        button = Button(
                             self._archive_label(archive),
                             id=f"resume-archive-{archive.selector}",
                             classes=classes,
                         )
+                        self._archive_buttons.append(button)
+                        yield button
             yield Button(self._label("cancel"), id="cancel-resume-picker")
         yield Footer()
 
@@ -127,11 +135,7 @@ class ResumeWorkflowPicker(ModalScreen[str | None]):
                 return
 
     def _focus_selected_archive(self) -> None:
-        buttons = [
-            button
-            for button in self.query(".resume-archive-option")
-            if isinstance(button, Button)
-        ]
+        buttons = self._archive_buttons_for_focus()
         if not buttons:
             return
         self.selected_index = max(0, min(self.selected_index, len(buttons) - 1))
@@ -142,11 +146,34 @@ class ResumeWorkflowPicker(ModalScreen[str | None]):
                 button.remove_class("resume-archive-option-selected")
         selected = buttons[self.selected_index]
         selected.focus()
-        self.query_one("#resume-archive-list", VerticalScroll).scroll_to_widget(
-            selected,
-            animate=False,
-            immediate=True,
+        archive_list = self._archive_list()
+        if archive_list is not None:
+            archive_list.scroll_to_widget(
+                selected,
+                animate=False,
+                immediate=True,
+            )
+
+    def _archive_buttons_for_focus(self) -> list[Button]:
+        if self._archive_buttons:
+            return self._archive_buttons
+        self._archive_buttons = [
+            button
+            for button in self.query(".resume-archive-option")
+            if isinstance(button, Button)
+        ]
+        return self._archive_buttons
+
+    def _archive_list(self) -> VerticalScroll | None:
+        if self._archive_list_widget is not None:
+            return self._archive_list_widget
+        if not self.archives:
+            return None
+        self._archive_list_widget = self.query_one(
+            "#resume-archive-list",
+            VerticalScroll,
         )
+        return self._archive_list_widget
 
     def _archive_label(self, archive: TextualWorkflowArchiveOption) -> str:
         goal = archive.goal.strip() or self._label("no_goal")

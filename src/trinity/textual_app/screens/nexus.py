@@ -141,17 +141,27 @@ class NexusScreen(Screen[None]):
         self._workspace_label_key = ""
         self._provider_state_cache: dict[str, ProviderPanelState] = {}
         self._applied_snapshot_identity: int | None = None
+        self._provider_panels: dict[str, ProviderPanel] = {}
+        self._workspace_label_widget: Static | None = None
+        self._central_view: CentralAgentView | None = None
+        self._question_panel: QuestionPanel | None = None
+        self._inspector: WorkflowInspector | None = None
+        self._recipient_selector: AgentRecipientModelSelector | None = None
+        self._composer: PromptComposer | None = None
 
     def compose(self) -> ComposeResult:
+        self._reset_widget_cache()
         yield Header(show_clock=False)
         with Vertical(id="nexus-screen"):
             with Horizontal(id="provider-strip"):
                 for state in self._initial_provider_states():
-                    yield ProviderPanel(
+                    panel = ProviderPanel(
                         state,
                         id=f"provider-{state.name}",
                         lang=self.config.lang,
                     )
+                    self._provider_panels[state.name] = panel
+                    yield panel
             with Horizontal(id="nexus-action-bar"):
                 yield Button(
                     self._label("open_provider_inspector"),
@@ -162,10 +172,12 @@ class NexusScreen(Screen[None]):
                     id="select-workspace",
                     variant="default",
                 )
-                yield Static(
+                workspace_label = Static(
                     self._workspace_label(),
                     id="nexus-target-workspace",
                 )
+                self._workspace_label_widget = workspace_label
+                yield workspace_label
                 yield Button(
                     self._label("execute"),
                     id="request-execute",
@@ -173,19 +185,32 @@ class NexusScreen(Screen[None]):
                 )
             with Horizontal(id="nexus-main"):
                 with Vertical(id="nexus-center-stack"):
-                    yield CentralAgentView(id="central-agent", lang=self.config.lang)
-                    yield QuestionPanel(id="nexus-question-panel", lang=self.config.lang)
-                yield WorkflowInspector(id="workflow-inspector", lang=self.config.lang)
-            yield AgentRecipientModelSelector(
+                    central = CentralAgentView(id="central-agent", lang=self.config.lang)
+                    self._central_view = central
+                    yield central
+                    question_panel = QuestionPanel(
+                        id="nexus-question-panel",
+                        lang=self.config.lang,
+                    )
+                    self._question_panel = question_panel
+                    yield question_panel
+                inspector = WorkflowInspector(id="workflow-inspector", lang=self.config.lang)
+                self._inspector = inspector
+                yield inspector
+            selector = AgentRecipientModelSelector(
                 self.config.agents,
                 id="nexus-recipient-selector",
                 lang=self.config.lang,
             )
-            yield PromptComposer(
+            self._recipient_selector = selector
+            yield selector
+            composer = PromptComposer(
                 placeholder=self._label("composer_placeholder"),
                 id="nexus-composer",
                 lang=self.config.lang,
             )
+            self._composer = composer
+            yield composer
         yield Footer()
 
     def on_mount(self) -> None:
@@ -198,7 +223,7 @@ class NexusScreen(Screen[None]):
         if self._selected_agents or self._agent_model_overrides:
             self._apply_agent_selection()
         self._apply_model_choices()
-        self.query_one("#nexus-composer", PromptComposer).focus_text_area()
+        self._prompt_composer().focus_text_area()
 
     def set_initial_prompt(self, prompt: str) -> None:
         next_prompt = prompt.strip()
@@ -228,7 +253,7 @@ class NexusScreen(Screen[None]):
         self._apply_agent_selection()
 
     def _apply_agent_selection(self) -> None:
-        selector = self.query_one(AgentRecipientModelSelector)
+        selector = self._agent_selector()
         if self._selected_agents:
             selector.set_selected_agents(self._selected_agents)
         if self._agent_model_overrides:
@@ -264,9 +289,62 @@ class NexusScreen(Screen[None]):
     ) -> None:
         if not self._agent_model_choices:
             return
-        selector = self.query_one(AgentRecipientModelSelector)
+        selector = self._agent_selector()
         for name, choices in (choices_by_agent or self._agent_model_choices).items():
             selector.set_model_choices(name, choices)
+
+    def _reset_widget_cache(self) -> None:
+        self._provider_panels = {}
+        self._workspace_label_widget = None
+        self._central_view = None
+        self._question_panel = None
+        self._inspector = None
+        self._recipient_selector = None
+        self._composer = None
+
+    def _provider_panel(self, name: str) -> ProviderPanel | None:
+        panel = self._provider_panels.get(name)
+        if panel is not None:
+            return panel
+        matches = self.query(f"#provider-{name}")
+        if not matches:
+            return None
+        panel = matches.first(ProviderPanel)
+        self._provider_panels[name] = panel
+        return panel
+
+    def _workspace_label_static(self) -> Static:
+        if self._workspace_label_widget is None:
+            self._workspace_label_widget = self.query_one(
+                "#nexus-target-workspace",
+                Static,
+            )
+        return self._workspace_label_widget
+
+    def _central_agent(self) -> CentralAgentView:
+        if self._central_view is None:
+            self._central_view = self.query_one(CentralAgentView)
+        return self._central_view
+
+    def _questions(self) -> QuestionPanel:
+        if self._question_panel is None:
+            self._question_panel = self.query_one(QuestionPanel)
+        return self._question_panel
+
+    def _workflow_inspector(self) -> WorkflowInspector:
+        if self._inspector is None:
+            self._inspector = self.query_one(WorkflowInspector)
+        return self._inspector
+
+    def _agent_selector(self) -> AgentRecipientModelSelector:
+        if self._recipient_selector is None:
+            self._recipient_selector = self.query_one(AgentRecipientModelSelector)
+        return self._recipient_selector
+
+    def _prompt_composer(self) -> PromptComposer:
+        if self._composer is None:
+            self._composer = self.query_one("#nexus-composer", PromptComposer)
+        return self._composer
 
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
         snapshot_identity = id(snapshot)
@@ -284,11 +362,9 @@ class NexusScreen(Screen[None]):
             state = self._provider_panel_state(provider)
             if self._provider_state_cache.get(provider.name) == state:
                 continue
-            panel_id = f"#provider-{provider.name}"
-            matches = self.query(panel_id)
-            if not matches:
+            panel = self._provider_panel(provider.name)
+            if panel is None:
                 continue
-            panel = matches.first(ProviderPanel)
             panel.update_state(state)
             self._provider_state_cache[provider.name] = state
         self._refresh_central()
@@ -344,7 +420,9 @@ class NexusScreen(Screen[None]):
         state = self._state_from_spec(name, spec, status=status, summary=summary)
         if self._provider_state_cache.get(name) == state:
             return
-        panel = self.query_one(f"#provider-{name}", ProviderPanel)
+        panel = self._provider_panel(name)
+        if panel is None:
+            return
         panel.update_state(state)
         self._provider_state_cache[name] = state
         self._applied_snapshot_identity = None
@@ -366,7 +444,7 @@ class NexusScreen(Screen[None]):
             self.action_request_workspace()
 
     def action_submit_follow_up(self) -> None:
-        composer = self.query_one("#nexus-composer", PromptComposer)
+        composer = self._prompt_composer()
         self._submit_follow_up(composer.submission_text)
 
     def action_open_inspector(self) -> None:
@@ -382,10 +460,7 @@ class NexusScreen(Screen[None]):
         label = self._workspace_label()
         if label == self._workspace_label_key:
             return
-        matches = self.query("#nexus-target-workspace")
-        if not matches:
-            return
-        matches.first(Static).update(label)
+        self._workspace_label_static().update(label)
         self._workspace_label_key = label
 
     def _workspace_label(self) -> str:
@@ -404,16 +479,16 @@ class NexusScreen(Screen[None]):
         if not cleaned:
             return
         if is_slash_command_text(cleaned):
-            self.query_one("#nexus-composer", PromptComposer).clear()
+            self._prompt_composer().clear()
             self.post_message(self.SlashCommandSubmitted(cleaned))
             return
-        selector = self.query_one(AgentRecipientModelSelector)
+        selector = self._agent_selector()
         target_agents = selector.selected_agents()
         if not target_agents:
             self.app.notify(self._label("select_agent_warning"), severity="warning")
             return
         self.follow_ups.append(cleaned)
-        self.query_one("#nexus-composer", PromptComposer).clear()
+        self._prompt_composer().clear()
         self._refresh_central()
         self.post_message(
             self.FollowUpSubmitted(
@@ -558,19 +633,19 @@ class NexusScreen(Screen[None]):
         )
 
     def _refresh_central(self) -> None:
-        central = self.query_one(CentralAgentView)
+        central = self._central_agent()
         if self.snapshot is not None:
             central.apply_snapshot(self.snapshot)
             return
         central.apply_snapshot(self._fallback_snapshot())
 
     def _refresh_questions(self) -> None:
-        question_panel = self.query_one(QuestionPanel)
+        question_panel = self._questions()
         snapshot = self.snapshot or self._fallback_snapshot()
         question_panel.apply_questions(snapshot.questions)
 
     def _refresh_inspector(self) -> None:
-        inspector = self.query_one(WorkflowInspector)
+        inspector = self._workflow_inspector()
         inspector.apply_snapshot(self.snapshot or self._fallback_snapshot())
 
     def _fallback_snapshot(self) -> WorkflowNexusSnapshot:
@@ -585,6 +660,6 @@ class NexusScreen(Screen[None]):
     def _apply_activity_frame(self) -> None:
         if not self.is_mounted:
             return
-        for panel in self.query(ProviderPanel):
+        for panel in self._provider_panels.values():
             panel.set_activity_frame(self._activity_frame)
-        self.query_one(CentralAgentView).set_activity_frame(self._activity_frame)
+        self._central_agent().set_activity_frame(self._activity_frame)

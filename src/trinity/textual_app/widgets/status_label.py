@@ -16,7 +16,7 @@ WAITING_STATUSES = {
     "waiting_on_decision",
 }
 IDLE_STATUSES = {"idle"}
-DONE_STATUSES = {"completed", "done", "ready", "success"}
+DONE_STATUSES = {"completed", "done", "ready", "success", "succeeded"}
 ISSUE_STATUSES = {"blocked", "error", "failed", "timeout"}
 
 COMPACT_STATUS_LABELS = {

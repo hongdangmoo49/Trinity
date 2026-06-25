@@ -2142,8 +2142,8 @@ async def test_report_screen_snapshot_uses_korean_body_labels(tmp_path) -> None:
     assert "이유: implementation strength 0.95" in rendered
     assert "그룹 직렬" in rendered
     assert (
-        "리뷰 peer 없음/(없음); 이유 활성 에이전트가 claude뿐이라 "
-        "peer 리뷰어가 없습니다."
+        "리뷰 동료 없음/(없음); 이유 활성 에이전트가 claude뿐이라 "
+        "동료 리뷰어가 없습니다."
     ) in rendered
     assert "실행 복구" in rendered
     assert "상태: 중단" in rendered
@@ -2882,8 +2882,8 @@ def test_snapshot_report_markdown_uses_korean_labels() -> None:
     assert "상태: 완료; 소유자 codex; 실행자 codex; 그룹 직렬" in md
     assert "라우팅: 종류 구현; 프로필 default\\-v1; 점수 0\\.95" in md
     assert (
-        "리뷰: peer 없음; 리뷰어 \\(없음\\); 이유 활성 에이전트가 codex뿐이라 "
-        "peer 리뷰어가 없습니다\\."
+        "리뷰: 동료 없음; 리뷰어 \\(없음\\); 이유 활성 에이전트가 codex뿐이라 "
+        "동료 리뷰어가 없습니다\\."
     ) in md
     assert "## 실행 로그" in md
     assert "## 실행 복구" in md
@@ -7991,7 +7991,7 @@ def test_execution_matrix_compacts_reviewer_status_labels() -> None:
             ),
             lang="ko",
         )
-        == "peer 없음"
+        == "동료 없음"
     )
     assert (
         _review_label(
@@ -8041,7 +8041,7 @@ async def test_execution_matrix_row_labels_no_peer_review_skip(tmp_path) -> None
         row = screen.query("#execution-package-list .execution-package-row").first()
         row_text = _widget_tree_text(row)
 
-        assert "리뷰: peer 없음" in row_text
+        assert "리뷰: 동료 없음" in row_text
 
 
 def test_execution_matrix_detail_button_labels_review_escalation() -> None:
@@ -8853,7 +8853,7 @@ def test_work_package_detail_modal_surfaces_korean_review_skip_reason() -> None:
 
     assert (
         "- 리뷰 생략 사유: 활성 에이전트가 codex뿐이라 "
-        "peer 리뷰어가 없습니다."
+        "동료 리뷰어가 없습니다."
     ) in markdown
     assert "## 리뷰 계획" in markdown
 

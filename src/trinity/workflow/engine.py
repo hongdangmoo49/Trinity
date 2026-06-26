@@ -25,7 +25,7 @@ from trinity.workflow.decomposer import (
     classify_execution_intent,
 )
 from trinity.workflow.execution_flow import WorkflowExecutionFlow
-from trinity.workflow.execution_review_flow import WorkflowPostReviewFlow
+from trinity.workflow.post_review_flow import WorkflowPostReviewFlow
 from trinity.workflow.review_flow import WorkflowReviewFlow
 from trinity.workflow.models import (
     AgentRuntimeModel,

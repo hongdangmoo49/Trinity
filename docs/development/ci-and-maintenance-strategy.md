@@ -8,10 +8,10 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.347`
-- Merged PR range reviewed: #90 through #444
+- Package version inspected: `1.0.389`
+- Merged PR range reviewed: #90 through #486
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #444
+- Maintenance refresh reviewed: #427 through #486
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/publish-pypi.yml`
@@ -104,6 +104,52 @@ and what the next release train should optimize.
   render cache work, UI label/status stabilization, execution/review feedback,
   and fake-provider baseline work.
 
+### #445-#447: Maintenance Refresh and Workflow Facade Cleanup
+
+- Refreshed this maintenance strategy from the first completed-plan archive
+  pass.
+- Removed the remaining central-flow private delegates from `WorkflowEngine`
+  after the central flow contract existed.
+- Continued reducing `WorkflowEngine` wrapper drift while keeping public engine
+  methods stable.
+
+### #448-#460: Textual Local Command State and Parser Extraction
+
+- Split Textual local command state and local command persistence helpers into
+  `textual_app/local_commands.py`.
+- Extracted parsers for rounds, agent, caveman, answer, target, resume,
+  report, artifact, memory, and execute commands into
+  `textual_app/command_parsers.py`.
+- Added the Textual command helper tests to the required smoke gate so parser
+  and local command regressions fail in PR CI.
+
+### #461-#468: Textual Command Outcome Helper Reuse
+
+- Split review, improve, and execute command handling helpers.
+- Reused common workflow outcome message handling for resume, answer, review,
+  and Nexus execute paths.
+- Reduced duplicated apply-and-present logic across Nexus and Execution Matrix
+  command entry points.
+
+### #469-#481: Textual Slash Command Handler and Router Extraction
+
+- Split workflow, questions, decisions, packages, subtasks, history, help,
+  save, status, model, and quit command handlers from the main slash command
+  dispatcher.
+- Added `textual_app/slash_command_router.py` so command-id-to-handler mapping
+  is explicit and unit-tested.
+- Split syntax-error and unknown-command result handling out of the dispatcher.
+
+### #482-#486: Workflow Result, Readiness, and Target Workspace Helpers
+
+- Split structured and consensus deliberation result application helpers in
+  `WorkflowEngine`.
+- Split orchestrator readiness outcome application and event emitter helpers.
+- Added `textual_app/target_workspace.py` for `/target` path normalization and
+  control-repository detection.
+- Raised the package version from `1.0.384` to `1.0.389` across these focused
+  patch PRs.
+
 This refresh moved the project from "large batch of one-PR plans" to a smaller
 set of durable maintenance documents. Root `docs/plans/` still contains older
 architecture and migration plans; archive only the groups that have a current
@@ -141,6 +187,9 @@ contract document and focused test evidence.
   runtime wiring, and command routing.
 - `src/trinity/textual_app/presenters.py` and `command_parsers.py` should own
   pure formatting and command parsing.
+- `src/trinity/textual_app/local_commands.py`,
+  `slash_command_router.py`, and `target_workspace.py` own local command state,
+  slash dispatch metadata, and target workspace path helpers.
 - `src/trinity/textual_app/screens/` and `widgets/` should own UI state
   application, caching, and bounded rendering.
 
@@ -165,6 +214,11 @@ contract document and focused test evidence.
   - `tests/test_workflow_review_flow.py`
   - `tests/test_workflow_post_review_flow.py`
   - `tests/test_provider_error_gate_flow.py`
+- Textual helper tests should stay close to their extracted helpers:
+  - `tests/test_textual_command_parsers.py`
+  - `tests/test_textual_local_commands.py`
+  - `tests/test_textual_slash_command_router.py`
+  - `tests/test_textual_target_workspace.py`
 
 ### Maintenance Documents
 
@@ -192,7 +246,7 @@ Run the smallest focused set that proves the touched contract.
 | Provider discovery/readiness/invocation | `uv run pytest -q tests/test_provider_model_discovery.py tests/test_provider_readiness.py tests/test_fake_provider_harness.py` |
 | Provider error/retry/recovery | `uv run pytest -q tests/test_provider_error_gate_flow.py tests/test_execution_retry_modal.py` |
 | Workflow execution/review/post-review | `uv run pytest -q tests/test_workflow_engine.py tests/test_workflow_execution_flow.py tests/test_workflow_review_flow.py tests/test_workflow_post_review_flow.py` |
-| Textual presenter/parser/UI cache | `uv run pytest -q tests/test_textual_command_parsers.py tests/test_textual_local_commands.py tests/test_textual_smoke.py tests/test_textual_runtime.py tests/test_textual_workflow_controller.py` |
+| Textual presenter/parser/helper/UI cache | `uv run pytest -q tests/test_textual_command_parsers.py tests/test_textual_local_commands.py tests/test_textual_slash_command_router.py tests/test_textual_target_workspace.py tests/test_textual_smoke.py tests/test_textual_runtime.py tests/test_textual_workflow_controller.py` |
 | Nexus execution/log performance | Run the touched cache test plus `uv run pytest -q tests/test_performance_harness.py` when a performance budget is involved. |
 | Fake provider harness | `uv run pytest -q tests/test_fake_provider_harness.py` |
 | Broad facade or shared model changes | `uv run python scripts/run_required_smoke_tests.py -q` |
@@ -219,7 +273,8 @@ modules. It now covers:
 - orchestrator readiness
 - workflow engine execution/review/post-review flows
 - Textual runtime and workflow controller smoke
-- Textual slash command parsers and local command state helpers
+- Textual slash command parsers, router, local command state, and target
+  workspace helpers
 - terminal rendering smoke
 
 ### Main and Publish CI
@@ -272,6 +327,12 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
+Current main snapshot after #486:
+
+- `src/trinity/textual_app/app.py`: 3,112 lines
+- `src/trinity/workflow/engine.py`: 959 lines
+- `src/trinity/orchestrator.py`: 914 lines
+
 Wrapper removal is safe only when focused flow tests and required smoke tests
 cover the public behavior.
 
@@ -314,6 +375,11 @@ Current guidance: `docs/development/nexus-render-cache-guidelines.md`.
 - Maintain the completed-plan index for `docs/plans/` as more bundles are
   archived.
 - Continue facade drift audits after each flow contract is documented.
+- Continue splitting high-churn Textual command handlers out of
+  `textual_app/app.py`, starting with target/resume/answer/execute-retry flows
+  after parser and router contracts are stable.
+- Continue moving `WorkflowEngine` post-review item selection and review repair
+  metadata helpers behind flow modules.
 - Maintain the fake-provider E2E path that exercises CLI init, provider
   readiness, workflow execution, retry decision, and report output without real
   accounts.

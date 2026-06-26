@@ -822,15 +822,19 @@ class TrinityOrchestrator:
             agents=self.agents,
             readiness_gate=self.readiness_gate,
             one_shot_preflight=self.one_shot_preflight,
-            event_emit=self._event_bus.emit if self._event_bus else None,
+            event_emit=self._readiness_event_emit(),
         )
 
     def _readiness_binder(self) -> OrchestratorReadinessBinder:
         """Create a binder for applying readiness outcomes."""
         return OrchestratorReadinessBinder(
             self,
-            event_emit=self._event_bus.emit if self._event_bus else None,
+            event_emit=self._readiness_event_emit(),
         )
+
+    def _readiness_event_emit(self) -> Callable | None:
+        """Return the event emitter used by readiness runtime and binder."""
+        return self._event_bus.emit if self._event_bus else None
 
     async def _check_and_rotate(self) -> None:
         """Check all agents' context usage and rotate those exceeding threshold."""

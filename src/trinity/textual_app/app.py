@@ -1776,28 +1776,7 @@ class TrinityTextualApp(App[None]):
             self._handle_textual_packages_command(parsed.spec.name)
             return
         if command == "subtasks":
-            snapshot = self._refresh_textual_snapshot()
-            has_subtasks = bool(snapshot.subtasks)
-            self._record_slash_command_result(
-                parsed.spec.name,
-                textual_presenters.subtasks_title(lang=self.config.lang),
-                textual_presenters.subtasks_markdown(
-                    snapshot,
-                    lang=self.config.lang,
-                ),
-                empty=not has_subtasks,
-                action_hint=textual_presenters.subtasks_action_hint(
-                    has_subtasks=has_subtasks,
-                    lang=self.config.lang,
-                ),
-                table_columns=textual_presenters.subtasks_table_columns(
-                    lang=self.config.lang
-                ),
-                table_rows=textual_presenters.subtasks_rows(
-                    snapshot,
-                    lang=self.config.lang,
-                ),
-            )
+            self._handle_textual_subtasks_command(parsed.spec.name)
             return
         if command == "context":
             self._handle_textual_context_command(parsed.spec.name)
@@ -1974,6 +1953,30 @@ class TrinityTextualApp(App[None]):
                 lang=self.config.lang
             ),
             table_rows=textual_presenters.packages_rows(
+                snapshot,
+                lang=self.config.lang,
+            ),
+        )
+
+    def _handle_textual_subtasks_command(self, command_name: str) -> None:
+        snapshot = self._refresh_textual_snapshot()
+        has_subtasks = bool(snapshot.subtasks)
+        self._record_slash_command_result(
+            command_name,
+            textual_presenters.subtasks_title(lang=self.config.lang),
+            textual_presenters.subtasks_markdown(
+                snapshot,
+                lang=self.config.lang,
+            ),
+            empty=not has_subtasks,
+            action_hint=textual_presenters.subtasks_action_hint(
+                has_subtasks=has_subtasks,
+                lang=self.config.lang,
+            ),
+            table_columns=textual_presenters.subtasks_table_columns(
+                lang=self.config.lang
+            ),
+            table_rows=textual_presenters.subtasks_rows(
                 snapshot,
                 lang=self.config.lang,
             ),

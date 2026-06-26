@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from textual import events
@@ -31,6 +32,7 @@ from trinity.textual_app.presenters import (
     agent_change_action_hint,
     agent_current_settings_markdown,
     agent_enabled_value,
+    agent_rows,
     agent_status_markdown,
     agent_table_columns,
     agent_title,
@@ -141,6 +143,7 @@ from trinity.textual_app.presenters import (
     snapshot_context_markdown,
     save_auto_persist_markdown,
     save_title,
+    session_setting_body,
     snapshot_status_markdown,
     snapshot_status_rows,
     snapshot_workflow_markdown,
@@ -1370,6 +1373,19 @@ def test_agent_presenter_uses_korean_labels() -> None:
     assert agent_table_columns(lang="ko") == ("에이전트", "활성화", "프로바이더")
     assert agent_enabled_value(True, lang="ko") == "예"
     assert agent_enabled_value(False, lang="ko") == "아니오"
+
+
+def test_agent_session_presenters_render_rows_and_notice() -> None:
+    agents = {
+        "codex": SimpleNamespace(enabled=False, provider=Provider.CODEX),
+        "claude": SimpleNamespace(enabled=True, provider=Provider.CLAUDE_CODE),
+    }
+
+    assert session_setting_body("Changed").endswith(SESSION_ONLY_SETTING_NOTICE)
+    assert agent_rows(agents, lang="en") == (
+        ("claude", "yes", "claude-code"),
+        ("codex", "no", "codex"),
+    )
 
 
 def test_caveman_presenter_uses_korean_labels() -> None:

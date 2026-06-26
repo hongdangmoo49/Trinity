@@ -28,7 +28,7 @@ from trinity.providers.model_discovery import (
     discover_provider_models,
 )
 from trinity.slash_commands import parse_execute_retry_args, parse_slash_command
-from trinity.textual_app.command_parsers import parse_ask_args
+from trinity.textual_app.command_parsers import parse_ask_args, parse_rounds_args
 from trinity.textual_app import presenters as textual_presenters
 from trinity.textual_app.local_commands import (
     append_local_command_event,
@@ -2482,7 +2482,8 @@ class TrinityTextualApp(App[None]):
         command_name: str,
         args: list[str],
     ) -> None:
-        if not args:
+        parsed = parse_rounds_args(args, lang=self.config.lang)
+        if parsed.rounds is None and not parsed.error:
             self._record_slash_command_result(
                 command_name,
                 textual_presenters.rounds_title(lang=self.config.lang),
@@ -2504,30 +2505,16 @@ class TrinityTextualApp(App[None]):
                 ),
             )
             return
-        try:
-            rounds = int(args[0])
-        except ValueError:
+        if parsed.error:
             self._record_slash_command_result(
                 command_name,
                 textual_presenters.rounds_title(lang=self.config.lang),
-                textual_presenters.rounds_invalid_number_markdown(lang=self.config.lang),
+                parsed.error,
                 severity="warning",
-                action_hint=textual_presenters.rounds_usage_action_hint(
-                    lang=self.config.lang
-                ),
+                action_hint=parsed.action_hint,
             )
             return
-        if rounds < 1 or rounds > 20:
-            self._record_slash_command_result(
-                command_name,
-                textual_presenters.rounds_title(lang=self.config.lang),
-                textual_presenters.rounds_range_error_markdown(lang=self.config.lang),
-                severity="warning",
-                action_hint=textual_presenters.rounds_usage_action_hint(
-                    lang=self.config.lang
-                ),
-            )
-            return
+        rounds = parsed.rounds or self.config.max_deliberation_rounds
         self.config.max_deliberation_rounds = rounds
         self._record_slash_command_result(
             command_name,

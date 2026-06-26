@@ -53,6 +53,8 @@ Current parser surface:
 
 - `parse_ask_args(args, active_agent_names, lang=...)`
 - `AskCommandParseResult`
+- `parse_rounds_args(args, lang=..., minimum=..., maximum=...)`
+- `RoundsCommandParseResult`
 
 Parser functions may:
 

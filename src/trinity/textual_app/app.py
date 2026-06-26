@@ -2205,15 +2205,12 @@ class TrinityTextualApp(App[None]):
         else:
             self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
         if notify and self.current_route != "start":
-            notify_severity = (
-                "warning" if result.severity in {"warning", "error"} else "information"
-            )
             self.notify(
                 result.title,
                 title=textual_presenters.slash_command_notification_title(
                     lang=self.config.lang
                 ),
-                severity=notify_severity,
+                severity=textual_presenters.local_command_notification_severity(result),
             )
 
     def _show_textual_status(
@@ -2222,18 +2219,10 @@ class TrinityTextualApp(App[None]):
         snapshot: WorkflowNexusSnapshot,
     ) -> None:
         """Show status in the surface appropriate for the current Textual route."""
-        result = textual_presenters.local_command_snapshot(
+        result = textual_presenters.status_local_command_snapshot(
             command,
-            textual_presenters.status_title(lang=self.config.lang),
-            textual_presenters.snapshot_status_markdown(
-                snapshot,
-                lang=self.config.lang,
-            ),
-            table_columns=textual_presenters.status_table_columns(lang=self.config.lang),
-            table_rows=textual_presenters.snapshot_status_rows(
-                snapshot,
-                lang=self.config.lang,
-            ),
+            snapshot,
+            lang=self.config.lang,
         )
         self._local_command_results = replace_local_command_result(
             self._local_command_results,

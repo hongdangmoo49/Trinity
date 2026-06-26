@@ -1410,6 +1410,27 @@ def local_command_snapshot(
     )
 
 
+def status_local_command_snapshot(
+    command: str,
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> LocalCommandSnapshot:
+    """Build the local slash command result for `/status`."""
+    return local_command_snapshot(
+        command,
+        status_title(lang=lang),
+        snapshot_status_markdown(snapshot, lang=lang),
+        table_columns=status_table_columns(lang=lang),
+        table_rows=snapshot_status_rows(snapshot, lang=lang),
+    )
+
+
+def local_command_notification_severity(result: LocalCommandSnapshot) -> str:
+    """Map a local command result severity to Textual notification severity."""
+    return "warning" if result.severity in {"warning", "error"} else "information"
+
+
 def caveman_title(*, lang: str = "en") -> str:
     return _sc_label(lang, "caveman")
 

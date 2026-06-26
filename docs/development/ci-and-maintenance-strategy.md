@@ -217,6 +217,7 @@ contract document and focused test evidence.
 - Textual helper tests should stay close to their extracted helpers:
   - `tests/test_textual_command_parsers.py`
   - `tests/test_textual_local_commands.py`
+  - `tests/test_textual_resume_commands.py`
   - `tests/test_textual_slash_command_router.py`
   - `tests/test_textual_target_workspace.py`
 
@@ -246,7 +247,7 @@ Run the smallest focused set that proves the touched contract.
 | Provider discovery/readiness/invocation | `uv run pytest -q tests/test_provider_model_discovery.py tests/test_provider_readiness.py tests/test_fake_provider_harness.py` |
 | Provider error/retry/recovery | `uv run pytest -q tests/test_provider_error_gate_flow.py tests/test_execution_retry_modal.py` |
 | Workflow execution/review/post-review | `uv run pytest -q tests/test_workflow_engine.py tests/test_workflow_execution_flow.py tests/test_workflow_review_flow.py tests/test_workflow_post_review_flow.py` |
-| Textual presenter/parser/helper/UI cache | `uv run pytest -q tests/test_textual_command_parsers.py tests/test_textual_local_commands.py tests/test_textual_slash_command_router.py tests/test_textual_target_workspace.py tests/test_textual_smoke.py tests/test_textual_runtime.py tests/test_textual_workflow_controller.py` |
+| Textual presenter/parser/helper/UI cache | `uv run pytest -q tests/test_textual_command_parsers.py tests/test_textual_local_commands.py tests/test_textual_resume_commands.py tests/test_textual_slash_command_router.py tests/test_textual_target_workspace.py tests/test_textual_smoke.py tests/test_textual_runtime.py tests/test_textual_workflow_controller.py` |
 | Nexus execution/log performance | Run the touched cache test plus `uv run pytest -q tests/test_performance_harness.py` when a performance budget is involved. |
 | Fake provider harness | `uv run pytest -q tests/test_fake_provider_harness.py` |
 | Broad facade or shared model changes | `uv run python scripts/run_required_smoke_tests.py -q` |
@@ -273,8 +274,8 @@ modules. It now covers:
 - orchestrator readiness
 - workflow engine execution/review/post-review flows
 - Textual runtime and workflow controller smoke
-- Textual slash command parsers, router, local command state, and target
-  workspace helpers
+- Textual slash command parsers, router, local command state, resume result,
+  and target workspace helpers
 - terminal rendering smoke
 
 ### Main and Publish CI

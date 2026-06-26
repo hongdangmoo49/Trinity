@@ -90,6 +90,14 @@ class ArtifactCommandParseResult:
     error: str = ""
 
 
+@dataclass(frozen=True)
+class MemoryCommandParseResult:
+    """Parsed `/memory` command arguments."""
+
+    action: str = "stats"
+    action_args: tuple[str, ...] = ()
+
+
 def parse_ask_args(
     args: list[str],
     active_agent_names: Iterable[str],
@@ -323,3 +331,13 @@ def parse_artifact_args(
             error=textual_presenters.artifact_usage_markdown(lang=lang)
         )
     return ArtifactCommandParseResult(record_id=record_id)
+
+
+def parse_memory_args(args: list[str]) -> MemoryCommandParseResult:
+    """Parse `/memory` arguments into action and remaining action args."""
+    if not args:
+        return MemoryCommandParseResult(action="stats")
+    action = args[0].strip().lower()
+    if action in {"compact", "cleanup"}:
+        return MemoryCommandParseResult(action=action, action_args=tuple(args[1:]))
+    return MemoryCommandParseResult(action="stats", action_args=tuple(args))

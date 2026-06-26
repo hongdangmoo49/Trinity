@@ -6,6 +6,7 @@ from trinity.textual_app.command_parsers import (
     parse_artifact_args,
     parse_ask_args,
     parse_caveman_args,
+    parse_memory_args,
     parse_report_args,
     parse_resume_args,
     parse_rounds_args,
@@ -198,3 +199,19 @@ def test_parse_artifact_args_requires_record_id() -> None:
     parsed = parse_artifact_args(["memory-1"], lang="ko")
     assert parsed.record_id == "memory-1"
     assert parsed.error == ""
+
+
+def test_parse_memory_args_routes_known_actions_and_defaults_to_stats() -> None:
+    assert parse_memory_args([]).action == "stats"
+
+    compact = parse_memory_args(["compact"])
+    assert compact.action == "compact"
+    assert compact.action_args == ()
+
+    cleanup = parse_memory_args(["cleanup", "--keep-latest", "2"])
+    assert cleanup.action == "cleanup"
+    assert cleanup.action_args == ("--keep-latest", "2")
+
+    stats = parse_memory_args(["unknown", "--flag"])
+    assert stats.action == "stats"
+    assert stats.action_args == ("unknown", "--flag")

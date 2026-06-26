@@ -33,6 +33,7 @@ from trinity.textual_app.command_parsers import (
     parse_artifact_args,
     parse_ask_args,
     parse_caveman_args,
+    parse_memory_args,
     parse_report_args,
     parse_resume_args,
     parse_rounds_args,
@@ -2385,7 +2386,8 @@ class TrinityTextualApp(App[None]):
 
     def _handle_textual_memory_command(self, args: list[str]) -> None:
         engine = engine_from_config(self.config)
-        action = args[0].lower() if args else "stats"
+        parsed = parse_memory_args(args)
+        action = parsed.action
         lang = self.config.lang
         if action == "compact":
             body = compact_memory_markdown(
@@ -2396,7 +2398,9 @@ class TrinityTextualApp(App[None]):
             title = textual_presenters.memory_title("compact", lang=lang)
             rows = memory_stats_rows(engine)
         elif action == "cleanup":
-            apply, keep_latest, error = parse_oversized_cleanup_options(args[1:])
+            apply, keep_latest, error = parse_oversized_cleanup_options(
+                list(parsed.action_args)
+            )
             if error:
                 self._record_slash_command_result(
                     "/memory",

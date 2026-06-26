@@ -420,7 +420,9 @@ class WorkflowEngine:
                 self.session.review_results = []
                 self._record_central_conversation(
                     title="Central Agent Response",
-                    body=self._central_blueprint_body(self.session.blueprint),
+                    body=WorkflowCentralFlow._central_blueprint_body(
+                        self.session.blueprint
+                    ),
                     related_ids=[package.id for package in self.session.work_packages],
                 )
                 self.set_state(
@@ -443,7 +445,9 @@ class WorkflowEngine:
             self.session.review_results = []
             self._record_central_conversation(
                 title="Central Agent Response",
-                body=self._central_blueprint_body(self.session.blueprint),
+                body=WorkflowCentralFlow._central_blueprint_body(
+                    self.session.blueprint
+                ),
                 related_ids=[package.id for package in self.session.work_packages],
             )
             self.set_state(
@@ -474,19 +478,11 @@ class WorkflowEngine:
             truncated=truncated,
         )
 
-    @staticmethod
-    def _central_blueprint_body(blueprint: Blueprint) -> str:
-        return WorkflowCentralFlow._central_blueprint_body(blueprint)
-
     def _record_provider_observations(self, metadata: dict[str, Any]) -> None:
         self._provider_observations().record_provider_observations(metadata)
 
     def _apply_structured_questions(self, structured: dict) -> bool:
         return self._central_flow()._apply_structured_questions(structured)
-
-    @staticmethod
-    def _normalize_question(question: str) -> str:
-        return WorkflowCentralFlow._normalize_question(question)
 
     def _unique_question_id(self, question_id: str) -> str:
         return self._central_flow()._unique_question_id(question_id)

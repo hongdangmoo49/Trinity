@@ -25,6 +25,22 @@ Removed from `WorkflowEngine`:
 - `_finalize_review_state`
 - `_mark_post_review_items_done`
 
+Removed in the workflow flow contract follow-up:
+
+- `_review_repair_signature`
+- `_review_repair_signature_from_parts`
+- `_merged_review_repair_changes`
+- `_review_repair_target_agent`
+- `_normalize_repair_change`
+- `_post_review_item_key`
+- `_normalize_improve_instruction`
+- `_is_post_review_done_command`
+- `_looks_like_post_review_selector`
+- `_supplemental_objective`
+- `_action_title`
+- `_normalize_severity`
+- `_downgrade_optional_severity`
+
 The authoritative behavior remains in:
 
 - `WorkflowReviewFlow.block_review_repair`

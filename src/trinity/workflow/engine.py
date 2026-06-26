@@ -786,41 +786,6 @@ class WorkflowEngine:
     def _review_repair_metadata_from_events(self) -> dict[str, dict[str, Any]]:
         return self._review_flow()._review_repair_metadata_from_events()
 
-    @classmethod
-    def _review_repair_signature(cls, result: ReviewResult) -> str:
-        return WorkflowReviewFlow._review_repair_signature(result)
-
-    @classmethod
-    def _review_repair_signature_from_parts(
-        cls,
-        package_id: str,
-        target_agent: str,
-        required_changes: Iterable[str],
-    ) -> str:
-        return WorkflowReviewFlow._review_repair_signature_from_parts(
-            package_id,
-            target_agent,
-            required_changes,
-        )
-
-    @classmethod
-    def _merged_review_repair_changes(
-        cls,
-        results: Iterable[ReviewResult],
-    ) -> list[str]:
-        return WorkflowReviewFlow._merged_review_repair_changes(results)
-
-    @staticmethod
-    def _review_repair_target_agent(
-        package: WorkPackage,
-        results: Iterable[ReviewResult],
-    ) -> str:
-        return WorkflowReviewFlow._review_repair_target_agent(package, results)
-
-    @staticmethod
-    def _normalize_repair_change(change: str) -> str:
-        return WorkflowReviewFlow._normalize_repair_change(change)
-
     def _review_results(self) -> list[ReviewResult]:
         return self._review_flow()._review_results()
 
@@ -859,24 +824,8 @@ class WorkflowEngine:
     def _create_user_request_action_item(self, instruction: str) -> PostReviewActionItem:
         return self._post_review_flow()._create_user_request_action_item(instruction)
 
-    @staticmethod
-    def _post_review_item_key(item: PostReviewActionItem) -> tuple[str, str, tuple[str, ...]]:
-        return WorkflowPostReviewFlow._post_review_item_key(item)
-
-    @staticmethod
-    def _normalize_improve_instruction(text: str) -> str:
-        return WorkflowPostReviewFlow._normalize_improve_instruction(text)
-
-    @staticmethod
-    def _is_post_review_done_command(instruction: str) -> bool:
-        return WorkflowPostReviewFlow._is_post_review_done_command(instruction)
-
     def _select_post_review_items(self, instruction: str) -> list[str]:
         return self._post_review_flow()._select_post_review_items(instruction)
-
-    @staticmethod
-    def _looks_like_post_review_selector(instruction: str) -> bool:
-        return WorkflowPostReviewFlow._looks_like_post_review_selector(instruction)
 
     def _next_post_review_item_id(
         self,
@@ -914,22 +863,6 @@ class WorkflowEngine:
             accepted_action_item_ids,
             source_state=source_state,
         )
-
-    @staticmethod
-    def _supplemental_objective(item: PostReviewActionItem) -> str:
-        return WorkflowPostReviewFlow._supplemental_objective(item)
-
-    @staticmethod
-    def _action_title(value: str, limit: int = 80) -> str:
-        return WorkflowPostReviewFlow._action_title(value, limit=limit)
-
-    @staticmethod
-    def _normalize_severity(value: str) -> str:
-        return WorkflowPostReviewFlow._normalize_severity(value)
-
-    @classmethod
-    def _downgrade_optional_severity(cls, value: str) -> str:
-        return WorkflowPostReviewFlow._downgrade_optional_severity(value)
 
     def _plan_review_packages(self) -> None:
         self._review_flow()._plan_review_packages()

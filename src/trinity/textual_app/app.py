@@ -57,6 +57,10 @@ from trinity.textual_app.screens.report import ReportScreen
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.slash_palette import SlashCommandPaletteProvider
+from trinity.textual_app.slash_command_router import (
+    TextualSlashCommandRoute,
+    textual_slash_command_route,
+)
 from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import (
     LocalCommandSnapshot,
@@ -1738,85 +1742,28 @@ class TrinityTextualApp(App[None]):
 
         command = parsed.command_id
         args = list(parsed.args)
+        route = textual_slash_command_route(command)
+        if route is None:
+            return
+        self._dispatch_textual_slash_command_route(route, parsed.spec.name, args)
 
-        if command in {"quit", "exit", "q"}:
-            self._handle_textual_quit_command()
+    def _dispatch_textual_slash_command_route(
+        self,
+        route: TextualSlashCommandRoute,
+        command_name: str,
+        args: list[str],
+    ) -> None:
+        handler = getattr(self, route.handler_name)
+        if route.argument_shape == "none":
+            handler()
             return
-        if command == "help":
-            self._handle_textual_help_command(parsed.spec.name)
+        if route.argument_shape == "name":
+            handler(command_name)
             return
-        if command == "status":
-            self._handle_textual_status_command(parsed.spec.name)
+        if route.argument_shape == "args":
+            handler(args)
             return
-        if command == "workflow":
-            self._handle_textual_workflow_command(parsed.spec.name)
-            return
-        if command == "questions":
-            self._handle_textual_questions_command(parsed.spec.name, args)
-            return
-        if command == "decisions":
-            self._handle_textual_decisions_command(parsed.spec.name)
-            return
-        if command == "packages":
-            self._handle_textual_packages_command(parsed.spec.name)
-            return
-        if command == "subtasks":
-            self._handle_textual_subtasks_command(parsed.spec.name)
-            return
-        if command == "context":
-            self._handle_textual_context_command(parsed.spec.name)
-            return
-        if command == "model":
-            self._handle_textual_model_command()
-            return
-        if command == "memory":
-            self._handle_textual_memory_command(args)
-            return
-        if command == "artifact":
-            self._handle_textual_artifact_command(args)
-            return
-        if command == "history":
-            self._handle_textual_history_command(parsed.spec.name)
-            return
-        if command == "report":
-            self._handle_textual_report_command(args)
-            return
-        if command == "rounds":
-            self._handle_textual_rounds_command(parsed.spec.name, args)
-            return
-        if command == "agent":
-            self._handle_textual_agent_command(parsed.spec.name, args)
-            return
-        if command == "caveman":
-            self._handle_textual_caveman_command(parsed.spec.name, args)
-            return
-        if command == "save":
-            self._handle_textual_save_command(parsed.spec.name)
-            return
-        if command == "target":
-            self._handle_textual_target_command(args)
-            return
-        if command == "resume":
-            self._handle_textual_resume_command(args)
-            return
-        if command == "answer":
-            self._handle_textual_answer_command(args)
-            return
-        if command == "ask":
-            self._handle_textual_ask_command(parsed.spec.name, args)
-            return
-        if command == "execute-retry":
-            self._handle_textual_execute_retry_command(args)
-            return
-        if command == "review":
-            self._handle_textual_review_command(parsed.spec.name, args)
-            return
-        if command == "improve":
-            self._handle_textual_improve_command(parsed.spec.name, args)
-            return
-        if command == "execute":
-            self._handle_textual_execute_command(parsed.spec.name, args)
-            return
+        handler(command_name, args)
 
     def _handle_textual_quit_command(self) -> None:
         self.push_screen(

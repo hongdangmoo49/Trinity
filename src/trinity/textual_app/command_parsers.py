@@ -18,6 +18,15 @@ class AskCommandParseResult:
     error: str = ""
 
 
+@dataclass(frozen=True)
+class RoundsCommandParseResult:
+    """Parsed `/rounds` command arguments."""
+
+    rounds: int | None = None
+    error: str = ""
+    action_hint: str = ""
+
+
 def parse_ask_args(
     args: list[str],
     active_agent_names: Iterable[str],
@@ -88,3 +97,31 @@ def parse_ask_args(
         agent_model_overrides=model_overrides,
         prompt=prompt,
     )
+
+
+def parse_rounds_args(
+    args: list[str],
+    *,
+    lang: str = "en",
+    minimum: int = 1,
+    maximum: int = 20,
+) -> RoundsCommandParseResult:
+    """Parse `/rounds` arguments into a validated session round count."""
+    if not args:
+        return RoundsCommandParseResult()
+
+    action_hint = textual_presenters.rounds_usage_action_hint(lang=lang)
+    try:
+        rounds = int(args[0])
+    except ValueError:
+        return RoundsCommandParseResult(
+            error=textual_presenters.rounds_invalid_number_markdown(lang=lang),
+            action_hint=action_hint,
+        )
+
+    if rounds < minimum or rounds > maximum:
+        return RoundsCommandParseResult(
+            error=textual_presenters.rounds_range_error_markdown(lang=lang),
+            action_hint=action_hint,
+        )
+    return RoundsCommandParseResult(rounds=rounds)

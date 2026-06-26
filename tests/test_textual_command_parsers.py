@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from trinity.textual_app.command_parsers import parse_ask_args
+from trinity.textual_app.command_parsers import parse_ask_args, parse_rounds_args
 
 
 def test_parse_ask_args_targets_agent_and_model() -> None:
@@ -40,3 +40,25 @@ def test_parse_ask_args_localized_errors() -> None:
     assert parse_ask_args(["all", "안녕"], [], lang="ko").error == (
         "/ask에 사용할 활성 에이전트가 없습니다."
     )
+
+
+def test_parse_rounds_args_returns_current_request_for_empty_args() -> None:
+    result = parse_rounds_args([], lang="ko")
+
+    assert result.rounds is None
+    assert result.error == ""
+    assert result.action_hint == ""
+
+
+def test_parse_rounds_args_validates_number_and_range() -> None:
+    assert parse_rounds_args(["7"], lang="ko").rounds == 7
+
+    invalid = parse_rounds_args(["abc"], lang="ko")
+    assert invalid.rounds is None
+    assert invalid.error == "숫자가 올바르지 않습니다."
+    assert invalid.action_hint == "`/rounds <1..20>`를 사용하세요."
+
+    out_of_range = parse_rounds_args(["21"], lang="ko")
+    assert out_of_range.rounds is None
+    assert out_of_range.error == "라운드는 1에서 20 사이여야 합니다."
+    assert out_of_range.action_hint == "`/rounds <1..20>`를 사용하세요."

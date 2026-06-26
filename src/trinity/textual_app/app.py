@@ -2948,11 +2948,17 @@ class TrinityTextualApp(App[None]):
             self._record_slash_command_result(
                 "/resume",
                 textual_presenters.resume_title(lang=self.config.lang),
-                self._resume_archives_markdown(archives, lang=self.config.lang),
+                textual_presenters.resume_archives_markdown(
+                    archives,
+                    lang=self.config.lang,
+                ),
                 table_columns=textual_presenters.resume_archive_table_columns(
                     lang=self.config.lang
                 ),
-                table_rows=self._resume_archive_rows(archives, lang=self.config.lang),
+                table_rows=textual_presenters.resume_archive_rows(
+                    archives,
+                    lang=self.config.lang,
+                ),
                 action_hint=textual_presenters.resume_pick_action_hint(
                     lang=self.config.lang
                 ),
@@ -2997,7 +3003,7 @@ class TrinityTextualApp(App[None]):
                 table_columns=textual_presenters.resume_result_table_columns(
                     lang=self.config.lang
                 ),
-                table_rows=self._resume_result_rows(
+                table_rows=textual_presenters.resume_result_rows(
                     outcome.snapshot,
                     lang=self.config.lang,
                 ),
@@ -3012,30 +3018,6 @@ class TrinityTextualApp(App[None]):
                     "Previous execution was interrupted before Trinity could collect all results.",
                 )
             self._handle_textual_context_command("/context")
-
-    @staticmethod
-    def _resume_archives_markdown(
-        archives: list[object],
-        *,
-        lang: str = "en",
-    ) -> str:
-        return textual_presenters.resume_archives_markdown(archives, lang=lang)
-
-    @staticmethod
-    def _resume_archive_rows(
-        archives: list[object],
-        *,
-        lang: str = "en",
-    ) -> tuple[tuple[str, str, str, str], ...]:
-        return textual_presenters.resume_archive_rows(archives, lang=lang)
-
-    @staticmethod
-    def _resume_result_rows(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.resume_result_rows(snapshot, lang=lang)
 
     def _handle_textual_answer_command(self, args: list[str]) -> None:
         if not args:

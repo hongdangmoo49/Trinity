@@ -2907,10 +2907,7 @@ class TrinityTextualApp(App[None]):
 
     def _resume_textual_workflow(self, selector: str) -> None:
         outcome = self.workflow_controller.resume_workflow(selector)
-        message = outcome.message
-        if outcome.message:
-            outcome = replace(outcome, message="")
-        self._apply_workflow_outcome(outcome)
+        outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
         failed = bool(message and message.startswith("No "))
         if message:
             self._record_slash_command_result(

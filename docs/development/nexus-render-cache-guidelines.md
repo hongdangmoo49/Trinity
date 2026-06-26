@@ -39,6 +39,9 @@ Focused tests:
 - `tests/test_textual_snapshot.py`
 - `tests/test_workflow_persistence.py`
 
+Execution/review state identity and merge semantics are tracked in
+`docs/development/nexus-execution-review-state-contracts.md`.
+
 ### Screen/Widget Identity Guards
 
 Primary owners:

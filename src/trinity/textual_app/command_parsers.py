@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
+from trinity.i18n import VALID_CAVEMAN_INTENSITIES
 from trinity.textual_app import presenters as textual_presenters
 
 
@@ -34,6 +35,16 @@ class AgentCommandParseResult:
     agent_name: str = ""
     enabled: bool | None = None
     error: str = ""
+
+
+@dataclass(frozen=True)
+class CavemanCommandParseResult:
+    """Parsed `/caveman` command arguments."""
+
+    enabled: bool | None = None
+    intensity: str = ""
+    error: str = ""
+    action_hint: str = ""
 
 
 def parse_ask_args(
@@ -170,3 +181,25 @@ def parse_agent_args(
         )
 
     return AgentCommandParseResult(agent_name=name, enabled=action == "on")
+
+
+def parse_caveman_args(
+    args: list[str],
+    *,
+    lang: str = "en",
+) -> CavemanCommandParseResult:
+    """Parse `/caveman` arguments into mode and intensity updates."""
+    if not args:
+        return CavemanCommandParseResult()
+
+    action = args[0].strip().lower()
+    if action in {"off", "disable"}:
+        return CavemanCommandParseResult(enabled=False)
+    if action in {"on", "enable"}:
+        return CavemanCommandParseResult(enabled=True)
+    if action in VALID_CAVEMAN_INTENSITIES:
+        return CavemanCommandParseResult(enabled=True, intensity=action)
+    return CavemanCommandParseResult(
+        error=textual_presenters.caveman_usage_markdown(lang=lang),
+        action_hint=textual_presenters.caveman_allowed_action_hint(lang=lang),
+    )

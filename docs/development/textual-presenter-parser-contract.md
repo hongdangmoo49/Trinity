@@ -57,6 +57,8 @@ Current parser surface:
 - `RoundsCommandParseResult`
 - `parse_agent_args(args, agent_names, lang=...)`
 - `AgentCommandParseResult`
+- `parse_caveman_args(args, lang=...)`
+- `CavemanCommandParseResult`
 
 Parser functions may:
 

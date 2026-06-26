@@ -3,6 +3,7 @@ from __future__ import annotations
 from trinity.textual_app.command_parsers import (
     parse_agent_args,
     parse_ask_args,
+    parse_caveman_args,
     parse_rounds_args,
 )
 
@@ -97,3 +98,28 @@ def test_parse_agent_args_validates_name_and_action() -> None:
     invalid_action = parse_agent_args(["claude", "maybe"], ["claude"], lang="ko")
     assert invalid_action.agent_name == "claude"
     assert invalid_action.error == "사용법: `/agent <name> on|off`"
+
+
+def test_parse_caveman_args_returns_current_request_for_empty_args() -> None:
+    result = parse_caveman_args([], lang="ko")
+
+    assert result.enabled is None
+    assert result.intensity == ""
+    assert result.error == ""
+    assert result.action_hint == ""
+
+
+def test_parse_caveman_args_validates_mode_and_intensity() -> None:
+    assert parse_caveman_args(["on"], lang="ko").enabled is True
+    assert parse_caveman_args(["enable"], lang="ko").enabled is True
+    assert parse_caveman_args(["off"], lang="ko").enabled is False
+    assert parse_caveman_args(["disable"], lang="ko").enabled is False
+
+    lite = parse_caveman_args(["lite"], lang="ko")
+    assert lite.enabled is True
+    assert lite.intensity == "lite"
+
+    invalid = parse_caveman_args(["strange"], lang="ko")
+    assert invalid.enabled is None
+    assert invalid.error == "사용법: /caveman [on|off|lite|full|ultra]"
+    assert invalid.action_hint == "허용 모드: on, off, lite, full, ultra."

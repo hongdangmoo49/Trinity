@@ -22,7 +22,6 @@ from trinity.context.commands import (
     memory_stats_rows,
     parse_oversized_cleanup_options,
 )
-from trinity.i18n import VALID_CAVEMAN_INTENSITIES
 from trinity.providers.model_discovery import (
     ProviderModelChoice,
     discover_provider_models,
@@ -31,6 +30,7 @@ from trinity.slash_commands import parse_execute_retry_args, parse_slash_command
 from trinity.textual_app.command_parsers import (
     parse_agent_args,
     parse_ask_args,
+    parse_caveman_args,
     parse_rounds_args,
 )
 from trinity.textual_app import presenters as textual_presenters
@@ -2629,25 +2629,20 @@ class TrinityTextualApp(App[None]):
                 ),
             )
             return
-        action = args[0].lower()
-        if action in {"off", "disable"}:
-            self.config.caveman_mode = False
-        elif action in {"on", "enable"}:
-            self.config.caveman_mode = True
-        elif action in VALID_CAVEMAN_INTENSITIES:
-            self.config.caveman_mode = True
-            self.config.caveman_intensity = action
-        else:
+        parsed = parse_caveman_args(args, lang=self.config.lang)
+        if parsed.error:
             self._record_slash_command_result(
                 command_name,
                 textual_presenters.caveman_title(lang=self.config.lang),
-                textual_presenters.caveman_usage_markdown(lang=self.config.lang),
+                parsed.error,
                 severity="warning",
-                action_hint=textual_presenters.caveman_allowed_action_hint(
-                    lang=self.config.lang
-                ),
+                action_hint=parsed.action_hint,
             )
             return
+        if parsed.enabled is not None:
+            self.config.caveman_mode = parsed.enabled
+        if parsed.intensity:
+            self.config.caveman_intensity = parsed.intensity
         mode = "on" if self.config.caveman_mode else "off"
         self._record_slash_command_result(
             command_name,

@@ -46,6 +46,12 @@ Removed in the central-flow helper follow-up:
 - `_central_blueprint_body`
 - `_normalize_question`
 
+Removed in the central-flow delegate follow-up:
+
+- `_record_central_conversation`
+- `_apply_structured_questions`
+- `_unique_question_id`
+
 The authoritative behavior remains in:
 
 - `WorkflowReviewFlow.block_review_repair`
@@ -54,6 +60,9 @@ The authoritative behavior remains in:
 - `WorkflowPostReviewFlow.mark_items_done`
 - `WorkflowCentralFlow._central_blueprint_body`
 - `WorkflowCentralFlow._normalize_question`
+- `WorkflowCentralFlow._record_central_conversation`
+- `WorkflowCentralFlow._apply_structured_questions`
+- `WorkflowCentralFlow._unique_question_id`
 
 ## Kept Facades
 

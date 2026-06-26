@@ -1963,37 +1963,7 @@ class TrinityTextualApp(App[None]):
             self._handle_textual_improve_command(parsed.spec.name, args)
             return
         if command == "execute":
-            parsed_execute = parse_execute_args(args)
-            outcome = self.workflow_controller.request_execution(
-                parsed_execute.instruction
-            )
-            message = outcome.message
-            if message:
-                outcome = replace(outcome, message="")
-            self._apply_workflow_outcome(outcome)
-            if outcome.execution_recovery_required:
-                self._present_execution_recovery(
-                    parsed.spec.name,
-                    outcome.snapshot,
-                    message,
-                )
-                return
-            if message:
-                self._record_slash_command_result(
-                    parsed.spec.name,
-                    textual_presenters.execute_title(lang=self.config.lang),
-                    textual_presenters.workflow_outcome_message_markdown(
-                        message,
-                        lang=self.config.lang,
-                    ),
-                    severity="warning",
-                    empty=True,
-                    action_hint=textual_presenters.execute_finish_planning_action_hint(
-                        lang=self.config.lang
-                    ),
-                )
-            if outcome.target_workspace_required:
-                self._open_execute_workspace_picker(outcome.snapshot)
+            self._handle_textual_execute_command(parsed.spec.name, args)
             return
 
     def _handle_textual_review_command(self, command_name: str, args: list[str]) -> None:
@@ -2061,6 +2031,41 @@ class TrinityTextualApp(App[None]):
                     lang=self.config.lang
                 ),
             )
+
+    def _handle_textual_execute_command(
+        self,
+        command_name: str,
+        args: list[str],
+    ) -> None:
+        parsed_execute = parse_execute_args(args)
+        outcome = self.workflow_controller.request_execution(parsed_execute.instruction)
+        message = outcome.message
+        if message:
+            outcome = replace(outcome, message="")
+        self._apply_workflow_outcome(outcome)
+        if outcome.execution_recovery_required:
+            self._present_execution_recovery(
+                command_name,
+                outcome.snapshot,
+                message,
+            )
+            return
+        if message:
+            self._record_slash_command_result(
+                command_name,
+                textual_presenters.execute_title(lang=self.config.lang),
+                textual_presenters.workflow_outcome_message_markdown(
+                    message,
+                    lang=self.config.lang,
+                ),
+                severity="warning",
+                empty=True,
+                action_hint=textual_presenters.execute_finish_planning_action_hint(
+                    lang=self.config.lang
+                ),
+            )
+        if outcome.target_workspace_required:
+            self._open_execute_workspace_picker(outcome.snapshot)
 
     def _handle_textual_ask_command(self, command_name: str, args: list[str]) -> None:
         parsed = parse_ask_args(

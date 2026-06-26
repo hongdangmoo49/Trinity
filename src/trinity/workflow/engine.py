@@ -401,31 +401,10 @@ class WorkflowEngine:
         if self._apply_structured_deliberation_result(result, central_flow):
             return
 
-        if result.has_consensus:
-            summary = result.consensus.summary if result.consensus else ""
-            self.session.blueprint = Blueprint(
-                title="Consensus Blueprint",
-                summary=summary,
-                acceptance_criteria=[summary] if summary else [],
-            )
-            self.session.work_packages = []
-            self.session.execution_results = []
-            self.session.subtask_results = []
-            self.session.review_packages = []
-            self.session.review_results = []
-            central_flow._record_central_conversation(
-                title="Central Agent Response",
-                body=WorkflowCentralFlow._central_blueprint_body(
-                    self.session.blueprint
-                ),
-                related_ids=[package.id for package in self.session.work_packages],
-            )
-            self.set_state(
-                WorkflowState.BLUEPRINT_READY,
-                reason="deliberation reached consensus",
-            )
-        else:
-            self.set_state(WorkflowState.FAILED, reason="deliberation ended without consensus")
+        if self._apply_consensus_deliberation_result(result, central_flow):
+            return
+
+        self.set_state(WorkflowState.FAILED, reason="deliberation ended without consensus")
 
     def _apply_structured_deliberation_result(
         self,
@@ -464,6 +443,36 @@ class WorkflowEngine:
         self.set_state(
             WorkflowState.BLUEPRINT_READY,
             reason="structured blueprint reached consensus",
+        )
+        return True
+
+    def _apply_consensus_deliberation_result(
+        self,
+        result: DeliberationResult,
+        central_flow: WorkflowCentralFlow,
+    ) -> bool:
+        if not result.has_consensus:
+            return False
+
+        summary = result.consensus.summary if result.consensus else ""
+        self.session.blueprint = Blueprint(
+            title="Consensus Blueprint",
+            summary=summary,
+            acceptance_criteria=[summary] if summary else [],
+        )
+        self.session.work_packages = []
+        self.session.execution_results = []
+        self.session.subtask_results = []
+        self.session.review_packages = []
+        self.session.review_results = []
+        central_flow._record_central_conversation(
+            title="Central Agent Response",
+            body=WorkflowCentralFlow._central_blueprint_body(self.session.blueprint),
+            related_ids=[package.id for package in self.session.work_packages],
+        )
+        self.set_state(
+            WorkflowState.BLUEPRINT_READY,
+            reason="deliberation reached consensus",
         )
         return True
 

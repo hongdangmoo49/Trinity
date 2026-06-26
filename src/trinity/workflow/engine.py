@@ -646,28 +646,6 @@ class WorkflowEngine:
         """Stop the workflow after review-repair loop guards pause packages."""
         return self._review_flow().stop_review_repair_blocks()
 
-    def _block_review_repair(
-        self,
-        package: WorkPackage,
-        result: ReviewResult,
-        *,
-        reason: str,
-        signature: str,
-        max_attempts: int,
-        required_changes: Iterable[str] | None = None,
-        review_package_ids: Iterable[str] | None = None,
-    ) -> dict[str, Any]:
-        """Persist that a review repair should not be auto-restarted again."""
-        return self._review_flow().block_review_repair(
-            package,
-            result,
-            reason=reason,
-            signature=signature,
-            max_attempts=max_attempts,
-            required_changes=required_changes,
-            review_package_ids=review_package_ids,
-        )
-
     def _record_review_result(self, result: ReviewResult) -> None:
         self._review_flow().record_review_result(result)
 
@@ -676,12 +654,6 @@ class WorkflowEngine:
 
     def _record_review_quality(self, result: ReviewResult) -> None:
         self._quality_flow().record_review_quality(result)
-
-    def _apply_review_result_to_package(self, result: ReviewResult) -> None:
-        self._review_flow().apply_review_result_to_package(result)
-
-    def _finalize_review_state(self, latest_results: list[ReviewResult]) -> None:
-        self._review_flow().finalize_review_state(latest_results)
 
     def finalize_post_review(self, final_result: ReviewResult | None = None) -> None:
         """Move a completed final review into the user-selectable follow-up state."""
@@ -942,9 +914,6 @@ class WorkflowEngine:
             accepted_action_item_ids,
             source_state=source_state,
         )
-
-    def _mark_post_review_items_done(self, item_ids: Iterable[str]) -> None:
-        self._post_review_flow().mark_items_done(item_ids)
 
     @staticmethod
     def _supplemental_objective(item: PostReviewActionItem) -> str:

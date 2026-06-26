@@ -85,6 +85,7 @@ from trinity.textual_app.presenters import (
     improve_rows,
     improve_table_columns,
     improve_title,
+    local_command_snapshot,
     memory_cleanup_error_markdown,
     memory_title,
     model_settings_title,
@@ -1386,6 +1387,21 @@ def test_agent_session_presenters_render_rows_and_notice() -> None:
         ("claude", "yes", "claude-code"),
         ("codex", "no", "codex"),
     )
+
+
+def test_local_command_snapshot_presenter_normalizes_empty_body() -> None:
+    snapshot = local_command_snapshot(
+        "/status",
+        "Status",
+        "   ",
+        severity="warning",
+        table_columns=("Item", "Value"),
+        table_rows=(("State", "idle"),),
+    )
+
+    assert snapshot.body == "(no output)"
+    assert snapshot.severity == "warning"
+    assert snapshot.table_rows == (("State", "idle"),)
 
 
 def test_caveman_presenter_uses_korean_labels() -> None:

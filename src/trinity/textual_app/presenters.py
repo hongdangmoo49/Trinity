@@ -8,7 +8,7 @@ from typing import Mapping, Protocol, Sequence
 
 from trinity.slash_commands import COMMAND_SPECS, SESSION_ONLY_SETTING_NOTICE
 from trinity.display_labels import display_kind_value, display_severity_value
-from trinity.textual_app.snapshot import WorkflowNexusSnapshot
+from trinity.textual_app.snapshot import LocalCommandSnapshot, WorkflowNexusSnapshot
 from trinity.textual_app.widgets.status_label import (
     display_consensus_progress,
     display_readiness_value,
@@ -1381,6 +1381,32 @@ def agent_rows(
             ),
         )
         for name, spec in sorted(agents.items())
+    )
+
+
+def local_command_snapshot(
+    command: str,
+    title: str,
+    body: str,
+    *,
+    severity: str = "info",
+    result_kind: str = "markdown",
+    empty: bool = False,
+    action_hint: str = "",
+    table_columns: tuple[str, ...] = (),
+    table_rows: tuple[tuple[str, ...], ...] = (),
+) -> LocalCommandSnapshot:
+    """Build a local slash command result snapshot."""
+    return LocalCommandSnapshot(
+        command=command,
+        title=title,
+        body=body.strip() or "(no output)",
+        severity=severity,
+        result_kind=result_kind,
+        empty=empty,
+        action_hint=action_hint,
+        table_columns=table_columns,
+        table_rows=table_rows,
     )
 
 

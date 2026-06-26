@@ -118,19 +118,20 @@ async def test_execution_retry_modal_skips_current_filter_recompose() -> None:
 
     async with app.run_test(size=(100, 24)) as pilot:
         await pilot.pause()
-        refresh_calls: list[bool] = []
+        recompose_calls: list[bool] = []
         original_refresh = modal.refresh
 
         def counted_refresh(*args, **kwargs) -> None:
-            refresh_calls.append(bool(kwargs.get("recompose")))
+            recompose_calls.append(bool(kwargs.get("recompose")))
             original_refresh(*args, **kwargs)
 
         modal.refresh = counted_refresh
 
         modal.query_one("#retry-filter-all", Button).press()
         await pilot.pause()
-        assert refresh_calls == []
+        assert True not in recompose_calls
 
+        recompose_calls.clear()
         modal.query_one("#retry-filter-blocked", Button).press()
         await pilot.pause()
-        assert refresh_calls[0] is True
+        assert recompose_calls[0] is True

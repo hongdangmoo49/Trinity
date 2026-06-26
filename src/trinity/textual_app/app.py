@@ -1766,9 +1766,15 @@ class TrinityTextualApp(App[None]):
             self._record_slash_command_result(
                 parsed.spec.name,
                 textual_presenters.questions_title(lang=self.config.lang),
-                self._questions_select_markdown(snapshot, lang=self.config.lang)
+                textual_presenters.questions_select_markdown(
+                    snapshot,
+                    lang=self.config.lang,
+                )
                 if select_requested
-                else self._questions_markdown(snapshot, lang=self.config.lang),
+                else textual_presenters.questions_markdown(
+                    snapshot,
+                    lang=self.config.lang,
+                ),
                 empty=not has_questions,
                 action_hint=textual_presenters.questions_action_hint(
                     has_questions=has_questions,
@@ -1777,7 +1783,10 @@ class TrinityTextualApp(App[None]):
                 table_columns=textual_presenters.questions_table_columns(
                     lang=self.config.lang
                 ),
-                table_rows=self._questions_rows(snapshot, lang=self.config.lang),
+                table_rows=textual_presenters.questions_rows(
+                    snapshot,
+                    lang=self.config.lang,
+                ),
             )
             return
         if command == "decisions":
@@ -1786,7 +1795,10 @@ class TrinityTextualApp(App[None]):
             self._record_slash_command_result(
                 parsed.spec.name,
                 textual_presenters.decisions_title(lang=self.config.lang),
-                self._decisions_markdown(snapshot, lang=self.config.lang),
+                textual_presenters.decisions_markdown(
+                    snapshot,
+                    lang=self.config.lang,
+                ),
                 empty=not has_decisions,
                 action_hint=textual_presenters.decisions_action_hint(
                     has_decisions=has_decisions,
@@ -1795,7 +1807,10 @@ class TrinityTextualApp(App[None]):
                 table_columns=textual_presenters.decisions_table_columns(
                     lang=self.config.lang
                 ),
-                table_rows=self._decisions_rows(snapshot, lang=self.config.lang),
+                table_rows=textual_presenters.decisions_rows(
+                    snapshot,
+                    lang=self.config.lang,
+                ),
             )
             return
         if command == "packages":
@@ -1804,7 +1819,10 @@ class TrinityTextualApp(App[None]):
             self._record_slash_command_result(
                 parsed.spec.name,
                 textual_presenters.packages_title(lang=self.config.lang),
-                self._packages_markdown(snapshot, lang=self.config.lang),
+                textual_presenters.packages_markdown(
+                    snapshot,
+                    lang=self.config.lang,
+                ),
                 empty=not has_packages,
                 action_hint=textual_presenters.packages_action_hint(
                     has_packages=has_packages,
@@ -1813,7 +1831,10 @@ class TrinityTextualApp(App[None]):
                 table_columns=textual_presenters.packages_table_columns(
                     lang=self.config.lang
                 ),
-                table_rows=self._packages_rows(snapshot, lang=self.config.lang),
+                table_rows=textual_presenters.packages_rows(
+                    snapshot,
+                    lang=self.config.lang,
+                ),
             )
             return
         if command == "subtasks":
@@ -1822,7 +1843,10 @@ class TrinityTextualApp(App[None]):
             self._record_slash_command_result(
                 parsed.spec.name,
                 textual_presenters.subtasks_title(lang=self.config.lang),
-                self._subtasks_markdown(snapshot, lang=self.config.lang),
+                textual_presenters.subtasks_markdown(
+                    snapshot,
+                    lang=self.config.lang,
+                ),
                 empty=not has_subtasks,
                 action_hint=textual_presenters.subtasks_action_hint(
                     has_subtasks=has_subtasks,
@@ -1831,7 +1855,10 @@ class TrinityTextualApp(App[None]):
                 table_columns=textual_presenters.subtasks_table_columns(
                     lang=self.config.lang
                 ),
-                table_rows=self._subtasks_rows(snapshot, lang=self.config.lang),
+                table_rows=textual_presenters.subtasks_rows(
+                    snapshot,
+                    lang=self.config.lang,
+                ),
             )
             return
         if command == "context":
@@ -2432,62 +2459,6 @@ class TrinityTextualApp(App[None]):
         return textual_presenters.snapshot_context_markdown(snapshot, lang=lang)
 
     @staticmethod
-    def _questions_markdown(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> str:
-        return textual_presenters.questions_markdown(snapshot, lang=lang)
-
-    @staticmethod
-    def _questions_select_markdown(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> str:
-        return textual_presenters.questions_select_markdown(snapshot, lang=lang)
-
-    @staticmethod
-    def _questions_rows(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> tuple[tuple[str, str, str, str], ...]:
-        return textual_presenters.questions_rows(snapshot, lang=lang)
-
-    @staticmethod
-    def _decisions_markdown(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> str:
-        return textual_presenters.decisions_markdown(snapshot, lang=lang)
-
-    @staticmethod
-    def _decisions_rows(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.decisions_rows(snapshot, lang=lang)
-
-    @staticmethod
-    def _packages_markdown(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> str:
-        return textual_presenters.packages_markdown(snapshot, lang=lang)
-
-    @staticmethod
-    def _packages_rows(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> tuple[tuple[str, str, str], ...]:
-        return textual_presenters.packages_rows(snapshot, lang=lang)
-
-    @staticmethod
     def _review_rows(
         snapshot: WorkflowNexusSnapshot,
         *,
@@ -2502,22 +2473,6 @@ class TrinityTextualApp(App[None]):
         lang: str = "en",
     ) -> tuple[tuple[str, str], ...]:
         return textual_presenters.improve_rows(snapshot, lang=lang)
-
-    @staticmethod
-    def _subtasks_markdown(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> str:
-        return textual_presenters.subtasks_markdown(snapshot, lang=lang)
-
-    @staticmethod
-    def _subtasks_rows(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> tuple[tuple[str, str, str, str, str], ...]:
-        return textual_presenters.subtasks_rows(snapshot, lang=lang)
 
     def _handle_textual_context_command(self, command: str) -> None:
         """Show the current session context without reading stale shared.md state."""

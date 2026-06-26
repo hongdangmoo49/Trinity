@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from trinity.workflow.decomposer import classify_blueprint_followup_action
 from trinity.workflow.models import DecisionRecord, WorkflowSession, WorkflowState
+from trinity.workflow.targeting_flow import WorkflowTargetingFlow
 
 
 class WorkflowLifecycleFlow:
@@ -38,11 +39,11 @@ class WorkflowLifecycleFlow:
             if target_workspace is not None
             else False
         )
-        effective_targets = self.engine._effective_target_agents(
+        effective_targets = WorkflowTargetingFlow.effective_target_agents(
             active_agents,
             target_agents,
         )
-        model_overrides = self.engine._normalized_model_overrides(
+        model_overrides = WorkflowTargetingFlow.normalized_model_overrides(
             agent_model_overrides,
             effective_targets,
         )
@@ -130,11 +131,11 @@ class WorkflowLifecycleFlow:
 
         if active_agents:
             self.engine.session.active_agents = list(active_agents)
-        effective_targets = self.engine._effective_target_agents(
+        effective_targets = WorkflowTargetingFlow.effective_target_agents(
             self.engine.session.active_agents,
             target_agents,
         )
-        model_overrides = self.engine._normalized_model_overrides(
+        model_overrides = WorkflowTargetingFlow.normalized_model_overrides(
             agent_model_overrides,
             effective_targets,
         )

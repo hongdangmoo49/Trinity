@@ -6,6 +6,7 @@ import time
 from typing import Any
 
 from trinity.workflow.models import DecisionRecord, OpenQuestion, WorkflowState
+from trinity.workflow.targeting_flow import WorkflowTargetingFlow
 
 
 class WorkflowQuestionFlow:
@@ -113,11 +114,11 @@ class WorkflowQuestionFlow:
             WorkflowState.DELIBERATING,
             reason="user decision answered",
         )
-        target_agents = self.engine._effective_target_agents(
+        target_agents = WorkflowTargetingFlow.effective_target_agents(
             self.engine.session.active_agents,
             self.engine.session.last_target_agents,
         )
-        model_overrides = self.engine._normalized_model_overrides(
+        model_overrides = WorkflowTargetingFlow.normalized_model_overrides(
             self.engine.session.agent_model_overrides,
             target_agents,
         )

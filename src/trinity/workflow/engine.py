@@ -189,7 +189,9 @@ class WorkflowEngine:
             persist=self._persist,
             set_state=self.set_state,
             action_type=self.input_action_type,
-            normalize_model_overrides=self._normalized_model_overrides,
+            normalize_model_overrides=(
+                WorkflowTargetingFlow.normalized_model_overrides
+            ),
             mark_deliberation_result=self.mark_deliberation_result,
         )
 
@@ -232,26 +234,6 @@ class WorkflowEngine:
     def _workspace_flow(self) -> WorkflowWorkspaceFlow:
         return WorkflowWorkspaceFlow(self)
 
-    @staticmethod
-    def _effective_target_agents(
-        active_agents: list[str],
-        target_agents: list[str] | tuple[str, ...] | None,
-    ) -> tuple[str, ...]:
-        return WorkflowTargetingFlow.effective_target_agents(
-            active_agents,
-            target_agents,
-        )
-
-    @staticmethod
-    def _normalized_model_overrides(
-        agent_model_overrides: dict[str, str] | None,
-        allowed_agents: tuple[str, ...] | list[str] = (),
-    ) -> dict[str, str]:
-        return WorkflowTargetingFlow.normalized_model_overrides(
-            agent_model_overrides,
-            allowed_agents,
-        )
-
     def handle_user_input(
         self,
         text: str,
@@ -268,10 +250,6 @@ class WorkflowEngine:
             agent_model_overrides=agent_model_overrides,
         )
 
-    def _can_continue_existing_blueprint(self) -> bool:
-        """Return whether free text should stay attached to this workflow."""
-        return self._input_flow()._can_continue_existing_blueprint()
-
     def start(
         self,
         goal: str,
@@ -287,10 +265,6 @@ class WorkflowEngine:
             target_agents=target_agents,
             agent_model_overrides=agent_model_overrides,
         )
-
-    def _should_carry_target_workspace_into_new_workflow(self) -> bool:
-        """Return whether an idle preselected target should survive workflow start."""
-        return self._lifecycle_flow()._should_carry_target_workspace_into_new_workflow()
 
     def answer_pending_question(self, answer: str) -> WorkflowInputAction:
         """Record an answer to the oldest open question and continue deliberation."""

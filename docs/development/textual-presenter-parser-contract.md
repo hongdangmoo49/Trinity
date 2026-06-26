@@ -59,6 +59,8 @@ Current parser surface:
 - `AgentCommandParseResult`
 - `parse_caveman_args(args, lang=...)`
 - `CavemanCommandParseResult`
+- `parse_answer_args(args, lang=...)`
+- `AnswerCommandParseResult`
 
 Parser functions may:
 

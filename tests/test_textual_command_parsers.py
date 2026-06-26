@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from trinity.textual_app.command_parsers import (
     parse_agent_args,
+    parse_answer_args,
     parse_ask_args,
     parse_caveman_args,
     parse_rounds_args,
@@ -123,3 +124,33 @@ def test_parse_caveman_args_validates_mode_and_intensity() -> None:
     assert invalid.enabled is None
     assert invalid.error == "사용법: /caveman [on|off|lite|full|ultra]"
     assert invalid.action_hint == "허용 모드: on, off, lite, full, ultra."
+
+
+def test_parse_answer_args_validates_required_answer() -> None:
+    empty = parse_answer_args([], lang="ko")
+    assert empty.error == "사용법: /answer <question-id|index|next> <answer>"
+    assert empty.action_hint == "먼저 `/questions`를 실행해 대기 중인 질문을 확인하세요."
+    assert empty.replace is False
+
+    replace_only = parse_answer_args(["--replace"], lang="ko")
+    assert replace_only.error == "사용법: /answer <question-id|index|next> <answer>"
+    assert replace_only.replace is True
+
+
+def test_parse_answer_args_routes_option_next_and_explicit_answer() -> None:
+    option = parse_answer_args(["--replace", "2"], lang="ko")
+    assert option.option_index == "2"
+    assert option.question_selector == ""
+    assert option.answer == ""
+    assert option.replace is True
+
+    next_answer = parse_answer_args(["네"], lang="ko")
+    assert next_answer.option_index == ""
+    assert next_answer.question_selector == "next"
+    assert next_answer.answer == "네"
+    assert next_answer.replace is False
+
+    explicit = parse_answer_args(["q-1", "좋습니다", "진행하세요"], lang="ko")
+    assert explicit.question_selector == "q-1"
+    assert explicit.answer == "좋습니다 진행하세요"
+    assert explicit.replace is False

@@ -29,6 +29,7 @@ from trinity.providers.model_discovery import (
 from trinity.slash_commands import parse_execute_retry_args, parse_slash_command
 from trinity.textual_app.command_parsers import (
     parse_agent_args,
+    parse_answer_args,
     parse_ask_args,
     parse_caveman_args,
     parse_rounds_args,
@@ -2909,53 +2910,27 @@ class TrinityTextualApp(App[None]):
             self._handle_textual_context_command("/context")
 
     def _handle_textual_answer_command(self, args: list[str]) -> None:
-        if not args:
+        parsed = parse_answer_args(args, lang=self.config.lang)
+        if parsed.error:
             self._record_slash_command_result(
                 "/answer",
                 textual_presenters.answer_title(lang=self.config.lang),
-                textual_presenters.answer_usage_markdown(lang=self.config.lang),
+                parsed.error,
                 severity="warning",
                 empty=True,
-                action_hint=textual_presenters.answer_action_hint(
-                    lang=self.config.lang
-                ),
+                action_hint=parsed.action_hint,
             )
             return
-        replace_answer = False
-        filtered: list[str] = []
-        for arg in args:
-            if arg in {"--replace", "-r"}:
-                replace_answer = True
-            else:
-                filtered.append(arg)
-        if not filtered:
-            self._record_slash_command_result(
-                "/answer",
-                textual_presenters.answer_title(lang=self.config.lang),
-                textual_presenters.answer_usage_markdown(lang=self.config.lang),
-                severity="warning",
-                empty=True,
-                action_hint=textual_presenters.answer_action_hint(
-                    lang=self.config.lang
-                ),
-            )
-            return
-        if len(filtered) == 1 and filtered[0].isdigit():
+        if parsed.option_index:
             outcome = self.workflow_controller.answer_question_option(
-                filtered[0],
-                replace=replace_answer,
-            )
-        elif len(filtered) == 1:
-            outcome = self.workflow_controller.answer_question(
-                "next",
-                filtered[0],
-                replace=replace_answer,
+                parsed.option_index,
+                replace=parsed.replace,
             )
         else:
             outcome = self.workflow_controller.answer_question(
-                filtered[0],
-                " ".join(filtered[1:]),
-                replace=replace_answer,
+                parsed.question_selector,
+                parsed.answer,
+                replace=parsed.replace,
             )
         message = outcome.message
         if message:

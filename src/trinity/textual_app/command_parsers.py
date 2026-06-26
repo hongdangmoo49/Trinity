@@ -47,6 +47,18 @@ class CavemanCommandParseResult:
     action_hint: str = ""
 
 
+@dataclass(frozen=True)
+class AnswerCommandParseResult:
+    """Parsed `/answer` command arguments."""
+
+    question_selector: str = ""
+    answer: str = ""
+    option_index: str = ""
+    replace: bool = False
+    error: str = ""
+    action_hint: str = ""
+
+
 def parse_ask_args(
     args: list[str],
     active_agent_names: Iterable[str],
@@ -202,4 +214,43 @@ def parse_caveman_args(
     return CavemanCommandParseResult(
         error=textual_presenters.caveman_usage_markdown(lang=lang),
         action_hint=textual_presenters.caveman_allowed_action_hint(lang=lang),
+    )
+
+
+def parse_answer_args(
+    args: list[str],
+    *,
+    lang: str = "en",
+) -> AnswerCommandParseResult:
+    """Parse `/answer` arguments into controller routing data."""
+    replace_answer = False
+    filtered: list[str] = []
+    for arg in args:
+        if arg in {"--replace", "-r"}:
+            replace_answer = True
+        else:
+            filtered.append(arg)
+
+    if not filtered:
+        return AnswerCommandParseResult(
+            replace=replace_answer,
+            error=textual_presenters.answer_usage_markdown(lang=lang),
+            action_hint=textual_presenters.answer_action_hint(lang=lang),
+        )
+
+    if len(filtered) == 1 and filtered[0].isdigit():
+        return AnswerCommandParseResult(
+            option_index=filtered[0],
+            replace=replace_answer,
+        )
+    if len(filtered) == 1:
+        return AnswerCommandParseResult(
+            question_selector="next",
+            answer=filtered[0],
+            replace=replace_answer,
+        )
+    return AnswerCommandParseResult(
+        question_selector=filtered[0],
+        answer=" ".join(filtered[1:]),
+        replace=replace_answer,
     )

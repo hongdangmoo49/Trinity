@@ -168,14 +168,14 @@ class WorkflowEngine:
         return ExecutionRecoveryFlow(
             session=self.session,
             persistence=self.persistence,
-            persist=self._persist,
+            persist=self._persistence_flow().persist,
             set_state=self.set_state,
         )
 
     def _provider_error_gate_flow(self) -> ProviderErrorGateFlow:
         return ProviderErrorGateFlow(
             session=self.session,
-            persist=self._persist,
+            persist=self._persistence_flow().persist,
             set_state=self.set_state,
             action_type=self.input_action_type,
             normalize_model_overrides=(
@@ -611,7 +611,7 @@ class WorkflowEngine:
         old_state = self.session.state
         self.session.state = state
         self.session.updated_at = time.time()
-        self._persist(
+        self._persistence_flow().persist(
             "state_changed",
             {
                 "from": old_state.value,
@@ -623,16 +623,3 @@ class WorkflowEngine:
     def save(self) -> None:
         """Persist session.json."""
         self._persistence_flow().save()
-
-    def _persist(
-        self,
-        event_type: str,
-        data: dict,
-        *,
-        timestamp: float | None = None,
-    ) -> None:
-        self._persistence_flow().persist(
-            event_type,
-            data,
-            timestamp=timestamp,
-        )

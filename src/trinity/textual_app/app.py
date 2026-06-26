@@ -1710,34 +1710,12 @@ class TrinityTextualApp(App[None]):
         if parsed is None:
             return
         if parsed.error:
-            self._record_slash_command_result(
-                text,
-                textual_presenters.syntax_error_title(lang=self.config.lang),
-                parsed.error,
-                severity="warning",
-            )
+            self._handle_textual_slash_syntax_error(text, parsed.error)
             return
         if not parsed.token:
             return
         if parsed.spec is None:
-            suggestions = textual_presenters.slash_command_suggestions(parsed.token)
-            self._record_slash_command_result(
-                parsed.token,
-                textual_presenters.unknown_command_title(lang=self.config.lang),
-                textual_presenters.unknown_command_markdown(
-                    parsed.token,
-                    suggestions,
-                    lang=self.config.lang,
-                ),
-                severity="warning",
-                table_columns=textual_presenters.unknown_command_table_columns(
-                    lang=self.config.lang
-                ),
-                table_rows=textual_presenters.unknown_command_rows(
-                    suggestions,
-                    lang=self.config.lang,
-                ),
-            )
+            self._handle_textual_unknown_slash_command(parsed.token)
             return
 
         command = parsed.command_id
@@ -1764,6 +1742,34 @@ class TrinityTextualApp(App[None]):
             handler(args)
             return
         handler(command_name, args)
+
+    def _handle_textual_slash_syntax_error(self, raw_command: str, error: str) -> None:
+        self._record_slash_command_result(
+            raw_command,
+            textual_presenters.syntax_error_title(lang=self.config.lang),
+            error,
+            severity="warning",
+        )
+
+    def _handle_textual_unknown_slash_command(self, command_token: str) -> None:
+        suggestions = textual_presenters.slash_command_suggestions(command_token)
+        self._record_slash_command_result(
+            command_token,
+            textual_presenters.unknown_command_title(lang=self.config.lang),
+            textual_presenters.unknown_command_markdown(
+                command_token,
+                suggestions,
+                lang=self.config.lang,
+            ),
+            severity="warning",
+            table_columns=textual_presenters.unknown_command_table_columns(
+                lang=self.config.lang
+            ),
+            table_rows=textual_presenters.unknown_command_rows(
+                suggestions,
+                lang=self.config.lang,
+            ),
+        )
 
     def _handle_textual_quit_command(self) -> None:
         self.push_screen(

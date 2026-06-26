@@ -27,6 +27,15 @@ class RoundsCommandParseResult:
     action_hint: str = ""
 
 
+@dataclass(frozen=True)
+class AgentCommandParseResult:
+    """Parsed `/agent` command arguments."""
+
+    agent_name: str = ""
+    enabled: bool | None = None
+    error: str = ""
+
+
 def parse_ask_args(
     args: list[str],
     active_agent_names: Iterable[str],
@@ -125,3 +134,39 @@ def parse_rounds_args(
             action_hint=action_hint,
         )
     return RoundsCommandParseResult(rounds=rounds)
+
+
+def parse_agent_args(
+    args: list[str],
+    agent_names: Iterable[str],
+    *,
+    lang: str = "en",
+) -> AgentCommandParseResult:
+    """Parse `/agent` arguments into a target agent and enabled state."""
+    if not args:
+        return AgentCommandParseResult()
+    if len(args) < 2:
+        return AgentCommandParseResult(
+            error=textual_presenters.agent_usage_markdown(lang=lang)
+        )
+
+    active_agent_names = {
+        str(agent).strip().lower()
+        for agent in agent_names
+        if str(agent).strip()
+    }
+    name = args[0].strip().lower()
+    if name not in active_agent_names:
+        return AgentCommandParseResult(
+            agent_name=name,
+            error=textual_presenters.agent_unknown_markdown(name, lang=lang),
+        )
+
+    action = args[1].strip().lower()
+    if action not in {"on", "off"}:
+        return AgentCommandParseResult(
+            agent_name=name,
+            error=textual_presenters.agent_usage_markdown(lang=lang),
+        )
+
+    return AgentCommandParseResult(agent_name=name, enabled=action == "on")

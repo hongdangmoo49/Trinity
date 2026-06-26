@@ -1957,35 +1957,7 @@ class TrinityTextualApp(App[None]):
             self._handle_textual_execute_retry_command(args)
             return
         if command == "review":
-            outcome = self.workflow_controller.request_review(args)
-            message = outcome.message
-            if message:
-                outcome = replace(outcome, message="")
-            self._apply_workflow_outcome(outcome)
-            if message:
-                self._record_slash_command_result(
-                    parsed.spec.name,
-                    textual_presenters.review_title(lang=self.config.lang),
-                    textual_presenters.workflow_outcome_message_markdown(
-                        message,
-                        lang=self.config.lang,
-                    ),
-                    severity=(
-                        "warning"
-                        if message.startswith("No review") or "not connected" in message
-                        else "info"
-                    ),
-                    table_columns=textual_presenters.review_table_columns(
-                        lang=self.config.lang
-                    ),
-                    table_rows=textual_presenters.review_rows(
-                        outcome.snapshot,
-                        lang=self.config.lang,
-                    ),
-                    action_hint=textual_presenters.review_action_hint(
-                        lang=self.config.lang
-                    ),
-                )
+            self._handle_textual_review_command(parsed.spec.name, args)
             return
         if command == "improve":
             outcome = self.workflow_controller.request_improvement(args)
@@ -2052,6 +2024,37 @@ class TrinityTextualApp(App[None]):
             if outcome.target_workspace_required:
                 self._open_execute_workspace_picker(outcome.snapshot)
             return
+
+    def _handle_textual_review_command(self, command_name: str, args: list[str]) -> None:
+        outcome = self.workflow_controller.request_review(args)
+        message = outcome.message
+        if message:
+            outcome = replace(outcome, message="")
+        self._apply_workflow_outcome(outcome)
+        if message:
+            self._record_slash_command_result(
+                command_name,
+                textual_presenters.review_title(lang=self.config.lang),
+                textual_presenters.workflow_outcome_message_markdown(
+                    message,
+                    lang=self.config.lang,
+                ),
+                severity=(
+                    "warning"
+                    if message.startswith("No review") or "not connected" in message
+                    else "info"
+                ),
+                table_columns=textual_presenters.review_table_columns(
+                    lang=self.config.lang
+                ),
+                table_rows=textual_presenters.review_rows(
+                    outcome.snapshot,
+                    lang=self.config.lang,
+                ),
+                action_hint=textual_presenters.review_action_hint(
+                    lang=self.config.lang
+                ),
+            )
 
     def _handle_textual_ask_command(self, command_name: str, args: list[str]) -> None:
         parsed = parse_ask_args(

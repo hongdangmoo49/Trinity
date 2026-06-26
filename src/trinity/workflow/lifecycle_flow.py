@@ -158,7 +158,9 @@ class WorkflowLifecycleFlow:
         )
         return action_type(
             should_deliberate=True,
-            prompt=self.engine._build_blueprint_continuation_prompt(instruction),
+            prompt=self.engine._central_flow()._build_blueprint_continuation_prompt(
+                instruction
+            ),
             target_agents=effective_targets,
             agent_model_overrides=dict(model_overrides),
             agent_selection_mode=(

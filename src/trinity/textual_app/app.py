@@ -1749,15 +1749,7 @@ class TrinityTextualApp(App[None]):
             )
             return
         if command == "help":
-            self._record_slash_command_result(
-                parsed.spec.name,
-                textual_presenters.help_title(lang=self.config.lang),
-                textual_presenters.help_markdown(lang=self.config.lang),
-                table_columns=textual_presenters.help_table_columns(
-                    lang=self.config.lang
-                ),
-                table_rows=textual_presenters.help_rows(lang=self.config.lang),
-            )
+            self._handle_textual_help_command(parsed.spec.name)
             return
         if command == "status":
             snapshot = self._current_textual_snapshot()
@@ -1836,6 +1828,15 @@ class TrinityTextualApp(App[None]):
         if command == "execute":
             self._handle_textual_execute_command(parsed.spec.name, args)
             return
+
+    def _handle_textual_help_command(self, command_name: str) -> None:
+        self._record_slash_command_result(
+            command_name,
+            textual_presenters.help_title(lang=self.config.lang),
+            textual_presenters.help_markdown(lang=self.config.lang),
+            table_columns=textual_presenters.help_table_columns(lang=self.config.lang),
+            table_rows=textual_presenters.help_rows(lang=self.config.lang),
+        )
 
     def _handle_textual_workflow_command(self, command_name: str) -> None:
         snapshot = self._refresh_textual_snapshot()

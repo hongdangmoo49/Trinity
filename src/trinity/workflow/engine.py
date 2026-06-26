@@ -398,39 +398,8 @@ class WorkflowEngine:
             return
 
         central_flow = self._central_flow()
-        structured = result.metadata.get("structured_consensus")
-        if isinstance(structured, dict):
-            if central_flow._apply_structured_questions(structured):
-                self.set_state(
-                    WorkflowState.NEEDS_USER_DECISION,
-                    reason="structured deliberation requires user decision",
-                )
-                return
-
-            blueprint = structured.get("final_blueprint")
-            if structured.get("reached") and isinstance(blueprint, dict):
-                self.session.blueprint = Blueprint.from_dict(blueprint)
-                self.session.work_packages = self.decomposer.decompose(
-                    self.session.blueprint,
-                    self._decomposition_agents(),
-                    requires_execution=self._requires_execution(result),
-                )
-                self.session.execution_results = []
-                self.session.subtask_results = []
-                self.session.review_packages = []
-                self.session.review_results = []
-                central_flow._record_central_conversation(
-                    title="Central Agent Response",
-                    body=WorkflowCentralFlow._central_blueprint_body(
-                        self.session.blueprint
-                    ),
-                    related_ids=[package.id for package in self.session.work_packages],
-                )
-                self.set_state(
-                    WorkflowState.BLUEPRINT_READY,
-                    reason="structured blueprint reached consensus",
-                )
-                return
+        if self._apply_structured_deliberation_result(result, central_flow):
+            return
 
         if result.has_consensus:
             summary = result.consensus.summary if result.consensus else ""
@@ -457,6 +426,46 @@ class WorkflowEngine:
             )
         else:
             self.set_state(WorkflowState.FAILED, reason="deliberation ended without consensus")
+
+    def _apply_structured_deliberation_result(
+        self,
+        result: DeliberationResult,
+        central_flow: WorkflowCentralFlow,
+    ) -> bool:
+        structured = result.metadata.get("structured_consensus")
+        if not isinstance(structured, dict):
+            return False
+        if central_flow._apply_structured_questions(structured):
+            self.set_state(
+                WorkflowState.NEEDS_USER_DECISION,
+                reason="structured deliberation requires user decision",
+            )
+            return True
+
+        blueprint = structured.get("final_blueprint")
+        if not structured.get("reached") or not isinstance(blueprint, dict):
+            return False
+
+        self.session.blueprint = Blueprint.from_dict(blueprint)
+        self.session.work_packages = self.decomposer.decompose(
+            self.session.blueprint,
+            self._decomposition_agents(),
+            requires_execution=self._requires_execution(result),
+        )
+        self.session.execution_results = []
+        self.session.subtask_results = []
+        self.session.review_packages = []
+        self.session.review_results = []
+        central_flow._record_central_conversation(
+            title="Central Agent Response",
+            body=WorkflowCentralFlow._central_blueprint_body(self.session.blueprint),
+            related_ids=[package.id for package in self.session.work_packages],
+        )
+        self.set_state(
+            WorkflowState.BLUEPRINT_READY,
+            reason="structured blueprint reached consensus",
+        )
+        return True
 
     def _record_provider_observations(self, metadata: dict[str, Any]) -> None:
         self._provider_observations().record_provider_observations(metadata)

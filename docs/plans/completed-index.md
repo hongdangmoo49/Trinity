@@ -19,7 +19,7 @@ or deleting old implementation plans.
 | Fake provider and facade baseline | #90-#96 | `2026-06-24-fake-provider-ci-smoke.md`, early 2026-06-26 facade notes | Keep until fake-provider E2E exists |
 | Nexus projection and performance budgets | #97-#108 | snapshot, event-tail, and performance-budget plans | Keep as performance baseline |
 | Execution UX and retry/review feedback | #109-#160 | execution, retry, review, provider metadata, report metadata plans | Keep until UX contract docs exist |
-| Korean UX vocabulary stabilization | #161-#292 | 2026-06-24/25 `*i18n*`, `*-ko`, `*korean*`, status, placeholder, and term plans | Explicit i18n/ko/korean plans archived after term glossary |
+| Korean UX vocabulary stabilization | #161-#292 | 2026-06-24/25 `*i18n*`, `*-ko`, `*korean*`, status, placeholder, and term plans | Explicit i18n/ko/korean and 2026-06-25 UI label/status plans archived |
 | Nexus/Textual render cost reduction | #293-#391 | 2026-06-25 and 2026-06-26 cache/rebind/query plans | Explicit render cache/rebind/query plans archived after performance guidance |
 | Workflow flow decomposition | #392-#409 | 2026-06-26 `workflow-*`, `provider-*`, review/post-review flow plans | Keep as architecture trace; flow contract doc exists |
 | Textual presenter and wrapper removal | #410-#426 | 2026-06-26 `textual-*`, command parser, facade-thin plans | Ready for bundle archive after presenter contract docs exist |
@@ -117,11 +117,14 @@ archive work can move these one-PR notes by bundle after checking label tests.
 Archived bundle:
 
 - `docs/plans/archive/2026-06-24-25-korean-ux/`
+- `docs/plans/archive/2026-06-25-ui-label-status/`
 
 The archived bundle contains the explicit `*i18n*`, `*-ko`, and `*korean*`
 one-PR plans from 2026-06-24 and 2026-06-25. Generic `label`, `status`, and
-placeholder plans that do not carry a Korean/i18n filename marker remain in the
-root until they are classified separately from cache and presenter cleanup work.
+placeholder plans from 2026-06-25 are archived separately after cache and
+presenter cleanup plans were split out. Older 2026-06-17 and 2026-06-24
+execution/retry status documents remain in the root until the execution UX
+contract is documented.
 
 Primary groups:
 

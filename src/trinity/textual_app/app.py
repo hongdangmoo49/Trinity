@@ -1764,20 +1764,7 @@ class TrinityTextualApp(App[None]):
             self._show_textual_status(parsed.spec.name, snapshot)
             return
         if command == "workflow":
-            snapshot = self._refresh_textual_snapshot()
-            self._record_slash_command_result(
-                parsed.spec.name,
-                textual_presenters.workflow_title(lang=self.config.lang),
-                textual_presenters.snapshot_workflow_markdown(
-                    snapshot,
-                    lang=self.config.lang,
-                ),
-                table_columns=textual_presenters.status_table_columns(lang=self.config.lang),
-                table_rows=textual_presenters.snapshot_workflow_rows(
-                    snapshot,
-                    lang=self.config.lang,
-                ),
-            )
+            self._handle_textual_workflow_command(parsed.spec.name)
             return
         if command == "questions":
             snapshot = self._refresh_textual_snapshot()
@@ -1962,6 +1949,22 @@ class TrinityTextualApp(App[None]):
         if command == "execute":
             self._handle_textual_execute_command(parsed.spec.name, args)
             return
+
+    def _handle_textual_workflow_command(self, command_name: str) -> None:
+        snapshot = self._refresh_textual_snapshot()
+        self._record_slash_command_result(
+            command_name,
+            textual_presenters.workflow_title(lang=self.config.lang),
+            textual_presenters.snapshot_workflow_markdown(
+                snapshot,
+                lang=self.config.lang,
+            ),
+            table_columns=textual_presenters.status_table_columns(lang=self.config.lang),
+            table_rows=textual_presenters.snapshot_workflow_rows(
+                snapshot,
+                lang=self.config.lang,
+            ),
+        )
 
     def _handle_textual_review_command(self, command_name: str, args: list[str]) -> None:
         outcome = self.workflow_controller.request_review(args)

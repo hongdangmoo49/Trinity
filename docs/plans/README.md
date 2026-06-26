@@ -9,6 +9,7 @@ not treat every file here as active work.
 Start with the durable maintenance summary:
 
 - `docs/development/ci-and-maintenance-strategy.md`
+- `docs/plans/completed-index.md`
 
 Then use individual plan files only when you need the detailed reasoning behind
 a specific PR or feature area.

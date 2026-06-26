@@ -1773,28 +1773,7 @@ class TrinityTextualApp(App[None]):
             self._handle_textual_decisions_command(parsed.spec.name)
             return
         if command == "packages":
-            snapshot = self._refresh_textual_snapshot()
-            has_packages = bool(snapshot.work_packages or snapshot.central_work_packages)
-            self._record_slash_command_result(
-                parsed.spec.name,
-                textual_presenters.packages_title(lang=self.config.lang),
-                textual_presenters.packages_markdown(
-                    snapshot,
-                    lang=self.config.lang,
-                ),
-                empty=not has_packages,
-                action_hint=textual_presenters.packages_action_hint(
-                    has_packages=has_packages,
-                    lang=self.config.lang,
-                ),
-                table_columns=textual_presenters.packages_table_columns(
-                    lang=self.config.lang
-                ),
-                table_rows=textual_presenters.packages_rows(
-                    snapshot,
-                    lang=self.config.lang,
-                ),
-            )
+            self._handle_textual_packages_command(parsed.spec.name)
             return
         if command == "subtasks":
             snapshot = self._refresh_textual_snapshot()
@@ -1971,6 +1950,30 @@ class TrinityTextualApp(App[None]):
                 lang=self.config.lang
             ),
             table_rows=textual_presenters.decisions_rows(
+                snapshot,
+                lang=self.config.lang,
+            ),
+        )
+
+    def _handle_textual_packages_command(self, command_name: str) -> None:
+        snapshot = self._refresh_textual_snapshot()
+        has_packages = bool(snapshot.work_packages or snapshot.central_work_packages)
+        self._record_slash_command_result(
+            command_name,
+            textual_presenters.packages_title(lang=self.config.lang),
+            textual_presenters.packages_markdown(
+                snapshot,
+                lang=self.config.lang,
+            ),
+            empty=not has_packages,
+            action_hint=textual_presenters.packages_action_hint(
+                has_packages=has_packages,
+                lang=self.config.lang,
+            ),
+            table_columns=textual_presenters.packages_table_columns(
+                lang=self.config.lang
+            ),
+            table_rows=textual_presenters.packages_rows(
                 snapshot,
                 lang=self.config.lang,
             ),

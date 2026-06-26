@@ -615,7 +615,7 @@ class WorkflowReviewFlow:
         session = self.engine.session
         session.review_results.append(result.to_dict())
         self.apply_review_result_to_package(result)
-        self.engine._record_review_quality(result)
+        self.engine._quality_flow().record_review_quality(result)
         session.updated_at = time.time()
         self.engine._persist(
             "review_result_recorded",

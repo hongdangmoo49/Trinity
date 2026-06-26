@@ -625,12 +625,6 @@ class WorkflowEngine:
         """Stop the workflow after review-repair loop guards pause packages."""
         return self._review_flow().stop_review_repair_blocks()
 
-    def _record_execution_quality(self, result: ExecutionResult) -> None:
-        self._quality_flow().record_execution_quality(result)
-
-    def _record_review_quality(self, result: ReviewResult) -> None:
-        self._quality_flow().record_review_quality(result)
-
     def finalize_post_review(self, final_result: ReviewResult | None = None) -> None:
         """Move a completed final review into the user-selectable follow-up state."""
         self._post_review_flow().finalize_post_review(final_result)

@@ -1752,8 +1752,7 @@ class TrinityTextualApp(App[None]):
             self._handle_textual_help_command(parsed.spec.name)
             return
         if command == "status":
-            snapshot = self._current_textual_snapshot()
-            self._show_textual_status(parsed.spec.name, snapshot)
+            self._handle_textual_status_command(parsed.spec.name)
             return
         if command == "workflow":
             self._handle_textual_workflow_command(parsed.spec.name)
@@ -1833,6 +1832,10 @@ class TrinityTextualApp(App[None]):
             table_columns=textual_presenters.help_table_columns(lang=self.config.lang),
             table_rows=textual_presenters.help_rows(lang=self.config.lang),
         )
+
+    def _handle_textual_status_command(self, command_name: str) -> None:
+        snapshot = self._current_textual_snapshot()
+        self._show_textual_status(command_name, snapshot)
 
     def _handle_textual_workflow_command(self, command_name: str) -> None:
         snapshot = self._refresh_textual_snapshot()

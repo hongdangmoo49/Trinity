@@ -24,8 +24,8 @@ from trinity.workflow.decomposer import (
     classify_blueprint_followup_action,
     classify_execution_intent,
 )
+from trinity.workflow.execution_flow import WorkflowExecutionFlow
 from trinity.workflow.execution_review_flow import (
-    WorkflowExecutionFlow,
     WorkflowPostReviewFlow,
     WorkflowReviewFlow,
 )

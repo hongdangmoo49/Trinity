@@ -13,7 +13,6 @@ from trinity.providers.policy import (
     InvocationAccess,
     ParallelExecutionPolicy,
 )
-from trinity.routing.quality import QualityLedger
 from trinity.workflow.models import (
     ExecutionResult,
     WorkPackage,
@@ -325,7 +324,7 @@ class WorkflowExecutionFlow:
                 session.decisions.append(decision)
         for subtask in result.subtasks:
             self.engine._upsert_subtask_result(subtask)
-        self.record_execution_quality(result)
+        self.engine._record_execution_quality(result)
 
         ordered_package_ids = [package.id for package in session.work_packages]
         session.execution_results = [
@@ -397,13 +396,4 @@ class WorkflowExecutionFlow:
         self.engine.set_state(
             WorkflowState.EXECUTING,
             reason="work package execution still in progress",
-        )
-
-    def record_execution_quality(self, result: ExecutionResult) -> None:
-        ledger = QualityLedger(self.engine.session.quality_signals)
-        signal = ledger.record_execution(result)
-        self.engine.session.quality_signals = ledger.to_dicts()
-        self.engine._persist(
-            "quality_signal_recorded",
-            signal.to_dict(),
         )

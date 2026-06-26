@@ -15,7 +15,6 @@ from trinity.models import (
 from trinity.providers.policy import (
     ExecutionScope,
 )
-from trinity.routing.quality import QualityLedger
 from trinity.workflow.decomposer import (
     BlueprintDecomposer,
     classify_execution_intent,
@@ -27,6 +26,7 @@ from trinity.workflow.lifecycle_flow import WorkflowLifecycleFlow
 from trinity.workflow.ledger_sync import WorkflowLedgerSync
 from trinity.workflow.post_review_flow import WorkflowPostReviewFlow
 from trinity.workflow.provider_observations import WorkflowProviderObservations
+from trinity.workflow.quality_flow import WorkflowQualityFlow
 from trinity.workflow.question_flow import WorkflowQuestionFlow
 from trinity.workflow.review_flow import WorkflowReviewFlow
 from trinity.workflow.workspace_flow import WorkflowWorkspaceFlow
@@ -124,12 +124,7 @@ class WorkflowEngine:
 
     def quality_summaries(self) -> dict[str, dict[str, Any]]:
         """Return advisory quality summaries keyed by agent name."""
-        return {
-            name: summary.to_dict()
-            for name, summary in QualityLedger(
-                self.session.quality_signals
-            ).summaries().items()
-        }
+        return self._quality_flow().quality_summaries()
 
     def _decomposition_agents(self) -> list[str] | dict[str, AgentSpec]:
         if not self.agent_specs:
@@ -208,6 +203,9 @@ class WorkflowEngine:
 
     def _question_flow(self) -> WorkflowQuestionFlow:
         return WorkflowQuestionFlow(self)
+
+    def _quality_flow(self) -> WorkflowQualityFlow:
+        return WorkflowQualityFlow(self)
 
     def _input_flow(self) -> WorkflowInputFlow:
         return WorkflowInputFlow(self)
@@ -695,10 +693,10 @@ class WorkflowEngine:
         self._review_flow().record_review_result(result)
 
     def _record_execution_quality(self, result: ExecutionResult) -> None:
-        self._execution_flow().record_execution_quality(result)
+        self._quality_flow().record_execution_quality(result)
 
     def _record_review_quality(self, result: ReviewResult) -> None:
-        self._review_flow().record_review_quality(result)
+        self._quality_flow().record_review_quality(result)
 
     def _apply_review_result_to_package(self, result: ReviewResult) -> None:
         self._review_flow().apply_review_result_to_package(result)

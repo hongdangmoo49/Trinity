@@ -30,7 +30,7 @@ class WorkflowQualityFlow:
         ledger = QualityLedger(self.engine.session.quality_signals)
         signal = ledger.record_execution(result)
         self.engine.session.quality_signals = ledger.to_dicts()
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "quality_signal_recorded",
             signal.to_dict(),
         )
@@ -39,7 +39,7 @@ class WorkflowQualityFlow:
         ledger = QualityLedger(self.engine.session.quality_signals)
         signal = ledger.record_review(result)
         self.engine.session.quality_signals = ledger.to_dicts()
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "quality_signal_recorded",
             signal.to_dict(),
         )

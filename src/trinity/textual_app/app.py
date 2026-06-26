@@ -1955,7 +1955,7 @@ class TrinityTextualApp(App[None]):
                     table_columns=textual_presenters.review_table_columns(
                         lang=self.config.lang
                     ),
-                    table_rows=self._review_rows(
+                    table_rows=textual_presenters.review_rows(
                         outcome.snapshot,
                         lang=self.config.lang,
                     ),
@@ -1984,7 +1984,7 @@ class TrinityTextualApp(App[None]):
                     table_columns=textual_presenters.improve_table_columns(
                         lang=self.config.lang
                     ),
-                    table_rows=self._improve_rows(
+                    table_rows=textual_presenters.improve_rows(
                         outcome.snapshot,
                         lang=self.config.lang,
                     ),
@@ -2412,39 +2412,14 @@ class TrinityTextualApp(App[None]):
         ]
         self._local_command_results.append(result)
 
-    @staticmethod
-    def _snapshot_has_current_context(snapshot: WorkflowNexusSnapshot) -> bool:
-        return textual_presenters.snapshot_has_current_context(snapshot)
-
-    @staticmethod
-    def _snapshot_context_markdown(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> str:
-        return textual_presenters.snapshot_context_markdown(snapshot, lang=lang)
-
-    @staticmethod
-    def _review_rows(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.review_rows(snapshot, lang=lang)
-
-    @staticmethod
-    def _improve_rows(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.improve_rows(snapshot, lang=lang)
-
     def _handle_textual_context_command(self, command: str) -> None:
         """Show the current session context without reading stale shared.md state."""
         snapshot = self._fresh_textual_snapshot()
-        body = self._snapshot_context_markdown(snapshot, lang=self.config.lang)
-        if not self._snapshot_has_current_context(snapshot):
+        body = textual_presenters.snapshot_context_markdown(
+            snapshot,
+            lang=self.config.lang,
+        )
+        if not textual_presenters.snapshot_has_current_context(snapshot):
             if self.current_route == "start":
                 self.notify(
                     textual_presenters.context_no_current_markdown(

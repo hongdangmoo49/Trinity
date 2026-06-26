@@ -1740,13 +1740,7 @@ class TrinityTextualApp(App[None]):
         args = list(parsed.args)
 
         if command in {"quit", "exit", "q"}:
-            self.push_screen(
-                ConfirmQuitModal(
-                    running=bool(getattr(self.workflow_controller, "is_running", False)),
-                    lang=self.config.lang,
-                ),
-                self._on_quit_confirmed,
-            )
+            self._handle_textual_quit_command()
             return
         if command == "help":
             self._handle_textual_help_command(parsed.spec.name)
@@ -1823,6 +1817,15 @@ class TrinityTextualApp(App[None]):
         if command == "execute":
             self._handle_textual_execute_command(parsed.spec.name, args)
             return
+
+    def _handle_textual_quit_command(self) -> None:
+        self.push_screen(
+            ConfirmQuitModal(
+                running=bool(getattr(self.workflow_controller, "is_running", False)),
+                lang=self.config.lang,
+            ),
+            self._on_quit_confirmed,
+        )
 
     def _handle_textual_help_command(self, command_name: str) -> None:
         self._record_slash_command_result(

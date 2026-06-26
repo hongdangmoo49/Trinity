@@ -231,6 +231,8 @@ Audit `src/trinity/legacy/`, `src/trinity/tmux/`, and `src/trinity/tui/` before
 removal. These may still be compatibility surfaces, so the first step is usage
 mapping, not deletion.
 
+Current audit: `docs/development/legacy-runtime-surface-audit.md`.
+
 ### Localization Duplication
 
 The Korean UX iteration stabilized labels quickly across many surfaces. A later

@@ -1770,28 +1770,7 @@ class TrinityTextualApp(App[None]):
             self._handle_textual_questions_command(parsed.spec.name, args)
             return
         if command == "decisions":
-            snapshot = self._refresh_textual_snapshot()
-            has_decisions = bool(snapshot.decisions)
-            self._record_slash_command_result(
-                parsed.spec.name,
-                textual_presenters.decisions_title(lang=self.config.lang),
-                textual_presenters.decisions_markdown(
-                    snapshot,
-                    lang=self.config.lang,
-                ),
-                empty=not has_decisions,
-                action_hint=textual_presenters.decisions_action_hint(
-                    has_decisions=has_decisions,
-                    lang=self.config.lang,
-                ),
-                table_columns=textual_presenters.decisions_table_columns(
-                    lang=self.config.lang
-                ),
-                table_rows=textual_presenters.decisions_rows(
-                    snapshot,
-                    lang=self.config.lang,
-                ),
-            )
+            self._handle_textual_decisions_command(parsed.spec.name)
             return
         if command == "packages":
             snapshot = self._refresh_textual_snapshot()
@@ -1968,6 +1947,30 @@ class TrinityTextualApp(App[None]):
                 lang=self.config.lang
             ),
             table_rows=textual_presenters.questions_rows(
+                snapshot,
+                lang=self.config.lang,
+            ),
+        )
+
+    def _handle_textual_decisions_command(self, command_name: str) -> None:
+        snapshot = self._refresh_textual_snapshot()
+        has_decisions = bool(snapshot.decisions)
+        self._record_slash_command_result(
+            command_name,
+            textual_presenters.decisions_title(lang=self.config.lang),
+            textual_presenters.decisions_markdown(
+                snapshot,
+                lang=self.config.lang,
+            ),
+            empty=not has_decisions,
+            action_hint=textual_presenters.decisions_action_hint(
+                has_decisions=has_decisions,
+                lang=self.config.lang,
+            ),
+            table_columns=textual_presenters.decisions_table_columns(
+                lang=self.config.lang
+            ),
+            table_rows=textual_presenters.decisions_rows(
                 snapshot,
                 lang=self.config.lang,
             ),

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Sequence
 from dataclasses import replace
+from pathlib import Path
 
 from trinity.textual_app.snapshot import LocalCommandSnapshot, WorkflowNexusSnapshot
 
@@ -38,3 +40,39 @@ def replace_local_command_result(
 ) -> list[LocalCommandSnapshot]:
     """Keep only the latest result for a local slash command."""
     return [item for item in results if item.command != result.command] + [result]
+
+
+def append_local_command_event(
+    state_dir: Path,
+    result: LocalCommandSnapshot,
+    *,
+    timestamp: float | None = None,
+) -> bool:
+    """Persist a local slash-command result as a central conversation event."""
+    from trinity.workflow import WorkflowPersistence
+
+    persistence = WorkflowPersistence(state_dir)
+    session = persistence.load()
+    if session is None or not session.id:
+        return False
+
+    event_timestamp = time.time() if timestamp is None else timestamp
+    persistence.append_event(
+        {
+            "timestamp": event_timestamp,
+            "workflow_id": session.id,
+            "event": "central_conversation_recorded",
+            "state": session.state.value,
+            "data": {
+                "message_id": f"cc-local-{int(event_timestamp * 1000)}",
+                "role": "tool",
+                "channel": "local_command",
+                "title": result.title,
+                "body": result.body,
+                "command": result.command,
+                "related_ids": [],
+                "truncated": False,
+            },
+        }
+    )
+    return True

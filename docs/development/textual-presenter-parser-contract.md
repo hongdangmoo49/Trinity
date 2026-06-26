@@ -71,26 +71,27 @@ Parser functions must not:
 
 ## Local Command State Contract
 
-`textual_app.local_commands` owns pure state transforms for locally handled
-slash command results.
+`textual_app.local_commands` owns small state transforms and workflow-event
+persistence for locally handled slash command results.
 
 Current helper surface:
 
 - `recent_local_command_results(results, limit=...)`
 - `snapshot_with_local_command_results(snapshot, results, limit=...)`
 - `replace_local_command_result(results, result)`
+- `append_local_command_event(state_dir, result, timestamp=...)`
 
 Local command helpers may:
 
 - bound the visible command-result history
 - replace an older result for the same slash command
 - return a copied `WorkflowNexusSnapshot` with local command results attached
+- persist a local slash-command result as a workflow event for report export
 
 Local command helpers must not:
 
 - query Textual widgets
 - emit notifications or open modals
-- persist workflow events
 - call presenters, providers, or the workflow controller
 
 ## App Contract

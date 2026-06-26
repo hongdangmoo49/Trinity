@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from difflib import get_close_matches
-from typing import Sequence
+from typing import Mapping, Protocol, Sequence
 
-from trinity.slash_commands import COMMAND_SPECS
+from trinity.slash_commands import COMMAND_SPECS, SESSION_ONLY_SETTING_NOTICE
 from trinity.display_labels import display_kind_value, display_severity_value
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.status_label import (
@@ -19,6 +19,14 @@ from trinity.textual_app.widgets.status_label import (
 NO_CURRENT_CONTEXT_MESSAGE = (
     "No current session context. Start a prompt or resume a workflow first."
 )
+
+
+class AgentRowSpec(Protocol):
+    """Small presenter-facing subset of an agent spec."""
+
+    enabled: bool
+    provider: object
+
 
 STATUS_CONTEXT_LABELS = {
     "en": {
@@ -1351,6 +1359,29 @@ def agent_table_columns(*, lang: str = "en") -> tuple[str, str, str]:
 
 def agent_enabled_value(value: bool, *, lang: str = "en") -> str:
     return _yes_no(value, lang=lang)
+
+
+def session_setting_body(message: str) -> str:
+    return f"{message}\n\n{SESSION_ONLY_SETTING_NOTICE}"
+
+
+def agent_rows(
+    agents: Mapping[str, AgentRowSpec],
+    *,
+    lang: str = "en",
+) -> tuple[tuple[str, str, str], ...]:
+    return tuple(
+        (
+            name,
+            agent_enabled_value(spec.enabled, lang=lang),
+            (
+                spec.provider.value
+                if hasattr(spec.provider, "value")
+                else str(spec.provider)
+            ),
+        )
+        for name, spec in sorted(agents.items())
+    )
 
 
 def caveman_title(*, lang: str = "en") -> str:

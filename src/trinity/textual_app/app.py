@@ -28,10 +28,7 @@ from trinity.providers.model_discovery import (
     ProviderModelChoice,
     discover_provider_models,
 )
-from trinity.slash_commands import (
-    SESSION_ONLY_SETTING_NOTICE,
-    parse_slash_command,
-)
+from trinity.slash_commands import parse_slash_command
 from trinity.textual_app import presenters as textual_presenters
 from trinity.textual_app.report_export import (
     snapshot_has_report_data,
@@ -2731,17 +2728,10 @@ class TrinityTextualApp(App[None]):
 
     @staticmethod
     def _session_setting_body(message: str) -> str:
-        return f"{message}\n\n{SESSION_ONLY_SETTING_NOTICE}"
+        return textual_presenters.session_setting_body(message)
 
     def _agent_rows(self, *, lang: str = "en") -> tuple[tuple[str, str, str], ...]:
-        return tuple(
-            (
-                name,
-                textual_presenters.agent_enabled_value(spec.enabled, lang=lang),
-                spec.provider.value if hasattr(spec.provider, "value") else str(spec.provider),
-            )
-            for name, spec in sorted(self.config.agents.items())
-        )
+        return textual_presenters.agent_rows(self.config.agents, lang=lang)
 
     def _handle_textual_rounds_command(
         self,

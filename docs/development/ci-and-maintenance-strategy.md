@@ -240,6 +240,8 @@ cleanup can consolidate repeated status/term mappings into shared presenter
 helpers, but only after verifying that Textual, report export, and local command
 outputs still need identical wording.
 
+Current glossary: `docs/development/korean-ui-glossary.md`.
+
 ### Cache Key Sprawl
 
 The performance pass added many targeted cache keys. Keep them local while the

@@ -640,14 +640,6 @@ class WorkflowEngine:
             provider_readiness=provider_readiness,
         )
 
-    @classmethod
-    def _extract_shared_preserved_sections(cls, content: str) -> dict[str, str]:
-        return WorkflowLedgerSync._extract_shared_preserved_sections(content)
-
-    @staticmethod
-    def _parse_markdown_sections(content: str) -> dict[str, str]:
-        return WorkflowLedgerSync._parse_markdown_sections(content)
-
     def set_state(self, state: WorkflowState, reason: str = "") -> None:
         """Set and persist workflow state."""
         old_state = self.session.state

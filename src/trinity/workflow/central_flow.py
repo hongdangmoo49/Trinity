@@ -27,7 +27,7 @@ class WorkflowCentralFlow:
         truncated: bool = False,
     ) -> None:
         """Persist a central-agent transcript item for report reconstruction."""
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "central_conversation_recorded",
             {
                 "message_id": f"cc-{uuid4().hex[:12]}",

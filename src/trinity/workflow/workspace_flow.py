@@ -24,7 +24,7 @@ class WorkflowWorkspaceFlow:
         self.engine.session.target_workspace = resolved
         self.engine.session.control_repo_target_confirmed = control_repo_confirmed
         self.engine.session.updated_at = time.time()
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "target_workspace_selected",
             {
                 "target_workspace": str(resolved),
@@ -37,4 +37,4 @@ class WorkflowWorkspaceFlow:
         self.engine.session.target_workspace = None
         self.engine.session.control_repo_target_confirmed = False
         self.engine.session.updated_at = time.time()
-        self.engine._persist("target_workspace_cleared", {})
+        self.engine._persistence_flow().persist("target_workspace_cleared", {})

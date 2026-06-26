@@ -64,7 +64,7 @@ class WorkflowProviderObservations:
             return
 
         self.engine.session.updated_at = time.time()
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "provider_metadata_observed",
             {
                 "provider_sessions": sorted(

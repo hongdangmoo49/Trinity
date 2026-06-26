@@ -35,7 +35,11 @@ from trinity.context.commands import (
     parse_oversized_cleanup_options,
 )
 from trinity.models import DeliberationResult
-from trinity.slash_commands import SESSION_ONLY_SETTING_NOTICE, parse_slash_command
+from trinity.slash_commands import (
+    SESSION_ONLY_SETTING_NOTICE,
+    parse_execute_retry_args,
+    parse_slash_command,
+)
 from trinity.tui.app import AgentTUIState, TrinityTUI
 from trinity.tui.events import TUIEvent, TUIEventBus
 from trinity.tui.kitty_compat import install_prompt_toolkit_parser_patch
@@ -1054,7 +1058,7 @@ class InteractiveSession:
 
     def _cmd_execute_retry(self, args: list[str]) -> None:
         """Retry failed, blocked, or interrupted work packages."""
-        selector, package_ids = self._parse_execute_retry_args(args)
+        selector, package_ids = parse_execute_retry_args(args)
         plan = self.workflow.build_execution_retry_plan(selector, package_ids)
         if not plan.selected:
             self.console.print("[yellow]No retryable work packages match the request.[/yellow]")
@@ -1144,15 +1148,6 @@ class InteractiveSession:
                 item.title or item.summary,
             )
         self.console.print(table)
-
-    @staticmethod
-    def _parse_execute_retry_args(args: list[str]) -> tuple[str, list[str]]:
-        if not args:
-            return "all", []
-        first = args[0].lower()
-        if first in {"all", "failed", "blocked", "interrupted", "custom"}:
-            return first, args[1:]
-        return "custom", args
 
     @staticmethod
     def _parse_review_args(args: list[str]) -> tuple[str, tuple[str, ...]]:

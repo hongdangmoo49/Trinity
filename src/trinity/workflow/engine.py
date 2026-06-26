@@ -27,6 +27,7 @@ from trinity.workflow.execution_flow import WorkflowExecutionFlow
 from trinity.workflow.ledger_sync import WorkflowLedgerSync
 from trinity.workflow.post_review_flow import WorkflowPostReviewFlow
 from trinity.workflow.provider_observations import WorkflowProviderObservations
+from trinity.workflow.question_flow import WorkflowQuestionFlow
 from trinity.workflow.review_flow import WorkflowReviewFlow
 from trinity.workflow.models import (
     Blueprint,
@@ -204,6 +205,9 @@ class WorkflowEngine:
     def _provider_observations(self) -> WorkflowProviderObservations:
         return WorkflowProviderObservations(self)
 
+    def _question_flow(self) -> WorkflowQuestionFlow:
+        return WorkflowQuestionFlow(self)
+
     def _execution_flow(self) -> WorkflowExecutionFlow:
         return WorkflowExecutionFlow(self)
 
@@ -356,7 +360,7 @@ class WorkflowEngine:
 
     def answer_pending_question(self, answer: str) -> WorkflowInputAction:
         """Record an answer to the oldest open question and continue deliberation."""
-        return self.answer_question("next", answer)
+        return self._question_flow().answer_pending_question(answer)
 
     def answer_question(
         self,
@@ -366,105 +370,10 @@ class WorkflowEngine:
         replace: bool = False,
     ) -> WorkflowInputAction:
         """Record or replace a user answer for a selected workflow question."""
-        answer = answer.strip()
-        if not answer:
-            return WorkflowInputAction(
-                should_deliberate=False,
-                message="Answer cannot be empty.",
-            )
-
-        question = self.resolve_question(selector, include_answered=replace)
-        if question is None:
-            return WorkflowInputAction(
-                should_deliberate=False,
-                message=f"No matching workflow question: {selector}",
-            )
-        if question.status != "open" and not replace:
-            return WorkflowInputAction(
-                should_deliberate=False,
-                message=(
-                    f"Question {question.id} is already answered. "
-                    "Use /answer --replace to update it."
-                ),
-            )
-
-        existing = self._decision_for_question(question.id) if replace else None
-        question.status = "answered"
-        if existing is not None:
-            decision = existing
-            decision.decision = answer
-            decision.decided_by = "user"
-            decision.rationale = f"Updated answer to: {question.question}"
-            decision.timestamp = time.time()
-            event_type = "decision_replaced"
-            replaced = True
-        else:
-            decision = DecisionRecord(
-                id=f"dec-{len(self.session.decisions) + 1:03d}",
-                question_id=question.id,
-                decision=answer,
-                decided_by="user",
-                rationale=f"Answer to: {question.question}",
-            )
-            self.session.decisions.append(decision)
-            event_type = "decision_recorded"
-            replaced = False
-
-        self.session.updated_at = time.time()
-        self._persist(
-            event_type,
-            {
-                "decision_id": decision.id,
-                "question_id": question.id,
-                "decision": answer,
-                "replaced": replaced,
-            },
-        )
-
-        if self.pending_questions:
-            self.set_state(
-                WorkflowState.NEEDS_USER_DECISION,
-                reason="more blocking questions remain",
-            )
-            return WorkflowInputAction(
-                should_deliberate=False,
-                decision_record=decision,
-                replaced_decision=replaced,
-            )
-
-        if self._provider_error_gate_flow().is_gate_question(question):
-            return self._provider_error_gate_flow().handle_answer(
-                answer,
-                decision,
-                replaced_decision=replaced,
-            )
-
-        self.set_state(WorkflowState.DELIBERATING, reason="user decision answered")
-        target_agents = self._effective_target_agents(
-            self.session.active_agents,
-            self.session.last_target_agents,
-        )
-        model_overrides = self._normalized_model_overrides(
-            self.session.agent_model_overrides,
-            target_agents,
-        )
-        active_agent_set = {
-            str(agent).strip()
-            for agent in self.session.active_agents
-            if str(agent).strip()
-        }
-        return WorkflowInputAction(
-            should_deliberate=True,
-            prompt=self._build_decision_continuation_prompt(decision),
-            target_agents=target_agents,
-            agent_model_overrides=dict(model_overrides),
-            agent_selection_mode=(
-                "targeted"
-                if set(target_agents) != active_agent_set
-                else "all"
-            ),
-            decision_record=decision,
-            replaced_decision=replaced,
+        return self._question_flow().answer_question(
+            selector,
+            answer,
+            replace=replace,
         )
 
     def answer_question_option(
@@ -475,29 +384,9 @@ class WorkflowEngine:
         replace: bool = False,
     ) -> WorkflowInputAction:
         """Record a numbered option for a selected workflow question."""
-        question = self.resolve_question(
-            question_selector,
-            include_answered=replace,
-        )
-        if question is None:
-            return WorkflowInputAction(
-                should_deliberate=False,
-                message=f"No matching workflow question: {question_selector}",
-            )
-        if not option_selector.isdigit():
-            return WorkflowInputAction(
-                should_deliberate=False,
-                message=f"Option must be a number: {option_selector}",
-            )
-        index = int(option_selector) - 1
-        if index < 0 or index >= len(question.options):
-            return WorkflowInputAction(
-                should_deliberate=False,
-                message=f"Question {question.id} has no option {option_selector}.",
-            )
-        return self.answer_question(
-            question.id,
-            question.options[index],
+        return self._question_flow().answer_question_option(
+            option_selector,
+            question_selector=question_selector,
             replace=replace,
         )
 
@@ -669,49 +558,17 @@ class WorkflowEngine:
         include_answered: bool = False,
     ) -> OpenQuestion | None:
         """Resolve a question id, 1-based index, or ``next`` selector."""
-        selector = selector.strip()
-        if not selector:
-            return None
-
-        normalized = selector.lower()
-        open_questions = self.pending_questions
-        questions = self.session.pending_questions if include_answered else open_questions
-
-        if normalized in {"next", "first"}:
-            return open_questions[0] if open_questions else None
-
-        if normalized.isdigit():
-            index = int(normalized) - 1
-            if 0 <= index < len(questions):
-                return questions[index]
-            return None
-
-        if include_answered and normalized.startswith("dec-"):
-            decision = next(
-                (item for item in self.session.decisions if item.id.lower() == normalized),
-                None,
-            )
-            if decision and decision.question_id:
-                normalized = decision.question_id.lower()
-
-        return next(
-            (question for question in questions if question.id.lower() == normalized),
-            None,
+        return self._question_flow().resolve_question(
+            selector,
+            include_answered=include_answered,
         )
 
     def _decision_for_question(self, question_id: str) -> DecisionRecord | None:
         """Return the existing decision attached to a question."""
-        return next(
-            (
-                decision
-                for decision in self.session.decisions
-                if decision.question_id == question_id
-            ),
-            None,
-        )
+        return self._question_flow()._decision_for_question(question_id)
 
     def _next_decision_id(self) -> str:
-        return f"dec-{len(self.session.decisions) + 1:03d}"
+        return self._question_flow()._next_decision_id()
 
     def set_target_workspace(
         self,
@@ -741,11 +598,7 @@ class WorkflowEngine:
 
     def add_open_question(self, question: OpenQuestion) -> None:
         """Add a pending question and move workflow to waiting state."""
-        self.session.pending_questions.append(question)
-        self.set_state(
-            WorkflowState.NEEDS_USER_DECISION,
-            reason=f"question added: {question.id}",
-        )
+        self._question_flow().add_open_question(question)
 
     def mark_deliberation_result(self, result: DeliberationResult) -> None:
         """Update workflow state after a deliberation completes."""

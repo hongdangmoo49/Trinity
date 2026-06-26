@@ -82,6 +82,14 @@ class ReportCommandParseResult:
     action: str = "open"
 
 
+@dataclass(frozen=True)
+class ArtifactCommandParseResult:
+    """Parsed `/artifact` command arguments."""
+
+    record_id: str = ""
+    error: str = ""
+
+
 def parse_ask_args(
     args: list[str],
     active_agent_names: Iterable[str],
@@ -301,3 +309,17 @@ def parse_report_args(args: list[str]) -> ReportCommandParseResult:
     if args and args[0].strip().lower() in {"save", "s"}:
         return ReportCommandParseResult(action="save")
     return ReportCommandParseResult(action="open")
+
+
+def parse_artifact_args(
+    args: list[str],
+    *,
+    lang: str = "en",
+) -> ArtifactCommandParseResult:
+    """Parse `/artifact` arguments into a memory record id."""
+    record_id = args[0].strip() if args else ""
+    if not record_id:
+        return ArtifactCommandParseResult(
+            error=textual_presenters.artifact_usage_markdown(lang=lang)
+        )
+    return ArtifactCommandParseResult(record_id=record_id)

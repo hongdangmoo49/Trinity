@@ -30,6 +30,7 @@ from trinity.slash_commands import parse_execute_retry_args, parse_slash_command
 from trinity.textual_app.command_parsers import (
     parse_agent_args,
     parse_answer_args,
+    parse_artifact_args,
     parse_ask_args,
     parse_caveman_args,
     parse_report_args,
@@ -2425,16 +2426,20 @@ class TrinityTextualApp(App[None]):
 
     def _handle_textual_artifact_command(self, args: list[str]) -> None:
         lang = self.config.lang
-        record_id = args[0] if args else ""
-        if not record_id:
+        parsed = parse_artifact_args(args, lang=lang)
+        if parsed.error:
             self._record_slash_command_result(
                 "/artifact",
                 textual_presenters.artifact_title(lang=lang),
-                textual_presenters.artifact_usage_markdown(lang=lang),
+                parsed.error,
                 severity="warning",
             )
             return
-        body = artifact_markdown(engine_from_config(self.config), record_id, lang=lang)
+        body = artifact_markdown(
+            engine_from_config(self.config),
+            parsed.record_id,
+            lang=lang,
+        )
         self._record_slash_command_result(
             "/artifact",
             textual_presenters.artifact_title(lang=lang),

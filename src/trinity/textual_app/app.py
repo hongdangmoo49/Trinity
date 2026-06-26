@@ -1748,9 +1748,15 @@ class TrinityTextualApp(App[None]):
             self._record_slash_command_result(
                 parsed.spec.name,
                 textual_presenters.workflow_title(lang=self.config.lang),
-                self._snapshot_workflow_markdown(snapshot, lang=self.config.lang),
+                textual_presenters.snapshot_workflow_markdown(
+                    snapshot,
+                    lang=self.config.lang,
+                ),
                 table_columns=textual_presenters.status_table_columns(lang=self.config.lang),
-                table_rows=self._snapshot_workflow_rows(snapshot, lang=self.config.lang),
+                table_rows=textual_presenters.snapshot_workflow_rows(
+                    snapshot,
+                    lang=self.config.lang,
+                ),
             )
             return
         if command == "questions":
@@ -1842,11 +1848,19 @@ class TrinityTextualApp(App[None]):
             return
         if command == "history":
             snapshot = self._refresh_textual_snapshot()
-            history_rows = self._history_rows(snapshot, lang=self.config.lang)
+            history_rows = textual_presenters.history_rows(
+                snapshot,
+                self._local_command_results,
+                lang=self.config.lang,
+            )
             self._record_slash_command_result(
                 parsed.spec.name,
                 textual_presenters.history_title(lang=self.config.lang),
-                self._history_markdown(snapshot, history_rows, lang=self.config.lang),
+                textual_presenters.history_markdown(
+                    snapshot,
+                    history_rows,
+                    lang=self.config.lang,
+                ),
                 empty=not history_rows,
                 action_hint=textual_presenters.history_action_hint(
                     has_history=bool(history_rows),
@@ -2185,9 +2199,15 @@ class TrinityTextualApp(App[None]):
         result = self._local_command_snapshot(
             command,
             textual_presenters.status_title(lang=self.config.lang),
-            self._snapshot_status_markdown(snapshot, lang=self.config.lang),
+            textual_presenters.snapshot_status_markdown(
+                snapshot,
+                lang=self.config.lang,
+            ),
             table_columns=textual_presenters.status_table_columns(lang=self.config.lang),
-            table_rows=self._snapshot_status_rows(snapshot, lang=self.config.lang),
+            table_rows=textual_presenters.snapshot_status_rows(
+                snapshot,
+                lang=self.config.lang,
+            ),
         )
         self._replace_local_command_result(result)
         snapshot = self._with_local_command_results(snapshot)
@@ -2363,22 +2383,6 @@ class TrinityTextualApp(App[None]):
         self._local_command_results.append(result)
 
     @staticmethod
-    def _snapshot_status_markdown(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> str:
-        return textual_presenters.snapshot_status_markdown(snapshot, lang=lang)
-
-    @staticmethod
-    def _snapshot_status_rows(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.snapshot_status_rows(snapshot, lang=lang)
-
-    @staticmethod
     def _readiness_label(readiness: str) -> str:
         return textual_presenters.readiness_label(readiness)
 
@@ -2414,22 +2418,6 @@ class TrinityTextualApp(App[None]):
     def _help_rows(self, *, lang: str = "en") -> tuple[tuple[str, str, str, str], ...]:
         """Return slash command registry rows for read-only help tables."""
         return textual_presenters.help_rows(lang=lang)
-
-    @staticmethod
-    def _snapshot_workflow_markdown(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> str:
-        return textual_presenters.snapshot_workflow_markdown(snapshot, lang=lang)
-
-    @staticmethod
-    def _snapshot_workflow_rows(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.snapshot_workflow_rows(snapshot, lang=lang)
 
     @staticmethod
     def _snapshot_has_current_context(snapshot: WorkflowNexusSnapshot) -> bool:
@@ -2530,27 +2518,6 @@ class TrinityTextualApp(App[None]):
         lang: str = "en",
     ) -> tuple[tuple[str, str, str, str, str], ...]:
         return textual_presenters.subtasks_rows(snapshot, lang=lang)
-
-    def _history_rows(
-        self,
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.history_rows(
-            snapshot,
-            self._local_command_results,
-            lang=lang,
-        )
-
-    @staticmethod
-    def _history_markdown(
-        snapshot: WorkflowNexusSnapshot,
-        rows: tuple[tuple[str, str], ...],
-        *,
-        lang: str = "en",
-    ) -> str:
-        return textual_presenters.history_markdown(snapshot, rows, lang=lang)
 
     def _handle_textual_context_command(self, command: str) -> None:
         """Show the current session context without reading stale shared.md state."""

@@ -256,7 +256,7 @@ identity contract and the tests prove the contract.
 
 - Ship the CI/test strategy as the default engineering workflow.
 - Add and maintain a completed-plan index for `docs/plans/`.
-- Audit facade drift and remove the next small wrapper group.
+- Continue facade drift audits after each flow contract is documented.
 - Maintain the fake-provider E2E path that exercises CLI init, provider
   readiness, workflow execution, retry decision, and report output without real
   accounts.

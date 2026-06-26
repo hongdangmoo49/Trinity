@@ -10,6 +10,7 @@ The recent Textual cleanup moved many formatting helpers out of
 
 - `src/trinity/textual_app/presenters.py`
 - `src/trinity/textual_app/command_parsers.py`
+- `src/trinity/textual_app/local_commands.py`
 
 Keep this boundary stable so the app stays focused on runtime wiring, widget
 queries, screen transitions, async calls, and state application.
@@ -67,6 +68,30 @@ Parser functions must not:
 - call providers or the orchestrator
 - emit notifications
 - decide whether a parsed command should execute
+
+## Local Command State Contract
+
+`textual_app.local_commands` owns pure state transforms for locally handled
+slash command results.
+
+Current helper surface:
+
+- `recent_local_command_results(results, limit=...)`
+- `snapshot_with_local_command_results(snapshot, results, limit=...)`
+- `replace_local_command_result(results, result)`
+
+Local command helpers may:
+
+- bound the visible command-result history
+- replace an older result for the same slash command
+- return a copied `WorkflowNexusSnapshot` with local command results attached
+
+Local command helpers must not:
+
+- query Textual widgets
+- emit notifications or open modals
+- persist workflow events
+- call presenters, providers, or the workflow controller
 
 ## App Contract
 

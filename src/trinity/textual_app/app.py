@@ -31,6 +31,10 @@ from trinity.providers.model_discovery import (
 from trinity.slash_commands import parse_execute_retry_args, parse_slash_command
 from trinity.textual_app.command_parsers import parse_ask_args
 from trinity.textual_app import presenters as textual_presenters
+from trinity.textual_app.local_commands import (
+    replace_local_command_result,
+    snapshot_with_local_command_results,
+)
 from trinity.textual_app.report_export import (
     snapshot_has_report_data,
     snapshot_report_markdown,
@@ -1665,7 +1669,10 @@ class TrinityTextualApp(App[None]):
             self._advance_activity_frame()
 
     def _apply_workflow_outcome(self, outcome: TextualWorkflowOutcome) -> None:
-        snapshot = self._with_local_command_results(outcome.snapshot)
+        snapshot = snapshot_with_local_command_results(
+            outcome.snapshot,
+            self._local_command_results,
+        )
         self.active_snapshot = snapshot
         if self._screens_installed and self.current_route == "nexus":
             nexus = self.get_screen("nexus", NexusScreen)
@@ -2125,16 +2132,6 @@ class TrinityTextualApp(App[None]):
         elif self.current_route == "report":
             self.get_screen("report", ReportScreen).apply_snapshot(snapshot)
 
-    def _with_local_command_results(
-        self,
-        snapshot: WorkflowNexusSnapshot,
-    ) -> WorkflowNexusSnapshot:
-        """Attach recent local slash command results to a snapshot."""
-        return replace(
-            snapshot,
-            local_commands=list(self._local_command_results[-8:]),
-        )
-
     def _record_slash_command_result(
         self,
         command: str,
@@ -2206,8 +2203,14 @@ class TrinityTextualApp(App[None]):
         notify: bool = True,
     ) -> None:
         """Render a local slash command result on the active Textual surface."""
-        self._replace_local_command_result(result)
-        snapshot = self._with_local_command_results(self._current_textual_snapshot())
+        self._local_command_results = replace_local_command_result(
+            self._local_command_results,
+            result,
+        )
+        snapshot = snapshot_with_local_command_results(
+            self._current_textual_snapshot(),
+            self._local_command_results,
+        )
         self.active_snapshot = snapshot
         if self.current_route == "start" and start_modal:
             self.push_screen(LocalCommandModal(result, lang=self.config.lang))
@@ -2244,8 +2247,14 @@ class TrinityTextualApp(App[None]):
                 lang=self.config.lang,
             ),
         )
-        self._replace_local_command_result(result)
-        snapshot = self._with_local_command_results(snapshot)
+        self._local_command_results = replace_local_command_result(
+            self._local_command_results,
+            result,
+        )
+        snapshot = snapshot_with_local_command_results(
+            snapshot,
+            self._local_command_results,
+        )
         self.active_snapshot = snapshot
         if self.current_route == "start":
             self.push_screen(StatusCommandModal(result, lang=self.config.lang))
@@ -2352,16 +2361,6 @@ class TrinityTextualApp(App[None]):
             start_modal=False,
         )
 
-    def _replace_local_command_result(
-        self,
-        result: LocalCommandSnapshot,
-    ) -> None:
-        """Keep only the latest result for each local slash command."""
-        self._local_command_results = [
-            item for item in self._local_command_results if item.command != result.command
-        ]
-        self._local_command_results.append(result)
-
     def _handle_textual_context_command(self, command: str) -> None:
         """Show the current session context without reading stale shared.md state."""
         snapshot = self._fresh_textual_snapshot()
@@ -2391,8 +2390,14 @@ class TrinityTextualApp(App[None]):
             textual_presenters.context_title(lang=self.config.lang),
             body,
         )
-        self._replace_local_command_result(result)
-        snapshot = self._with_local_command_results(snapshot)
+        self._local_command_results = replace_local_command_result(
+            self._local_command_results,
+            result,
+        )
+        snapshot = snapshot_with_local_command_results(
+            snapshot,
+            self._local_command_results,
+        )
         self.active_snapshot = snapshot
         if self.current_route == "start":
             self.push_screen(ContextCommandModal(result, lang=self.config.lang))

@@ -29,6 +29,7 @@ from trinity.workflow.provider_observations import WorkflowProviderObservations
 from trinity.workflow.quality_flow import WorkflowQualityFlow
 from trinity.workflow.question_flow import WorkflowQuestionFlow
 from trinity.workflow.review_flow import WorkflowReviewFlow
+from trinity.workflow.targeting_flow import WorkflowTargetingFlow
 from trinity.workflow.workspace_flow import WorkflowWorkspaceFlow
 from trinity.workflow.models import (
     Blueprint,
@@ -233,35 +234,20 @@ class WorkflowEngine:
         active_agents: list[str],
         target_agents: list[str] | tuple[str, ...] | None,
     ) -> tuple[str, ...]:
-        active = [str(agent).strip() for agent in active_agents if str(agent).strip()]
-        active_set = set(active)
-        requested = [
-            str(agent).strip()
-            for agent in (target_agents or active)
-            if str(agent).strip()
-        ]
-        selected = tuple(agent for agent in requested if agent in active_set)
-        return selected or tuple(active)
+        return WorkflowTargetingFlow.effective_target_agents(
+            active_agents,
+            target_agents,
+        )
 
     @staticmethod
     def _normalized_model_overrides(
         agent_model_overrides: dict[str, str] | None,
         allowed_agents: tuple[str, ...] | list[str] = (),
     ) -> dict[str, str]:
-        if not agent_model_overrides:
-            return {}
-        allowed = {
-            str(agent).strip()
-            for agent in allowed_agents
-            if str(agent).strip()
-        }
-        return {
-            str(agent).strip(): str(model).strip()
-            for agent, model in agent_model_overrides.items()
-            if str(agent).strip()
-            and str(model).strip()
-            and (not allowed or str(agent).strip() in allowed)
-        }
+        return WorkflowTargetingFlow.normalized_model_overrides(
+            agent_model_overrides,
+            allowed_agents,
+        )
 
     def handle_user_input(
         self,

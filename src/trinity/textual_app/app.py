@@ -29,6 +29,7 @@ from trinity.providers.model_discovery import (
     discover_provider_models,
 )
 from trinity.slash_commands import parse_slash_command
+from trinity.textual_app.command_parsers import parse_ask_args
 from trinity.textual_app import presenters as textual_presenters
 from trinity.textual_app.report_export import (
     snapshot_has_report_data,
@@ -2021,55 +2022,17 @@ class TrinityTextualApp(App[None]):
         self,
         args: list[str],
     ) -> tuple[tuple[str, ...], dict[str, str], str, str]:
-        lang = self.config.lang
-        if not args:
-            return (), {}, "", textual_presenters.ask_usage_markdown(lang=lang)
-
-        active_agents = tuple(self.config.active_agents.keys())
-        selector = args[0].strip().lower()
-        if selector == "all":
-            target_agents = active_agents
-        else:
-            requested = tuple(
-                item.strip().lower()
-                for item in selector.split(",")
-                if item.strip()
-            )
-            unknown = [name for name in requested if name not in self.config.active_agents]
-            if unknown:
-                return (
-                    (),
-                    {},
-                    "",
-                    textual_presenters.ask_unknown_agent_markdown(unknown, lang=lang),
-                )
-            target_agents = requested
-
-        if not target_agents:
-            return (), {}, "", textual_presenters.ask_no_active_agents_markdown(lang=lang)
-
-        model = ""
-        prompt_parts: list[str] = []
-        index = 1
-        while index < len(args):
-            value = args[index]
-            if value in {"--model", "-m"}:
-                if index + 1 >= len(args):
-                    return (), {}, "", textual_presenters.ask_missing_model_markdown(
-                        lang=lang
-                    )
-                model = args[index + 1].strip()
-                index += 2
-                continue
-            prompt_parts.append(value)
-            index += 1
-
-        prompt = " ".join(prompt_parts).strip()
-        if not prompt:
-            return (), {}, "", textual_presenters.ask_prompt_empty_markdown(lang=lang)
-
-        model_overrides = {agent: model for agent in target_agents} if model else {}
-        return target_agents, model_overrides, prompt, ""
+        result = parse_ask_args(
+            args,
+            self.config.active_agents.keys(),
+            lang=self.config.lang,
+        )
+        return (
+            result.target_agents,
+            result.agent_model_overrides,
+            result.prompt,
+            result.error,
+        )
 
     def _on_quit_confirmed(self, confirmed: bool | None) -> None:
         if confirmed:

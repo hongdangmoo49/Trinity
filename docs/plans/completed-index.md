@@ -96,8 +96,9 @@ Representative files:
 
 ## Korean UX Stabilization Plans
 
-These plans are completed terminology and label refinements. They are good
-archive candidates after a Korean UI glossary exists.
+These plans are completed terminology and label refinements. Their active
+terminology is summarized in `docs/development/korean-ui-glossary.md`, so future
+archive work can move these one-PR notes by bundle after checking label tests.
 
 Primary groups:
 

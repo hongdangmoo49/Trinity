@@ -19,6 +19,7 @@ from trinity.workflow.decomposer import (
     BlueprintDecomposer,
     classify_execution_intent,
 )
+from trinity.workflow.collection_flow import WorkflowCollectionFlow
 from trinity.workflow.central_flow import WorkflowCentralFlow
 from trinity.workflow.execution_flow import WorkflowExecutionFlow
 from trinity.workflow.input_flow import WorkflowInputFlow
@@ -198,6 +199,9 @@ class WorkflowEngine:
 
     def _central_flow(self) -> WorkflowCentralFlow:
         return WorkflowCentralFlow(self)
+
+    def _collection_flow(self) -> WorkflowCollectionFlow:
+        return WorkflowCollectionFlow(self)
 
     def _provider_observations(self) -> WorkflowProviderObservations:
         return WorkflowProviderObservations(self)
@@ -857,10 +861,7 @@ class WorkflowEngine:
         return self._execution_recovery_flow().last_workflow_event()
 
     def _work_package_by_id(self, package_id: str) -> WorkPackage | None:
-        return next(
-            (package for package in self.session.work_packages if package.id == package_id),
-            None,
-        )
+        return self._collection_flow().work_package_by_id(package_id)
 
     def _review_repair_metadata_from_events(self) -> dict[str, dict[str, Any]]:
         return self._review_flow()._review_repair_metadata_from_events()
@@ -1018,11 +1019,7 @@ class WorkflowEngine:
 
     def _upsert_subtask_result(self, result: SubtaskResult) -> None:
         """Insert or replace a subtask result by id."""
-        for index, existing in enumerate(self.session.subtask_results):
-            if existing.id == result.id:
-                self.session.subtask_results[index] = result
-                return
-        self.session.subtask_results.append(result)
+        self._collection_flow().upsert_subtask_result(result)
 
     def render_shared_ledger(
         self,

@@ -28,12 +28,8 @@ from trinity.deliberation.synthesis import (
 from trinity.health.checker import HealthChecker
 from trinity.models import AgentSpec, DeliberationResult, Provider
 from trinity.orchestrator_readiness import (
+    OrchestratorReadinessBinder,
     OrchestratorReadinessRuntime,
-    ReadinessRuntimeOutcome,
-    build_readiness_failure_result,
-    emit_deliberation_done,
-    emit_readiness,
-    format_readiness_failure,
     one_shot_status,
 )
 from trinity.providers.invoker import (
@@ -782,8 +778,7 @@ class TrinityOrchestrator:
             prompt=prompt,
             start_time=start_time,
         )
-        self._apply_readiness_outcome(outcome)
-        return outcome.failure_result
+        return self._readiness_binder().apply_outcome(outcome)
 
     def _check_one_shot_provider_readiness(
         self,
@@ -798,8 +793,7 @@ class TrinityOrchestrator:
             start_time=start_time,
             access=access,
         )
-        self._apply_readiness_outcome(outcome)
-        return outcome.failure_result
+        return self._readiness_binder().apply_outcome(outcome)
 
     def _ensure_one_shot_preflight_or_raise(
         self,
@@ -810,7 +804,7 @@ class TrinityOrchestrator:
         outcome = self._readiness_runtime().ensure_one_shot_preflight_or_raise(
             access=access,
         )
-        self._apply_readiness_outcome(outcome)
+        self._readiness_binder().apply_outcome(outcome)
 
     def _readiness_runtime(self) -> OrchestratorReadinessRuntime:
         """Create a runtime snapshot for provider readiness checks."""
@@ -823,67 +817,12 @@ class TrinityOrchestrator:
             event_emit=self._event_bus.emit if self._event_bus else None,
         )
 
-    def _apply_readiness_outcome(self, outcome: ReadinessRuntimeOutcome) -> None:
-        """Apply readiness runtime state changes to live orchestrator components."""
-        if outcome.readiness_results is not None:
-            self.readiness_results = dict(outcome.readiness_results)
-        if outcome.one_shot_readiness_results is not None:
-            self.one_shot_readiness_results = dict(outcome.one_shot_readiness_results)
-        if outcome.ready_agents is not None:
-            self._apply_ready_agents(outcome.ready_agents)
-        if outcome.emit_deliberation_done:
-            self._emit_deliberation_done()
-
-    def _apply_ready_agents(self, ready_agents: dict[str, AgentWrapper]) -> None:
-        """Restrict runtime components to the agents that passed readiness."""
-        self.agents = ready_agents
-        if self.protocol:
-            self.protocol.agents = ready_agents
-            self.protocol.synthesis_agent = self._create_synthesis_agent(
-                self.config.effective_state_dir,
-                self.protocol.consensus_engine,
-            )
-        if self.execution_protocol:
-            self.execution_protocol.agents = ready_agents
-        if self.review_protocol:
-            self.review_protocol.agents = ready_agents
-        if self.context_monitor:
-            self.context_monitor.agents = ready_agents
-        if self.session_rotator:
-            self.session_rotator.agents = ready_agents
-        if self.health_checker:
-            self.health_checker.agents = ready_agents
-
-    def _build_readiness_failure_result(
-        self,
-        prompt: str,
-        readiness: dict[str, ReadinessResult],
-        start_time: float,
-    ) -> DeliberationResult:
-        """Build a user-facing result explaining readiness failures."""
-        return build_readiness_failure_result(
-            prompt=prompt,
-            agents=self.agents,
-            readiness=readiness,
-            start_time=start_time,
+    def _readiness_binder(self) -> OrchestratorReadinessBinder:
+        """Create a binder for applying readiness outcomes."""
+        return OrchestratorReadinessBinder(
+            self,
+            event_emit=self._event_bus.emit if self._event_bus else None,
         )
-
-    def _format_readiness_failure(
-        self,
-        readiness: dict[str, ReadinessResult],
-        *,
-        intro: str = "Provider readiness check failed. Deliberation was not started.",
-    ) -> str:
-        """Format provider readiness failures for user-facing messages."""
-        return format_readiness_failure(readiness, intro=intro)
-
-    def _emit_readiness(self, result: ReadinessResult) -> None:
-        """Emit a provider readiness TUI event."""
-        emit_readiness(self._event_bus.emit if self._event_bus else None, result)
-
-    def _emit_deliberation_done(self) -> None:
-        """Emit the completion event when deliberation is skipped."""
-        emit_deliberation_done(self._event_bus.emit if self._event_bus else None)
 
     async def _check_and_rotate(self) -> None:
         """Check all agents' context usage and rotate those exceeding threshold."""
@@ -931,7 +870,10 @@ class TrinityOrchestrator:
                         if name in self.readiness_results
                         else ""
                     ),
-                    "one_shot_preflight": self._one_shot_status(name),
+                    "one_shot_preflight": one_shot_status(
+                        self.one_shot_readiness_results,
+                        name,
+                    ),
                 }
                 for name, agent in self.agents.items()
             },
@@ -945,10 +887,6 @@ class TrinityOrchestrator:
             ),
             "synthesis": dict(self.synthesis_status),
         }
-
-    def _one_shot_status(self, agent_name: str) -> dict[str, object]:
-        """Return one-shot preflight diagnostics for status output."""
-        return one_shot_status(self.one_shot_readiness_results, agent_name)
 
     async def shutdown(self) -> None:
         """Gracefully shut down all agents and tmux session."""

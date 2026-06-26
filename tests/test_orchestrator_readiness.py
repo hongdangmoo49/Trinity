@@ -7,7 +7,11 @@ from unittest.mock import MagicMock
 
 from trinity.config import TrinityConfig
 from trinity.models import AgentSpec, Provider
-from trinity.orchestrator_readiness import OrchestratorReadinessRuntime
+from trinity.orchestrator_readiness import (
+    OrchestratorReadinessBinder,
+    OrchestratorReadinessRuntime,
+    ReadinessRuntimeOutcome,
+)
 from trinity.providers.policy import InvocationAccess
 from trinity.providers.readiness import ProviderState, ReadinessResult
 from trinity.tui.events import TUIEventType
@@ -119,3 +123,77 @@ def test_one_shot_preflight_raise_formats_dispatch_failure(tmp_path):
     message = str(exc_info.value)
     assert "Provider dispatch was not started" in message
     assert "permission_plan_invalid" in message
+
+
+def test_readiness_binder_applies_outcome_and_rebinds_runtime_components(tmp_path):
+    config = TrinityConfig(
+        project_dir=tmp_path,
+        state_dir=tmp_path / ".trinity",
+    )
+    agents = {
+        "claude": _agent("claude", Provider.CLAUDE_CODE),
+        "codex": _agent("codex", Provider.CODEX),
+    }
+    ready_agents = {"claude": agents["claude"]}
+    protocol = MagicMock()
+    protocol.consensus_engine = object()
+
+    class Host:
+        def __init__(self):
+            self.config = config
+            self.agents = agents
+            self.protocol = protocol
+            self.execution_protocol = MagicMock()
+            self.review_protocol = MagicMock()
+            self.context_monitor = MagicMock()
+            self.session_rotator = MagicMock()
+            self.health_checker = MagicMock()
+            self.readiness_results = {}
+            self.one_shot_readiness_results = {}
+            self.synthesis_calls = []
+
+        def _create_synthesis_agent(self, state_dir, consensus_engine):
+            self.synthesis_calls.append((state_dir, consensus_engine))
+            return "rebound-synthesis"
+
+    host = Host()
+    readiness = {
+        "claude": _readiness(
+            "claude",
+            Provider.CLAUDE_CODE,
+            ready=True,
+            state=ProviderState.READY,
+        ),
+        "codex": _readiness(
+            "codex",
+            Provider.CODEX,
+            ready=False,
+            state=ProviderState.CLI_NOT_FOUND,
+        ),
+    }
+    events = []
+
+    failure = OrchestratorReadinessBinder(host, event_emit=events.append).apply_outcome(
+        ReadinessRuntimeOutcome(
+            readiness_results=readiness,
+            one_shot_readiness_results=readiness,
+            ready_agents=ready_agents,
+            emit_deliberation_done=True,
+        )
+    )
+
+    assert failure is None
+    assert host.readiness_results["codex"].state == ProviderState.CLI_NOT_FOUND
+    assert host.one_shot_readiness_results["claude"].state == ProviderState.READY
+    assert host.agents is ready_agents
+    assert host.protocol.agents is ready_agents
+    assert host.protocol.synthesis_agent == "rebound-synthesis"
+    assert host.execution_protocol.agents is ready_agents
+    assert host.review_protocol.agents is ready_agents
+    assert host.context_monitor.agents is ready_agents
+    assert host.session_rotator.agents is ready_agents
+    assert host.health_checker.agents is ready_agents
+    assert host.synthesis_calls == [
+        (config.effective_state_dir, protocol.consensus_engine)
+    ]
+    assert [event.type for event in events] == [TUIEventType.DELIBERATION_DONE]

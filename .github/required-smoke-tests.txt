@@ -1,0 +1,25 @@
+# Required PR/publish smoke tests.
+#
+# Keep this list focused. The full suite belongs to release-candidate,
+# nightly, or manual validation unless the change touches shared workflow,
+# provider, packaging, or Textual runtime contracts.
+tests/test_cli.py
+tests/test_updater.py
+tests/test_platform_capabilities.py
+tests/test_platform_process.py
+tests/test_log_tail.py
+tests/test_provider_bootstrap.py
+tests/test_provider_readiness.py
+tests/test_provider_model_discovery.py
+tests/test_fake_provider_harness.py
+tests/test_provider_error_gate_flow.py
+tests/test_orchestrator_readiness.py
+tests/test_workflow_engine.py
+tests/test_workflow_execution_flow.py
+tests/test_workflow_review_flow.py
+tests/test_workflow_post_review_flow.py
+tests/test_execution_retry_modal.py
+tests/test_textual_smoke.py
+tests/test_textual_runtime.py
+tests/test_textual_workflow_controller.py
+tests/test_tui_rendering.py

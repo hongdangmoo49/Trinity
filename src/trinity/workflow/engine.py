@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -24,6 +23,7 @@ from trinity.workflow.decomposer import (
     classify_execution_intent,
 )
 from trinity.workflow.execution_flow import WorkflowExecutionFlow
+from trinity.workflow.ledger_sync import WorkflowLedgerSync
 from trinity.workflow.post_review_flow import WorkflowPostReviewFlow
 from trinity.workflow.review_flow import WorkflowReviewFlow
 from trinity.workflow.models import (
@@ -207,6 +207,9 @@ class WorkflowEngine:
 
     def _post_review_flow(self) -> WorkflowPostReviewFlow:
         return WorkflowPostReviewFlow(self)
+
+    def _ledger_sync(self) -> WorkflowLedgerSync:
+        return WorkflowLedgerSync(self)
 
     @staticmethod
     def _effective_target_agents(
@@ -1495,10 +1498,7 @@ class WorkflowEngine:
         session_history: str = "",
     ) -> str:
         """Render the human-readable shared.md ledger from structured state."""
-        from trinity.workflow.ledger import render_shared_ledger
-
-        return render_shared_ledger(
-            self.session,
+        return self._ledger_sync().render_shared_ledger(
             provider_readiness=provider_readiness,
             round_opinions=round_opinions,
             response_diagnostics=response_diagnostics,
@@ -1511,51 +1511,18 @@ class WorkflowEngine:
         provider_readiness: Any = None,
     ) -> None:
         """Rewrite shared.md from session.json state while preserving log sections."""
-        sections = self._extract_shared_preserved_sections(shared.read())
-        shared.write(
-            self.render_shared_ledger(
-                provider_readiness=provider_readiness,
-                round_opinions=sections["round_opinions"],
-                response_diagnostics=sections["response_diagnostics"],
-                session_history=sections["session_history"],
-            )
+        self._ledger_sync().sync_shared_ledger(
+            shared,
+            provider_readiness=provider_readiness,
         )
 
     @classmethod
     def _extract_shared_preserved_sections(cls, content: str) -> dict[str, str]:
-        """Collect freeform shared.md sections that are not source-of-truth state."""
-        sections = cls._parse_markdown_sections(content)
-        round_sections = [
-            body
-            for heading, body in sections.items()
-            if heading == "round opinions" or re.fullmatch(r"round\s+\d+\s+opinions", heading)
-        ]
-        return {
-            "round_opinions": "\n\n".join(round_sections).strip(),
-            "response_diagnostics": sections.get("response diagnostics", "").strip(),
-            "session_history": sections.get("session history", "").strip(),
-        }
+        return WorkflowLedgerSync._extract_shared_preserved_sections(content)
 
     @staticmethod
     def _parse_markdown_sections(content: str) -> dict[str, str]:
-        """Parse top-level markdown ## sections by normalized heading."""
-        sections: dict[str, str] = {}
-        current_heading: str | None = None
-        current_lines: list[str] = []
-
-        for line in content.splitlines():
-            if line.startswith("## ") and not line.startswith("### "):
-                if current_heading is not None:
-                    sections[current_heading] = "\n".join(current_lines).strip()
-                current_heading = line[3:].strip().lower()
-                current_lines = [line]
-                continue
-            if current_heading is not None:
-                current_lines.append(line)
-
-        if current_heading is not None:
-            sections[current_heading] = "\n".join(current_lines).strip()
-        return sections
+        return WorkflowLedgerSync._parse_markdown_sections(content)
 
     def set_state(self, state: WorkflowState, reason: str = "") -> None:
         """Set and persist workflow state."""

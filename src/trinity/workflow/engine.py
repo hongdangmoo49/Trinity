@@ -753,12 +753,6 @@ class WorkflowEngine:
         """Abort a stale execution and require an explicit user decision."""
         return self._execution_recovery_flow().abort_interrupted_execution()
 
-    def _touch_execution_run(self, occurred_at: float | None = None) -> None:
-        self._execution_recovery_flow().touch_execution_run(occurred_at)
-
-    def _finish_execution_run(self, outcome: str) -> None:
-        self._execution_recovery_flow().finish_execution_run(outcome)
-
     def _review_repair_metadata_from_events(self) -> dict[str, dict[str, Any]]:
         return self._review_flow()._review_repair_metadata_from_events()
 

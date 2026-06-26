@@ -140,7 +140,7 @@ class WorkflowExecutionFlow:
         package.status = WorkStatus.RUNNING
         package.current_executor = executor
         package.last_executor = executor
-        self.engine._touch_execution_run(occurred_at)
+        self.engine._execution_recovery_flow().touch_execution_run(occurred_at)
         self.engine.session.updated_at = time.time()
         self.engine._persist(
             "work_package_started",
@@ -174,7 +174,7 @@ class WorkflowExecutionFlow:
                 pass
         package.current_executor = ""
         package.last_executor = executor
-        self.engine._touch_execution_run(occurred_at)
+        self.engine._execution_recovery_flow().touch_execution_run(occurred_at)
         self.engine.session.updated_at = time.time()
         event_data: dict[str, object] = {
             "package_id": package.id,
@@ -269,7 +269,7 @@ class WorkflowExecutionFlow:
         notices: list[dict[str, object]] | None = None,
         occurred_at: float | None = None,
     ) -> None:
-        self.engine._touch_execution_run(occurred_at)
+        self.engine._execution_recovery_flow().touch_execution_run(occurred_at)
         self.engine.session.updated_at = time.time()
         self.engine._persist(
             "execution_batch_planned",
@@ -366,7 +366,7 @@ class WorkflowExecutionFlow:
             package for package in session.work_packages if package.requires_execution
         ]
         if any(package.status == WorkStatus.FAILED for package in executable):
-            self.engine._finish_execution_run("failed")
+            self.engine._execution_recovery_flow().finish_execution_run("failed")
             self.engine.set_state(
                 WorkflowState.FAILED,
                 reason="work package execution failed",
@@ -376,7 +376,7 @@ class WorkflowExecutionFlow:
             package.status in {WorkStatus.BLOCKED, WorkStatus.WAITING_ON_DECISION}
             for package in executable
         ):
-            self.engine._finish_execution_run("blocked")
+            self.engine._execution_recovery_flow().finish_execution_run("blocked")
             self.engine.set_state(
                 WorkflowState.NEEDS_USER_DECISION,
                 reason="work package execution is blocked",
@@ -386,7 +386,7 @@ class WorkflowExecutionFlow:
             package.status in {WorkStatus.DONE, WorkStatus.NEEDS_REVIEW}
             for package in executable
         ):
-            self.engine._finish_execution_run("completed")
+            self.engine._execution_recovery_flow().finish_execution_run("completed")
             self.engine._plan_review_packages()
             self.engine.set_state(
                 WorkflowState.REVIEWING,

@@ -8,9 +8,10 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.330`
-- Merged PR range reviewed: #90 through #426
-- PRs reviewed in that range: 336 merged PRs
+- Package version inspected: `1.0.347`
+- Merged PR range reviewed: #90 through #444
+- Baseline iteration reviewed: #90 through #426
+- Maintenance refresh reviewed: #427 through #444
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/publish-pypi.yml`
@@ -87,6 +88,27 @@ and what the next release train should optimize.
 - Thinned workflow execution/recovery facades after the flow modules became the
   authoritative implementation.
 
+### #427-#444: Maintenance Contracts, Archive Closure, and Fake E2E
+
+- Added the CI and maintenance strategy, completed-plan index, and focused
+  contract documents for Textual presenters, fake providers, render cache,
+  workflow flow boundaries, provider readiness/recovery, and Nexus
+  execution/review state.
+- Added fake-provider workflow E2E coverage and included it in the required
+  smoke list so account-free provider behavior is part of the PR gate.
+- Audited facade drift and legacy runtime surfaces before deleting more wrapper
+  code or compatibility paths.
+- Removed the remaining direct private helper delegates from
+  `WorkflowEngine` after the flow contracts existed.
+- Archived completed plan bundles for Textual presenter work, Korean UX,
+  render cache work, UI label/status stabilization, execution/review feedback,
+  and fake-provider baseline work.
+
+This refresh moved the project from "large batch of one-PR plans" to a smaller
+set of durable maintenance documents. Root `docs/plans/` still contains older
+architecture and migration plans; archive only the groups that have a current
+contract document and focused test evidence.
+
 ## Main Structure
 
 ### CLI and Setup
@@ -135,11 +157,28 @@ and what the next release train should optimize.
 - `tests/harness/` owns reusable fake/replay/performance harnesses.
 - `tests/test_fake_provider_harness.py` is the account-free provider contract
   gate.
+- `tests/test_fake_provider_e2e.py` exercises the fake-provider workflow path
+  across init/config, provider readiness, retry decisions, workflow execution,
+  and report output.
 - Workflow flow tests should stay close to their modules:
   - `tests/test_workflow_execution_flow.py`
   - `tests/test_workflow_review_flow.py`
   - `tests/test_workflow_post_review_flow.py`
   - `tests/test_provider_error_gate_flow.py`
+
+### Maintenance Documents
+
+These documents are the current durable references for follow-up cleanup:
+
+- `docs/development/textual-presenter-parser-contract.md`
+- `docs/development/fake-provider-test-environment.md`
+- `docs/development/facade-drift-audit.md`
+- `docs/development/legacy-runtime-surface-audit.md`
+- `docs/development/korean-ui-glossary.md`
+- `docs/development/nexus-render-cache-guidelines.md`
+- `docs/development/workflow-flow-contracts.md`
+- `docs/development/provider-readiness-recovery-contracts.md`
+- `docs/development/nexus-execution-review-state-contracts.md`
 
 ## Test Strategy
 
@@ -210,9 +249,19 @@ cost is measured and accepted.
 
 ### Completed Plan Document Volume
 
-`docs/plans/` now contains many one-PR implementation plans. Before deleting
-anything, create a dated index that maps completed plans to the PR bundle above.
-After the index exists, old one-PR plans can be archived by date.
+`docs/plans/` still contains many one-PR implementation plans, but the
+completed-plan index now maps the dense recent batches to durable documents.
+Archive only by bundle/date after these checks:
+
+- the related PRs are merged
+- focused tests or required smoke cover the behavior
+- a durable contract or maintenance summary exists
+- `docs/plans/completed-index.md` records the archive reason
+
+Current archived bundles include Textual presenters, Korean UX, render cache,
+UI label/status, execution/review feedback, and fake-provider baseline plans.
+Older architecture and migration plans remain in the root until their context
+is summarized separately.
 
 ### Facade Drift
 
@@ -261,7 +310,8 @@ Current guidance: `docs/development/nexus-render-cache-guidelines.md`.
 ### Next Minor
 
 - Ship the CI/test strategy as the default engineering workflow.
-- Add and maintain a completed-plan index for `docs/plans/`.
+- Maintain the completed-plan index for `docs/plans/` as more bundles are
+  archived.
 - Continue facade drift audits after each flow contract is documented.
 - Maintain the fake-provider E2E path that exercises CLI init, provider
   readiness, workflow execution, retry decision, and report output without real

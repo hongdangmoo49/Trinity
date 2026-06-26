@@ -36,7 +36,7 @@ class WorkflowReviewFlow:
         if not session.review_packages and session.work_packages:
             self._plan_review_packages()
             session.updated_at = time.time()
-            self.engine._persist(
+            self.engine._persistence_flow().persist(
                 "review_packages_planned",
                 {
                     "review_packages": [
@@ -243,7 +243,7 @@ class WorkflowReviewFlow:
             package.repair_blocked_at = 0.0
             if package.id not in selected:
                 selected.append(package.id)
-            self.engine._persist(
+            self.engine._persistence_flow().persist(
                 "work_package_repair_requested",
                 {
                     "package_id": package.id,
@@ -287,7 +287,7 @@ class WorkflowReviewFlow:
             run.pop("repair_blocked_packages", None)
         session.execution_run = run
         session.updated_at = time.time()
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "execution_recovery_action",
             {
                 "action": "review_repair",
@@ -357,7 +357,7 @@ class WorkflowReviewFlow:
                 package.repair_blocked_at = time.time()
                 blocked.append(package.id)
                 changed = True
-                self.engine._persist(
+                self.engine._persistence_flow().persist(
                     "work_package_repair_blocked",
                     {
                         "package_id": package.id,
@@ -512,7 +512,7 @@ class WorkflowReviewFlow:
             note = f"user accepted blocked repair: {reason}"
             if note not in package.repair_notes:
                 package.repair_notes.append(note)
-            self.engine._persist(
+            self.engine._persistence_flow().persist(
                 "work_package_repair_accepted",
                 {
                     "package_id": package.id,
@@ -546,7 +546,7 @@ class WorkflowReviewFlow:
         run["repair_stopped_packages"] = list(package_ids)
         session.execution_run = run
         session.updated_at = time.time()
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "work_package_repair_stopped",
             {
                 "packages": list(package_ids),
@@ -612,7 +612,10 @@ class WorkflowReviewFlow:
             "max_attempts": max_attempts,
             "repair_signature": signature,
         }
-        self.engine._persist("work_package_repair_blocked", payload)
+        self.engine._persistence_flow().persist(
+            "work_package_repair_blocked",
+            payload,
+        )
         return payload
 
     def record_review_result(self, result: ReviewResult) -> None:
@@ -621,7 +624,7 @@ class WorkflowReviewFlow:
         self.apply_review_result_to_package(result)
         self.engine._quality_flow().record_review_quality(result)
         session.updated_at = time.time()
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "review_result_recorded",
             {
                 "review_package_id": result.review_package_id,

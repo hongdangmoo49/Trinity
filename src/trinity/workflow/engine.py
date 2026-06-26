@@ -567,15 +567,6 @@ class WorkflowEngine:
             emit_events=emit_events,
         )
 
-    def _record_execution_result(
-        self,
-        result: ExecutionResult,
-        *,
-        emit_event: bool,
-    ) -> None:
-        """Upsert one execution result without finalizing the workflow."""
-        self._execution_flow().record_execution_result(result, emit_event=emit_event)
-
     def ensure_review_packages(self) -> list[ReviewPackage]:
         """Ensure completed execution has review packages planned."""
         return self._review_flow().ensure_review_packages()
@@ -634,9 +625,6 @@ class WorkflowEngine:
         """Stop the workflow after review-repair loop guards pause packages."""
         return self._review_flow().stop_review_repair_blocks()
 
-    def _record_review_result(self, result: ReviewResult) -> None:
-        self._review_flow().record_review_result(result)
-
     def _record_execution_quality(self, result: ExecutionResult) -> None:
         self._quality_flow().record_execution_quality(result)
 
@@ -646,17 +634,6 @@ class WorkflowEngine:
     def finalize_post_review(self, final_result: ReviewResult | None = None) -> None:
         """Move a completed final review into the user-selectable follow-up state."""
         self._post_review_flow().finalize_post_review(final_result)
-
-    def _auto_replan_final_review_changes(
-        self,
-        final_result: ReviewResult | None,
-        created_items: Iterable[PostReviewActionItem],
-    ) -> tuple[str, ...]:
-        """Queue supplemental WPs for required final-review changes."""
-        return self._post_review_flow()._auto_replan_final_review_changes(
-            final_result,
-            created_items,
-        )
 
     def extract_post_review_items(
         self,

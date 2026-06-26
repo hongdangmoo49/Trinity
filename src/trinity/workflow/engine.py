@@ -24,6 +24,7 @@ from trinity.workflow.decomposer import (
 )
 from trinity.workflow.central_flow import WorkflowCentralFlow
 from trinity.workflow.execution_flow import WorkflowExecutionFlow
+from trinity.workflow.input_flow import WorkflowInputFlow
 from trinity.workflow.ledger_sync import WorkflowLedgerSync
 from trinity.workflow.post_review_flow import WorkflowPostReviewFlow
 from trinity.workflow.provider_observations import WorkflowProviderObservations
@@ -208,6 +209,9 @@ class WorkflowEngine:
     def _question_flow(self) -> WorkflowQuestionFlow:
         return WorkflowQuestionFlow(self)
 
+    def _input_flow(self) -> WorkflowInputFlow:
+        return WorkflowInputFlow(self)
+
     def _execution_flow(self) -> WorkflowExecutionFlow:
         return WorkflowExecutionFlow(self)
 
@@ -264,18 +268,7 @@ class WorkflowEngine:
         agent_model_overrides: dict[str, str] | None = None,
     ) -> WorkflowInputAction:
         """Route plain session text through the current workflow state."""
-        if self.session.state == WorkflowState.POST_REVIEW_READY:
-            return self.handle_post_review_input(text, active_agents)
-        if self.session.state == WorkflowState.NEEDS_USER_DECISION:
-            return self.answer_pending_question(text)
-        if self._can_continue_existing_blueprint():
-            return self.continue_from_blueprint(
-                text,
-                active_agents,
-                target_agents=target_agents,
-                agent_model_overrides=agent_model_overrides,
-            )
-        return self.start(
+        return self._input_flow().handle_user_input(
             text,
             active_agents,
             target_agents=target_agents,
@@ -284,12 +277,7 @@ class WorkflowEngine:
 
     def _can_continue_existing_blueprint(self) -> bool:
         """Return whether free text should stay attached to this workflow."""
-        return self.session.blueprint is not None and self.session.state in {
-            WorkflowState.BLUEPRINT_READY,
-            WorkflowState.REVIEWING,
-            WorkflowState.DONE,
-            WorkflowState.FAILED,
-        }
+        return self._input_flow()._can_continue_existing_blueprint()
 
     def start(
         self,

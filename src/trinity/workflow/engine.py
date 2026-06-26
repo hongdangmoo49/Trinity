@@ -26,16 +26,14 @@ from trinity.workflow.central_flow import WorkflowCentralFlow
 from trinity.workflow.execution_flow import WorkflowExecutionFlow
 from trinity.workflow.ledger_sync import WorkflowLedgerSync
 from trinity.workflow.post_review_flow import WorkflowPostReviewFlow
+from trinity.workflow.provider_observations import WorkflowProviderObservations
 from trinity.workflow.review_flow import WorkflowReviewFlow
 from trinity.workflow.models import (
-    AgentRuntimeModel,
-    AgentResourceProjection,
     Blueprint,
     DecisionRecord,
     ExecutionResult,
     OpenQuestion,
     PostReviewActionItem,
-    ProviderSessionRef,
     SubtaskResult,
     WorkPackage,
     WorkStatus,
@@ -202,6 +200,9 @@ class WorkflowEngine:
 
     def _central_flow(self) -> WorkflowCentralFlow:
         return WorkflowCentralFlow(self)
+
+    def _provider_observations(self) -> WorkflowProviderObservations:
+        return WorkflowProviderObservations(self)
 
     def _execution_flow(self) -> WorkflowExecutionFlow:
         return WorkflowExecutionFlow(self)
@@ -836,61 +837,7 @@ class WorkflowEngine:
         return WorkflowCentralFlow._central_blueprint_body(blueprint)
 
     def _record_provider_observations(self, metadata: dict[str, Any]) -> None:
-        """Persist provider session/model observations from result metadata."""
-        provider_sessions = metadata.get("provider_sessions")
-        runtime_models = metadata.get("runtime_models")
-        resource_projections = metadata.get("resource_projections")
-        changed = False
-
-        if isinstance(provider_sessions, dict):
-            for key, value in provider_sessions.items():
-                if not isinstance(value, dict):
-                    continue
-                session = ProviderSessionRef.from_dict(value)
-                if not session.provider_session_id:
-                    continue
-                session_key = session.session_key or str(key)
-                if not session_key:
-                    continue
-                self.session.provider_sessions[session_key] = session
-                changed = True
-
-        if isinstance(runtime_models, dict):
-            for key, value in runtime_models.items():
-                if not isinstance(value, dict):
-                    continue
-                model = AgentRuntimeModel.from_dict(value)
-                model_key = model.agent_name or str(key)
-                if not model_key:
-                    continue
-                self.session.runtime_models[model_key] = model
-                changed = True
-
-        if isinstance(resource_projections, dict):
-            for key, value in resource_projections.items():
-                if not isinstance(value, dict):
-                    continue
-                projection = AgentResourceProjection.from_dict(value)
-                projection_key = str(key).strip() or projection.key
-                if not projection_key:
-                    continue
-                self.session.resource_projections[projection_key] = projection
-                changed = True
-
-        if not changed:
-            return
-
-        self.session.updated_at = time.time()
-        self._persist(
-            "provider_metadata_observed",
-            {
-                "provider_sessions": sorted(self.session.provider_sessions.keys()),
-                "runtime_models": sorted(self.session.runtime_models.keys()),
-                "resource_projections": sorted(
-                    self.session.resource_projections.keys()
-                ),
-            },
-        )
+        self._provider_observations().record_provider_observations(metadata)
 
     def _apply_structured_questions(self, structured: dict) -> bool:
         return self._central_flow()._apply_structured_questions(structured)

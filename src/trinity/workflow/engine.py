@@ -15,9 +15,9 @@ from trinity.models import (
 from trinity.workflow.decomposer import (
     BlueprintDecomposer,
 )
-from trinity.workflow.intent import requires_execution_for_deliberation
 from trinity.workflow.collection_flow import WorkflowCollectionFlow
 from trinity.workflow.central_flow import WorkflowCentralFlow
+from trinity.workflow.deliberation_result_flow import WorkflowDeliberationResultFlow
 from trinity.workflow.execution_flow import WorkflowExecutionFlow
 from trinity.workflow.input_flow import WorkflowInputFlow
 from trinity.workflow.lifecycle_flow import WorkflowLifecycleFlow
@@ -30,7 +30,6 @@ from trinity.workflow.review_flow import WorkflowReviewFlow
 from trinity.workflow.targeting_flow import WorkflowTargetingFlow
 from trinity.workflow.workspace_flow import WorkflowWorkspaceFlow
 from trinity.workflow.models import (
-    Blueprint,
     DecisionRecord,
     ExecutionResult,
     OpenQuestion,
@@ -196,6 +195,9 @@ class WorkflowEngine:
 
     def _central_flow(self) -> WorkflowCentralFlow:
         return WorkflowCentralFlow(self)
+
+    def _deliberation_result_flow(self) -> WorkflowDeliberationResultFlow:
+        return WorkflowDeliberationResultFlow(self)
 
     def _collection_flow(self) -> WorkflowCollectionFlow:
         return WorkflowCollectionFlow(self)
@@ -379,94 +381,7 @@ class WorkflowEngine:
 
     def mark_deliberation_result(self, result: DeliberationResult) -> None:
         """Update workflow state after a deliberation completes."""
-        self.session.current_round = result.rounds_completed
-        self._provider_observations().record_provider_observations(result.metadata)
-        provider_gate = self._provider_error_gate_flow()
-        if provider_gate.should_open(result):
-            provider_gate.open(result)
-            return
-
-        central_flow = self._central_flow()
-        if self._apply_structured_deliberation_result(result, central_flow):
-            return
-
-        if self._apply_consensus_deliberation_result(result, central_flow):
-            return
-
-        self.set_state(WorkflowState.FAILED, reason="deliberation ended without consensus")
-
-    def _apply_structured_deliberation_result(
-        self,
-        result: DeliberationResult,
-        central_flow: WorkflowCentralFlow,
-    ) -> bool:
-        structured = result.metadata.get("structured_consensus")
-        if not isinstance(structured, dict):
-            return False
-        if central_flow._apply_structured_questions(structured):
-            self.set_state(
-                WorkflowState.NEEDS_USER_DECISION,
-                reason="structured deliberation requires user decision",
-            )
-            return True
-
-        blueprint = structured.get("final_blueprint")
-        if not structured.get("reached") or not isinstance(blueprint, dict):
-            return False
-
-        self.session.blueprint = Blueprint.from_dict(blueprint)
-        self.session.work_packages = self.decomposer.decompose(
-            self.session.blueprint,
-            self._decomposition_agents(),
-            requires_execution=requires_execution_for_deliberation(
-                self.session.goal,
-                result,
-            ),
-        )
-        self.session.execution_results = []
-        self.session.subtask_results = []
-        self.session.review_packages = []
-        self.session.review_results = []
-        central_flow._record_central_conversation(
-            title="Central Agent Response",
-            body=WorkflowCentralFlow._central_blueprint_body(self.session.blueprint),
-            related_ids=[package.id for package in self.session.work_packages],
-        )
-        self.set_state(
-            WorkflowState.BLUEPRINT_READY,
-            reason="structured blueprint reached consensus",
-        )
-        return True
-
-    def _apply_consensus_deliberation_result(
-        self,
-        result: DeliberationResult,
-        central_flow: WorkflowCentralFlow,
-    ) -> bool:
-        if not result.has_consensus:
-            return False
-
-        summary = result.consensus.summary if result.consensus else ""
-        self.session.blueprint = Blueprint(
-            title="Consensus Blueprint",
-            summary=summary,
-            acceptance_criteria=[summary] if summary else [],
-        )
-        self.session.work_packages = []
-        self.session.execution_results = []
-        self.session.subtask_results = []
-        self.session.review_packages = []
-        self.session.review_results = []
-        central_flow._record_central_conversation(
-            title="Central Agent Response",
-            body=WorkflowCentralFlow._central_blueprint_body(self.session.blueprint),
-            related_ids=[package.id for package in self.session.work_packages],
-        )
-        self.set_state(
-            WorkflowState.BLUEPRINT_READY,
-            reason="deliberation reached consensus",
-        )
-        return True
+        self._deliberation_result_flow().mark_deliberation_result(result)
 
     def pending_execution_package_ids(self) -> list[str]:
         """Return the package ids that the next execution run should dispatch."""

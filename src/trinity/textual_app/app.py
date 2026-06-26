@@ -42,6 +42,7 @@ from trinity.textual_app.command_parsers import (
 )
 from trinity.textual_app import presenters as textual_presenters
 from trinity.textual_app.answer_commands import answer_result_presentation
+from trinity.textual_app.improve_commands import improve_result_presentation
 from trinity.textual_app.local_commands import (
     append_local_command_event,
     replace_local_command_result,
@@ -1989,19 +1990,16 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         outcome = self.workflow_controller.request_improvement(args)
         outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
-        if message:
+        presentation = improve_result_presentation(message)
+        if presentation:
             self._record_slash_command_result(
                 command_name,
                 textual_presenters.improve_title(lang=self.config.lang),
                 textual_presenters.workflow_outcome_message_markdown(
-                    message,
+                    presentation.message,
                     lang=self.config.lang,
                 ),
-                severity=(
-                    "warning"
-                    if message.startswith("No matching") or "required" in message
-                    else "info"
-                ),
+                severity=presentation.severity,
                 table_columns=textual_presenters.improve_table_columns(
                     lang=self.config.lang
                 ),

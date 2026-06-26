@@ -2156,7 +2156,7 @@ class TrinityTextualApp(App[None]):
         start_modal: bool = True,
     ) -> None:
         """Record a local slash command result in the central Textual view."""
-        result = self._local_command_snapshot(
+        result = textual_presenters.local_command_snapshot(
             command,
             title,
             body,
@@ -2237,7 +2237,7 @@ class TrinityTextualApp(App[None]):
         snapshot: WorkflowNexusSnapshot,
     ) -> None:
         """Show status in the surface appropriate for the current Textual route."""
-        result = self._local_command_snapshot(
+        result = textual_presenters.local_command_snapshot(
             command,
             textual_presenters.status_title(lang=self.config.lang),
             textual_presenters.snapshot_status_markdown(
@@ -2358,32 +2358,6 @@ class TrinityTextualApp(App[None]):
             start_modal=False,
         )
 
-    def _local_command_snapshot(
-        self,
-        command: str,
-        title: str,
-        body: str,
-        *,
-        severity: str = "info",
-        result_kind: str = "markdown",
-        empty: bool = False,
-        action_hint: str = "",
-        table_columns: tuple[str, ...] = (),
-        table_rows: tuple[tuple[str, ...], ...] = (),
-    ) -> LocalCommandSnapshot:
-        """Build a local slash command result snapshot."""
-        return textual_presenters.local_command_snapshot(
-            command,
-            title,
-            body,
-            severity=severity,
-            result_kind=result_kind,
-            empty=empty,
-            action_hint=action_hint,
-            table_columns=table_columns,
-            table_rows=table_rows,
-        )
-
     def _replace_local_command_result(
         self,
         result: LocalCommandSnapshot,
@@ -2418,7 +2392,7 @@ class TrinityTextualApp(App[None]):
             )
             return
 
-        result = self._local_command_snapshot(
+        result = textual_presenters.local_command_snapshot(
             command,
             textual_presenters.context_title(lang=self.config.lang),
             body,

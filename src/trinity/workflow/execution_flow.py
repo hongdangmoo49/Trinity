@@ -323,7 +323,7 @@ class WorkflowExecutionFlow:
             if not any(existing.id == decision.id for existing in session.decisions):
                 session.decisions.append(decision)
         for subtask in result.subtasks:
-            self.engine._upsert_subtask_result(subtask)
+            self.engine._collection_flow().upsert_subtask_result(subtask)
         self.engine._record_execution_quality(result)
 
         ordered_package_ids = [package.id for package in session.work_packages]
@@ -387,7 +387,7 @@ class WorkflowExecutionFlow:
             for package in executable
         ):
             self.engine._execution_recovery_flow().finish_execution_run("completed")
-            self.engine._plan_review_packages()
+            self.engine._review_flow()._plan_review_packages()
             self.engine.set_state(
                 WorkflowState.REVIEWING,
                 reason="all work packages completed",

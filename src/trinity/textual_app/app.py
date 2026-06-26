@@ -2033,12 +2033,16 @@ class TrinityTextualApp(App[None]):
             return
 
     def _handle_textual_ask_command(self, command_name: str, args: list[str]) -> None:
-        target_agents, model_overrides, prompt, error = self._parse_ask_args(args)
-        if error:
+        parsed = parse_ask_args(
+            args,
+            self.config.active_agents.keys(),
+            lang=self.config.lang,
+        )
+        if parsed.error:
             self._record_slash_command_result(
                 command_name,
                 textual_presenters.ask_title(lang=self.config.lang),
-                error,
+                parsed.error,
                 severity="warning",
                 empty=True,
                 action_hint=textual_presenters.ask_action_hint(lang=self.config.lang),
@@ -2046,16 +2050,19 @@ class TrinityTextualApp(App[None]):
             return
 
         if self.current_route == "start":
-            self.initial_prompt = prompt
+            self.initial_prompt = parsed.prompt
             nexus = self.get_screen("nexus", NexusScreen)
-            nexus.set_initial_prompt(prompt)
-            nexus.set_agent_selection(target_agents, model_overrides)
+            nexus.set_initial_prompt(parsed.prompt)
+            nexus.set_agent_selection(
+                parsed.target_agents,
+                parsed.agent_model_overrides,
+            )
             target_workspace = self._safe_start_target_workspace(self.workspace_candidate)
             outcome = self.workflow_controller.start_prompt(
-                prompt,
+                parsed.prompt,
                 target_workspace=target_workspace,
-                target_agents=target_agents,
-                agent_model_overrides=model_overrides,
+                target_agents=parsed.target_agents,
+                agent_model_overrides=parsed.agent_model_overrides,
             )
             self._remember_confirmed_target_preflight(target_workspace, outcome.snapshot)
             self._apply_workflow_outcome(outcome)
@@ -2063,31 +2070,18 @@ class TrinityTextualApp(App[None]):
             return
 
         nexus = self.get_screen("nexus", NexusScreen)
-        nexus.set_agent_selection(target_agents, model_overrides)
+        nexus.set_agent_selection(
+            parsed.target_agents,
+            parsed.agent_model_overrides,
+        )
         outcome = self.workflow_controller.submit_follow_up(
-            prompt,
-            target_agents=target_agents,
-            agent_model_overrides=model_overrides,
+            parsed.prompt,
+            target_agents=parsed.target_agents,
+            agent_model_overrides=parsed.agent_model_overrides,
         )
         self._apply_workflow_outcome(outcome)
         if outcome.target_workspace_required:
             self._open_execute_workspace_picker(outcome.snapshot)
-
-    def _parse_ask_args(
-        self,
-        args: list[str],
-    ) -> tuple[tuple[str, ...], dict[str, str], str, str]:
-        result = parse_ask_args(
-            args,
-            self.config.active_agents.keys(),
-            lang=self.config.lang,
-        )
-        return (
-            result.target_agents,
-            result.agent_model_overrides,
-            result.prompt,
-            result.error,
-        )
 
     def _on_quit_confirmed(self, confirmed: bool | None) -> None:
         if confirmed:

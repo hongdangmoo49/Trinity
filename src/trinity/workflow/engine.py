@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 import time
@@ -1360,50 +1359,11 @@ class WorkflowEngine:
         )
 
     def _review_repair_metadata_from_events(self) -> dict[str, dict[str, Any]]:
-        metadata_by_package: dict[str, dict[str, Any]] = {}
-        for event in self.persistence.load_events_for_workflow(
-            self.session.id,
-            event_names={"work_package_repair_requested"},
-        ):
-            data = event.get("data", {})
-            if not isinstance(data, dict):
-                continue
-            package_id = str(data.get("package_id", "")).strip()
-            if not package_id:
-                continue
-            metadata = metadata_by_package.setdefault(
-                package_id,
-                {
-                    "attempt_count": 0,
-                    "repair_signature": "",
-                    "review_package_id": "",
-                },
-            )
-            next_count = int(metadata["attempt_count"]) + 1
-            try:
-                event_count = int(data.get("repair_attempt_count", 0) or 0)
-            except (TypeError, ValueError):
-                event_count = 0
-            metadata["attempt_count"] = max(next_count, event_count)
-            repair_signature = str(data.get("repair_signature", "") or "")
-            if repair_signature:
-                metadata["repair_signature"] = repair_signature
-            review_package_id = str(data.get("review_package_id", "") or "")
-            if not review_package_id:
-                review_package_ids = data.get("review_package_ids", [])
-                if isinstance(review_package_ids, list) and review_package_ids:
-                    review_package_id = str(review_package_ids[-1])
-            if review_package_id:
-                metadata["review_package_id"] = review_package_id
-        return metadata_by_package
+        return self._review_flow()._review_repair_metadata_from_events()
 
     @classmethod
     def _review_repair_signature(cls, result: ReviewResult) -> str:
-        return cls._review_repair_signature_from_parts(
-            result.package_id,
-            result.target_agent,
-            result.required_changes,
-        )
+        return WorkflowReviewFlow._review_repair_signature(result)
 
     @classmethod
     def _review_repair_signature_from_parts(
@@ -1412,58 +1372,29 @@ class WorkflowEngine:
         target_agent: str,
         required_changes: Iterable[str],
     ) -> str:
-        changes = [
-            normalized
-            for normalized in (
-                cls._normalize_repair_change(change) for change in required_changes
-            )
-            if normalized
-        ]
-        payload = {
-            "package_id": package_id,
-            "target_agent": target_agent,
-            "required_changes": sorted(set(changes)),
-        }
-        encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode(
-            "utf-8"
+        return WorkflowReviewFlow._review_repair_signature_from_parts(
+            package_id,
+            target_agent,
+            required_changes,
         )
-        return hashlib.sha256(encoded).hexdigest()
 
     @classmethod
     def _merged_review_repair_changes(
         cls,
         results: Iterable[ReviewResult],
     ) -> list[str]:
-        merged: list[str] = []
-        seen: set[str] = set()
-        for result in results:
-            for change in result.required_changes:
-                normalized = cls._normalize_repair_change(change)
-                if not normalized or normalized in seen:
-                    continue
-                seen.add(normalized)
-                merged.append(normalized)
-        return merged
+        return WorkflowReviewFlow._merged_review_repair_changes(results)
 
     @staticmethod
     def _review_repair_target_agent(
         package: WorkPackage,
         results: Iterable[ReviewResult],
     ) -> str:
-        targets = {
-            str(result.target_agent).strip()
-            for result in results
-            if str(result.target_agent).strip()
-        }
-        if len(targets) == 1:
-            return next(iter(targets))
-        if targets:
-            return ",".join(sorted(targets))
-        return package.owner_agent
+        return WorkflowReviewFlow._review_repair_target_agent(package, results)
 
     @staticmethod
     def _normalize_repair_change(change: str) -> str:
-        return re.sub(r"\s+", " ", str(change).strip())
+        return WorkflowReviewFlow._normalize_repair_change(change)
 
     def _review_results(self) -> list[ReviewResult]:
         reviews: list[ReviewResult] = []

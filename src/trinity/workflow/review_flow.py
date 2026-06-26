@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import re
 import time
 from collections.abc import Iterable
 from typing import Any
@@ -118,10 +121,10 @@ class WorkflowReviewFlow:
 
         for package, package_results in repair_requests.values():
             result = package_results[-1]
-            required_changes = self.engine._merged_review_repair_changes(package_results)
-            signature = self.engine._review_repair_signature_from_parts(
+            required_changes = self._merged_review_repair_changes(package_results)
+            signature = self._review_repair_signature_from_parts(
                 package.id,
-                self.engine._review_repair_target_agent(package, package_results),
+                self._review_repair_target_agent(package, package_results),
                 required_changes,
             )
             if package.repair_attempt_count >= max_attempts:
@@ -231,7 +234,7 @@ class WorkflowReviewFlow:
         max_attempts: int = 3,
     ) -> tuple[str, ...]:
         max_attempts = max(0, int(max_attempts or 0))
-        event_metadata = self.engine._review_repair_metadata_from_events()
+        event_metadata = self._review_repair_metadata_from_events()
         if not event_metadata:
             return ()
 
@@ -260,7 +263,7 @@ class WorkflowReviewFlow:
                 changed = True
             latest_change = latest_change_by_package.get(package.id)
             if latest_change is not None and not package.last_repair_signature:
-                package.last_repair_signature = self.engine._review_repair_signature(
+                package.last_repair_signature = self._review_repair_signature(
                     latest_change
                 )
                 package.last_repair_review_id = latest_change.review_package_id
@@ -309,6 +312,112 @@ class WorkflowReviewFlow:
             and package.status == WorkStatus.BLOCKED
             and bool(package.repair_blocked_reason)
         )
+
+    def _review_repair_metadata_from_events(self) -> dict[str, dict[str, Any]]:
+        metadata_by_package: dict[str, dict[str, Any]] = {}
+        for event in self.engine.persistence.load_events_for_workflow(
+            self.engine.session.id,
+            event_names={"work_package_repair_requested"},
+        ):
+            data = event.get("data", {})
+            if not isinstance(data, dict):
+                continue
+            package_id = str(data.get("package_id", "")).strip()
+            if not package_id:
+                continue
+            metadata = metadata_by_package.setdefault(
+                package_id,
+                {
+                    "attempt_count": 0,
+                    "repair_signature": "",
+                    "review_package_id": "",
+                },
+            )
+            next_count = int(metadata["attempt_count"]) + 1
+            try:
+                event_count = int(data.get("repair_attempt_count", 0) or 0)
+            except (TypeError, ValueError):
+                event_count = 0
+            metadata["attempt_count"] = max(next_count, event_count)
+            repair_signature = str(data.get("repair_signature", "") or "")
+            if repair_signature:
+                metadata["repair_signature"] = repair_signature
+            review_package_id = str(data.get("review_package_id", "") or "")
+            if not review_package_id:
+                review_package_ids = data.get("review_package_ids", [])
+                if isinstance(review_package_ids, list) and review_package_ids:
+                    review_package_id = str(review_package_ids[-1])
+            if review_package_id:
+                metadata["review_package_id"] = review_package_id
+        return metadata_by_package
+
+    @classmethod
+    def _review_repair_signature(cls, result: ReviewResult) -> str:
+        return cls._review_repair_signature_from_parts(
+            result.package_id,
+            result.target_agent,
+            result.required_changes,
+        )
+
+    @classmethod
+    def _review_repair_signature_from_parts(
+        cls,
+        package_id: str,
+        target_agent: str,
+        required_changes: Iterable[str],
+    ) -> str:
+        changes = [
+            normalized
+            for normalized in (
+                cls._normalize_repair_change(change) for change in required_changes
+            )
+            if normalized
+        ]
+        payload = {
+            "package_id": package_id,
+            "target_agent": target_agent,
+            "required_changes": sorted(set(changes)),
+        }
+        encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode(
+            "utf-8"
+        )
+        return hashlib.sha256(encoded).hexdigest()
+
+    @classmethod
+    def _merged_review_repair_changes(
+        cls,
+        results: Iterable[ReviewResult],
+    ) -> list[str]:
+        merged: list[str] = []
+        seen: set[str] = set()
+        for result in results:
+            for change in result.required_changes:
+                normalized = cls._normalize_repair_change(change)
+                if not normalized or normalized in seen:
+                    continue
+                seen.add(normalized)
+                merged.append(normalized)
+        return merged
+
+    @staticmethod
+    def _review_repair_target_agent(
+        package: WorkPackage,
+        results: Iterable[ReviewResult],
+    ) -> str:
+        targets = {
+            str(result.target_agent).strip()
+            for result in results
+            if str(result.target_agent).strip()
+        }
+        if len(targets) == 1:
+            return next(iter(targets))
+        if targets:
+            return ",".join(sorted(targets))
+        return package.owner_agent
+
+    @staticmethod
+    def _normalize_repair_change(change: str) -> str:
+        return re.sub(r"\s+", " ", str(change).strip())
 
     def accept_review_repair_blocks(self) -> tuple[str, ...]:
         package_ids = self.review_repair_blocked_package_ids()

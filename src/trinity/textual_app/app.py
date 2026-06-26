@@ -68,6 +68,10 @@ from trinity.textual_app.snapshot import (
     WORKFLOW_EVENT_DISPLAY_LIMIT,
     WorkflowNexusSnapshot,
 )
+from trinity.textual_app.target_workspace import (
+    is_control_repo_target,
+    resolve_target_path,
+)
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.workflow_controller import (
     TextualWorkflowController,
@@ -1507,7 +1511,7 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         if preflight is None:
             return
-        if self._is_control_repo_target(preflight.path):
+        if is_control_repo_target(preflight.path, self.config.project_dir):
             self.push_screen(
                 TargetWorkspaceConfirmModal(
                     target_path=preflight.path,
@@ -1564,7 +1568,7 @@ class TrinityTextualApp(App[None]):
         """Return a start-screen target that can be persisted without confirmation."""
         if path is None:
             return None
-        if self._is_control_repo_target(path):
+        if is_control_repo_target(path, self.config.project_dir):
             return None
         return path
 
@@ -1591,7 +1595,7 @@ class TrinityTextualApp(App[None]):
         if preflight is None:
             self._pending_execute_retry = None
             return
-        if self._is_control_repo_target(preflight.path):
+        if is_control_repo_target(preflight.path, self.config.project_dir):
             self.push_screen(
                 TargetWorkspaceConfirmModal(
                     target_path=preflight.path,
@@ -2708,8 +2712,8 @@ class TrinityTextualApp(App[None]):
                 textual_presenters.target_cleared_markdown(lang=self.config.lang),
             )
             return
-        path = self._resolve_target_path(parsed.path_text)
-        if self._is_control_repo_target(path):
+        path = resolve_target_path(parsed.path_text, self.config.project_dir)
+        if is_control_repo_target(path, self.config.project_dir):
             self.push_screen(
                 TargetWorkspaceConfirmModal(
                     target_path=path,
@@ -2793,7 +2797,7 @@ class TrinityTextualApp(App[None]):
             )
         self.workspace_candidate = resolved
         self._sync_nexus_workspace_candidate()
-        inside_control_repo = self._is_control_repo_target(resolved)
+        inside_control_repo = is_control_repo_target(resolved, self.config.project_dir)
         self._record_slash_command_result(
             "/target",
             textual_presenters.target_title(lang=self.config.lang),
@@ -2816,24 +2820,6 @@ class TrinityTextualApp(App[None]):
         self.get_screen("nexus", NexusScreen).set_workspace_candidate(
             self.workspace_candidate,
         )
-
-    def _resolve_target_path(self, value: str) -> Path:
-        path = Path(value).expanduser()
-        if not path.is_absolute():
-            path = self.config.project_dir / path
-        return path
-
-    def _is_control_repo_target(self, path: Path) -> bool:
-        target = self._absolute_path(path)
-        control_repo = self._absolute_path(self.config.project_dir)
-        return target == control_repo or control_repo in target.parents
-
-    @staticmethod
-    def _absolute_path(path: Path) -> Path:
-        try:
-            return path.expanduser().resolve(strict=False)
-        except OSError:
-            return path.expanduser().absolute()
 
     def _handle_textual_resume_command(self, args: list[str]) -> None:
         parsed = parse_resume_args(args)

@@ -51,9 +51,9 @@ These plans describe completed flow extraction work and should be kept until
 
 ## Textual Presenter and Facade Plans
 
-These plans are mostly completed mechanical extractions. They can be archived
-after `textual_app.presenters` and `textual_app.command_parsers` have a short
-contract document.
+These plans are mostly completed mechanical extractions. Their active contract
+is now summarized in `docs/development/textual-presenter-parser-contract.md`, so
+future archive work can move these one-PR notes by bundle after checking tests.
 
 - `2026-06-26-textual-agent-presenter.md`
 - `2026-06-26-textual-local-command-presenter.md`

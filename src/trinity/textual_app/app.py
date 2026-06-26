@@ -1418,7 +1418,7 @@ class TrinityTextualApp(App[None]):
         snapshot: WorkflowNexusSnapshot | None,
     ) -> None:
         current = snapshot or self._fresh_textual_snapshot()
-        package_ids = self._review_repair_blocked_ids(current)
+        package_ids = textual_presenters.review_repair_blocked_ids(current)
         if action == "repair-open-review":
             self._present_review_repair_details(current)
             return
@@ -2308,7 +2308,10 @@ class TrinityTextualApp(App[None]):
         localized_message = self._workflow_outcome_message(message).strip()
         body_parts = [localized_message] if localized_message else []
         body_parts.append(
-            self._execution_recovery_markdown(snapshot, lang=self.config.lang)
+            textual_presenters.execution_recovery_markdown(
+                snapshot,
+                lang=self.config.lang,
+            )
         )
         self._record_slash_command_result(
             command,
@@ -2321,7 +2324,10 @@ class TrinityTextualApp(App[None]):
             table_columns=textual_presenters.execution_recovery_table_columns(
                 lang=self.config.lang
             ),
-            table_rows=self._execution_recovery_rows(snapshot, lang=self.config.lang),
+            table_rows=textual_presenters.execution_recovery_rows(
+                snapshot,
+                lang=self.config.lang,
+            ),
             start_modal=False,
         )
 
@@ -2330,51 +2336,13 @@ class TrinityTextualApp(App[None]):
         self._record_slash_command_result(
             "/review",
             textual_presenters.review_repair_title(lang=lang),
-            self._review_repair_details_markdown(snapshot, lang=lang),
+            textual_presenters.review_repair_details_markdown(snapshot, lang=lang),
             severity="warning",
             action_hint=textual_presenters.review_repair_action_hint(lang=lang),
             table_columns=textual_presenters.review_repair_table_columns(lang=lang),
-            table_rows=self._review_repair_rows(snapshot, lang=lang),
+            table_rows=textual_presenters.review_repair_rows(snapshot, lang=lang),
             start_modal=False,
         )
-
-    @staticmethod
-    def _review_repair_blocked_ids(
-        snapshot: WorkflowNexusSnapshot,
-    ) -> tuple[str, ...]:
-        return textual_presenters.review_repair_blocked_ids(snapshot)
-
-    @staticmethod
-    def _review_repair_details_markdown(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> str:
-        return textual_presenters.review_repair_details_markdown(snapshot, lang=lang)
-
-    @staticmethod
-    def _review_repair_rows(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.review_repair_rows(snapshot, lang=lang)
-
-    @staticmethod
-    def _execution_recovery_markdown(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> str:
-        return textual_presenters.execution_recovery_markdown(snapshot, lang=lang)
-
-    @staticmethod
-    def _execution_recovery_rows(
-        snapshot: WorkflowNexusSnapshot,
-        *,
-        lang: str = "en",
-    ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.execution_recovery_rows(snapshot, lang=lang)
 
     def _local_command_snapshot(
         self,

@@ -1791,30 +1791,7 @@ class TrinityTextualApp(App[None]):
             self._handle_textual_artifact_command(args)
             return
         if command == "history":
-            snapshot = self._refresh_textual_snapshot()
-            history_rows = textual_presenters.history_rows(
-                snapshot,
-                self._local_command_results,
-                lang=self.config.lang,
-            )
-            self._record_slash_command_result(
-                parsed.spec.name,
-                textual_presenters.history_title(lang=self.config.lang),
-                textual_presenters.history_markdown(
-                    snapshot,
-                    history_rows,
-                    lang=self.config.lang,
-                ),
-                empty=not history_rows,
-                action_hint=textual_presenters.history_action_hint(
-                    has_history=bool(history_rows),
-                    lang=self.config.lang,
-                ),
-                table_columns=textual_presenters.history_table_columns(
-                    lang=self.config.lang
-                ),
-                table_rows=history_rows,
-            )
+            self._handle_textual_history_command(parsed.spec.name)
             return
         if command == "report":
             self._handle_textual_report_command(args)
@@ -1980,6 +1957,32 @@ class TrinityTextualApp(App[None]):
                 snapshot,
                 lang=self.config.lang,
             ),
+        )
+
+    def _handle_textual_history_command(self, command_name: str) -> None:
+        snapshot = self._refresh_textual_snapshot()
+        history_rows = textual_presenters.history_rows(
+            snapshot,
+            self._local_command_results,
+            lang=self.config.lang,
+        )
+        self._record_slash_command_result(
+            command_name,
+            textual_presenters.history_title(lang=self.config.lang),
+            textual_presenters.history_markdown(
+                snapshot,
+                history_rows,
+                lang=self.config.lang,
+            ),
+            empty=not history_rows,
+            action_hint=textual_presenters.history_action_hint(
+                has_history=bool(history_rows),
+                lang=self.config.lang,
+            ),
+            table_columns=textual_presenters.history_table_columns(
+                lang=self.config.lang
+            ),
+            table_rows=history_rows,
         )
 
     def _handle_textual_review_command(self, command_name: str, args: list[str]) -> None:

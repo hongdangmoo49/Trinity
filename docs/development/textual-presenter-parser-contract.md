@@ -63,6 +63,8 @@ Current parser surface:
 - `AnswerCommandParseResult`
 - `parse_target_args(args)`
 - `TargetCommandParseResult`
+- `parse_resume_args(args)`
+- `ResumeCommandParseResult`
 
 Parser functions may:
 

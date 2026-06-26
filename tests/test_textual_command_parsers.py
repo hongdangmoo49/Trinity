@@ -5,6 +5,7 @@ from trinity.textual_app.command_parsers import (
     parse_answer_args,
     parse_ask_args,
     parse_caveman_args,
+    parse_resume_args,
     parse_rounds_args,
     parse_target_args,
 )
@@ -168,3 +169,13 @@ def test_parse_target_args_routes_current_clear_and_path() -> None:
     path = parse_target_args(["../my", "project"])
     assert path.action == "path"
     assert path.path_text == "../my project"
+
+
+def test_parse_resume_args_routes_picker_or_selector() -> None:
+    picker = parse_resume_args([])
+    assert picker.action == "picker"
+    assert picker.selector == ""
+
+    selector = parse_resume_args(["LATEST"])
+    assert selector.action == "resume"
+    assert selector.selector == "latest"

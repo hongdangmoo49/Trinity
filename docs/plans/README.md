@@ -14,6 +14,8 @@ Start with the durable maintenance summary:
 Then use individual plan files only when you need the detailed reasoning behind
 a specific PR or feature area.
 
+Archived one-PR plans are grouped under `docs/plans/archive/`.
+
 ## Recent Bundle Map
 
 | PR range | Bundle |
@@ -39,6 +41,10 @@ Archive or summarize a plan file when it is one of these:
 - It describes a completed one-PR mechanical refactor.
 - It only repeats the final implementation already covered by tests and code.
 - It is superseded by a durable document in `docs/development/`.
+
+Current archived bundles:
+
+- `archive/2026-06-26-textual-presenters/`
 
 ## Cleanup Policy
 

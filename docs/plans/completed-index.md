@@ -55,23 +55,27 @@ These plans are mostly completed mechanical extractions. Their active contract
 is now summarized in `docs/development/textual-presenter-parser-contract.md`, so
 future archive work can move these one-PR notes by bundle after checking tests.
 
-- `2026-06-26-textual-agent-presenter.md`
-- `2026-06-26-textual-local-command-presenter.md`
-- `2026-06-26-textual-ask-command-parser.md`
-- `2026-06-26-textual-status-history-presenters.md`
-- `2026-06-26-textual-workflow-detail-presenters.md`
-- `2026-06-26-textual-command-help-presenters.md`
-- `2026-06-26-textual-context-review-presenters.md`
-- `2026-06-26-textual-session-agent-presenters.md`
-- `2026-06-26-textual-resume-presenters.md`
-- `2026-06-26-textual-recovery-presenters.md`
-- `2026-06-26-execute-retry-command-parser.md`
-- `2026-06-26-textual-workflow-outcome-presenter.md`
-- `2026-06-26-textual-local-command-snapshot.md`
-- `2026-06-26-textual-ask-parser-direct.md`
-- `2026-06-26-workflow-recovery-facade-thin.md`
-- `2026-06-26-provider-error-gate-flow-reuse.md`
-- `2026-06-26-workflow-execution-facade-thin.md`
+Archived bundle:
+
+- `docs/plans/archive/2026-06-26-textual-presenters/`
+
+- `archive/2026-06-26-textual-presenters/2026-06-26-textual-agent-presenter.md`
+- `archive/2026-06-26-textual-presenters/2026-06-26-textual-local-command-presenter.md`
+- `archive/2026-06-26-textual-presenters/2026-06-26-textual-ask-command-parser.md`
+- `archive/2026-06-26-textual-presenters/2026-06-26-textual-status-history-presenters.md`
+- `archive/2026-06-26-textual-presenters/2026-06-26-textual-workflow-detail-presenters.md`
+- `archive/2026-06-26-textual-presenters/2026-06-26-textual-command-help-presenters.md`
+- `archive/2026-06-26-textual-presenters/2026-06-26-textual-context-review-presenters.md`
+- `archive/2026-06-26-textual-presenters/2026-06-26-textual-session-agent-presenters.md`
+- `archive/2026-06-26-textual-presenters/2026-06-26-textual-resume-presenters.md`
+- `archive/2026-06-26-textual-presenters/2026-06-26-textual-recovery-presenters.md`
+- `archive/2026-06-26-textual-presenters/2026-06-26-execute-retry-command-parser.md`
+- `archive/2026-06-26-textual-presenters/2026-06-26-textual-workflow-outcome-presenter.md`
+- `archive/2026-06-26-textual-presenters/2026-06-26-textual-local-command-snapshot.md`
+- `archive/2026-06-26-textual-presenters/2026-06-26-textual-ask-parser-direct.md`
+- `archive/2026-06-26-textual-presenters/2026-06-26-workflow-recovery-facade-thin.md`
+- `archive/2026-06-26-textual-presenters/2026-06-26-provider-error-gate-flow-reuse.md`
+- `archive/2026-06-26-textual-presenters/2026-06-26-workflow-execution-facade-thin.md`
 
 ## Render Cost Reduction Plans
 

@@ -397,9 +397,10 @@ class WorkflowEngine:
             provider_gate.open(result)
             return
 
+        central_flow = self._central_flow()
         structured = result.metadata.get("structured_consensus")
         if isinstance(structured, dict):
-            if self._apply_structured_questions(structured):
+            if central_flow._apply_structured_questions(structured):
                 self.set_state(
                     WorkflowState.NEEDS_USER_DECISION,
                     reason="structured deliberation requires user decision",
@@ -418,7 +419,7 @@ class WorkflowEngine:
                 self.session.subtask_results = []
                 self.session.review_packages = []
                 self.session.review_results = []
-                self._record_central_conversation(
+                central_flow._record_central_conversation(
                     title="Central Agent Response",
                     body=WorkflowCentralFlow._central_blueprint_body(
                         self.session.blueprint
@@ -443,7 +444,7 @@ class WorkflowEngine:
             self.session.subtask_results = []
             self.session.review_packages = []
             self.session.review_results = []
-            self._record_central_conversation(
+            central_flow._record_central_conversation(
                 title="Central Agent Response",
                 body=WorkflowCentralFlow._central_blueprint_body(
                     self.session.blueprint
@@ -457,35 +458,8 @@ class WorkflowEngine:
         else:
             self.set_state(WorkflowState.FAILED, reason="deliberation ended without consensus")
 
-    def _record_central_conversation(
-        self,
-        *,
-        title: str,
-        body: str,
-        role: str = "central",
-        channel: str = "nexus",
-        command: str = "",
-        related_ids: Iterable[str] = (),
-        truncated: bool = False,
-    ) -> None:
-        self._central_flow()._record_central_conversation(
-            title=title,
-            body=body,
-            role=role,
-            channel=channel,
-            command=command,
-            related_ids=related_ids,
-            truncated=truncated,
-        )
-
     def _record_provider_observations(self, metadata: dict[str, Any]) -> None:
         self._provider_observations().record_provider_observations(metadata)
-
-    def _apply_structured_questions(self, structured: dict) -> bool:
-        return self._central_flow()._apply_structured_questions(structured)
-
-    def _unique_question_id(self, question_id: str) -> str:
-        return self._central_flow()._unique_question_id(question_id)
 
     def _requires_execution(self, result: DeliberationResult) -> bool:
         if any(task.requires_execution for task in result.tasks):

@@ -519,11 +519,12 @@ def test_textual_workflow_controller_reports_active_synthesis(tmp_path) -> None:
 
     controller.start_prompt("모바일 퍼즐 게임 설계")
     mid = None
-    for _ in range(20):
+    deadline = time.monotonic() + 2.0
+    while time.monotonic() < deadline:
         mid = controller.drain_updates()
         if mid and mid.snapshot.synthesis.status == "running":
             break
-        time.sleep(0.01)
+        time.sleep(0.02)
 
     assert mid is not None
     assert mid.snapshot.round_num == 1

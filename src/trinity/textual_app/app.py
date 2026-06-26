@@ -32,6 +32,7 @@ from trinity.textual_app.command_parsers import (
     parse_answer_args,
     parse_ask_args,
     parse_caveman_args,
+    parse_report_args,
     parse_resume_args,
     parse_rounds_args,
     parse_target_args,
@@ -2443,7 +2444,8 @@ class TrinityTextualApp(App[None]):
     def _handle_textual_report_command(self, args: list[str]) -> None:
         snapshot = self._refresh_textual_snapshot()
         lang = self.config.lang
-        if args and args[0].lower() in {"save", "s"}:
+        parsed = parse_report_args(args)
+        if parsed.action == "save":
             path = self._export_report_markdown(snapshot)
             if path is None:
                 self._record_slash_command_result(

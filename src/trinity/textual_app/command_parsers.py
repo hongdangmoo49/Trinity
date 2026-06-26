@@ -75,6 +75,13 @@ class ResumeCommandParseResult:
     selector: str = ""
 
 
+@dataclass(frozen=True)
+class ReportCommandParseResult:
+    """Parsed `/report` command arguments."""
+
+    action: str = "open"
+
+
 def parse_ask_args(
     args: list[str],
     active_agent_names: Iterable[str],
@@ -287,3 +294,10 @@ def parse_resume_args(args: list[str]) -> ResumeCommandParseResult:
     if not args:
         return ResumeCommandParseResult(action="picker")
     return ResumeCommandParseResult(action="resume", selector=args[0].strip().lower())
+
+
+def parse_report_args(args: list[str]) -> ReportCommandParseResult:
+    """Parse `/report` arguments into open or save action."""
+    if args and args[0].strip().lower() in {"save", "s"}:
+        return ReportCommandParseResult(action="save")
+    return ReportCommandParseResult(action="open")

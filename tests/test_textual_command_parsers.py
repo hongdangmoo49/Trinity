@@ -5,6 +5,7 @@ from trinity.textual_app.command_parsers import (
     parse_answer_args,
     parse_ask_args,
     parse_caveman_args,
+    parse_report_args,
     parse_resume_args,
     parse_rounds_args,
     parse_target_args,
@@ -179,3 +180,10 @@ def test_parse_resume_args_routes_picker_or_selector() -> None:
     selector = parse_resume_args(["LATEST"])
     assert selector.action == "resume"
     assert selector.selector == "latest"
+
+
+def test_parse_report_args_routes_open_or_save() -> None:
+    assert parse_report_args([]).action == "open"
+    assert parse_report_args(["open"]).action == "open"
+    assert parse_report_args(["save"]).action == "save"
+    assert parse_report_args(["S"]).action == "save"

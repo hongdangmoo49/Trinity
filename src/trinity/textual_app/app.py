@@ -1968,10 +1968,7 @@ class TrinityTextualApp(App[None]):
 
     def _handle_textual_review_command(self, command_name: str, args: list[str]) -> None:
         outcome = self.workflow_controller.request_review(args)
-        message = outcome.message
-        if message:
-            outcome = replace(outcome, message="")
-        self._apply_workflow_outcome(outcome)
+        outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
         if message:
             self._record_slash_command_result(
                 command_name,
@@ -2003,10 +2000,7 @@ class TrinityTextualApp(App[None]):
         args: list[str],
     ) -> None:
         outcome = self.workflow_controller.request_improvement(args)
-        message = outcome.message
-        if message:
-            outcome = replace(outcome, message="")
-        self._apply_workflow_outcome(outcome)
+        outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
         if message:
             self._record_slash_command_result(
                 command_name,
@@ -2039,10 +2033,7 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         parsed_execute = parse_execute_args(args)
         outcome = self.workflow_controller.request_execution(parsed_execute.instruction)
-        message = outcome.message
-        if message:
-            outcome = replace(outcome, message="")
-        self._apply_workflow_outcome(outcome)
+        outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
         if outcome.execution_recovery_required:
             self._present_execution_recovery(
                 command_name,
@@ -2066,6 +2057,16 @@ class TrinityTextualApp(App[None]):
             )
         if outcome.target_workspace_required:
             self._open_execute_workspace_picker(outcome.snapshot)
+
+    def _apply_workflow_outcome_without_inline_message(
+        self,
+        outcome: TextualWorkflowOutcome,
+    ) -> tuple[TextualWorkflowOutcome, str]:
+        message = outcome.message
+        if message:
+            outcome = replace(outcome, message="")
+        self._apply_workflow_outcome(outcome)
+        return outcome, message
 
     def _handle_textual_ask_command(self, command_name: str, args: list[str]) -> None:
         parsed = parse_ask_args(

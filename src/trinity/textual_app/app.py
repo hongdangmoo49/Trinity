@@ -1960,36 +1960,7 @@ class TrinityTextualApp(App[None]):
             self._handle_textual_review_command(parsed.spec.name, args)
             return
         if command == "improve":
-            outcome = self.workflow_controller.request_improvement(args)
-            message = outcome.message
-            if message:
-                outcome = replace(outcome, message="")
-            self._apply_workflow_outcome(outcome)
-            if message:
-                self._record_slash_command_result(
-                    parsed.spec.name,
-                    textual_presenters.improve_title(lang=self.config.lang),
-                    textual_presenters.workflow_outcome_message_markdown(
-                        message,
-                        lang=self.config.lang,
-                    ),
-                    severity=(
-                        "warning"
-                        if message.startswith("No matching")
-                        or "required" in message
-                        else "info"
-                    ),
-                    table_columns=textual_presenters.improve_table_columns(
-                        lang=self.config.lang
-                    ),
-                    table_rows=textual_presenters.improve_rows(
-                        outcome.snapshot,
-                        lang=self.config.lang,
-                    ),
-                    action_hint=textual_presenters.improve_action_hint(
-                        lang=self.config.lang
-                    ),
-                )
+            self._handle_textual_improve_command(parsed.spec.name, args)
             return
         if command == "execute":
             parsed_execute = parse_execute_args(args)
@@ -2052,6 +2023,41 @@ class TrinityTextualApp(App[None]):
                     lang=self.config.lang,
                 ),
                 action_hint=textual_presenters.review_action_hint(
+                    lang=self.config.lang
+                ),
+            )
+
+    def _handle_textual_improve_command(
+        self,
+        command_name: str,
+        args: list[str],
+    ) -> None:
+        outcome = self.workflow_controller.request_improvement(args)
+        message = outcome.message
+        if message:
+            outcome = replace(outcome, message="")
+        self._apply_workflow_outcome(outcome)
+        if message:
+            self._record_slash_command_result(
+                command_name,
+                textual_presenters.improve_title(lang=self.config.lang),
+                textual_presenters.workflow_outcome_message_markdown(
+                    message,
+                    lang=self.config.lang,
+                ),
+                severity=(
+                    "warning"
+                    if message.startswith("No matching") or "required" in message
+                    else "info"
+                ),
+                table_columns=textual_presenters.improve_table_columns(
+                    lang=self.config.lang
+                ),
+                table_rows=textual_presenters.improve_rows(
+                    outcome.snapshot,
+                    lang=self.config.lang,
+                ),
+                action_hint=textual_presenters.improve_action_hint(
                     lang=self.config.lang
                 ),
             )

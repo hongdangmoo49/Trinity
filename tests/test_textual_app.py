@@ -86,6 +86,7 @@ from trinity.textual_app.presenters import (
     improve_table_columns,
     improve_title,
     local_command_snapshot,
+    local_command_notification_severity,
     memory_cleanup_error_markdown,
     memory_title,
     model_settings_title,
@@ -151,6 +152,7 @@ from trinity.textual_app.presenters import (
     snapshot_workflow_rows,
     slash_command_notification_title,
     status_table_columns,
+    status_local_command_snapshot,
     status_title,
     subtasks_action_hint,
     subtasks_markdown,
@@ -722,6 +724,22 @@ def test_status_presenter_uses_korean_labels() -> None:
     assert ("워크플로우", "wf-ko") in rows
     assert ("프로바이더: claude", "대기; 활성화=예; 준비 상태=미확인") in rows
     assert ("재시도 후보", "WP-001, WP-003") in rows
+
+
+def test_status_local_command_snapshot_uses_status_presenter() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-status",
+        goal="상태 확인",
+        state="executing",
+    )
+
+    result = status_local_command_snapshot("/status", snapshot, lang="ko")
+
+    assert result.command == "/status"
+    assert result.title == "상태"
+    assert "- 워크플로우: `wf-status`" in result.body
+    assert result.table_columns == ("항목", "값")
+    assert ("상태", "실행 중") in result.table_rows
 
 
 def test_status_presenter_uses_korean_placeholder_values() -> None:
@@ -1402,6 +1420,18 @@ def test_local_command_snapshot_presenter_normalizes_empty_body() -> None:
     assert snapshot.body == "(no output)"
     assert snapshot.severity == "warning"
     assert snapshot.table_rows == (("State", "idle"),)
+
+
+def test_local_command_notification_severity_maps_warning_and_error() -> None:
+    assert local_command_notification_severity(
+        local_command_snapshot("/status", "Status", "ok")
+    ) == "information"
+    assert local_command_notification_severity(
+        local_command_snapshot("/status", "Status", "warn", severity="warning")
+    ) == "warning"
+    assert local_command_notification_severity(
+        local_command_snapshot("/status", "Status", "error", severity="error")
+    ) == "warning"
 
 
 def test_caveman_presenter_uses_korean_labels() -> None:

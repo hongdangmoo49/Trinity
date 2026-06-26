@@ -223,7 +223,7 @@ def test_invoker_render_prompt_includes_resource_overlay(tmp_path):
 def test_workflow_session_persists_resource_projection_metadata(tmp_path):
     engine = WorkflowEngine(state_dir=tmp_path / ".trinity")
     engine.session.state = WorkflowState.DELIBERATING
-    engine._record_provider_observations(
+    engine._provider_observations().record_provider_observations(
         {
             "resource_projections": {
                 "codex:codex:trinity-core:implementation-plan:skill": {

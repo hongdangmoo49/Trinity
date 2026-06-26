@@ -391,7 +391,7 @@ class WorkflowEngine:
     def mark_deliberation_result(self, result: DeliberationResult) -> None:
         """Update workflow state after a deliberation completes."""
         self.session.current_round = result.rounds_completed
-        self._record_provider_observations(result.metadata)
+        self._provider_observations().record_provider_observations(result.metadata)
         provider_gate = self._provider_error_gate_flow()
         if provider_gate.should_open(result):
             provider_gate.open(result)
@@ -475,9 +475,6 @@ class WorkflowEngine:
             reason="deliberation reached consensus",
         )
         return True
-
-    def _record_provider_observations(self, metadata: dict[str, Any]) -> None:
-        self._provider_observations().record_provider_observations(metadata)
 
     def _requires_execution(self, result: DeliberationResult) -> bool:
         if any(task.requires_execution for task in result.tasks):

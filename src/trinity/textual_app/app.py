@@ -1340,12 +1340,12 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         event.stop()
         outcome = self.workflow_controller.request_execution()
-        self._apply_workflow_outcome(outcome)
+        outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
         if outcome.execution_recovery_required:
             self._present_execution_recovery(
                 "/execute",
                 outcome.snapshot,
-                outcome.message,
+                message,
             )
             return
         if outcome.target_workspace_required:

@@ -71,6 +71,8 @@ Current parser surface:
 - `ArtifactCommandParseResult`
 - `parse_memory_args(args)`
 - `MemoryCommandParseResult`
+- `parse_execute_args(args)`
+- `ExecuteCommandParseResult`
 
 Parser functions may:
 

@@ -14,8 +14,8 @@ from trinity.models import (
 )
 from trinity.workflow.decomposer import (
     BlueprintDecomposer,
-    classify_execution_intent,
 )
+from trinity.workflow.intent import requires_execution_for_deliberation
 from trinity.workflow.collection_flow import WorkflowCollectionFlow
 from trinity.workflow.central_flow import WorkflowCentralFlow
 from trinity.workflow.execution_flow import WorkflowExecutionFlow
@@ -429,7 +429,10 @@ class WorkflowEngine:
         self.session.work_packages = self.decomposer.decompose(
             self.session.blueprint,
             self._decomposition_agents(),
-            requires_execution=self._requires_execution(result),
+            requires_execution=requires_execution_for_deliberation(
+                self.session.goal,
+                result,
+            ),
         )
         self.session.execution_results = []
         self.session.subtask_results = []
@@ -475,21 +478,6 @@ class WorkflowEngine:
             reason="deliberation reached consensus",
         )
         return True
-
-    def _requires_execution(self, result: DeliberationResult) -> bool:
-        if any(task.requires_execution for task in result.tasks):
-            return True
-
-        text = "\n".join(
-            part
-            for part in (
-                self.session.goal,
-                result.user_prompt,
-                result.consensus.summary if result.consensus else "",
-            )
-            if part
-        )
-        return classify_execution_intent(text)
 
     def pending_execution_package_ids(self) -> list[str]:
         """Return the package ids that the next execution run should dispatch."""

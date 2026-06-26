@@ -2,7 +2,7 @@
 
 import json
 
-from trinity.models import ConsensusResult, DeliberationResult
+from trinity.models import ConsensusResult, DeliberationResult, TaskAssignment
 from trinity.context.shared import SharedContextEngine
 from trinity.workflow import (
     Blueprint,
@@ -21,6 +21,7 @@ from trinity.workflow import (
     classify_execution_intent,
 )
 from trinity.workflow.structured import StructuredConsensusSynthesizer
+from trinity.workflow.intent import requires_execution_for_deliberation
 
 
 def test_workflow_engine_starts_and_persists_session(tmp_path):
@@ -2287,6 +2288,39 @@ def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_blueprint_followup_action("새 요청으로 시작") == "new"
     assert classify_blueprint_followup_action("취소") == "cancel"
     assert classify_blueprint_followup_action("텔레그램 알림은?") is None
+
+
+def test_requires_execution_for_deliberation_uses_task_marker():
+    result = DeliberationResult(
+        user_prompt="설계해라",
+        rounds_completed=1,
+        consensus=None,
+        tasks=[
+            TaskAssignment(
+                agent_name="codex",
+                task_description="Implement change",
+                requires_execution=True,
+            )
+        ],
+    )
+
+    assert requires_execution_for_deliberation("설계만 해라", result) is True
+
+
+def test_requires_execution_for_deliberation_uses_combined_text():
+    result = DeliberationResult(
+        user_prompt="이 설계대로 구현해라",
+        rounds_completed=1,
+        consensus=ConsensusResult(
+            reached=True,
+            agreement_count=1,
+            total_agents=1,
+            opinions={"codex": "yes"},
+            summary="Build the implementation.",
+        ),
+    )
+
+    assert requires_execution_for_deliberation("Route bot", result) is True
 
 
 def test_sync_shared_ledger_restores_from_structured_session(tmp_path):

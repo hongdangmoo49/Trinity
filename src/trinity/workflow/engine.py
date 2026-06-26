@@ -345,10 +345,6 @@ class WorkflowEngine:
         """Regenerate current blueprint packages as executable work packages."""
         return self._lifecycle_flow().enable_execution_for_current_blueprint(instruction)
 
-    def _freeze_current_blueprint(self) -> Path | None:
-        """Persist the approved blueprint as an immutable execution artifact."""
-        return self._lifecycle_flow()._freeze_current_blueprint()
-
     def resolve_question(
         self,
         selector: str,
@@ -360,13 +356,6 @@ class WorkflowEngine:
             selector,
             include_answered=include_answered,
         )
-
-    def _decision_for_question(self, question_id: str) -> DecisionRecord | None:
-        """Return the existing decision attached to a question."""
-        return self._question_flow()._decision_for_question(question_id)
-
-    def _next_decision_id(self) -> str:
-        return self._question_flow()._next_decision_id()
 
     def set_target_workspace(
         self,

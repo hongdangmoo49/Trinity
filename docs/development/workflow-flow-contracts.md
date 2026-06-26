@@ -10,6 +10,9 @@ Authoritative implementation modules:
 
 - `WorkflowInputFlow`: plain input routing by workflow state
 - `WorkflowLifecycleFlow`: start, blueprint continuation, execution enablement
+- `WorkflowDeliberationResultFlow`: completed deliberation result state
+  transitions, provider metadata observation, provider error gate entry, and
+  blueprint application
 - `WorkflowQuestionFlow`: open-question resolution and user decisions
 - `ProviderErrorGateFlow`: retry, continue, or stop after provider failures
 - `WorkflowWorkspaceFlow`: target workspace selection
@@ -22,6 +25,8 @@ Authoritative implementation modules:
 - `WorkflowQualityFlow`: advisory execution/review quality summaries
 - `WorkflowCollectionFlow`: list-backed lookup and upsert helpers
 - `WorkflowLedgerSync`: shared ledger rendering and persistence
+- `WorkflowPersistenceFlow`: session save, event append, timestamp normalization,
+  and initial session load/create
 
 `WorkflowEngine` remains the public compatibility facade. Public engine methods
 may delegate to a flow, but callers should not import flow classes directly
@@ -29,9 +34,10 @@ unless they are tests for that flow.
 
 ## Shared Invariants
 
-All flows mutate `engine.session` and persist through `engine._persist()`.
-Changes that affect user-visible state must update `session.updated_at` and
-emit an event with enough data for report reconstruction.
+All flows mutate `engine.session` and persist events through
+`engine._persistence_flow().persist()`. Changes that affect user-visible state
+must update `session.updated_at` and emit an event with enough data for report
+reconstruction.
 
 State transitions must go through `engine.set_state()`. Flow methods should not
 assign `session.state` directly.
@@ -40,9 +46,11 @@ Methods that return a user-input decision must return
 `WorkflowEngine.input_action_type` (`WorkflowInputAction` by default). This
 keeps Textual, slash commands, and tests on the same routing contract.
 
-Targeted provider calls must pass through `_effective_target_agents()` and
-`_normalized_model_overrides()` so one-provider, two-provider, and targeted
-agent UX stay consistent.
+Targeted provider calls must use `WorkflowTargetingFlow.effective_target_agents()`
+and `WorkflowTargetingFlow.normalized_model_overrides()` so one-provider,
+two-provider, and targeted agent UX stay consistent. Work package decomposition
+must use `WorkflowTargetingFlow.decomposition_agents()` when active
+`AgentSpec` metadata is available.
 
 ## Facade Surface
 
@@ -104,6 +112,11 @@ packages, clears execution/review history for the execution round, persists
 workflow in `NEEDS_USER_DECISION` while more open questions remain, and resumes
 deliberation only after the blocking question set is clear.
 
+Completed deliberation results are applied by `WorkflowDeliberationResultFlow`.
+It records provider metadata, opens the provider error gate before blueprint
+application when retryable provider failures exist, then applies structured
+consensus or consensus fallback.
+
 Provider error gate questions are resolved by `ProviderErrorGateFlow`, not by
 ordinary deliberation continuation:
 
@@ -119,7 +132,7 @@ Provider readiness and recovery details are tracked in
 
 `WorkflowWorkspaceFlow.set_target_workspace()` resolves the path, records
 whether the Trinity control repo was explicitly confirmed as target, and emits
-`target_workspace_selected`.
+`target_workspace_selected` through `WorkflowPersistenceFlow`.
 
 Execution and post-review improvement must require a selected target workspace
 before provider write operations are requested.
@@ -188,6 +201,10 @@ Before removing another `WorkflowEngine` wrapper:
 4. Run `uv run python scripts/run_required_smoke_tests.py -q`.
 5. Update this document or `docs/development/facade-drift-audit.md` if the
    public boundary changes.
+
+`WorkflowEngine._persist()` has been removed. New event-writing code should call
+`engine._persistence_flow().persist()` or accept `WorkflowPersistenceFlow.persist`
+as an injected callback.
 
 ## Focused Test Guidance
 

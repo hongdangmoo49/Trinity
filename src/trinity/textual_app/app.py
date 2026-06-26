@@ -1404,10 +1404,7 @@ class TrinityTextualApp(App[None]):
         event.stop()
         args = ("wp", *event.package_ids)
         outcome = self.workflow_controller.request_review(args)
-        message = outcome.message
-        if message:
-            outcome = replace(outcome, message="")
-        self._apply_workflow_outcome(outcome)
+        outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
         if message:
             self.notify(
                 textual_presenters.workflow_outcome_message_markdown(

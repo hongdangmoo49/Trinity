@@ -6,6 +6,7 @@ from trinity.textual_app.command_parsers import (
     parse_artifact_args,
     parse_ask_args,
     parse_caveman_args,
+    parse_execute_args,
     parse_memory_args,
     parse_report_args,
     parse_resume_args,
@@ -215,3 +216,8 @@ def test_parse_memory_args_routes_known_actions_and_defaults_to_stats() -> None:
     stats = parse_memory_args(["unknown", "--flag"])
     assert stats.action == "stats"
     assert stats.action_args == ("unknown", "--flag")
+
+
+def test_parse_execute_args_joins_instruction() -> None:
+    assert parse_execute_args([]).instruction == ""
+    assert parse_execute_args(["retry", "blocked"]).instruction == "retry blocked"

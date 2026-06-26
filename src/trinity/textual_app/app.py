@@ -33,6 +33,7 @@ from trinity.textual_app.command_parsers import (
     parse_artifact_args,
     parse_ask_args,
     parse_caveman_args,
+    parse_execute_args,
     parse_memory_args,
     parse_report_args,
     parse_resume_args,
@@ -2019,7 +2020,10 @@ class TrinityTextualApp(App[None]):
                 )
             return
         if command == "execute":
-            outcome = self.workflow_controller.request_execution(" ".join(args))
+            parsed_execute = parse_execute_args(args)
+            outcome = self.workflow_controller.request_execution(
+                parsed_execute.instruction
+            )
             message = outcome.message
             if message:
                 outcome = replace(outcome, message="")

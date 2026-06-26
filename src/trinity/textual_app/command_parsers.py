@@ -98,6 +98,13 @@ class MemoryCommandParseResult:
     action_args: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class ExecuteCommandParseResult:
+    """Parsed `/execute` command arguments."""
+
+    instruction: str = ""
+
+
 def parse_ask_args(
     args: list[str],
     active_agent_names: Iterable[str],
@@ -341,3 +348,8 @@ def parse_memory_args(args: list[str]) -> MemoryCommandParseResult:
     if action in {"compact", "cleanup"}:
         return MemoryCommandParseResult(action=action, action_args=tuple(args[1:]))
     return MemoryCommandParseResult(action="stats", action_args=tuple(args))
+
+
+def parse_execute_args(args: list[str]) -> ExecuteCommandParseResult:
+    """Parse `/execute` arguments into a workflow execution instruction."""
+    return ExecuteCommandParseResult(instruction=" ".join(args).strip())

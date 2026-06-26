@@ -324,7 +324,7 @@ class WorkflowExecutionFlow:
                 session.decisions.append(decision)
         for subtask in result.subtasks:
             self.engine._collection_flow().upsert_subtask_result(subtask)
-        self.engine._record_execution_quality(result)
+        self.engine._quality_flow().record_execution_quality(result)
 
         ordered_package_ids = [package.id for package in session.work_packages]
         session.execution_results = [

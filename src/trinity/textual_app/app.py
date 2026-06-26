@@ -2552,13 +2552,6 @@ class TrinityTextualApp(App[None]):
         )
         self.switch_to("report")
 
-    @staticmethod
-    def _session_setting_body(message: str) -> str:
-        return textual_presenters.session_setting_body(message)
-
-    def _agent_rows(self, *, lang: str = "en") -> tuple[tuple[str, str, str], ...]:
-        return textual_presenters.agent_rows(self.config.agents, lang=lang)
-
     def _handle_textual_rounds_command(
         self,
         command_name: str,
@@ -2568,7 +2561,7 @@ class TrinityTextualApp(App[None]):
             self._record_slash_command_result(
                 command_name,
                 textual_presenters.rounds_title(lang=self.config.lang),
-                self._session_setting_body(
+                textual_presenters.session_setting_body(
                     textual_presenters.rounds_current_markdown(
                         self.config.max_deliberation_rounds,
                         lang=self.config.lang,
@@ -2614,7 +2607,7 @@ class TrinityTextualApp(App[None]):
         self._record_slash_command_result(
             command_name,
             textual_presenters.rounds_title(lang=self.config.lang),
-            self._session_setting_body(
+            textual_presenters.session_setting_body(
                 textual_presenters.rounds_set_markdown(rounds, lang=self.config.lang)
             ),
             table_columns=textual_presenters.status_table_columns(lang=self.config.lang),
@@ -2633,7 +2626,7 @@ class TrinityTextualApp(App[None]):
             self._record_slash_command_result(
                 command_name,
                 textual_presenters.agent_title(lang=self.config.lang),
-                self._session_setting_body(
+                textual_presenters.session_setting_body(
                     textual_presenters.agent_current_settings_markdown(
                         lang=self.config.lang
                     )
@@ -2641,7 +2634,10 @@ class TrinityTextualApp(App[None]):
                 table_columns=textual_presenters.agent_table_columns(
                     lang=self.config.lang
                 ),
-                table_rows=self._agent_rows(lang=self.config.lang),
+                table_rows=textual_presenters.agent_rows(
+                    self.config.agents,
+                    lang=self.config.lang,
+                ),
                 action_hint=textual_presenters.agent_change_action_hint(
                     lang=self.config.lang
                 ),
@@ -2656,7 +2652,10 @@ class TrinityTextualApp(App[None]):
                 table_columns=textual_presenters.agent_table_columns(
                     lang=self.config.lang
                 ),
-                table_rows=self._agent_rows(lang=self.config.lang),
+                table_rows=textual_presenters.agent_rows(
+                    self.config.agents,
+                    lang=self.config.lang,
+                ),
             )
             return
         name, action = args[0].lower(), args[1].lower()
@@ -2670,7 +2669,10 @@ class TrinityTextualApp(App[None]):
                 table_columns=textual_presenters.agent_table_columns(
                     lang=self.config.lang
                 ),
-                table_rows=self._agent_rows(lang=self.config.lang),
+                table_rows=textual_presenters.agent_rows(
+                    self.config.agents,
+                    lang=self.config.lang,
+                ),
             )
             return
         if action not in {"on", "off"}:
@@ -2682,14 +2684,17 @@ class TrinityTextualApp(App[None]):
                 table_columns=textual_presenters.agent_table_columns(
                     lang=self.config.lang
                 ),
-                table_rows=self._agent_rows(lang=self.config.lang),
+                table_rows=textual_presenters.agent_rows(
+                    self.config.agents,
+                    lang=self.config.lang,
+                ),
             )
             return
         spec.enabled = action == "on"
         self._record_slash_command_result(
             command_name,
             textual_presenters.agent_title(lang=self.config.lang),
-            self._session_setting_body(
+            textual_presenters.session_setting_body(
                 textual_presenters.agent_status_markdown(
                     name,
                     spec.enabled,
@@ -2697,7 +2702,10 @@ class TrinityTextualApp(App[None]):
                 )
             ),
             table_columns=textual_presenters.agent_table_columns(lang=self.config.lang),
-            table_rows=self._agent_rows(lang=self.config.lang),
+            table_rows=textual_presenters.agent_rows(
+                self.config.agents,
+                lang=self.config.lang,
+            ),
         )
 
     def _handle_textual_caveman_command(
@@ -2710,7 +2718,7 @@ class TrinityTextualApp(App[None]):
             self._record_slash_command_result(
                 command_name,
                 textual_presenters.caveman_title(lang=self.config.lang),
-                self._session_setting_body(
+                textual_presenters.session_setting_body(
                     textual_presenters.caveman_current_markdown(
                         mode,
                         self.config.caveman_intensity,
@@ -2753,7 +2761,7 @@ class TrinityTextualApp(App[None]):
         self._record_slash_command_result(
             command_name,
             textual_presenters.caveman_title(lang=self.config.lang),
-            self._session_setting_body(
+            textual_presenters.session_setting_body(
                 textual_presenters.caveman_set_markdown(
                     mode,
                     self.config.caveman_intensity,

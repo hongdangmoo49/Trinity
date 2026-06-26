@@ -395,8 +395,9 @@ class WorkflowEngine:
         """Update workflow state after a deliberation completes."""
         self.session.current_round = result.rounds_completed
         self._record_provider_observations(result.metadata)
-        if self._provider_error_gate_flow().should_open(result):
-            self._provider_error_gate_flow().open(result)
+        provider_gate = self._provider_error_gate_flow()
+        if provider_gate.should_open(result):
+            provider_gate.open(result)
             return
 
         structured = result.metadata.get("structured_consensus")

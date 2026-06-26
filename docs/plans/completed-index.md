@@ -18,7 +18,7 @@ or deleting old implementation plans.
 | --- | --- | --- | --- |
 | Fake provider and facade baseline | #90-#96 | `2026-06-24-fake-provider-ci-smoke.md`, early 2026-06-26 facade notes | Keep until fake-provider E2E exists |
 | Nexus projection and performance budgets | #97-#108 | snapshot, event-tail, and performance-budget plans | Keep as performance baseline |
-| Execution UX and retry/review feedback | #109-#160 | execution, retry, review, provider metadata, report metadata plans | Nexus execution/review state contract doc exists; archive by sub-bundle |
+| Execution UX and retry/review feedback | #109-#160 | execution, retry, review, provider metadata, report metadata plans | 2026-06-24 execution/review feedback plans archived after Nexus state contract |
 | Korean UX vocabulary stabilization | #161-#292 | 2026-06-24/25 `*i18n*`, `*-ko`, `*korean*`, status, placeholder, and term plans | Explicit i18n/ko/korean and 2026-06-25 UI label/status plans archived |
 | Nexus/Textual render cost reduction | #293-#391 | 2026-06-25 and 2026-06-26 cache/rebind/query plans | Explicit render cache/rebind/query plans archived after performance guidance |
 | Workflow flow decomposition | #392-#409 | 2026-06-26 `workflow-*`, `provider-*`, review/post-review flow plans | Keep as architecture trace; flow and provider readiness/recovery contract docs exist |
@@ -107,6 +107,21 @@ Representative files:
 - `2026-06-26-workflow-inspector-render-key-rebind.md`
 - `2026-06-26-prompt-composer-render-key-rebind.md`
 - `2026-06-26-workspace-picker-status-key-rebind.md`
+
+## Execution And Review Feedback Plans
+
+These plans are completed execution, retry, peer-review, and work-package detail
+feedback slices. Their active Nexus projection contract is summarized in
+`docs/development/nexus-execution-review-state-contracts.md`.
+
+Archived bundle:
+
+- `docs/plans/archive/2026-06-24-execution-review-feedback/`
+
+The archived bundle contains the 2026-06-24 execution/retry/review feedback
+plans that now map to the Nexus execution/review state contract. Older broad
+execution redesign documents remain in the root until their migration context is
+summarized separately.
 
 ## Korean UX Stabilization Plans
 

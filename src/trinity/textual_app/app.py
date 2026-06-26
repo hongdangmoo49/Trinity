@@ -32,6 +32,7 @@ from trinity.textual_app.command_parsers import (
     parse_answer_args,
     parse_ask_args,
     parse_caveman_args,
+    parse_resume_args,
     parse_rounds_args,
     parse_target_args,
 )
@@ -2820,7 +2821,8 @@ class TrinityTextualApp(App[None]):
             return path.expanduser().absolute()
 
     def _handle_textual_resume_command(self, args: list[str]) -> None:
-        if not args:
+        parsed = parse_resume_args(args)
+        if parsed.action == "picker":
             archives = self.workflow_controller.list_resume_options()
             if not archives:
                 self._record_slash_command_result(
@@ -2857,8 +2859,7 @@ class TrinityTextualApp(App[None]):
                 self._on_resume_archive_selected,
             )
             return
-        selector = args[0].lower()
-        self._resume_textual_workflow(selector)
+        self._resume_textual_workflow(parsed.selector)
 
     def _on_resume_archive_selected(self, selector: str | None) -> None:
         if selector is None:

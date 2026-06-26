@@ -67,6 +67,14 @@ class TargetCommandParseResult:
     path_text: str = ""
 
 
+@dataclass(frozen=True)
+class ResumeCommandParseResult:
+    """Parsed `/resume` command arguments."""
+
+    action: str = "picker"
+    selector: str = ""
+
+
 def parse_ask_args(
     args: list[str],
     active_agent_names: Iterable[str],
@@ -272,3 +280,10 @@ def parse_target_args(args: list[str]) -> TargetCommandParseResult:
     if action in {"clear", "reset", "none"}:
         return TargetCommandParseResult(action="clear")
     return TargetCommandParseResult(action="path", path_text=" ".join(args).strip())
+
+
+def parse_resume_args(args: list[str]) -> ResumeCommandParseResult:
+    """Parse `/resume` arguments into picker or selector action."""
+    if not args:
+        return ResumeCommandParseResult(action="picker")
+    return ResumeCommandParseResult(action="resume", selector=args[0].strip().lower())

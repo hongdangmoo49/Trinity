@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -19,12 +18,12 @@ from trinity.providers.policy import (
 from trinity.routing.quality import QualityLedger
 from trinity.workflow.decomposer import (
     BlueprintDecomposer,
-    classify_blueprint_followup_action,
     classify_execution_intent,
 )
 from trinity.workflow.central_flow import WorkflowCentralFlow
 from trinity.workflow.execution_flow import WorkflowExecutionFlow
 from trinity.workflow.input_flow import WorkflowInputFlow
+from trinity.workflow.lifecycle_flow import WorkflowLifecycleFlow
 from trinity.workflow.ledger_sync import WorkflowLedgerSync
 from trinity.workflow.post_review_flow import WorkflowPostReviewFlow
 from trinity.workflow.provider_observations import WorkflowProviderObservations
@@ -212,6 +211,9 @@ class WorkflowEngine:
     def _input_flow(self) -> WorkflowInputFlow:
         return WorkflowInputFlow(self)
 
+    def _lifecycle_flow(self) -> WorkflowLifecycleFlow:
+        return WorkflowLifecycleFlow(self)
+
     def _execution_flow(self) -> WorkflowExecutionFlow:
         return WorkflowExecutionFlow(self)
 
@@ -288,63 +290,16 @@ class WorkflowEngine:
         agent_model_overrides: dict[str, str] | None = None,
     ) -> WorkflowInputAction:
         """Start a new workflow for a user goal."""
-        now = time.time()
-        target_workspace = (
-            self.session.target_workspace
-            if self._should_carry_target_workspace_into_new_workflow()
-            else None
-        )
-        control_repo_target_confirmed = (
-            self.session.control_repo_target_confirmed
-            if target_workspace is not None
-            else False
-        )
-        effective_targets = self._effective_target_agents(active_agents, target_agents)
-        model_overrides = self._normalized_model_overrides(
-            agent_model_overrides,
-            effective_targets,
-        )
-        self.session = WorkflowSession(
-            id=f"wf-{uuid4().hex[:12]}",
-            goal=goal,
-            state=WorkflowState.PREFLIGHT,
-            active_agents=list(active_agents),
-            last_target_agents=list(effective_targets),
-            agent_model_overrides=model_overrides,
-            target_workspace=target_workspace,
-            control_repo_target_confirmed=control_repo_target_confirmed,
-            created_at=now,
-            updated_at=now,
-        )
-        self._persist(
-            "workflow_started",
-            {
-                "goal": goal,
-                "active_agents": active_agents,
-                "target_agents": list(effective_targets),
-                "agent_model_overrides": dict(model_overrides),
-                "targeted": set(effective_targets) != set(active_agents),
-            },
-        )
-        self.set_state(WorkflowState.DELIBERATING, reason="user goal accepted")
-        return WorkflowInputAction(
-            should_deliberate=True,
-            prompt=goal,
-            target_agents=effective_targets,
-            agent_model_overrides=dict(model_overrides),
-            agent_selection_mode=(
-                "targeted" if set(effective_targets) != set(active_agents) else "all"
-            ),
-            started_new_workflow=True,
+        return self._lifecycle_flow().start(
+            goal,
+            active_agents,
+            target_agents=target_agents,
+            agent_model_overrides=agent_model_overrides,
         )
 
     def _should_carry_target_workspace_into_new_workflow(self) -> bool:
         """Return whether an idle preselected target should survive workflow start."""
-        return (
-            self.session.state == WorkflowState.IDLE
-            and not self.session.goal
-            and self.session.target_workspace is not None
-        )
+        return self._lifecycle_flow()._should_carry_target_workspace_into_new_workflow()
 
     def answer_pending_question(self, answer: str) -> WorkflowInputAction:
         """Record an answer to the oldest open question and continue deliberation."""
@@ -387,73 +342,11 @@ class WorkflowEngine:
         agent_model_overrides: dict[str, str] | None = None,
     ) -> WorkflowInputAction:
         """Continue an existing blueprint workflow with additional user text."""
-        instruction = instruction.strip()
-        if not instruction:
-            return WorkflowInputAction(
-                should_deliberate=False,
-                message="Instruction cannot be empty.",
-            )
-        if self.session.blueprint is None:
-            return self.start(
-                instruction,
-                active_agents,
-                target_agents=target_agents,
-                agent_model_overrides=agent_model_overrides,
-            )
-
-        followup_action = classify_blueprint_followup_action(instruction)
-        if followup_action == "execute":
-            return self.enable_execution_for_current_blueprint(instruction)
-        if followup_action == "cancel":
-            return WorkflowInputAction(
-                should_deliberate=False,
-                message="Workflow action cancelled.",
-            )
-        if followup_action == "new":
-            return self.start(
-                instruction,
-                active_agents,
-                target_agents=target_agents,
-                agent_model_overrides=agent_model_overrides,
-            )
-
-        if active_agents:
-            self.session.active_agents = list(active_agents)
-        effective_targets = self._effective_target_agents(
-            self.session.active_agents,
-            target_agents,
-        )
-        model_overrides = self._normalized_model_overrides(
-            agent_model_overrides,
-            effective_targets,
-        )
-        self.session.last_target_agents = list(effective_targets)
-        self.session.agent_model_overrides = model_overrides
-        source_state = self.session.state
-        self.set_state(
-            WorkflowState.DELIBERATING,
-            reason="user continued from existing blueprint",
-        )
-        self._persist(
-            "workflow_continued",
-            {
-                "instruction": instruction,
-                "source_state": source_state.value,
-                "target_agents": list(effective_targets),
-                "agent_model_overrides": dict(model_overrides),
-                "targeted": set(effective_targets) != set(self.session.active_agents),
-            },
-        )
-        return WorkflowInputAction(
-            should_deliberate=True,
-            prompt=self._build_blueprint_continuation_prompt(instruction),
-            target_agents=effective_targets,
-            agent_model_overrides=dict(model_overrides),
-            agent_selection_mode=(
-                "targeted"
-                if set(effective_targets) != set(self.session.active_agents)
-                else "all"
-            ),
+        return self._lifecycle_flow().continue_from_blueprint(
+            instruction,
+            active_agents,
+            target_agents=target_agents,
+            agent_model_overrides=agent_model_overrides,
         )
 
     def enable_execution_for_current_blueprint(
@@ -461,83 +354,11 @@ class WorkflowEngine:
         instruction: str = "",
     ) -> WorkflowInputAction:
         """Regenerate current blueprint packages as executable work packages."""
-        if self.session.blueprint is None:
-            return WorkflowInputAction(
-                should_deliberate=False,
-                message="No approved blueprint is available to execute.",
-            )
-        if not self.session.active_agents:
-            return WorkflowInputAction(
-                should_deliberate=False,
-                message="No active agents are attached to this workflow.",
-            )
-        if self.session.target_workspace is None:
-            return WorkflowInputAction(
-                should_deliberate=False,
-                target_workspace_required=True,
-                message="Target workspace is required before implementation.",
-            )
-
-        instruction = instruction.strip()
-        blueprint_path = self._freeze_current_blueprint()
-        if instruction:
-            self.session.decisions.append(
-                DecisionRecord(
-                    id=self._next_decision_id(),
-                    decision=instruction,
-                    decided_by="user",
-                    rationale="Execution instruction from session input.",
-                )
-            )
-
-        self.session.work_packages = self.decomposer.decompose(
-            self.session.blueprint,
-            self._decomposition_agents(),
-            requires_execution=True,
-        )
-        self.session.execution_results = []
-        self.session.subtask_results = []
-        self.session.review_packages = []
-        self.session.review_results = []
-        self.session.updated_at = time.time()
-        self._persist(
-            "execution_enabled",
-            {
-                "instruction": instruction,
-                "blueprint_path": str(blueprint_path) if blueprint_path else "",
-                "work_packages": [package.id for package in self.session.work_packages],
-            },
-        )
-        self.set_state(
-            WorkflowState.BLUEPRINT_READY,
-            reason="current blueprint marked executable",
-        )
-        return WorkflowInputAction(
-            should_deliberate=False,
-            execution_requested=True,
-            message="Current blueprint work packages are ready for execution.",
-        )
+        return self._lifecycle_flow().enable_execution_for_current_blueprint(instruction)
 
     def _freeze_current_blueprint(self) -> Path | None:
         """Persist the approved blueprint as an immutable execution artifact."""
-        if self.session.blueprint is None:
-            return None
-        artifact_dir = self.state_dir / "workflow" / "blueprints"
-        artifact_dir.mkdir(parents=True, exist_ok=True)
-        artifact_path = artifact_dir / f"{self.session.id}.json"
-        if artifact_path.exists():
-            return artifact_path
-        payload = {
-            "workflow_id": self.session.id,
-            "goal": self.session.goal,
-            "frozen_at": time.time(),
-            "blueprint": self.session.blueprint.to_dict(),
-        }
-        artifact_path.write_text(
-            json.dumps(payload, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
-        return artifact_path
+        return self._lifecycle_flow()._freeze_current_blueprint()
 
     def resolve_question(
         self,

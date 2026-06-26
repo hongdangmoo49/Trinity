@@ -10,7 +10,6 @@ from collections.abc import Iterable
 from typing import Any
 from uuid import uuid4
 
-from trinity.routing.quality import QualityLedger
 from trinity.workflow.models import (
     WorkPackage,
     WorkStatus,
@@ -614,7 +613,7 @@ class WorkflowReviewFlow:
         session = self.engine.session
         session.review_results.append(result.to_dict())
         self.apply_review_result_to_package(result)
-        self.record_review_quality(result)
+        self.engine._record_review_quality(result)
         session.updated_at = time.time()
         self.engine._persist(
             "review_result_recorded",
@@ -630,15 +629,6 @@ class WorkflowReviewFlow:
                     session.quality_signals[-1] if session.quality_signals else {}
                 ),
             },
-        )
-
-    def record_review_quality(self, result: ReviewResult) -> None:
-        ledger = QualityLedger(self.engine.session.quality_signals)
-        signal = ledger.record_review(result)
-        self.engine.session.quality_signals = ledger.to_dicts()
-        self.engine._persist(
-            "quality_signal_recorded",
-            signal.to_dict(),
         )
 
     def apply_review_result_to_package(self, result: ReviewResult) -> None:

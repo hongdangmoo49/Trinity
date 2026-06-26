@@ -28,7 +28,7 @@ from trinity.providers.model_discovery import (
     ProviderModelChoice,
     discover_provider_models,
 )
-from trinity.slash_commands import parse_slash_command
+from trinity.slash_commands import parse_execute_retry_args, parse_slash_command
 from trinity.textual_app.command_parsers import parse_ask_args
 from trinity.textual_app import presenters as textual_presenters
 from trinity.textual_app.report_export import (
@@ -3050,7 +3050,7 @@ class TrinityTextualApp(App[None]):
             )
 
     def _handle_textual_execute_retry_command(self, args: list[str]) -> None:
-        selector, package_ids = self._parse_execute_retry_args(args)
+        selector, package_ids = parse_execute_retry_args(args)
         self.workflow_controller.preview_execution_retry(selector, package_ids)
         snapshot = self._refresh_textual_snapshot()
         if not snapshot.work_package_details:
@@ -3076,15 +3076,6 @@ class TrinityTextualApp(App[None]):
             ),
             self._on_execute_retry_selected,
         )
-
-    @staticmethod
-    def _parse_execute_retry_args(args: list[str]) -> tuple[str, list[str]]:
-        if not args:
-            return "all", []
-        first = args[0].lower()
-        if first in {"all", "failed", "blocked", "interrupted", "custom"}:
-            return first, args[1:]
-        return "custom", args
 
     def _on_execute_retry_selected(
         self,

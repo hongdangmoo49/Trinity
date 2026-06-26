@@ -299,6 +299,10 @@ TRINITY_COMMANDS: list[str] = [
     for name in spec.names
 ]
 
+EXECUTE_RETRY_SELECTORS = frozenset(
+    {"all", "failed", "blocked", "interrupted", "custom"}
+)
+
 SLASH_COMMAND_DESCRIPTIONS: dict[str, dict[str, str]] = {
     "en": {
         name: spec.summary
@@ -343,3 +347,13 @@ def parse_slash_command(text: str) -> ParsedSlashCommand | None:
         args=tuple(parts[1:]),
         spec=spec,
     )
+
+
+def parse_execute_retry_args(args: list[str]) -> tuple[str, list[str]]:
+    """Parse `/execute-retry` arguments into a selector and package ids."""
+    if not args:
+        return "all", []
+    first = args[0].lower()
+    if first in EXECUTE_RETRY_SELECTORS:
+        return first, args[1:]
+    return "custom", args

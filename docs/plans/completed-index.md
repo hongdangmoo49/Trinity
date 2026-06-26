@@ -16,7 +16,7 @@ or deleting old implementation plans.
 
 | Bundle | PR range | Plan files | Archive readiness |
 | --- | --- | --- | --- |
-| Fake provider and facade baseline | #90-#96 | `2026-06-24-fake-provider-ci-smoke.md`, early 2026-06-26 facade notes | Keep until fake-provider E2E exists |
+| Fake provider and facade baseline | #90-#96 | fake provider harness and early facade notes | Fake provider CI smoke plan archived after harness and E2E coverage |
 | Nexus projection and performance budgets | #97-#108 | snapshot, event-tail, and performance-budget plans | Keep as performance baseline |
 | Execution UX and retry/review feedback | #109-#160 | execution, retry, review, provider metadata, report metadata plans | 2026-06-24 execution/review feedback plans archived after Nexus state contract |
 | Korean UX vocabulary stabilization | #161-#292 | 2026-06-24/25 `*i18n*`, `*-ko`, `*korean*`, status, placeholder, and term plans | Explicit i18n/ko/korean and 2026-06-25 UI label/status plans archived |
@@ -48,6 +48,16 @@ These plans describe completed flow extraction work and should be kept until
 - `2026-06-26-workflow-quality-flow.md`
 - `2026-06-26-workflow-targeting-flow.md`
 - `2026-06-26-workflow-collection-flow.md`
+
+## Fake Provider Baseline Plans
+
+The original fake-provider CI smoke plan is now archived because the durable
+testing contract lives in `docs/development/fake-provider-test-environment.md`
+and the required smoke list includes both fake-provider harness and E2E tests.
+
+Archived bundle:
+
+- `docs/plans/archive/2026-06-24-fake-provider-baseline/`
 
 ## Textual Presenter and Facade Plans
 

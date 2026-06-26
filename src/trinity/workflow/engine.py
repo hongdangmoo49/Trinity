@@ -702,12 +702,3 @@ class WorkflowEngine:
             goal="",
             state=WorkflowState.IDLE,
         )
-
-    def _build_decision_continuation_prompt(self, decision: DecisionRecord) -> str:
-        return self._central_flow()._build_decision_continuation_prompt(decision)
-
-    def _build_blueprint_continuation_prompt(self, instruction: str) -> str:
-        return self._central_flow()._build_blueprint_continuation_prompt(instruction)
-
-    def _target_workspace_prompt_block(self) -> str:
-        return self._central_flow()._target_workspace_prompt_block()

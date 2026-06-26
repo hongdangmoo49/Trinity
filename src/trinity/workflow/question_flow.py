@@ -128,7 +128,9 @@ class WorkflowQuestionFlow:
         }
         return action_type(
             should_deliberate=True,
-            prompt=self.engine._build_decision_continuation_prompt(decision),
+            prompt=self.engine._central_flow()._build_decision_continuation_prompt(
+                decision
+            ),
             target_agents=target_agents,
             agent_model_overrides=dict(model_overrides),
             agent_selection_mode=(

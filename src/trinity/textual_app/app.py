@@ -56,6 +56,7 @@ from trinity.textual_app.resume_commands import (
     resume_result_presentation,
     should_continue_resumed_workflow,
 )
+from trinity.textual_app.review_commands import review_result_presentation
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.report import ReportScreen
@@ -1959,19 +1960,16 @@ class TrinityTextualApp(App[None]):
     def _handle_textual_review_command(self, command_name: str, args: list[str]) -> None:
         outcome = self.workflow_controller.request_review(args)
         outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
-        if message:
+        presentation = review_result_presentation(message)
+        if presentation:
             self._record_slash_command_result(
                 command_name,
                 textual_presenters.review_title(lang=self.config.lang),
                 textual_presenters.workflow_outcome_message_markdown(
-                    message,
+                    presentation.message,
                     lang=self.config.lang,
                 ),
-                severity=(
-                    "warning"
-                    if message.startswith("No review") or "not connected" in message
-                    else "info"
-                ),
+                severity=presentation.severity,
                 table_columns=textual_presenters.review_table_columns(
                     lang=self.config.lang
                 ),

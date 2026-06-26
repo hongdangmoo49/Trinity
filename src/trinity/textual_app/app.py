@@ -28,7 +28,11 @@ from trinity.providers.model_discovery import (
     discover_provider_models,
 )
 from trinity.slash_commands import parse_execute_retry_args, parse_slash_command
-from trinity.textual_app.command_parsers import parse_ask_args, parse_rounds_args
+from trinity.textual_app.command_parsers import (
+    parse_agent_args,
+    parse_ask_args,
+    parse_rounds_args,
+)
 from trinity.textual_app import presenters as textual_presenters
 from trinity.textual_app.local_commands import (
     append_local_command_event,
@@ -2534,6 +2538,11 @@ class TrinityTextualApp(App[None]):
         command_name: str,
         args: list[str],
     ) -> None:
+        parsed = parse_agent_args(
+            args,
+            self.config.agents.keys(),
+            lang=self.config.lang,
+        )
         if not args:
             self._record_slash_command_result(
                 command_name,
@@ -2555,11 +2564,11 @@ class TrinityTextualApp(App[None]):
                 ),
             )
             return
-        if len(args) < 2:
+        if parsed.error:
             self._record_slash_command_result(
                 command_name,
                 textual_presenters.agent_title(lang=self.config.lang),
-                textual_presenters.agent_usage_markdown(lang=self.config.lang),
+                parsed.error,
                 severity="warning",
                 table_columns=textual_presenters.agent_table_columns(
                     lang=self.config.lang
@@ -2570,39 +2579,9 @@ class TrinityTextualApp(App[None]):
                 ),
             )
             return
-        name, action = args[0].lower(), args[1].lower()
-        spec = self.config.agents.get(name)
-        if spec is None:
-            self._record_slash_command_result(
-                command_name,
-                textual_presenters.agent_title(lang=self.config.lang),
-                textual_presenters.agent_unknown_markdown(name, lang=self.config.lang),
-                severity="warning",
-                table_columns=textual_presenters.agent_table_columns(
-                    lang=self.config.lang
-                ),
-                table_rows=textual_presenters.agent_rows(
-                    self.config.agents,
-                    lang=self.config.lang,
-                ),
-            )
-            return
-        if action not in {"on", "off"}:
-            self._record_slash_command_result(
-                command_name,
-                textual_presenters.agent_title(lang=self.config.lang),
-                textual_presenters.agent_usage_markdown(lang=self.config.lang),
-                severity="warning",
-                table_columns=textual_presenters.agent_table_columns(
-                    lang=self.config.lang
-                ),
-                table_rows=textual_presenters.agent_rows(
-                    self.config.agents,
-                    lang=self.config.lang,
-                ),
-            )
-            return
-        spec.enabled = action == "on"
+        name = parsed.agent_name
+        spec = self.config.agents[name]
+        spec.enabled = bool(parsed.enabled)
         self._record_slash_command_result(
             command_name,
             textual_presenters.agent_title(lang=self.config.lang),

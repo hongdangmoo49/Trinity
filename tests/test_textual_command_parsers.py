@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from trinity.textual_app.command_parsers import parse_ask_args, parse_rounds_args
+from trinity.textual_app.command_parsers import (
+    parse_agent_args,
+    parse_ask_args,
+    parse_rounds_args,
+)
 
 
 def test_parse_ask_args_targets_agent_and_model() -> None:
@@ -62,3 +66,34 @@ def test_parse_rounds_args_validates_number_and_range() -> None:
     assert out_of_range.rounds is None
     assert out_of_range.error == "라운드는 1에서 20 사이여야 합니다."
     assert out_of_range.action_hint == "`/rounds <1..20>`를 사용하세요."
+
+
+def test_parse_agent_args_returns_current_request_for_empty_args() -> None:
+    result = parse_agent_args([], ["claude"], lang="ko")
+
+    assert result.agent_name == ""
+    assert result.enabled is None
+    assert result.error == ""
+
+
+def test_parse_agent_args_validates_name_and_action() -> None:
+    enabled = parse_agent_args(["claude", "on"], ["claude", "codex"], lang="ko")
+    assert enabled.agent_name == "claude"
+    assert enabled.enabled is True
+    assert enabled.error == ""
+
+    disabled = parse_agent_args(["codex", "off"], ["claude", "codex"], lang="ko")
+    assert disabled.agent_name == "codex"
+    assert disabled.enabled is False
+    assert disabled.error == ""
+
+    missing_action = parse_agent_args(["claude"], ["claude"], lang="ko")
+    assert missing_action.error == "사용법: `/agent <name> on|off`"
+
+    unknown = parse_agent_args(["missing", "on"], ["claude"], lang="ko")
+    assert unknown.agent_name == "missing"
+    assert unknown.error == "알 수 없는 에이전트: `missing`"
+
+    invalid_action = parse_agent_args(["claude", "maybe"], ["claude"], lang="ko")
+    assert invalid_action.agent_name == "claude"
+    assert invalid_action.error == "사용법: `/agent <name> on|off`"

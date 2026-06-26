@@ -255,7 +255,7 @@ identity contract and the tests prove the contract.
 ### Next Minor
 
 - Ship the CI/test strategy as the default engineering workflow.
-- Add a completed-plan index for `docs/plans/`.
+- Add and maintain a completed-plan index for `docs/plans/`.
 - Audit facade drift and remove the next small wrapper group.
 - Add one fake-provider E2E path that exercises CLI init, provider readiness,
   workflow execution, retry decision, and report output without real accounts.

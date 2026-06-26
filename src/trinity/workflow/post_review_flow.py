@@ -223,7 +223,10 @@ class WorkflowPostReviewFlow:
             related = [
                 package_id
                 for package_id in item.related_wp_ids
-                if self.engine._work_package_by_id(package_id) is not None
+                if (
+                    self.engine._collection_flow().work_package_by_id(package_id)
+                    is not None
+                )
             ]
             package = WorkPackage(
                 id=package_id,
@@ -510,7 +513,7 @@ class WorkflowPostReviewFlow:
         return item.suggested_owner or "codex"
 
     def _owner_for_related_package(self, package_id: str) -> str:
-        package = self.engine._work_package_by_id(package_id)
+        package = self.engine._collection_flow().work_package_by_id(package_id)
         if package is None:
             return ""
         return package.last_executor or package.owner_agent

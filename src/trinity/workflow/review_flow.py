@@ -182,7 +182,9 @@ class WorkflowReviewFlow:
                 continue
             if result.status != ReviewStatus.CHANGES_REQUESTED:
                 continue
-            package = self.engine._work_package_by_id(result.package_id)
+            package = self.engine._collection_flow().work_package_by_id(
+                result.package_id
+            )
             if package is None or not package.requires_execution:
                 continue
             if package.id not in repair_requests:
@@ -634,7 +636,7 @@ class WorkflowReviewFlow:
     def apply_review_result_to_package(self, result: ReviewResult) -> None:
         if result.scope == "final" or result.package_id == FINAL_REVIEW_PACKAGE_ID:
             return
-        package = self.engine._work_package_by_id(result.package_id)
+        package = self.engine._collection_flow().work_package_by_id(result.package_id)
         if package is None:
             return
         if result.status == ReviewStatus.APPROVED:

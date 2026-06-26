@@ -2377,10 +2377,10 @@ class TrinityTextualApp(App[None]):
         table_rows: tuple[tuple[str, ...], ...] = (),
     ) -> LocalCommandSnapshot:
         """Build a local slash command result snapshot."""
-        return LocalCommandSnapshot(
-            command=command,
-            title=title,
-            body=body.strip() or "(no output)",
+        return textual_presenters.local_command_snapshot(
+            command,
+            title,
+            body,
             severity=severity,
             result_kind=result_kind,
             empty=empty,

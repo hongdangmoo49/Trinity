@@ -46,13 +46,7 @@ from trinity.workflow.models import (
     WorkflowState,
 )
 from trinity.workflow.persistence import WorkflowPersistence
-import trinity.workflow.provider_error_gate as provider_error_gate
-from trinity.workflow.provider_error_gate import (
-    PROVIDER_ERROR_CONTINUE_OPTION,
-    PROVIDER_ERROR_GATE_QUESTION_ID,
-    PROVIDER_ERROR_RETRY_OPTION,
-    PROVIDER_ERROR_STOP_OPTION,
-)
+from trinity.workflow.provider_error_gate_flow import ProviderErrorGateFlow
 from trinity.workflow.recovery_flow import (
     ExecutionRecoveryFlow,
     ExecutionRetryPlan,
@@ -199,6 +193,16 @@ class WorkflowEngine:
             persistence=self.persistence,
             persist=self._persist,
             set_state=self.set_state,
+        )
+
+    def _provider_error_gate_flow(self) -> ProviderErrorGateFlow:
+        return ProviderErrorGateFlow(
+            session=self.session,
+            persist=self._persist,
+            set_state=self.set_state,
+            action_type=self.input_action_type,
+            normalize_model_overrides=self._normalized_model_overrides,
+            mark_deliberation_result=self.mark_deliberation_result,
         )
 
     def _execution_flow(self) -> WorkflowExecutionFlow:
@@ -426,8 +430,8 @@ class WorkflowEngine:
                 replaced_decision=replaced,
             )
 
-        if self._is_provider_error_gate_question(question):
-            return self._handle_provider_error_gate_answer(
+        if self._provider_error_gate_flow().is_gate_question(question):
+            return self._provider_error_gate_flow().handle_answer(
                 answer,
                 decision,
                 replaced_decision=replaced,
@@ -745,8 +749,8 @@ class WorkflowEngine:
         """Update workflow state after a deliberation completes."""
         self.session.current_round = result.rounds_completed
         self._record_provider_observations(result.metadata)
-        if self._should_open_provider_error_gate(result):
-            self._open_provider_error_gate(result)
+        if self._provider_error_gate_flow().should_open(result):
+            self._provider_error_gate_flow().open(result)
             return
 
         structured = result.metadata.get("structured_consensus")
@@ -804,173 +808,6 @@ class WorkflowEngine:
             )
         else:
             self.set_state(WorkflowState.FAILED, reason="deliberation ended without consensus")
-
-    def _should_open_provider_error_gate(self, result: DeliberationResult) -> bool:
-        return provider_error_gate.should_open_provider_error_gate(result)
-
-    def _open_provider_error_gate(self, result: DeliberationResult) -> None:
-        plan = provider_error_gate.build_provider_error_gate_plan(
-            result,
-            active_agents=self.session.active_agents,
-            created_at=time.time(),
-        )
-        self.session.pending_questions = [
-            item
-            for item in self.session.pending_questions
-            if item.id != PROVIDER_ERROR_GATE_QUESTION_ID
-        ]
-        self.session.pending_questions.append(plan.question)
-        self.session.provider_error_gate = dict(plan.gate)
-        self.session.updated_at = time.time()
-        self._persist(
-            "provider_error_gate_opened",
-            {
-                "question_id": plan.question.id,
-                "failed_agents": plan.failed_agents,
-                "can_continue": plan.can_continue,
-                "failures": plan.failures,
-            },
-        )
-        self.set_state(
-            WorkflowState.NEEDS_USER_DECISION,
-            reason="provider errors need retry decision",
-        )
-
-    def _handle_provider_error_gate_answer(
-        self,
-        answer: str,
-        decision: DecisionRecord,
-        *,
-        replaced_decision: bool,
-    ) -> WorkflowInputAction:
-        choice = provider_error_gate.provider_error_gate_choice(answer)
-        gate = dict(self.session.provider_error_gate)
-        failed_agents = tuple(
-            str(agent)
-            for agent in gate.get("failed_agents", [])
-            if str(agent).strip()
-        )
-
-        if choice == "continue":
-            if not bool(gate.get("can_continue", False)):
-                self.set_state(
-                    WorkflowState.NEEDS_USER_DECISION,
-                    reason="provider error gate continue is unavailable",
-                )
-                return WorkflowInputAction(
-                    should_deliberate=False,
-                    decision_record=decision,
-                    replaced_decision=replaced_decision,
-                    message="Continue is not available because no usable consensus exists.",
-                )
-            result = provider_error_gate.deliberation_result_from_dict(
-                gate.get("result", {})
-                if isinstance(gate.get("result", {}), dict)
-                else {}
-            )
-            result.metadata["provider_error_gate_bypassed"] = True
-            self.session.provider_error_gate = {}
-            self._persist(
-                "provider_error_gate_resolved",
-                {"action": "continue", "failed_agents": list(failed_agents)},
-            )
-            self.mark_deliberation_result(result)
-            return WorkflowInputAction(
-                should_deliberate=False,
-                decision_record=decision,
-                replaced_decision=replaced_decision,
-                message="Continuing without failed providers.",
-            )
-
-        if choice == "stop":
-            self.session.provider_error_gate = {}
-            self._persist(
-                "provider_error_gate_resolved",
-                {"action": "stop", "failed_agents": list(failed_agents)},
-            )
-            self.set_state(WorkflowState.FAILED, reason="provider error gate stopped")
-            return WorkflowInputAction(
-                should_deliberate=False,
-                decision_record=decision,
-                replaced_decision=replaced_decision,
-                message="Workflow stopped after provider errors.",
-            )
-
-        self.session.provider_error_gate = {
-            **gate,
-            "state": "retry_requested",
-            "retry_requested_at": time.time(),
-        }
-        self._persist(
-            "provider_error_gate_resolved",
-            {"action": "retry", "failed_agents": list(failed_agents)},
-        )
-        self.set_state(
-            WorkflowState.DELIBERATING,
-            reason="retrying failed provider responses",
-        )
-        return WorkflowInputAction(
-            should_deliberate=True,
-            prompt=provider_error_gate.provider_error_retry_prompt(gate),
-            target_agents=failed_agents,
-            agent_model_overrides=self._normalized_model_overrides(
-                self.session.agent_model_overrides,
-                failed_agents,
-            ),
-            agent_selection_mode="targeted",
-            provider_retry_merge_context=provider_error_gate.provider_error_retry_context(gate),
-            decision_record=decision,
-            replaced_decision=replaced_decision,
-            message="Retrying failed providers.",
-        )
-
-    @staticmethod
-    def _is_provider_error_gate_question(question: OpenQuestion) -> bool:
-        return provider_error_gate.is_provider_error_gate_question(question)
-
-    @staticmethod
-    def _provider_error_gate_choice(answer: str) -> str:
-        return provider_error_gate.provider_error_gate_choice(answer)
-
-    @staticmethod
-    def _provider_error_retry_prompt(gate: dict[str, Any]) -> str:
-        return provider_error_gate.provider_error_retry_prompt(gate)
-
-    @staticmethod
-    def _provider_error_retry_context(gate: dict[str, Any]) -> dict[str, Any]:
-        return provider_error_gate.provider_error_retry_context(gate)
-
-    @staticmethod
-    def _retryable_provider_failures(result: DeliberationResult) -> list[dict[str, object]]:
-        return provider_error_gate.retryable_provider_failures(result)
-
-    @staticmethod
-    def _provider_successful_opinions(result: DeliberationResult) -> dict[str, str]:
-        return provider_error_gate.provider_successful_opinions(result)
-
-    @staticmethod
-    def _failure_agents(failures: list[dict[str, object]]) -> list[str]:
-        return provider_error_gate.failure_agents(failures)
-
-    @staticmethod
-    def _usable_consensus_agent_count(result: DeliberationResult) -> int:
-        return provider_error_gate.usable_consensus_agent_count(result)
-
-    @staticmethod
-    def _has_provider_error_gate_preview_consensus(result: DeliberationResult) -> bool:
-        return provider_error_gate.has_provider_error_gate_preview_consensus(result)
-
-    @staticmethod
-    def _provider_error_gate_rationale(failures: list[dict[str, object]]) -> str:
-        return provider_error_gate.provider_error_gate_rationale(failures)
-
-    @staticmethod
-    def _deliberation_result_to_dict(result: DeliberationResult) -> dict[str, Any]:
-        return provider_error_gate.deliberation_result_to_dict(result)
-
-    @staticmethod
-    def _deliberation_result_from_dict(data: dict[str, Any]) -> DeliberationResult:
-        return provider_error_gate.deliberation_result_from_dict(data)
 
     def _record_central_conversation(
         self,

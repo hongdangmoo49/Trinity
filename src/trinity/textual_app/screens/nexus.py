@@ -22,7 +22,7 @@ from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel, ProviderPanelState
 from trinity.textual_app.widgets.question_panel import QuestionAnswer, QuestionPanel
-from trinity.workflow.engine import (
+from trinity.workflow.provider_error_gate import (
     PROVIDER_ERROR_CONTINUE_OPTION,
     PROVIDER_ERROR_GATE_QUESTION_ID,
     PROVIDER_ERROR_RETRY_OPTION,

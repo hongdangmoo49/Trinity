@@ -6,6 +6,7 @@ import logging
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from typing import Any, Protocol
 
 from trinity.agents.base import AgentWrapper
 from trinity.config import TrinityConfig
@@ -34,6 +35,79 @@ class ReadinessRuntimeOutcome:
     one_shot_readiness_results: ReadinessResults | None = None
     ready_agents: dict[str, AgentWrapper] | None = None
     emit_deliberation_done: bool = False
+
+
+class ReadinessOutcomeHost(Protocol):
+    """Mutable orchestrator surface needed to apply readiness outcomes."""
+
+    config: TrinityConfig
+    agents: dict[str, AgentWrapper]
+    protocol: Any | None
+    execution_protocol: Any | None
+    review_protocol: Any | None
+    context_monitor: Any | None
+    session_rotator: Any | None
+    health_checker: Any | None
+    readiness_results: ReadinessResults
+    one_shot_readiness_results: ReadinessResults
+
+    def _create_synthesis_agent(
+        self,
+        state_dir: Any,
+        consensus_engine: Any,
+    ) -> Any:
+        """Return a synthesis agent rebound to the active provider set."""
+        ...
+
+
+class OrchestratorReadinessBinder:
+    """Apply readiness runtime outcomes to live orchestrator components."""
+
+    def __init__(
+        self,
+        host: ReadinessOutcomeHost,
+        *,
+        event_emit: EventEmitter | None = None,
+    ) -> None:
+        self.host = host
+        self.event_emit = event_emit
+
+    def apply_outcome(
+        self,
+        outcome: ReadinessRuntimeOutcome,
+    ) -> DeliberationResult | None:
+        """Apply an outcome and return its optional failure result."""
+        if outcome.readiness_results is not None:
+            self.host.readiness_results = dict(outcome.readiness_results)
+        if outcome.one_shot_readiness_results is not None:
+            self.host.one_shot_readiness_results = dict(
+                outcome.one_shot_readiness_results
+            )
+        if outcome.ready_agents is not None:
+            self.bind_ready_agents(outcome.ready_agents)
+        if outcome.emit_deliberation_done:
+            emit_deliberation_done(self.event_emit)
+        return outcome.failure_result
+
+    def bind_ready_agents(self, ready_agents: dict[str, AgentWrapper]) -> None:
+        """Restrict runtime components to agents that passed readiness."""
+        self.host.agents = ready_agents
+        if self.host.protocol:
+            self.host.protocol.agents = ready_agents
+            self.host.protocol.synthesis_agent = self.host._create_synthesis_agent(
+                self.host.config.effective_state_dir,
+                self.host.protocol.consensus_engine,
+            )
+        if self.host.execution_protocol:
+            self.host.execution_protocol.agents = ready_agents
+        if self.host.review_protocol:
+            self.host.review_protocol.agents = ready_agents
+        if self.host.context_monitor:
+            self.host.context_monitor.agents = ready_agents
+        if self.host.session_rotator:
+            self.host.session_rotator.agents = ready_agents
+        if self.host.health_checker:
+            self.host.health_checker.agents = ready_agents
 
 
 class OrchestratorReadinessRuntime:

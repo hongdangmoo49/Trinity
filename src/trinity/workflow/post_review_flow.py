@@ -31,7 +31,7 @@ class WorkflowPostReviewFlow:
     def finalize_post_review(self, final_result: ReviewResult | None = None) -> None:
         created = self.extract_post_review_items(final_result)
         self.engine.session.updated_at = time.time()
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "post_review_items_extracted",
             {
                 "review_package_id": final_result.review_package_id if final_result else "",
@@ -191,7 +191,7 @@ class WorkflowPostReviewFlow:
         )
         self.engine.session.post_review_items = [item.to_dict() for item in items]
         self.engine.session.updated_at = time.time()
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "post_review_items_accepted",
             {
                 "action_item_ids": [item.id for item in accepted],
@@ -537,7 +537,10 @@ class WorkflowPostReviewFlow:
         }
         self.engine.session.follow_up_requests.append(request)
         self.engine.session.updated_at = time.time()
-        self.engine._persist("post_review_follow_up_requested", request)
+        self.engine._persistence_flow().persist(
+            "post_review_follow_up_requested",
+            request,
+        )
 
     @staticmethod
     def _supplemental_objective(item: PostReviewActionItem) -> str:
@@ -597,7 +600,7 @@ class WorkflowPostReviewFlow:
             return ()
 
         if self.engine.session.target_workspace is None:
-            self.engine._persist(
+            self.engine._persistence_flow().persist(
                 "post_review_auto_replan_skipped",
                 {
                     "review_package_id": final_result.review_package_id,
@@ -625,7 +628,7 @@ class WorkflowPostReviewFlow:
         run["auto_replanned_action_item_ids"] = list(candidate_ids)
         self.engine.session.execution_run = run
         self.engine.session.updated_at = time.time()
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "post_review_auto_replan_queued",
             {
                 "review_package_id": final_result.review_package_id,

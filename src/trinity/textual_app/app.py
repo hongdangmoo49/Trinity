@@ -51,6 +51,10 @@ from trinity.textual_app.report_export import (
     snapshot_report_markdown,
     unique_report_path,
 )
+from trinity.textual_app.resume_commands import (
+    resume_result_presentation,
+    should_continue_resumed_workflow,
+)
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.report import ReportScreen
@@ -2878,17 +2882,17 @@ class TrinityTextualApp(App[None]):
     def _resume_textual_workflow(self, selector: str) -> None:
         outcome = self.workflow_controller.resume_workflow(selector)
         outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
-        failed = bool(message and message.startswith("No "))
-        if message:
+        presentation = resume_result_presentation(message)
+        if presentation:
             self._record_slash_command_result(
                 "/resume",
                 textual_presenters.resume_title(lang=self.config.lang),
                 textual_presenters.workflow_outcome_message_markdown(
-                    message,
+                    presentation.message,
                     lang=self.config.lang,
                 ),
-                severity="warning" if failed else "info",
-                empty=failed,
+                severity=presentation.severity,
+                empty=presentation.empty,
                 table_columns=textual_presenters.resume_result_table_columns(
                     lang=self.config.lang
                 ),
@@ -2896,9 +2900,9 @@ class TrinityTextualApp(App[None]):
                     outcome.snapshot,
                     lang=self.config.lang,
                 ),
-                start_modal=failed,
+                start_modal=presentation.start_modal,
             )
-        if not failed:
+        if should_continue_resumed_workflow(presentation):
             self.switch_to("nexus")
             if outcome.execution_recovery_required:
                 self._present_execution_recovery(

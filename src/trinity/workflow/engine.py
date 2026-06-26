@@ -149,11 +149,11 @@ class WorkflowEngine:
 
     @property
     def review_results(self) -> list[ReviewResult]:
-        return self._review_results()
+        return self._review_flow()._review_results()
 
     @property
     def post_review_items(self) -> list[PostReviewActionItem]:
-        return self._post_review_items()
+        return self._post_review_flow()._post_review_items()
 
     @property
     def has_pending_execution(self) -> bool:
@@ -764,12 +764,6 @@ class WorkflowEngine:
 
     def _review_repair_metadata_from_events(self) -> dict[str, dict[str, Any]]:
         return self._review_flow()._review_repair_metadata_from_events()
-
-    def _review_results(self) -> list[ReviewResult]:
-        return self._review_flow()._review_results()
-
-    def _post_review_items(self) -> list[PostReviewActionItem]:
-        return self._post_review_flow()._post_review_items()
 
     def _post_review_candidates_from_review(
         self,

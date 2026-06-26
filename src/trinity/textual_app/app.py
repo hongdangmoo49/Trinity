@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import replace
 from inspect import Parameter, signature
@@ -32,6 +31,7 @@ from trinity.slash_commands import parse_execute_retry_args, parse_slash_command
 from trinity.textual_app.command_parsers import parse_ask_args
 from trinity.textual_app import presenters as textual_presenters
 from trinity.textual_app.local_commands import (
+    append_local_command_event,
     replace_local_command_result,
     snapshot_with_local_command_results,
 )
@@ -2158,41 +2158,11 @@ class TrinityTextualApp(App[None]):
             table_columns=table_columns,
             table_rows=table_rows,
         )
-        self._record_central_conversation_result(result)
+        append_local_command_event(self.config.effective_state_dir, result)
         self._present_local_command_result(
             result,
             start_modal=start_modal,
             notify=True,
-        )
-
-    def _record_central_conversation_result(
-        self,
-        result: LocalCommandSnapshot,
-    ) -> None:
-        """Persist Textual central-panel command results for report export."""
-        from trinity.workflow import WorkflowPersistence
-
-        persistence = WorkflowPersistence(self.config.effective_state_dir)
-        session = persistence.load()
-        if session is None or not session.id:
-            return
-        persistence.append_event(
-            {
-                "timestamp": time.time(),
-                "workflow_id": session.id,
-                "event": "central_conversation_recorded",
-                "state": session.state.value,
-                "data": {
-                    "message_id": f"cc-local-{int(time.time() * 1000)}",
-                    "role": "tool",
-                    "channel": "local_command",
-                    "title": result.title,
-                    "body": result.body,
-                    "command": result.command,
-                    "related_ids": [],
-                    "truncated": False,
-                },
-            }
         )
 
     def _present_local_command_result(

@@ -6,7 +6,6 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable
-from uuid import uuid4
 
 from trinity.models import (
     AgentSpec,
@@ -37,10 +36,10 @@ from trinity.workflow.models import (
     SubtaskResult,
     WorkPackage,
     WorkStatus,
-    WorkflowSession,
     WorkflowState,
 )
 from trinity.workflow.persistence import WorkflowPersistence
+from trinity.workflow.persistence_flow import WorkflowPersistenceFlow
 from trinity.workflow.provider_error_gate_flow import ProviderErrorGateFlow
 from trinity.workflow.recovery_flow import (
     ExecutionRecoveryFlow,
@@ -98,7 +97,7 @@ class WorkflowEngine:
         self.events_file = self.persistence.events_path
         self.decomposer = decomposer or BlueprintDecomposer()
         self.agent_specs = dict(agent_specs or {})
-        self.session = self._load_or_create()
+        self.session = self._persistence_flow().load_or_create()
 
     @property
     def state(self) -> WorkflowState:
@@ -233,6 +232,9 @@ class WorkflowEngine:
 
     def _workspace_flow(self) -> WorkflowWorkspaceFlow:
         return WorkflowWorkspaceFlow(self)
+
+    def _persistence_flow(self) -> WorkflowPersistenceFlow:
+        return WorkflowPersistenceFlow(self)
 
     def handle_user_input(
         self,
@@ -630,7 +632,7 @@ class WorkflowEngine:
 
     def save(self) -> None:
         """Persist session.json."""
-        self.persistence.save(self.session)
+        self._persistence_flow().save()
 
     def _persist(
         self,
@@ -639,32 +641,8 @@ class WorkflowEngine:
         *,
         timestamp: float | None = None,
     ) -> None:
-        self.save()
-        event_timestamp = self._event_timestamp(timestamp)
-        event = {
-            "timestamp": event_timestamp,
-            "workflow_id": self.session.id,
-            "event": event_type,
-            "state": self.session.state.value,
-            "data": data,
-        }
-        self.persistence.append_event(event)
-
-    @staticmethod
-    def _event_timestamp(timestamp: float | None) -> float:
-        if timestamp is None:
-            return time.time()
-        try:
-            return float(timestamp)
-        except (TypeError, ValueError):
-            return time.time()
-
-    def _load_or_create(self) -> WorkflowSession:
-        session = self.persistence.load()
-        if session:
-            return session
-        return WorkflowSession(
-            id=f"wf-{uuid4().hex[:12]}",
-            goal="",
-            state=WorkflowState.IDLE,
+        self._persistence_flow().persist(
+            event_type,
+            data,
+            timestamp=timestamp,
         )

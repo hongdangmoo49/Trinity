@@ -805,38 +805,6 @@ class WorkflowEngine:
         """Prepare interrupted/failed packages for explicit user retry."""
         return self._execution_recovery_flow().retry_interrupted_execution()
 
-    @staticmethod
-    def _normalize_execution_retry_selector(
-        selector: str,
-        package_ids: Iterable[str],
-    ) -> str:
-        return ExecutionRecoveryFlow.normalize_execution_retry_selector(
-            selector,
-            package_ids,
-        )
-
-    @staticmethod
-    def _execution_retry_disabled_reason(
-        package: WorkPackage,
-        interrupted_ids: set[str],
-    ) -> str:
-        return ExecutionRecoveryFlow.execution_retry_disabled_reason(
-            package,
-            interrupted_ids,
-        )
-
-    @staticmethod
-    def _matches_execution_retry_selector(
-        package: WorkPackage,
-        selector: str,
-        interrupted_ids: set[str],
-    ) -> bool:
-        return ExecutionRecoveryFlow.matches_execution_retry_selector(
-            package,
-            selector,
-            interrupted_ids,
-        )
-
     def mark_interrupted_execution(self) -> dict[str, Any] | None:
         """Turn stale running packages into blocked work that needs user review."""
         return self._execution_recovery_flow().mark_interrupted_execution()
@@ -850,15 +818,6 @@ class WorkflowEngine:
 
     def _finish_execution_run(self, outcome: str) -> None:
         self._execution_recovery_flow().finish_execution_run(outcome)
-
-    def _persist_recovery_action(self, action: str, packages: list[str]) -> None:
-        self._execution_recovery_flow().persist_recovery_action(action, packages)
-
-    def _packages_with_status(self, status: WorkStatus) -> list[WorkPackage]:
-        return self._execution_recovery_flow().packages_with_status(status)
-
-    def _last_workflow_event(self) -> dict[str, Any] | None:
-        return self._execution_recovery_flow().last_workflow_event()
 
     def _work_package_by_id(self, package_id: str) -> WorkPackage | None:
         return self._collection_flow().work_package_by_id(package_id)

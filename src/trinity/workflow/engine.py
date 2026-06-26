@@ -35,7 +35,6 @@ from trinity.workflow.models import (
     ExecutionResult,
     OpenQuestion,
     PostReviewActionItem,
-    PostReviewActionStatus,
     ProviderSessionRef,
     SubtaskResult,
     WorkPackage,
@@ -1478,67 +1477,13 @@ class WorkflowEngine:
         return reviews
 
     def _post_review_items(self) -> list[PostReviewActionItem]:
-        items: list[PostReviewActionItem] = []
-        for item in self.session.post_review_items:
-            if not isinstance(item, dict):
-                continue
-            try:
-                items.append(PostReviewActionItem.from_dict(item))
-            except (TypeError, ValueError):
-                continue
-        return items
+        return self._post_review_flow()._post_review_items()
 
     def _post_review_candidates_from_review(
         self,
         review: ReviewResult,
     ) -> list[PostReviewActionItem]:
-        candidates: list[PostReviewActionItem] = []
-        is_final = review.scope == "final" or review.package_id == FINAL_REVIEW_PACKAGE_ID
-        source = "final_review" if is_final else "wp_review"
-        related_wp_ids = [] if is_final else [review.package_id]
-        suggested_owner = "" if is_final else self._owner_for_related_package(review.package_id)
-
-        for change in review.required_changes:
-            candidates.append(
-                self._new_post_review_item(
-                    source=source,
-                    kind="bugfix",
-                    severity=review.severity or "high",
-                    summary=change,
-                    review=review,
-                    related_wp_ids=related_wp_ids,
-                    suggested_owner=suggested_owner,
-                    rationale=review.summary,
-                )
-            )
-        for risk in review.execution_risks:
-            candidates.append(
-                self._new_post_review_item(
-                    source=source,
-                    kind="validation",
-                    severity=review.severity or "high",
-                    summary=risk,
-                    review=review,
-                    related_wp_ids=related_wp_ids,
-                    suggested_owner=suggested_owner,
-                    rationale=review.summary,
-                )
-            )
-        if is_final:
-            for follow_up in review.follow_up:
-                candidates.append(
-                    self._new_post_review_item(
-                        source=source,
-                        kind="enhancement",
-                        severity=self._downgrade_optional_severity(review.severity),
-                        summary=follow_up,
-                        review=review,
-                        related_wp_ids=[],
-                        suggested_owner="",
-                        rationale=review.summary,
-                    )
-                )
-        return [item for item in candidates if item.summary.strip()]
+        return self._post_review_flow()._post_review_candidates_from_review(review)
 
     def _new_post_review_item(
         self,
@@ -1552,125 +1497,47 @@ class WorkflowEngine:
         suggested_owner: str,
         rationale: str = "",
     ) -> PostReviewActionItem:
-        return PostReviewActionItem(
-            id="",
+        return self._post_review_flow()._new_post_review_item(
             source=source,
             kind=kind,
-            severity=self._normalize_severity(severity),
-            title=self._action_title(summary),
-            summary=summary.strip(),
-            rationale=rationale.strip(),
-            related_wp_ids=list(related_wp_ids),
-            related_review_ids=[review.review_package_id],
+            severity=severity,
+            summary=summary,
+            review=review,
+            related_wp_ids=related_wp_ids,
             suggested_owner=suggested_owner,
-            requires_execution=True,
+            rationale=rationale,
         )
 
     def _create_user_request_action_item(self, instruction: str) -> PostReviewActionItem:
-        item = PostReviewActionItem(
-            id=self._next_post_review_item_id(self._post_review_items()),
-            source="user_request",
-            kind="enhancement",
-            severity="medium",
-            title=self._action_title(instruction),
-            summary=instruction.strip(),
-            rationale="User requested additional post-review improvement.",
-            requires_execution=True,
-        )
-        return item
+        return self._post_review_flow()._create_user_request_action_item(instruction)
 
     @staticmethod
     def _post_review_item_key(item: PostReviewActionItem) -> tuple[str, str, tuple[str, ...]]:
-        normalized = " ".join(item.summary.strip().lower().split())
-        return (item.source, normalized, tuple(sorted(item.related_wp_ids)))
+        return WorkflowPostReviewFlow._post_review_item_key(item)
 
     @staticmethod
     def _normalize_improve_instruction(text: str) -> str:
-        instruction = text.strip()
-        if instruction.lower().startswith("/improve"):
-            instruction = instruction[len("/improve") :].strip()
-        return instruction
+        return WorkflowPostReviewFlow._normalize_improve_instruction(text)
 
     @staticmethod
     def _is_post_review_done_command(instruction: str) -> bool:
-        return instruction.strip().lower() in {
-            "done",
-            "complete",
-            "close",
-            "finish",
-            "완료",
-            "종료",
-            "끝",
-            "닫기",
-        }
+        return WorkflowPostReviewFlow._is_post_review_done_command(instruction)
 
     def _select_post_review_items(self, instruction: str) -> list[str]:
-        tokens = [token for token in re.split(r"[\s,]+", instruction.strip()) if token]
-        if not tokens:
-            return []
-        items = self._post_review_items()
-        selectable = [
-            item
-            for item in items
-            if item.status
-            in {PostReviewActionStatus.PROPOSED, PostReviewActionStatus.ACCEPTED}
-        ]
-        normalized_tokens = [token.lower() for token in tokens]
-        if any(token in {"all", "*", "전체"} for token in normalized_tokens):
-            return [item.id for item in selectable]
-        if any(token in {"critical", "긴급"} for token in normalized_tokens):
-            return [item.id for item in selectable if item.severity == "critical"]
-        if any(token in {"high", "높음", "important", "중요"} for token in normalized_tokens):
-            return [
-                item.id
-                for item in selectable
-                if item.severity in {"critical", "high"}
-            ]
-        requested = {token.upper() for token in tokens}
-        return [item.id for item in selectable if item.id.upper() in requested]
+        return self._post_review_flow()._select_post_review_items(instruction)
 
     @staticmethod
     def _looks_like_post_review_selector(instruction: str) -> bool:
-        tokens = [token.lower() for token in re.split(r"[\s,]+", instruction.strip()) if token]
-        if not tokens:
-            return True
-        selector_words = {
-            "all",
-            "*",
-            "전체",
-            "critical",
-            "긴급",
-            "high",
-            "높음",
-            "important",
-            "중요",
-        }
-        return all(token in selector_words or re.fullmatch(r"ai-\d+", token) for token in tokens)
+        return WorkflowPostReviewFlow._looks_like_post_review_selector(instruction)
 
     def _next_post_review_item_id(
         self,
         existing: Iterable[PostReviewActionItem],
     ) -> str:
-        used: set[int] = set()
-        for item in existing:
-            match = re.fullmatch(r"AI-(\d+)", item.id.strip().upper())
-            if match:
-                used.add(int(match.group(1)))
-        index = 1
-        while index in used:
-            index += 1
-        return f"AI-{index:03d}"
+        return self._post_review_flow()._next_post_review_item_id(existing)
 
     def _next_supplemental_package_id(self) -> str:
-        used: set[int] = set()
-        for package in self.session.work_packages:
-            match = re.fullmatch(r"WP-S(\d+)", package.id.strip().upper())
-            if match:
-                used.add(int(match.group(1)))
-        index = 1
-        while index in used:
-            index += 1
-        return f"WP-S{index:03d}"
+        return self._post_review_flow()._next_supplemental_package_id()
 
     def _owner_for_post_review_item(
         self,
@@ -1678,22 +1545,14 @@ class WorkflowEngine:
         active_agents: list[str],
         index: int,
     ) -> str:
-        agents = [agent for agent in active_agents if agent]
-        if item.suggested_owner and (not agents or item.suggested_owner in agents):
-            return item.suggested_owner
-        for package_id in item.related_wp_ids:
-            owner = self._owner_for_related_package(package_id)
-            if owner and (not agents or owner in agents):
-                return owner
-        if agents:
-            return agents[index % len(agents)]
-        return item.suggested_owner or "codex"
+        return self._post_review_flow()._owner_for_post_review_item(
+            item,
+            active_agents,
+            index,
+        )
 
     def _owner_for_related_package(self, package_id: str) -> str:
-        package = self._work_package_by_id(package_id)
-        if package is None:
-            return ""
-        return package.last_executor or package.owner_agent
+        return self._post_review_flow()._owner_for_related_package(package_id)
 
     def _record_follow_up_request(
         self,
@@ -1702,60 +1561,30 @@ class WorkflowEngine:
         *,
         source_state: str | None = None,
     ) -> None:
-        existing = self.session.follow_up_requests
-        request = {
-            "id": f"fur-{len(existing) + 1:03d}",
-            "text": text,
-            "source_state": source_state or self.session.state.value,
-            "created_at": time.time(),
-            "accepted_action_item_ids": [
-                str(item_id) for item_id in accepted_action_item_ids
-            ],
-        }
-        self.session.follow_up_requests.append(request)
-        self.session.updated_at = time.time()
-        self._persist("post_review_follow_up_requested", request)
+        self._post_review_flow()._record_follow_up_request(
+            text,
+            accepted_action_item_ids,
+            source_state=source_state,
+        )
 
     def _mark_post_review_items_done(self, item_ids: Iterable[str]) -> None:
         self._post_review_flow().mark_items_done(item_ids)
 
     @staticmethod
     def _supplemental_objective(item: PostReviewActionItem) -> str:
-        parts = [
-            f"Post-review action item {item.id}: {item.summary}",
-            f"Source: {item.source}",
-            f"Kind: {item.kind}",
-            f"Severity: {item.severity}",
-        ]
-        if item.rationale:
-            parts.append(f"Rationale: {item.rationale}")
-        if item.related_wp_ids:
-            parts.append(f"Related work packages: {', '.join(item.related_wp_ids)}")
-        return "\n".join(parts)
+        return WorkflowPostReviewFlow._supplemental_objective(item)
 
     @staticmethod
     def _action_title(value: str, limit: int = 80) -> str:
-        text = " ".join(value.strip().split())
-        if not text:
-            return "Post-review follow-up"
-        sentence = re.split(r"[.!?\n]", text, maxsplit=1)[0].strip() or text
-        if len(sentence) <= limit:
-            return sentence
-        return sentence[: limit - 3].rstrip() + "..."
+        return WorkflowPostReviewFlow._action_title(value, limit=limit)
 
     @staticmethod
     def _normalize_severity(value: str) -> str:
-        normalized = str(value or "medium").strip().lower()
-        return normalized if normalized in {"low", "medium", "high", "critical"} else "medium"
+        return WorkflowPostReviewFlow._normalize_severity(value)
 
     @classmethod
     def _downgrade_optional_severity(cls, value: str) -> str:
-        severity = cls._normalize_severity(value)
-        if severity == "critical":
-            return "high"
-        if severity == "high":
-            return "medium"
-        return severity
+        return WorkflowPostReviewFlow._downgrade_optional_severity(value)
 
     def _plan_review_packages(self) -> None:
         """Create peer review packages for completed execution results."""

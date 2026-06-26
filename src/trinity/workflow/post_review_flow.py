@@ -57,7 +57,7 @@ class WorkflowPostReviewFlow:
         existing = self._post_review_items()
         existing_keys = {self._post_review_item_key(item) for item in existing}
         created: list[PostReviewActionItem] = []
-        reviews = self.engine._review_results()
+        reviews = list(self.engine.review_results)
         if final_result is not None and not any(
             item.review_package_id == final_result.review_package_id
             and item.package_id == final_result.package_id

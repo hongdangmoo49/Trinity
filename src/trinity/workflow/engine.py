@@ -29,6 +29,7 @@ from trinity.workflow.post_review_flow import WorkflowPostReviewFlow
 from trinity.workflow.provider_observations import WorkflowProviderObservations
 from trinity.workflow.question_flow import WorkflowQuestionFlow
 from trinity.workflow.review_flow import WorkflowReviewFlow
+from trinity.workflow.workspace_flow import WorkflowWorkspaceFlow
 from trinity.workflow.models import (
     Blueprint,
     DecisionRecord,
@@ -226,6 +227,9 @@ class WorkflowEngine:
     def _ledger_sync(self) -> WorkflowLedgerSync:
         return WorkflowLedgerSync(self)
 
+    def _workspace_flow(self) -> WorkflowWorkspaceFlow:
+        return WorkflowWorkspaceFlow(self)
+
     @staticmethod
     def _effective_target_agents(
         active_agents: list[str],
@@ -386,24 +390,14 @@ class WorkflowEngine:
         control_repo_confirmed: bool = False,
     ) -> None:
         """Persist the workspace where provider implementation may write files."""
-        resolved = path.expanduser().resolve()
-        self.session.target_workspace = resolved
-        self.session.control_repo_target_confirmed = control_repo_confirmed
-        self.session.updated_at = time.time()
-        self._persist(
-            "target_workspace_selected",
-            {
-                "target_workspace": str(resolved),
-                "control_repo_target_confirmed": control_repo_confirmed,
-            },
+        self._workspace_flow().set_target_workspace(
+            path,
+            control_repo_confirmed=control_repo_confirmed,
         )
 
     def clear_target_workspace(self) -> None:
         """Clear the selected implementation workspace."""
-        self.session.target_workspace = None
-        self.session.control_repo_target_confirmed = False
-        self.session.updated_at = time.time()
-        self._persist("target_workspace_cleared", {})
+        self._workspace_flow().clear_target_workspace()
 
     def add_open_question(self, question: OpenQuestion) -> None:
         """Add a pending question and move workflow to waiting state."""

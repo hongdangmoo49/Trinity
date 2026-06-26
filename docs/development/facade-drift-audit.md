@@ -48,4 +48,6 @@ Private wrappers are also kept when either of these is true:
 
 The next safe pass should inspect remaining private static helper re-exports in
 `WorkflowEngine` after the corresponding flow modules have dedicated contract
-docs. Do not remove public facade methods without a migration note.
+docs. Current flow boundaries are summarized in
+`docs/development/workflow-flow-contracts.md`. Do not remove public facade
+methods without a migration note.

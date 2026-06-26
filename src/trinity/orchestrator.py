@@ -30,6 +30,7 @@ from trinity.models import AgentSpec, DeliberationResult, Provider
 from trinity.orchestrator_readiness import (
     OrchestratorReadinessBinder,
     OrchestratorReadinessRuntime,
+    ReadinessRuntimeOutcome,
     one_shot_status,
 )
 from trinity.providers.invoker import (
@@ -778,7 +779,7 @@ class TrinityOrchestrator:
             prompt=prompt,
             start_time=start_time,
         )
-        return self._readiness_binder().apply_outcome(outcome)
+        return self._apply_readiness_outcome(outcome)
 
     def _check_one_shot_provider_readiness(
         self,
@@ -793,7 +794,7 @@ class TrinityOrchestrator:
             start_time=start_time,
             access=access,
         )
-        return self._readiness_binder().apply_outcome(outcome)
+        return self._apply_readiness_outcome(outcome)
 
     def _ensure_one_shot_preflight_or_raise(
         self,
@@ -804,7 +805,14 @@ class TrinityOrchestrator:
         outcome = self._readiness_runtime().ensure_one_shot_preflight_or_raise(
             access=access,
         )
-        self._readiness_binder().apply_outcome(outcome)
+        self._apply_readiness_outcome(outcome)
+
+    def _apply_readiness_outcome(
+        self,
+        outcome: ReadinessRuntimeOutcome,
+    ) -> DeliberationResult | None:
+        """Apply readiness runtime state changes to orchestrator components."""
+        return self._readiness_binder().apply_outcome(outcome)
 
     def _readiness_runtime(self) -> OrchestratorReadinessRuntime:
         """Create a runtime snapshot for provider readiness checks."""

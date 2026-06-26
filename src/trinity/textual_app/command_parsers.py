@@ -59,6 +59,14 @@ class AnswerCommandParseResult:
     action_hint: str = ""
 
 
+@dataclass(frozen=True)
+class TargetCommandParseResult:
+    """Parsed `/target` command arguments."""
+
+    action: str = "current"
+    path_text: str = ""
+
+
 def parse_ask_args(
     args: list[str],
     active_agent_names: Iterable[str],
@@ -254,3 +262,13 @@ def parse_answer_args(
         answer=" ".join(filtered[1:]),
         replace=replace_answer,
     )
+
+
+def parse_target_args(args: list[str]) -> TargetCommandParseResult:
+    """Parse `/target` arguments into current, clear, or path action."""
+    if not args:
+        return TargetCommandParseResult(action="current")
+    action = args[0].strip().lower()
+    if action in {"clear", "reset", "none"}:
+        return TargetCommandParseResult(action="clear")
+    return TargetCommandParseResult(action="path", path_text=" ".join(args).strip())

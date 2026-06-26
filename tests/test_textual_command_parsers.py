@@ -6,6 +6,7 @@ from trinity.textual_app.command_parsers import (
     parse_ask_args,
     parse_caveman_args,
     parse_rounds_args,
+    parse_target_args,
 )
 
 
@@ -154,3 +155,16 @@ def test_parse_answer_args_routes_option_next_and_explicit_answer() -> None:
     assert explicit.question_selector == "q-1"
     assert explicit.answer == "좋습니다 진행하세요"
     assert explicit.replace is False
+
+
+def test_parse_target_args_routes_current_clear_and_path() -> None:
+    assert parse_target_args([]).action == "current"
+
+    for action in ("clear", "reset", "none"):
+        parsed = parse_target_args([action])
+        assert parsed.action == "clear"
+        assert parsed.path_text == ""
+
+    path = parse_target_args(["../my", "project"])
+    assert path.action == "path"
+    assert path.path_text == "../my project"

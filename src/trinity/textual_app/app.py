@@ -33,6 +33,7 @@ from trinity.textual_app.command_parsers import (
     parse_ask_args,
     parse_caveman_args,
     parse_rounds_args,
+    parse_target_args,
 )
 from trinity.textual_app import presenters as textual_presenters
 from trinity.textual_app.local_commands import (
@@ -2664,7 +2665,8 @@ class TrinityTextualApp(App[None]):
         )
 
     def _handle_textual_target_command(self, args: list[str]) -> None:
-        if not args:
+        parsed = parse_target_args(args)
+        if parsed.action == "current":
             target = getattr(self.workflow_controller, "workflow", None)
             current = None
             if target is not None:
@@ -2680,8 +2682,7 @@ class TrinityTextualApp(App[None]):
                 action_hint=textual_presenters.target_action_hint(lang=self.config.lang),
             )
             return
-        action = args[0].lower()
-        if action in {"clear", "reset", "none"}:
+        if parsed.action == "clear":
             outcome = self.workflow_controller.clear_target_workspace()
             self.confirmed_preflight = None
             self._apply_workflow_outcome(outcome)
@@ -2691,7 +2692,7 @@ class TrinityTextualApp(App[None]):
                 textual_presenters.target_cleared_markdown(lang=self.config.lang),
             )
             return
-        path = self._resolve_target_path(" ".join(args))
+        path = self._resolve_target_path(parsed.path_text)
         if self._is_control_repo_target(path):
             self.push_screen(
                 TargetWorkspaceConfirmModal(

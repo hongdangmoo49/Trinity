@@ -1798,11 +1798,7 @@ class TrinityTextualApp(App[None]):
             self._handle_textual_caveman_command(parsed.spec.name, args)
             return
         if command == "save":
-            self._record_slash_command_result(
-                parsed.spec.name,
-                textual_presenters.save_title(lang=self.config.lang),
-                textual_presenters.save_auto_persist_markdown(lang=self.config.lang),
-            )
+            self._handle_textual_save_command(parsed.spec.name)
             return
         if command == "target":
             self._handle_textual_target_command(args)
@@ -1984,6 +1980,13 @@ class TrinityTextualApp(App[None]):
                 lang=self.config.lang
             ),
             table_rows=history_rows,
+        )
+
+    def _handle_textual_save_command(self, command_name: str) -> None:
+        self._record_slash_command_result(
+            command_name,
+            textual_presenters.save_title(lang=self.config.lang),
+            textual_presenters.save_auto_persist_markdown(lang=self.config.lang),
         )
 
     def _handle_textual_review_command(self, command_name: str, args: list[str]) -> None:

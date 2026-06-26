@@ -81,7 +81,7 @@ class WorkflowQuestionFlow:
             replaced = False
 
         self.engine.session.updated_at = time.time()
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             event_type,
             {
                 "decision_id": decision.id,

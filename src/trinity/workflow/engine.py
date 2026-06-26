@@ -703,15 +703,6 @@ class WorkflowEngine:
         """Return a concise user-facing summary of post-review actions."""
         return self._post_review_flow().post_review_summary()
 
-    def _latest_review_is_approved(self, package_id: str) -> bool:
-        return self._review_flow()._latest_review_is_approved(package_id)
-
-    def _review_package_is_approved(self, review: ReviewPackage) -> bool:
-        return self._review_flow()._review_package_is_approved(review)
-
-    def _planned_review_packages(self) -> list[ReviewPackage]:
-        return self._review_flow()._planned_review_packages()
-
     def detect_interrupted_execution(
         self,
         *,

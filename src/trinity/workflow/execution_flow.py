@@ -108,7 +108,7 @@ class WorkflowExecutionFlow:
             execution_run["round"] = previous_run.get("round")
             execution_run["action_item_ids"] = list(previous_run.get("action_item_ids", []))
         session.execution_run = execution_run
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "execution_run_started",
             {
                 "run_id": run_id,
@@ -117,7 +117,7 @@ class WorkflowExecutionFlow:
             },
             timestamp=now,
         )
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "implementation_requested",
             {
                 "target_workspace": str(session.target_workspace),
@@ -142,7 +142,7 @@ class WorkflowExecutionFlow:
         package.last_executor = executor
         self.engine._execution_recovery_flow().touch_execution_run(occurred_at)
         self.engine.session.updated_at = time.time()
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "work_package_started",
             {
                 "package_id": package.id,
@@ -186,7 +186,7 @@ class WorkflowExecutionFlow:
             event_data["attempt_chain"] = attempt_chain
         if raw_response_path:
             event_data["raw_response_path"] = raw_response_path
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "work_package_completed",
             event_data,
             timestamp=occurred_at,
@@ -271,7 +271,7 @@ class WorkflowExecutionFlow:
     ) -> None:
         self.engine._execution_recovery_flow().touch_execution_run(occurred_at)
         self.engine.session.updated_at = time.time()
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "execution_batch_planned",
             {
                 "batches": batches,
@@ -353,7 +353,7 @@ class WorkflowExecutionFlow:
                 event_data["raw_response_path"] = str(result.raw_response_path)
             if session.quality_signals:
                 event_data["quality_signal"] = session.quality_signals[-1]
-            self.engine._persist(
+            self.engine._persistence_flow().persist(
                 "execution_result_recorded",
                 event_data,
             )

@@ -41,6 +41,7 @@ from trinity.textual_app.command_parsers import (
     parse_target_args,
 )
 from trinity.textual_app import presenters as textual_presenters
+from trinity.textual_app.answer_commands import answer_result_presentation
 from trinity.textual_app.local_commands import (
     append_local_command_event,
     replace_local_command_result,
@@ -2936,16 +2937,17 @@ class TrinityTextualApp(App[None]):
                 replace=parsed.replace,
             )
         outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
-        if message:
+        presentation = answer_result_presentation(message)
+        if presentation:
             self._record_slash_command_result(
                 "/answer",
                 textual_presenters.answer_title(lang=self.config.lang),
                 textual_presenters.workflow_outcome_message_markdown(
-                    message,
+                    presentation.message,
                     lang=self.config.lang,
                 ),
-                severity="warning" if message.startswith("No ") else "info",
-                empty=message.startswith("No "),
+                severity=presentation.severity,
+                empty=presentation.empty,
             )
 
     def _handle_textual_execute_retry_command(self, args: list[str]) -> None:

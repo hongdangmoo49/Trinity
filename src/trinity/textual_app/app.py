@@ -2961,10 +2961,7 @@ class TrinityTextualApp(App[None]):
                 parsed.answer,
                 replace=parsed.replace,
             )
-        message = outcome.message
-        if message:
-            outcome = replace(outcome, message="")
-        self._apply_workflow_outcome(outcome)
+        outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
         if message:
             self._record_slash_command_result(
                 "/answer",

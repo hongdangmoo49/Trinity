@@ -24,5 +24,7 @@ tests/test_textual_smoke.py
 tests/test_textual_runtime.py
 tests/test_textual_command_parsers.py
 tests/test_textual_local_commands.py
+tests/test_textual_slash_command_router.py
+tests/test_textual_target_workspace.py
 tests/test_textual_workflow_controller.py
 tests/test_tui_rendering.py

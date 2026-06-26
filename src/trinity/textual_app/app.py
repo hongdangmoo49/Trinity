@@ -1773,7 +1773,7 @@ class TrinityTextualApp(App[None]):
             self._handle_textual_context_command(parsed.spec.name)
             return
         if command == "model":
-            self._open_model_settings_modal()
+            self._handle_textual_model_command()
             return
         if command == "memory":
             self._handle_textual_memory_command(args)
@@ -1836,6 +1836,9 @@ class TrinityTextualApp(App[None]):
     def _handle_textual_status_command(self, command_name: str) -> None:
         snapshot = self._current_textual_snapshot()
         self._show_textual_status(command_name, snapshot)
+
+    def _handle_textual_model_command(self) -> None:
+        self._open_model_settings_modal()
 
     def _handle_textual_workflow_command(self, command_name: str) -> None:
         snapshot = self._refresh_textual_snapshot()

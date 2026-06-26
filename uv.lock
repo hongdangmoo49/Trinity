@@ -410,7 +410,7 @@ wheels = [
 
 [[package]]
 name = "trinity-agent"
-version = "1.0.360"
+version = "1.0.361"
 source = { editable = "." }
 dependencies = [
     { name = "click" },

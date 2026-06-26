@@ -3,6 +3,7 @@ from __future__ import annotations
 from trinity.textual_app.command_parsers import (
     parse_agent_args,
     parse_answer_args,
+    parse_artifact_args,
     parse_ask_args,
     parse_caveman_args,
     parse_report_args,
@@ -187,3 +188,13 @@ def test_parse_report_args_routes_open_or_save() -> None:
     assert parse_report_args(["open"]).action == "open"
     assert parse_report_args(["save"]).action == "save"
     assert parse_report_args(["S"]).action == "save"
+
+
+def test_parse_artifact_args_requires_record_id() -> None:
+    empty = parse_artifact_args([], lang="ko")
+    assert empty.record_id == ""
+    assert empty.error == "사용법: `/artifact <memory-id>`"
+
+    parsed = parse_artifact_args(["memory-1"], lang="ko")
+    assert parsed.record_id == "memory-1"
+    assert parsed.error == ""

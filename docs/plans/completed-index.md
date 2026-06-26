@@ -21,7 +21,7 @@ or deleting old implementation plans.
 | Execution UX and retry/review feedback | #109-#160 | execution, retry, review, provider metadata, report metadata plans | Keep until UX contract docs exist |
 | Korean UX vocabulary stabilization | #161-#292 | 2026-06-24/25 `*i18n*`, `*-ko`, `*korean*`, status, placeholder, and term plans | Explicit i18n/ko/korean and 2026-06-25 UI label/status plans archived |
 | Nexus/Textual render cost reduction | #293-#391 | 2026-06-25 and 2026-06-26 cache/rebind/query plans | Explicit render cache/rebind/query plans archived after performance guidance |
-| Workflow flow decomposition | #392-#409 | 2026-06-26 `workflow-*`, `provider-*`, review/post-review flow plans | Keep as architecture trace; flow contract doc exists |
+| Workflow flow decomposition | #392-#409 | 2026-06-26 `workflow-*`, `provider-*`, review/post-review flow plans | Keep as architecture trace; flow and provider readiness/recovery contract docs exist |
 | Textual presenter and wrapper removal | #410-#426 | 2026-06-26 `textual-*`, command parser, facade-thin plans | Ready for bundle archive after presenter contract docs exist |
 | CI maintenance strategy | #427 | `README.md`, this index, CI strategy doc | Active maintenance reference |
 

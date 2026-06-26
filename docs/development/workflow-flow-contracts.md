@@ -112,6 +112,9 @@ ordinary deliberation continuation:
   only when a usable consensus exists.
 - `stop` transitions the workflow to `FAILED`.
 
+Provider readiness and recovery details are tracked in
+`docs/development/provider-readiness-recovery-contracts.md`.
+
 ### Workspace
 
 `WorkflowWorkspaceFlow.set_target_workspace()` resolves the path, records
@@ -171,6 +174,9 @@ execution package state consistent with the retry plan.
 
 Abort and mark-interrupted operations must emit recovery events so Textual and
 reports can distinguish user cancellation from provider failure.
+
+The stable recovery summary and retry plan fields are tracked in
+`docs/development/provider-readiness-recovery-contracts.md`.
 
 ## Refactor Rules
 

@@ -20,6 +20,15 @@ def is_control_repo_target(path: Path, control_repo: Path) -> bool:
     return target == control or control in target.parents
 
 
+def safe_start_target_workspace(path: Path | None, control_repo: Path) -> Path | None:
+    """Return a start-screen target that can be persisted without confirmation."""
+    if path is None:
+        return None
+    if is_control_repo_target(path, control_repo):
+        return None
+    return path
+
+
 def absolute_path(path: Path) -> Path:
     """Best-effort absolute path that tolerates non-existing or invalid paths."""
     try:

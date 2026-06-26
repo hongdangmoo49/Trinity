@@ -71,6 +71,7 @@ from trinity.textual_app.snapshot import (
 from trinity.textual_app.target_workspace import (
     is_control_repo_target,
     resolve_target_path,
+    safe_start_target_workspace,
 )
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.workflow_controller import (
@@ -1242,7 +1243,10 @@ class TrinityTextualApp(App[None]):
         nexus.set_initial_prompt(event.prompt)
         nexus.set_agent_selection(event.target_agents, event.agent_model_overrides)
         self._sync_nexus_workspace_candidate()
-        target_workspace = self._safe_start_target_workspace(self.workspace_candidate)
+        target_workspace = safe_start_target_workspace(
+            self.workspace_candidate,
+            self.config.project_dir,
+        )
         start_kwargs = {
             "target_workspace": target_workspace,
             "target_agents": event.target_agents,
@@ -1563,14 +1567,6 @@ class TrinityTextualApp(App[None]):
             control_repo_confirmed=control_repo_confirmed,
         )
         self._sync_nexus_workspace_candidate()
-
-    def _safe_start_target_workspace(self, path: Path | None) -> Path | None:
-        """Return a start-screen target that can be persisted without confirmation."""
-        if path is None:
-            return None
-        if is_control_repo_target(path, self.config.project_dir):
-            return None
-        return path
 
     @staticmethod
     def _default_launch_cwd(launch_cwd: Path | None = None) -> Path:
@@ -2082,7 +2078,10 @@ class TrinityTextualApp(App[None]):
                 parsed.target_agents,
                 parsed.agent_model_overrides,
             )
-            target_workspace = self._safe_start_target_workspace(self.workspace_candidate)
+            target_workspace = safe_start_target_workspace(
+                self.workspace_candidate,
+                self.config.project_dir,
+            )
             outcome = self.workflow_controller.start_prompt(
                 parsed.prompt,
                 target_workspace=target_workspace,

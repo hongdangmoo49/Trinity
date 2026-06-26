@@ -59,7 +59,7 @@ class WorkflowLifecycleFlow:
             created_at=now,
             updated_at=now,
         )
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "workflow_started",
             {
                 "goal": goal,
@@ -146,7 +146,7 @@ class WorkflowLifecycleFlow:
             WorkflowState.DELIBERATING,
             reason="user continued from existing blueprint",
         )
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "workflow_continued",
             {
                 "instruction": instruction,
@@ -219,7 +219,7 @@ class WorkflowLifecycleFlow:
         self.engine.session.review_packages = []
         self.engine.session.review_results = []
         self.engine.session.updated_at = time.time()
-        self.engine._persist(
+        self.engine._persistence_flow().persist(
             "execution_enabled",
             {
                 "instruction": instruction,

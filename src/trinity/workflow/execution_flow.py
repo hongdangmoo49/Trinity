@@ -132,7 +132,7 @@ class WorkflowExecutionFlow:
         agent_name: str = "",
         occurred_at: float | None = None,
     ) -> None:
-        package = self.engine._work_package_by_id(package_id)
+        package = self.engine._collection_flow().work_package_by_id(package_id)
         if package is None:
             return
 
@@ -162,7 +162,7 @@ class WorkflowExecutionFlow:
         attempt_chain: list[dict[str, object]] | None = None,
         raw_response_path: str = "",
     ) -> None:
-        package = self.engine._work_package_by_id(package_id)
+        package = self.engine._collection_flow().work_package_by_id(package_id)
         if package is None:
             return
 
@@ -303,7 +303,7 @@ class WorkflowExecutionFlow:
         emit_event: bool,
     ) -> None:
         session = self.engine.session
-        package = self.engine._work_package_by_id(result.package_id)
+        package = self.engine._collection_flow().work_package_by_id(result.package_id)
         if package:
             package.status = result.status
             package.current_executor = ""

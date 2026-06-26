@@ -759,9 +759,6 @@ class WorkflowEngine:
     def _finish_execution_run(self, outcome: str) -> None:
         self._execution_recovery_flow().finish_execution_run(outcome)
 
-    def _work_package_by_id(self, package_id: str) -> WorkPackage | None:
-        return self._collection_flow().work_package_by_id(package_id)
-
     def _review_repair_metadata_from_events(self) -> dict[str, dict[str, Any]]:
         return self._review_flow()._review_repair_metadata_from_events()
 

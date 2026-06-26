@@ -248,6 +248,8 @@ The performance pass added many targeted cache keys. Keep them local while the
 UI is still changing. Consolidate only where two widgets share the same snapshot
 identity contract and the tests prove the contract.
 
+Current guidance: `docs/development/nexus-render-cache-guidelines.md`.
+
 ## Next Release Goals
 
 ### Patch Train

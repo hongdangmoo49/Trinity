@@ -75,9 +75,9 @@ future archive work can move these one-PR notes by bundle after checking tests.
 
 ## Render Cost Reduction Plans
 
-These plans are completed performance slices. Keep the newest examples near the
-root until a performance summary exists; then archive the individual one-PR
-notes by date.
+These plans are completed performance slices. Their active cache guidance is
+summarized in `docs/development/nexus-render-cache-guidelines.md`, so future
+archive work can move the individual one-PR notes by date.
 
 - 2026-06-25 cache and identity plans:
   `execution-*`, `nexus-*`, `provider-*`, `question-*`, `report-*`,

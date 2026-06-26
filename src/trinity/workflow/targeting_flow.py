@@ -2,9 +2,26 @@
 
 from __future__ import annotations
 
+from trinity.models import AgentSpec
+
 
 class WorkflowTargetingFlow:
     """Normalize targeted agent and model override selections."""
+
+    @staticmethod
+    def decomposition_agents(
+        agent_specs: dict[str, AgentSpec],
+        active_agents: list[str],
+    ) -> list[str] | dict[str, AgentSpec]:
+        """Return the active agent list or the active subset of configured specs."""
+        if not agent_specs:
+            return list(active_agents)
+        active = set(active_agents)
+        return {
+            name: spec
+            for name, spec in agent_specs.items()
+            if name in active
+        }
 
     @staticmethod
     def effective_target_agents(

@@ -208,7 +208,10 @@ class WorkflowLifecycleFlow:
 
         self.engine.session.work_packages = self.engine.decomposer.decompose(
             self.engine.session.blueprint,
-            self.engine._decomposition_agents(),
+            WorkflowTargetingFlow.decomposition_agents(
+                self.engine.agent_specs,
+                self.engine.session.active_agents,
+            ),
             requires_execution=True,
         )
         self.engine.session.execution_results = []

@@ -41,12 +41,19 @@ Removed in the workflow flow contract follow-up:
 - `_normalize_severity`
 - `_downgrade_optional_severity`
 
+Removed in the central-flow helper follow-up:
+
+- `_central_blueprint_body`
+- `_normalize_question`
+
 The authoritative behavior remains in:
 
 - `WorkflowReviewFlow.block_review_repair`
 - `WorkflowReviewFlow.apply_review_result_to_package`
 - `WorkflowReviewFlow.finalize_review_state`
 - `WorkflowPostReviewFlow.mark_items_done`
+- `WorkflowCentralFlow._central_blueprint_body`
+- `WorkflowCentralFlow._normalize_question`
 
 ## Kept Facades
 

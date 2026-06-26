@@ -1699,11 +1699,11 @@ class TrinityTextualApp(App[None]):
         if not parsed.token:
             return
         if parsed.spec is None:
-            suggestions = self._slash_command_suggestions(parsed.token)
+            suggestions = textual_presenters.slash_command_suggestions(parsed.token)
             self._record_slash_command_result(
                 parsed.token,
                 textual_presenters.unknown_command_title(lang=self.config.lang),
-                self._unknown_command_markdown(
+                textual_presenters.unknown_command_markdown(
                     parsed.token,
                     suggestions,
                     lang=self.config.lang,
@@ -1712,7 +1712,10 @@ class TrinityTextualApp(App[None]):
                 table_columns=textual_presenters.unknown_command_table_columns(
                     lang=self.config.lang
                 ),
-                table_rows=self._unknown_command_rows(suggestions, lang=self.config.lang),
+                table_rows=textual_presenters.unknown_command_rows(
+                    suggestions,
+                    lang=self.config.lang,
+                ),
             )
             return
 
@@ -1732,11 +1735,11 @@ class TrinityTextualApp(App[None]):
             self._record_slash_command_result(
                 parsed.spec.name,
                 textual_presenters.help_title(lang=self.config.lang),
-                self._help_markdown(lang=self.config.lang),
+                textual_presenters.help_markdown(lang=self.config.lang),
                 table_columns=textual_presenters.help_table_columns(
                     lang=self.config.lang
                 ),
-                table_rows=self._help_rows(lang=self.config.lang),
+                table_rows=textual_presenters.help_rows(lang=self.config.lang),
             )
             return
         if command == "status":
@@ -2408,43 +2411,6 @@ class TrinityTextualApp(App[None]):
             item for item in self._local_command_results if item.command != result.command
         ]
         self._local_command_results.append(result)
-
-    @staticmethod
-    def _readiness_label(readiness: str) -> str:
-        return textual_presenters.readiness_label(readiness)
-
-    @staticmethod
-    def _slash_command_suggestions(token: str) -> tuple[str, ...]:
-        return textual_presenters.slash_command_suggestions(token)
-
-    @staticmethod
-    def _unknown_command_markdown(
-        token: str,
-        suggestions: tuple[str, ...],
-        *,
-        lang: str = "en",
-    ) -> str:
-        return textual_presenters.unknown_command_markdown(
-            token,
-            suggestions,
-            lang=lang,
-        )
-
-    @staticmethod
-    def _unknown_command_rows(
-        suggestions: tuple[str, ...],
-        *,
-        lang: str = "en",
-    ) -> tuple[tuple[str, str], ...]:
-        return textual_presenters.unknown_command_rows(suggestions, lang=lang)
-
-    def _help_markdown(self, *, lang: str = "en") -> str:
-        """Return registry-backed help text for Trinity-owned slash commands."""
-        return textual_presenters.help_markdown(lang=lang)
-
-    def _help_rows(self, *, lang: str = "en") -> tuple[tuple[str, str, str, str], ...]:
-        """Return slash command registry rows for read-only help tables."""
-        return textual_presenters.help_rows(lang=lang)
 
     @staticmethod
     def _snapshot_has_current_context(snapshot: WorkflowNexusSnapshot) -> bool:

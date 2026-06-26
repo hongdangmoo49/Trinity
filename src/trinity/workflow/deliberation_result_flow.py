@@ -8,6 +8,7 @@ from trinity.models import DeliberationResult
 from trinity.workflow.central_flow import WorkflowCentralFlow
 from trinity.workflow.intent import requires_execution_for_deliberation
 from trinity.workflow.models import Blueprint, WorkflowState
+from trinity.workflow.targeting_flow import WorkflowTargetingFlow
 
 
 class WorkflowDeliberationResultFlow:
@@ -61,7 +62,10 @@ class WorkflowDeliberationResultFlow:
         self.engine.session.blueprint = Blueprint.from_dict(blueprint)
         self.engine.session.work_packages = self.engine.decomposer.decompose(
             self.engine.session.blueprint,
-            self.engine._decomposition_agents(),
+            WorkflowTargetingFlow.decomposition_agents(
+                self.engine.agent_specs,
+                self.engine.session.active_agents,
+            ),
             requires_execution=requires_execution_for_deliberation(
                 self.engine.session.goal,
                 result,

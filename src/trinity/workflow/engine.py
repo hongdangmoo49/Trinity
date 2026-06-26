@@ -123,16 +123,6 @@ class WorkflowEngine:
         """Return advisory quality summaries keyed by agent name."""
         return self._quality_flow().quality_summaries()
 
-    def _decomposition_agents(self) -> list[str] | dict[str, AgentSpec]:
-        if not self.agent_specs:
-            return list(self.session.active_agents)
-        active = set(self.session.active_agents)
-        return {
-            name: spec
-            for name, spec in self.agent_specs.items()
-            if name in active
-        }
-
     @property
     def target_workspace(self) -> Path | None:
         return self.session.target_workspace

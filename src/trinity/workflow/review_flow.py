@@ -22,6 +22,7 @@ from trinity.workflow.review import (
     ReviewResult,
     ReviewStatus,
 )
+from trinity.workflow.targeting_flow import WorkflowTargetingFlow
 
 
 class WorkflowReviewFlow:
@@ -96,7 +97,10 @@ class WorkflowReviewFlow:
         ]
         reviews = planner.plan_reviews(
             reviewable_packages,
-            self.engine._decomposition_agents(),
+            WorkflowTargetingFlow.decomposition_agents(
+                self.engine.agent_specs,
+                self.engine.session.active_agents,
+            ),
             session.execution_results,
         )
         session.review_packages = [review.to_dict() for review in reviews]

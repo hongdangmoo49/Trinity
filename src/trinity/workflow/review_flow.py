@@ -18,6 +18,7 @@ from trinity.workflow.models import (
 )
 from trinity.workflow.review import (
     FINAL_REVIEW_PACKAGE_ID,
+    PeerReviewPlanner,
     ReviewPackage,
     ReviewResult,
     ReviewStatus,
@@ -33,7 +34,7 @@ class WorkflowReviewFlow:
     def ensure_review_packages(self) -> list[ReviewPackage]:
         session = self.engine.session
         if not session.review_packages and session.work_packages:
-            self.engine._plan_review_packages()
+            self._plan_review_packages()
             session.updated_at = time.time()
             self.engine._persist(
                 "review_packages_planned",
@@ -78,9 +79,79 @@ class WorkflowReviewFlow:
                 continue
             if requested and review.package_id not in requested:
                 continue
-            if not explicit and self.engine._review_package_is_approved(review):
+            if not explicit and self._review_package_is_approved(review):
                 continue
             reviews.append(review)
+        return reviews
+
+    def _plan_review_packages(self) -> None:
+        """Create peer review packages for completed execution results."""
+        planner = PeerReviewPlanner()
+        session = self.engine.session
+        reviewable_packages = [
+            package
+            for package in session.work_packages
+            if package.requires_execution
+            and package.status in {WorkStatus.DONE, WorkStatus.NEEDS_REVIEW}
+            and not self._latest_review_is_approved(package.id)
+        ]
+        reviews = planner.plan_reviews(
+            reviewable_packages,
+            self.engine._decomposition_agents(),
+            session.execution_results,
+        )
+        session.review_packages = [review.to_dict() for review in reviews]
+
+    def _latest_review_is_approved(self, package_id: str) -> bool:
+        planned = [
+            review
+            for review in self._planned_review_packages()
+            if review.package_id == package_id
+            and review.scope != "final"
+            and review.package_id != FINAL_REVIEW_PACKAGE_ID
+            and review.required
+        ]
+        if planned:
+            return all(self._review_package_is_approved(review) for review in planned)
+
+        for result in reversed(self._review_results()):
+            if result.package_id == package_id and result.scope != "final":
+                return result.status == ReviewStatus.APPROVED
+        return False
+
+    def _review_package_is_approved(self, review: ReviewPackage) -> bool:
+        for result in reversed(self._review_results()):
+            if result.review_package_id == review.id:
+                return result.status == ReviewStatus.APPROVED
+            if (
+                result.package_id == review.package_id
+                and result.reviewer_agent == review.reviewer_agent
+                and result.target_agent == review.target_agent
+                and result.scope == review.scope
+            ):
+                return result.status == ReviewStatus.APPROVED
+        return False
+
+    def _planned_review_packages(self) -> list[ReviewPackage]:
+        reviews: list[ReviewPackage] = []
+        for item in self.engine.session.review_packages:
+            if not isinstance(item, dict):
+                continue
+            try:
+                reviews.append(ReviewPackage.from_dict(item))
+            except (TypeError, ValueError):
+                continue
+        return reviews
+
+    def _review_results(self) -> list[ReviewResult]:
+        reviews: list[ReviewResult] = []
+        for item in self.engine.session.review_results:
+            if not isinstance(item, dict):
+                continue
+            try:
+                reviews.append(ReviewResult.from_dict(item))
+            except (TypeError, ValueError):
+                continue
         return reviews
 
     def record_review_results(
@@ -239,7 +310,7 @@ class WorkflowReviewFlow:
             return ()
 
         latest_change_by_package: dict[str, ReviewResult] = {}
-        for result in self.engine._review_results():
+        for result in self._review_results():
             if result.scope == "final" or result.package_id == FINAL_REVIEW_PACKAGE_ID:
                 continue
             if result.status == ReviewStatus.CHANGES_REQUESTED:

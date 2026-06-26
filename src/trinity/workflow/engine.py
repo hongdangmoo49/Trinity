@@ -49,10 +49,8 @@ from trinity.workflow.recovery_flow import (
     RetrySkip,
 )
 from trinity.workflow.review import (
-    FINAL_REVIEW_PACKAGE_ID,
     ReviewPackage,
     ReviewResult,
-    ReviewStatus,
 )
 
 if TYPE_CHECKING:
@@ -1215,45 +1213,13 @@ class WorkflowEngine:
         return self._post_review_flow().post_review_summary()
 
     def _latest_review_is_approved(self, package_id: str) -> bool:
-        planned = [
-            review
-            for review in self._planned_review_packages()
-            if review.package_id == package_id
-            and review.scope != "final"
-            and review.package_id != FINAL_REVIEW_PACKAGE_ID
-            and review.required
-        ]
-        if planned:
-            return all(self._review_package_is_approved(review) for review in planned)
-
-        for result in reversed(self._review_results()):
-            if result.package_id == package_id and result.scope != "final":
-                return result.status == ReviewStatus.APPROVED
-        return False
+        return self._review_flow()._latest_review_is_approved(package_id)
 
     def _review_package_is_approved(self, review: ReviewPackage) -> bool:
-        for result in reversed(self._review_results()):
-            if result.review_package_id == review.id:
-                return result.status == ReviewStatus.APPROVED
-            if (
-                result.package_id == review.package_id
-                and result.reviewer_agent == review.reviewer_agent
-                and result.target_agent == review.target_agent
-                and result.scope == review.scope
-            ):
-                return result.status == ReviewStatus.APPROVED
-        return False
+        return self._review_flow()._review_package_is_approved(review)
 
     def _planned_review_packages(self) -> list[ReviewPackage]:
-        reviews: list[ReviewPackage] = []
-        for item in self.session.review_packages:
-            if not isinstance(item, dict):
-                continue
-            try:
-                reviews.append(ReviewPackage.from_dict(item))
-            except (TypeError, ValueError):
-                continue
-        return reviews
+        return self._review_flow()._planned_review_packages()
 
     def detect_interrupted_execution(
         self,
@@ -1397,15 +1363,7 @@ class WorkflowEngine:
         return WorkflowReviewFlow._normalize_repair_change(change)
 
     def _review_results(self) -> list[ReviewResult]:
-        reviews: list[ReviewResult] = []
-        for item in self.session.review_results:
-            if not isinstance(item, dict):
-                continue
-            try:
-                reviews.append(ReviewResult.from_dict(item))
-            except (TypeError, ValueError):
-                continue
-        return reviews
+        return self._review_flow()._review_results()
 
     def _post_review_items(self) -> list[PostReviewActionItem]:
         return self._post_review_flow()._post_review_items()
@@ -1518,23 +1476,7 @@ class WorkflowEngine:
         return WorkflowPostReviewFlow._downgrade_optional_severity(value)
 
     def _plan_review_packages(self) -> None:
-        """Create peer review packages for completed execution results."""
-        from trinity.workflow.review import PeerReviewPlanner
-
-        planner = PeerReviewPlanner()
-        reviewable_packages = [
-            package
-            for package in self.session.work_packages
-            if package.requires_execution
-            and package.status in {WorkStatus.DONE, WorkStatus.NEEDS_REVIEW}
-            and not self._latest_review_is_approved(package.id)
-        ]
-        reviews = planner.plan_reviews(
-            reviewable_packages,
-            self._decomposition_agents(),
-            self.session.execution_results,
-        )
-        self.session.review_packages = [review.to_dict() for review in reviews]
+        self._review_flow()._plan_review_packages()
 
     def _upsert_subtask_result(self, result: SubtaskResult) -> None:
         """Insert or replace a subtask result by id."""

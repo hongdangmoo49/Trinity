@@ -12,9 +12,6 @@ from trinity.models import (
     AgentSpec,
     DeliberationResult,
 )
-from trinity.providers.policy import (
-    ExecutionScope,
-)
 from trinity.workflow.decomposer import (
     BlueprintDecomposer,
     classify_execution_intent,
@@ -555,11 +552,6 @@ class WorkflowEngine:
         """Preview dependency/file-safe work package groups for the current session."""
         return self._execution_flow().plan_parallel_groups()
 
-    @staticmethod
-    def _preview_execution_scope(package: WorkPackage) -> ExecutionScope:
-        """Build scheduling metadata for TUI parallel-group previews."""
-        return WorkflowExecutionFlow.preview_execution_scope(package)
-
     def record_execution_batch_planned(
         self,
         batches: list[list[str]],
@@ -595,10 +587,6 @@ class WorkflowEngine:
     ) -> None:
         """Upsert one execution result without finalizing the workflow."""
         self._execution_flow().record_execution_result(result, emit_event=emit_event)
-
-    def _finalize_execution_state(self) -> None:
-        """Derive the workflow state after current execution progress."""
-        self._execution_flow().finalize_execution_state()
 
     def ensure_review_packages(self) -> list[ReviewPackage]:
         """Ensure completed execution has review packages planned."""

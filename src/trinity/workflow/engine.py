@@ -730,13 +730,6 @@ class WorkflowEngine:
         """Abort a stale execution and require an explicit user decision."""
         return self._execution_recovery_flow().abort_interrupted_execution()
 
-    def _plan_review_packages(self) -> None:
-        self._review_flow()._plan_review_packages()
-
-    def _upsert_subtask_result(self, result: SubtaskResult) -> None:
-        """Insert or replace a subtask result by id."""
-        self._collection_flow().upsert_subtask_result(result)
-
     def render_shared_ledger(
         self,
         provider_readiness: Any = None,

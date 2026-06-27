@@ -54,6 +54,10 @@ from trinity.textual_app.local_commands import (
     snapshot_with_local_command_results,
 )
 from trinity.textual_app.memory_commands import memory_command_presentation
+from trinity.textual_app.model_settings_commands import (
+    model_settings_unavailable_notification,
+    model_settings_updated_notification,
+)
 from trinity.textual_app.packages_commands import packages_command_presentation
 from trinity.textual_app.questions_commands import questions_command_presentation
 from trinity.textual_app.report_export import (
@@ -2215,12 +2219,13 @@ class TrinityTextualApp(App[None]):
         """Open the model settings modal for the active prompt selector."""
         selector = self._active_agent_selector()
         if selector is None:
+            notification = model_settings_unavailable_notification(
+                lang=self.config.lang,
+            )
             self.notify(
-                textual_presenters.model_settings_unavailable_markdown(
-                    lang=self.config.lang
-                ),
-                title=textual_presenters.model_settings_title(lang=self.config.lang),
-                severity="warning",
+                notification.message,
+                title=notification.title,
+                severity=notification.severity,
             )
             return
         self._refresh_provider_models(use_cache=False)
@@ -2246,9 +2251,10 @@ class TrinityTextualApp(App[None]):
         if selector is None:
             return
         selector.set_model_selections(selections)
+        notification = model_settings_updated_notification(lang=self.config.lang)
         self.notify(
-            textual_presenters.model_settings_updated_markdown(lang=self.config.lang),
-            title=textual_presenters.model_settings_title(lang=self.config.lang),
+            notification.message,
+            title=notification.title,
         )
 
     def _active_agent_selector(self) -> AgentRecipientModelSelector | None:

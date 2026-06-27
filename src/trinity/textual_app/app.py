@@ -79,6 +79,10 @@ from trinity.textual_app.snapshot import (
     WORKFLOW_EVENT_DISPLAY_LIMIT,
     WorkflowNexusSnapshot,
 )
+from trinity.textual_app.snapshot_source import (
+    current_textual_snapshot,
+    fresh_textual_snapshot,
+)
 from trinity.textual_app.target_workspace import (
     is_control_repo_target,
     resolve_target_path,
@@ -2121,25 +2125,24 @@ class TrinityTextualApp(App[None]):
 
     def _current_textual_snapshot(self) -> WorkflowNexusSnapshot:
         """Return the current workflow snapshot without rendering it."""
-        return (
-            self.active_snapshot
-            or self.workflow_controller.snapshot()
-            or self.snapshot_adapter.load_snapshot()
+        return current_textual_snapshot(
+            active_snapshot=self.active_snapshot,
+            controller_snapshot=self.workflow_controller.snapshot,
+            persisted_snapshot=self.snapshot_adapter.load_snapshot,
         )
 
     def _fresh_textual_snapshot(self) -> WorkflowNexusSnapshot:
         """Return the latest persisted/controller snapshot, ignoring stale UI state."""
-        return self.workflow_controller.snapshot() or self.snapshot_adapter.load_snapshot()
+        return fresh_textual_snapshot(
+            controller_snapshot=self.workflow_controller.snapshot,
+            persisted_snapshot=self.snapshot_adapter.load_snapshot,
+        )
 
     def _refresh_current_route_from_active_snapshot(self) -> None:
         """Re-apply the active snapshot after Textual finishes a screen switch."""
         if not self._screens_installed:
             return
-        snapshot = (
-            self.active_snapshot
-            or self.workflow_controller.snapshot()
-            or self.snapshot_adapter.load_snapshot()
-        )
+        snapshot = self._current_textual_snapshot()
         apply_current_route_snapshot(
             self,
             self.current_route,

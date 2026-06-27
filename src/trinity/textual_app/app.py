@@ -20,9 +20,11 @@ from trinity.textual_app.agent_commands import (
 from trinity.textual_app.ask_commands import (
     AskCommandPresentation,
     AskCommandRun,
+    StartSubmissionEffect,
     ask_command_action,
     ask_command_run_effect,
     run_ask_command,
+    start_submission_effect,
 )
 from trinity.textual_app.answer_commands import (
     AnswerCommandPresentation,
@@ -151,7 +153,6 @@ from trinity.textual_app.target_workspace import (
     default_launch_cwd,
     is_control_repo_target,
     prepare_target_workspace,
-    safe_start_target_workspace,
     workspace_preflight_continuation,
     workspace_preflight_effect,
 )
@@ -1296,30 +1297,49 @@ class TrinityTextualApp(App[None]):
 
     def on_start_screen_submitted(self, event: StartScreen.Submitted) -> None:
         event.stop()
-        self.initial_prompt = event.prompt
-        if self.workspace_candidate is None:
-            self._set_workspace_candidate(event.workspace_candidate, sync_nexus=False)
-        nexus = self.get_screen("nexus", NexusScreen)
-        nexus.set_initial_prompt(event.prompt)
-        nexus.set_agent_selection(event.target_agents, event.agent_model_overrides)
-        self._sync_nexus_workspace_candidate()
-        target_workspace = safe_start_target_workspace(
-            self.workspace_candidate,
-            self.config.project_dir,
+        effect = start_submission_effect(
+            prompt=event.prompt,
+            event_workspace_candidate=event.workspace_candidate,
+            current_workspace_candidate=self.workspace_candidate,
+            target_agents=event.target_agents,
+            agent_model_overrides=event.agent_model_overrides,
+            project_dir=self.config.project_dir,
         )
-        start_kwargs = {
-            "target_workspace": target_workspace,
-            "target_agents": event.target_agents,
-            "agent_model_overrides": event.agent_model_overrides,
-        }
-        outcome = self._call_controller_method(
-            self.workflow_controller.start_prompt,
-            event.prompt,
-            **start_kwargs,
+        self._apply_start_submission_effect(effect)
+
+    def _apply_start_submission_effect(self, effect: StartSubmissionEffect) -> None:
+        self._prepare_start_submission_ui(effect)
+        outcome = self._run_start_submission(effect)
+        self._remember_confirmed_target_preflight(
+            effect.target_workspace,
+            outcome.snapshot,
         )
-        self._remember_confirmed_target_preflight(target_workspace, outcome.snapshot)
         self._apply_workflow_outcome(outcome)
         self.switch_to("nexus")
+
+    def _prepare_start_submission_ui(self, effect: StartSubmissionEffect) -> None:
+        self.initial_prompt = effect.prompt
+        if effect.workspace_candidate_to_set is not None:
+            self._set_workspace_candidate(
+                effect.workspace_candidate_to_set,
+                sync_nexus=False,
+            )
+        nexus = self.get_screen("nexus", NexusScreen)
+        nexus.set_initial_prompt(effect.prompt)
+        nexus.set_agent_selection(
+            effect.target_agents,
+            effect.agent_model_overrides,
+        )
+        self._sync_nexus_workspace_candidate()
+
+    def _run_start_submission(self, effect: StartSubmissionEffect):
+        return self._call_controller_method(
+            self.workflow_controller.start_prompt,
+            effect.prompt,
+            target_workspace=effect.target_workspace,
+            target_agents=effect.target_agents,
+            agent_model_overrides=effect.agent_model_overrides,
+        )
 
     def on_start_screen_slash_command_submitted(
         self,

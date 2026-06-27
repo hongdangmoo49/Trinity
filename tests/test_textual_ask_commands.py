@@ -5,6 +5,7 @@ from trinity.textual_app.ask_commands import (
     ask_command_run_effect,
     ask_error_presentation,
     run_ask_command,
+    start_submission_effect,
 )
 
 
@@ -220,6 +221,59 @@ def test_ask_command_run_effect_ignores_follow_up_without_workspace_picker() -> 
     assert effect.remember_target_preflight is False
     assert effect.switch_to_nexus is False
     assert effect.workspace_picker_snapshot is None
+
+
+def test_start_submission_effect_uses_event_workspace_when_current_is_empty(tmp_path) -> None:
+    workspace = tmp_path / "workspace"
+
+    effect = start_submission_effect(
+        prompt="Build",
+        event_workspace_candidate=workspace,
+        current_workspace_candidate=None,
+        target_agents=("claude",),
+        agent_model_overrides={"claude": "sonnet"},
+        project_dir=tmp_path / "control",
+    )
+
+    assert effect.prompt == "Build"
+    assert effect.workspace_candidate_to_set == workspace
+    assert effect.target_workspace == workspace
+    assert effect.target_agents == ("claude",)
+    assert effect.agent_model_overrides == {"claude": "sonnet"}
+
+
+def test_start_submission_effect_keeps_existing_workspace_candidate(tmp_path) -> None:
+    current = tmp_path / "current"
+    event_workspace = tmp_path / "event"
+
+    effect = start_submission_effect(
+        prompt="Build",
+        event_workspace_candidate=event_workspace,
+        current_workspace_candidate=current,
+        target_agents=("claude", "codex"),
+        agent_model_overrides={},
+        project_dir=tmp_path / "control",
+    )
+
+    assert effect.workspace_candidate_to_set is None
+    assert effect.target_workspace == current
+    assert effect.target_agents == ("claude", "codex")
+
+
+def test_start_submission_effect_skips_control_repo_workspace(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+
+    effect = start_submission_effect(
+        prompt="Build",
+        event_workspace_candidate=control_repo,
+        current_workspace_candidate=None,
+        target_agents=(),
+        agent_model_overrides={},
+        project_dir=control_repo,
+    )
+
+    assert effect.workspace_candidate_to_set == control_repo
+    assert effect.target_workspace is None
 
 
 class _FakeAskNexus:

@@ -44,6 +44,10 @@ from trinity.textual_app.report_export import (
     snapshot_report_markdown,
     unique_report_path,
 )
+from trinity.textual_app.report_commands import (
+    report_open_presentation,
+    report_save_presentation,
+)
 from trinity.textual_app.report_route import prepare_report_route
 from trinity.textual_app.resume_commands import (
     resume_result_presentation,
@@ -2384,45 +2388,38 @@ class TrinityTextualApp(App[None]):
         lang = self.config.lang
         parsed = parse_report_args(args)
         if parsed.action == "save":
-            path = self._export_report_markdown(snapshot)
-            if path is None:
-                self._record_slash_command_result(
-                    "/report",
-                    textual_presenters.report_title(lang=lang),
-                    textual_presenters.report_no_export_data_markdown(lang=lang),
-                    severity="warning",
-                    empty=True,
-                    action_hint=textual_presenters.report_export_action_hint(lang=lang),
-                )
-                return
+            presentation = report_save_presentation(
+                self._export_report_markdown(snapshot),
+                lang=lang,
+            )
             self._record_slash_command_result(
                 "/report",
-                textual_presenters.report_title(lang=lang),
-                textual_presenters.report_saved_markdown(str(path), lang=lang),
-                result_kind="path",
-                table_columns=textual_presenters.status_table_columns(lang=lang),
-                table_rows=textual_presenters.report_saved_rows(str(path), lang=lang),
+                presentation.title,
+                presentation.body,
+                severity=presentation.severity,
+                result_kind=presentation.result_kind,
+                empty=presentation.empty,
+                action_hint=presentation.action_hint,
+                table_columns=presentation.table_columns,
+                table_rows=presentation.table_rows,
+                start_modal=presentation.start_modal,
             )
             return
-        if not snapshot_has_report_data(snapshot):
-            self._record_slash_command_result(
-                "/report",
-                textual_presenters.report_title(lang=lang),
-                textual_presenters.report_no_open_data_markdown(lang=lang),
-                severity="warning",
-                empty=True,
-                action_hint=textual_presenters.report_open_action_hint(lang=lang),
-            )
-            return
+        presentation = report_open_presentation(snapshot, lang=lang)
         self._record_slash_command_result(
             "/report",
-            textual_presenters.report_title(lang=lang),
-            textual_presenters.report_opened_markdown(lang=lang),
-            table_columns=textual_presenters.status_table_columns(lang=lang),
-            table_rows=textual_presenters.report_summary_rows(snapshot, lang=lang),
-            start_modal=False,
+            presentation.title,
+            presentation.body,
+            severity=presentation.severity,
+            result_kind=presentation.result_kind,
+            empty=presentation.empty,
+            action_hint=presentation.action_hint,
+            table_columns=presentation.table_columns,
+            table_rows=presentation.table_rows,
+            start_modal=presentation.start_modal,
         )
-        self.switch_to("report")
+        if presentation.switch_to_report:
+            self.switch_to("report")
 
     def _handle_textual_rounds_command(
         self,

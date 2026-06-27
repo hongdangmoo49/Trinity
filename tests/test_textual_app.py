@@ -68,6 +68,7 @@ from trinity.textual_app.presenters import (
     execute_retry_no_packages_markdown,
     execute_retry_title,
     execute_title,
+    execution_recovery_local_command_snapshot,
     execution_recovery_action_hint,
     execution_recovery_markdown,
     execution_recovery_rows,
@@ -684,6 +685,41 @@ def test_status_reports_interrupted_execution() -> None:
     assert "Execution: `interrupted`" in markdown
     assert ("Execution", "interrupted") in rows
     assert ("Retry candidates", "WP-001, WP-003") in rows
+
+
+def test_execution_recovery_local_command_snapshot_uses_recovery_presenter() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-recovery",
+        state="executing",
+        execution_recovery=ExecutionRecoverySnapshot(
+            run_id="exec-run-test",
+            state="interrupted",
+            target_workspace="/home/user/workspace/msu",
+            running_packages=("WP-001",),
+            retry_candidates=("WP-001", "WP-003"),
+            done_packages=("WP-002",),
+            last_event="work_package_started",
+        ),
+    )
+
+    result = execution_recovery_local_command_snapshot(
+        "/execute-retry",
+        snapshot,
+        "Previous execution was interrupted.",
+        lang="ko",
+    )
+
+    assert result.command == "/execute-retry"
+    assert result.title == "실행 복구"
+    assert result.severity == "warning"
+    assert "이전 실행이 중단되었습니다." in result.body
+    assert "- 실행: `중단`" in result.body
+    assert result.action_hint == (
+        "`/execute-retry`, `/execute mark-interrupted`, "
+        "`/execute abort` 중 하나를 실행하세요."
+    )
+    assert result.table_columns == ("항목", "값")
+    assert ("재시도 후보", "WP-001, WP-003") in result.table_rows
 
 
 def test_status_presenter_uses_korean_labels() -> None:

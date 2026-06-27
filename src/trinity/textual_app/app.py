@@ -2176,11 +2176,25 @@ class TrinityTextualApp(App[None]):
             table_columns=table_columns,
             table_rows=table_rows,
         )
+        self._record_local_command_snapshot(
+            result,
+            start_modal=start_modal,
+            notify=True,
+        )
+
+    def _record_local_command_snapshot(
+        self,
+        result: LocalCommandSnapshot,
+        *,
+        start_modal: bool = True,
+        notify: bool = True,
+    ) -> None:
+        """Persist and render a prepared local slash command result."""
         append_local_command_event(self.config.effective_state_dir, result)
         self._present_local_command_result(
             result,
             start_modal=start_modal,
-            notify=True,
+            notify=notify,
         )
 
     def _present_local_command_result(
@@ -2296,32 +2310,14 @@ class TrinityTextualApp(App[None]):
         message: str = "",
     ) -> None:
         """Show interrupted execution recovery details as a local command result."""
-        localized_message = textual_presenters.workflow_outcome_message_markdown(
+        result = textual_presenters.execution_recovery_local_command_snapshot(
+            command,
+            snapshot,
             message,
             lang=self.config.lang,
-        ).strip()
-        body_parts = [localized_message] if localized_message else []
-        body_parts.append(
-            textual_presenters.execution_recovery_markdown(
-                snapshot,
-                lang=self.config.lang,
-            )
         )
-        self._record_slash_command_result(
-            command,
-            textual_presenters.execution_recovery_title(lang=self.config.lang),
-            "\n\n".join(body_parts),
-            severity="warning",
-            action_hint=textual_presenters.execution_recovery_action_hint(
-                lang=self.config.lang
-            ),
-            table_columns=textual_presenters.execution_recovery_table_columns(
-                lang=self.config.lang
-            ),
-            table_rows=textual_presenters.execution_recovery_rows(
-                snapshot,
-                lang=self.config.lang,
-            ),
+        self._record_local_command_snapshot(
+            result,
             start_modal=False,
         )
 

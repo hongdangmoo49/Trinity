@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.616`
-- Merged PR range reviewed: #90 through #712
+- Package version inspected: `1.0.618`
+- Merged PR range reviewed: #90 through #714
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #712
-- Latest refresh reviewed: #712
+- Maintenance refresh reviewed: #427 through #714
+- Latest refresh reviewed: #714
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1121,6 +1121,17 @@ and what the next release train should optimize.
   workflow outcome application, and notifications unchanged.
 - Reduced `_present_local_command_result` from 18 lines to 15 lines.
 - Raised the package version from `1.0.614` to `1.0.615` in this patch PR.
+
+### #714: Textual Slash Command Presentation Recorder
+
+- Added `_record_slash_command_presentation` in `textual_app/app.py` to share
+  common local slash command presentation recording.
+- Applied the helper to `/review`, `/rounds`, `/agent`, and `/caveman` command
+  handlers without changing title, body, severity, table, or action hint
+  propagation.
+- Removed four repeated handler bodies from the large-method list and kept only
+  the command-specific presentation builders in each handler.
+- Raised the package version from `1.0.616` to `1.0.617` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

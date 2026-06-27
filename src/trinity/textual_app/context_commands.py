@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
 from trinity.textual_app import presenters as textual_presenters
+from trinity.textual_app.local_commands import (
+    replace_local_command_result,
+    snapshot_with_local_command_results,
+)
 from trinity.textual_app.snapshot import LocalCommandSnapshot, WorkflowNexusSnapshot
 
 
@@ -23,6 +28,15 @@ class ContextCommandPresentation:
     body: str
     severity: ContextSeverity = "info"
     result: LocalCommandSnapshot | None = None
+
+
+@dataclass(frozen=True)
+class ContextCommandSnapshotUpdate:
+    """Updated local command state and snapshot for `/context` result rendering."""
+
+    local_command_results: list[LocalCommandSnapshot]
+    snapshot: WorkflowNexusSnapshot
+    result: LocalCommandSnapshot
 
 
 def context_command_presentation(
@@ -57,5 +71,23 @@ def context_command_presentation(
         command=command,
         title=title,
         body=body,
+        result=result,
+    )
+
+
+def context_command_snapshot_update(
+    presentation: ContextCommandPresentation,
+    snapshot: WorkflowNexusSnapshot,
+    local_command_results: Sequence[LocalCommandSnapshot],
+) -> ContextCommandSnapshotUpdate | None:
+    """Return updated local command state for a context command result."""
+    result = presentation.result
+    if result is None:
+        return None
+    updated_results = replace_local_command_result(local_command_results, result)
+    updated_snapshot = snapshot_with_local_command_results(snapshot, updated_results)
+    return ContextCommandSnapshotUpdate(
+        local_command_results=updated_results,
+        snapshot=updated_snapshot,
         result=result,
     )

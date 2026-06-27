@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.610`
-- Merged PR range reviewed: #90 through #706
+- Package version inspected: `1.0.612`
+- Merged PR range reviewed: #90 through #708
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #706
-- Latest refresh reviewed: #706
+- Maintenance refresh reviewed: #427 through #708
+- Latest refresh reviewed: #708
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1092,6 +1092,17 @@ and what the next release train should optimize.
   late-discovered model updates for an open `ModelSettingsModal` unchanged.
 - Reduced `_apply_discovered_model_choices` from 18 lines to 8 lines.
 - Raised the package version from `1.0.608` to `1.0.609` in this patch PR.
+
+### #708: Textual Nexus Workspace Selection Confirm Helper
+
+- Split Nexus workspace selection control-repo confirmation in
+  `textual_app/app.py` into `_open_nexus_workspace_confirm_if_needed`.
+- Kept external workspace selection, confirmation modal behavior, target
+  workspace application, and no-execution side effect unchanged.
+- Added direct coverage for selecting a control repo path from the Nexus
+  workspace flow.
+- Reduced `_on_nexus_workspace_selected` from 19 lines to 12 lines.
+- Raised the package version from `1.0.610` to `1.0.611` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

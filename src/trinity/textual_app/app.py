@@ -12,10 +12,7 @@ from textual.binding import Binding
 
 from trinity import __version__
 from trinity.config import TrinityConfig
-from trinity.context.commands import (
-    artifact_markdown,
-    engine_from_config,
-)
+from trinity.context.commands import engine_from_config
 from trinity.providers.model_discovery import (
     ProviderModelChoice,
     discover_provider_models,
@@ -24,7 +21,6 @@ from trinity.slash_commands import parse_execute_retry_args, parse_slash_command
 from trinity.textual_app.command_parsers import (
     parse_agent_args,
     parse_answer_args,
-    parse_artifact_args,
     parse_ask_args,
     parse_caveman_args,
     parse_execute_args,
@@ -35,6 +31,7 @@ from trinity.textual_app.command_parsers import (
 )
 from trinity.textual_app import presenters as textual_presenters
 from trinity.textual_app.answer_commands import answer_result_presentation
+from trinity.textual_app.artifact_commands import artifact_command_presentation
 from trinity.textual_app.improve_commands import improve_result_presentation
 from trinity.textual_app.local_commands import (
     append_local_command_event,
@@ -2370,25 +2367,16 @@ class TrinityTextualApp(App[None]):
         )
 
     def _handle_textual_artifact_command(self, args: list[str]) -> None:
-        lang = self.config.lang
-        parsed = parse_artifact_args(args, lang=lang)
-        if parsed.error:
-            self._record_slash_command_result(
-                "/artifact",
-                textual_presenters.artifact_title(lang=lang),
-                parsed.error,
-                severity="warning",
-            )
-            return
-        body = artifact_markdown(
+        presentation = artifact_command_presentation(
             engine_from_config(self.config),
-            parsed.record_id,
-            lang=lang,
+            args,
+            lang=self.config.lang,
         )
         self._record_slash_command_result(
             "/artifact",
-            textual_presenters.artifact_title(lang=lang),
-            body,
+            presentation.title,
+            presentation.body,
+            severity=presentation.severity,
         )
 
     def _handle_textual_report_command(self, args: list[str]) -> None:

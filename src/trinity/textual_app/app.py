@@ -62,7 +62,6 @@ from trinity.textual_app.local_commands import (
     append_local_command_event,
     local_command_result_effect,
     local_command_snapshot,
-    replace_local_command_result,
     snapshot_with_local_command_results,
 )
 from trinity.textual_app.memory_commands import memory_command_presentation
@@ -113,7 +112,7 @@ from trinity.textual_app.slash_error_commands import (
     slash_syntax_error_presentation,
     unknown_slash_command_presentation,
 )
-from trinity.textual_app.status_commands import status_command_result
+from trinity.textual_app.status_commands import status_command_effect
 from trinity.textual_app.subtasks_commands import subtasks_command_presentation
 from trinity.textual_app.target_commands import (
     TargetCommandEffect,
@@ -2251,24 +2250,24 @@ class TrinityTextualApp(App[None]):
         snapshot: WorkflowNexusSnapshot,
     ) -> None:
         """Show status in the surface appropriate for the current Textual route."""
-        result = status_command_result(
+        effect = status_command_effect(
             command,
             snapshot,
+            self._local_command_results,
+            current_route=self.current_route,
             lang=self.config.lang,
         )
-        self._local_command_results = replace_local_command_result(
-            self._local_command_results,
-            result,
-        )
-        snapshot = snapshot_with_local_command_results(
-            snapshot,
-            self._local_command_results,
-        )
-        self.active_snapshot = snapshot
-        if self.current_route == "start":
-            self.push_screen(StatusCommandModal(result, lang=self.config.lang))
+        self._apply_textual_status_effect(effect)
+
+    def _apply_textual_status_effect(self, effect: LocalCommandResultEffect) -> None:
+        self._local_command_results = effect.local_command_results
+        self.active_snapshot = effect.snapshot
+        if effect.show_modal and effect.modal_result is not None:
+            self.push_screen(
+                StatusCommandModal(effect.modal_result, lang=self.config.lang)
+            )
             return
-        self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
+        self._apply_workflow_outcome(TextualWorkflowOutcome(effect.snapshot))
 
     def _open_model_settings_modal(self) -> None:
         """Open the model settings modal for the active prompt selector."""

@@ -29,6 +29,7 @@ tests/test_textual_answer_commands.py
 tests/test_textual_command_parsers.py
 tests/test_textual_improve_commands.py
 tests/test_textual_local_commands.py
+tests/test_textual_memory_commands.py
 tests/test_textual_resume_commands.py
 tests/test_textual_review_commands.py
 tests/test_textual_slash_command_router.py

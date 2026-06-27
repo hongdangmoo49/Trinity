@@ -82,9 +82,9 @@ from trinity.textual_app.report_export import (
 )
 from trinity.textual_app.report_commands import (
     ReportCommandPresentation,
+    ReportExportEffect,
     report_command_presentation,
-    report_export_complete_notification,
-    report_export_unavailable_notification,
+    report_export_effect,
 )
 from trinity.textual_app.report_route import prepare_report_route
 from trinity.textual_app.resume_commands import (
@@ -2906,29 +2906,23 @@ class TrinityTextualApp(App[None]):
 
     def _export_report_markdown(self, snapshot: WorkflowNexusSnapshot) -> Path | None:
         """Save a report as Markdown using the shared DeliberationReport builder."""
-        lang = self.config.lang
         filepath = export_report_markdown(
             snapshot,
             state_dir=self.config.effective_state_dir,
-            lang=lang,
+            lang=self.config.lang,
         )
-        if filepath is None:
-            notification = report_export_unavailable_notification(lang=lang)
-            self.notify(
-                notification.message,
-                title=notification.title,
-                severity=notification.severity,
-            )
-            return None
+        effect = report_export_effect(filepath, lang=self.config.lang)
+        self._apply_report_export_effect(effect)
+        return effect.path
 
-        if self._screens_installed:
-            self.get_screen("report", ReportScreen).show_export_path(filepath)
-        notification = report_export_complete_notification(filepath, lang=lang)
-        self.notify(
-            notification.message,
-            title=notification.title,
-        )
-        return filepath
+    def _apply_report_export_effect(self, effect: ReportExportEffect) -> None:
+        if effect.show_export_path and self._screens_installed and effect.path is not None:
+            self.get_screen("report", ReportScreen).show_export_path(effect.path)
+        notification = effect.notification
+        notify_kwargs = {"title": notification.title}
+        if notification.severity:
+            notify_kwargs["severity"] = notification.severity
+        self.notify(notification.message, **notify_kwargs)
 
 
 def run_textual_app(config: TrinityConfig) -> None:

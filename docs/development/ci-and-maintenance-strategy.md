@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.550`
-- Merged PR range reviewed: #90 through #646
+- Package version inspected: `1.0.552`
+- Merged PR range reviewed: #90 through #648
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #646
-- Latest refresh reviewed: #646
+- Maintenance refresh reviewed: #427 through #648
+- Latest refresh reviewed: #648
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -778,6 +778,17 @@ and what the next release train should optimize.
   selector, failed resume, continued resume, and execution recovery effects.
 - Raised the package version from `1.0.548` to `1.0.549` in this patch PR.
 
+### #648: Textual Answer Command Apply Helper
+
+- Split `/answer` local command result recording into
+  `_record_answer_command_presentation`.
+- Split `/answer` workflow outcome application and message result handling into
+  `_apply_textual_answer_run`.
+- Kept answer parsing and workflow controller routing behind
+  `textual_app/answer_commands.py`.
+- Reduced `_handle_textual_answer_command` from 32 lines to 10 lines.
+- Raised the package version from `1.0.550` to `1.0.551` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -987,9 +998,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #646:
+Current main snapshot after #648:
 
-- `src/trinity/textual_app/app.py`: 2,818 lines
+- `src/trinity/textual_app/app.py`: 2,823 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

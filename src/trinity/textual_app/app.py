@@ -2322,15 +2322,13 @@ class TrinityTextualApp(App[None]):
         )
 
     def _present_review_repair_details(self, snapshot: WorkflowNexusSnapshot) -> None:
-        lang = self.config.lang
-        self._record_slash_command_result(
+        result = textual_presenters.review_repair_local_command_snapshot(
             "/review",
-            textual_presenters.review_repair_title(lang=lang),
-            textual_presenters.review_repair_details_markdown(snapshot, lang=lang),
-            severity="warning",
-            action_hint=textual_presenters.review_repair_action_hint(lang=lang),
-            table_columns=textual_presenters.review_repair_table_columns(lang=lang),
-            table_rows=textual_presenters.review_repair_rows(snapshot, lang=lang),
+            snapshot,
+            lang=self.config.lang,
+        )
+        self._record_local_command_snapshot(
+            result,
             start_modal=False,
         )
 

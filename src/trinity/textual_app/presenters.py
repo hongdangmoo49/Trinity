@@ -1448,6 +1448,24 @@ def execution_recovery_local_command_snapshot(
     )
 
 
+def review_repair_local_command_snapshot(
+    command: str,
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> LocalCommandSnapshot:
+    """Build the local slash command result for review repair details."""
+    return local_command_snapshot(
+        command,
+        review_repair_title(lang=lang),
+        review_repair_details_markdown(snapshot, lang=lang),
+        severity="warning",
+        action_hint=review_repair_action_hint(lang=lang),
+        table_columns=review_repair_table_columns(lang=lang),
+        table_rows=review_repair_rows(snapshot, lang=lang),
+    )
+
+
 def local_command_notification_severity(result: LocalCommandSnapshot) -> str:
     """Map a local command result severity to Textual notification severity."""
     return "warning" if result.severity in {"warning", "error"} else "information"

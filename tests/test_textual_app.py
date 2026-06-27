@@ -118,6 +118,7 @@ from trinity.textual_app.presenters import (
     review_repair_action_hint,
     review_repair_blocked_ids,
     review_repair_details_markdown,
+    review_repair_local_command_snapshot,
     review_repair_rows,
     review_repair_table_columns,
     review_repair_title,
@@ -11229,6 +11230,27 @@ def test_review_repair_details_markdown_uses_korean_labels() -> None:
     assert "WP-002" in body
     assert "duplicate_required_changes" in body
     assert "최근 보정 메모" in body
+
+
+def test_review_repair_local_command_snapshot_uses_repair_presenter() -> None:
+    snapshot = _review_repair_blocked_snapshot()
+
+    result = review_repair_local_command_snapshot("/review", snapshot, lang="ko")
+
+    assert result.command == "/review"
+    assert result.title == "리뷰 보정"
+    assert result.severity == "warning"
+    assert "리뷰 보정 루프 가드" in result.body
+    assert result.action_hint == (
+        "중앙 패널에서 한 번 재시도, 완료 처리, 중지 중 하나를 선택하세요."
+    )
+    assert result.table_columns == ("작업 패키지", "보정 상태")
+    assert result.table_rows == (
+        (
+            "WP-002",
+            "duplicate_required_changes; 시도=2/3; 리뷰=변경 요청",
+        ),
+    )
 
 
 def test_review_repair_blocked_ids_include_recovery_retry_candidates() -> None:

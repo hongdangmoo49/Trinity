@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from trinity.textual_app import presenters as textual_presenters
@@ -42,4 +43,23 @@ def questions_command_presentation(
         ),
         table_columns=textual_presenters.questions_table_columns(lang=lang),
         table_rows=textual_presenters.questions_rows(snapshot, lang=lang),
+    )
+
+
+def questions_select_requested(args: Sequence[str]) -> bool:
+    """Return whether `/questions` should show the selected-question body."""
+    return any(arg.lower() in {"--select", "-s"} for arg in args)
+
+
+def questions_command_presentation_from_args(
+    args: Sequence[str],
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> QuestionsCommandPresentation:
+    """Return the presentation payload for `/questions` arguments."""
+    return questions_command_presentation(
+        snapshot,
+        select_requested=questions_select_requested(args),
+        lang=lang,
     )

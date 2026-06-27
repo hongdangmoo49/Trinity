@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.492`
-- Merged PR range reviewed: #90 through #588
+- Package version inspected: `1.0.494`
+- Merged PR range reviewed: #90 through #590
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #588
-- Latest refresh reviewed: #588
+- Maintenance refresh reviewed: #427 through #590
+- Latest refresh reviewed: #590
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -441,6 +441,16 @@ and what the next release train should optimize.
 - Included the new helper tests in the required smoke manifest.
 - Raised the package version from `1.0.490` to `1.0.491` in this patch PR.
 
+### #590: Textual Ask Command Helper
+
+- Split `/ask` error local command presentation assembly from
+  `textual_app/app.py` into `textual_app/ask_commands.py`.
+- Kept `/ask` parsing, workflow start, follow-up submission, target selection,
+  and workflow outcome application in the app facade.
+- Added focused ask command helper tests for English and Korean warning output.
+- Included the new helper tests in the required smoke manifest.
+- Raised the package version from `1.0.492` to `1.0.493` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -639,9 +649,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #588:
+Current main snapshot after #590:
 
-- `src/trinity/textual_app/app.py`: 3,000 lines
+- `src/trinity/textual_app/app.py`: 3,002 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

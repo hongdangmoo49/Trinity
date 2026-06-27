@@ -2739,6 +2739,17 @@ class TrinityTextualApp(App[None]):
         if resolved is None:
             return
 
+        self._apply_textual_target_workspace(
+            resolved,
+            control_repo_confirmed=control_repo_confirmed,
+        )
+
+    def _apply_textual_target_workspace(
+        self,
+        resolved: Path,
+        *,
+        control_repo_confirmed: bool,
+    ) -> None:
         outcome = self.workflow_controller.set_target_workspace(
             resolved,
             control_repo_confirmed=control_repo_confirmed,

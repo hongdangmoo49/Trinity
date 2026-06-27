@@ -32,6 +32,13 @@ class ImproveCommandPresentation:
     action_hint: str
 
 
+@dataclass(frozen=True)
+class ImproveCommandEffect:
+    """UI effect derived from an improve workflow outcome."""
+
+    presentation: ImproveCommandPresentation | None = None
+
+
 def improve_result_presentation(
     message: str | None,
 ) -> ImproveResultPresentation | None:
@@ -62,4 +69,23 @@ def improve_result_command_presentation(
         table_columns=textual_presenters.improve_table_columns(lang=lang),
         table_rows=textual_presenters.improve_rows(snapshot, lang=lang),
         action_hint=textual_presenters.improve_action_hint(lang=lang),
+    )
+
+
+def improve_command_effect(
+    message: str | None,
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> ImproveCommandEffect:
+    """Return the local command effect for an improve workflow outcome."""
+    presentation = improve_result_presentation(message)
+    if presentation is None:
+        return ImproveCommandEffect()
+    return ImproveCommandEffect(
+        presentation=improve_result_command_presentation(
+            presentation,
+            snapshot,
+            lang=lang,
+        )
     )

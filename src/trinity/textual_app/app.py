@@ -2392,20 +2392,32 @@ class TrinityTextualApp(App[None]):
 
     def _apply_textual_context_effect(self, effect: ContextCommandEffect) -> None:
         if effect.action == "notify":
-            self.notify(
-                effect.body,
-                title=effect.title,
-                severity=effect.severity,
-            )
+            self._notify_textual_context_effect(effect)
             return
         if effect.action == "record":
-            self._record_slash_command_result(
-                effect.command,
-                effect.title,
-                effect.body,
-                severity=effect.severity,
-            )
+            self._record_textual_context_effect(effect)
             return
+        self._apply_textual_context_snapshot_effect(effect)
+
+    def _notify_textual_context_effect(self, effect: ContextCommandEffect) -> None:
+        self.notify(
+            effect.body,
+            title=effect.title,
+            severity=effect.severity,
+        )
+
+    def _record_textual_context_effect(self, effect: ContextCommandEffect) -> None:
+        self._record_slash_command_result(
+            effect.command,
+            effect.title,
+            effect.body,
+            severity=effect.severity,
+        )
+
+    def _apply_textual_context_snapshot_effect(
+        self,
+        effect: ContextCommandEffect,
+    ) -> None:
         if effect.local_command_results is None or effect.snapshot is None:
             return
         self._local_command_results = effect.local_command_results

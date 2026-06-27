@@ -2893,12 +2893,32 @@ class TrinityTextualApp(App[None]):
             selection.selector,
             list(selection.package_ids),
         )
+        self._apply_execute_retry_selection_outcome(selection, outcome)
+
+    def _apply_execute_retry_selection_outcome(
+        self,
+        selection: ExecutionRetrySelection,
+        outcome: TextualWorkflowOutcome,
+    ) -> None:
         if outcome.target_workspace_required:
-            self._pending_execute_retry = selection
-            self._apply_workflow_outcome(outcome)
-            self._open_execute_workspace_picker(outcome.snapshot)
+            self._apply_execute_retry_target_workspace_required(selection, outcome)
             return
         self._apply_workflow_outcome(outcome)
+        self._apply_execute_retry_execution_requested(outcome)
+
+    def _apply_execute_retry_target_workspace_required(
+        self,
+        selection: ExecutionRetrySelection,
+        outcome: TextualWorkflowOutcome,
+    ) -> None:
+        self._pending_execute_retry = selection
+        self._apply_workflow_outcome(outcome)
+        self._open_execute_workspace_picker(outcome.snapshot)
+
+    def _apply_execute_retry_execution_requested(
+        self,
+        outcome: TextualWorkflowOutcome,
+    ) -> None:
         if outcome.execution_requested:
             self._apply_execution_screen_state(
                 self.confirmed_preflight,

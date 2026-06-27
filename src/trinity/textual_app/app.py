@@ -1525,22 +1525,32 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         current = snapshot or self._fresh_textual_snapshot()
         repair_action = review_repair_action(action, current)
-        if repair_action.kind == "open_review":
-            self._present_review_repair_details(current)
+        self._apply_review_repair_action(current, repair_action)
+
+    def _apply_review_repair_action(
+        self,
+        snapshot: WorkflowNexusSnapshot,
+        action: ReviewRepairAction,
+    ) -> None:
+        if action.kind == "open_review":
+            self._present_review_repair_details(snapshot)
             return
-        if repair_action.kind == "retry_once":
-            self._retry_review_repair_action(repair_action)
+        if action.kind == "retry_once":
+            self._retry_review_repair_action(action)
             return
-        if repair_action.kind == "mark_done":
-            self._apply_workflow_outcome(
-                self.workflow_controller.accept_blocked_review_repairs()
-            )
+        self._apply_review_repair_completion_action(action)
+
+    def _apply_review_repair_completion_action(
+        self,
+        action: ReviewRepairAction,
+    ) -> None:
+        if action.kind == "mark_done":
+            outcome = self.workflow_controller.accept_blocked_review_repairs()
+        elif action.kind == "stop":
+            outcome = self.workflow_controller.stop_blocked_review_repairs()
+        else:
             return
-        if repair_action.kind == "stop":
-            self._apply_workflow_outcome(
-                self.workflow_controller.stop_blocked_review_repairs()
-            )
-            return
+        self._apply_workflow_outcome(outcome)
 
     def _retry_review_repair_action(self, action: ReviewRepairAction) -> None:
         outcome = self.workflow_controller.retry_blocked_review_repairs()

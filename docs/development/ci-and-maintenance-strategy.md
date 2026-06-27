@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.618`
-- Merged PR range reviewed: #90 through #714
+- Package version inspected: `1.0.620`
+- Merged PR range reviewed: #90 through #716
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #714
-- Latest refresh reviewed: #714
+- Maintenance refresh reviewed: #427 through #716
+- Latest refresh reviewed: #716
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1132,6 +1132,16 @@ and what the next release train should optimize.
 - Removed four repeated handler bodies from the large-method list and kept only
   the command-specific presentation builders in each handler.
 - Raised the package version from `1.0.616` to `1.0.617` in this patch PR.
+
+### #716: Textual Target Workspace Outcome Helper
+
+- Split the target workspace controller call in `textual_app/app.py` into
+  `_set_textual_target_workspace_outcome`.
+- Kept target workspace effect construction, workflow outcome application,
+  workspace candidate synchronization, and target command presentation recording
+  unchanged.
+- Removed `_build_textual_target_workspace_effect` from the large-method list.
+- Raised the package version from `1.0.618` to `1.0.619` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

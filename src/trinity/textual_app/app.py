@@ -18,6 +18,7 @@ from trinity.textual_app.agent_commands import (
     agent_command_presentation,
 )
 from trinity.textual_app.ask_commands import (
+    AskCommandAction,
     AskCommandPresentation,
     AskCommandRun,
     StartSubmissionEffect,
@@ -2184,24 +2185,31 @@ class TrinityTextualApp(App[None]):
         return outcome, message
 
     def _handle_textual_ask_command(self, command_name: str, args: list[str]) -> None:
-        action = ask_command_action(
+        action = self._build_textual_ask_command_action(args)
+        if action.presentation is not None:
+            self._record_ask_command_presentation(command_name, action.presentation)
+            return
+        self._apply_textual_ask_run(self._run_textual_ask_command(action))
+
+    def _build_textual_ask_command_action(
+        self,
+        args: list[str],
+    ) -> AskCommandAction:
+        return ask_command_action(
             args,
             self.config.active_agents.keys(),
             current_route=self.current_route,
             lang=self.config.lang,
         )
-        if action.presentation is not None:
-            self._record_ask_command_presentation(command_name, action.presentation)
-            return
 
-        run = run_ask_command(
+    def _run_textual_ask_command(self, action: AskCommandAction) -> AskCommandRun:
+        return run_ask_command(
             action,
             nexus=self.get_screen("nexus", NexusScreen),
             workflow_controller=self.workflow_controller,
             workspace_candidate=self.workspace_candidate,
             project_dir=self.config.project_dir,
         )
-        self._apply_textual_ask_run(run)
 
     def _record_ask_command_presentation(
         self,

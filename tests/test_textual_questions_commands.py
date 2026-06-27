@@ -1,4 +1,8 @@
-from trinity.textual_app.questions_commands import questions_command_presentation
+from trinity.textual_app.questions_commands import (
+    questions_command_presentation,
+    questions_command_presentation_from_args,
+    questions_select_requested,
+)
 from trinity.textual_app.snapshot import QuestionSnapshot, WorkflowNexusSnapshot
 
 
@@ -51,6 +55,28 @@ def test_questions_command_presentation_uses_select_body() -> None:
 
     assert "Selected question: **q-1**" in presentation.body
     assert "Use the option buttons in the question panel" in presentation.body
+
+
+def test_questions_select_requested_recognizes_flags() -> None:
+    assert questions_select_requested(["--select"]) is True
+    assert questions_select_requested(["-S"]) is True
+    assert questions_select_requested(["all"]) is False
+
+
+def test_questions_command_presentation_from_args_uses_select_flag() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        questions=[
+            QuestionSnapshot(
+                id="q-1",
+                question="Choose a theme?",
+                options=["dark", "light"],
+            )
+        ]
+    )
+
+    presentation = questions_command_presentation_from_args(["-s"], snapshot)
+
+    assert "Selected question: **q-1**" in presentation.body
 
 
 def test_questions_command_presentation_uses_korean_labels() -> None:

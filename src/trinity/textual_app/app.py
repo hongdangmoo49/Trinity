@@ -75,7 +75,10 @@ from trinity.textual_app.model_settings_commands import (
     model_settings_updated_notification,
 )
 from trinity.textual_app.packages_commands import packages_command_presentation
-from trinity.textual_app.questions_commands import questions_command_presentation
+from trinity.textual_app.questions_commands import (
+    QuestionsCommandPresentation,
+    questions_command_presentation_from_args,
+)
 from trinity.textual_app.report_export import (
     export_report_markdown,
 )
@@ -1933,12 +1936,18 @@ class TrinityTextualApp(App[None]):
         args: list[str],
     ) -> None:
         snapshot = self._refresh_textual_snapshot()
-        select_requested = any(arg.lower() in {"--select", "-s"} for arg in args)
-        presentation = questions_command_presentation(
+        presentation = questions_command_presentation_from_args(
+            args,
             snapshot,
-            select_requested=select_requested,
             lang=self.config.lang,
         )
+        self._record_questions_command_presentation(command_name, presentation)
+
+    def _record_questions_command_presentation(
+        self,
+        command_name: str,
+        presentation: QuestionsCommandPresentation,
+    ) -> None:
         self._record_slash_command_result(
             command_name,
             presentation.title,

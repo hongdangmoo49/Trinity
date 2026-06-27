@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.452`
-- Merged PR range reviewed: #90 through #548
+- Package version inspected: `1.0.455`
+- Merged PR range reviewed: #90 through #551
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #548
-- Latest refresh reviewed: #541 through #548
+- Maintenance refresh reviewed: #427 through #551
+- Latest refresh reviewed: #549 through #551
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -220,6 +220,21 @@ and what the next release train should optimize.
 - Raised the package version from `1.0.443` to `1.0.451` across these focused
   patch PRs.
 
+### #549-#551: Maintenance Refresh and Manual Full Validation
+
+- Refreshed this strategy through #548 so the CI fast path, repository hygiene
+  gate, and archive state were recorded in one durable maintenance document.
+- Added a manual `Full validation` workflow for release candidates, broad
+  refactors, and explicit confidence checks without making the full suite a
+  required PR gate.
+- Archived the manual full-validation plan after the workflow landed, leaving
+  root `docs/plans/` clear of 2026-06-27 one-PR plans.
+- Verified the docs/version-only fast path on the archive PR, where required
+  smoke was skipped and fast-path validation passed on Linux, macOS, and
+  Windows.
+- Raised the package version from `1.0.451` to `1.0.454` across these focused
+  patch PRs.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -417,7 +432,7 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #548:
+Current main snapshot after #551:
 
 - `src/trinity/textual_app/app.py`: 3,091 lines
 - `src/trinity/workflow/engine.py`: 625 lines

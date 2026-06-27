@@ -52,6 +52,7 @@ from trinity.textual_app.decisions_commands import decisions_command_presentatio
 from trinity.textual_app.execute_commands import (
     execute_result_presentation,
     execute_retry_no_packages_presentation,
+    execution_recovery_snapshot,
 )
 from trinity.textual_app.help_commands import help_command_presentation
 from trinity.textual_app.history_commands import history_command_presentation
@@ -2283,7 +2284,7 @@ class TrinityTextualApp(App[None]):
         message: str = "",
     ) -> None:
         """Show interrupted execution recovery details as a local command result."""
-        result = textual_presenters.execution_recovery_local_command_snapshot(
+        result = execution_recovery_snapshot(
             command,
             snapshot,
             message,

@@ -22,6 +22,10 @@ from trinity.workflow.review import (
     ReviewResult,
     ReviewStatus,
 )
+from trinity.workflow.review_repair_metadata import (
+    ReviewRepairEventMetadata,
+    review_repair_metadata_from_events,
+)
 from trinity.workflow.targeting_flow import WorkflowTargetingFlow
 
 
@@ -324,15 +328,15 @@ class WorkflowReviewFlow:
         changed = False
         blocked: list[str] = []
         for package in self.engine.session.work_packages:
-            metadata = event_metadata.get(package.id, {})
-            attempts = int(metadata.get("attempt_count", 0) or 0)
+            metadata = event_metadata.get(package.id, ReviewRepairEventMetadata())
+            attempts = metadata.attempt_count
             if attempts <= 0:
                 continue
             if package.repair_attempt_count < attempts:
                 package.repair_attempt_count = attempts
                 changed = True
-            event_signature = str(metadata.get("repair_signature", "") or "")
-            event_review_id = str(metadata.get("review_package_id", "") or "")
+            event_signature = metadata.repair_signature
+            event_review_id = metadata.review_package_id
             if event_signature and not package.last_repair_signature:
                 package.last_repair_signature = event_signature
                 package.last_repair_review_id = event_review_id
@@ -389,43 +393,15 @@ class WorkflowReviewFlow:
             and bool(package.repair_blocked_reason)
         )
 
-    def _review_repair_metadata_from_events(self) -> dict[str, dict[str, Any]]:
-        metadata_by_package: dict[str, dict[str, Any]] = {}
-        for event in self.engine.persistence.load_events_for_workflow(
-            self.engine.session.id,
-            event_names={"work_package_repair_requested"},
-        ):
-            data = event.get("data", {})
-            if not isinstance(data, dict):
-                continue
-            package_id = str(data.get("package_id", "")).strip()
-            if not package_id:
-                continue
-            metadata = metadata_by_package.setdefault(
-                package_id,
-                {
-                    "attempt_count": 0,
-                    "repair_signature": "",
-                    "review_package_id": "",
-                },
+    def _review_repair_metadata_from_events(
+        self,
+    ) -> dict[str, ReviewRepairEventMetadata]:
+        return review_repair_metadata_from_events(
+            self.engine.persistence.load_events_for_workflow(
+                self.engine.session.id,
+                event_names={"work_package_repair_requested"},
             )
-            next_count = int(metadata["attempt_count"]) + 1
-            try:
-                event_count = int(data.get("repair_attempt_count", 0) or 0)
-            except (TypeError, ValueError):
-                event_count = 0
-            metadata["attempt_count"] = max(next_count, event_count)
-            repair_signature = str(data.get("repair_signature", "") or "")
-            if repair_signature:
-                metadata["repair_signature"] = repair_signature
-            review_package_id = str(data.get("review_package_id", "") or "")
-            if not review_package_id:
-                review_package_ids = data.get("review_package_ids", [])
-                if isinstance(review_package_ids, list) and review_package_ids:
-                    review_package_id = str(review_package_ids[-1])
-            if review_package_id:
-                metadata["review_package_id"] = review_package_id
-        return metadata_by_package
+        )
 
     @classmethod
     def _review_repair_signature(cls, result: ReviewResult) -> str:

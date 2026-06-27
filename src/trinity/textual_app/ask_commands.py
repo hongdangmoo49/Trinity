@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Literal
+from pathlib import Path
+from typing import Any, Literal, Protocol
 
 from trinity.textual_app.command_parsers import parse_ask_args
 from trinity.textual_app import presenters as textual_presenters
+from trinity.textual_app.target_workspace import safe_start_target_workspace
 
 AskCommandActionKind = Literal["error", "start", "follow_up"]
 
@@ -32,6 +34,49 @@ class AskCommandAction:
     target_agents: tuple[str, ...] = ()
     agent_model_overrides: dict[str, str] = field(default_factory=dict)
     presentation: AskCommandPresentation | None = None
+
+
+class AskCommandNexus(Protocol):
+    """Nexus surface methods used by `/ask` execution."""
+
+    def set_initial_prompt(self, prompt: str) -> None: ...
+
+    def set_agent_selection(
+        self,
+        target_agents: tuple[str, ...],
+        agent_model_overrides: dict[str, str],
+    ) -> None: ...
+
+
+class AskWorkflowController(Protocol):
+    """Workflow controller methods used by `/ask` execution."""
+
+    def start_prompt(
+        self,
+        prompt: str,
+        *,
+        target_workspace: Path | None = None,
+        target_agents: tuple[str, ...] = (),
+        agent_model_overrides: dict[str, str] | None = None,
+    ) -> Any: ...
+
+    def submit_follow_up(
+        self,
+        text: str,
+        *,
+        target_agents: tuple[str, ...] = (),
+        agent_model_overrides: dict[str, str] | None = None,
+    ) -> Any: ...
+
+
+@dataclass(frozen=True)
+class AskCommandRun:
+    """Result of executing a valid `/ask` action."""
+
+    outcome: Any
+    initial_prompt: str = ""
+    target_workspace: Path | None = None
+    switch_to_nexus: bool = False
 
 
 def ask_command_action(
@@ -59,6 +104,40 @@ def ask_command_action(
         target_agents=parsed.target_agents,
         agent_model_overrides=parsed.agent_model_overrides,
     )
+
+
+def run_ask_command(
+    action: AskCommandAction,
+    *,
+    nexus: AskCommandNexus,
+    workflow_controller: AskWorkflowController,
+    workspace_candidate: Path | None,
+    project_dir: Path,
+) -> AskCommandRun:
+    """Apply UI selection and execute a valid `/ask` action."""
+    nexus.set_agent_selection(action.target_agents, action.agent_model_overrides)
+    if action.kind == "start":
+        nexus.set_initial_prompt(action.prompt)
+        target_workspace = safe_start_target_workspace(workspace_candidate, project_dir)
+        outcome = workflow_controller.start_prompt(
+            action.prompt,
+            target_workspace=target_workspace,
+            target_agents=action.target_agents,
+            agent_model_overrides=action.agent_model_overrides,
+        )
+        return AskCommandRun(
+            outcome=outcome,
+            initial_prompt=action.prompt,
+            target_workspace=target_workspace,
+            switch_to_nexus=True,
+        )
+
+    outcome = workflow_controller.submit_follow_up(
+        action.prompt,
+        target_agents=action.target_agents,
+        agent_model_overrides=action.agent_model_overrides,
+    )
+    return AskCommandRun(outcome=outcome)
 
 
 def ask_error_presentation(

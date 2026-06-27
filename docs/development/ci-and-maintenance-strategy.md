@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.608`
-- Merged PR range reviewed: #90 through #704
+- Package version inspected: `1.0.610`
+- Merged PR range reviewed: #90 through #706
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #704
-- Latest refresh reviewed: #704
+- Maintenance refresh reviewed: #427 through #706
+- Latest refresh reviewed: #706
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1083,6 +1083,15 @@ and what the next release train should optimize.
   errors, and unknown command dispatch state.
 - Reduced `_handle_textual_slash_command` from 20 lines to 6 lines.
 - Raised the package version from `1.0.606` to `1.0.607` in this patch PR.
+
+### #706: Textual Discovered Model Choice Surfaces
+
+- Split discovered model choice application in `textual_app/app.py` into merge,
+  screen surface sync, and model settings modal sync helpers.
+- Kept unchanged-choice skipping, Start/Nexus recipient selector sync, and
+  late-discovered model updates for an open `ModelSettingsModal` unchanged.
+- Reduced `_apply_discovered_model_choices` from 18 lines to 8 lines.
+- Raised the package version from `1.0.608` to `1.0.609` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

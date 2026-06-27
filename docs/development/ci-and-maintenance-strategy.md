@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.576`
-- Merged PR range reviewed: #90 through #672
+- Package version inspected: `1.0.578`
+- Merged PR range reviewed: #90 through #674
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #672
-- Latest refresh reviewed: #672
+- Maintenance refresh reviewed: #427 through #674
+- Latest refresh reviewed: #674
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -928,6 +928,17 @@ and what the next release train should optimize.
   the app facade.
 - Reduced `_show_textual_status` from 24 lines to 14 lines.
 - Raised the package version from `1.0.574` to `1.0.575` in this patch PR.
+
+### #674: Textual Improve Command Effect Helper
+
+- Split `/improve` outcome-message presentation from `textual_app/app.py` into
+  `textual_app/improve_commands.py`.
+- Added `ImproveCommandEffect` and `improve_command_effect` so empty-message,
+  info, and warning presentations are testable without the Textual app.
+- Kept workflow controller invocation, workflow outcome application, and
+  concrete slash-command recording in the app facade.
+- Reduced `_handle_textual_improve_command` from 23 lines to 13 lines.
+- Raised the package version from `1.0.576` to `1.0.577` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

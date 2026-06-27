@@ -24,6 +24,7 @@ or deleting old implementation plans.
 | Workflow flow decomposition | #392-#409 | 2026-06-26 `workflow-*`, `provider-*`, review/post-review flow plans | Keep as architecture trace; flow and provider readiness/recovery contract docs exist |
 | Textual presenter and wrapper removal | #410-#426 | 2026-06-26 `textual-*`, command parser, facade-thin plans | Ready for bundle archive after presenter contract docs exist |
 | CI maintenance strategy | #427 | `README.md`, this index, CI strategy doc | Active maintenance reference |
+| Post-review maintenance helpers | #534-#537 | 2026-06-27 post-review helper extraction plans | Archived after helper modules and post-review smoke coverage landed |
 
 ## Workflow Flow Decomposition Plans
 
@@ -86,6 +87,21 @@ Archived bundle:
 - `archive/2026-06-26-textual-presenters/2026-06-26-workflow-recovery-facade-thin.md`
 - `archive/2026-06-26-textual-presenters/2026-06-26-provider-error-gate-flow-reuse.md`
 - `archive/2026-06-26-textual-presenters/2026-06-26-workflow-execution-facade-thin.md`
+
+## Post-Review Maintenance Helper Plans
+
+These plans are completed helper extraction slices from the post-review
+maintenance pass. Their active behavior is covered by the post-review flow
+module and the required smoke suite, so the one-PR implementation notes are
+archived as a dated bundle.
+
+Archived bundle:
+
+- `docs/plans/archive/2026-06-27-post-review-maintenance/`
+
+The archived bundle contains the #534-#537 plans for post-review item
+selection, owner assignment, supplemental WorkPackage construction, and
+supplemental execution run payload construction.
 
 ## Render Cost Reduction Plans
 

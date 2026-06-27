@@ -27,6 +27,7 @@ Archived one-PR plans are grouped under `docs/plans/archive/`.
 | #293-#391 | Nexus/Textual render cost reduction |
 | #392-#409 | Workflow flow decomposition |
 | #410-#426 | Textual presenter/parser wrapper removal and facade thinning |
+| #534-#537 | Post-review maintenance helper extraction |
 
 ## Active vs Historical Plans
 
@@ -44,7 +45,13 @@ Archive or summarize a plan file when it is one of these:
 
 Current archived bundles:
 
+- `archive/2026-06-24-fake-provider-baseline/`
+- `archive/2026-06-24-25-korean-ux/`
+- `archive/2026-06-24-execution-review-feedback/`
+- `archive/2026-06-25-26-render-cache/`
+- `archive/2026-06-25-ui-label-status/`
 - `archive/2026-06-26-textual-presenters/`
+- `archive/2026-06-27-post-review-maintenance/`
 
 ## Cleanup Policy
 

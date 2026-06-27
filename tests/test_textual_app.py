@@ -162,6 +162,7 @@ from trinity.textual_app.presenters import (
     subtasks_table_columns,
     syntax_error_title,
     target_action_hint,
+    target_cancelled_local_command_snapshot,
     target_cleared_markdown,
     target_control_repo_action_hint,
     target_current_markdown,
@@ -1393,6 +1394,22 @@ def test_target_presenter_uses_korean_labels() -> None:
         ("제어 저장소 내부", "아니오"),
         ("제어 저장소 확인", "예"),
     )
+
+
+def test_target_cancelled_local_command_snapshot_uses_korean_labels() -> None:
+    selection = target_cancelled_local_command_snapshot(lang="ko")
+    preflight = target_cancelled_local_command_snapshot(
+        kind="preflight",
+        lang="ko",
+    )
+
+    assert selection.command == "/target"
+    assert selection.title == "대상"
+    assert selection.body == "대상 작업 폴더 선택을 취소했습니다."
+    assert selection.severity == "warning"
+    assert selection.empty is True
+    assert selection.action_hint.startswith("Trinity 제어 저장소")
+    assert preflight.body == "작업 폴더 사전 확인을 취소했습니다."
 
 
 def test_rounds_presenter_uses_korean_labels() -> None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from difflib import get_close_matches
-from typing import Mapping, Protocol, Sequence
+from typing import Literal, Mapping, Protocol, Sequence
 
 from trinity.slash_commands import COMMAND_SPECS, SESSION_ONLY_SETTING_NOTICE
 from trinity.display_labels import display_kind_value, display_severity_value
@@ -19,6 +19,8 @@ from trinity.textual_app.widgets.status_label import (
 NO_CURRENT_CONTEXT_MESSAGE = (
     "No current session context. Start a prompt or resume a workflow first."
 )
+
+TargetCancelKind = Literal["selection", "preflight"]
 
 
 class AgentRowSpec(Protocol):
@@ -1241,6 +1243,28 @@ def target_preflight_cancelled_markdown(*, lang: str = "en") -> str:
 
 def target_control_repo_action_hint(*, lang: str = "en") -> str:
     return _sc_label(lang, "target_control_repo_hint")
+
+
+def target_cancelled_local_command_snapshot(
+    command: str = "/target",
+    *,
+    kind: TargetCancelKind = "selection",
+    lang: str = "en",
+) -> LocalCommandSnapshot:
+    """Build the local command result for a cancelled target confirmation."""
+    body = (
+        target_preflight_cancelled_markdown(lang=lang)
+        if kind == "preflight"
+        else target_selection_cancelled_markdown(lang=lang)
+    )
+    return local_command_snapshot(
+        command,
+        target_title(lang=lang),
+        body,
+        severity="warning",
+        empty=True,
+        action_hint=target_control_repo_action_hint(lang=lang),
+    )
 
 
 def target_current_markdown(current: str | None, *, lang: str = "en") -> str:

@@ -1558,15 +1558,10 @@ class TrinityTextualApp(App[None]):
                 control_repo_confirmed=True,
             )
             return
-        self._record_slash_command_result(
-            "/target",
-            textual_presenters.target_title(lang=self.config.lang),
-            textual_presenters.target_selection_cancelled_markdown(lang=self.config.lang),
-            severity="warning",
-            empty=True,
-            action_hint=textual_presenters.target_control_repo_action_hint(
+        self._record_local_command_snapshot(
+            textual_presenters.target_cancelled_local_command_snapshot(
                 lang=self.config.lang
-            ),
+            )
         )
 
     def _continue_nexus_workspace_selection(
@@ -1626,15 +1621,11 @@ class TrinityTextualApp(App[None]):
                 control_repo_confirmed=True,
             )
             return
-        self._record_slash_command_result(
-            "/target",
-            textual_presenters.target_title(lang=self.config.lang),
-            textual_presenters.target_preflight_cancelled_markdown(lang=self.config.lang),
-            severity="warning",
-            empty=True,
-            action_hint=textual_presenters.target_control_repo_action_hint(
-                lang=self.config.lang
-            ),
+        self._record_local_command_snapshot(
+            textual_presenters.target_cancelled_local_command_snapshot(
+                kind="preflight",
+                lang=self.config.lang,
+            )
         )
         self._pending_execute_retry = None
 
@@ -2714,15 +2705,10 @@ class TrinityTextualApp(App[None]):
         if confirmed:
             self._set_textual_target_workspace(path, control_repo_confirmed=True)
             return
-        self._record_slash_command_result(
-            "/target",
-            textual_presenters.target_title(lang=self.config.lang),
-            textual_presenters.target_selection_cancelled_markdown(lang=self.config.lang),
-            severity="warning",
-            empty=True,
-            action_hint=textual_presenters.target_control_repo_action_hint(
+        self._record_local_command_snapshot(
+            textual_presenters.target_cancelled_local_command_snapshot(
                 lang=self.config.lang
-            ),
+            )
         )
 
     def _set_textual_target_workspace(

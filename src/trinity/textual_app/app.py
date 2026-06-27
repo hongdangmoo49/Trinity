@@ -93,6 +93,13 @@ from trinity.textual_app.slash_error_commands import (
 )
 from trinity.textual_app.status_commands import status_command_result
 from trinity.textual_app.subtasks_commands import subtasks_command_presentation
+from trinity.textual_app.target_commands import (
+    target_cleared_presentation,
+    target_current_presentation,
+    target_not_directory_presentation,
+    target_prepare_failed_presentation,
+    target_workspace_presentation,
+)
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.report import ReportScreen
@@ -2574,25 +2581,27 @@ class TrinityTextualApp(App[None]):
             current = None
             if target is not None:
                 current = target.session.target_workspace
+            presentation = target_current_presentation(
+                str(current) if current else None,
+                lang=self.config.lang,
+            )
             self._record_slash_command_result(
                 "/target",
-                textual_presenters.target_title(lang=self.config.lang),
-                textual_presenters.target_current_markdown(
-                    str(current) if current else None,
-                    lang=self.config.lang,
-                ),
-                empty=current is None,
-                action_hint=textual_presenters.target_action_hint(lang=self.config.lang),
+                presentation.title,
+                presentation.body,
+                empty=presentation.empty,
+                action_hint=presentation.action_hint,
             )
             return
         if parsed.action == "clear":
             outcome = self.workflow_controller.clear_target_workspace()
             self.confirmed_preflight = None
             self._apply_workflow_outcome(outcome)
+            presentation = target_cleared_presentation(lang=self.config.lang)
             self._record_slash_command_result(
                 "/target",
-                textual_presenters.target_title(lang=self.config.lang),
-                textual_presenters.target_cleared_markdown(lang=self.config.lang),
+                presentation.title,
+                presentation.body,
             )
             return
         path = resolve_target_path(parsed.path_text, self.config.project_dir)
@@ -2629,27 +2638,29 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         prepared = prepare_target_workspace(path)
         if prepared.error == "not_directory":
+            presentation = target_not_directory_presentation(
+                prepared.message,
+                lang=self.config.lang,
+            )
             self._record_slash_command_result(
                 "/target",
-                textual_presenters.target_title(lang=self.config.lang),
-                textual_presenters.target_not_directory_markdown(
-                    prepared.message,
-                    lang=self.config.lang,
-                ),
-                severity="warning",
-                empty=True,
+                presentation.title,
+                presentation.body,
+                severity=presentation.severity,
+                empty=presentation.empty,
             )
             return
         if prepared.error == "os_error":
+            presentation = target_prepare_failed_presentation(
+                prepared.message,
+                lang=self.config.lang,
+            )
             self._record_slash_command_result(
                 "/target",
-                textual_presenters.target_title(lang=self.config.lang),
-                textual_presenters.target_prepare_failed_markdown(
-                    prepared.message,
-                    lang=self.config.lang,
-                ),
-                severity="warning",
-                empty=True,
+                presentation.title,
+                presentation.body,
+                severity=presentation.severity,
+                empty=presentation.empty,
             )
             return
         resolved = prepared.resolved_path
@@ -2683,20 +2694,18 @@ class TrinityTextualApp(App[None]):
             )
         self._set_workspace_candidate(resolved)
         inside_control_repo = is_control_repo_target(resolved, self.config.project_dir)
+        presentation = target_workspace_presentation(
+            str(resolved),
+            inside_control_repo=inside_control_repo,
+            control_repo_confirmed=control_repo_confirmed,
+            lang=self.config.lang,
+        )
         self._record_slash_command_result(
             "/target",
-            textual_presenters.target_title(lang=self.config.lang),
-            textual_presenters.target_workspace_markdown(
-                str(resolved),
-                lang=self.config.lang,
-            ),
-            table_columns=textual_presenters.status_table_columns(lang=self.config.lang),
-            table_rows=textual_presenters.target_rows(
-                str(resolved),
-                inside_control_repo=inside_control_repo,
-                control_repo_confirmed=control_repo_confirmed,
-                lang=self.config.lang,
-            ),
+            presentation.title,
+            presentation.body,
+            table_columns=presentation.table_columns,
+            table_rows=presentation.table_rows,
         )
 
     def _sync_nexus_workspace_candidate(self) -> None:

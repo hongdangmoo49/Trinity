@@ -81,6 +81,10 @@ from trinity.textual_app.rounds_commands import (
     rounds_set_presentation,
 )
 from trinity.textual_app.save_commands import save_command_presentation
+from trinity.textual_app.slash_error_commands import (
+    slash_syntax_error_presentation,
+    unknown_slash_command_presentation,
+)
 from trinity.textual_app.status_commands import status_command_result
 from trinity.textual_app.subtasks_commands import subtasks_command_presentation
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
@@ -1759,31 +1763,26 @@ class TrinityTextualApp(App[None]):
         handler(command_name, args)
 
     def _handle_textual_slash_syntax_error(self, raw_command: str, error: str) -> None:
+        presentation = slash_syntax_error_presentation(error, lang=self.config.lang)
         self._record_slash_command_result(
             raw_command,
-            textual_presenters.syntax_error_title(lang=self.config.lang),
-            error,
-            severity="warning",
+            presentation.title,
+            presentation.body,
+            severity=presentation.severity,
         )
 
     def _handle_textual_unknown_slash_command(self, command_token: str) -> None:
-        suggestions = textual_presenters.slash_command_suggestions(command_token)
+        presentation = unknown_slash_command_presentation(
+            command_token,
+            lang=self.config.lang,
+        )
         self._record_slash_command_result(
             command_token,
-            textual_presenters.unknown_command_title(lang=self.config.lang),
-            textual_presenters.unknown_command_markdown(
-                command_token,
-                suggestions,
-                lang=self.config.lang,
-            ),
-            severity="warning",
-            table_columns=textual_presenters.unknown_command_table_columns(
-                lang=self.config.lang
-            ),
-            table_rows=textual_presenters.unknown_command_rows(
-                suggestions,
-                lang=self.config.lang,
-            ),
+            presentation.title,
+            presentation.body,
+            severity=presentation.severity,
+            table_columns=presentation.table_columns,
+            table_rows=presentation.table_rows,
         )
 
     def _handle_textual_quit_command(self) -> None:

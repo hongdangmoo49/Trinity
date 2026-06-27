@@ -33,6 +33,7 @@ from trinity.textual_app import presenters as textual_presenters
 from trinity.textual_app.answer_commands import answer_result_presentation
 from trinity.textual_app.artifact_commands import artifact_command_presentation
 from trinity.textual_app.context_commands import context_command_presentation
+from trinity.textual_app.history_commands import history_command_presentation
 from trinity.textual_app.improve_commands import improve_result_presentation
 from trinity.textual_app.local_commands import (
     append_local_command_event,
@@ -1911,28 +1912,19 @@ class TrinityTextualApp(App[None]):
 
     def _handle_textual_history_command(self, command_name: str) -> None:
         snapshot = self._refresh_textual_snapshot()
-        history_rows = textual_presenters.history_rows(
+        presentation = history_command_presentation(
             snapshot,
             self._local_command_results,
             lang=self.config.lang,
         )
         self._record_slash_command_result(
             command_name,
-            textual_presenters.history_title(lang=self.config.lang),
-            textual_presenters.history_markdown(
-                snapshot,
-                history_rows,
-                lang=self.config.lang,
-            ),
-            empty=not history_rows,
-            action_hint=textual_presenters.history_action_hint(
-                has_history=bool(history_rows),
-                lang=self.config.lang,
-            ),
-            table_columns=textual_presenters.history_table_columns(
-                lang=self.config.lang
-            ),
-            table_rows=history_rows,
+            presentation.title,
+            presentation.body,
+            empty=presentation.empty,
+            action_hint=presentation.action_hint,
+            table_columns=presentation.table_columns,
+            table_rows=presentation.table_rows,
         )
 
     def _handle_textual_save_command(self, command_name: str) -> None:

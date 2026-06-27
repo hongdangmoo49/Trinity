@@ -1,5 +1,8 @@
+from types import SimpleNamespace
+
 from trinity.slash_commands import SESSION_ONLY_SETTING_NOTICE
 from trinity.textual_app.rounds_commands import (
+    rounds_command_presentation,
     rounds_current_presentation,
     rounds_error_presentation,
     rounds_set_presentation,
@@ -66,3 +69,33 @@ def test_rounds_presentation_uses_korean_labels() -> None:
     assert updated.body.startswith("이 세션의 최대 라운드를 `7`로 설정했습니다.")
     assert error.title == "라운드"
     assert error.severity == "warning"
+
+
+def test_rounds_command_presentation_returns_current_value() -> None:
+    state = SimpleNamespace(max_deliberation_rounds=5)
+
+    presentation = rounds_command_presentation(state, [])
+
+    assert state.max_deliberation_rounds == 5
+    assert presentation.body.startswith("Current max rounds: `5`.")
+    assert presentation.action_hint == "Use `/rounds <1..20>` to change it for this session."
+
+
+def test_rounds_command_presentation_updates_rounds() -> None:
+    state = SimpleNamespace(max_deliberation_rounds=5)
+
+    presentation = rounds_command_presentation(state, ["8"])
+
+    assert state.max_deliberation_rounds == 8
+    assert presentation.body.startswith("Max rounds set to `8` for this session only.")
+    assert ("Current max rounds", "8") in presentation.table_rows
+
+
+def test_rounds_command_presentation_reports_error_without_mutation() -> None:
+    state = SimpleNamespace(max_deliberation_rounds=5)
+
+    presentation = rounds_command_presentation(state, ["invalid"])
+
+    assert state.max_deliberation_rounds == 5
+    assert presentation.severity == "warning"
+    assert "Invalid number" in presentation.body

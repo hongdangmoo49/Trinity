@@ -48,6 +48,21 @@ class ExecuteCommandEffect:
     workspace_picker_snapshot: WorkflowNexusSnapshot | None = None
 
 
+@dataclass(frozen=True)
+class ExecutionRetryRequestEffect:
+    """UI effects derived from an execution retry request."""
+
+    snapshot: WorkflowNexusSnapshot
+    selector: str
+    package_ids: tuple[str, ...] = ()
+    no_packages_presentation: ExecuteCommandPresentation | None = None
+
+    @property
+    def show_retry_modal(self) -> bool:
+        """Return whether the retry confirmation modal should be shown."""
+        return self.no_packages_presentation is None
+
+
 def run_execute_command(
     args: list[str],
     controller: ExecuteWorkflowController,
@@ -107,6 +122,25 @@ def execute_retry_no_packages_presentation(
         action_hint=textual_presenters.execute_retry_no_packages_action_hint(
             lang=lang
         ),
+    )
+
+
+def execution_retry_request_effect(
+    snapshot: WorkflowNexusSnapshot,
+    selector: str,
+    package_ids: tuple[str, ...],
+    *,
+    lang: str = "en",
+) -> ExecutionRetryRequestEffect:
+    """Return UI effects for an Execution Matrix retry request."""
+    presentation = None
+    if not snapshot.work_package_details:
+        presentation = execute_retry_no_packages_presentation(lang=lang)
+    return ExecutionRetryRequestEffect(
+        snapshot=snapshot,
+        selector=selector,
+        package_ids=package_ids,
+        no_packages_presentation=presentation,
     )
 
 

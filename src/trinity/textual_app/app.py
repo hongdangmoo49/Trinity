@@ -43,8 +43,10 @@ from trinity.textual_app.context_commands import (
 from trinity.textual_app.decisions_commands import decisions_command_presentation
 from trinity.textual_app.execute_commands import (
     ExecuteCommandEffect,
+    ExecutionRetryRequestEffect,
     execute_command_effect,
     execute_retry_no_packages_presentation,
+    execution_retry_request_effect,
     execution_recovery_snapshot,
     run_execute_command,
 )
@@ -1441,14 +1443,26 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         event.stop()
         selector = event.selector
-        package_ids = list(event.package_ids)
-        self.workflow_controller.preview_execution_retry(selector, package_ids)
+        package_ids = tuple(event.package_ids)
+        self.workflow_controller.preview_execution_retry(selector, list(package_ids))
         snapshot = self.workflow_controller.snapshot() or event.snapshot
-        self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
-        if not snapshot.work_package_details:
-            presentation = execute_retry_no_packages_presentation(
-                lang=self.config.lang
-            )
+        effect = execution_retry_request_effect(
+            snapshot,
+            selector,
+            package_ids,
+            lang=self.config.lang,
+        )
+        self._apply_execution_retry_request_effect(effect)
+
+    def _apply_execution_retry_request_effect(
+        self,
+        effect: ExecutionRetryRequestEffect,
+    ) -> None:
+        self._apply_workflow_outcome(TextualWorkflowOutcome(effect.snapshot))
+        if not effect.show_retry_modal:
+            presentation = effect.no_packages_presentation
+            if presentation is None:
+                return
             self.notify(
                 presentation.body,
                 title=presentation.title,
@@ -1457,9 +1471,9 @@ class TrinityTextualApp(App[None]):
             return
         self.push_screen(
             ExecutionRetryModal(
-                snapshot,
-                selector=selector,
-                package_ids=tuple(package_ids),
+                effect.snapshot,
+                selector=effect.selector,
+                package_ids=effect.package_ids,
                 lang=self.config.lang,
             ),
             self._on_execute_retry_selected,

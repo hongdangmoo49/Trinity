@@ -4,11 +4,13 @@ from trinity.textual_app.execute_commands import (
     execute_command_effect,
     execute_result_presentation,
     execute_retry_no_packages_presentation,
+    execution_retry_request_effect,
     execution_recovery_snapshot,
     run_execute_command,
 )
 from trinity.textual_app.snapshot import (
     ExecutionRecoverySnapshot,
+    WorkPackageSnapshot,
     WorkflowNexusSnapshot,
 )
 
@@ -55,6 +57,50 @@ def test_execute_retry_no_packages_presentation_supports_korean() -> None:
     assert presentation.action_hint == (
         "먼저 계획을 완료하고 하나 이상의 작업 패키지를 실행하세요."
     )
+
+
+def test_execution_retry_request_effect_warns_without_work_packages() -> None:
+    snapshot = WorkflowNexusSnapshot(session_id="wf-1")
+
+    effect = execution_retry_request_effect(
+        snapshot,
+        "failed",
+        ("WP-1",),
+        lang="ko",
+    )
+
+    assert effect.snapshot is snapshot
+    assert effect.selector == "failed"
+    assert effect.package_ids == ("WP-1",)
+    assert effect.show_retry_modal is False
+    assert effect.no_packages_presentation is not None
+    assert effect.no_packages_presentation.title == "실행 재시도"
+
+
+def test_execution_retry_request_effect_opens_modal_with_packages() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-1",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-1",
+                title="Build",
+                owner_agent="codex",
+                status="failed",
+            )
+        ],
+    )
+
+    effect = execution_retry_request_effect(
+        snapshot,
+        "custom",
+        ("WP-1",),
+    )
+
+    assert effect.snapshot is snapshot
+    assert effect.selector == "custom"
+    assert effect.package_ids == ("WP-1",)
+    assert effect.show_retry_modal is True
+    assert effect.no_packages_presentation is None
 
 
 def test_run_execute_command_routes_instruction_to_controller() -> None:

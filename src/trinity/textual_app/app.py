@@ -2052,12 +2052,29 @@ class TrinityTextualApp(App[None]):
         effect: ExecuteCommandEffect,
     ) -> None:
         if effect.execution_recovery_snapshot is not None:
-            self._present_execution_recovery(
-                command_name,
-                effect.execution_recovery_snapshot,
-                effect.execution_recovery_message,
-            )
+            self._apply_textual_execute_recovery_effect(command_name, effect)
             return
+        self._apply_textual_execute_presentation_effect(command_name, effect)
+        self._apply_textual_execute_workspace_picker_effect(effect)
+
+    def _apply_textual_execute_recovery_effect(
+        self,
+        command_name: str,
+        effect: ExecuteCommandEffect,
+    ) -> None:
+        if effect.execution_recovery_snapshot is None:
+            return
+        self._present_execution_recovery(
+            command_name,
+            effect.execution_recovery_snapshot,
+            effect.execution_recovery_message,
+        )
+
+    def _apply_textual_execute_presentation_effect(
+        self,
+        command_name: str,
+        effect: ExecuteCommandEffect,
+    ) -> None:
         if effect.presentation is not None:
             self._record_slash_command_result(
                 command_name,
@@ -2067,6 +2084,11 @@ class TrinityTextualApp(App[None]):
                 empty=effect.presentation.empty,
                 action_hint=effect.presentation.action_hint,
             )
+
+    def _apply_textual_execute_workspace_picker_effect(
+        self,
+        effect: ExecuteCommandEffect,
+    ) -> None:
         if effect.workspace_picker_snapshot is not None:
             self._open_execute_workspace_picker(effect.workspace_picker_snapshot)
 

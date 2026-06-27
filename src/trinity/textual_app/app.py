@@ -1278,18 +1278,36 @@ class TrinityTextualApp(App[None]):
         self,
         choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]],
     ) -> None:
-        changed_choices = merge_discovered_model_choices(
+        changed_choices = self._merge_discovered_model_choices(choices_by_agent)
+        if not changed_choices:
+            return
+        self._sync_discovered_model_choice_surfaces(changed_choices)
+
+    def _merge_discovered_model_choices(
+        self,
+        choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]],
+    ) -> dict[str, tuple[ProviderModelChoice, ...]]:
+        return merge_discovered_model_choices(
             self._agent_model_choices,
             choices_by_agent,
         )
-        if not changed_choices:
-            return
+
+    def _sync_discovered_model_choice_surfaces(
+        self,
+        changed_choices: dict[str, tuple[ProviderModelChoice, ...]],
+    ) -> None:
         for screen_name, screen_type in (
             ("start", StartScreen),
             ("nexus", NexusScreen),
         ):
             screen = self.get_screen(screen_name, screen_type)
             screen.set_agent_model_choices(changed_choices)
+        self._sync_discovered_model_settings_modal(changed_choices)
+
+    def _sync_discovered_model_settings_modal(
+        self,
+        changed_choices: dict[str, tuple[ProviderModelChoice, ...]],
+    ) -> None:
         if isinstance(self.screen, ModelSettingsModal):
             self.screen.set_model_choices(changed_choices)
 

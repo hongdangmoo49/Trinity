@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.544`
-- Merged PR range reviewed: #90 through #640
+- Package version inspected: `1.0.546`
+- Merged PR range reviewed: #90 through #642
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #640
-- Latest refresh reviewed: #640
+- Maintenance refresh reviewed: #427 through #642
+- Latest refresh reviewed: #642
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -743,6 +743,18 @@ and what the next release train should optimize.
   follow-up workspace picker effects, and no-picker follow-up effects.
 - Raised the package version from `1.0.542` to `1.0.543` in this patch PR.
 
+### #642: Textual Review Repair Action Helper
+
+- Split Nexus review repair action normalization from `textual_app/app.py` into
+  `textual_app/review_commands.py`.
+- Moved retry package id collection behind `review_repair_action` so the app
+  receives a normalized repair action and focused package ids.
+- Split retry-once UI application into `_retry_review_repair_action`, leaving
+  `_handle_review_repair_action` focused on action dispatch.
+- Expanded focused review command tests to cover known repair actions and
+  unknown-action ignore behavior.
+- Raised the package version from `1.0.544` to `1.0.545` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -952,9 +964,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #640:
+Current main snapshot after #642:
 
-- `src/trinity/textual_app/app.py`: 2,828 lines
+- `src/trinity/textual_app/app.py`: 2,832 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

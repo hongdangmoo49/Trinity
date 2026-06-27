@@ -1,5 +1,8 @@
+from types import SimpleNamespace
+
 from trinity.slash_commands import SESSION_ONLY_SETTING_NOTICE
 from trinity.textual_app.caveman_commands import (
+    caveman_command_presentation,
     caveman_current_presentation,
     caveman_error_presentation,
     caveman_set_presentation,
@@ -75,3 +78,37 @@ def test_caveman_presentation_uses_korean_labels() -> None:
     )
     assert error.title == "간결 모드"
     assert error.severity == "warning"
+
+
+def test_caveman_command_presentation_returns_current_settings() -> None:
+    state = SimpleNamespace(caveman_mode=True, caveman_intensity="full")
+
+    presentation = caveman_command_presentation(state, [])
+
+    assert presentation.body.startswith("Caveman: `on` (`full`).")
+    assert presentation.action_hint == (
+        "Use `/caveman <mode>` to change it for this session."
+    )
+
+
+def test_caveman_command_presentation_updates_mode_and_intensity() -> None:
+    state = SimpleNamespace(caveman_mode=False, caveman_intensity="full")
+
+    presentation = caveman_command_presentation(state, ["ultra"])
+
+    assert state.caveman_mode is True
+    assert state.caveman_intensity == "ultra"
+    assert presentation.body.startswith(
+        "Caveman set to `on` (`ultra`) for this session only."
+    )
+
+
+def test_caveman_command_presentation_reports_error_without_mutation() -> None:
+    state = SimpleNamespace(caveman_mode=True, caveman_intensity="full")
+
+    presentation = caveman_command_presentation(state, ["invalid"])
+
+    assert state.caveman_mode is True
+    assert state.caveman_intensity == "full"
+    assert presentation.severity == "warning"
+    assert "Use: /caveman" in presentation.body

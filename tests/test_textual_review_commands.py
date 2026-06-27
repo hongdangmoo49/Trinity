@@ -1,9 +1,15 @@
 from trinity.textual_app.review_commands import (
     review_matrix_notification_presentation,
+    review_repair_blocked_package_ids,
+    review_repair_snapshot,
     review_result_command_presentation,
     review_result_presentation,
 )
-from trinity.textual_app.snapshot import WorkflowNexusSnapshot, WorkPackageSnapshot
+from trinity.textual_app.snapshot import (
+    ExecutionRecoverySnapshot,
+    WorkflowNexusSnapshot,
+    WorkPackageSnapshot,
+)
 
 
 def test_review_result_presentation_skips_empty_message() -> None:
@@ -104,3 +110,65 @@ def test_review_matrix_notification_presentation_keeps_info_message() -> None:
     assert presentation is not None
     assert presentation.body == "Review requested for selected work packages."
     assert presentation.severity == "info"
+
+
+def test_review_repair_blocked_package_ids_collects_package_and_recovery_ids() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-1",
+                title="Build feature",
+                owner_agent="codex",
+                status="blocked",
+                repair_blocked_reason="review changes required",
+            )
+        ],
+        execution_recovery=ExecutionRecoverySnapshot(
+            state="repair_blocked",
+            retry_candidates=("WP-1", "WP-2"),
+        ),
+    )
+
+    assert review_repair_blocked_package_ids(snapshot) == ("WP-1", "WP-2")
+
+
+def test_review_repair_snapshot_builds_local_command_result() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-1",
+                title="Build feature",
+                owner_agent="codex",
+                status="blocked",
+                repair_blocked_reason="review changes required",
+                review_status="changes_required",
+                reviewer_agent="claude",
+                review_summary="Need tests",
+            )
+        ],
+        work_package_repairs=("Repair note",),
+    )
+
+    result = review_repair_snapshot("/review", snapshot)
+
+    assert result.command == "/review"
+    assert result.title == "Review Repair"
+    assert result.severity == "warning"
+    assert result.action_hint == (
+        "Choose Retry once, Mark done, or Stop from the central panel."
+    )
+    assert result.table_columns == ("WP", "Repair state")
+    assert result.table_rows[0][0] == "WP-1"
+    assert "review changes required" in result.body
+    assert "Repair note" in result.body
+
+
+def test_review_repair_snapshot_supports_korean_title() -> None:
+    result = review_repair_snapshot(
+        "/review",
+        WorkflowNexusSnapshot(),
+        lang="ko",
+    )
+
+    assert result.title == "리뷰 보정"
+    assert result.table_columns == ("작업 패키지", "보정 상태")

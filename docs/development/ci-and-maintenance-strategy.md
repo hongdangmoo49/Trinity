@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.466`
-- Merged PR range reviewed: #90 through #562
+- Package version inspected: `1.0.468`
+- Merged PR range reviewed: #90 through #564
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #562
-- Latest refresh reviewed: #562
+- Maintenance refresh reviewed: #427 through #564
+- Latest refresh reviewed: #564
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -290,6 +290,16 @@ and what the next release train should optimize.
   required smoke.
 - Raised the package version from `1.0.464` to `1.0.465` in this patch PR.
 
+### #564: Textual Save Command Helper
+
+- Split `/save` automatic persistence messaging from `textual_app/app.py` into
+  `textual_app/save_commands.py`.
+- Added focused save command helper tests and included them in the required
+  smoke manifest.
+- Kept the app facade responsible for recording the prepared local command
+  result while moving the command-specific message contract into a helper.
+- Raised the package version from `1.0.466` to `1.0.467` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -488,9 +498,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #562:
+Current main snapshot after #564:
 
-- `src/trinity/textual_app/app.py`: 3,044 lines
+- `src/trinity/textual_app/app.py`: 3,046 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

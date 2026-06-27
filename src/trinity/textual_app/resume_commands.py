@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal, Sequence
 
 from trinity.textual_app import presenters as textual_presenters
+from trinity.textual_app.command_parsers import parse_resume_args
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 
 
 ResumeSeverity = Literal["info", "warning"]
+ResumeCommandActionKind = Literal["record", "picker", "resume"]
 
 
 @dataclass(frozen=True)
@@ -37,6 +39,27 @@ class ResumeCommandPresentation:
     start_modal: bool = True
 
 
+@dataclass(frozen=True)
+class ResumeCommandAction:
+    """Normalized Textual action for `/resume`."""
+
+    kind: ResumeCommandActionKind
+    selector: str = ""
+    archives: tuple[object, ...] = ()
+    presentation: ResumeCommandPresentation | None = None
+
+
+@dataclass(frozen=True)
+class ResumeWorkflowEffect:
+    """UI effects derived from a resumed workflow outcome."""
+
+    presentation: ResumeCommandPresentation | None = None
+    switch_to_nexus: bool = False
+    execution_recovery_snapshot: WorkflowNexusSnapshot | None = None
+    execution_recovery_message: str = ""
+    show_context: bool = False
+
+
 def resume_result_presentation(
     message: str | None,
 ) -> ResumeResultPresentation | None:
@@ -50,6 +73,29 @@ def resume_result_presentation(
         severity="warning" if failed else "info",
         empty=failed,
         start_modal=failed,
+    )
+
+
+def resume_command_action(
+    args: list[str],
+    archives: Sequence[object],
+    *,
+    lang: str = "en",
+) -> ResumeCommandAction:
+    """Parse `/resume` args and return the UI action to apply."""
+    parsed = parse_resume_args(args)
+    if parsed.action == "resume":
+        return ResumeCommandAction(kind="resume", selector=parsed.selector)
+    archive_tuple = tuple(archives)
+    if not archive_tuple:
+        return ResumeCommandAction(
+            kind="record",
+            presentation=resume_no_saved_presentation(lang=lang),
+        )
+    return ResumeCommandAction(
+        kind="picker",
+        archives=archive_tuple,
+        presentation=resume_archives_presentation(list(archive_tuple), lang=lang),
     )
 
 
@@ -115,3 +161,36 @@ def should_continue_resumed_workflow(
 ) -> bool:
     """Return whether a resumed workflow should switch back to Nexus."""
     return presentation is None or not presentation.failed
+
+
+def resume_workflow_effect(
+    outcome: Any,
+    message: str | None,
+    *,
+    lang: str = "en",
+) -> ResumeWorkflowEffect:
+    """Return the UI effects the app should apply after resuming a workflow."""
+    presentation = resume_result_presentation(message)
+    result_presentation = None
+    if presentation:
+        result_presentation = resume_result_command_presentation(
+            presentation,
+            outcome.snapshot,
+            lang=lang,
+        )
+    if not should_continue_resumed_workflow(presentation):
+        return ResumeWorkflowEffect(presentation=result_presentation)
+    recovery_snapshot = None
+    recovery_message = ""
+    if getattr(outcome, "execution_recovery_required", False):
+        recovery_snapshot = outcome.snapshot
+        recovery_message = (
+            "Previous execution was interrupted before Trinity could collect all results."
+        )
+    return ResumeWorkflowEffect(
+        presentation=result_presentation,
+        switch_to_nexus=True,
+        execution_recovery_snapshot=recovery_snapshot,
+        execution_recovery_message=recovery_message,
+        show_context=True,
+    )

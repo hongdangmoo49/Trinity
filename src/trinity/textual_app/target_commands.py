@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from trinity.textual_app import presenters as textual_presenters
+from trinity.textual_app.snapshot import LocalCommandSnapshot
 
 
 @dataclass(frozen=True)
@@ -88,4 +89,18 @@ def target_workspace_presentation(
             control_repo_confirmed=control_repo_confirmed,
             lang=lang,
         ),
+    )
+
+
+def target_cancelled_snapshot(
+    command: str = "/target",
+    *,
+    kind: str = "selection",
+    lang: str = "en",
+) -> LocalCommandSnapshot:
+    """Return the local command snapshot for a cancelled target confirmation."""
+    return textual_presenters.target_cancelled_local_command_snapshot(
+        command,
+        kind=kind,
+        lang=lang,
     )

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.602`
-- Merged PR range reviewed: #90 through #698
+- Package version inspected: `1.0.604`
+- Merged PR range reviewed: #90 through #700
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #698
-- Latest refresh reviewed: #698
+- Maintenance refresh reviewed: #427 through #700
+- Latest refresh reviewed: #700
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1052,6 +1052,15 @@ and what the next release train should optimize.
   settings apply callback behavior unchanged.
 - Reduced `_apply_model_settings_modal_request` from 21 lines to 8 lines.
 - Raised the package version from `1.0.600` to `1.0.601` in this patch PR.
+
+### #700: Textual Target Command Effect Apply Helpers
+
+- Split target command effect application in `textual_app/app.py` into clear
+  target workspace and path action helpers.
+- Kept target command presentation, target clear, control repo confirmation,
+  and external workspace setup behavior unchanged.
+- Reduced `_apply_textual_target_command_effect` from 21 lines to 11 lines.
+- Raised the package version from `1.0.602` to `1.0.603` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

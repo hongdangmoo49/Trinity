@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.556`
-- Merged PR range reviewed: #90 through #652
+- Package version inspected: `1.0.558`
+- Merged PR range reviewed: #90 through #654
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #652
-- Latest refresh reviewed: #652
+- Maintenance refresh reviewed: #427 through #654
+- Latest refresh reviewed: #654
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -811,6 +811,17 @@ and what the next release train should optimize.
   execution route switching.
 - Reduced `_continue_workspace_preflight` from 30 lines to 13 lines.
 - Raised the package version from `1.0.554` to `1.0.555` in this patch PR.
+
+### #654: Textual Context Presentation Effect Helper
+
+- Split `/context` presentation-to-UI-effect derivation from
+  `textual_app/app.py` into `textual_app/context_commands.py`.
+- Added `ContextCommandEffect` and `context_command_effect` so notify, record,
+  modal, workflow outcome, and no-op paths are testable without the Textual app.
+- Kept concrete Textual side effects in the app facade while moving local
+  command snapshot update selection into the helper layer.
+- Reduced `_apply_textual_context_presentation` from 34 lines to 11 lines.
+- Raised the package version from `1.0.556` to `1.0.557` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.480`
-- Merged PR range reviewed: #90 through #576
+- Package version inspected: `1.0.482`
+- Merged PR range reviewed: #90 through #578
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #576
-- Latest refresh reviewed: #576
+- Maintenance refresh reviewed: #427 through #578
+- Latest refresh reviewed: #578
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -370,6 +370,18 @@ and what the next release train should optimize.
   prepared local command result.
 - Raised the package version from `1.0.478` to `1.0.479` in this patch PR.
 
+### #578: Textual Status Command Adapter
+
+- Split `/status` local command result creation behind
+  `textual_app/status_commands.py` so `textual_app/app.py` only coordinates
+  result storage, snapshot application, and modal display.
+- Added focused status command adapter tests for basic snapshot, provider row,
+  and Korean presentation paths.
+- Included the new adapter tests in the required smoke manifest.
+- Recorded the existing readiness label follow-up discovered while testing:
+  non-unknown readiness values can request a missing `empty` status label.
+- Raised the package version from `1.0.480` to `1.0.481` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -568,9 +580,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #576:
+Current main snapshot after #578:
 
-- `src/trinity/textual_app/app.py`: 3,005 lines
+- `src/trinity/textual_app/app.py`: 3,006 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

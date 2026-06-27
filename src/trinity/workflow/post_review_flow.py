@@ -60,7 +60,7 @@ class WorkflowPostReviewFlow:
         self,
         final_result: ReviewResult | None = None,
     ) -> list[PostReviewActionItem]:
-        existing = self._post_review_items()
+        existing = self.post_review_items()
         existing_keys = {self._post_review_item_key(item) for item in existing}
         created: list[PostReviewActionItem] = []
         reviews = list(self.engine.review_results)
@@ -175,7 +175,7 @@ class WorkflowPostReviewFlow:
         requested = {str(item_id).strip() for item_id in item_ids if str(item_id).strip()}
         if not requested:
             return ()
-        items = self._post_review_items()
+        items = self.post_review_items()
         accepted: list[PostReviewActionItem] = []
         now = time.time()
         for item in items:
@@ -261,7 +261,7 @@ class WorkflowPostReviewFlow:
         return tuple(created_ids)
 
     def post_review_summary(self) -> str:
-        items = self._post_review_items()
+        items = self.post_review_items()
         if not items:
             return (
                 "Final review is complete. No post-review action items were extracted. "
@@ -281,7 +281,7 @@ class WorkflowPostReviewFlow:
         if not ids:
             return
         changed = False
-        items = self._post_review_items()
+        items = self.post_review_items()
         for item in items:
             if item.id in ids:
                 item.status = PostReviewActionStatus.DONE
@@ -290,7 +290,7 @@ class WorkflowPostReviewFlow:
         if changed:
             self.engine.session.post_review_items = [item.to_dict() for item in items]
 
-    def _post_review_items(self) -> list[PostReviewActionItem]:
+    def post_review_items(self) -> list[PostReviewActionItem]:
         items: list[PostReviewActionItem] = []
         for item in self.engine.session.post_review_items:
             if not isinstance(item, dict):
@@ -300,6 +300,9 @@ class WorkflowPostReviewFlow:
             except (TypeError, ValueError):
                 continue
         return items
+
+    def _post_review_items(self) -> list[PostReviewActionItem]:
+        return self.post_review_items()
 
     def _post_review_candidates_from_review(
         self,
@@ -381,7 +384,7 @@ class WorkflowPostReviewFlow:
 
     def _create_user_request_action_item(self, instruction: str) -> PostReviewActionItem:
         return PostReviewActionItem(
-            id=self._next_post_review_item_id(self._post_review_items()),
+            id=self._next_post_review_item_id(self.post_review_items()),
             source="user_request",
             kind="enhancement",
             severity="medium",
@@ -417,7 +420,7 @@ class WorkflowPostReviewFlow:
         }
 
     def _select_post_review_items(self, instruction: str) -> list[str]:
-        return select_post_review_items(instruction, self._post_review_items())
+        return select_post_review_items(instruction, self.post_review_items())
 
     @staticmethod
     def _looks_like_post_review_selector(instruction: str) -> bool:

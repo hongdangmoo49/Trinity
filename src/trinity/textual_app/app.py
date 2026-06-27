@@ -41,6 +41,7 @@ from trinity.textual_app.local_commands import (
     snapshot_with_local_command_results,
 )
 from trinity.textual_app.memory_commands import memory_command_presentation
+from trinity.textual_app.questions_commands import questions_command_presentation
 from trinity.textual_app.report_export import (
     snapshot_has_report_data,
     snapshot_report_markdown,
@@ -1811,31 +1812,19 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         snapshot = self._refresh_textual_snapshot()
         select_requested = any(arg.lower() in {"--select", "-s"} for arg in args)
-        has_questions = bool(snapshot.questions)
+        presentation = questions_command_presentation(
+            snapshot,
+            select_requested=select_requested,
+            lang=self.config.lang,
+        )
         self._record_slash_command_result(
             command_name,
-            textual_presenters.questions_title(lang=self.config.lang),
-            textual_presenters.questions_select_markdown(
-                snapshot,
-                lang=self.config.lang,
-            )
-            if select_requested
-            else textual_presenters.questions_markdown(
-                snapshot,
-                lang=self.config.lang,
-            ),
-            empty=not has_questions,
-            action_hint=textual_presenters.questions_action_hint(
-                has_questions=has_questions,
-                lang=self.config.lang,
-            ),
-            table_columns=textual_presenters.questions_table_columns(
-                lang=self.config.lang
-            ),
-            table_rows=textual_presenters.questions_rows(
-                snapshot,
-                lang=self.config.lang,
-            ),
+            presentation.title,
+            presentation.body,
+            empty=presentation.empty,
+            action_hint=presentation.action_hint,
+            table_columns=presentation.table_columns,
+            table_rows=presentation.table_rows,
         )
 
     def _handle_textual_decisions_command(self, command_name: str) -> None:

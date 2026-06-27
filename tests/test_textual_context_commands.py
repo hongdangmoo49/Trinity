@@ -1,4 +1,6 @@
 from trinity.textual_app.context_commands import (
+    ContextCommandPresentation,
+    context_command_effect,
     context_command_presentation,
     context_command_snapshot_update,
 )
@@ -104,3 +106,86 @@ def test_context_command_snapshot_update_replaces_context_result() -> None:
     assert second_update.local_command_results == [second.result]
     assert second_update.result is second.result
     assert second_update.snapshot.local_commands == [second.result]
+
+
+def test_context_command_effect_returns_notify_payload() -> None:
+    presentation = context_command_presentation(
+        "/context",
+        WorkflowNexusSnapshot(),
+        route="start",
+    )
+
+    effect = context_command_effect(presentation, WorkflowNexusSnapshot(), [])
+
+    assert effect.action == "notify"
+    assert effect.title == "Context"
+    assert "No current session context" in effect.body
+    assert effect.severity == "warning"
+    assert effect.local_command_results is None
+
+
+def test_context_command_effect_returns_record_payload() -> None:
+    snapshot = WorkflowNexusSnapshot()
+    presentation = context_command_presentation(
+        "/context",
+        snapshot,
+        route="nexus",
+    )
+
+    effect = context_command_effect(presentation, snapshot, [])
+
+    assert effect.action == "record"
+    assert effect.command == "/context"
+    assert effect.title == "Context"
+    assert "No current session context" in effect.body
+
+
+def test_context_command_effect_returns_modal_update() -> None:
+    snapshot = WorkflowNexusSnapshot(session_id="wf-1", goal="Build")
+    presentation = context_command_presentation(
+        "/context",
+        snapshot,
+        route="start",
+    )
+
+    effect = context_command_effect(presentation, snapshot, [])
+
+    assert effect.action == "modal"
+    assert effect.result is presentation.result
+    assert effect.local_command_results == [presentation.result]
+    assert effect.snapshot is not None
+    assert effect.snapshot.local_commands == [presentation.result]
+
+
+def test_context_command_effect_returns_workflow_outcome_update() -> None:
+    snapshot = WorkflowNexusSnapshot(session_id="wf-1", goal="Build")
+    presentation = context_command_presentation(
+        "/context",
+        snapshot,
+        route="nexus",
+    )
+
+    effect = context_command_effect(presentation, snapshot, [])
+
+    assert effect.action == "workflow_outcome"
+    assert effect.result is presentation.result
+    assert effect.local_command_results == [presentation.result]
+    assert effect.snapshot is not None
+    assert effect.snapshot.local_commands == [presentation.result]
+
+
+def test_context_command_effect_skips_update_without_result() -> None:
+    presentation = ContextCommandPresentation(
+        action="modal",
+        command="/context",
+        title="Context",
+        body="Body",
+    )
+
+    effect = context_command_effect(
+        presentation,
+        WorkflowNexusSnapshot(session_id="wf-1", goal="Build"),
+        [],
+    )
+
+    assert effect.action == "none"

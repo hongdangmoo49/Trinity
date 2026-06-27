@@ -15,6 +15,13 @@ from trinity.textual_app.snapshot import LocalCommandSnapshot, WorkflowNexusSnap
 
 
 ContextCommandAction = Literal["notify", "record", "modal", "apply_snapshot"]
+ContextCommandEffectAction = Literal[
+    "notify",
+    "record",
+    "modal",
+    "workflow_outcome",
+    "none",
+]
 ContextSeverity = Literal["info", "warning"]
 
 
@@ -37,6 +44,20 @@ class ContextCommandSnapshotUpdate:
     local_command_results: list[LocalCommandSnapshot]
     snapshot: WorkflowNexusSnapshot
     result: LocalCommandSnapshot
+
+
+@dataclass(frozen=True)
+class ContextCommandEffect:
+    """Concrete UI effect derived from a `/context` presentation."""
+
+    action: ContextCommandEffectAction
+    command: str = ""
+    title: str = ""
+    body: str = ""
+    severity: ContextSeverity = "info"
+    local_command_results: list[LocalCommandSnapshot] | None = None
+    snapshot: WorkflowNexusSnapshot | None = None
+    result: LocalCommandSnapshot | None = None
 
 
 def context_command_presentation(
@@ -90,4 +111,34 @@ def context_command_snapshot_update(
         local_command_results=updated_results,
         snapshot=updated_snapshot,
         result=result,
+    )
+
+
+def context_command_effect(
+    presentation: ContextCommandPresentation,
+    snapshot: WorkflowNexusSnapshot,
+    local_command_results: Sequence[LocalCommandSnapshot],
+) -> ContextCommandEffect:
+    """Return the concrete Textual effect for a context command presentation."""
+    if presentation.action in {"notify", "record"}:
+        return ContextCommandEffect(
+            action=presentation.action,
+            command=presentation.command,
+            title=presentation.title,
+            body=presentation.body,
+            severity=presentation.severity,
+        )
+
+    update = context_command_snapshot_update(
+        presentation,
+        snapshot,
+        local_command_results,
+    )
+    if update is None:
+        return ContextCommandEffect(action="none")
+    return ContextCommandEffect(
+        action="modal" if presentation.action == "modal" else "workflow_outcome",
+        local_command_results=update.local_command_results,
+        snapshot=update.snapshot,
+        result=update.result,
     )

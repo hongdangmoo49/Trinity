@@ -26,6 +26,7 @@ from trinity.workflow import (
 )
 
 WORKFLOW_EVENT_DISPLAY_LIMIT = 500
+WORKFLOW_EVENT_RENDER_LIMIT = 120
 
 
 @dataclass(frozen=True)
@@ -1814,7 +1815,7 @@ class NexusSnapshotAdapter:
         else:
             session_events = list(session_events)
         total_count = len(session_events) if total is None else max(0, total)
-        display_events = session_events[-WORKFLOW_EVENT_DISPLAY_LIMIT:]
+        display_events = session_events[-WORKFLOW_EVENT_RENDER_LIMIT:]
         lines = [
             self._format_workflow_event(event)
             for event in display_events

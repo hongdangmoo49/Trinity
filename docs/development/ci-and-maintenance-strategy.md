@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.566`
-- Merged PR range reviewed: #90 through #662
+- Package version inspected: `1.0.568`
+- Merged PR range reviewed: #90 through #664
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #662
-- Latest refresh reviewed: #662
+- Maintenance refresh reviewed: #427 through #664
+- Latest refresh reviewed: #664
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -870,6 +870,18 @@ and what the next release train should optimize.
   and workspace preparation side effects in the app facade.
 - Reduced `_handle_textual_target_command` from 26 lines to 10 lines.
 - Raised the package version from `1.0.564` to `1.0.565` in this patch PR.
+
+### #664: Textual Start Submission Effect Helper
+
+- Split Start screen prompt submission state derivation from
+  `textual_app/app.py` into `textual_app/ask_commands.py`.
+- Added `StartSubmissionEffect` and `start_submission_effect` so prompt,
+  workspace candidate selection, safe target workspace, agent selection, and
+  model override state are testable without the Textual app.
+- Split the app-side Start submission application into UI preparation,
+  controller invocation, and workflow outcome application helpers.
+- Reduced `on_start_screen_submitted` from 26 lines to 11 lines.
+- Raised the package version from `1.0.566` to `1.0.567` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

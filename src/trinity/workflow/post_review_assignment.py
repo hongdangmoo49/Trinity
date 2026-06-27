@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from uuid import uuid4
 
 from trinity.workflow.models import PostReviewActionItem, WorkPackage, WorkStatus
 
@@ -71,3 +72,24 @@ def supplemental_objective(item: PostReviewActionItem) -> str:
     if item.related_wp_ids:
         parts.append(f"Related work packages: {', '.join(item.related_wp_ids)}")
     return "\n".join(parts)
+
+
+def build_supplemental_execution_run(
+    current_run: object,
+    *,
+    supplemental_round: int,
+    package_ids: Sequence[str],
+    action_item_ids: Sequence[str],
+    target_workspace: object,
+) -> dict[str, object]:
+    """Build the execution run payload for queued supplemental work."""
+    run = dict(current_run) if isinstance(current_run, dict) else {}
+    run.setdefault("run_id", f"exec-run-{uuid4().hex[:12]}")
+    run["state"] = "supplemental_queued"
+    run["kind"] = "supplemental"
+    run["source"] = "post_review_followup"
+    run["round"] = supplemental_round
+    run["package_ids"] = list(package_ids)
+    run["action_item_ids"] = list(action_item_ids)
+    run["target_workspace"] = str(target_workspace or "")
+    return run

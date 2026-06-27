@@ -6,7 +6,6 @@ import time
 import re
 from collections.abc import Iterable
 from typing import Any
-from uuid import uuid4
 
 from trinity.workflow.models import (
     PostReviewActionItem,
@@ -23,6 +22,7 @@ from trinity.workflow.post_review_selection import (
     select_post_review_items,
 )
 from trinity.workflow.post_review_assignment import (
+    build_supplemental_execution_run,
     build_supplemental_work_package,
     owner_for_post_review_item,
 )
@@ -246,20 +246,13 @@ class WorkflowPostReviewFlow:
             item.updated_at = time.time()
             created_ids.append(package.id)
 
-        run = (
-            dict(self.engine.session.execution_run)
-            if isinstance(self.engine.session.execution_run, dict)
-            else {}
+        self.engine.session.execution_run = build_supplemental_execution_run(
+            self.engine.session.execution_run,
+            supplemental_round=supplemental_round,
+            package_ids=created_ids,
+            action_item_ids=[item.id for item in selected],
+            target_workspace=self.engine.session.target_workspace,
         )
-        run.setdefault("run_id", f"exec-run-{uuid4().hex[:12]}")
-        run["state"] = "supplemental_queued"
-        run["kind"] = "supplemental"
-        run["source"] = "post_review_followup"
-        run["round"] = supplemental_round
-        run["package_ids"] = list(created_ids)
-        run["action_item_ids"] = [item.id for item in selected]
-        run["target_workspace"] = str(self.engine.session.target_workspace or "")
-        self.engine.session.execution_run = run
         self.engine.session.updated_at = time.time()
         self.engine.set_state(
             WorkflowState.BLUEPRINT_READY,

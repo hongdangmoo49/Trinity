@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.606`
-- Merged PR range reviewed: #90 through #702
+- Package version inspected: `1.0.608`
+- Merged PR range reviewed: #90 through #704
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #702
-- Latest refresh reviewed: #702
+- Maintenance refresh reviewed: #427 through #704
+- Latest refresh reviewed: #704
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1072,6 +1072,17 @@ and what the next release train should optimize.
   and signature lookup fallback.
 - Removed `_call_controller_method` from `TrinityTextualApp`.
 - Raised the package version from `1.0.604` to `1.0.605` in this patch PR.
+
+### #704: Textual Slash Command Dispatch Apply Helper
+
+- Split Textual slash command parse and dispatch-state resolution into
+  `textual_slash_command_dispatch`.
+- Kept non-command ignore, syntax error reporting, unknown command handling,
+  route lookup, and handler dispatch behavior unchanged.
+- Added focused coverage for non-command input, known command routing, syntax
+  errors, and unknown command dispatch state.
+- Reduced `_handle_textual_slash_command` from 20 lines to 6 lines.
+- Raised the package version from `1.0.606` to `1.0.607` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

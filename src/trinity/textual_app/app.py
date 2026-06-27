@@ -1805,8 +1805,11 @@ class TrinityTextualApp(App[None]):
             self._apply_workflow_outcome(outcome)
             if outcome.target_workspace_required:
                 self._open_execute_workspace_picker(outcome.snapshot)
-        elif getattr(self.workflow_controller, "is_running", False):
+        elif self._workflow_controller_is_running():
             self._advance_activity_frame()
+
+    def _workflow_controller_is_running(self) -> bool:
+        return bool(getattr(self.workflow_controller, "is_running", False))
 
     def _apply_workflow_outcome(self, outcome: TextualWorkflowOutcome) -> None:
         snapshot = self._store_workflow_outcome_snapshot(outcome)
@@ -1941,7 +1944,7 @@ class TrinityTextualApp(App[None]):
     def _handle_textual_quit_command(self) -> None:
         self.push_screen(
             ConfirmQuitModal(
-                running=bool(getattr(self.workflow_controller, "is_running", False)),
+                running=self._workflow_controller_is_running(),
                 lang=self.config.lang,
             ),
             self._on_quit_confirmed,

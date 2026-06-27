@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.526`
-- Merged PR range reviewed: #90 through #622
+- Package version inspected: `1.0.528`
+- Merged PR range reviewed: #90 through #624
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #622
-- Latest refresh reviewed: #622
+- Maintenance refresh reviewed: #427 through #624
+- Latest refresh reviewed: #624
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -639,6 +639,15 @@ and what the next release train should optimize.
 - Added `tests/test_textual_report_export.py` to the required smoke manifest.
 - Raised the package version from `1.0.524` to `1.0.525` in this patch PR.
 
+### #624: Textual Agent Command Helper
+
+- Split `/agent` slash command parsing, state mutation, and presentation
+  selection from `textual_app/app.py` into `textual_app/agent_commands.py`.
+- Kept local command result recording in the Textual app facade.
+- Expanded focused agent command tests to cover current settings, session-only
+  enable changes, and error input without mutation.
+- Raised the package version from `1.0.526` to `1.0.527` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -677,11 +686,11 @@ current contract document, merged PR evidence, and focused test coverage.
   runtime wiring, and command routing.
 - `src/trinity/textual_app/presenters.py` and `command_parsers.py` should own
   pure formatting and command parsing.
-- `src/trinity/textual_app/local_commands.py`,
+- `src/trinity/textual_app/agent_commands.py`, `local_commands.py`,
   `model_discovery.py`, `report_export.py`, `slash_command_router.py`, and
-  `target_workspace.py` own local command state, provider model discovery
-  fan-out, report export generation, slash dispatch metadata, and target
-  workspace path helpers.
+  `target_workspace.py` own focused command handling, local command state,
+  provider model discovery fan-out, report export generation, slash dispatch
+  metadata, and target workspace path helpers.
 - `src/trinity/textual_app/screens/` and `widgets/` should own UI state
   application, caching, and bounded rendering.
 
@@ -842,9 +851,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #622:
+Current main snapshot after #624:
 
-- `src/trinity/textual_app/app.py`: 2,975 lines
+- `src/trinity/textual_app/app.py`: 2,936 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from trinity.textual_app import presenters as textual_presenters
+from trinity.textual_app.snapshot import LocalCommandSnapshot, WorkflowNexusSnapshot
 
 
 ExecuteSeverity = Literal["warning"]
@@ -48,4 +49,20 @@ def execute_retry_no_packages_presentation(
         action_hint=textual_presenters.execute_retry_no_packages_action_hint(
             lang=lang
         ),
+    )
+
+
+def execution_recovery_snapshot(
+    command: str,
+    snapshot: WorkflowNexusSnapshot,
+    message: str = "",
+    *,
+    lang: str = "en",
+) -> LocalCommandSnapshot:
+    """Return the local command snapshot for interrupted execution recovery."""
+    return textual_presenters.execution_recovery_local_command_snapshot(
+        command,
+        snapshot,
+        message,
+        lang=lang,
     )

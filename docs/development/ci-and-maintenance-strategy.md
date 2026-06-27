@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.558`
-- Merged PR range reviewed: #90 through #654
+- Package version inspected: `1.0.560`
+- Merged PR range reviewed: #90 through #656
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #654
-- Latest refresh reviewed: #654
+- Maintenance refresh reviewed: #427 through #656
+- Latest refresh reviewed: #656
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -822,6 +822,18 @@ and what the next release train should optimize.
   command snapshot update selection into the helper layer.
 - Reduced `_apply_textual_context_presentation` from 34 lines to 11 lines.
 - Raised the package version from `1.0.556` to `1.0.557` in this patch PR.
+
+### #656: Textual Local Command Result Effect Helper
+
+- Split local slash-command result rendering state calculation from
+  `textual_app/app.py` into `textual_app/local_commands.py`.
+- Added `LocalCommandResultEffect` and `local_command_result_effect` so result
+  replacement, snapshot refresh, modal routing, and notification payloads are
+  testable without the Textual app.
+- Kept concrete modal, workflow outcome, and notification side effects in the
+  app facade.
+- Reduced `_present_local_command_result` from 28 lines to 18 lines.
+- Raised the package version from `1.0.558` to `1.0.559` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

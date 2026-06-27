@@ -42,6 +42,7 @@ from trinity.textual_app.local_commands import (
     snapshot_with_local_command_results,
 )
 from trinity.textual_app.memory_commands import memory_command_presentation
+from trinity.textual_app.packages_commands import packages_command_presentation
 from trinity.textual_app.questions_commands import questions_command_presentation
 from trinity.textual_app.report_export import (
     snapshot_has_report_data,
@@ -1846,26 +1847,18 @@ class TrinityTextualApp(App[None]):
 
     def _handle_textual_packages_command(self, command_name: str) -> None:
         snapshot = self._refresh_textual_snapshot()
-        has_packages = bool(snapshot.work_packages or snapshot.central_work_packages)
+        presentation = packages_command_presentation(
+            snapshot,
+            lang=self.config.lang,
+        )
         self._record_slash_command_result(
             command_name,
-            textual_presenters.packages_title(lang=self.config.lang),
-            textual_presenters.packages_markdown(
-                snapshot,
-                lang=self.config.lang,
-            ),
-            empty=not has_packages,
-            action_hint=textual_presenters.packages_action_hint(
-                has_packages=has_packages,
-                lang=self.config.lang,
-            ),
-            table_columns=textual_presenters.packages_table_columns(
-                lang=self.config.lang
-            ),
-            table_rows=textual_presenters.packages_rows(
-                snapshot,
-                lang=self.config.lang,
-            ),
+            presentation.title,
+            presentation.body,
+            empty=presentation.empty,
+            action_hint=presentation.action_hint,
+            table_columns=presentation.table_columns,
+            table_rows=presentation.table_rows,
         )
 
     def _handle_textual_subtasks_command(self, command_name: str) -> None:

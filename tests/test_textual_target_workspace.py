@@ -4,6 +4,7 @@ from trinity.textual_app.target_workspace import (
     absolute_path,
     default_launch_cwd,
     is_control_repo_target,
+    prepare_target_workspace,
     resolve_target_path,
     safe_start_target_workspace,
 )
@@ -65,6 +66,45 @@ def test_safe_start_target_workspace_keeps_sibling_workspace(tmp_path) -> None:
     sibling = tmp_path / "msu"
 
     assert safe_start_target_workspace(sibling, control_repo) == sibling
+
+
+def test_prepare_target_workspace_creates_missing_directory(tmp_path) -> None:
+    target = tmp_path / "new-project"
+
+    prepared = prepare_target_workspace(target)
+
+    assert prepared.error is None
+    assert prepared.resolved_path == target.resolve()
+    assert target.is_dir()
+
+
+def test_prepare_target_workspace_rejects_existing_file(tmp_path) -> None:
+    target = tmp_path / "not-a-directory"
+    target.write_text("file", encoding="utf-8")
+
+    prepared = prepare_target_workspace(target)
+
+    assert prepared.error == "not_directory"
+    assert prepared.resolved_path is None
+    assert prepared.message == str(target)
+
+
+def test_prepare_target_workspace_reports_os_error(tmp_path, monkeypatch) -> None:
+    target = tmp_path / "denied"
+    original_mkdir = Path.mkdir
+
+    def fail_mkdir(self, *args, **kwargs):
+        if self == target:
+            raise OSError("permission denied")
+        return original_mkdir(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "mkdir", fail_mkdir)
+
+    prepared = prepare_target_workspace(target)
+
+    assert prepared.error == "os_error"
+    assert prepared.resolved_path is None
+    assert "permission denied" in prepared.message
 
 
 def test_absolute_path_tolerates_missing_path(tmp_path) -> None:

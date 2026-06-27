@@ -9,6 +9,7 @@ from trinity.context.shared import SharedContextEngine
 from trinity.textual_app.snapshot import (
     NexusSnapshotAdapter,
     WORKFLOW_EVENT_DISPLAY_LIMIT,
+    WORKFLOW_EVENT_RENDER_LIMIT,
 )
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workflow import (
@@ -488,11 +489,39 @@ def test_snapshot_large_event_log_uses_event_index_and_tail_limit(
 
     assert calls == 0
     assert len(snapshot.execution_log) == 80
-    assert len(snapshot.workflow_events) == 501
-    assert snapshot.workflow_events[0] == "... 4500 older workflow events omitted"
+    assert len(snapshot.workflow_events) == WORKFLOW_EVENT_RENDER_LIMIT + 1
+    assert snapshot.workflow_events[0] == "... 4880 older workflow events omitted"
     assert snapshot.execution_recovery is not None
     assert snapshot.execution_recovery.last_event == "work_package_started"
     assert snapshot.execution_recovery.retry_candidates == ("WP-001",)
+
+
+def test_workflow_events_use_render_window_after_loading_tail(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    adapter = NexusSnapshotAdapter(config)
+    session = WorkflowSession(
+        id="wf-render-window",
+        goal="Build UI",
+        state=WorkflowState.EXECUTING,
+    )
+    session_events = [
+        {
+            "event": "state_changed",
+            "workflow_id": "wf-render-window",
+            "data": {"to": f"state-{index}"},
+        }
+        for index in range(WORKFLOW_EVENT_RENDER_LIMIT + 5)
+    ]
+
+    events = adapter._workflow_events(
+        session,
+        session_events,
+        total=len(session_events),
+    )
+
+    assert len(events) == WORKFLOW_EVENT_RENDER_LIMIT + 1
+    assert events[0] == "... 5 older workflow events omitted"
+    assert events[1] == "state_changed: state-5"
 
 
 def test_snapshot_fallback_helpers_use_bounded_event_loads(

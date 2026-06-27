@@ -5,7 +5,7 @@ from tests.harness.perf import (
     measure_ms,
     snapshot_probe,
 )
-from trinity.textual_app.snapshot import WORKFLOW_EVENT_DISPLAY_LIMIT
+from trinity.textual_app.snapshot import WORKFLOW_EVENT_RENDER_LIMIT
 from trinity.workflow import WorkflowPersistence
 
 
@@ -90,6 +90,6 @@ def test_snapshot_probe_keeps_large_workflow_within_projection_budgets(
     assert snapshot.session_id == "wf-perf"
     assert len(snapshot.work_packages) == 120
     assert len(snapshot.execution_log) <= 90
-    assert len(snapshot.workflow_events) <= WORKFLOW_EVENT_DISPLAY_LIMIT + 1
+    assert len(snapshot.workflow_events) <= WORKFLOW_EVENT_RENDER_LIMIT + 1
     assert snapshot.workflow_events[0].startswith("... ")
     assert snapshot.execution_recovery is not None

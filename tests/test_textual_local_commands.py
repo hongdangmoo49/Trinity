@@ -1,5 +1,6 @@
 from trinity.textual_app.local_commands import (
     append_local_command_event,
+    local_command_result_effect,
     local_command_notification,
     local_command_snapshot,
     recent_local_command_results,
@@ -90,6 +91,78 @@ def test_snapshot_with_local_command_results_attaches_recent_results() -> None:
     assert updated.session_id == "wf-local"
     assert [item.command for item in updated.local_commands] == ["/cmd-2", "/cmd-3"]
     assert snapshot.local_commands == []
+
+
+def test_local_command_result_effect_shows_start_modal() -> None:
+    result = _result("/status", "Status")
+
+    effect = local_command_result_effect(
+        result,
+        WorkflowNexusSnapshot(session_id="wf-local"),
+        [],
+        current_route="start",
+    )
+
+    assert effect.show_modal is True
+    assert effect.modal_result is result
+    assert effect.notification is None
+    assert effect.local_command_results == [result]
+    assert effect.snapshot.local_commands == [result]
+
+
+def test_local_command_result_effect_updates_route_and_notifies() -> None:
+    result = _result("/status", "Status")
+
+    effect = local_command_result_effect(
+        result,
+        WorkflowNexusSnapshot(session_id="wf-local"),
+        [],
+        current_route="nexus",
+    )
+
+    assert effect.show_modal is False
+    assert effect.modal_result is None
+    assert effect.notification is not None
+    assert effect.notification.message == "Status"
+    assert effect.notification.title == "Slash Command"
+    assert effect.snapshot.local_commands == [result]
+
+
+def test_local_command_result_effect_can_skip_notification() -> None:
+    result = _result("/status", "Status")
+
+    effect = local_command_result_effect(
+        result,
+        WorkflowNexusSnapshot(session_id="wf-local"),
+        [],
+        current_route="nexus",
+        notify=False,
+    )
+
+    assert effect.notification is None
+    assert effect.snapshot.local_commands == [result]
+
+
+def test_local_command_result_effect_replaces_previous_result() -> None:
+    old = _result("/status", "Old")
+    result = _result("/status", "New")
+
+    effect = local_command_result_effect(
+        result,
+        WorkflowNexusSnapshot(session_id="wf-local"),
+        [old, _result("/workflow")],
+        current_route="nexus",
+    )
+
+    assert [item.command for item in effect.local_command_results] == [
+        "/workflow",
+        "/status",
+    ]
+    assert effect.local_command_results[-1].title == "New"
+    assert [item.command for item in effect.snapshot.local_commands] == [
+        "/workflow",
+        "/status",
+    ]
 
 
 def test_append_local_command_event_records_reportable_conversation(tmp_path) -> None:

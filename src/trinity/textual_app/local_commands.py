@@ -20,6 +20,21 @@ class LocalCommandNotification:
     severity: str
 
 
+@dataclass(frozen=True)
+class LocalCommandResultEffect:
+    """Prepared UI state changes for rendering a local slash-command result."""
+
+    local_command_results: list[LocalCommandSnapshot]
+    snapshot: WorkflowNexusSnapshot
+    modal_result: LocalCommandSnapshot | None = None
+    notification: LocalCommandNotification | None = None
+
+    @property
+    def show_modal(self) -> bool:
+        """Return whether the result should be shown in a modal."""
+        return self.modal_result is not None
+
+
 def local_command_snapshot(
     command: str,
     title: str,
@@ -89,6 +104,31 @@ def replace_local_command_result(
 ) -> list[LocalCommandSnapshot]:
     """Keep only the latest result for a local slash command."""
     return [item for item in results if item.command != result.command] + [result]
+
+
+def local_command_result_effect(
+    result: LocalCommandSnapshot,
+    snapshot: WorkflowNexusSnapshot,
+    local_command_results: Sequence[LocalCommandSnapshot],
+    *,
+    current_route: str,
+    start_modal: bool = True,
+    notify: bool = True,
+    lang: str = "en",
+) -> LocalCommandResultEffect:
+    """Return the UI state changes for rendering a local slash-command result."""
+    updated_results = replace_local_command_result(local_command_results, result)
+    updated_snapshot = snapshot_with_local_command_results(snapshot, updated_results)
+    return LocalCommandResultEffect(
+        local_command_results=updated_results,
+        snapshot=updated_snapshot,
+        modal_result=result if current_route == "start" and start_modal else None,
+        notification=(
+            local_command_notification(result, lang=lang)
+            if notify and current_route != "start"
+            else None
+        ),
+    )
 
 
 def append_local_command_event(

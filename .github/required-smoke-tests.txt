@@ -28,6 +28,7 @@ tests/test_textual_runtime.py
 tests/test_textual_artifact_commands.py
 tests/test_textual_answer_commands.py
 tests/test_textual_command_parsers.py
+tests/test_textual_context_commands.py
 tests/test_textual_improve_commands.py
 tests/test_textual_local_commands.py
 tests/test_textual_memory_commands.py

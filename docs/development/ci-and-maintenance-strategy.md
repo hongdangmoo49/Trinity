@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.580`
-- Merged PR range reviewed: #90 through #676
+- Package version inspected: `1.0.582`
+- Merged PR range reviewed: #90 through #678
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #676
-- Latest refresh reviewed: #676
+- Maintenance refresh reviewed: #427 through #678
+- Latest refresh reviewed: #678
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -948,6 +948,15 @@ and what the next release train should optimize.
   effects unchanged.
 - Reduced `_apply_textual_context_effect` from 25 lines to 8 lines.
 - Raised the package version from `1.0.578` to `1.0.579` in this patch PR.
+
+### #678: Textual Execute Effect Apply Helpers
+
+- Split Textual `/execute` effect application branches in `textual_app/app.py`
+  into focused recovery, slash-result, and workspace-picker apply helpers.
+- Kept the existing pure `execute_command_effect` derivation and execute
+  workflow behavior unchanged.
+- Reduced `_apply_textual_execute_effect` from 23 lines to 10 lines.
+- Raised the package version from `1.0.580` to `1.0.581` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

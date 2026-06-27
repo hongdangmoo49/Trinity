@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.510`
-- Merged PR range reviewed: #90 through #606
+- Package version inspected: `1.0.512`
+- Merged PR range reviewed: #90 through #608
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #606
-- Latest refresh reviewed: #606
+- Maintenance refresh reviewed: #427 through #608
+- Latest refresh reviewed: #608
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -546,6 +546,18 @@ and what the next release train should optimize.
   Korean title output.
 - Raised the package version from `1.0.508` to `1.0.509` in this patch PR.
 
+### #608: Execution Matrix Review Notification Helper
+
+- Split Execution Matrix review request notification payload construction from
+  `textual_app/app.py` into `textual_app/review_commands.py`.
+- Preserved the existing warning classification for no-pending, target
+  workspace, and still-running messages.
+- Kept review request dispatch and workflow outcome application in the app
+  facade.
+- Expanded focused review command tests to cover empty, warning, and info
+  notification paths.
+- Raised the package version from `1.0.510` to `1.0.511` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -744,9 +756,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #606:
+Current main snapshot after #608:
 
-- `src/trinity/textual_app/app.py`: 3,021 lines
+- `src/trinity/textual_app/app.py`: 3,017 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

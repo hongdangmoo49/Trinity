@@ -147,6 +147,7 @@ from trinity.textual_app.snapshot_source import (
     fresh_textual_snapshot,
 )
 from trinity.textual_app.target_workspace import (
+    TargetWorkspacePreparation,
     WorkspacePreflightContinuation,
     WorkspacePreflightEffect,
     default_launch_cwd,
@@ -2654,22 +2655,38 @@ class TrinityTextualApp(App[None]):
         *,
         control_repo_confirmed: bool,
     ) -> None:
-        prepared = prepare_target_workspace(path)
+        self._apply_textual_target_workspace_preparation(
+            prepare_target_workspace(path),
+            control_repo_confirmed=control_repo_confirmed,
+        )
+
+    def _apply_textual_target_workspace_preparation(
+        self,
+        prepared: TargetWorkspacePreparation,
+        *,
+        control_repo_confirmed: bool,
+    ) -> None:
+        if self._record_textual_target_prepare_result(prepared):
+            return
+        if prepared.resolved_path is None:
+            return
+        self._apply_textual_target_workspace(
+            prepared.resolved_path,
+            control_repo_confirmed=control_repo_confirmed,
+        )
+
+    def _record_textual_target_prepare_result(
+        self,
+        prepared: TargetWorkspacePreparation,
+    ) -> bool:
         presentation = target_prepare_result_presentation(
             prepared,
             lang=self.config.lang,
         )
         if presentation:
             self._record_target_command_presentation(presentation)
-            return
-        resolved = prepared.resolved_path
-        if resolved is None:
-            return
-
-        self._apply_textual_target_workspace(
-            resolved,
-            control_repo_confirmed=control_repo_confirmed,
-        )
+            return True
+        return False
 
     def _apply_textual_target_workspace(
         self,

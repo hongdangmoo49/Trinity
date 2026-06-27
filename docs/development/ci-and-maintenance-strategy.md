@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.586`
-- Merged PR range reviewed: #90 through #682
+- Package version inspected: `1.0.588`
+- Merged PR range reviewed: #90 through #684
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #682
-- Latest refresh reviewed: #682
+- Maintenance refresh reviewed: #427 through #684
+- Latest refresh reviewed: #684
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -974,6 +974,17 @@ and what the next release train should optimize.
   application.
 - Reduced `_set_textual_target_workspace` from 22 lines to 10 lines.
 - Raised the package version from `1.0.584` to `1.0.585` in this patch PR.
+
+### #684: Textual Execute Retry Selected Apply Helpers
+
+- Split execution retry modal selection handling in `textual_app/app.py` from
+  retry confirmation outcome application.
+- Added focused helpers for target-workspace-required outcomes and
+  execution-requested outcomes.
+- Added direct app coverage for workspace picker and execution route behavior
+  after retry selection.
+- Reduced `_on_execute_retry_selected` from 22 lines to 11 lines.
+- Raised the package version from `1.0.586` to `1.0.587` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

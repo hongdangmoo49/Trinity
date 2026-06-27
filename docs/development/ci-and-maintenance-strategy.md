@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.502`
-- Merged PR range reviewed: #90 through #598
+- Package version inspected: `1.0.504`
+- Merged PR range reviewed: #90 through #600
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #598
-- Latest refresh reviewed: #598
+- Maintenance refresh reviewed: #427 through #600
+- Latest refresh reviewed: #600
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -500,6 +500,17 @@ and what the next release train should optimize.
 - Included the new helper tests in the required smoke manifest.
 - Raised the package version from `1.0.500` to `1.0.501` in this patch PR.
 
+### #600: Textual Resume Command Helper
+
+- Split `/resume` no-saved, archive picker, cancel, and result presentation
+  from `textual_app/app.py` into `textual_app/resume_commands.py`.
+- Kept archive lookup, picker modal display, workflow resume execution, outcome
+  application, and Nexus route switching in the app facade.
+- Preserved the existing resume outcome flag and continue-decision helpers.
+- Expanded focused resume command helper tests for empty, archive, cancel, and
+  result presentation paths.
+- Raised the package version from `1.0.502` to `1.0.503` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -698,9 +709,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #598:
+Current main snapshot after #600:
 
-- `src/trinity/textual_app/app.py`: 3,020 lines
+- `src/trinity/textual_app/app.py`: 3,013 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

@@ -73,6 +73,10 @@ from trinity.textual_app.report_commands import (
 )
 from trinity.textual_app.report_route import prepare_report_route
 from trinity.textual_app.resume_commands import (
+    resume_archives_presentation,
+    resume_cancelled_presentation,
+    resume_no_saved_presentation,
+    resume_result_command_presentation,
     resume_result_presentation,
     should_continue_resumed_workflow,
 )
@@ -2733,34 +2737,27 @@ class TrinityTextualApp(App[None]):
         if parsed.action == "picker":
             archives = self.workflow_controller.list_resume_options()
             if not archives:
+                presentation = resume_no_saved_presentation(lang=self.config.lang)
                 self._record_slash_command_result(
                     "/resume",
-                    textual_presenters.resume_title(lang=self.config.lang),
-                    textual_presenters.resume_no_saved_markdown(lang=self.config.lang),
-                    empty=True,
-                    action_hint=textual_presenters.resume_no_saved_action_hint(
-                        lang=self.config.lang
-                    ),
+                    presentation.title,
+                    presentation.body,
+                    empty=presentation.empty,
+                    action_hint=presentation.action_hint,
                 )
                 return
+            presentation = resume_archives_presentation(
+                archives,
+                lang=self.config.lang,
+            )
             self._record_slash_command_result(
                 "/resume",
-                textual_presenters.resume_title(lang=self.config.lang),
-                textual_presenters.resume_archives_markdown(
-                    archives,
-                    lang=self.config.lang,
-                ),
-                table_columns=textual_presenters.resume_archive_table_columns(
-                    lang=self.config.lang
-                ),
-                table_rows=textual_presenters.resume_archive_rows(
-                    archives,
-                    lang=self.config.lang,
-                ),
-                action_hint=textual_presenters.resume_pick_action_hint(
-                    lang=self.config.lang
-                ),
-                start_modal=False,
+                presentation.title,
+                presentation.body,
+                table_columns=presentation.table_columns,
+                table_rows=presentation.table_rows,
+                action_hint=presentation.action_hint,
+                start_modal=presentation.start_modal,
             )
             self.push_screen(
                 ResumeWorkflowPicker(archives, lang=self.config.lang),
@@ -2771,14 +2768,13 @@ class TrinityTextualApp(App[None]):
 
     def _on_resume_archive_selected(self, selector: str | None) -> None:
         if selector is None:
+            presentation = resume_cancelled_presentation(lang=self.config.lang)
             self._record_slash_command_result(
                 "/resume",
-                textual_presenters.resume_title(lang=self.config.lang),
-                textual_presenters.resume_cancelled_markdown(lang=self.config.lang),
-                empty=True,
-                action_hint=textual_presenters.resume_cancel_action_hint(
-                    lang=self.config.lang
-                ),
+                presentation.title,
+                presentation.body,
+                empty=presentation.empty,
+                action_hint=presentation.action_hint,
             )
             return
         self._resume_textual_workflow(selector)
@@ -2788,23 +2784,20 @@ class TrinityTextualApp(App[None]):
         outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
         presentation = resume_result_presentation(message)
         if presentation:
+            result_presentation = resume_result_command_presentation(
+                presentation,
+                outcome.snapshot,
+                lang=self.config.lang,
+            )
             self._record_slash_command_result(
                 "/resume",
-                textual_presenters.resume_title(lang=self.config.lang),
-                textual_presenters.workflow_outcome_message_markdown(
-                    presentation.message,
-                    lang=self.config.lang,
-                ),
-                severity=presentation.severity,
-                empty=presentation.empty,
-                table_columns=textual_presenters.resume_result_table_columns(
-                    lang=self.config.lang
-                ),
-                table_rows=textual_presenters.resume_result_rows(
-                    outcome.snapshot,
-                    lang=self.config.lang,
-                ),
-                start_modal=presentation.start_modal,
+                result_presentation.title,
+                result_presentation.body,
+                severity=result_presentation.severity,
+                empty=result_presentation.empty,
+                table_columns=result_presentation.table_columns,
+                table_rows=result_presentation.table_rows,
+                start_modal=result_presentation.start_modal,
             )
         if should_continue_resumed_workflow(presentation):
             self.switch_to("nexus")

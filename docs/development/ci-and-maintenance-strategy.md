@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.554`
-- Merged PR range reviewed: #90 through #650
+- Package version inspected: `1.0.556`
+- Merged PR range reviewed: #90 through #652
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #650
-- Latest refresh reviewed: #650
+- Maintenance refresh reviewed: #427 through #652
+- Latest refresh reviewed: #652
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -800,6 +800,17 @@ and what the next release train should optimize.
 - Expanded focused execute command tests to cover runner routing, recovery
   priority, workspace picker effects, and no-op empty-message behavior.
 - Raised the package version from `1.0.552` to `1.0.553` in this patch PR.
+
+### #652: Textual Workspace Preflight Effect Helper
+
+- Split workspace preflight continuation planning from `textual_app/app.py`
+  into `textual_app/target_workspace.py`.
+- Added helper state for fresh execution vs pending execution retry, preserving
+  selected retry package ids.
+- Added workspace preflight outcome effects for execution recovery display and
+  execution route switching.
+- Reduced `_continue_workspace_preflight` from 30 lines to 13 lines.
+- Raised the package version from `1.0.554` to `1.0.555` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

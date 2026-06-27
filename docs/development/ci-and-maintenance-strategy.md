@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.562`
-- Merged PR range reviewed: #90 through #658
+- Package version inspected: `1.0.564`
+- Merged PR range reviewed: #90 through #660
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #658
-- Latest refresh reviewed: #658
+- Maintenance refresh reviewed: #427 through #660
+- Latest refresh reviewed: #660
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -847,6 +847,18 @@ and what the next release train should optimize.
 - Reduced `on_execution_matrix_screen_retry_requested` from 29 lines to 16
   lines.
 - Raised the package version from `1.0.560` to `1.0.561` in this patch PR.
+
+### #660: Textual Target Workspace Apply Effect Helper
+
+- Split target workspace application state derivation from
+  `textual_app/app.py` into `textual_app/target_commands.py`.
+- Added `TargetWorkspaceApplyEffect` and `target_workspace_apply_effect` so
+  workflow outcome snapshots, fallback snapshots, and target set presentation
+  are testable without the Textual app.
+- Kept controller mutation, confirmed preflight memory, candidate sync, and
+  local command recording in the app facade.
+- Reduced `_apply_textual_target_workspace` from 28 lines to 19 lines.
+- Raised the package version from `1.0.562` to `1.0.563` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

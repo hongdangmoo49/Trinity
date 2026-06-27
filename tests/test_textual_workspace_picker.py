@@ -13,6 +13,7 @@ from trinity.textual_app.widgets.workspace_picker import (
     FolderNamePrompt,
     WorkspacePicker,
     build_preflight,
+    build_workspace_picker,
     default_workspace_tree_root,
 )
 
@@ -171,6 +172,27 @@ def test_default_workspace_tree_root_uses_control_repo_parent(tmp_path) -> None:
     control_repo = tmp_path / "Trinity"
 
     assert default_workspace_tree_root(control_repo) == tmp_path
+
+
+def test_build_workspace_picker_uses_control_repo_defaults(tmp_path) -> None:
+    control_repo = tmp_path / "Trinity"
+    candidate = tmp_path / "project"
+    snapshot = WorkflowNexusSnapshot(session_id="wf-picker")
+
+    picker = build_workspace_picker(
+        candidate=candidate,
+        snapshot=snapshot,
+        control_repo_path=control_repo,
+        lang="ko",
+        intent="select",
+    )
+
+    assert picker.candidate == candidate
+    assert picker.snapshot is snapshot
+    assert picker.cwd == control_repo
+    assert picker.tree_root == tmp_path
+    assert picker.intent == "select"
+    assert picker.lang == "ko"
 
 
 @pytest.mark.asyncio

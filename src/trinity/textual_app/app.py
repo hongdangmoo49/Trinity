@@ -113,10 +113,9 @@ from trinity.textual_app.widgets.target_workspace_confirm_modal import (
     TargetWorkspaceConfirmModal,
 )
 from trinity.textual_app.widgets.workspace_picker import (
-    WorkspacePicker,
     WorkspacePreflight,
+    build_workspace_picker,
     build_preflight,
-    default_workspace_tree_root,
 )
 from trinity.tui.kitty_compat import install_textual_parser_patch
 
@@ -1501,12 +1500,11 @@ class TrinityTextualApp(App[None]):
         intent: str = "execute",
     ) -> None:
         self.push_screen(
-            WorkspacePicker(
+            build_workspace_picker(
                 candidate=self.workspace_candidate,
                 lang=self.config.lang,
                 snapshot=snapshot,
-                cwd=self.config.project_dir,
-                tree_root=default_workspace_tree_root(self.config.project_dir),
+                control_repo_path=self.config.project_dir,
                 intent=intent,
             ),
             callback,

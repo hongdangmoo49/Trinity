@@ -622,6 +622,25 @@ def default_workspace_tree_root(control_repo_path: Path) -> Path:
     return parent if parent != control_repo else control_repo
 
 
+def build_workspace_picker(
+    *,
+    candidate: Path | None,
+    snapshot: WorkflowNexusSnapshot,
+    control_repo_path: Path,
+    lang: str = "en",
+    intent: str = "execute",
+) -> WorkspacePicker:
+    """Build a workspace picker with Trinity's default browsing root."""
+    return WorkspacePicker(
+        candidate=candidate,
+        lang=lang,
+        snapshot=snapshot,
+        cwd=control_repo_path,
+        tree_root=default_workspace_tree_root(control_repo_path),
+        intent=intent,
+    )
+
+
 def build_preflight(
     path: Path,
     snapshot: WorkflowNexusSnapshot,

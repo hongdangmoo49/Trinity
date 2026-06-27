@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.570`
-- Merged PR range reviewed: #90 through #666
+- Package version inspected: `1.0.572`
+- Merged PR range reviewed: #90 through #668
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #666
-- Latest refresh reviewed: #666
+- Maintenance refresh reviewed: #427 through #668
+- Latest refresh reviewed: #668
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -893,6 +893,18 @@ and what the next release train should optimize.
   facade.
 - Reduced `_handle_textual_execute_retry_command` from 26 lines to 11 lines.
 - Raised the package version from `1.0.568` to `1.0.569` in this patch PR.
+
+### #668: Textual Model Settings Modal Effect Helper
+
+- Split model settings modal request derivation from `textual_app/app.py` into
+  `textual_app/model_settings_commands.py`.
+- Added `ModelSettingsModalRequest` and `model_settings_modal_request` so
+  unavailable notifications, discovered model choice merging, and selected
+  model state are testable without the Textual app.
+- Kept provider model refresh and concrete modal/notification side effects in
+  the app facade.
+- Reduced `_open_model_settings_modal` from 25 lines to 11 lines.
+- Raised the package version from `1.0.570` to `1.0.571` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

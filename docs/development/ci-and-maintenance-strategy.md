@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.514`
-- Merged PR range reviewed: #90 through #610
+- Package version inspected: `1.0.516`
+- Merged PR range reviewed: #90 through #612
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #610
-- Latest refresh reviewed: #610
+- Maintenance refresh reviewed: #427 through #612
+- Latest refresh reviewed: #612
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -570,6 +570,17 @@ and what the next release train should optimize.
   Korean cancel snapshot outputs.
 - Raised the package version from `1.0.512` to `1.0.513` in this patch PR.
 
+### #612: Textual Execution Recovery Snapshot Helper
+
+- Split interrupted execution recovery local command snapshot construction
+  from `textual_app/app.py` into `textual_app/execute_commands.py`.
+- Kept the app facade responsible for recording the local command snapshot.
+- Preserved existing recovery title, body, action hint, severity, and table row
+  output.
+- Expanded focused execute command tests to cover recovery snapshots and Korean
+  title/table column output.
+- Raised the package version from `1.0.514` to `1.0.515` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -768,9 +779,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #610:
+Current main snapshot after #612:
 
-- `src/trinity/textual_app/app.py`: 3,011 lines
+- `src/trinity/textual_app/app.py`: 3,012 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

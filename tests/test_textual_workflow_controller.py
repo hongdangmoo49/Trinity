@@ -510,10 +510,70 @@ def test_textual_workflow_controller_passes_provider_retry_merge_context(
 
 
 def test_textual_workflow_controller_reports_active_synthesis(tmp_path) -> None:
+    release_synthesis = threading.Event()
+
+    class BlockingSynthesisOrchestrator(FakeOrchestrator):
+        async def ask(self, prompt: str) -> DeliberationResult:
+            assert self.bus is not None
+            self.bus.emit(
+                TUIEvent(
+                    type=TUIEventType.ROUND_START,
+                    data={"round_num": 1},
+                )
+            )
+            self.bus.emit(
+                TUIEvent(
+                    type=TUIEventType.AGENT_THINKING,
+                    data={"agent": "claude", "round_num": 1},
+                )
+            )
+            self.bus.emit(
+                TUIEvent(
+                    type=TUIEventType.AGENT_RESPONDED,
+                    data={
+                        "agent": "claude",
+                        "content": "claude plan",
+                        "round_num": 1,
+                        "response_status": "ok",
+                    },
+                )
+            )
+            self.bus.emit(
+                TUIEvent(
+                    type=TUIEventType.CONSENSUS_CHECKING,
+                    data={"round_num": 1},
+                )
+            )
+            while not release_synthesis.is_set():
+                await asyncio.sleep(0.01)
+            self.bus.emit(
+                TUIEvent(
+                    type=TUIEventType.CONSENSUS_RESULT,
+                    data={
+                        "round_num": 1,
+                        "reached": True,
+                        "agreement_count": 1,
+                        "total_agents": 1,
+                        "summary": "Build the requested app.",
+                    },
+                )
+            )
+            return DeliberationResult(
+                user_prompt=prompt,
+                rounds_completed=1,
+                consensus=ConsensusResult(
+                    reached=True,
+                    agreement_count=1,
+                    total_agents=1,
+                    opinions={"claude": "agree"},
+                    summary="Build the requested app.",
+                ),
+            )
+
     config = TrinityConfig.default_config(project_dir=tmp_path)
     controller = TextualWorkflowController(
         config,
-        orchestrator_factory=FakeOrchestrator,
+        orchestrator_factory=BlockingSynthesisOrchestrator,
         archive_active_session=False,
     )
 
@@ -526,11 +586,14 @@ def test_textual_workflow_controller_reports_active_synthesis(tmp_path) -> None:
             break
         time.sleep(0.02)
 
+    if mid is None or mid.snapshot.synthesis.status != "running":
+        release_synthesis.set()
     assert mid is not None
     assert mid.snapshot.round_num == 1
     assert mid.snapshot.synthesis.status == "running"
     assert mid.snapshot.synthesis.consensus_progress == "round 1 synthesizing"
     assert "Central agent is synthesizing round 1" in mid.snapshot.synthesis.summary
+    release_synthesis.set()
     assert controller.wait_until_idle(timeout=2.0)
 
 

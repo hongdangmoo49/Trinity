@@ -115,11 +115,12 @@ from trinity.textual_app.status_commands import status_command_result
 from trinity.textual_app.subtasks_commands import subtasks_command_presentation
 from trinity.textual_app.target_commands import (
     TargetCommandPresentation,
+    TargetWorkspaceApplyEffect,
     target_command_action,
     target_cancelled_snapshot,
     target_cleared_presentation,
     target_prepare_result_presentation,
-    target_set_presentation,
+    target_workspace_apply_effect,
 )
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.screens.nexus import NexusScreen
@@ -2601,24 +2602,25 @@ class TrinityTextualApp(App[None]):
             resolved,
             control_repo_confirmed=control_repo_confirmed,
         )
-        if isinstance(outcome, TextualWorkflowOutcome):
-            self._remember_confirmed_target_preflight(resolved, outcome.snapshot)
-            self._apply_workflow_outcome(outcome)
-        else:
-            self._remember_confirmed_target_preflight(
-                resolved,
-                self.active_snapshot
-                or self.workflow_controller.snapshot()
-                or self.snapshot_adapter.load_snapshot(),
-            )
-        self._set_workspace_candidate(resolved)
-        presentation = target_set_presentation(
+        effect = target_workspace_apply_effect(
             resolved,
+            outcome,
+            self._current_textual_snapshot(),
             control_repo=self.config.project_dir,
             control_repo_confirmed=control_repo_confirmed,
             lang=self.config.lang,
         )
-        self._record_target_command_presentation(presentation)
+        self._apply_textual_target_workspace_effect(effect)
+
+    def _apply_textual_target_workspace_effect(
+        self,
+        effect: TargetWorkspaceApplyEffect,
+    ) -> None:
+        self._remember_confirmed_target_preflight(effect.resolved, effect.snapshot)
+        if effect.apply_workflow_outcome:
+            self._apply_workflow_outcome(effect.workflow_outcome)
+        self._set_workspace_candidate(effect.resolved)
+        self._record_target_command_presentation(effect.presentation)
 
     def _sync_nexus_workspace_candidate(self) -> None:
         if not self._screens_installed:

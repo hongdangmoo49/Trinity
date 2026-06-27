@@ -1,5 +1,7 @@
 from pathlib import Path
+from types import SimpleNamespace
 
+from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.target_workspace import TargetWorkspacePreparation
 from trinity.textual_app.target_commands import (
     target_command_action,
@@ -10,6 +12,7 @@ from trinity.textual_app.target_commands import (
     target_prepare_result_presentation,
     target_prepare_failed_presentation,
     target_set_presentation,
+    target_workspace_apply_effect,
     target_workspace_presentation,
 )
 
@@ -99,6 +102,47 @@ def test_target_set_presentation_calculates_control_repo_state() -> None:
         ("Inside control repo", "yes"),
         ("Control repo confirmed", "yes"),
     )
+
+
+def test_target_workspace_apply_effect_uses_workflow_outcome_snapshot() -> None:
+    resolved = Path("/repo/app")
+    outcome_snapshot = WorkflowNexusSnapshot(session_id="wf-outcome")
+    fallback_snapshot = WorkflowNexusSnapshot(session_id="wf-fallback")
+    outcome = SimpleNamespace(snapshot=outcome_snapshot)
+
+    effect = target_workspace_apply_effect(
+        resolved,
+        outcome,
+        fallback_snapshot,
+        control_repo=Path("/repo"),
+        control_repo_confirmed=True,
+    )
+
+    assert effect.resolved == resolved
+    assert effect.snapshot is outcome_snapshot
+    assert effect.workflow_outcome is outcome
+    assert effect.apply_workflow_outcome is True
+    assert effect.presentation.body == f"Target workspace: `{resolved}`"
+
+
+def test_target_workspace_apply_effect_uses_fallback_without_outcome_snapshot() -> None:
+    resolved = Path("/workspace/app")
+    fallback_snapshot = WorkflowNexusSnapshot(session_id="wf-fallback")
+
+    effect = target_workspace_apply_effect(
+        resolved,
+        object(),
+        fallback_snapshot,
+        control_repo=Path("/repo"),
+        control_repo_confirmed=False,
+        lang="ko",
+    )
+
+    assert effect.snapshot is fallback_snapshot
+    assert effect.workflow_outcome is None
+    assert effect.apply_workflow_outcome is False
+    assert effect.presentation.title == "대상"
+    assert effect.presentation.body == f"대상 작업 폴더: `{resolved}`"
 
 
 def test_target_command_action_records_current_target() -> None:

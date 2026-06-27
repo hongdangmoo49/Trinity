@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from trinity.textual_app import presenters as textual_presenters
 from trinity.textual_app.command_parsers import parse_target_args
-from trinity.textual_app.snapshot import LocalCommandSnapshot
+from trinity.textual_app.snapshot import LocalCommandSnapshot, WorkflowNexusSnapshot
 from trinity.textual_app.target_workspace import (
     TargetWorkspacePreparation,
     is_control_repo_target,
@@ -39,6 +39,21 @@ class TargetCommandAction:
     action: TargetCommandActionKind
     path: Path | None = None
     presentation: TargetCommandPresentation | None = None
+
+
+@dataclass(frozen=True)
+class TargetWorkspaceApplyEffect:
+    """Prepared state changes after applying a target workspace."""
+
+    resolved: Path
+    snapshot: WorkflowNexusSnapshot
+    presentation: TargetCommandPresentation
+    workflow_outcome: Any | None = None
+
+    @property
+    def apply_workflow_outcome(self) -> bool:
+        """Return whether the app should apply the controller workflow outcome."""
+        return self.workflow_outcome is not None
 
 
 def target_current_presentation(
@@ -138,6 +153,32 @@ def target_set_presentation(
         inside_control_repo=is_control_repo_target(path, control_repo),
         control_repo_confirmed=control_repo_confirmed,
         lang=lang,
+    )
+
+
+def target_workspace_apply_effect(
+    resolved: Path,
+    outcome: Any,
+    fallback_snapshot: WorkflowNexusSnapshot,
+    *,
+    control_repo: Path,
+    control_repo_confirmed: bool,
+    lang: str = "en",
+) -> TargetWorkspaceApplyEffect:
+    """Return app state changes after setting the target workspace."""
+    outcome_snapshot = getattr(outcome, "snapshot", None)
+    snapshot = outcome_snapshot if outcome_snapshot is not None else fallback_snapshot
+    workflow_outcome = outcome if outcome_snapshot is not None else None
+    return TargetWorkspaceApplyEffect(
+        resolved=resolved,
+        snapshot=snapshot,
+        workflow_outcome=workflow_outcome,
+        presentation=target_set_presentation(
+            resolved,
+            control_repo=control_repo,
+            control_repo_confirmed=control_repo_confirmed,
+            lang=lang,
+        ),
     )
 
 

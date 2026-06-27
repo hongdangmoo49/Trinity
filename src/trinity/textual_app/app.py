@@ -2055,21 +2055,32 @@ class TrinityTextualApp(App[None]):
         outcome = self.workflow_controller.request_review(args)
         outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
         presentation = review_result_presentation(message)
-        if presentation:
-            result_presentation = review_result_command_presentation(
-                presentation,
-                outcome.snapshot,
-                lang=self.config.lang,
-            )
-            self._record_slash_command_result(
+        if presentation is not None:
+            self._record_slash_command_presentation(
                 command_name,
-                result_presentation.title,
-                result_presentation.body,
-                severity=result_presentation.severity,
-                table_columns=result_presentation.table_columns,
-                table_rows=result_presentation.table_rows,
-                action_hint=result_presentation.action_hint,
+                review_result_command_presentation(
+                    presentation,
+                    outcome.snapshot,
+                    lang=self.config.lang,
+                ),
             )
+
+    def _record_slash_command_presentation(
+        self,
+        command_name: str,
+        presentation: Any,
+    ) -> None:
+        self._record_slash_command_result(
+            command_name,
+            presentation.title,
+            presentation.body,
+            severity=getattr(presentation, "severity", "info"),
+            empty=getattr(presentation, "empty", False),
+            result_kind=getattr(presentation, "result_kind", "markdown"),
+            table_columns=getattr(presentation, "table_columns", ()),
+            table_rows=getattr(presentation, "table_rows", ()),
+            action_hint=getattr(presentation, "action_hint", ""),
+        )
 
     def _handle_textual_improve_command(
         self,
@@ -2593,19 +2604,9 @@ class TrinityTextualApp(App[None]):
         command_name: str,
         args: list[str],
     ) -> None:
-        presentation = rounds_command_presentation(
-            self.config,
-            args,
-            lang=self.config.lang,
-        )
-        self._record_slash_command_result(
+        self._record_slash_command_presentation(
             command_name,
-            presentation.title,
-            presentation.body,
-            severity=presentation.severity,
-            table_columns=presentation.table_columns,
-            table_rows=presentation.table_rows,
-            action_hint=presentation.action_hint,
+            rounds_command_presentation(self.config, args, lang=self.config.lang),
         )
 
     def _handle_textual_agent_command(
@@ -2613,19 +2614,9 @@ class TrinityTextualApp(App[None]):
         command_name: str,
         args: list[str],
     ) -> None:
-        presentation = agent_command_presentation(
-            self.config.agents,
-            args,
-            lang=self.config.lang,
-        )
-        self._record_slash_command_result(
+        self._record_slash_command_presentation(
             command_name,
-            presentation.title,
-            presentation.body,
-            severity=presentation.severity,
-            table_columns=presentation.table_columns,
-            table_rows=presentation.table_rows,
-            action_hint=presentation.action_hint,
+            agent_command_presentation(self.config.agents, args, lang=self.config.lang),
         )
 
     def _handle_textual_caveman_command(
@@ -2633,19 +2624,9 @@ class TrinityTextualApp(App[None]):
         command_name: str,
         args: list[str],
     ) -> None:
-        presentation = caveman_command_presentation(
-            self.config,
-            args,
-            lang=self.config.lang,
-        )
-        self._record_slash_command_result(
+        self._record_slash_command_presentation(
             command_name,
-            presentation.title,
-            presentation.body,
-            severity=presentation.severity,
-            table_columns=presentation.table_columns,
-            table_rows=presentation.table_rows,
-            action_hint=presentation.action_hint,
+            caveman_command_presentation(self.config, args, lang=self.config.lang),
         )
 
     def _handle_textual_target_command(self, args: list[str]) -> None:

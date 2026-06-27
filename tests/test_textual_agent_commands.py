@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from trinity.config import Provider
 from trinity.slash_commands import SESSION_ONLY_SETTING_NOTICE
 from trinity.textual_app.agent_commands import (
+    agent_command_presentation,
     agent_current_presentation,
     agent_error_presentation,
     agent_update_presentation,
@@ -68,3 +69,32 @@ def test_agent_presentation_uses_korean_labels() -> None:
     assert updated.body.startswith("이 세션에서 에이전트 `claude`를 비활성화했습니다.")
     assert error.severity == "warning"
     assert error.title == "에이전트"
+
+
+def test_agent_command_presentation_returns_current_settings_without_args() -> None:
+    presentation = agent_command_presentation(_agents(), [])
+
+    assert presentation.title == "Agent"
+    assert presentation.action_hint == "Use `/agent <name> on|off` to change one agent."
+    assert ("codex", "no", "codex") in presentation.table_rows
+
+
+def test_agent_command_presentation_updates_agent_enabled_state() -> None:
+    agents = _agents()
+
+    presentation = agent_command_presentation(agents, ["codex", "on"])
+
+    assert agents["codex"].enabled is True
+    assert presentation.body.startswith("Agent `codex` enabled for this session only.")
+    assert ("codex", "yes", "codex") in presentation.table_rows
+
+
+def test_agent_command_presentation_reports_error_without_mutating_agents() -> None:
+    agents = _agents()
+
+    presentation = agent_command_presentation(agents, ["missing", "off"])
+
+    assert agents["claude"].enabled is True
+    assert agents["codex"].enabled is False
+    assert presentation.severity == "warning"
+    assert "Unknown agent" in presentation.body

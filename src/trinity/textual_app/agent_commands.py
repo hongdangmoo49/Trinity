@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping, Protocol
+from typing import Mapping, MutableMapping, Protocol
 
+from trinity.textual_app.command_parsers import parse_agent_args
 from trinity.textual_app import presenters as textual_presenters
 
 
@@ -41,6 +42,34 @@ def agent_current_presentation(
         table_columns=textual_presenters.agent_table_columns(lang=lang),
         table_rows=textual_presenters.agent_rows(agents, lang=lang),
         action_hint=textual_presenters.agent_change_action_hint(lang=lang),
+    )
+
+
+def agent_command_presentation(
+    agents: MutableMapping[str, AgentCommandSpec],
+    args: list[str],
+    *,
+    lang: str = "en",
+) -> AgentCommandPresentation:
+    """Apply `/agent` args and return the resulting presentation."""
+    parsed = parse_agent_args(
+        args,
+        agents.keys(),
+        lang=lang,
+    )
+    if not args:
+        return agent_current_presentation(agents, lang=lang)
+    if parsed.error:
+        return agent_error_presentation(parsed.error, agents, lang=lang)
+
+    name = parsed.agent_name
+    spec = agents[name]
+    spec.enabled = bool(parsed.enabled)
+    return agent_update_presentation(
+        name,
+        spec.enabled,
+        agents,
+        lang=lang,
     )
 
 

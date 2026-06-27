@@ -36,7 +36,11 @@ from trinity.textual_app.agent_commands import (
     agent_update_presentation,
 )
 from trinity.textual_app.ask_commands import ask_error_presentation
-from trinity.textual_app.answer_commands import answer_result_presentation
+from trinity.textual_app.answer_commands import (
+    answer_error_command_presentation,
+    answer_result_command_presentation,
+    answer_result_presentation,
+)
 from trinity.textual_app.artifact_commands import artifact_command_presentation
 from trinity.textual_app.caveman_commands import (
     caveman_current_presentation,
@@ -2811,13 +2815,18 @@ class TrinityTextualApp(App[None]):
     def _handle_textual_answer_command(self, args: list[str]) -> None:
         parsed = parse_answer_args(args, lang=self.config.lang)
         if parsed.error:
+            presentation = answer_error_command_presentation(
+                parsed.error,
+                parsed.action_hint,
+                lang=self.config.lang,
+            )
             self._record_slash_command_result(
                 "/answer",
-                textual_presenters.answer_title(lang=self.config.lang),
-                parsed.error,
-                severity="warning",
-                empty=True,
-                action_hint=parsed.action_hint,
+                presentation.title,
+                presentation.body,
+                severity=presentation.severity,
+                empty=presentation.empty,
+                action_hint=presentation.action_hint,
             )
             return
         if parsed.option_index:
@@ -2834,15 +2843,16 @@ class TrinityTextualApp(App[None]):
         outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
         presentation = answer_result_presentation(message)
         if presentation:
+            result_presentation = answer_result_command_presentation(
+                presentation,
+                lang=self.config.lang,
+            )
             self._record_slash_command_result(
                 "/answer",
-                textual_presenters.answer_title(lang=self.config.lang),
-                textual_presenters.workflow_outcome_message_markdown(
-                    presentation.message,
-                    lang=self.config.lang,
-                ),
-                severity=presentation.severity,
-                empty=presentation.empty,
+                result_presentation.title,
+                result_presentation.body,
+                severity=result_presentation.severity,
+                empty=result_presentation.empty,
             )
 
     def _handle_textual_execute_retry_command(self, args: list[str]) -> None:

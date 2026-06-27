@@ -21,7 +21,13 @@ from trinity.textual_app.command_parsers import (
 from trinity.textual_app.agent_commands import (
     agent_command_presentation,
 )
-from trinity.textual_app.ask_commands import ask_command_action, run_ask_command
+from trinity.textual_app.ask_commands import (
+    AskCommandPresentation,
+    AskCommandRun,
+    ask_command_action,
+    ask_command_run_effect,
+    run_ask_command,
+)
 from trinity.textual_app.answer_commands import (
     answer_message_command_presentation,
     run_answer_command,
@@ -2004,15 +2010,7 @@ class TrinityTextualApp(App[None]):
             lang=self.config.lang,
         )
         if action.presentation is not None:
-            presentation = action.presentation
-            self._record_slash_command_result(
-                command_name,
-                presentation.title,
-                presentation.body,
-                severity=presentation.severity,
-                empty=presentation.empty,
-                action_hint=presentation.action_hint,
-            )
+            self._record_ask_command_presentation(command_name, action.presentation)
             return
 
         run = run_ask_command(
@@ -2022,20 +2020,38 @@ class TrinityTextualApp(App[None]):
             workspace_candidate=self.workspace_candidate,
             project_dir=self.config.project_dir,
         )
-        if run.initial_prompt:
-            self.initial_prompt = run.initial_prompt
-        if run.switch_to_nexus:
+        self._apply_textual_ask_run(run)
+
+    def _record_ask_command_presentation(
+        self,
+        command_name: str,
+        presentation: AskCommandPresentation,
+    ) -> None:
+        self._record_slash_command_result(
+            command_name,
+            presentation.title,
+            presentation.body,
+            severity=presentation.severity,
+            empty=presentation.empty,
+            action_hint=presentation.action_hint,
+        )
+
+    def _apply_textual_ask_run(self, run: AskCommandRun) -> None:
+        effect = ask_command_run_effect(run)
+        if effect.initial_prompt:
+            self.initial_prompt = effect.initial_prompt
+        if effect.remember_target_preflight:
             self._remember_confirmed_target_preflight(
-                run.target_workspace,
-                run.outcome.snapshot,
+                effect.target_workspace,
+                effect.target_snapshot,
             )
         self._apply_workflow_outcome(run.outcome)
-        if run.switch_to_nexus:
+        if effect.switch_to_nexus:
             self.switch_to("nexus")
             return
 
-        if run.outcome.target_workspace_required:
-            self._open_execute_workspace_picker(run.outcome.snapshot)
+        if effect.workspace_picker_snapshot is not None:
+            self._open_execute_workspace_picker(effect.workspace_picker_snapshot)
 
     def _on_quit_confirmed(self, confirmed: bool | None) -> None:
         if confirmed:

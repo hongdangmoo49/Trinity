@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 from trinity.textual_app.ask_commands import (
     ask_command_action,
+    ask_command_run_effect,
     ask_error_presentation,
     run_ask_command,
 )
@@ -166,6 +167,59 @@ def test_run_ask_command_submits_follow_up(tmp_path) -> None:
     ]
     assert run.switch_to_nexus is False
     assert run.outcome is controller.follow_up_outcome
+
+
+def test_ask_command_run_effect_marks_start_route_effects(tmp_path) -> None:
+    snapshot = SimpleNamespace(session_id="wf-1")
+    run = SimpleNamespace(
+        outcome=SimpleNamespace(snapshot=snapshot, target_workspace_required=False),
+        initial_prompt="분석해라",
+        target_workspace=tmp_path,
+        switch_to_nexus=True,
+    )
+
+    effect = ask_command_run_effect(run)
+
+    assert effect.initial_prompt == "분석해라"
+    assert effect.remember_target_preflight is True
+    assert effect.target_workspace == tmp_path
+    assert effect.target_snapshot is snapshot
+    assert effect.switch_to_nexus is True
+    assert effect.workspace_picker_snapshot is None
+
+
+def test_ask_command_run_effect_marks_follow_up_workspace_picker() -> None:
+    snapshot = SimpleNamespace(session_id="wf-1")
+    run = SimpleNamespace(
+        outcome=SimpleNamespace(snapshot=snapshot, target_workspace_required=True),
+        initial_prompt="",
+        target_workspace=None,
+        switch_to_nexus=False,
+    )
+
+    effect = ask_command_run_effect(run)
+
+    assert effect.initial_prompt == ""
+    assert effect.remember_target_preflight is False
+    assert effect.target_workspace is None
+    assert effect.target_snapshot is None
+    assert effect.switch_to_nexus is False
+    assert effect.workspace_picker_snapshot is snapshot
+
+
+def test_ask_command_run_effect_ignores_follow_up_without_workspace_picker() -> None:
+    run = SimpleNamespace(
+        outcome=SimpleNamespace(snapshot=SimpleNamespace(), target_workspace_required=False),
+        initial_prompt="",
+        target_workspace=None,
+        switch_to_nexus=False,
+    )
+
+    effect = ask_command_run_effect(run)
+
+    assert effect.remember_target_preflight is False
+    assert effect.switch_to_nexus is False
+    assert effect.workspace_picker_snapshot is None
 
 
 class _FakeAskNexus:

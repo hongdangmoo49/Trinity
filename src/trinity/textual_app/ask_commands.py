@@ -79,6 +79,18 @@ class AskCommandRun:
     switch_to_nexus: bool = False
 
 
+@dataclass(frozen=True)
+class AskCommandRunEffect:
+    """UI effects derived from a completed `/ask` command run."""
+
+    initial_prompt: str = ""
+    remember_target_preflight: bool = False
+    target_workspace: Path | None = None
+    target_snapshot: Any | None = None
+    switch_to_nexus: bool = False
+    workspace_picker_snapshot: Any | None = None
+
+
 def ask_command_action(
     args: list[str],
     active_agent_names: Iterable[str],
@@ -138,6 +150,23 @@ def run_ask_command(
         agent_model_overrides=action.agent_model_overrides,
     )
     return AskCommandRun(outcome=outcome)
+
+
+def ask_command_run_effect(run: AskCommandRun) -> AskCommandRunEffect:
+    """Return the UI effects the app should apply after a valid `/ask` run."""
+    outcome = run.outcome
+    snapshot = getattr(outcome, "snapshot", None)
+    workspace_picker_snapshot = None
+    if not run.switch_to_nexus and getattr(outcome, "target_workspace_required", False):
+        workspace_picker_snapshot = snapshot
+    return AskCommandRunEffect(
+        initial_prompt=run.initial_prompt,
+        remember_target_preflight=run.switch_to_nexus,
+        target_workspace=run.target_workspace,
+        target_snapshot=snapshot if run.switch_to_nexus else None,
+        switch_to_nexus=run.switch_to_nexus,
+        workspace_picker_snapshot=workspace_picker_snapshot,
+    )
 
 
 def ask_error_presentation(

@@ -1,9 +1,15 @@
+from pathlib import Path
+
+from trinity.textual_app.target_workspace import TargetWorkspacePreparation
 from trinity.textual_app.target_commands import (
+    target_command_action,
     target_cancelled_snapshot,
     target_cleared_presentation,
     target_current_presentation,
     target_not_directory_presentation,
+    target_prepare_result_presentation,
     target_prepare_failed_presentation,
+    target_set_presentation,
     target_workspace_presentation,
 )
 
@@ -43,6 +49,24 @@ def test_target_error_presentations_mark_warning() -> None:
     assert prepare_failed.empty is True
 
 
+def test_target_prepare_result_presentation_maps_errors() -> None:
+    not_directory = target_prepare_result_presentation(
+        TargetWorkspacePreparation(error="not_directory", message="/tmp/file")
+    )
+    os_error = target_prepare_result_presentation(
+        TargetWorkspacePreparation(error="os_error", message="denied")
+    )
+    ready = target_prepare_result_presentation(
+        TargetWorkspacePreparation(resolved_path=Path("/tmp/app"))
+    )
+
+    assert not_directory is not None
+    assert not_directory.body == "Target path exists but is not a directory: `/tmp/file`"
+    assert os_error is not None
+    assert os_error.body == "Could not prepare target workspace: denied"
+    assert ready is None
+
+
 def test_target_workspace_presentation_includes_workspace_rows() -> None:
     presentation = target_workspace_presentation(
         "/tmp/app",
@@ -58,6 +82,73 @@ def test_target_workspace_presentation_includes_workspace_rows() -> None:
         ("Inside control repo", "no"),
         ("Control repo confirmed", "yes"),
     )
+
+
+def test_target_set_presentation_calculates_control_repo_state() -> None:
+    path = Path("/repo/app")
+    presentation = target_set_presentation(
+        path,
+        control_repo=Path("/repo"),
+        control_repo_confirmed=True,
+    )
+
+    path_text = str(path)
+    assert presentation.body == f"Target workspace: `{path_text}`"
+    assert presentation.table_rows == (
+        ("Path", path_text),
+        ("Inside control repo", "yes"),
+        ("Control repo confirmed", "yes"),
+    )
+
+
+def test_target_command_action_records_current_target() -> None:
+    current = Path("/tmp/app")
+    action = target_command_action(
+        [],
+        current=current,
+        project_dir=Path("/repo"),
+    )
+
+    assert action.action == "record"
+    assert action.path is None
+    assert action.presentation is not None
+    assert action.presentation.body == f"Current target: `{current}`"
+
+
+def test_target_command_action_routes_clear() -> None:
+    action = target_command_action(
+        ["clear"],
+        current=Path("/tmp/app"),
+        project_dir=Path("/repo"),
+    )
+
+    assert action.action == "clear"
+    assert action.path is None
+    assert action.presentation is None
+
+
+def test_target_command_action_routes_control_repo_confirmation() -> None:
+    action = target_command_action(
+        ["nested"],
+        current=None,
+        project_dir=Path("/repo"),
+    )
+
+    assert action.action == "confirm"
+    assert action.path == Path("/repo/nested")
+    assert action.presentation is None
+
+
+def test_target_command_action_routes_external_set() -> None:
+    action = target_command_action(
+        ["/workspace/app"],
+        current=None,
+        project_dir=Path("/repo"),
+    )
+
+    assert action.action == "set"
+    assert action.path == Path("/workspace/app")
+    assert action.presentation is None
 
 
 def test_target_cancelled_snapshot_describes_selection_cancel() -> None:

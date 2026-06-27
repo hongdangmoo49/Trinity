@@ -1251,7 +1251,7 @@ class TrinityTextualApp(App[None]):
         event.stop()
         self.initial_prompt = event.prompt
         if self.workspace_candidate is None:
-            self.workspace_candidate = event.workspace_candidate
+            self._set_workspace_candidate(event.workspace_candidate, sync_nexus=False)
         nexus = self.get_screen("nexus", NexusScreen)
         nexus.set_initial_prompt(event.prompt)
         nexus.set_agent_selection(event.target_agents, event.agent_model_overrides)
@@ -1516,10 +1516,7 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         if preflight is None:
             return
-        self.workspace_candidate = preflight.path
-        start = self.get_screen("start", StartScreen)
-        start.set_workspace_candidate(preflight.path)
-        self._sync_nexus_workspace_candidate()
+        self._set_workspace_candidate(preflight.path, sync_start=True)
 
     def _on_nexus_workspace_selected(
         self,
@@ -1564,7 +1561,7 @@ class TrinityTextualApp(App[None]):
         *,
         control_repo_confirmed: bool,
     ) -> None:
-        self.workspace_candidate = preflight.path
+        self._set_workspace_candidate(preflight.path, sync_nexus=False)
         self._set_textual_target_workspace(
             preflight.path,
             control_repo_confirmed=control_repo_confirmed,
@@ -2756,8 +2753,7 @@ class TrinityTextualApp(App[None]):
                 or self.workflow_controller.snapshot()
                 or self.snapshot_adapter.load_snapshot(),
             )
-        self.workspace_candidate = resolved
-        self._sync_nexus_workspace_candidate()
+        self._set_workspace_candidate(resolved)
         inside_control_repo = is_control_repo_target(resolved, self.config.project_dir)
         self._record_slash_command_result(
             "/target",
@@ -2781,6 +2777,19 @@ class TrinityTextualApp(App[None]):
         self.get_screen("nexus", NexusScreen).set_workspace_candidate(
             self.workspace_candidate,
         )
+
+    def _set_workspace_candidate(
+        self,
+        path: Path | None,
+        *,
+        sync_start: bool = False,
+        sync_nexus: bool = True,
+    ) -> None:
+        self.workspace_candidate = path
+        if sync_start:
+            self.get_screen("start", StartScreen).set_workspace_candidate(path)
+        if sync_nexus:
+            self._sync_nexus_workspace_candidate()
 
     def _handle_textual_resume_command(self, args: list[str]) -> None:
         parsed = parse_resume_args(args)

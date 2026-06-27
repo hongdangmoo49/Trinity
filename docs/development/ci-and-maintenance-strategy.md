@@ -15,6 +15,7 @@ and what the next release train should optimize.
 - Latest refresh reviewed: #541 through #548
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
+  - `.github/workflows/full-validation.yml`
   - `.github/workflows/publish-pypi.yml`
 - Required smoke test list:
   - `.github/required-smoke-tests.txt`
@@ -384,9 +385,10 @@ confidence checks:
 uv run pytest -q
 ```
 
-If GitHub Actions cost becomes acceptable, add a scheduled nightly workflow for
-the full suite. Do not make the full suite a required PR gate until the runtime
-cost is measured and accepted.
+GitHub Actions also provides a manual `Full validation` workflow that runs the
+same full suite on Ubuntu/Python 3.12 via `workflow_dispatch`. Use it before
+release candidates and after broad refactors. Do not make the full suite a
+required PR gate until the runtime cost is measured and accepted.
 
 ## Cleanup Candidates
 

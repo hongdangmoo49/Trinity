@@ -47,7 +47,6 @@ from trinity.textual_app.execute_commands import (
     ExecuteCommandEffect,
     ExecutionRetryRequestEffect,
     execute_command_effect,
-    execute_retry_no_packages_presentation,
     execution_retry_request_effect,
     execution_recovery_snapshot,
     run_execute_command,
@@ -1492,15 +1491,7 @@ class TrinityTextualApp(App[None]):
                 severity=presentation.severity,
             )
             return
-        self.push_screen(
-            ExecutionRetryModal(
-                effect.snapshot,
-                selector=effect.selector,
-                package_ids=effect.package_ids,
-                lang=self.config.lang,
-            ),
-            self._on_execute_retry_selected,
-        )
+        self._open_execution_retry_modal(effect)
 
     def on_execution_matrix_screen_review_requested(
         self,
@@ -2768,24 +2759,48 @@ class TrinityTextualApp(App[None]):
         selector, package_ids = parse_execute_retry_args(args)
         self.workflow_controller.preview_execution_retry(selector, package_ids)
         snapshot = self._refresh_textual_snapshot()
-        if not snapshot.work_package_details:
-            presentation = execute_retry_no_packages_presentation(
-                lang=self.config.lang
-            )
-            self._record_slash_command_result(
-                "/execute-retry",
-                presentation.title,
-                presentation.body,
-                severity=presentation.severity,
-                empty=presentation.empty,
-                action_hint=presentation.action_hint,
-            )
+        effect = execution_retry_request_effect(
+            snapshot,
+            selector,
+            tuple(package_ids),
+            lang=self.config.lang,
+        )
+        self._apply_textual_execute_retry_command_effect(effect)
+
+    def _apply_textual_execute_retry_command_effect(
+        self,
+        effect: ExecutionRetryRequestEffect,
+    ) -> None:
+        if not effect.show_retry_modal:
+            presentation = effect.no_packages_presentation
+            if presentation is None:
+                return
+            self._record_execute_retry_no_packages(presentation)
             return
+        self._open_execution_retry_modal(effect)
+
+    def _record_execute_retry_no_packages(
+        self,
+        presentation: ExecuteCommandPresentation,
+    ) -> None:
+        self._record_slash_command_result(
+            "/execute-retry",
+            presentation.title,
+            presentation.body,
+            severity=presentation.severity,
+            empty=presentation.empty,
+            action_hint=presentation.action_hint,
+        )
+
+    def _open_execution_retry_modal(
+        self,
+        effect: ExecutionRetryRequestEffect,
+    ) -> None:
         self.push_screen(
             ExecutionRetryModal(
-                snapshot,
-                selector=selector,
-                package_ids=tuple(package_ids),
+                effect.snapshot,
+                selector=effect.selector,
+                package_ids=effect.package_ids,
                 lang=self.config.lang,
             ),
             self._on_execute_retry_selected,

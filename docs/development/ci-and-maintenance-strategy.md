@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.548`
-- Merged PR range reviewed: #90 through #644
+- Package version inspected: `1.0.550`
+- Merged PR range reviewed: #90 through #646
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #644
-- Latest refresh reviewed: #644
+- Maintenance refresh reviewed: #427 through #646
+- Latest refresh reviewed: #646
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -766,6 +766,18 @@ and what the next release train should optimize.
 - Reduced `_handle_textual_context_command` from 41 lines to 10 lines.
 - Raised the package version from `1.0.546` to `1.0.547` in this patch PR.
 
+### #646: Textual Resume Command Action Helper
+
+- Split `/resume` argument and archive-list action selection from
+  `textual_app/app.py` into `textual_app/resume_commands.py`.
+- Added a resume workflow effect helper for Nexus route switching, execution
+  recovery presentation, and context refresh decisions after resume.
+- Kept concrete modal display, local command recording, and workflow outcome
+  application in the Textual app facade.
+- Expanded focused resume command tests to cover no-saved, picker, explicit
+  selector, failed resume, continued resume, and execution recovery effects.
+- Raised the package version from `1.0.548` to `1.0.549` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -975,9 +987,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #644:
+Current main snapshot after #646:
 
-- `src/trinity/textual_app/app.py`: 2,840 lines
+- `src/trinity/textual_app/app.py`: 2,818 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

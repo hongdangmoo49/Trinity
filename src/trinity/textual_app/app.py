@@ -16,7 +16,6 @@ from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import parse_execute_retry_args, parse_slash_command
 from trinity.textual_app.command_parsers import (
     parse_answer_args,
-    parse_caveman_args,
     parse_execute_args,
     parse_report_args,
     parse_resume_args,
@@ -34,9 +33,7 @@ from trinity.textual_app.answer_commands import (
 )
 from trinity.textual_app.artifact_commands import artifact_command_presentation
 from trinity.textual_app.caveman_commands import (
-    caveman_current_presentation,
-    caveman_error_presentation,
-    caveman_set_presentation,
+    caveman_command_presentation,
 )
 from trinity.textual_app.context_commands import context_command_presentation
 from trinity.textual_app.decisions_commands import decisions_command_presentation
@@ -2461,53 +2458,19 @@ class TrinityTextualApp(App[None]):
         command_name: str,
         args: list[str],
     ) -> None:
-        if not args:
-            mode = "on" if self.config.caveman_mode else "off"
-            presentation = caveman_current_presentation(
-                mode,
-                self.config.caveman_intensity,
-                lang=self.config.lang,
-            )
-            self._record_slash_command_result(
-                command_name,
-                presentation.title,
-                presentation.body,
-                table_columns=presentation.table_columns,
-                table_rows=presentation.table_rows,
-                action_hint=presentation.action_hint,
-            )
-            return
-        parsed = parse_caveman_args(args, lang=self.config.lang)
-        if parsed.error:
-            presentation = caveman_error_presentation(
-                parsed.error,
-                parsed.action_hint,
-                lang=self.config.lang,
-            )
-            self._record_slash_command_result(
-                command_name,
-                presentation.title,
-                presentation.body,
-                severity=presentation.severity,
-                action_hint=presentation.action_hint,
-            )
-            return
-        if parsed.enabled is not None:
-            self.config.caveman_mode = parsed.enabled
-        if parsed.intensity:
-            self.config.caveman_intensity = parsed.intensity
-        mode = "on" if self.config.caveman_mode else "off"
-        presentation = caveman_set_presentation(
-            mode,
-            self.config.caveman_intensity,
+        presentation = caveman_command_presentation(
+            self.config,
+            args,
             lang=self.config.lang,
         )
         self._record_slash_command_result(
             command_name,
             presentation.title,
             presentation.body,
+            severity=presentation.severity,
             table_columns=presentation.table_columns,
             table_rows=presentation.table_rows,
+            action_hint=presentation.action_hint,
         )
 
     def _handle_textual_target_command(self, args: list[str]) -> None:

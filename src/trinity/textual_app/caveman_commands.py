@@ -3,8 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol
 
+from trinity.textual_app.command_parsers import parse_caveman_args
 from trinity.textual_app import presenters as textual_presenters
+
+
+class CavemanCommandState(Protocol):
+    """Mutable `/caveman` session setting subset."""
+
+    caveman_mode: bool
+    caveman_intensity: str
 
 
 @dataclass(frozen=True)
@@ -17,6 +26,39 @@ class CavemanCommandPresentation:
     action_hint: str = ""
     table_columns: tuple[str, ...] = ()
     table_rows: tuple[tuple[str, ...], ...] = ()
+
+
+def caveman_command_presentation(
+    state: CavemanCommandState,
+    args: list[str],
+    *,
+    lang: str = "en",
+) -> CavemanCommandPresentation:
+    """Apply `/caveman` args and return the resulting presentation."""
+    if not args:
+        return caveman_current_presentation(
+            _mode_label(state.caveman_mode),
+            state.caveman_intensity,
+            lang=lang,
+        )
+
+    parsed = parse_caveman_args(args, lang=lang)
+    if parsed.error:
+        return caveman_error_presentation(
+            parsed.error,
+            parsed.action_hint,
+            lang=lang,
+        )
+
+    if parsed.enabled is not None:
+        state.caveman_mode = parsed.enabled
+    if parsed.intensity:
+        state.caveman_intensity = parsed.intensity
+    return caveman_set_presentation(
+        _mode_label(state.caveman_mode),
+        state.caveman_intensity,
+        lang=lang,
+    )
 
 
 def caveman_current_presentation(
@@ -83,3 +125,7 @@ def caveman_error_presentation(
         severity="warning",
         action_hint=action_hint,
     )
+
+
+def _mode_label(enabled: bool) -> str:
+    return "on" if enabled else "off"

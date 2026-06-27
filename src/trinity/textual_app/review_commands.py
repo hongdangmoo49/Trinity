@@ -10,6 +10,7 @@ from trinity.textual_app.snapshot import LocalCommandSnapshot, WorkflowNexusSnap
 
 
 ReviewSeverity = Literal["info", "warning"]
+ReviewRepairActionKind = Literal["open_review", "retry_once", "mark_done", "stop", "ignore"]
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,14 @@ class ReviewNotificationPresentation:
 
     body: str
     severity: ReviewSeverity
+
+
+@dataclass(frozen=True)
+class ReviewRepairAction:
+    """Normalized Nexus repair action requested by the user."""
+
+    kind: ReviewRepairActionKind
+    package_ids: tuple[str, ...] = ()
 
 
 def review_result_presentation(
@@ -115,3 +124,22 @@ def review_repair_snapshot(
         snapshot,
         lang=lang,
     )
+
+
+def review_repair_action(
+    action: str,
+    snapshot: WorkflowNexusSnapshot,
+) -> ReviewRepairAction:
+    """Return the normalized repair action and related blocked package ids."""
+    if action == "repair-open-review":
+        return ReviewRepairAction(kind="open_review")
+    if action == "repair-retry-once":
+        return ReviewRepairAction(
+            kind="retry_once",
+            package_ids=review_repair_blocked_package_ids(snapshot),
+        )
+    if action == "repair-mark-done":
+        return ReviewRepairAction(kind="mark_done")
+    if action == "repair-stop":
+        return ReviewRepairAction(kind="stop")
+    return ReviewRepairAction(kind="ignore")

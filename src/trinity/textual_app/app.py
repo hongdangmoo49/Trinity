@@ -63,6 +63,11 @@ from trinity.textual_app.route_snapshot import (
     apply_current_route_snapshot,
 )
 from trinity.textual_app.review_commands import review_result_presentation
+from trinity.textual_app.rounds_commands import (
+    rounds_current_presentation,
+    rounds_error_presentation,
+    rounds_set_presentation,
+)
 from trinity.textual_app.save_commands import save_command_presentation
 from trinity.textual_app.status_commands import status_command_result
 from trinity.textual_app.subtasks_commands import subtasks_command_presentation
@@ -2390,49 +2395,45 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         parsed = parse_rounds_args(args, lang=self.config.lang)
         if parsed.rounds is None and not parsed.error:
+            presentation = rounds_current_presentation(
+                self.config.max_deliberation_rounds,
+                lang=self.config.lang,
+            )
             self._record_slash_command_result(
                 command_name,
-                textual_presenters.rounds_title(lang=self.config.lang),
-                textual_presenters.session_setting_body(
-                    textual_presenters.rounds_current_markdown(
-                        self.config.max_deliberation_rounds,
-                        lang=self.config.lang,
-                    )
-                ),
-                table_columns=textual_presenters.status_table_columns(
-                    lang=self.config.lang
-                ),
-                table_rows=textual_presenters.rounds_rows(
-                    self.config.max_deliberation_rounds,
-                    lang=self.config.lang,
-                ),
-                action_hint=textual_presenters.rounds_change_action_hint(
-                    lang=self.config.lang
-                ),
+                presentation.title,
+                presentation.body,
+                table_columns=presentation.table_columns,
+                table_rows=presentation.table_rows,
+                action_hint=presentation.action_hint,
             )
             return
         if parsed.error:
+            presentation = rounds_error_presentation(
+                parsed.error,
+                parsed.action_hint,
+                lang=self.config.lang,
+            )
             self._record_slash_command_result(
                 command_name,
-                textual_presenters.rounds_title(lang=self.config.lang),
-                parsed.error,
-                severity="warning",
-                action_hint=parsed.action_hint,
+                presentation.title,
+                presentation.body,
+                severity=presentation.severity,
+                action_hint=presentation.action_hint,
             )
             return
         rounds = parsed.rounds or self.config.max_deliberation_rounds
         self.config.max_deliberation_rounds = rounds
+        presentation = rounds_set_presentation(
+            self.config.max_deliberation_rounds,
+            lang=self.config.lang,
+        )
         self._record_slash_command_result(
             command_name,
-            textual_presenters.rounds_title(lang=self.config.lang),
-            textual_presenters.session_setting_body(
-                textual_presenters.rounds_set_markdown(rounds, lang=self.config.lang)
-            ),
-            table_columns=textual_presenters.status_table_columns(lang=self.config.lang),
-            table_rows=textual_presenters.rounds_rows(
-                self.config.max_deliberation_rounds,
-                lang=self.config.lang,
-            ),
+            presentation.title,
+            presentation.body,
+            table_columns=presentation.table_columns,
+            table_rows=presentation.table_rows,
         )
 
     def _handle_textual_agent_command(

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.622`
-- Merged PR range reviewed: #90 through #718
+- Package version inspected: `1.0.624`
+- Merged PR range reviewed: #90 through #720
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #718
-- Latest refresh reviewed: #718
+- Maintenance refresh reviewed: #427 through #720
+- Latest refresh reviewed: #720
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1151,6 +1151,16 @@ and what the next release train should optimize.
   controller calls, and workspace candidate propagation unchanged.
 - Removed `_handle_textual_ask_command` from the large-method list.
 - Raised the package version from `1.0.620` to `1.0.621` in this patch PR.
+
+### #720: TextualApp Init State Helpers
+
+- Split `TrinityTextualApp.__init__` state setup into
+  `_init_textual_navigation_state` and `_init_textual_runtime_state`.
+- Kept parser patching, base Textual init, binding localization, config, route,
+  workspace, snapshot, settings, workflow controller, polling, model discovery,
+  local command, and retry state initialization unchanged.
+- Removed the last 18-line-or-larger method from `textual_app/app.py`.
+- Raised the package version from `1.0.622` to `1.0.623` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

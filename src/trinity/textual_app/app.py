@@ -44,6 +44,7 @@ from trinity.textual_app.caveman_commands import (
 )
 from trinity.textual_app.context_commands import context_command_presentation
 from trinity.textual_app.decisions_commands import decisions_command_presentation
+from trinity.textual_app.help_commands import help_command_presentation
 from trinity.textual_app.history_commands import history_command_presentation
 from trinity.textual_app.improve_commands import improve_result_presentation
 from trinity.textual_app.local_commands import (
@@ -1794,12 +1795,13 @@ class TrinityTextualApp(App[None]):
         )
 
     def _handle_textual_help_command(self, command_name: str) -> None:
+        presentation = help_command_presentation(lang=self.config.lang)
         self._record_slash_command_result(
             command_name,
-            textual_presenters.help_title(lang=self.config.lang),
-            textual_presenters.help_markdown(lang=self.config.lang),
-            table_columns=textual_presenters.help_table_columns(lang=self.config.lang),
-            table_rows=textual_presenters.help_rows(lang=self.config.lang),
+            presentation.title,
+            presentation.body,
+            table_columns=presentation.table_columns,
+            table_rows=presentation.table_rows,
         )
 
     def _handle_textual_status_command(self, command_name: str) -> None:

@@ -59,6 +59,7 @@ from trinity.textual_app.route_snapshot import (
     apply_current_route_snapshot,
 )
 from trinity.textual_app.review_commands import review_result_presentation
+from trinity.textual_app.save_commands import save_command_presentation
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.report import ReportScreen
@@ -1935,10 +1936,11 @@ class TrinityTextualApp(App[None]):
         )
 
     def _handle_textual_save_command(self, command_name: str) -> None:
+        presentation = save_command_presentation(lang=self.config.lang)
         self._record_slash_command_result(
             command_name,
-            textual_presenters.save_title(lang=self.config.lang),
-            textual_presenters.save_auto_persist_markdown(lang=self.config.lang),
+            presentation.title,
+            presentation.body,
         )
 
     def _handle_textual_review_command(self, command_name: str, args: list[str]) -> None:

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.516`
-- Merged PR range reviewed: #90 through #612
+- Package version inspected: `1.0.518`
+- Merged PR range reviewed: #90 through #614
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #612
-- Latest refresh reviewed: #612
+- Maintenance refresh reviewed: #427 through #614
+- Latest refresh reviewed: #614
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -581,6 +581,18 @@ and what the next release train should optimize.
   title/table column output.
 - Raised the package version from `1.0.514` to `1.0.515` in this patch PR.
 
+### #614: Textual Review Repair Helpers
+
+- Split review repair blocked package id lookup from `textual_app/app.py` into
+  `textual_app/review_commands.py`.
+- Split review repair local command snapshot construction from
+  `textual_app/app.py` into `textual_app/review_commands.py`.
+- Kept repair action routing, retry decisions, and local command recording in
+  the app facade.
+- Expanded focused review command tests to cover blocked id merging, repair
+  snapshots, and Korean repair labels.
+- Raised the package version from `1.0.516` to `1.0.517` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -779,9 +791,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #612:
+Current main snapshot after #614:
 
-- `src/trinity/textual_app/app.py`: 3,012 lines
+- `src/trinity/textual_app/app.py`: 3,014 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.546`
-- Merged PR range reviewed: #90 through #642
+- Package version inspected: `1.0.548`
+- Merged PR range reviewed: #90 through #644
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #642
-- Latest refresh reviewed: #642
+- Maintenance refresh reviewed: #427 through #644
+- Latest refresh reviewed: #644
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -755,6 +755,17 @@ and what the next release train should optimize.
   unknown-action ignore behavior.
 - Raised the package version from `1.0.544` to `1.0.545` in this patch PR.
 
+### #644: Textual Context Snapshot Update Helper
+
+- Split `/context` local command result replacement and snapshot update logic
+  from `textual_app/app.py` into `textual_app/context_commands.py`.
+- Kept concrete notify, modal, and workflow outcome side effects in the Textual
+  app facade.
+- Added focused context command tests for skipping presentations without
+  results and replacing an existing context local command result.
+- Reduced `_handle_textual_context_command` from 41 lines to 10 lines.
+- Raised the package version from `1.0.546` to `1.0.547` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -964,9 +975,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #642:
+Current main snapshot after #644:
 
-- `src/trinity/textual_app/app.py`: 2,832 lines
+- `src/trinity/textual_app/app.py`: 2,840 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

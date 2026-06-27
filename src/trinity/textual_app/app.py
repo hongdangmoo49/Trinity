@@ -64,6 +64,7 @@ from trinity.textual_app.route_snapshot import (
 )
 from trinity.textual_app.review_commands import review_result_presentation
 from trinity.textual_app.save_commands import save_command_presentation
+from trinity.textual_app.subtasks_commands import subtasks_command_presentation
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.report import ReportScreen
@@ -1863,26 +1864,18 @@ class TrinityTextualApp(App[None]):
 
     def _handle_textual_subtasks_command(self, command_name: str) -> None:
         snapshot = self._refresh_textual_snapshot()
-        has_subtasks = bool(snapshot.subtasks)
+        presentation = subtasks_command_presentation(
+            snapshot,
+            lang=self.config.lang,
+        )
         self._record_slash_command_result(
             command_name,
-            textual_presenters.subtasks_title(lang=self.config.lang),
-            textual_presenters.subtasks_markdown(
-                snapshot,
-                lang=self.config.lang,
-            ),
-            empty=not has_subtasks,
-            action_hint=textual_presenters.subtasks_action_hint(
-                has_subtasks=has_subtasks,
-                lang=self.config.lang,
-            ),
-            table_columns=textual_presenters.subtasks_table_columns(
-                lang=self.config.lang
-            ),
-            table_rows=textual_presenters.subtasks_rows(
-                snapshot,
-                lang=self.config.lang,
-            ),
+            presentation.title,
+            presentation.body,
+            empty=presentation.empty,
+            action_hint=presentation.action_hint,
+            table_columns=presentation.table_columns,
+            table_rows=presentation.table_rows,
         )
 
     def _handle_textual_history_command(self, command_name: str) -> None:

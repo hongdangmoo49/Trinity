@@ -45,6 +45,10 @@ from trinity.textual_app.caveman_commands import (
 )
 from trinity.textual_app.context_commands import context_command_presentation
 from trinity.textual_app.decisions_commands import decisions_command_presentation
+from trinity.textual_app.execute_commands import (
+    execute_result_presentation,
+    execute_retry_no_packages_presentation,
+)
 from trinity.textual_app.help_commands import help_command_presentation
 from trinity.textual_app.history_commands import history_command_presentation
 from trinity.textual_app.improve_commands import improve_result_presentation
@@ -1447,12 +1451,13 @@ class TrinityTextualApp(App[None]):
         snapshot = self.workflow_controller.snapshot() or event.snapshot
         self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
         if not snapshot.work_package_details:
+            presentation = execute_retry_no_packages_presentation(
+                lang=self.config.lang
+            )
             self.notify(
-                textual_presenters.execute_retry_no_packages_markdown(
-                    lang=self.config.lang
-                ),
-                title=textual_presenters.execute_retry_title(lang=self.config.lang),
-                severity="warning",
+                presentation.body,
+                title=presentation.title,
+                severity=presentation.severity,
             )
             return
         self.push_screen(
@@ -2007,18 +2012,16 @@ class TrinityTextualApp(App[None]):
             )
             return
         if message:
+            presentation = execute_result_presentation(message, lang=self.config.lang)
+            if presentation is None:
+                return
             self._record_slash_command_result(
                 command_name,
-                textual_presenters.execute_title(lang=self.config.lang),
-                textual_presenters.workflow_outcome_message_markdown(
-                    message,
-                    lang=self.config.lang,
-                ),
-                severity="warning",
-                empty=True,
-                action_hint=textual_presenters.execute_finish_planning_action_hint(
-                    lang=self.config.lang
-                ),
+                presentation.title,
+                presentation.body,
+                severity=presentation.severity,
+                empty=presentation.empty,
+                action_hint=presentation.action_hint,
             )
         if outcome.target_workspace_required:
             self._open_execute_workspace_picker(outcome.snapshot)
@@ -2851,17 +2854,16 @@ class TrinityTextualApp(App[None]):
         self.workflow_controller.preview_execution_retry(selector, package_ids)
         snapshot = self._refresh_textual_snapshot()
         if not snapshot.work_package_details:
+            presentation = execute_retry_no_packages_presentation(
+                lang=self.config.lang
+            )
             self._record_slash_command_result(
                 "/execute-retry",
-                textual_presenters.execute_retry_title(lang=self.config.lang),
-                textual_presenters.execute_retry_no_packages_markdown(
-                    lang=self.config.lang
-                ),
-                severity="warning",
-                empty=True,
-                action_hint=textual_presenters.execute_retry_no_packages_action_hint(
-                    lang=self.config.lang
-                ),
+                presentation.title,
+                presentation.body,
+                severity=presentation.severity,
+                empty=presentation.empty,
+                action_hint=presentation.action_hint,
             )
             return
         self.push_screen(

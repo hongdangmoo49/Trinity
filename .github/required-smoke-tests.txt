@@ -33,6 +33,7 @@ tests/test_textual_caveman_commands.py
 tests/test_textual_command_parsers.py
 tests/test_textual_context_commands.py
 tests/test_textual_decisions_commands.py
+tests/test_textual_execute_commands.py
 tests/test_textual_help_commands.py
 tests/test_textual_history_commands.py
 tests/test_textual_improve_commands.py

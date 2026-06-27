@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.596`
-- Merged PR range reviewed: #90 through #692
+- Package version inspected: `1.0.598`
+- Merged PR range reviewed: #90 through #694
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #692
-- Latest refresh reviewed: #692
+- Maintenance refresh reviewed: #427 through #694
+- Latest refresh reviewed: #694
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1023,6 +1023,15 @@ and what the next release train should optimize.
   command recording, and notification behavior unchanged.
 - Reduced `_record_slash_command_result` from 31 lines to 15 lines.
 - Raised the package version from `1.0.594` to `1.0.595` in this patch PR.
+
+### #694: Textual Route Switch Preparation Helpers
+
+- Split `switch_to` route preparation in `textual_app/app.py` into focused
+  report route, execution route, and after-switch refresh helpers.
+- Kept report preparation, execution snapshot application, route switching,
+  and Nexus refresh scheduling behavior unchanged.
+- Reduced `switch_to` from 25 lines to 5 lines.
+- Raised the package version from `1.0.596` to `1.0.597` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

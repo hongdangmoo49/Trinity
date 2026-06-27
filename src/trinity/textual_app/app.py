@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from textual.app import App
 from textual.binding import Binding
@@ -196,6 +196,14 @@ from trinity.textual_app.widgets.workspace_picker import (
     build_preflight,
 )
 from trinity.tui.kitty_compat import install_textual_parser_patch
+
+
+class SlashCommandPresentationPayload(Protocol):
+    """Minimum presentation payload recorded as a local slash command."""
+
+    title: str
+    body: str
+
 
 class TrinityTextualApp(App[None]):
     """Desktop-style Textual workbench for Trinity."""
@@ -2083,7 +2091,7 @@ class TrinityTextualApp(App[None]):
     def _record_slash_command_presentation(
         self,
         command_name: str,
-        presentation: Any,
+        presentation: SlashCommandPresentationPayload,
     ) -> None:
         self._record_slash_command_result(
             command_name,

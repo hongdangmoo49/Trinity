@@ -42,6 +42,19 @@ class ReportExportNotification:
     severity: str = ""
 
 
+@dataclass(frozen=True)
+class ReportExportEffect:
+    """Prepared UI effect after attempting a Markdown report export."""
+
+    path: Path | None
+    notification: ReportExportNotification
+
+    @property
+    def show_export_path(self) -> bool:
+        """Return whether the report screen should show the exported path."""
+        return self.path is not None
+
+
 def report_save_presentation(
     path: Path | None,
     *,
@@ -128,4 +141,21 @@ def report_export_complete_notification(
     return ReportExportNotification(
         title=textual_presenters.report_export_complete_title(lang=lang),
         message=textual_presenters.report_saved_notification(path_text, lang=lang),
+    )
+
+
+def report_export_effect(
+    path: Path | None,
+    *,
+    lang: str = "en",
+) -> ReportExportEffect:
+    """Return the UI effect after attempting a Markdown report export."""
+    if path is None:
+        return ReportExportEffect(
+            path=None,
+            notification=report_export_unavailable_notification(lang=lang),
+        )
+    return ReportExportEffect(
+        path=path,
+        notification=report_export_complete_notification(path, lang=lang),
     )

@@ -2,6 +2,7 @@ from pathlib import Path
 
 from trinity.textual_app.report_commands import (
     report_command_presentation,
+    report_export_effect,
     report_export_complete_notification,
     report_export_unavailable_notification,
     report_open_presentation,
@@ -90,6 +91,15 @@ def test_report_export_unavailable_notification_marks_warning() -> None:
     assert notification.severity == "warning"
 
 
+def test_report_export_effect_warns_without_export_data() -> None:
+    effect = report_export_effect(None)
+
+    assert effect.path is None
+    assert effect.show_export_path is False
+    assert effect.notification.title == "Export Unavailable"
+    assert effect.notification.severity == "warning"
+
+
 def test_report_export_complete_notification_uses_saved_path() -> None:
     path = Path("/tmp/report.md")
     notification = report_export_complete_notification(path)
@@ -97,6 +107,18 @@ def test_report_export_complete_notification_uses_saved_path() -> None:
     assert notification.title == "Export Complete"
     assert notification.message == f"Report saved: {path}"
     assert notification.severity == ""
+
+
+def test_report_export_effect_shows_saved_path() -> None:
+    path = Path("/tmp/report.md")
+
+    effect = report_export_effect(path, lang="ko")
+
+    assert effect.path == path
+    assert effect.show_export_path is True
+    assert effect.notification.title == "내보내기 완료"
+    assert effect.notification.message == f"리포트 저장됨: {path}"
+    assert effect.notification.severity == ""
 
 
 def test_report_export_notifications_use_korean_labels() -> None:

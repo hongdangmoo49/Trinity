@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.560`
-- Merged PR range reviewed: #90 through #656
+- Package version inspected: `1.0.562`
+- Merged PR range reviewed: #90 through #658
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #656
-- Latest refresh reviewed: #656
+- Maintenance refresh reviewed: #427 through #658
+- Latest refresh reviewed: #658
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -834,6 +834,19 @@ and what the next release train should optimize.
   app facade.
 - Reduced `_present_local_command_result` from 28 lines to 18 lines.
 - Raised the package version from `1.0.558` to `1.0.559` in this patch PR.
+
+### #658: Textual Execution Retry Request Effect Helper
+
+- Split Execution Matrix retry request UI effect derivation from
+  `textual_app/app.py` into `textual_app/execute_commands.py`.
+- Added `ExecutionRetryRequestEffect` and `execution_retry_request_effect` so
+  retry modal vs no-package warning behavior is testable without the Textual
+  app.
+- Kept preview execution retry side effects and concrete modal/notification
+  dispatch in the app facade.
+- Reduced `on_execution_matrix_screen_retry_requested` from 29 lines to 16
+  lines.
+- Raised the package version from `1.0.560` to `1.0.561` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

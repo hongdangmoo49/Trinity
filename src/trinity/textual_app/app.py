@@ -51,7 +51,10 @@ from trinity.textual_app.execute_commands import (
 )
 from trinity.textual_app.help_commands import help_command_presentation
 from trinity.textual_app.history_commands import history_command_presentation
-from trinity.textual_app.improve_commands import improve_result_presentation
+from trinity.textual_app.improve_commands import (
+    improve_result_command_presentation,
+    improve_result_presentation,
+)
 from trinity.textual_app.local_commands import (
     append_local_command_event,
     replace_local_command_result,
@@ -88,7 +91,10 @@ from trinity.textual_app.route_snapshot import (
     WorkbenchRoute,
     apply_current_route_snapshot,
 )
-from trinity.textual_app.review_commands import review_result_presentation
+from trinity.textual_app.review_commands import (
+    review_result_command_presentation,
+    review_result_presentation,
+)
 from trinity.textual_app.rounds_commands import (
     rounds_current_presentation,
     rounds_error_presentation,
@@ -1947,24 +1953,19 @@ class TrinityTextualApp(App[None]):
         outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
         presentation = review_result_presentation(message)
         if presentation:
+            result_presentation = review_result_command_presentation(
+                presentation,
+                outcome.snapshot,
+                lang=self.config.lang,
+            )
             self._record_slash_command_result(
                 command_name,
-                textual_presenters.review_title(lang=self.config.lang),
-                textual_presenters.workflow_outcome_message_markdown(
-                    presentation.message,
-                    lang=self.config.lang,
-                ),
-                severity=presentation.severity,
-                table_columns=textual_presenters.review_table_columns(
-                    lang=self.config.lang
-                ),
-                table_rows=textual_presenters.review_rows(
-                    outcome.snapshot,
-                    lang=self.config.lang,
-                ),
-                action_hint=textual_presenters.review_action_hint(
-                    lang=self.config.lang
-                ),
+                result_presentation.title,
+                result_presentation.body,
+                severity=result_presentation.severity,
+                table_columns=result_presentation.table_columns,
+                table_rows=result_presentation.table_rows,
+                action_hint=result_presentation.action_hint,
             )
 
     def _handle_textual_improve_command(
@@ -1976,24 +1977,19 @@ class TrinityTextualApp(App[None]):
         outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
         presentation = improve_result_presentation(message)
         if presentation:
+            result_presentation = improve_result_command_presentation(
+                presentation,
+                outcome.snapshot,
+                lang=self.config.lang,
+            )
             self._record_slash_command_result(
                 command_name,
-                textual_presenters.improve_title(lang=self.config.lang),
-                textual_presenters.workflow_outcome_message_markdown(
-                    presentation.message,
-                    lang=self.config.lang,
-                ),
-                severity=presentation.severity,
-                table_columns=textual_presenters.improve_table_columns(
-                    lang=self.config.lang
-                ),
-                table_rows=textual_presenters.improve_rows(
-                    outcome.snapshot,
-                    lang=self.config.lang,
-                ),
-                action_hint=textual_presenters.improve_action_hint(
-                    lang=self.config.lang
-                ),
+                result_presentation.title,
+                result_presentation.body,
+                severity=result_presentation.severity,
+                table_columns=result_presentation.table_columns,
+                table_rows=result_presentation.table_rows,
+                action_hint=result_presentation.action_hint,
             )
 
     def _handle_textual_execute_command(

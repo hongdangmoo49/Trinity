@@ -5,6 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from trinity.textual_app import presenters as textual_presenters
+from trinity.textual_app.snapshot import WorkflowNexusSnapshot
+
 
 ImproveSeverity = Literal["info", "warning"]
 
@@ -17,6 +20,18 @@ class ImproveResultPresentation:
     severity: ImproveSeverity
 
 
+@dataclass(frozen=True)
+class ImproveCommandPresentation:
+    """Prepared local command result for `/improve`."""
+
+    title: str
+    body: str
+    severity: ImproveSeverity
+    table_columns: tuple[str, str]
+    table_rows: tuple[tuple[str, str], ...]
+    action_hint: str
+
+
 def improve_result_presentation(
     message: str | None,
 ) -> ImproveResultPresentation | None:
@@ -27,4 +42,24 @@ def improve_result_presentation(
     return ImproveResultPresentation(
         message=message,
         severity="warning" if warning else "info",
+    )
+
+
+def improve_result_command_presentation(
+    presentation: ImproveResultPresentation,
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> ImproveCommandPresentation:
+    """Return the local command result payload for an improve outcome."""
+    return ImproveCommandPresentation(
+        title=textual_presenters.improve_title(lang=lang),
+        body=textual_presenters.workflow_outcome_message_markdown(
+            presentation.message,
+            lang=lang,
+        ),
+        severity=presentation.severity,
+        table_columns=textual_presenters.improve_table_columns(lang=lang),
+        table_rows=textual_presenters.improve_rows(snapshot, lang=lang),
+        action_hint=textual_presenters.improve_action_hint(lang=lang),
     )

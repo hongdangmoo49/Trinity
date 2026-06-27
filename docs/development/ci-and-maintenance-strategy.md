@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.600`
-- Merged PR range reviewed: #90 through #696
+- Package version inspected: `1.0.602`
+- Merged PR range reviewed: #90 through #698
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #696
-- Latest refresh reviewed: #696
+- Maintenance refresh reviewed: #427 through #698
+- Latest refresh reviewed: #698
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1043,6 +1043,15 @@ and what the next release train should optimize.
   settings store, and workspace candidate propagation.
 - Reduced `_install_workbench_screens` from 22 lines to 13 lines.
 - Raised the package version from `1.0.598` to `1.0.599` in this patch PR.
+
+### #698: Textual Model Settings Modal Apply Helpers
+
+- Split `_apply_model_settings_modal_request` in `textual_app/app.py` into
+  notification and modal push helpers.
+- Kept unavailable notification, modal construction, model choice data, and
+  settings apply callback behavior unchanged.
+- Reduced `_apply_model_settings_modal_request` from 21 lines to 8 lines.
+- Raised the package version from `1.0.600` to `1.0.601` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

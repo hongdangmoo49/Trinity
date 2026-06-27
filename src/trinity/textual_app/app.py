@@ -35,6 +35,7 @@ from trinity.textual_app.agent_commands import (
     agent_error_presentation,
     agent_update_presentation,
 )
+from trinity.textual_app.ask_commands import ask_error_presentation
 from trinity.textual_app.answer_commands import answer_result_presentation
 from trinity.textual_app.artifact_commands import artifact_command_presentation
 from trinity.textual_app.caveman_commands import (
@@ -2023,13 +2024,14 @@ class TrinityTextualApp(App[None]):
             lang=self.config.lang,
         )
         if parsed.error:
+            presentation = ask_error_presentation(parsed.error, lang=self.config.lang)
             self._record_slash_command_result(
                 command_name,
-                textual_presenters.ask_title(lang=self.config.lang),
-                parsed.error,
-                severity="warning",
-                empty=True,
-                action_hint=textual_presenters.ask_action_hint(lang=self.config.lang),
+                presentation.title,
+                presentation.body,
+                severity=presentation.severity,
+                empty=presentation.empty,
+                action_hint=presentation.action_hint,
             )
             return
 

@@ -27,6 +27,7 @@ or deleting old implementation plans.
 | Textual helper continuation | #488-#492, #518-#532 | 2026-06-27 Textual command, route, workspace, and recovery helper plans | Archived after maintenance strategy #540 refresh and required smoke coverage |
 | Workflow facade cleanup | #493-#517 | 2026-06-27 workflow wrapper removal, persistence, and flow contract plans | Archived after maintenance strategy #540 refresh and workflow flow contract coverage |
 | Post-review maintenance helpers | #534-#537 | 2026-06-27 post-review helper extraction plans | Archived after helper modules and post-review smoke coverage landed |
+| Maintenance followups | #486, #533, #538-#543 | 2026-06-27 target helper, Nexus event render, smoke runner, review repair metadata, and archive closure plans | Archived after all 2026-06-27 root follow-up plans had merged PR and required smoke evidence |
 
 ## Workflow Flow Decomposition Plans
 
@@ -140,6 +141,21 @@ Archived bundle:
 The archived bundle contains the #534-#537 plans for post-review item
 selection, owner assignment, supplemental WorkPackage construction, and
 supplemental execution run payload construction.
+
+## Maintenance Followup Plans
+
+These plans are completed follow-up slices from the 2026-06-27 maintenance pass.
+Their active behavior is covered by dedicated helper tests, snapshot/performance
+tests, required smoke runner tests, and the required smoke suite.
+
+Archived bundle:
+
+- `docs/plans/archive/2026-06-27-maintenance-followups/`
+
+The archived bundle contains the #486, #533, #538-#543, and related Textual
+target helper plans for review repair metadata, Nexus workflow event render limits,
+required smoke runner manifest validation, maintenance strategy refresh, and
+the completed archive closure PRs.
 
 ## Render Cost Reduction Plans
 

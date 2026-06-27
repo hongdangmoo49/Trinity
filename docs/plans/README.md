@@ -30,6 +30,7 @@ Archived one-PR plans are grouped under `docs/plans/archive/`.
 | #493-#517 | Workflow facade wrapper cleanup and persistence flow |
 | #518-#532 | Textual route, workspace, and recovery helper continuation |
 | #534-#537 | Post-review maintenance helper extraction |
+| #486, #533, #538-#543 | Target workspace, Nexus/CI, and maintenance archive closure |
 
 ## Active vs Historical Plans
 
@@ -56,6 +57,7 @@ Current archived bundles:
 - `archive/2026-06-27-workflow-facade-cleanup/`
 - `archive/2026-06-27-textual-helper-continuation/`
 - `archive/2026-06-27-post-review-maintenance/`
+- `archive/2026-06-27-maintenance-followups/`
 
 ## Cleanup Policy
 

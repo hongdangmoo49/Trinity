@@ -20,6 +20,10 @@ from trinity.workflow.review import (
     ReviewResult,
     ReviewStatus,
 )
+from trinity.workflow.post_review_selection import (
+    looks_like_post_review_selector,
+    select_post_review_items,
+)
 
 
 class WorkflowPostReviewFlow:
@@ -429,46 +433,11 @@ class WorkflowPostReviewFlow:
         }
 
     def _select_post_review_items(self, instruction: str) -> list[str]:
-        tokens = [token for token in re.split(r"[\s,]+", instruction.strip()) if token]
-        if not tokens:
-            return []
-        selectable = [
-            item
-            for item in self._post_review_items()
-            if item.status
-            in {PostReviewActionStatus.PROPOSED, PostReviewActionStatus.ACCEPTED}
-        ]
-        normalized_tokens = [token.lower() for token in tokens]
-        if any(token in {"all", "*", "전체"} for token in normalized_tokens):
-            return [item.id for item in selectable]
-        if any(token in {"critical", "긴급"} for token in normalized_tokens):
-            return [item.id for item in selectable if item.severity == "critical"]
-        if any(token in {"high", "높음", "important", "중요"} for token in normalized_tokens):
-            return [
-                item.id
-                for item in selectable
-                if item.severity in {"critical", "high"}
-            ]
-        requested = {token.upper() for token in tokens}
-        return [item.id for item in selectable if item.id.upper() in requested]
+        return select_post_review_items(instruction, self._post_review_items())
 
     @staticmethod
     def _looks_like_post_review_selector(instruction: str) -> bool:
-        tokens = [token.lower() for token in re.split(r"[\s,]+", instruction.strip()) if token]
-        if not tokens:
-            return True
-        selector_words = {
-            "all",
-            "*",
-            "전체",
-            "critical",
-            "긴급",
-            "high",
-            "높음",
-            "important",
-            "중요",
-        }
-        return all(token in selector_words or re.fullmatch(r"ai-\d+", token) for token in tokens)
+        return looks_like_post_review_selector(instruction)
 
     def _next_post_review_item_id(
         self,

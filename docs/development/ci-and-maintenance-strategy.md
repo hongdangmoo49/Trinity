@@ -8,10 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.389`
-- Merged PR range reviewed: #90 through #486
+- Package version inspected: `1.0.444`
+- Merged PR range reviewed: #90 through #540
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #486
+- Maintenance refresh reviewed: #427 through #540
+- Latest refresh reviewed: #487 through #540
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/publish-pypi.yml`
@@ -150,10 +151,56 @@ and what the next release train should optimize.
 - Raised the package version from `1.0.384` to `1.0.389` across these focused
   patch PRs.
 
-This refresh moved the project from "large batch of one-PR plans" to a smaller
-set of durable maintenance documents. Root `docs/plans/` still contains older
-architecture and migration plans; archive only the groups that have a current
-contract document and focused test evidence.
+### #487-#492: Textual Command Helper Continuation
+
+- Refreshed the maintenance strategy after the first cleanup pass.
+- Split safe-start target handling and resume, answer, review, and improve
+  command result helpers out of `textual_app/app.py`.
+- Kept command parsing and result presentation covered by the Textual command
+  helper tests in the required smoke set.
+
+### #493-#517: Workflow Facade Wrapper Cleanup
+
+- Removed obsolete `WorkflowEngine` wrappers for review flow, result
+  collection, post-review, work package lookup, execution run, review repair
+  metadata, unused result, execution support, quality, provider observation,
+  lifecycle/question, central prompt, ledger parsing, targeting, and persist
+  helpers.
+- Split deliberation result, persistence, execution intent, decomposition
+  agent, and direct persistence calls into flow-level modules.
+- Updated the workflow flow contract after the wrapper removal pass so future
+  cleanup can keep `WorkflowEngine` facade boundaries explicit.
+
+### #518-#533: Textual Route, Workspace, and Review Repair Helpers
+
+- Split local command presentation, execution recovery presentation, review
+  repair presentation, route snapshot application, execution route switching,
+  report route preparation, and snapshot source handling out of the main
+  Textual app.
+- Split launch cwd, target workspace preparation, target cancel/confirm modal,
+  workspace picker factory, workspace candidate sync, target workspace apply,
+  and execution state helpers.
+- Split review repair metadata helper logic after the workflow wrapper cleanup.
+
+### #534-#540: Post-Review Helpers, Render Window, Smoke Runner, and Archive
+
+- Split post-review item selection, owner assignment, supplemental
+  WorkPackage construction, and supplemental execution run payload construction
+  into focused helper modules.
+- Limited Nexus workflow event rendering to a smaller UI window while keeping
+  the persistence tail available for recovery context.
+- Added required smoke runner manifest validation, duplicate detection, and
+  `--list` output for local and CI inspection.
+- Archived the completed post-review maintenance plan bundle and updated the
+  completed-plan index.
+- Raised the package version from `1.0.389` to `1.0.443` across these focused
+  patch PRs.
+
+This refresh moved the project further from "large batch of one-PR plans" to a
+smaller set of durable maintenance documents and focused archive bundles. Root
+`docs/plans/` still contains older architecture, migration, and 2026-06-27
+mechanical refactor plans; archive only the groups that have a current contract
+document, merged PR evidence, and focused test coverage.
 
 ## Main Structure
 
@@ -282,6 +329,9 @@ modules. It now covers:
   answer/improve/resume/review result, and target workspace helpers
 - terminal rendering smoke
 
+The smoke runner validates missing and duplicate manifest entries before
+invoking pytest, and `--list` prints the exact PR/publish smoke set used by CI.
+
 ### Main and Publish CI
 
 `main` push and PyPI publish preflight should run the same required smoke set.
@@ -320,9 +370,9 @@ Archive only by bundle/date after these checks:
 - `docs/plans/completed-index.md` records the archive reason
 
 Current archived bundles include Textual presenters, Korean UX, render cache,
-UI label/status, execution/review feedback, and fake-provider baseline plans.
-Older architecture and migration plans remain in the root until their context
-is summarized separately.
+UI label/status, execution/review feedback, fake-provider baseline, and
+post-review maintenance plans. Older architecture and migration plans remain in
+the root until their context is summarized separately.
 
 ### Facade Drift
 
@@ -332,10 +382,10 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #486:
+Current main snapshot after #540:
 
-- `src/trinity/textual_app/app.py`: 3,112 lines
-- `src/trinity/workflow/engine.py`: 959 lines
+- `src/trinity/textual_app/app.py`: 3,091 lines
+- `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 
 Wrapper removal is safe only when focused flow tests and required smoke tests
@@ -380,11 +430,11 @@ Current guidance: `docs/development/nexus-render-cache-guidelines.md`.
 - Maintain the completed-plan index for `docs/plans/` as more bundles are
   archived.
 - Continue facade drift audits after each flow contract is documented.
-- Continue splitting high-churn Textual command handlers out of
-  `textual_app/app.py`, starting with target/resume/answer/execute-retry flows
-  after parser and router contracts are stable.
-- Continue moving `WorkflowEngine` post-review item selection and review repair
-  metadata helpers behind flow modules.
+- Continue splitting remaining high-churn Textual UI handlers after
+  target/resume/answer/review/improve, route snapshot, and workspace helpers
+  have been separated.
+- Keep `WorkflowEngine` post-review and review repair helpers behind flow
+  modules, and remove only wrappers that no longer carry behavior.
 - Maintain the fake-provider E2E path that exercises CLI init, provider
   readiness, workflow execution, retry decision, and report output without real
   accounts.

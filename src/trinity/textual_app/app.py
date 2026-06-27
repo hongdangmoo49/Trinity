@@ -55,8 +55,9 @@ from trinity.textual_app.improve_commands import (
     improve_result_presentation,
 )
 from trinity.textual_app.local_commands import (
+    LocalCommandResultEffect,
     append_local_command_event,
-    local_command_notification,
+    local_command_result_effect,
     local_command_snapshot,
     replace_local_command_result,
     snapshot_with_local_command_results,
@@ -2187,25 +2188,32 @@ class TrinityTextualApp(App[None]):
         notify: bool = True,
     ) -> None:
         """Render a local slash command result on the active Textual surface."""
-        self._local_command_results = replace_local_command_result(
-            self._local_command_results,
+        effect = local_command_result_effect(
             result,
-        )
-        snapshot = snapshot_with_local_command_results(
             self._current_textual_snapshot(),
             self._local_command_results,
+            current_route=self.current_route,
+            start_modal=start_modal,
+            notify=notify,
+            lang=self.config.lang,
         )
-        self.active_snapshot = snapshot
-        if self.current_route == "start" and start_modal:
-            self.push_screen(LocalCommandModal(result, lang=self.config.lang))
+        self._apply_local_command_result_effect(effect)
+
+    def _apply_local_command_result_effect(
+        self,
+        effect: LocalCommandResultEffect,
+    ) -> None:
+        self._local_command_results = effect.local_command_results
+        self.active_snapshot = effect.snapshot
+        if effect.show_modal and effect.modal_result is not None:
+            self.push_screen(LocalCommandModal(effect.modal_result, lang=self.config.lang))
         else:
-            self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
-        if notify and self.current_route != "start":
-            notification = local_command_notification(result, lang=self.config.lang)
+            self._apply_workflow_outcome(TextualWorkflowOutcome(effect.snapshot))
+        if effect.notification is not None:
             self.notify(
-                notification.message,
-                title=notification.title,
-                severity=notification.severity,
+                effect.notification.message,
+                title=effect.notification.title,
+                severity=effect.notification.severity,
             )
 
     def _show_textual_status(

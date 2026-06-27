@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol
 
 from textual.app import App
 from textual.binding import Binding
@@ -203,6 +203,11 @@ class SlashCommandPresentationPayload(Protocol):
 
     title: str
     body: str
+
+
+LocalCommandSnapshotOptionValue = (
+    str | bool | tuple[str, ...] | tuple[tuple[str, ...], ...]
+)
 
 
 class TrinityTextualApp(App[None]):
@@ -2309,7 +2314,7 @@ class TrinityTextualApp(App[None]):
         body: str,
         *,
         start_modal: bool = True,
-        **snapshot_options: Any,
+        **snapshot_options: LocalCommandSnapshotOptionValue,
     ) -> None:
         """Record a local slash command result in the central Textual view."""
         self._record_local_command_snapshot(

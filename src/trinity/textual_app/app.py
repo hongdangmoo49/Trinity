@@ -3006,12 +3006,15 @@ class TrinityTextualApp(App[None]):
             except Exception:
                 pass  # Fallback to snapshot rendering
         if route == "execution" and self._screens_installed:
-            execution = self.get_screen("execution", ExecutionMatrixScreen)
-            execution.apply_execution_state(
-                self.confirmed_preflight,
+            apply_current_route_snapshot(
+                self,
+                route,
                 self.active_snapshot
                 or self.workflow_controller.snapshot()
                 or self.snapshot_adapter.load_snapshot(),
+                confirmed_preflight=self.confirmed_preflight,
+                sync_nexus_workspace_candidate=self._sync_nexus_workspace_candidate,
+                require_execution_preflight=False,
             )
         self.current_route = route
         self.switch_screen(route)

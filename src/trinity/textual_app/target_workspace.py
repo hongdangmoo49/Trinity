@@ -2,7 +2,20 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
+
+TargetWorkspacePrepareError = Literal["not_directory", "os_error"]
+
+
+@dataclass(frozen=True)
+class TargetWorkspacePreparation:
+    """Result of preparing a target workspace path for use."""
+
+    resolved_path: Path | None = None
+    error: TargetWorkspacePrepareError | None = None
+    message: str = ""
 
 
 def default_launch_cwd(launch_cwd: Path | None = None) -> Path:
@@ -35,6 +48,20 @@ def safe_start_target_workspace(path: Path | None, control_repo: Path) -> Path |
     if is_control_repo_target(path, control_repo):
         return None
     return path
+
+
+def prepare_target_workspace(path: Path) -> TargetWorkspacePreparation:
+    """Create and resolve a target workspace directory if possible."""
+    try:
+        if path.exists() and not path.is_dir():
+            return TargetWorkspacePreparation(
+                error="not_directory",
+                message=str(path),
+            )
+        path.mkdir(parents=True, exist_ok=True)
+        return TargetWorkspacePreparation(resolved_path=path.resolve())
+    except OSError as exc:
+        return TargetWorkspacePreparation(error="os_error", message=str(exc))
 
 
 def absolute_path(path: Path) -> Path:

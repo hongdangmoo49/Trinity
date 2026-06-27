@@ -86,6 +86,7 @@ from trinity.textual_app.snapshot_source import (
 from trinity.textual_app.target_workspace import (
     default_launch_cwd,
     is_control_repo_target,
+    prepare_target_workspace,
     resolve_target_path,
     safe_start_target_workspace,
 )
@@ -2730,32 +2731,33 @@ class TrinityTextualApp(App[None]):
         *,
         control_repo_confirmed: bool,
     ) -> None:
-        try:
-            if path.exists() and not path.is_dir():
-                self._record_slash_command_result(
-                    "/target",
-                    textual_presenters.target_title(lang=self.config.lang),
-                    textual_presenters.target_not_directory_markdown(
-                        str(path),
-                        lang=self.config.lang,
-                    ),
-                    severity="warning",
-                    empty=True,
-                )
-                return
-            path.mkdir(parents=True, exist_ok=True)
-            resolved = path.resolve()
-        except OSError as exc:
+        prepared = prepare_target_workspace(path)
+        if prepared.error == "not_directory":
             self._record_slash_command_result(
                 "/target",
                 textual_presenters.target_title(lang=self.config.lang),
-                textual_presenters.target_prepare_failed_markdown(
-                    str(exc),
+                textual_presenters.target_not_directory_markdown(
+                    prepared.message,
                     lang=self.config.lang,
                 ),
                 severity="warning",
                 empty=True,
             )
+            return
+        if prepared.error == "os_error":
+            self._record_slash_command_result(
+                "/target",
+                textual_presenters.target_title(lang=self.config.lang),
+                textual_presenters.target_prepare_failed_markdown(
+                    prepared.message,
+                    lang=self.config.lang,
+                ),
+                severity="warning",
+                empty=True,
+            )
+            return
+        resolved = prepared.resolved_path
+        if resolved is None:
             return
 
         outcome = self.workflow_controller.set_target_workspace(

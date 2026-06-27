@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 from trinity.textual_app import presenters as textual_presenters
+from trinity.textual_app.command_parsers import parse_report_args
 from trinity.textual_app.report_export import snapshot_has_report_data
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 
 
 ReportSeverity = Literal["info", "warning"]
+ReportExporter = Callable[[WorkflowNexusSnapshot], Path | None]
 
 
 @dataclass(frozen=True)
@@ -87,6 +90,20 @@ def report_open_presentation(
         start_modal=False,
         switch_to_report=True,
     )
+
+
+def report_command_presentation(
+    args: list[str],
+    snapshot: WorkflowNexusSnapshot,
+    export_report: ReportExporter,
+    *,
+    lang: str = "en",
+) -> ReportCommandPresentation:
+    """Return the local command payload for `/report` arguments."""
+    parsed = parse_report_args(args)
+    if parsed.action == "save":
+        return report_save_presentation(export_report(snapshot), lang=lang)
+    return report_open_presentation(snapshot, lang=lang)
 
 
 def report_export_unavailable_notification(

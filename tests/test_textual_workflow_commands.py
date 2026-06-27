@@ -1,5 +1,8 @@
 from trinity.textual_app.snapshot import QuestionSnapshot, WorkflowNexusSnapshot
-from trinity.textual_app.workflow_commands import workflow_command_presentation
+from trinity.textual_app.workflow_commands import (
+    workflow_command_presentation,
+    workflow_outcome_notification_body,
+)
 
 
 def test_workflow_command_presentation_marks_new_workflow_snapshot() -> None:
@@ -54,3 +57,12 @@ def test_workflow_command_presentation_uses_korean_labels() -> None:
     assert "- 결정: `1`" in presentation.body
     assert presentation.table_columns == ("항목", "값")
     assert ("목표", "배포") in presentation.table_rows
+
+
+def test_workflow_outcome_notification_body_returns_message_markdown() -> None:
+    assert workflow_outcome_notification_body("Workflow started.") == (
+        "Workflow started."
+    )
+    assert workflow_outcome_notification_body("워크플로우 시작", lang="ko") == (
+        "워크플로우 시작"
+    )

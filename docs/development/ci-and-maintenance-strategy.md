@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.568`
-- Merged PR range reviewed: #90 through #664
+- Package version inspected: `1.0.570`
+- Merged PR range reviewed: #90 through #666
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #664
-- Latest refresh reviewed: #664
+- Maintenance refresh reviewed: #427 through #666
+- Latest refresh reviewed: #666
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -882,6 +882,17 @@ and what the next release train should optimize.
   controller invocation, and workflow outcome application helpers.
 - Reduced `on_start_screen_submitted` from 26 lines to 11 lines.
 - Raised the package version from `1.0.566` to `1.0.567` in this patch PR.
+
+### #666: Textual Execute Retry Command Effect Helper
+
+- Reused `execution_retry_request_effect` for `/execute-retry` slash command
+  UI routing.
+- Split no-package local command recording and retry modal opening into focused
+  helpers shared with the Execution Matrix retry path.
+- Kept preview execution retry and snapshot refresh side effects in the app
+  facade.
+- Reduced `_handle_textual_execute_retry_command` from 26 lines to 11 lines.
+- Raised the package version from `1.0.568` to `1.0.569` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

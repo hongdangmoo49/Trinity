@@ -199,7 +199,7 @@ class WorkflowLifecycleFlow:
         if instruction:
             self.engine.session.decisions.append(
                 DecisionRecord(
-                    id=self.engine._question_flow()._next_decision_id(),
+                    id=self.engine._question_flow().next_decision_id(),
                     decision=instruction,
                     decided_by="user",
                     rationale="Execution instruction from session input.",

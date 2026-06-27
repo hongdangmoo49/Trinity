@@ -387,7 +387,7 @@ class WorkflowExecutionFlow:
             for package in executable
         ):
             self.engine._execution_recovery_flow().finish_execution_run("completed")
-            self.engine._review_flow()._plan_review_packages()
+            self.engine._review_flow().plan_review_packages()
             self.engine.set_state(
                 WorkflowState.REVIEWING,
                 reason="all work packages completed",

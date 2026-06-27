@@ -232,5 +232,8 @@ class WorkflowQuestionFlow:
             None,
         )
 
-    def _next_decision_id(self) -> str:
+    def next_decision_id(self) -> str:
         return f"dec-{len(self.engine.session.decisions) + 1:03d}"
+
+    def _next_decision_id(self) -> str:
+        return self.next_decision_id()

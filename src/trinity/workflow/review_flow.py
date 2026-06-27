@@ -88,7 +88,7 @@ class WorkflowReviewFlow:
             reviews.append(review)
         return reviews
 
-    def _plan_review_packages(self) -> None:
+    def plan_review_packages(self) -> None:
         """Create peer review packages for completed execution results."""
         planner = PeerReviewPlanner()
         session = self.engine.session
@@ -108,6 +108,9 @@ class WorkflowReviewFlow:
             session.execution_results,
         )
         session.review_packages = [review.to_dict() for review in reviews]
+
+    def _plan_review_packages(self) -> None:
+        self.plan_review_packages()
 
     def _latest_review_is_approved(self, package_id: str) -> bool:
         planned = [

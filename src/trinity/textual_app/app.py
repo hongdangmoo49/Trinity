@@ -18,7 +18,6 @@ from trinity.textual_app.command_parsers import (
     parse_execute_args,
     parse_report_args,
     parse_resume_args,
-    parse_target_args,
 )
 from trinity.textual_app.agent_commands import (
     agent_command_presentation,
@@ -103,12 +102,12 @@ from trinity.textual_app.slash_error_commands import (
 from trinity.textual_app.status_commands import status_command_result
 from trinity.textual_app.subtasks_commands import subtasks_command_presentation
 from trinity.textual_app.target_commands import (
+    TargetCommandPresentation,
+    target_command_action,
     target_cancelled_snapshot,
     target_cleared_presentation,
-    target_current_presentation,
-    target_not_directory_presentation,
-    target_prepare_failed_presentation,
-    target_workspace_presentation,
+    target_prepare_result_presentation,
+    target_set_presentation,
 )
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.screens.nexus import NexusScreen
@@ -135,7 +134,6 @@ from trinity.textual_app.target_workspace import (
     default_launch_cwd,
     is_control_repo_target,
     prepare_target_workspace,
-    resolve_target_path,
     safe_start_target_workspace,
 )
 from trinity.textual_app.i18n import localize_bindings
@@ -2432,46 +2430,55 @@ class TrinityTextualApp(App[None]):
         )
 
     def _handle_textual_target_command(self, args: list[str]) -> None:
-        parsed = parse_target_args(args)
-        if parsed.action == "current":
-            target = getattr(self.workflow_controller, "workflow", None)
-            current = None
-            if target is not None:
-                current = target.session.target_workspace
-            presentation = target_current_presentation(
-                str(current) if current else None,
-                lang=self.config.lang,
-            )
-            self._record_slash_command_result(
-                "/target",
-                presentation.title,
-                presentation.body,
-                empty=presentation.empty,
-                action_hint=presentation.action_hint,
-            )
+        target = getattr(self.workflow_controller, "workflow", None)
+        current = target.session.target_workspace if target is not None else None
+        action = target_command_action(
+            args,
+            current=current,
+            project_dir=self.config.project_dir,
+            lang=self.config.lang,
+        )
+        if action.presentation:
+            self._record_target_command_presentation(action.presentation)
             return
-        if parsed.action == "clear":
+        if action.action == "clear":
             outcome = self.workflow_controller.clear_target_workspace()
             self.confirmed_preflight = None
             self._apply_workflow_outcome(outcome)
-            presentation = target_cleared_presentation(lang=self.config.lang)
-            self._record_slash_command_result(
-                "/target",
-                presentation.title,
-                presentation.body,
+            self._record_target_command_presentation(
+                target_cleared_presentation(lang=self.config.lang)
             )
             return
-        path = resolve_target_path(parsed.path_text, self.config.project_dir)
-        if is_control_repo_target(path, self.config.project_dir):
-            self._open_target_workspace_confirm_modal(
+        if action.path is None:
+            return
+        if action.action == "confirm":
+            self._confirm_textual_target_workspace(action.path)
+            return
+        self._set_textual_target_workspace(action.path, control_repo_confirmed=False)
+
+    def _record_target_command_presentation(
+        self,
+        presentation: TargetCommandPresentation,
+    ) -> None:
+        self._record_slash_command_result(
+            "/target",
+            presentation.title,
+            presentation.body,
+            severity=presentation.severity,
+            empty=presentation.empty,
+            action_hint=presentation.action_hint,
+            table_columns=presentation.table_columns,
+            table_rows=presentation.table_rows,
+        )
+
+    def _confirm_textual_target_workspace(self, path: Path) -> None:
+        self._open_target_workspace_confirm_modal(
+            path,
+            lambda confirmed: self._on_target_workspace_confirmed(
                 path,
-                lambda confirmed: self._on_target_workspace_confirmed(
-                    path,
-                    confirmed,
-                ),
-            )
-            return
-        self._set_textual_target_workspace(path, control_repo_confirmed=False)
+                confirmed,
+            ),
+        )
 
     def _on_target_workspace_confirmed(
         self,
@@ -2492,31 +2499,12 @@ class TrinityTextualApp(App[None]):
         control_repo_confirmed: bool,
     ) -> None:
         prepared = prepare_target_workspace(path)
-        if prepared.error == "not_directory":
-            presentation = target_not_directory_presentation(
-                prepared.message,
-                lang=self.config.lang,
-            )
-            self._record_slash_command_result(
-                "/target",
-                presentation.title,
-                presentation.body,
-                severity=presentation.severity,
-                empty=presentation.empty,
-            )
-            return
-        if prepared.error == "os_error":
-            presentation = target_prepare_failed_presentation(
-                prepared.message,
-                lang=self.config.lang,
-            )
-            self._record_slash_command_result(
-                "/target",
-                presentation.title,
-                presentation.body,
-                severity=presentation.severity,
-                empty=presentation.empty,
-            )
+        presentation = target_prepare_result_presentation(
+            prepared,
+            lang=self.config.lang,
+        )
+        if presentation:
+            self._record_target_command_presentation(presentation)
             return
         resolved = prepared.resolved_path
         if resolved is None:
@@ -2548,20 +2536,13 @@ class TrinityTextualApp(App[None]):
                 or self.snapshot_adapter.load_snapshot(),
             )
         self._set_workspace_candidate(resolved)
-        inside_control_repo = is_control_repo_target(resolved, self.config.project_dir)
-        presentation = target_workspace_presentation(
-            str(resolved),
-            inside_control_repo=inside_control_repo,
+        presentation = target_set_presentation(
+            resolved,
+            control_repo=self.config.project_dir,
             control_repo_confirmed=control_repo_confirmed,
             lang=self.config.lang,
         )
-        self._record_slash_command_result(
-            "/target",
-            presentation.title,
-            presentation.body,
-            table_columns=presentation.table_columns,
-            table_rows=presentation.table_rows,
-        )
+        self._record_target_command_presentation(presentation)
 
     def _sync_nexus_workspace_candidate(self) -> None:
         if not self._screens_installed:

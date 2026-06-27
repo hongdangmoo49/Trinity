@@ -3,9 +3,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Literal
 
 from trinity.textual_app import presenters as textual_presenters
+from trinity.textual_app.command_parsers import parse_target_args
 from trinity.textual_app.snapshot import LocalCommandSnapshot
+from trinity.textual_app.target_workspace import (
+    TargetWorkspacePreparation,
+    is_control_repo_target,
+    resolve_target_path,
+)
+
+
+TargetCommandActionKind = Literal["record", "clear", "confirm", "set"]
 
 
 @dataclass(frozen=True)
@@ -19,6 +30,15 @@ class TargetCommandPresentation:
     action_hint: str = ""
     table_columns: tuple[str, ...] = ()
     table_rows: tuple[tuple[str, ...], ...] = ()
+
+
+@dataclass(frozen=True)
+class TargetCommandAction:
+    """Normalized app action for `/target`."""
+
+    action: TargetCommandActionKind
+    path: Path | None = None
+    presentation: TargetCommandPresentation | None = None
 
 
 def target_current_presentation(
@@ -71,6 +91,19 @@ def target_prepare_failed_presentation(
     )
 
 
+def target_prepare_result_presentation(
+    prepared: TargetWorkspacePreparation,
+    *,
+    lang: str = "en",
+) -> TargetCommandPresentation | None:
+    """Return a warning presentation for failed target workspace preparation."""
+    if prepared.error == "not_directory":
+        return target_not_directory_presentation(prepared.message, lang=lang)
+    if prepared.error == "os_error":
+        return target_prepare_failed_presentation(prepared.message, lang=lang)
+    return None
+
+
 def target_workspace_presentation(
     path: str,
     *,
@@ -90,6 +123,48 @@ def target_workspace_presentation(
             lang=lang,
         ),
     )
+
+
+def target_set_presentation(
+    path: Path,
+    *,
+    control_repo: Path,
+    control_repo_confirmed: bool,
+    lang: str = "en",
+) -> TargetCommandPresentation:
+    """Return presentation state after setting the target workspace path."""
+    return target_workspace_presentation(
+        str(path),
+        inside_control_repo=is_control_repo_target(path, control_repo),
+        control_repo_confirmed=control_repo_confirmed,
+        lang=lang,
+    )
+
+
+def target_command_action(
+    args: list[str],
+    *,
+    current: Path | str | None,
+    project_dir: Path,
+    lang: str = "en",
+) -> TargetCommandAction:
+    """Parse `/target` arguments into the side effect the app should run."""
+    parsed = parse_target_args(args)
+    if parsed.action == "current":
+        return TargetCommandAction(
+            action="record",
+            presentation=target_current_presentation(
+                str(current) if current else None,
+                lang=lang,
+            ),
+        )
+    if parsed.action == "clear":
+        return TargetCommandAction(action="clear")
+
+    path = resolve_target_path(parsed.path_text, project_dir)
+    if is_control_repo_target(path, project_dir):
+        return TargetCommandAction(action="confirm", path=path)
+    return TargetCommandAction(action="set", path=path)
 
 
 def target_cancelled_snapshot(

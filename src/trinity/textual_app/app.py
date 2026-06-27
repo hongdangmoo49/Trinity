@@ -32,6 +32,7 @@ from trinity.textual_app.command_parsers import (
 from trinity.textual_app import presenters as textual_presenters
 from trinity.textual_app.answer_commands import answer_result_presentation
 from trinity.textual_app.artifact_commands import artifact_command_presentation
+from trinity.textual_app.context_commands import context_command_presentation
 from trinity.textual_app.improve_commands import improve_result_presentation
 from trinity.textual_app.local_commands import (
     append_local_command_event,
@@ -2313,32 +2314,31 @@ class TrinityTextualApp(App[None]):
     def _handle_textual_context_command(self, command: str) -> None:
         """Show the current session context without reading stale shared.md state."""
         snapshot = self._fresh_textual_snapshot()
-        body = textual_presenters.snapshot_context_markdown(
+        presentation = context_command_presentation(
+            command,
             snapshot,
+            route=self.current_route,
             lang=self.config.lang,
         )
-        if not textual_presenters.snapshot_has_current_context(snapshot):
-            if self.current_route == "start":
-                self.notify(
-                    textual_presenters.context_no_current_markdown(
-                        lang=self.config.lang
-                    ),
-                    title=textual_presenters.context_title(lang=self.config.lang),
-                    severity="warning",
-                )
-                return
+        if presentation.action == "notify":
+            self.notify(
+                presentation.body,
+                title=presentation.title,
+                severity=presentation.severity,
+            )
+            return
+        if presentation.action == "record":
             self._record_slash_command_result(
-                command,
-                textual_presenters.context_title(lang=self.config.lang),
-                body,
+                presentation.command,
+                presentation.title,
+                presentation.body,
+                severity=presentation.severity,
             )
             return
 
-        result = textual_presenters.local_command_snapshot(
-            command,
-            textual_presenters.context_title(lang=self.config.lang),
-            body,
-        )
+        result = presentation.result
+        if result is None:
+            return
         self._local_command_results = replace_local_command_result(
             self._local_command_results,
             result,
@@ -2348,7 +2348,7 @@ class TrinityTextualApp(App[None]):
             self._local_command_results,
         )
         self.active_snapshot = snapshot
-        if self.current_route == "start":
+        if presentation.action == "modal":
             self.push_screen(ContextCommandModal(result, lang=self.config.lang))
             return
         self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))

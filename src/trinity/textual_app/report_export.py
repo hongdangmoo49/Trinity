@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 from trinity.textual_app.snapshot import (
@@ -143,6 +144,14 @@ REPORT_MARKDOWN_LABELS = {
 }
 
 
+@dataclass(frozen=True)
+class ReportMarkdownExport:
+    """Prepared Markdown report export."""
+
+    path: Path
+    markdown: str
+
+
 def snapshot_has_report_data(snapshot: WorkflowNexusSnapshot) -> bool:
     """Return whether a snapshot has enough user-visible data to export."""
     return any(
@@ -162,6 +171,62 @@ def snapshot_has_report_data(snapshot: WorkflowNexusSnapshot) -> bool:
             snapshot.questions,
         )
     )
+
+
+def build_report_markdown_export(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    state_dir: Path,
+    lang: str = "en",
+) -> ReportMarkdownExport | None:
+    """Build a Markdown report export from persisted workflow data or a snapshot."""
+    from trinity.tui.report import DeliberationReportBuilder
+    from trinity.workflow import WorkflowPersistence
+
+    report_dir = state_dir / "reports"
+
+    persistence = WorkflowPersistence(state_dir)
+    session = persistence.load()
+    if session is not None:
+        filepath = unique_report_path(report_dir, session.id)
+        events = persistence.load_events_for_workflow(session.id)
+        builder = DeliberationReportBuilder(
+            session,
+            result=None,
+            events=events,
+            snapshot=snapshot,
+        )
+        report = builder.build()
+        return ReportMarkdownExport(
+            path=filepath,
+            markdown=report.to_markdown(),
+        )
+
+    if snapshot_has_report_data(snapshot):
+        return ReportMarkdownExport(
+            path=unique_report_path(report_dir, snapshot.session_id),
+            markdown=snapshot_report_markdown(snapshot, lang=lang),
+        )
+
+    return None
+
+
+def export_report_markdown(
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    state_dir: Path,
+    lang: str = "en",
+) -> Path | None:
+    """Write a Markdown report export and return its path when data exists."""
+    export = build_report_markdown_export(
+        snapshot,
+        state_dir=state_dir,
+        lang=lang,
+    )
+    if export is None:
+        return None
+    export.path.write_text(export.markdown, encoding="utf-8")
+    return export.path
 
 
 def snapshot_report_markdown(

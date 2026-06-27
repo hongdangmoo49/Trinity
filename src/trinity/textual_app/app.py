@@ -74,9 +74,7 @@ from trinity.textual_app.model_settings_commands import (
 from trinity.textual_app.packages_commands import packages_command_presentation
 from trinity.textual_app.questions_commands import questions_command_presentation
 from trinity.textual_app.report_export import (
-    snapshot_has_report_data,
-    snapshot_report_markdown,
-    unique_report_path,
+    export_report_markdown,
 )
 from trinity.textual_app.report_commands import (
     report_export_complete_notification,
@@ -2947,30 +2945,13 @@ class TrinityTextualApp(App[None]):
 
     def _export_report_markdown(self, snapshot: WorkflowNexusSnapshot) -> Path | None:
         """Save a report as Markdown using the shared DeliberationReport builder."""
-        from trinity.tui.report import DeliberationReportBuilder
-        from trinity.workflow import WorkflowPersistence
-
         lang = self.config.lang
-        report_dir = self.config.effective_state_dir / "reports"
-
-        # Build from the full WorkflowSession for richer output
-        persistence = WorkflowPersistence(self.config.effective_state_dir)
-        session = persistence.load()
-        if session is not None:
-            filepath = unique_report_path(report_dir, session.id)
-            events = persistence.load_events_for_workflow(session.id)
-            builder = DeliberationReportBuilder(
-                session,
-                result=None,
-                events=events,
-                snapshot=snapshot,
-            )
-            report = builder.build()
-            markdown = report.to_markdown()
-        elif snapshot_has_report_data(snapshot):
-            filepath = unique_report_path(report_dir, snapshot.session_id)
-            markdown = snapshot_report_markdown(snapshot, lang=self.config.lang)
-        else:
+        filepath = export_report_markdown(
+            snapshot,
+            state_dir=self.config.effective_state_dir,
+            lang=lang,
+        )
+        if filepath is None:
             notification = report_export_unavailable_notification(lang=lang)
             self.notify(
                 notification.message,
@@ -2979,7 +2960,6 @@ class TrinityTextualApp(App[None]):
             )
             return None
 
-        filepath.write_text(markdown, encoding="utf-8")
         if self._screens_installed:
             self.get_screen("report", ReportScreen).show_export_path(filepath)
         notification = report_export_complete_notification(filepath, lang=lang)

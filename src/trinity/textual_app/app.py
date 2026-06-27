@@ -1207,6 +1207,14 @@ class TrinityTextualApp(App[None]):
         install_textual_parser_patch()
         super().__init__()
         localize_bindings(self._bindings, config.lang, self.LOCALIZED_BINDINGS)
+        self._init_textual_navigation_state(config, launch_cwd)
+        self._init_textual_runtime_state(config, workflow_controller)
+
+    def _init_textual_navigation_state(
+        self,
+        config: TrinityConfig,
+        launch_cwd: Path | None,
+    ) -> None:
         self.config = config
         self.current_route: WorkbenchRoute = "start"
         self.initial_prompt: str | None = None
@@ -1216,6 +1224,12 @@ class TrinityTextualApp(App[None]):
         self.active_snapshot: WorkflowNexusSnapshot | None = None
         self.settings_store = UISettingsStore(config.effective_state_dir)
         self.confirmed_preflight: WorkspacePreflight | None = None
+
+    def _init_textual_runtime_state(
+        self,
+        config: TrinityConfig,
+        workflow_controller: TextualWorkflowController | None,
+    ) -> None:
         self.workflow_controller = workflow_controller or TextualWorkflowController(config)
         self._screens_installed = False
         self._workflow_polling_started = False

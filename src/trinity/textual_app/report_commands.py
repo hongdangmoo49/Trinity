@@ -30,6 +30,15 @@ class ReportCommandPresentation:
     switch_to_report: bool = False
 
 
+@dataclass(frozen=True)
+class ReportExportNotification:
+    """Prepared Textual notification for report export actions."""
+
+    title: str
+    message: str
+    severity: str = ""
+
+
 def report_save_presentation(
     path: Path | None,
     *,
@@ -77,4 +86,29 @@ def report_open_presentation(
         table_rows=textual_presenters.report_summary_rows(snapshot, lang=lang),
         start_modal=False,
         switch_to_report=True,
+    )
+
+
+def report_export_unavailable_notification(
+    *,
+    lang: str = "en",
+) -> ReportExportNotification:
+    """Return the warning notification shown when report export has no data."""
+    return ReportExportNotification(
+        title=textual_presenters.report_export_unavailable_title(lang=lang),
+        message=textual_presenters.report_no_export_data_markdown(lang=lang),
+        severity="warning",
+    )
+
+
+def report_export_complete_notification(
+    path: Path,
+    *,
+    lang: str = "en",
+) -> ReportExportNotification:
+    """Return the notification shown after a report is saved."""
+    path_text = str(path)
+    return ReportExportNotification(
+        title=textual_presenters.report_export_complete_title(lang=lang),
+        message=textual_presenters.report_saved_notification(path_text, lang=lang),
     )

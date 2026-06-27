@@ -66,6 +66,8 @@ from trinity.textual_app.report_export import (
     unique_report_path,
 )
 from trinity.textual_app.report_commands import (
+    report_export_complete_notification,
+    report_export_unavailable_notification,
     report_open_presentation,
     report_save_presentation,
 )
@@ -2985,19 +2987,21 @@ class TrinityTextualApp(App[None]):
             filepath = unique_report_path(report_dir, snapshot.session_id)
             markdown = snapshot_report_markdown(snapshot, lang=self.config.lang)
         else:
+            notification = report_export_unavailable_notification(lang=lang)
             self.notify(
-                textual_presenters.report_no_export_data_markdown(lang=lang),
-                title=textual_presenters.report_export_unavailable_title(lang=lang),
-                severity="warning",
+                notification.message,
+                title=notification.title,
+                severity=notification.severity,
             )
             return None
 
         filepath.write_text(markdown, encoding="utf-8")
         if self._screens_installed:
             self.get_screen("report", ReportScreen).show_export_path(filepath)
+        notification = report_export_complete_notification(filepath, lang=lang)
         self.notify(
-            textual_presenters.report_saved_notification(str(filepath), lang=lang),
-            title=textual_presenters.report_export_complete_title(lang=lang),
+            notification.message,
+            title=notification.title,
         )
         return filepath
 

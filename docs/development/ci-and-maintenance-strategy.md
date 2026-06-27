@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.612`
-- Merged PR range reviewed: #90 through #708
+- Package version inspected: `1.0.614`
+- Merged PR range reviewed: #90 through #710
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #708
-- Latest refresh reviewed: #708
+- Maintenance refresh reviewed: #427 through #710
+- Latest refresh reviewed: #710
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1103,6 +1103,15 @@ and what the next release train should optimize.
   workspace flow.
 - Reduced `_on_nexus_workspace_selected` from 19 lines to 12 lines.
 - Raised the package version from `1.0.610` to `1.0.611` in this patch PR.
+
+### #710: Textual Target Workspace Apply Effect Helper
+
+- Split target workspace effect construction in `textual_app/app.py` into
+  `_build_textual_target_workspace_effect`.
+- Kept target workspace controller calls, workflow outcome based presentation,
+  workspace candidate updates, and target command recording behavior unchanged.
+- Reduced `_apply_textual_target_workspace` from 19 lines to 12 lines.
+- Raised the package version from `1.0.612` to `1.0.613` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

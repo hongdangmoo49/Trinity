@@ -314,6 +314,14 @@ uv run python scripts/run_required_smoke_tests.py --list
 uv run python scripts/run_required_smoke_tests.py -q
 ```
 
+The cross-platform workflow first classifies the changed files with
+`scripts/classify_ci_change.py`. Documentation-only changes, optionally paired
+with a package version-only bump in `pyproject.toml`, `uv.lock`, and
+`src/trinity/__init__.py`, use the `docs_version_only` fast path: CI lists the
+required smoke manifest and keeps the wheel/console-script smoke, but skips the
+pytest required smoke run. Any code, test, workflow, script, dependency, or
+non-version metadata change falls back to the full required smoke set.
+
 The required set is intentionally broader than the old smoke list because the
 recent iteration moved critical behavior into workflow/provider/Textual flow
 modules. It now covers:

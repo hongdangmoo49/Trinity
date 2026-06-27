@@ -16,7 +16,6 @@ from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import parse_execute_retry_args, parse_slash_command
 from trinity.textual_app.command_parsers import (
     parse_answer_args,
-    parse_ask_args,
     parse_caveman_args,
     parse_execute_args,
     parse_report_args,
@@ -27,7 +26,7 @@ from trinity.textual_app.command_parsers import (
 from trinity.textual_app.agent_commands import (
     agent_command_presentation,
 )
-from trinity.textual_app.ask_commands import ask_error_presentation
+from trinity.textual_app.ask_commands import ask_command_action
 from trinity.textual_app.answer_commands import (
     answer_error_command_presentation,
     answer_result_command_presentation,
@@ -2009,13 +2008,14 @@ class TrinityTextualApp(App[None]):
         return outcome, message
 
     def _handle_textual_ask_command(self, command_name: str, args: list[str]) -> None:
-        parsed = parse_ask_args(
+        action = ask_command_action(
             args,
             self.config.active_agents.keys(),
+            current_route=self.current_route,
             lang=self.config.lang,
         )
-        if parsed.error:
-            presentation = ask_error_presentation(parsed.error, lang=self.config.lang)
+        if action.presentation is not None:
+            presentation = action.presentation
             self._record_slash_command_result(
                 command_name,
                 presentation.title,
@@ -2026,23 +2026,20 @@ class TrinityTextualApp(App[None]):
             )
             return
 
-        if self.current_route == "start":
-            self.initial_prompt = parsed.prompt
+        if action.kind == "start":
+            self.initial_prompt = action.prompt
             nexus = self.get_screen("nexus", NexusScreen)
-            nexus.set_initial_prompt(parsed.prompt)
-            nexus.set_agent_selection(
-                parsed.target_agents,
-                parsed.agent_model_overrides,
-            )
+            nexus.set_initial_prompt(action.prompt)
+            nexus.set_agent_selection(action.target_agents, action.agent_model_overrides)
             target_workspace = safe_start_target_workspace(
                 self.workspace_candidate,
                 self.config.project_dir,
             )
             outcome = self.workflow_controller.start_prompt(
-                parsed.prompt,
+                action.prompt,
                 target_workspace=target_workspace,
-                target_agents=parsed.target_agents,
-                agent_model_overrides=parsed.agent_model_overrides,
+                target_agents=action.target_agents,
+                agent_model_overrides=action.agent_model_overrides,
             )
             self._remember_confirmed_target_preflight(target_workspace, outcome.snapshot)
             self._apply_workflow_outcome(outcome)
@@ -2050,14 +2047,11 @@ class TrinityTextualApp(App[None]):
             return
 
         nexus = self.get_screen("nexus", NexusScreen)
-        nexus.set_agent_selection(
-            parsed.target_agents,
-            parsed.agent_model_overrides,
-        )
+        nexus.set_agent_selection(action.target_agents, action.agent_model_overrides)
         outcome = self.workflow_controller.submit_follow_up(
-            parsed.prompt,
-            target_agents=parsed.target_agents,
-            agent_model_overrides=parsed.agent_model_overrides,
+            action.prompt,
+            target_agents=action.target_agents,
+            agent_model_overrides=action.agent_model_overrides,
         )
         self._apply_workflow_outcome(outcome)
         if outcome.target_workspace_required:

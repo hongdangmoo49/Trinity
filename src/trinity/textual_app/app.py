@@ -30,6 +30,11 @@ from trinity.textual_app.command_parsers import (
     parse_target_args,
 )
 from trinity.textual_app import presenters as textual_presenters
+from trinity.textual_app.agent_commands import (
+    agent_current_presentation,
+    agent_error_presentation,
+    agent_update_presentation,
+)
 from trinity.textual_app.answer_commands import answer_result_presentation
 from trinity.textual_app.artifact_commands import artifact_command_presentation
 from trinity.textual_app.context_commands import context_command_presentation
@@ -2447,59 +2452,49 @@ class TrinityTextualApp(App[None]):
             lang=self.config.lang,
         )
         if not args:
+            presentation = agent_current_presentation(
+                self.config.agents,
+                lang=self.config.lang,
+            )
             self._record_slash_command_result(
                 command_name,
-                textual_presenters.agent_title(lang=self.config.lang),
-                textual_presenters.session_setting_body(
-                    textual_presenters.agent_current_settings_markdown(
-                        lang=self.config.lang
-                    )
-                ),
-                table_columns=textual_presenters.agent_table_columns(
-                    lang=self.config.lang
-                ),
-                table_rows=textual_presenters.agent_rows(
-                    self.config.agents,
-                    lang=self.config.lang,
-                ),
-                action_hint=textual_presenters.agent_change_action_hint(
-                    lang=self.config.lang
-                ),
+                presentation.title,
+                presentation.body,
+                table_columns=presentation.table_columns,
+                table_rows=presentation.table_rows,
+                action_hint=presentation.action_hint,
             )
             return
         if parsed.error:
+            presentation = agent_error_presentation(
+                parsed.error,
+                self.config.agents,
+                lang=self.config.lang,
+            )
             self._record_slash_command_result(
                 command_name,
-                textual_presenters.agent_title(lang=self.config.lang),
-                parsed.error,
-                severity="warning",
-                table_columns=textual_presenters.agent_table_columns(
-                    lang=self.config.lang
-                ),
-                table_rows=textual_presenters.agent_rows(
-                    self.config.agents,
-                    lang=self.config.lang,
-                ),
+                presentation.title,
+                presentation.body,
+                severity=presentation.severity,
+                table_columns=presentation.table_columns,
+                table_rows=presentation.table_rows,
             )
             return
         name = parsed.agent_name
         spec = self.config.agents[name]
         spec.enabled = bool(parsed.enabled)
+        presentation = agent_update_presentation(
+            name,
+            spec.enabled,
+            self.config.agents,
+            lang=self.config.lang,
+        )
         self._record_slash_command_result(
             command_name,
-            textual_presenters.agent_title(lang=self.config.lang),
-            textual_presenters.session_setting_body(
-                textual_presenters.agent_status_markdown(
-                    name,
-                    spec.enabled,
-                    lang=self.config.lang,
-                )
-            ),
-            table_columns=textual_presenters.agent_table_columns(lang=self.config.lang),
-            table_rows=textual_presenters.agent_rows(
-                self.config.agents,
-                lang=self.config.lang,
-            ),
+            presentation.title,
+            presentation.body,
+            table_columns=presentation.table_columns,
+            table_rows=presentation.table_rows,
         )
 
     def _handle_textual_caveman_command(

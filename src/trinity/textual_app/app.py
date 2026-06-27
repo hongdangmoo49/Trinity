@@ -1530,12 +1530,8 @@ class TrinityTextualApp(App[None]):
         if preflight is None:
             return
         if is_control_repo_target(preflight.path, self.config.project_dir):
-            self.push_screen(
-                TargetWorkspaceConfirmModal(
-                    target_path=preflight.path,
-                    control_repo=self.config.project_dir,
-                    lang=self.config.lang,
-                ),
+            self._open_target_workspace_confirm_modal(
+                preflight.path,
                 lambda confirmed: self._on_nexus_workspace_selected_confirmed(
                     preflight,
                     confirmed,
@@ -1593,12 +1589,8 @@ class TrinityTextualApp(App[None]):
             self._pending_execute_retry = None
             return
         if is_control_repo_target(preflight.path, self.config.project_dir):
-            self.push_screen(
-                TargetWorkspaceConfirmModal(
-                    target_path=preflight.path,
-                    control_repo=self.config.project_dir,
-                    lang=self.config.lang,
-                ),
+            self._open_target_workspace_confirm_modal(
+                preflight.path,
                 lambda confirmed: self._on_workspace_preflight_confirmed(
                     preflight,
                     confirmed,
@@ -1608,6 +1600,16 @@ class TrinityTextualApp(App[None]):
         self._continue_workspace_preflight(
             preflight,
             control_repo_confirmed=False,
+        )
+
+    def _open_target_workspace_confirm_modal(self, path: Path, callback) -> None:
+        self.push_screen(
+            TargetWorkspaceConfirmModal(
+                target_path=path,
+                control_repo=self.config.project_dir,
+                lang=self.config.lang,
+            ),
+            callback,
         )
 
     def _on_workspace_preflight_confirmed(
@@ -2683,12 +2685,8 @@ class TrinityTextualApp(App[None]):
             return
         path = resolve_target_path(parsed.path_text, self.config.project_dir)
         if is_control_repo_target(path, self.config.project_dir):
-            self.push_screen(
-                TargetWorkspaceConfirmModal(
-                    target_path=path,
-                    control_repo=self.config.project_dir,
-                    lang=self.config.lang,
-                ),
+            self._open_target_workspace_confirm_modal(
+                path,
                 lambda confirmed: self._on_target_workspace_confirmed(
                     path,
                     confirmed,

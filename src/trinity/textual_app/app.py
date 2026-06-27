@@ -98,6 +98,7 @@ from trinity.textual_app.workflow_controller import (
     TextualWorkflowController,
     TextualWorkflowOutcome,
 )
+from trinity.textual_app.workflow_commands import workflow_command_presentation
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
     AgentRecipientModelSelector,
 )
@@ -1794,18 +1795,16 @@ class TrinityTextualApp(App[None]):
 
     def _handle_textual_workflow_command(self, command_name: str) -> None:
         snapshot = self._refresh_textual_snapshot()
+        presentation = workflow_command_presentation(
+            snapshot,
+            lang=self.config.lang,
+        )
         self._record_slash_command_result(
             command_name,
-            textual_presenters.workflow_title(lang=self.config.lang),
-            textual_presenters.snapshot_workflow_markdown(
-                snapshot,
-                lang=self.config.lang,
-            ),
-            table_columns=textual_presenters.status_table_columns(lang=self.config.lang),
-            table_rows=textual_presenters.snapshot_workflow_rows(
-                snapshot,
-                lang=self.config.lang,
-            ),
+            presentation.title,
+            presentation.body,
+            table_columns=presentation.table_columns,
+            table_rows=presentation.table_rows,
         )
 
     def _handle_textual_questions_command(

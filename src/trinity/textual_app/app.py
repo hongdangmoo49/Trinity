@@ -6,7 +6,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import replace
 from inspect import Parameter, signature
 from pathlib import Path
-from typing import Literal
 
 from textual.app import App
 from textual.binding import Binding
@@ -56,6 +55,10 @@ from trinity.textual_app.report_export import (
 from trinity.textual_app.resume_commands import (
     resume_result_presentation,
     should_continue_resumed_workflow,
+)
+from trinity.textual_app.route_snapshot import (
+    WorkbenchRoute,
+    apply_current_route_snapshot,
 )
 from trinity.textual_app.review_commands import review_result_presentation
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
@@ -109,9 +112,6 @@ from trinity.textual_app.widgets.workspace_picker import (
     default_workspace_tree_root,
 )
 from trinity.tui.kitty_compat import install_textual_parser_patch
-
-WorkbenchRoute = Literal["start", "nexus", "execution", "settings", "report"]
-
 
 class TrinityTextualApp(App[None]):
     """Desktop-style Textual workbench for Trinity."""
@@ -2139,16 +2139,13 @@ class TrinityTextualApp(App[None]):
             or self.workflow_controller.snapshot()
             or self.snapshot_adapter.load_snapshot()
         )
-        if self.current_route == "nexus":
-            self._sync_nexus_workspace_candidate()
-            self.get_screen("nexus", NexusScreen).apply_snapshot(snapshot)
-        elif self.current_route == "execution" and self.confirmed_preflight is not None:
-            self.get_screen("execution", ExecutionMatrixScreen).apply_execution_state(
-                self.confirmed_preflight,
-                snapshot,
-            )
-        elif self.current_route == "report":
-            self.get_screen("report", ReportScreen).apply_snapshot(snapshot)
+        apply_current_route_snapshot(
+            self,
+            self.current_route,
+            snapshot,
+            confirmed_preflight=self.confirmed_preflight,
+            sync_nexus_workspace_candidate=self._sync_nexus_workspace_candidate,
+        )
 
     def _record_slash_command_result(
         self,

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.592`
-- Merged PR range reviewed: #90 through #688
+- Package version inspected: `1.0.594`
+- Merged PR range reviewed: #90 through #690
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #688
-- Latest refresh reviewed: #688
+- Maintenance refresh reviewed: #427 through #690
+- Latest refresh reviewed: #690
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1004,6 +1004,16 @@ and what the next release train should optimize.
   creation.
 - Reduced `_handle_textual_questions_command` from 21 lines to 12 lines.
 - Raised the package version from `1.0.590` to `1.0.591` in this patch PR.
+
+### #690: Textual Workspace Preflight Continuation Apply Helper
+
+- Split workspace preflight continuation controller actions in
+  `textual_app/app.py` from workflow outcome and preflight UI effect
+  application.
+- Kept target workspace persistence, retry continuation, fresh execution,
+  execution recovery, and execution route behavior unchanged.
+- Reduced `_continue_workspace_preflight_plan` from 21 lines to 11 lines.
+- Raised the package version from `1.0.592` to `1.0.593` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

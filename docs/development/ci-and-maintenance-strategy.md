@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.594`
-- Merged PR range reviewed: #90 through #690
+- Package version inspected: `1.0.596`
+- Merged PR range reviewed: #90 through #692
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #690
-- Latest refresh reviewed: #690
+- Maintenance refresh reviewed: #427 through #692
+- Latest refresh reviewed: #692
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1014,6 +1014,15 @@ and what the next release train should optimize.
   execution recovery, and execution route behavior unchanged.
 - Reduced `_continue_workspace_preflight_plan` from 21 lines to 11 lines.
 - Raised the package version from `1.0.592` to `1.0.593` in this patch PR.
+
+### #692: Textual Slash Command Result Recording Wrapper
+
+- Slimmed `_record_slash_command_result` in `textual_app/app.py` so snapshot
+  option handling is delegated to `local_command_snapshot`.
+- Kept existing slash command result options, start modal behavior, local
+  command recording, and notification behavior unchanged.
+- Reduced `_record_slash_command_result` from 31 lines to 15 lines.
+- Raised the package version from `1.0.594` to `1.0.595` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

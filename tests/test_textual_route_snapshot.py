@@ -104,6 +104,26 @@ def test_apply_current_route_snapshot_skips_execution_without_preflight() -> Non
     assert host.events == []
 
 
+def test_apply_current_route_snapshot_can_update_execution_without_preflight() -> None:
+    host = FakeRouteHost()
+    snapshot = WorkflowNexusSnapshot(session_id="wf-route")
+
+    applied = apply_current_route_snapshot(
+        host,
+        "execution",
+        snapshot,
+        confirmed_preflight=None,
+        sync_nexus_workspace_candidate=lambda: host.events.append("sync"),
+        require_execution_preflight=False,
+    )
+
+    assert applied is True
+    assert host.events == [
+        ("get_screen", "execution", "ExecutionMatrixScreen"),
+        ("execution", None, "wf-route"),
+    ]
+
+
 def test_apply_current_route_snapshot_updates_report() -> None:
     host = FakeRouteHost()
     snapshot = WorkflowNexusSnapshot(session_id="wf-route")

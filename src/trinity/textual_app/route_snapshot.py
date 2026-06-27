@@ -30,13 +30,16 @@ def apply_current_route_snapshot(
     *,
     confirmed_preflight: WorkspacePreflight | None,
     sync_nexus_workspace_candidate: Callable[[], None],
+    require_execution_preflight: bool = True,
 ) -> bool:
     """Apply a workflow snapshot to the screen backing the current route."""
     if route == "nexus":
         sync_nexus_workspace_candidate()
         host.get_screen("nexus", NexusScreen).apply_snapshot(snapshot)
         return True
-    if route == "execution" and confirmed_preflight is not None:
+    if route == "execution":
+        if confirmed_preflight is None and require_execution_preflight:
+            return False
         host.get_screen("execution", ExecutionMatrixScreen).apply_execution_state(
             confirmed_preflight,
             snapshot,

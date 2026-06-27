@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.604`
-- Merged PR range reviewed: #90 through #700
+- Package version inspected: `1.0.606`
+- Merged PR range reviewed: #90 through #702
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #700
-- Latest refresh reviewed: #700
+- Maintenance refresh reviewed: #427 through #702
+- Latest refresh reviewed: #702
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1061,6 +1061,17 @@ and what the next release train should optimize.
   and external workspace setup behavior unchanged.
 - Reduced `_apply_textual_target_command_effect` from 21 lines to 11 lines.
 - Raised the package version from `1.0.602` to `1.0.603` in this patch PR.
+
+### #702: Textual Controller Call Compatibility Helper
+
+- Split controller method compatibility calls from `textual_app/app.py` into
+  `textual_app/controller_calls.py`.
+- Kept older test double compatibility, supported keyword filtering, and
+  `**kwargs` passthrough behavior unchanged.
+- Added focused coverage for supported keyword filtering, var-keyword methods,
+  and signature lookup fallback.
+- Removed `_call_controller_method` from `TrinityTextualApp`.
+- Raised the package version from `1.0.604` to `1.0.605` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

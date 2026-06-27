@@ -52,6 +52,7 @@ from trinity.textual_app.report_export import (
     snapshot_report_markdown,
     unique_report_path,
 )
+from trinity.textual_app.report_route import prepare_report_route
 from trinity.textual_app.resume_commands import (
     resume_result_presentation,
     should_continue_resumed_workflow,
@@ -2983,28 +2984,13 @@ class TrinityTextualApp(App[None]):
     def switch_to(self, route: WorkbenchRoute) -> None:
         if route == "report" and self._screens_installed:
             report = self.get_screen("report", ReportScreen)
-            report.apply_snapshot(self.active_snapshot or self.snapshot_adapter.load_snapshot())
-            # Build a structured DeliberationReport for richer rendering
-            try:
-                from trinity.tui.report import DeliberationReportBuilder
-                from trinity.workflow import WorkflowPersistence
-
-                persistence = WorkflowPersistence(self.config.effective_state_dir)
-                session = persistence.load()
-                if session and session.goal:
-                    events = persistence.load_events_for_workflow(
-                        session.id,
-                        tail=WORKFLOW_EVENT_DISPLAY_LIMIT,
-                    )
-                    structured = DeliberationReportBuilder(
-                        session,
-                        result=None,
-                        events=events,
-                        snapshot=self.active_snapshot,
-                    ).build()
-                    report.apply_report(structured)
-            except Exception:
-                pass  # Fallback to snapshot rendering
+            prepare_report_route(
+                report,
+                self.active_snapshot or self.snapshot_adapter.load_snapshot(),
+                state_dir=self.config.effective_state_dir,
+                event_limit=WORKFLOW_EVENT_DISPLAY_LIMIT,
+                structured_snapshot=self.active_snapshot,
+            )
         if route == "execution" and self._screens_installed:
             apply_current_route_snapshot(
                 self,

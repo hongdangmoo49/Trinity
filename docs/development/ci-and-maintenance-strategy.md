@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.464`
-- Merged PR range reviewed: #90 through #560
+- Package version inspected: `1.0.466`
+- Merged PR range reviewed: #90 through #562
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #560
-- Latest refresh reviewed: #560
+- Maintenance refresh reviewed: #427 through #562
+- Latest refresh reviewed: #562
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -278,6 +278,18 @@ and what the next release train should optimize.
   the Windows CI required-smoke run exposed the issue.
 - Raised the package version from `1.0.462` to `1.0.463` in this patch PR.
 
+### #562: Textual Context Command Helper
+
+- Split `/context` route-specific presentation decisions from
+  `textual_app/app.py` into `textual_app/context_commands.py`.
+- Kept `TrinityTextualApp` responsible for the concrete side effects:
+  notification, local command recording, modal display, and snapshot application.
+- Added focused context command helper tests and included them in the required
+  smoke manifest.
+- Verified the change with focused Textual app coverage and cross-platform
+  required smoke.
+- Raised the package version from `1.0.464` to `1.0.465` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -476,7 +488,7 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #560:
+Current main snapshot after #562:
 
 - `src/trinity/textual_app/app.py`: 3,044 lines
 - `src/trinity/workflow/engine.py`: 625 lines

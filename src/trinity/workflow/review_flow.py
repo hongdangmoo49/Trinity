@@ -121,13 +121,13 @@ class WorkflowReviewFlow:
         if planned:
             return all(self._review_package_is_approved(review) for review in planned)
 
-        for result in reversed(self._review_results()):
+        for result in reversed(self.review_results()):
             if result.package_id == package_id and result.scope != "final":
                 return result.status == ReviewStatus.APPROVED
         return False
 
     def _review_package_is_approved(self, review: ReviewPackage) -> bool:
-        for result in reversed(self._review_results()):
+        for result in reversed(self.review_results()):
             if result.review_package_id == review.id:
                 return result.status == ReviewStatus.APPROVED
             if (
@@ -150,7 +150,7 @@ class WorkflowReviewFlow:
                 continue
         return reviews
 
-    def _review_results(self) -> list[ReviewResult]:
+    def review_results(self) -> list[ReviewResult]:
         reviews: list[ReviewResult] = []
         for item in self.engine.session.review_results:
             if not isinstance(item, dict):
@@ -160,6 +160,9 @@ class WorkflowReviewFlow:
             except (TypeError, ValueError):
                 continue
         return reviews
+
+    def _review_results(self) -> list[ReviewResult]:
+        return self.review_results()
 
     def record_review_results(
         self,
@@ -319,7 +322,7 @@ class WorkflowReviewFlow:
             return ()
 
         latest_change_by_package: dict[str, ReviewResult] = {}
-        for result in self._review_results():
+        for result in self.review_results():
             if result.scope == "final" or result.package_id == FINAL_REVIEW_PACKAGE_ID:
                 continue
             if result.status == ReviewStatus.CHANGES_REQUESTED:

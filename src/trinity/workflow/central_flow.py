@@ -112,7 +112,7 @@ class WorkflowCentralFlow:
             index += 1
         return f"{base}-{index}"
 
-    def _build_decision_continuation_prompt(self, decision: DecisionRecord) -> str:
+    def build_decision_continuation_prompt(self, decision: DecisionRecord) -> str:
         session = self.engine.session
         decisions = "\n".join(
             f"- {item.id}: {item.decision}" for item in session.decisions
@@ -129,7 +129,10 @@ class WorkflowCentralFlow:
             "expected files, acceptance criteria, risk, and parallelization metadata."
         )
 
-    def _build_blueprint_continuation_prompt(self, instruction: str) -> str:
+    def _build_decision_continuation_prompt(self, decision: DecisionRecord) -> str:
+        return self.build_decision_continuation_prompt(decision)
+
+    def build_blueprint_continuation_prompt(self, instruction: str) -> str:
         session = self.engine.session
         blueprint = session.blueprint
         blueprint_title = blueprint.title if blueprint else "(none)"
@@ -160,6 +163,9 @@ class WorkflowCentralFlow:
             "acceptance criteria, risk, and parallelization metadata. If more "
             "user input is required, raise OPEN QUESTIONS."
         )
+
+    def _build_blueprint_continuation_prompt(self, instruction: str) -> str:
+        return self.build_blueprint_continuation_prompt(instruction)
 
     def _target_workspace_prompt_block(self) -> str:
         target = self.engine.session.target_workspace

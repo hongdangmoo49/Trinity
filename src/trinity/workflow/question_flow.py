@@ -129,7 +129,7 @@ class WorkflowQuestionFlow:
         }
         return action_type(
             should_deliberate=True,
-            prompt=self.engine._central_flow()._build_decision_continuation_prompt(
+            prompt=self.engine._central_flow().build_decision_continuation_prompt(
                 decision
             ),
             target_agents=target_agents,

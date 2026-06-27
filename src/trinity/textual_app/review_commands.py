@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from trinity.textual_app import presenters as textual_presenters
-from trinity.textual_app.snapshot import WorkflowNexusSnapshot
+from trinity.textual_app.snapshot import LocalCommandSnapshot, WorkflowNexusSnapshot
 
 
 ReviewSeverity = Literal["info", "warning"]
@@ -93,4 +93,25 @@ def review_matrix_notification_presentation(
             lang=lang,
         ),
         severity="warning" if warning else "info",
+    )
+
+
+def review_repair_blocked_package_ids(
+    snapshot: WorkflowNexusSnapshot,
+) -> tuple[str, ...]:
+    """Return package ids blocked by review repair state."""
+    return textual_presenters.review_repair_blocked_ids(snapshot)
+
+
+def review_repair_snapshot(
+    command: str,
+    snapshot: WorkflowNexusSnapshot,
+    *,
+    lang: str = "en",
+) -> LocalCommandSnapshot:
+    """Return the local command snapshot for review repair details."""
+    return textual_presenters.review_repair_local_command_snapshot(
+        command,
+        snapshot,
+        lang=lang,
     )

@@ -98,6 +98,8 @@ from trinity.textual_app.route_snapshot import (
 )
 from trinity.textual_app.review_commands import (
     review_matrix_notification_presentation,
+    review_repair_blocked_package_ids,
+    review_repair_snapshot,
     review_result_command_presentation,
     review_result_presentation,
 )
@@ -1514,7 +1516,7 @@ class TrinityTextualApp(App[None]):
         snapshot: WorkflowNexusSnapshot | None,
     ) -> None:
         current = snapshot or self._fresh_textual_snapshot()
-        package_ids = textual_presenters.review_repair_blocked_ids(current)
+        package_ids = review_repair_blocked_package_ids(current)
         if action == "repair-open-review":
             self._present_review_repair_details(current)
             return
@@ -2296,7 +2298,7 @@ class TrinityTextualApp(App[None]):
         )
 
     def _present_review_repair_details(self, snapshot: WorkflowNexusSnapshot) -> None:
-        result = textual_presenters.review_repair_local_command_snapshot(
+        result = review_repair_snapshot(
             "/review",
             snapshot,
             lang=self.config.lang,

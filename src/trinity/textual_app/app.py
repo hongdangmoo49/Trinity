@@ -35,9 +35,10 @@ from trinity.textual_app.caveman_commands import (
     caveman_command_presentation,
 )
 from trinity.textual_app.context_commands import (
+    ContextCommandEffect,
     ContextCommandPresentation,
+    context_command_effect,
     context_command_presentation,
-    context_command_snapshot_update,
 )
 from trinity.textual_app.decisions_commands import decisions_command_presentation
 from trinity.textual_app.execute_commands import (
@@ -2330,35 +2331,38 @@ class TrinityTextualApp(App[None]):
         presentation: ContextCommandPresentation,
         snapshot: WorkflowNexusSnapshot,
     ) -> None:
-        if presentation.action == "notify":
-            self.notify(
-                presentation.body,
-                title=presentation.title,
-                severity=presentation.severity,
-            )
-            return
-        if presentation.action == "record":
-            self._record_slash_command_result(
-                presentation.command,
-                presentation.title,
-                presentation.body,
-                severity=presentation.severity,
-            )
-            return
-
-        update = context_command_snapshot_update(
+        effect = context_command_effect(
             presentation,
             snapshot,
             self._local_command_results,
         )
-        if update is None:
+        self._apply_textual_context_effect(effect)
+
+    def _apply_textual_context_effect(self, effect: ContextCommandEffect) -> None:
+        if effect.action == "notify":
+            self.notify(
+                effect.body,
+                title=effect.title,
+                severity=effect.severity,
+            )
             return
-        self._local_command_results = update.local_command_results
-        self.active_snapshot = update.snapshot
-        if presentation.action == "modal":
-            self.push_screen(ContextCommandModal(update.result, lang=self.config.lang))
+        if effect.action == "record":
+            self._record_slash_command_result(
+                effect.command,
+                effect.title,
+                effect.body,
+                severity=effect.severity,
+            )
             return
-        self._apply_workflow_outcome(TextualWorkflowOutcome(update.snapshot))
+        if effect.local_command_results is None or effect.snapshot is None:
+            return
+        self._local_command_results = effect.local_command_results
+        self.active_snapshot = effect.snapshot
+        if effect.action == "modal" and effect.result is not None:
+            self.push_screen(ContextCommandModal(effect.result, lang=self.config.lang))
+            return
+        if effect.action == "workflow_outcome":
+            self._apply_workflow_outcome(TextualWorkflowOutcome(effect.snapshot))
 
     def _handle_textual_memory_command(self, args: list[str]) -> None:
         presentation = memory_command_presentation(

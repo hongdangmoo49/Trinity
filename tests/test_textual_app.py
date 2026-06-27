@@ -231,7 +231,11 @@ from trinity.textual_app.widgets.execution_log_modal import (
     ExecutionLogModal,
     MAX_RENDERED_LOG_LINES,
 )
-from trinity.textual_app.widgets.execution_retry_modal import ExecutionRetryModal, _retry_note
+from trinity.textual_app.widgets.execution_retry_modal import (
+    ExecutionRetryModal,
+    ExecutionRetrySelection,
+    _retry_note,
+)
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.model_settings_modal import ModelSettingsModal
@@ -3503,7 +3507,10 @@ def test_unique_report_path_avoids_existing_file_and_sanitizes_session_id(
 @pytest.mark.asyncio
 async def test_start_screen_submission_moves_to_nexus(tmp_path) -> None:
     controller = FakeWorkflowController()
-    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        controller,
+    )
 
     async with app.run_test(size=(100, 30)) as pilot:
         screen = app.screen
@@ -3726,7 +3733,10 @@ async def test_start_ask_slash_no_active_agents_uses_korean_labels(tmp_path) -> 
 @pytest.mark.asyncio
 async def test_start_submission_persists_selected_workspace_target(tmp_path) -> None:
     controller = FakeWorkflowController()
-    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        controller,
+    )
     target = tmp_path.parent / "target-app"
     target.mkdir()
     app.workspace_candidate = target
@@ -4069,6 +4079,70 @@ async def test_nexus_execute_retry_empty_uses_korean_labels(tmp_path) -> None:
         assert result.action_hint == "먼저 계획을 완료하고 하나 이상의 작업 패키지를 실행하세요."
         assert result.severity == "warning"
         assert result.empty is True
+
+
+@pytest.mark.asyncio
+async def test_execute_retry_selection_opens_workspace_picker_when_required(
+    tmp_path,
+) -> None:
+    snapshot = WorkflowNexusSnapshot(session_id="wf-retry")
+    controller = FakeWorkflowController(snapshot)
+    controller.retry_outcome = TextualWorkflowOutcome(
+        snapshot,
+        message="Choose a target workspace before retrying execution.",
+        target_workspace_required=True,
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+    selection = ExecutionRetrySelection("custom", ("WP-001",))
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._on_execute_retry_selected(selection)
+        await pilot.pause()
+
+        assert controller.retry_confirms == [("custom", ["WP-001"])]
+        assert app._pending_execute_retry is selection
+        assert isinstance(app.screen, WorkspacePicker)
+
+
+@pytest.mark.asyncio
+async def test_execute_retry_selection_switches_to_execution_when_requested(
+    tmp_path,
+) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-retry",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Client",
+                owner_agent="codex",
+                status="failed",
+                retryable=True,
+            )
+        ],
+    )
+    controller = FakeWorkflowController(snapshot)
+    controller.retry_outcome = TextualWorkflowOutcome(
+        snapshot,
+        message="Retrying work packages: WP-001.",
+        execution_requested=True,
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path), controller)
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._on_execute_retry_selected(
+            ExecutionRetrySelection("custom", ("WP-001",))
+        )
+        await pilot.pause()
+
+        assert controller.retry_confirms == [("custom", ["WP-001"])]
+        assert app.current_route == "execution"
+        assert isinstance(app.screen, ExecutionMatrixScreen)
 
 
 @pytest.mark.asyncio

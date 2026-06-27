@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.455`
-- Merged PR range reviewed: #90 through #551
+- Package version inspected: `1.0.459`
+- Merged PR range reviewed: #90 through #555
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #551
-- Latest refresh reviewed: #549 through #551
+- Maintenance refresh reviewed: #427 through #555
+- Latest refresh reviewed: #552 through #555
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -235,6 +235,23 @@ and what the next release train should optimize.
 - Raised the package version from `1.0.451` to `1.0.454` across these focused
   patch PRs.
 
+### #552-#555: Strategy Refresh, Nexus Runtime Archive, and Flow Accessors
+
+- Refreshed this strategy through #551 after the manual full-validation and
+  archive fast-path work landed.
+- Archived the remaining 2026-06-25 Nexus runtime follow-up plans for activity
+  frame gating, execution log windowing, retry filter no-op handling, review
+  summary counts, and `.git` file branch detection.
+- Added public workflow flow accessors for review results, post-review items,
+  central continuation prompts, review package planning, and decision id
+  generation while leaving private aliases for compatibility.
+- Removed remaining cross-flow calls where one workflow flow reached into
+  another flow's private helper.
+- Verified the docs/archive PRs with the docs/version-only fast path and the
+  code PRs with cross-platform required smoke.
+- Raised the package version from `1.0.454` to `1.0.458` across these focused
+  patch PRs.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -433,7 +450,7 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #551:
+Current main snapshot after #555:
 
 - `src/trinity/textual_app/app.py`: 3,091 lines
 - `src/trinity/workflow/engine.py`: 625 lines

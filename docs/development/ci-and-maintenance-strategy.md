@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.572`
-- Merged PR range reviewed: #90 through #668
+- Package version inspected: `1.0.574`
+- Merged PR range reviewed: #90 through #670
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #668
-- Latest refresh reviewed: #668
+- Maintenance refresh reviewed: #427 through #670
+- Latest refresh reviewed: #670
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -905,6 +905,18 @@ and what the next release train should optimize.
   the app facade.
 - Reduced `_open_model_settings_modal` from 25 lines to 11 lines.
 - Raised the package version from `1.0.570` to `1.0.571` in this patch PR.
+
+### #670: Textual Report Export Effect Helper
+
+- Split Markdown report export UI effect derivation from `textual_app/app.py`
+  into `textual_app/report_commands.py`.
+- Added `ReportExportEffect` and `report_export_effect` so export failure
+  notifications and successful report path display are testable without the
+  Textual app.
+- Kept Markdown file writing and concrete report screen/notification side
+  effects in the app facade.
+- Reduced `_export_report_markdown` from 25 lines to 10 lines.
+- Raised the package version from `1.0.572` to `1.0.573` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

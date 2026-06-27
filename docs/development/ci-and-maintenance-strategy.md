@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.626`
-- Merged PR range reviewed: #90 through #722
+- Package version inspected: `1.0.628`
+- Merged PR range reviewed: #90 through #724
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #722
-- Latest refresh reviewed: #722
+- Maintenance refresh reviewed: #427 through #724
+- Latest refresh reviewed: #724
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1170,6 +1170,15 @@ and what the next release train should optimize.
   while preserving optional field fallback behavior.
 - Kept slash/local command recording and notification behavior unchanged.
 - Raised the package version from `1.0.624` to `1.0.625` in this patch PR.
+
+### #724: Textual Local Command Snapshot Option Types
+
+- Added `LocalCommandSnapshotOptionValue` in `textual_app/app.py` to type the
+  option values forwarded into local command snapshots.
+- Narrowed `_record_slash_command_result` snapshot kwargs from `Any` to the new
+  value alias and removed the remaining `Any` import from the module.
+- Kept local/slash command snapshot generation behavior unchanged.
+- Raised the package version from `1.0.626` to `1.0.627` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

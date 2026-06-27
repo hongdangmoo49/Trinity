@@ -24,7 +24,7 @@ from trinity.textual_app.command_parsers import (
 from trinity.textual_app.agent_commands import (
     agent_command_presentation,
 )
-from trinity.textual_app.ask_commands import ask_command_action
+from trinity.textual_app.ask_commands import ask_command_action, run_ask_command
 from trinity.textual_app.answer_commands import (
     answer_error_command_presentation,
     answer_result_command_presentation,
@@ -2020,36 +2020,27 @@ class TrinityTextualApp(App[None]):
             )
             return
 
-        if action.kind == "start":
-            self.initial_prompt = action.prompt
-            nexus = self.get_screen("nexus", NexusScreen)
-            nexus.set_initial_prompt(action.prompt)
-            nexus.set_agent_selection(action.target_agents, action.agent_model_overrides)
-            target_workspace = safe_start_target_workspace(
-                self.workspace_candidate,
-                self.config.project_dir,
+        run = run_ask_command(
+            action,
+            nexus=self.get_screen("nexus", NexusScreen),
+            workflow_controller=self.workflow_controller,
+            workspace_candidate=self.workspace_candidate,
+            project_dir=self.config.project_dir,
+        )
+        if run.initial_prompt:
+            self.initial_prompt = run.initial_prompt
+        if run.switch_to_nexus:
+            self._remember_confirmed_target_preflight(
+                run.target_workspace,
+                run.outcome.snapshot,
             )
-            outcome = self.workflow_controller.start_prompt(
-                action.prompt,
-                target_workspace=target_workspace,
-                target_agents=action.target_agents,
-                agent_model_overrides=action.agent_model_overrides,
-            )
-            self._remember_confirmed_target_preflight(target_workspace, outcome.snapshot)
-            self._apply_workflow_outcome(outcome)
+        self._apply_workflow_outcome(run.outcome)
+        if run.switch_to_nexus:
             self.switch_to("nexus")
             return
 
-        nexus = self.get_screen("nexus", NexusScreen)
-        nexus.set_agent_selection(action.target_agents, action.agent_model_overrides)
-        outcome = self.workflow_controller.submit_follow_up(
-            action.prompt,
-            target_agents=action.target_agents,
-            agent_model_overrides=action.agent_model_overrides,
-        )
-        self._apply_workflow_outcome(outcome)
-        if outcome.target_workspace_required:
-            self._open_execute_workspace_picker(outcome.snapshot)
+        if run.outcome.target_workspace_required:
+            self._open_execute_workspace_picker(run.outcome.snapshot)
 
     def _on_quit_confirmed(self, confirmed: bool | None) -> None:
         if confirmed:

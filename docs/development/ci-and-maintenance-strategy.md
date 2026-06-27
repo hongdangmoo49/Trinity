@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.528`
-- Merged PR range reviewed: #90 through #624
+- Package version inspected: `1.0.530`
+- Merged PR range reviewed: #90 through #626
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #624
-- Latest refresh reviewed: #624
+- Maintenance refresh reviewed: #427 through #626
+- Latest refresh reviewed: #626
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -648,6 +648,18 @@ and what the next release train should optimize.
   enable changes, and error input without mutation.
 - Raised the package version from `1.0.526` to `1.0.527` in this patch PR.
 
+### #626: Textual Ask Command Action Helper
+
+- Split `/ask` slash command parse-result normalization into
+  `textual_app/ask_commands.py`.
+- Converted valid `/ask` input into explicit `error`, `start`, or `follow_up`
+  actions before the Textual app executes workflow side effects.
+- Removed direct `parse_ask_args` and ask error presentation calls from
+  `textual_app/app.py`.
+- Expanded focused ask command tests to cover start route, follow-up route, and
+  invalid agent input.
+- Raised the package version from `1.0.528` to `1.0.529` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -686,11 +698,12 @@ current contract document, merged PR evidence, and focused test coverage.
   runtime wiring, and command routing.
 - `src/trinity/textual_app/presenters.py` and `command_parsers.py` should own
   pure formatting and command parsing.
-- `src/trinity/textual_app/agent_commands.py`, `local_commands.py`,
-  `model_discovery.py`, `report_export.py`, `slash_command_router.py`, and
-  `target_workspace.py` own focused command handling, local command state,
-  provider model discovery fan-out, report export generation, slash dispatch
-  metadata, and target workspace path helpers.
+- `src/trinity/textual_app/agent_commands.py`, `ask_commands.py`,
+  `local_commands.py`, `model_discovery.py`, `report_export.py`,
+  `slash_command_router.py`, and `target_workspace.py` own focused command
+  handling, local command state, provider model discovery fan-out, report
+  export generation, slash dispatch metadata, and target workspace path
+  helpers.
 - `src/trinity/textual_app/screens/` and `widgets/` should own UI state
   application, caching, and bounded rendering.
 
@@ -716,6 +729,7 @@ current contract document, merged PR evidence, and focused test coverage.
   - `tests/test_workflow_post_review_flow.py`
   - `tests/test_provider_error_gate_flow.py`
 - Textual helper tests should stay close to their extracted helpers:
+  - `tests/test_textual_ask_commands.py`
   - `tests/test_textual_answer_commands.py`
   - `tests/test_textual_command_parsers.py`
   - `tests/test_textual_improve_commands.py`
@@ -753,7 +767,7 @@ Run the smallest focused set that proves the touched contract.
 | Provider discovery/readiness/invocation | `uv run pytest -q tests/test_provider_model_discovery.py tests/test_provider_readiness.py tests/test_fake_provider_harness.py` |
 | Provider error/retry/recovery | `uv run pytest -q tests/test_provider_error_gate_flow.py tests/test_execution_retry_modal.py` |
 | Workflow execution/review/post-review | `uv run pytest -q tests/test_workflow_engine.py tests/test_workflow_execution_flow.py tests/test_workflow_review_flow.py tests/test_workflow_post_review_flow.py` |
-| Textual presenter/parser/helper/UI cache | `uv run pytest -q tests/test_textual_answer_commands.py tests/test_textual_command_parsers.py tests/test_textual_improve_commands.py tests/test_textual_local_commands.py tests/test_textual_model_discovery.py tests/test_textual_report_export.py tests/test_textual_resume_commands.py tests/test_textual_review_commands.py tests/test_textual_slash_command_router.py tests/test_textual_target_workspace.py tests/test_textual_smoke.py tests/test_textual_runtime.py tests/test_textual_workflow_controller.py` |
+| Textual presenter/parser/helper/UI cache | `uv run pytest -q tests/test_textual_ask_commands.py tests/test_textual_answer_commands.py tests/test_textual_command_parsers.py tests/test_textual_improve_commands.py tests/test_textual_local_commands.py tests/test_textual_model_discovery.py tests/test_textual_report_export.py tests/test_textual_resume_commands.py tests/test_textual_review_commands.py tests/test_textual_slash_command_router.py tests/test_textual_target_workspace.py tests/test_textual_smoke.py tests/test_textual_runtime.py tests/test_textual_workflow_controller.py` |
 | Nexus execution/log performance | Run the touched cache test plus `uv run pytest -q tests/test_performance_harness.py` when a performance budget is involved. |
 | Fake provider harness | `uv run pytest -q tests/test_fake_provider_harness.py` |
 | Broad facade or shared model changes | `uv run python scripts/run_required_smoke_tests.py -q` |
@@ -790,8 +804,8 @@ modules. It now covers:
 - workflow engine execution/review/post-review flows
 - Textual runtime and workflow controller smoke
 - Textual slash command parsers, router, local command state, provider model
-  discovery, report export, answer/improve/resume/review result, and target
-  workspace helpers
+  discovery, report export, ask/answer/improve/resume/review result, and
+  target workspace helpers
 - terminal rendering smoke
 - repository hygiene for tracked generated Python/cache artifacts
 
@@ -851,9 +865,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #624:
+Current main snapshot after #626:
 
-- `src/trinity/textual_app/app.py`: 2,936 lines
+- `src/trinity/textual_app/app.py`: 2,930 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from inspect import Parameter, signature
 from pathlib import Path
+from typing import Any
 
 from textual.app import App
 from textual.binding import Binding
@@ -2253,28 +2254,12 @@ class TrinityTextualApp(App[None]):
         title: str,
         body: str,
         *,
-        severity: str = "info",
-        result_kind: str = "markdown",
-        empty: bool = False,
-        action_hint: str = "",
-        table_columns: tuple[str, ...] = (),
-        table_rows: tuple[tuple[str, ...], ...] = (),
         start_modal: bool = True,
+        **snapshot_options: Any,
     ) -> None:
         """Record a local slash command result in the central Textual view."""
-        result = local_command_snapshot(
-            command,
-            title,
-            body,
-            severity=severity,
-            result_kind=result_kind,
-            empty=empty,
-            action_hint=action_hint,
-            table_columns=table_columns,
-            table_rows=table_rows,
-        )
         self._record_local_command_snapshot(
-            result,
+            local_command_snapshot(command, title, body, **snapshot_options),
             start_modal=start_modal,
             notify=True,
         )

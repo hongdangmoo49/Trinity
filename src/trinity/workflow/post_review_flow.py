@@ -11,8 +11,6 @@ from uuid import uuid4
 from trinity.workflow.models import (
     PostReviewActionItem,
     PostReviewActionStatus,
-    WorkPackage,
-    WorkStatus,
     WorkflowState,
 )
 from trinity.workflow.review import (
@@ -24,7 +22,10 @@ from trinity.workflow.post_review_selection import (
     looks_like_post_review_selector,
     select_post_review_items,
 )
-from trinity.workflow.post_review_assignment import owner_for_post_review_item
+from trinity.workflow.post_review_assignment import (
+    build_supplemental_work_package,
+    owner_for_post_review_item,
+)
 
 
 class WorkflowPostReviewFlow:
@@ -233,22 +234,11 @@ class WorkflowPostReviewFlow:
                     is not None
                 )
             ]
-            package = WorkPackage(
-                id=package_id,
-                title=item.title or f"Post-review follow-up {item.id}",
-                owner_agent=owner,
-                objective=self._supplemental_objective(item),
-                scope=[item.summary] if item.summary else [],
-                dependencies=related,
-                acceptance_criteria=[
-                    item.summary or item.title or f"Complete action item {item.id}."
-                ],
-                status=WorkStatus.PENDING,
-                requires_execution=True,
-                risk=item.severity or "medium",
-                origin="post_review_followup",
-                origin_action_item_ids=[item.id],
-                parent_package_ids=related,
+            package = build_supplemental_work_package(
+                item,
+                package_id=package_id,
+                owner=owner,
+                related_package_ids=related,
                 supplemental_round=supplemental_round,
             )
             self.engine.session.work_packages.append(package)
@@ -507,20 +497,6 @@ class WorkflowPostReviewFlow:
             "post_review_follow_up_requested",
             request,
         )
-
-    @staticmethod
-    def _supplemental_objective(item: PostReviewActionItem) -> str:
-        parts = [
-            f"Post-review action item {item.id}: {item.summary}",
-            f"Source: {item.source}",
-            f"Kind: {item.kind}",
-            f"Severity: {item.severity}",
-        ]
-        if item.rationale:
-            parts.append(f"Rationale: {item.rationale}")
-        if item.related_wp_ids:
-            parts.append(f"Related work packages: {', '.join(item.related_wp_ids)}")
-        return "\n".join(parts)
 
     @staticmethod
     def _action_title(value: str, limit: int = 80) -> str:

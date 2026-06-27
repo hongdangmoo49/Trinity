@@ -7,7 +7,11 @@ from trinity.workflow.execution_review_flow import (
 )
 from trinity.workflow.models import PostReviewActionItem, PostReviewActionStatus
 from trinity.workflow.post_review_flow import WorkflowPostReviewFlow
-from trinity.workflow.post_review_assignment import owner_for_post_review_item
+from trinity.workflow.post_review_assignment import (
+    build_supplemental_work_package,
+    owner_for_post_review_item,
+    supplemental_objective,
+)
 from trinity.workflow.post_review_selection import (
     looks_like_post_review_selector,
     select_post_review_items,
@@ -113,3 +117,37 @@ def test_owner_for_post_review_item_falls_back_to_agents_and_codex():
 
     item.suggested_owner = ""
     assert owner_for_post_review_item(item, [], 0, lambda _: "") == "codex"
+
+
+def test_build_supplemental_work_package_maps_action_item_fields():
+    item = PostReviewActionItem(
+        id="AI-020",
+        source="final_review",
+        kind="bugfix",
+        severity="high",
+        title="Fix regression",
+        summary="Add regression coverage.",
+        rationale="Reviewer requested tests.",
+        related_wp_ids=["WP-001"],
+    )
+
+    package = build_supplemental_work_package(
+        item,
+        package_id="WP-S003",
+        owner="codex",
+        related_package_ids=["WP-001"],
+        supplemental_round=2,
+    )
+
+    assert package.id == "WP-S003"
+    assert package.title == "Fix regression"
+    assert package.owner_agent == "codex"
+    assert package.objective == supplemental_objective(item)
+    assert package.scope == ["Add regression coverage."]
+    assert package.dependencies == ["WP-001"]
+    assert package.acceptance_criteria == ["Add regression coverage."]
+    assert package.risk == "high"
+    assert package.origin == "post_review_followup"
+    assert package.origin_action_item_ids == ["AI-020"]
+    assert package.parent_package_ids == ["WP-001"]
+    assert package.supplemental_round == 2

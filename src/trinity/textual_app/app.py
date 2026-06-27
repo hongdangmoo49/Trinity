@@ -54,8 +54,8 @@ from trinity.textual_app.execute_commands import (
 from trinity.textual_app.help_commands import help_command_presentation
 from trinity.textual_app.history_commands import history_command_presentation
 from trinity.textual_app.improve_commands import (
-    improve_result_command_presentation,
-    improve_result_presentation,
+    ImproveCommandEffect,
+    improve_command_effect,
 )
 from trinity.textual_app.local_commands import (
     LocalCommandResultEffect,
@@ -2008,22 +2008,30 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         outcome = self.workflow_controller.request_improvement(args)
         outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
-        presentation = improve_result_presentation(message)
-        if presentation:
-            result_presentation = improve_result_command_presentation(
-                presentation,
-                outcome.snapshot,
-                lang=self.config.lang,
-            )
-            self._record_slash_command_result(
-                command_name,
-                result_presentation.title,
-                result_presentation.body,
-                severity=result_presentation.severity,
-                table_columns=result_presentation.table_columns,
-                table_rows=result_presentation.table_rows,
-                action_hint=result_presentation.action_hint,
-            )
+        effect = improve_command_effect(
+            message,
+            outcome.snapshot,
+            lang=self.config.lang,
+        )
+        self._apply_textual_improve_effect(command_name, effect)
+
+    def _apply_textual_improve_effect(
+        self,
+        command_name: str,
+        effect: ImproveCommandEffect,
+    ) -> None:
+        if effect.presentation is None:
+            return
+        presentation = effect.presentation
+        self._record_slash_command_result(
+            command_name,
+            presentation.title,
+            presentation.body,
+            severity=presentation.severity,
+            table_columns=presentation.table_columns,
+            table_rows=presentation.table_rows,
+            action_hint=presentation.action_hint,
+        )
 
     def _handle_textual_execute_command(
         self,

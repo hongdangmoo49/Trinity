@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 from trinity.textual_app.target_workspace import (
     absolute_path,
@@ -7,6 +8,8 @@ from trinity.textual_app.target_workspace import (
     prepare_target_workspace,
     resolve_target_path,
     safe_start_target_workspace,
+    workspace_preflight_continuation,
+    workspace_preflight_effect,
 )
 
 
@@ -105,6 +108,73 @@ def test_prepare_target_workspace_reports_os_error(tmp_path, monkeypatch) -> Non
     assert prepared.error == "os_error"
     assert prepared.resolved_path is None
     assert "permission denied" in prepared.message
+
+
+def test_workspace_preflight_continuation_uses_fresh_execution(tmp_path) -> None:
+    preflight = SimpleNamespace(path=tmp_path / "app")
+
+    continuation = workspace_preflight_continuation(
+        preflight,
+        control_repo_confirmed=True,
+    )
+
+    assert continuation.preflight is preflight
+    assert continuation.control_repo_confirmed is True
+    assert continuation.use_retry is False
+    assert continuation.retry_selector == ""
+    assert continuation.retry_package_ids == ()
+
+
+def test_workspace_preflight_continuation_captures_pending_retry(tmp_path) -> None:
+    preflight = SimpleNamespace(path=tmp_path / "app")
+    pending_retry = SimpleNamespace(
+        selector="failed",
+        package_ids=("WP-1", "WP-2"),
+    )
+
+    continuation = workspace_preflight_continuation(
+        preflight,
+        control_repo_confirmed=False,
+        pending_retry=pending_retry,
+    )
+
+    assert continuation.preflight is preflight
+    assert continuation.control_repo_confirmed is False
+    assert continuation.use_retry is True
+    assert continuation.retry_selector == "failed"
+    assert continuation.retry_package_ids == ("WP-1", "WP-2")
+
+
+def test_workspace_preflight_effect_prefers_execution_recovery(tmp_path) -> None:
+    preflight = SimpleNamespace(path=tmp_path / "app")
+    snapshot = SimpleNamespace(session_id="wf-1")
+    outcome = SimpleNamespace(
+        snapshot=snapshot,
+        message="Interrupted execution exists.",
+        execution_recovery_required=True,
+    )
+
+    effect = workspace_preflight_effect(preflight, outcome)
+
+    assert effect.execution_recovery_snapshot is snapshot
+    assert effect.execution_recovery_message == "Interrupted execution exists."
+    assert effect.show_execution is False
+
+
+def test_workspace_preflight_effect_shows_execution_route(tmp_path) -> None:
+    preflight = SimpleNamespace(path=tmp_path / "app")
+    snapshot = SimpleNamespace(session_id="wf-1")
+    outcome = SimpleNamespace(
+        snapshot=snapshot,
+        message="",
+        execution_recovery_required=False,
+    )
+
+    effect = workspace_preflight_effect(preflight, outcome)
+
+    assert effect.execution_preflight is preflight
+    assert effect.execution_snapshot is snapshot
+    assert effect.show_execution is True
 
 
 def test_absolute_path_tolerates_missing_path(tmp_path) -> None:

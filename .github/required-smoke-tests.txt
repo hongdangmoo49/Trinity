@@ -44,6 +44,7 @@ tests/test_textual_model_settings_commands.py
 tests/test_textual_packages_commands.py
 tests/test_textual_questions_commands.py
 tests/test_textual_report_commands.py
+tests/test_textual_report_export.py
 tests/test_textual_resume_commands.py
 tests/test_textual_review_commands.py
 tests/test_textual_rounds_commands.py

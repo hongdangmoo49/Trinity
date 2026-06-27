@@ -32,6 +32,14 @@ class ReviewCommandPresentation:
     action_hint: str
 
 
+@dataclass(frozen=True)
+class ReviewNotificationPresentation:
+    """Prepared notification for Execution Matrix review actions."""
+
+    body: str
+    severity: ReviewSeverity
+
+
 def review_result_presentation(
     message: str | None,
 ) -> ReviewResultPresentation | None:
@@ -62,4 +70,27 @@ def review_result_command_presentation(
         table_columns=textual_presenters.review_table_columns(lang=lang),
         table_rows=textual_presenters.review_rows(snapshot, lang=lang),
         action_hint=textual_presenters.review_action_hint(lang=lang),
+    )
+
+
+def review_matrix_notification_presentation(
+    message: str | None,
+    *,
+    lang: str = "en",
+) -> ReviewNotificationPresentation | None:
+    """Return notification presentation for Execution Matrix review requests."""
+    if not message:
+        return None
+    lowered = message.lower()
+    warning = (
+        message.startswith("No pending")
+        or "target workspace" in lowered
+        or "still running" in lowered
+    )
+    return ReviewNotificationPresentation(
+        body=textual_presenters.workflow_outcome_message_markdown(
+            message,
+            lang=lang,
+        ),
+        severity="warning" if warning else "info",
     )

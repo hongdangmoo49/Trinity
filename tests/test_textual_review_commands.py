@@ -1,4 +1,5 @@
 from trinity.textual_app.review_commands import (
+    review_matrix_notification_presentation,
     review_result_command_presentation,
     review_result_presentation,
 )
@@ -59,3 +60,47 @@ def test_review_result_command_presentation_builds_local_result() -> None:
     assert presentation.action_hint == (
         "Run `/review wp`, `/review final`, or `/review all`."
     )
+
+
+def test_review_matrix_notification_presentation_skips_empty_message() -> None:
+    assert review_matrix_notification_presentation(None) is None
+    assert review_matrix_notification_presentation("") is None
+
+
+def test_review_matrix_notification_presentation_warns_when_no_pending() -> None:
+    presentation = review_matrix_notification_presentation(
+        "No pending work packages are ready for review."
+    )
+
+    assert presentation is not None
+    assert presentation.body == "No pending work packages are ready for review."
+    assert presentation.severity == "warning"
+
+
+def test_review_matrix_notification_presentation_warns_for_workspace_message() -> None:
+    presentation = review_matrix_notification_presentation(
+        "Target workspace is required before review."
+    )
+
+    assert presentation is not None
+    assert presentation.severity == "warning"
+
+
+def test_review_matrix_notification_presentation_warns_when_still_running() -> None:
+    presentation = review_matrix_notification_presentation(
+        "Selected work package is still running."
+    )
+
+    assert presentation is not None
+    assert presentation.severity == "warning"
+
+
+def test_review_matrix_notification_presentation_keeps_info_message() -> None:
+    presentation = review_matrix_notification_presentation(
+        "Review requested for selected work packages.",
+        lang="ko",
+    )
+
+    assert presentation is not None
+    assert presentation.body == "Review requested for selected work packages."
+    assert presentation.severity == "info"

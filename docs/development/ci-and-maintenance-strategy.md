@@ -419,7 +419,8 @@ Archive only by bundle/date after these checks:
 - `docs/plans/completed-index.md` records the archive reason
 
 Current archived bundles include Textual presenters, Korean UX, render cache,
-UI label/status, execution/review feedback, fake-provider baseline, and
+Nexus runtime followups, UI label/status, execution/review feedback,
+fake-provider baseline, and
 post-review maintenance, Textual helper continuation, Workflow facade cleanup,
 and maintenance follow-up plans. Older architecture and migration plans remain
 in the root until their context is summarized separately.

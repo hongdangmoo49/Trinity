@@ -6,7 +6,7 @@ or deleting old implementation plans.
 
 ## Scope
 
-- Reviewed baseline: PR #90 through #540
+- Reviewed baseline: PR #90 through #552
 - Current index focus: completed one-PR plans from the Nexus/workflow/Textual
   cleanup runs, especially the dense 2026-06-25 through 2026-06-27 files.
 - This is not an active roadmap. Active roadmap items belong in
@@ -21,6 +21,7 @@ or deleting old implementation plans.
 | Execution UX and retry/review feedback | #109-#160 | execution, retry, review, provider metadata, report metadata plans | 2026-06-24 execution/review feedback plans archived after Nexus state contract |
 | Korean UX vocabulary stabilization | #161-#292 | 2026-06-24/25 `*i18n*`, `*-ko`, `*korean*`, status, placeholder, and term plans | Explicit i18n/ko/korean and 2026-06-25 UI label/status plans archived |
 | Nexus/Textual render cost reduction | #293-#391 | 2026-06-25 and 2026-06-26 cache/rebind/query plans | Explicit render cache/rebind/query plans archived after performance guidance |
+| Nexus execution/runtime followups | #109-#391 | 2026-06-25 central/provider activity, execution retry/summary/log, Nexus target gate, and workspace gitfile branch plans | Archived after render-cache, execution/review state, and target workspace contracts/tests |
 | Workflow flow decomposition | #392-#409 | 2026-06-26 `workflow-*`, `provider-*`, review/post-review flow plans | Keep as architecture trace; flow and provider readiness/recovery contract docs exist |
 | Textual presenter and wrapper removal | #410-#426 | 2026-06-26 `textual-*`, command parser, facade-thin plans | Ready for bundle archive after presenter contract docs exist |
 | CI maintenance strategy | #427 | `README.md`, this index, CI strategy doc | Active maintenance reference |
@@ -188,6 +189,22 @@ Representative files:
 - `2026-06-26-workflow-inspector-render-key-rebind.md`
 - `2026-06-26-prompt-composer-render-key-rebind.md`
 - `2026-06-26-workspace-picker-status-key-rebind.md`
+
+## Nexus Runtime Followup Plans
+
+These plans are completed execution-page runtime and activity-frame followups.
+Their active behavior is covered by the Nexus render-cache guidance, Nexus
+execution/review state contract, target workspace helpers, and required smoke
+tests.
+
+Archived bundle:
+
+- `docs/plans/archive/2026-06-25-nexus-runtime-followups/`
+
+The archived bundle contains the 2026-06-25 plans for central action render
+keys, central/provider running-only activity frames, Nexus activity target
+gating, execution log modal windowing, retry filter no-op handling, review
+summary counts, and `.git` file branch detection.
 
 ## Execution And Review Feedback Plans
 

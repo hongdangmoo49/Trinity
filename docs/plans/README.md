@@ -51,6 +51,7 @@ Current archived bundles:
 - `archive/2026-06-24-fake-provider-baseline/`
 - `archive/2026-06-24-25-korean-ux/`
 - `archive/2026-06-24-execution-review-feedback/`
+- `archive/2026-06-25-nexus-runtime-followups/`
 - `archive/2026-06-25-26-render-cache/`
 - `archive/2026-06-25-ui-label-status/`
 - `archive/2026-06-26-textual-presenters/`

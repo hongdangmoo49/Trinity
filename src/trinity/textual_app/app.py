@@ -15,7 +15,6 @@ from trinity.context.commands import engine_from_config
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import parse_execute_retry_args, parse_slash_command
 from trinity.textual_app.command_parsers import (
-    parse_answer_args,
     parse_execute_args,
     parse_report_args,
     parse_resume_args,
@@ -26,9 +25,8 @@ from trinity.textual_app.agent_commands import (
 )
 from trinity.textual_app.ask_commands import ask_command_action, run_ask_command
 from trinity.textual_app.answer_commands import (
-    answer_error_command_presentation,
-    answer_result_command_presentation,
-    answer_result_presentation,
+    answer_message_command_presentation,
+    run_answer_command,
 )
 from trinity.textual_app.artifact_commands import artifact_command_presentation
 from trinity.textual_app.caveman_commands import (
@@ -2663,40 +2661,30 @@ class TrinityTextualApp(App[None]):
             self._handle_textual_context_command("/context")
 
     def _handle_textual_answer_command(self, args: list[str]) -> None:
-        parsed = parse_answer_args(args, lang=self.config.lang)
-        if parsed.error:
-            presentation = answer_error_command_presentation(
-                parsed.error,
-                parsed.action_hint,
-                lang=self.config.lang,
-            )
+        run = run_answer_command(
+            args,
+            self.workflow_controller,
+            lang=self.config.lang,
+        )
+        if run.presentation:
             self._record_slash_command_result(
                 "/answer",
-                presentation.title,
-                presentation.body,
-                severity=presentation.severity,
-                empty=presentation.empty,
-                action_hint=presentation.action_hint,
+                run.presentation.title,
+                run.presentation.body,
+                severity=run.presentation.severity,
+                empty=run.presentation.empty,
+                action_hint=run.presentation.action_hint,
             )
             return
-        if parsed.option_index:
-            outcome = self.workflow_controller.answer_question_option(
-                parsed.option_index,
-                replace=parsed.replace,
-            )
-        else:
-            outcome = self.workflow_controller.answer_question(
-                parsed.question_selector,
-                parsed.answer,
-                replace=parsed.replace,
-            )
+        if run.outcome is None:
+            return
+        outcome = run.outcome
         outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
-        presentation = answer_result_presentation(message)
-        if presentation:
-            result_presentation = answer_result_command_presentation(
-                presentation,
-                lang=self.config.lang,
-            )
+        result_presentation = answer_message_command_presentation(
+            message,
+            lang=self.config.lang,
+        )
+        if result_presentation:
             self._record_slash_command_result(
                 "/answer",
                 result_presentation.title,

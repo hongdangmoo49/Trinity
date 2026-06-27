@@ -39,6 +39,7 @@ tests/test_textual_history_commands.py
 tests/test_textual_improve_commands.py
 tests/test_textual_local_commands.py
 tests/test_textual_memory_commands.py
+tests/test_textual_model_discovery.py
 tests/test_textual_model_settings_commands.py
 tests/test_textual_packages_commands.py
 tests/test_textual_questions_commands.py

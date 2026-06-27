@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import replace
 from inspect import Parameter, signature
 from pathlib import Path
@@ -13,10 +12,7 @@ from textual.binding import Binding
 from trinity import __version__
 from trinity.config import TrinityConfig
 from trinity.context.commands import engine_from_config
-from trinity.providers.model_discovery import (
-    ProviderModelChoice,
-    discover_provider_models,
-)
+from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import parse_execute_retry_args, parse_slash_command
 from trinity.textual_app.command_parsers import (
     parse_agent_args,
@@ -67,6 +63,10 @@ from trinity.textual_app.local_commands import (
     snapshot_with_local_command_results,
 )
 from trinity.textual_app.memory_commands import memory_command_presentation
+from trinity.textual_app.model_discovery import (
+    iter_discovered_agent_model_choices,
+    merge_discovered_model_choices,
+)
 from trinity.textual_app.model_settings_commands import (
     model_settings_unavailable_notification,
     model_settings_updated_notification,
@@ -1263,45 +1263,23 @@ class TrinityTextualApp(App[None]):
         )
 
     def _discover_provider_models(self, *, use_cache: bool = True) -> None:
-        agent_specs = list(self.config.agents.items())
-        if not agent_specs:
-            return
-
-        max_workers = min(len(agent_specs), 8)
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {
-                executor.submit(
-                    discover_provider_models,
-                    spec.provider,
-                    spec.cli_command,
-                    timeout_seconds=10.0,
-                    use_cache=use_cache,
-                ): name
-                for name, spec in agent_specs
-            }
-            for future in as_completed(futures):
-                name = futures[future]
-                try:
-                    choices = future.result()
-                except Exception:
-                    choices = []
-                if choices:
-                    self.call_from_thread(
-                        self._apply_discovered_model_choices,
-                        {name: tuple(choices)},
-                    )
+        for name, choices in iter_discovered_agent_model_choices(
+            self.config.agents.items(),
+            use_cache=use_cache,
+        ):
+            self.call_from_thread(
+                self._apply_discovered_model_choices,
+                {name: choices},
+            )
 
     def _apply_discovered_model_choices(
         self,
         choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]],
     ) -> None:
-        changed_choices: dict[str, tuple[ProviderModelChoice, ...]] = {}
-        for name, choices in choices_by_agent.items():
-            next_choices = tuple(choices)
-            if self._agent_model_choices.get(name, ()) == next_choices:
-                continue
-            self._agent_model_choices[name] = next_choices
-            changed_choices[name] = next_choices
+        changed_choices = merge_discovered_model_choices(
+            self._agent_model_choices,
+            choices_by_agent,
+        )
         if not changed_choices:
             return
         for screen_name, screen_type in (

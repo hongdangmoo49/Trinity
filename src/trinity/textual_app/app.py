@@ -16,7 +16,6 @@ from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import parse_execute_retry_args, parse_slash_command
 from trinity.textual_app.command_parsers import (
     parse_execute_args,
-    parse_report_args,
     parse_resume_args,
 )
 from trinity.textual_app.agent_commands import (
@@ -66,10 +65,10 @@ from trinity.textual_app.report_export import (
     export_report_markdown,
 )
 from trinity.textual_app.report_commands import (
+    ReportCommandPresentation,
+    report_command_presentation,
     report_export_complete_notification,
     report_export_unavailable_notification,
-    report_open_presentation,
-    report_save_presentation,
 )
 from trinity.textual_app.report_route import prepare_report_route
 from trinity.textual_app.resume_commands import (
@@ -2333,27 +2332,20 @@ class TrinityTextualApp(App[None]):
 
     def _handle_textual_report_command(self, args: list[str]) -> None:
         snapshot = self._refresh_textual_snapshot()
-        lang = self.config.lang
-        parsed = parse_report_args(args)
-        if parsed.action == "save":
-            presentation = report_save_presentation(
-                self._export_report_markdown(snapshot),
-                lang=lang,
-            )
-            self._record_slash_command_result(
-                "/report",
-                presentation.title,
-                presentation.body,
-                severity=presentation.severity,
-                result_kind=presentation.result_kind,
-                empty=presentation.empty,
-                action_hint=presentation.action_hint,
-                table_columns=presentation.table_columns,
-                table_rows=presentation.table_rows,
-                start_modal=presentation.start_modal,
-            )
-            return
-        presentation = report_open_presentation(snapshot, lang=lang)
+        presentation = report_command_presentation(
+            args,
+            snapshot,
+            self._export_report_markdown,
+            lang=self.config.lang,
+        )
+        self._record_report_command_presentation(presentation)
+        if presentation.switch_to_report:
+            self.switch_to("report")
+
+    def _record_report_command_presentation(
+        self,
+        presentation: ReportCommandPresentation,
+    ) -> None:
         self._record_slash_command_result(
             "/report",
             presentation.title,
@@ -2366,8 +2358,6 @@ class TrinityTextualApp(App[None]):
             table_rows=presentation.table_rows,
             start_modal=presentation.start_modal,
         )
-        if presentation.switch_to_report:
-            self.switch_to("report")
 
     def _handle_textual_rounds_command(
         self,

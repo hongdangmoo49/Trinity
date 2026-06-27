@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from trinity.textual_app.report_commands import (
+    report_command_presentation,
     report_export_complete_notification,
     report_export_unavailable_notification,
     report_open_presentation,
@@ -48,6 +49,37 @@ def test_report_open_presentation_switches_to_report_for_data() -> None:
     assert presentation.start_modal is False
     assert presentation.switch_to_report is True
     assert ("Workflow", "wf-1") in presentation.table_rows
+
+
+def test_report_command_presentation_routes_save_to_exporter() -> None:
+    calls: list[WorkflowNexusSnapshot] = []
+    snapshot = WorkflowNexusSnapshot(session_id="wf-1", goal="ship it")
+    path = Path("/tmp/report.md")
+
+    def export_report(value: WorkflowNexusSnapshot) -> Path:
+        calls.append(value)
+        return path
+
+    presentation = report_command_presentation(["save"], snapshot, export_report)
+
+    assert calls == [snapshot]
+    assert presentation.body == f"Report saved: `{path}`"
+    assert presentation.result_kind == "path"
+
+
+def test_report_command_presentation_routes_open_without_exporting() -> None:
+    calls: list[WorkflowNexusSnapshot] = []
+    snapshot = WorkflowNexusSnapshot(session_id="wf-1", goal="ship it")
+
+    def export_report(value: WorkflowNexusSnapshot) -> Path | None:
+        calls.append(value)
+        return Path("/tmp/report.md")
+
+    presentation = report_command_presentation([], snapshot, export_report)
+
+    assert calls == []
+    assert presentation.switch_to_report is True
+    assert presentation.body == "Report screen opened."
 
 
 def test_report_export_unavailable_notification_marks_warning() -> None:

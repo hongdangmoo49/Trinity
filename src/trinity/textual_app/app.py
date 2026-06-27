@@ -96,6 +96,7 @@ from trinity.textual_app.route_snapshot import (
     apply_current_route_snapshot,
 )
 from trinity.textual_app.review_commands import (
+    review_matrix_notification_presentation,
     review_result_command_presentation,
     review_result_presentation,
 )
@@ -1488,19 +1489,14 @@ class TrinityTextualApp(App[None]):
         args = ("wp", *event.package_ids)
         outcome = self.workflow_controller.request_review(args)
         outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
-        if message:
+        presentation = review_matrix_notification_presentation(
+            message,
+            lang=self.config.lang,
+        )
+        if presentation:
             self.notify(
-                textual_presenters.workflow_outcome_message_markdown(
-                    message,
-                    lang=self.config.lang,
-                ),
-                severity=(
-                    "warning"
-                    if message.startswith("No pending")
-                    or "target workspace" in message.lower()
-                    or "still running" in message.lower()
-                    else "info"
-                ),
+                presentation.body,
+                severity=presentation.severity,
             )
 
     def on_nexus_screen_repair_action_requested(

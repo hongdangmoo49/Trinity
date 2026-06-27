@@ -1729,7 +1729,7 @@ def test_model_discovery_applies_fast_provider_before_slow_provider(
         applied.extend(choices_by_agent)
         callback(choices_by_agent)
 
-    monkeypatch.setattr("trinity.textual_app.app.discover_provider_models", fake_discover)
+    monkeypatch.setattr("trinity.textual_app.model_discovery.discover_provider_models", fake_discover)
     monkeypatch.setattr(app, "call_from_thread", direct_call)
     monkeypatch.setattr(
         app,

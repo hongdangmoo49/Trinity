@@ -37,6 +37,11 @@ from trinity.textual_app.agent_commands import (
 )
 from trinity.textual_app.answer_commands import answer_result_presentation
 from trinity.textual_app.artifact_commands import artifact_command_presentation
+from trinity.textual_app.caveman_commands import (
+    caveman_current_presentation,
+    caveman_error_presentation,
+    caveman_set_presentation,
+)
 from trinity.textual_app.context_commands import context_command_presentation
 from trinity.textual_app.decisions_commands import decisions_command_presentation
 from trinity.textual_app.history_commands import history_command_presentation
@@ -2504,37 +2509,33 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         if not args:
             mode = "on" if self.config.caveman_mode else "off"
+            presentation = caveman_current_presentation(
+                mode,
+                self.config.caveman_intensity,
+                lang=self.config.lang,
+            )
             self._record_slash_command_result(
                 command_name,
-                textual_presenters.caveman_title(lang=self.config.lang),
-                textual_presenters.session_setting_body(
-                    textual_presenters.caveman_current_markdown(
-                        mode,
-                        self.config.caveman_intensity,
-                        lang=self.config.lang,
-                    )
-                ),
-                table_columns=textual_presenters.status_table_columns(
-                    lang=self.config.lang
-                ),
-                table_rows=textual_presenters.caveman_rows(
-                    mode,
-                    self.config.caveman_intensity,
-                    lang=self.config.lang,
-                ),
-                action_hint=textual_presenters.caveman_change_action_hint(
-                    lang=self.config.lang
-                ),
+                presentation.title,
+                presentation.body,
+                table_columns=presentation.table_columns,
+                table_rows=presentation.table_rows,
+                action_hint=presentation.action_hint,
             )
             return
         parsed = parse_caveman_args(args, lang=self.config.lang)
         if parsed.error:
+            presentation = caveman_error_presentation(
+                parsed.error,
+                parsed.action_hint,
+                lang=self.config.lang,
+            )
             self._record_slash_command_result(
                 command_name,
-                textual_presenters.caveman_title(lang=self.config.lang),
-                parsed.error,
-                severity="warning",
-                action_hint=parsed.action_hint,
+                presentation.title,
+                presentation.body,
+                severity=presentation.severity,
+                action_hint=presentation.action_hint,
             )
             return
         if parsed.enabled is not None:
@@ -2542,22 +2543,17 @@ class TrinityTextualApp(App[None]):
         if parsed.intensity:
             self.config.caveman_intensity = parsed.intensity
         mode = "on" if self.config.caveman_mode else "off"
+        presentation = caveman_set_presentation(
+            mode,
+            self.config.caveman_intensity,
+            lang=self.config.lang,
+        )
         self._record_slash_command_result(
             command_name,
-            textual_presenters.caveman_title(lang=self.config.lang),
-            textual_presenters.session_setting_body(
-                textual_presenters.caveman_set_markdown(
-                    mode,
-                    self.config.caveman_intensity,
-                    lang=self.config.lang,
-                )
-            ),
-            table_columns=textual_presenters.status_table_columns(lang=self.config.lang),
-            table_rows=textual_presenters.caveman_rows(
-                mode,
-                self.config.caveman_intensity,
-                lang=self.config.lang,
-            ),
+            presentation.title,
+            presentation.body,
+            table_columns=presentation.table_columns,
+            table_rows=presentation.table_rows,
         )
 
     def _handle_textual_target_command(self, args: list[str]) -> None:

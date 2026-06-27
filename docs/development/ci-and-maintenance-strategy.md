@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.444`
-- Merged PR range reviewed: #90 through #540
+- Package version inspected: `1.0.452`
+- Merged PR range reviewed: #90 through #548
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #540
-- Latest refresh reviewed: #487 through #540
+- Maintenance refresh reviewed: #427 through #548
+- Latest refresh reviewed: #541 through #548
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/publish-pypi.yml`
@@ -196,11 +196,34 @@ and what the next release train should optimize.
 - Raised the package version from `1.0.389` to `1.0.443` across these focused
   patch PRs.
 
+### #541-#544: Maintenance Strategy and 2026-06-27 Plan Archive Closure
+
+- Refreshed this strategy through #540 and recorded the Textual helper,
+  Workflow facade cleanup, post-review, render-window, and smoke-runner bundles.
+- Archived the completed 2026-06-27 Textual helper and Workflow facade cleanup
+  plan bundles.
+- Archived the remaining 2026-06-27 maintenance follow-up plans so root
+  `docs/plans/` no longer contains dense one-PR plans from that day.
+
+### #545-#548: CI Fast Path and Repository Hygiene
+
+- Added `scripts/classify_ci_change.py` so PR CI can distinguish
+  `docs_version_only` changes from changes that require the full required smoke
+  pytest run.
+- Kept wheel build and installed console-script smoke on the docs/version-only
+  fast path while skipping only the pytest required smoke step.
+- Verified the fast path with docs/version-only archive PRs where `Run required
+  smoke tests` was skipped and `Validate docs/version-only fast path` passed.
+- Added repository hygiene coverage to fail if Python bytecode, pytest cache,
+  ruff cache, or `__pycache__` paths become tracked.
+- Raised the package version from `1.0.443` to `1.0.451` across these focused
+  patch PRs.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
-`docs/plans/` still contains older architecture, migration, and 2026-06-27
-mechanical refactor plans; archive only the groups that have a current contract
-document, merged PR evidence, and focused test coverage.
+`docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
+and migration plans remain in the root; archive only the groups that have a
+current contract document, merged PR evidence, and focused test coverage.
 
 ## Main Structure
 
@@ -380,8 +403,9 @@ Archive only by bundle/date after these checks:
 
 Current archived bundles include Textual presenters, Korean UX, render cache,
 UI label/status, execution/review feedback, fake-provider baseline, and
-post-review maintenance plans. Older architecture and migration plans remain in
-the root until their context is summarized separately.
+post-review maintenance, Textual helper continuation, Workflow facade cleanup,
+and maintenance follow-up plans. Older architecture and migration plans remain
+in the root until their context is summarized separately.
 
 ### Facade Drift
 
@@ -391,7 +415,7 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #540:
+Current main snapshot after #548:
 
 - `src/trinity/textual_app/app.py`: 3,091 lines
 - `src/trinity/workflow/engine.py`: 625 lines
@@ -454,6 +478,11 @@ Current guidance: `docs/development/nexus-render-cache-guidelines.md`.
 - Maintain the fake-provider E2E path that exercises CLI init, provider
   readiness, workflow execution, retry decision, and report output without real
   accounts.
+- Keep using the docs/version-only CI fast path for plan/archive/version-only
+  PRs and required smoke for code, test, workflow, dependency, and non-version
+  metadata changes.
+- Keep repository hygiene in required smoke so generated Python/cache artifacts
+  do not re-enter tracked files.
 
 ### Next Major
 

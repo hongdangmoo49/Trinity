@@ -41,6 +41,7 @@ tests/test_textual_resume_commands.py
 tests/test_textual_review_commands.py
 tests/test_textual_save_commands.py
 tests/test_textual_slash_command_router.py
+tests/test_textual_status_commands.py
 tests/test_textual_subtasks_commands.py
 tests/test_textual_target_workspace.py
 tests/test_textual_workflow_commands.py

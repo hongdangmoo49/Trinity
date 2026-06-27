@@ -139,10 +139,14 @@ from trinity.textual_app.snapshot_source import (
     fresh_textual_snapshot,
 )
 from trinity.textual_app.target_workspace import (
+    WorkspacePreflightContinuation,
+    WorkspacePreflightEffect,
     default_launch_cwd,
     is_control_repo_target,
     prepare_target_workspace,
     safe_start_target_workspace,
+    workspace_preflight_continuation,
+    workspace_preflight_effect,
 )
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.workflow_controller import (
@@ -1664,30 +1668,53 @@ class TrinityTextualApp(App[None]):
         *,
         control_repo_confirmed: bool,
     ) -> None:
-        self.confirmed_preflight = preflight
+        continuation = workspace_preflight_continuation(
+            preflight,
+            control_repo_confirmed=control_repo_confirmed,
+            pending_retry=self._pending_execute_retry,
+        )
+        self._pending_execute_retry = None
+        self._continue_workspace_preflight_plan(continuation)
+
+    def _continue_workspace_preflight_plan(
+        self,
+        continuation: WorkspacePreflightContinuation,
+    ) -> None:
+        preflight = continuation.preflight
+        self.confirmed_preflight = continuation.preflight
         self.workflow_controller.set_target_workspace(
             preflight.path,
-            control_repo_confirmed=control_repo_confirmed,
+            control_repo_confirmed=continuation.control_repo_confirmed,
         )
-        pending_retry = self._pending_execute_retry
-        self._pending_execute_retry = None
-        if pending_retry is not None:
+        if continuation.use_retry:
             outcome = self.workflow_controller.confirm_execution_retry(
-                pending_retry.selector,
-                list(pending_retry.package_ids),
+                continuation.retry_selector,
+                list(continuation.retry_package_ids),
             )
         else:
             outcome = self.workflow_controller.request_execution()
         self._apply_workflow_outcome(outcome)
-        if outcome.execution_recovery_required:
+        self._apply_workspace_preflight_effect(
+            workspace_preflight_effect(preflight, outcome)
+        )
+
+    def _apply_workspace_preflight_effect(
+        self,
+        effect: WorkspacePreflightEffect,
+    ) -> None:
+        if effect.execution_recovery_snapshot is not None:
             self._present_execution_recovery(
                 "/execute",
-                outcome.snapshot,
-                outcome.message,
+                effect.execution_recovery_snapshot,
+                effect.execution_recovery_message,
             )
             return
-        self._apply_execution_screen_state(preflight, outcome.snapshot)
-        self.switch_to("execution")
+        if effect.show_execution:
+            self._apply_execution_screen_state(
+                effect.execution_preflight,
+                effect.execution_snapshot,
+            )
+            self.switch_to("execution")
 
     def _ensure_workflow_polling(self) -> None:
         if self._workflow_polling_started:

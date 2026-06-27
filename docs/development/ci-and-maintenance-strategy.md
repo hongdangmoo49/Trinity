@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.624`
-- Merged PR range reviewed: #90 through #720
+- Package version inspected: `1.0.626`
+- Merged PR range reviewed: #90 through #722
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #720
-- Latest refresh reviewed: #720
+- Maintenance refresh reviewed: #427 through #722
+- Latest refresh reviewed: #722
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1161,6 +1161,15 @@ and what the next release train should optimize.
   local command, and retry state initialization unchanged.
 - Removed the last 18-line-or-larger method from `textual_app/app.py`.
 - Raised the package version from `1.0.622` to `1.0.623` in this patch PR.
+
+### #722: Textual Slash Command Presentation Protocol
+
+- Added `SlashCommandPresentationPayload` in `textual_app/app.py` to document
+  the minimum payload contract for local slash command presentation recording.
+- Narrowed `_record_slash_command_presentation` from `Any` to the new protocol
+  while preserving optional field fallback behavior.
+- Kept slash/local command recording and notification behavior unchanged.
+- Raised the package version from `1.0.624` to `1.0.625` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.582`
-- Merged PR range reviewed: #90 through #678
+- Package version inspected: `1.0.584`
+- Merged PR range reviewed: #90 through #680
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #678
-- Latest refresh reviewed: #678
+- Maintenance refresh reviewed: #427 through #680
+- Latest refresh reviewed: #680
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -957,6 +957,14 @@ and what the next release train should optimize.
   workflow behavior unchanged.
 - Reduced `_apply_textual_execute_effect` from 23 lines to 10 lines.
 - Raised the package version from `1.0.580` to `1.0.581` in this patch PR.
+
+### #680: Textual Review Repair Action Apply Helpers
+
+- Split Nexus review repair action application in `textual_app/app.py` from
+  action normalization into focused apply helpers.
+- Kept open review, retry once, mark done, and stop behavior unchanged.
+- Reduced `_handle_review_repair_action` from 23 lines to 8 lines.
+- Raised the package version from `1.0.582` to `1.0.583` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

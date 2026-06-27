@@ -2970,28 +2970,42 @@ class TrinityTextualApp(App[None]):
             nexus.advance_activity_frame()
 
     def switch_to(self, route: WorkbenchRoute) -> None:
-        if route == "report" and self._screens_installed:
-            report = self.get_screen("report", ReportScreen)
-            prepare_report_route(
-                report,
-                self.active_snapshot or self.snapshot_adapter.load_snapshot(),
-                state_dir=self.config.effective_state_dir,
-                event_limit=WORKFLOW_EVENT_DISPLAY_LIMIT,
-                structured_snapshot=self.active_snapshot,
-            )
-        if route == "execution" and self._screens_installed:
-            apply_current_route_snapshot(
-                self,
-                route,
-                self.active_snapshot
-                or self.workflow_controller.snapshot()
-                or self.snapshot_adapter.load_snapshot(),
-                confirmed_preflight=self.confirmed_preflight,
-                sync_nexus_workspace_candidate=self._sync_nexus_workspace_candidate,
-                require_execution_preflight=False,
-            )
+        self._prepare_route_switch(route)
         self.current_route = route
         self.switch_screen(route)
+        self._schedule_route_refresh_after_switch(route)
+
+    def _prepare_route_switch(self, route: WorkbenchRoute) -> None:
+        if not self._screens_installed:
+            return
+        if route == "report":
+            self._prepare_report_route()
+        if route == "execution":
+            self._prepare_execution_route()
+
+    def _prepare_report_route(self) -> None:
+        report = self.get_screen("report", ReportScreen)
+        prepare_report_route(
+            report,
+            self.active_snapshot or self.snapshot_adapter.load_snapshot(),
+            state_dir=self.config.effective_state_dir,
+            event_limit=WORKFLOW_EVENT_DISPLAY_LIMIT,
+            structured_snapshot=self.active_snapshot,
+        )
+
+    def _prepare_execution_route(self) -> None:
+        apply_current_route_snapshot(
+            self,
+            "execution",
+            self.active_snapshot
+            or self.workflow_controller.snapshot()
+            or self.snapshot_adapter.load_snapshot(),
+            confirmed_preflight=self.confirmed_preflight,
+            sync_nexus_workspace_candidate=self._sync_nexus_workspace_candidate,
+            require_execution_preflight=False,
+        )
+
+    def _schedule_route_refresh_after_switch(self, route: WorkbenchRoute) -> None:
         if route == "nexus" or self.active_snapshot is not None:
             self.call_after_refresh(self._refresh_current_route_from_active_snapshot)
 

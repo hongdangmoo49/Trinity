@@ -35,6 +35,7 @@ tests/test_textual_memory_commands.py
 tests/test_textual_report_commands.py
 tests/test_textual_resume_commands.py
 tests/test_textual_review_commands.py
+tests/test_textual_save_commands.py
 tests/test_textual_slash_command_router.py
 tests/test_textual_target_workspace.py
 tests/test_textual_workflow_controller.py

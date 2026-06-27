@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.614`
-- Merged PR range reviewed: #90 through #710
+- Package version inspected: `1.0.616`
+- Merged PR range reviewed: #90 through #712
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #710
-- Latest refresh reviewed: #710
+- Maintenance refresh reviewed: #427 through #712
+- Latest refresh reviewed: #712
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1112,6 +1112,15 @@ and what the next release train should optimize.
   workspace candidate updates, and target command recording behavior unchanged.
 - Reduced `_apply_textual_target_workspace` from 19 lines to 12 lines.
 - Raised the package version from `1.0.612` to `1.0.613` in this patch PR.
+
+### #712: Textual Local Command Result Effect Helper
+
+- Split local command result effect construction in `textual_app/app.py` into
+  `_build_local_command_result_effect`.
+- Kept local command event persistence, modal display, route snapshot updates,
+  workflow outcome application, and notifications unchanged.
+- Reduced `_present_local_command_result` from 18 lines to 15 lines.
+- Raised the package version from `1.0.614` to `1.0.615` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
-from trinity.workflow.models import PostReviewActionItem
+from trinity.workflow.models import PostReviewActionItem, WorkPackage, WorkStatus
 
 RelatedOwnerLookup = Callable[[str], str]
 
@@ -26,3 +26,48 @@ def owner_for_post_review_item(
     if agents:
         return agents[index % len(agents)]
     return item.suggested_owner or "codex"
+
+
+def build_supplemental_work_package(
+    item: PostReviewActionItem,
+    *,
+    package_id: str,
+    owner: str,
+    related_package_ids: Sequence[str],
+    supplemental_round: int,
+) -> WorkPackage:
+    """Build a supplemental work package for a post-review action item."""
+    related = list(related_package_ids)
+    return WorkPackage(
+        id=package_id,
+        title=item.title or f"Post-review follow-up {item.id}",
+        owner_agent=owner,
+        objective=supplemental_objective(item),
+        scope=[item.summary] if item.summary else [],
+        dependencies=related,
+        acceptance_criteria=[
+            item.summary or item.title or f"Complete action item {item.id}."
+        ],
+        status=WorkStatus.PENDING,
+        requires_execution=True,
+        risk=item.severity or "medium",
+        origin="post_review_followup",
+        origin_action_item_ids=[item.id],
+        parent_package_ids=related,
+        supplemental_round=supplemental_round,
+    )
+
+
+def supplemental_objective(item: PostReviewActionItem) -> str:
+    """Return the objective text for a supplemental work package."""
+    parts = [
+        f"Post-review action item {item.id}: {item.summary}",
+        f"Source: {item.source}",
+        f"Kind: {item.kind}",
+        f"Severity: {item.severity}",
+    ]
+    if item.rationale:
+        parts.append(f"Rationale: {item.rationale}")
+    if item.related_wp_ids:
+        parts.append(f"Related work packages: {', '.join(item.related_wp_ids)}")
+    return "\n".join(parts)

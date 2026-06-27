@@ -263,6 +263,7 @@ change crosses module boundaries or before release/version bumps.
 Pull requests should run the required smoke set only:
 
 ```bash
+uv run python scripts/run_required_smoke_tests.py --list
 uv run python scripts/run_required_smoke_tests.py -q
 ```
 

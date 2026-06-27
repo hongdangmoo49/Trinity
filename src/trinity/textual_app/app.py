@@ -2633,13 +2633,22 @@ class TrinityTextualApp(App[None]):
             self._record_target_command_presentation(effect.presentation)
             return
         if effect.action == "clear":
-            outcome = self.workflow_controller.clear_target_workspace()
-            self.confirmed_preflight = None
-            self._apply_workflow_outcome(outcome)
-            self._record_target_command_presentation(
-                target_cleared_presentation(lang=self.config.lang)
-            )
+            self._clear_textual_target_workspace()
             return
+        self._apply_textual_target_path_action(effect)
+
+    def _clear_textual_target_workspace(self) -> None:
+        outcome = self.workflow_controller.clear_target_workspace()
+        self.confirmed_preflight = None
+        self._apply_workflow_outcome(outcome)
+        self._record_target_command_presentation(
+            target_cleared_presentation(lang=self.config.lang)
+        )
+
+    def _apply_textual_target_path_action(
+        self,
+        effect: TargetCommandEffect,
+    ) -> None:
         if effect.path is None:
             return
         if effect.action == "confirm":

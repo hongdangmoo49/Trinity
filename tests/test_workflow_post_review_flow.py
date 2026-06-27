@@ -7,6 +7,7 @@ from trinity.workflow.execution_review_flow import (
 )
 from trinity.workflow.models import PostReviewActionItem, PostReviewActionStatus
 from trinity.workflow.post_review_flow import WorkflowPostReviewFlow
+from trinity.workflow.post_review_assignment import owner_for_post_review_item
 from trinity.workflow.post_review_selection import (
     looks_like_post_review_selector,
     select_post_review_items,
@@ -60,3 +61,55 @@ def test_looks_like_post_review_selector_distinguishes_free_text():
     assert looks_like_post_review_selector("high AI-001")
     assert looks_like_post_review_selector("전체")
     assert not looks_like_post_review_selector("add another regression test")
+
+
+def test_owner_for_post_review_item_prefers_suggested_and_related_owner():
+    item = PostReviewActionItem(
+        id="AI-010",
+        source="wp_review",
+        kind="bugfix",
+        severity="high",
+        title="Fix review",
+        summary="Fix review",
+        related_wp_ids=["WP-001"],
+        suggested_owner="claude",
+    )
+
+    assert (
+        owner_for_post_review_item(
+            item,
+            ["codex", "claude"],
+            0,
+            lambda package_id: "codex" if package_id == "WP-001" else "",
+        )
+        == "claude"
+    )
+
+    item.suggested_owner = "missing"
+    assert (
+        owner_for_post_review_item(
+            item,
+            ["codex", "claude"],
+            0,
+            lambda package_id: "codex" if package_id == "WP-001" else "",
+        )
+        == "codex"
+    )
+
+
+def test_owner_for_post_review_item_falls_back_to_agents_and_codex():
+    item = PostReviewActionItem(
+        id="AI-011",
+        source="final_review",
+        kind="validation",
+        severity="medium",
+        title="Validate",
+        summary="Validate",
+        suggested_owner="claude",
+    )
+
+    assert owner_for_post_review_item(item, ["codex", "agy"], 3, lambda _: "") == "agy"
+    assert owner_for_post_review_item(item, [], 0, lambda _: "") == "claude"
+
+    item.suggested_owner = ""
+    assert owner_for_post_review_item(item, [], 0, lambda _: "") == "codex"

@@ -24,6 +24,7 @@ from trinity.workflow.post_review_selection import (
     looks_like_post_review_selector,
     select_post_review_items,
 )
+from trinity.workflow.post_review_assignment import owner_for_post_review_item
 
 
 class WorkflowPostReviewFlow:
@@ -470,16 +471,12 @@ class WorkflowPostReviewFlow:
         active_agents: list[str],
         index: int,
     ) -> str:
-        agents = [agent for agent in active_agents if agent]
-        if item.suggested_owner and (not agents or item.suggested_owner in agents):
-            return item.suggested_owner
-        for package_id in item.related_wp_ids:
-            owner = self._owner_for_related_package(package_id)
-            if owner and (not agents or owner in agents):
-                return owner
-        if agents:
-            return agents[index % len(agents)]
-        return item.suggested_owner or "codex"
+        return owner_for_post_review_item(
+            item,
+            active_agents,
+            index,
+            self._owner_for_related_package,
+        )
 
     def _owner_for_related_package(self, package_id: str) -> str:
         package = self.engine._collection_flow().work_package_by_id(package_id)

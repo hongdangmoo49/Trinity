@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.590`
-- Merged PR range reviewed: #90 through #686
+- Package version inspected: `1.0.592`
+- Merged PR range reviewed: #90 through #688
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #686
-- Latest refresh reviewed: #686
+- Maintenance refresh reviewed: #427 through #688
+- Latest refresh reviewed: #688
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -995,6 +995,15 @@ and what the next release train should optimize.
   and polling behavior unchanged.
 - Reduced `_apply_workflow_outcome` from 22 lines to 6 lines.
 - Raised the package version from `1.0.588` to `1.0.589` in this patch PR.
+
+### #688: Textual Questions Command Apply Helper
+
+- Split `/questions` argument interpretation from `textual_app/app.py` into
+  `textual_app/questions_commands.py`.
+- Added helpers for `--select`/`-s` detection and argument-driven presentation
+  creation.
+- Reduced `_handle_textual_questions_command` from 21 lines to 12 lines.
+- Raised the package version from `1.0.590` to `1.0.591` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.564`
-- Merged PR range reviewed: #90 through #660
+- Package version inspected: `1.0.566`
+- Merged PR range reviewed: #90 through #662
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #660
-- Latest refresh reviewed: #660
+- Maintenance refresh reviewed: #427 through #662
+- Latest refresh reviewed: #662
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -859,6 +859,17 @@ and what the next release train should optimize.
   local command recording in the app facade.
 - Reduced `_apply_textual_target_workspace` from 28 lines to 19 lines.
 - Raised the package version from `1.0.562` to `1.0.563` in this patch PR.
+
+### #662: Textual Target Command Effect Helper
+
+- Split `/target` command action-to-app-effect derivation from
+  `textual_app/app.py` into `textual_app/target_commands.py`.
+- Added `TargetCommandEffect` and `target_command_effect` so record, clear,
+  confirm, set, and no-op paths are testable without the Textual app.
+- Kept current target lookup, controller mutation, confirmation modal routing,
+  and workspace preparation side effects in the app facade.
+- Reduced `_handle_textual_target_command` from 26 lines to 10 lines.
+- Raised the package version from `1.0.564` to `1.0.565` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.584`
-- Merged PR range reviewed: #90 through #680
+- Package version inspected: `1.0.586`
+- Merged PR range reviewed: #90 through #682
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #680
-- Latest refresh reviewed: #680
+- Maintenance refresh reviewed: #427 through #682
+- Latest refresh reviewed: #682
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -965,6 +965,15 @@ and what the next release train should optimize.
 - Kept open review, retry once, mark done, and stop behavior unchanged.
 - Reduced `_handle_review_repair_action` from 23 lines to 8 lines.
 - Raised the package version from `1.0.582` to `1.0.583` in this patch PR.
+
+### #682: Textual Target Workspace Apply Helpers
+
+- Split target workspace preparation handling in `textual_app/app.py` from
+  concrete workspace application.
+- Added focused helpers for preparation warning recording and resolved path
+  application.
+- Reduced `_set_textual_target_workspace` from 22 lines to 10 lines.
+- Raised the package version from `1.0.584` to `1.0.585` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

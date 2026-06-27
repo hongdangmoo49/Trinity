@@ -169,6 +169,7 @@ from trinity.textual_app.workflow_commands import (
     workflow_command_presentation,
     workflow_outcome_notification_body,
 )
+from trinity.textual_app.workbench_screens import workbench_screen_specs
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
     AgentRecipientModelSelector,
 )
@@ -1230,21 +1231,12 @@ class TrinityTextualApp(App[None]):
         if self._screens_installed:
             return
 
-        self.install_screen(
-            StartScreen(
-                self.config,
-                self.workspace_candidate,
-                lang=self.config.lang,
-            ),
-            "start",
-        )
-        self.install_screen(NexusScreen(self.config), "nexus")
-        self.install_screen(
-            SettingsScreen(self.settings_store, self.config, lang=self.config.lang),
-            "settings",
-        )
-        self.install_screen(ExecutionMatrixScreen(lang=self.config.lang), "execution")
-        self.install_screen(ReportScreen(lang=self.config.lang), "report")
+        for spec in workbench_screen_specs(
+            self.config,
+            self.settings_store,
+            self.workspace_candidate,
+        ):
+            self.install_screen(spec.screen, spec.route)
 
         self._screens_installed = True
         self._sync_nexus_workspace_candidate()

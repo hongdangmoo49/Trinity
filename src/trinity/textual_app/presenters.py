@@ -911,7 +911,7 @@ def snapshot_status_rows(
 def readiness_label(readiness: str, *, lang: str = "en") -> str:
     if readiness == "unknown":
         return _sc_label(lang, "not_checked")
-    return display_readiness_value(readiness, lang=lang, empty=_sc_label(lang, "empty"))
+    return display_readiness_value(readiness, lang=lang, empty=_none_value(lang))
 
 
 WORKFLOW_OUTCOME_MESSAGES_KO = {

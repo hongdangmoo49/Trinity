@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.524`
-- Merged PR range reviewed: #90 through #620
+- Package version inspected: `1.0.526`
+- Merged PR range reviewed: #90 through #622
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #620
-- Latest refresh reviewed: #620
+- Maintenance refresh reviewed: #427 through #622
+- Latest refresh reviewed: #622
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -628,6 +628,17 @@ and what the next release train should optimize.
 - Added `tests/test_textual_model_discovery.py` to the required smoke manifest.
 - Raised the package version from `1.0.522` to `1.0.523` in this patch PR.
 
+### #622: Textual Report Export Helper
+
+- Split Markdown report export building and file writing from
+  `textual_app/app.py` into `textual_app/report_export.py`.
+- Kept report route state, export path display, and notification dispatch in
+  the Textual app facade.
+- Added focused helper tests for snapshot export writing, Korean labels, and
+  no-data export behavior.
+- Added `tests/test_textual_report_export.py` to the required smoke manifest.
+- Raised the package version from `1.0.524` to `1.0.525` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -667,9 +678,10 @@ current contract document, merged PR evidence, and focused test coverage.
 - `src/trinity/textual_app/presenters.py` and `command_parsers.py` should own
   pure formatting and command parsing.
 - `src/trinity/textual_app/local_commands.py`,
-  `model_discovery.py`, `slash_command_router.py`, and `target_workspace.py`
-  own local command state, provider model discovery fan-out, slash dispatch
-  metadata, and target workspace path helpers.
+  `model_discovery.py`, `report_export.py`, `slash_command_router.py`, and
+  `target_workspace.py` own local command state, provider model discovery
+  fan-out, report export generation, slash dispatch metadata, and target
+  workspace path helpers.
 - `src/trinity/textual_app/screens/` and `widgets/` should own UI state
   application, caching, and bounded rendering.
 
@@ -700,6 +712,7 @@ current contract document, merged PR evidence, and focused test coverage.
   - `tests/test_textual_improve_commands.py`
   - `tests/test_textual_local_commands.py`
   - `tests/test_textual_model_discovery.py`
+  - `tests/test_textual_report_export.py`
   - `tests/test_textual_resume_commands.py`
   - `tests/test_textual_review_commands.py`
   - `tests/test_textual_slash_command_router.py`
@@ -731,7 +744,7 @@ Run the smallest focused set that proves the touched contract.
 | Provider discovery/readiness/invocation | `uv run pytest -q tests/test_provider_model_discovery.py tests/test_provider_readiness.py tests/test_fake_provider_harness.py` |
 | Provider error/retry/recovery | `uv run pytest -q tests/test_provider_error_gate_flow.py tests/test_execution_retry_modal.py` |
 | Workflow execution/review/post-review | `uv run pytest -q tests/test_workflow_engine.py tests/test_workflow_execution_flow.py tests/test_workflow_review_flow.py tests/test_workflow_post_review_flow.py` |
-| Textual presenter/parser/helper/UI cache | `uv run pytest -q tests/test_textual_answer_commands.py tests/test_textual_command_parsers.py tests/test_textual_improve_commands.py tests/test_textual_local_commands.py tests/test_textual_model_discovery.py tests/test_textual_resume_commands.py tests/test_textual_review_commands.py tests/test_textual_slash_command_router.py tests/test_textual_target_workspace.py tests/test_textual_smoke.py tests/test_textual_runtime.py tests/test_textual_workflow_controller.py` |
+| Textual presenter/parser/helper/UI cache | `uv run pytest -q tests/test_textual_answer_commands.py tests/test_textual_command_parsers.py tests/test_textual_improve_commands.py tests/test_textual_local_commands.py tests/test_textual_model_discovery.py tests/test_textual_report_export.py tests/test_textual_resume_commands.py tests/test_textual_review_commands.py tests/test_textual_slash_command_router.py tests/test_textual_target_workspace.py tests/test_textual_smoke.py tests/test_textual_runtime.py tests/test_textual_workflow_controller.py` |
 | Nexus execution/log performance | Run the touched cache test plus `uv run pytest -q tests/test_performance_harness.py` when a performance budget is involved. |
 | Fake provider harness | `uv run pytest -q tests/test_fake_provider_harness.py` |
 | Broad facade or shared model changes | `uv run python scripts/run_required_smoke_tests.py -q` |
@@ -768,7 +781,8 @@ modules. It now covers:
 - workflow engine execution/review/post-review flows
 - Textual runtime and workflow controller smoke
 - Textual slash command parsers, router, local command state, provider model
-  discovery, answer/improve/resume/review result, and target workspace helpers
+  discovery, report export, answer/improve/resume/review result, and target
+  workspace helpers
 - terminal rendering smoke
 - repository hygiene for tracked generated Python/cache artifacts
 
@@ -828,9 +842,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #620:
+Current main snapshot after #622:
 
-- `src/trinity/textual_app/app.py`: 2,995 lines
+- `src/trinity/textual_app/app.py`: 2,975 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

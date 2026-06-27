@@ -2300,7 +2300,22 @@ class TrinityTextualApp(App[None]):
         notify: bool = True,
     ) -> None:
         """Render a local slash command result on the active Textual surface."""
-        effect = local_command_result_effect(
+        self._apply_local_command_result_effect(
+            self._build_local_command_result_effect(
+                result,
+                start_modal=start_modal,
+                notify=notify,
+            )
+        )
+
+    def _build_local_command_result_effect(
+        self,
+        result: LocalCommandSnapshot,
+        *,
+        start_modal: bool,
+        notify: bool,
+    ) -> LocalCommandResultEffect:
+        return local_command_result_effect(
             result,
             self._current_textual_snapshot(),
             self._local_command_results,
@@ -2309,7 +2324,6 @@ class TrinityTextualApp(App[None]):
             notify=notify,
             lang=self.config.lang,
         )
-        self._apply_local_command_result_effect(effect)
 
     def _apply_local_command_result_effect(
         self,

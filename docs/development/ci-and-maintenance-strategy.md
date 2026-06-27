@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.488`
-- Merged PR range reviewed: #90 through #584
+- Package version inspected: `1.0.490`
+- Merged PR range reviewed: #90 through #586
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #584
-- Latest refresh reviewed: #584
+- Maintenance refresh reviewed: #427 through #586
+- Latest refresh reviewed: #586
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -417,6 +417,19 @@ and what the next release train should optimize.
 - Included the new helper tests in the required smoke manifest.
 - Raised the package version from `1.0.486` to `1.0.487` in this patch PR.
 
+### #586: Textual Caveman Command Helper
+
+- Split `/caveman` current settings, updated settings, and error presentation
+  payloads from `textual_app/app.py` into
+  `textual_app/caveman_commands.py`.
+- Kept argument parsing and `caveman_mode` / `caveman_intensity` mutation in
+  the app facade while moving command-specific body, action hint, severity, and
+  table data assembly into the helper.
+- Added focused caveman command helper tests for current, set, error, and
+  Korean presentation paths.
+- Included the new helper tests in the required smoke manifest.
+- Raised the package version from `1.0.488` to `1.0.489` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -615,9 +628,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #584:
+Current main snapshot after #586:
 
-- `src/trinity/textual_app/app.py`: 3,002 lines
+- `src/trinity/textual_app/app.py`: 2,998 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

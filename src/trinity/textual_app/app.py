@@ -71,7 +71,8 @@ from trinity.textual_app.model_discovery import (
     merge_discovered_model_choices,
 )
 from trinity.textual_app.model_settings_commands import (
-    model_settings_unavailable_notification,
+    ModelSettingsModalRequest,
+    model_settings_modal_request,
     model_settings_updated_notification,
 )
 from trinity.textual_app.packages_commands import packages_command_presentation
@@ -2272,24 +2273,32 @@ class TrinityTextualApp(App[None]):
     def _open_model_settings_modal(self) -> None:
         """Open the model settings modal for the active prompt selector."""
         selector = self._active_agent_selector()
-        if selector is None:
-            notification = model_settings_unavailable_notification(
-                lang=self.config.lang,
-            )
+        if selector is not None:
+            self._refresh_provider_models(use_cache=False)
+        request = model_settings_modal_request(
+            selector,
+            self._agent_model_choices,
+            lang=self.config.lang,
+        )
+        self._apply_model_settings_modal_request(request)
+
+    def _apply_model_settings_modal_request(
+        self,
+        request: ModelSettingsModalRequest,
+    ) -> None:
+        if request.notification is not None:
+            notification = request.notification
             self.notify(
                 notification.message,
                 title=notification.title,
                 severity=notification.severity,
             )
             return
-        self._refresh_provider_models(use_cache=False)
-        choices_by_agent = selector.model_choices_by_agent()
-        choices_by_agent.update(self._agent_model_choices)
         self.push_screen(
             ModelSettingsModal(
                 self.config.agents,
-                choices_by_agent,
-                selector.selected_models(),
+                request.choices_by_agent or {},
+                request.selected_models or {},
                 lang=self.config.lang,
             ),
             self._on_model_settings_applied,

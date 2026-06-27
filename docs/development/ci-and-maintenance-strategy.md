@@ -336,6 +336,7 @@ modules. It now covers:
 - Textual slash command parsers, router, local command state,
   answer/improve/resume/review result, and target workspace helpers
 - terminal rendering smoke
+- repository hygiene for tracked generated Python/cache artifacts
 
 The smoke runner validates missing and duplicate manifest entries before
 invoking pytest, and `--list` prints the exact PR/publish smoke set used by CI.
@@ -406,6 +407,13 @@ removal. These may still be compatibility surfaces, so the first step is usage
 mapping, not deletion.
 
 Current audit: `docs/development/legacy-runtime-surface-audit.md`.
+
+### Repository Hygiene
+
+Generated Python artifacts such as `__pycache__`, `.pyc`, `.pytest_cache`, and
+`.ruff_cache` must remain untracked. The required smoke suite includes a
+repository hygiene test so generated files fail before they reach release or
+publish branches.
 
 ### Localization Duplication
 

@@ -64,6 +64,7 @@ from trinity.textual_app.route_snapshot import (
 )
 from trinity.textual_app.review_commands import review_result_presentation
 from trinity.textual_app.save_commands import save_command_presentation
+from trinity.textual_app.status_commands import status_command_result
 from trinity.textual_app.subtasks_commands import subtasks_command_presentation
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.screens.nexus import NexusScreen
@@ -2173,7 +2174,7 @@ class TrinityTextualApp(App[None]):
         snapshot: WorkflowNexusSnapshot,
     ) -> None:
         """Show status in the surface appropriate for the current Textual route."""
-        result = textual_presenters.status_local_command_snapshot(
+        result = status_command_result(
             command,
             snapshot,
             lang=self.config.lang,

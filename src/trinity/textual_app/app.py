@@ -2765,17 +2765,27 @@ class TrinityTextualApp(App[None]):
         *,
         control_repo_confirmed: bool,
     ) -> TargetWorkspaceApplyEffect:
-        outcome = self.workflow_controller.set_target_workspace(
-            resolved,
-            control_repo_confirmed=control_repo_confirmed,
-        )
         return target_workspace_apply_effect(
             resolved,
-            outcome,
+            self._set_textual_target_workspace_outcome(
+                resolved,
+                control_repo_confirmed=control_repo_confirmed,
+            ),
             self._current_textual_snapshot(),
             control_repo=self.config.project_dir,
             control_repo_confirmed=control_repo_confirmed,
             lang=self.config.lang,
+        )
+
+    def _set_textual_target_workspace_outcome(
+        self,
+        resolved: Path,
+        *,
+        control_repo_confirmed: bool,
+    ) -> TextualWorkflowOutcome:
+        return self.workflow_controller.set_target_workspace(
+            resolved,
+            control_repo_confirmed=control_repo_confirmed,
         )
 
     def _apply_textual_target_workspace_effect(

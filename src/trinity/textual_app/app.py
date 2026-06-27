@@ -1773,18 +1773,50 @@ class TrinityTextualApp(App[None]):
             self._advance_activity_frame()
 
     def _apply_workflow_outcome(self, outcome: TextualWorkflowOutcome) -> None:
+        snapshot = self._store_workflow_outcome_snapshot(outcome)
+        self._apply_workflow_outcome_routes(outcome, snapshot)
+        self._notify_workflow_outcome(outcome)
+        if outcome.running:
+            self._ensure_workflow_polling()
+
+    def _store_workflow_outcome_snapshot(
+        self,
+        outcome: TextualWorkflowOutcome,
+    ) -> WorkflowNexusSnapshot:
         snapshot = snapshot_with_local_command_results(
             outcome.snapshot,
             self._local_command_results,
         )
         self.active_snapshot = snapshot
+        return snapshot
+
+    def _apply_workflow_outcome_routes(
+        self,
+        outcome: TextualWorkflowOutcome,
+        snapshot: WorkflowNexusSnapshot,
+    ) -> None:
+        self._apply_nexus_workflow_outcome(outcome, snapshot)
+        self._apply_execution_workflow_outcome(snapshot)
+
+    def _apply_nexus_workflow_outcome(
+        self,
+        outcome: TextualWorkflowOutcome,
+        snapshot: WorkflowNexusSnapshot,
+    ) -> None:
         if self._screens_installed and self.current_route == "nexus":
             nexus = self.get_screen("nexus", NexusScreen)
             nexus.apply_snapshot(snapshot)
             if outcome.running:
                 nexus.advance_activity_frame()
+
+    def _apply_execution_workflow_outcome(
+        self,
+        snapshot: WorkflowNexusSnapshot,
+    ) -> None:
         if self.current_route == "execution" and self.confirmed_preflight is not None:
             self._apply_execution_screen_state(self.confirmed_preflight, snapshot)
+
+    def _notify_workflow_outcome(self, outcome: TextualWorkflowOutcome) -> None:
         if outcome.message:
             self.notify(
                 workflow_outcome_notification_body(
@@ -1792,8 +1824,6 @@ class TrinityTextualApp(App[None]):
                     lang=self.config.lang,
                 )
             )
-        if outcome.running:
-            self._ensure_workflow_polling()
 
     def _handle_textual_slash_command(self, text: str) -> None:
         """Execute a Trinity slash command without routing it as model input."""

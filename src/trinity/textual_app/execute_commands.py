@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal, Protocol
 
 from trinity.textual_app import presenters as textual_presenters
+from trinity.textual_app.command_parsers import parse_execute_args
 from trinity.textual_app.snapshot import LocalCommandSnapshot, WorkflowNexusSnapshot
 
 
@@ -21,6 +22,63 @@ class ExecuteCommandPresentation:
     severity: ExecuteSeverity = "warning"
     empty: bool = True
     action_hint: str = ""
+
+
+class ExecuteWorkflowController(Protocol):
+    """Workflow controller surface required by `/execute`."""
+
+    def request_execution(self, instruction: str = "") -> Any:
+        """Request execution for the current workflow."""
+
+
+@dataclass(frozen=True)
+class ExecuteCommandRun:
+    """Workflow outcome produced by `/execute`."""
+
+    outcome: Any
+
+
+@dataclass(frozen=True)
+class ExecuteCommandEffect:
+    """UI effects derived from an execute workflow outcome."""
+
+    presentation: ExecuteCommandPresentation | None = None
+    execution_recovery_snapshot: WorkflowNexusSnapshot | None = None
+    execution_recovery_message: str = ""
+    workspace_picker_snapshot: WorkflowNexusSnapshot | None = None
+
+
+def run_execute_command(
+    args: list[str],
+    controller: ExecuteWorkflowController,
+) -> ExecuteCommandRun:
+    """Parse `/execute` arguments and request workflow execution."""
+    parsed_execute = parse_execute_args(args)
+    return ExecuteCommandRun(
+        outcome=controller.request_execution(parsed_execute.instruction)
+    )
+
+
+def execute_command_effect(
+    outcome: Any,
+    message: str | None,
+    *,
+    lang: str = "en",
+) -> ExecuteCommandEffect:
+    """Return the UI effects the app should apply after `/execute`."""
+    if getattr(outcome, "execution_recovery_required", False):
+        return ExecuteCommandEffect(
+            execution_recovery_snapshot=outcome.snapshot,
+            execution_recovery_message=message or "",
+        )
+    presentation = execute_result_presentation(message, lang=lang)
+    workspace_picker_snapshot = None
+    if getattr(outcome, "target_workspace_required", False):
+        workspace_picker_snapshot = outcome.snapshot
+    return ExecuteCommandEffect(
+        presentation=presentation,
+        workspace_picker_snapshot=workspace_picker_snapshot,
+    )
 
 
 def execute_result_presentation(

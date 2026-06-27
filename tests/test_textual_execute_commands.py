@@ -1,7 +1,11 @@
+from types import SimpleNamespace
+
 from trinity.textual_app.execute_commands import (
+    execute_command_effect,
     execute_result_presentation,
     execute_retry_no_packages_presentation,
     execution_recovery_snapshot,
+    run_execute_command,
 )
 from trinity.textual_app.snapshot import (
     ExecutionRecoverySnapshot,
@@ -53,6 +57,66 @@ def test_execute_retry_no_packages_presentation_supports_korean() -> None:
     )
 
 
+def test_run_execute_command_routes_instruction_to_controller() -> None:
+    controller = _FakeExecuteController()
+
+    run = run_execute_command(["retry", "interrupted"], controller)
+
+    assert run.outcome is controller.outcome
+    assert controller.instructions == ["retry interrupted"]
+
+
+def test_execute_command_effect_prefers_execution_recovery() -> None:
+    snapshot = WorkflowNexusSnapshot(session_id="wf-1")
+    outcome = SimpleNamespace(
+        snapshot=snapshot,
+        execution_recovery_required=True,
+        target_workspace_required=True,
+    )
+
+    effect = execute_command_effect(outcome, "Execution interrupted.")
+
+    assert effect.presentation is None
+    assert effect.execution_recovery_snapshot is snapshot
+    assert effect.execution_recovery_message == "Execution interrupted."
+    assert effect.workspace_picker_snapshot is None
+
+
+def test_execute_command_effect_records_message_and_workspace_picker() -> None:
+    snapshot = WorkflowNexusSnapshot(session_id="wf-1")
+    outcome = SimpleNamespace(
+        snapshot=snapshot,
+        execution_recovery_required=False,
+        target_workspace_required=True,
+    )
+
+    effect = execute_command_effect(
+        outcome,
+        "Finish planning before execution.",
+        lang="ko",
+    )
+
+    assert effect.presentation is not None
+    assert effect.presentation.title == "실행"
+    assert effect.presentation.body == "Finish planning before execution."
+    assert effect.workspace_picker_snapshot is snapshot
+    assert effect.execution_recovery_snapshot is None
+
+
+def test_execute_command_effect_skips_empty_message_without_workspace() -> None:
+    outcome = SimpleNamespace(
+        snapshot=WorkflowNexusSnapshot(session_id="wf-1"),
+        execution_recovery_required=False,
+        target_workspace_required=False,
+    )
+
+    effect = execute_command_effect(outcome, None)
+
+    assert effect.presentation is None
+    assert effect.execution_recovery_snapshot is None
+    assert effect.workspace_picker_snapshot is None
+
+
 def test_execution_recovery_snapshot_builds_local_command_result() -> None:
     snapshot = WorkflowNexusSnapshot(
         execution_recovery=ExecutionRecoverySnapshot(
@@ -94,3 +158,13 @@ def test_execution_recovery_snapshot_supports_korean_title() -> None:
 
     assert result.title == "실행 복구"
     assert result.table_columns == ("항목", "값")
+
+
+class _FakeExecuteController:
+    def __init__(self) -> None:
+        self.outcome = object()
+        self.instructions: list[str] = []
+
+    def request_execution(self, instruction: str = "") -> object:
+        self.instructions.append(instruction)
+        return self.outcome

@@ -14,9 +14,6 @@ from trinity.config import TrinityConfig
 from trinity.context.commands import engine_from_config
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import parse_execute_retry_args, parse_slash_command
-from trinity.textual_app.command_parsers import (
-    parse_execute_args,
-)
 from trinity.textual_app.agent_commands import (
     agent_command_presentation,
 )
@@ -44,9 +41,11 @@ from trinity.textual_app.context_commands import (
 )
 from trinity.textual_app.decisions_commands import decisions_command_presentation
 from trinity.textual_app.execute_commands import (
-    execute_result_presentation,
+    ExecuteCommandEffect,
+    execute_command_effect,
     execute_retry_no_packages_presentation,
     execution_recovery_snapshot,
+    run_execute_command,
 )
 from trinity.textual_app.help_commands import help_command_presentation
 from trinity.textual_app.history_commands import history_command_presentation
@@ -1974,30 +1973,37 @@ class TrinityTextualApp(App[None]):
         command_name: str,
         args: list[str],
     ) -> None:
-        parsed_execute = parse_execute_args(args)
-        outcome = self.workflow_controller.request_execution(parsed_execute.instruction)
+        run = run_execute_command(args, self.workflow_controller)
+        outcome = run.outcome
         outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
-        if outcome.execution_recovery_required:
+        self._apply_textual_execute_effect(
+            command_name,
+            execute_command_effect(outcome, message, lang=self.config.lang),
+        )
+
+    def _apply_textual_execute_effect(
+        self,
+        command_name: str,
+        effect: ExecuteCommandEffect,
+    ) -> None:
+        if effect.execution_recovery_snapshot is not None:
             self._present_execution_recovery(
                 command_name,
-                outcome.snapshot,
-                message,
+                effect.execution_recovery_snapshot,
+                effect.execution_recovery_message,
             )
             return
-        if message:
-            presentation = execute_result_presentation(message, lang=self.config.lang)
-            if presentation is None:
-                return
+        if effect.presentation is not None:
             self._record_slash_command_result(
                 command_name,
-                presentation.title,
-                presentation.body,
-                severity=presentation.severity,
-                empty=presentation.empty,
-                action_hint=presentation.action_hint,
+                effect.presentation.title,
+                effect.presentation.body,
+                severity=effect.presentation.severity,
+                empty=effect.presentation.empty,
+                action_hint=effect.presentation.action_hint,
             )
-        if outcome.target_workspace_required:
-            self._open_execute_workspace_picker(outcome.snapshot)
+        if effect.workspace_picker_snapshot is not None:
+            self._open_execute_workspace_picker(effect.workspace_picker_snapshot)
 
     def _apply_workflow_outcome_without_inline_message(
         self,

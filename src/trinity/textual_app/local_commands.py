@@ -4,10 +4,59 @@ from __future__ import annotations
 
 import time
 from collections.abc import Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 
+from trinity.textual_app import presenters as textual_presenters
 from trinity.textual_app.snapshot import LocalCommandSnapshot, WorkflowNexusSnapshot
+
+
+@dataclass(frozen=True)
+class LocalCommandNotification:
+    """Prepared notification payload for a local command result."""
+
+    message: str
+    title: str
+    severity: str
+
+
+def local_command_snapshot(
+    command: str,
+    title: str,
+    body: str,
+    *,
+    severity: str = "info",
+    result_kind: str = "markdown",
+    empty: bool = False,
+    action_hint: str = "",
+    table_columns: tuple[str, ...] = (),
+    table_rows: tuple[tuple[str, ...], ...] = (),
+) -> LocalCommandSnapshot:
+    """Build a local slash-command result snapshot."""
+    return textual_presenters.local_command_snapshot(
+        command,
+        title,
+        body,
+        severity=severity,
+        result_kind=result_kind,
+        empty=empty,
+        action_hint=action_hint,
+        table_columns=table_columns,
+        table_rows=table_rows,
+    )
+
+
+def local_command_notification(
+    result: LocalCommandSnapshot,
+    *,
+    lang: str = "en",
+) -> LocalCommandNotification:
+    """Build the route notification shown after a local command result."""
+    return LocalCommandNotification(
+        message=result.title,
+        title=textual_presenters.slash_command_notification_title(lang=lang),
+        severity=textual_presenters.local_command_notification_severity(result),
+    )
 
 
 def recent_local_command_results(

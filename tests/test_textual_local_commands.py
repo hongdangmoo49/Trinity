@@ -1,5 +1,7 @@
 from trinity.textual_app.local_commands import (
     append_local_command_event,
+    local_command_notification,
+    local_command_snapshot,
     recent_local_command_results,
     replace_local_command_result,
     snapshot_with_local_command_results,
@@ -10,6 +12,55 @@ from trinity.workflow import WorkflowPersistence, WorkflowSession, WorkflowState
 
 def _result(command: str, title: str = "Title") -> LocalCommandSnapshot:
     return LocalCommandSnapshot(command=command, title=title, body="Body")
+
+
+def test_local_command_snapshot_builds_result_payload() -> None:
+    result = local_command_snapshot(
+        "/status",
+        "Status",
+        "Ready.",
+        severity="warning",
+        empty=True,
+        action_hint="Check providers.",
+        table_columns=("Field", "Value"),
+        table_rows=(("State", "ready"),),
+    )
+
+    assert result.command == "/status"
+    assert result.title == "Status"
+    assert result.body == "Ready."
+    assert result.severity == "warning"
+    assert result.empty is True
+    assert result.action_hint == "Check providers."
+    assert result.table_columns == ("Field", "Value")
+    assert result.table_rows == (("State", "ready"),)
+
+
+def test_local_command_notification_maps_severity_and_title() -> None:
+    notification = local_command_notification(
+        _result("/status", "Status"),
+        lang="en",
+    )
+
+    assert notification.message == "Status"
+    assert notification.title == "Slash Command"
+    assert notification.severity == "information"
+
+
+def test_local_command_notification_warns_for_warning_result_and_localizes() -> None:
+    notification = local_command_notification(
+        LocalCommandSnapshot(
+            command="/status",
+            title="상태",
+            body="주의",
+            severity="warning",
+        ),
+        lang="ko",
+    )
+
+    assert notification.message == "상태"
+    assert notification.title == "슬래시 명령"
+    assert notification.severity == "warning"
 
 
 def test_replace_local_command_result_keeps_latest_per_command() -> None:

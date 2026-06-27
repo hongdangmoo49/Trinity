@@ -10743,6 +10743,42 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
 
 
 @pytest.mark.asyncio
+async def test_nexus_select_workspace_inside_control_repo_requires_confirmation(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    control_repo.mkdir()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        controller,
+    )
+    preflight = build_preflight(
+        control_repo,
+        WorkflowNexusSnapshot(session_id="wf-fake", state="idle"),
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._on_nexus_workspace_selected(preflight)
+        await pilot.pause()
+
+        assert isinstance(app.screen, TargetWorkspaceConfirmModal)
+        assert controller.target_workspace is None
+
+        app.screen.query_one("#confirm-target", Button).press()
+        await pilot.pause()
+
+        assert controller.execution_requests == 0
+        assert controller.target_workspace == control_repo
+        assert controller.target_control_confirmed is True
+
+
+@pytest.mark.asyncio
 async def test_nexus_workspace_label_skips_unchanged_update(
     tmp_path,
     monkeypatch,

@@ -1600,19 +1600,27 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         if preflight is None:
             return
-        if is_control_repo_target(preflight.path, self.config.project_dir):
-            self._open_target_workspace_confirm_modal(
-                preflight.path,
-                lambda confirmed: self._on_nexus_workspace_selected_confirmed(
-                    preflight,
-                    confirmed,
-                ),
-            )
+        if self._open_nexus_workspace_confirm_if_needed(preflight):
             return
         self._continue_nexus_workspace_selection(
             preflight,
             control_repo_confirmed=False,
         )
+
+    def _open_nexus_workspace_confirm_if_needed(
+        self,
+        preflight: WorkspacePreflight,
+    ) -> bool:
+        if not is_control_repo_target(preflight.path, self.config.project_dir):
+            return False
+        self._open_target_workspace_confirm_modal(
+            preflight.path,
+            lambda confirmed: self._on_nexus_workspace_selected_confirmed(
+                preflight,
+                confirmed,
+            ),
+        )
+        return True
 
     def _on_nexus_workspace_selected_confirmed(
         self,

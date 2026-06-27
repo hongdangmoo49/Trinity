@@ -1,5 +1,8 @@
 from trinity.textual_app.snapshot import ProviderSnapshot, WorkflowNexusSnapshot
-from trinity.textual_app.status_commands import status_command_result
+from trinity.textual_app.status_commands import (
+    status_command_effect,
+    status_command_result,
+)
 
 
 def test_status_command_result_builds_local_command_snapshot() -> None:
@@ -66,3 +69,59 @@ def test_status_command_result_uses_korean_labels() -> None:
     assert ("프로바이더: claude", "준비됨; 활성화=예; 준비 상태=준비됨") in (
         result.table_rows
     )
+
+
+def test_status_command_effect_shows_start_modal() -> None:
+    snapshot = WorkflowNexusSnapshot(session_id="wf-status")
+
+    effect = status_command_effect(
+        "/status",
+        snapshot,
+        [],
+        current_route="start",
+    )
+
+    assert effect.show_modal is True
+    assert effect.modal_result is not None
+    assert effect.modal_result.command == "/status"
+    assert effect.notification is None
+    assert effect.snapshot.local_commands == [effect.modal_result]
+
+
+def test_status_command_effect_updates_route_without_notification() -> None:
+    snapshot = WorkflowNexusSnapshot(session_id="wf-status")
+
+    effect = status_command_effect(
+        "/status",
+        snapshot,
+        [],
+        current_route="nexus",
+    )
+
+    assert effect.show_modal is False
+    assert effect.modal_result is None
+    assert effect.notification is None
+    assert len(effect.snapshot.local_commands) == 1
+    assert effect.snapshot.local_commands[0].title == "Status"
+
+
+def test_status_command_effect_replaces_previous_status_result() -> None:
+    snapshot = WorkflowNexusSnapshot(session_id="wf-status")
+    old_result = status_command_result("/status", snapshot)
+    workflow_result = status_command_result("/workflow", snapshot)
+
+    effect = status_command_effect(
+        "/status",
+        snapshot,
+        [old_result, workflow_result],
+        current_route="nexus",
+    )
+
+    assert [item.command for item in effect.local_command_results] == [
+        "/workflow",
+        "/status",
+    ]
+    assert [item.command for item in effect.snapshot.local_commands] == [
+        "/workflow",
+        "/status",
+    ]

@@ -62,6 +62,8 @@ from trinity.textual_app.improve_commands import (
 )
 from trinity.textual_app.local_commands import (
     append_local_command_event,
+    local_command_notification,
+    local_command_snapshot,
     replace_local_command_result,
     snapshot_with_local_command_results,
 )
@@ -2139,7 +2141,7 @@ class TrinityTextualApp(App[None]):
         start_modal: bool = True,
     ) -> None:
         """Record a local slash command result in the central Textual view."""
-        result = textual_presenters.local_command_snapshot(
+        result = local_command_snapshot(
             command,
             title,
             body,
@@ -2193,12 +2195,11 @@ class TrinityTextualApp(App[None]):
         else:
             self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
         if notify and self.current_route != "start":
+            notification = local_command_notification(result, lang=self.config.lang)
             self.notify(
-                result.title,
-                title=textual_presenters.slash_command_notification_title(
-                    lang=self.config.lang
-                ),
-                severity=textual_presenters.local_command_notification_severity(result),
+                notification.message,
+                title=notification.title,
+                severity=notification.severity,
             )
 
     def _show_textual_status(

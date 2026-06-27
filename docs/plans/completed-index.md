@@ -25,6 +25,7 @@ or deleting old implementation plans.
 | Textual presenter and wrapper removal | #410-#426 | 2026-06-26 `textual-*`, command parser, facade-thin plans | Ready for bundle archive after presenter contract docs exist |
 | CI maintenance strategy | #427 | `README.md`, this index, CI strategy doc | Active maintenance reference |
 | Textual helper continuation | #488-#492, #518-#532 | 2026-06-27 Textual command, route, workspace, and recovery helper plans | Archived after maintenance strategy #540 refresh and required smoke coverage |
+| Workflow facade cleanup | #493-#517 | 2026-06-27 workflow wrapper removal, persistence, and flow contract plans | Archived after maintenance strategy #540 refresh and workflow flow contract coverage |
 | Post-review maintenance helpers | #534-#537 | 2026-06-27 post-review helper extraction plans | Archived after helper modules and post-review smoke coverage landed |
 
 ## Workflow Flow Decomposition Plans
@@ -50,6 +51,25 @@ These plans describe completed flow extraction work and should be kept until
 - `2026-06-26-workflow-quality-flow.md`
 - `2026-06-26-workflow-targeting-flow.md`
 - `2026-06-26-workflow-collection-flow.md`
+
+## Workflow Facade Cleanup Plans
+
+These plans are completed wrapper removal and persistence-flow cleanup slices
+from #493-#517. Their durable boundary is summarized in
+`docs/development/workflow-flow-contracts.md` and the current maintenance
+strategy, while behavior remains covered by the workflow flow tests and
+required smoke suite.
+
+Archived bundle:
+
+- `docs/plans/archive/2026-06-27-workflow-facade-cleanup/`
+
+The archived bundle contains the #493-#517 plans for review, result
+collection, post-review, work-package lookup, execution-run, review-repair
+metadata, unused-result, execution-support, quality, provider-observation,
+execution-intent, lifecycle/question, central-prompt, ledger-parser, targeting,
+persistence, direct persistence, decomposition-agent, engine-persist, and flow
+contract cleanup.
 
 ## Fake Provider Baseline Plans
 

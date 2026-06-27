@@ -91,6 +91,17 @@ class AskCommandRunEffect:
     workspace_picker_snapshot: Any | None = None
 
 
+@dataclass(frozen=True)
+class StartSubmissionEffect:
+    """Prepared app state for a Start screen prompt submission."""
+
+    prompt: str
+    workspace_candidate_to_set: Path | None
+    target_workspace: Path | None
+    target_agents: tuple[str, ...]
+    agent_model_overrides: dict[str, str]
+
+
 def ask_command_action(
     args: list[str],
     active_agent_names: Iterable[str],
@@ -166,6 +177,33 @@ def ask_command_run_effect(run: AskCommandRun) -> AskCommandRunEffect:
         target_snapshot=snapshot if run.switch_to_nexus else None,
         switch_to_nexus=run.switch_to_nexus,
         workspace_picker_snapshot=workspace_picker_snapshot,
+    )
+
+
+def start_submission_effect(
+    *,
+    prompt: str,
+    event_workspace_candidate: Path | None,
+    current_workspace_candidate: Path | None,
+    target_agents: tuple[str, ...],
+    agent_model_overrides: dict[str, str],
+    project_dir: Path,
+) -> StartSubmissionEffect:
+    """Return the state changes needed before starting a workflow from Start."""
+    workspace_candidate_to_set = None
+    effective_workspace_candidate = current_workspace_candidate
+    if effective_workspace_candidate is None:
+        workspace_candidate_to_set = event_workspace_candidate
+        effective_workspace_candidate = event_workspace_candidate
+    return StartSubmissionEffect(
+        prompt=prompt,
+        workspace_candidate_to_set=workspace_candidate_to_set,
+        target_workspace=safe_start_target_workspace(
+            effective_workspace_candidate,
+            project_dir,
+        ),
+        target_agents=target_agents,
+        agent_model_overrides=dict(agent_model_overrides),
     )
 
 

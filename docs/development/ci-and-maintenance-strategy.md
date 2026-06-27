@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.512`
-- Merged PR range reviewed: #90 through #608
+- Package version inspected: `1.0.514`
+- Merged PR range reviewed: #90 through #610
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #608
-- Latest refresh reviewed: #608
+- Maintenance refresh reviewed: #427 through #610
+- Latest refresh reviewed: #610
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -558,6 +558,18 @@ and what the next release train should optimize.
   notification paths.
 - Raised the package version from `1.0.510` to `1.0.511` in this patch PR.
 
+### #610: Textual Target Cancel Snapshot Helper
+
+- Split target workspace confirmation cancel local command snapshot
+  construction from `textual_app/app.py` into `textual_app/target_commands.py`.
+- Reused the helper for Nexus workspace selection, execution preflight, and
+  `/target` confirmation cancel paths.
+- Preserved existing selection and preflight cancel copy, warning severity, and
+  empty-state behavior.
+- Expanded focused target command tests to cover selection, preflight, and
+  Korean cancel snapshot outputs.
+- Raised the package version from `1.0.512` to `1.0.513` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -756,9 +768,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #608:
+Current main snapshot after #610:
 
-- `src/trinity/textual_app/app.py`: 3,017 lines
+- `src/trinity/textual_app/app.py`: 3,011 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

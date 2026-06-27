@@ -1725,22 +1725,28 @@ class TrinityTextualApp(App[None]):
         continuation: WorkspacePreflightContinuation,
     ) -> None:
         preflight = continuation.preflight
-        self.confirmed_preflight = continuation.preflight
+        self.confirmed_preflight = preflight
+        outcome = self._run_workspace_preflight_continuation(continuation)
+        self._apply_workflow_outcome(outcome)
+        self._apply_workspace_preflight_effect(
+            workspace_preflight_effect(preflight, outcome)
+        )
+
+    def _run_workspace_preflight_continuation(
+        self,
+        continuation: WorkspacePreflightContinuation,
+    ) -> TextualWorkflowOutcome:
+        preflight = continuation.preflight
         self.workflow_controller.set_target_workspace(
             preflight.path,
             control_repo_confirmed=continuation.control_repo_confirmed,
         )
         if continuation.use_retry:
-            outcome = self.workflow_controller.confirm_execution_retry(
+            return self.workflow_controller.confirm_execution_retry(
                 continuation.retry_selector,
                 list(continuation.retry_package_ids),
             )
-        else:
-            outcome = self.workflow_controller.request_execution()
-        self._apply_workflow_outcome(outcome)
-        self._apply_workspace_preflight_effect(
-            workspace_preflight_effect(preflight, outcome)
-        )
+        return self.workflow_controller.request_execution()
 
     def _apply_workspace_preflight_effect(
         self,

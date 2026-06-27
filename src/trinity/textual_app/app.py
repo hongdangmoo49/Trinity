@@ -14,12 +14,7 @@ from trinity import __version__
 from trinity.config import TrinityConfig
 from trinity.context.commands import (
     artifact_markdown,
-    cleanup_oversized_backups_markdown,
-    compact_memory_markdown,
     engine_from_config,
-    memory_stats_markdown,
-    memory_stats_rows,
-    parse_oversized_cleanup_options,
 )
 from trinity.providers.model_discovery import (
     ProviderModelChoice,
@@ -33,7 +28,6 @@ from trinity.textual_app.command_parsers import (
     parse_ask_args,
     parse_caveman_args,
     parse_execute_args,
-    parse_memory_args,
     parse_report_args,
     parse_resume_args,
     parse_rounds_args,
@@ -47,6 +41,7 @@ from trinity.textual_app.local_commands import (
     replace_local_command_result,
     snapshot_with_local_command_results,
 )
+from trinity.textual_app.memory_commands import memory_command_presentation
 from trinity.textual_app.report_export import (
     snapshot_has_report_data,
     snapshot_report_markdown,
@@ -2358,47 +2353,20 @@ class TrinityTextualApp(App[None]):
         self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
 
     def _handle_textual_memory_command(self, args: list[str]) -> None:
-        engine = engine_from_config(self.config)
-        parsed = parse_memory_args(args)
-        action = parsed.action
-        lang = self.config.lang
-        if action == "compact":
-            body = compact_memory_markdown(
-                engine,
-                target_bytes=self.config.shared_compact_target_bytes,
-                recent_records=self.config.memory_recent_records,
-            )
-            title = textual_presenters.memory_title("compact", lang=lang)
-            rows = memory_stats_rows(engine)
-        elif action == "cleanup":
-            apply, keep_latest, error = parse_oversized_cleanup_options(
-                list(parsed.action_args)
-            )
-            if error:
-                self._record_slash_command_result(
-                    "/memory",
-                    textual_presenters.memory_title("cleanup", lang=lang),
-                    textual_presenters.memory_cleanup_error_markdown(error, lang=lang),
-                    severity="warning",
-                )
-                return
-            body = cleanup_oversized_backups_markdown(
-                engine,
-                apply=apply,
-                keep_latest=keep_latest,
-            )
-            title = textual_presenters.memory_title("cleanup", lang=lang)
-            rows = ()
-        else:
-            body = memory_stats_markdown(engine)
-            title = textual_presenters.memory_title("stats", lang=lang)
-            rows = memory_stats_rows(engine)
+        presentation = memory_command_presentation(
+            engine_from_config(self.config),
+            args,
+            target_bytes=self.config.shared_compact_target_bytes,
+            recent_records=self.config.memory_recent_records,
+            lang=self.config.lang,
+        )
         self._record_slash_command_result(
             "/memory",
-            title,
-            body,
-            table_columns=textual_presenters.status_table_columns(lang=lang),
-            table_rows=rows,
+            presentation.title,
+            presentation.body,
+            severity=presentation.severity,
+            table_columns=presentation.table_columns,
+            table_rows=presentation.table_rows,
         )
 
     def _handle_textual_artifact_command(self, args: list[str]) -> None:

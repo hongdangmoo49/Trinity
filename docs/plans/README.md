@@ -1,8 +1,7 @@
 # Plans Directory Guide
 
 `docs/plans/` contains design notes, implementation plans, and one-PR work logs.
-As of the CI maintenance review, this directory has 362 tracked plan files. Do
-not treat every file here as active work.
+Do not treat every file here as active work.
 
 ## How To Read This Directory
 
@@ -27,6 +26,8 @@ Archived one-PR plans are grouped under `docs/plans/archive/`.
 | #293-#391 | Nexus/Textual render cost reduction |
 | #392-#409 | Workflow flow decomposition |
 | #410-#426 | Textual presenter/parser wrapper removal and facade thinning |
+| #488-#492 | Textual command helper continuation |
+| #518-#532 | Textual route, workspace, and recovery helper continuation |
 | #534-#537 | Post-review maintenance helper extraction |
 
 ## Active vs Historical Plans
@@ -51,6 +52,7 @@ Current archived bundles:
 - `archive/2026-06-25-26-render-cache/`
 - `archive/2026-06-25-ui-label-status/`
 - `archive/2026-06-26-textual-presenters/`
+- `archive/2026-06-27-textual-helper-continuation/`
 - `archive/2026-06-27-post-review-maintenance/`
 
 ## Cleanup Policy

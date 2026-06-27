@@ -6,9 +6,9 @@ or deleting old implementation plans.
 
 ## Scope
 
-- Reviewed baseline: PR #90 through #427
-- Current index focus: completed one-PR plans from the Nexus/workflow cleanup
-  run, especially the dense 2026-06-25 and 2026-06-26 files.
+- Reviewed baseline: PR #90 through #540
+- Current index focus: completed one-PR plans from the Nexus/workflow/Textual
+  cleanup runs, especially the dense 2026-06-25 through 2026-06-27 files.
 - This is not an active roadmap. Active roadmap items belong in
   `docs/development/ci-and-maintenance-strategy.md`.
 
@@ -24,6 +24,7 @@ or deleting old implementation plans.
 | Workflow flow decomposition | #392-#409 | 2026-06-26 `workflow-*`, `provider-*`, review/post-review flow plans | Keep as architecture trace; flow and provider readiness/recovery contract docs exist |
 | Textual presenter and wrapper removal | #410-#426 | 2026-06-26 `textual-*`, command parser, facade-thin plans | Ready for bundle archive after presenter contract docs exist |
 | CI maintenance strategy | #427 | `README.md`, this index, CI strategy doc | Active maintenance reference |
+| Textual helper continuation | #488-#492, #518-#532 | 2026-06-27 Textual command, route, workspace, and recovery helper plans | Archived after maintenance strategy #540 refresh and required smoke coverage |
 | Post-review maintenance helpers | #534-#537 | 2026-06-27 post-review helper extraction plans | Archived after helper modules and post-review smoke coverage landed |
 
 ## Workflow Flow Decomposition Plans
@@ -87,6 +88,23 @@ Archived bundle:
 - `archive/2026-06-26-textual-presenters/2026-06-26-workflow-recovery-facade-thin.md`
 - `archive/2026-06-26-textual-presenters/2026-06-26-provider-error-gate-flow-reuse.md`
 - `archive/2026-06-26-textual-presenters/2026-06-26-workflow-execution-facade-thin.md`
+
+## Textual Helper Continuation Plans
+
+These plans are completed helper extraction slices from the 2026-06-27 Textual
+cleanup pass. Their active behavior is covered by Textual command, runtime,
+workflow controller, target workspace, and TUI rendering tests in the required
+smoke suite.
+
+Archived bundle:
+
+- `docs/plans/archive/2026-06-27-textual-helper-continuation/`
+
+The archived bundle contains the #488-#492 and #518-#532 plans for command
+result helpers, local command presentation, execution recovery and review
+repair presentation, route snapshot application, report route preparation,
+snapshot source handling, launch cwd handling, target workspace helpers,
+workspace picker/candidate/apply helpers, and execution state extraction.
 
 ## Post-Review Maintenance Helper Plans
 

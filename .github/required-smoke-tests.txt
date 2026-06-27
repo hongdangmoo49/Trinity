@@ -4,6 +4,7 @@
 # nightly, or manual validation unless the change touches shared workflow,
 # provider, packaging, or Textual runtime contracts.
 tests/test_cli.py
+tests/test_required_smoke_runner.py
 tests/test_updater.py
 tests/test_platform_capabilities.py
 tests/test_platform_process.py

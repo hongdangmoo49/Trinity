@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.598`
-- Merged PR range reviewed: #90 through #694
+- Package version inspected: `1.0.600`
+- Merged PR range reviewed: #90 through #696
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #694
-- Latest refresh reviewed: #694
+- Maintenance refresh reviewed: #427 through #696
+- Latest refresh reviewed: #696
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1032,6 +1032,17 @@ and what the next release train should optimize.
   and Nexus refresh scheduling behavior unchanged.
 - Reduced `switch_to` from 25 lines to 5 lines.
 - Raised the package version from `1.0.596` to `1.0.597` in this patch PR.
+
+### #696: Textual Workbench Screen Specs
+
+- Split Textual workbench screen construction from
+  `_install_workbench_screens` into `textual_app/workbench_screens.py`.
+- Kept Start, Nexus, Settings, Execution, and Report screen install order and
+  constructor state unchanged.
+- Added direct helper coverage for route order, screen types, language,
+  settings store, and workspace candidate propagation.
+- Reduced `_install_workbench_screens` from 22 lines to 13 lines.
+- Raised the package version from `1.0.598` to `1.0.599` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

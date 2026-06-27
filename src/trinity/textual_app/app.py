@@ -113,6 +113,7 @@ from trinity.textual_app.slash_error_commands import (
 from trinity.textual_app.status_commands import status_command_result
 from trinity.textual_app.subtasks_commands import subtasks_command_presentation
 from trinity.textual_app.target_commands import (
+    target_cancelled_snapshot,
     target_cleared_presentation,
     target_current_presentation,
     target_not_directory_presentation,
@@ -1606,9 +1607,7 @@ class TrinityTextualApp(App[None]):
             )
             return
         self._record_local_command_snapshot(
-            textual_presenters.target_cancelled_local_command_snapshot(
-                lang=self.config.lang
-            )
+            target_cancelled_snapshot(lang=self.config.lang)
         )
 
     def _continue_nexus_workspace_selection(
@@ -1675,10 +1674,7 @@ class TrinityTextualApp(App[None]):
             )
             return
         self._record_local_command_snapshot(
-            textual_presenters.target_cancelled_local_command_snapshot(
-                kind="preflight",
-                lang=self.config.lang,
-            )
+            target_cancelled_snapshot(kind="preflight", lang=self.config.lang)
         )
         self._pending_execute_retry = None
 
@@ -2628,9 +2624,7 @@ class TrinityTextualApp(App[None]):
             self._set_textual_target_workspace(path, control_repo_confirmed=True)
             return
         self._record_local_command_snapshot(
-            textual_presenters.target_cancelled_local_command_snapshot(
-                lang=self.config.lang
-            )
+            target_cancelled_snapshot(lang=self.config.lang)
         )
 
     def _set_textual_target_workspace(

@@ -30,7 +30,7 @@ Archived one-PR plans are grouped under `docs/plans/archive/`.
 | #493-#517 | Workflow facade wrapper cleanup and persistence flow |
 | #518-#532 | Textual route, workspace, and recovery helper continuation |
 | #534-#537 | Post-review maintenance helper extraction |
-| #486, #533, #538-#543 | Target workspace, Nexus/CI, and maintenance archive closure |
+| #486, #533, #538-#545 | Target workspace, Nexus/CI, and maintenance archive closure |
 
 ## Active vs Historical Plans
 

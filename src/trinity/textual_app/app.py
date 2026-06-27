@@ -19,7 +19,6 @@ from trinity.textual_app.command_parsers import (
     parse_execute_args,
     parse_report_args,
     parse_resume_args,
-    parse_rounds_args,
     parse_target_args,
 )
 from trinity.textual_app.agent_commands import (
@@ -96,9 +95,7 @@ from trinity.textual_app.review_commands import (
     review_result_presentation,
 )
 from trinity.textual_app.rounds_commands import (
-    rounds_current_presentation,
-    rounds_error_presentation,
-    rounds_set_presentation,
+    rounds_command_presentation,
 )
 from trinity.textual_app.save_commands import save_command_presentation
 from trinity.textual_app.slash_error_commands import (
@@ -2390,47 +2387,19 @@ class TrinityTextualApp(App[None]):
         command_name: str,
         args: list[str],
     ) -> None:
-        parsed = parse_rounds_args(args, lang=self.config.lang)
-        if parsed.rounds is None and not parsed.error:
-            presentation = rounds_current_presentation(
-                self.config.max_deliberation_rounds,
-                lang=self.config.lang,
-            )
-            self._record_slash_command_result(
-                command_name,
-                presentation.title,
-                presentation.body,
-                table_columns=presentation.table_columns,
-                table_rows=presentation.table_rows,
-                action_hint=presentation.action_hint,
-            )
-            return
-        if parsed.error:
-            presentation = rounds_error_presentation(
-                parsed.error,
-                parsed.action_hint,
-                lang=self.config.lang,
-            )
-            self._record_slash_command_result(
-                command_name,
-                presentation.title,
-                presentation.body,
-                severity=presentation.severity,
-                action_hint=presentation.action_hint,
-            )
-            return
-        rounds = parsed.rounds or self.config.max_deliberation_rounds
-        self.config.max_deliberation_rounds = rounds
-        presentation = rounds_set_presentation(
-            self.config.max_deliberation_rounds,
+        presentation = rounds_command_presentation(
+            self.config,
+            args,
             lang=self.config.lang,
         )
         self._record_slash_command_result(
             command_name,
             presentation.title,
             presentation.body,
+            severity=presentation.severity,
             table_columns=presentation.table_columns,
             table_rows=presentation.table_rows,
+            action_hint=presentation.action_hint,
         )
 
     def _handle_textual_agent_command(

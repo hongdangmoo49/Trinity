@@ -3,8 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol
 
+from trinity.textual_app.command_parsers import parse_rounds_args
 from trinity.textual_app import presenters as textual_presenters
+
+
+class RoundsCommandState(Protocol):
+    """Mutable `/rounds` session setting subset."""
+
+    max_deliberation_rounds: int
 
 
 @dataclass(frozen=True)
@@ -17,6 +25,33 @@ class RoundsCommandPresentation:
     action_hint: str = ""
     table_columns: tuple[str, ...] = ()
     table_rows: tuple[tuple[str, ...], ...] = ()
+
+
+def rounds_command_presentation(
+    state: RoundsCommandState,
+    args: list[str],
+    *,
+    lang: str = "en",
+) -> RoundsCommandPresentation:
+    """Apply `/rounds` args and return the resulting presentation."""
+    parsed = parse_rounds_args(args, lang=lang)
+    if parsed.rounds is None and not parsed.error:
+        return rounds_current_presentation(
+            state.max_deliberation_rounds,
+            lang=lang,
+        )
+    if parsed.error:
+        return rounds_error_presentation(
+            parsed.error,
+            parsed.action_hint,
+            lang=lang,
+        )
+
+    state.max_deliberation_rounds = parsed.rounds or state.max_deliberation_rounds
+    return rounds_set_presentation(
+        state.max_deliberation_rounds,
+        lang=lang,
+    )
 
 
 def rounds_current_presentation(

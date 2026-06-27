@@ -27,6 +27,7 @@ Archived one-PR plans are grouped under `docs/plans/archive/`.
 | #392-#409 | Workflow flow decomposition |
 | #410-#426 | Textual presenter/parser wrapper removal and facade thinning |
 | #488-#492 | Textual command helper continuation |
+| #493-#517 | Workflow facade wrapper cleanup and persistence flow |
 | #518-#532 | Textual route, workspace, and recovery helper continuation |
 | #534-#537 | Post-review maintenance helper extraction |
 
@@ -52,6 +53,7 @@ Current archived bundles:
 - `archive/2026-06-25-26-render-cache/`
 - `archive/2026-06-25-ui-label-status/`
 - `archive/2026-06-26-textual-presenters/`
+- `archive/2026-06-27-workflow-facade-cleanup/`
 - `archive/2026-06-27-textual-helper-continuation/`
 - `archive/2026-06-27-post-review-maintenance/`
 

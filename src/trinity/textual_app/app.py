@@ -72,6 +72,7 @@ from trinity.textual_app.model_discovery import (
 )
 from trinity.textual_app.model_settings_commands import (
     ModelSettingsModalRequest,
+    ModelSettingsNotification,
     model_settings_modal_request,
     model_settings_updated_notification,
 )
@@ -2349,13 +2350,24 @@ class TrinityTextualApp(App[None]):
         request: ModelSettingsModalRequest,
     ) -> None:
         if request.notification is not None:
-            notification = request.notification
-            self.notify(
-                notification.message,
-                title=notification.title,
-                severity=notification.severity,
-            )
+            self._notify_model_settings_request(request.notification)
             return
+        self._push_model_settings_modal(request)
+
+    def _notify_model_settings_request(
+        self,
+        notification: ModelSettingsNotification,
+    ) -> None:
+        self.notify(
+            notification.message,
+            title=notification.title,
+            severity=notification.severity,
+        )
+
+    def _push_model_settings_modal(
+        self,
+        request: ModelSettingsModalRequest,
+    ) -> None:
         self.push_screen(
             ModelSettingsModal(
                 self.config.agents,

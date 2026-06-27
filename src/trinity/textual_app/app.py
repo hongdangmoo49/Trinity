@@ -33,6 +33,7 @@ from trinity.textual_app import presenters as textual_presenters
 from trinity.textual_app.answer_commands import answer_result_presentation
 from trinity.textual_app.artifact_commands import artifact_command_presentation
 from trinity.textual_app.context_commands import context_command_presentation
+from trinity.textual_app.decisions_commands import decisions_command_presentation
 from trinity.textual_app.history_commands import history_command_presentation
 from trinity.textual_app.improve_commands import improve_result_presentation
 from trinity.textual_app.local_commands import (
@@ -1829,26 +1830,18 @@ class TrinityTextualApp(App[None]):
 
     def _handle_textual_decisions_command(self, command_name: str) -> None:
         snapshot = self._refresh_textual_snapshot()
-        has_decisions = bool(snapshot.decisions)
+        presentation = decisions_command_presentation(
+            snapshot,
+            lang=self.config.lang,
+        )
         self._record_slash_command_result(
             command_name,
-            textual_presenters.decisions_title(lang=self.config.lang),
-            textual_presenters.decisions_markdown(
-                snapshot,
-                lang=self.config.lang,
-            ),
-            empty=not has_decisions,
-            action_hint=textual_presenters.decisions_action_hint(
-                has_decisions=has_decisions,
-                lang=self.config.lang,
-            ),
-            table_columns=textual_presenters.decisions_table_columns(
-                lang=self.config.lang
-            ),
-            table_rows=textual_presenters.decisions_rows(
-                snapshot,
-                lang=self.config.lang,
-            ),
+            presentation.title,
+            presentation.body,
+            empty=presentation.empty,
+            action_hint=presentation.action_hint,
+            table_columns=presentation.table_columns,
+            table_rows=presentation.table_rows,
         )
 
     def _handle_textual_packages_command(self, command_name: str) -> None:

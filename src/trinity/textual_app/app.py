@@ -16,7 +16,6 @@ from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import parse_execute_retry_args, parse_slash_command
 from trinity.textual_app.command_parsers import (
     parse_execute_args,
-    parse_resume_args,
 )
 from trinity.textual_app.agent_commands import (
     agent_command_presentation,
@@ -82,12 +81,10 @@ from trinity.textual_app.report_commands import (
 )
 from trinity.textual_app.report_route import prepare_report_route
 from trinity.textual_app.resume_commands import (
-    resume_archives_presentation,
+    ResumeCommandPresentation,
     resume_cancelled_presentation,
-    resume_no_saved_presentation,
-    resume_result_command_presentation,
-    resume_result_presentation,
-    should_continue_resumed_workflow,
+    resume_command_action,
+    resume_workflow_effect,
 )
 from trinity.textual_app.route_snapshot import (
     WorkbenchRoute,
@@ -2583,48 +2580,42 @@ class TrinityTextualApp(App[None]):
             self._sync_nexus_workspace_candidate()
 
     def _handle_textual_resume_command(self, args: list[str]) -> None:
-        parsed = parse_resume_args(args)
-        if parsed.action == "picker":
-            archives = self.workflow_controller.list_resume_options()
-            if not archives:
-                presentation = resume_no_saved_presentation(lang=self.config.lang)
-                self._record_slash_command_result(
-                    "/resume",
-                    presentation.title,
-                    presentation.body,
-                    empty=presentation.empty,
-                    action_hint=presentation.action_hint,
-                )
-                return
-            presentation = resume_archives_presentation(
-                archives,
-                lang=self.config.lang,
-            )
-            self._record_slash_command_result(
-                "/resume",
-                presentation.title,
-                presentation.body,
-                table_columns=presentation.table_columns,
-                table_rows=presentation.table_rows,
-                action_hint=presentation.action_hint,
-                start_modal=presentation.start_modal,
-            )
+        action = resume_command_action(
+            args,
+            self.workflow_controller.list_resume_options(),
+            lang=self.config.lang,
+        )
+        if action.presentation:
+            self._record_resume_command_presentation(action.presentation)
+        if action.kind == "picker":
             self.push_screen(
-                ResumeWorkflowPicker(archives, lang=self.config.lang),
+                ResumeWorkflowPicker(list(action.archives), lang=self.config.lang),
                 self._on_resume_archive_selected,
             )
             return
-        self._resume_textual_workflow(parsed.selector)
+        if action.kind == "resume":
+            self._resume_textual_workflow(action.selector)
+
+    def _record_resume_command_presentation(
+        self,
+        presentation: ResumeCommandPresentation,
+    ) -> None:
+        self._record_slash_command_result(
+            "/resume",
+            presentation.title,
+            presentation.body,
+            severity=presentation.severity,
+            empty=presentation.empty,
+            action_hint=presentation.action_hint,
+            table_columns=presentation.table_columns,
+            table_rows=presentation.table_rows,
+            start_modal=presentation.start_modal,
+        )
 
     def _on_resume_archive_selected(self, selector: str | None) -> None:
         if selector is None:
-            presentation = resume_cancelled_presentation(lang=self.config.lang)
-            self._record_slash_command_result(
-                "/resume",
-                presentation.title,
-                presentation.body,
-                empty=presentation.empty,
-                action_hint=presentation.action_hint,
+            self._record_resume_command_presentation(
+                resume_cancelled_presentation(lang=self.config.lang)
             )
             return
         self._resume_textual_workflow(selector)
@@ -2632,32 +2623,19 @@ class TrinityTextualApp(App[None]):
     def _resume_textual_workflow(self, selector: str) -> None:
         outcome = self.workflow_controller.resume_workflow(selector)
         outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
-        presentation = resume_result_presentation(message)
-        if presentation:
-            result_presentation = resume_result_command_presentation(
-                presentation,
-                outcome.snapshot,
-                lang=self.config.lang,
-            )
-            self._record_slash_command_result(
-                "/resume",
-                result_presentation.title,
-                result_presentation.body,
-                severity=result_presentation.severity,
-                empty=result_presentation.empty,
-                table_columns=result_presentation.table_columns,
-                table_rows=result_presentation.table_rows,
-                start_modal=result_presentation.start_modal,
-            )
-        if should_continue_resumed_workflow(presentation):
+        effect = resume_workflow_effect(outcome, message, lang=self.config.lang)
+        if effect.presentation:
+            self._record_resume_command_presentation(effect.presentation)
+        if effect.switch_to_nexus:
             self.switch_to("nexus")
-            if outcome.execution_recovery_required:
+            if effect.execution_recovery_snapshot is not None:
                 self._present_execution_recovery(
                     "/resume",
-                    outcome.snapshot,
-                    "Previous execution was interrupted before Trinity could collect all results.",
+                    effect.execution_recovery_snapshot,
+                    effect.execution_recovery_message,
                 )
-            self._handle_textual_context_command("/context")
+            if effect.show_context:
+                self._handle_textual_context_command("/context")
 
     def _handle_textual_answer_command(self, args: list[str]) -> None:
         run = run_answer_command(

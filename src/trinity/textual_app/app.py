@@ -29,7 +29,6 @@ from trinity.textual_app.command_parsers import (
     parse_rounds_args,
     parse_target_args,
 )
-from trinity.textual_app import presenters as textual_presenters
 from trinity.textual_app.agent_commands import (
     agent_current_presentation,
     agent_error_presentation,
@@ -158,7 +157,10 @@ from trinity.textual_app.workflow_controller import (
     TextualWorkflowController,
     TextualWorkflowOutcome,
 )
-from trinity.textual_app.workflow_commands import workflow_command_presentation
+from trinity.textual_app.workflow_commands import (
+    workflow_command_presentation,
+    workflow_outcome_notification_body,
+)
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
     AgentRecipientModelSelector,
 )
@@ -1744,7 +1746,7 @@ class TrinityTextualApp(App[None]):
             self._apply_execution_screen_state(self.confirmed_preflight, snapshot)
         if outcome.message:
             self.notify(
-                textual_presenters.workflow_outcome_message_markdown(
+                workflow_outcome_notification_body(
                     outcome.message,
                     lang=self.config.lang,
                 )

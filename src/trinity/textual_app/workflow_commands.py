@@ -30,3 +30,8 @@ def workflow_command_presentation(
         table_columns=textual_presenters.status_table_columns(lang=lang),
         table_rows=textual_presenters.snapshot_workflow_rows(snapshot, lang=lang),
     )
+
+
+def workflow_outcome_notification_body(message: str, *, lang: str = "en") -> str:
+    """Return the notification body for a workflow outcome message."""
+    return textual_presenters.workflow_outcome_message_markdown(message, lang=lang)

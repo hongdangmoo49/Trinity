@@ -13,7 +13,7 @@ from trinity import __version__
 from trinity.config import TrinityConfig
 from trinity.context.commands import engine_from_config
 from trinity.providers.model_discovery import ProviderModelChoice
-from trinity.slash_commands import parse_execute_retry_args, parse_slash_command
+from trinity.slash_commands import parse_execute_retry_args
 from trinity.textual_app.agent_commands import (
     agent_command_presentation,
 )
@@ -137,8 +137,9 @@ from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.slash_palette import SlashCommandPaletteProvider
 from trinity.textual_app.slash_command_router import (
+    TextualSlashCommandDispatch,
     TextualSlashCommandRoute,
-    textual_slash_command_route,
+    textual_slash_command_dispatch,
 )
 from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import (
@@ -1808,24 +1809,39 @@ class TrinityTextualApp(App[None]):
 
     def _handle_textual_slash_command(self, text: str) -> None:
         """Execute a Trinity slash command without routing it as model input."""
-        parsed = parse_slash_command(text)
-        if parsed is None:
+        dispatch = textual_slash_command_dispatch(text)
+        if dispatch is None:
             return
-        if parsed.error:
-            self._handle_textual_slash_syntax_error(text, parsed.error)
-            return
-        if not parsed.token:
-            return
-        if parsed.spec is None:
-            self._handle_textual_unknown_slash_command(parsed.token)
-            return
+        self._apply_textual_slash_command_dispatch(dispatch)
 
-        command = parsed.command_id
-        args = list(parsed.args)
-        route = textual_slash_command_route(command)
-        if route is None:
+    def _apply_textual_slash_command_dispatch(
+        self,
+        dispatch: TextualSlashCommandDispatch,
+    ) -> None:
+        if self._record_textual_slash_command_error(dispatch):
             return
-        self._dispatch_textual_slash_command_route(route, parsed.spec.name, args)
+        if dispatch.route is None:
+            return
+        self._dispatch_textual_slash_command_route(
+            dispatch.route,
+            dispatch.command_name,
+            list(dispatch.args),
+        )
+
+    def _record_textual_slash_command_error(
+        self,
+        dispatch: TextualSlashCommandDispatch,
+    ) -> bool:
+        if dispatch.syntax_error:
+            self._handle_textual_slash_syntax_error(
+                dispatch.raw_command,
+                dispatch.syntax_error,
+            )
+            return True
+        if dispatch.unknown_token:
+            self._handle_textual_unknown_slash_command(dispatch.unknown_token)
+            return True
+        return False
 
     def _dispatch_textual_slash_command_route(
         self,

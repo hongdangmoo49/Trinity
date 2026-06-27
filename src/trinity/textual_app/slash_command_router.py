@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from trinity.slash_commands import parse_slash_command
+
 SlashCommandArgumentShape = Literal["none", "name", "args", "name_args"]
 
 
@@ -14,6 +16,18 @@ class TextualSlashCommandRoute:
 
     handler_name: str
     argument_shape: SlashCommandArgumentShape = "none"
+
+
+@dataclass(frozen=True)
+class TextualSlashCommandDispatch:
+    """Resolved Textual slash command dispatch or local error state."""
+
+    route: TextualSlashCommandRoute | None = None
+    command_name: str = ""
+    args: tuple[str, ...] = ()
+    raw_command: str = ""
+    syntax_error: str = ""
+    unknown_token: str = ""
 
 
 TEXTUAL_SLASH_COMMAND_ROUTES: dict[str, TextualSlashCommandRoute] = {
@@ -60,3 +74,30 @@ TEXTUAL_SLASH_COMMAND_ROUTES: dict[str, TextualSlashCommandRoute] = {
 def textual_slash_command_route(command_id: str) -> TextualSlashCommandRoute | None:
     """Return the TextualApp handler route for a command id."""
     return TEXTUAL_SLASH_COMMAND_ROUTES.get(command_id)
+
+
+def textual_slash_command_dispatch(
+    text: str,
+) -> TextualSlashCommandDispatch | None:
+    """Return Textual dispatch state for raw slash command text."""
+    parsed = parse_slash_command(text)
+    if parsed is None:
+        return None
+    if parsed.error:
+        return TextualSlashCommandDispatch(
+            raw_command=text,
+            syntax_error=parsed.error,
+        )
+    if not parsed.token:
+        return None
+    if parsed.spec is None:
+        return TextualSlashCommandDispatch(unknown_token=parsed.token)
+
+    route = textual_slash_command_route(parsed.command_id)
+    if route is None:
+        return None
+    return TextualSlashCommandDispatch(
+        route=route,
+        command_name=parsed.spec.name,
+        args=tuple(parsed.args),
+    )

@@ -28,6 +28,8 @@ from trinity.textual_app.ask_commands import (
     run_ask_command,
 )
 from trinity.textual_app.answer_commands import (
+    AnswerCommandPresentation,
+    AnswerCommandRun,
     answer_message_command_presentation,
     run_answer_command,
 )
@@ -2644,15 +2646,24 @@ class TrinityTextualApp(App[None]):
             lang=self.config.lang,
         )
         if run.presentation:
-            self._record_slash_command_result(
-                "/answer",
-                run.presentation.title,
-                run.presentation.body,
-                severity=run.presentation.severity,
-                empty=run.presentation.empty,
-                action_hint=run.presentation.action_hint,
-            )
+            self._record_answer_command_presentation(run.presentation)
             return
+        self._apply_textual_answer_run(run)
+
+    def _record_answer_command_presentation(
+        self,
+        presentation: AnswerCommandPresentation,
+    ) -> None:
+        self._record_slash_command_result(
+            "/answer",
+            presentation.title,
+            presentation.body,
+            severity=presentation.severity,
+            empty=presentation.empty,
+            action_hint=presentation.action_hint,
+        )
+
+    def _apply_textual_answer_run(self, run: AnswerCommandRun) -> None:
         if run.outcome is None:
             return
         outcome = run.outcome
@@ -2662,13 +2673,7 @@ class TrinityTextualApp(App[None]):
             lang=self.config.lang,
         )
         if result_presentation:
-            self._record_slash_command_result(
-                "/answer",
-                result_presentation.title,
-                result_presentation.body,
-                severity=result_presentation.severity,
-                empty=result_presentation.empty,
-            )
+            self._record_answer_command_presentation(result_presentation)
 
     def _handle_textual_execute_retry_command(self, args: list[str]) -> None:
         selector, package_ids = parse_execute_retry_args(args)

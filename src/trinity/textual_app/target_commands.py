@@ -17,6 +17,7 @@ from trinity.textual_app.target_workspace import (
 
 
 TargetCommandActionKind = Literal["record", "clear", "confirm", "set"]
+TargetCommandEffectKind = Literal["record", "clear", "confirm", "set", "none"]
 
 
 @dataclass(frozen=True)
@@ -54,6 +55,15 @@ class TargetWorkspaceApplyEffect:
     def apply_workflow_outcome(self) -> bool:
         """Return whether the app should apply the controller workflow outcome."""
         return self.workflow_outcome is not None
+
+
+@dataclass(frozen=True)
+class TargetCommandEffect:
+    """App effect derived from a normalized `/target` command action."""
+
+    action: TargetCommandEffectKind
+    path: Path | None = None
+    presentation: TargetCommandPresentation | None = None
 
 
 def target_current_presentation(
@@ -206,6 +216,23 @@ def target_command_action(
     if is_control_repo_target(path, project_dir):
         return TargetCommandAction(action="confirm", path=path)
     return TargetCommandAction(action="set", path=path)
+
+
+def target_command_effect(action: TargetCommandAction) -> TargetCommandEffect:
+    """Return the app effect for a normalized `/target` action."""
+    if action.presentation is not None:
+        return TargetCommandEffect(
+            action="record",
+            path=action.path,
+            presentation=action.presentation,
+        )
+    if action.action == "clear":
+        return TargetCommandEffect(action="clear")
+    if action.path is None:
+        return TargetCommandEffect(action="none")
+    if action.action == "confirm":
+        return TargetCommandEffect(action="confirm", path=action.path)
+    return TargetCommandEffect(action="set", path=action.path)
 
 
 def target_cancelled_snapshot(

@@ -114,9 +114,11 @@ from trinity.textual_app.slash_error_commands import (
 from trinity.textual_app.status_commands import status_command_result
 from trinity.textual_app.subtasks_commands import subtasks_command_presentation
 from trinity.textual_app.target_commands import (
+    TargetCommandEffect,
     TargetCommandPresentation,
     TargetWorkspaceApplyEffect,
     target_command_action,
+    target_command_effect,
     target_cancelled_snapshot,
     target_cleared_presentation,
     target_prepare_result_presentation,
@@ -2515,10 +2517,16 @@ class TrinityTextualApp(App[None]):
             project_dir=self.config.project_dir,
             lang=self.config.lang,
         )
-        if action.presentation:
-            self._record_target_command_presentation(action.presentation)
+        self._apply_textual_target_command_effect(target_command_effect(action))
+
+    def _apply_textual_target_command_effect(
+        self,
+        effect: TargetCommandEffect,
+    ) -> None:
+        if effect.presentation is not None:
+            self._record_target_command_presentation(effect.presentation)
             return
-        if action.action == "clear":
+        if effect.action == "clear":
             outcome = self.workflow_controller.clear_target_workspace()
             self.confirmed_preflight = None
             self._apply_workflow_outcome(outcome)
@@ -2526,12 +2534,12 @@ class TrinityTextualApp(App[None]):
                 target_cleared_presentation(lang=self.config.lang)
             )
             return
-        if action.path is None:
+        if effect.path is None:
             return
-        if action.action == "confirm":
-            self._confirm_textual_target_workspace(action.path)
+        if effect.action == "confirm":
+            self._confirm_textual_target_workspace(effect.path)
             return
-        self._set_textual_target_workspace(action.path, control_repo_confirmed=False)
+        self._set_textual_target_workspace(effect.path, control_repo_confirmed=False)
 
     def _record_target_command_presentation(
         self,

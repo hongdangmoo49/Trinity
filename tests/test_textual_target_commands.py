@@ -4,7 +4,10 @@ from types import SimpleNamespace
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.target_workspace import TargetWorkspacePreparation
 from trinity.textual_app.target_commands import (
+    TargetCommandAction,
+    TargetCommandPresentation,
     target_command_action,
+    target_command_effect,
     target_cancelled_snapshot,
     target_cleared_presentation,
     target_current_presentation,
@@ -159,6 +162,18 @@ def test_target_command_action_records_current_target() -> None:
     assert action.presentation.body == f"Current target: `{current}`"
 
 
+def test_target_command_effect_records_presentation() -> None:
+    presentation = TargetCommandPresentation(title="Target", body="Current target")
+
+    effect = target_command_effect(
+        TargetCommandAction(action="record", presentation=presentation)
+    )
+
+    assert effect.action == "record"
+    assert effect.presentation is presentation
+    assert effect.path is None
+
+
 def test_target_command_action_routes_clear() -> None:
     action = target_command_action(
         ["clear"],
@@ -169,6 +184,14 @@ def test_target_command_action_routes_clear() -> None:
     assert action.action == "clear"
     assert action.path is None
     assert action.presentation is None
+
+
+def test_target_command_effect_routes_clear() -> None:
+    effect = target_command_effect(TargetCommandAction(action="clear"))
+
+    assert effect.action == "clear"
+    assert effect.path is None
+    assert effect.presentation is None
 
 
 def test_target_command_action_routes_control_repo_confirmation() -> None:
@@ -183,6 +206,16 @@ def test_target_command_action_routes_control_repo_confirmation() -> None:
     assert action.presentation is None
 
 
+def test_target_command_effect_routes_confirm_with_path() -> None:
+    path = Path("/repo/nested")
+
+    effect = target_command_effect(TargetCommandAction(action="confirm", path=path))
+
+    assert effect.action == "confirm"
+    assert effect.path == path
+    assert effect.presentation is None
+
+
 def test_target_command_action_routes_external_set() -> None:
     action = target_command_action(
         ["/workspace/app"],
@@ -193,6 +226,24 @@ def test_target_command_action_routes_external_set() -> None:
     assert action.action == "set"
     assert action.path == Path("/workspace/app")
     assert action.presentation is None
+
+
+def test_target_command_effect_routes_set_with_path() -> None:
+    path = Path("/workspace/app")
+
+    effect = target_command_effect(TargetCommandAction(action="set", path=path))
+
+    assert effect.action == "set"
+    assert effect.path == path
+    assert effect.presentation is None
+
+
+def test_target_command_effect_skips_missing_path() -> None:
+    effect = target_command_effect(TargetCommandAction(action="set"))
+
+    assert effect.action == "none"
+    assert effect.path is None
+    assert effect.presentation is None
 
 
 def test_target_cancelled_snapshot_describes_selection_cancel() -> None:

@@ -1426,6 +1426,28 @@ def status_local_command_snapshot(
     )
 
 
+def execution_recovery_local_command_snapshot(
+    command: str,
+    snapshot: WorkflowNexusSnapshot,
+    message: str = "",
+    *,
+    lang: str = "en",
+) -> LocalCommandSnapshot:
+    """Build the local slash command result for execution recovery details."""
+    localized_message = workflow_outcome_message_markdown(message, lang=lang).strip()
+    body_parts = [localized_message] if localized_message else []
+    body_parts.append(execution_recovery_markdown(snapshot, lang=lang))
+    return local_command_snapshot(
+        command,
+        execution_recovery_title(lang=lang),
+        "\n\n".join(body_parts),
+        severity="warning",
+        action_hint=execution_recovery_action_hint(lang=lang),
+        table_columns=execution_recovery_table_columns(lang=lang),
+        table_rows=execution_recovery_rows(snapshot, lang=lang),
+    )
+
+
 def local_command_notification_severity(result: LocalCommandSnapshot) -> str:
     """Map a local command result severity to Textual notification severity."""
     return "warning" if result.severity in {"warning", "error"} else "information"

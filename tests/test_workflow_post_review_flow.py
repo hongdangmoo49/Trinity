@@ -8,6 +8,7 @@ from trinity.workflow.execution_review_flow import (
 from trinity.workflow.models import PostReviewActionItem, PostReviewActionStatus
 from trinity.workflow.post_review_flow import WorkflowPostReviewFlow
 from trinity.workflow.post_review_assignment import (
+    build_supplemental_execution_run,
     build_supplemental_work_package,
     owner_for_post_review_item,
     supplemental_objective,
@@ -151,3 +152,37 @@ def test_build_supplemental_work_package_maps_action_item_fields():
     assert package.origin_action_item_ids == ["AI-020"]
     assert package.parent_package_ids == ["WP-001"]
     assert package.supplemental_round == 2
+
+
+def test_build_supplemental_execution_run_preserves_run_id_and_sets_payload():
+    run = build_supplemental_execution_run(
+        {"run_id": "exec-run-existing", "state": "old"},
+        supplemental_round=3,
+        package_ids=["WP-S001", "WP-S002"],
+        action_item_ids=["AI-001", "AI-002"],
+        target_workspace="/tmp/project",
+    )
+
+    assert run == {
+        "run_id": "exec-run-existing",
+        "state": "supplemental_queued",
+        "kind": "supplemental",
+        "source": "post_review_followup",
+        "round": 3,
+        "package_ids": ["WP-S001", "WP-S002"],
+        "action_item_ids": ["AI-001", "AI-002"],
+        "target_workspace": "/tmp/project",
+    }
+
+
+def test_build_supplemental_execution_run_creates_run_id():
+    run = build_supplemental_execution_run(
+        None,
+        supplemental_round=1,
+        package_ids=["WP-S001"],
+        action_item_ids=["AI-001"],
+        target_workspace="",
+    )
+
+    assert str(run["run_id"]).startswith("exec-run-")
+    assert run["state"] == "supplemental_queued"

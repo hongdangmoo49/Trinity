@@ -36,7 +36,11 @@ from trinity.textual_app.artifact_commands import artifact_command_presentation
 from trinity.textual_app.caveman_commands import (
     caveman_command_presentation,
 )
-from trinity.textual_app.context_commands import context_command_presentation
+from trinity.textual_app.context_commands import (
+    ContextCommandPresentation,
+    context_command_presentation,
+    context_command_snapshot_update,
+)
 from trinity.textual_app.decisions_commands import decisions_command_presentation
 from trinity.textual_app.execute_commands import (
     execute_result_presentation,
@@ -2287,6 +2291,13 @@ class TrinityTextualApp(App[None]):
             route=self.current_route,
             lang=self.config.lang,
         )
+        self._apply_textual_context_presentation(presentation, snapshot)
+
+    def _apply_textual_context_presentation(
+        self,
+        presentation: ContextCommandPresentation,
+        snapshot: WorkflowNexusSnapshot,
+    ) -> None:
         if presentation.action == "notify":
             self.notify(
                 presentation.body,
@@ -2303,22 +2314,19 @@ class TrinityTextualApp(App[None]):
             )
             return
 
-        result = presentation.result
-        if result is None:
-            return
-        self._local_command_results = replace_local_command_result(
-            self._local_command_results,
-            result,
-        )
-        snapshot = snapshot_with_local_command_results(
+        update = context_command_snapshot_update(
+            presentation,
             snapshot,
             self._local_command_results,
         )
-        self.active_snapshot = snapshot
-        if presentation.action == "modal":
-            self.push_screen(ContextCommandModal(result, lang=self.config.lang))
+        if update is None:
             return
-        self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
+        self._local_command_results = update.local_command_results
+        self.active_snapshot = update.snapshot
+        if presentation.action == "modal":
+            self.push_screen(ContextCommandModal(update.result, lang=self.config.lang))
+            return
+        self._apply_workflow_outcome(TextualWorkflowOutcome(update.snapshot))
 
     def _handle_textual_memory_command(self, args: list[str]) -> None:
         presentation = memory_command_presentation(

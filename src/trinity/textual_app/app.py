@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from inspect import Parameter, signature
 from pathlib import Path
 from typing import Any
 
@@ -43,6 +42,7 @@ from trinity.textual_app.context_commands import (
     context_command_effect,
     context_command_presentation,
 )
+from trinity.textual_app.controller_calls import call_controller_method
 from trinity.textual_app.decisions_commands import decisions_command_presentation
 from trinity.textual_app.execute_commands import (
     ExecuteCommandEffect,
@@ -1330,7 +1330,7 @@ class TrinityTextualApp(App[None]):
         self._sync_nexus_workspace_candidate()
 
     def _run_start_submission(self, effect: StartSubmissionEffect):
-        return self._call_controller_method(
+        return call_controller_method(
             self.workflow_controller.start_prompt,
             effect.prompt,
             target_workspace=effect.target_workspace,
@@ -1361,7 +1361,7 @@ class TrinityTextualApp(App[None]):
         event: NexusScreen.FollowUpSubmitted,
     ) -> None:
         event.stop()
-        outcome = self._call_controller_method(
+        outcome = call_controller_method(
             self.workflow_controller.submit_follow_up,
             event.text,
             target_agents=event.target_agents,
@@ -1370,28 +1370,6 @@ class TrinityTextualApp(App[None]):
         self._apply_workflow_outcome(outcome)
         if outcome.target_workspace_required:
             self._open_execute_workspace_picker(outcome.snapshot)
-
-    @staticmethod
-    def _call_controller_method(method, *args, **kwargs):
-        """Call a controller method while tolerating older test doubles."""
-        try:
-            parameters = signature(method).parameters
-        except (TypeError, ValueError):
-            return method(*args, **kwargs)
-
-        accepts_kwargs = any(
-            parameter.kind == Parameter.VAR_KEYWORD
-            for parameter in parameters.values()
-        )
-        if accepts_kwargs:
-            return method(*args, **kwargs)
-
-        supported_kwargs = {
-            key: value
-            for key, value in kwargs.items()
-            if key in parameters
-        }
-        return method(*args, **supported_kwargs)
 
     def on_nexus_screen_slash_command_submitted(
         self,

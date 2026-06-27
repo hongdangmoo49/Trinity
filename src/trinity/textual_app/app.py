@@ -84,6 +84,7 @@ from trinity.textual_app.snapshot_source import (
     fresh_textual_snapshot,
 )
 from trinity.textual_app.target_workspace import (
+    default_launch_cwd,
     is_control_repo_target,
     resolve_target_path,
     safe_start_target_workspace,
@@ -1131,7 +1132,7 @@ class TrinityTextualApp(App[None]):
         self.config = config
         self.current_route: WorkbenchRoute = "start"
         self.initial_prompt: str | None = None
-        self.launch_cwd = self._default_launch_cwd(launch_cwd)
+        self.launch_cwd = default_launch_cwd(launch_cwd)
         self.workspace_candidate: Path | None = self.launch_cwd
         self.snapshot_adapter = NexusSnapshotAdapter(config)
         self.active_snapshot: WorkflowNexusSnapshot | None = None
@@ -1579,14 +1580,6 @@ class TrinityTextualApp(App[None]):
             control_repo_confirmed=control_repo_confirmed,
         )
         self._sync_nexus_workspace_candidate()
-
-    @staticmethod
-    def _default_launch_cwd(launch_cwd: Path | None = None) -> Path:
-        """Return the directory Trinity was launched from for target defaults."""
-        try:
-            return (launch_cwd or Path.cwd()).expanduser().resolve()
-        except OSError:
-            return (launch_cwd or Path.cwd()).expanduser()
 
     def _remember_confirmed_target_preflight(
         self,

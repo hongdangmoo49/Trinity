@@ -2,10 +2,27 @@ from pathlib import Path
 
 from trinity.textual_app.target_workspace import (
     absolute_path,
+    default_launch_cwd,
     is_control_repo_target,
     resolve_target_path,
     safe_start_target_workspace,
 )
+
+
+def test_default_launch_cwd_resolves_explicit_launch_dir(tmp_path) -> None:
+    launch_dir = tmp_path / "project"
+    launch_dir.mkdir()
+
+    assert default_launch_cwd(launch_dir) == launch_dir.resolve()
+
+
+def test_default_launch_cwd_tolerates_missing_explicit_launch_dir(tmp_path) -> None:
+    missing = tmp_path / "missing" / "project"
+
+    resolved = default_launch_cwd(missing)
+
+    assert resolved.is_absolute()
+    assert resolved.name == "project"
 
 
 def test_resolve_target_path_uses_base_dir_for_relative_path(tmp_path) -> None:

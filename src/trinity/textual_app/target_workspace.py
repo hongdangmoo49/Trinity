@@ -5,6 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 
 
+def default_launch_cwd(launch_cwd: Path | None = None) -> Path:
+    """Return the directory Trinity was launched from for target defaults."""
+    try:
+        return (launch_cwd or Path.cwd()).expanduser().resolve()
+    except OSError:
+        return (launch_cwd or Path.cwd()).expanduser()
+
+
 def resolve_target_path(value: str, base_dir: Path) -> Path:
     """Resolve a user-provided target path against the control project."""
     path = Path(value).expanduser()

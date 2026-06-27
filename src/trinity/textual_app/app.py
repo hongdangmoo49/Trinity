@@ -1474,8 +1474,10 @@ class TrinityTextualApp(App[None]):
                 return
             self._apply_workflow_outcome(outcome)
             if outcome.execution_requested:
-                execution = self.get_screen("execution", ExecutionMatrixScreen)
-                execution.apply_execution_state(self.confirmed_preflight, outcome.snapshot)
+                self._apply_execution_screen_state(
+                    self.confirmed_preflight,
+                    outcome.snapshot,
+                )
                 self.switch_to("execution")
             return
         if action == "repair-mark-done":
@@ -1654,9 +1656,7 @@ class TrinityTextualApp(App[None]):
                 outcome.message,
             )
             return
-        snapshot = outcome.snapshot
-        execution = self.get_screen("execution", ExecutionMatrixScreen)
-        execution.apply_execution_state(preflight, snapshot)
+        self._apply_execution_screen_state(preflight, outcome.snapshot)
         self.switch_to("execution")
 
     def _ensure_workflow_polling(self) -> None:
@@ -1686,8 +1686,7 @@ class TrinityTextualApp(App[None]):
             if outcome.running:
                 nexus.advance_activity_frame()
         if self.current_route == "execution" and self.confirmed_preflight is not None:
-            execution = self.get_screen("execution", ExecutionMatrixScreen)
-            execution.apply_execution_state(self.confirmed_preflight, snapshot)
+            self._apply_execution_screen_state(self.confirmed_preflight, snapshot)
         if outcome.message:
             self.notify(
                 textual_presenters.workflow_outcome_message_markdown(
@@ -2972,9 +2971,19 @@ class TrinityTextualApp(App[None]):
             return
         self._apply_workflow_outcome(outcome)
         if outcome.execution_requested:
-            execution = self.get_screen("execution", ExecutionMatrixScreen)
-            execution.apply_execution_state(self.confirmed_preflight, outcome.snapshot)
+            self._apply_execution_screen_state(
+                self.confirmed_preflight,
+                outcome.snapshot,
+            )
             self.switch_to("execution")
+
+    def _apply_execution_screen_state(
+        self,
+        preflight: WorkspacePreflight | None,
+        snapshot: WorkflowNexusSnapshot,
+    ) -> None:
+        execution = self.get_screen("execution", ExecutionMatrixScreen)
+        execution.apply_execution_state(preflight, snapshot)
 
     def _advance_activity_frame(self) -> None:
         if self.current_route == "nexus" and self._screens_installed:

@@ -90,8 +90,9 @@ from trinity.textual_app.route_snapshot import (
     apply_current_route_snapshot,
 )
 from trinity.textual_app.review_commands import (
+    ReviewRepairAction,
+    review_repair_action,
     review_matrix_notification_presentation,
-    review_repair_blocked_package_ids,
     review_repair_snapshot,
     review_result_command_presentation,
     review_result_presentation,
@@ -1487,38 +1488,41 @@ class TrinityTextualApp(App[None]):
         snapshot: WorkflowNexusSnapshot | None,
     ) -> None:
         current = snapshot or self._fresh_textual_snapshot()
-        package_ids = review_repair_blocked_package_ids(current)
-        if action == "repair-open-review":
+        repair_action = review_repair_action(action, current)
+        if repair_action.kind == "open_review":
             self._present_review_repair_details(current)
             return
-        if action == "repair-retry-once":
-            outcome = self.workflow_controller.retry_blocked_review_repairs()
-            if outcome.target_workspace_required:
-                self._pending_execute_retry = ExecutionRetrySelection(
-                    "custom",
-                    package_ids,
-                )
-                self._apply_workflow_outcome(outcome)
-                self._open_execute_workspace_picker(outcome.snapshot)
-                return
-            self._apply_workflow_outcome(outcome)
-            if outcome.execution_requested:
-                self._apply_execution_screen_state(
-                    self.confirmed_preflight,
-                    outcome.snapshot,
-                )
-                self.switch_to("execution")
+        if repair_action.kind == "retry_once":
+            self._retry_review_repair_action(repair_action)
             return
-        if action == "repair-mark-done":
+        if repair_action.kind == "mark_done":
             self._apply_workflow_outcome(
                 self.workflow_controller.accept_blocked_review_repairs()
             )
             return
-        if action == "repair-stop":
+        if repair_action.kind == "stop":
             self._apply_workflow_outcome(
                 self.workflow_controller.stop_blocked_review_repairs()
             )
             return
+
+    def _retry_review_repair_action(self, action: ReviewRepairAction) -> None:
+        outcome = self.workflow_controller.retry_blocked_review_repairs()
+        if outcome.target_workspace_required:
+            self._pending_execute_retry = ExecutionRetrySelection(
+                "custom",
+                action.package_ids,
+            )
+            self._apply_workflow_outcome(outcome)
+            self._open_execute_workspace_picker(outcome.snapshot)
+            return
+        self._apply_workflow_outcome(outcome)
+        if outcome.execution_requested:
+            self._apply_execution_screen_state(
+                self.confirmed_preflight,
+                outcome.snapshot,
+            )
+            self.switch_to("execution")
 
     def _open_execute_workspace_picker(self, snapshot: WorkflowNexusSnapshot) -> None:
         self._open_workspace_picker(snapshot, self._on_workspace_preflight)

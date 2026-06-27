@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.574`
-- Merged PR range reviewed: #90 through #670
+- Package version inspected: `1.0.576`
+- Merged PR range reviewed: #90 through #672
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #670
-- Latest refresh reviewed: #670
+- Maintenance refresh reviewed: #427 through #672
+- Latest refresh reviewed: #672
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -917,6 +917,17 @@ and what the next release train should optimize.
   effects in the app facade.
 - Reduced `_export_report_markdown` from 25 lines to 10 lines.
 - Raised the package version from `1.0.572` to `1.0.573` in this patch PR.
+
+### #672: Textual Status Command Effect Helper
+
+- Split `/status` result generation and local command snapshot updates from
+  `textual_app/app.py` into `textual_app/status_commands.py`.
+- Added `status_command_effect` so start-route modal routing and non-start
+  snapshot updates are testable without the Textual app.
+- Kept the concrete `StatusCommandModal` and workflow outcome side effects in
+  the app facade.
+- Reduced `_show_textual_status` from 24 lines to 14 lines.
+- Raised the package version from `1.0.574` to `1.0.575` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

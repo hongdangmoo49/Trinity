@@ -68,6 +68,12 @@ CLI users can record the brief with `trinity project new` or
 - `--milestone TEXT`
 - `--constraint TEXT` repeated or comma-separated
 
+When a new-project brief is incomplete, `trinity project new`,
+`trinity project analyze --mode new`, and `trinity project status` include a
+completion command containing only the missing brief fields. This lets users
+fill the minimum product goal, type, users, success, and milestone context
+before running `trinity`.
+
 `trinity project status --refresh` refreshes filesystem-derived analysis while
 preserving the saved project brief.
 

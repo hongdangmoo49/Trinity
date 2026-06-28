@@ -555,8 +555,41 @@ def project() -> None:
     show_default=True,
     help="Initialize a Git repository in the new project folder.",
 )
+@click.option(
+    "--goal",
+    "product_goal",
+    default="",
+    help="Product goal for the new project brief.",
+)
+@click.option(
+    "--stack",
+    "stack_preferences",
+    multiple=True,
+    help="Preferred stack item for the project brief. Repeat or comma-separate.",
+)
+@click.option(
+    "--milestone",
+    "first_milestone",
+    default="",
+    help="First milestone for the project brief.",
+)
+@click.option(
+    "--constraint",
+    "constraints",
+    multiple=True,
+    help="Project constraint for the brief. Repeat or comma-separate.",
+)
 @click.option("--notes", default="", help="Optional notes to store in project intake.")
-def project_new(name: str, parent: Path, git_init: bool, notes: str) -> None:
+def project_new(
+    name: str,
+    parent: Path,
+    git_init: bool,
+    product_goal: str,
+    stack_preferences: tuple[str, ...],
+    first_milestone: str,
+    constraints: tuple[str, ...],
+    notes: str,
+) -> None:
     """Create a new target project folder and write project intake artifacts."""
     config_path = find_config_path()
     if config_path is None:
@@ -568,6 +601,10 @@ def project_new(name: str, parent: Path, git_init: bool, notes: str) -> None:
     intake = build_project_intake(
         mode="new",
         target_workspace=target_workspace,
+        product_goal=product_goal,
+        stack_preferences=_split_option_values(stack_preferences),
+        first_milestone=first_milestone,
+        constraints=_split_option_values(constraints),
         notes=notes,
     )
     paths = write_project_intake(config.effective_state_dir, intake)
@@ -588,8 +625,40 @@ def project_new(name: str, parent: Path, git_init: bool, notes: str) -> None:
     show_default=True,
     help="Project onboarding mode to store in the intake artifact.",
 )
+@click.option(
+    "--goal",
+    "product_goal",
+    default="",
+    help="Product goal to store in project intake.",
+)
+@click.option(
+    "--stack",
+    "stack_preferences",
+    multiple=True,
+    help="Preferred stack item for project intake. Repeat or comma-separate.",
+)
+@click.option(
+    "--milestone",
+    "first_milestone",
+    default="",
+    help="First milestone to store in project intake.",
+)
+@click.option(
+    "--constraint",
+    "constraints",
+    multiple=True,
+    help="Project constraint to store in intake. Repeat or comma-separate.",
+)
 @click.option("--notes", default="", help="Optional notes to store in project intake.")
-def project_analyze(path: Path | None, mode: str, notes: str) -> None:
+def project_analyze(
+    path: Path | None,
+    mode: str,
+    product_goal: str,
+    stack_preferences: tuple[str, ...],
+    first_milestone: str,
+    constraints: tuple[str, ...],
+    notes: str,
+) -> None:
     """Analyze a target workspace and write project intake artifacts."""
     config_path = find_config_path()
     if config_path is None:
@@ -602,6 +671,10 @@ def project_analyze(path: Path | None, mode: str, notes: str) -> None:
     intake = build_project_intake(
         mode=mode,
         target_workspace=target_workspace,
+        product_goal=product_goal,
+        stack_preferences=_split_option_values(stack_preferences),
+        first_milestone=first_milestone,
+        constraints=_split_option_values(constraints),
         notes=notes,
     )
     paths = write_project_intake(config.effective_state_dir, intake)
@@ -648,6 +721,10 @@ def _refresh_project_intake(
     refreshed = build_project_intake(
         mode=intake.mode,
         target_workspace=intake.target_workspace,
+        product_goal=intake.product_goal,
+        stack_preferences=intake.stack_preferences,
+        first_milestone=intake.first_milestone,
+        constraints=intake.constraints,
         notes=intake.notes,
     )
     paths = write_project_intake(config.effective_state_dir, refreshed)
@@ -715,6 +792,7 @@ def _display_project_new_summary(
             "",
             f"Target workspace: {intake.target_workspace}",
             f"Git init: {git_status}",
+            *_project_brief_lines(intake),
             "",
             f"JSON: {json_path}",
             f"Markdown: {markdown_path}",
@@ -745,6 +823,7 @@ def _display_project_intake_summary(
             f"Untracked count: {_unknown_if_none(intake.untracked_count)}",
             f"Package managers: {_csv_or_none(intake.package_managers)}",
             f"Test commands: {_csv_or_none(intake.test_commands)}",
+            *_project_brief_lines(intake),
             "",
             f"JSON: {json_path}",
             f"Markdown: {markdown_path}",
@@ -828,6 +907,10 @@ def _project_status_payload(
             "untracked_count": intake.untracked_count,
             "package_managers": list(intake.package_managers),
             "test_commands": list(intake.test_commands),
+            "product_goal": intake.product_goal,
+            "stack_preferences": list(intake.stack_preferences),
+            "first_milestone": intake.first_milestone,
+            "constraints": list(intake.constraints),
             "notes": intake.notes,
         },
         "current_analysis": {
@@ -906,6 +989,7 @@ def _display_project_status(
             f"  Untracked count: {_unknown_if_none(intake.untracked_count)}",
             f"  Package managers: {_csv_or_none(intake.package_managers)}",
             f"  Test commands: {_csv_or_none(intake.test_commands)}",
+            *_project_brief_status_lines(intake),
             "",
             "Current analysis:",
             f"  Branch: {live_branch}",
@@ -927,6 +1011,38 @@ def _unknown_if_none(value: int | None) -> str:
 
 def _csv_or_none(values: tuple[str, ...]) -> str:
     return ", ".join(values) if values else "(none)"
+
+
+def _split_option_values(values: tuple[str, ...]) -> tuple[str, ...]:
+    items: list[str] = []
+    for value in values:
+        items.extend(part.strip() for part in value.split(","))
+    return tuple(dict.fromkeys(item for item in items if item))
+
+
+def _project_brief_lines(intake: ProjectIntake) -> list[str]:
+    lines: list[str] = []
+    if intake.product_goal:
+        lines.append(f"Product goal: {intake.product_goal}")
+    if intake.stack_preferences:
+        lines.append(f"Stack preferences: {_csv_or_none(intake.stack_preferences)}")
+    if intake.first_milestone:
+        lines.append(f"First milestone: {intake.first_milestone}")
+    if intake.constraints:
+        lines.append(f"Constraints: {_csv_or_none(intake.constraints)}")
+    if lines:
+        return ["", "Project brief:", *lines]
+    return []
+
+
+def _project_brief_status_lines(intake: ProjectIntake) -> list[str]:
+    lines = _project_brief_lines(intake)
+    if not lines:
+        return []
+    return [
+        line if not line or line == "Project brief:" else f"  {line}"
+        for line in lines
+    ]
 
 
 # ─── trinity bootstrap ───────────────────────────────────────────────────

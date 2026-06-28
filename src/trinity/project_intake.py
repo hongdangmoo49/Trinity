@@ -49,6 +49,10 @@ class ProjectIntake:
     entrypoints: tuple[str, ...] = ()
     source_roots: tuple[str, ...] = ()
     docs_found: tuple[str, ...] = ()
+    product_goal: str = ""
+    stack_preferences: tuple[str, ...] = ()
+    first_milestone: str = ""
+    constraints: tuple[str, ...] = ()
     notes: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -67,6 +71,10 @@ class ProjectIntake:
             "entrypoints": list(self.entrypoints),
             "source_roots": list(self.source_roots),
             "docs_found": list(self.docs_found),
+            "product_goal": self.product_goal,
+            "stack_preferences": list(self.stack_preferences),
+            "first_milestone": self.first_milestone,
+            "constraints": list(self.constraints),
             "notes": self.notes,
         }
 
@@ -78,6 +86,10 @@ class ProjectIntake:
         entrypoints = _csv_or_none(self.entrypoints)
         source_roots = _csv_or_none(self.source_roots)
         docs_found = _csv_or_none(self.docs_found)
+        stack_preferences = _csv_or_none(self.stack_preferences)
+        constraints = _csv_or_none(self.constraints)
+        product_goal = self.product_goal.strip() or "(none)"
+        first_milestone = self.first_milestone.strip() or "(none)"
         dirty_count = _value_or_unknown(self.dirty_count)
         untracked_count = _value_or_unknown(self.untracked_count)
         notes = self.notes.strip() or "(none)"
@@ -100,6 +112,13 @@ class ProjectIntake:
                 f"- Source roots: {source_roots}",
                 f"- Docs found: {docs_found}",
                 "",
+                "## Brief",
+                "",
+                f"- Product goal: {product_goal}",
+                f"- Stack preferences: {stack_preferences}",
+                f"- First milestone: {first_milestone}",
+                f"- Constraints: {constraints}",
+                "",
                 "## Notes",
                 "",
                 notes,
@@ -121,6 +140,10 @@ def build_project_intake(
     mode: str,
     target_workspace: Path,
     notes: str = "",
+    product_goal: str = "",
+    stack_preferences: tuple[str, ...] | list[str] = (),
+    first_milestone: str = "",
+    constraints: tuple[str, ...] | list[str] = (),
     created_at: str | None = None,
 ) -> ProjectIntake:
     """Build read-only project intake metadata for a target workspace."""
@@ -146,6 +169,10 @@ def build_project_intake(
         entrypoints=detect_entrypoints(workspace, package_managers),
         source_roots=detect_source_roots(workspace),
         docs_found=detect_docs(workspace),
+        product_goal=product_goal.strip(),
+        stack_preferences=_normalize_string_tuple(stack_preferences),
+        first_milestone=first_milestone.strip(),
+        constraints=_normalize_string_tuple(constraints),
         notes=notes,
     )
 
@@ -202,6 +229,10 @@ def project_intake_from_dict(data: Mapping[str, Any]) -> ProjectIntake:
         entrypoints=_string_tuple(data.get("entrypoints")),
         source_roots=_string_tuple(data.get("source_roots")),
         docs_found=_string_tuple(data.get("docs_found")),
+        product_goal=str(data.get("product_goal", "")),
+        stack_preferences=_string_tuple(data.get("stack_preferences")),
+        first_milestone=str(data.get("first_milestone", "")),
+        constraints=_string_tuple(data.get("constraints")),
         notes=str(data.get("notes", "")),
     )
 
@@ -615,4 +646,13 @@ def _optional_int(value: Any) -> int | None:
 def _string_tuple(value: Any) -> tuple[str, ...]:
     if not isinstance(value, list):
         return ()
-    return tuple(str(item) for item in value if str(item))
+    return _normalize_string_tuple(value)
+
+
+def _normalize_string_tuple(value: tuple[str, ...] | list[str]) -> tuple[str, ...]:
+    items: list[str] = []
+    for item in value:
+        text = str(item).strip()
+        if text:
+            items.append(text)
+    return tuple(dict.fromkeys(items))

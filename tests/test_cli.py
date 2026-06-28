@@ -329,6 +329,14 @@ class TestProjectAnalyze:
                     "--parent",
                     str(parent),
                     "--no-git",
+                    "--goal",
+                    "Build a terminal snake game.",
+                    "--stack",
+                    "python,textual",
+                    "--milestone",
+                    "Playable local prototype.",
+                    "--constraint",
+                    "No network dependency",
                     "--notes",
                     "Build a terminal snake game.",
                 ],
@@ -338,6 +346,11 @@ class TestProjectAnalyze:
             assert result.exit_code == 0
             assert "New project workspace created." in result.output
             assert "Git init: skipped" in result.output
+            assert "Project brief:" in result.output
+            assert "Product goal: Build a terminal snake game." in result.output
+            assert "Stack preferences: python, textual" in result.output
+            assert "First milestone: Playable local prototype." in result.output
+            assert "Constraints: No network dependency" in result.output
             assert "Next steps:" in result.output
             assert "trinity project status" in result.output
             assert target.is_dir()
@@ -348,7 +361,13 @@ class TestProjectAnalyze:
             assert data["mode"] == "new"
             assert data["target_workspace"] == str(target.resolve())
             assert data["git_repo"] is False
+            assert data["product_goal"] == "Build a terminal snake game."
+            assert data["stack_preferences"] == ["python", "textual"]
+            assert data["first_milestone"] == "Playable local prototype."
+            assert data["constraints"] == ["No network dependency"]
             assert data["notes"] == "Build a terminal snake game."
+            assert "## Brief" in markdown
+            assert "Product goal: Build a terminal snake game." in markdown
             assert "Build a terminal snake game." in markdown
 
     def test_project_new_can_initialize_git_repository(self, runner, tmp_path):
@@ -419,6 +438,16 @@ class TestProjectAnalyze:
                     str(target),
                     "--mode",
                     "existing",
+                    "--goal",
+                    "Modernize customer onboarding.",
+                    "--stack",
+                    "python",
+                    "--stack",
+                    "textual",
+                    "--milestone",
+                    "Document safe first change.",
+                    "--constraint",
+                    "Read before write",
                     "--notes",
                     "Read before write.",
                 ],
@@ -427,6 +456,7 @@ class TestProjectAnalyze:
             assert result.exit_code == 0
             assert "Project intake written." in result.output
             assert "uv run pytest" in result.output
+            assert "Product goal: Modernize customer onboarding." in result.output
             assert "Next steps:" in result.output
             assert "trinity project status" in result.output
             data = json.loads(
@@ -440,6 +470,10 @@ class TestProjectAnalyze:
             assert data["untracked_count"] == 1
             assert data["package_managers"] == ["uv"]
             assert data["test_commands"] == ["uv run pytest"]
+            assert data["product_goal"] == "Modernize customer onboarding."
+            assert data["stack_preferences"] == ["python", "textual"]
+            assert data["first_milestone"] == "Document safe first change."
+            assert data["constraints"] == ["Read before write"]
             assert "Read before write." in markdown
 
     def test_project_status_guides_when_intake_is_missing(self, runner, tmp_path):
@@ -486,7 +520,21 @@ class TestProjectAnalyze:
             (target / "uv.lock").write_text("", encoding="utf-8")
             analyze_result = runner.invoke(
                 main,
-                ["project", "analyze", str(target), "--notes", "Use this target."],
+                [
+                    "project",
+                    "analyze",
+                    str(target),
+                    "--goal",
+                    "Improve customer app.",
+                    "--stack",
+                    "python",
+                    "--milestone",
+                    "First safe patch.",
+                    "--constraint",
+                    "Keep tests green",
+                    "--notes",
+                    "Use this target.",
+                ],
             )
             assert analyze_result.exit_code == 0
 
@@ -500,6 +548,11 @@ class TestProjectAnalyze:
             assert "customer-app" in result.output
             assert "Target exists: True" in result.output
             assert "Saved analysis:" in result.output
+            assert "Project brief:" in result.output
+            assert "Product goal: Improve customer app." in result.output
+            assert "Stack preferences: python" in result.output
+            assert "First milestone: First safe patch." in result.output
+            assert "Constraints: Keep tests green" in result.output
             assert "Current analysis:" in result.output
             assert "uv run pytest" in result.output
             assert "Next step: run `trinity`" in result.output
@@ -520,7 +573,22 @@ class TestProjectAnalyze:
                 encoding="utf-8",
             )
             (target / "uv.lock").write_text("", encoding="utf-8")
-            analyze_result = runner.invoke(main, ["project", "analyze", str(target)])
+            analyze_result = runner.invoke(
+                main,
+                [
+                    "project",
+                    "analyze",
+                    str(target),
+                    "--goal",
+                    "Improve customer app.",
+                    "--stack",
+                    "python,textual",
+                    "--milestone",
+                    "First safe patch.",
+                    "--constraint",
+                    "Keep tests green",
+                ],
+            )
             assert analyze_result.exit_code == 0
 
             result = runner.invoke(main, ["project", "status", "--json"])
@@ -530,6 +598,13 @@ class TestProjectAnalyze:
             assert data["project_intake"]["mode"] == "existing"
             assert data["project_intake"]["target_name"] == "customer-app"
             assert data["project_intake"]["target_workspace"] == str(target.resolve())
+            assert data["project_intake"]["product_goal"] == "Improve customer app."
+            assert data["project_intake"]["stack_preferences"] == [
+                "python",
+                "textual",
+            ]
+            assert data["project_intake"]["first_milestone"] == "First safe patch."
+            assert data["project_intake"]["constraints"] == ["Keep tests green"]
             assert data["current_analysis"]["target_exists"] is True
             assert data["current_analysis"]["package_managers"] == ["uv"]
             assert data["current_analysis"]["test_commands"] == ["uv run pytest"]
@@ -547,7 +622,22 @@ class TestProjectAnalyze:
                 encoding="utf-8",
             )
             (target / "uv.lock").write_text("", encoding="utf-8")
-            analyze_result = runner.invoke(main, ["project", "analyze", str(target)])
+            analyze_result = runner.invoke(
+                main,
+                [
+                    "project",
+                    "analyze",
+                    str(target),
+                    "--goal",
+                    "Improve customer app.",
+                    "--stack",
+                    "python",
+                    "--milestone",
+                    "First safe patch.",
+                    "--constraint",
+                    "Keep tests green",
+                ],
+            )
             assert analyze_result.exit_code == 0
             (target / "package.json").write_text(
                 json.dumps({"scripts": {"test": "vitest run"}}),
@@ -565,7 +655,12 @@ class TestProjectAnalyze:
             markdown = Path(".trinity/project-intake.md").read_text(encoding="utf-8")
             assert data["package_managers"] == ["uv", "npm"]
             assert data["test_commands"] == ["npm test", "uv run pytest"]
+            assert data["product_goal"] == "Improve customer app."
+            assert data["stack_preferences"] == ["python"]
+            assert data["first_milestone"] == "First safe patch."
+            assert data["constraints"] == ["Keep tests green"]
             assert "npm test" in markdown
+            assert "Improve customer app." in markdown
 
     def test_project_status_refresh_json_updates_saved_intake(self, runner, tmp_path):
         with runner.isolated_filesystem(temp_dir=tmp_path):
@@ -578,7 +673,16 @@ class TestProjectAnalyze:
                 "[project]\nname='customer-app'\n",
                 encoding="utf-8",
             )
-            analyze_result = runner.invoke(main, ["project", "analyze", str(target)])
+            analyze_result = runner.invoke(
+                main,
+                [
+                    "project",
+                    "analyze",
+                    str(target),
+                    "--goal",
+                    "Improve customer app.",
+                ],
+            )
             assert analyze_result.exit_code == 0
             (target / "uv.lock").write_text("", encoding="utf-8")
 
@@ -593,10 +697,12 @@ class TestProjectAnalyze:
             )
             assert payload["project_intake"]["package_managers"] == ["uv"]
             assert payload["project_intake"]["test_commands"] == ["uv run pytest"]
+            assert payload["project_intake"]["product_goal"] == "Improve customer app."
             data = json.loads(
                 Path(".trinity/project-intake.json").read_text(encoding="utf-8")
             )
             assert data["package_managers"] == ["uv"]
+            assert data["product_goal"] == "Improve customer app."
 
 
 class TestStatus:

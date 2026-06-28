@@ -87,6 +87,14 @@ project-intake summary, and keeps the active target workspace unchanged. Saving
 a product goal from Start also seeds the Start composer when the composer is
 still empty.
 
+For new projects, Trinity treats `product_goal`, `project_type`,
+`target_users`, `success_criteria`, and `first_milestone` as the minimum brief
+needed before high-quality scaffolding. CLI summaries, `project status`, and
+Start/Nexus project-intake labels show whether that new-project brief is
+complete or which fields are still missing. Existing projects do not show this
+readiness warning because read-only workspace analysis is the stronger first
+signal for that journey.
+
 ## Detection Scope
 
 The profile intentionally uses conservative filesystem and manifest checks:

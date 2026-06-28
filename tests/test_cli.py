@@ -353,6 +353,7 @@ class TestProjectAnalyze:
             assert "New project workspace created." in result.output
             assert "Git init: skipped" in result.output
             assert "Project brief:" in result.output
+            assert "Brief readiness: complete" in result.output
             assert "Product goal: Build a terminal snake game." in result.output
             assert "Project type: terminal game" in result.output
             assert "Target users: local CLI users" in result.output
@@ -392,6 +393,10 @@ class TestProjectAnalyze:
             target = Path("git-app")
             assert result.exit_code == 0
             assert "Git init: initialized" in result.output
+            assert (
+                "Brief readiness: missing goal, type, users, success, milestone"
+                in result.output
+            )
             assert (target / ".git").exists()
             data = json.loads(
                 Path(".trinity/project-intake.json").read_text(encoding="utf-8")
@@ -654,6 +659,11 @@ class TestProjectAnalyze:
             ]
             assert data["project_intake"]["first_milestone"] == "First safe patch."
             assert data["project_intake"]["constraints"] == ["Keep tests green"]
+            assert data["project_intake"]["brief_readiness"] == {
+                "required": False,
+                "complete": True,
+                "missing_fields": [],
+            }
             assert data["current_analysis"]["target_exists"] is True
             assert data["current_analysis"]["package_managers"] == ["uv"]
             assert data["current_analysis"]["test_commands"] == ["uv run pytest"]

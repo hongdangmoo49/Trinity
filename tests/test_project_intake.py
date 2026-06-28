@@ -15,6 +15,8 @@ from trinity.project_intake import (
     detect_source_roots,
     load_project_intake,
     load_project_intake_markdown,
+    missing_new_project_brief_field_keys,
+    missing_new_project_brief_fields,
     project_intake_guidance_block,
     project_intake_prompt_block,
     suggest_build_commands,
@@ -173,6 +175,47 @@ def test_build_project_intake_normalizes_metadata(tmp_path) -> None:
 def test_build_project_intake_rejects_unknown_mode(tmp_path) -> None:
     with pytest.raises(ValueError, match="Unsupported project intake mode"):
         build_project_intake(mode="repair", target_workspace=tmp_path)
+
+
+def test_missing_new_project_brief_fields_only_apply_to_new_projects(
+    tmp_path,
+) -> None:
+    partial = build_project_intake(
+        mode="new",
+        target_workspace=tmp_path / "new-app",
+        product_goal="Build a workflow dashboard.",
+        created_at="2026-06-28T00:00:00Z",
+    )
+    complete = build_project_intake(
+        mode="new",
+        target_workspace=tmp_path / "complete-app",
+        product_goal="Build a workflow dashboard.",
+        project_type="developer tool",
+        target_users="maintainers",
+        success_criteria="The first workflow can be completed.",
+        first_milestone="Playable prototype.",
+        created_at="2026-06-28T00:00:00Z",
+    )
+    existing = build_project_intake(
+        mode="existing",
+        target_workspace=tmp_path,
+        created_at="2026-06-28T00:00:00Z",
+    )
+
+    assert missing_new_project_brief_field_keys(partial) == (
+        "project_type",
+        "target_users",
+        "success_criteria",
+        "first_milestone",
+    )
+    assert missing_new_project_brief_fields(partial) == (
+        "type",
+        "users",
+        "success",
+        "milestone",
+    )
+    assert missing_new_project_brief_fields(complete) == ()
+    assert missing_new_project_brief_fields(existing) == ()
 
 
 def test_write_project_intake_writes_json_and_markdown(tmp_path) -> None:

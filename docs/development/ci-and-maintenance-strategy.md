@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.715`
-- Merged PR range reviewed: #90 through #812
+- Package version inspected: `1.0.717`
+- Merged PR range reviewed: #90 through #814
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #812
-- Latest refresh reviewed: #812
+- Maintenance refresh reviewed: #427 through #814
+- Latest refresh reviewed: #814
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1721,6 +1721,17 @@ and what the next release train should optimize.
 - Expanded Start/Nexus label tests for English and Korean sparse-analysis
   details.
 - Raised the package version from `1.0.714` to `1.0.715` in this patch PR.
+
+### #814: Stale Existing Project Analysis Signal
+
+- Added a stale-analysis signal for existing-project intake older than 14 days.
+- Start/Nexus and `trinity project status` now show
+  `analysis: stale Nd` / `분석: 오래됨 N일` plus a
+  `trinity project analyze <target>` refresh command.
+- Reused the shared project-intake formatter so Workbench and CLI stay aligned.
+- Added deterministic Start/Nexus label tests for English and Korean stale
+  analysis output.
+- Raised the package version from `1.0.716` to `1.0.717` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

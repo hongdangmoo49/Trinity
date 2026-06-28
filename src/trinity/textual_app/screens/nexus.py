@@ -39,6 +39,7 @@ NEXUS_LABELS = {
         "analyze_workspace": "Analyze Workspace",
         "composer_placeholder": "Reply, refine direction, or type / for commands",
         "create_project": "Create Project",
+        "edit_brief": "Edit Brief",
         "execute": "Execute",
         "open_provider_inspector": "Open Provider Inspector",
         "select_agent_warning": "Select at least one agent.",
@@ -48,6 +49,7 @@ NEXUS_LABELS = {
         "analyze_workspace": "작업 폴더 분석",
         "composer_placeholder": "답변, 방향 조정 또는 /로 명령 입력",
         "create_project": "새 프로젝트",
+        "edit_brief": "브리프 편집",
         "execute": "실행",
         "open_provider_inspector": "프로바이더 인스펙터 열기",
         "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
@@ -117,6 +119,13 @@ class NexusScreen(Screen[None]):
 
     class NewProjectRequested(Message):
         """Posted when the user wants to create a new project workspace."""
+
+        def __init__(self, snapshot: WorkflowNexusSnapshot | None) -> None:
+            super().__init__()
+            self.snapshot = snapshot
+
+    class ProjectBriefRequested(Message):
+        """Posted when the user wants to edit the project brief."""
 
         def __init__(self, snapshot: WorkflowNexusSnapshot | None) -> None:
             super().__init__()
@@ -217,6 +226,11 @@ class NexusScreen(Screen[None]):
                 yield Button(
                     self._label("create_project"),
                     id="nexus-create-project",
+                    variant="default",
+                )
+                yield Button(
+                    self._label("edit_brief"),
+                    id="nexus-edit-project-brief",
                     variant="default",
                 )
             with Horizontal(id="nexus-main"):
@@ -489,6 +503,9 @@ class NexusScreen(Screen[None]):
         elif event.button.id == "nexus-create-project":
             event.stop()
             self.action_request_new_project()
+        elif event.button.id == "nexus-edit-project-brief":
+            event.stop()
+            self.action_request_project_brief()
 
     def action_submit_follow_up(self) -> None:
         composer = self._prompt_composer()
@@ -508,6 +525,9 @@ class NexusScreen(Screen[None]):
 
     def action_request_new_project(self) -> None:
         self.post_message(self.NewProjectRequested(self.snapshot))
+
+    def action_request_project_brief(self) -> None:
+        self.post_message(self.ProjectBriefRequested(self.snapshot))
 
     def _refresh_workspace_label(self) -> None:
         label = self._workspace_label()

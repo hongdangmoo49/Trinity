@@ -75,6 +75,11 @@ When Trinity opens the Workbench and the saved intake target matches the active
 workspace candidate, Start seeds the composer with `product_goal`. This avoids
 asking CLI users to retype the same new/existing project goal before planning.
 
+Start and Nexus also expose a Workbench "Edit Brief" action. It writes the same
+project brief fields as the CLI flags, refreshes the project-intake summary, and
+keeps the active target workspace unchanged. Saving a product goal from Start
+also seeds the Start composer when the composer is still empty.
+
 ## Detection Scope
 
 The profile intentionally uses conservative filesystem and manifest checks:

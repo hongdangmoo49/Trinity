@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.721`
-- Merged PR range reviewed: #90 through #818
+- Package version inspected: `1.0.723`
+- Merged PR range reviewed: #90 through #820
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #818
-- Latest refresh reviewed: #818
+- Maintenance refresh reviewed: #427 through #820
+- Latest refresh reviewed: #820
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1753,6 +1753,18 @@ and what the next release train should optimize.
 - Added CLI status coverage for missing targets alongside Start/Nexus label
   coverage in English and Korean.
 - Raised the package version from `1.0.720` to `1.0.721` in this patch PR.
+
+### #820: Missing Target Recovery Next Steps
+
+- Updated CLI status next steps so missing project-intake targets prefer
+  recovery commands instead of sending users directly to `trinity`.
+- Existing-project missing targets now guide users back to
+  `trinity project analyze [PATH]`.
+- New-project missing targets now guide users to recreate the folder with
+  `trinity project new <name> --parent <path>`.
+- Added CLI and JSON status coverage for both existing and new missing-target
+  recovery paths.
+- Raised the package version from `1.0.722` to `1.0.723` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

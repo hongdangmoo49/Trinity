@@ -833,6 +833,22 @@ class TrinityTextualApp(App[None]):
         margin-top: 1;
     }
 
+    #nexus-project-intake-actions {
+        width: 100%;
+        height: auto;
+        margin-top: 1;
+        align-horizontal: right;
+    }
+
+    #nexus-analyze-workspace {
+        width: 20;
+    }
+
+    #nexus-create-project {
+        width: 16;
+        margin-left: 1;
+    }
+
     ProviderInspector {
         align: center middle;
     }
@@ -1579,6 +1595,34 @@ class TrinityTextualApp(App[None]):
             intent="select",
         )
 
+    def on_nexus_screen_project_intake_requested(
+        self,
+        event: NexusScreen.ProjectIntakeRequested,
+    ) -> None:
+        event.stop()
+        target = self._safe_nexus_target_workspace(event.snapshot)
+        if target is None:
+            self._open_workspace_picker(
+                event.snapshot or self._current_textual_snapshot(),
+                self._on_nexus_workspace_selected,
+                intent="select",
+            )
+            return
+        self._set_workspace_candidate(target)
+        self._sync_project_intake_for_target(target, mode="existing")
+
+    def on_nexus_screen_new_project_requested(
+        self,
+        event: NexusScreen.NewProjectRequested,
+    ) -> None:
+        event.stop()
+        self._open_workspace_picker(
+            event.snapshot or self._current_textual_snapshot(),
+            self._on_nexus_workspace_selected,
+            intent="select",
+            open_new_folder=True,
+        )
+
     def on_execution_matrix_screen_retry_requested(
         self,
         event: ExecutionMatrixScreen.RetryRequested,
@@ -1772,11 +1816,11 @@ class TrinityTextualApp(App[None]):
         control_repo_confirmed: bool,
     ) -> None:
         self._set_workspace_candidate(preflight.path, sync_nexus=False)
-        self._sync_project_intake_for_preflight(preflight)
         self._set_textual_target_workspace(
             preflight.path,
             control_repo_confirmed=control_repo_confirmed,
         )
+        self._sync_project_intake_for_preflight(preflight)
         self._sync_nexus_workspace_candidate()
 
     def _remember_confirmed_target_preflight(
@@ -2975,6 +3019,22 @@ class TrinityTextualApp(App[None]):
             return
         self.get_screen("start", StartScreen).refresh_project_intake_summary()
         self.get_screen("nexus", NexusScreen).refresh_project_intake_summary()
+
+    def _safe_nexus_target_workspace(
+        self,
+        snapshot: WorkflowNexusSnapshot | None,
+    ) -> Path | None:
+        candidates: list[Path] = []
+        snapshot_target = (snapshot.target_workspace or "").strip() if snapshot else ""
+        if snapshot_target:
+            candidates.append(Path(snapshot_target))
+        if self.workspace_candidate is not None:
+            candidates.append(self.workspace_candidate)
+        for candidate in candidates:
+            safe = safe_start_target_workspace(candidate, self.config.project_dir)
+            if safe is not None:
+                return safe
+        return None
 
     def _set_workspace_candidate(
         self,

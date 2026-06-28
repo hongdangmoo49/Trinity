@@ -36,14 +36,18 @@ from trinity.workflow.provider_error_gate import (
 
 NEXUS_LABELS = {
     "en": {
+        "analyze_workspace": "Analyze Workspace",
         "composer_placeholder": "Reply, refine direction, or type / for commands",
+        "create_project": "Create Project",
         "execute": "Execute",
         "open_provider_inspector": "Open Provider Inspector",
         "select_agent_warning": "Select at least one agent.",
         "select_workspace": "Select Workspace",
     },
     "ko": {
+        "analyze_workspace": "작업 폴더 분석",
         "composer_placeholder": "답변, 방향 조정 또는 /로 명령 입력",
+        "create_project": "새 프로젝트",
         "execute": "실행",
         "open_provider_inspector": "프로바이더 인스펙터 열기",
         "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
@@ -99,6 +103,20 @@ class NexusScreen(Screen[None]):
 
     class WorkspaceRequested(Message):
         """Posted when the user wants to choose a target workspace."""
+
+        def __init__(self, snapshot: WorkflowNexusSnapshot | None) -> None:
+            super().__init__()
+            self.snapshot = snapshot
+
+    class ProjectIntakeRequested(Message):
+        """Posted when the user wants to analyze the current Nexus workspace."""
+
+        def __init__(self, snapshot: WorkflowNexusSnapshot | None) -> None:
+            super().__init__()
+            self.snapshot = snapshot
+
+    class NewProjectRequested(Message):
+        """Posted when the user wants to create a new project workspace."""
 
         def __init__(self, snapshot: WorkflowNexusSnapshot | None) -> None:
             super().__init__()
@@ -190,6 +208,17 @@ class NexusScreen(Screen[None]):
                 self._project_intake_label(),
                 id="nexus-project-intake-summary",
             )
+            with Horizontal(id="nexus-project-intake-actions"):
+                yield Button(
+                    self._label("analyze_workspace"),
+                    id="nexus-analyze-workspace",
+                    variant="default",
+                )
+                yield Button(
+                    self._label("create_project"),
+                    id="nexus-create-project",
+                    variant="default",
+                )
             with Horizontal(id="nexus-main"):
                 with Vertical(id="nexus-center-stack"):
                     central = CentralAgentView(id="central-agent", lang=self.config.lang)
@@ -454,6 +483,12 @@ class NexusScreen(Screen[None]):
         elif event.button.id == "select-workspace":
             event.stop()
             self.action_request_workspace()
+        elif event.button.id == "nexus-analyze-workspace":
+            event.stop()
+            self.action_request_project_intake()
+        elif event.button.id == "nexus-create-project":
+            event.stop()
+            self.action_request_new_project()
 
     def action_submit_follow_up(self) -> None:
         composer = self._prompt_composer()
@@ -467,6 +502,12 @@ class NexusScreen(Screen[None]):
 
     def action_request_workspace(self) -> None:
         self.post_message(self.WorkspaceRequested(self.snapshot))
+
+    def action_request_project_intake(self) -> None:
+        self.post_message(self.ProjectIntakeRequested(self.snapshot))
+
+    def action_request_new_project(self) -> None:
+        self.post_message(self.NewProjectRequested(self.snapshot))
 
     def _refresh_workspace_label(self) -> None:
         label = self._workspace_label()

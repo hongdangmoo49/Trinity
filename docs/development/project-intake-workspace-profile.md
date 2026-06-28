@@ -103,6 +103,13 @@ fields, and recommends `trinity project status --refresh` before `trinity`. This
 uses the same read-only drift signals as Execute Preflight and lets CLI users
 refresh saved context before opening the Workbench.
 
+Start/Nexus project-intake labels use the same changed-analysis signal for
+matching existing-project intake. When the saved profile differs from the live
+workspace, the label shows changed analysis and the `trinity project analyze
+<target>` refresh command, and the Workbench "Analyze Existing" action is
+highlighted. Missing targets, target mismatches, sparse analysis, and stale
+analysis keep their existing priority over the changed-analysis hint.
+
 Workbench project-intake sync follows the same preservation rule. When the
 current saved intake points at the same target workspace, Start/Nexus workspace
 sync preserves the saved brief and notes while refreshing filesystem-derived

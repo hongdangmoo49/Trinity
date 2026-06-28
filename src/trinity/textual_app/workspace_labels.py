@@ -7,6 +7,7 @@ from pathlib import Path
 
 from trinity.project_intake import (
     ProjectIntake,
+    existing_project_intake_drift_fields,
     load_project_intake,
     missing_new_project_brief_field_keys,
 )
@@ -48,6 +49,7 @@ PROJECT_INTAKE_LABELS = {
         "brief_complete": "brief: complete",
         "brief_missing": "brief: missing {fields}",
         "analysis_missing": "missing",
+        "analysis_changed": "analysis: changed {fields}",
         "analysis_sparse": "analysis: sparse",
         "analysis_stale": "analysis: stale {days}d",
         "analysis_refresh": "refresh: trinity project analyze {target}",
@@ -62,7 +64,9 @@ PROJECT_INTAKE_LABELS = {
         "git_clean": "git: {branch} clean",
         "git_dirty": "git: {branch} dirty {dirty}, untracked {untracked}",
         "git_none": "git: none",
+        "git": "git",
         "goal": "goal",
+        "packages": "packages",
         "constraints": "constraints",
         "first_milestone": "milestone",
         "project_type": "type",
@@ -94,6 +98,7 @@ PROJECT_INTAKE_LABELS = {
         "brief_complete": "브리프: 완료",
         "brief_missing": "브리프: 누락 {fields}",
         "analysis_missing": "누락",
+        "analysis_changed": "분석: 변경됨 {fields}",
         "analysis_sparse": "분석: 부족",
         "analysis_stale": "분석: 오래됨 {days}일",
         "analysis_refresh": "재분석: trinity project analyze {target}",
@@ -108,7 +113,9 @@ PROJECT_INTAKE_LABELS = {
         "git_clean": "git: {branch} 변경 없음",
         "git_dirty": "git: {branch} 변경 {dirty}, 미추적 {untracked}",
         "git_none": "git: 없음",
+        "git": "git",
         "goal": "목표",
+        "packages": "패키지",
         "constraints": "제약",
         "first_milestone": "마일스톤",
         "project_type": "유형",
@@ -221,6 +228,8 @@ def project_analyze_action_variant(
         return "warning"
     if _project_intake_analysis_stale_days(intake, today=today) is not None:
         return "warning"
+    if _project_intake_analysis_changed_fields(intake, target_workspace, today=today):
+        return "warning"
     return "default"
 
 
@@ -288,6 +297,25 @@ def _format_project_intake_label(
     stale_days = _project_intake_analysis_stale_days(intake, today=today)
     if stale_days is not None:
         parts.append(labels["analysis_stale"].format(days=stale_days))
+        parts.append(
+            labels["analysis_refresh"].format(
+                target=_format_project_intake_target(intake.target_workspace)
+            )
+        )
+    changed_fields = _project_intake_analysis_changed_fields(
+        intake,
+        target_workspace,
+        today=today,
+    )
+    if changed_fields:
+        parts.append(
+            labels["analysis_changed"].format(
+                fields=_format_project_intake_values(
+                    _project_intake_changed_field_labels(changed_fields, labels),
+                    max_items=3,
+                )
+            )
+        )
         parts.append(
             labels["analysis_refresh"].format(
                 target=_format_project_intake_target(intake.target_workspace)
@@ -410,6 +438,50 @@ def _project_intake_analysis_stale_days(
     if age_days <= PROJECT_INTAKE_STALE_AFTER_DAYS:
         return None
     return age_days
+
+
+def _project_intake_analysis_changed_fields(
+    intake: ProjectIntake,
+    target_workspace: object | None,
+    *,
+    today: date | None = None,
+) -> tuple[str, ...]:
+    if intake.mode != "existing":
+        return ()
+    if not _project_intake_targets_match(intake, target_workspace):
+        return ()
+    if _project_intake_target_missing(intake):
+        return ()
+    if _project_intake_analysis_is_sparse(intake):
+        return ()
+    if _project_intake_analysis_stale_days(intake, today=today) is not None:
+        return ()
+    return existing_project_intake_drift_fields(intake, intake.target_workspace)
+
+
+def _project_intake_changed_field_labels(
+    fields: tuple[str, ...],
+    labels: dict[str, str],
+) -> tuple[str, ...]:
+    label_keys = {
+        "git_repo": "git",
+        "branch": "git",
+        "dirty_count": "git",
+        "untracked_count": "git",
+        "package_managers": "packages",
+        "test_commands": "tests",
+        "dev_commands": "dev",
+        "build_commands": "build",
+        "entrypoints": "entrypoints",
+        "source_roots": "source_roots",
+        "docs_found": "docs",
+    }
+    field_labels = [
+        labels[label_key]
+        for field in fields
+        if (label_key := label_keys.get(field)) is not None
+    ]
+    return tuple(dict.fromkeys(field_labels))
 
 
 def _project_intake_created_date(value: str) -> date | None:

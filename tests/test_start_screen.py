@@ -95,6 +95,42 @@ def test_project_intake_state_label_summarizes_saved_intake(tmp_path: Path) -> N
     )
 
 
+def test_project_intake_state_label_includes_workspace_profile(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "customer-app"
+    target.mkdir()
+    (target / "package.json").write_text(
+        (
+            '{"scripts":{"build":"vite build","dev":"vite --host"},'
+            '"main":"dist/index.js","bin":{"customer":"bin/customer.js"}}'
+        ),
+        encoding="utf-8",
+    )
+    (target / "README.md").write_text("# Customer App\n", encoding="utf-8")
+    (target / "docs").mkdir()
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert project_intake_state_label(state) == (
+        "Project intake: existing | tests: (none) | dev: npm run dev | "
+        "build: npm run build | entry: dist/index.js, customer -> bin/customer.js "
+        "| docs: README.md, docs"
+    )
+    assert project_intake_state_label(state, lang="ko") == (
+        "프로젝트 인테이크: 기존 | 테스트: (없음) | 개발: npm run dev | "
+        "빌드: npm run build | 진입점: dist/index.js, customer -> bin/customer.js "
+        "| 문서: README.md, docs"
+    )
+
+
 def test_project_intake_state_label_guides_missing_intake(tmp_path: Path) -> None:
     state = tmp_path / ".trinity"
 

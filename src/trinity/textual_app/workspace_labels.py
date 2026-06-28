@@ -25,14 +25,26 @@ WORKSPACE_STATE_LABELS = {
 
 PROJECT_INTAKE_LABELS = {
     "en": {
-        "invalid": "Project intake: could not read",
-        "missing": "Project intake: not recorded",
+        "invalid": (
+            "Project intake: unreadable | fix .trinity/project-intake.json "
+            "or rerun trinity project analyze [PATH]"
+        ),
+        "missing": (
+            "Project intake: not recorded | existing: trinity project analyze [PATH] "
+            "| new: trinity project new NAME"
+        ),
         "summary": "Project intake: {mode} | tests: {tests}",
         "tests_none": "(none)",
     },
     "ko": {
-        "invalid": "프로젝트 인테이크: 읽을 수 없음",
-        "missing": "프로젝트 인테이크: 기록 없음",
+        "invalid": (
+            "프로젝트 인테이크: 읽을 수 없음 | .trinity/project-intake.json 수정 "
+            "또는 trinity project analyze [PATH] 재실행"
+        ),
+        "missing": (
+            "프로젝트 인테이크: 기록 없음 | 기존: trinity project analyze [PATH] "
+            "| 신규: trinity project new NAME"
+        ),
         "summary": "프로젝트 인테이크: {mode} | 테스트: {tests}",
         "tests_none": "(없음)",
     },

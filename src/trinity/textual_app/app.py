@@ -284,6 +284,7 @@ def _project_brief_start_prompt(
 
     stack = ", ".join(item.strip() for item in stack_preferences if item.strip())
     constraint_text = "; ".join(item.strip() for item in constraints if item.strip())
+    missing_field_labels: tuple[str, ...]
     if lang == "ko":
         intro = (
             "아래 새 프로젝트 브리프를 기준으로 첫 작업 패키지를 계획해라."
@@ -299,6 +300,17 @@ def _project_brief_start_prompt(
             ("기술 스택", stack),
             ("제약", constraint_text),
             ("메모", notes.strip()),
+        )
+        missing_intro = "스캐폴딩 전에 확인할 항목:"
+        missing_field_labels = tuple(
+            label
+            for label, value in (
+                ("프로젝트 유형", project_type),
+                ("대상 사용자", target_users),
+                ("성공 기준", success_criteria),
+                ("첫 마일스톤", first_milestone),
+            )
+            if not value.strip()
         )
     else:
         intro = (
@@ -319,10 +331,29 @@ def _project_brief_start_prompt(
             ("Constraints", constraint_text),
             ("Notes", notes.strip()),
         )
+        missing_intro = "Confirm before scaffolding:"
+        missing_field_labels = tuple(
+            label
+            for label, value in (
+                ("Project type", project_type),
+                ("Target users", target_users),
+                ("Success criteria", success_criteria),
+                ("First milestone", first_milestone),
+            )
+            if not value.strip()
+        )
     populated = tuple((label, value) for label, value in entries if value)
-    if len(populated) == 1:
+    missing_lines = (
+        (missing_intro, *(f"- {label}" for label in missing_field_labels))
+        if mode == "new" and missing_field_labels
+        else ()
+    )
+    if len(populated) == 1 and not missing_lines:
         return goal
-    return "\n".join([intro, "", *(f"{label}: {value}" for label, value in populated)])
+    lines = [intro, "", *(f"{label}: {value}" for label, value in populated)]
+    if missing_lines:
+        lines.extend(("", *missing_lines))
+    return "\n".join(lines)
 
 
 def _project_brief_start_prompt_from_draft(

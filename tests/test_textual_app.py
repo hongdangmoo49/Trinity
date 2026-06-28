@@ -3642,10 +3642,21 @@ def test_initial_start_prompt_uses_same_target_project_goal(tmp_path) -> None:
         ),
     )
 
-    assert (
-        initial_start_prompt(config, target_workspace)
-        == "Build customer onboarding."
+    expected_prompt = "\n".join(
+        [
+            "Use this new-project brief to plan the first work packages.",
+            "",
+            "Goal: Build customer onboarding.",
+            "",
+            "Confirm before scaffolding:",
+            "- Project type",
+            "- Target users",
+            "- Success criteria",
+            "- First milestone",
+        ]
     )
+
+    assert initial_start_prompt(config, target_workspace) == expected_prompt
     assert initial_start_prompt(config, other_workspace) == ""
     assert initial_start_prompt(config, None) == ""
 
@@ -3689,6 +3700,63 @@ def test_initial_start_prompt_uses_full_project_brief(tmp_path) -> None:
     )
 
 
+def test_initial_start_prompt_lists_missing_new_brief_fields_in_korean(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    target_workspace = tmp_path / "customer-app"
+    control_repo.mkdir()
+    target_workspace.mkdir()
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    config.lang = "ko"
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="new",
+            target_workspace=target_workspace,
+            product_goal="고객 온보딩을 만든다.",
+            target_users="지원 담당자",
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert initial_start_prompt(config, target_workspace) == "\n".join(
+        [
+            "아래 새 프로젝트 브리프를 기준으로 첫 작업 패키지를 계획해라.",
+            "",
+            "목표: 고객 온보딩을 만든다.",
+            "사용자: 지원 담당자",
+            "",
+            "스캐폴딩 전에 확인할 항목:",
+            "- 프로젝트 유형",
+            "- 성공 기준",
+            "- 첫 마일스톤",
+        ]
+    )
+
+
+def test_initial_start_prompt_does_not_list_missing_fields_for_existing_project(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target_workspace = tmp_path / "customer-app"
+    control_repo.mkdir()
+    target_workspace.mkdir()
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target_workspace,
+            product_goal="Modernize customer onboarding.",
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert (
+        initial_start_prompt(config, target_workspace)
+        == "Modernize customer onboarding."
+    )
+
+
 @pytest.mark.asyncio
 async def test_start_screen_seeds_composer_from_project_goal(tmp_path) -> None:
     controller = FakeWorkflowController()
@@ -3713,13 +3781,27 @@ async def test_start_screen_seeds_composer_from_project_goal(tmp_path) -> None:
         assert isinstance(screen, StartScreen)
         composer = screen.query_one(PromptComposer)
 
-        assert composer.text == "Build customer onboarding."
+        expected_prompt = "\n".join(
+            [
+                "Use this new-project brief to plan the first work packages.",
+                "",
+                "Goal: Build customer onboarding.",
+                "",
+                "Confirm before scaffolding:",
+                "- Project type",
+                "- Target users",
+                "- Success criteria",
+                "- First milestone",
+            ]
+        )
+
+        assert composer.text == expected_prompt
 
         composer.action_submit()
         await pilot.pause()
 
         assert controller.target_workspace == target_workspace.resolve()
-        assert controller.started_prompts[-1] == "Build customer onboarding."
+        assert controller.started_prompts[-1] == expected_prompt
 
 
 @pytest.mark.asyncio

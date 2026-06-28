@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.630`
-- Merged PR range reviewed: #90 through #726
+- Package version inspected: `1.0.633`
+- Merged PR range reviewed: #90 through #729
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #726
-- Latest refresh reviewed: #726
+- Maintenance refresh reviewed: #427 through #729
+- Latest refresh reviewed: #729
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1189,6 +1189,30 @@ and what the next release train should optimize.
 - Preserved the existing `is_running` fallback behavior for controller
   compatibility.
 - Raised the package version from `1.0.628` to `1.0.629` in this patch PR.
+
+### #728: New/Existing Project Onboarding Redesign
+
+- Added `docs/plans/2026-06-28-new-existing-project-onboarding-redesign.md`
+  to separate Trinity's entry path for new projects and existing projects.
+- Proposed explicit CLI surfaces for `trinity init --mode new`,
+  `trinity init --mode existing`, and `trinity project analyze [PATH]`.
+- Defined project intake artifacts under `.trinity/project-intake.json` and
+  `.trinity/project-intake.md`.
+- Chose workspace preflight Git status as the first low-risk implementation
+  slice before larger onboarding UX changes.
+- Raised the package version from `1.0.630` to `1.0.631` in this docs PR.
+
+### #729: Workspace Preflight Git Status
+
+- Replaced the fixed `Dirty worktree: unknown` preflight output with read-only
+  `git status --porcelain` metadata.
+- Displayed clean, changed, untracked, and non-Git workspace states in English
+  and Korean.
+- Kept execution gating unchanged: the Git state is informational and does not
+  block execution.
+- Expanded focused workspace picker tests for clean, changed, untracked, and
+  non-Git render paths.
+- Raised the package version from `1.0.631` to `1.0.632` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

@@ -718,6 +718,9 @@ class TestProjectAnalyze:
             json_status = runner.invoke(main, ["project", "status", "--json"])
             assert json_status.exit_code == 0
             data = json.loads(json_status.output)
+            assert data["project_intake"]["summary"].startswith(
+                "Project intake: new | target missing:"
+            )
             assert data["next_steps"] == [recreate_command]
 
     def test_project_status_json_shows_saved_and_current_analysis(
@@ -764,6 +767,9 @@ class TestProjectAnalyze:
 
             assert result.exit_code == 0
             data = json.loads(result.output)
+            assert data["project_intake"]["summary"].startswith(
+                "Project intake: existing | updated:"
+            )
             assert data["project_intake"]["mode"] == "existing"
             assert data["project_intake"]["target_name"] == "customer-app"
             assert data["project_intake"]["target_workspace"] == str(target.resolve())

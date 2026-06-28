@@ -80,7 +80,9 @@ preserving the saved project brief.
 `trinity project status` also prints the same compact project-intake summary
 used by Start/Nexus before the detailed saved/current analysis sections. This
 lets CLI users verify the Workbench-facing target, brief, test, and safety
-signals without opening the Textual UI.
+signals without opening the Textual UI. JSON status includes the same compact
+summary under `project_intake.summary` so scripts can reuse the same readiness
+signal without scraping panel text.
 
 Workbench project-intake sync follows the same preservation rule. When the
 current saved intake points at the same target workspace, Start/Nexus workspace

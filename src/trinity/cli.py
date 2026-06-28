@@ -43,6 +43,7 @@ from trinity.project_intake import (
     build_project_intake,
     detect_package_managers,
     load_project_intake,
+    missing_new_project_brief_field_keys,
     missing_new_project_brief_fields,
     suggest_test_commands,
     write_project_intake,
@@ -846,8 +847,7 @@ def _display_project_new_summary(
             f"Markdown: {markdown_path}",
             "",
             "Next steps:",
-            "  trinity project status",
-            "  trinity",
+            *_project_next_step_lines(intake),
         ]
     )
     console.print(Panel.fit(body, title="Trinity Project"))
@@ -878,8 +878,7 @@ def _display_project_intake_summary(
             f"Markdown: {markdown_path}",
             "",
             "Next steps:",
-            "  trinity project status",
-            "  trinity",
+            *_project_next_step_lines(intake),
         ]
     )
     console.print(Panel.fit(body, title="Trinity Project"))
@@ -979,7 +978,7 @@ def _project_status_payload(
         },
         "refreshed": refreshed,
         "project_intake_paths": _project_intake_paths_payload(paths),
-        "next_steps": ["trinity"],
+        "next_steps": _project_next_steps(intake, include_status=False),
     }
 
 
@@ -1053,7 +1052,8 @@ def _display_project_status(
             f"  Package managers: {_csv_or_none(live_package_managers)}",
             f"  Test commands: {_csv_or_none(live_test_commands)}",
             "",
-            "Next step: run `trinity` to start planning with this target.",
+            "Next steps:",
+            *_project_next_step_lines(intake, include_status=False),
         ]
     )
     body = "\n".join(lines)
@@ -1073,6 +1073,85 @@ def _split_option_values(values: tuple[str, ...]) -> tuple[str, ...]:
     for value in values:
         items.extend(part.strip() for part in value.split(","))
     return tuple(dict.fromkeys(item for item in items if item))
+
+
+def _project_next_steps(
+    intake: ProjectIntake,
+    *,
+    include_status: bool = True,
+) -> list[str]:
+    steps: list[str] = []
+    completion = _project_brief_completion_command(intake)
+    if completion:
+        steps.append(completion)
+    if include_status:
+        steps.append("trinity project status")
+    steps.append("trinity")
+    return steps
+
+
+def _project_next_step_lines(
+    intake: ProjectIntake,
+    *,
+    include_status: bool = True,
+) -> list[str]:
+    lines = _project_brief_completion_lines(intake)
+    if include_status:
+        lines.append("  trinity project status")
+    lines.append("  trinity")
+    return lines
+
+
+def _project_brief_completion_command(intake: ProjectIntake) -> str:
+    missing = missing_new_project_brief_field_keys(intake)
+    if not missing:
+        return ""
+    options = [
+        _project_brief_completion_option(field_name)
+        for field_name in missing
+    ]
+    return " ".join(
+        [
+            "trinity project analyze",
+            _quote_cli_arg(str(intake.target_workspace)),
+            "--mode new",
+            *options,
+        ]
+    )
+
+
+def _project_brief_completion_lines(intake: ProjectIntake) -> list[str]:
+    missing = missing_new_project_brief_field_keys(intake)
+    if not missing:
+        return []
+    return [
+        "  trinity project analyze",
+        f"    {_quote_cli_arg(str(intake.target_workspace))}",
+        "    --mode new",
+        *[
+            f"    {_project_brief_completion_option(field_name)}"
+            for field_name in missing
+        ],
+    ]
+
+
+def _project_brief_completion_option(field_name: str) -> str:
+    option_map = {
+        "product_goal": '--goal "<goal>"',
+        "project_type": '--project-type "<type>"',
+        "target_users": '--target-users "<users>"',
+        "success_criteria": '--success-criteria "<success>"',
+        "first_milestone": '--milestone "<milestone>"',
+    }
+    return option_map[field_name]
+
+
+def _quote_cli_arg(value: str) -> str:
+    if not value:
+        return '""'
+    if not any(char.isspace() or char == '"' for char in value):
+        return value
+    return '"' + value.replace('"', '\\"') + '"'
 
 
 def _project_brief_readiness_payload(intake: ProjectIntake) -> dict[str, object]:

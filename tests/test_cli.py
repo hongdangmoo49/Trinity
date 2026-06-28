@@ -397,6 +397,14 @@ class TestProjectAnalyze:
                 "Brief readiness: missing goal, type, users, success, milestone"
                 in result.output
             )
+            assert "trinity project analyze" in result.output
+            assert '--goal "<goal>"' in result.output
+            assert '--project-type "<type>"' in result.output
+            assert "--target-users" in result.output
+            assert '"<users>"' in result.output
+            assert "--success-criteria" in result.output
+            assert '"<success>"' in result.output
+            assert '--milestone "<milestone>"' in result.output
             assert (target / ".git").exists()
             data = json.loads(
                 Path(".trinity/project-intake.json").read_text(encoding="utf-8")
@@ -599,7 +607,50 @@ class TestProjectAnalyze:
             assert "Constraints: Keep tests green" in result.output
             assert "Current analysis:" in result.output
             assert "uv run pytest" in result.output
-            assert "Next step: run `trinity`" in result.output
+            assert "Next steps:" in result.output
+            assert "trinity" in result.output
+
+    def test_project_status_guides_incomplete_new_project_brief(
+        self,
+        runner,
+        tmp_path,
+    ):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            init_result = runner.invoke(main, ["init", "--non-interactive"])
+            assert init_result.exit_code == 0
+
+            result = runner.invoke(
+                main,
+                ["project", "new", "git-app", "--no-git", "--goal", "Build app."],
+            )
+            assert result.exit_code == 0
+            target = Path("git-app")
+            completion_command = (
+                f"trinity project analyze {target.resolve()} --mode new "
+                '--project-type "<type>" --target-users "<users>" '
+                '--success-criteria "<success>" --milestone "<milestone>"'
+            )
+
+            status = runner.invoke(main, ["project", "status"])
+
+            assert status.exit_code == 0
+            assert "Brief readiness: missing type, users, success, milestone" in (
+                status.output
+            )
+            assert "trinity project analyze" in status.output
+            assert '--goal "<goal>"' not in status.output
+            assert '--project-type "<type>"' in status.output
+            assert "--target-users" in status.output
+            assert '"<users>"' in status.output
+            assert "--success-criteria" in status.output
+            assert '"<success>"' in status.output
+            assert '--milestone "<milestone>"' in status.output
+
+            json_status = runner.invoke(main, ["project", "status", "--json"])
+            assert json_status.exit_code == 0
+            data = json.loads(json_status.output)
+            assert data["next_steps"][0] == completion_command
+            assert data["next_steps"][1:] == ["trinity"]
 
     def test_project_status_json_shows_saved_and_current_analysis(
         self,

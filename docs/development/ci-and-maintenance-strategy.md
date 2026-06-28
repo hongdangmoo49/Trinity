@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.695`
-- Merged PR range reviewed: #90 through #792
+- Package version inspected: `1.0.697`
+- Merged PR range reviewed: #90 through #794
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #792
-- Latest refresh reviewed: #792
+- Maintenance refresh reviewed: #427 through #794
+- Latest refresh reviewed: #794
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1605,6 +1605,18 @@ and what the next release train should optimize.
 - Expanded ProjectIntake prompt block tests for incomplete new-project,
   complete new-project, and existing-project brief guidance.
 - Raised the package version from `1.0.694` to `1.0.695` in this patch PR.
+
+### #794: Existing Project Git Summary Label
+
+- Added saved Git state to Start/Nexus project-intake summaries for existing
+  projects.
+- Non-Git workspaces show `git: none`, clean repositories show branch + clean,
+  and dirty repositories show branch plus saved dirty/untracked counts.
+- Kept new-project summaries focused on brief readiness instead of Git safety
+  labels.
+- Expanded Start/Nexus label tests for non-Git summaries and dirty Git
+  workspaces in English and Korean.
+- Raised the package version from `1.0.696` to `1.0.697` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

@@ -1487,6 +1487,18 @@ and what the next release train should optimize.
   serialization, and legacy intake compatibility.
 - Raised the package version from `1.0.676` to `1.0.677` in this patch PR.
 
+### #776: Project Intake Profile Summary
+
+- Expanded Start/Nexus project intake summary labels so saved workspace profile
+  data is visible in the workbench.
+- Preserved the existing mode/test summary and appended `dev`, `build`,
+  `entry`, and `docs` sections only when those profile values exist.
+- Added compact value formatting so long profile lists show the first two
+  values plus a remaining count.
+- Added English and Korean label coverage for the expanded profile summary.
+- Expanded Start screen label tests for profile-aware summaries.
+- Raised the package version from `1.0.678` to `1.0.679` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture

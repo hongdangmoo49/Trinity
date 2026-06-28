@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.723`
-- Merged PR range reviewed: #90 through #820
+- Package version inspected: `1.0.725`
+- Merged PR range reviewed: #90 through #822
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #820
-- Latest refresh reviewed: #820
+- Maintenance refresh reviewed: #427 through #822
+- Latest refresh reviewed: #822
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1765,6 +1765,19 @@ and what the next release train should optimize.
 - Added CLI and JSON status coverage for both existing and new missing-target
   recovery paths.
 - Raised the package version from `1.0.722` to `1.0.723` in this patch PR.
+
+### #822: Workbench Project Intake Action Variants
+
+- Highlighted Workbench `Analyze Workspace` when project intake needs recovery:
+  missing selected-workspace analysis, mismatched target, sparse/stale existing
+  analysis, unreadable intake, or a missing existing-project target.
+- Highlighted `Create Project` when a saved new-project target no longer
+  exists.
+- Kept `Edit Brief` focused on incomplete new-project brief fields.
+- Wired the shared action-variant helpers into Start and Nexus and refreshed
+  button variants after intake changes.
+- Added Start/Nexus helper and mounted-screen coverage for the new variants.
+- Raised the package version from `1.0.724` to `1.0.725` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

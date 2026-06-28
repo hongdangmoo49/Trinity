@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.637`
-- Merged PR range reviewed: #90 through #733
+- Package version inspected: `1.0.639`
+- Merged PR range reviewed: #90 through #735
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #733
-- Latest refresh reviewed: #733
+- Maintenance refresh reviewed: #427 through #735
+- Latest refresh reviewed: #735
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1239,6 +1239,17 @@ and what the next release train should optimize.
 - Expanded CLI tests for the missing-init error path and successful intake
   artifact generation.
 - Raised the package version from `1.0.635` to `1.0.636` in this patch PR.
+
+### #735: Textual Target Workspace Labels
+
+- Added `textual_app/workspace_labels.py` as the shared Start/Nexus target
+  workspace label helper.
+- Replaced generic `Workspace: ...` copy with explicit states for no target,
+  planning target, and control repo target requiring confirmation before write.
+- Applied the same English/Korean label contract to Start and Nexus.
+- Added focused Start/Nexus label tests and included `tests/test_start_screen.py`
+  in the required smoke manifest.
+- Raised the package version from `1.0.637` to `1.0.638` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

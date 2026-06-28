@@ -13,8 +13,10 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, DirectoryTree, Footer, Input, Static
 
 from trinity.project_intake import (
+    GitWorkspaceAnalysis,
     ProjectIntake,
     analyze_git_workspace,
+    existing_project_intake_drift_fields,
     load_project_intake,
     missing_new_project_brief_field_keys,
 )
@@ -68,6 +70,7 @@ WORKSPACE_PICKER_LABELS = {
             "Choose a path under a writable existing parent before creating it."
         ),
         "loading_folders": "Loading folders from {root}...",
+        "changed_intake_reason": "changed project intake",
         "missing_new_project_brief_reason": "incomplete new-project brief",
         "new_folder": "New Folder",
         "new_folder_created": "New folder created: {path}",
@@ -138,6 +141,7 @@ WORKSPACE_PICKER_LABELS = {
             "생성하기 전에 쓰기 가능한 기존 상위 경로 아래를 선택하세요."
         ),
         "loading_folders": "폴더를 불러오는 중: {root}...",
+        "changed_intake_reason": "변경된 프로젝트 인테이크",
         "missing_new_project_brief_reason": "불완전한 새 프로젝트 브리프",
         "new_folder": "새 폴더",
         "new_folder_created": "새 폴더를 만들었습니다: {path}",
@@ -863,6 +867,7 @@ def build_preflight(
         intake_safety_warnings=_project_intake_safety_warnings(
             project_intake_state_dir,
             resolved,
+            live_git=git,
             new_project_candidate=new_project_candidate,
             today=today,
         ),
@@ -870,6 +875,8 @@ def build_preflight(
 
 
 def _intake_safety_reason_label(warning: str, *, lang: str = "en") -> str:
+    if warning == "changed_project_intake":
+        return _label(lang, "changed_intake_reason")
     if warning == "missing_new_project_brief":
         return _label(lang, "missing_new_project_brief_reason")
     if warning == "sparse_project_intake":
@@ -883,6 +890,7 @@ def _project_intake_safety_warnings(
     state_dir: Path | None,
     target: Path,
     *,
+    live_git: GitWorkspaceAnalysis | None = None,
     new_project_candidate: bool = False,
     today: date | None = None,
 ) -> tuple[str, ...]:
@@ -912,6 +920,8 @@ def _project_intake_safety_warnings(
         today=today,
     ) is not None:
         warnings.append("stale_project_intake")
+    if existing_project_intake_drift_fields(intake, target, live_git=live_git):
+        warnings.append("changed_project_intake")
     return tuple(warnings)
 
 

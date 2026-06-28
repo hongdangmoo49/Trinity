@@ -183,11 +183,19 @@ so existing-project users can confirm that Trinity found the expected source and
 test directories before asking agents to plan against the project.
 
 Execute preflight treats a dirty Git target, stale or sparse existing-project
-intake, and incomplete new-project briefs as explicit safety gates. The first
+intake, existing-project intake that differs from the live workspace profile, and
+incomplete new-project briefs as explicit safety gates. The first
 `Confirm Execute` on a gated target shows a warning and keeps the preflight
 modal open. Pressing `Confirm Execute` again confirms that the user wants to
 execute anyway. Workspace selection mode is not gated, because selecting or
 analyzing a target should remain read-only.
+
+For matching existing-project intake, execute preflight compares the saved intake
+to a fresh read-only profile before execution. A changed Git branch, dirty or
+untracked count, package manager signal, test/dev/build command, entrypoint,
+source root, or documentation anchor is shown as changed project intake. This
+avoids using a recently recorded but already outdated project profile as if it
+still described the selected workspace.
 
 If an existing-project intake has no detected test commands, source roots, or
 documentation, Start/Nexus and `project status` mark the analysis as sparse and

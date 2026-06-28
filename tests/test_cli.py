@@ -318,6 +318,8 @@ class TestProjectAnalyze:
             assert result.exit_code == 0
             assert "New project workspace created." in result.output
             assert "Git init: skipped" in result.output
+            assert "Next steps:" in result.output
+            assert "trinity project status" in result.output
             assert target.is_dir()
             data = json.loads(
                 Path(".trinity/project-intake.json").read_text(encoding="utf-8")
@@ -405,6 +407,8 @@ class TestProjectAnalyze:
             assert result.exit_code == 0
             assert "Project intake written." in result.output
             assert "uv run pytest" in result.output
+            assert "Next steps:" in result.output
+            assert "trinity project status" in result.output
             data = json.loads(
                 Path(".trinity/project-intake.json").read_text(encoding="utf-8")
             )
@@ -429,6 +433,7 @@ class TestProjectAnalyze:
             assert "No project intake recorded." in result.output
             assert "trinity project analyze [PATH]" in result.output
             assert "trinity project new NAME" in result.output
+            assert "Then run `trinity` to start planning." in result.output
 
     def test_project_status_shows_saved_and_current_analysis(self, runner, tmp_path):
         with runner.isolated_filesystem(temp_dir=tmp_path):
@@ -460,6 +465,7 @@ class TestProjectAnalyze:
             assert "Saved analysis:" in result.output
             assert "Current analysis:" in result.output
             assert "uv run pytest" in result.output
+            assert "Next step: run `trinity`" in result.output
 
 
 class TestStatus:

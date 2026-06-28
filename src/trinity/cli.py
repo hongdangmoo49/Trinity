@@ -663,6 +663,10 @@ def _display_project_new_summary(
             "",
             f"JSON: {json_path}",
             f"Markdown: {markdown_path}",
+            "",
+            "Next steps:",
+            "  trinity project status",
+            "  trinity",
         ]
     )
     console.print(Panel.fit(body, title="Trinity Project"))
@@ -689,6 +693,10 @@ def _display_project_intake_summary(
             "",
             f"JSON: {json_path}",
             f"Markdown: {markdown_path}",
+            "",
+            "Next steps:",
+            "  trinity project status",
+            "  trinity",
         ]
     )
     console.print(Panel.fit(body, title="Trinity Project"))
@@ -701,6 +709,7 @@ def _display_missing_project_intake_status() -> None:
             "",
             "Existing project: run `trinity project analyze [PATH]`.",
             "New project: run `trinity project new NAME`.",
+            "Then run `trinity` to start planning.",
         ]
     )
     console.print(Panel.fit(body, title="Trinity Project"))
@@ -746,6 +755,8 @@ def _display_project_status(intake: ProjectIntake) -> None:
             f"  Untracked count: {_unknown_if_none(live_untracked)}",
             f"  Package managers: {_csv_or_none(live_package_managers)}",
             f"  Test commands: {_csv_or_none(live_test_commands)}",
+            "",
+            "Next step: run `trinity` to start planning with this target.",
         ]
     )
     console.print(Panel.fit(body, title="Trinity Project"))

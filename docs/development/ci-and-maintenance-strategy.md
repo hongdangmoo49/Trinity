@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.661`
-- Merged PR range reviewed: #90 through #757
+- Package version inspected: `1.0.689`
+- Merged PR range reviewed: #90 through #786
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #757
-- Latest refresh reviewed: #757
+- Maintenance refresh reviewed: #427 through #786
+- Latest refresh reviewed: #786
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1550,6 +1550,20 @@ and what the next release train should optimize.
   and default empty prompts.
 - Raised the package version from `1.0.686` to `1.0.687` in this patch PR.
 
+### #786: Workbench Project Brief Editor
+
+- Added Start/Nexus `Edit Brief` actions so users can edit project brief fields
+  without switching back to CLI flags.
+- Added a project brief modal for `product_goal`, `stack_preferences`,
+  `first_milestone`, `constraints`, and `notes`.
+- Wrote saved brief values back through project intake JSON/Markdown and
+  refreshed Start/Nexus project-intake summaries immediately.
+- Seeded the Start composer from a newly saved product goal when the composer is
+  still empty and the saved target matches the active workspace candidate.
+- Expanded Textual app tests for Start/Nexus brief editing, CTA dimensions, and
+  summary label updates.
+- Raised the package version from `1.0.688` to `1.0.689` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
@@ -1647,6 +1661,7 @@ These documents are the current durable references for follow-up cleanup:
 - `docs/development/workflow-flow-contracts.md`
 - `docs/development/provider-readiness-recovery-contracts.md`
 - `docs/development/nexus-execution-review-state-contracts.md`
+- `docs/development/project-intake-workspace-profile.md`
 
 ## Test Strategy
 

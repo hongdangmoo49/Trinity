@@ -1456,6 +1456,21 @@ and what the next release train should optimize.
 - Added a Textual app regression test for Start CTA dimensions.
 - Raised the package version from `1.0.672` to `1.0.673` in this patch PR.
 
+### #772: Nexus Project Intake CTAs
+
+- Added Nexus screen `Analyze Workspace` / `작업 폴더 분석` and
+  `Create Project` / `새 프로젝트` actions so users can record target project
+  context without returning to Start.
+- Routed new-project creation through the workspace picker with the folder-name
+  prompt opened immediately.
+- Preferred the Nexus snapshot target over stale workspace candidates when the
+  user analyzes the currently displayed target.
+- Preserved `mode=new` intake after Nexus-created folders by applying target
+  workspace state before the final intake sync.
+- Expanded Textual app tests for direct Nexus analysis, snapshot target
+  preference, and Nexus new-project intake.
+- Raised the package version from `1.0.674` to `1.0.675` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture

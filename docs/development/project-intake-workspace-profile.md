@@ -34,6 +34,18 @@ These fields must be safe to compute during Start/Nexus selection. They must not
 execute package managers, tests, build tools, or user code. Older intake JSON
 without these fields remains valid and loads with empty tuples.
 
+## Prompt Guidance
+
+Provider prompts include mode-specific project intake guidance when both
+`project-intake.json` and `project-intake.md` are present. Existing projects are
+framed as established workspaces that should be read before edits. New projects
+are framed as fresh workspaces that should confirm product goal, stack, and first
+milestone before scaffolding.
+
+The guidance is derived from persisted intake JSON. Legacy states with only
+`project-intake.md` keep the older prompt shape and include the Markdown context
+without extra guidance.
+
 ## Detection Scope
 
 The profile intentionally uses conservative filesystem and manifest checks:

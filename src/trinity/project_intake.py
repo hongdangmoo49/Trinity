@@ -233,7 +233,37 @@ def project_intake_prompt_block(
     markdown = load_project_intake_markdown(state_dir, max_chars=max_chars)
     if not markdown:
         return ""
-    return f"Project Intake Context:\n{markdown}"
+    guidance = project_intake_guidance_block(state_dir)
+    sections = ["Project Intake Context:"]
+    if guidance:
+        sections.append(guidance)
+    sections.append(markdown)
+    return "\n".join(sections)
+
+
+def project_intake_guidance_block(state_dir: Path) -> str:
+    """Return mode-specific guidance derived from persisted intake JSON."""
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return ""
+    if intake is None:
+        return ""
+    if intake.mode == "new":
+        lines = [
+            "Project Intake Guidance:",
+            "- Treat the target workspace as a fresh project workspace.",
+            "- Confirm the product goal, stack, and first milestone before scaffolding.",
+            "- Prefer the recorded dev/build/test commands when planning validation.",
+        ]
+    else:
+        lines = [
+            "Project Intake Guidance:",
+            "- Treat the target workspace as the existing project under discussion.",
+            "- Read detected docs, entrypoints, and source roots before proposing edits.",
+            "- Prefer the recorded dev/build/test commands when planning validation.",
+        ]
+    return "\n".join(lines)
 
 
 def analyze_git_workspace(path: Path) -> GitWorkspaceAnalysis:

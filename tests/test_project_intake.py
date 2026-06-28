@@ -15,6 +15,7 @@ from trinity.project_intake import (
     detect_source_roots,
     load_project_intake,
     load_project_intake_markdown,
+    project_intake_guidance_block,
     project_intake_prompt_block,
     suggest_build_commands,
     suggest_dev_commands,
@@ -253,6 +254,51 @@ def test_project_intake_prompt_block_loads_and_truncates_markdown(tmp_path) -> N
     block = project_intake_prompt_block(state, max_chars=10)
     assert block.startswith("Project Intake Context:\n# Project")
     assert "[truncated]" in block
+
+
+def test_project_intake_prompt_block_includes_existing_project_guidance(
+    tmp_path,
+) -> None:
+    target = tmp_path / "customer-app"
+    target.mkdir()
+    (target / "README.md").write_text("# Customer App\n", encoding="utf-8")
+    (target / "src").mkdir()
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    guidance = project_intake_guidance_block(state)
+    block = project_intake_prompt_block(state)
+
+    assert "existing project under discussion" in guidance
+    assert "Read detected docs, entrypoints, and source roots" in block
+    assert "- Docs found: README.md" in block
+
+
+def test_project_intake_prompt_block_includes_new_project_guidance(tmp_path) -> None:
+    target = tmp_path / "new-app"
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    guidance = project_intake_guidance_block(state)
+    block = project_intake_prompt_block(state)
+
+    assert "fresh project workspace" in guidance
+    assert "Confirm the product goal, stack, and first milestone" in block
+    assert "- Mode: new" in block
 
 
 def test_project_intake_prompt_block_returns_empty_when_missing(tmp_path) -> None:

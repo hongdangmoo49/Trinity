@@ -331,10 +331,7 @@ def project_intake_guidance_block(state_dir: Path) -> str:
         lines = [
             "Project Intake Guidance:",
             "- Treat the target workspace as a fresh project workspace.",
-            (
-                "- Confirm the product goal, project type, target users, stack, "
-                "success criteria, and first milestone before scaffolding."
-            ),
+            *_new_project_brief_guidance_lines(intake),
             "- Prefer the recorded dev/build/test commands when planning validation.",
         ]
     else:
@@ -342,9 +339,61 @@ def project_intake_guidance_block(state_dir: Path) -> str:
             "Project Intake Guidance:",
             "- Treat the target workspace as the existing project under discussion.",
             "- Read detected docs, entrypoints, and source roots before proposing edits.",
+            *_existing_project_brief_guidance_lines(intake),
             "- Prefer the recorded dev/build/test commands when planning validation.",
         ]
     return "\n".join(lines)
+
+
+def _new_project_brief_guidance_lines(intake: ProjectIntake) -> list[str]:
+    missing = missing_new_project_brief_fields(intake)
+    if missing:
+        return [
+            (
+                "- The new-project brief is incomplete; confirm missing fields "
+                f"before scaffolding: {_csv_or_none(missing)}."
+            ),
+            (
+                "- Do not treat framework, architecture, or UX choices as final "
+                "until the missing brief fields are answered."
+            ),
+        ]
+    return [
+        (
+            "- The new-project brief is complete; use the recorded goal, type, "
+            "users, success criteria, stack, and milestone as planning constraints."
+        ),
+        (
+            "- Prefer concrete scaffolding steps only after the plan preserves "
+            "the recorded success criteria and constraints."
+        ),
+    ]
+
+
+def _existing_project_brief_guidance_lines(intake: ProjectIntake) -> list[str]:
+    if not _has_project_brief_context(intake):
+        return []
+    return [
+        (
+            "- Use recorded brief fields as user intent, but verify them against "
+            "the existing docs and source before proposing edits."
+        )
+    ]
+
+
+def _has_project_brief_context(intake: ProjectIntake) -> bool:
+    return any(
+        (
+            intake.product_goal.strip(),
+            intake.project_type.strip(),
+            intake.target_users.strip(),
+            intake.success_criteria.strip(),
+            intake.stack_preferences,
+            intake.first_milestone.strip(),
+            intake.constraints,
+            intake.notes.strip(),
+        )
+    )
 
 
 def analyze_git_workspace(path: Path) -> GitWorkspaceAnalysis:

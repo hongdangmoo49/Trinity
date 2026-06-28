@@ -47,6 +47,7 @@ WORKSPACE_PICKER_LABELS = {
         "intent_invalid": "Invalid path",
         "intent_missing": "Missing path",
         "intent_new_directory": "New workspace folder",
+        "intent_new_empty_directory": "Empty new project folder",
         "invalid_missing_not_creatable": (
             "Enable Create missing directory or select an existing writable directory."
         ),
@@ -115,6 +116,7 @@ WORKSPACE_PICKER_LABELS = {
         "intent_invalid": "잘못된 경로",
         "intent_missing": "없는 경로",
         "intent_new_directory": "새 작업 폴더 생성",
+        "intent_new_empty_directory": "빈 새 프로젝트 폴더",
         "invalid_missing_not_creatable": (
             "누락된 디렉터리 생성을 활성화하거나 기존의 쓰기 가능한 디렉터리를 선택하세요."
         ),
@@ -184,6 +186,7 @@ class WorkspacePreflight:
     changed_count: int | None = None
     untracked_count: int | None = None
     created: bool = False
+    new_project_candidate: bool = False
     intake_safety_warnings: tuple[str, ...] = ()
 
     @property
@@ -246,6 +249,8 @@ class WorkspacePreflight:
             return _label(lang, "intent_invalid")
         if self.exists and self.git_repo:
             return _label(lang, "intent_existing_git")
+        if self.exists and self.new_project_candidate:
+            return _label(lang, "intent_new_empty_directory")
         if self.exists:
             return _label(lang, "intent_existing_directory")
         if self.creatable:
@@ -845,6 +850,12 @@ def build_preflight(
         creatable=create_requested,
         changed_count=git.dirty_count,
         untracked_count=git.untracked_count,
+        new_project_candidate=_new_project_candidate(
+            resolved,
+            exists=exists,
+            is_dir=is_dir,
+            git_repo=git.git_repo,
+        ),
         intake_safety_warnings=_project_intake_safety_warnings(
             project_intake_state_dir,
             resolved,
@@ -914,6 +925,26 @@ def _project_intake_analysis_stale_days_for_preflight(
     if age_days <= PROJECT_INTAKE_STALE_AFTER_DAYS:
         return None
     return age_days
+
+
+def _new_project_candidate(
+    path: Path,
+    *,
+    exists: bool,
+    is_dir: bool,
+    git_repo: bool,
+) -> bool:
+    if not exists or not is_dir or git_repo:
+        return False
+    return _directory_has_no_user_files(path)
+
+
+def _directory_has_no_user_files(path: Path) -> bool:
+    ignored_names = {".DS_Store", "Thumbs.db", "desktop.ini"}
+    try:
+        return all(child.name in ignored_names for child in path.iterdir())
+    except OSError:
+        return False
 
 
 def _path_creation_supported(path: Path) -> bool:

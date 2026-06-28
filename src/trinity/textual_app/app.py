@@ -1842,7 +1842,7 @@ class TrinityTextualApp(App[None]):
         self._set_workspace_candidate(preflight.path, sync_start=True)
         self._open_project_brief_modal(
             preflight.path,
-            fallback_mode="new" if preflight.created else "existing",
+            fallback_mode=self._project_intake_mode_for_preflight(preflight),
         )
 
     def _on_nexus_workspace_selected(
@@ -1957,7 +1957,7 @@ class TrinityTextualApp(App[None]):
         )
         self._open_project_brief_modal(
             preflight.path,
-            fallback_mode="new" if preflight.created else "existing",
+            fallback_mode=self._project_intake_mode_for_preflight(preflight),
         )
 
     def _remember_confirmed_target_preflight(
@@ -3140,8 +3140,15 @@ class TrinityTextualApp(App[None]):
         )
 
     def _sync_project_intake_for_preflight(self, preflight: WorkspacePreflight) -> None:
-        mode = "new" if preflight.created else "existing"
-        self._sync_project_intake_for_target(preflight.path, mode=mode)
+        self._sync_project_intake_for_target(
+            preflight.path,
+            mode=self._project_intake_mode_for_preflight(preflight),
+        )
+
+    def _project_intake_mode_for_preflight(self, preflight: WorkspacePreflight) -> str:
+        if preflight.created or preflight.new_project_candidate:
+            return "new"
+        return "existing"
 
     def _sync_project_intake_for_target(
         self,

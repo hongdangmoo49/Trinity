@@ -154,6 +154,13 @@ When a saved new-project brief is incomplete for the selected workspace,
 Start/Nexus highlight the Workbench "Edit Brief" action. Once the minimum brief
 is complete, the action returns to the default visual priority.
 
+When the Workbench preflight sees an existing empty non-Git directory, it treats
+that directory as a new-project candidate instead of an existing project. This
+lets users create a folder outside Trinity first, select it, and still get
+new-project intake guidance and brief readiness instead of sparse existing
+project analysis warnings. Non-empty directories continue to use existing
+project intake unless they were created by the Workbench new-folder flow.
+
 Start/Nexus project-intake labels also surface saved brief details when present:
 goal, project type, target users, success criteria, stack preferences, first
 milestone, and constraints. This lets new-project users verify the intended

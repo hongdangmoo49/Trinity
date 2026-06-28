@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.717`
-- Merged PR range reviewed: #90 through #814
+- Package version inspected: `1.0.719`
+- Merged PR range reviewed: #90 through #816
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #814
-- Latest refresh reviewed: #814
+- Maintenance refresh reviewed: #427 through #816
+- Latest refresh reviewed: #816
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1732,6 +1732,17 @@ and what the next release train should optimize.
 - Added deterministic Start/Nexus label tests for English and Korean stale
   analysis output.
 - Raised the package version from `1.0.716` to `1.0.717` in this patch PR.
+
+### #816: New Project Brief Completion Next Steps
+
+- Added missing-field completion commands to new-project brief next steps.
+- `trinity project new`, `trinity project analyze --mode new`,
+  `trinity project status`, and JSON status now reuse a shared next-step helper.
+- Human CLI output renders long completion commands across multiple lines so
+  options remain visible on narrow macOS and Windows terminals.
+- Added CLI coverage for incomplete new-project brief guidance and preserved
+  existing-project status next steps.
+- Raised the package version from `1.0.718` to `1.0.719` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

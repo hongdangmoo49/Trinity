@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tempfile
 from dataclasses import dataclass, replace
+from datetime import date
 from pathlib import Path
 
 from textual.app import ComposeResult
@@ -11,9 +12,14 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, DirectoryTree, Footer, Input, Static
 
-from trinity.project_intake import analyze_git_workspace
+from trinity.project_intake import (
+    ProjectIntake,
+    analyze_git_workspace,
+    load_project_intake,
+)
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
+from trinity.textual_app.workspace_labels import PROJECT_INTAKE_STALE_AFTER_DAYS
 
 
 WORKSPACE_PICKER_LABELS = {
@@ -51,6 +57,11 @@ WORKSPACE_PICKER_LABELS = {
             "Dirty Git workspace detected. Press Confirm Execute again to execute "
             "anyway, or cancel and plan first."
         ),
+        "dirty_execute_reason": "dirty Git workspace",
+        "execute_safety_warning": (
+            "Execution safety warning: {reasons}. Press Confirm Execute again "
+            "to execute anyway, or cancel and plan first."
+        ),
         "invalid_writable_parent": (
             "Choose a path under a writable existing parent before creating it."
         ),
@@ -67,6 +78,10 @@ WORKSPACE_PICKER_LABELS = {
         "select_workspace_title": "Select Workspace",
         "target_workspace_path": "Target workspace path",
         "not_git_repo": "not a git repo",
+        "project_intake_safety": "Project intake safety",
+        "project_intake_safety_ok": "ok",
+        "sparse_intake_reason": "sparse project intake",
+        "stale_intake_reason": "stale project intake",
         "unknown": "unknown",
         "use_folder": "Use Folder",
         "use_workspace": "Use Workspace",
@@ -110,6 +125,11 @@ WORKSPACE_PICKER_LABELS = {
             "변경사항이 있는 Git 작업 폴더입니다. 그대로 실행하려면 실행 확인을 "
             "한 번 더 누르고, 아니면 취소 후 먼저 계획하세요."
         ),
+        "dirty_execute_reason": "변경사항이 있는 Git 작업 폴더",
+        "execute_safety_warning": (
+            "실행 전 확인 필요: {reasons}. 그대로 실행하려면 실행 확인을 한 번 "
+            "더 누르고, 아니면 취소 후 먼저 계획하세요."
+        ),
         "invalid_writable_parent": (
             "생성하기 전에 쓰기 가능한 기존 상위 경로 아래를 선택하세요."
         ),
@@ -124,6 +144,10 @@ WORKSPACE_PICKER_LABELS = {
         "select_workspace_title": "작업 폴더 선택",
         "target_workspace_path": "작업 폴더 경로",
         "not_git_repo": "Git 저장소 아님",
+        "project_intake_safety": "프로젝트 인테이크 안전",
+        "project_intake_safety_ok": "정상",
+        "sparse_intake_reason": "부족한 프로젝트 인테이크",
+        "stale_intake_reason": "오래된 프로젝트 인테이크",
         "unknown": "알 수 없음",
         "use_folder": "폴더 사용",
         "use_workspace": "작업 폴더 사용",
@@ -160,6 +184,7 @@ class WorkspacePreflight:
     changed_count: int | None = None
     untracked_count: int | None = None
     created: bool = False
+    intake_safety_warnings: tuple[str, ...] = ()
 
     @property
     def can_execute(self) -> bool:
@@ -173,6 +198,11 @@ class WorkspacePreflight:
     @property
     def requires_execute_ack(self) -> bool:
         """Return whether execution should require an explicit second confirm."""
+        return self.requires_dirty_execute_ack or bool(self.intake_safety_warnings)
+
+    @property
+    def requires_dirty_execute_ack(self) -> bool:
+        """Return whether dirty Git state should require a second confirm."""
         if not self.git_repo:
             return False
         changed = self.changed_count or 0
@@ -182,6 +212,7 @@ class WorkspacePreflight:
     def render(self, *, lang: str = "en") -> str:
         branch = self._branch_label(lang=lang)
         dirty_worktree = self._dirty_worktree_label(lang=lang)
+        intake_safety = self._intake_safety_label(lang=lang)
         return "\n".join(
             [
                 f"{_label(lang, 'path')}: {self.path}",
@@ -193,6 +224,7 @@ class WorkspacePreflight:
                 f"{_label(lang, 'creatable')}: {self.creatable}",
                 f"{_label(lang, 'branch')}: {branch}",
                 f"{_label(lang, 'dirty_worktree')}: {dirty_worktree}",
+                f"{_label(lang, 'project_intake_safety')}: {intake_safety}",
                 (
                     f"{_label(lang, 'provider_readiness')}: "
                     f"{_label(lang, 'current_session_snapshot')}"
@@ -232,6 +264,14 @@ class WorkspacePreflight:
             "dirty_worktree_summary",
             changed=self.changed_count,
             untracked=self.untracked_count,
+        )
+
+    def _intake_safety_label(self, *, lang: str = "en") -> str:
+        if not self.intake_safety_warnings:
+            return _label(lang, "project_intake_safety_ok")
+        return ", ".join(
+            _intake_safety_reason_label(warning, lang=lang)
+            for warning in self.intake_safety_warnings
         )
 
 
@@ -366,6 +406,8 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         intent: str = "execute",
         lang: str = "en",
         open_new_folder: bool = False,
+        project_intake_state_dir: Path | None = None,
+        today: date | None = None,
     ) -> None:
         super().__init__()
         self.candidate = candidate
@@ -375,12 +417,19 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         self.intent = "select" if intent == "select" else "execute"
         self.lang = lang
         self.open_new_folder = open_new_folder
+        self.project_intake_state_dir = project_intake_state_dir
+        self.today = today
         self._tree_mounted = False
         localized_bindings = dict(self.LOCALIZED_BINDINGS)
         if self.intent == "select":
             localized_bindings[("ctrl+enter", "confirm")] = ("binding_apply", None)
         localize_bindings(self._bindings, self.lang, localized_bindings)
-        self.preflight = build_preflight(candidate or self.cwd, snapshot)
+        self.preflight = build_preflight(
+            candidate or self.cwd,
+            snapshot,
+            project_intake_state_dir=self.project_intake_state_dir,
+            today=self.today,
+        )
         self.create_missing = self.preflight.creatable
         self._preflight_render_key = self.preflight.render(lang=self.lang)
         self._status_key = ""
@@ -391,7 +440,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         self._preflight_widget: Static | None = None
         self._status_widget: Static | None = None
         self._created_workspace_paths: set[Path] = set()
-        self._dirty_execute_ack_path: Path | None = None
+        self._execute_ack_key: tuple[object, ...] | None = None
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
@@ -561,9 +610,9 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         if not self.preflight.can_execute:
             self._show_invalid_preflight()
             return
-        if self.intent != "select" and self._needs_dirty_execute_ack():
-            self._dirty_execute_ack_path = self.preflight.path
-            self._set_status(self._label("dirty_execute_warning"))
+        if self.intent != "select" and self._needs_execute_ack():
+            self._execute_ack_key = self._execute_ack_identity()
+            self._set_status(self._execute_ack_warning())
             return
         if created:
             self.preflight = replace(self.preflight, created=True)
@@ -574,21 +623,46 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
             path,
             self.snapshot,
             creatable=self.create_missing,
+            project_intake_state_dir=self.project_intake_state_dir,
+            today=self.today,
         )
         if self.preflight.path in self._created_workspace_paths:
             self.preflight = replace(self.preflight, created=True)
-        if self._dirty_execute_ack_path != self.preflight.path:
-            self._dirty_execute_ack_path = None
+        if self._execute_ack_key != self._execute_ack_identity():
+            self._execute_ack_key = None
         preflight_text = self.preflight.render(lang=self.lang)
         if self.is_mounted:
             self._set_preflight_text(preflight_text)
         else:
             self._preflight_render_key = preflight_text
 
-    def _needs_dirty_execute_ack(self) -> bool:
+    def _needs_execute_ack(self) -> bool:
         if not self.preflight.requires_execute_ack:
             return False
-        return self._dirty_execute_ack_path != self.preflight.path
+        return self._execute_ack_key != self._execute_ack_identity()
+
+    def _execute_ack_identity(self) -> tuple[object, ...]:
+        return (
+            self.preflight.path,
+            self.preflight.changed_count,
+            self.preflight.untracked_count,
+            self.preflight.intake_safety_warnings,
+        )
+
+    def _execute_ack_warning(self) -> str:
+        if (
+            self.preflight.requires_dirty_execute_ack
+            and not self.preflight.intake_safety_warnings
+        ):
+            return self._label("dirty_execute_warning")
+        reasons: list[str] = []
+        if self.preflight.requires_dirty_execute_ack:
+            reasons.append(self._label("dirty_execute_reason"))
+        reasons.extend(
+            _intake_safety_reason_label(warning, lang=self.lang)
+            for warning in self.preflight.intake_safety_warnings
+        )
+        return self._format("execute_safety_warning", reasons=", ".join(reasons))
 
     def _input_path(self) -> Path:
         path = Path(self._path_input().value).expanduser()
@@ -725,6 +799,8 @@ def build_workspace_picker(
     lang: str = "en",
     intent: str = "execute",
     open_new_folder: bool = False,
+    project_intake_state_dir: Path | None = None,
+    today: date | None = None,
 ) -> WorkspacePicker:
     """Build a workspace picker with Trinity's default browsing root."""
     return WorkspacePicker(
@@ -735,6 +811,8 @@ def build_workspace_picker(
         tree_root=default_workspace_tree_root(control_repo_path),
         intent=intent,
         open_new_folder=open_new_folder,
+        project_intake_state_dir=project_intake_state_dir,
+        today=today,
     )
 
 
@@ -743,6 +821,8 @@ def build_preflight(
     snapshot: WorkflowNexusSnapshot,
     *,
     creatable: bool | None = None,
+    project_intake_state_dir: Path | None = None,
+    today: date | None = None,
 ) -> WorkspacePreflight:
     """Build a conservative cross-platform workspace preflight."""
     resolved = path.expanduser()
@@ -765,7 +845,75 @@ def build_preflight(
         creatable=create_requested,
         changed_count=git.dirty_count,
         untracked_count=git.untracked_count,
+        intake_safety_warnings=_project_intake_safety_warnings(
+            project_intake_state_dir,
+            resolved,
+            today=today,
+        ),
     )
+
+
+def _intake_safety_reason_label(warning: str, *, lang: str = "en") -> str:
+    if warning == "sparse_project_intake":
+        return _label(lang, "sparse_intake_reason")
+    if warning == "stale_project_intake":
+        return _label(lang, "stale_intake_reason")
+    return warning
+
+
+def _project_intake_safety_warnings(
+    state_dir: Path | None,
+    target: Path,
+    *,
+    today: date | None = None,
+) -> tuple[str, ...]:
+    if state_dir is None:
+        return ()
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return ()
+    if intake is None or intake.mode != "existing":
+        return ()
+    if not _same_resolved_path(target, intake.target_workspace):
+        return ()
+    warnings: list[str] = []
+    if _project_intake_analysis_is_sparse_for_preflight(intake):
+        warnings.append("sparse_project_intake")
+    if _project_intake_analysis_stale_days_for_preflight(
+        intake,
+        today=today,
+    ) is not None:
+        warnings.append("stale_project_intake")
+    return tuple(warnings)
+
+
+def _project_intake_analysis_is_sparse_for_preflight(
+    intake: ProjectIntake,
+) -> bool:
+    if intake.mode != "existing":
+        return False
+    return not (intake.test_commands or intake.source_roots or intake.docs_found)
+
+
+def _project_intake_analysis_stale_days_for_preflight(
+    intake: ProjectIntake,
+    *,
+    today: date | None = None,
+) -> int | None:
+    if intake.mode != "existing":
+        return None
+    text = intake.created_at.strip()
+    if len(text) < 10:
+        return None
+    try:
+        created_on = date.fromisoformat(text[:10])
+    except ValueError:
+        return None
+    age_days = ((today or date.today()) - created_on).days
+    if age_days <= PROJECT_INTAKE_STALE_AFTER_DAYS:
+        return None
+    return age_days
 
 
 def _path_creation_supported(path: Path) -> bool:

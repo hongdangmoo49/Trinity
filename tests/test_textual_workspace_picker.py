@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,7 @@ from textual.app import App
 from textual.css.query import NoMatches
 from textual.widgets import Button, DirectoryTree, Input, Static
 
+from trinity.project_intake import build_project_intake, write_project_intake
 from trinity.textual_app.widgets import workspace_picker as workspace_picker_module
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.workspace_picker import (
@@ -245,6 +247,60 @@ def test_build_preflight_does_not_force_creatable_when_creation_unsupported(
     assert preflight.exists is False
     assert preflight.creatable is False
     assert preflight.can_create is False
+
+
+def test_build_preflight_marks_sparse_existing_project_intake(tmp_path) -> None:
+    state = tmp_path / ".trinity"
+    target_workspace = tmp_path / "customer-app"
+    target_workspace.mkdir()
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target_workspace,
+            created_at="2026-06-29T00:00:00Z",
+        ),
+    )
+
+    preflight = build_preflight(
+        target_workspace,
+        WorkflowNexusSnapshot(),
+        project_intake_state_dir=state,
+        today=date(2026, 6, 29),
+    )
+
+    assert preflight.intake_safety_warnings == ("sparse_project_intake",)
+    assert preflight.requires_execute_ack is True
+    assert "Project intake safety: sparse project intake" in preflight.render()
+    assert "프로젝트 인테이크 안전: 부족한 프로젝트 인테이크" in preflight.render(
+        lang="ko",
+    )
+
+
+def test_build_preflight_marks_stale_existing_project_intake(tmp_path) -> None:
+    state = tmp_path / ".trinity"
+    target_workspace = tmp_path / "customer-app"
+    target_workspace.mkdir()
+    (target_workspace / "README.md").write_text("docs\n", encoding="utf-8")
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target_workspace,
+            created_at="2026-06-01T00:00:00Z",
+        ),
+    )
+
+    preflight = build_preflight(
+        target_workspace,
+        WorkflowNexusSnapshot(),
+        project_intake_state_dir=state,
+        today=date(2026, 6, 29),
+    )
+
+    assert preflight.intake_safety_warnings == ("stale_project_intake",)
+    assert preflight.requires_execute_ack is True
+    assert "Project intake safety: stale project intake" in preflight.render()
 
 
 def test_default_workspace_tree_root_uses_control_repo_parent(tmp_path) -> None:
@@ -577,6 +633,54 @@ async def test_workspace_picker_requires_second_confirm_for_dirty_git_execution(
 
 
 @pytest.mark.asyncio
+async def test_workspace_picker_requires_second_confirm_for_stale_intake(
+    tmp_path,
+) -> None:
+    state = tmp_path / ".trinity"
+    control_repo = tmp_path / "Trinity"
+    target_workspace = tmp_path / "customer-app"
+    control_repo.mkdir()
+    target_workspace.mkdir()
+    (target_workspace / "README.md").write_text("docs\n", encoding="utf-8")
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target_workspace,
+            created_at="2026-06-01T00:00:00Z",
+        ),
+    )
+
+    picker = WorkspacePicker(
+        candidate=target_workspace,
+        snapshot=WorkflowNexusSnapshot(),
+        cwd=control_repo,
+        tree_root=tmp_path,
+        project_intake_state_dir=state,
+        today=date(2026, 6, 29),
+    )
+    dismissed: list[object] = []
+    picker.dismiss = dismissed.append  # type: ignore[method-assign]
+    app = WorkspacePickerHarness()
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.push_screen(picker)
+        await pilot.pause()
+
+        picker.action_confirm()
+        await pilot.pause()
+
+        status = picker.query_one("#workspace-picker-status", Static)
+        assert dismissed == []
+        assert "stale project intake" in str(status.content)
+
+        picker.action_confirm()
+        await pilot.pause()
+
+        assert dismissed == [picker.preflight]
+
+
+@pytest.mark.asyncio
 async def test_workspace_picker_select_mode_skips_dirty_execution_gate(
     tmp_path,
 ) -> None:
@@ -605,6 +709,48 @@ async def test_workspace_picker_select_mode_skips_dirty_execution_gate(
         picker.action_confirm()
         await pilot.pause()
 
+        assert dismissed == [picker.preflight]
+
+
+@pytest.mark.asyncio
+async def test_workspace_picker_select_mode_skips_intake_safety_gate(
+    tmp_path,
+) -> None:
+    state = tmp_path / ".trinity"
+    control_repo = tmp_path / "Trinity"
+    target_workspace = tmp_path / "customer-app"
+    control_repo.mkdir()
+    target_workspace.mkdir()
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target_workspace,
+            created_at="2026-06-01T00:00:00Z",
+        ),
+    )
+
+    picker = WorkspacePicker(
+        candidate=target_workspace,
+        snapshot=WorkflowNexusSnapshot(),
+        cwd=control_repo,
+        tree_root=tmp_path,
+        intent="select",
+        project_intake_state_dir=state,
+        today=date(2026, 6, 29),
+    )
+    dismissed: list[object] = []
+    picker.dismiss = dismissed.append  # type: ignore[method-assign]
+    app = WorkspacePickerHarness()
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.push_screen(picker)
+        await pilot.pause()
+
+        picker.action_confirm()
+        await pilot.pause()
+
+        assert picker.preflight.requires_execute_ack is True
         assert dismissed == [picker.preflight]
 
 

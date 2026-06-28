@@ -175,11 +175,11 @@ before planning or execution. The same labels also surface detected source roots
 so existing-project users can confirm that Trinity found the expected source and
 test directories before asking agents to plan against the project.
 
-Execute preflight treats a dirty Git target as an explicit safety gate. The
-first `Confirm Execute` on a dirty existing-project workspace shows a warning
-and keeps the preflight modal open. Pressing `Confirm Execute` again confirms
-that the user wants to execute anyway. Workspace selection mode is not gated,
-because selecting or analyzing a target should remain read-only.
+Execute preflight treats a dirty Git target and stale or sparse existing-project
+intake as explicit safety gates. The first `Confirm Execute` on a gated target
+shows a warning and keeps the preflight modal open. Pressing `Confirm Execute`
+again confirms that the user wants to execute anyway. Workspace selection mode
+is not gated, because selecting or analyzing a target should remain read-only.
 
 If an existing-project intake has no detected test commands, source roots, or
 documentation, Start/Nexus and `project status` mark the analysis as sparse and

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.753`
-- Merged PR range reviewed: #90 through #850
+- Package version inspected: `1.0.755`
+- Merged PR range reviewed: #90 through #852
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #850
-- Latest refresh reviewed: #850
+- Maintenance refresh reviewed: #427 through #852
+- Latest refresh reviewed: #852
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1956,6 +1956,20 @@ and what the next release train should optimize.
 - Added presentation coverage for normal, sparse, stale, and changed intake
   states.
 - Raised the package version from `1.0.752` to `1.0.753` in this patch PR.
+
+### #852: New Project Brief Handoff
+
+- Routed Start `Create New` and Nexus `Create Project` through
+  create-specific workspace callbacks.
+- Opened the existing project brief modal immediately after a created or empty
+  new-project workspace is confirmed.
+- Kept normal workspace selection, existing-project analysis, and execute
+  preflight behavior unchanged.
+- Preserved the Nexus control-repo confirmation guard before opening the brief
+  modal.
+- Added a dedicated design document and Textual coverage for Start/Nexus create
+  flows.
+- Raised the package version from `1.0.754` to `1.0.755` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

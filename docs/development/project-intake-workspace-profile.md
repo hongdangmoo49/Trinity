@@ -83,6 +83,11 @@ lets CLI users verify the Workbench-facing target, brief, test, and safety
 signals without opening the Textual UI. JSON status includes the same compact
 summary under `project_intake.summary` so scripts can reuse the same readiness
 signal without scraping panel text.
+JSON status also exposes `project_intake.readiness` and
+`project_intake.action_variants`. These fields provide target existence,
+sparse/stale analysis, missing new-project brief fields, the recommended next
+action, and the Workbench-equivalent Analyze Workspace/Create Project/Edit Brief
+button variants without requiring callers to parse the compact summary string.
 
 Workbench project-intake sync follows the same preservation rule. When the
 current saved intake points at the same target workspace, Start/Nexus workspace

@@ -64,6 +64,7 @@ PROJECT_INTAKE_LABELS = {
         "success_criteria": "success",
         "summary": "Project intake: {mode}",
         "target_users": "users",
+        "target_mismatch": "target mismatch: intake {target}",
         "tests": "tests",
         "tests_none": "(none)",
         "updated": "updated",
@@ -104,6 +105,7 @@ PROJECT_INTAKE_LABELS = {
         "success_criteria": "성공",
         "summary": "프로젝트 인테이크: {mode}",
         "target_users": "사용자",
+        "target_mismatch": "대상 불일치: 인테이크 {target}",
         "tests": "테스트",
         "tests_none": "(없음)",
         "updated": "갱신",
@@ -155,16 +157,32 @@ def project_intake_state_label(
         if target:
             return labels["missing_with_target"].format(target=target)
         return labels["missing"]
-    return _format_project_intake_label(intake, lang=lang)
+    return _format_project_intake_label(
+        intake,
+        lang=lang,
+        target_workspace=target_workspace,
+    )
 
 
-def _format_project_intake_label(intake: ProjectIntake, *, lang: str) -> str:
+def _format_project_intake_label(
+    intake: ProjectIntake,
+    *,
+    lang: str,
+    target_workspace: object | None = None,
+) -> str:
     labels = PROJECT_INTAKE_LABELS.get(lang, PROJECT_INTAKE_LABELS["en"])
     mode_labels = PROJECT_MODE_LABELS.get(lang, PROJECT_MODE_LABELS["en"])
     mode = mode_labels.get(intake.mode, intake.mode)
     parts = [
         labels["summary"].format(mode=mode),
     ]
+    mismatch = _format_project_intake_target_mismatch(
+        intake,
+        target_workspace,
+        labels,
+    )
+    if mismatch:
+        parts.append(mismatch)
     updated = _format_project_intake_timestamp(intake.created_at)
     if updated:
         parts.append(f"{labels['updated']}: {updated}")
@@ -309,6 +327,20 @@ def _format_project_intake_target(target: object | None) -> str:
         escaped = text.replace('"', r"\"")
         return f'"{escaped}"'
     return text
+
+
+def _format_project_intake_target_mismatch(
+    intake: ProjectIntake,
+    target: object | None,
+    labels: dict[str, str],
+) -> str:
+    target_text = str(target or "").strip()
+    if not target_text:
+        return ""
+    if _same_resolved_path(Path(target_text), intake.target_workspace):
+        return ""
+    intake_target = _format_project_intake_target(intake.target_workspace)
+    return labels["target_mismatch"].format(target=intake_target)
 
 
 def _same_resolved_path(left: Path, right: Path) -> bool:

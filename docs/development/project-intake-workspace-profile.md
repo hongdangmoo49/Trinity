@@ -86,6 +86,11 @@ When Trinity opens the Workbench and the saved intake target matches the active
 workspace candidate, Start seeds the composer with `product_goal`. This avoids
 asking CLI users to retype the same new/existing project goal before planning.
 
+When saved project intake exists but points at a different workspace than the
+current Start/Nexus target, the project-intake label shows a target mismatch
+warning. This prevents users from planning against one workspace while the saved
+analysis and brief still describe another.
+
 Start and Nexus also expose a Workbench "Edit Brief" action. It writes the same
 project brief and product discovery fields as the CLI flags, refreshes the
 project-intake summary, and keeps the active target workspace unchanged. Saving

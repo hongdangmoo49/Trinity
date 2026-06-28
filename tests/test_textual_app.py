@@ -3696,6 +3696,12 @@ def test_initial_start_prompt_uses_full_project_brief(tmp_path) -> None:
             "Stack: python, textual",
             "Constraints: Keep tests green",
             "Notes: Use existing patterns.",
+            "",
+            "Starter recommendations:",
+            "- Template: Start with a minimal SaaS dashboard shape and keep choices reversible.",
+            "- Stack: Prefer python, textual unless the user changes direction.",
+            "- UX focus: Design the first workflow around support operators.",
+            "- Guardrails: Respect Keep tests green.",
         ]
     )
 
@@ -3725,6 +3731,9 @@ def test_initial_start_prompt_lists_missing_new_brief_fields_in_korean(tmp_path)
             "목표: 고객 온보딩을 만든다.",
             "사용자: 지원 담당자",
             "",
+            "초기 추천:",
+            "- UX 초점: 첫 workflow를 지원 담당자 기준으로 설계해라.",
+            "",
             "스캐폴딩 전에 확인할 항목:",
             "- 프로젝트 유형",
             "- 성공 기준",
@@ -3747,14 +3756,25 @@ def test_initial_start_prompt_does_not_list_missing_fields_for_existing_project(
             mode="existing",
             target_workspace=target_workspace,
             product_goal="Modernize customer onboarding.",
+            project_type="SaaS dashboard",
+            target_users="support operators",
+            constraints=("Keep tests green",),
             created_at="2026-06-28T00:00:00Z",
         ),
     )
 
-    assert (
-        initial_start_prompt(config, target_workspace)
-        == "Modernize customer onboarding."
+    prompt = initial_start_prompt(config, target_workspace)
+    assert prompt == "\n".join(
+        [
+            "Use this project brief and existing codebase to plan the next safe work packages.",
+            "",
+            "Goal: Modernize customer onboarding.",
+            "Type: SaaS dashboard",
+            "Users: support operators",
+            "Constraints: Keep tests green",
+        ]
     )
+    assert "Starter recommendations:" not in prompt
 
 
 @pytest.mark.asyncio

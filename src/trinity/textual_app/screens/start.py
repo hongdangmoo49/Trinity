@@ -115,11 +115,13 @@ class StartScreen(Screen[None]):
         config: TrinityConfig,
         workspace_candidate: Path | None = None,
         *,
+        initial_prompt: str = "",
         lang: str = "en",
     ) -> None:
         super().__init__(name="start")
         self.config = config
         self.workspace_candidate = workspace_candidate
+        self.initial_prompt = initial_prompt
         self.lang = lang
         self._agent_model_choices: dict[str, tuple[ProviderModelChoice, ...]] = {}
         self._workspace_label_key = self._workspace_label()
@@ -138,6 +140,7 @@ class StartScreen(Screen[None]):
                 yield Static(self._label("subtitle"), id="start-subtitle")
                 composer = PromptComposer(
                     placeholder=self._label("placeholder"),
+                    initial_text=self.initial_prompt,
                     id="start-composer",
                     lang=self.lang,
                 )

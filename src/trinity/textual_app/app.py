@@ -228,6 +228,21 @@ def initial_workspace_candidate(config: TrinityConfig, launch_cwd: Path) -> Path
     return launch_cwd
 
 
+def initial_start_prompt(config: TrinityConfig, workspace_candidate: Path | None) -> str:
+    """Seed Start prompt from the saved project brief for the same target."""
+    if workspace_candidate is None:
+        return ""
+    try:
+        intake = load_project_intake(config.effective_state_dir)
+    except ValueError:
+        return ""
+    if intake is None or not intake.product_goal.strip():
+        return ""
+    if absolute_path(intake.target_workspace) != absolute_path(workspace_candidate):
+        return ""
+    return intake.product_goal.strip()
+
+
 def _is_directory(path: Path) -> bool:
     try:
         return path.is_dir()
@@ -1348,6 +1363,7 @@ class TrinityTextualApp(App[None]):
             self.config,
             self.settings_store,
             self.workspace_candidate,
+            start_prompt=initial_start_prompt(self.config, self.workspace_candidate),
         ):
             self.install_screen(spec.screen, spec.route)
 

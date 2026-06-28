@@ -49,6 +49,7 @@ def test_workbench_screen_specs_preserve_constructor_state(tmp_path) -> None:
     assert isinstance(start, StartScreen)
     assert start.config is config
     assert start.workspace_candidate == workspace_candidate
+    assert start.initial_prompt == ""
     assert start.lang == "ko"
 
     assert isinstance(nexus, NexusScreen)
@@ -64,3 +65,21 @@ def test_workbench_screen_specs_preserve_constructor_state(tmp_path) -> None:
 
     assert isinstance(report, ReportScreen)
     assert report.lang == "ko"
+
+
+def test_workbench_screen_specs_can_seed_start_prompt(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    settings_store = UISettingsStore(config.effective_state_dir)
+    workspace_candidate = tmp_path / "target"
+
+    specs = workbench_screen_specs(
+        config,
+        settings_store,
+        workspace_candidate,
+        start_prompt="새 프로젝트를 설계해줘",
+    )
+
+    start = specs[0].screen
+
+    assert isinstance(start, StartScreen)
+    assert start.initial_prompt == "새 프로젝트를 설계해줘"

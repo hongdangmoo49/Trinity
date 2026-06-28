@@ -259,10 +259,20 @@ def initial_start_prompt(config: TrinityConfig, workspace_candidate: Path | None
     )
 
 
-def _existing_project_analysis_prompt(lang: str) -> str:
+def _existing_project_analysis_prompt(lang: str, target: Path | None = None) -> str:
+    target_text = f" at {target}" if target is not None else ""
     if lang == "ko":
-        return "이 기존 프로젝트를 분석하고 다음에 진행할 작업 패키지를 제안해라."
-    return "Analyze this existing project and propose the next safe work packages."
+        target_text = f" `{target}`" if target is not None else ""
+        return (
+            f"선택된 기존 프로젝트{target_text}를 분석해라. 문서, 소스 루트, "
+            "테스트/빌드 신호를 먼저 읽고 다음 안전한 작업 패키지를 제안해라. "
+            "비어 있는 workspace가 아니라면 새 프로젝트로 스캐폴딩하지 마라."
+        )
+    return (
+        f"Analyze the selected existing project{target_text}. Read its docs, "
+        "source roots, and test/build signals before proposing the next safe "
+        "work packages. Do not scaffold a new project unless the workspace is empty."
+    )
 
 
 def _project_brief_start_prompt(
@@ -3617,7 +3627,9 @@ class TrinityTextualApp(App[None]):
             return
         composer = nexus.query_one("#nexus-composer", PromptComposer)
         if not composer.text.strip():
-            composer.set_text(_existing_project_analysis_prompt(self.config.lang))
+            composer.set_text(
+                _existing_project_analysis_prompt(self.config.lang, target)
+            )
 
     def _seed_start_prompt_for_existing_analysis(self, target: Path) -> None:
         if not self._screens_installed:
@@ -3631,7 +3643,9 @@ class TrinityTextualApp(App[None]):
             return
         composer = start.query_one(PromptComposer)
         if not composer.text.strip():
-            composer.set_text(_existing_project_analysis_prompt(self.config.lang))
+            composer.set_text(
+                _existing_project_analysis_prompt(self.config.lang, target)
+            )
 
     def _preserved_project_intake_user_context(self, target: Path) -> dict[str, object]:
         try:

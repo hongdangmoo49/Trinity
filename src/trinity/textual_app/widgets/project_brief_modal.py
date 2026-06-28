@@ -14,27 +14,43 @@ PROJECT_BRIEF_LABELS = {
     "en": {
         "cancel": "Cancel",
         "constraints": "Constraints",
+        "constraints_placeholder": "offline-first, no paid APIs",
         "goal": "Product goal",
+        "goal_placeholder": "e.g. Build a local habit tracker",
         "milestone": "First milestone",
+        "milestone_placeholder": "First shippable prototype",
         "notes": "Notes",
+        "notes_placeholder": "Any context agents should consider",
         "project_type": "Project type",
+        "project_type_placeholder": "SaaS dashboard, CLI tool, mobile app",
         "save": "Save Brief",
         "stack": "Stack preferences",
+        "stack_placeholder": "python, textual, sqlite",
         "success": "Success criteria",
+        "success_placeholder": "Users can finish the first workflow",
         "target_users": "Target users",
+        "target_users_placeholder": "support operators, students, developers",
         "title": "Project Brief",
     },
     "ko": {
         "cancel": "취소",
         "constraints": "제약",
+        "constraints_placeholder": "오프라인 우선, 유료 API 없음",
         "goal": "제품 목표",
+        "goal_placeholder": "예: 로컬 습관 추적 앱 만들기",
         "milestone": "첫 마일스톤",
+        "milestone_placeholder": "처음 배포 가능한 프로토타입",
         "notes": "메모",
+        "notes_placeholder": "에이전트가 고려할 추가 맥락",
         "project_type": "프로젝트 유형",
+        "project_type_placeholder": "SaaS 대시보드, CLI 도구, 모바일 앱",
         "save": "브리프 저장",
         "stack": "선호 스택",
+        "stack_placeholder": "python, textual, sqlite",
         "success": "성공 기준",
+        "success_placeholder": "사용자가 첫 workflow를 끝낼 수 있음",
         "target_users": "대상 사용자",
+        "target_users_placeholder": "지원 담당자, 학생, 개발자",
         "title": "프로젝트 브리프",
     },
 }
@@ -207,7 +223,11 @@ class ProjectBriefModal(ModalScreen[ProjectBriefDraft | None]):
     ) -> ComposeResult:
         with Horizontal(classes="project-brief-row"):
             yield Static(self._label(label_key))
-            yield Input(value=value, id=input_id)
+            yield Input(
+                value=value,
+                id=input_id,
+                placeholder=self._label(f"{label_key}_placeholder"),
+            )
 
     def _input_value(self, selector: str) -> str:
         return self.query_one(selector, Input).value.strip()

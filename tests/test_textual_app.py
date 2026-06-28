@@ -10926,10 +10926,47 @@ async def test_start_analyze_workspace_empty_target_opens_project_brief(
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
+        assert (
+            app.screen.query_one("#project-brief-goal", Input).placeholder
+            == "e.g. Build a local habit tracker"
+        )
+        assert (
+            app.screen.query_one("#project-brief-success", Input).placeholder
+            == "Users can finish the first workflow"
+        )
         intake = load_project_intake(app.config.effective_state_dir)
         assert intake is not None
         assert intake.mode == "new"
         assert intake.target_workspace == target.resolve()
+
+
+@pytest.mark.asyncio
+async def test_project_brief_modal_uses_korean_placeholders(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "empty-target"
+    control_repo.mkdir()
+    target.mkdir()
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    config.lang = "ko"
+    app = TrinityTextualApp(
+        config,
+        FakeWorkflowController(),
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#analyze-workspace")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectBriefModal)
+        assert (
+            app.screen.query_one("#project-brief-goal", Input).placeholder
+            == "예: 로컬 습관 추적 앱 만들기"
+        )
+        assert (
+            app.screen.query_one("#project-brief-target-users", Input).placeholder
+            == "지원 담당자, 학생, 개발자"
+        )
 
 
 @pytest.mark.asyncio

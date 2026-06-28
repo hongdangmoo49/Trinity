@@ -32,7 +32,7 @@ from trinity.project_intake import (
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import COMMAND_SPECS, SESSION_ONLY_SETTING_NOTICE
 from trinity.textual_app import app as textual_app_module
-from trinity.textual_app.app import TrinityTextualApp
+from trinity.textual_app.app import TrinityTextualApp, initial_start_prompt
 from trinity.textual_app.presenters import (
     agent_change_action_hint,
     agent_current_settings_markdown,
@@ -3621,6 +3621,65 @@ async def test_start_screen_prefers_project_intake_target_workspace(
         assert controller.target_workspace == target_workspace.resolve()
         assert app.confirmed_preflight is not None
         assert app.confirmed_preflight.path == target_workspace.resolve()
+
+
+def test_initial_start_prompt_uses_same_target_project_goal(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    target_workspace = tmp_path / "customer-app"
+    other_workspace = tmp_path / "other-app"
+    control_repo.mkdir()
+    target_workspace.mkdir()
+    other_workspace.mkdir()
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="new",
+            target_workspace=target_workspace,
+            product_goal="Build customer onboarding.",
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert (
+        initial_start_prompt(config, target_workspace)
+        == "Build customer onboarding."
+    )
+    assert initial_start_prompt(config, other_workspace) == ""
+    assert initial_start_prompt(config, None) == ""
+
+
+@pytest.mark.asyncio
+async def test_start_screen_seeds_composer_from_project_goal(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    control_repo = tmp_path / "control"
+    target_workspace = tmp_path / "customer-app"
+    control_repo.mkdir()
+    target_workspace.mkdir()
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="new",
+            target_workspace=target_workspace,
+            product_goal="Build customer onboarding.",
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+    app = TrinityTextualApp(config, controller, launch_cwd=control_repo)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+        composer = screen.query_one(PromptComposer)
+
+        assert composer.text == "Build customer onboarding."
+
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.target_workspace == target_workspace.resolve()
+        assert controller.started_prompts[-1] == "Build customer onboarding."
 
 
 @pytest.mark.asyncio

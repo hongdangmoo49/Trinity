@@ -166,11 +166,13 @@ class PromptComposer(Vertical):
         self,
         *,
         placeholder: str = "",
+        initial_text: str = "",
         id: str | None = None,
         lang: str = "en",
     ) -> None:
         super().__init__(id=id)
         self.placeholder = placeholder
+        self.initial_text = initial_text
         self._command_matches: list[str] = []
         self._command_selection = 0
         self._command_window_start = 0
@@ -192,7 +194,7 @@ class PromptComposer(Vertical):
         self._reset_widget_cache()
         self._reset_render_cache()
         text_area = ComposerTextArea(
-            "",
+            self.initial_text,
             placeholder=self.placeholder,
             soft_wrap=True,
             lang=self.lang,

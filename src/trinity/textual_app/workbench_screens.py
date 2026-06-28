@@ -29,12 +29,19 @@ def workbench_screen_specs(
     config: TrinityConfig,
     settings_store: UISettingsStore,
     workspace_candidate: Path | None,
+    *,
+    start_prompt: str = "",
 ) -> tuple[WorkbenchScreenSpec, ...]:
     """Build the default Textual workbench screens in install order."""
     return (
         WorkbenchScreenSpec(
             "start",
-            StartScreen(config, workspace_candidate, lang=config.lang),
+            StartScreen(
+                config,
+                workspace_candidate,
+                initial_prompt=start_prompt,
+                lang=config.lang,
+            ),
         ),
         WorkbenchScreenSpec("nexus", NexusScreen(config)),
         WorkbenchScreenSpec(

@@ -71,6 +71,10 @@ sync preserves the saved brief and notes while refreshing filesystem-derived
 analysis. When the target changes, the saved brief is not carried to the new
 workspace.
 
+When Trinity opens the Workbench and the saved intake target matches the active
+workspace candidate, Start seeds the composer with `product_goal`. This avoids
+asking CLI users to retype the same new/existing project goal before planning.
+
 ## Detection Scope
 
 The profile intentionally uses conservative filesystem and manifest checks:

@@ -582,6 +582,7 @@ class TestProjectAnalyze:
 
             assert result.exit_code == 0
             assert "Project intake active." in result.output
+            assert "Summary: Project intake: existing | updated:" in result.output
             assert "Mode: existing" in result.output
             assert "Target name: customer-app" in result.output
             assert "Target workspace:" in result.output

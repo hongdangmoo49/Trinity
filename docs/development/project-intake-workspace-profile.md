@@ -71,6 +71,11 @@ CLI users can record the brief with `trinity project new` or
 `trinity project status --refresh` refreshes filesystem-derived analysis while
 preserving the saved project brief.
 
+`trinity project status` also prints the same compact project-intake summary
+used by Start/Nexus before the detailed saved/current analysis sections. This
+lets CLI users verify the Workbench-facing target, brief, test, and safety
+signals without opening the Textual UI.
+
 Workbench project-intake sync follows the same preservation rule. When the
 current saved intake points at the same target workspace, Start/Nexus workspace
 sync preserves the saved brief and notes while refreshing filesystem-derived

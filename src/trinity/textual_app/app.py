@@ -415,6 +415,12 @@ class TrinityTextualApp(App[None]):
         content-align: left middle;
     }
 
+    #project-intake-summary {
+        width: 100%;
+        color: $text-muted;
+        margin-top: 1;
+    }
+
     #nexus-screen {
         width: 100%;
         height: 1fr;
@@ -787,6 +793,12 @@ class TrinityTextualApp(App[None]):
         margin-left: 2;
         content-align: left bottom;
         color: $text-muted;
+    }
+
+    #nexus-project-intake-summary {
+        width: 100%;
+        color: $text-muted;
+        margin-top: 1;
     }
 
     ProviderInspector {

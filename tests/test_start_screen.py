@@ -95,6 +95,19 @@ def test_project_intake_state_label_summarizes_saved_intake(tmp_path: Path) -> N
     )
 
 
+def test_project_intake_state_label_guides_missing_intake(tmp_path: Path) -> None:
+    state = tmp_path / ".trinity"
+
+    assert project_intake_state_label(state) == (
+        "Project intake: not recorded | existing: trinity project analyze [PATH] "
+        "| new: trinity project new NAME"
+    )
+    assert project_intake_state_label(state, lang="ko") == (
+        "프로젝트 인테이크: 기록 없음 | 기존: trinity project analyze [PATH] "
+        "| 신규: trinity project new NAME"
+    )
+
+
 def test_nexus_workspace_label_uses_target_state_helper(tmp_path: Path) -> None:
     control_repo = tmp_path / "Trinity"
     target = tmp_path / "customer-app"

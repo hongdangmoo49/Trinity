@@ -164,6 +164,46 @@ trinity init --non-interactive
 trinity bootstrap
 ```
 
+### Start a New or Existing Project
+
+For an existing codebase, initialize Trinity inside that project and confirm the
+saved project intake before launching the Workbench.
+
+```bash
+cd /path/to/existing-project
+trinity init --mode existing
+trinity project status
+trinity
+```
+
+When the project structure changes or test commands need to be detected again,
+refresh the saved intake. `--refresh` preserves the existing mode, target
+workspace, and notes while rewriting `.trinity/project-intake.json` and
+`.trinity/project-intake.md`.
+
+```bash
+trinity project status --refresh
+```
+
+For a new project, initialize a Trinity control workspace first, then create the
+target project folder.
+
+```bash
+mkdir -p ~/workspace/trinity-control
+cd ~/workspace/trinity-control
+trinity init --mode new
+trinity project new my-app --parent ~/workspace --git
+trinity project status
+trinity
+```
+
+Automation and CI can inspect the saved intake plus current analysis state with
+machine-readable output.
+
+```bash
+trinity project status --json
+```
+
 ### Run Your First Deliberation
 
 ```bash
@@ -316,6 +356,9 @@ start after you choose `Execute` and approve the workspace preflight.
 | `trinity init --non-interactive` | Initialize with defaults (no prompts) |
 | `trinity bootstrap` | Run provider first-use auth/trust setup sequentially in the current terminal |
 | `trinity bootstrap --check-only` | Check provider CLI installation without launching providers |
+| `trinity project analyze [PATH]` | Analyze an existing project and write `.trinity/project-intake.*` |
+| `trinity project new NAME` | Create a new target project folder and write project intake |
+| `trinity project status [--json] [--refresh]` | Show saved project intake, JSON output, or refresh analysis |
 | `trinity ask "question"` | One-shot deliberation on a prompt |
 | `trinity status` | Show agent status table |
 | `trinity doctor` | Diagnose OS, terminal, provider CLI, and transport state |

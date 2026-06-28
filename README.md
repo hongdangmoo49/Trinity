@@ -159,6 +159,44 @@ trinity init --non-interactive
 trinity bootstrap
 ```
 
+### 신규/기존 프로젝트 시작 흐름
+
+기존 코드베이스에서 시작할 때는 현재 폴더를 Trinity 작업 공간으로 초기화한 뒤
+프로젝트 인테이크를 확인합니다.
+
+```bash
+cd /path/to/existing-project
+trinity init --mode existing
+trinity project status
+trinity
+```
+
+프로젝트 구조가 바뀌었거나 테스트 명령을 다시 감지해야 하면 저장된 인테이크를
+갱신합니다. `--refresh`는 기존의 mode, target workspace, notes를 유지한 채
+`.trinity/project-intake.json`과 `.trinity/project-intake.md`를 다시 씁니다.
+
+```bash
+trinity project status --refresh
+```
+
+새 프로젝트를 만들 때는 Trinity 상태를 저장할 위치에서 초기화한 뒤 대상 폴더를
+생성합니다.
+
+```bash
+mkdir -p ~/workspace/trinity-control
+cd ~/workspace/trinity-control
+trinity init --mode new
+trinity project new my-app --parent ~/workspace --git
+trinity project status
+trinity
+```
+
+자동화나 CI에서는 `--json`으로 저장된 인테이크와 현재 분석 상태를 확인할 수 있습니다.
+
+```bash
+trinity project status --json
+```
+
 ### 첫 번째 토론(Deliberation) 실행
 
 ```bash
@@ -309,6 +347,9 @@ Trinity는 기본 실행 화면으로 **Textual 기반 Workbench TUI**를 제공
 | `trinity init --non-interactive` | 사용자 입력 요청 없이 기본값으로 즉시 초기화 |
 | `trinity bootstrap` | 현재 터미널에서 provider CLI 초기 설정/auth/trust를 순차 실행 |
 | `trinity bootstrap --check-only` | provider CLI 설치 상태만 확인하고 실행하지 않음 |
+| `trinity project analyze [PATH]` | 기존 프로젝트를 분석해 `.trinity/project-intake.*` 기록 |
+| `trinity project new NAME` | 신규 대상 프로젝트 폴더를 생성하고 인테이크 기록 |
+| `trinity project status [--json] [--refresh]` | 저장된 프로젝트 인테이크 확인, JSON 출력, 재분석 |
 | `trinity ask "질문"` | 입력한 프롬프트에 대해 즉시 단발성(One-shot) 토론 실행 |
 | `trinity status` | 현재 에이전트들의 활성화 및 연결 상태를 표 형태로 표시 |
 | `trinity doctor` | OS/터미널/provider CLI/transport 상태를 진단 |

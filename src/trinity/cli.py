@@ -945,6 +945,7 @@ def _project_status_payload(
     )
     return {
         "project_intake": {
+            "summary": format_project_intake_label(intake),
             "mode": intake.mode,
             "target_name": intake.target_workspace.name or "(root)",
             "target_workspace": str(intake.target_workspace),

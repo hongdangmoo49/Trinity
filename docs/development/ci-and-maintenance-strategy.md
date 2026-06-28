@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.769`
-- Merged PR range reviewed: #90 through #866
+- Package version inspected: `1.0.771`
+- Merged PR range reviewed: #90 through #868
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #866
-- Latest refresh reviewed: #866
+- Maintenance refresh reviewed: #427 through #868
+- Latest refresh reviewed: #868
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2060,6 +2060,17 @@ and what the next release train should optimize.
 - Added a dedicated design document and focused English/Korean Textual prompt
   coverage.
 - Raised the package version from `1.0.768` to `1.0.769` in this patch PR.
+
+### #868: Existing Analysis Target Prompt
+
+- Added the selected target workspace path to Start/Nexus `Analyze Existing`
+  seed prompts.
+- Guided agents to read existing docs, source roots, and test/build signals
+  before proposing safe work packages.
+- Added explicit safety wording to avoid new-project scaffolding for non-empty
+  existing workspaces.
+- Added a dedicated design document and Start/Nexus prompt coverage.
+- Raised the package version from `1.0.770` to `1.0.771` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

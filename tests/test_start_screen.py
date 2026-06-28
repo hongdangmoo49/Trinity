@@ -120,6 +120,8 @@ def test_project_intake_state_label_includes_workspace_profile(
     )
     (target / "README.md").write_text("# Customer App\n", encoding="utf-8")
     (target / "docs").mkdir()
+    (target / "src").mkdir()
+    (target / "tests").mkdir()
     state = tmp_path / ".trinity"
     write_project_intake(
         state,
@@ -138,6 +140,7 @@ def test_project_intake_state_label_includes_workspace_profile(
         "git: none | "
         "goal: Launch customer onboarding. | type: SaaS dashboard | "
         "users: support operators | dev: npm run dev | build: npm run build "
+        "| src: src, tests "
         "| entry: dist/index.js, customer -> bin/customer.js | "
         "docs: README.md, docs"
     )
@@ -146,6 +149,7 @@ def test_project_intake_state_label_includes_workspace_profile(
         "git: 없음 | "
         "목표: Launch customer onboarding. | 유형: SaaS dashboard | "
         "사용자: support operators | 개발: npm run dev | 빌드: npm run build "
+        "| 소스: src, tests "
         "| 진입점: dist/index.js, customer -> bin/customer.js | "
         "문서: README.md, docs"
     )

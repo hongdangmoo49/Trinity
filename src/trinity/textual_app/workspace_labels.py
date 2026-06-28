@@ -53,6 +53,7 @@ PROJECT_INTAKE_LABELS = {
         "git_none": "git: none",
         "goal": "goal",
         "project_type": "type",
+        "source_roots": "src",
         "summary": "Project intake: {mode}",
         "target_users": "users",
         "tests": "tests",
@@ -83,6 +84,7 @@ PROJECT_INTAKE_LABELS = {
         "git_none": "git: 없음",
         "goal": "목표",
         "project_type": "유형",
+        "source_roots": "소스",
         "summary": "프로젝트 인테이크: {mode}",
         "target_users": "사용자",
         "tests": "테스트",
@@ -168,6 +170,7 @@ def _format_project_intake_label(intake: ProjectIntake, *, lang: str) -> str:
     for label_key, values in (
         ("dev", intake.dev_commands),
         ("build", intake.build_commands),
+        ("source_roots", intake.source_roots),
         ("entrypoints", intake.entrypoints),
         ("docs", intake.docs_found),
     ):

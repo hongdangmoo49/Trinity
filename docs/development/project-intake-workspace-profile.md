@@ -99,7 +99,9 @@ For existing projects, Start/Nexus project-intake labels include the saved Git
 state from the latest intake analysis. Non-Git workspaces show `git: none`, clean
 repositories show the branch and clean state, and dirty repositories show saved
 dirty and untracked counts. This keeps the selected project safety signal visible
-before planning or execution.
+before planning or execution. The same labels also surface detected source roots,
+so existing-project users can confirm that Trinity found the expected source and
+test directories before asking agents to plan against the project.
 
 Provider prompt guidance uses the same readiness contract. When a new-project
 brief is incomplete, providers are told to confirm the missing fields before

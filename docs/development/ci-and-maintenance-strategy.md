@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.639`
-- Merged PR range reviewed: #90 through #735
+- Package version inspected: `1.0.641`
+- Merged PR range reviewed: #90 through #737
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #735
-- Latest refresh reviewed: #735
+- Maintenance refresh reviewed: #427 through #737
+- Latest refresh reviewed: #737
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1250,6 +1250,19 @@ and what the next release train should optimize.
 - Added focused Start/Nexus label tests and included `tests/test_start_screen.py`
   in the required smoke manifest.
 - Raised the package version from `1.0.637` to `1.0.638` in this patch PR.
+
+### #737: Init Project Mode Intake
+
+- Added `trinity init --mode existing|new` to record project onboarding mode
+  during initialization.
+- Built project intake metadata before init writes `.trinity` files so the
+  captured Git/package state reflects the pre-init workspace.
+- Wrote `.trinity/project-intake.json` and `.trinity/project-intake.md` after
+  init completes when a mode is selected.
+- Prompted for project mode in interactive init while keeping non-interactive
+  init unchanged when `--mode` is omitted.
+- Expanded CLI tests for mode intake writing and prompt policy.
+- Raised the package version from `1.0.639` to `1.0.640` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

@@ -1538,6 +1538,18 @@ and what the next release train should optimize.
   non-carry behavior.
 - Raised the package version from `1.0.684` to `1.0.685` in this patch PR.
 
+### #784: Start Prompt Project Goal Seed
+
+- Seeded the Start composer from saved ProjectIntake `product_goal` when the
+  saved intake target matches the current workspace candidate.
+- Kept target isolation by refusing to carry a product goal from a different
+  target workspace.
+- Added `initial_text` / `initial_prompt` plumbing through PromptComposer,
+  StartScreen, and Workbench screen construction.
+- Expanded Textual app and workbench screen tests for same-target prompt seeding
+  and default empty prompts.
+- Raised the package version from `1.0.686` to `1.0.687` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture

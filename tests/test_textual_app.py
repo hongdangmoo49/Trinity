@@ -10890,6 +10890,12 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
         assert str(nexus.query_one("#select-workspace", Button).label) == (
             "Select Workspace"
         )
+        assert str(nexus.query_one("#nexus-analyze-workspace", Button).label) == (
+            "Analyze Workspace"
+        )
+        assert str(nexus.query_one("#nexus-create-project", Button).label) == (
+            "Create Project"
+        )
         assert [child.id for child in nexus.query_one("#nexus-action-bar").children] == [
             "open-provider-inspector",
             "select-workspace",
@@ -10923,6 +10929,99 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
         assert str(nexus.query_one("#select-workspace", Button).label) == (
             "Select Workspace"
         )
+
+
+@pytest.mark.asyncio
+async def test_nexus_analyze_workspace_button_writes_project_intake(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target-app"
+    control_repo.mkdir()
+    target.mkdir()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        controller,
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        await pilot.click("#nexus-analyze-workspace")
+        await pilot.pause()
+
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.mode == "existing"
+        assert intake.target_workspace == target.resolve()
+        nexus = app.get_screen("nexus", NexusScreen)
+        assert "Project intake: existing" in str(
+            nexus.query_one("#nexus-project-intake-summary", Static).content
+        )
+
+
+def test_nexus_safe_target_prefers_snapshot_target(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    stale_candidate = tmp_path / "stale"
+    snapshot_target = tmp_path / "snapshot-target"
+    control_repo.mkdir()
+    stale_candidate.mkdir()
+    snapshot_target.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        FakeWorkflowController(),
+        launch_cwd=control_repo,
+    )
+    app.workspace_candidate = stale_candidate
+
+    assert app._safe_nexus_target_workspace(
+        WorkflowNexusSnapshot(target_workspace=str(snapshot_target))
+    ) == snapshot_target
+
+
+@pytest.mark.asyncio
+async def test_nexus_create_project_button_creates_new_project_intake(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "new-app"
+    control_repo.mkdir()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        controller,
+        launch_cwd=control_repo,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        await pilot.click("#nexus-create-project")
+        await pilot.pause()
+        await pilot.pause()
+
+        assert isinstance(app.screen, FolderNamePrompt)
+        app.screen.query_one("#workspace-folder-name", Input).value = "new-app"
+        app.screen.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, WorkspacePicker)
+        assert target.exists()
+        app.screen.action_confirm()
+        await pilot.pause()
+
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.mode == "new"
+        assert intake.target_workspace == target
+        assert controller.target_workspace == target
+        nexus = app.get_screen("nexus", NexusScreen)
         assert str(target.resolve()) in str(
             nexus.query_one("#nexus-target-workspace", Static).content
         )

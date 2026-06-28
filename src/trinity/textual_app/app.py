@@ -426,6 +426,17 @@ class TrinityTextualApp(App[None]):
         margin-top: 1;
     }
 
+    #project-intake-actions {
+        width: 100%;
+        height: auto;
+        margin-top: 1;
+        align-horizontal: right;
+    }
+
+    #analyze-workspace {
+        width: 22;
+    }
+
     #nexus-screen {
         width: 100%;
         height: 1fr;
@@ -1442,6 +1453,24 @@ class TrinityTextualApp(App[None]):
             self._on_workspace_candidate_selected,
             intent="select",
         )
+
+    def on_start_screen_project_intake_requested(
+        self,
+        event: StartScreen.ProjectIntakeRequested,
+    ) -> None:
+        event.stop()
+        target = safe_start_target_workspace(
+            self.workspace_candidate,
+            self.config.project_dir,
+        )
+        if target is None:
+            self._open_workspace_picker(
+                WorkflowNexusSnapshot(),
+                self._on_workspace_candidate_selected,
+                intent="select",
+            )
+            return
+        self._sync_project_intake_for_target(target, mode="existing")
 
     def on_nexus_screen_follow_up_submitted(
         self,

@@ -10689,6 +10689,53 @@ async def test_start_select_workspace_updates_workspace_candidate(tmp_path) -> N
         )
 
 
+@pytest.mark.asyncio
+async def test_start_analyze_workspace_button_writes_project_intake(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target"
+    control_repo.mkdir()
+    target.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        FakeWorkflowController(),
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#analyze-workspace")
+        await pilot.pause()
+
+        start = app.get_screen("start", StartScreen)
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.mode == "existing"
+        assert intake.target_workspace == target.resolve()
+        assert "Project intake: existing" in str(
+            start.query_one("#project-intake-summary", Static).content
+        )
+
+
+@pytest.mark.asyncio
+async def test_start_analyze_workspace_button_opens_picker_for_control_repo(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    control_repo.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        FakeWorkflowController(),
+        launch_cwd=control_repo,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#analyze-workspace")
+        await pilot.pause()
+
+        assert isinstance(app.screen, WorkspacePicker)
+        assert app.screen.intent == "select"
+        assert load_project_intake(app.config.effective_state_dir) is None
+
+
 def test_workbench_syncs_created_workspace_as_new_project_intake(tmp_path) -> None:
     control_repo = tmp_path / "control"
     target = tmp_path / "new-app"

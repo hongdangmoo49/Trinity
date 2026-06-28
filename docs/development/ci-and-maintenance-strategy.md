@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.719`
-- Merged PR range reviewed: #90 through #816
+- Package version inspected: `1.0.721`
+- Merged PR range reviewed: #90 through #818
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #816
-- Latest refresh reviewed: #816
+- Maintenance refresh reviewed: #427 through #818
+- Latest refresh reviewed: #818
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1743,6 +1743,16 @@ and what the next release train should optimize.
 - Added CLI coverage for incomplete new-project brief guidance and preserved
   existing-project status next steps.
 - Raised the package version from `1.0.718` to `1.0.719` in this patch PR.
+
+### #818: Missing Project Intake Target Summary
+
+- Added a `target missing` / `대상 없음` compact-summary signal when the saved
+  project-intake target workspace no longer exists.
+- Reused the shared project-intake formatter so Start/Nexus and
+  `trinity project status` show the same missing-target warning.
+- Added CLI status coverage for missing targets alongside Start/Nexus label
+  coverage in English and Korean.
+- Raised the package version from `1.0.720` to `1.0.721` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

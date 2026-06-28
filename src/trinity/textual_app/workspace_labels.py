@@ -44,6 +44,7 @@ PROJECT_INTAKE_LABELS = {
         "build": "build",
         "brief_complete": "brief: complete",
         "brief_missing": "brief: missing {fields}",
+        "analysis_sparse": "analysis: sparse",
         "dev": "dev",
         "docs": "docs",
         "entrypoints": "entry",
@@ -85,6 +86,7 @@ PROJECT_INTAKE_LABELS = {
         "build": "빌드",
         "brief_complete": "브리프: 완료",
         "brief_missing": "브리프: 누락 {fields}",
+        "analysis_sparse": "분석: 부족",
         "dev": "개발",
         "docs": "문서",
         "entrypoints": "진입점",
@@ -228,6 +230,8 @@ def _format_project_intake_label(
     )
     if intake.mode == "new":
         parts.append(_format_new_project_brief_readiness(intake, labels))
+    if _project_intake_analysis_is_sparse(intake):
+        parts.append(labels["analysis_sparse"])
     git_state = _format_existing_project_git_state(intake, labels)
     if git_state:
         parts.append(git_state)
@@ -304,6 +308,12 @@ def _format_new_project_brief_readiness(
     return labels["brief_missing"].format(
         fields=_format_project_intake_values(field_labels)
     )
+
+
+def _project_intake_analysis_is_sparse(intake: ProjectIntake) -> bool:
+    if intake.mode != "existing":
+        return False
+    return not (intake.test_commands or intake.source_roots or intake.docs_found)
 
 
 def _format_optional_count(value: int | None) -> str:

@@ -162,6 +162,31 @@ def test_project_intake_state_label_includes_workspace_profile(
     )
 
 
+def test_project_intake_state_label_warns_for_sparse_existing_analysis(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "empty-app"
+    target.mkdir()
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert project_intake_state_label(state) == (
+        "Project intake: existing | updated: 2026-06-28 | tests: (none) | "
+        "analysis: sparse | git: none"
+    )
+    assert project_intake_state_label(state, lang="ko") == (
+        "프로젝트 인테이크: 기존 | 갱신: 2026-06-28 | 테스트: (없음) | "
+        "분석: 부족 | git: 없음"
+    )
+
+
 def test_project_intake_state_label_warns_when_target_mismatches(
     tmp_path: Path,
 ) -> None:

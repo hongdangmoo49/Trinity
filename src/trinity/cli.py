@@ -392,6 +392,7 @@ def _init_interactive(target: Path, force: bool, mode: str | None) -> None:
         )
     if intake_paths is not None:
         summary_lines.append(f"  Project intake: {intake_paths.markdown_path}")
+        summary_lines.append(_project_intake_next_steps())
 
     summary_lines.append(
         f"\n{S.summary_start_hint}\n"
@@ -434,6 +435,7 @@ def _init_default(target: Path, force: bool, mode: str | None = None) -> None:
     intake_paths = _write_init_project_intake(state, project_intake)
     intake_line = (
         f"  Project intake: {intake_paths.markdown_path}\n"
+        f"{_project_intake_next_steps()}\n"
         if intake_paths is not None
         else ""
     )
@@ -447,6 +449,16 @@ def _init_default(target: Path, force: bool, mode: str | None = None) -> None:
         "[dim]Edit .trinity/trinity.config to customize agents and settings.[/dim]",
         title="Trinity Init",
     ))
+
+
+def _project_intake_next_steps() -> str:
+    return "\n".join(
+        [
+            "  Next steps:",
+            "    trinity project status",
+            "    trinity",
+        ]
+    )
 
 
 def _resolve_init_project_mode(

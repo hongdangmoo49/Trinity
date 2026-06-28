@@ -260,6 +260,8 @@ class TestInit:
 
             assert result.exit_code == 0
             assert "Project intake:" in result.output
+            assert "Next steps:" in result.output
+            assert "trinity project status" in result.output
             data = json.loads(
                 Path(".trinity/project-intake.json").read_text(encoding="utf-8")
             )

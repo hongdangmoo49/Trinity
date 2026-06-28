@@ -10900,7 +10900,10 @@ async def test_start_analyze_workspace_button_writes_project_intake(tmp_path) ->
             start.query_one("#project-intake-summary", Static).content
         )
         assert start.query_one(PromptComposer).text == (
-            "Analyze this existing project and propose the next safe work packages."
+            f"Analyze the selected existing project at {target.resolve()}. Read its "
+            "docs, source roots, and test/build signals before proposing the next "
+            "safe work packages. Do not scaffold a new project unless the workspace "
+            "is empty."
         )
 
 
@@ -11468,7 +11471,10 @@ async def test_nexus_analyze_workspace_button_writes_project_intake(tmp_path) ->
             nexus.query_one("#nexus-project-intake-summary", Static).content
         )
         assert nexus.query_one("#nexus-composer", PromptComposer).text == (
-            "Analyze this existing project and propose the next safe work packages."
+            f"Analyze the selected existing project at {target.resolve()}. Read its "
+            "docs, source roots, and test/build signals before proposing the next "
+            "safe work packages. Do not scaffold a new project unless the workspace "
+            "is empty."
         )
 
 

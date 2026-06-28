@@ -121,9 +121,11 @@ product direction before scaffolding, and lets existing-project users verify
 their saved intent before agents plan against the codebase.
 
 Start/Nexus project-intake labels include the saved analysis date as
-`updated: YYYY-MM-DD` / `갱신: YYYY-MM-DD`. This gives existing-project users a
-quick staleness check before planning against a workspace that may have changed
-since the last `trinity project analyze` or `trinity project status --refresh`.
+`updated: YYYY-MM-DD` / `갱신: YYYY-MM-DD`. Existing-project intake older than
+14 days is also marked as stale and includes a `trinity project analyze <target>`
+refresh command. This gives existing-project users a quick staleness check
+before planning against a workspace that may have changed since the last
+`trinity project analyze` or `trinity project status --refresh`.
 
 For existing projects, Start/Nexus project-intake labels include the saved Git
 state from the latest intake analysis. Non-Git workspaces show `git: none`, clean

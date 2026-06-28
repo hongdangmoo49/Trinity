@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.725`
-- Merged PR range reviewed: #90 through #822
+- Package version inspected: `1.0.727`
+- Merged PR range reviewed: #90 through #824
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #822
-- Latest refresh reviewed: #822
+- Maintenance refresh reviewed: #427 through #824
+- Latest refresh reviewed: #824
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1778,6 +1778,16 @@ and what the next release train should optimize.
   button variants after intake changes.
 - Added Start/Nexus helper and mounted-screen coverage for the new variants.
 - Raised the package version from `1.0.724` to `1.0.725` in this patch PR.
+
+### #824: Project Status JSON Compact Summary
+
+- Added the shared compact project-intake summary to
+  `trinity project status --json` under `project_intake.summary`.
+- Let scripts and tools consume the same target, brief, sparse/stale, and
+  missing-target readiness signals used by Start/Nexus and human CLI status.
+- Added JSON status coverage for existing-project and missing-new-target
+  summaries.
+- Raised the package version from `1.0.726` to `1.0.727` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

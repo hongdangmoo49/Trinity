@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.759`
-- Merged PR range reviewed: #90 through #856
+- Package version inspected: `1.0.761`
+- Merged PR range reviewed: #90 through #858
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #856
-- Latest refresh reviewed: #856
+- Maintenance refresh reviewed: #427 through #858
+- Latest refresh reviewed: #858
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1997,6 +1997,18 @@ and what the next release train should optimize.
 - Added a dedicated design document and Textual coverage for initial prompt
   loading, new-project brief save, and existing-project brief save.
 - Raised the package version from `1.0.758` to `1.0.759` in this patch PR.
+
+### #858: Nexus Brief Follow-Up Prompt
+
+- Seeded the Nexus follow-up composer from the saved project brief when the
+  active route is Nexus and the composer is empty.
+- Kept Start prompt seeding unchanged while avoiding stale Nexus prefill from
+  Start-only brief edits.
+- Preserved user-written Nexus follow-up text instead of overwriting it.
+- Reused the shared project-brief prompt builder for Nexus and Start.
+- Added a dedicated design document and Textual coverage for Nexus composer
+  seed and preservation behavior.
+- Raised the package version from `1.0.760` to `1.0.761` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

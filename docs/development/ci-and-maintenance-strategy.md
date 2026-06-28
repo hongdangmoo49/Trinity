@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.741`
-- Merged PR range reviewed: #90 through #838
+- Package version inspected: `1.0.743`
+- Merged PR range reviewed: #90 through #840
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #838
-- Latest refresh reviewed: #838
+- Maintenance refresh reviewed: #427 through #840
+- Latest refresh reviewed: #840
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1880,6 +1880,18 @@ and what the next release train should optimize.
   stdin.
 - Documented this fake-provider coverage in the development test environment.
 - Raised the package version from `1.0.740` to `1.0.741` in this patch PR.
+
+### #840: Incomplete New-Project Brief Execute Gate
+
+- Added incomplete new-project brief warnings to Execute Preflight safety
+  checks.
+- Required a second `Confirm Execute` when a saved new-project intake is missing
+  required brief fields or an empty new-project candidate has no saved intake.
+- Kept completed new-project briefs ungated and kept Select Workspace mode
+  read-only and ungated.
+- Added WorkspacePicker coverage for missing brief warnings, complete brief
+  bypass, and execute-mode double-confirm behavior.
+- Raised the package version from `1.0.742` to `1.0.743` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

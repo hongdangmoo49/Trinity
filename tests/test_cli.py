@@ -674,6 +674,51 @@ class TestProjectAnalyze:
             assert "target missing:" in result.output
             assert "Target name: missing-app" in result.output
             assert "Target exists: False" in result.output
+            assert "trinity project analyze [PATH]" in result.output
+
+            json_status = runner.invoke(main, ["project", "status", "--json"])
+            assert json_status.exit_code == 0
+            data = json.loads(json_status.output)
+            assert data["next_steps"] == ["trinity project analyze [PATH]"]
+
+    def test_project_status_guides_recreating_missing_new_project_target(
+        self,
+        runner,
+        tmp_path,
+    ):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            init_result = runner.invoke(main, ["init", "--non-interactive"])
+            assert init_result.exit_code == 0
+
+            missing_target = Path("missing-new")
+            analyze_result = runner.invoke(
+                main,
+                [
+                    "project",
+                    "analyze",
+                    str(missing_target),
+                    "--mode",
+                    "new",
+                    "--goal",
+                    "Build app.",
+                ],
+            )
+            assert analyze_result.exit_code == 0
+            recreate_command = (
+                f"trinity project new missing-new --parent {Path.cwd()}"
+            )
+
+            result = runner.invoke(main, ["project", "status"])
+
+            assert result.exit_code == 0
+            assert "target missing:" in result.output
+            assert "trinity project new missing-new" in result.output
+            assert "--parent" in result.output
+
+            json_status = runner.invoke(main, ["project", "status", "--json"])
+            assert json_status.exit_code == 0
+            data = json.loads(json_status.output)
+            assert data["next_steps"] == [recreate_command]
 
     def test_project_status_json_shows_saved_and_current_analysis(
         self,

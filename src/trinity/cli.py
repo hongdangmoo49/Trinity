@@ -1080,6 +1080,9 @@ def _project_next_steps(
     *,
     include_status: bool = True,
 ) -> list[str]:
+    recovery = _project_target_recovery_command(intake)
+    if recovery:
+        return [recovery]
     steps: list[str] = []
     completion = _project_brief_completion_command(intake)
     if completion:
@@ -1095,11 +1098,47 @@ def _project_next_step_lines(
     *,
     include_status: bool = True,
 ) -> list[str]:
+    recovery = _project_target_recovery_lines(intake)
+    if recovery:
+        return recovery
     lines = _project_brief_completion_lines(intake)
     if include_status:
         lines.append("  trinity project status")
     lines.append("  trinity")
     return lines
+
+
+def _project_target_recovery_command(intake: ProjectIntake) -> str:
+    if not _project_target_missing(intake):
+        return ""
+    if intake.mode == "new" and intake.target_workspace.name:
+        return " ".join(
+            [
+                "trinity project new",
+                _quote_cli_arg(intake.target_workspace.name),
+                "--parent",
+                _quote_cli_arg(str(intake.target_workspace.parent)),
+            ]
+        )
+    return "trinity project analyze [PATH]"
+
+
+def _project_target_recovery_lines(intake: ProjectIntake) -> list[str]:
+    if not _project_target_missing(intake):
+        return []
+    if intake.mode == "new" and intake.target_workspace.name:
+        return [
+            f"  trinity project new {_quote_cli_arg(intake.target_workspace.name)}",
+            f"    --parent {_quote_cli_arg(str(intake.target_workspace.parent))}",
+        ]
+    return ["  trinity project analyze [PATH]"]
+
+
+def _project_target_missing(intake: ProjectIntake) -> bool:
+    try:
+        return not intake.target_workspace.exists()
+    except OSError:
+        return True
 
 
 def _project_brief_completion_command(intake: ProjectIntake) -> str:

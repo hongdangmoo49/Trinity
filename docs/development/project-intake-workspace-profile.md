@@ -105,7 +105,10 @@ analysis and brief still describe another.
 When the saved intake target no longer exists, Start/Nexus and
 `trinity project status` mark the compact summary as target missing. This
 prevents users from trusting stale intake after moving, deleting, or renaming a
-project folder.
+project folder. CLI status next steps prefer target recovery in this state:
+existing projects are sent back to `trinity project analyze [PATH]`, while new
+projects are given a `trinity project new <name> --parent <path>` recreation
+command.
 
 Start and Nexus also expose a Workbench "Edit Brief" action. It writes the same
 project brief and product discovery fields as the CLI flags, refreshes the

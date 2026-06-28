@@ -52,6 +52,7 @@ async def _query_static_after_recompose(
 
 def test_build_preflight_accepts_existing_writable_directory(tmp_path) -> None:
     snapshot = WorkflowNexusSnapshot(work_packages=["WP-001 codex: UI"])
+    (tmp_path / "README.md").write_text("docs\n", encoding="utf-8")
 
     preflight = build_preflight(tmp_path, snapshot)
 
@@ -148,6 +149,33 @@ def test_build_preflight_reports_invalid_path_intent(tmp_path) -> None:
     assert preflight.is_dir is False
     assert preflight.can_execute is False
     assert "Workspace intent: Invalid path" in preflight.render()
+
+
+def test_build_preflight_marks_empty_directory_as_new_project_candidate(
+    tmp_path,
+) -> None:
+    target = tmp_path / "empty-app"
+    target.mkdir()
+
+    preflight = build_preflight(target, WorkflowNexusSnapshot())
+
+    assert preflight.new_project_candidate is True
+    assert preflight.created is False
+    assert "Workspace intent: Empty new project folder" in preflight.render()
+    assert "작업 의도: 빈 새 프로젝트 폴더" in preflight.render(lang="ko")
+
+
+def test_build_preflight_keeps_non_empty_directory_existing(
+    tmp_path,
+) -> None:
+    target = tmp_path / "customer-app"
+    target.mkdir()
+    (target / "README.md").write_text("docs\n", encoding="utf-8")
+
+    preflight = build_preflight(target, WorkflowNexusSnapshot())
+
+    assert preflight.new_project_candidate is False
+    assert "Workspace intent: Existing directory workspace" in preflight.render()
 
 
 def test_build_preflight_respects_creatable_override(tmp_path) -> None:

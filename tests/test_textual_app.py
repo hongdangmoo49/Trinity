@@ -10943,6 +10943,33 @@ def test_workbench_syncs_created_workspace_as_new_project_intake(tmp_path) -> No
     assert intake.target_workspace == target
 
 
+def test_workbench_syncs_empty_workspace_candidate_as_new_project_intake(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "empty-app"
+    control_repo.mkdir()
+    target.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        FakeWorkflowController(),
+        launch_cwd=control_repo,
+    )
+    preflight = build_preflight(
+        target,
+        WorkflowNexusSnapshot(),
+    )
+
+    assert preflight.new_project_candidate is True
+
+    app._sync_project_intake_for_preflight(preflight)
+
+    intake = load_project_intake(app.config.effective_state_dir)
+    assert intake is not None
+    assert intake.mode == "new"
+    assert intake.target_workspace == target
+
+
 def test_workbench_project_intake_sync_preserves_existing_brief(tmp_path) -> None:
     control_repo = tmp_path / "control"
     target = tmp_path / "customer-app"

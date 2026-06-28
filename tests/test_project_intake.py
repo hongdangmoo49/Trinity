@@ -138,6 +138,10 @@ def test_build_project_intake_normalizes_metadata(tmp_path) -> None:
     intake = build_project_intake(
         mode=" Existing ",
         target_workspace=tmp_path,
+        product_goal="Ship a workflow dashboard.",
+        stack_preferences=["python", "textual", "python"],
+        first_milestone="Show project intake state.",
+        constraints=["read-only analysis", "read-only analysis"],
         notes="Review before write.",
         created_at="2026-06-28T00:00:00Z",
     )
@@ -153,6 +157,10 @@ def test_build_project_intake_normalizes_metadata(tmp_path) -> None:
     assert intake.entrypoints == ()
     assert intake.source_roots == ()
     assert intake.docs_found == ()
+    assert intake.product_goal == "Ship a workflow dashboard."
+    assert intake.stack_preferences == ("python", "textual")
+    assert intake.first_milestone == "Show project intake state."
+    assert intake.constraints == ("read-only analysis",)
     assert intake.notes == "Review before write."
 
 
@@ -165,6 +173,10 @@ def test_write_project_intake_writes_json_and_markdown(tmp_path) -> None:
     intake = build_project_intake(
         mode="new",
         target_workspace=tmp_path / "new-app",
+        product_goal="Build a terminal snake game.",
+        stack_preferences=("python", "textual"),
+        first_milestone="Playable local prototype.",
+        constraints=("No network dependency",),
         created_at="2026-06-28T00:00:00Z",
     )
 
@@ -180,6 +192,10 @@ def test_write_project_intake_writes_json_and_markdown(tmp_path) -> None:
     assert data["entrypoints"] == []
     assert data["source_roots"] == []
     assert data["docs_found"] == []
+    assert data["product_goal"] == "Build a terminal snake game."
+    assert data["stack_preferences"] == ["python", "textual"]
+    assert data["first_milestone"] == "Playable local prototype."
+    assert data["constraints"] == ["No network dependency"]
     assert paths.json_path.name == "project-intake.json"
     assert paths.markdown_path.name == "project-intake.md"
     assert "# Project Intake" in markdown
@@ -187,6 +203,11 @@ def test_write_project_intake_writes_json_and_markdown(tmp_path) -> None:
     assert "- Git repo: False" in markdown
     assert "- Dev commands: (none)" in markdown
     assert "- Entrypoints: (none)" in markdown
+    assert "## Brief" in markdown
+    assert "- Product goal: Build a terminal snake game." in markdown
+    assert "- Stack preferences: python, textual" in markdown
+    assert "- First milestone: Playable local prototype." in markdown
+    assert "- Constraints: No network dependency" in markdown
 
 
 def test_load_project_intake_reads_persisted_json(tmp_path) -> None:
@@ -209,6 +230,10 @@ def test_load_project_intake_reads_persisted_json(tmp_path) -> None:
     assert loaded.entrypoints == ()
     assert loaded.source_roots == ()
     assert loaded.docs_found == ()
+    assert loaded.product_goal == ""
+    assert loaded.stack_preferences == ()
+    assert loaded.first_milestone == ""
+    assert loaded.constraints == ()
     assert loaded.notes == "Use recorded context."
 
 
@@ -240,6 +265,10 @@ def test_load_project_intake_accepts_legacy_profile_fields_missing(tmp_path) -> 
     assert loaded.entrypoints == ()
     assert loaded.source_roots == ()
     assert loaded.docs_found == ()
+    assert loaded.product_goal == ""
+    assert loaded.stack_preferences == ()
+    assert loaded.first_milestone == ""
+    assert loaded.constraints == ()
 
 
 def test_project_intake_prompt_block_loads_and_truncates_markdown(tmp_path) -> None:

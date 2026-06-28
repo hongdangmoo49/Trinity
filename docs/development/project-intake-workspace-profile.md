@@ -30,6 +30,14 @@ Project intake now includes read-only workspace profile fields:
 - `source_roots`: common source/test directories.
 - `docs_found`: documentation files and folders worth reading first.
 
+Project intake also includes optional user-provided project brief fields:
+
+- `product_goal`: the outcome the user wants the target project to achieve.
+- `stack_preferences`: preferred technologies, frameworks, or runtime choices.
+- `first_milestone`: the first concrete milestone agents should optimize for.
+- `constraints`: boundaries such as "no network dependency" or "keep tests
+  green".
+
 These fields must be safe to compute during Start/Nexus selection. They must not
 execute package managers, tests, build tools, or user code. Older intake JSON
 without these fields remains valid and loads with empty tuples.
@@ -46,6 +54,17 @@ The guidance is derived from persisted intake JSON. Legacy states with only
 `project-intake.md` keep the older prompt shape and include the Markdown context
 without extra guidance.
 
+CLI users can record the brief with `trinity project new` or
+`trinity project analyze`:
+
+- `--goal TEXT`
+- `--stack TEXT` repeated or comma-separated
+- `--milestone TEXT`
+- `--constraint TEXT` repeated or comma-separated
+
+`trinity project status --refresh` refreshes filesystem-derived analysis while
+preserving the saved project brief.
+
 ## Detection Scope
 
 The profile intentionally uses conservative filesystem and manifest checks:
@@ -58,6 +77,6 @@ The profile intentionally uses conservative filesystem and manifest checks:
 - Java: Maven and Gradle manifests.
 - Docs: README variants, CONTRIBUTING, CHANGELOG, and `docs/`.
 
-Broad semantic classification remains out of scope for this patch. Product
-intent, target audience, stack preference, and milestone choices should be added
-through a separate brief step for new projects.
+Broad semantic classification remains out of scope for this patch. Target
+audience and richer product discovery should be added through a later interactive
+brief step for new projects.

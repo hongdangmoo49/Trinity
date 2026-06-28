@@ -255,6 +255,7 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
 
 def test_project_intake_state_label_guides_missing_intake(tmp_path: Path) -> None:
     state = tmp_path / ".trinity"
+    target = tmp_path / "customer-app"
 
     assert project_intake_state_label(state) == (
         "Project intake: not recorded | existing: trinity project analyze [PATH] "
@@ -264,6 +265,34 @@ def test_project_intake_state_label_guides_missing_intake(tmp_path: Path) -> Non
         "프로젝트 인테이크: 기록 없음 | 기존: trinity project analyze [PATH] "
         "| 신규: trinity project new NAME"
     )
+    assert project_intake_state_label(state, target_workspace=target) == (
+        "Project intake: not recorded | "
+        f"analyze: trinity project analyze {target} | "
+        "new: trinity project new NAME"
+    )
+    assert project_intake_state_label(
+        state,
+        lang="ko",
+        target_workspace=target,
+    ) == (
+        "프로젝트 인테이크: 기록 없음 | "
+        f"분석: trinity project analyze {target} | "
+        "신규: trinity project new NAME"
+    )
+
+
+def test_start_and_nexus_missing_project_intake_use_selected_workspace(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "customer-app"
+    target.mkdir()
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    start = StartScreen(config, workspace_candidate=target)
+    nexus = NexusScreen(config)
+    nexus.snapshot = WorkflowNexusSnapshot(target_workspace=str(target))
+
+    assert f"trinity project analyze {target}" in start._project_intake_label()
+    assert f"trinity project analyze {target}" in nexus._project_intake_label()
 
 
 def test_nexus_workspace_label_uses_target_state_helper(tmp_path: Path) -> None:

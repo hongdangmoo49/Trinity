@@ -37,6 +37,10 @@ PROJECT_INTAKE_LABELS = {
             "Project intake: not recorded | existing: trinity project analyze [PATH] "
             "| new: trinity project new NAME"
         ),
+        "missing_with_target": (
+            "Project intake: not recorded | analyze: trinity project analyze {target} "
+            "| new: trinity project new NAME"
+        ),
         "build": "build",
         "brief_complete": "brief: complete",
         "brief_missing": "brief: missing {fields}",
@@ -71,6 +75,10 @@ PROJECT_INTAKE_LABELS = {
         ),
         "missing": (
             "프로젝트 인테이크: 기록 없음 | 기존: trinity project analyze [PATH] "
+            "| 신규: trinity project new NAME"
+        ),
+        "missing_with_target": (
+            "프로젝트 인테이크: 기록 없음 | 분석: trinity project analyze {target} "
             "| 신규: trinity project new NAME"
         ),
         "build": "빌드",
@@ -134,6 +142,7 @@ def project_intake_state_label(
     state_dir: Path,
     *,
     lang: str = "en",
+    target_workspace: object | None = None,
 ) -> str:
     """Return a concise label for the saved project intake state."""
     labels = PROJECT_INTAKE_LABELS.get(lang, PROJECT_INTAKE_LABELS["en"])
@@ -142,6 +151,9 @@ def project_intake_state_label(
     except ValueError:
         return labels["invalid"]
     if intake is None:
+        target = _format_project_intake_target(target_workspace)
+        if target:
+            return labels["missing_with_target"].format(target=target)
         return labels["missing"]
     return _format_project_intake_label(intake, lang=lang)
 
@@ -287,6 +299,16 @@ def _format_project_intake_timestamp(value: str) -> str:
     if len(text) >= 10 and text[4] == "-" and text[7] == "-":
         return text[:10]
     return _format_project_intake_text(text, max_chars=24)
+
+
+def _format_project_intake_target(target: object | None) -> str:
+    text = str(target or "").strip()
+    if not text:
+        return ""
+    if any(char.isspace() for char in text) or '"' in text:
+        escaped = text.replace('"', r"\"")
+        return f'"{escaped}"'
+    return text
 
 
 def _same_resolved_path(left: Path, right: Path) -> bool:

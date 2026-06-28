@@ -77,6 +77,11 @@ sync preserves the saved brief and notes while refreshing filesystem-derived
 analysis. When the target changes, the saved brief is not carried to the new
 workspace.
 
+When no project intake has been recorded yet, Start/Nexus project-intake labels
+use the currently selected workspace candidate to show a concrete
+`trinity project analyze <path>` next step. If no workspace is selected, the
+generic existing/new project commands remain visible.
+
 When Trinity opens the Workbench and the saved intake target matches the active
 workspace candidate, Start seeds the composer with `product_goal`. This avoids
 asking CLI users to retype the same new/existing project goal before planning.

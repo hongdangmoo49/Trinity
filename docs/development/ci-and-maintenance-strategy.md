@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.737`
-- Merged PR range reviewed: #90 through #834
+- Package version inspected: `1.0.739`
+- Merged PR range reviewed: #90 through #836
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #834
-- Latest refresh reviewed: #834
+- Maintenance refresh reviewed: #427 through #836
+- Latest refresh reviewed: #836
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1855,6 +1855,19 @@ and what the next release train should optimize.
 - Added WorkspacePicker coverage for sparse intake, stale intake, execute-mode
   confirmation, and select-mode bypass behavior.
 - Raised the package version from `1.0.736` to `1.0.737` in this patch PR.
+
+### #836: Empty Workspace New-Project Candidate
+
+- Treated existing empty non-Git directories as new-project candidates in the
+  Workbench preflight.
+- Synced those empty workspace candidates as `new` project intake so users who
+  create a folder outside Trinity still get new-project brief readiness and
+  prompt guidance.
+- Kept non-empty non-Git directories on the existing-project path to avoid
+  reclassifying real workspaces.
+- Added WorkspacePicker and Textual app coverage for empty directory
+  classification and intake mode sync.
+- Raised the package version from `1.0.738` to `1.0.739` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

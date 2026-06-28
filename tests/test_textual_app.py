@@ -11252,10 +11252,10 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
             "Select Workspace"
         )
         assert str(nexus.query_one("#nexus-analyze-workspace", Button).label) == (
-            "Analyze Workspace"
+            "Analyze Existing"
         )
         assert str(nexus.query_one("#nexus-create-project", Button).label) == (
-            "Create Project"
+            "Create New"
         )
         assert str(nexus.query_one("#nexus-edit-project-brief", Button).label) == (
             "Edit Brief"
@@ -11324,6 +11324,46 @@ async def test_nexus_analyze_workspace_button_writes_project_intake(tmp_path) ->
         nexus = app.get_screen("nexus", NexusScreen)
         assert "Project intake: existing" in str(
             nexus.query_one("#nexus-project-intake-summary", Static).content
+        )
+        assert nexus.query_one("#nexus-composer", PromptComposer).text == (
+            "Analyze this existing project and propose the next safe work packages."
+        )
+
+
+@pytest.mark.asyncio
+async def test_nexus_analyze_workspace_preserves_existing_followup_prompt(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target-app"
+    control_repo.mkdir()
+    target.mkdir()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        controller,
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.get_screen("nexus", NexusScreen)
+        nexus.query_one("#nexus-composer", PromptComposer).set_text(
+            "Keep my follow-up."
+        )
+        await pilot.click("#nexus-analyze-workspace")
+        await pilot.pause()
+
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.mode == "existing"
+        assert intake.target_workspace == target.resolve()
+        assert nexus.query_one("#nexus-composer", PromptComposer).text == (
+            "Keep my follow-up."
         )
 
 

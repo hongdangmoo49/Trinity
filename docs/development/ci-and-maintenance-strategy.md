@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.701`
-- Merged PR range reviewed: #90 through #798
+- Package version inspected: `1.0.703`
+- Merged PR range reviewed: #90 through #800
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #798
-- Latest refresh reviewed: #798
+- Maintenance refresh reviewed: #427 through #800
+- Latest refresh reviewed: #800
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1640,6 +1640,17 @@ and what the next release train should optimize.
 - Expanded English and Korean Start/Nexus label coverage for complete brief
   detail summaries.
 - Raised the package version from `1.0.700` to `1.0.701` in this patch PR.
+
+### #800: Project Intake Updated Date Summary
+
+- Added saved analysis dates to Start/Nexus project-intake summaries as
+  `updated: YYYY-MM-DD` / `갱신: YYYY-MM-DD`.
+- Existing-project users can now see whether the saved workspace analysis is
+  likely stale before planning or execution.
+- Kept the display compact by deriving the date from the persisted
+  `created_at` timestamp.
+- Expanded Start/Nexus label tests for English and Korean updated-date output.
+- Raised the package version from `1.0.702` to `1.0.703` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

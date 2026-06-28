@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.689`
-- Merged PR range reviewed: #90 through #786
+- Package version inspected: `1.0.691`
+- Merged PR range reviewed: #90 through #788
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #786
-- Latest refresh reviewed: #786
+- Maintenance refresh reviewed: #427 through #788
+- Latest refresh reviewed: #788
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1563,6 +1563,19 @@ and what the next release train should optimize.
 - Expanded Textual app tests for Start/Nexus brief editing, CTA dimensions, and
   summary label updates.
 - Raised the package version from `1.0.688` to `1.0.689` in this patch PR.
+
+### #788: Project Intake Discovery Fields
+
+- Added saved product discovery fields to ProjectIntake:
+  `project_type`, `target_users`, and `success_criteria`.
+- Added `trinity project new/analyze` options for recording the fields:
+  `--project-type`, `--target-users`, and `--success-criteria`.
+- Preserved the discovery fields through `project status --refresh` and
+  Workbench Start/Nexus intake synchronization.
+- Expanded the Workbench `Edit Brief` modal and Start/Nexus intake summary
+  labels so users can see the project type and target users before planning.
+- Expanded ProjectIntake, CLI, Start/Nexus label, and Workbench modal tests.
+- Raised the package version from `1.0.690` to `1.0.691` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

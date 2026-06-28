@@ -116,6 +116,13 @@ project-intake summary, and keeps the active target workspace unchanged. Saving
 a product goal from Start also seeds the Start composer when the composer is
 still empty.
 
+Workbench action buttons use the same intake readiness policy as the compact
+summary. `Analyze Workspace` is highlighted when selected-workspace analysis is
+missing, mismatched, stale, sparse, unreadable, or points at a missing existing
+target. `Create Project` is highlighted when a saved new-project target no
+longer exists. `Edit Brief` remains focused on incomplete new-project brief
+fields.
+
 For new projects, Trinity treats `product_goal`, `project_type`,
 `target_users`, `success_criteria`, and `first_milestone` as the minimum brief
 needed before high-quality scaffolding. CLI summaries, `project status`, and

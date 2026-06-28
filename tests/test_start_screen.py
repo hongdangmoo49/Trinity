@@ -14,7 +14,9 @@ from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.workspace_labels import (
+    project_analyze_action_variant,
     project_brief_action_variant,
+    project_create_action_variant,
     project_intake_state_label,
     target_workspace_state_label,
 )
@@ -436,6 +438,98 @@ def test_project_brief_action_variant_warns_for_incomplete_new_brief(
     )
 
 
+def test_project_action_variants_prioritize_intake_recovery(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "customer-app"
+    target.mkdir()
+    state = tmp_path / ".trinity"
+
+    assert (
+        project_analyze_action_variant(state, target_workspace=target)
+        == "warning"
+    )
+    assert (
+        project_analyze_action_variant(state, target_workspace=None)
+        == "default"
+    )
+    assert (
+        project_create_action_variant(state, target_workspace=target)
+        == "default"
+    )
+
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-01T00:00:00Z",
+        ),
+    )
+    assert (
+        project_analyze_action_variant(
+            state,
+            target_workspace=target,
+            today=date(2026, 6, 28),
+        )
+        == "warning"
+    )
+
+    (target / "pyproject.toml").write_text(
+        "[project]\nname='customer-app'\n",
+        encoding="utf-8",
+    )
+    (target / "uv.lock").write_text("", encoding="utf-8")
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+    assert (
+        project_analyze_action_variant(
+            state,
+            target_workspace=target,
+            today=date(2026, 6, 28),
+        )
+        == "default"
+    )
+
+    other_target = tmp_path / "other-app"
+    other_target.mkdir()
+    assert (
+        project_analyze_action_variant(state, target_workspace=other_target)
+        == "warning"
+    )
+
+
+def test_project_create_action_variant_warns_for_missing_new_target(
+    tmp_path: Path,
+) -> None:
+    missing_target = tmp_path / "missing-new"
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=missing_target,
+            product_goal="Build app.",
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert (
+        project_create_action_variant(state, target_workspace=missing_target)
+        == "warning"
+    )
+    assert (
+        project_analyze_action_variant(state, target_workspace=missing_target)
+        == "default"
+    )
+
+
 def test_project_intake_state_label_guides_missing_intake(tmp_path: Path) -> None:
     state = tmp_path / ".trinity"
     target = tmp_path / "customer-app"
@@ -549,6 +643,8 @@ async def test_start_screen_shows_project_intake_summary(tmp_path: Path) -> None
             "Project intake: existing | updated: 2026-06-28 | "
             "tests: uv run pytest | git: none"
         )
+        assert screen.query_one("#analyze-workspace", Button).variant == "default"
+        assert screen.query_one("#create-project", Button).variant == "default"
 
 
 @pytest.mark.asyncio
@@ -556,6 +652,7 @@ async def test_start_screen_highlights_edit_brief_for_incomplete_new_project(
     tmp_path: Path,
 ) -> None:
     target = tmp_path / "new-app"
+    target.mkdir()
     config = TrinityConfig.default_config(project_dir=tmp_path)
     write_project_intake(
         config.effective_state_dir,
@@ -576,6 +673,57 @@ async def test_start_screen_highlights_edit_brief_for_incomplete_new_project(
             screen.query_one("#edit-project-brief", Button).variant
             == "warning"
         )
+        assert screen.query_one("#analyze-workspace", Button).variant == "default"
+        assert screen.query_one("#create-project", Button).variant == "default"
+
+
+@pytest.mark.asyncio
+async def test_start_screen_highlights_project_intake_recovery_actions(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "customer-app"
+    target.mkdir()
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    screen = StartScreen(config, workspace_candidate=target)
+    app = StartScreenHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        assert screen.query_one("#analyze-workspace", Button).variant == "warning"
+        assert screen.query_one("#create-project", Button).variant == "default"
+
+
+@pytest.mark.asyncio
+async def test_nexus_highlights_missing_new_project_target_creation(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "missing-new"
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build app.",
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+    screen = NexusScreen(config)
+    screen.snapshot = WorkflowNexusSnapshot(target_workspace=str(target))
+    app = StartScreenHarness(screen)  # type: ignore[arg-type]
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        assert (
+            screen.query_one("#nexus-create-project", Button).variant
+            == "warning"
+        )
+        assert (
+            screen.query_one("#nexus-analyze-workspace", Button).variant
+            == "default"
+        )
 
         write_project_intake(
             config.effective_state_dir,
@@ -593,8 +741,12 @@ async def test_start_screen_highlights_edit_brief_for_incomplete_new_project(
         screen.refresh_project_intake_summary()
 
         assert (
-            screen.query_one("#edit-project-brief", Button).variant
+            screen.query_one("#nexus-edit-project-brief", Button).variant
             == "default"
+        )
+        assert (
+            screen.query_one("#nexus-create-project", Button).variant
+            == "warning"
         )
 
 

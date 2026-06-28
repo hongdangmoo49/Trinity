@@ -10,6 +10,7 @@ tests/test_repository_hygiene.py
 tests/test_updater.py
 tests/test_platform_capabilities.py
 tests/test_platform_process.py
+tests/test_project_intake.py
 tests/test_log_tail.py
 tests/test_provider_bootstrap.py
 tests/test_provider_readiness.py
@@ -55,6 +56,7 @@ tests/test_textual_status_commands.py
 tests/test_textual_subtasks_commands.py
 tests/test_textual_target_commands.py
 tests/test_textual_target_workspace.py
+tests/test_textual_workspace_picker.py
 tests/test_textual_workflow_commands.py
 tests/test_textual_workflow_controller.py
 tests/test_tui_rendering.py

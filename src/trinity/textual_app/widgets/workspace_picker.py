@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,6 +11,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, DirectoryTree, Footer, Input, Static
 
+from trinity.project_intake import analyze_git_workspace
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 
@@ -680,21 +680,18 @@ def build_preflight(
     create_requested = (
         create_supported if creatable is None else bool(creatable) and create_supported
     )
-    git_repo = (resolved / ".git").exists()
-    git_status_counts = _git_status_counts(resolved) if git_repo else None
+    git = analyze_git_workspace(resolved)
     return WorkspacePreflight(
         path=resolved,
         exists=exists,
         is_dir=is_dir,
         writable=writable,
-        git_repo=git_repo,
-        branch=_git_branch(resolved) if git_repo else "(none)",
+        git_repo=git.git_repo,
+        branch=git.branch,
         package_count=len(snapshot.work_packages),
         creatable=create_requested,
-        changed_count=git_status_counts[0] if git_status_counts is not None else None,
-        untracked_count=(
-            git_status_counts[1] if git_status_counts is not None else None
-        ),
+        changed_count=git.dirty_count,
+        untracked_count=git.untracked_count,
     )
 
 
@@ -725,61 +722,3 @@ def _directory_accepts_child_creation(directory: Path) -> bool:
             return True
     except (OSError, ValueError):
         return False
-
-
-def _git_status_counts(path: Path) -> tuple[int, int] | None:
-    try:
-        completed = subprocess.run(
-            ["git", "-C", str(path), "status", "--porcelain"],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=3,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if completed.returncode != 0:
-        return None
-    changed = 0
-    untracked = 0
-    for line in completed.stdout.splitlines():
-        if not line:
-            continue
-        if line.startswith("??"):
-            untracked += 1
-        else:
-            changed += 1
-    return changed, untracked
-
-
-def _git_branch(path: Path) -> str:
-    head = _git_head_path(path)
-    if not head.exists():
-        return "unknown"
-    try:
-        text = head.read_text(encoding="utf-8").strip()
-    except OSError:
-        return "unknown"
-    prefix = "ref: refs/heads/"
-    if text.startswith(prefix):
-        return text[len(prefix):]
-    return text[:12] if text else "unknown"
-
-
-def _git_head_path(path: Path) -> Path:
-    marker = path / ".git"
-    if marker.is_dir():
-        return marker / "HEAD"
-    if not marker.is_file():
-        return marker / "HEAD"
-    try:
-        text = marker.read_text(encoding="utf-8").strip()
-    except OSError:
-        return marker / "HEAD"
-    prefix = "gitdir:"
-    if not text.lower().startswith(prefix):
-        return marker / "HEAD"
-    gitdir = Path(text[len(prefix) :].strip())
-    if not gitdir.is_absolute():
-        gitdir = path / gitdir
-    return gitdir / "HEAD"

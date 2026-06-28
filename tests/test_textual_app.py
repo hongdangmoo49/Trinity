@@ -10777,6 +10777,35 @@ async def test_start_analyze_workspace_button_writes_project_intake(tmp_path) ->
         assert "Project intake: existing" in str(
             start.query_one("#project-intake-summary", Static).content
         )
+        assert start.query_one(PromptComposer).text == (
+            "Analyze this existing project and propose the next safe work packages."
+        )
+
+
+@pytest.mark.asyncio
+async def test_start_analyze_workspace_preserves_existing_prompt(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target"
+    control_repo.mkdir()
+    target.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        FakeWorkflowController(),
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        start = app.get_screen("start", StartScreen)
+        start.query_one(PromptComposer).set_text("Keep this user prompt.")
+
+        await pilot.click("#analyze-workspace")
+        await pilot.pause()
+
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.mode == "existing"
+        assert intake.target_workspace == target.resolve()
+        assert start.query_one(PromptComposer).text == "Keep this user prompt."
 
 
 @pytest.mark.asyncio

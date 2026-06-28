@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,6 +26,8 @@ WORKSPACE_PICKER_LABELS = {
         "current_session_snapshot": "current session snapshot",
         "directory": "Directory",
         "dirty_worktree": "Dirty worktree",
+        "dirty_worktree_clean": "clean",
+        "dirty_worktree_summary": "{changed} changed, {untracked} untracked",
         "enable": "Enable",
         "enable_create_copy": "The selected path is not currently marked creatable.",
         "enable_create_title": "Enable directory creation?",
@@ -54,6 +57,7 @@ WORKSPACE_PICKER_LABELS = {
         "provider_readiness": "Provider readiness",
         "select_workspace_title": "Select Workspace",
         "target_workspace_path": "Target workspace path",
+        "not_git_repo": "not a git repo",
         "unknown": "unknown",
         "use_folder": "Use Folder",
         "use_workspace": "Use Workspace",
@@ -71,6 +75,8 @@ WORKSPACE_PICKER_LABELS = {
         "current_session_snapshot": "현재 세션 스냅샷",
         "directory": "디렉터리",
         "dirty_worktree": "변경사항",
+        "dirty_worktree_clean": "깨끗함",
+        "dirty_worktree_summary": "변경 {changed}개, 추적 안 됨 {untracked}개",
         "enable": "활성화",
         "enable_create_copy": "선택한 경로는 현재 생성 가능으로 표시되어 있지 않습니다.",
         "enable_create_title": "디렉터리 생성을 활성화할까요?",
@@ -98,6 +104,7 @@ WORKSPACE_PICKER_LABELS = {
         "provider_readiness": "프로바이더 준비",
         "select_workspace_title": "작업 폴더 선택",
         "target_workspace_path": "작업 폴더 경로",
+        "not_git_repo": "Git 저장소 아님",
         "unknown": "알 수 없음",
         "use_folder": "폴더 사용",
         "use_workspace": "작업 폴더 사용",
@@ -130,6 +137,8 @@ class WorkspacePreflight:
     branch: str
     package_count: int
     creatable: bool = False
+    changed_count: int | None = None
+    untracked_count: int | None = None
 
     @property
     def can_execute(self) -> bool:
@@ -142,6 +151,7 @@ class WorkspacePreflight:
 
     def render(self, *, lang: str = "en") -> str:
         branch = self._branch_label(lang=lang)
+        dirty_worktree = self._dirty_worktree_label(lang=lang)
         return "\n".join(
             [
                 f"{_label(lang, 'path')}: {self.path}",
@@ -151,7 +161,7 @@ class WorkspacePreflight:
                 f"{_label(lang, 'git_repo')}: {self.git_repo}",
                 f"{_label(lang, 'creatable')}: {self.creatable}",
                 f"{_label(lang, 'branch')}: {branch}",
-                f"{_label(lang, 'dirty_worktree')}: {_label(lang, 'unknown')}",
+                f"{_label(lang, 'dirty_worktree')}: {dirty_worktree}",
                 (
                     f"{_label(lang, 'provider_readiness')}: "
                     f"{_label(lang, 'current_session_snapshot')}"
@@ -167,6 +177,20 @@ class WorkspacePreflight:
         if not raw or raw.lower() == "unknown":
             return _label(lang, "unknown")
         return raw
+
+    def _dirty_worktree_label(self, *, lang: str = "en") -> str:
+        if not self.git_repo:
+            return _label(lang, "not_git_repo")
+        if self.changed_count is None or self.untracked_count is None:
+            return _label(lang, "unknown")
+        if self.changed_count == 0 and self.untracked_count == 0:
+            return _label(lang, "dirty_worktree_clean")
+        return _format_label(
+            lang,
+            "dirty_worktree_summary",
+            changed=self.changed_count,
+            untracked=self.untracked_count,
+        )
 
 
 class CreateMissingDirectoryPrompt(ModalScreen[bool]):
@@ -657,6 +681,7 @@ def build_preflight(
         create_supported if creatable is None else bool(creatable) and create_supported
     )
     git_repo = (resolved / ".git").exists()
+    git_status_counts = _git_status_counts(resolved) if git_repo else None
     return WorkspacePreflight(
         path=resolved,
         exists=exists,
@@ -666,6 +691,10 @@ def build_preflight(
         branch=_git_branch(resolved) if git_repo else "(none)",
         package_count=len(snapshot.work_packages),
         creatable=create_requested,
+        changed_count=git_status_counts[0] if git_status_counts is not None else None,
+        untracked_count=(
+            git_status_counts[1] if git_status_counts is not None else None
+        ),
     )
 
 
@@ -696,6 +725,31 @@ def _directory_accepts_child_creation(directory: Path) -> bool:
             return True
     except (OSError, ValueError):
         return False
+
+
+def _git_status_counts(path: Path) -> tuple[int, int] | None:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(path), "status", "--porcelain"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if completed.returncode != 0:
+        return None
+    changed = 0
+    untracked = 0
+    for line in completed.stdout.splitlines():
+        if not line:
+            continue
+        if line.startswith("??"):
+            untracked += 1
+        else:
+            changed += 1
+    return changed, untracked
 
 
 def _git_branch(path: Path) -> str:

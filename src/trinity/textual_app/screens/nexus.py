@@ -15,6 +15,7 @@ from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import ProviderSnapshot, WorkflowNexusSnapshot
 from trinity.textual_app.workspace_labels import (
+    project_analyze_action_label_key,
     project_analyze_action_variant,
     project_brief_action_variant,
     project_create_action_variant,
@@ -45,6 +46,7 @@ NEXUS_LABELS = {
         "edit_brief": "Edit Brief",
         "execute": "Execute",
         "open_provider_inspector": "Open Provider Inspector",
+        "refresh_analysis": "Refresh Analysis",
         "select_agent_warning": "Select at least one agent.",
         "select_workspace": "Select Workspace",
     },
@@ -55,6 +57,7 @@ NEXUS_LABELS = {
         "edit_brief": "브리프 편집",
         "execute": "실행",
         "open_provider_inspector": "프로바이더 인스펙터 열기",
+        "refresh_analysis": "분석 갱신",
         "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
         "select_workspace": "작업 폴더 선택",
     },
@@ -222,7 +225,7 @@ class NexusScreen(Screen[None]):
             )
             with Horizontal(id="nexus-project-intake-actions"):
                 yield Button(
-                    self._label("analyze_workspace"),
+                    self._project_analyze_action_label(),
                     id="nexus-analyze-workspace",
                     variant=self._project_analyze_action_variant(),
                 )
@@ -565,6 +568,14 @@ class NexusScreen(Screen[None]):
             target_workspace=self._current_workspace_text(),
         )
 
+    def _project_analyze_action_label(self) -> str:
+        return self._label(
+            project_analyze_action_label_key(
+                self.config.effective_state_dir,
+                target_workspace=self._current_workspace_text(),
+            )
+        )
+
     def _project_create_action_variant(self) -> str:
         return project_create_action_variant(
             self.config.effective_state_dir,
@@ -576,6 +587,9 @@ class NexusScreen(Screen[None]):
             return
         self.query_one("#nexus-project-intake-summary", Static).update(
             self._project_intake_label()
+        )
+        self.query_one("#nexus-analyze-workspace", Button).label = (
+            self._project_analyze_action_label()
         )
         self.query_one("#nexus-analyze-workspace", Button).variant = (
             self._project_analyze_action_variant()

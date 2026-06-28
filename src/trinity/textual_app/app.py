@@ -1819,6 +1819,7 @@ class TrinityTextualApp(App[None]):
                 control_repo_path=self.config.project_dir,
                 intent=intent,
                 open_new_folder=open_new_folder,
+                project_intake_state_dir=self.config.effective_state_dir,
             ),
             callback,
         )
@@ -1968,7 +1969,11 @@ class TrinityTextualApp(App[None]):
         if path is None:
             self.confirmed_preflight = None
             return
-        self.confirmed_preflight = build_preflight(path, snapshot)
+        self.confirmed_preflight = build_preflight(
+            path,
+            snapshot,
+            project_intake_state_dir=self.config.effective_state_dir,
+        )
 
     def _on_workspace_preflight(self, preflight: WorkspacePreflight | None) -> None:
         if preflight is None:

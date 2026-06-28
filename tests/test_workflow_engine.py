@@ -796,6 +796,30 @@ def test_question_answer_continuation_includes_target_workspace(tmp_path):
     assert "Use a mixed score." in action.prompt
 
 
+def test_question_answer_continuation_includes_project_intake(tmp_path):
+    state = tmp_path / ".trinity"
+    state.mkdir()
+    (state / "project-intake.md").write_text(
+        "# Project Intake\n\n- Mode: existing\n- Target workspace: `/tmp/app`\n",
+        encoding="utf-8",
+    )
+    engine = WorkflowEngine(state)
+    engine.start("Design route bot", ["claude"])
+    engine.add_open_question(
+        OpenQuestion(
+            id="q-001",
+            question="Optimize for cost or latency?",
+        )
+    )
+
+    action = engine.answer_question("q-001", "Use a mixed score.")
+
+    assert action.should_deliberate is True
+    assert "Project Intake Context" in action.prompt
+    assert "- Mode: existing" in action.prompt
+    assert "Use a mixed score." in action.prompt
+
+
 def test_blueprint_followup_continuation_includes_target_workspace(tmp_path):
     engine = WorkflowEngine(tmp_path / ".trinity")
     engine.start("Design route bot", ["claude"])

@@ -12,6 +12,7 @@ from typing import Any
 
 PROJECT_INTAKE_JSON = "project-intake.json"
 PROJECT_INTAKE_MARKDOWN = "project-intake.md"
+PROJECT_INTAKE_PROMPT_MAX_CHARS = 4000
 PROJECT_MODES = {"existing", "new"}
 
 
@@ -129,6 +130,36 @@ def write_project_intake(state_dir: Path, intake: ProjectIntake) -> ProjectIntak
     )
     markdown_path.write_text(intake.to_markdown(), encoding="utf-8")
     return ProjectIntakePaths(json_path=json_path, markdown_path=markdown_path)
+
+
+def load_project_intake_markdown(
+    state_dir: Path,
+    *,
+    max_chars: int = PROJECT_INTAKE_PROMPT_MAX_CHARS,
+) -> str:
+    """Load project intake markdown from Trinity state for prompt context."""
+    path = state_dir.expanduser() / PROJECT_INTAKE_MARKDOWN
+    try:
+        text = path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+    if not text:
+        return ""
+    if len(text) <= max_chars:
+        return text
+    return f"{text[:max_chars].rstrip()}\n\n[truncated]"
+
+
+def project_intake_prompt_block(
+    state_dir: Path,
+    *,
+    max_chars: int = PROJECT_INTAKE_PROMPT_MAX_CHARS,
+) -> str:
+    """Return the project intake context block for provider prompts."""
+    markdown = load_project_intake_markdown(state_dir, max_chars=max_chars)
+    if not markdown:
+        return ""
+    return f"Project Intake Context:\n{markdown}"
 
 
 def analyze_git_workspace(path: Path) -> GitWorkspaceAnalysis:

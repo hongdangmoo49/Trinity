@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.763`
-- Merged PR range reviewed: #90 through #860
+- Package version inspected: `1.0.765`
+- Merged PR range reviewed: #90 through #862
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #860
-- Latest refresh reviewed: #860
+- Maintenance refresh reviewed: #427 through #862
+- Latest refresh reviewed: #862
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2022,6 +2022,20 @@ and what the next release train should optimize.
 - Added a dedicated design document and Textual coverage for Nexus analysis
   prompt seed and preservation behavior.
 - Raised the package version from `1.0.762` to `1.0.763` in this patch PR.
+
+### #862: Analyze Picker New Brief Handoff
+
+- Routed Start and Nexus `Analyze Existing` picker selections classified as
+  new-project candidates into the project brief modal.
+- Prevented incomplete `new` intake from being left without an immediate
+  recovery step when users select an empty workspace from the analysis picker.
+- Kept existing-project picker selections unchanged: write existing intake and
+  seed the analysis prompt.
+- Left `Select Workspace`, `Create New`, direct brief editing, and execute
+  preflight flows unchanged.
+- Added a dedicated design document and Textual coverage for Start/Nexus empty
+  target picker selections.
+- Raised the package version from `1.0.764` to `1.0.765` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

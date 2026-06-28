@@ -245,13 +245,84 @@ def initial_start_prompt(config: TrinityConfig, workspace_candidate: Path | None
         return ""
     if absolute_path(intake.target_workspace) != absolute_path(workspace_candidate):
         return ""
-    return intake.product_goal.strip()
+    return _project_brief_start_prompt(
+        mode=intake.mode,
+        lang=config.lang,
+        product_goal=intake.product_goal,
+        project_type=intake.project_type,
+        target_users=intake.target_users,
+        success_criteria=intake.success_criteria,
+        stack_preferences=intake.stack_preferences,
+        first_milestone=intake.first_milestone,
+        constraints=intake.constraints,
+        notes=intake.notes,
+    )
 
 
 def _existing_project_analysis_prompt(lang: str) -> str:
     if lang == "ko":
         return "이 기존 프로젝트를 분석하고 다음에 진행할 작업 패키지를 제안해라."
     return "Analyze this existing project and propose the next safe work packages."
+
+
+def _project_brief_start_prompt(
+    *,
+    mode: str,
+    lang: str,
+    product_goal: str,
+    project_type: str = "",
+    target_users: str = "",
+    success_criteria: str = "",
+    stack_preferences: tuple[str, ...] = (),
+    first_milestone: str = "",
+    constraints: tuple[str, ...] = (),
+    notes: str = "",
+) -> str:
+    goal = product_goal.strip()
+    if not goal:
+        return ""
+
+    stack = ", ".join(item.strip() for item in stack_preferences if item.strip())
+    constraint_text = "; ".join(item.strip() for item in constraints if item.strip())
+    if lang == "ko":
+        intro = (
+            "아래 새 프로젝트 브리프를 기준으로 첫 작업 패키지를 계획해라."
+            if mode == "new"
+            else "아래 프로젝트 브리프와 기존 코드베이스를 기준으로 다음 작업 패키지를 계획해라."
+        )
+        entries = (
+            ("목표", goal),
+            ("유형", project_type.strip()),
+            ("사용자", target_users.strip()),
+            ("성공 기준", success_criteria.strip()),
+            ("첫 마일스톤", first_milestone.strip()),
+            ("기술 스택", stack),
+            ("제약", constraint_text),
+            ("메모", notes.strip()),
+        )
+    else:
+        intro = (
+            "Use this new-project brief to plan the first work packages."
+            if mode == "new"
+            else (
+                "Use this project brief and existing codebase to plan the next "
+                "safe work packages."
+            )
+        )
+        entries = (
+            ("Goal", goal),
+            ("Type", project_type.strip()),
+            ("Users", target_users.strip()),
+            ("Success", success_criteria.strip()),
+            ("First milestone", first_milestone.strip()),
+            ("Stack", stack),
+            ("Constraints", constraint_text),
+            ("Notes", notes.strip()),
+        )
+    populated = tuple((label, value) for label, value in entries if value)
+    if len(populated) == 1:
+        return goal
+    return "\n".join([intro, "", *(f"{label}: {value}" for label, value in populated)])
 
 
 def _is_directory(path: Path) -> bool:
@@ -3315,7 +3386,7 @@ class TrinityTextualApp(App[None]):
         write_project_intake(self.config.effective_state_dir, intake)
         self._set_workspace_candidate(target, sync_start=True)
         self._refresh_project_intake_summary_labels()
-        self._seed_start_prompt_from_saved_goal(target, draft.product_goal)
+        self._seed_start_prompt_from_project_brief(target, mode=mode, draft=draft)
 
     def _project_intake_mode_for_target(self, target: Path, *, fallback: str) -> str:
         try:
@@ -3328,10 +3399,28 @@ class TrinityTextualApp(App[None]):
             return fallback
         return current.mode
 
-    def _seed_start_prompt_from_saved_goal(self, target: Path, product_goal: str) -> None:
+    def _seed_start_prompt_from_project_brief(
+        self,
+        target: Path,
+        *,
+        mode: str,
+        draft: ProjectBriefDraft,
+    ) -> None:
         if not self._screens_installed:
             return
-        if not product_goal.strip():
+        prompt = _project_brief_start_prompt(
+            mode=mode,
+            lang=self.config.lang,
+            product_goal=draft.product_goal,
+            project_type=draft.project_type,
+            target_users=draft.target_users,
+            success_criteria=draft.success_criteria,
+            stack_preferences=draft.stack_preferences,
+            first_milestone=draft.first_milestone,
+            constraints=draft.constraints,
+            notes=draft.notes,
+        )
+        if not prompt:
             return
         start = self.get_screen("start", StartScreen)
         if not start.is_mounted:
@@ -3342,7 +3431,7 @@ class TrinityTextualApp(App[None]):
             return
         composer = start.query_one(PromptComposer)
         if not composer.text.strip():
-            composer.set_text(product_goal.strip())
+            composer.set_text(prompt)
 
     def _seed_start_prompt_for_existing_analysis(self, target: Path) -> None:
         if not self._screens_installed:

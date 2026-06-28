@@ -15,6 +15,7 @@ from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.workspace_labels import (
+    project_analyze_action_label_key,
     project_analyze_action_variant,
     project_brief_action_variant,
     project_create_action_variant,
@@ -35,6 +36,7 @@ START_LABELS = {
         "edit_brief": "Edit Brief",
         "plan_first": "Plan first",
         "placeholder": "What should Trinity work on?",
+        "refresh_analysis": "Refresh Analysis",
         "select_agent_warning": "Select at least one agent.",
         "select_workspace": "Select Workspace",
         "subtitle": "Three minds, one context",
@@ -45,6 +47,7 @@ START_LABELS = {
         "edit_brief": "브리프 편집",
         "plan_first": "먼저 계획",
         "placeholder": "Trinity가 무엇을 진행하면 될까요?",
+        "refresh_analysis": "분석 갱신",
         "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
         "select_workspace": "작업 폴더 선택",
         "subtitle": "세 개의 관점, 하나의 컨텍스트",
@@ -184,7 +187,7 @@ class StartScreen(Screen[None]):
                 )
                 with Horizontal(id="project-intake-actions"):
                     yield Button(
-                        self._label("analyze_workspace"),
+                        self._project_analyze_action_label(),
                         id="analyze-workspace",
                         variant=self._project_analyze_action_variant(),
                     )
@@ -337,6 +340,14 @@ class StartScreen(Screen[None]):
             target_workspace=self.workspace_candidate,
         )
 
+    def _project_analyze_action_label(self) -> str:
+        return self._label(
+            project_analyze_action_label_key(
+                self.config.effective_state_dir,
+                target_workspace=self.workspace_candidate,
+            )
+        )
+
     def _project_create_action_variant(self) -> str:
         return project_create_action_variant(
             self.config.effective_state_dir,
@@ -348,6 +359,9 @@ class StartScreen(Screen[None]):
             return
         self.query_one("#project-intake-summary", Static).update(
             self._project_intake_label()
+        )
+        self.query_one("#analyze-workspace", Button).label = (
+            self._project_analyze_action_label()
         )
         self.query_one("#analyze-workspace", Button).variant = (
             self._project_analyze_action_variant()

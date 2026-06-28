@@ -109,6 +109,11 @@ workspace, the label shows changed analysis and the `trinity project analyze
 <target>` refresh command, and the Workbench "Analyze Existing" action is
 highlighted. Missing targets, target mismatches, sparse analysis, and stale
 analysis keep their existing priority over the changed-analysis hint.
+When the selected existing-project intake already matches the active workspace
+but needs analysis refresh because it is sparse, stale, or changed, the same
+action is labeled `Refresh Analysis` / `분석 갱신`. The action id and event flow
+remain the existing analyze-workspace path so automation and tests can keep using
+the stable action identifiers.
 
 Workbench project-intake sync follows the same preservation rule. When the
 current saved intake points at the same target workspace, Start/Nexus workspace

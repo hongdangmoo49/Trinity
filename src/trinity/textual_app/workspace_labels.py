@@ -233,6 +233,34 @@ def project_analyze_action_variant(
     return "default"
 
 
+def project_analyze_action_label_key(
+    state_dir: Path,
+    *,
+    target_workspace: object | None = None,
+    today: date | None = None,
+) -> str:
+    """Return the Workbench analyze action label key for saved intake state."""
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return "analyze_workspace"
+    if intake is None:
+        return "analyze_workspace"
+    if intake.mode != "existing":
+        return "analyze_workspace"
+    if not _project_intake_targets_match(intake, target_workspace):
+        return "analyze_workspace"
+    if _project_intake_target_missing(intake):
+        return "analyze_workspace"
+    if _project_intake_analysis_is_sparse(intake):
+        return "refresh_analysis"
+    if _project_intake_analysis_stale_days(intake, today=today) is not None:
+        return "refresh_analysis"
+    if _project_intake_analysis_changed_fields(intake, target_workspace, today=today):
+        return "refresh_analysis"
+    return "analyze_workspace"
+
+
 def project_create_action_variant(
     state_dir: Path,
     *,

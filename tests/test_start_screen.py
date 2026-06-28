@@ -14,6 +14,7 @@ from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.workspace_labels import (
+    project_analyze_action_label_key,
     project_analyze_action_variant,
     project_brief_action_variant,
     project_create_action_variant,
@@ -97,10 +98,14 @@ def test_start_and_nexus_project_actions_use_mode_specific_labels(
     assert start._label("create_project") == "Create New"
     assert nexus._label("analyze_workspace") == "Analyze Existing"
     assert nexus._label("create_project") == "Create New"
+    assert start._label("refresh_analysis") == "Refresh Analysis"
+    assert nexus._label("refresh_analysis") == "Refresh Analysis"
     assert ko_start._label("analyze_workspace") == "기존 프로젝트 분석"
     assert ko_start._label("create_project") == "새 프로젝트 생성"
     assert ko_nexus._label("analyze_workspace") == "기존 프로젝트 분석"
     assert ko_nexus._label("create_project") == "새 프로젝트 생성"
+    assert ko_start._label("refresh_analysis") == "분석 갱신"
+    assert ko_nexus._label("refresh_analysis") == "분석 갱신"
 
 
 def test_project_intake_state_label_summarizes_saved_intake(tmp_path: Path) -> None:
@@ -283,6 +288,102 @@ def test_project_intake_state_label_warns_for_changed_existing_analysis(
     )
     assert "분석: 변경됨 소스" in ko_label
     assert f"재분석: trinity project analyze {target}" in ko_label
+
+
+def test_project_analyze_action_label_key_marks_refreshable_intake(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "customer-app"
+    target.mkdir()
+    (target / "README.md").write_text("docs\n", encoding="utf-8")
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert (
+        project_analyze_action_label_key(
+            state,
+            target_workspace=target,
+            today=date(2026, 6, 28),
+        )
+        == "analyze_workspace"
+    )
+
+    (target / "src").mkdir()
+
+    assert (
+        project_analyze_action_label_key(
+            state,
+            target_workspace=target,
+            today=date(2026, 6, 28),
+        )
+        == "refresh_analysis"
+    )
+    assert (
+        project_analyze_action_label_key(
+            state,
+            target_workspace=tmp_path / "other-app",
+            today=date(2026, 6, 28),
+        )
+        == "analyze_workspace"
+    )
+
+
+def test_project_analyze_action_label_key_marks_sparse_and_stale_as_refresh(
+    tmp_path: Path,
+) -> None:
+    sparse_target = tmp_path / "sparse-app"
+    sparse_target.mkdir()
+    sparse_state = tmp_path / ".trinity-sparse"
+    write_project_intake(
+        sparse_state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=sparse_target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert (
+        project_analyze_action_label_key(
+            sparse_state,
+            target_workspace=sparse_target,
+            today=date(2026, 6, 28),
+        )
+        == "refresh_analysis"
+    )
+
+    stale_target = tmp_path / "stale-app"
+    stale_target.mkdir()
+    (stale_target / "pyproject.toml").write_text(
+        "[project]\nname='stale-app'\n",
+        encoding="utf-8",
+    )
+    (stale_target / "uv.lock").write_text("", encoding="utf-8")
+    stale_state = tmp_path / ".trinity-stale"
+    write_project_intake(
+        stale_state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=stale_target,
+            created_at="2026-06-01T00:00:00Z",
+        ),
+    )
+
+    assert (
+        project_analyze_action_label_key(
+            stale_state,
+            target_workspace=stale_target,
+            today=date(2026, 6, 28),
+        )
+        == "refresh_analysis"
+    )
 
 
 def test_project_intake_state_label_warns_when_target_mismatches(
@@ -762,6 +863,42 @@ async def test_start_screen_highlights_project_intake_recovery_actions(
 
 
 @pytest.mark.asyncio
+async def test_start_screen_refreshes_analyze_action_label_for_changed_intake(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "customer-app"
+    target.mkdir()
+    (target / "README.md").write_text("docs\n", encoding="utf-8")
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+    screen = StartScreen(config, workspace_candidate=target)
+    app = StartScreenHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        assert str(screen.query_one("#analyze-workspace", Button).label) == (
+            "Analyze Existing"
+        )
+
+        (target / "src").mkdir()
+        screen.refresh_project_intake_summary()
+        await pilot.pause()
+
+        assert str(screen.query_one("#analyze-workspace", Button).label) == (
+            "Refresh Analysis"
+        )
+        assert screen.query_one("#analyze-workspace", Button).variant == "warning"
+
+
+@pytest.mark.asyncio
 async def test_nexus_highlights_missing_new_project_target_creation(
     tmp_path: Path,
 ) -> None:
@@ -814,6 +951,45 @@ async def test_nexus_highlights_missing_new_project_target_creation(
         assert (
             screen.query_one("#nexus-create-project", Button).variant
             == "warning"
+        )
+
+
+@pytest.mark.asyncio
+async def test_nexus_refreshes_analyze_action_label_for_changed_intake(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "customer-app"
+    target.mkdir()
+    (target / "README.md").write_text("docs\n", encoding="utf-8")
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+    screen = NexusScreen(config)
+    screen.snapshot = WorkflowNexusSnapshot(target_workspace=str(target))
+    app = StartScreenHarness(screen)  # type: ignore[arg-type]
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        assert str(screen.query_one("#nexus-analyze-workspace", Button).label) == (
+            "기존 프로젝트 분석"
+        )
+
+        (target / "src").mkdir()
+        screen.refresh_project_intake_summary()
+        await pilot.pause()
+
+        assert str(screen.query_one("#nexus-analyze-workspace", Button).label) == (
+            "분석 갱신"
+        )
+        assert screen.query_one("#nexus-analyze-workspace", Button).variant == (
+            "warning"
         )
 
 

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.729`
-- Merged PR range reviewed: #90 through #826
+- Package version inspected: `1.0.731`
+- Merged PR range reviewed: #90 through #828
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #826
-- Latest refresh reviewed: #826
+- Maintenance refresh reviewed: #427 through #828
+- Latest refresh reviewed: #828
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1801,6 +1801,20 @@ and what the next release train should optimize.
   new-project brief recovery, missing existing targets, and missing new-project
   target recreation.
 - Raised the package version from `1.0.728` to `1.0.729` in this patch PR.
+
+### #828: Project Onboarding Action Labels
+
+- Changed Start/Nexus project-intake action labels from generic workspace
+  wording to journey-oriented labels: `Analyze Existing` and `Create New`.
+- Updated Korean labels to `기존 프로젝트 분석` and `새 프로젝트 생성` so users
+  can distinguish existing-project analysis from new-project creation before
+  opening the workspace picker.
+- Preserved the underlying action IDs and readiness/variant behavior so
+  existing tests and automation can continue using `analyze_workspace` and
+  `create_project`.
+- Added Start/Nexus label coverage and updated the project-intake workspace
+  profile contract.
+- Raised the package version from `1.0.730` to `1.0.731` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

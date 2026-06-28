@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import time
+import threading
 from collections.abc import Sequence
 
 from trinity.config import TrinityConfig
@@ -28,6 +28,9 @@ def test_iter_discovered_agent_model_choices_yields_as_each_provider_finishes(
     config = TrinityConfig.default_config(project_dir=tmp_path)
     config.agents["codex"].enabled = True
     config.agents["antigravity"].enabled = True
+    fast_discovery_done = threading.Event()
+    fast_provider_count = 0
+    fast_provider_lock = threading.Lock()
 
     def discover(
         provider: Provider,
@@ -36,10 +39,16 @@ def test_iter_discovered_agent_model_choices_yields_as_each_provider_finishes(
         timeout_seconds: float,
         use_cache: bool,
     ) -> Sequence[ProviderModelChoice]:
+        nonlocal fast_provider_count
         assert timeout_seconds == 10.0
         assert use_cache is False
         if provider == Provider.CLAUDE_CODE:
-            time.sleep(0.05)
+            assert fast_discovery_done.wait(timeout=2.0)
+        else:
+            with fast_provider_lock:
+                fast_provider_count += 1
+                if fast_provider_count == 2:
+                    fast_discovery_done.set()
         return [_choice(provider)]
 
     discovered = list(

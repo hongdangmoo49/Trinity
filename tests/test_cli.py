@@ -418,6 +418,49 @@ class TestProjectAnalyze:
             assert data["test_commands"] == ["uv run pytest"]
             assert "Read before write." in markdown
 
+    def test_project_status_guides_when_intake_is_missing(self, runner, tmp_path):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            init_result = runner.invoke(main, ["init", "--non-interactive"])
+            assert init_result.exit_code == 0
+
+            result = runner.invoke(main, ["project", "status"])
+
+            assert result.exit_code == 0
+            assert "No project intake recorded." in result.output
+            assert "trinity project analyze [PATH]" in result.output
+            assert "trinity project new NAME" in result.output
+
+    def test_project_status_shows_saved_and_current_analysis(self, runner, tmp_path):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            init_result = runner.invoke(main, ["init", "--non-interactive"])
+            assert init_result.exit_code == 0
+
+            target = Path("customer-app")
+            target.mkdir()
+            (target / "pyproject.toml").write_text(
+                "[project]\nname='customer-app'\n",
+                encoding="utf-8",
+            )
+            (target / "uv.lock").write_text("", encoding="utf-8")
+            analyze_result = runner.invoke(
+                main,
+                ["project", "analyze", str(target), "--notes", "Use this target."],
+            )
+            assert analyze_result.exit_code == 0
+
+            result = runner.invoke(main, ["project", "status"])
+
+            assert result.exit_code == 0
+            assert "Project intake active." in result.output
+            assert "Mode: existing" in result.output
+            assert "Target name: customer-app" in result.output
+            assert "Target workspace:" in result.output
+            assert "customer-app" in result.output
+            assert "Target exists: True" in result.output
+            assert "Saved analysis:" in result.output
+            assert "Current analysis:" in result.output
+            assert "uv run pytest" in result.output
+
 
 class TestStatus:
     def test_status_shows_agents(self, runner, trinity_project):

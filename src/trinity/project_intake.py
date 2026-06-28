@@ -7,7 +7,7 @@ import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 
 PROJECT_INTAKE_JSON = "project-intake.json"
@@ -130,6 +130,43 @@ def write_project_intake(state_dir: Path, intake: ProjectIntake) -> ProjectIntak
     )
     markdown_path.write_text(intake.to_markdown(), encoding="utf-8")
     return ProjectIntakePaths(json_path=json_path, markdown_path=markdown_path)
+
+
+def load_project_intake(state_dir: Path) -> ProjectIntake | None:
+    """Load persisted project intake JSON from Trinity state."""
+    path = state_dir.expanduser() / PROJECT_INTAKE_JSON
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid project intake JSON: {path}") from exc
+    except OSError as exc:
+        raise ValueError(f"Could not read project intake JSON: {path}") from exc
+    if not isinstance(data, Mapping):
+        raise ValueError(f"Invalid project intake JSON: {path}")
+    return project_intake_from_dict(data)
+
+
+def project_intake_from_dict(data: Mapping[str, Any]) -> ProjectIntake:
+    """Build a project intake value from persisted JSON data."""
+    try:
+        mode = _normalize_mode(str(data["mode"]))
+        target_workspace = Path(str(data["target_workspace"]))
+    except KeyError as exc:
+        raise ValueError(f"Missing project intake field: {exc.args[0]}") from exc
+    return ProjectIntake(
+        mode=mode,
+        target_workspace=target_workspace,
+        created_at=str(data.get("created_at", "unknown")),
+        git_repo=bool(data.get("git_repo", False)),
+        branch=str(data.get("branch", "unknown")),
+        dirty_count=_optional_int(data.get("dirty_count")),
+        untracked_count=_optional_int(data.get("untracked_count")),
+        package_managers=_string_tuple(data.get("package_managers")),
+        test_commands=_string_tuple(data.get("test_commands")),
+        notes=str(data.get("notes", "")),
+    )
 
 
 def load_project_intake_markdown(
@@ -338,3 +375,18 @@ def _csv_or_none(values: tuple[str, ...]) -> str:
 
 def _value_or_unknown(value: int | None) -> str:
     return str(value) if value is not None else "unknown"
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _string_tuple(value: Any) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        return ()
+    return tuple(str(item) for item in value if str(item))

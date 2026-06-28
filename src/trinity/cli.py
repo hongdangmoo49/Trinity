@@ -38,7 +38,11 @@ from trinity.platform import (
 from trinity.project_intake import (
     ProjectIntake,
     ProjectIntakePaths,
+    analyze_git_workspace,
     build_project_intake,
+    detect_package_managers,
+    load_project_intake,
+    suggest_test_commands,
     write_project_intake,
 )
 from trinity.providers.bootstrap import (
@@ -577,6 +581,24 @@ def project_analyze(path: Path | None, mode: str, notes: str) -> None:
     _display_project_intake_summary(intake, paths.json_path, paths.markdown_path)
 
 
+@project.command("status")
+def project_status() -> None:
+    """Show the currently recorded project intake."""
+    config_path = find_config_path()
+    if config_path is None:
+        raise click.ClickException("No Trinity project found. Run `trinity init` first.")
+
+    config = TrinityConfig.load(config_path)
+    try:
+        intake = load_project_intake(config.effective_state_dir)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    if intake is None:
+        _display_missing_project_intake_status()
+        return
+    _display_project_status(intake)
+
+
 def _create_project_workspace(parent: Path, name: str) -> Path:
     project_name = name.strip()
     if not project_name:
@@ -667,6 +689,63 @@ def _display_project_intake_summary(
             "",
             f"JSON: {json_path}",
             f"Markdown: {markdown_path}",
+        ]
+    )
+    console.print(Panel.fit(body, title="Trinity Project"))
+
+
+def _display_missing_project_intake_status() -> None:
+    body = "\n".join(
+        [
+            "[yellow]No project intake recorded.[/yellow]",
+            "",
+            "Existing project: run `trinity project analyze [PATH]`.",
+            "New project: run `trinity project new NAME`.",
+        ]
+    )
+    console.print(Panel.fit(body, title="Trinity Project"))
+
+
+def _display_project_status(intake: ProjectIntake) -> None:
+    target_exists = intake.target_workspace.exists()
+    live_git = analyze_git_workspace(intake.target_workspace) if target_exists else None
+    live_package_managers = (
+        detect_package_managers(intake.target_workspace)
+        if target_exists
+        else intake.package_managers
+    )
+    live_test_commands = (
+        suggest_test_commands(intake.target_workspace, live_package_managers)
+        if target_exists
+        else intake.test_commands
+    )
+    live_branch = live_git.branch if live_git is not None else "unknown"
+    live_dirty = live_git.dirty_count if live_git is not None else None
+    live_untracked = live_git.untracked_count if live_git is not None else None
+    body = "\n".join(
+        [
+            "[green]Project intake active.[/green]",
+            "",
+            f"Mode: {intake.mode}",
+            f"Target name: {intake.target_workspace.name or '(root)'}",
+            f"Target workspace: {intake.target_workspace}",
+            f"Target exists: {target_exists}",
+            f"Created at: {intake.created_at}",
+            "",
+            "Saved analysis:",
+            f"  Git repo: {intake.git_repo}",
+            f"  Branch: {intake.branch}",
+            f"  Dirty count: {_unknown_if_none(intake.dirty_count)}",
+            f"  Untracked count: {_unknown_if_none(intake.untracked_count)}",
+            f"  Package managers: {_csv_or_none(intake.package_managers)}",
+            f"  Test commands: {_csv_or_none(intake.test_commands)}",
+            "",
+            "Current analysis:",
+            f"  Branch: {live_branch}",
+            f"  Dirty count: {_unknown_if_none(live_dirty)}",
+            f"  Untracked count: {_unknown_if_none(live_untracked)}",
+            f"  Package managers: {_csv_or_none(live_package_managers)}",
+            f"  Test commands: {_csv_or_none(live_test_commands)}",
         ]
     )
     console.print(Panel.fit(body, title="Trinity Project"))

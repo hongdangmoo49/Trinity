@@ -10,6 +10,7 @@ from trinity.project_intake import (
     analyze_git_workspace,
     build_project_intake,
     detect_package_managers,
+    load_project_intake,
     load_project_intake_markdown,
     project_intake_prompt_block,
     suggest_test_commands,
@@ -112,6 +113,24 @@ def test_write_project_intake_writes_json_and_markdown(tmp_path) -> None:
     assert "# Project Intake" in markdown
     assert "- Mode: new" in markdown
     assert "- Git repo: False" in markdown
+
+
+def test_load_project_intake_reads_persisted_json(tmp_path) -> None:
+    intake = build_project_intake(
+        mode="existing",
+        target_workspace=tmp_path,
+        notes="Use recorded context.",
+        created_at="2026-06-28T00:00:00Z",
+    )
+    paths = write_project_intake(tmp_path / ".trinity", intake)
+
+    loaded = load_project_intake(paths.json_path.parent)
+
+    assert loaded is not None
+    assert loaded.mode == "existing"
+    assert loaded.target_workspace == tmp_path.resolve()
+    assert loaded.created_at == "2026-06-28T00:00:00Z"
+    assert loaded.notes == "Use recorded context."
 
 
 def test_project_intake_prompt_block_loads_and_truncates_markdown(tmp_path) -> None:

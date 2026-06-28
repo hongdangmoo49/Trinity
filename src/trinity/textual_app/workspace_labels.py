@@ -62,6 +62,7 @@ PROJECT_INTAKE_LABELS = {
         "target_users": "users",
         "tests": "tests",
         "tests_none": "(none)",
+        "updated": "updated",
     },
     "ko": {
         "invalid": (
@@ -97,6 +98,7 @@ PROJECT_INTAKE_LABELS = {
         "target_users": "사용자",
         "tests": "테스트",
         "tests_none": "(없음)",
+        "updated": "갱신",
     },
 }
 
@@ -150,12 +152,17 @@ def _format_project_intake_label(intake: ProjectIntake, *, lang: str) -> str:
     mode = mode_labels.get(intake.mode, intake.mode)
     parts = [
         labels["summary"].format(mode=mode),
+    ]
+    updated = _format_project_intake_timestamp(intake.created_at)
+    if updated:
+        parts.append(f"{labels['updated']}: {updated}")
+    parts.append(
         _format_project_intake_section(
             labels["tests"],
             intake.test_commands,
             empty_label=labels["tests_none"],
-        ),
-    ]
+        )
+    )
     if intake.mode == "new":
         parts.append(_format_new_project_brief_readiness(intake, labels))
     git_state = _format_existing_project_git_state(intake, labels)
@@ -271,6 +278,15 @@ def _format_project_intake_text(value: str, *, max_chars: int = 64) -> str:
     if len(text) <= max_chars:
         return text
     return text[: max_chars - 3].rstrip() + "..."
+
+
+def _format_project_intake_timestamp(value: str) -> str:
+    text = value.strip()
+    if not text:
+        return ""
+    if len(text) >= 10 and text[4] == "-" and text[7] == "-":
+        return text[:10]
+    return _format_project_intake_text(text, max_chars=24)
 
 
 def _same_resolved_path(left: Path, right: Path) -> bool:

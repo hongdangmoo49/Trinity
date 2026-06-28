@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.703`
-- Merged PR range reviewed: #90 through #800
+- Package version inspected: `1.0.705`
+- Merged PR range reviewed: #90 through #802
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #800
-- Latest refresh reviewed: #800
+- Maintenance refresh reviewed: #427 through #802
+- Latest refresh reviewed: #802
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1651,6 +1651,17 @@ and what the next release train should optimize.
   `created_at` timestamp.
 - Expanded Start/Nexus label tests for English and Korean updated-date output.
 - Raised the package version from `1.0.702` to `1.0.703` in this patch PR.
+
+### #802: Selected Workspace Missing Intake Guidance
+
+- Updated missing project-intake Start/Nexus labels to include the selected
+  workspace in the suggested `trinity project analyze <path>` command.
+- Kept the generic existing/new project commands when no workspace is selected.
+- Passed the Start workspace candidate and Nexus current workspace into the
+  shared project-intake label helper.
+- Expanded Start/Nexus label tests for selected-workspace missing-intake
+  guidance.
+- Raised the package version from `1.0.704` to `1.0.705` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

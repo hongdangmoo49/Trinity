@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.749`
-- Merged PR range reviewed: #90 through #846
+- Package version inspected: `1.0.751`
+- Merged PR range reviewed: #90 through #848
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #846
-- Latest refresh reviewed: #846
+- Maintenance refresh reviewed: #427 through #848
+- Latest refresh reviewed: #848
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1931,6 +1931,19 @@ and what the next release train should optimize.
 - Added Start screen coverage for English/Korean changed labels and Analyze
   Existing warning variants.
 - Raised the package version from `1.0.748` to `1.0.749` in this patch PR.
+
+### #848: Workbench Intake Refresh Action Label
+
+- Changed Start/Nexus analyze action labels to `Refresh Analysis` /
+  `분석 갱신` when the selected existing-project intake already matches the active
+  workspace but needs refresh because it is sparse, stale, or changed.
+- Preserved the existing analyze-workspace action ids and event flow, so the
+  button still rebuilds and writes project intake through the existing path.
+- Kept `Analyze Existing` / `기존 프로젝트 분석` for missing intake, target
+  mismatch, target recovery, and non-refresh cases.
+- Added Start/Nexus mounted-screen coverage for dynamic button label refresh and
+  sparse/stale/changed label-key cases.
+- Raised the package version from `1.0.750` to `1.0.751` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

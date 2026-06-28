@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.655`
-- Merged PR range reviewed: #90 through #751
+- Package version inspected: `1.0.657`
+- Merged PR range reviewed: #90 through #753
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #751
-- Latest refresh reviewed: #751
+- Maintenance refresh reviewed: #427 through #753
+- Latest refresh reviewed: #753
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1346,6 +1346,18 @@ and what the next release train should optimize.
   stable JSON payload.
 - Expanded CLI tests for missing-intake and active-intake JSON output.
 - Raised the package version from `1.0.653` to `1.0.654` in this patch PR.
+
+### #753: Project Status Refresh
+
+- Added `trinity project status --refresh` to rewrite saved project intake from
+  the current target workspace state.
+- Preserved the existing intake mode, target workspace, and notes while
+  refreshing package manager, test command, and Git metadata.
+- Made `--refresh --json` report refresh status and updated intake artifact
+  paths.
+- Expanded CLI tests for panel and JSON refresh flows, including Windows-safe
+  path assertions.
+- Raised the package version from `1.0.655` to `1.0.656` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

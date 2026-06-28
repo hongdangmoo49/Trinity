@@ -15,7 +15,9 @@ from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import ProviderSnapshot, WorkflowNexusSnapshot
 from trinity.textual_app.workspace_labels import (
+    project_analyze_action_variant,
     project_brief_action_variant,
+    project_create_action_variant,
     project_intake_state_label,
     target_workspace_state_label,
 )
@@ -222,12 +224,12 @@ class NexusScreen(Screen[None]):
                 yield Button(
                     self._label("analyze_workspace"),
                     id="nexus-analyze-workspace",
-                    variant="default",
+                    variant=self._project_analyze_action_variant(),
                 )
                 yield Button(
                     self._label("create_project"),
                     id="nexus-create-project",
-                    variant="default",
+                    variant=self._project_create_action_variant(),
                 )
                 yield Button(
                     self._label("edit_brief"),
@@ -557,11 +559,29 @@ class NexusScreen(Screen[None]):
             target_workspace=self._current_workspace_text(),
         )
 
+    def _project_analyze_action_variant(self) -> str:
+        return project_analyze_action_variant(
+            self.config.effective_state_dir,
+            target_workspace=self._current_workspace_text(),
+        )
+
+    def _project_create_action_variant(self) -> str:
+        return project_create_action_variant(
+            self.config.effective_state_dir,
+            target_workspace=self._current_workspace_text(),
+        )
+
     def refresh_project_intake_summary(self) -> None:
         if not self.is_mounted:
             return
         self.query_one("#nexus-project-intake-summary", Static).update(
             self._project_intake_label()
+        )
+        self.query_one("#nexus-analyze-workspace", Button).variant = (
+            self._project_analyze_action_variant()
+        )
+        self.query_one("#nexus-create-project", Button).variant = (
+            self._project_create_action_variant()
         )
         self.query_one("#nexus-edit-project-brief", Button).variant = (
             self._project_brief_action_variant()

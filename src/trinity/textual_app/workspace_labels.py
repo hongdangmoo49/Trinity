@@ -198,6 +198,51 @@ def project_brief_action_variant(
     return "default"
 
 
+def project_analyze_action_variant(
+    state_dir: Path,
+    *,
+    target_workspace: object | None = None,
+    today: date | None = None,
+) -> str:
+    """Return the Workbench Analyze Workspace button variant."""
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return "warning"
+    if intake is None:
+        if _format_project_intake_target(target_workspace):
+            return "warning"
+        return "default"
+    if not _project_intake_targets_match(intake, target_workspace):
+        return "warning"
+    if _project_intake_target_missing(intake):
+        return "warning" if intake.mode != "new" else "default"
+    if _project_intake_analysis_is_sparse(intake):
+        return "warning"
+    if _project_intake_analysis_stale_days(intake, today=today) is not None:
+        return "warning"
+    return "default"
+
+
+def project_create_action_variant(
+    state_dir: Path,
+    *,
+    target_workspace: object | None = None,
+) -> str:
+    """Return the Workbench Create Project button variant."""
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return "default"
+    if intake is None:
+        return "default"
+    if not _project_intake_targets_match(intake, target_workspace):
+        return "default"
+    if intake.mode == "new" and _project_intake_target_missing(intake):
+        return "warning"
+    return "default"
+
+
 def format_project_intake_label(
     intake: ProjectIntake,
     *,
@@ -473,14 +518,17 @@ def _format_project_intake_target_missing(
     intake: ProjectIntake,
     labels: dict[str, str],
 ) -> str:
-    try:
-        exists = intake.target_workspace.exists()
-    except OSError:
-        exists = False
-    if exists:
+    if not _project_intake_target_missing(intake):
         return ""
     target = _format_project_intake_target(intake.target_workspace)
     return labels["target_missing"].format(target=target)
+
+
+def _project_intake_target_missing(intake: ProjectIntake) -> bool:
+    try:
+        return not intake.target_workspace.exists()
+    except OSError:
+        return True
 
 
 def _project_intake_targets_match(

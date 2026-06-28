@@ -1436,6 +1436,16 @@ and what the next release train should optimize.
   fallback path.
 - Raised the package version from `1.0.668` to `1.0.669` in this patch PR.
 
+### #768: Start Create Project CTA
+
+- Added a Start screen `Create Project` / `새 프로젝트` button.
+- Added an `open_new_folder` workspace picker option so the new-project CTA
+  opens the folder-name prompt immediately.
+- Reused the Workbench intake sync path so confirmed newly created folders are
+  recorded as `mode=new`.
+- Expanded Textual app tests for the Start create-project end-to-end flow.
+- Raised the package version from `1.0.670` to `1.0.671` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture

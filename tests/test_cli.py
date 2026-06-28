@@ -1,9 +1,12 @@
 """Tests for trinity.cli — CLI commands."""
 
-import pytest
+import json
+import subprocess
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from click.testing import CliRunner
 
 from trinity.cli import (
@@ -43,6 +46,16 @@ def trinity_project(tmp_path):
         encoding="utf-8",
     )
     return tmp_path
+
+
+def _run_git(path: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", *args],
+        cwd=path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
 
 class TestVersion:
@@ -226,6 +239,61 @@ class TestInit:
 
             gitignore = Path(".gitignore").read_text(encoding="utf-8")
             assert gitignore.count(".trinity/") == 1
+
+
+class TestProjectAnalyze:
+    def test_project_analyze_requires_trinity_project(self, runner, tmp_path):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            result = runner.invoke(main, ["project", "analyze"])
+
+            assert result.exit_code == 1
+            assert "No Trinity project found" in result.output
+            assert not Path(".trinity/project-intake.json").exists()
+
+    def test_project_analyze_writes_project_intake(self, runner, tmp_path):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            init_result = runner.invoke(main, ["init", "--non-interactive"])
+            assert init_result.exit_code == 0
+
+            target = Path("customer-app")
+            target.mkdir()
+            (target / "pyproject.toml").write_text(
+                "[project]\nname='customer-app'\n",
+                encoding="utf-8",
+            )
+            (target / "uv.lock").write_text("", encoding="utf-8")
+            (target / "notes.txt").write_text("review me\n", encoding="utf-8")
+            _run_git(target, "init")
+            _run_git(target, "add", "pyproject.toml", "uv.lock")
+
+            result = runner.invoke(
+                main,
+                [
+                    "project",
+                    "analyze",
+                    str(target),
+                    "--mode",
+                    "existing",
+                    "--notes",
+                    "Read before write.",
+                ],
+            )
+
+            assert result.exit_code == 0
+            assert "Project intake written." in result.output
+            assert "uv run pytest" in result.output
+            data = json.loads(
+                Path(".trinity/project-intake.json").read_text(encoding="utf-8")
+            )
+            markdown = Path(".trinity/project-intake.md").read_text(encoding="utf-8")
+            assert data["mode"] == "existing"
+            assert data["target_workspace"] == str(target.resolve())
+            assert data["git_repo"] is True
+            assert data["dirty_count"] == 2
+            assert data["untracked_count"] == 1
+            assert data["package_managers"] == ["uv"]
+            assert data["test_commands"] == ["uv run pytest"]
+            assert "Read before write." in markdown
 
 
 class TestStatus:

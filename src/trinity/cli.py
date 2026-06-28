@@ -34,6 +34,11 @@ from trinity.platform import (
     has_command,
     legacy_tmux_hint,
 )
+from trinity.project_intake import (
+    ProjectIntake,
+    build_project_intake,
+    write_project_intake,
+)
 from trinity.providers.bootstrap import (
     ProviderBootstrapError,
     ProviderBootstrapRunResult,
@@ -434,6 +439,76 @@ def _update_gitignore() -> None:
     if ".trinity/" not in gitignore_lines:
         gitignore_lines.append(".trinity/")
         gitignore.write_text("\n".join(gitignore_lines) + "\n", encoding="utf-8")
+
+
+# ─── trinity project ─────────────────────────────────────────────────────
+
+@main.group()
+def project() -> None:
+    """Project onboarding and analysis utilities."""
+
+
+@project.command("analyze")
+@click.argument("path", required=False, type=click.Path(path_type=Path))
+@click.option(
+    "--mode",
+    type=click.Choice(["existing", "new"]),
+    default="existing",
+    show_default=True,
+    help="Project onboarding mode to store in the intake artifact.",
+)
+@click.option("--notes", default="", help="Optional notes to store in project intake.")
+def project_analyze(path: Path | None, mode: str, notes: str) -> None:
+    """Analyze a target workspace and write project intake artifacts."""
+    config_path = find_config_path()
+    if config_path is None:
+        raise click.ClickException(
+            "No Trinity project found. Run `trinity init` first."
+        )
+
+    config = TrinityConfig.load(config_path)
+    target_workspace = path or Path.cwd()
+    intake = build_project_intake(
+        mode=mode,
+        target_workspace=target_workspace,
+        notes=notes,
+    )
+    paths = write_project_intake(config.effective_state_dir, intake)
+    _display_project_intake_summary(intake, paths.json_path, paths.markdown_path)
+
+
+def _display_project_intake_summary(
+    intake: ProjectIntake,
+    json_path: Path,
+    markdown_path: Path,
+) -> None:
+    """Display a compact project intake write summary."""
+    body = "\n".join(
+        [
+            "[green]Project intake written.[/green]",
+            "",
+            f"Mode: {intake.mode}",
+            f"Target workspace: {intake.target_workspace}",
+            f"Git repo: {intake.git_repo}",
+            f"Branch: {intake.branch}",
+            f"Dirty count: {_unknown_if_none(intake.dirty_count)}",
+            f"Untracked count: {_unknown_if_none(intake.untracked_count)}",
+            f"Package managers: {_csv_or_none(intake.package_managers)}",
+            f"Test commands: {_csv_or_none(intake.test_commands)}",
+            "",
+            f"JSON: {json_path}",
+            f"Markdown: {markdown_path}",
+        ]
+    )
+    console.print(Panel.fit(body, title="Trinity Project"))
+
+
+def _unknown_if_none(value: int | None) -> str:
+    return str(value) if value is not None else "unknown"
+
+
+def _csv_or_none(values: tuple[str, ...]) -> str:
+    return ", ".join(values) if values else "(none)"
 
 
 # ─── trinity bootstrap ───────────────────────────────────────────────────

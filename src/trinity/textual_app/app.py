@@ -3183,6 +3183,9 @@ class TrinityTextualApp(App[None]):
             return ProjectBriefDraft()
         return ProjectBriefDraft(
             product_goal=current.product_goal,
+            project_type=current.project_type,
+            target_users=current.target_users,
+            success_criteria=current.success_criteria,
             stack_preferences=current.stack_preferences,
             first_milestone=current.first_milestone,
             constraints=current.constraints,
@@ -3203,6 +3206,9 @@ class TrinityTextualApp(App[None]):
             mode=mode,
             target_workspace=target,
             product_goal=draft.product_goal,
+            project_type=draft.project_type,
+            target_users=draft.target_users,
+            success_criteria=draft.success_criteria,
             stack_preferences=draft.stack_preferences,
             first_milestone=draft.first_milestone,
             constraints=draft.constraints,
@@ -3251,6 +3257,9 @@ class TrinityTextualApp(App[None]):
             return {}
         return {
             "product_goal": current.product_goal,
+            "project_type": current.project_type,
+            "target_users": current.target_users,
+            "success_criteria": current.success_criteria,
             "stack_preferences": current.stack_preferences,
             "first_milestone": current.first_milestone,
             "constraints": current.constraints,

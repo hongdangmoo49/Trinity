@@ -33,6 +33,9 @@ Project intake now includes read-only workspace profile fields:
 Project intake also includes optional user-provided project brief fields:
 
 - `product_goal`: the outcome the user wants the target project to achieve.
+- `project_type`: the type or category of product being started or improved.
+- `target_users`: the primary users or audience the product should serve.
+- `success_criteria`: how the user will recognize that the first outcome works.
 - `stack_preferences`: preferred technologies, frameworks, or runtime choices.
 - `first_milestone`: the first concrete milestone agents should optimize for.
 - `constraints`: boundaries such as "no network dependency" or "keep tests
@@ -58,6 +61,9 @@ CLI users can record the brief with `trinity project new` or
 `trinity project analyze`:
 
 - `--goal TEXT`
+- `--project-type TEXT`
+- `--target-users TEXT`
+- `--success-criteria TEXT`
 - `--stack TEXT` repeated or comma-separated
 - `--milestone TEXT`
 - `--constraint TEXT` repeated or comma-separated
@@ -76,9 +82,10 @@ workspace candidate, Start seeds the composer with `product_goal`. This avoids
 asking CLI users to retype the same new/existing project goal before planning.
 
 Start and Nexus also expose a Workbench "Edit Brief" action. It writes the same
-project brief fields as the CLI flags, refreshes the project-intake summary, and
-keeps the active target workspace unchanged. Saving a product goal from Start
-also seeds the Start composer when the composer is still empty.
+project brief and product discovery fields as the CLI flags, refreshes the
+project-intake summary, and keeps the active target workspace unchanged. Saving
+a product goal from Start also seeds the Start composer when the composer is
+still empty.
 
 ## Detection Scope
 
@@ -92,6 +99,6 @@ The profile intentionally uses conservative filesystem and manifest checks:
 - Java: Maven and Gradle manifests.
 - Docs: README variants, CONTRIBUTING, CHANGELOG, and `docs/`.
 
-Broad semantic classification remains out of scope for this patch. Target
-audience and richer product discovery should be added through a later interactive
-brief step for new projects.
+Broad semantic classification remains out of scope for this patch. Richer
+template recommendation and interactive branching questions should be added
+later after the saved product discovery fields prove useful in real workflows.

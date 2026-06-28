@@ -17,8 +17,11 @@ PROJECT_BRIEF_LABELS = {
         "goal": "Product goal",
         "milestone": "First milestone",
         "notes": "Notes",
+        "project_type": "Project type",
         "save": "Save Brief",
         "stack": "Stack preferences",
+        "success": "Success criteria",
+        "target_users": "Target users",
         "title": "Project Brief",
     },
     "ko": {
@@ -27,8 +30,11 @@ PROJECT_BRIEF_LABELS = {
         "goal": "제품 목표",
         "milestone": "첫 마일스톤",
         "notes": "메모",
+        "project_type": "프로젝트 유형",
         "save": "브리프 저장",
         "stack": "선호 스택",
+        "success": "성공 기준",
+        "target_users": "대상 사용자",
         "title": "프로젝트 브리프",
     },
 }
@@ -39,6 +45,9 @@ class ProjectBriefDraft:
     """Editable user-provided project brief values."""
 
     product_goal: str = ""
+    project_type: str = ""
+    target_users: str = ""
+    success_criteria: str = ""
     stack_preferences: tuple[str, ...] = ()
     first_milestone: str = ""
     constraints: tuple[str, ...] = ()
@@ -114,6 +123,21 @@ class ProjectBriefModal(ModalScreen[ProjectBriefDraft | None]):
                 self.draft.product_goal,
             )
             yield from self._input_row(
+                "project_type",
+                "project-brief-project-type",
+                self.draft.project_type,
+            )
+            yield from self._input_row(
+                "target_users",
+                "project-brief-target-users",
+                self.draft.target_users,
+            )
+            yield from self._input_row(
+                "success",
+                "project-brief-success",
+                self.draft.success_criteria,
+            )
+            yield from self._input_row(
                 "stack",
                 "project-brief-stack",
                 _join_values(self.draft.stack_preferences),
@@ -161,6 +185,9 @@ class ProjectBriefModal(ModalScreen[ProjectBriefDraft | None]):
         self.dismiss(
             ProjectBriefDraft(
                 product_goal=self._input_value("#project-brief-goal"),
+                project_type=self._input_value("#project-brief-project-type"),
+                target_users=self._input_value("#project-brief-target-users"),
+                success_criteria=self._input_value("#project-brief-success"),
                 stack_preferences=_split_values(
                     self._input_value("#project-brief-stack")
                 ),

@@ -562,6 +562,21 @@ def project() -> None:
     help="Product goal for the new project brief.",
 )
 @click.option(
+    "--project-type",
+    default="",
+    help="Project type or product category for the brief.",
+)
+@click.option(
+    "--target-users",
+    default="",
+    help="Target users or audience for the brief.",
+)
+@click.option(
+    "--success-criteria",
+    default="",
+    help="Success criteria for the brief.",
+)
+@click.option(
     "--stack",
     "stack_preferences",
     multiple=True,
@@ -585,6 +600,9 @@ def project_new(
     parent: Path,
     git_init: bool,
     product_goal: str,
+    project_type: str,
+    target_users: str,
+    success_criteria: str,
     stack_preferences: tuple[str, ...],
     first_milestone: str,
     constraints: tuple[str, ...],
@@ -602,6 +620,9 @@ def project_new(
         mode="new",
         target_workspace=target_workspace,
         product_goal=product_goal,
+        project_type=project_type,
+        target_users=target_users,
+        success_criteria=success_criteria,
         stack_preferences=_split_option_values(stack_preferences),
         first_milestone=first_milestone,
         constraints=_split_option_values(constraints),
@@ -632,6 +653,21 @@ def project_new(
     help="Product goal to store in project intake.",
 )
 @click.option(
+    "--project-type",
+    default="",
+    help="Project type or product category to store in project intake.",
+)
+@click.option(
+    "--target-users",
+    default="",
+    help="Target users or audience to store in project intake.",
+)
+@click.option(
+    "--success-criteria",
+    default="",
+    help="Success criteria to store in project intake.",
+)
+@click.option(
     "--stack",
     "stack_preferences",
     multiple=True,
@@ -654,6 +690,9 @@ def project_analyze(
     path: Path | None,
     mode: str,
     product_goal: str,
+    project_type: str,
+    target_users: str,
+    success_criteria: str,
     stack_preferences: tuple[str, ...],
     first_milestone: str,
     constraints: tuple[str, ...],
@@ -672,6 +711,9 @@ def project_analyze(
         mode=mode,
         target_workspace=target_workspace,
         product_goal=product_goal,
+        project_type=project_type,
+        target_users=target_users,
+        success_criteria=success_criteria,
         stack_preferences=_split_option_values(stack_preferences),
         first_milestone=first_milestone,
         constraints=_split_option_values(constraints),
@@ -722,6 +764,9 @@ def _refresh_project_intake(
         mode=intake.mode,
         target_workspace=intake.target_workspace,
         product_goal=intake.product_goal,
+        project_type=intake.project_type,
+        target_users=intake.target_users,
+        success_criteria=intake.success_criteria,
         stack_preferences=intake.stack_preferences,
         first_milestone=intake.first_milestone,
         constraints=intake.constraints,
@@ -908,6 +953,9 @@ def _project_status_payload(
             "package_managers": list(intake.package_managers),
             "test_commands": list(intake.test_commands),
             "product_goal": intake.product_goal,
+            "project_type": intake.project_type,
+            "target_users": intake.target_users,
+            "success_criteria": intake.success_criteria,
             "stack_preferences": list(intake.stack_preferences),
             "first_milestone": intake.first_milestone,
             "constraints": list(intake.constraints),
@@ -1024,6 +1072,12 @@ def _project_brief_lines(intake: ProjectIntake) -> list[str]:
     lines: list[str] = []
     if intake.product_goal:
         lines.append(f"Product goal: {intake.product_goal}")
+    if intake.project_type:
+        lines.append(f"Project type: {intake.project_type}")
+    if intake.target_users:
+        lines.append(f"Target users: {intake.target_users}")
+    if intake.success_criteria:
+        lines.append(f"Success criteria: {intake.success_criteria}")
     if intake.stack_preferences:
         lines.append(f"Stack preferences: {_csv_or_none(intake.stack_preferences)}")
     if intake.first_milestone:

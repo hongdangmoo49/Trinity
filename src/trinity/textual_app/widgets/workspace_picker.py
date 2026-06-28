@@ -47,6 +47,10 @@ WORKSPACE_PICKER_LABELS = {
         "invalid_select_existing": (
             "Select an existing writable directory or a creatable new path."
         ),
+        "dirty_execute_warning": (
+            "Dirty Git workspace detected. Press Confirm Execute again to execute "
+            "anyway, or cancel and plan first."
+        ),
         "invalid_writable_parent": (
             "Choose a path under a writable existing parent before creating it."
         ),
@@ -101,6 +105,10 @@ WORKSPACE_PICKER_LABELS = {
         ),
         "invalid_select_existing": (
             "기존의 쓰기 가능한 디렉터리 또는 생성 가능한 새 경로를 선택하세요."
+        ),
+        "dirty_execute_warning": (
+            "변경사항이 있는 Git 작업 폴더입니다. 그대로 실행하려면 실행 확인을 "
+            "한 번 더 누르고, 아니면 취소 후 먼저 계획하세요."
         ),
         "invalid_writable_parent": (
             "생성하기 전에 쓰기 가능한 기존 상위 경로 아래를 선택하세요."
@@ -161,6 +169,15 @@ class WorkspacePreflight:
     def can_create(self) -> bool:
         """Return whether the target directory can be created before execution."""
         return not self.exists and self.creatable
+
+    @property
+    def requires_execute_ack(self) -> bool:
+        """Return whether execution should require an explicit second confirm."""
+        if not self.git_repo:
+            return False
+        changed = self.changed_count or 0
+        untracked = self.untracked_count or 0
+        return changed > 0 or untracked > 0
 
     def render(self, *, lang: str = "en") -> str:
         branch = self._branch_label(lang=lang)
@@ -374,6 +391,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         self._preflight_widget: Static | None = None
         self._status_widget: Static | None = None
         self._created_workspace_paths: set[Path] = set()
+        self._dirty_execute_ack_path: Path | None = None
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
@@ -543,6 +561,10 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         if not self.preflight.can_execute:
             self._show_invalid_preflight()
             return
+        if self.intent != "select" and self._needs_dirty_execute_ack():
+            self._dirty_execute_ack_path = self.preflight.path
+            self._set_status(self._label("dirty_execute_warning"))
+            return
         if created:
             self.preflight = replace(self.preflight, created=True)
         self.dismiss(self.preflight)
@@ -555,11 +577,18 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         )
         if self.preflight.path in self._created_workspace_paths:
             self.preflight = replace(self.preflight, created=True)
+        if self._dirty_execute_ack_path != self.preflight.path:
+            self._dirty_execute_ack_path = None
         preflight_text = self.preflight.render(lang=self.lang)
         if self.is_mounted:
             self._set_preflight_text(preflight_text)
         else:
             self._preflight_render_key = preflight_text
+
+    def _needs_dirty_execute_ack(self) -> bool:
+        if not self.preflight.requires_execute_ack:
+            return False
+        return self._dirty_execute_ack_path != self.preflight.path
 
     def _input_path(self) -> Path:
         path = Path(self._path_input().value).expanduser()

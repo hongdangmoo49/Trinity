@@ -94,6 +94,7 @@ def test_build_preflight_reports_clean_git_worktree(tmp_path) -> None:
     assert preflight.git_repo is True
     assert preflight.changed_count == 0
     assert preflight.untracked_count == 0
+    assert preflight.requires_execute_ack is False
     assert "Dirty worktree: clean" in preflight.render()
     assert "변경사항: 깨끗함" in preflight.render(lang="ko")
 
@@ -118,6 +119,7 @@ def test_build_preflight_counts_untracked_git_entries(tmp_path) -> None:
 
     assert preflight.changed_count == 0
     assert preflight.untracked_count == 1
+    assert preflight.requires_execute_ack is True
     assert "Dirty worktree: 0 changed, 1 untracked" in preflight.render()
 
 
@@ -534,6 +536,76 @@ async def test_workspace_picker_confirm_creates_missing_directory(tmp_path) -> N
         assert target_workspace.is_dir()
         assert picker.preflight.path == target_workspace
         assert picker.preflight.can_execute is True
+
+
+@pytest.mark.asyncio
+async def test_workspace_picker_requires_second_confirm_for_dirty_git_execution(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "Trinity"
+    target_workspace = tmp_path / "customer-app"
+    control_repo.mkdir()
+    target_workspace.mkdir()
+    _run_git(target_workspace, "init")
+    (target_workspace / "notes.txt").write_text("new\n", encoding="utf-8")
+
+    picker = WorkspacePicker(
+        candidate=target_workspace,
+        snapshot=WorkflowNexusSnapshot(),
+        cwd=control_repo,
+        tree_root=tmp_path,
+    )
+    dismissed: list[object] = []
+    picker.dismiss = dismissed.append  # type: ignore[method-assign]
+    app = WorkspacePickerHarness()
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.push_screen(picker)
+        await pilot.pause()
+
+        picker.action_confirm()
+        await pilot.pause()
+
+        status = picker.query_one("#workspace-picker-status", Static)
+        assert dismissed == []
+        assert "Dirty Git workspace detected" in str(status.content)
+
+        picker.action_confirm()
+        await pilot.pause()
+
+        assert dismissed == [picker.preflight]
+
+
+@pytest.mark.asyncio
+async def test_workspace_picker_select_mode_skips_dirty_execution_gate(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "Trinity"
+    target_workspace = tmp_path / "customer-app"
+    control_repo.mkdir()
+    target_workspace.mkdir()
+    _run_git(target_workspace, "init")
+    (target_workspace / "notes.txt").write_text("new\n", encoding="utf-8")
+
+    picker = WorkspacePicker(
+        candidate=target_workspace,
+        snapshot=WorkflowNexusSnapshot(),
+        cwd=control_repo,
+        tree_root=tmp_path,
+        intent="select",
+    )
+    dismissed: list[object] = []
+    picker.dismiss = dismissed.append  # type: ignore[method-assign]
+    app = WorkspacePickerHarness()
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.push_screen(picker)
+        await pilot.pause()
+
+        picker.action_confirm()
+        await pilot.pause()
+
+        assert dismissed == [picker.preflight]
 
 
 @pytest.mark.asyncio

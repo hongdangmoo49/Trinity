@@ -14,6 +14,7 @@ from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import ProviderSnapshot, WorkflowNexusSnapshot
+from trinity.textual_app.workspace_labels import target_workspace_state_label
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
     AgentRecipientModelSelector,
 )
@@ -37,8 +38,6 @@ NEXUS_LABELS = {
         "open_provider_inspector": "Open Provider Inspector",
         "select_agent_warning": "Select at least one agent.",
         "select_workspace": "Select Workspace",
-        "workspace_not_selected": "Workspace: not selected",
-        "workspace_selected": "Workspace: {target}",
     },
     "ko": {
         "composer_placeholder": "답변, 방향 조정 또는 /로 명령 입력",
@@ -46,8 +45,6 @@ NEXUS_LABELS = {
         "open_provider_inspector": "프로바이더 인스펙터 열기",
         "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
         "select_workspace": "작업 폴더 선택",
-        "workspace_not_selected": "작업 폴더: 선택 안 됨",
-        "workspace_selected": "작업 폴더: {target}",
     },
 }
 
@@ -472,10 +469,11 @@ class NexusScreen(Screen[None]):
         self._workspace_label_key = label
 
     def _workspace_label(self) -> str:
-        target = self._current_workspace_text()
-        if target:
-            return self._label("workspace_selected").format(target=target)
-        return self._label("workspace_not_selected")
+        return target_workspace_state_label(
+            self._current_workspace_text(),
+            control_repo=self.config.project_dir,
+            lang=self.config.lang,
+        )
 
     def _current_workspace_text(self) -> str:
         if self.snapshot and self.snapshot.target_workspace.strip():

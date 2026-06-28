@@ -1543,7 +1543,7 @@ class TrinityTextualApp(App[None]):
         event.stop()
         self._open_workspace_picker(
             WorkflowNexusSnapshot(),
-            self._on_workspace_candidate_selected,
+            self._on_new_project_workspace_selected,
             intent="select",
             open_new_folder=True,
         )
@@ -1668,7 +1668,7 @@ class TrinityTextualApp(App[None]):
         event.stop()
         self._open_workspace_picker(
             event.snapshot or self._current_textual_snapshot(),
-            self._on_nexus_workspace_selected,
+            self._on_nexus_new_project_workspace_selected,
             intent="select",
             open_new_folder=True,
         )
@@ -1833,6 +1833,15 @@ class TrinityTextualApp(App[None]):
         self._set_workspace_candidate(preflight.path, sync_start=True)
         self._sync_project_intake_for_preflight(preflight)
 
+    def _on_new_project_workspace_selected(
+        self,
+        preflight: WorkspacePreflight | None,
+    ) -> None:
+        if preflight is None:
+            return
+        self._on_workspace_candidate_selected(preflight)
+        self._open_new_project_brief_if_needed(preflight)
+
     def _on_project_brief_workspace_selected(
         self,
         preflight: WorkspacePreflight | None,
@@ -1854,6 +1863,19 @@ class TrinityTextualApp(App[None]):
         if self._open_nexus_workspace_confirm_if_needed(preflight):
             return
         self._continue_nexus_workspace_selection(
+            preflight,
+            control_repo_confirmed=False,
+        )
+
+    def _on_nexus_new_project_workspace_selected(
+        self,
+        preflight: WorkspacePreflight | None,
+    ) -> None:
+        if preflight is None:
+            return
+        if self._open_nexus_new_project_confirm_if_needed(preflight):
+            return
+        self._continue_nexus_new_project_workspace_selection(
             preflight,
             control_repo_confirmed=False,
         )
@@ -1880,6 +1902,21 @@ class TrinityTextualApp(App[None]):
         self._open_target_workspace_confirm_modal(
             preflight.path,
             lambda confirmed: self._on_nexus_workspace_selected_confirmed(
+                preflight,
+                confirmed,
+            ),
+        )
+        return True
+
+    def _open_nexus_new_project_confirm_if_needed(
+        self,
+        preflight: WorkspacePreflight,
+    ) -> bool:
+        if not is_control_repo_target(preflight.path, self.config.project_dir):
+            return False
+        self._open_target_workspace_confirm_modal(
+            preflight.path,
+            lambda confirmed: self._on_nexus_new_project_workspace_confirmed(
                 preflight,
                 confirmed,
             ),
@@ -1916,6 +1953,21 @@ class TrinityTextualApp(App[None]):
             target_cancelled_snapshot(lang=self.config.lang)
         )
 
+    def _on_nexus_new_project_workspace_confirmed(
+        self,
+        preflight: WorkspacePreflight,
+        confirmed: bool | None,
+    ) -> None:
+        if confirmed:
+            self._continue_nexus_new_project_workspace_selection(
+                preflight,
+                control_repo_confirmed=True,
+            )
+            return
+        self._record_local_command_snapshot(
+            target_cancelled_snapshot(lang=self.config.lang)
+        )
+
     def _on_nexus_project_brief_workspace_confirmed(
         self,
         preflight: WorkspacePreflight,
@@ -1944,6 +1996,18 @@ class TrinityTextualApp(App[None]):
         )
         self._sync_project_intake_for_preflight(preflight)
         self._sync_nexus_workspace_candidate()
+
+    def _continue_nexus_new_project_workspace_selection(
+        self,
+        preflight: WorkspacePreflight,
+        *,
+        control_repo_confirmed: bool,
+    ) -> None:
+        self._continue_nexus_workspace_selection(
+            preflight,
+            control_repo_confirmed=control_repo_confirmed,
+        )
+        self._open_new_project_brief_if_needed(preflight)
 
     def _continue_nexus_project_brief_workspace_selection(
         self,
@@ -3149,6 +3213,11 @@ class TrinityTextualApp(App[None]):
         if preflight.created or preflight.new_project_candidate:
             return "new"
         return "existing"
+
+    def _open_new_project_brief_if_needed(self, preflight: WorkspacePreflight) -> None:
+        if self._project_intake_mode_for_preflight(preflight) != "new":
+            return
+        self._open_project_brief_modal(preflight.path, fallback_mode="new")
 
     def _sync_project_intake_for_target(
         self,

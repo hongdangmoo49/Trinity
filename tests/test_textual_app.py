@@ -10829,6 +10829,7 @@ async def test_start_create_project_button_creates_new_project_intake(
         app.screen.action_confirm()
         await pilot.pause()
 
+        assert isinstance(app.screen, ProjectBriefModal)
         intake = load_project_intake(app.config.effective_state_dir)
         assert intake is not None
         assert intake.mode == "new"
@@ -11329,6 +11330,7 @@ async def test_nexus_create_project_button_creates_new_project_intake(
         app.screen.action_confirm()
         await pilot.pause()
 
+        assert isinstance(app.screen, ProjectBriefModal)
         intake = load_project_intake(app.config.effective_state_dir)
         assert intake is not None
         assert intake.mode == "new"

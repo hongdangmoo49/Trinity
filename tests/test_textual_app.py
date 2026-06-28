@@ -10946,6 +10946,9 @@ async def test_start_analyze_workspace_empty_target_opens_project_brief(
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
+        assert str(app.screen.query_one("#project-brief-target", Static).content) == (
+            f"Target workspace: {target.resolve()}"
+        )
         assert (
             app.screen.query_one("#project-brief-goal", Input).placeholder
             == "e.g. Build a local habit tracker"
@@ -10979,6 +10982,9 @@ async def test_project_brief_modal_uses_korean_placeholders(tmp_path) -> None:
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
+        assert str(app.screen.query_one("#project-brief-target", Static).content) == (
+            f"대상 작업 경로: {target.resolve()}"
+        )
         assert (
             app.screen.query_one("#project-brief-goal", Input).placeholder
             == "예: 로컬 습관 추적 앱 만들기"

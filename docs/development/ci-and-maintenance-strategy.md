@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.699`
-- Merged PR range reviewed: #90 through #796
+- Package version inspected: `1.0.701`
+- Merged PR range reviewed: #90 through #798
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #796
-- Latest refresh reviewed: #796
+- Maintenance refresh reviewed: #427 through #798
+- Latest refresh reviewed: #798
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1628,6 +1628,18 @@ and what the next release train should optimize.
 - Expanded Start/Nexus label tests for English and Korean source-root summary
   output.
 - Raised the package version from `1.0.698` to `1.0.699` in this patch PR.
+
+### #798: Project Brief Detail Summary
+
+- Added saved success criteria, first milestone, stack preferences, and
+  constraints to Start/Nexus project-intake summaries.
+- New-project users can now verify the intended product direction before
+  scaffolding instead of seeing only `brief: complete`.
+- Existing-project users can also see saved user intent before agents plan
+  against the codebase.
+- Expanded English and Korean Start/Nexus label coverage for complete brief
+  detail summaries.
+- Raised the package version from `1.0.700` to `1.0.701` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

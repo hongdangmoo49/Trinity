@@ -10869,6 +10869,37 @@ async def test_start_analyze_workspace_button_opens_picker_for_control_repo(
 
 
 @pytest.mark.asyncio
+async def test_start_analyze_workspace_picker_opens_brief_for_empty_target(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "empty-new-app"
+    control_repo.mkdir()
+    target.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        FakeWorkflowController(),
+        launch_cwd=control_repo,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#analyze-workspace")
+        await pilot.pause()
+
+        picker = app.screen
+        assert isinstance(picker, WorkspacePicker)
+        picker.query_one("#workspace-path-input", Input).value = str(target)
+        picker.action_confirm()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectBriefModal)
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.mode == "new"
+        assert intake.target_workspace == target.resolve()
+
+
+@pytest.mark.asyncio
 async def test_start_create_project_button_creates_new_project_intake(
     tmp_path,
 ) -> None:
@@ -11365,6 +11396,44 @@ async def test_nexus_analyze_workspace_preserves_existing_followup_prompt(
         assert nexus.query_one("#nexus-composer", PromptComposer).text == (
             "Keep my follow-up."
         )
+
+
+@pytest.mark.asyncio
+async def test_nexus_analyze_workspace_picker_opens_brief_for_empty_target(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "empty-new-app"
+    control_repo.mkdir()
+    target.mkdir()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        controller,
+        launch_cwd=control_repo,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        await pilot.click("#nexus-analyze-workspace")
+        await pilot.pause()
+
+        picker = app.screen
+        assert isinstance(picker, WorkspacePicker)
+        picker.query_one("#workspace-path-input", Input).value = str(target)
+        picker.action_confirm()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectBriefModal)
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.mode == "new"
+        assert intake.target_workspace == target.resolve()
+        assert controller.target_workspace == target.resolve()
 
 
 @pytest.mark.asyncio

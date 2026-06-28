@@ -98,11 +98,17 @@ def test_project_intake_state_label_summarizes_saved_intake(tmp_path: Path) -> N
 
     assert (
         project_intake_state_label(state)
-        == "Project intake: existing | tests: uv run pytest | git: none"
+        == (
+            "Project intake: existing | updated: 2026-06-28 | "
+            "tests: uv run pytest | git: none"
+        )
     )
     assert (
         project_intake_state_label(state, lang="ko")
-        == "프로젝트 인테이크: 기존 | 테스트: uv run pytest | git: 없음"
+        == (
+            "프로젝트 인테이크: 기존 | 갱신: 2026-06-28 | "
+            "테스트: uv run pytest | git: 없음"
+        )
     )
 
 
@@ -136,7 +142,7 @@ def test_project_intake_state_label_includes_workspace_profile(
     )
 
     assert project_intake_state_label(state) == (
-        "Project intake: existing | tests: (none) | "
+        "Project intake: existing | updated: 2026-06-28 | tests: (none) | "
         "git: none | "
         "goal: Launch customer onboarding. | type: SaaS dashboard | "
         "users: support operators | dev: npm run dev | build: npm run build "
@@ -145,7 +151,7 @@ def test_project_intake_state_label_includes_workspace_profile(
         "docs: README.md, docs"
     )
     assert project_intake_state_label(state, lang="ko") == (
-        "프로젝트 인테이크: 기존 | 테스트: (없음) | "
+        "프로젝트 인테이크: 기존 | 갱신: 2026-06-28 | 테스트: (없음) | "
         "git: 없음 | "
         "목표: Launch customer onboarding. | 유형: SaaS dashboard | "
         "사용자: support operators | 개발: npm run dev | 빌드: npm run build "
@@ -203,11 +209,11 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
     )
 
     assert project_intake_state_label(state) == (
-        "Project intake: new | tests: (none) | "
+        "Project intake: new | updated: 2026-06-28 | tests: (none) | "
         "brief: missing type, users +2 | goal: Build a dashboard."
     )
     assert project_intake_state_label(state, lang="ko") == (
-        "프로젝트 인테이크: 신규 | 테스트: (없음) | "
+        "프로젝트 인테이크: 신규 | 갱신: 2026-06-28 | 테스트: (없음) | "
         "브리프: 누락 유형, 사용자 +2 | 목표: Build a dashboard."
     )
 
@@ -228,7 +234,8 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
     )
 
     assert project_intake_state_label(state) == (
-        "Project intake: new | tests: (none) | brief: complete | "
+        "Project intake: new | updated: 2026-06-28 | tests: (none) | "
+        "brief: complete | "
         "goal: Build a dashboard. | type: SaaS dashboard | "
         "users: support operators | "
         "success: Operators can complete onboarding. | "
@@ -236,7 +243,8 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
         "constraints: No cloud lock-in, Keep tests green +1"
     )
     assert project_intake_state_label(state, lang="ko") == (
-        "프로젝트 인테이크: 신규 | 테스트: (없음) | 브리프: 완료 | "
+        "프로젝트 인테이크: 신규 | 갱신: 2026-06-28 | 테스트: (없음) | "
+        "브리프: 완료 | "
         "목표: Build a dashboard. | 유형: SaaS dashboard | "
         "사용자: support operators | "
         "성공: Operators can complete onboarding. | "
@@ -302,7 +310,8 @@ async def test_start_screen_shows_project_intake_summary(tmp_path: Path) -> None
         await pilot.pause()
 
         assert str(screen.query_one("#project-intake-summary", Static).content) == (
-            "Project intake: existing | tests: uv run pytest | git: none"
+            "Project intake: existing | updated: 2026-06-28 | "
+            "tests: uv run pytest | git: none"
         )
 
 
@@ -332,7 +341,10 @@ async def test_nexus_screen_shows_project_intake_summary(tmp_path: Path) -> None
 
         assert str(
             screen.query_one("#nexus-project-intake-summary", Static).content
-        ) == "프로젝트 인테이크: 기존 | 테스트: uv run pytest | git: 없음"
+        ) == (
+            "프로젝트 인테이크: 기존 | 갱신: 2026-06-28 | "
+            "테스트: uv run pytest | git: 없음"
+        )
 
 
 @pytest.mark.asyncio

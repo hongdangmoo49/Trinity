@@ -272,6 +272,24 @@ class TestInit:
             assert data["package_managers"] == ["uv"]
             assert data["test_commands"] == ["uv run pytest"]
 
+    def test_init_mode_new_defers_project_intake_until_project_creation(
+        self, runner, tmp_path
+    ):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            result = runner.invoke(
+                main,
+                ["init", "--non-interactive", "--mode", "new"],
+            )
+
+            assert result.exit_code == 0
+            assert "Project intake:" not in result.output
+            assert "Next steps:" in result.output
+            assert "trinity project new NAME --parent PATH" in result.output
+            assert "trinity project status" in result.output
+            assert "trinity" in result.output
+            assert not Path(".trinity/project-intake.json").exists()
+            assert not Path(".trinity/project-intake.md").exists()
+
     def test_resolve_init_project_mode_prompt_policy(self):
         assert (
             _resolve_init_project_mode("new", lang="en", interactive=True)

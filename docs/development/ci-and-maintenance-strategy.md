@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.633`
-- Merged PR range reviewed: #90 through #729
+- Package version inspected: `1.0.635`
+- Merged PR range reviewed: #90 through #731
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #729
-- Latest refresh reviewed: #729
+- Maintenance refresh reviewed: #427 through #731
+- Latest refresh reviewed: #731
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1213,6 +1213,19 @@ and what the next release train should optimize.
 - Expanded focused workspace picker tests for clean, changed, untracked, and
   non-Git render paths.
 - Raised the package version from `1.0.631` to `1.0.632` in this patch PR.
+
+### #731: Project Intake Writer
+
+- Added `src/trinity/project_intake.py` as the shared read-only project intake
+  contract for new/existing project onboarding.
+- Added JSON and Markdown writers for `.trinity/project-intake.json` and
+  `.trinity/project-intake.md`.
+- Captured target workspace Git metadata, package manager hints, and suggested
+  test commands without executing project commands.
+- Reused the shared Git analysis from the workspace picker preflight.
+- Added `tests/test_project_intake.py` and promoted project intake/workspace
+  picker tests into the required smoke manifest.
+- Raised the package version from `1.0.633` to `1.0.634` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

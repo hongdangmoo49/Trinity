@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.755`
-- Merged PR range reviewed: #90 through #852
+- Package version inspected: `1.0.757`
+- Merged PR range reviewed: #90 through #854
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #852
-- Latest refresh reviewed: #852
+- Maintenance refresh reviewed: #427 through #854
+- Latest refresh reviewed: #854
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1970,6 +1970,19 @@ and what the next release train should optimize.
 - Added a dedicated design document and Textual coverage for Start/Nexus create
   flows.
 - Raised the package version from `1.0.754` to `1.0.755` in this patch PR.
+
+### #854: Existing Project Analysis Prompt Handoff
+
+- Seeded the Start composer with a localized default analysis prompt after
+  `Analyze Existing` writes an existing-project intake.
+- Preserved any user-written prompt instead of overwriting it.
+- Routed Start picker completions for existing-project analysis through an
+  analysis-specific callback so control-repo launches get the same handoff.
+- Kept Nexus follow-up composition, normal workspace selection, and execute
+  preflight behavior unchanged.
+- Added a dedicated design document and Textual coverage for prompt seeding and
+  preservation.
+- Raised the package version from `1.0.756` to `1.0.757` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

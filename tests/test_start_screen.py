@@ -266,6 +266,38 @@ def test_project_intake_state_label_warns_when_target_mismatches(
     )
 
 
+def test_project_intake_state_label_warns_when_saved_target_is_missing(
+    tmp_path: Path,
+) -> None:
+    missing_target = tmp_path / "missing-app"
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=missing_target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert project_intake_state_label(state, today=date(2026, 6, 28)) == (
+        "Project intake: existing | "
+        f"target missing: {missing_target} | "
+        "updated: 2026-06-28 | tests: (none) | "
+        "analysis: sparse | missing: tests, src, docs | git: none"
+    )
+    assert project_intake_state_label(
+        state,
+        lang="ko",
+        today=date(2026, 6, 28),
+    ) == (
+        "프로젝트 인테이크: 기존 | "
+        f"대상 없음: {missing_target} | "
+        "갱신: 2026-06-28 | 테스트: (없음) | "
+        "분석: 부족 | 누락: 테스트, 소스, 문서 | git: 없음"
+    )
+
+
 def test_project_intake_state_label_includes_existing_project_git_state(
     tmp_path: Path,
 ) -> None:
@@ -302,6 +334,7 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
     tmp_path: Path,
 ) -> None:
     target = tmp_path / "new-app"
+    target.mkdir()
     state = tmp_path / ".trinity"
     write_project_intake(
         state,

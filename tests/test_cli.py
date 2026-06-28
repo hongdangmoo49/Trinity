@@ -652,6 +652,29 @@ class TestProjectAnalyze:
             assert data["next_steps"][0] == completion_command
             assert data["next_steps"][1:] == ["trinity"]
 
+    def test_project_status_summary_warns_when_target_is_missing(
+        self,
+        runner,
+        tmp_path,
+    ):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            init_result = runner.invoke(main, ["init", "--non-interactive"])
+            assert init_result.exit_code == 0
+
+            missing_target = Path("missing-app")
+            analyze_result = runner.invoke(
+                main,
+                ["project", "analyze", str(missing_target)],
+            )
+            assert analyze_result.exit_code == 0
+
+            result = runner.invoke(main, ["project", "status"])
+
+            assert result.exit_code == 0
+            assert "target missing:" in result.output
+            assert "Target name: missing-app" in result.output
+            assert "Target exists: False" in result.output
+
     def test_project_status_json_shows_saved_and_current_analysis(
         self,
         runner,

@@ -70,6 +70,7 @@ PROJECT_INTAKE_LABELS = {
         "stack_preferences": "stack",
         "success_criteria": "success",
         "summary": "Project intake: {mode}",
+        "target_missing": "target missing: {target}",
         "target_users": "users",
         "target_mismatch": "target mismatch: intake {target}",
         "tests": "tests",
@@ -115,6 +116,7 @@ PROJECT_INTAKE_LABELS = {
         "stack_preferences": "스택",
         "success_criteria": "성공",
         "summary": "프로젝트 인테이크: {mode}",
+        "target_missing": "대상 없음: {target}",
         "target_users": "사용자",
         "target_mismatch": "대상 불일치: 인테이크 {target}",
         "tests": "테스트",
@@ -232,6 +234,9 @@ def _format_project_intake_label(
     )
     if mismatch:
         parts.append(mismatch)
+    missing_target = _format_project_intake_target_missing(intake, labels)
+    if missing_target:
+        parts.append(missing_target)
     updated = _format_project_intake_timestamp(intake.created_at)
     if updated:
         parts.append(f"{labels['updated']}: {updated}")
@@ -462,6 +467,20 @@ def _format_project_intake_target_mismatch(
         return ""
     intake_target = _format_project_intake_target(intake.target_workspace)
     return labels["target_mismatch"].format(target=intake_target)
+
+
+def _format_project_intake_target_missing(
+    intake: ProjectIntake,
+    labels: dict[str, str],
+) -> str:
+    try:
+        exists = intake.target_workspace.exists()
+    except OSError:
+        exists = False
+    if exists:
+        return ""
+    target = _format_project_intake_target(intake.target_workspace)
+    return labels["target_missing"].format(target=target)
 
 
 def _project_intake_targets_match(

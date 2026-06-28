@@ -48,6 +48,9 @@ PROJECT_INTAKE_LABELS = {
         "field_project_type": "type",
         "field_success_criteria": "success",
         "field_target_users": "users",
+        "git_clean": "git: {branch} clean",
+        "git_dirty": "git: {branch} dirty {dirty}, untracked {untracked}",
+        "git_none": "git: none",
         "goal": "goal",
         "project_type": "type",
         "summary": "Project intake: {mode}",
@@ -75,6 +78,9 @@ PROJECT_INTAKE_LABELS = {
         "field_project_type": "유형",
         "field_success_criteria": "성공",
         "field_target_users": "사용자",
+        "git_clean": "git: {branch} 변경 없음",
+        "git_dirty": "git: {branch} 변경 {dirty}, 미추적 {untracked}",
+        "git_none": "git: 없음",
         "goal": "목표",
         "project_type": "유형",
         "summary": "프로젝트 인테이크: {mode}",
@@ -142,6 +148,9 @@ def _format_project_intake_label(intake: ProjectIntake, *, lang: str) -> str:
     ]
     if intake.mode == "new":
         parts.append(_format_new_project_brief_readiness(intake, labels))
+    git_state = _format_existing_project_git_state(intake, labels)
+    if git_state:
+        parts.append(git_state)
     if intake.product_goal.strip():
         parts.append(
             f"{labels['goal']}: {_format_project_intake_text(intake.product_goal)}"
@@ -167,6 +176,26 @@ def _format_project_intake_label(intake: ProjectIntake, *, lang: str) -> str:
     return " | ".join(parts)
 
 
+def _format_existing_project_git_state(
+    intake: ProjectIntake,
+    labels: dict[str, str],
+) -> str:
+    if intake.mode != "existing":
+        return ""
+    if not intake.git_repo:
+        return labels["git_none"]
+    dirty = _format_optional_count(intake.dirty_count)
+    untracked = _format_optional_count(intake.untracked_count)
+    branch = intake.branch or "unknown"
+    if dirty == "0" and untracked == "0":
+        return labels["git_clean"].format(branch=branch)
+    return labels["git_dirty"].format(
+        branch=branch,
+        dirty=dirty,
+        untracked=untracked,
+    )
+
+
 def _format_new_project_brief_readiness(
     intake: ProjectIntake,
     labels: dict[str, str],
@@ -178,6 +207,10 @@ def _format_new_project_brief_readiness(
     return labels["brief_missing"].format(
         fields=_format_project_intake_values(field_labels)
     )
+
+
+def _format_optional_count(value: int | None) -> str:
+    return str(value) if value is not None else "unknown"
 
 
 def _format_project_intake_section(

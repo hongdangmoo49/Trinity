@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -35,6 +36,16 @@ class _DisplayPath:
 
     def __str__(self) -> str:
         return self.text
+
+
+def _run_git(path: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", *args],
+        cwd=path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
 
 def test_target_workspace_state_label_distinguishes_project_states(
@@ -87,11 +98,11 @@ def test_project_intake_state_label_summarizes_saved_intake(tmp_path: Path) -> N
 
     assert (
         project_intake_state_label(state)
-        == "Project intake: existing | tests: uv run pytest"
+        == "Project intake: existing | tests: uv run pytest | git: none"
     )
     assert (
         project_intake_state_label(state, lang="ko")
-        == "프로젝트 인테이크: 기존 | 테스트: uv run pytest"
+        == "프로젝트 인테이크: 기존 | 테스트: uv run pytest | git: 없음"
     )
 
 
@@ -124,6 +135,7 @@ def test_project_intake_state_label_includes_workspace_profile(
 
     assert project_intake_state_label(state) == (
         "Project intake: existing | tests: (none) | "
+        "git: none | "
         "goal: Launch customer onboarding. | type: SaaS dashboard | "
         "users: support operators | dev: npm run dev | build: npm run build "
         "| entry: dist/index.js, customer -> bin/customer.js | "
@@ -131,10 +143,43 @@ def test_project_intake_state_label_includes_workspace_profile(
     )
     assert project_intake_state_label(state, lang="ko") == (
         "프로젝트 인테이크: 기존 | 테스트: (없음) | "
+        "git: 없음 | "
         "목표: Launch customer onboarding. | 유형: SaaS dashboard | "
         "사용자: support operators | 개발: npm run dev | 빌드: npm run build "
         "| 진입점: dist/index.js, customer -> bin/customer.js | "
         "문서: README.md, docs"
+    )
+
+
+def test_project_intake_state_label_includes_existing_project_git_state(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "customer-app"
+    target.mkdir()
+    _run_git(target, "init")
+    _run_git(target, "config", "user.email", "test@example.com")
+    _run_git(target, "config", "user.name", "Trinity Test")
+    (target / "tracked.txt").write_text("tracked\n", encoding="utf-8")
+    _run_git(target, "add", "tracked.txt")
+    _run_git(target, "commit", "-m", "initial")
+    (target / "tracked.txt").write_text("changed\n", encoding="utf-8")
+    (target / "notes.txt").write_text("new\n", encoding="utf-8")
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    branch = project_intake_state_label(state).split("git: ", 1)[1].split(" ", 1)[0]
+
+    assert f"git: {branch} dirty 1, untracked 1" in project_intake_state_label(state)
+    assert (
+        f"git: {branch} 변경 1, 미추적 1"
+        in project_intake_state_label(state, lang="ko")
     )
 
 
@@ -236,7 +281,7 @@ async def test_start_screen_shows_project_intake_summary(tmp_path: Path) -> None
         await pilot.pause()
 
         assert str(screen.query_one("#project-intake-summary", Static).content) == (
-            "Project intake: existing | tests: uv run pytest"
+            "Project intake: existing | tests: uv run pytest | git: none"
         )
 
 
@@ -266,7 +311,7 @@ async def test_nexus_screen_shows_project_intake_summary(tmp_path: Path) -> None
 
         assert str(
             screen.query_one("#nexus-project-intake-summary", Static).content
-        ) == "프로젝트 인테이크: 기존 | 테스트: uv run pytest"
+        ) == "프로젝트 인테이크: 기존 | 테스트: uv run pytest | git: 없음"
 
 
 @pytest.mark.asyncio

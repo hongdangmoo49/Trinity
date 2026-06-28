@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
@@ -94,6 +95,23 @@ def _configure_stdio_encoding_errors(*streams) -> None:
 _configure_stdio_encoding_errors()
 
 console = Console()
+
+
+@dataclass(frozen=True)
+class InitNewProjectRequest:
+    """New-project workspace request collected during `trinity init`."""
+
+    name: str
+    parent: Path
+    git_init: bool
+    product_goal: str = ""
+    project_type: str = ""
+    target_users: str = ""
+    success_criteria: str = ""
+    stack_preferences: tuple[str, ...] = ()
+    first_milestone: str = ""
+    constraints: tuple[str, ...] = ()
+    notes: str = ""
 
 
 def find_config_path() -> Path | None:
@@ -308,7 +326,82 @@ def _run_plain_interactive_tui(config: TrinityConfig) -> None:
     default=None,
     help="Record a new/existing project intake during init.",
 )
-def init(force: bool, non_interactive: bool, mode: str | None):
+@click.option(
+    "--project-name",
+    default="",
+    help="Create a new project workspace during init.",
+)
+@click.option(
+    "--parent",
+    "project_parent",
+    type=click.Path(path_type=Path),
+    default=Path("."),
+    show_default=True,
+    help="Parent directory for --project-name.",
+)
+@click.option(
+    "--project-git/--no-project-git",
+    "project_git_init",
+    default=False,
+    show_default=True,
+    help="Initialize Git in the created project workspace.",
+)
+@click.option(
+    "--goal",
+    "product_goal",
+    default="",
+    help="Product goal for the new project brief.",
+)
+@click.option(
+    "--project-type",
+    default="",
+    help="Project type or product category for the new project brief.",
+)
+@click.option(
+    "--target-users",
+    default="",
+    help="Target users or audience for the new project brief.",
+)
+@click.option(
+    "--success-criteria",
+    default="",
+    help="Success criteria for the new project brief.",
+)
+@click.option(
+    "--stack",
+    "stack_preferences",
+    multiple=True,
+    help="Preferred stack item for the new project brief. Repeat or comma-separate.",
+)
+@click.option(
+    "--milestone",
+    "first_milestone",
+    default="",
+    help="First milestone for the new project brief.",
+)
+@click.option(
+    "--constraint",
+    "constraints",
+    multiple=True,
+    help="New project constraint. Repeat or comma-separate.",
+)
+@click.option("--notes", default="", help="Optional notes for the new project intake.")
+def init(
+    force: bool,
+    non_interactive: bool,
+    mode: str | None,
+    project_name: str,
+    project_parent: Path,
+    project_git_init: bool,
+    product_goal: str,
+    project_type: str,
+    target_users: str,
+    success_criteria: str,
+    stack_preferences: tuple[str, ...],
+    first_milestone: str,
+    constraints: tuple[str, ...],
+    notes: str,
+):
     """Initialize .trinity/ in the current directory.
 
     Runs an interactive setup wizard that:
@@ -325,13 +418,34 @@ def init(force: bool, non_interactive: bool, mode: str | None):
         console.print("[yellow].trinity/ already exists. Use --force to overwrite.[/yellow]")
         return
 
+    new_project = _build_init_new_project_request(
+        mode,
+        project_name=project_name,
+        project_parent=project_parent,
+        project_git_init=project_git_init,
+        product_goal=product_goal,
+        project_type=project_type,
+        target_users=target_users,
+        success_criteria=success_criteria,
+        stack_preferences=stack_preferences,
+        first_milestone=first_milestone,
+        constraints=constraints,
+        notes=notes,
+    )
+    effective_mode = mode or ("new" if new_project is not None else None)
+
     if non_interactive:
-        _init_default(target, force, mode)
+        _init_default(target, force, effective_mode, new_project)
     else:
-        _init_interactive(target, force, mode)
+        _init_interactive(target, force, effective_mode, new_project)
 
 
-def _init_interactive(target: Path, force: bool, mode: str | None) -> None:
+def _init_interactive(
+    target: Path,
+    force: bool,
+    mode: str | None,
+    new_project: InitNewProjectRequest | None = None,
+) -> None:
     """Run interactive setup wizard for init."""
     from trinity.i18n import get_strings
     from trinity.setup.wizard import SetupWizard
@@ -384,6 +498,9 @@ def _init_interactive(target: Path, force: bool, mode: str | None) -> None:
     # Add to .gitignore
     _update_gitignore()
     intake_paths = _write_init_project_intake(target, project_intake)
+    new_project_intake, new_project_paths, new_project_git = (
+        _write_init_new_project(target, new_project)
+    )
 
     # Show summary
     active_names = [n for n, s in all_agents.items() if s.enabled]
@@ -400,7 +517,16 @@ def _init_interactive(target: Path, force: bool, mode: str | None) -> None:
         summary_lines.append(
             f"  {S.summary_skipped.format(agents=', '.join(inactive_names))}"
         )
-    if intake_paths is not None:
+    if new_project_intake is not None and new_project_paths is not None:
+        summary_lines.extend(
+            [
+                f"  New project workspace: {new_project_intake.target_workspace}",
+                f"  Git init: {new_project_git}",
+                f"  Project intake: {new_project_paths.markdown_path}",
+                _project_intake_next_steps_for_intake(new_project_intake),
+            ]
+        )
+    elif intake_paths is not None:
         summary_lines.append(f"  Project intake: {intake_paths.markdown_path}")
         summary_lines.append(_project_intake_next_steps(project_mode))
     elif project_mode == "new":
@@ -419,7 +545,12 @@ def _init_interactive(target: Path, force: bool, mode: str | None) -> None:
     ))
 
 
-def _init_default(target: Path, force: bool, mode: str | None = None) -> None:
+def _init_default(
+    target: Path,
+    force: bool,
+    mode: str | None = None,
+    new_project: InitNewProjectRequest | None = None,
+) -> None:
     """Non-interactive init with defaults (original behavior)."""
     config = TrinityConfig.default_config(project_dir=Path.cwd())
     state = target
@@ -446,15 +577,26 @@ def _init_default(target: Path, force: bool, mode: str | None = None) -> None:
     # Add to .gitignore
     _update_gitignore()
     intake_paths = _write_init_project_intake(state, project_intake)
+    new_project_intake, new_project_paths, new_project_git = (
+        _write_init_new_project(state, new_project)
+    )
+    new_project_line = (
+        f"  New project workspace: {new_project_intake.target_workspace}\n"
+        f"  Git init: {new_project_git}\n"
+        f"  Project intake: {new_project_paths.markdown_path}\n"
+        f"{_project_intake_next_steps_for_intake(new_project_intake)}\n"
+        if new_project_intake is not None and new_project_paths is not None
+        else ""
+    )
     intake_line = (
         f"  Project intake: {intake_paths.markdown_path}\n"
         f"{_project_intake_next_steps(project_mode)}\n"
-        if intake_paths is not None
+        if intake_paths is not None and not new_project_line
         else ""
     )
     next_steps_line = (
         f"{_project_intake_next_steps(project_mode)}\n"
-        if project_mode == "new" and intake_paths is None
+        if project_mode == "new" and intake_paths is None and not new_project_line
         else ""
     )
 
@@ -463,6 +605,7 @@ def _init_default(target: Path, force: bool, mode: str | None = None) -> None:
         f"  Directory: {state}\n"
         f"  Config:    {state / 'trinity.config'}\n"
         f"  Shared:    {state / 'shared.md'}\n"
+        f"{new_project_line}"
         f"{intake_line}\n"
         f"{next_steps_line}"
         "[dim]Edit .trinity/trinity.config to customize agents and settings.[/dim]",
@@ -481,6 +624,10 @@ def _project_intake_next_steps(mode: str | None = "existing") -> str:
         ]
     )
     return "\n".join(steps)
+
+
+def _project_intake_next_steps_for_intake(intake: ProjectIntake) -> str:
+    return "\n".join(["  Next steps:", *_project_next_step_lines(intake)])
 
 
 def _resolve_init_project_mode(
@@ -503,6 +650,42 @@ def _resolve_init_project_mode(
     )
 
 
+def _build_init_new_project_request(
+    mode: str | None,
+    *,
+    project_name: str,
+    project_parent: Path,
+    project_git_init: bool,
+    product_goal: str,
+    project_type: str,
+    target_users: str,
+    success_criteria: str,
+    stack_preferences: tuple[str, ...],
+    first_milestone: str,
+    constraints: tuple[str, ...],
+    notes: str,
+) -> InitNewProjectRequest | None:
+    name = project_name.strip()
+    if not name:
+        return None
+    if mode == "existing":
+        raise click.ClickException("--project-name requires --mode new.")
+    _resolve_project_workspace_target(project_parent, name)
+    return InitNewProjectRequest(
+        name=name,
+        parent=project_parent,
+        git_init=project_git_init,
+        product_goal=product_goal,
+        project_type=project_type,
+        target_users=target_users,
+        success_criteria=success_criteria,
+        stack_preferences=_split_option_values(stack_preferences),
+        first_milestone=first_milestone,
+        constraints=_split_option_values(constraints),
+        notes=notes,
+    )
+
+
 def _build_init_project_intake(mode: str | None) -> ProjectIntake | None:
     if mode is None:
         return None
@@ -518,6 +701,30 @@ def _write_init_project_intake(
     if intake is None:
         return None
     return write_project_intake(state, intake)
+
+
+def _write_init_new_project(
+    state: Path,
+    request: InitNewProjectRequest | None,
+) -> tuple[ProjectIntake | None, ProjectIntakePaths | None, str]:
+    if request is None:
+        return None, None, ""
+    target_workspace = _create_project_workspace(request.parent, request.name)
+    git_status = _maybe_init_git_repo(target_workspace, git_init=request.git_init)
+    intake = build_project_intake(
+        mode="new",
+        target_workspace=target_workspace,
+        product_goal=request.product_goal,
+        project_type=request.project_type,
+        target_users=request.target_users,
+        success_criteria=request.success_criteria,
+        stack_preferences=request.stack_preferences,
+        first_milestone=request.first_milestone,
+        constraints=request.constraints,
+        notes=request.notes,
+    )
+    paths = write_project_intake(state, intake)
+    return intake, paths, git_status
 
 
 def _create_directory_structure(
@@ -795,6 +1002,17 @@ def _refresh_project_intake(
 
 
 def _create_project_workspace(parent: Path, name: str) -> Path:
+    target = _resolve_project_workspace_target(parent, name)
+    try:
+        target.mkdir()
+    except OSError as exc:
+        raise click.ClickException(
+            f"Could not create project directory: {exc}"
+        ) from exc
+    return target.resolve()
+
+
+def _resolve_project_workspace_target(parent: Path, name: str) -> Path:
     project_name = name.strip()
     if not project_name:
         raise click.ClickException("Project name is required.")
@@ -811,13 +1029,7 @@ def _create_project_workspace(parent: Path, name: str) -> Path:
     target = parent_path / project_name
     if target.exists():
         raise click.ClickException(f"Project directory already exists: {target}")
-    try:
-        target.mkdir()
-    except OSError as exc:
-        raise click.ClickException(
-            f"Could not create project directory: {exc}"
-        ) from exc
-    return target.resolve()
+    return target
 
 
 def _maybe_init_git_repo(target: Path, *, git_init: bool) -> str:

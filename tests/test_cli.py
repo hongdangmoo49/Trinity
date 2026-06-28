@@ -290,6 +290,117 @@ class TestInit:
             assert not Path(".trinity/project-intake.json").exists()
             assert not Path(".trinity/project-intake.md").exists()
 
+    def test_init_mode_new_with_project_name_creates_workspace_and_intake(
+        self,
+        runner,
+        tmp_path,
+    ):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            parent = Path("workspace")
+            parent.mkdir()
+
+            result = runner.invoke(
+                main,
+                [
+                    "init",
+                    "--non-interactive",
+                    "--mode",
+                    "new",
+                    "--project-name",
+                    "snake-game",
+                    "--parent",
+                    str(parent),
+                    "--goal",
+                    "Build a terminal snake game.",
+                    "--project-type",
+                    "terminal game",
+                    "--target-users",
+                    "local CLI users",
+                    "--success-criteria",
+                    "Playable keyboard loop works.",
+                    "--stack",
+                    "python,textual",
+                    "--milestone",
+                    "Playable local prototype.",
+                    "--constraint",
+                    "No network dependency",
+                    "--notes",
+                    "Build a terminal snake game.",
+                ],
+            )
+
+            target = parent / "snake-game"
+            assert result.exit_code == 0
+            assert target.is_dir()
+            assert "New project workspace:" in result.output
+            assert "Git init: skipped" in result.output
+            assert "Project intake:" in result.output
+            assert "trinity project new NAME --parent PATH" not in result.output
+            assert "trinity project status" in result.output
+            assert "trinity" in result.output
+            data = json.loads(
+                Path(".trinity/project-intake.json").read_text(encoding="utf-8")
+            )
+            markdown = Path(".trinity/project-intake.md").read_text(
+                encoding="utf-8"
+            )
+            assert data["mode"] == "new"
+            assert data["target_workspace"] == str(target.resolve())
+            assert data["product_goal"] == "Build a terminal snake game."
+            assert data["project_type"] == "terminal game"
+            assert data["target_users"] == "local CLI users"
+            assert data["success_criteria"] == "Playable keyboard loop works."
+            assert data["stack_preferences"] == ["python", "textual"]
+            assert data["first_milestone"] == "Playable local prototype."
+            assert data["constraints"] == ["No network dependency"]
+            assert data["notes"] == "Build a terminal snake game."
+            assert "Product goal: Build a terminal snake game." in markdown
+
+    def test_init_project_name_implies_new_mode(self, runner, tmp_path):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            result = runner.invoke(
+                main,
+                [
+                    "init",
+                    "--non-interactive",
+                    "--project-name",
+                    "quick-app",
+                    "--goal",
+                    "Build app.",
+                ],
+            )
+
+            target = Path("quick-app")
+            assert result.exit_code == 0
+            assert target.is_dir()
+            assert "trinity project analyze" in result.output
+            assert '--project-type "<type>"' in result.output
+            assert "--target-users" in result.output
+            data = json.loads(
+                Path(".trinity/project-intake.json").read_text(encoding="utf-8")
+            )
+            assert data["mode"] == "new"
+            assert data["target_workspace"] == str(target.resolve())
+
+    def test_init_project_name_rejects_existing_mode(self, runner, tmp_path):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            result = runner.invoke(
+                main,
+                [
+                    "init",
+                    "--non-interactive",
+                    "--mode",
+                    "existing",
+                    "--project-name",
+                    "wrong-mode",
+                ],
+            )
+
+            assert result.exit_code == 1
+            assert "--project-name requires --mode new" in result.output
+            assert not Path(".trinity").exists()
+            assert not Path("wrong-mode").exists()
+
     def test_resolve_init_project_mode_prompt_policy(self):
         assert (
             _resolve_init_project_mode("new", lang="en", interactive=True)

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from textual.app import App
+from textual.css.query import NoMatches
 from textual.widgets import Button, DirectoryTree, Input, Static
 
 from trinity.textual_app.widgets import workspace_picker as workspace_picker_module
@@ -33,6 +34,20 @@ def _run_git(tmp_path: Path, *args: str) -> None:
     )
 
 
+async def _query_static_after_recompose(
+    picker: WorkspacePicker,
+    pilot,
+    selector: str,
+) -> Static:
+    for _ in range(10):
+        await pilot.pause(0.05)
+        try:
+            return picker.query_one(selector, Static)
+        except NoMatches:
+            continue
+    return picker.query_one(selector, Static)
+
+
 def test_build_preflight_accepts_existing_writable_directory(tmp_path) -> None:
     snapshot = WorkflowNexusSnapshot(work_packages=["WP-001 codex: UI"])
 
@@ -42,6 +57,7 @@ def test_build_preflight_accepts_existing_writable_directory(tmp_path) -> None:
     assert preflight.exists is True
     assert preflight.is_dir is True
     assert preflight.package_count == 1
+    assert "Workspace intent: Existing directory workspace" in preflight.render()
 
 
 def test_build_preflight_detects_git_branch(tmp_path) -> None:
@@ -53,6 +69,7 @@ def test_build_preflight_detects_git_branch(tmp_path) -> None:
 
     assert preflight.git_repo is True
     assert preflight.branch == "feature/ui"
+    assert "Workspace intent: Existing Git workspace" in preflight.render()
 
 
 def test_build_preflight_detects_git_worktree_file_branch(tmp_path) -> None:
@@ -113,6 +130,20 @@ def test_build_preflight_marks_missing_child_as_creatable(tmp_path) -> None:
     assert preflight.can_execute is False
     assert preflight.can_create is True
     assert "Creatable: True" in preflight.render()
+    assert "Workspace intent: New workspace folder" in preflight.render()
+    assert "작업 의도: 새 작업 폴더 생성" in preflight.render(lang="ko")
+
+
+def test_build_preflight_reports_invalid_path_intent(tmp_path) -> None:
+    target = tmp_path / "not-a-directory"
+    target.write_text("file\n", encoding="utf-8")
+
+    preflight = build_preflight(target, WorkflowNexusSnapshot())
+
+    assert preflight.exists is True
+    assert preflight.is_dir is False
+    assert preflight.can_execute is False
+    assert "Workspace intent: Invalid path" in preflight.render()
 
 
 def test_build_preflight_respects_creatable_override(tmp_path) -> None:
@@ -313,9 +344,12 @@ async def test_workspace_picker_rebinds_status_key_after_recompose(tmp_path) -> 
         assert "Ready" in str(status.content)
 
         picker.refresh(recompose=True)
-        await pilot.pause()
 
-        status = picker.query_one("#workspace-picker-status", Static)
+        status = await _query_static_after_recompose(
+            picker,
+            pilot,
+            "#workspace-picker-status",
+        )
         assert str(status.content) == ""
 
         picker._set_status("Ready")

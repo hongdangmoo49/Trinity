@@ -36,6 +36,11 @@ WORKSPACE_PICKER_LABELS = {
         "folder_already_exists": "Folder already exists: {path}",
         "folder_name": "Folder name",
         "git_repo": "Git repo",
+        "intent_existing_directory": "Existing directory workspace",
+        "intent_existing_git": "Existing Git workspace",
+        "intent_invalid": "Invalid path",
+        "intent_missing": "Missing path",
+        "intent_new_directory": "New workspace folder",
         "invalid_missing_not_creatable": (
             "Enable Create missing directory or select an existing writable directory."
         ),
@@ -62,6 +67,7 @@ WORKSPACE_PICKER_LABELS = {
         "use_folder": "Use Folder",
         "use_workspace": "Use Workspace",
         "work_packages": "Work packages",
+        "workspace_intent": "Workspace intent",
         "writable": "Writable",
         "cannot_create_under": "Cannot create folders under: {path}",
         "execute_preflight_title": "Execute Preflight",
@@ -85,6 +91,11 @@ WORKSPACE_PICKER_LABELS = {
         "folder_already_exists": "이미 있는 폴더입니다: {path}",
         "folder_name": "폴더 이름",
         "git_repo": "Git 저장소",
+        "intent_existing_directory": "기존 디렉터리 작업 폴더",
+        "intent_existing_git": "기존 Git 작업 폴더",
+        "intent_invalid": "잘못된 경로",
+        "intent_missing": "없는 경로",
+        "intent_new_directory": "새 작업 폴더 생성",
         "invalid_missing_not_creatable": (
             "누락된 디렉터리 생성을 활성화하거나 기존의 쓰기 가능한 디렉터리를 선택하세요."
         ),
@@ -109,6 +120,7 @@ WORKSPACE_PICKER_LABELS = {
         "use_folder": "폴더 사용",
         "use_workspace": "작업 폴더 사용",
         "work_packages": "작업 패키지",
+        "workspace_intent": "작업 의도",
         "writable": "쓰기 가능",
         "cannot_create_under": "다음 위치 아래에는 폴더를 만들 수 없습니다: {path}",
         "execute_preflight_title": "실행 전 확인",
@@ -155,6 +167,7 @@ class WorkspacePreflight:
         return "\n".join(
             [
                 f"{_label(lang, 'path')}: {self.path}",
+                f"{_label(lang, 'workspace_intent')}: {self._workspace_intent_label(lang=lang)}",
                 f"{_label(lang, 'exists')}: {self.exists}",
                 f"{_label(lang, 'directory')}: {self.is_dir}",
                 f"{_label(lang, 'writable')}: {self.writable}",
@@ -177,6 +190,17 @@ class WorkspacePreflight:
         if not raw or raw.lower() == "unknown":
             return _label(lang, "unknown")
         return raw
+
+    def _workspace_intent_label(self, *, lang: str = "en") -> str:
+        if self.exists and not self.is_dir:
+            return _label(lang, "intent_invalid")
+        if self.exists and self.git_repo:
+            return _label(lang, "intent_existing_git")
+        if self.exists:
+            return _label(lang, "intent_existing_directory")
+        if self.creatable:
+            return _label(lang, "intent_new_directory")
+        return _label(lang, "intent_missing")
 
     def _dirty_worktree_label(self, *, lang: str = "en") -> str:
         if not self.git_repo:

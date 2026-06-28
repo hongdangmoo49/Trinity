@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.731`
-- Merged PR range reviewed: #90 through #828
+- Package version inspected: `1.0.733`
+- Merged PR range reviewed: #90 through #830
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #828
-- Latest refresh reviewed: #828
+- Maintenance refresh reviewed: #427 through #830
+- Latest refresh reviewed: #830
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1815,6 +1815,21 @@ and what the next release train should optimize.
 - Added Start/Nexus label coverage and updated the project-intake workspace
   profile contract.
 - Raised the package version from `1.0.730` to `1.0.731` in this patch PR.
+
+### #830: Init New Project Creation Options
+
+- Added `trinity init --project-name NAME` so init can create a new target
+  workspace and write `.trinity/project-intake.*` in one setup flow.
+- Let `--project-name` imply new-project onboarding when `--mode` is omitted,
+  while rejecting the incompatible `--mode existing --project-name` combination
+  before creating `.trinity/` or a target folder.
+- Reused new-project brief options and intake next-step guidance so incomplete
+  briefs still show the completion command after init-created workspaces.
+- Preserved the older `trinity init --mode new` deferred behavior when no
+  project name is provided.
+- Added CLI coverage for deferred mode, init-created new projects, implied new
+  mode, and incompatible mode validation.
+- Raised the package version from `1.0.732` to `1.0.733` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

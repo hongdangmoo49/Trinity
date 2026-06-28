@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.705`
-- Merged PR range reviewed: #90 through #802
+- Package version inspected: `1.0.707`
+- Merged PR range reviewed: #90 through #804
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #802
-- Latest refresh reviewed: #802
+- Maintenance refresh reviewed: #427 through #804
+- Latest refresh reviewed: #804
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1662,6 +1662,18 @@ and what the next release train should optimize.
 - Expanded Start/Nexus label tests for selected-workspace missing-intake
   guidance.
 - Raised the package version from `1.0.704` to `1.0.705` in this patch PR.
+
+### #804: Project Intake Target Mismatch Summary
+
+- Added Start/Nexus project-intake warnings when the saved intake target differs
+  from the currently selected workspace.
+- Kept matching-target summaries unchanged while surfacing stale or wrong-target
+  intake state near the front of the summary.
+- Reused the shared project-intake label helper so Start and Nexus show the same
+  mismatch wording.
+- Expanded Start/Nexus label tests for English and Korean mismatch output and
+  matching-target suppression.
+- Raised the package version from `1.0.706` to `1.0.707` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

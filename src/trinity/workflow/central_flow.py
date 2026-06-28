@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from typing import Any
 from uuid import uuid4
 
+from trinity.project_intake import project_intake_prompt_block
 from trinity.workflow.models import Blueprint, DecisionRecord, OpenQuestion
 
 
@@ -169,13 +170,19 @@ class WorkflowCentralFlow:
 
     def _target_workspace_prompt_block(self) -> str:
         target = self.engine.session.target_workspace
-        if target is None:
+        blocks: list[str] = []
+        if target is not None:
+            blocks.append(
+                "Target Workspace Context:\n"
+                f"- Target workspace: {target}\n"
+                "- Scope project file references and implementation artifacts to this "
+                "workspace.\n"
+                "- The Trinity control repository is orchestration state unless it "
+                "was explicitly selected as the target workspace."
+            )
+        intake_block = project_intake_prompt_block(self.engine.state_dir)
+        if intake_block:
+            blocks.append(intake_block)
+        if not blocks:
             return ""
-        return (
-            "Target Workspace Context:\n"
-            f"- Target workspace: {target}\n"
-            "- Scope project file references and implementation artifacts to this "
-            "workspace.\n"
-            "- The Trinity control repository is orchestration state unless it "
-            "was explicitly selected as the target workspace.\n\n"
-        )
+        return "\n\n".join(blocks) + "\n\n"

@@ -10,6 +10,8 @@ from trinity.project_intake import (
     analyze_git_workspace,
     build_project_intake,
     detect_package_managers,
+    load_project_intake_markdown,
+    project_intake_prompt_block,
     suggest_test_commands,
     write_project_intake,
 )
@@ -110,3 +112,21 @@ def test_write_project_intake_writes_json_and_markdown(tmp_path) -> None:
     assert "# Project Intake" in markdown
     assert "- Mode: new" in markdown
     assert "- Git repo: False" in markdown
+
+
+def test_project_intake_prompt_block_loads_and_truncates_markdown(tmp_path) -> None:
+    state = tmp_path / ".trinity"
+    state.mkdir()
+    (state / "project-intake.md").write_text(
+        "# Project Intake\n\n" + ("x" * 20),
+        encoding="utf-8",
+    )
+
+    assert load_project_intake_markdown(state, max_chars=10).endswith("[truncated]")
+    block = project_intake_prompt_block(state, max_chars=10)
+    assert block.startswith("Project Intake Context:\n# Project")
+    assert "[truncated]" in block
+
+
+def test_project_intake_prompt_block_returns_empty_when_missing(tmp_path) -> None:
+    assert project_intake_prompt_block(tmp_path / ".trinity") == ""

@@ -137,6 +137,25 @@ class TestBuildRoundPrompt:
         assert str(target.resolve()) in prompt
         assert "Design route bot" in prompt
 
+    def test_round_prompt_includes_project_intake_context(self, tmp_path):
+        (tmp_path / "project-intake.md").write_text(
+            "# Project Intake\n\n- Mode: existing\n- Test commands: uv run pytest\n",
+            encoding="utf-8",
+        )
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        agents = {"claude": _make_mock_agent("claude")}
+        protocol = DeliberationProtocol(
+            agents=agents,
+            shared=engine,
+            max_rounds=5,
+        )
+
+        prompt = protocol._build_round_prompt(1, "Design route bot")
+
+        assert "Project Intake Context" in prompt
+        assert "- Mode: existing" in prompt
+        assert "uv run pytest" in prompt
+
     def test_round_2_prompt_includes_previous(self, tmp_path):
         engine = SharedContextEngine(path=tmp_path / "shared.md")
         agents = {"claude": _make_mock_agent("claude")}

@@ -18,6 +18,7 @@ tests/test_provider_model_discovery.py
 tests/test_fake_provider_harness.py
 tests/test_fake_provider_e2e.py
 tests/test_provider_error_gate_flow.py
+tests/test_protocol.py
 tests/test_orchestrator_readiness.py
 tests/test_workflow_engine.py
 tests/test_workflow_execution_flow.py

@@ -16,6 +16,7 @@ from trinity.project_intake import (
     ProjectIntake,
     analyze_git_workspace,
     load_project_intake,
+    missing_new_project_brief_field_keys,
 )
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
@@ -67,6 +68,7 @@ WORKSPACE_PICKER_LABELS = {
             "Choose a path under a writable existing parent before creating it."
         ),
         "loading_folders": "Loading folders from {root}...",
+        "missing_new_project_brief_reason": "incomplete new-project brief",
         "new_folder": "New Folder",
         "new_folder_created": "New folder created: {path}",
         "none": "(none)",
@@ -136,6 +138,7 @@ WORKSPACE_PICKER_LABELS = {
             "생성하기 전에 쓰기 가능한 기존 상위 경로 아래를 선택하세요."
         ),
         "loading_folders": "폴더를 불러오는 중: {root}...",
+        "missing_new_project_brief_reason": "불완전한 새 프로젝트 브리프",
         "new_folder": "새 폴더",
         "new_folder_created": "새 폴더를 만들었습니다: {path}",
         "none": "(없음)",
@@ -839,6 +842,12 @@ def build_preflight(
         create_supported if creatable is None else bool(creatable) and create_supported
     )
     git = analyze_git_workspace(resolved)
+    new_project_candidate = _new_project_candidate(
+        resolved,
+        exists=exists,
+        is_dir=is_dir,
+        git_repo=git.git_repo,
+    )
     return WorkspacePreflight(
         path=resolved,
         exists=exists,
@@ -850,21 +859,19 @@ def build_preflight(
         creatable=create_requested,
         changed_count=git.dirty_count,
         untracked_count=git.untracked_count,
-        new_project_candidate=_new_project_candidate(
-            resolved,
-            exists=exists,
-            is_dir=is_dir,
-            git_repo=git.git_repo,
-        ),
+        new_project_candidate=new_project_candidate,
         intake_safety_warnings=_project_intake_safety_warnings(
             project_intake_state_dir,
             resolved,
+            new_project_candidate=new_project_candidate,
             today=today,
         ),
     )
 
 
 def _intake_safety_reason_label(warning: str, *, lang: str = "en") -> str:
+    if warning == "missing_new_project_brief":
+        return _label(lang, "missing_new_project_brief_reason")
     if warning == "sparse_project_intake":
         return _label(lang, "sparse_intake_reason")
     if warning == "stale_project_intake":
@@ -876,17 +883,26 @@ def _project_intake_safety_warnings(
     state_dir: Path | None,
     target: Path,
     *,
+    new_project_candidate: bool = False,
     today: date | None = None,
 ) -> tuple[str, ...]:
     if state_dir is None:
-        return ()
+        return _new_project_candidate_warnings(new_project_candidate)
     try:
         intake = load_project_intake(state_dir)
     except ValueError:
-        return ()
-    if intake is None or intake.mode != "existing":
-        return ()
+        return _new_project_candidate_warnings(new_project_candidate)
+    if intake is None:
+        return _new_project_candidate_warnings(new_project_candidate)
     if not _same_resolved_path(target, intake.target_workspace):
+        return _new_project_candidate_warnings(new_project_candidate)
+    if intake.mode == "new":
+        return (
+            ("missing_new_project_brief",)
+            if missing_new_project_brief_field_keys(intake)
+            else ()
+        )
+    if intake.mode != "existing":
         return ()
     warnings: list[str] = []
     if _project_intake_analysis_is_sparse_for_preflight(intake):
@@ -897,6 +913,10 @@ def _project_intake_safety_warnings(
     ) is not None:
         warnings.append("stale_project_intake")
     return tuple(warnings)
+
+
+def _new_project_candidate_warnings(new_project_candidate: bool) -> tuple[str, ...]:
+    return ("missing_new_project_brief",) if new_project_candidate else ()
 
 
 def _project_intake_analysis_is_sparse_for_preflight(

@@ -161,7 +161,10 @@ def test_build_preflight_marks_empty_directory_as_new_project_candidate(
 
     assert preflight.new_project_candidate is True
     assert preflight.created is False
+    assert preflight.intake_safety_warnings == ("missing_new_project_brief",)
+    assert preflight.requires_execute_ack is True
     assert "Workspace intent: Empty new project folder" in preflight.render()
+    assert "Project intake safety: incomplete new-project brief" in preflight.render()
     assert "작업 의도: 빈 새 프로젝트 폴더" in preflight.render(lang="ko")
 
 
@@ -275,6 +278,64 @@ def test_build_preflight_does_not_force_creatable_when_creation_unsupported(
     assert preflight.exists is False
     assert preflight.creatable is False
     assert preflight.can_create is False
+
+
+def test_build_preflight_marks_incomplete_new_project_brief(tmp_path) -> None:
+    state = tmp_path / ".trinity"
+    target_workspace = tmp_path / "new-app"
+    target_workspace.mkdir()
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target_workspace,
+            product_goal="Build a new app.",
+            created_at="2026-06-29T00:00:00Z",
+        ),
+    )
+
+    preflight = build_preflight(
+        target_workspace,
+        WorkflowNexusSnapshot(),
+        project_intake_state_dir=state,
+    )
+
+    assert preflight.intake_safety_warnings == ("missing_new_project_brief",)
+    assert preflight.requires_execute_ack is True
+    assert "Project intake safety: incomplete new-project brief" in preflight.render()
+    assert "프로젝트 인테이크 안전: 불완전한 새 프로젝트 브리프" in preflight.render(
+        lang="ko",
+    )
+
+
+def test_build_preflight_accepts_complete_new_project_brief(tmp_path) -> None:
+    state = tmp_path / ".trinity"
+    target_workspace = tmp_path / "new-app"
+    target_workspace.mkdir()
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target_workspace,
+            product_goal="Build a new app.",
+            project_type="CLI",
+            target_users="developers",
+            success_criteria="Users can run the first command.",
+            first_milestone="Create the CLI skeleton.",
+            created_at="2026-06-29T00:00:00Z",
+        ),
+    )
+
+    preflight = build_preflight(
+        target_workspace,
+        WorkflowNexusSnapshot(),
+        project_intake_state_dir=state,
+    )
+
+    assert preflight.new_project_candidate is True
+    assert preflight.intake_safety_warnings == ()
+    assert preflight.requires_execute_ack is False
+    assert "Project intake safety: ok" in preflight.render()
 
 
 def test_build_preflight_marks_sparse_existing_project_intake(tmp_path) -> None:
@@ -701,6 +762,53 @@ async def test_workspace_picker_requires_second_confirm_for_stale_intake(
         status = picker.query_one("#workspace-picker-status", Static)
         assert dismissed == []
         assert "stale project intake" in str(status.content)
+
+        picker.action_confirm()
+        await pilot.pause()
+
+        assert dismissed == [picker.preflight]
+
+
+@pytest.mark.asyncio
+async def test_workspace_picker_requires_second_confirm_for_incomplete_new_brief(
+    tmp_path,
+) -> None:
+    state = tmp_path / ".trinity"
+    control_repo = tmp_path / "Trinity"
+    target_workspace = tmp_path / "new-app"
+    control_repo.mkdir()
+    target_workspace.mkdir()
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target_workspace,
+            product_goal="Build a new app.",
+            created_at="2026-06-29T00:00:00Z",
+        ),
+    )
+
+    picker = WorkspacePicker(
+        candidate=target_workspace,
+        snapshot=WorkflowNexusSnapshot(),
+        cwd=control_repo,
+        tree_root=tmp_path,
+        project_intake_state_dir=state,
+    )
+    dismissed: list[object] = []
+    picker.dismiss = dismissed.append  # type: ignore[method-assign]
+    app = WorkspacePickerHarness()
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.push_screen(picker)
+        await pilot.pause()
+
+        picker.action_confirm()
+        await pilot.pause()
+
+        status = picker.query_one("#workspace-picker-status", Static)
+        assert dismissed == []
+        assert "incomplete new-project brief" in str(status.content)
 
         picker.action_confirm()
         await pilot.pause()

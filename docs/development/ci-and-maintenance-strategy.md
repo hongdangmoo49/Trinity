@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.647`
-- Merged PR range reviewed: #90 through #743
+- Package version inspected: `1.0.649`
+- Merged PR range reviewed: #90 through #745
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #743
-- Latest refresh reviewed: #743
+- Maintenance refresh reviewed: #427 through #745
+- Latest refresh reviewed: #745
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1301,6 +1301,19 @@ and what the next release train should optimize.
 - Stabilized the recompose status-key test with a short polling helper for
   slower Windows Textual recompose timing.
 - Raised the package version from `1.0.645` to `1.0.646` in this patch PR.
+
+### #745: Project Intake Status Command
+
+- Added `trinity project status` so users can inspect the currently recorded
+  project intake before starting work.
+- Guided missing-intake projects toward `trinity project analyze [PATH]` for
+  existing projects or `trinity project new NAME` for new projects.
+- Split saved intake analysis from current target workspace analysis in the CLI
+  output.
+- Added JSON loading support for `.trinity/project-intake.json`.
+- Stabilized the Textual model discovery completion-order test with explicit
+  thread synchronization for Windows CI.
+- Raised the package version from `1.0.647` to `1.0.648` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

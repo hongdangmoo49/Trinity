@@ -11393,6 +11393,60 @@ async def test_nexus_edit_project_brief_button_writes_project_brief(
         assert "type: developer tool" in str(
             nexus.query_one("#nexus-project-intake-summary", Static).content
         )
+        assert nexus.query_one("#nexus-composer", PromptComposer).text == "\n".join(
+            [
+                "Use this project brief and existing codebase to plan the next "
+                "safe work packages.",
+                "",
+                "Goal: Modernize project docs.",
+                "Type: developer tool",
+                "Users: maintainers",
+                "Success: Maintainers can follow the workflow.",
+                "First milestone: Document current workflow.",
+                "Stack: python",
+                "Constraints: Preserve existing CLI behavior",
+            ]
+        )
+
+
+@pytest.mark.asyncio
+async def test_nexus_edit_project_brief_preserves_existing_followup_prompt(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target-app"
+    control_repo.mkdir()
+    target.mkdir()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        controller,
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.get_screen("nexus", NexusScreen)
+        nexus.query_one("#nexus-composer", PromptComposer).set_text(
+            "Keep this follow-up."
+        )
+        await pilot.click("#nexus-edit-project-brief")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectBriefModal)
+        app.screen.query_one("#project-brief-goal", Input).value = (
+            "Modernize project docs."
+        )
+        app.screen.action_save()
+        await pilot.pause()
+
+        assert nexus.query_one("#nexus-composer", PromptComposer).text == (
+            "Keep this follow-up."
+        )
 
 
 def test_nexus_safe_target_prefers_snapshot_target(tmp_path) -> None:

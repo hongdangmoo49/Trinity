@@ -325,6 +325,26 @@ def _project_brief_start_prompt(
     return "\n".join([intro, "", *(f"{label}: {value}" for label, value in populated)])
 
 
+def _project_brief_start_prompt_from_draft(
+    *,
+    mode: str,
+    lang: str,
+    draft: ProjectBriefDraft,
+) -> str:
+    return _project_brief_start_prompt(
+        mode=mode,
+        lang=lang,
+        product_goal=draft.product_goal,
+        project_type=draft.project_type,
+        target_users=draft.target_users,
+        success_criteria=draft.success_criteria,
+        stack_preferences=draft.stack_preferences,
+        first_milestone=draft.first_milestone,
+        constraints=draft.constraints,
+        notes=draft.notes,
+    )
+
+
 def _is_directory(path: Path) -> bool:
     try:
         return path.is_dir()
@@ -3387,6 +3407,7 @@ class TrinityTextualApp(App[None]):
         self._set_workspace_candidate(target, sync_start=True)
         self._refresh_project_intake_summary_labels()
         self._seed_start_prompt_from_project_brief(target, mode=mode, draft=draft)
+        self._seed_nexus_prompt_from_project_brief(target, mode=mode, draft=draft)
 
     def _project_intake_mode_for_target(self, target: Path, *, fallback: str) -> str:
         try:
@@ -3408,17 +3429,10 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         if not self._screens_installed:
             return
-        prompt = _project_brief_start_prompt(
+        prompt = _project_brief_start_prompt_from_draft(
             mode=mode,
             lang=self.config.lang,
-            product_goal=draft.product_goal,
-            project_type=draft.project_type,
-            target_users=draft.target_users,
-            success_criteria=draft.success_criteria,
-            stack_preferences=draft.stack_preferences,
-            first_milestone=draft.first_milestone,
-            constraints=draft.constraints,
-            notes=draft.notes,
+            draft=draft,
         )
         if not prompt:
             return
@@ -3430,6 +3444,35 @@ class TrinityTextualApp(App[None]):
         if absolute_path(self.workspace_candidate) != absolute_path(target):
             return
         composer = start.query_one(PromptComposer)
+        if not composer.text.strip():
+            composer.set_text(prompt)
+
+    def _seed_nexus_prompt_from_project_brief(
+        self,
+        target: Path,
+        *,
+        mode: str,
+        draft: ProjectBriefDraft,
+    ) -> None:
+        if self.current_route != "nexus":
+            return
+        if not self._screens_installed:
+            return
+        prompt = _project_brief_start_prompt_from_draft(
+            mode=mode,
+            lang=self.config.lang,
+            draft=draft,
+        )
+        if not prompt:
+            return
+        if self.workspace_candidate is None:
+            return
+        if absolute_path(self.workspace_candidate) != absolute_path(target):
+            return
+        nexus = self.get_screen("nexus", NexusScreen)
+        if not nexus.is_mounted:
+            return
+        composer = nexus.query_one("#nexus-composer", PromptComposer)
         if not composer.text.strip():
             composer.set_text(prompt)
 

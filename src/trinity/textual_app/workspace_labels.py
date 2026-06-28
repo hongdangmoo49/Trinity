@@ -38,7 +38,9 @@ PROJECT_INTAKE_LABELS = {
         "docs": "docs",
         "entrypoints": "entry",
         "goal": "goal",
+        "project_type": "type",
         "summary": "Project intake: {mode}",
+        "target_users": "users",
         "tests": "tests",
         "tests_none": "(none)",
     },
@@ -56,7 +58,9 @@ PROJECT_INTAKE_LABELS = {
         "docs": "문서",
         "entrypoints": "진입점",
         "goal": "목표",
+        "project_type": "유형",
         "summary": "프로젝트 인테이크: {mode}",
+        "target_users": "사용자",
         "tests": "테스트",
         "tests_none": "(없음)",
     },
@@ -121,6 +125,16 @@ def _format_project_intake_label(intake: ProjectIntake, *, lang: str) -> str:
     if intake.product_goal.strip():
         parts.append(
             f"{labels['goal']}: {_format_project_intake_text(intake.product_goal)}"
+        )
+    if intake.project_type.strip():
+        value = _format_project_intake_text(intake.project_type)
+        parts.append(
+            f"{labels['project_type']}: {value}"
+        )
+    if intake.target_users.strip():
+        value = _format_project_intake_text(intake.target_users)
+        parts.append(
+            f"{labels['target_users']}: {value}"
         )
     for label_key, values in (
         ("dev", intake.dev_commands),

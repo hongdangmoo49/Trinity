@@ -331,6 +331,12 @@ class TestProjectAnalyze:
                     "--no-git",
                     "--goal",
                     "Build a terminal snake game.",
+                    "--project-type",
+                    "terminal game",
+                    "--target-users",
+                    "local CLI users",
+                    "--success-criteria",
+                    "Playable keyboard loop works.",
                     "--stack",
                     "python,textual",
                     "--milestone",
@@ -348,6 +354,9 @@ class TestProjectAnalyze:
             assert "Git init: skipped" in result.output
             assert "Project brief:" in result.output
             assert "Product goal: Build a terminal snake game." in result.output
+            assert "Project type: terminal game" in result.output
+            assert "Target users: local CLI users" in result.output
+            assert "Success criteria: Playable keyboard loop works." in result.output
             assert "Stack preferences: python, textual" in result.output
             assert "First milestone: Playable local prototype." in result.output
             assert "Constraints: No network dependency" in result.output
@@ -362,6 +371,9 @@ class TestProjectAnalyze:
             assert data["target_workspace"] == str(target.resolve())
             assert data["git_repo"] is False
             assert data["product_goal"] == "Build a terminal snake game."
+            assert data["project_type"] == "terminal game"
+            assert data["target_users"] == "local CLI users"
+            assert data["success_criteria"] == "Playable keyboard loop works."
             assert data["stack_preferences"] == ["python", "textual"]
             assert data["first_milestone"] == "Playable local prototype."
             assert data["constraints"] == ["No network dependency"]
@@ -440,6 +452,12 @@ class TestProjectAnalyze:
                     "existing",
                     "--goal",
                     "Modernize customer onboarding.",
+                    "--project-type",
+                    "internal workflow tool",
+                    "--target-users",
+                    "support operators",
+                    "--success-criteria",
+                    "Operators can complete onboarding safely.",
                     "--stack",
                     "python",
                     "--stack",
@@ -457,6 +475,12 @@ class TestProjectAnalyze:
             assert "Project intake written." in result.output
             assert "uv run pytest" in result.output
             assert "Product goal: Modernize customer onboarding." in result.output
+            assert "Project type: internal workflow tool" in result.output
+            assert "Target users: support operators" in result.output
+            assert (
+                "Success criteria: Operators can complete onboarding safely."
+                in result.output
+            )
             assert "Next steps:" in result.output
             assert "trinity project status" in result.output
             data = json.loads(
@@ -471,6 +495,11 @@ class TestProjectAnalyze:
             assert data["package_managers"] == ["uv"]
             assert data["test_commands"] == ["uv run pytest"]
             assert data["product_goal"] == "Modernize customer onboarding."
+            assert data["project_type"] == "internal workflow tool"
+            assert data["target_users"] == "support operators"
+            assert data["success_criteria"] == (
+                "Operators can complete onboarding safely."
+            )
             assert data["stack_preferences"] == ["python", "textual"]
             assert data["first_milestone"] == "Document safe first change."
             assert data["constraints"] == ["Read before write"]
@@ -526,6 +555,12 @@ class TestProjectAnalyze:
                     str(target),
                     "--goal",
                     "Improve customer app.",
+                    "--project-type",
+                    "SaaS dashboard",
+                    "--target-users",
+                    "customer success team",
+                    "--success-criteria",
+                    "First safe patch is merged.",
                     "--stack",
                     "python",
                     "--milestone",
@@ -550,6 +585,9 @@ class TestProjectAnalyze:
             assert "Saved analysis:" in result.output
             assert "Project brief:" in result.output
             assert "Product goal: Improve customer app." in result.output
+            assert "Project type: SaaS dashboard" in result.output
+            assert "Target users: customer success team" in result.output
+            assert "Success criteria: First safe patch is merged." in result.output
             assert "Stack preferences: python" in result.output
             assert "First milestone: First safe patch." in result.output
             assert "Constraints: Keep tests green" in result.output
@@ -581,6 +619,12 @@ class TestProjectAnalyze:
                     str(target),
                     "--goal",
                     "Improve customer app.",
+                    "--project-type",
+                    "SaaS dashboard",
+                    "--target-users",
+                    "customer success team",
+                    "--success-criteria",
+                    "First safe patch is merged.",
                     "--stack",
                     "python,textual",
                     "--milestone",
@@ -599,6 +643,11 @@ class TestProjectAnalyze:
             assert data["project_intake"]["target_name"] == "customer-app"
             assert data["project_intake"]["target_workspace"] == str(target.resolve())
             assert data["project_intake"]["product_goal"] == "Improve customer app."
+            assert data["project_intake"]["project_type"] == "SaaS dashboard"
+            assert data["project_intake"]["target_users"] == "customer success team"
+            assert data["project_intake"]["success_criteria"] == (
+                "First safe patch is merged."
+            )
             assert data["project_intake"]["stack_preferences"] == [
                 "python",
                 "textual",
@@ -630,6 +679,12 @@ class TestProjectAnalyze:
                     str(target),
                     "--goal",
                     "Improve customer app.",
+                    "--project-type",
+                    "SaaS dashboard",
+                    "--target-users",
+                    "customer success team",
+                    "--success-criteria",
+                    "First safe patch is merged.",
                     "--stack",
                     "python",
                     "--milestone",
@@ -656,6 +711,9 @@ class TestProjectAnalyze:
             assert data["package_managers"] == ["uv", "npm"]
             assert data["test_commands"] == ["npm test", "uv run pytest"]
             assert data["product_goal"] == "Improve customer app."
+            assert data["project_type"] == "SaaS dashboard"
+            assert data["target_users"] == "customer success team"
+            assert data["success_criteria"] == "First safe patch is merged."
             assert data["stack_preferences"] == ["python"]
             assert data["first_milestone"] == "First safe patch."
             assert data["constraints"] == ["Keep tests green"]

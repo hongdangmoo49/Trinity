@@ -50,6 +50,9 @@ class ProjectIntake:
     source_roots: tuple[str, ...] = ()
     docs_found: tuple[str, ...] = ()
     product_goal: str = ""
+    project_type: str = ""
+    target_users: str = ""
+    success_criteria: str = ""
     stack_preferences: tuple[str, ...] = ()
     first_milestone: str = ""
     constraints: tuple[str, ...] = ()
@@ -72,6 +75,9 @@ class ProjectIntake:
             "source_roots": list(self.source_roots),
             "docs_found": list(self.docs_found),
             "product_goal": self.product_goal,
+            "project_type": self.project_type,
+            "target_users": self.target_users,
+            "success_criteria": self.success_criteria,
             "stack_preferences": list(self.stack_preferences),
             "first_milestone": self.first_milestone,
             "constraints": list(self.constraints),
@@ -89,6 +95,9 @@ class ProjectIntake:
         stack_preferences = _csv_or_none(self.stack_preferences)
         constraints = _csv_or_none(self.constraints)
         product_goal = self.product_goal.strip() or "(none)"
+        project_type = self.project_type.strip() or "(none)"
+        target_users = self.target_users.strip() or "(none)"
+        success_criteria = self.success_criteria.strip() or "(none)"
         first_milestone = self.first_milestone.strip() or "(none)"
         dirty_count = _value_or_unknown(self.dirty_count)
         untracked_count = _value_or_unknown(self.untracked_count)
@@ -115,6 +124,9 @@ class ProjectIntake:
                 "## Brief",
                 "",
                 f"- Product goal: {product_goal}",
+                f"- Project type: {project_type}",
+                f"- Target users: {target_users}",
+                f"- Success criteria: {success_criteria}",
                 f"- Stack preferences: {stack_preferences}",
                 f"- First milestone: {first_milestone}",
                 f"- Constraints: {constraints}",
@@ -141,6 +153,9 @@ def build_project_intake(
     target_workspace: Path,
     notes: str = "",
     product_goal: str = "",
+    project_type: str = "",
+    target_users: str = "",
+    success_criteria: str = "",
     stack_preferences: tuple[str, ...] | list[str] = (),
     first_milestone: str = "",
     constraints: tuple[str, ...] | list[str] = (),
@@ -170,6 +185,9 @@ def build_project_intake(
         source_roots=detect_source_roots(workspace),
         docs_found=detect_docs(workspace),
         product_goal=product_goal.strip(),
+        project_type=project_type.strip(),
+        target_users=target_users.strip(),
+        success_criteria=success_criteria.strip(),
         stack_preferences=_normalize_string_tuple(stack_preferences),
         first_milestone=first_milestone.strip(),
         constraints=_normalize_string_tuple(constraints),
@@ -230,6 +248,9 @@ def project_intake_from_dict(data: Mapping[str, Any]) -> ProjectIntake:
         source_roots=_string_tuple(data.get("source_roots")),
         docs_found=_string_tuple(data.get("docs_found")),
         product_goal=str(data.get("product_goal", "")),
+        project_type=str(data.get("project_type", "")),
+        target_users=str(data.get("target_users", "")),
+        success_criteria=str(data.get("success_criteria", "")),
         stack_preferences=_string_tuple(data.get("stack_preferences")),
         first_milestone=str(data.get("first_milestone", "")),
         constraints=_string_tuple(data.get("constraints")),
@@ -284,7 +305,10 @@ def project_intake_guidance_block(state_dir: Path) -> str:
         lines = [
             "Project Intake Guidance:",
             "- Treat the target workspace as a fresh project workspace.",
-            "- Confirm the product goal, stack, and first milestone before scaffolding.",
+            (
+                "- Confirm the product goal, project type, target users, stack, "
+                "success criteria, and first milestone before scaffolding."
+            ),
             "- Prefer the recorded dev/build/test commands when planning validation.",
         ]
     else:

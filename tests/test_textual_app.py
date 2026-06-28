@@ -10857,6 +10857,15 @@ async def test_start_edit_project_brief_button_writes_project_brief(
         app.screen.query_one("#project-brief-goal", Input).value = (
             "Build customer onboarding."
         )
+        app.screen.query_one("#project-brief-project-type", Input).value = (
+            "SaaS dashboard"
+        )
+        app.screen.query_one("#project-brief-target-users", Input).value = (
+            "support operators"
+        )
+        app.screen.query_one("#project-brief-success", Input).value = (
+            "Operators can complete onboarding safely."
+        )
         app.screen.query_one("#project-brief-stack", Input).value = "python, textual"
         app.screen.query_one("#project-brief-milestone", Input).value = (
             "First safe patch."
@@ -10876,12 +10885,18 @@ async def test_start_edit_project_brief_button_writes_project_brief(
         assert intake.mode == "existing"
         assert intake.target_workspace == target.resolve()
         assert intake.product_goal == "Build customer onboarding."
+        assert intake.project_type == "SaaS dashboard"
+        assert intake.target_users == "support operators"
+        assert intake.success_criteria == "Operators can complete onboarding safely."
         assert intake.stack_preferences == ("python", "textual")
         assert intake.first_milestone == "First safe patch."
         assert intake.constraints == ("Keep tests green", "no generated scaffold")
         assert intake.notes == "Use existing patterns."
         assert start.query_one(PromptComposer).text == "Build customer onboarding."
         assert "goal: Build customer onboarding." in str(
+            start.query_one("#project-intake-summary", Static).content
+        )
+        assert "type: SaaS dashboard" in str(
             start.query_one("#project-intake-summary", Static).content
         )
 
@@ -10939,6 +10954,9 @@ def test_workbench_project_intake_sync_preserves_existing_brief(tmp_path) -> Non
             mode="new",
             target_workspace=target,
             product_goal="Build customer onboarding.",
+            project_type="SaaS dashboard",
+            target_users="support operators",
+            success_criteria="Operators can complete onboarding safely.",
             stack_preferences=("python", "textual"),
             first_milestone="First safe patch.",
             constraints=("Keep tests green",),
@@ -10958,6 +10976,9 @@ def test_workbench_project_intake_sync_preserves_existing_brief(tmp_path) -> Non
     assert intake is not None
     assert intake.mode == "existing"
     assert intake.product_goal == "Build customer onboarding."
+    assert intake.project_type == "SaaS dashboard"
+    assert intake.target_users == "support operators"
+    assert intake.success_criteria == "Operators can complete onboarding safely."
     assert intake.stack_preferences == ("python", "textual")
     assert intake.first_milestone == "First safe patch."
     assert intake.constraints == ("Keep tests green",)
@@ -10979,6 +11000,9 @@ def test_workbench_project_intake_sync_does_not_carry_brief_to_new_target(
             mode="existing",
             target_workspace=original,
             product_goal="Build customer onboarding.",
+            project_type="SaaS dashboard",
+            target_users="support operators",
+            success_criteria="Operators can complete onboarding safely.",
             stack_preferences=("python",),
             first_milestone="First safe patch.",
             constraints=("Keep tests green",),
@@ -10998,6 +11022,9 @@ def test_workbench_project_intake_sync_does_not_carry_brief_to_new_target(
     assert intake is not None
     assert intake.target_workspace == next_target.resolve()
     assert intake.product_goal == ""
+    assert intake.project_type == ""
+    assert intake.target_users == ""
+    assert intake.success_criteria == ""
     assert intake.stack_preferences == ()
     assert intake.first_milestone == ""
     assert intake.constraints == ()
@@ -11182,6 +11209,15 @@ async def test_nexus_edit_project_brief_button_writes_project_brief(
         app.screen.query_one("#project-brief-goal", Input).value = (
             "Modernize project docs."
         )
+        app.screen.query_one("#project-brief-project-type", Input).value = (
+            "developer tool"
+        )
+        app.screen.query_one("#project-brief-target-users", Input).value = (
+            "maintainers"
+        )
+        app.screen.query_one("#project-brief-success", Input).value = (
+            "Maintainers can follow the workflow."
+        )
         app.screen.query_one("#project-brief-stack", Input).value = "python"
         app.screen.query_one("#project-brief-milestone", Input).value = (
             "Document current workflow."
@@ -11197,12 +11233,18 @@ async def test_nexus_edit_project_brief_button_writes_project_brief(
         assert intake.mode == "existing"
         assert intake.target_workspace == target.resolve()
         assert intake.product_goal == "Modernize project docs."
+        assert intake.project_type == "developer tool"
+        assert intake.target_users == "maintainers"
+        assert intake.success_criteria == "Maintainers can follow the workflow."
         assert intake.stack_preferences == ("python",)
         assert intake.first_milestone == "Document current workflow."
         assert intake.constraints == ("Preserve existing CLI behavior",)
         assert controller.target_workspace is None
         nexus = app.get_screen("nexus", NexusScreen)
         assert "goal: Modernize project docs." in str(
+            nexus.query_one("#nexus-project-intake-summary", Static).content
+        )
+        assert "type: developer tool" in str(
             nexus.query_one("#nexus-project-intake-summary", Static).content
         )
 

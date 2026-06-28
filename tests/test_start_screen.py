@@ -15,6 +15,7 @@ from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.workspace_labels import (
     project_analyze_action_label_key,
+    project_analyze_action_presentation,
     project_analyze_action_variant,
     project_brief_action_variant,
     project_create_action_variant,
@@ -314,9 +315,23 @@ def test_project_analyze_action_label_key_marks_refreshable_intake(
         )
         == "analyze_workspace"
     )
+    presentation = project_analyze_action_presentation(
+        state,
+        target_workspace=target,
+        today=date(2026, 6, 28),
+    )
+    assert presentation.label_key == "analyze_workspace"
+    assert presentation.variant == "default"
 
     (target / "src").mkdir()
 
+    presentation = project_analyze_action_presentation(
+        state,
+        target_workspace=target,
+        today=date(2026, 6, 28),
+    )
+    assert presentation.label_key == "refresh_analysis"
+    assert presentation.variant == "warning"
     assert (
         project_analyze_action_label_key(
             state,
@@ -358,6 +373,13 @@ def test_project_analyze_action_label_key_marks_sparse_and_stale_as_refresh(
         )
         == "refresh_analysis"
     )
+    sparse_presentation = project_analyze_action_presentation(
+        sparse_state,
+        target_workspace=sparse_target,
+        today=date(2026, 6, 28),
+    )
+    assert sparse_presentation.label_key == "refresh_analysis"
+    assert sparse_presentation.variant == "warning"
 
     stale_target = tmp_path / "stale-app"
     stale_target.mkdir()
@@ -384,6 +406,13 @@ def test_project_analyze_action_label_key_marks_sparse_and_stale_as_refresh(
         )
         == "refresh_analysis"
     )
+    stale_presentation = project_analyze_action_presentation(
+        stale_state,
+        target_workspace=stale_target,
+        today=date(2026, 6, 28),
+    )
+    assert stale_presentation.label_key == "refresh_analysis"
+    assert stale_presentation.variant == "warning"
 
 
 def test_project_intake_state_label_warns_when_target_mismatches(

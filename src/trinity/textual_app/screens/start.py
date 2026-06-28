@@ -15,8 +15,8 @@ from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.workspace_labels import (
-    project_analyze_action_label_key,
-    project_analyze_action_variant,
+    ProjectAnalyzeActionPresentation,
+    project_analyze_action_presentation,
     project_brief_action_variant,
     project_create_action_variant,
     project_intake_state_label,
@@ -185,11 +185,12 @@ class StartScreen(Screen[None]):
                     self._project_intake_label(),
                     id="project-intake-summary",
                 )
+                analyze_action = self._project_analyze_action_presentation()
                 with Horizontal(id="project-intake-actions"):
                     yield Button(
-                        self._project_analyze_action_label(),
+                        self._label(analyze_action.label_key),
                         id="analyze-workspace",
-                        variant=self._project_analyze_action_variant(),
+                        variant=analyze_action.variant,
                     )
                     yield Button(
                         self._label("create_project"),
@@ -334,18 +335,12 @@ class StartScreen(Screen[None]):
             target_workspace=self.workspace_candidate,
         )
 
-    def _project_analyze_action_variant(self) -> str:
-        return project_analyze_action_variant(
+    def _project_analyze_action_presentation(
+        self,
+    ) -> ProjectAnalyzeActionPresentation:
+        return project_analyze_action_presentation(
             self.config.effective_state_dir,
             target_workspace=self.workspace_candidate,
-        )
-
-    def _project_analyze_action_label(self) -> str:
-        return self._label(
-            project_analyze_action_label_key(
-                self.config.effective_state_dir,
-                target_workspace=self.workspace_candidate,
-            )
         )
 
     def _project_create_action_variant(self) -> str:
@@ -360,12 +355,10 @@ class StartScreen(Screen[None]):
         self.query_one("#project-intake-summary", Static).update(
             self._project_intake_label()
         )
-        self.query_one("#analyze-workspace", Button).label = (
-            self._project_analyze_action_label()
-        )
-        self.query_one("#analyze-workspace", Button).variant = (
-            self._project_analyze_action_variant()
-        )
+        analyze_action = self._project_analyze_action_presentation()
+        analyze_button = self.query_one("#analyze-workspace", Button)
+        analyze_button.label = self._label(analyze_action.label_key)
+        analyze_button.variant = analyze_action.variant
         self.query_one("#create-project", Button).variant = (
             self._project_create_action_variant()
         )

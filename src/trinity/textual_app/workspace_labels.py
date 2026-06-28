@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
@@ -144,6 +145,14 @@ PROJECT_MODE_LABELS = {
 }
 
 
+@dataclass(frozen=True)
+class ProjectAnalyzeActionPresentation:
+    """Workbench analyze action presentation values."""
+
+    label_key: str
+    variant: str
+
+
 def target_workspace_state_label(
     target: object | None,
     *,
@@ -212,25 +221,11 @@ def project_analyze_action_variant(
     today: date | None = None,
 ) -> str:
     """Return the Workbench Analyze Workspace button variant."""
-    try:
-        intake = load_project_intake(state_dir)
-    except ValueError:
-        return "warning"
-    if intake is None:
-        if _format_project_intake_target(target_workspace):
-            return "warning"
-        return "default"
-    if not _project_intake_targets_match(intake, target_workspace):
-        return "warning"
-    if _project_intake_target_missing(intake):
-        return "warning" if intake.mode != "new" else "default"
-    if _project_intake_analysis_is_sparse(intake):
-        return "warning"
-    if _project_intake_analysis_stale_days(intake, today=today) is not None:
-        return "warning"
-    if _project_intake_analysis_changed_fields(intake, target_workspace, today=today):
-        return "warning"
-    return "default"
+    return project_analyze_action_presentation(
+        state_dir,
+        target_workspace=target_workspace,
+        today=today,
+    ).variant
 
 
 def project_analyze_action_label_key(
@@ -240,25 +235,42 @@ def project_analyze_action_label_key(
     today: date | None = None,
 ) -> str:
     """Return the Workbench analyze action label key for saved intake state."""
+    return project_analyze_action_presentation(
+        state_dir,
+        target_workspace=target_workspace,
+        today=today,
+    ).label_key
+
+
+def project_analyze_action_presentation(
+    state_dir: Path,
+    *,
+    target_workspace: object | None = None,
+    today: date | None = None,
+) -> ProjectAnalyzeActionPresentation:
+    """Return label and variant for the Workbench analyze action."""
     try:
         intake = load_project_intake(state_dir)
     except ValueError:
-        return "analyze_workspace"
+        return ProjectAnalyzeActionPresentation("analyze_workspace", "warning")
     if intake is None:
-        return "analyze_workspace"
-    if intake.mode != "existing":
-        return "analyze_workspace"
+        if _format_project_intake_target(target_workspace):
+            return ProjectAnalyzeActionPresentation("analyze_workspace", "warning")
+        return ProjectAnalyzeActionPresentation("analyze_workspace", "default")
     if not _project_intake_targets_match(intake, target_workspace):
-        return "analyze_workspace"
+        return ProjectAnalyzeActionPresentation("analyze_workspace", "warning")
     if _project_intake_target_missing(intake):
-        return "analyze_workspace"
+        variant = "warning" if intake.mode != "new" else "default"
+        return ProjectAnalyzeActionPresentation("analyze_workspace", variant)
+    if intake.mode != "existing":
+        return ProjectAnalyzeActionPresentation("analyze_workspace", "default")
     if _project_intake_analysis_is_sparse(intake):
-        return "refresh_analysis"
+        return ProjectAnalyzeActionPresentation("refresh_analysis", "warning")
     if _project_intake_analysis_stale_days(intake, today=today) is not None:
-        return "refresh_analysis"
+        return ProjectAnalyzeActionPresentation("refresh_analysis", "warning")
     if _project_intake_analysis_changed_fields(intake, target_workspace, today=today):
-        return "refresh_analysis"
-    return "analyze_workspace"
+        return ProjectAnalyzeActionPresentation("refresh_analysis", "warning")
+    return ProjectAnalyzeActionPresentation("analyze_workspace", "default")
 
 
 def project_create_action_variant(

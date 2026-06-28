@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 from trinity.project_intake import (
@@ -10,6 +11,8 @@ from trinity.project_intake import (
     missing_new_project_brief_field_keys,
 )
 
+
+PROJECT_INTAKE_STALE_AFTER_DAYS = 14
 
 WORKSPACE_STATE_LABELS = {
     "en": {
@@ -46,6 +49,8 @@ PROJECT_INTAKE_LABELS = {
         "brief_missing": "brief: missing {fields}",
         "analysis_missing": "missing",
         "analysis_sparse": "analysis: sparse",
+        "analysis_stale": "analysis: stale {days}d",
+        "analysis_refresh": "refresh: trinity project analyze {target}",
         "dev": "dev",
         "docs": "docs",
         "entrypoints": "entry",
@@ -89,6 +94,8 @@ PROJECT_INTAKE_LABELS = {
         "brief_missing": "브리프: 누락 {fields}",
         "analysis_missing": "누락",
         "analysis_sparse": "분석: 부족",
+        "analysis_stale": "분석: 오래됨 {days}일",
+        "analysis_refresh": "재분석: trinity project analyze {target}",
         "dev": "개발",
         "docs": "문서",
         "entrypoints": "진입점",
@@ -149,6 +156,7 @@ def project_intake_state_label(
     *,
     lang: str = "en",
     target_workspace: object | None = None,
+    today: date | None = None,
 ) -> str:
     """Return a concise label for the saved project intake state."""
     labels = PROJECT_INTAKE_LABELS.get(lang, PROJECT_INTAKE_LABELS["en"])
@@ -165,6 +173,7 @@ def project_intake_state_label(
         intake,
         lang=lang,
         target_workspace=target_workspace,
+        today=today,
     )
 
 
@@ -192,12 +201,14 @@ def format_project_intake_label(
     *,
     lang: str = "en",
     target_workspace: object | None = None,
+    today: date | None = None,
 ) -> str:
     """Return a concise label for a loaded project intake value."""
     return _format_project_intake_label(
         intake,
         lang=lang,
         target_workspace=target_workspace,
+        today=today,
     )
 
 
@@ -206,6 +217,7 @@ def _format_project_intake_label(
     *,
     lang: str,
     target_workspace: object | None = None,
+    today: date | None = None,
 ) -> str:
     labels = PROJECT_INTAKE_LABELS.get(lang, PROJECT_INTAKE_LABELS["en"])
     mode_labels = PROJECT_MODE_LABELS.get(lang, PROJECT_MODE_LABELS["en"])
@@ -223,6 +235,14 @@ def _format_project_intake_label(
     updated = _format_project_intake_timestamp(intake.created_at)
     if updated:
         parts.append(f"{labels['updated']}: {updated}")
+    stale_days = _project_intake_analysis_stale_days(intake, today=today)
+    if stale_days is not None:
+        parts.append(labels["analysis_stale"].format(days=stale_days))
+        parts.append(
+            labels["analysis_refresh"].format(
+                target=_format_project_intake_target(intake.target_workspace)
+            )
+        )
     parts.append(
         _format_project_intake_section(
             labels["tests"],
@@ -323,6 +343,33 @@ def _project_intake_analysis_is_sparse(intake: ProjectIntake) -> bool:
     if intake.mode != "existing":
         return False
     return not (intake.test_commands or intake.source_roots or intake.docs_found)
+
+
+def _project_intake_analysis_stale_days(
+    intake: ProjectIntake,
+    *,
+    today: date | None = None,
+) -> int | None:
+    if intake.mode != "existing":
+        return None
+    created_on = _project_intake_created_date(intake.created_at)
+    if created_on is None:
+        return None
+    current_date = today or date.today()
+    age_days = (current_date - created_on).days
+    if age_days <= PROJECT_INTAKE_STALE_AFTER_DAYS:
+        return None
+    return age_days
+
+
+def _project_intake_created_date(value: str) -> date | None:
+    text = value.strip()
+    if len(text) < 10:
+        return None
+    try:
+        return date.fromisoformat(text[:10])
+    except ValueError:
+        return None
 
 
 def _project_intake_missing_analysis_anchors(

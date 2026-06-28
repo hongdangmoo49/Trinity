@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 import subprocess
 from pathlib import Path
 
@@ -98,14 +99,14 @@ def test_project_intake_state_label_summarizes_saved_intake(tmp_path: Path) -> N
     )
 
     assert (
-        project_intake_state_label(state)
+        project_intake_state_label(state, today=date(2026, 6, 28))
         == (
             "Project intake: existing | updated: 2026-06-28 | "
             "tests: uv run pytest | git: none"
         )
     )
     assert (
-        project_intake_state_label(state, lang="ko")
+        project_intake_state_label(state, lang="ko", today=date(2026, 6, 28))
         == (
             "프로젝트 인테이크: 기존 | 갱신: 2026-06-28 | "
             "테스트: uv run pytest | git: 없음"
@@ -142,7 +143,7 @@ def test_project_intake_state_label_includes_workspace_profile(
         ),
     )
 
-    assert project_intake_state_label(state) == (
+    assert project_intake_state_label(state, today=date(2026, 6, 28)) == (
         "Project intake: existing | updated: 2026-06-28 | tests: (none) | "
         "git: none | "
         "goal: Launch customer onboarding. | type: SaaS dashboard | "
@@ -151,7 +152,7 @@ def test_project_intake_state_label_includes_workspace_profile(
         "| entry: dist/index.js, customer -> bin/customer.js | "
         "docs: README.md, docs"
     )
-    assert project_intake_state_label(state, lang="ko") == (
+    assert project_intake_state_label(state, lang="ko", today=date(2026, 6, 28)) == (
         "프로젝트 인테이크: 기존 | 갱신: 2026-06-28 | 테스트: (없음) | "
         "git: 없음 | "
         "목표: Launch customer onboarding. | 유형: SaaS dashboard | "
@@ -177,13 +178,51 @@ def test_project_intake_state_label_warns_for_sparse_existing_analysis(
         ),
     )
 
-    assert project_intake_state_label(state) == (
+    assert project_intake_state_label(state, today=date(2026, 6, 28)) == (
         "Project intake: existing | updated: 2026-06-28 | tests: (none) | "
         "analysis: sparse | missing: tests, src, docs | git: none"
     )
-    assert project_intake_state_label(state, lang="ko") == (
+    assert project_intake_state_label(state, lang="ko", today=date(2026, 6, 28)) == (
         "프로젝트 인테이크: 기존 | 갱신: 2026-06-28 | 테스트: (없음) | "
         "분석: 부족 | 누락: 테스트, 소스, 문서 | git: 없음"
+    )
+
+
+def test_project_intake_state_label_warns_for_stale_existing_analysis(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "customer-app"
+    target.mkdir()
+    (target / "pyproject.toml").write_text(
+        "[project]\nname='customer-app'\n",
+        encoding="utf-8",
+    )
+    (target / "uv.lock").write_text("", encoding="utf-8")
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-01T00:00:00Z",
+        ),
+    )
+
+    assert project_intake_state_label(state, today=date(2026, 6, 28)) == (
+        "Project intake: existing | updated: 2026-06-01 | "
+        "analysis: stale 27d | "
+        f"refresh: trinity project analyze {target} | "
+        "tests: uv run pytest | git: none"
+    )
+    assert project_intake_state_label(
+        state,
+        lang="ko",
+        today=date(2026, 6, 28),
+    ) == (
+        "프로젝트 인테이크: 기존 | 갱신: 2026-06-01 | "
+        "분석: 오래됨 27일 | "
+        f"재분석: trinity project analyze {target} | "
+        "테스트: uv run pytest | git: 없음"
     )
 
 

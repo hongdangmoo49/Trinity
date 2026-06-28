@@ -163,6 +163,7 @@ from trinity.textual_app.target_workspace import (
     TargetWorkspacePreparation,
     WorkspacePreflightContinuation,
     WorkspacePreflightEffect,
+    absolute_path,
     default_launch_cwd,
     is_control_repo_target,
     prepare_target_workspace,
@@ -3010,9 +3011,30 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         if target is None:
             return
-        intake = build_project_intake(mode=mode, target_workspace=target)
+        intake = build_project_intake(
+            mode=mode,
+            target_workspace=target,
+            **self._preserved_project_intake_user_context(target),
+        )
         write_project_intake(self.config.effective_state_dir, intake)
         self._refresh_project_intake_summary_labels()
+
+    def _preserved_project_intake_user_context(self, target: Path) -> dict[str, object]:
+        try:
+            current = load_project_intake(self.config.effective_state_dir)
+        except ValueError:
+            return {}
+        if current is None:
+            return {}
+        if absolute_path(current.target_workspace) != absolute_path(target):
+            return {}
+        return {
+            "product_goal": current.product_goal,
+            "stack_preferences": current.stack_preferences,
+            "first_milestone": current.first_milestone,
+            "constraints": current.constraints,
+            "notes": current.notes,
+        }
 
     def _refresh_project_intake_summary_labels(self) -> None:
         if not self._screens_installed:

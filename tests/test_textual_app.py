@@ -10816,6 +10816,82 @@ def test_workbench_syncs_created_workspace_as_new_project_intake(tmp_path) -> No
     assert intake.target_workspace == target
 
 
+def test_workbench_project_intake_sync_preserves_existing_brief(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "customer-app"
+    control_repo.mkdir()
+    target.mkdir()
+    write_project_intake(
+        control_repo / ".trinity",
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build customer onboarding.",
+            stack_preferences=("python", "textual"),
+            first_milestone="First safe patch.",
+            constraints=("Keep tests green",),
+            notes="Preserve this note.",
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        FakeWorkflowController(),
+        launch_cwd=control_repo,
+    )
+
+    app._sync_project_intake_for_target(target, mode="existing")
+
+    intake = load_project_intake(app.config.effective_state_dir)
+    assert intake is not None
+    assert intake.mode == "existing"
+    assert intake.product_goal == "Build customer onboarding."
+    assert intake.stack_preferences == ("python", "textual")
+    assert intake.first_milestone == "First safe patch."
+    assert intake.constraints == ("Keep tests green",)
+    assert intake.notes == "Preserve this note."
+
+
+def test_workbench_project_intake_sync_does_not_carry_brief_to_new_target(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    original = tmp_path / "customer-app"
+    next_target = tmp_path / "next-app"
+    control_repo.mkdir()
+    original.mkdir()
+    next_target.mkdir()
+    write_project_intake(
+        control_repo / ".trinity",
+        build_project_intake(
+            mode="existing",
+            target_workspace=original,
+            product_goal="Build customer onboarding.",
+            stack_preferences=("python",),
+            first_milestone="First safe patch.",
+            constraints=("Keep tests green",),
+            notes="Original target note.",
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        FakeWorkflowController(),
+        launch_cwd=control_repo,
+    )
+
+    app._sync_project_intake_for_target(next_target, mode="existing")
+
+    intake = load_project_intake(app.config.effective_state_dir)
+    assert intake is not None
+    assert intake.target_workspace == next_target.resolve()
+    assert intake.product_goal == ""
+    assert intake.stack_preferences == ()
+    assert intake.first_milestone == ""
+    assert intake.constraints == ()
+    assert intake.notes == ""
+
+
 @pytest.mark.asyncio
 async def test_start_selected_workspace_overrides_launch_cwd_on_submit(
     tmp_path,

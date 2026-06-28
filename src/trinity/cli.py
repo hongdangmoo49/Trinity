@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import time
+from datetime import date
 from pathlib import Path
 
 import click
@@ -57,7 +58,13 @@ from trinity.providers.bootstrap import (
 )
 from trinity.setup.detector import CLIDetector
 from trinity.textual_app.runtime import resolve_tui_runtime
-from trinity.textual_app.workspace_labels import format_project_intake_label
+from trinity.textual_app.workspace_labels import (
+    PROJECT_INTAKE_STALE_AFTER_DAYS,
+    format_project_intake_label,
+    project_analyze_action_variant,
+    project_brief_action_variant,
+    project_create_action_variant,
+)
 from trinity.updater import (
     StartupUpdate,
     apply_startup_update,
@@ -746,7 +753,10 @@ def project_status(json_output: bool, refresh: bool) -> None:
         raise click.ClickException(str(exc)) from exc
     if intake is None:
         if json_output:
-            _display_project_status_json(None)
+            _display_project_status_json(
+                None,
+                state_dir=config.effective_state_dir,
+            )
             return
         _display_missing_project_intake_status()
         return
@@ -754,7 +764,12 @@ def project_status(json_output: bool, refresh: bool) -> None:
     if refresh:
         intake, paths = _refresh_project_intake(config, intake)
     if json_output:
-        _display_project_status_json(intake, refreshed=refresh, paths=paths)
+        _display_project_status_json(
+            intake,
+            state_dir=config.effective_state_dir,
+            refreshed=refresh,
+            paths=paths,
+        )
         return
     _display_project_status(intake, refreshed=refresh, paths=paths)
 
@@ -900,12 +915,18 @@ def _display_missing_project_intake_status() -> None:
 def _display_project_status_json(
     intake: ProjectIntake | None,
     *,
+    state_dir: Path | None = None,
     refreshed: bool = False,
     paths: ProjectIntakePaths | None = None,
 ) -> None:
     click.echo(
         json.dumps(
-            _project_status_payload(intake, refreshed=refreshed, paths=paths),
+            _project_status_payload(
+                intake,
+                state_dir=state_dir,
+                refreshed=refreshed,
+                paths=paths,
+            ),
             ensure_ascii=False,
             indent=2,
         )
@@ -915,6 +936,7 @@ def _display_project_status_json(
 def _project_status_payload(
     intake: ProjectIntake | None,
     *,
+    state_dir: Path | None = None,
     refreshed: bool = False,
     paths: ProjectIntakePaths | None = None,
 ) -> dict[str, object]:
@@ -957,6 +979,14 @@ def _project_status_payload(
             "package_managers": list(intake.package_managers),
             "test_commands": list(intake.test_commands),
             "brief_readiness": _project_brief_readiness_payload(intake),
+            "readiness": _project_intake_readiness_payload(
+                intake,
+                target_exists=target_exists,
+            ),
+            "action_variants": _project_intake_action_variants_payload(
+                state_dir,
+                intake,
+            ),
             "product_goal": intake.product_goal,
             "project_type": intake.project_type,
             "target_users": intake.target_users,
@@ -981,6 +1011,116 @@ def _project_status_payload(
         "project_intake_paths": _project_intake_paths_payload(paths),
         "next_steps": _project_next_steps(intake, include_status=False),
     }
+
+
+def _project_intake_readiness_payload(
+    intake: ProjectIntake,
+    *,
+    target_exists: bool,
+) -> dict[str, object]:
+    stale_days = _project_intake_analysis_stale_days_for_status(intake)
+    sparse = _project_intake_analysis_sparse_for_status(intake)
+    target_missing = not target_exists
+    missing_brief_fields = list(missing_new_project_brief_field_keys(intake))
+    recommended_action = _project_intake_recommended_action(
+        intake,
+        target_missing=target_missing,
+        analysis_sparse=sparse,
+        analysis_stale=stale_days is not None,
+        missing_brief_fields=tuple(missing_brief_fields),
+    )
+    return {
+        "ready": recommended_action == "start_trinity",
+        "recommended_action": recommended_action,
+        "target_exists": target_exists,
+        "target_missing": target_missing,
+        "analysis_sparse": sparse,
+        "analysis_missing_anchors": list(
+            _project_intake_missing_analysis_anchors_for_status(intake)
+        ),
+        "analysis_stale": stale_days is not None,
+        "analysis_stale_days": stale_days,
+        "missing_brief_fields": missing_brief_fields,
+    }
+
+
+def _project_intake_action_variants_payload(
+    state_dir: Path | None,
+    intake: ProjectIntake,
+) -> dict[str, str]:
+    if state_dir is None:
+        return {}
+    target_workspace = intake.target_workspace
+    return {
+        "analyze_workspace": project_analyze_action_variant(
+            state_dir,
+            target_workspace=target_workspace,
+        ),
+        "create_project": project_create_action_variant(
+            state_dir,
+            target_workspace=target_workspace,
+        ),
+        "edit_brief": project_brief_action_variant(
+            state_dir,
+            target_workspace=target_workspace,
+        ),
+    }
+
+
+def _project_intake_recommended_action(
+    intake: ProjectIntake,
+    *,
+    target_missing: bool,
+    analysis_sparse: bool,
+    analysis_stale: bool,
+    missing_brief_fields: tuple[str, ...],
+) -> str:
+    if target_missing:
+        return "create_project" if intake.mode == "new" else "analyze_workspace"
+    if intake.mode == "new" and missing_brief_fields:
+        return "edit_brief"
+    if analysis_sparse or analysis_stale:
+        return "analyze_workspace"
+    return "start_trinity"
+
+
+def _project_intake_analysis_sparse_for_status(intake: ProjectIntake) -> bool:
+    if intake.mode != "existing":
+        return False
+    return not (intake.test_commands or intake.source_roots or intake.docs_found)
+
+
+def _project_intake_missing_analysis_anchors_for_status(
+    intake: ProjectIntake,
+) -> tuple[str, ...]:
+    if intake.mode != "existing":
+        return ()
+    missing: list[str] = []
+    if not intake.test_commands:
+        missing.append("tests")
+    if not intake.source_roots:
+        missing.append("source_roots")
+    if not intake.docs_found:
+        missing.append("docs")
+    return tuple(missing)
+
+
+def _project_intake_analysis_stale_days_for_status(
+    intake: ProjectIntake,
+) -> int | None:
+    if intake.mode != "existing":
+        return None
+    text = intake.created_at.strip()
+    if len(text) < 10:
+        return None
+    try:
+        created_on = date.fromisoformat(text[:10])
+    except ValueError:
+        return None
+    age_days = (date.today() - created_on).days
+    if age_days <= PROJECT_INTAKE_STALE_AFTER_DAYS:
+        return None
+    return age_days
 
 
 def _project_intake_paths_payload(

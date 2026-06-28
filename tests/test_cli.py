@@ -651,6 +651,25 @@ class TestProjectAnalyze:
             data = json.loads(json_status.output)
             assert data["next_steps"][0] == completion_command
             assert data["next_steps"][1:] == ["trinity"]
+            assert data["project_intake"]["readiness"] == {
+                "ready": False,
+                "recommended_action": "edit_brief",
+                "target_exists": True,
+                "target_missing": False,
+                "analysis_sparse": False,
+                "analysis_missing_anchors": [],
+                "analysis_stale": False,
+                "analysis_stale_days": None,
+                "missing_brief_fields": [
+                    "project_type",
+                    "target_users",
+                    "success_criteria",
+                    "first_milestone",
+                ],
+            }
+            assert data["project_intake"]["action_variants"]["edit_brief"] == (
+                "warning"
+            )
 
     def test_project_status_summary_warns_when_target_is_missing(
         self,
@@ -680,6 +699,13 @@ class TestProjectAnalyze:
             assert json_status.exit_code == 0
             data = json.loads(json_status.output)
             assert data["next_steps"] == ["trinity project analyze [PATH]"]
+            assert data["project_intake"]["readiness"]["target_missing"] is True
+            assert data["project_intake"]["readiness"]["recommended_action"] == (
+                "analyze_workspace"
+            )
+            assert data["project_intake"]["action_variants"]["analyze_workspace"] == (
+                "warning"
+            )
 
     def test_project_status_guides_recreating_missing_new_project_target(
         self,
@@ -722,6 +748,13 @@ class TestProjectAnalyze:
                 "Project intake: new | target missing:"
             )
             assert data["next_steps"] == [recreate_command]
+            assert data["project_intake"]["readiness"]["target_missing"] is True
+            assert data["project_intake"]["readiness"]["recommended_action"] == (
+                "create_project"
+            )
+            assert data["project_intake"]["action_variants"]["create_project"] == (
+                "warning"
+            )
 
     def test_project_status_json_shows_saved_and_current_analysis(
         self,
@@ -789,6 +822,22 @@ class TestProjectAnalyze:
                 "required": False,
                 "complete": True,
                 "missing_fields": [],
+            }
+            assert data["project_intake"]["readiness"] == {
+                "ready": True,
+                "recommended_action": "start_trinity",
+                "target_exists": True,
+                "target_missing": False,
+                "analysis_sparse": False,
+                "analysis_missing_anchors": ["source_roots", "docs"],
+                "analysis_stale": False,
+                "analysis_stale_days": None,
+                "missing_brief_fields": [],
+            }
+            assert data["project_intake"]["action_variants"] == {
+                "analyze_workspace": "default",
+                "create_project": "default",
+                "edit_brief": "default",
             }
             assert data["current_analysis"]["target_exists"] is True
             assert data["current_analysis"]["package_managers"] == ["uv"]

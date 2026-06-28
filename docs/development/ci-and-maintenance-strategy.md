@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.645`
-- Merged PR range reviewed: #90 through #741
+- Package version inspected: `1.0.647`
+- Merged PR range reviewed: #90 through #743
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #741
-- Latest refresh reviewed: #741
+- Maintenance refresh reviewed: #427 through #743
+- Latest refresh reviewed: #743
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1289,6 +1289,18 @@ and what the next release train should optimize.
 - Expanded CLI tests for creation, Git init, missing Trinity project, and
   invalid target handling.
 - Raised the package version from `1.0.643` to `1.0.644` in this patch PR.
+
+### #743: Workspace Picker Intent Label
+
+- Added a Workspace Picker preflight intent row to distinguish existing Git
+  workspaces, existing directory workspaces, new workspace folders, missing
+  paths, and invalid paths.
+- Added English and Korean labels for the new intent states.
+- Expanded workspace picker tests for existing, new, Git, invalid, and Korean
+  render paths.
+- Stabilized the recompose status-key test with a short polling helper for
+  slower Windows Textual recompose timing.
+- Raised the package version from `1.0.645` to `1.0.646` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

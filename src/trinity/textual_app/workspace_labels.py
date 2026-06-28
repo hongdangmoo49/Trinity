@@ -44,6 +44,7 @@ PROJECT_INTAKE_LABELS = {
         "build": "build",
         "brief_complete": "brief: complete",
         "brief_missing": "brief: missing {fields}",
+        "analysis_missing": "missing",
         "analysis_sparse": "analysis: sparse",
         "dev": "dev",
         "docs": "docs",
@@ -86,6 +87,7 @@ PROJECT_INTAKE_LABELS = {
         "build": "빌드",
         "brief_complete": "브리프: 완료",
         "brief_missing": "브리프: 누락 {fields}",
+        "analysis_missing": "누락",
         "analysis_sparse": "분석: 부족",
         "dev": "개발",
         "docs": "문서",
@@ -232,6 +234,13 @@ def _format_project_intake_label(
         parts.append(_format_new_project_brief_readiness(intake, labels))
     if _project_intake_analysis_is_sparse(intake):
         parts.append(labels["analysis_sparse"])
+        parts.append(
+            _format_project_intake_section(
+                labels["analysis_missing"],
+                _project_intake_missing_analysis_anchors(intake, labels),
+                max_items=3,
+            )
+        )
     git_state = _format_existing_project_git_state(intake, labels)
     if git_state:
         parts.append(git_state)
@@ -316,6 +325,22 @@ def _project_intake_analysis_is_sparse(intake: ProjectIntake) -> bool:
     return not (intake.test_commands or intake.source_roots or intake.docs_found)
 
 
+def _project_intake_missing_analysis_anchors(
+    intake: ProjectIntake,
+    labels: dict[str, str],
+) -> tuple[str, ...]:
+    if intake.mode != "existing":
+        return ()
+    missing: list[str] = []
+    if not intake.test_commands:
+        missing.append(labels["tests"])
+    if not intake.source_roots:
+        missing.append(labels["source_roots"])
+    if not intake.docs_found:
+        missing.append(labels["docs"])
+    return tuple(missing)
+
+
 def _format_optional_count(value: int | None) -> str:
     return str(value) if value is not None else "unknown"
 
@@ -325,8 +350,14 @@ def _format_project_intake_section(
     values: tuple[str, ...],
     *,
     empty_label: str = "",
+    max_items: int = 2,
 ) -> str:
-    return f"{label}: {_format_project_intake_values(values, empty_label=empty_label)}"
+    formatted = _format_project_intake_values(
+        values,
+        empty_label=empty_label,
+        max_items=max_items,
+    )
+    return f"{label}: {formatted}"
 
 
 def _format_project_intake_values(

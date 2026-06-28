@@ -179,11 +179,11 @@ def test_project_intake_state_label_warns_for_sparse_existing_analysis(
 
     assert project_intake_state_label(state) == (
         "Project intake: existing | updated: 2026-06-28 | tests: (none) | "
-        "analysis: sparse | git: none"
+        "analysis: sparse | missing: tests, src, docs | git: none"
     )
     assert project_intake_state_label(state, lang="ko") == (
         "프로젝트 인테이크: 기존 | 갱신: 2026-06-28 | 테스트: (없음) | "
-        "분석: 부족 | git: 없음"
+        "분석: 부족 | 누락: 테스트, 소스, 문서 | git: 없음"
     )
 
 

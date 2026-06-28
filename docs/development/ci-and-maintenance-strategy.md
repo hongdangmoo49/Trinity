@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.713`
-- Merged PR range reviewed: #90 through #810
+- Package version inspected: `1.0.715`
+- Merged PR range reviewed: #90 through #812
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #810
-- Latest refresh reviewed: #810
+- Maintenance refresh reviewed: #427 through #812
+- Latest refresh reviewed: #812
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1710,6 +1710,17 @@ and what the next release train should optimize.
 - Expanded Start/Nexus label tests for English and Korean sparse-analysis
   output.
 - Raised the package version from `1.0.712` to `1.0.713` in this patch PR.
+
+### #812: Sparse Analysis Missing Anchors
+
+- Added missing-anchor details to compact sparse-analysis summaries.
+- Start/Nexus and `trinity project status` now show
+  `missing: tests, src, docs` / `누락: 테스트, 소스, 문서` when existing-project
+  intake has no tests, source roots, or docs.
+- Reused the shared project-intake formatter so Workbench and CLI stay aligned.
+- Expanded Start/Nexus label tests for English and Korean sparse-analysis
+  details.
+- Raised the package version from `1.0.714` to `1.0.715` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

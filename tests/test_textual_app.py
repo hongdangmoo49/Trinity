@@ -3650,6 +3650,45 @@ def test_initial_start_prompt_uses_same_target_project_goal(tmp_path) -> None:
     assert initial_start_prompt(config, None) == ""
 
 
+def test_initial_start_prompt_uses_full_project_brief(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    target_workspace = tmp_path / "customer-app"
+    control_repo.mkdir()
+    target_workspace.mkdir()
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="new",
+            target_workspace=target_workspace,
+            product_goal="Build customer onboarding.",
+            project_type="SaaS dashboard",
+            target_users="support operators",
+            success_criteria="Operators can complete onboarding safely.",
+            stack_preferences=("python", "textual"),
+            first_milestone="First safe patch.",
+            constraints=("Keep tests green",),
+            notes="Use existing patterns.",
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert initial_start_prompt(config, target_workspace) == "\n".join(
+        [
+            "Use this new-project brief to plan the first work packages.",
+            "",
+            "Goal: Build customer onboarding.",
+            "Type: SaaS dashboard",
+            "Users: support operators",
+            "Success: Operators can complete onboarding safely.",
+            "First milestone: First safe patch.",
+            "Stack: python, textual",
+            "Constraints: Keep tests green",
+            "Notes: Use existing patterns.",
+        ]
+    )
+
+
 @pytest.mark.asyncio
 async def test_start_screen_seeds_composer_from_project_goal(tmp_path) -> None:
     controller = FakeWorkflowController()
@@ -10863,6 +10902,42 @@ async def test_start_create_project_button_creates_new_project_intake(
         assert intake is not None
         assert intake.mode == "new"
         assert intake.target_workspace == target
+        app.screen.query_one("#project-brief-goal", Input).value = (
+            "Build a lightweight CRM."
+        )
+        app.screen.query_one("#project-brief-project-type", Input).value = (
+            "SaaS app"
+        )
+        app.screen.query_one("#project-brief-target-users", Input).value = (
+            "sales teams"
+        )
+        app.screen.query_one("#project-brief-success", Input).value = (
+            "Teams can track customer follow-ups."
+        )
+        app.screen.query_one("#project-brief-stack", Input).value = "python, sqlite"
+        app.screen.query_one("#project-brief-milestone", Input).value = (
+            "First usable contact workflow."
+        )
+        app.screen.query_one("#project-brief-constraints", Input).value = (
+            "Keep setup simple, no cloud dependency"
+        )
+        app.screen.action_save()
+        await pilot.pause()
+
+        start = app.get_screen("start", StartScreen)
+        assert start.query_one(PromptComposer).text == "\n".join(
+            [
+                "Use this new-project brief to plan the first work packages.",
+                "",
+                "Goal: Build a lightweight CRM.",
+                "Type: SaaS app",
+                "Users: sales teams",
+                "Success: Teams can track customer follow-ups.",
+                "First milestone: First usable contact workflow.",
+                "Stack: python, sqlite",
+                "Constraints: Keep setup simple; no cloud dependency",
+            ]
+        )
 
 
 @pytest.mark.asyncio
@@ -10922,7 +10997,21 @@ async def test_start_edit_project_brief_button_writes_project_brief(
         assert intake.first_milestone == "First safe patch."
         assert intake.constraints == ("Keep tests green", "no generated scaffold")
         assert intake.notes == "Use existing patterns."
-        assert start.query_one(PromptComposer).text == "Build customer onboarding."
+        assert start.query_one(PromptComposer).text == "\n".join(
+            [
+                "Use this project brief and existing codebase to plan the next "
+                "safe work packages.",
+                "",
+                "Goal: Build customer onboarding.",
+                "Type: SaaS dashboard",
+                "Users: support operators",
+                "Success: Operators can complete onboarding safely.",
+                "First milestone: First safe patch.",
+                "Stack: python, textual",
+                "Constraints: Keep tests green; no generated scaffold",
+                "Notes: Use existing patterns.",
+            ]
+        )
         assert "goal: Build customer onboarding." in str(
             start.query_one("#project-intake-summary", Static).content
         )

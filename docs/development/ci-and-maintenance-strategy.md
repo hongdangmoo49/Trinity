@@ -1512,6 +1512,20 @@ and what the next release train should optimize.
   context injection paths.
 - Raised the package version from `1.0.680` to `1.0.681` in this patch PR.
 
+### #780: Project Brief Intake Fields
+
+- Added user-provided project brief fields to ProjectIntake:
+  `product_goal`, `stack_preferences`, `first_milestone`, and `constraints`.
+- Added `trinity project new` and `trinity project analyze` options for
+  recording the brief: `--goal`, `--stack`, `--milestone`, and `--constraint`.
+- Included the brief in project-intake JSON, Markdown, `project status`, and
+  `project status --json` output.
+- Preserved the saved brief when `trinity project status --refresh` refreshes
+  filesystem-derived analysis.
+- Kept legacy intake JSON compatible by loading missing brief fields as empty
+  values.
+- Raised the package version from `1.0.682` to `1.0.683` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture

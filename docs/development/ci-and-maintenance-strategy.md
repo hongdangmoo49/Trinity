@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.775`
-- Merged PR range reviewed: #90 through #872
+- Package version inspected: `1.0.777`
+- Merged PR range reviewed: #90 through #874
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #872
-- Latest refresh reviewed: #872
+- Maintenance refresh reviewed: #427 through #874
+- Latest refresh reviewed: #874
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2092,6 +2092,16 @@ and what the next release train should optimize.
   preflight gates unchanged.
 - Added a dedicated design document and English/Korean prompt coverage.
 - Raised the package version from `1.0.774` to `1.0.775` in this patch PR.
+
+### #874: Project Brief Target Display
+
+- Displayed the selected target workspace path at the top of the project brief
+  modal.
+- Localized the target label for English and Korean users.
+- Kept brief save behavior, intake persistence, readiness policy, and preflight
+  gates unchanged.
+- Added a dedicated design document and Start/Korean modal coverage.
+- Raised the package version from `1.0.776` to `1.0.777` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

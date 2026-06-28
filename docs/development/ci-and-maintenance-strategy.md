@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.767`
-- Merged PR range reviewed: #90 through #864
+- Package version inspected: `1.0.769`
+- Merged PR range reviewed: #90 through #866
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #864
-- Latest refresh reviewed: #864
+- Maintenance refresh reviewed: #427 through #866
+- Latest refresh reviewed: #866
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2048,6 +2048,18 @@ and what the next release train should optimize.
 - Added a dedicated design document and Textual coverage for Start/Nexus direct
   empty target flows.
 - Raised the package version from `1.0.766` to `1.0.767` in this patch PR.
+
+### #866: New Brief Missing Field Prompt
+
+- Added missing-field guidance to seeded Start/Nexus prompts for incomplete
+  new-project briefs.
+- Listed empty `project_type`, `target_users`, `success_criteria`, and
+  `first_milestone` fields as items to confirm before scaffolding.
+- Kept existing-project prompts and complete new-project brief prompts on their
+  existing behavior.
+- Added a dedicated design document and focused English/Korean Textual prompt
+  coverage.
+- Raised the package version from `1.0.768` to `1.0.769` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.711`
-- Merged PR range reviewed: #90 through #808
+- Package version inspected: `1.0.713`
+- Merged PR range reviewed: #90 through #810
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #808
-- Latest refresh reviewed: #808
+- Maintenance refresh reviewed: #427 through #810
+- Latest refresh reviewed: #810
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1698,6 +1698,18 @@ and what the next release train should optimize.
 - Expanded Start/Nexus button variant tests and shared action-variant helper
   coverage.
 - Raised the package version from `1.0.710` to `1.0.711` in this patch PR.
+
+### #810: Sparse Existing Project Analysis Signal
+
+- Added an `analysis: sparse` / `분석: 부족` compact-summary signal for
+  existing-project intake when tests, source roots, and docs are all missing.
+- Reused the shared summary formatter so Start/Nexus and `project status` show
+  the same sparse-analysis warning.
+- Kept new-project summaries focused on brief readiness rather than structure
+  detection quality.
+- Expanded Start/Nexus label tests for English and Korean sparse-analysis
+  output.
+- Raised the package version from `1.0.712` to `1.0.713` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

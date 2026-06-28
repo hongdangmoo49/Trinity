@@ -1446,6 +1446,16 @@ and what the next release train should optimize.
 - Expanded Textual app tests for the Start create-project end-to-end flow.
 - Raised the package version from `1.0.670` to `1.0.671` in this patch PR.
 
+### #770: Start CTA Layout Density
+
+- Stabilized Start screen CTA button widths for narrower terminal layouts.
+- Added explicit spacing for `Select Workspace`, `Plan first`,
+  `Analyze Workspace`, and `Create Project`.
+- Allowed the workspace candidate label to shrink before it competes with the
+  fixed-width action buttons.
+- Added a Textual app regression test for Start CTA dimensions.
+- Raised the package version from `1.0.672` to `1.0.673` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.693`
-- Merged PR range reviewed: #90 through #790
+- Package version inspected: `1.0.695`
+- Merged PR range reviewed: #90 through #792
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #790
-- Latest refresh reviewed: #790
+- Maintenance refresh reviewed: #427 through #792
+- Latest refresh reviewed: #792
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1590,6 +1590,21 @@ and what the next release train should optimize.
 - Expanded ProjectIntake, CLI, and Start label tests for complete/missing
   readiness states.
 - Raised the package version from `1.0.692` to `1.0.693` in this patch PR.
+
+### #792: Project Intake Prompt Readiness Guidance
+
+- Updated provider prompt guidance to use the same new-project brief readiness
+  contract shown in CLI and Workbench summaries.
+- Incomplete new-project briefs now instruct providers to confirm missing
+  fields before scaffolding and avoid treating framework/UX choices as final.
+- Complete new-project briefs now instruct providers to use recorded goal,
+  type, users, success criteria, stack, milestone, and constraints as planning
+  constraints.
+- Existing-project prompts now treat saved brief fields as user intent while
+  still requiring verification against detected docs and source.
+- Expanded ProjectIntake prompt block tests for incomplete new-project,
+  complete new-project, and existing-project brief guidance.
+- Raised the package version from `1.0.694` to `1.0.695` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

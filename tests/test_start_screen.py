@@ -249,6 +249,42 @@ def test_project_intake_state_label_warns_for_stale_existing_analysis(
     )
 
 
+def test_project_intake_state_label_warns_for_changed_existing_analysis(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "customer-app"
+    target.mkdir()
+    (target / "README.md").write_text("docs\n", encoding="utf-8")
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    (target / "src").mkdir()
+
+    label = project_intake_state_label(
+        state,
+        target_workspace=target,
+        today=date(2026, 6, 28),
+    )
+    assert "analysis: changed src" in label
+    assert f"refresh: trinity project analyze {target}" in label
+
+    ko_label = project_intake_state_label(
+        state,
+        lang="ko",
+        target_workspace=target,
+        today=date(2026, 6, 28),
+    )
+    assert "분석: 변경됨 소스" in ko_label
+    assert f"재분석: trinity project analyze {target}" in ko_label
+
+
 def test_project_intake_state_label_warns_when_target_mismatches(
     tmp_path: Path,
 ) -> None:
@@ -516,6 +552,16 @@ def test_project_action_variants_prioritize_intake_recovery(
             today=date(2026, 6, 28),
         )
         == "default"
+    )
+
+    (target / "src").mkdir()
+    assert (
+        project_analyze_action_variant(
+            state,
+            target_workspace=target,
+            today=date(2026, 6, 28),
+        )
+        == "warning"
     )
 
     other_target = tmp_path / "other-app"

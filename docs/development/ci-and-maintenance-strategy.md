@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.707`
-- Merged PR range reviewed: #90 through #804
+- Package version inspected: `1.0.709`
+- Merged PR range reviewed: #90 through #806
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #804
-- Latest refresh reviewed: #804
+- Maintenance refresh reviewed: #427 through #806
+- Latest refresh reviewed: #806
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1674,6 +1674,18 @@ and what the next release train should optimize.
 - Expanded Start/Nexus label tests for English and Korean mismatch output and
   matching-target suppression.
 - Raised the package version from `1.0.706` to `1.0.707` in this patch PR.
+
+### #806: Project Status Compact Summary
+
+- Added a compact project-intake summary to `trinity project status` before the
+  detailed saved/current analysis sections.
+- Reused the same project-intake label formatter used by Start/Nexus so CLI and
+  Workbench users see the same target, brief, test, and safety signals.
+- Kept JSON status output unchanged while improving the human-readable status
+  panel.
+- Expanded CLI status tests for the new summary line and preserved Start/Nexus
+  label coverage.
+- Raised the package version from `1.0.708` to `1.0.709` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

@@ -435,6 +435,23 @@ class TestProjectAnalyze:
             assert "trinity project new NAME" in result.output
             assert "Then run `trinity` to start planning." in result.output
 
+    def test_project_status_json_guides_when_intake_is_missing(self, runner, tmp_path):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            init_result = runner.invoke(main, ["init", "--non-interactive"])
+            assert init_result.exit_code == 0
+
+            result = runner.invoke(main, ["project", "status", "--json"])
+
+            assert result.exit_code == 0
+            data = json.loads(result.output)
+            assert data["project_intake"] is None
+            assert data["current_analysis"] is None
+            assert data["next_steps"] == [
+                "trinity project analyze [PATH]",
+                "trinity project new NAME",
+                "trinity",
+            ]
+
     def test_project_status_shows_saved_and_current_analysis(self, runner, tmp_path):
         with runner.isolated_filesystem(temp_dir=tmp_path):
             init_result = runner.invoke(main, ["init", "--non-interactive"])
@@ -466,6 +483,37 @@ class TestProjectAnalyze:
             assert "Current analysis:" in result.output
             assert "uv run pytest" in result.output
             assert "Next step: run `trinity`" in result.output
+
+    def test_project_status_json_shows_saved_and_current_analysis(
+        self,
+        runner,
+        tmp_path,
+    ):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            init_result = runner.invoke(main, ["init", "--non-interactive"])
+            assert init_result.exit_code == 0
+
+            target = Path("customer-app")
+            target.mkdir()
+            (target / "pyproject.toml").write_text(
+                "[project]\nname='customer-app'\n",
+                encoding="utf-8",
+            )
+            (target / "uv.lock").write_text("", encoding="utf-8")
+            analyze_result = runner.invoke(main, ["project", "analyze", str(target)])
+            assert analyze_result.exit_code == 0
+
+            result = runner.invoke(main, ["project", "status", "--json"])
+
+            assert result.exit_code == 0
+            data = json.loads(result.output)
+            assert data["project_intake"]["mode"] == "existing"
+            assert data["project_intake"]["target_name"] == "customer-app"
+            assert data["project_intake"]["target_workspace"] == str(target.resolve())
+            assert data["current_analysis"]["target_exists"] is True
+            assert data["current_analysis"]["package_managers"] == ["uv"]
+            assert data["current_analysis"]["test_commands"] == ["uv run pytest"]
+            assert data["next_steps"] == ["trinity"]
 
 
 class TestStatus:

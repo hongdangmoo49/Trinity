@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -507,6 +508,46 @@ def project() -> None:
     """Project onboarding and analysis utilities."""
 
 
+@project.command("new")
+@click.argument("name")
+@click.option(
+    "--parent",
+    type=click.Path(path_type=Path),
+    default=Path("."),
+    show_default=True,
+    help="Parent directory where the new project folder will be created.",
+)
+@click.option(
+    "--git/--no-git",
+    "git_init",
+    default=False,
+    show_default=True,
+    help="Initialize a Git repository in the new project folder.",
+)
+@click.option("--notes", default="", help="Optional notes to store in project intake.")
+def project_new(name: str, parent: Path, git_init: bool, notes: str) -> None:
+    """Create a new target project folder and write project intake artifacts."""
+    config_path = find_config_path()
+    if config_path is None:
+        raise click.ClickException("No Trinity project found. Run `trinity init` first.")
+
+    config = TrinityConfig.load(config_path)
+    target_workspace = _create_project_workspace(parent, name)
+    git_status = _maybe_init_git_repo(target_workspace, git_init=git_init)
+    intake = build_project_intake(
+        mode="new",
+        target_workspace=target_workspace,
+        notes=notes,
+    )
+    paths = write_project_intake(config.effective_state_dir, intake)
+    _display_project_new_summary(
+        intake,
+        paths.json_path,
+        paths.markdown_path,
+        git_status=git_status,
+    )
+
+
 @project.command("analyze")
 @click.argument("path", required=False, type=click.Path(path_type=Path))
 @click.option(
@@ -534,6 +575,75 @@ def project_analyze(path: Path | None, mode: str, notes: str) -> None:
     )
     paths = write_project_intake(config.effective_state_dir, intake)
     _display_project_intake_summary(intake, paths.json_path, paths.markdown_path)
+
+
+def _create_project_workspace(parent: Path, name: str) -> Path:
+    project_name = name.strip()
+    if not project_name:
+        raise click.ClickException("Project name is required.")
+    name_path = Path(project_name)
+    if name_path.is_absolute() or len(name_path.parts) != 1:
+        raise click.ClickException("Project name must be a single folder name.")
+
+    parent_path = parent.expanduser()
+    if not parent_path.exists():
+        raise click.ClickException(f"Parent directory does not exist: {parent_path}")
+    if not parent_path.is_dir():
+        raise click.ClickException(f"Parent path is not a directory: {parent_path}")
+
+    target = parent_path / project_name
+    if target.exists():
+        raise click.ClickException(f"Project directory already exists: {target}")
+    try:
+        target.mkdir()
+    except OSError as exc:
+        raise click.ClickException(
+            f"Could not create project directory: {exc}"
+        ) from exc
+    return target.resolve()
+
+
+def _maybe_init_git_repo(target: Path, *, git_init: bool) -> str:
+    if not git_init:
+        return "skipped"
+    if shutil.which("git") is None:
+        raise click.ClickException("git command not found. Re-run with --no-git.")
+    try:
+        completed = subprocess.run(
+            ["git", "init"],
+            cwd=target,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise click.ClickException(f"git init failed: {exc}") from exc
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout).strip()
+        raise click.ClickException(f"git init failed: {detail or completed.returncode}")
+    return "initialized"
+
+
+def _display_project_new_summary(
+    intake: ProjectIntake,
+    json_path: Path,
+    markdown_path: Path,
+    *,
+    git_status: str,
+) -> None:
+    body = "\n".join(
+        [
+            "[green]New project workspace created.[/green]",
+            "",
+            f"Target workspace: {intake.target_workspace}",
+            f"Git init: {git_status}",
+            "",
+            f"JSON: {json_path}",
+            f"Markdown: {markdown_path}",
+        ]
+    )
+    console.print(Panel.fit(body, title="Trinity Project"))
 
 
 def _display_project_intake_summary(

@@ -285,6 +285,86 @@ class TestInit:
 
 
 class TestProjectAnalyze:
+    def test_project_new_requires_trinity_project(self, runner, tmp_path):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            result = runner.invoke(main, ["project", "new", "app"])
+
+            assert result.exit_code == 1
+            assert "No Trinity project found" in result.output
+            assert not Path("app").exists()
+
+    def test_project_new_creates_workspace_and_intake(self, runner, tmp_path):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            init_result = runner.invoke(main, ["init", "--non-interactive"])
+            assert init_result.exit_code == 0
+            parent = Path("workspace")
+            parent.mkdir()
+
+            result = runner.invoke(
+                main,
+                [
+                    "project",
+                    "new",
+                    "snake-game",
+                    "--parent",
+                    str(parent),
+                    "--no-git",
+                    "--notes",
+                    "Build a terminal snake game.",
+                ],
+            )
+
+            target = parent / "snake-game"
+            assert result.exit_code == 0
+            assert "New project workspace created." in result.output
+            assert "Git init: skipped" in result.output
+            assert target.is_dir()
+            data = json.loads(
+                Path(".trinity/project-intake.json").read_text(encoding="utf-8")
+            )
+            markdown = Path(".trinity/project-intake.md").read_text(encoding="utf-8")
+            assert data["mode"] == "new"
+            assert data["target_workspace"] == str(target.resolve())
+            assert data["git_repo"] is False
+            assert data["notes"] == "Build a terminal snake game."
+            assert "Build a terminal snake game." in markdown
+
+    def test_project_new_can_initialize_git_repository(self, runner, tmp_path):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            init_result = runner.invoke(main, ["init", "--non-interactive"])
+            assert init_result.exit_code == 0
+
+            result = runner.invoke(main, ["project", "new", "git-app", "--git"])
+
+            target = Path("git-app")
+            assert result.exit_code == 0
+            assert "Git init: initialized" in result.output
+            assert (target / ".git").exists()
+            data = json.loads(
+                Path(".trinity/project-intake.json").read_text(encoding="utf-8")
+            )
+            assert data["mode"] == "new"
+            assert data["target_workspace"] == str(target.resolve())
+            assert data["git_repo"] is True
+
+    def test_project_new_rejects_existing_or_nested_project_name(
+        self,
+        runner,
+        tmp_path,
+    ):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            init_result = runner.invoke(main, ["init", "--non-interactive"])
+            assert init_result.exit_code == 0
+            Path("existing").mkdir()
+
+            existing_result = runner.invoke(main, ["project", "new", "existing"])
+            nested_result = runner.invoke(main, ["project", "new", "apps/new"])
+
+            assert existing_result.exit_code == 1
+            assert "Project directory already exists" in existing_result.output
+            assert nested_result.exit_code == 1
+            assert "single folder name" in nested_result.output
+
     def test_project_analyze_requires_trinity_project(self, runner, tmp_path):
         with runner.isolated_filesystem(temp_dir=tmp_path):
             result = runner.invoke(main, ["project", "analyze"])

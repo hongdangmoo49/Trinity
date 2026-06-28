@@ -174,7 +174,7 @@ def test_project_intake_state_label_includes_workspace_profile(
 
     assert project_intake_state_label(state, today=date(2026, 6, 28)) == (
         "Project intake: existing | updated: 2026-06-28 | tests: (none) | "
-        "git: none | "
+        "read first: README.md, docs, src +1 | git: none | "
         "goal: Launch customer onboarding. | type: SaaS dashboard | "
         "users: support operators | dev: npm run dev | build: npm run build "
         "| src: src, tests "
@@ -183,7 +183,7 @@ def test_project_intake_state_label_includes_workspace_profile(
     )
     assert project_intake_state_label(state, lang="ko", today=date(2026, 6, 28)) == (
         "프로젝트 인테이크: 기존 | 갱신: 2026-06-28 | 테스트: (없음) | "
-        "git: 없음 | "
+        "먼저 읽기: README.md, docs, src +1 | git: 없음 | "
         "목표: Launch customer onboarding. | 유형: SaaS dashboard | "
         "사용자: support operators | 개발: npm run dev | 빌드: npm run build "
         "| 소스: src, tests "

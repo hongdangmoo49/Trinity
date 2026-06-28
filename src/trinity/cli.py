@@ -21,7 +21,7 @@ import click
 from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
-from rich.prompt import Confirm
+from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from trinity import __version__
@@ -36,6 +36,7 @@ from trinity.platform import (
 )
 from trinity.project_intake import (
     ProjectIntake,
+    ProjectIntakePaths,
     build_project_intake,
     write_project_intake,
 )
@@ -285,7 +286,13 @@ def _run_plain_interactive_tui(config: TrinityConfig) -> None:
 @main.command()
 @click.option("--force", is_flag=True, help="Overwrite existing .trinity/ directory")
 @click.option("--non-interactive", is_flag=True, help="Skip interactive setup, use defaults")
-def init(force: bool, non_interactive: bool):
+@click.option(
+    "--mode",
+    type=click.Choice(["existing", "new"]),
+    default=None,
+    help="Record a new/existing project intake during init.",
+)
+def init(force: bool, non_interactive: bool, mode: str | None):
     """Initialize .trinity/ in the current directory.
 
     Runs an interactive setup wizard that:
@@ -303,12 +310,12 @@ def init(force: bool, non_interactive: bool):
         return
 
     if non_interactive:
-        _init_default(target, force)
+        _init_default(target, force, mode)
     else:
-        _init_interactive(target, force)
+        _init_interactive(target, force, mode)
 
 
-def _init_interactive(target: Path, force: bool) -> None:
+def _init_interactive(target: Path, force: bool, mode: str | None) -> None:
     """Run interactive setup wizard for init."""
     from trinity.i18n import get_strings
     from trinity.setup.wizard import SetupWizard
@@ -323,6 +330,12 @@ def _init_interactive(target: Path, force: bool) -> None:
         return
 
     S = get_strings(wizard.language)
+    project_mode = _resolve_init_project_mode(
+        mode,
+        lang=wizard.language,
+        interactive=True,
+    )
+    project_intake = _build_init_project_intake(project_mode)
 
     # Build full agent dict including disabled agents for missing CLIs
     all_agents = dict(selected_agents)
@@ -354,6 +367,7 @@ def _init_interactive(target: Path, force: bool) -> None:
 
     # Add to .gitignore
     _update_gitignore()
+    intake_paths = _write_init_project_intake(target, project_intake)
 
     # Show summary
     active_names = [n for n, s in all_agents.items() if s.enabled]
@@ -370,6 +384,8 @@ def _init_interactive(target: Path, force: bool) -> None:
         summary_lines.append(
             f"  {S.summary_skipped.format(agents=', '.join(inactive_names))}"
         )
+    if intake_paths is not None:
+        summary_lines.append(f"  Project intake: {intake_paths.markdown_path}")
 
     summary_lines.append(
         f"\n{S.summary_start_hint}\n"
@@ -384,10 +400,11 @@ def _init_interactive(target: Path, force: bool) -> None:
     ))
 
 
-def _init_default(target: Path, force: bool) -> None:
+def _init_default(target: Path, force: bool, mode: str | None = None) -> None:
     """Non-interactive init with defaults (original behavior)."""
     config = TrinityConfig.default_config(project_dir=Path.cwd())
     state = target
+    project_intake = _build_init_project_intake(mode)
 
     # Create directory structure
     _create_directory_structure(state, list(config.agents.keys()))
@@ -408,15 +425,57 @@ def _init_default(target: Path, force: bool) -> None:
 
     # Add to .gitignore
     _update_gitignore()
+    intake_paths = _write_init_project_intake(state, project_intake)
+    intake_line = (
+        f"  Project intake: {intake_paths.markdown_path}\n"
+        if intake_paths is not None
+        else ""
+    )
 
     console.print(Panel.fit(
         "[green]✓ Trinity initialized![/green]\n\n"
         f"  Directory: {state}\n"
         f"  Config:    {state / 'trinity.config'}\n"
-        f"  Shared:    {state / 'shared.md'}\n\n"
+        f"  Shared:    {state / 'shared.md'}\n"
+        f"{intake_line}\n"
         "[dim]Edit .trinity/trinity.config to customize agents and settings.[/dim]",
         title="Trinity Init",
     ))
+
+
+def _resolve_init_project_mode(
+    mode: str | None,
+    *,
+    lang: str,
+    interactive: bool,
+) -> str | None:
+    """Resolve the optional project intake mode for init."""
+    if mode:
+        return mode
+    if not interactive:
+        return None
+    prompt = "프로젝트 모드" if lang == "ko" else "Project mode"
+    return Prompt.ask(
+        prompt,
+        choices=["existing", "new"],
+        default="existing",
+        console=console,
+    )
+
+
+def _build_init_project_intake(mode: str | None) -> ProjectIntake | None:
+    if mode is None:
+        return None
+    return build_project_intake(mode=mode, target_workspace=Path.cwd())
+
+
+def _write_init_project_intake(
+    state: Path,
+    intake: ProjectIntake | None,
+) -> ProjectIntakePaths | None:
+    if intake is None:
+        return None
+    return write_project_intake(state, intake)
 
 
 def _create_directory_structure(

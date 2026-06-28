@@ -12,6 +12,7 @@ from click.testing import CliRunner
 from trinity.cli import (
     _configure_stdio_encoding_errors,
     _maybe_run_startup_update,
+    _resolve_init_project_mode,
     main,
     load_config,
     find_config_path,
@@ -201,6 +202,7 @@ class TestInit:
             assert Path(".trinity/history").exists()
             assert Path(".trinity/logs").exists()
             assert Path(".trinity/workspace").exists()
+            assert not Path(".trinity/project-intake.json").exists()
 
     def test_init_shared_md_content(self, runner, tmp_path):
         with runner.isolated_filesystem(temp_dir=tmp_path):
@@ -239,6 +241,47 @@ class TestInit:
 
             gitignore = Path(".gitignore").read_text(encoding="utf-8")
             assert gitignore.count(".trinity/") == 1
+
+    def test_init_mode_existing_writes_project_intake(self, runner, tmp_path):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            cwd = Path.cwd()
+            (cwd / "pyproject.toml").write_text(
+                "[project]\nname='customer-app'\n",
+                encoding="utf-8",
+            )
+            (cwd / "uv.lock").write_text("", encoding="utf-8")
+            _run_git(cwd, "init")
+            _run_git(cwd, "add", "pyproject.toml", "uv.lock")
+
+            result = runner.invoke(
+                main,
+                ["init", "--non-interactive", "--mode", "existing"],
+            )
+
+            assert result.exit_code == 0
+            assert "Project intake:" in result.output
+            data = json.loads(
+                Path(".trinity/project-intake.json").read_text(encoding="utf-8")
+            )
+            assert data["mode"] == "existing"
+            assert data["target_workspace"] == str(cwd.resolve())
+            assert data["dirty_count"] == 2
+            assert data["untracked_count"] == 0
+            assert data["package_managers"] == ["uv"]
+            assert data["test_commands"] == ["uv run pytest"]
+
+    def test_resolve_init_project_mode_prompt_policy(self):
+        assert (
+            _resolve_init_project_mode("new", lang="en", interactive=True)
+            == "new"
+        )
+        assert _resolve_init_project_mode(None, lang="en", interactive=False) is None
+        with patch("trinity.cli.Prompt.ask", return_value="existing") as ask:
+            assert (
+                _resolve_init_project_mode(None, lang="ko", interactive=True)
+                == "existing"
+            )
+        ask.assert_called_once()
 
 
 class TestProjectAnalyze:

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.691`
-- Merged PR range reviewed: #90 through #788
+- Package version inspected: `1.0.693`
+- Merged PR range reviewed: #90 through #790
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #788
-- Latest refresh reviewed: #788
+- Maintenance refresh reviewed: #427 through #790
+- Latest refresh reviewed: #790
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1576,6 +1576,20 @@ and what the next release train should optimize.
   labels so users can see the project type and target users before planning.
 - Expanded ProjectIntake, CLI, Start/Nexus label, and Workbench modal tests.
 - Raised the package version from `1.0.690` to `1.0.691` in this patch PR.
+
+### #790: New Project Brief Readiness
+
+- Added new-project brief readiness helpers for the minimum useful startup
+  fields: goal, type, users, success, and milestone.
+- Displayed `Brief readiness` in `trinity project new/analyze/status` output
+  and exposed the same state in `project status --json`.
+- Added Start/Nexus project-intake summary labels that show complete/missing
+  brief state for new projects only.
+- Kept existing projects free of readiness warnings so read-only workspace
+  analysis remains the primary signal for that journey.
+- Expanded ProjectIntake, CLI, and Start label tests for complete/missing
+  readiness states.
+- Raised the package version from `1.0.692` to `1.0.693` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

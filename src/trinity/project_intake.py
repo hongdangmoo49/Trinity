@@ -9,6 +9,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
+try:  # pragma: no cover - Python 3.10 fallback is covered by dependency tests.
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover
+    import tomli as tomllib
+
 
 PROJECT_INTAKE_JSON = "project-intake.json"
 PROJECT_INTAKE_MARKDOWN = "project-intake.md"
@@ -39,6 +44,11 @@ class ProjectIntake:
     untracked_count: int | None
     package_managers: tuple[str, ...] = ()
     test_commands: tuple[str, ...] = ()
+    dev_commands: tuple[str, ...] = ()
+    build_commands: tuple[str, ...] = ()
+    entrypoints: tuple[str, ...] = ()
+    source_roots: tuple[str, ...] = ()
+    docs_found: tuple[str, ...] = ()
     notes: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -52,12 +62,22 @@ class ProjectIntake:
             "untracked_count": self.untracked_count,
             "package_managers": list(self.package_managers),
             "test_commands": list(self.test_commands),
+            "dev_commands": list(self.dev_commands),
+            "build_commands": list(self.build_commands),
+            "entrypoints": list(self.entrypoints),
+            "source_roots": list(self.source_roots),
+            "docs_found": list(self.docs_found),
             "notes": self.notes,
         }
 
     def to_markdown(self) -> str:
         package_managers = _csv_or_none(self.package_managers)
         test_commands = _csv_or_none(self.test_commands)
+        dev_commands = _csv_or_none(self.dev_commands)
+        build_commands = _csv_or_none(self.build_commands)
+        entrypoints = _csv_or_none(self.entrypoints)
+        source_roots = _csv_or_none(self.source_roots)
+        docs_found = _csv_or_none(self.docs_found)
         dirty_count = _value_or_unknown(self.dirty_count)
         untracked_count = _value_or_unknown(self.untracked_count)
         notes = self.notes.strip() or "(none)"
@@ -74,6 +94,11 @@ class ProjectIntake:
                 f"- Untracked count: {untracked_count}",
                 f"- Package managers: {package_managers}",
                 f"- Test commands: {test_commands}",
+                f"- Dev commands: {dev_commands}",
+                f"- Build commands: {build_commands}",
+                f"- Entrypoints: {entrypoints}",
+                f"- Source roots: {source_roots}",
+                f"- Docs found: {docs_found}",
                 "",
                 "## Notes",
                 "",
@@ -104,6 +129,8 @@ def build_project_intake(
     git = analyze_git_workspace(workspace)
     package_managers = detect_package_managers(workspace)
     test_commands = suggest_test_commands(workspace, package_managers)
+    dev_commands = suggest_dev_commands(workspace, package_managers)
+    build_commands = suggest_build_commands(workspace, package_managers)
     return ProjectIntake(
         mode=normalized_mode,
         target_workspace=workspace,
@@ -114,6 +141,11 @@ def build_project_intake(
         untracked_count=git.untracked_count,
         package_managers=package_managers,
         test_commands=test_commands,
+        dev_commands=dev_commands,
+        build_commands=build_commands,
+        entrypoints=detect_entrypoints(workspace, package_managers),
+        source_roots=detect_source_roots(workspace),
+        docs_found=detect_docs(workspace),
         notes=notes,
     )
 
@@ -165,6 +197,11 @@ def project_intake_from_dict(data: Mapping[str, Any]) -> ProjectIntake:
         untracked_count=_optional_int(data.get("untracked_count")),
         package_managers=_string_tuple(data.get("package_managers")),
         test_commands=_string_tuple(data.get("test_commands")),
+        dev_commands=_string_tuple(data.get("dev_commands")),
+        build_commands=_string_tuple(data.get("build_commands")),
+        entrypoints=_string_tuple(data.get("entrypoints")),
+        source_roots=_string_tuple(data.get("source_roots")),
+        docs_found=_string_tuple(data.get("docs_found")),
         notes=str(data.get("notes", "")),
     )
 
@@ -274,20 +311,179 @@ def suggest_test_commands(
     return tuple(commands)
 
 
+def suggest_dev_commands(
+    path: Path,
+    package_managers: tuple[str, ...] | None = None,
+) -> tuple[str, ...]:
+    """Suggest likely local development commands without executing them."""
+    workspace = _safe_resolve(path)
+    managers = package_managers or detect_package_managers(workspace)
+    commands: list[str] = []
+    node_scripts = _node_scripts(workspace)
+    node_runner = _node_runner(managers)
+    for script in ("dev", "start"):
+        if script in node_scripts and node_runner:
+            commands.append(f"{node_runner} {script}")
+    if (workspace / "manage.py").exists():
+        commands.append("python manage.py runserver")
+    elif (workspace / "app.py").exists():
+        commands.append("python app.py")
+    if "cargo" in managers:
+        commands.append("cargo run")
+    if "go" in managers:
+        commands.append("go run ./...")
+    return tuple(dict.fromkeys(commands))
+
+
+def suggest_build_commands(
+    path: Path,
+    package_managers: tuple[str, ...] | None = None,
+) -> tuple[str, ...]:
+    """Suggest likely build/package commands without executing them."""
+    workspace = _safe_resolve(path)
+    managers = package_managers or detect_package_managers(workspace)
+    commands: list[str] = []
+    node_scripts = _node_scripts(workspace)
+    node_runner = _node_runner(managers)
+    if "build" in node_scripts and node_runner:
+        commands.append(f"{node_runner} build")
+    if (workspace / "pyproject.toml").exists() and _pyproject_has_build_backend(
+        workspace
+    ):
+        commands.append("python -m build")
+    if "cargo" in managers:
+        commands.append("cargo build")
+    if "go" in managers:
+        commands.append("go build ./...")
+    if "maven" in managers:
+        commands.append("mvn package")
+    if "gradle" in managers:
+        commands.append("./gradlew build")
+    return tuple(dict.fromkeys(commands))
+
+
+def detect_entrypoints(
+    path: Path,
+    package_managers: tuple[str, ...] | None = None,
+) -> tuple[str, ...]:
+    """Detect likely user-facing entrypoints for the target workspace."""
+    workspace = _safe_resolve(path)
+    managers = package_managers or detect_package_managers(workspace)
+    entries: list[str] = []
+    pyproject = _read_toml(workspace / "pyproject.toml")
+    project = pyproject.get("project", {})
+    if isinstance(project, Mapping):
+        scripts = project.get("scripts", {})
+        if isinstance(scripts, Mapping):
+            for name, target in sorted(scripts.items()):
+                entries.append(f"{name} -> {target}")
+    for filename in ("main.py", "app.py", "cli.py", "manage.py"):
+        if (workspace / filename).exists():
+            entries.append(filename)
+    package_json = _read_package_json(workspace)
+    main = package_json.get("main")
+    if isinstance(main, str) and main.strip():
+        entries.append(main.strip())
+    bin_entries = package_json.get("bin")
+    if isinstance(bin_entries, str) and bin_entries.strip():
+        entries.append(bin_entries.strip())
+    elif isinstance(bin_entries, Mapping):
+        for name, target in sorted(bin_entries.items()):
+            entries.append(f"{name} -> {target}")
+    if "cargo" in managers and (workspace / "src" / "main.rs").exists():
+        entries.append("src/main.rs")
+    if "go" in managers:
+        for candidate in ("main.go", "cmd"):
+            if (workspace / candidate).exists():
+                entries.append(candidate)
+    return tuple(dict.fromkeys(str(entry) for entry in entries if str(entry).strip()))
+
+
+def detect_source_roots(path: Path) -> tuple[str, ...]:
+    """Detect common source and test roots for orientation prompts."""
+    workspace = _safe_resolve(path)
+    roots: list[str] = []
+    for name in (
+        "src",
+        "app",
+        "lib",
+        "packages",
+        "cmd",
+        "internal",
+        "crates",
+        "tests",
+        "test",
+    ):
+        if (workspace / name).is_dir():
+            roots.append(name)
+    return tuple(roots)
+
+
+def detect_docs(path: Path) -> tuple[str, ...]:
+    """Detect documentation files and folders worth reading first."""
+    workspace = _safe_resolve(path)
+    docs: list[str] = []
+    for name in (
+        "README.md",
+        "README.en.md",
+        "README.ko.md",
+        "CONTRIBUTING.md",
+        "CHANGELOG.md",
+        "docs",
+    ):
+        if (workspace / name).exists():
+            docs.append(name)
+    return tuple(docs)
+
+
 def _node_test_command(path: Path, managers: tuple[str, ...]) -> str:
-    package_json = path / "package.json"
-    try:
-        data = json.loads(package_json.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return ""
-    scripts = data.get("scripts", {})
-    if not isinstance(scripts, dict) or "test" not in scripts:
+    scripts = _node_scripts(path)
+    if "test" not in scripts:
         return ""
     if "pnpm" in managers:
         return "pnpm test"
     if "yarn" in managers:
         return "yarn test"
     return "npm test"
+
+
+def _node_runner(managers: tuple[str, ...]) -> str:
+    if "pnpm" in managers:
+        return "pnpm"
+    if "yarn" in managers:
+        return "yarn"
+    if "npm" in managers:
+        return "npm run"
+    return ""
+
+
+def _node_scripts(path: Path) -> Mapping[str, Any]:
+    data = _read_package_json(path)
+    scripts = data.get("scripts", {})
+    return scripts if isinstance(scripts, Mapping) else {}
+
+
+def _read_package_json(path: Path) -> Mapping[str, Any]:
+    package_json = path / "package.json"
+    try:
+        data = json.loads(package_json.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, Mapping) else {}
+
+
+def _pyproject_has_build_backend(path: Path) -> bool:
+    data = _read_toml(path / "pyproject.toml")
+    build_system = data.get("build-system", {})
+    return isinstance(build_system, Mapping) and bool(build_system.get("build-backend"))
+
+
+def _read_toml(path: Path) -> Mapping[str, Any]:
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+    return data if isinstance(data, Mapping) else {}
 
 
 def _git_status_counts(path: Path) -> tuple[int, int] | None:

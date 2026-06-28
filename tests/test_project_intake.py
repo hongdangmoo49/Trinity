@@ -9,10 +9,15 @@ import pytest
 from trinity.project_intake import (
     analyze_git_workspace,
     build_project_intake,
+    detect_docs,
+    detect_entrypoints,
     detect_package_managers,
+    detect_source_roots,
     load_project_intake,
     load_project_intake_markdown,
     project_intake_prompt_block,
+    suggest_build_commands,
+    suggest_dev_commands,
     suggest_test_commands,
     write_project_intake,
 )
@@ -53,12 +58,25 @@ def test_analyze_git_workspace_counts_dirty_and_untracked_entries(tmp_path) -> N
 
 def test_detect_package_managers_and_test_commands(tmp_path) -> None:
     (tmp_path / "package.json").write_text(
-        json.dumps({"scripts": {"test": "vitest run"}}),
+        json.dumps(
+            {
+                "scripts": {
+                    "build": "vite build",
+                    "dev": "vite --host",
+                    "test": "vitest run",
+                },
+                "main": "dist/index.js",
+                "bin": {"demo": "bin/demo.js"},
+            }
+        ),
         encoding="utf-8",
     )
     (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: 9\n", encoding="utf-8")
     (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n", encoding="utf-8")
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
 
     managers = detect_package_managers(tmp_path)
 
@@ -67,6 +85,49 @@ def test_detect_package_managers_and_test_commands(tmp_path) -> None:
         "pnpm test",
         "uv run pytest",
     )
+    assert suggest_dev_commands(tmp_path, managers) == ("pnpm dev",)
+    assert suggest_build_commands(tmp_path, managers) == ("pnpm build",)
+    assert detect_entrypoints(tmp_path, managers) == (
+        "dist/index.js",
+        "demo -> bin/demo.js",
+    )
+    assert detect_source_roots(tmp_path) == ("src",)
+    assert detect_docs(tmp_path) == ("README.md", "docs")
+
+
+def test_python_project_profile_detects_scripts_and_build_backend(tmp_path) -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        "\n".join(
+            [
+                "[build-system]",
+                "requires = ['hatchling']",
+                "build-backend = 'hatchling.build'",
+                "",
+                "[project]",
+                "name = 'demo'",
+                "",
+                "[project.scripts]",
+                "demo = 'demo.cli:main'",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "uv.lock").write_text("", encoding="utf-8")
+    (tmp_path / "manage.py").write_text("print('run')\n", encoding="utf-8")
+    (tmp_path / "tests").mkdir()
+
+    managers = detect_package_managers(tmp_path)
+
+    assert managers == ("uv",)
+    assert detect_entrypoints(tmp_path, managers) == (
+        "demo -> demo.cli:main",
+        "manage.py",
+    )
+    assert suggest_dev_commands(tmp_path, managers) == (
+        "python manage.py runserver",
+    )
+    assert suggest_build_commands(tmp_path, managers) == ("python -m build",)
+    assert detect_source_roots(tmp_path) == ("tests",)
 
 
 def test_build_project_intake_normalizes_metadata(tmp_path) -> None:
@@ -86,6 +147,11 @@ def test_build_project_intake_normalizes_metadata(tmp_path) -> None:
     assert intake.git_repo is True
     assert intake.dirty_count == 0
     assert intake.untracked_count == 1
+    assert intake.dev_commands == ()
+    assert intake.build_commands == ()
+    assert intake.entrypoints == ()
+    assert intake.source_roots == ()
+    assert intake.docs_found == ()
     assert intake.notes == "Review before write."
 
 
@@ -108,11 +174,18 @@ def test_write_project_intake_writes_json_and_markdown(tmp_path) -> None:
     assert data["mode"] == "new"
     assert data["target_workspace"] == str((tmp_path / "new-app").resolve())
     assert data["git_repo"] is False
+    assert data["dev_commands"] == []
+    assert data["build_commands"] == []
+    assert data["entrypoints"] == []
+    assert data["source_roots"] == []
+    assert data["docs_found"] == []
     assert paths.json_path.name == "project-intake.json"
     assert paths.markdown_path.name == "project-intake.md"
     assert "# Project Intake" in markdown
     assert "- Mode: new" in markdown
     assert "- Git repo: False" in markdown
+    assert "- Dev commands: (none)" in markdown
+    assert "- Entrypoints: (none)" in markdown
 
 
 def test_load_project_intake_reads_persisted_json(tmp_path) -> None:
@@ -130,7 +203,42 @@ def test_load_project_intake_reads_persisted_json(tmp_path) -> None:
     assert loaded.mode == "existing"
     assert loaded.target_workspace == tmp_path.resolve()
     assert loaded.created_at == "2026-06-28T00:00:00Z"
+    assert loaded.dev_commands == ()
+    assert loaded.build_commands == ()
+    assert loaded.entrypoints == ()
+    assert loaded.source_roots == ()
+    assert loaded.docs_found == ()
     assert loaded.notes == "Use recorded context."
+
+
+def test_load_project_intake_accepts_legacy_profile_fields_missing(tmp_path) -> None:
+    state = tmp_path / ".trinity"
+    state.mkdir()
+    (state / "project-intake.json").write_text(
+        json.dumps(
+            {
+                "mode": "existing",
+                "target_workspace": str(tmp_path),
+                "created_at": "2026-06-28T00:00:00Z",
+                "git_repo": False,
+                "branch": "(none)",
+                "dirty_count": None,
+                "untracked_count": None,
+                "package_managers": [],
+                "test_commands": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    loaded = load_project_intake(state)
+
+    assert loaded is not None
+    assert loaded.dev_commands == ()
+    assert loaded.build_commands == ()
+    assert loaded.entrypoints == ()
+    assert loaded.source_roots == ()
+    assert loaded.docs_found == ()
 
 
 def test_project_intake_prompt_block_loads_and_truncates_markdown(tmp_path) -> None:

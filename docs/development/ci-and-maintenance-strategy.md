@@ -1499,6 +1499,19 @@ and what the next release train should optimize.
 - Expanded Start screen label tests for profile-aware summaries.
 - Raised the package version from `1.0.678` to `1.0.679` in this patch PR.
 
+### #778: Project Intake Prompt Guidance
+
+- Added mode-specific guidance to `Project Intake Context` when persisted
+  intake JSON and Markdown are both available.
+- Framed existing projects as established workspaces where agents should read
+  docs, entrypoints, and source roots before proposing edits.
+- Framed new projects as fresh workspaces where agents should confirm product
+  goal, stack, and first milestone before scaffolding.
+- Preserved legacy Markdown-only intake prompt behavior without extra guidance.
+- Expanded ProjectIntake tests for existing/new prompt guidance and prompt
+  context injection paths.
+- Raised the package version from `1.0.680` to `1.0.681` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture

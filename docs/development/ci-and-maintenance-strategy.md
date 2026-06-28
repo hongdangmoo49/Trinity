@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.747`
-- Merged PR range reviewed: #90 through #844
+- Package version inspected: `1.0.749`
+- Merged PR range reviewed: #90 through #846
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #844
-- Latest refresh reviewed: #844
+- Maintenance refresh reviewed: #427 through #846
+- Latest refresh reviewed: #846
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1917,6 +1917,20 @@ and what the next release train should optimize.
 - Added CLI coverage for changed source-root anchors and verified `--refresh`
   clears the drift by rewriting saved intake.
 - Raised the package version from `1.0.746` to `1.0.747` in this patch PR.
+
+### #846: Workbench Intake Drift Labels
+
+- Extended Start/Nexus project-intake labels so changed existing-project intake
+  is visible before opening Execute Preflight.
+- Added a changed-analysis label and reused the `trinity project analyze
+  <target>` refresh hint.
+- Highlighted the Workbench "Analyze Existing" action when the saved
+  existing-project profile differs from the live workspace profile.
+- Preserved missing target, target mismatch, sparse analysis, and stale analysis
+  priority over changed-analysis hints.
+- Added Start screen coverage for English/Korean changed labels and Analyze
+  Existing warning variants.
+- Raised the package version from `1.0.748` to `1.0.749` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

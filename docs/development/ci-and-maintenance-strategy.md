@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.659`
-- Merged PR range reviewed: #90 through #755
+- Package version inspected: `1.0.661`
+- Merged PR range reviewed: #90 through #757
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #755
-- Latest refresh reviewed: #755
+- Maintenance refresh reviewed: #427 through #757
+- Latest refresh reviewed: #757
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1368,6 +1368,15 @@ and what the next release train should optimize.
   states.
 - Expanded Start/Nexus render tests for the new summary labels.
 - Raised the package version from `1.0.657` to `1.0.658` in this patch PR.
+
+### #757: Init Project Mode Next Steps
+
+- Added next-step guidance to `trinity init --mode existing/new` summaries when
+  project intake artifacts are written.
+- Guided users to run `trinity project status` and then `trinity` immediately
+  after init-mode onboarding.
+- Expanded init CLI tests for the new guidance.
+- Raised the package version from `1.0.659` to `1.0.660` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

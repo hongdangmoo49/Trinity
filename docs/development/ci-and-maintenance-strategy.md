@@ -1425,6 +1425,17 @@ and what the next release train should optimize.
   created workspace intake sync.
 - Raised the package version from `1.0.666` to `1.0.667` in this patch PR.
 
+### #766: Start Workspace Analysis CTA
+
+- Added a Start screen `Analyze Workspace` / `작업 폴더 분석` button.
+- Made the button write existing-project intake for the current safe target
+  workspace and refresh the visible intake summary.
+- Routed unsafe control-repo candidates to the workspace picker instead of
+  silently doing nothing.
+- Expanded Textual app tests for the direct analysis action and control-repo
+  fallback path.
+- Raised the package version from `1.0.668` to `1.0.669` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture

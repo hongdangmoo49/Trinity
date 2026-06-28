@@ -102,6 +102,11 @@ current Start/Nexus target, the project-intake label shows a target mismatch
 warning. This prevents users from planning against one workspace while the saved
 analysis and brief still describe another.
 
+When the saved intake target no longer exists, Start/Nexus and
+`trinity project status` mark the compact summary as target missing. This
+prevents users from trusting stale intake after moving, deleting, or renaming a
+project folder.
+
 Start and Nexus also expose a Workbench "Edit Brief" action. It writes the same
 project brief and product discovery fields as the CLI flags, refreshes the
 project-intake summary, and keeps the active target workspace unchanged. Saving

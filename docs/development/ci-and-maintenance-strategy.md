@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.743`
-- Merged PR range reviewed: #90 through #840
+- Package version inspected: `1.0.745`
+- Merged PR range reviewed: #90 through #842
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #840
-- Latest refresh reviewed: #840
+- Maintenance refresh reviewed: #427 through #842
+- Latest refresh reviewed: #842
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1892,6 +1892,18 @@ and what the next release train should optimize.
 - Added WorkspacePicker coverage for missing brief warnings, complete brief
   bypass, and execute-mode double-confirm behavior.
 - Raised the package version from `1.0.742` to `1.0.743` in this patch PR.
+
+### #842: Changed Existing-Project Intake Execute Gate
+
+- Added a read-only live profile comparison for matching existing-project intake
+  during Execute Preflight.
+- Marked changed Git state, package manager signals, test/dev/build commands,
+  entrypoints, source roots, or documentation anchors as `changed_project_intake`.
+- Reused the two-step `Confirm Execute` safety gate while keeping Select
+  Workspace mode ungated.
+- Added project-intake and WorkspacePicker coverage for unchanged intake, changed
+  analysis anchors, changed Git state, and execute-mode double-confirm behavior.
+- Raised the package version from `1.0.744` to `1.0.745` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

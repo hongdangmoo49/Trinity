@@ -278,6 +278,13 @@ class StartScreen(Screen[None]):
             lang=self.lang,
         )
 
+    def refresh_project_intake_summary(self) -> None:
+        if not self.is_mounted:
+            return
+        self.query_one("#project-intake-summary", Static).update(
+            self._project_intake_label()
+        )
+
     def _label(self, key: str) -> str:
         labels = START_LABELS.get(self.lang, START_LABELS["en"])
         return labels.get(key, START_LABELS["en"][key])

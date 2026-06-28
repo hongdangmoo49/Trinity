@@ -12,7 +12,11 @@ from textual.binding import Binding
 from trinity import __version__
 from trinity.config import TrinityConfig
 from trinity.context.commands import engine_from_config
-from trinity.project_intake import load_project_intake
+from trinity.project_intake import (
+    build_project_intake,
+    load_project_intake,
+    write_project_intake,
+)
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import parse_execute_retry_args
 from trinity.textual_app.agent_commands import (
@@ -132,6 +136,7 @@ from trinity.textual_app.target_commands import (
     target_prepare_result_presentation,
     target_workspace_apply_effect,
 )
+from trinity.textual_app.target_workspace import safe_start_target_workspace
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.report import ReportScreen
@@ -1387,6 +1392,7 @@ class TrinityTextualApp(App[None]):
 
     def _apply_start_submission_effect(self, effect: StartSubmissionEffect) -> None:
         self._prepare_start_submission_ui(effect)
+        self._sync_project_intake_for_target(effect.target_workspace, mode="existing")
         outcome = self._run_start_submission(effect)
         self._remember_confirmed_target_preflight(
             effect.target_workspace,
@@ -1655,6 +1661,7 @@ class TrinityTextualApp(App[None]):
         if preflight is None:
             return
         self._set_workspace_candidate(preflight.path, sync_start=True)
+        self._sync_project_intake_for_preflight(preflight)
 
     def _on_nexus_workspace_selected(
         self,
@@ -1706,6 +1713,7 @@ class TrinityTextualApp(App[None]):
         control_repo_confirmed: bool,
     ) -> None:
         self._set_workspace_candidate(preflight.path, sync_nexus=False)
+        self._sync_project_intake_for_preflight(preflight)
         self._set_textual_target_workspace(
             preflight.path,
             control_repo_confirmed=control_repo_confirmed,
@@ -1787,6 +1795,7 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         preflight = continuation.preflight
         self.confirmed_preflight = preflight
+        self._sync_project_intake_for_preflight(preflight)
         outcome = self._run_workspace_preflight_continuation(continuation)
         self._apply_workflow_outcome(outcome)
         self._apply_workspace_preflight_effect(
@@ -2267,6 +2276,14 @@ class TrinityTextualApp(App[None]):
         )
 
     def _run_textual_ask_command(self, action: AskCommandAction) -> AskCommandRun:
+        if action.kind == "start":
+            self._sync_project_intake_for_target(
+                safe_start_target_workspace(
+                    self.workspace_candidate,
+                    self.config.project_dir,
+                ),
+                mode="existing",
+            )
         return run_ask_command(
             action,
             nexus=self.get_screen("nexus", NexusScreen),
@@ -2865,6 +2882,7 @@ class TrinityTextualApp(App[None]):
         effect: TargetWorkspaceApplyEffect,
     ) -> None:
         self._remember_confirmed_target_preflight(effect.resolved, effect.snapshot)
+        self._sync_project_intake_for_target(effect.resolved, mode="existing")
         if effect.apply_workflow_outcome:
             self._apply_workflow_outcome(effect.workflow_outcome)
         self._set_workspace_candidate(effect.resolved)
@@ -2876,6 +2894,28 @@ class TrinityTextualApp(App[None]):
         self.get_screen("nexus", NexusScreen).set_workspace_candidate(
             self.workspace_candidate,
         )
+
+    def _sync_project_intake_for_preflight(self, preflight: WorkspacePreflight) -> None:
+        mode = "new" if preflight.created else "existing"
+        self._sync_project_intake_for_target(preflight.path, mode=mode)
+
+    def _sync_project_intake_for_target(
+        self,
+        target: Path | None,
+        *,
+        mode: str,
+    ) -> None:
+        if target is None:
+            return
+        intake = build_project_intake(mode=mode, target_workspace=target)
+        write_project_intake(self.config.effective_state_dir, intake)
+        self._refresh_project_intake_summary_labels()
+
+    def _refresh_project_intake_summary_labels(self) -> None:
+        if not self._screens_installed:
+            return
+        self.get_screen("start", StartScreen).refresh_project_intake_summary()
+        self.get_screen("nexus", NexusScreen).refresh_project_intake_summary()
 
     def _set_workspace_candidate(
         self,

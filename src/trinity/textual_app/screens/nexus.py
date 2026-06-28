@@ -488,6 +488,13 @@ class NexusScreen(Screen[None]):
             lang=self.config.lang,
         )
 
+    def refresh_project_intake_summary(self) -> None:
+        if not self.is_mounted:
+            return
+        self.query_one("#nexus-project-intake-summary", Static).update(
+            self._project_intake_label()
+        )
+
     def _current_workspace_text(self) -> str:
         if self.snapshot and self.snapshot.target_workspace.strip():
             return self.snapshot.target_workspace.strip()

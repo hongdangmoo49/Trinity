@@ -69,6 +69,8 @@ uv run pytest tests/test_fake_provider_harness.py -q
 - `codex debug models`, `agy models` 출력 파싱
 - `OneShotProviderPreflight`와 실제 invoker가 fake CLI를 통해 성공 상태를 반환
 - provider별 호출 인자/stdin/cwd JSONL 기록
+- Orchestrator가 선택된 target workspace를 provider cwd와 Codex `--cd`에
+  전달하는지 검증
 
 이 테스트는 PR smoke와 PyPI publish preflight에도 포함된다. 실제 계정 없이
 Ubuntu, macOS, Windows에서 provider CLI contract가 유지되는지 확인하는 기본

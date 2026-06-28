@@ -12,14 +12,26 @@ from tests.harness.fake_providers import (
     run_fake_cli,
 )
 from trinity.agents.base import AgentWrapper
-from trinity.models import AgentSpec, ContextUsage, DeliberationMessage, Provider, ResponseStatus
+from trinity.config import TrinityConfig
+from trinity.models import (
+    AgentSpec,
+    ContextUsage,
+    DeliberationMessage,
+    Provider,
+    ResponseStatus,
+)
+from trinity.orchestrator import TrinityOrchestrator
 from trinity.providers.invoker import (
     AntigravityPrintInvoker,
     ClaudePrintInvoker,
     CodexExecInvoker,
     PromptRequest,
 )
-from trinity.providers.model_discovery import clear_model_discovery_cache, discover_provider_models
+from trinity.providers.model_discovery import (
+    clear_model_discovery_cache,
+    discover_provider_models,
+)
+from trinity.providers.policy import InvocationAccess
 from trinity.providers.readiness import OneShotProviderPreflight, ProviderState
 
 
@@ -211,3 +223,58 @@ async def test_fake_provider_clis_drive_one_shot_invokers(tmp_path) -> None:
     calls = fake.read_calls()
     assert [call["provider"] for call in calls] == ["claude", "codex", "agy"]
     assert "Implement a test plan." in provider_calls(calls, "codex")[0]["stdin"]
+
+
+@pytest.mark.asyncio
+async def test_fake_provider_invocation_uses_selected_target_workspace_cwd(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    control_repo = tmp_path / "Trinity"
+    target_workspace = tmp_path / "customer-app"
+    control_repo.mkdir()
+    target_workspace.mkdir()
+    fake = install_fake_provider_clis(tmp_path / "fake-providers")
+    monkeypatch.setenv("TRINITY_FAKE_PROVIDER_LOG", str(fake.calls_log))
+    config = TrinityConfig(
+        project_dir=control_repo,
+        state_dir=control_repo / ".trinity",
+        agents={
+            "codex": AgentSpec(
+                name="codex",
+                provider=Provider.CODEX,
+                cli_command=str(fake.codex),
+                model="gpt-5",
+                enabled=True,
+            ),
+        },
+    )
+    orchestrator = TrinityOrchestrator(
+        config,
+        target_workspace=target_workspace,
+        active_agent_names=("codex",),
+    )
+    orchestrator._ensure_initialized()
+    agent = orchestrator.agents["codex"]
+
+    assert orchestrator.get_agent_cwd("codex") == target_workspace.resolve()
+    assert agent.launch_cwd == target_workspace.resolve()
+
+    await agent.start("Selected workspace smoke context.")
+    message = await agent.send_and_wait(
+        "Inspect the selected workspace.",
+        timeout=5.0,
+        access=InvocationAccess.WORKSPACE_WRITE,
+    )
+
+    assert message.metadata["response_status"] == ResponseStatus.OK.value
+    codex_calls = provider_calls(fake.read_calls(), "codex")
+    assert len(codex_calls) == 1
+    call = codex_calls[0]
+    argv = [str(item) for item in call["argv"]]
+    cd_index = argv.index("--cd")
+    assert call["cwd"] == str(target_workspace.resolve())
+    assert call["cwd"] != str(control_repo.resolve())
+    assert argv[cd_index + 1] == str(target_workspace.resolve())
+    assert "Selected workspace smoke context." in str(call["stdin"])
+    assert "Inspect the selected workspace." in str(call["stdin"])

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.745`
-- Merged PR range reviewed: #90 through #842
+- Package version inspected: `1.0.747`
+- Merged PR range reviewed: #90 through #844
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #842
-- Latest refresh reviewed: #842
+- Maintenance refresh reviewed: #427 through #844
+- Latest refresh reviewed: #844
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1904,6 +1904,19 @@ and what the next release train should optimize.
 - Added project-intake and WorkspacePicker coverage for unchanged intake, changed
   analysis anchors, changed Git state, and execute-mode double-confirm behavior.
 - Raised the package version from `1.0.744` to `1.0.745` in this patch PR.
+
+### #844: Project Status Intake Drift
+
+- Extended `trinity project status` so CLI users can see when saved
+  existing-project intake differs from the current workspace profile before
+  opening the Workbench.
+- Added JSON readiness fields `analysis_changed` and
+  `analysis_changed_fields`.
+- Recommended `trinity project status --refresh` before `trinity` when saved
+  existing-project analysis has drifted.
+- Added CLI coverage for changed source-root anchors and verified `--refresh`
+  clears the drift by rewriting saved intake.
+- Raised the package version from `1.0.746` to `1.0.747` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

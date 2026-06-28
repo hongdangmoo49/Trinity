@@ -28,6 +28,7 @@ from trinity.tui.sacred_geometry import SacredGeometryAnimator
 START_LABELS = {
     "en": {
         "analyze_workspace": "Analyze Workspace",
+        "create_project": "Create Project",
         "plan_first": "Plan first",
         "placeholder": "What should Trinity work on?",
         "select_agent_warning": "Select at least one agent.",
@@ -36,6 +37,7 @@ START_LABELS = {
     },
     "ko": {
         "analyze_workspace": "작업 폴더 분석",
+        "create_project": "새 프로젝트",
         "plan_first": "먼저 계획",
         "placeholder": "Trinity가 무엇을 진행하면 될까요?",
         "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
@@ -96,6 +98,9 @@ class StartScreen(Screen[None]):
 
     class ProjectIntakeRequested(Message):
         """Posted when the user wants to analyze the current workspace candidate."""
+
+    class NewProjectRequested(Message):
+        """Posted when the user wants to create a new project workspace."""
 
     BINDINGS = [
         ("ctrl+enter", "submit", "Plan"),
@@ -172,6 +177,11 @@ class StartScreen(Screen[None]):
                         id="analyze-workspace",
                         variant="default",
                     )
+                    yield Button(
+                        self._label("create_project"),
+                        id="create-project",
+                        variant="default",
+                    )
         yield Footer()
 
     def on_mount(self) -> None:
@@ -219,6 +229,9 @@ class StartScreen(Screen[None]):
         elif button_id == "analyze-workspace":
             event.stop()
             self.post_message(self.ProjectIntakeRequested())
+        elif button_id == "create-project":
+            event.stop()
+            self.post_message(self.NewProjectRequested())
 
     def action_submit(self) -> None:
         composer = self._prompt_composer()

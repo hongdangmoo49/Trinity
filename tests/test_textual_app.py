@@ -253,7 +253,11 @@ from trinity.textual_app.widgets.target_workspace_confirm_modal import (
     TargetWorkspaceConfirmModal,
 )
 from trinity.textual_app.widgets.work_package_detail_modal import WorkPackageDetailModal
-from trinity.textual_app.widgets.workspace_picker import WorkspacePicker, build_preflight
+from trinity.textual_app.widgets.workspace_picker import (
+    FolderNamePrompt,
+    WorkspacePicker,
+    build_preflight,
+)
 from trinity.workflow import (
     ArchitectureComponent,
     Blueprint,
@@ -10734,6 +10738,41 @@ async def test_start_analyze_workspace_button_opens_picker_for_control_repo(
         assert isinstance(app.screen, WorkspacePicker)
         assert app.screen.intent == "select"
         assert load_project_intake(app.config.effective_state_dir) is None
+
+
+@pytest.mark.asyncio
+async def test_start_create_project_button_creates_new_project_intake(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "new-app"
+    control_repo.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        FakeWorkflowController(),
+        launch_cwd=control_repo,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#create-project")
+        await pilot.pause()
+        await pilot.pause()
+
+        assert isinstance(app.screen, FolderNamePrompt)
+        app.screen.query_one("#workspace-folder-name", Input).value = "new-app"
+        app.screen.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, WorkspacePicker)
+        assert target.exists()
+        assert app.screen.preflight.created is True
+        app.screen.action_confirm()
+        await pilot.pause()
+
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.mode == "new"
+        assert intake.target_workspace == target
 
 
 def test_workbench_syncs_created_workspace_as_new_project_intake(tmp_path) -> None:

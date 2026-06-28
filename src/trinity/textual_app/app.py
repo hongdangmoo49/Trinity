@@ -416,8 +416,19 @@ class TrinityTextualApp(App[None]):
 
     #workspace-candidate {
         width: 1fr;
+        min-width: 0;
         color: $text-muted;
         content-align: left middle;
+    }
+
+    #choose-workspace {
+        width: 20;
+        margin-left: 1;
+    }
+
+    #plan-first {
+        width: 14;
+        margin-left: 1;
     }
 
     #project-intake-summary {
@@ -434,11 +445,11 @@ class TrinityTextualApp(App[None]):
     }
 
     #analyze-workspace {
-        width: 22;
+        width: 20;
     }
 
     #create-project {
-        width: 18;
+        width: 16;
         margin-left: 1;
     }
 

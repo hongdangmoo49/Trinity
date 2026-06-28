@@ -1410,6 +1410,21 @@ and what the next release train should optimize.
 - Expanded init CLI tests for the deferred new-project intake behavior.
 - Raised the package version from `1.0.664` to `1.0.665` in this patch PR.
 
+### #764: Workbench Workspace Intake Sync
+
+- Synced project intake artifacts when the Workbench starts planning from the
+  default target workspace.
+- Synced project intake artifacts after Start/Nexus workspace picker selection,
+  execution preflight confirmation, `/ask` start commands, and `/target`
+  application.
+- Preserved `WorkspacePreflight.created` for newly created folders so
+  Workbench-created projects are recorded with `mode=new`.
+- Refreshed Start/Nexus project intake summary labels after successful intake
+  writes.
+- Expanded Textual app and workspace picker tests for existing and newly
+  created workspace intake sync.
+- Raised the package version from `1.0.666` to `1.0.667` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture

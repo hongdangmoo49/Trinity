@@ -14,7 +14,10 @@ from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import ProviderSnapshot, WorkflowNexusSnapshot
-from trinity.textual_app.workspace_labels import target_workspace_state_label
+from trinity.textual_app.workspace_labels import (
+    project_intake_state_label,
+    target_workspace_state_label,
+)
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
     AgentRecipientModelSelector,
 )
@@ -183,6 +186,10 @@ class NexusScreen(Screen[None]):
                     id="request-execute",
                     variant="primary",
                 )
+            yield Static(
+                self._project_intake_label(),
+                id="nexus-project-intake-summary",
+            )
             with Horizontal(id="nexus-main"):
                 with Vertical(id="nexus-center-stack"):
                     central = CentralAgentView(id="central-agent", lang=self.config.lang)
@@ -472,6 +479,12 @@ class NexusScreen(Screen[None]):
         return target_workspace_state_label(
             self._current_workspace_text(),
             control_repo=self.config.project_dir,
+            lang=self.config.lang,
+        )
+
+    def _project_intake_label(self) -> str:
+        return project_intake_state_label(
+            self.config.effective_state_dir,
             lang=self.config.lang,
         )
 

@@ -7,10 +7,14 @@ from textual.app import App
 from textual.widgets import Static
 
 from trinity.config import TrinityConfig
+from trinity.project_intake import build_project_intake, write_project_intake
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
-from trinity.textual_app.workspace_labels import target_workspace_state_label
+from trinity.textual_app.workspace_labels import (
+    project_intake_state_label,
+    target_workspace_state_label,
+)
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
     AgentRecipientModelSelector,
 )
@@ -63,6 +67,34 @@ def test_target_workspace_state_label_distinguishes_project_states(
     ) == f"계획 대상: {target}"
 
 
+def test_project_intake_state_label_summarizes_saved_intake(tmp_path: Path) -> None:
+    target = tmp_path / "customer-app"
+    target.mkdir()
+    (target / "pyproject.toml").write_text(
+        "[project]\nname='customer-app'\n",
+        encoding="utf-8",
+    )
+    (target / "uv.lock").write_text("", encoding="utf-8")
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert (
+        project_intake_state_label(state)
+        == "Project intake: existing | tests: uv run pytest"
+    )
+    assert (
+        project_intake_state_label(state, lang="ko")
+        == "프로젝트 인테이크: 기존 | 테스트: uv run pytest"
+    )
+
+
 def test_nexus_workspace_label_uses_target_state_helper(tmp_path: Path) -> None:
     control_repo = tmp_path / "Trinity"
     target = tmp_path / "customer-app"
@@ -80,6 +112,64 @@ def test_nexus_workspace_label_uses_target_state_helper(tmp_path: Path) -> None:
         "Control repo selected; confirmation required before write: "
         f"{control_repo}"
     )
+
+
+@pytest.mark.asyncio
+async def test_start_screen_shows_project_intake_summary(tmp_path: Path) -> None:
+    target = tmp_path / "customer-app"
+    target.mkdir()
+    (target / "pyproject.toml").write_text(
+        "[project]\nname='customer-app'\n",
+        encoding="utf-8",
+    )
+    (target / "uv.lock").write_text("", encoding="utf-8")
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+    screen = StartScreen(config, workspace_candidate=target)
+    app = StartScreenHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        assert str(screen.query_one("#project-intake-summary", Static).content) == (
+            "Project intake: existing | tests: uv run pytest"
+        )
+
+
+@pytest.mark.asyncio
+async def test_nexus_screen_shows_project_intake_summary(tmp_path: Path) -> None:
+    target = tmp_path / "customer-app"
+    target.mkdir()
+    (target / "pyproject.toml").write_text(
+        "[project]\nname='customer-app'\n",
+        encoding="utf-8",
+    )
+    (target / "uv.lock").write_text("", encoding="utf-8")
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+    screen = NexusScreen(config)
+    app = StartScreenHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        assert str(
+            screen.query_one("#nexus-project-intake-summary", Static).content
+        ) == "프로젝트 인테이크: 기존 | 테스트: uv run pytest"
 
 
 @pytest.mark.asyncio

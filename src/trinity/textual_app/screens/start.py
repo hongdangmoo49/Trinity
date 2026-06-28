@@ -14,7 +14,10 @@ from trinity.config import TrinityConfig
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
-from trinity.textual_app.workspace_labels import target_workspace_state_label
+from trinity.textual_app.workspace_labels import (
+    project_intake_state_label,
+    target_workspace_state_label,
+)
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
     AgentRecipientModelSelector,
 )
@@ -154,6 +157,10 @@ class StartScreen(Screen[None]):
                         id="plan-first",
                         variant="primary",
                     )
+                yield Static(
+                    self._project_intake_label(),
+                    id="project-intake-summary",
+                )
         yield Footer()
 
     def on_mount(self) -> None:
@@ -262,6 +269,12 @@ class StartScreen(Screen[None]):
         return target_workspace_state_label(
             self.workspace_candidate,
             control_repo=self.config.project_dir,
+            lang=self.lang,
+        )
+
+    def _project_intake_label(self) -> str:
+        return project_intake_state_label(
+            self.config.effective_state_dir,
             lang=self.lang,
         )
 

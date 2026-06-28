@@ -3548,6 +3548,7 @@ class TrinityTextualApp(App[None]):
             ProjectBriefModal(
                 self._project_brief_draft_for_target(target),
                 lang=self.config.lang,
+                target_workspace=str(absolute_path(target)),
             ),
             lambda draft: self._on_project_brief_saved(
                 target,

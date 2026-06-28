@@ -30,6 +30,7 @@ PROJECT_BRIEF_LABELS = {
         "success_placeholder": "Users can finish the first workflow",
         "target_users": "Target users",
         "target_users_placeholder": "support operators, students, developers",
+        "target_workspace": "Target workspace",
         "title": "Project Brief",
     },
     "ko": {
@@ -51,6 +52,7 @@ PROJECT_BRIEF_LABELS = {
         "success_placeholder": "사용자가 첫 workflow를 끝낼 수 있음",
         "target_users": "대상 사용자",
         "target_users_placeholder": "지원 담당자, 학생, 개발자",
+        "target_workspace": "대상 작업 경로",
         "title": "프로젝트 브리프",
     },
 }
@@ -94,6 +96,12 @@ class ProjectBriefModal(ModalScreen[ProjectBriefDraft | None]):
         margin-bottom: 1;
     }
 
+    #project-brief-target {
+        height: auto;
+        color: $text-muted;
+        margin-bottom: 1;
+    }
+
     .project-brief-row {
         height: 3;
         margin-bottom: 1;
@@ -125,14 +133,21 @@ class ProjectBriefModal(ModalScreen[ProjectBriefDraft | None]):
         draft: ProjectBriefDraft | None = None,
         *,
         lang: str = "en",
+        target_workspace: str = "",
     ) -> None:
         super().__init__()
         self.draft = draft or ProjectBriefDraft()
         self.lang = lang
+        self.target_workspace = target_workspace.strip()
 
     def compose(self) -> ComposeResult:
         with Vertical(id="project-brief-modal"):
             yield Static(self._label("title"), id="project-brief-title")
+            if self.target_workspace:
+                yield Static(
+                    f"{self._label('target_workspace')}: {self.target_workspace}",
+                    id="project-brief-target",
+                )
             yield from self._input_row(
                 "goal",
                 "project-brief-goal",

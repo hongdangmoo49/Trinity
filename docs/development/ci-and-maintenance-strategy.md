@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.751`
-- Merged PR range reviewed: #90 through #848
+- Package version inspected: `1.0.753`
+- Merged PR range reviewed: #90 through #850
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #848
-- Latest refresh reviewed: #848
+- Maintenance refresh reviewed: #427 through #850
+- Latest refresh reviewed: #850
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1944,6 +1944,18 @@ and what the next release train should optimize.
 - Added Start/Nexus mounted-screen coverage for dynamic button label refresh and
   sparse/stale/changed label-key cases.
 - Raised the package version from `1.0.750` to `1.0.751` in this patch PR.
+
+### #850: Workbench Analyze Action Presentation
+
+- Added a shared Workbench analyze action presentation helper that returns both
+  the label key and variant from one project-intake readiness decision.
+- Updated Start/Nexus compose and refresh paths to compute the analyze action
+  presentation once, then apply both button label and variant from that result.
+- Kept the existing public label-key and variant helpers as compatibility
+  wrappers around the shared presentation helper.
+- Added presentation coverage for normal, sparse, stale, and changed intake
+  states.
+- Raised the package version from `1.0.752` to `1.0.753` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

@@ -364,6 +364,7 @@ def test_project_intake_prompt_block_includes_existing_project_guidance(
         build_project_intake(
             mode="existing",
             target_workspace=target,
+            product_goal="Improve customer onboarding.",
             created_at="2026-06-28T00:00:00Z",
         ),
     )
@@ -373,10 +374,13 @@ def test_project_intake_prompt_block_includes_existing_project_guidance(
 
     assert "existing project under discussion" in guidance
     assert "Read detected docs, entrypoints, and source roots" in block
+    assert "Use recorded brief fields as user intent" in block
     assert "- Docs found: README.md" in block
 
 
-def test_project_intake_prompt_block_includes_new_project_guidance(tmp_path) -> None:
+def test_project_intake_prompt_block_includes_incomplete_new_project_guidance(
+    tmp_path,
+) -> None:
     target = tmp_path / "new-app"
     state = tmp_path / ".trinity"
     write_project_intake(
@@ -384,6 +388,7 @@ def test_project_intake_prompt_block_includes_new_project_guidance(tmp_path) -> 
         build_project_intake(
             mode="new",
             target_workspace=target,
+            product_goal="Build a dashboard.",
             created_at="2026-06-28T00:00:00Z",
         ),
     )
@@ -392,8 +397,40 @@ def test_project_intake_prompt_block_includes_new_project_guidance(tmp_path) -> 
     block = project_intake_prompt_block(state)
 
     assert "fresh project workspace" in guidance
-    assert "Confirm the product goal, project type, target users" in block
+    assert "new-project brief is incomplete" in block
+    assert "type, users, success, milestone" in block
+    assert "Do not treat framework, architecture, or UX choices as final" in block
     assert "- Mode: new" in block
+
+
+def test_project_intake_prompt_block_includes_complete_new_project_guidance(
+    tmp_path,
+) -> None:
+    target = tmp_path / "new-app"
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build a dashboard.",
+            project_type="SaaS dashboard",
+            target_users="support operators",
+            success_criteria="Operators can complete onboarding.",
+            stack_preferences=("python", "textual"),
+            first_milestone="First safe patch.",
+            constraints=("Keep tests green",),
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    guidance = project_intake_guidance_block(state)
+    block = project_intake_prompt_block(state)
+
+    assert "new-project brief is complete" in guidance
+    assert "use the recorded goal, type, users, success criteria" in block
+    assert "recorded success criteria and constraints" in block
+    assert "- Success criteria: Operators can complete onboarding." in block
 
 
 def test_project_intake_prompt_block_returns_empty_when_missing(tmp_path) -> None:

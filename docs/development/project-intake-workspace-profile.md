@@ -95,6 +95,14 @@ complete or which fields are still missing. Existing projects do not show this
 readiness warning because read-only workspace analysis is the stronger first
 signal for that journey.
 
+Provider prompt guidance uses the same readiness contract. When a new-project
+brief is incomplete, providers are told to confirm the missing fields before
+scaffolding and to avoid treating framework or UX choices as final. When the
+brief is complete, providers are told to use the recorded goal, type, users,
+success criteria, stack, milestone, and constraints as planning constraints.
+Existing-project prompts treat any recorded brief fields as user intent that
+must still be checked against the existing docs and source.
+
 ## Detection Scope
 
 The profile intentionally uses conservative filesystem and manifest checks:

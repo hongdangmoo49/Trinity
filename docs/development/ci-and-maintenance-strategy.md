@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.771`
-- Merged PR range reviewed: #90 through #868
+- Package version inspected: `1.0.773`
+- Merged PR range reviewed: #90 through #870
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #868
-- Latest refresh reviewed: #868
+- Maintenance refresh reviewed: #427 through #870
+- Latest refresh reviewed: #870
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2071,6 +2071,17 @@ and what the next release train should optimize.
   existing workspaces.
 - Added a dedicated design document and Start/Nexus prompt coverage.
 - Raised the package version from `1.0.770` to `1.0.771` in this patch PR.
+
+### #870: Project Brief Placeholders
+
+- Added localized placeholder examples to project brief modal inputs.
+- Helped first-run new-project users understand the expected detail for goal,
+  project type, users, success criteria, stack, milestone, constraints, and
+  notes.
+- Preserved existing draft values, save behavior, readiness policy, and
+  preflight gates.
+- Added a dedicated design document and English/Korean Textual modal coverage.
+- Raised the package version from `1.0.772` to `1.0.773` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

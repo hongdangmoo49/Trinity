@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.709`
-- Merged PR range reviewed: #90 through #806
+- Package version inspected: `1.0.711`
+- Merged PR range reviewed: #90 through #808
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #806
-- Latest refresh reviewed: #806
+- Maintenance refresh reviewed: #427 through #808
+- Latest refresh reviewed: #808
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1686,6 +1686,18 @@ and what the next release train should optimize.
 - Expanded CLI status tests for the new summary line and preserved Start/Nexus
   label coverage.
 - Raised the package version from `1.0.708` to `1.0.709` in this patch PR.
+
+### #808: Incomplete New Project Brief CTA
+
+- Highlighted the Start/Nexus `Edit Brief` action when the selected workspace
+  has a saved new-project intake with missing minimum brief fields.
+- Returned the action to default priority once the minimum new-project brief is
+  complete.
+- Suppressed the highlight when the saved intake target differs from the current
+  workspace to avoid steering users toward the wrong brief.
+- Expanded Start/Nexus button variant tests and shared action-variant helper
+  coverage.
+- Raised the package version from `1.0.710` to `1.0.711` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

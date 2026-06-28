@@ -71,6 +71,7 @@ PROJECT_INTAKE_LABELS = {
         "constraints": "constraints",
         "first_milestone": "milestone",
         "project_type": "type",
+        "read_first": "read first",
         "source_roots": "src",
         "stack_preferences": "stack",
         "success_criteria": "success",
@@ -120,6 +121,7 @@ PROJECT_INTAKE_LABELS = {
         "constraints": "제약",
         "first_milestone": "마일스톤",
         "project_type": "유형",
+        "read_first": "먼저 읽기",
         "source_roots": "소스",
         "stack_preferences": "스택",
         "success_criteria": "성공",
@@ -379,6 +381,9 @@ def _format_project_intake_label(
                 max_items=3,
             )
         )
+    read_preview = _format_existing_project_read_preview(intake, labels)
+    if read_preview:
+        parts.append(read_preview)
     git_state = _format_existing_project_git_state(intake, labels)
     if git_state:
         parts.append(git_state)
@@ -441,6 +446,22 @@ def _format_existing_project_git_state(
         branch=branch,
         dirty=dirty,
         untracked=untracked,
+    )
+
+
+def _format_existing_project_read_preview(
+    intake: ProjectIntake,
+    labels: dict[str, str],
+) -> str:
+    if intake.mode != "existing":
+        return ""
+    anchors = tuple(dict.fromkeys((*intake.docs_found, *intake.source_roots)))
+    if not anchors:
+        return ""
+    return _format_project_intake_section(
+        labels["read_first"],
+        anchors,
+        max_items=3,
     )
 
 

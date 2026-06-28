@@ -12,6 +12,7 @@ from textual.binding import Binding
 from trinity import __version__
 from trinity.config import TrinityConfig
 from trinity.context.commands import engine_from_config
+from trinity.project_intake import load_project_intake
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import parse_execute_retry_args
 from trinity.textual_app.agent_commands import (
@@ -208,6 +209,24 @@ class SlashCommandPresentationPayload(Protocol):
 LocalCommandSnapshotOptionValue = (
     str | bool | tuple[str, ...] | tuple[tuple[str, ...], ...]
 )
+
+
+def initial_workspace_candidate(config: TrinityConfig, launch_cwd: Path) -> Path:
+    """Prefer persisted project intake target when it is still a directory."""
+    try:
+        intake = load_project_intake(config.effective_state_dir)
+    except ValueError:
+        return launch_cwd
+    if intake is not None and _is_directory(intake.target_workspace):
+        return intake.target_workspace.resolve()
+    return launch_cwd
+
+
+def _is_directory(path: Path) -> bool:
+    try:
+        return path.is_dir()
+    except OSError:
+        return False
 
 
 class TrinityTextualApp(App[None]):
@@ -1232,7 +1251,10 @@ class TrinityTextualApp(App[None]):
         self.current_route: WorkbenchRoute = "start"
         self.initial_prompt: str | None = None
         self.launch_cwd = default_launch_cwd(launch_cwd)
-        self.workspace_candidate: Path | None = self.launch_cwd
+        self.workspace_candidate: Path | None = initial_workspace_candidate(
+            config,
+            self.launch_cwd,
+        )
         self.snapshot_adapter = NexusSnapshotAdapter(config)
         self.active_snapshot: WorkflowNexusSnapshot | None = None
         self.settings_store = UISettingsStore(config.effective_state_dir)

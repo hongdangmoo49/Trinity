@@ -24,6 +24,7 @@ from trinity.config import TrinityConfig
 from trinity.context.commands import engine_from_config
 from trinity.context.shared import SharedContextEngine
 from trinity.models import Provider
+from trinity.project_intake import build_project_intake, write_project_intake
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import COMMAND_SPECS, SESSION_ONLY_SETTING_NOTICE
 from trinity.textual_app import app as textual_app_module
@@ -3572,6 +3573,45 @@ async def test_start_screen_defaults_target_workspace_to_launch_cwd(tmp_path) ->
 
 
 @pytest.mark.asyncio
+async def test_start_screen_prefers_project_intake_target_workspace(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    control_repo = tmp_path / "control"
+    launch_cwd = control_repo
+    target_workspace = tmp_path / "customer-app"
+    control_repo.mkdir()
+    target_workspace.mkdir()
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target_workspace,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+    app = TrinityTextualApp(config, controller, launch_cwd=launch_cwd)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        assert isinstance(screen, StartScreen)
+        assert app.workspace_candidate == target_workspace.resolve()
+        assert str(target_workspace.resolve()) in str(
+            screen.query_one("#workspace-candidate").content
+        )
+
+        composer = screen.query_one(PromptComposer)
+        composer.set_text("저장된 프로젝트를 분석해줘")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.target_workspace == target_workspace.resolve()
+        assert app.confirmed_preflight is not None
+        assert app.confirmed_preflight.path == target_workspace.resolve()
+
+
+@pytest.mark.asyncio
 async def test_start_screen_launch_cwd_inside_control_repo_stays_unconfirmed(
     tmp_path,
 ) -> None:
@@ -6879,11 +6919,11 @@ async def test_start_and_central_chrome_uses_korean_labels(
         )
         assert str(start.query_one("#plan-first", Button).label) == "먼저 계획"
         assert str(start.query_one("#workspace-candidate", Static).content).startswith(
-            "작업 폴더: "
+            "계획 대상: "
         )
         start.set_workspace_candidate(None)
         assert str(start.query_one("#workspace-candidate", Static).content) == (
-            "작업 폴더: 선택 안 됨"
+            "대상 작업 폴더 없음"
         )
 
         composer = start.query_one(PromptComposer)
@@ -10827,7 +10867,7 @@ async def test_nexus_workspace_label_skips_unchanged_update(
         nexus.set_workspace_candidate(next_target)
         await pilot.pause()
 
-        assert updates == [f"Workspace: {next_target}"]
+        assert updates == [f"Planning target: {next_target}"]
 
 
 @pytest.mark.asyncio
@@ -10861,7 +10901,7 @@ async def test_nexus_action_bar_uses_configured_korean_labels(tmp_path) -> None:
         workspace_label = str(
             nexus.query_one("#nexus-target-workspace", Static).content
         )
-        assert workspace_label.startswith("작업 폴더: ")
+        assert workspace_label.startswith("계획 대상: ")
         assert str(target.resolve()) in workspace_label
         assert nexus.query_one("#nexus-composer", PromptComposer).placeholder == (
             "답변, 방향 조정 또는 /로 명령 입력"
@@ -10870,7 +10910,7 @@ async def test_nexus_action_bar_uses_configured_korean_labels(tmp_path) -> None:
     screen = NexusScreen(
         TrinityConfig.default_config(project_dir=control_repo, lang="ko")
     )
-    assert screen._workspace_label() == "작업 폴더: 선택 안 됨"
+    assert screen._workspace_label() == "대상 작업 폴더 없음"
 
 
 @pytest.mark.asyncio

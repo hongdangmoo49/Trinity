@@ -39,11 +39,13 @@ from trinity.platform import (
     legacy_tmux_hint,
 )
 from trinity.project_intake import (
+    GitWorkspaceAnalysis,
     ProjectIntake,
     ProjectIntakePaths,
     analyze_git_workspace,
     build_project_intake,
     detect_package_managers,
+    existing_project_intake_drift_fields,
     load_project_intake,
     missing_new_project_brief_field_keys,
     missing_new_project_brief_fields,
@@ -1177,6 +1179,11 @@ def _project_status_payload(
         if target_exists
         else intake.test_commands
     )
+    analysis_changed_fields = _project_intake_analysis_changed_fields_for_status(
+        intake,
+        target_exists=target_exists,
+        live_git=live_git,
+    )
     return {
         "project_intake": {
             "summary": format_project_intake_label(intake),
@@ -1194,6 +1201,7 @@ def _project_status_payload(
             "readiness": _project_intake_readiness_payload(
                 intake,
                 target_exists=target_exists,
+                analysis_changed_fields=analysis_changed_fields,
             ),
             "action_variants": _project_intake_action_variants_payload(
                 state_dir,
@@ -1221,7 +1229,11 @@ def _project_status_payload(
         },
         "refreshed": refreshed,
         "project_intake_paths": _project_intake_paths_payload(paths),
-        "next_steps": _project_next_steps(intake, include_status=False),
+        "next_steps": _project_next_steps(
+            intake,
+            include_status=False,
+            analysis_changed_fields=analysis_changed_fields,
+        ),
     }
 
 
@@ -1229,6 +1241,7 @@ def _project_intake_readiness_payload(
     intake: ProjectIntake,
     *,
     target_exists: bool,
+    analysis_changed_fields: tuple[str, ...] = (),
 ) -> dict[str, object]:
     stale_days = _project_intake_analysis_stale_days_for_status(intake)
     sparse = _project_intake_analysis_sparse_for_status(intake)
@@ -1239,6 +1252,7 @@ def _project_intake_readiness_payload(
         target_missing=target_missing,
         analysis_sparse=sparse,
         analysis_stale=stale_days is not None,
+        analysis_changed=bool(analysis_changed_fields),
         missing_brief_fields=tuple(missing_brief_fields),
     )
     return {
@@ -1252,6 +1266,8 @@ def _project_intake_readiness_payload(
         ),
         "analysis_stale": stale_days is not None,
         "analysis_stale_days": stale_days,
+        "analysis_changed": bool(analysis_changed_fields),
+        "analysis_changed_fields": list(analysis_changed_fields),
         "missing_brief_fields": missing_brief_fields,
     }
 
@@ -1285,15 +1301,42 @@ def _project_intake_recommended_action(
     target_missing: bool,
     analysis_sparse: bool,
     analysis_stale: bool,
+    analysis_changed: bool = False,
     missing_brief_fields: tuple[str, ...],
 ) -> str:
     if target_missing:
         return "create_project" if intake.mode == "new" else "analyze_workspace"
     if intake.mode == "new" and missing_brief_fields:
         return "edit_brief"
-    if analysis_sparse or analysis_stale:
+    if analysis_sparse or analysis_stale or analysis_changed:
         return "analyze_workspace"
     return "start_trinity"
+
+
+def _project_intake_analysis_changed_fields_for_status(
+    intake: ProjectIntake,
+    *,
+    target_exists: bool,
+    live_git: GitWorkspaceAnalysis | None = None,
+) -> tuple[str, ...]:
+    if not target_exists or intake.mode != "existing":
+        return ()
+    return existing_project_intake_drift_fields(
+        intake,
+        intake.target_workspace,
+        live_git=live_git,
+    )
+
+
+def _project_analysis_changed_status_lines(
+    fields: tuple[str, ...],
+) -> list[str]:
+    if not fields:
+        return []
+    return [
+        f"  Analysis changed: {_csv_or_none(fields)}",
+        "  Refresh: trinity project status --refresh",
+    ]
 
 
 def _project_intake_analysis_sparse_for_status(intake: ProjectIntake) -> bool:
@@ -1367,6 +1410,11 @@ def _display_project_status(
     live_branch = live_git.branch if live_git is not None else "unknown"
     live_dirty = live_git.dirty_count if live_git is not None else None
     live_untracked = live_git.untracked_count if live_git is not None else None
+    analysis_changed_fields = _project_intake_analysis_changed_fields_for_status(
+        intake,
+        target_exists=target_exists,
+        live_git=live_git,
+    )
     lines = [
         "[green]Project intake active.[/green]",
         f"Summary: {format_project_intake_label(intake)}",
@@ -1404,9 +1452,14 @@ def _display_project_status(
             f"  Untracked count: {_unknown_if_none(live_untracked)}",
             f"  Package managers: {_csv_or_none(live_package_managers)}",
             f"  Test commands: {_csv_or_none(live_test_commands)}",
+            *_project_analysis_changed_status_lines(analysis_changed_fields),
             "",
             "Next steps:",
-            *_project_next_step_lines(intake, include_status=False),
+            *_project_next_step_lines(
+                intake,
+                include_status=False,
+                analysis_changed_fields=analysis_changed_fields,
+            ),
         ]
     )
     body = "\n".join(lines)
@@ -1432,6 +1485,7 @@ def _project_next_steps(
     intake: ProjectIntake,
     *,
     include_status: bool = True,
+    analysis_changed_fields: tuple[str, ...] = (),
 ) -> list[str]:
     recovery = _project_target_recovery_command(intake)
     if recovery:
@@ -1440,6 +1494,8 @@ def _project_next_steps(
     completion = _project_brief_completion_command(intake)
     if completion:
         steps.append(completion)
+    if analysis_changed_fields:
+        steps.append("trinity project status --refresh")
     if include_status:
         steps.append("trinity project status")
     steps.append("trinity")
@@ -1450,11 +1506,14 @@ def _project_next_step_lines(
     intake: ProjectIntake,
     *,
     include_status: bool = True,
+    analysis_changed_fields: tuple[str, ...] = (),
 ) -> list[str]:
     recovery = _project_target_recovery_lines(intake)
     if recovery:
         return recovery
     lines = _project_brief_completion_lines(intake)
+    if analysis_changed_fields:
+        lines.append("  trinity project status --refresh")
     if include_status:
         lines.append("  trinity project status")
     lines.append("  trinity")

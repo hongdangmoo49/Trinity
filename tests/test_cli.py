@@ -771,6 +771,8 @@ class TestProjectAnalyze:
                 "analysis_missing_anchors": [],
                 "analysis_stale": False,
                 "analysis_stale_days": None,
+                "analysis_changed": False,
+                "analysis_changed_fields": [],
                 "missing_brief_fields": [
                     "project_type",
                     "target_users",
@@ -943,6 +945,8 @@ class TestProjectAnalyze:
                 "analysis_missing_anchors": ["source_roots", "docs"],
                 "analysis_stale": False,
                 "analysis_stale_days": None,
+                "analysis_changed": False,
+                "analysis_changed_fields": [],
                 "missing_brief_fields": [],
             }
             assert data["project_intake"]["action_variants"] == {
@@ -954,6 +958,63 @@ class TestProjectAnalyze:
             assert data["current_analysis"]["package_managers"] == ["uv"]
             assert data["current_analysis"]["test_commands"] == ["uv run pytest"]
             assert data["next_steps"] == ["trinity"]
+
+    def test_project_status_warns_when_existing_analysis_changed(
+        self,
+        runner,
+        tmp_path,
+    ):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            init_result = runner.invoke(main, ["init", "--non-interactive"])
+            assert init_result.exit_code == 0
+
+            target = Path("customer-app")
+            target.mkdir()
+            (target / "README.md").write_text("docs\n", encoding="utf-8")
+            analyze_result = runner.invoke(
+                main,
+                ["project", "analyze", str(target)],
+            )
+            assert analyze_result.exit_code == 0
+
+            (target / "src").mkdir()
+
+            result = runner.invoke(main, ["project", "status"])
+
+            assert result.exit_code == 0
+            assert "Analysis changed: source_roots" in result.output
+            assert "Refresh: trinity project status --refresh" in result.output
+            assert "trinity project status --refresh" in result.output
+
+            json_status = runner.invoke(main, ["project", "status", "--json"])
+            assert json_status.exit_code == 0
+            data = json.loads(json_status.output)
+            assert data["project_intake"]["readiness"]["analysis_changed"] is True
+            assert data["project_intake"]["readiness"]["analysis_changed_fields"] == [
+                "source_roots",
+            ]
+            assert data["project_intake"]["readiness"]["recommended_action"] == (
+                "analyze_workspace"
+            )
+            assert data["next_steps"] == [
+                "trinity project status --refresh",
+                "trinity",
+            ]
+
+            refreshed = runner.invoke(main, ["project", "status", "--refresh", "--json"])
+            assert refreshed.exit_code == 0
+            refreshed_data = json.loads(refreshed.output)
+            assert (
+                refreshed_data["project_intake"]["readiness"]["analysis_changed"]
+                is False
+            )
+            assert (
+                refreshed_data["project_intake"]["readiness"][
+                    "analysis_changed_fields"
+                ]
+                == []
+            )
+            assert refreshed_data["next_steps"] == ["trinity"]
 
     def test_project_status_refresh_updates_saved_intake(self, runner, tmp_path):
         with runner.isolated_filesystem(temp_dir=tmp_path):

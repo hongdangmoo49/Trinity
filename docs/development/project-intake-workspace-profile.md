@@ -92,9 +92,16 @@ summary under `project_intake.summary` so scripts can reuse the same readiness
 signal without scraping panel text.
 JSON status also exposes `project_intake.readiness` and
 `project_intake.action_variants`. These fields provide target existence,
-sparse/stale analysis, missing new-project brief fields, the recommended next
-action, and the Workbench-equivalent Analyze Workspace/Create Project/Edit Brief
-button variants without requiring callers to parse the compact summary string.
+sparse/stale/changed analysis, missing new-project brief fields, the recommended
+next action, and the Workbench-equivalent Analyze Workspace/Create Project/Edit
+Brief button variants without requiring callers to parse the compact summary
+string.
+
+When matching existing-project intake differs from the current workspace profile,
+`trinity project status` marks the analysis as changed, lists the changed intake
+fields, and recommends `trinity project status --refresh` before `trinity`. This
+uses the same read-only drift signals as Execute Preflight and lets CLI users
+refresh saved context before opening the Workbench.
 
 Workbench project-intake sync follows the same preservation rule. When the
 current saved intake points at the same target workspace, Start/Nexus workspace

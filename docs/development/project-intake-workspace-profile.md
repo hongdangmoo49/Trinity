@@ -124,11 +124,16 @@ a product goal from Start also seeds the Start composer when the composer is
 still empty.
 
 Workbench action buttons use the same intake readiness policy as the compact
-summary. `Analyze Workspace` is highlighted when selected-workspace analysis is
+summary. The analyze action is highlighted when selected-workspace analysis is
 missing, mismatched, stale, sparse, unreadable, or points at a missing existing
-target. `Create Project` is highlighted when a saved new-project target no
-longer exists. `Edit Brief` remains focused on incomplete new-project brief
+target. The create action is highlighted when a saved new-project target no
+longer exists. The brief action remains focused on incomplete new-project brief
 fields.
+Start and Nexus expose those actions with journey-oriented labels:
+`Analyze Existing`, `Create New`, and `Edit Brief` in English, and
+`기존 프로젝트 분석`, `새 프로젝트 생성`, and `브리프 편집` in Korean. The
+underlying action IDs remain stable so existing readiness and variant logic can
+continue to use `analyze_workspace`, `create_project`, and `edit_brief`.
 
 For new projects, Trinity treats `product_goal`, `project_type`,
 `target_users`, `success_criteria`, and `first_milestone` as the minimum brief

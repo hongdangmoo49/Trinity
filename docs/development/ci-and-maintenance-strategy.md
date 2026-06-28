@@ -1471,6 +1471,22 @@ and what the next release train should optimize.
   preference, and Nexus new-project intake.
 - Raised the package version from `1.0.674` to `1.0.675` in this patch PR.
 
+### #774: Project Intake Workspace Profile
+
+- Extended project intake artifacts with read-only workspace profile fields:
+  `dev_commands`, `build_commands`, `entrypoints`, `source_roots`, and
+  `docs_found`.
+- Added conservative Python, Node, Rust, Go, Java, and documentation detection
+  so new/existing project starts give agents better orientation before planning
+  or editing.
+- Kept legacy `project-intake.json` files valid by loading missing profile
+  fields as empty tuples.
+- Added `docs/development/project-intake-workspace-profile.md` to document the
+  profile contract and its non-execution safety boundary.
+- Expanded ProjectIntake tests for Node/Python profile detection, Markdown/JSON
+  serialization, and legacy intake compatibility.
+- Raised the package version from `1.0.676` to `1.0.677` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture

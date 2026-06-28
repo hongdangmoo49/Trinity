@@ -10775,6 +10775,24 @@ async def test_start_create_project_button_creates_new_project_intake(
         assert intake.target_workspace == target
 
 
+@pytest.mark.asyncio
+async def test_start_cta_buttons_keep_stable_dimensions(tmp_path) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        FakeWorkflowController(),
+        launch_cwd=tmp_path,
+    )
+
+    async with app.run_test(size=(80, 30)) as pilot:
+        await pilot.pause()
+        start = app.get_screen("start", StartScreen)
+
+        assert start.query_one("#choose-workspace", Button).styles.width.value == 20
+        assert start.query_one("#plan-first", Button).styles.width.value == 14
+        assert start.query_one("#analyze-workspace", Button).styles.width.value == 20
+        assert start.query_one("#create-project", Button).styles.width.value == 16
+
+
 def test_workbench_syncs_created_workspace_as_new_project_intake(tmp_path) -> None:
     control_repo = tmp_path / "control"
     target = tmp_path / "new-app"

@@ -392,7 +392,9 @@ def _init_interactive(target: Path, force: bool, mode: str | None) -> None:
         )
     if intake_paths is not None:
         summary_lines.append(f"  Project intake: {intake_paths.markdown_path}")
-        summary_lines.append(_project_intake_next_steps())
+        summary_lines.append(_project_intake_next_steps(project_mode))
+    elif project_mode == "new":
+        summary_lines.append(_project_intake_next_steps(project_mode))
 
     summary_lines.append(
         f"\n{S.summary_start_hint}\n"
@@ -411,7 +413,8 @@ def _init_default(target: Path, force: bool, mode: str | None = None) -> None:
     """Non-interactive init with defaults (original behavior)."""
     config = TrinityConfig.default_config(project_dir=Path.cwd())
     state = target
-    project_intake = _build_init_project_intake(mode)
+    project_mode = mode
+    project_intake = _build_init_project_intake(project_mode)
 
     # Create directory structure
     _create_directory_structure(state, list(config.agents.keys()))
@@ -435,8 +438,13 @@ def _init_default(target: Path, force: bool, mode: str | None = None) -> None:
     intake_paths = _write_init_project_intake(state, project_intake)
     intake_line = (
         f"  Project intake: {intake_paths.markdown_path}\n"
-        f"{_project_intake_next_steps()}\n"
+        f"{_project_intake_next_steps(project_mode)}\n"
         if intake_paths is not None
+        else ""
+    )
+    next_steps_line = (
+        f"{_project_intake_next_steps(project_mode)}\n"
+        if project_mode == "new" and intake_paths is None
         else ""
     )
 
@@ -446,19 +454,23 @@ def _init_default(target: Path, force: bool, mode: str | None = None) -> None:
         f"  Config:    {state / 'trinity.config'}\n"
         f"  Shared:    {state / 'shared.md'}\n"
         f"{intake_line}\n"
+        f"{next_steps_line}"
         "[dim]Edit .trinity/trinity.config to customize agents and settings.[/dim]",
         title="Trinity Init",
     ))
 
 
-def _project_intake_next_steps() -> str:
-    return "\n".join(
+def _project_intake_next_steps(mode: str | None = "existing") -> str:
+    steps = ["  Next steps:"]
+    if mode == "new":
+        steps.append("    trinity project new NAME --parent PATH")
+    steps.extend(
         [
-            "  Next steps:",
             "    trinity project status",
             "    trinity",
         ]
     )
+    return "\n".join(steps)
 
 
 def _resolve_init_project_mode(
@@ -483,6 +495,8 @@ def _resolve_init_project_mode(
 
 def _build_init_project_intake(mode: str | None) -> ProjectIntake | None:
     if mode is None:
+        return None
+    if mode == "new":
         return None
     return build_project_intake(mode=mode, target_workspace=Path.cwd())
 

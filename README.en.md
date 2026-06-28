@@ -186,7 +186,9 @@ trinity project status --refresh
 ```
 
 For a new project, initialize a Trinity control workspace first, then create the
-target project folder.
+target project folder. `trinity init --mode new` does not lock the current
+directory as the work target; project intake is recorded after
+`trinity project new` creates the target project.
 
 ```bash
 mkdir -p ~/workspace/trinity-control

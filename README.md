@@ -180,7 +180,8 @@ trinity project status --refresh
 ```
 
 새 프로젝트를 만들 때는 Trinity 상태를 저장할 위치에서 초기화한 뒤 대상 폴더를
-생성합니다.
+생성합니다. `trinity init --mode new`는 현재 폴더를 작업 대상으로 확정하지 않고,
+`trinity project new`가 실행된 뒤 신규 프로젝트 인테이크를 기록합니다.
 
 ```bash
 mkdir -p ~/workspace/trinity-control

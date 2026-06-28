@@ -24,7 +24,11 @@ from trinity.config import TrinityConfig
 from trinity.context.commands import engine_from_config
 from trinity.context.shared import SharedContextEngine
 from trinity.models import Provider
-from trinity.project_intake import build_project_intake, write_project_intake
+from trinity.project_intake import (
+    build_project_intake,
+    load_project_intake,
+    write_project_intake,
+)
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import COMMAND_SPECS, SESSION_ONLY_SETTING_NOTICE
 from trinity.textual_app import app as textual_app_module
@@ -3561,6 +3565,10 @@ async def test_start_screen_defaults_target_workspace_to_launch_cwd(tmp_path) ->
         assert controller.target_workspace == launch_cwd.resolve()
         assert app.confirmed_preflight is not None
         assert app.confirmed_preflight.path == launch_cwd.resolve()
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.mode == "existing"
+        assert intake.target_workspace == launch_cwd.resolve()
 
         app.action_go_execution()
         await pilot.pause()
@@ -3692,6 +3700,10 @@ async def test_start_ask_slash_starts_targeted_workflow(tmp_path) -> None:
         assert controller.started_targets == [("codex",)]
         assert controller.started_models[-1] == {"codex": "gpt-5"}
         assert controller.target_workspace == target
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.mode == "existing"
+        assert intake.target_workspace == target
         assert app.current_route == "nexus"
         assert isinstance(app.screen, NexusScreen)
 
@@ -10668,6 +10680,36 @@ async def test_start_select_workspace_updates_workspace_candidate(tmp_path) -> N
         start = app.get_screen("start", StartScreen)
         assert app.workspace_candidate == tmp_path
         assert str(tmp_path) in str(start.query_one("#workspace-candidate").content)
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.mode == "existing"
+        assert intake.target_workspace == tmp_path
+        assert "Project intake: existing" in str(
+            start.query_one("#project-intake-summary", Static).content
+        )
+
+
+def test_workbench_syncs_created_workspace_as_new_project_intake(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "new-app"
+    control_repo.mkdir()
+    target.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        FakeWorkflowController(),
+        launch_cwd=control_repo,
+    )
+    preflight = build_preflight(
+        target,
+        WorkflowNexusSnapshot(),
+    )
+
+    app._sync_project_intake_for_preflight(replace(preflight, created=True))
+
+    intake = load_project_intake(app.config.effective_state_dir)
+    assert intake is not None
+    assert intake.mode == "new"
+    assert intake.target_workspace == target
 
 
 @pytest.mark.asyncio

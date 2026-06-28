@@ -571,6 +571,7 @@ async def test_workspace_picker_new_folder_flow_targets_tree_root_from_control_r
         assert target_workspace.exists()
         assert target_workspace.is_dir()
         assert picker.preflight.can_execute is True
+        assert picker.preflight.created is True
         assert str(target_workspace) in str(preflight_panel.content)
         assert "New folder created" in str(status.content)
 

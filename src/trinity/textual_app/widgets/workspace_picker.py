@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from textual.app import ComposeResult
@@ -151,6 +151,7 @@ class WorkspacePreflight:
     creatable: bool = False
     changed_count: int | None = None
     untracked_count: int | None = None
+    created: bool = False
 
     @property
     def can_execute(self) -> bool:
@@ -370,6 +371,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         self._directory_tree_widget: DirectoryTree | None = None
         self._preflight_widget: Static | None = None
         self._status_widget: Static | None = None
+        self._created_workspace_paths: set[Path] = set()
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
@@ -495,6 +497,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
             self._set_status(self._label("enter_single_folder_name"))
             return
         target = self._folder_creation_base() / clean_name
+        created = False
         try:
             if target.exists():
                 if not target.is_dir():
@@ -505,6 +508,8 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
                 status = self._format("folder_already_exists", path=target)
             else:
                 target.mkdir(parents=True, exist_ok=False)
+                created = True
+                self._created_workspace_paths.add(target)
                 status = self._format("new_folder_created", path=target)
         except OSError as exc:
             self._set_status(self._format("could_not_create_directory", error=exc))
@@ -512,11 +517,14 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
 
         self._path_input().value = str(target)
         self._update_preflight(target)
+        if created:
+            self.preflight = replace(self.preflight, created=True)
         self._reload_tree()
         self._set_status(status)
 
     def action_confirm(self) -> None:
         path = self._input_path()
+        created = self.preflight.created and self.preflight.path == path
         self._update_preflight(path)
         if self.preflight.can_create:
             try:
@@ -524,11 +532,15 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
             except OSError as exc:
                 self._set_status(self._format("could_not_create_directory", error=exc))
                 return
+            created = True
+            self._created_workspace_paths.add(self.preflight.path)
             self._update_preflight(self.preflight.path)
 
         if not self.preflight.can_execute:
             self._show_invalid_preflight()
             return
+        if created:
+            self.preflight = replace(self.preflight, created=True)
         self.dismiss(self.preflight)
 
     def _update_preflight(self, path: Path) -> None:
@@ -537,6 +549,8 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
             self.snapshot,
             creatable=self.create_missing,
         )
+        if self.preflight.path in self._created_workspace_paths:
+            self.preflight = replace(self.preflight, created=True)
         preflight_text = self.preflight.render(lang=self.lang)
         if self.is_mounted:
             self._set_preflight_text(preflight_text)

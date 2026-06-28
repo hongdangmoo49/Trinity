@@ -235,6 +235,40 @@ def missing_new_project_brief_fields(intake: ProjectIntake) -> tuple[str, ...]:
     )
 
 
+def existing_project_intake_drift_fields(
+    intake: ProjectIntake,
+    target_workspace: Path,
+    *,
+    live_git: GitWorkspaceAnalysis | None = None,
+) -> tuple[str, ...]:
+    """Return saved existing-project intake fields that differ from live analysis."""
+    if intake.mode != "existing":
+        return ()
+    workspace = _safe_resolve(target_workspace)
+    if workspace != _safe_resolve(intake.target_workspace):
+        return ()
+    git = live_git or analyze_git_workspace(workspace)
+    package_managers = detect_package_managers(workspace)
+    live_values = {
+        "git_repo": git.git_repo,
+        "branch": git.branch,
+        "dirty_count": git.dirty_count,
+        "untracked_count": git.untracked_count,
+        "package_managers": package_managers,
+        "test_commands": suggest_test_commands(workspace, package_managers),
+        "dev_commands": suggest_dev_commands(workspace, package_managers),
+        "build_commands": suggest_build_commands(workspace, package_managers),
+        "entrypoints": detect_entrypoints(workspace, package_managers),
+        "source_roots": detect_source_roots(workspace),
+        "docs_found": detect_docs(workspace),
+    }
+    fields: list[str] = []
+    for field_name, live_value in live_values.items():
+        if getattr(intake, field_name) != live_value:
+            fields.append(field_name)
+    return tuple(fields)
+
+
 def load_project_intake(state_dir: Path) -> ProjectIntake | None:
     """Load persisted project intake JSON from Trinity state."""
     path = state_dir.expanduser() / PROJECT_INTAKE_JSON

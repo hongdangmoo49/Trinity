@@ -392,6 +392,110 @@ def test_build_preflight_marks_stale_existing_project_intake(tmp_path) -> None:
     assert "Project intake safety: stale project intake" in preflight.render()
 
 
+def test_build_preflight_accepts_unchanged_existing_project_intake(
+    tmp_path,
+) -> None:
+    state = tmp_path / ".trinity"
+    target_workspace = tmp_path / "customer-app"
+    target_workspace.mkdir()
+    (target_workspace / "README.md").write_text("docs\n", encoding="utf-8")
+    (target_workspace / "src").mkdir()
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target_workspace,
+            created_at="2026-06-29T00:00:00Z",
+        ),
+    )
+
+    preflight = build_preflight(
+        target_workspace,
+        WorkflowNexusSnapshot(),
+        project_intake_state_dir=state,
+        today=date(2026, 6, 29),
+    )
+
+    assert preflight.intake_safety_warnings == ()
+    assert preflight.requires_execute_ack is False
+    assert "Project intake safety: ok" in preflight.render()
+
+
+def test_build_preflight_marks_changed_existing_project_intake(
+    tmp_path,
+) -> None:
+    state = tmp_path / ".trinity"
+    target_workspace = tmp_path / "customer-app"
+    target_workspace.mkdir()
+    (target_workspace / "README.md").write_text("docs\n", encoding="utf-8")
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target_workspace,
+            created_at="2026-06-29T00:00:00Z",
+        ),
+    )
+
+    (target_workspace / "src").mkdir()
+
+    preflight = build_preflight(
+        target_workspace,
+        WorkflowNexusSnapshot(),
+        project_intake_state_dir=state,
+        today=date(2026, 6, 29),
+    )
+
+    assert preflight.intake_safety_warnings == ("changed_project_intake",)
+    assert preflight.requires_execute_ack is True
+    assert "Project intake safety: changed project intake" in preflight.render()
+    assert "프로젝트 인테이크 안전: 변경된 프로젝트 인테이크" in preflight.render(
+        lang="ko",
+    )
+
+
+def test_build_preflight_marks_changed_git_project_intake(
+    tmp_path,
+) -> None:
+    state = tmp_path / ".trinity"
+    target_workspace = tmp_path / "customer-app"
+    target_workspace.mkdir()
+    _run_git(target_workspace, "init")
+    (target_workspace / "README.md").write_text("docs\n", encoding="utf-8")
+    _run_git(target_workspace, "add", "README.md")
+    _run_git(
+        target_workspace,
+        "-c",
+        "user.name=Trinity Test",
+        "-c",
+        "user.email=trinity@example.com",
+        "commit",
+        "-m",
+        "initial",
+    )
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target_workspace,
+            created_at="2026-06-29T00:00:00Z",
+        ),
+    )
+
+    (target_workspace / "notes.txt").write_text("new\n", encoding="utf-8")
+
+    preflight = build_preflight(
+        target_workspace,
+        WorkflowNexusSnapshot(),
+        project_intake_state_dir=state,
+        today=date(2026, 6, 29),
+    )
+
+    assert preflight.requires_dirty_execute_ack is True
+    assert preflight.intake_safety_warnings == ("changed_project_intake",)
+    assert preflight.requires_execute_ack is True
+
+
 def test_default_workspace_tree_root_uses_control_repo_parent(tmp_path) -> None:
     control_repo = tmp_path / "Trinity"
 
@@ -762,6 +866,55 @@ async def test_workspace_picker_requires_second_confirm_for_stale_intake(
         status = picker.query_one("#workspace-picker-status", Static)
         assert dismissed == []
         assert "stale project intake" in str(status.content)
+
+        picker.action_confirm()
+        await pilot.pause()
+
+        assert dismissed == [picker.preflight]
+
+
+@pytest.mark.asyncio
+async def test_workspace_picker_requires_second_confirm_for_changed_intake(
+    tmp_path,
+) -> None:
+    state = tmp_path / ".trinity"
+    control_repo = tmp_path / "Trinity"
+    target_workspace = tmp_path / "customer-app"
+    control_repo.mkdir()
+    target_workspace.mkdir()
+    (target_workspace / "README.md").write_text("docs\n", encoding="utf-8")
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target_workspace,
+            created_at="2026-06-29T00:00:00Z",
+        ),
+    )
+    (target_workspace / "src").mkdir()
+
+    picker = WorkspacePicker(
+        candidate=target_workspace,
+        snapshot=WorkflowNexusSnapshot(),
+        cwd=control_repo,
+        tree_root=tmp_path,
+        project_intake_state_dir=state,
+        today=date(2026, 6, 29),
+    )
+    dismissed: list[object] = []
+    picker.dismiss = dismissed.append  # type: ignore[method-assign]
+    app = WorkspacePickerHarness()
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.push_screen(picker)
+        await pilot.pause()
+
+        picker.action_confirm()
+        await pilot.pause()
+
+        status = picker.query_one("#workspace-picker-status", Static)
+        assert dismissed == []
+        assert "changed project intake" in str(status.content)
 
         picker.action_confirm()
         await pilot.pause()

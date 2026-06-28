@@ -11,6 +11,7 @@ from trinity.project_intake import (
     build_project_intake,
     detect_docs,
     detect_entrypoints,
+    existing_project_intake_drift_fields,
     detect_package_managers,
     detect_source_roots,
     load_project_intake,
@@ -170,6 +171,66 @@ def test_build_project_intake_normalizes_metadata(tmp_path) -> None:
     assert intake.first_milestone == "Show project intake state."
     assert intake.constraints == ("read-only analysis",)
     assert intake.notes == "Review before write."
+
+
+def test_existing_project_intake_drift_ignores_unchanged_analysis(
+    tmp_path,
+) -> None:
+    (tmp_path / "README.md").write_text("docs\n", encoding="utf-8")
+    (tmp_path / "src").mkdir()
+    intake = build_project_intake(
+        mode="existing",
+        target_workspace=tmp_path,
+        created_at="2026-06-29T00:00:00Z",
+    )
+
+    assert existing_project_intake_drift_fields(intake, tmp_path) == ()
+
+
+def test_existing_project_intake_drift_detects_changed_analysis_anchors(
+    tmp_path,
+) -> None:
+    (tmp_path / "README.md").write_text("docs\n", encoding="utf-8")
+    intake = build_project_intake(
+        mode="existing",
+        target_workspace=tmp_path,
+        created_at="2026-06-29T00:00:00Z",
+    )
+
+    (tmp_path / "src").mkdir()
+
+    assert existing_project_intake_drift_fields(intake, tmp_path) == (
+        "source_roots",
+    )
+
+
+def test_existing_project_intake_drift_detects_changed_git_state(
+    tmp_path,
+) -> None:
+    _run_git(tmp_path, "init")
+    (tmp_path / "README.md").write_text("docs\n", encoding="utf-8")
+    _run_git(tmp_path, "add", "README.md")
+    _run_git(
+        tmp_path,
+        "-c",
+        "user.name=Trinity Test",
+        "-c",
+        "user.email=trinity@example.com",
+        "commit",
+        "-m",
+        "initial",
+    )
+    intake = build_project_intake(
+        mode="existing",
+        target_workspace=tmp_path,
+        created_at="2026-06-29T00:00:00Z",
+    )
+
+    (tmp_path / "notes.txt").write_text("new\n", encoding="utf-8")
+
+    assert existing_project_intake_drift_fields(intake, tmp_path) == (
+        "untracked_count",
+    )
 
 
 def test_build_project_intake_rejects_unknown_mode(tmp_path) -> None:

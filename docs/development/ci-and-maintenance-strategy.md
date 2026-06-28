@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.635`
-- Merged PR range reviewed: #90 through #731
+- Package version inspected: `1.0.637`
+- Merged PR range reviewed: #90 through #733
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #731
-- Latest refresh reviewed: #731
+- Maintenance refresh reviewed: #427 through #733
+- Latest refresh reviewed: #733
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1226,6 +1226,19 @@ and what the next release train should optimize.
 - Added `tests/test_project_intake.py` and promoted project intake/workspace
   picker tests into the required smoke manifest.
 - Raised the package version from `1.0.633` to `1.0.634` in this patch PR.
+
+### #733: Project Analyze Command
+
+- Added `trinity project analyze [PATH]` as the first CLI surface over the
+  project intake contract.
+- Required an initialized Trinity project so intake artifacts are written under
+  the configured `.trinity` state directory.
+- Added `--mode existing|new` and `--notes` options for onboarding context.
+- Wrote `.trinity/project-intake.json` and `.trinity/project-intake.md` from
+  the analyzed target workspace.
+- Expanded CLI tests for the missing-init error path and successful intake
+  artifact generation.
+- Raised the package version from `1.0.635` to `1.0.636` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

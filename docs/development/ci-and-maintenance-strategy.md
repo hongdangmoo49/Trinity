@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.657`
-- Merged PR range reviewed: #90 through #753
+- Package version inspected: `1.0.659`
+- Merged PR range reviewed: #90 through #755
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #753
-- Latest refresh reviewed: #753
+- Maintenance refresh reviewed: #427 through #755
+- Latest refresh reviewed: #755
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1358,6 +1358,16 @@ and what the next release train should optimize.
 - Expanded CLI tests for panel and JSON refresh flows, including Windows-safe
   path assertions.
 - Raised the package version from `1.0.655` to `1.0.656` in this patch PR.
+
+### #755: Textual Project Intake Summary
+
+- Added saved project intake summary labels to the Start and Nexus screens.
+- Displayed project mode and detected test commands so users can confirm the
+  new/existing project context before planning or execution.
+- Added English and Korean labels for missing, invalid, and active intake
+  states.
+- Expanded Start/Nexus render tests for the new summary labels.
+- Raised the package version from `1.0.657` to `1.0.658` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

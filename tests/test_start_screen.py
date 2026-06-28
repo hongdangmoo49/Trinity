@@ -161,6 +161,46 @@ def test_project_intake_state_label_includes_workspace_profile(
     )
 
 
+def test_project_intake_state_label_warns_when_target_mismatches(
+    tmp_path: Path,
+) -> None:
+    saved_target = tmp_path / "saved-app"
+    selected_target = tmp_path / "selected-app"
+    saved_target.mkdir()
+    selected_target.mkdir()
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=saved_target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert project_intake_state_label(
+        state,
+        target_workspace=selected_target,
+    ).startswith(
+        "Project intake: existing | "
+        f"target mismatch: intake {saved_target} | "
+        "updated: 2026-06-28"
+    )
+    assert project_intake_state_label(
+        state,
+        lang="ko",
+        target_workspace=selected_target,
+    ).startswith(
+        "프로젝트 인테이크: 기존 | "
+        f"대상 불일치: 인테이크 {saved_target} | "
+        "갱신: 2026-06-28"
+    )
+    assert "target mismatch" not in project_intake_state_label(
+        state,
+        target_workspace=saved_target,
+    )
+
+
 def test_project_intake_state_label_includes_existing_project_git_state(
     tmp_path: Path,
 ) -> None:
@@ -293,6 +333,30 @@ def test_start_and_nexus_missing_project_intake_use_selected_workspace(
 
     assert f"trinity project analyze {target}" in start._project_intake_label()
     assert f"trinity project analyze {target}" in nexus._project_intake_label()
+
+
+def test_start_and_nexus_project_intake_warn_when_target_mismatches(
+    tmp_path: Path,
+) -> None:
+    saved_target = tmp_path / "saved-app"
+    selected_target = tmp_path / "selected-app"
+    saved_target.mkdir()
+    selected_target.mkdir()
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=saved_target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+    start = StartScreen(config, workspace_candidate=selected_target)
+    nexus = NexusScreen(config)
+    nexus.snapshot = WorkflowNexusSnapshot(target_workspace=str(selected_target))
+
+    assert "target mismatch" in start._project_intake_label()
+    assert "target mismatch" in nexus._project_intake_label()
 
 
 def test_nexus_workspace_label_uses_target_state_helper(tmp_path: Path) -> None:

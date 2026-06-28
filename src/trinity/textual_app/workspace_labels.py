@@ -52,8 +52,12 @@ PROJECT_INTAKE_LABELS = {
         "git_dirty": "git: {branch} dirty {dirty}, untracked {untracked}",
         "git_none": "git: none",
         "goal": "goal",
+        "constraints": "constraints",
+        "first_milestone": "milestone",
         "project_type": "type",
         "source_roots": "src",
+        "stack_preferences": "stack",
+        "success_criteria": "success",
         "summary": "Project intake: {mode}",
         "target_users": "users",
         "tests": "tests",
@@ -83,8 +87,12 @@ PROJECT_INTAKE_LABELS = {
         "git_dirty": "git: {branch} 변경 {dirty}, 미추적 {untracked}",
         "git_none": "git: 없음",
         "goal": "목표",
+        "constraints": "제약",
+        "first_milestone": "마일스톤",
         "project_type": "유형",
         "source_roots": "소스",
+        "stack_preferences": "스택",
+        "success_criteria": "성공",
         "summary": "프로젝트 인테이크: {mode}",
         "target_users": "사용자",
         "tests": "테스트",
@@ -167,6 +175,22 @@ def _format_project_intake_label(intake: ProjectIntake, *, lang: str) -> str:
         parts.append(
             f"{labels['target_users']}: {value}"
         )
+    if intake.success_criteria.strip():
+        value = _format_project_intake_text(intake.success_criteria)
+        parts.append(
+            f"{labels['success_criteria']}: {value}"
+        )
+    if intake.first_milestone.strip():
+        value = _format_project_intake_text(intake.first_milestone)
+        parts.append(
+            f"{labels['first_milestone']}: {value}"
+        )
+    for label_key, values in (
+        ("stack_preferences", intake.stack_preferences),
+        ("constraints", intake.constraints),
+    ):
+        if values:
+            parts.append(_format_project_intake_section(labels[label_key], values))
     for label_key, values in (
         ("dev", intake.dev_commands),
         ("build", intake.build_commands),

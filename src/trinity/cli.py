@@ -584,7 +584,12 @@ def project_analyze(path: Path | None, mode: str, notes: str) -> None:
 
 @project.command("status")
 @click.option("--json", "json_output", is_flag=True, help="Print status as JSON.")
-def project_status(json_output: bool) -> None:
+@click.option(
+    "--refresh",
+    is_flag=True,
+    help="Refresh saved intake from the current target workspace before display.",
+)
+def project_status(json_output: bool, refresh: bool) -> None:
     """Show the currently recorded project intake."""
     config_path = find_config_path()
     if config_path is None:
@@ -601,10 +606,26 @@ def project_status(json_output: bool) -> None:
             return
         _display_missing_project_intake_status()
         return
+    paths: ProjectIntakePaths | None = None
+    if refresh:
+        intake, paths = _refresh_project_intake(config, intake)
     if json_output:
-        _display_project_status_json(intake)
+        _display_project_status_json(intake, refreshed=refresh, paths=paths)
         return
-    _display_project_status(intake)
+    _display_project_status(intake, refreshed=refresh, paths=paths)
+
+
+def _refresh_project_intake(
+    config: TrinityConfig,
+    intake: ProjectIntake,
+) -> tuple[ProjectIntake, ProjectIntakePaths]:
+    refreshed = build_project_intake(
+        mode=intake.mode,
+        target_workspace=intake.target_workspace,
+        notes=intake.notes,
+    )
+    paths = write_project_intake(config.effective_state_dir, refreshed)
+    return refreshed, paths
 
 
 def _create_project_workspace(parent: Path, name: str) -> Path:
@@ -723,21 +744,33 @@ def _display_missing_project_intake_status() -> None:
     console.print(Panel.fit(body, title="Trinity Project"))
 
 
-def _display_project_status_json(intake: ProjectIntake | None) -> None:
+def _display_project_status_json(
+    intake: ProjectIntake | None,
+    *,
+    refreshed: bool = False,
+    paths: ProjectIntakePaths | None = None,
+) -> None:
     click.echo(
         json.dumps(
-            _project_status_payload(intake),
+            _project_status_payload(intake, refreshed=refreshed, paths=paths),
             ensure_ascii=False,
             indent=2,
         )
     )
 
 
-def _project_status_payload(intake: ProjectIntake | None) -> dict[str, object]:
+def _project_status_payload(
+    intake: ProjectIntake | None,
+    *,
+    refreshed: bool = False,
+    paths: ProjectIntakePaths | None = None,
+) -> dict[str, object]:
     if intake is None:
         return {
             "project_intake": None,
             "current_analysis": None,
+            "refreshed": False,
+            "project_intake_paths": None,
             "next_steps": [
                 "trinity project analyze [PATH]",
                 "trinity project new NAME",
@@ -782,11 +815,29 @@ def _project_status_payload(intake: ProjectIntake | None) -> dict[str, object]:
             "package_managers": list(live_package_managers),
             "test_commands": list(live_test_commands),
         },
+        "refreshed": refreshed,
+        "project_intake_paths": _project_intake_paths_payload(paths),
         "next_steps": ["trinity"],
     }
 
 
-def _display_project_status(intake: ProjectIntake) -> None:
+def _project_intake_paths_payload(
+    paths: ProjectIntakePaths | None,
+) -> dict[str, str] | None:
+    if paths is None:
+        return None
+    return {
+        "json": str(paths.json_path),
+        "markdown": str(paths.markdown_path),
+    }
+
+
+def _display_project_status(
+    intake: ProjectIntake,
+    *,
+    refreshed: bool = False,
+    paths: ProjectIntakePaths | None = None,
+) -> None:
     target_exists = intake.target_workspace.exists()
     live_git = analyze_git_workspace(intake.target_workspace) if target_exists else None
     live_package_managers = (
@@ -802,9 +853,19 @@ def _display_project_status(intake: ProjectIntake) -> None:
     live_branch = live_git.branch if live_git is not None else "unknown"
     live_dirty = live_git.dirty_count if live_git is not None else None
     live_untracked = live_git.untracked_count if live_git is not None else None
-    body = "\n".join(
+    lines = [
+        "[green]Project intake active.[/green]",
+    ]
+    if refreshed:
+        lines.extend(
+            [
+                "[green]Project intake refreshed.[/green]",
+                f"JSON: {paths.json_path if paths is not None else '(unknown)'}",
+                f"Markdown: {paths.markdown_path if paths is not None else '(unknown)'}",
+            ]
+        )
+    lines.extend(
         [
-            "[green]Project intake active.[/green]",
             "",
             f"Mode: {intake.mode}",
             f"Target name: {intake.target_workspace.name or '(root)'}",
@@ -830,6 +891,7 @@ def _display_project_status(intake: ProjectIntake) -> None:
             "Next step: run `trinity` to start planning with this target.",
         ]
     )
+    body = "\n".join(lines)
     console.print(Panel.fit(body, title="Trinity Project"))
 
 

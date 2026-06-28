@@ -515,6 +515,69 @@ class TestProjectAnalyze:
             assert data["current_analysis"]["test_commands"] == ["uv run pytest"]
             assert data["next_steps"] == ["trinity"]
 
+    def test_project_status_refresh_updates_saved_intake(self, runner, tmp_path):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            init_result = runner.invoke(main, ["init", "--non-interactive"])
+            assert init_result.exit_code == 0
+
+            target = Path("customer-app")
+            target.mkdir()
+            (target / "pyproject.toml").write_text(
+                "[project]\nname='customer-app'\n",
+                encoding="utf-8",
+            )
+            (target / "uv.lock").write_text("", encoding="utf-8")
+            analyze_result = runner.invoke(main, ["project", "analyze", str(target)])
+            assert analyze_result.exit_code == 0
+            (target / "package.json").write_text(
+                json.dumps({"scripts": {"test": "vitest run"}}),
+                encoding="utf-8",
+            )
+
+            result = runner.invoke(main, ["project", "status", "--refresh"])
+
+            assert result.exit_code == 0
+            assert "Project intake refreshed." in result.output
+            assert "npm test" in result.output
+            data = json.loads(
+                Path(".trinity/project-intake.json").read_text(encoding="utf-8")
+            )
+            markdown = Path(".trinity/project-intake.md").read_text(encoding="utf-8")
+            assert data["package_managers"] == ["uv", "npm"]
+            assert data["test_commands"] == ["npm test", "uv run pytest"]
+            assert "npm test" in markdown
+
+    def test_project_status_refresh_json_updates_saved_intake(self, runner, tmp_path):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            init_result = runner.invoke(main, ["init", "--non-interactive"])
+            assert init_result.exit_code == 0
+
+            target = Path("customer-app")
+            target.mkdir()
+            (target / "pyproject.toml").write_text(
+                "[project]\nname='customer-app'\n",
+                encoding="utf-8",
+            )
+            analyze_result = runner.invoke(main, ["project", "analyze", str(target)])
+            assert analyze_result.exit_code == 0
+            (target / "uv.lock").write_text("", encoding="utf-8")
+
+            result = runner.invoke(main, ["project", "status", "--refresh", "--json"])
+
+            assert result.exit_code == 0
+            payload = json.loads(result.output)
+            assert payload["refreshed"] is True
+            json_path = payload["project_intake_paths"]["json"].replace("\\", "/")
+            assert json_path.endswith(
+                ".trinity/project-intake.json"
+            )
+            assert payload["project_intake"]["package_managers"] == ["uv"]
+            assert payload["project_intake"]["test_commands"] == ["uv run pytest"]
+            data = json.loads(
+                Path(".trinity/project-intake.json").read_text(encoding="utf-8")
+            )
+            assert data["package_managers"] == ["uv"]
+
 
 class TestStatus:
     def test_status_shows_agents(self, runner, trinity_project):

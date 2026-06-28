@@ -1398,6 +1398,18 @@ and what the next release train should optimize.
 - Expanded Start screen tests for missing-intake action hints.
 - Raised the package version from `1.0.662` to `1.0.663` in this patch PR.
 
+### #762: New Project Init Pending Intake
+
+- Changed `trinity init --mode new` so it no longer records the current folder
+  as the active target workspace.
+- Deferred new-project intake artifact creation until
+  `trinity project new NAME --parent PATH` creates the target project.
+- Kept `trinity init --mode existing` behavior unchanged so existing projects
+  still record the current folder immediately.
+- Updated README/README.en to describe the pending-intake new project flow.
+- Expanded init CLI tests for the deferred new-project intake behavior.
+- Raised the package version from `1.0.664` to `1.0.665` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture

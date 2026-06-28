@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.739`
-- Merged PR range reviewed: #90 through #836
+- Package version inspected: `1.0.741`
+- Merged PR range reviewed: #90 through #838
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #836
-- Latest refresh reviewed: #836
+- Maintenance refresh reviewed: #427 through #838
+- Latest refresh reviewed: #838
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1868,6 +1868,18 @@ and what the next release train should optimize.
 - Added WorkspacePicker and Textual app coverage for empty directory
   classification and intake mode sync.
 - Raised the package version from `1.0.738` to `1.0.739` in this patch PR.
+
+### #838: Provider Target Workspace CWD Regression
+
+- Added a fake-provider regression test that drives a real Codex fake CLI through
+  the orchestrator-created agent wrapper.
+- Verified that the selected target workspace, not the Trinity control repo, is
+  used as the provider subprocess cwd.
+- Verified that Codex receives the selected target workspace through its
+  controlled `--cd` argument and still receives the expected prompt context on
+  stdin.
+- Documented this fake-provider coverage in the development test environment.
+- Raised the package version from `1.0.740` to `1.0.741` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

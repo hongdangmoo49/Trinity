@@ -437,6 +437,11 @@ class TrinityTextualApp(App[None]):
         width: 22;
     }
 
+    #create-project {
+        width: 18;
+        margin-left: 1;
+    }
+
     #nexus-screen {
         width: 100%;
         height: 1fr;
@@ -1472,6 +1477,18 @@ class TrinityTextualApp(App[None]):
             return
         self._sync_project_intake_for_target(target, mode="existing")
 
+    def on_start_screen_new_project_requested(
+        self,
+        event: StartScreen.NewProjectRequested,
+    ) -> None:
+        event.stop()
+        self._open_workspace_picker(
+            WorkflowNexusSnapshot(),
+            self._on_workspace_candidate_selected,
+            intent="select",
+            open_new_folder=True,
+        )
+
     def on_nexus_screen_follow_up_submitted(
         self,
         event: NexusScreen.FollowUpSubmitted,
@@ -1671,6 +1688,7 @@ class TrinityTextualApp(App[None]):
         callback,
         *,
         intent: str = "execute",
+        open_new_folder: bool = False,
     ) -> None:
         self.push_screen(
             build_workspace_picker(
@@ -1679,6 +1697,7 @@ class TrinityTextualApp(App[None]):
                 snapshot=snapshot,
                 control_repo_path=self.config.project_dir,
                 intent=intent,
+                open_new_folder=open_new_folder,
             ),
             callback,
         )

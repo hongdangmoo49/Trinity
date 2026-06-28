@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.733`
-- Merged PR range reviewed: #90 through #830
+- Package version inspected: `1.0.735`
+- Merged PR range reviewed: #90 through #832
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #830
-- Latest refresh reviewed: #830
+- Maintenance refresh reviewed: #427 through #832
+- Latest refresh reviewed: #832
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1830,6 +1830,19 @@ and what the next release train should optimize.
 - Added CLI coverage for deferred mode, init-created new projects, implied new
   mode, and incompatible mode validation.
 - Raised the package version from `1.0.732` to `1.0.733` in this patch PR.
+
+### #832: Dirty Workspace Execute Preflight Gate
+
+- Added a dirty-Git safety gate to Execute Preflight. The first
+  `Confirm Execute` on a dirty Git workspace now shows a warning and keeps the
+  modal open.
+- Requires the user to press `Confirm Execute` again on the same path before
+  execution continues, making "execute anyway" explicit.
+- Kept Select Workspace mode ungated so read-only target selection and analysis
+  remain fast.
+- Added WorkspacePicker coverage for clean/dirty preflight state, execute mode
+  double-confirm behavior, and select-mode bypass behavior.
+- Raised the package version from `1.0.734` to `1.0.735` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

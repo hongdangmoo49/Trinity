@@ -56,6 +56,7 @@ from trinity.providers.bootstrap import (
 )
 from trinity.setup.detector import CLIDetector
 from trinity.textual_app.runtime import resolve_tui_runtime
+from trinity.textual_app.workspace_labels import format_project_intake_label
 from trinity.updater import (
     StartupUpdate,
     apply_startup_update,
@@ -1016,6 +1017,7 @@ def _display_project_status(
     live_untracked = live_git.untracked_count if live_git is not None else None
     lines = [
         "[green]Project intake active.[/green]",
+        f"Summary: {format_project_intake_label(intake)}",
     ]
     if refreshed:
         lines.extend(

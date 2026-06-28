@@ -157,6 +157,20 @@ def project_intake_state_label(
         if target:
             return labels["missing_with_target"].format(target=target)
         return labels["missing"]
+    return format_project_intake_label(
+        intake,
+        lang=lang,
+        target_workspace=target_workspace,
+    )
+
+
+def format_project_intake_label(
+    intake: ProjectIntake,
+    *,
+    lang: str = "en",
+    target_workspace: object | None = None,
+) -> str:
+    """Return a concise label for a loaded project intake value."""
     return _format_project_intake_label(
         intake,
         lang=lang,

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.757`
-- Merged PR range reviewed: #90 through #854
+- Package version inspected: `1.0.759`
+- Merged PR range reviewed: #90 through #856
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #854
-- Latest refresh reviewed: #854
+- Maintenance refresh reviewed: #427 through #856
+- Latest refresh reviewed: #856
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1983,6 +1983,20 @@ and what the next release train should optimize.
 - Added a dedicated design document and Textual coverage for prompt seeding and
   preservation.
 - Raised the package version from `1.0.756` to `1.0.757` in this patch PR.
+
+### #856: Project Brief Start Prompt
+
+- Replaced the single-field project brief prompt seed with a concise prompt
+  builder that includes goal, type, users, success criteria, first milestone,
+  stack, constraints, and notes when present.
+- Kept goal-only saved intake compatible by preserving the previous single-line
+  prompt behavior.
+- Used separate lead-in text for new projects and existing-project briefs.
+- Reused the same prompt builder for initial Start composer loading and project
+  brief save handling.
+- Added a dedicated design document and Textual coverage for initial prompt
+  loading, new-project brief save, and existing-project brief save.
+- Raised the package version from `1.0.758` to `1.0.759` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

@@ -1526,6 +1526,18 @@ and what the next release train should optimize.
   values.
 - Raised the package version from `1.0.682` to `1.0.683` in this patch PR.
 
+### #782: Workbench Project Brief Preservation
+
+- Changed Workbench project-intake sync so it preserves saved project brief
+  fields and notes when refreshing the same target workspace.
+- Prevented stale brief data from being carried to a different target
+  workspace.
+- Reused the target path normalization helper so preservation works across
+  equivalent path spellings.
+- Expanded Textual app tests for same-target preservation and new-target
+  non-carry behavior.
+- Raised the package version from `1.0.684` to `1.0.685` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture

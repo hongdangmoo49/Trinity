@@ -248,6 +248,12 @@ def initial_start_prompt(config: TrinityConfig, workspace_candidate: Path | None
     return intake.product_goal.strip()
 
 
+def _existing_project_analysis_prompt(lang: str) -> str:
+    if lang == "ko":
+        return "이 기존 프로젝트를 분석하고 다음에 진행할 작업 패키지를 제안해라."
+    return "Analyze this existing project and propose the next safe work packages."
+
+
 def _is_directory(path: Path) -> bool:
     try:
         return path.is_dir()
@@ -1530,11 +1536,12 @@ class TrinityTextualApp(App[None]):
         if target is None:
             self._open_workspace_picker(
                 WorkflowNexusSnapshot(),
-                self._on_workspace_candidate_selected,
+                self._on_existing_project_intake_workspace_selected,
                 intent="select",
             )
             return
         self._sync_project_intake_for_target(target, mode="existing")
+        self._seed_start_prompt_for_existing_analysis(target)
 
     def on_start_screen_new_project_requested(
         self,
@@ -1832,6 +1839,16 @@ class TrinityTextualApp(App[None]):
             return
         self._set_workspace_candidate(preflight.path, sync_start=True)
         self._sync_project_intake_for_preflight(preflight)
+
+    def _on_existing_project_intake_workspace_selected(
+        self,
+        preflight: WorkspacePreflight | None,
+    ) -> None:
+        if preflight is None:
+            return
+        self._on_workspace_candidate_selected(preflight)
+        if self._project_intake_mode_for_preflight(preflight) == "existing":
+            self._seed_start_prompt_for_existing_analysis(preflight.path)
 
     def _on_new_project_workspace_selected(
         self,
@@ -3326,6 +3343,20 @@ class TrinityTextualApp(App[None]):
         composer = start.query_one(PromptComposer)
         if not composer.text.strip():
             composer.set_text(product_goal.strip())
+
+    def _seed_start_prompt_for_existing_analysis(self, target: Path) -> None:
+        if not self._screens_installed:
+            return
+        start = self.get_screen("start", StartScreen)
+        if not start.is_mounted:
+            return
+        if self.workspace_candidate is None:
+            return
+        if absolute_path(self.workspace_candidate) != absolute_path(target):
+            return
+        composer = start.query_one(PromptComposer)
+        if not composer.text.strip():
+            composer.set_text(_existing_project_analysis_prompt(self.config.lang))
 
     def _preserved_project_intake_user_context(self, target: Path) -> dict[str, object]:
         try:

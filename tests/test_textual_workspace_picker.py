@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,16 @@ from trinity.textual_app.widgets.workspace_picker import (
 
 class WorkspacePickerHarness(App[None]):
     pass
+
+
+def _run_git(tmp_path: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", *args],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
 
 def test_build_preflight_accepts_existing_writable_directory(tmp_path) -> None:
@@ -58,6 +69,41 @@ def test_build_preflight_detects_git_worktree_file_branch(tmp_path) -> None:
     assert preflight.branch == "feature/worktree"
 
 
+def test_build_preflight_reports_clean_git_worktree(tmp_path) -> None:
+    _run_git(tmp_path, "init")
+
+    preflight = build_preflight(tmp_path, WorkflowNexusSnapshot())
+
+    assert preflight.git_repo is True
+    assert preflight.changed_count == 0
+    assert preflight.untracked_count == 0
+    assert "Dirty worktree: clean" in preflight.render()
+    assert "변경사항: 깨끗함" in preflight.render(lang="ko")
+
+
+def test_build_preflight_counts_changed_git_entries(tmp_path) -> None:
+    _run_git(tmp_path, "init")
+    (tmp_path / "tracked.txt").write_text("changed\n", encoding="utf-8")
+    _run_git(tmp_path, "add", "tracked.txt")
+
+    preflight = build_preflight(tmp_path, WorkflowNexusSnapshot())
+
+    assert preflight.changed_count == 1
+    assert preflight.untracked_count == 0
+    assert "Dirty worktree: 1 changed, 0 untracked" in preflight.render()
+
+
+def test_build_preflight_counts_untracked_git_entries(tmp_path) -> None:
+    _run_git(tmp_path, "init")
+    (tmp_path / "notes.txt").write_text("new\n", encoding="utf-8")
+
+    preflight = build_preflight(tmp_path, WorkflowNexusSnapshot())
+
+    assert preflight.changed_count == 0
+    assert preflight.untracked_count == 1
+    assert "Dirty worktree: 0 changed, 1 untracked" in preflight.render()
+
+
 def test_build_preflight_marks_missing_child_as_creatable(tmp_path) -> None:
     target = tmp_path / "new-app"
 
@@ -93,7 +139,7 @@ def test_workspace_preflight_render_uses_korean_labels(tmp_path) -> None:
     assert f"경로: {tmp_path / 'new-app'}" in rendered
     assert "존재: False" in rendered
     assert "생성 가능: True" in rendered
-    assert "변경사항: 알 수 없음" in rendered
+    assert "변경사항: Git 저장소 아님" in rendered
     assert "프로바이더 준비: 현재 세션 스냅샷" in rendered
     assert "작업 패키지: 0" in rendered
 

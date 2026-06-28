@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.773`
-- Merged PR range reviewed: #90 through #870
+- Package version inspected: `1.0.775`
+- Merged PR range reviewed: #90 through #872
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #870
-- Latest refresh reviewed: #870
+- Maintenance refresh reviewed: #427 through #872
+- Latest refresh reviewed: #872
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2082,6 +2082,16 @@ and what the next release train should optimize.
   preflight gates.
 - Added a dedicated design document and English/Korean Textual modal coverage.
 - Raised the package version from `1.0.772` to `1.0.773` in this patch PR.
+
+### #872: New Brief Starter Recommendations
+
+- Added prompt-only starter recommendations for new-project brief prompts.
+- Derived advisory template, stack, UX focus, and guardrail hints from saved
+  project type, stack preferences, target users, and constraints.
+- Kept existing-project prompts, intake persistence, readiness policy, and
+  preflight gates unchanged.
+- Added a dedicated design document and English/Korean prompt coverage.
+- Raised the package version from `1.0.774` to `1.0.775` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

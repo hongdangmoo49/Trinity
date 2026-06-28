@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.651`
-- Merged PR range reviewed: #90 through #747
+- Package version inspected: `1.0.653`
+- Merged PR range reviewed: #90 through #749
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #747
-- Latest refresh reviewed: #747
+- Maintenance refresh reviewed: #427 through #749
+- Latest refresh reviewed: #749
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1326,6 +1326,17 @@ and what the next release train should optimize.
 - Aligned stale Textual label tests with the current `Planning target` /
   `계획 대상` wording.
 - Raised the package version from `1.0.649` to `1.0.650` in this patch PR.
+
+### #749: Project Onboarding Next Steps
+
+- Added explicit next-step guidance to `trinity project new` and
+  `trinity project analyze` completion output.
+- Added missing-intake guidance telling users to analyze or create a project and
+  then run `trinity`.
+- Added active-intake guidance telling users to run `trinity` to start planning
+  with the recorded target.
+- Expanded CLI tests for the new guidance.
+- Raised the package version from `1.0.651` to `1.0.652` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

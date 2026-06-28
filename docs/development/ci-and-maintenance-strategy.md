@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.697`
-- Merged PR range reviewed: #90 through #794
+- Package version inspected: `1.0.699`
+- Merged PR range reviewed: #90 through #796
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #794
-- Latest refresh reviewed: #794
+- Maintenance refresh reviewed: #427 through #796
+- Latest refresh reviewed: #796
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1617,6 +1617,17 @@ and what the next release train should optimize.
 - Expanded Start/Nexus label tests for non-Git summaries and dirty Git
   workspaces in English and Korean.
 - Raised the package version from `1.0.696` to `1.0.697` in this patch PR.
+
+### #796: Project Intake Source Roots Summary
+
+- Added detected source roots to Start/Nexus project-intake summaries.
+- Existing-project users can now confirm that Trinity found expected source and
+  test directories before asking agents to plan or execute against the target.
+- Kept the summary compact by reusing the existing two-value truncation format
+  used by other workspace profile sections.
+- Expanded Start/Nexus label tests for English and Korean source-root summary
+  output.
+- Raised the package version from `1.0.698` to `1.0.699` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

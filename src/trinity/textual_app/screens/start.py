@@ -14,6 +14,7 @@ from trinity.config import TrinityConfig
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
+from trinity.textual_app.workspace_labels import target_workspace_state_label
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
     AgentRecipientModelSelector,
 )
@@ -28,8 +29,6 @@ START_LABELS = {
         "select_agent_warning": "Select at least one agent.",
         "select_workspace": "Select Workspace",
         "subtitle": "Three minds, one context",
-        "workspace_not_selected": "Target workspace: Not selected",
-        "workspace_selected": "Target workspace: {target}",
     },
     "ko": {
         "plan_first": "먼저 계획",
@@ -37,8 +36,6 @@ START_LABELS = {
         "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
         "select_workspace": "작업 폴더 선택",
         "subtitle": "세 개의 관점, 하나의 컨텍스트",
-        "workspace_not_selected": "작업 폴더: 선택 안 됨",
-        "workspace_selected": "작업 폴더: {target}",
     },
 }
 
@@ -262,9 +259,11 @@ class StartScreen(Screen[None]):
         return self._workspace_label_widget
 
     def _workspace_label(self) -> str:
-        if self.workspace_candidate is None:
-            return self._label("workspace_not_selected")
-        return self._label("workspace_selected").format(target=self.workspace_candidate)
+        return target_workspace_state_label(
+            self.workspace_candidate,
+            control_repo=self.config.project_dir,
+            lang=self.lang,
+        )
 
     def _label(self, key: str) -> str:
         labels = START_LABELS.get(self.lang, START_LABELS["en"])

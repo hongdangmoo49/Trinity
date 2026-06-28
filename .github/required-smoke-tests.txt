@@ -24,6 +24,7 @@ tests/test_workflow_execution_flow.py
 tests/test_workflow_review_flow.py
 tests/test_workflow_post_review_flow.py
 tests/test_execution_retry_modal.py
+tests/test_start_screen.py
 tests/test_textual_smoke.py
 tests/test_textual_runtime.py
 tests/test_textual_agent_commands.py

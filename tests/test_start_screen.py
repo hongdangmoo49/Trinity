@@ -7,7 +7,10 @@ from textual.app import App
 from textual.widgets import Static
 
 from trinity.config import TrinityConfig
+from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.start import StartScreen
+from trinity.textual_app.snapshot import WorkflowNexusSnapshot
+from trinity.textual_app.workspace_labels import target_workspace_state_label
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
     AgentRecipientModelSelector,
 )
@@ -28,6 +31,55 @@ class _DisplayPath:
 
     def __str__(self) -> str:
         return self.text
+
+
+def test_target_workspace_state_label_distinguishes_project_states(
+    tmp_path: Path,
+) -> None:
+    control_repo = tmp_path / "Trinity"
+    target = tmp_path / "customer-app"
+    control_repo.mkdir()
+    target.mkdir()
+
+    assert (
+        target_workspace_state_label(None, control_repo=control_repo)
+        == "No target workspace selected"
+    )
+    assert target_workspace_state_label(
+        target,
+        control_repo=control_repo,
+    ) == f"Planning target: {target}"
+    assert target_workspace_state_label(
+        control_repo,
+        control_repo=control_repo,
+    ) == (
+        "Control repo selected; confirmation required before write: "
+        f"{control_repo}"
+    )
+    assert target_workspace_state_label(
+        target,
+        control_repo=control_repo,
+        lang="ko",
+    ) == f"계획 대상: {target}"
+
+
+def test_nexus_workspace_label_uses_target_state_helper(tmp_path: Path) -> None:
+    control_repo = tmp_path / "Trinity"
+    target = tmp_path / "customer-app"
+    control_repo.mkdir()
+    target.mkdir()
+    screen = NexusScreen(TrinityConfig.default_config(project_dir=control_repo))
+
+    assert screen._workspace_label() == "No target workspace selected"
+
+    screen.snapshot = WorkflowNexusSnapshot(target_workspace=str(target))
+    assert screen._workspace_label() == f"Planning target: {target}"
+
+    screen.snapshot = WorkflowNexusSnapshot(target_workspace=str(control_repo))
+    assert screen._workspace_label() == (
+        "Control repo selected; confirmation required before write: "
+        f"{control_repo}"
+    )
 
 
 @pytest.mark.asyncio
@@ -62,7 +114,7 @@ async def test_start_workspace_label_skips_unchanged_update(tmp_path: Path) -> N
 
         screen.set_workspace_candidate(next_target)
         await pilot.pause()
-        assert updates == [f"Target workspace: {next_target}"]
+        assert updates == [f"Planning target: {next_target}"]
 
 
 @pytest.mark.asyncio

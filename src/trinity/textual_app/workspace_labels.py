@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from trinity.project_intake import ProjectIntake, load_project_intake
+from trinity.project_intake import (
+    ProjectIntake,
+    load_project_intake,
+    missing_new_project_brief_field_keys,
+)
 
 
 WORKSPACE_STATE_LABELS = {
@@ -34,9 +38,16 @@ PROJECT_INTAKE_LABELS = {
             "| new: trinity project new NAME"
         ),
         "build": "build",
+        "brief_complete": "brief: complete",
+        "brief_missing": "brief: missing {fields}",
         "dev": "dev",
         "docs": "docs",
         "entrypoints": "entry",
+        "field_first_milestone": "milestone",
+        "field_product_goal": "goal",
+        "field_project_type": "type",
+        "field_success_criteria": "success",
+        "field_target_users": "users",
         "goal": "goal",
         "project_type": "type",
         "summary": "Project intake: {mode}",
@@ -54,9 +65,16 @@ PROJECT_INTAKE_LABELS = {
             "| 신규: trinity project new NAME"
         ),
         "build": "빌드",
+        "brief_complete": "브리프: 완료",
+        "brief_missing": "브리프: 누락 {fields}",
         "dev": "개발",
         "docs": "문서",
         "entrypoints": "진입점",
+        "field_first_milestone": "마일스톤",
+        "field_product_goal": "목표",
+        "field_project_type": "유형",
+        "field_success_criteria": "성공",
+        "field_target_users": "사용자",
         "goal": "목표",
         "project_type": "유형",
         "summary": "프로젝트 인테이크: {mode}",
@@ -122,6 +140,8 @@ def _format_project_intake_label(intake: ProjectIntake, *, lang: str) -> str:
             empty_label=labels["tests_none"],
         ),
     ]
+    if intake.mode == "new":
+        parts.append(_format_new_project_brief_readiness(intake, labels))
     if intake.product_goal.strip():
         parts.append(
             f"{labels['goal']}: {_format_project_intake_text(intake.product_goal)}"
@@ -145,6 +165,19 @@ def _format_project_intake_label(intake: ProjectIntake, *, lang: str) -> str:
         if values:
             parts.append(_format_project_intake_section(labels[label_key], values))
     return " | ".join(parts)
+
+
+def _format_new_project_brief_readiness(
+    intake: ProjectIntake,
+    labels: dict[str, str],
+) -> str:
+    missing = missing_new_project_brief_field_keys(intake)
+    if not missing:
+        return labels["brief_complete"]
+    field_labels = tuple(labels[f"field_{field_name}"] for field_name in missing)
+    return labels["brief_missing"].format(
+        fields=_format_project_intake_values(field_labels)
+    )
 
 
 def _format_project_intake_section(

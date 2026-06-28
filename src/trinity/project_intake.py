@@ -19,6 +19,13 @@ PROJECT_INTAKE_JSON = "project-intake.json"
 PROJECT_INTAKE_MARKDOWN = "project-intake.md"
 PROJECT_INTAKE_PROMPT_MAX_CHARS = 4000
 PROJECT_MODES = {"existing", "new"}
+NEW_PROJECT_BRIEF_FIELD_LABELS = {
+    "product_goal": "goal",
+    "project_type": "type",
+    "target_users": "users",
+    "success_criteria": "success",
+    "first_milestone": "milestone",
+}
 
 
 @dataclass(frozen=True)
@@ -207,6 +214,25 @@ def write_project_intake(state_dir: Path, intake: ProjectIntake) -> ProjectIntak
     )
     markdown_path.write_text(intake.to_markdown(), encoding="utf-8")
     return ProjectIntakePaths(json_path=json_path, markdown_path=markdown_path)
+
+
+def missing_new_project_brief_field_keys(intake: ProjectIntake) -> tuple[str, ...]:
+    """Return missing brief field keys required for new-project planning."""
+    if intake.mode != "new":
+        return ()
+    missing: list[str] = []
+    for field_name in NEW_PROJECT_BRIEF_FIELD_LABELS:
+        if not str(getattr(intake, field_name)).strip():
+            missing.append(field_name)
+    return tuple(missing)
+
+
+def missing_new_project_brief_fields(intake: ProjectIntake) -> tuple[str, ...]:
+    """Return user-facing missing brief field labels for a new project."""
+    return tuple(
+        NEW_PROJECT_BRIEF_FIELD_LABELS[field_name]
+        for field_name in missing_new_project_brief_field_keys(intake)
+    )
 
 
 def load_project_intake(state_dir: Path) -> ProjectIntake | None:

@@ -138,6 +138,47 @@ def test_project_intake_state_label_includes_workspace_profile(
     )
 
 
+def test_project_intake_state_label_shows_new_project_brief_readiness(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "new-app"
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build a dashboard.",
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert project_intake_state_label(state) == (
+        "Project intake: new | tests: (none) | "
+        "brief: missing type, users +2 | goal: Build a dashboard."
+    )
+    assert project_intake_state_label(state, lang="ko") == (
+        "프로젝트 인테이크: 신규 | 테스트: (없음) | "
+        "브리프: 누락 유형, 사용자 +2 | 목표: Build a dashboard."
+    )
+
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build a dashboard.",
+            project_type="SaaS dashboard",
+            target_users="support operators",
+            success_criteria="Operators can complete onboarding.",
+            first_milestone="First safe patch.",
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert "brief: complete" in project_intake_state_label(state)
+
+
 def test_project_intake_state_label_guides_missing_intake(tmp_path: Path) -> None:
     state = tmp_path / ".trinity"
 

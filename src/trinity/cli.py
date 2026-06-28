@@ -43,6 +43,7 @@ from trinity.project_intake import (
     build_project_intake,
     detect_package_managers,
     load_project_intake,
+    missing_new_project_brief_fields,
     suggest_test_commands,
     write_project_intake,
 )
@@ -837,6 +838,7 @@ def _display_project_new_summary(
             "",
             f"Target workspace: {intake.target_workspace}",
             f"Git init: {git_status}",
+            *_project_brief_readiness_lines(intake),
             *_project_brief_lines(intake),
             "",
             f"JSON: {json_path}",
@@ -868,6 +870,7 @@ def _display_project_intake_summary(
             f"Untracked count: {_unknown_if_none(intake.untracked_count)}",
             f"Package managers: {_csv_or_none(intake.package_managers)}",
             f"Test commands: {_csv_or_none(intake.test_commands)}",
+            *_project_brief_readiness_lines(intake),
             *_project_brief_lines(intake),
             "",
             f"JSON: {json_path}",
@@ -952,6 +955,7 @@ def _project_status_payload(
             "untracked_count": intake.untracked_count,
             "package_managers": list(intake.package_managers),
             "test_commands": list(intake.test_commands),
+            "brief_readiness": _project_brief_readiness_payload(intake),
             "product_goal": intake.product_goal,
             "project_type": intake.project_type,
             "target_users": intake.target_users,
@@ -1037,6 +1041,7 @@ def _display_project_status(
             f"  Untracked count: {_unknown_if_none(intake.untracked_count)}",
             f"  Package managers: {_csv_or_none(intake.package_managers)}",
             f"  Test commands: {_csv_or_none(intake.test_commands)}",
+            *_project_brief_readiness_status_lines(intake),
             *_project_brief_status_lines(intake),
             "",
             "Current analysis:",
@@ -1066,6 +1071,28 @@ def _split_option_values(values: tuple[str, ...]) -> tuple[str, ...]:
     for value in values:
         items.extend(part.strip() for part in value.split(","))
     return tuple(dict.fromkeys(item for item in items if item))
+
+
+def _project_brief_readiness_payload(intake: ProjectIntake) -> dict[str, object]:
+    missing = missing_new_project_brief_fields(intake)
+    return {
+        "required": intake.mode == "new",
+        "complete": intake.mode != "new" or not missing,
+        "missing_fields": list(missing),
+    }
+
+
+def _project_brief_readiness_lines(intake: ProjectIntake) -> list[str]:
+    if intake.mode != "new":
+        return []
+    missing = missing_new_project_brief_fields(intake)
+    if not missing:
+        return ["Brief readiness: complete"]
+    return [f"Brief readiness: missing {_csv_or_none(missing)}"]
+
+
+def _project_brief_readiness_status_lines(intake: ProjectIntake) -> list[str]:
+    return [f"  {line}" for line in _project_brief_readiness_lines(intake)]
 
 
 def _project_brief_lines(intake: ProjectIntake) -> list[str]:

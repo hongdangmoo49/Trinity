@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.727`
-- Merged PR range reviewed: #90 through #824
+- Package version inspected: `1.0.729`
+- Merged PR range reviewed: #90 through #826
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #824
-- Latest refresh reviewed: #824
+- Maintenance refresh reviewed: #427 through #826
+- Latest refresh reviewed: #826
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1788,6 +1788,19 @@ and what the next release train should optimize.
 - Added JSON status coverage for existing-project and missing-new-target
   summaries.
 - Raised the package version from `1.0.726` to `1.0.727` in this patch PR.
+
+### #826: Project Status JSON Action Metadata
+
+- Added `project_intake.readiness` to `trinity project status --json` with
+  target existence, sparse/stale analysis, missing new-project brief fields,
+  and a structured recommended next action.
+- Added `project_intake.action_variants` so scripts and UI surfaces can consume
+  Workbench-equivalent Analyze Workspace, Create Project, and Edit Brief
+  variants without parsing the compact summary string.
+- Added JSON status coverage for complete existing-project intake, incomplete
+  new-project brief recovery, missing existing targets, and missing new-project
+  target recreation.
+- Raised the package version from `1.0.728` to `1.0.729` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

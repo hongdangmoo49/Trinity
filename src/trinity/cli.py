@@ -11,6 +11,7 @@ Supports:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import shutil
 import subprocess
@@ -582,7 +583,8 @@ def project_analyze(path: Path | None, mode: str, notes: str) -> None:
 
 
 @project.command("status")
-def project_status() -> None:
+@click.option("--json", "json_output", is_flag=True, help="Print status as JSON.")
+def project_status(json_output: bool) -> None:
     """Show the currently recorded project intake."""
     config_path = find_config_path()
     if config_path is None:
@@ -594,7 +596,13 @@ def project_status() -> None:
     except ValueError as exc:
         raise click.ClickException(str(exc)) from exc
     if intake is None:
+        if json_output:
+            _display_project_status_json(None)
+            return
         _display_missing_project_intake_status()
+        return
+    if json_output:
+        _display_project_status_json(intake)
         return
     _display_project_status(intake)
 
@@ -713,6 +721,69 @@ def _display_missing_project_intake_status() -> None:
         ]
     )
     console.print(Panel.fit(body, title="Trinity Project"))
+
+
+def _display_project_status_json(intake: ProjectIntake | None) -> None:
+    click.echo(
+        json.dumps(
+            _project_status_payload(intake),
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+
+
+def _project_status_payload(intake: ProjectIntake | None) -> dict[str, object]:
+    if intake is None:
+        return {
+            "project_intake": None,
+            "current_analysis": None,
+            "next_steps": [
+                "trinity project analyze [PATH]",
+                "trinity project new NAME",
+                "trinity",
+            ],
+        }
+
+    target_exists = intake.target_workspace.exists()
+    live_git = analyze_git_workspace(intake.target_workspace) if target_exists else None
+    live_package_managers = (
+        detect_package_managers(intake.target_workspace)
+        if target_exists
+        else intake.package_managers
+    )
+    live_test_commands = (
+        suggest_test_commands(intake.target_workspace, live_package_managers)
+        if target_exists
+        else intake.test_commands
+    )
+    return {
+        "project_intake": {
+            "mode": intake.mode,
+            "target_name": intake.target_workspace.name or "(root)",
+            "target_workspace": str(intake.target_workspace),
+            "created_at": intake.created_at,
+            "git_repo": intake.git_repo,
+            "branch": intake.branch,
+            "dirty_count": intake.dirty_count,
+            "untracked_count": intake.untracked_count,
+            "package_managers": list(intake.package_managers),
+            "test_commands": list(intake.test_commands),
+            "notes": intake.notes,
+        },
+        "current_analysis": {
+            "target_exists": target_exists,
+            "git_repo": live_git.git_repo if live_git is not None else False,
+            "branch": live_git.branch if live_git is not None else "unknown",
+            "dirty_count": live_git.dirty_count if live_git is not None else None,
+            "untracked_count": (
+                live_git.untracked_count if live_git is not None else None
+            ),
+            "package_managers": list(live_package_managers),
+            "test_commands": list(live_test_commands),
+        },
+        "next_steps": ["trinity"],
+    }
 
 
 def _display_project_status(intake: ProjectIntake) -> None:

@@ -82,6 +82,27 @@ def test_target_workspace_state_label_distinguishes_project_states(
     ) == f"계획 대상: {target}"
 
 
+def test_start_and_nexus_project_actions_use_mode_specific_labels(
+    tmp_path: Path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    ko_config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+
+    start = StartScreen(config)
+    nexus = NexusScreen(config)
+    ko_start = StartScreen(ko_config, lang="ko")
+    ko_nexus = NexusScreen(ko_config)
+
+    assert start._label("analyze_workspace") == "Analyze Existing"
+    assert start._label("create_project") == "Create New"
+    assert nexus._label("analyze_workspace") == "Analyze Existing"
+    assert nexus._label("create_project") == "Create New"
+    assert ko_start._label("analyze_workspace") == "기존 프로젝트 분석"
+    assert ko_start._label("create_project") == "새 프로젝트 생성"
+    assert ko_nexus._label("analyze_workspace") == "기존 프로젝트 분석"
+    assert ko_nexus._label("create_project") == "새 프로젝트 생성"
+
+
 def test_project_intake_state_label_summarizes_saved_intake(tmp_path: Path) -> None:
     target = tmp_path / "customer-app"
     target.mkdir()

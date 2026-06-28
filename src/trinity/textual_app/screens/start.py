@@ -30,8 +30,8 @@ from trinity.tui.sacred_geometry import SacredGeometryAnimator
 
 START_LABELS = {
     "en": {
-        "analyze_workspace": "Analyze Workspace",
-        "create_project": "Create Project",
+        "analyze_workspace": "Analyze Existing",
+        "create_project": "Create New",
         "edit_brief": "Edit Brief",
         "plan_first": "Plan first",
         "placeholder": "What should Trinity work on?",
@@ -40,8 +40,8 @@ START_LABELS = {
         "subtitle": "Three minds, one context",
     },
     "ko": {
-        "analyze_workspace": "작업 폴더 분석",
-        "create_project": "새 프로젝트",
+        "analyze_workspace": "기존 프로젝트 분석",
+        "create_project": "새 프로젝트 생성",
         "edit_brief": "브리프 편집",
         "plan_first": "먼저 계획",
         "placeholder": "Trinity가 무엇을 진행하면 될까요?",

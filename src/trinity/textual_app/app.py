@@ -358,12 +358,70 @@ def _project_brief_start_prompt(
         if mode == "new" and missing_field_labels
         else ()
     )
-    if len(populated) == 1 and not missing_lines:
+    recommendation_lines = _project_brief_starter_recommendations(
+        mode=mode,
+        lang=lang,
+        project_type=project_type,
+        target_users=target_users,
+        stack=stack,
+        constraints=constraint_text,
+    )
+    if len(populated) == 1 and not recommendation_lines and not missing_lines:
         return goal
     lines = [intro, "", *(f"{label}: {value}" for label, value in populated)]
+    if recommendation_lines:
+        lines.extend(("", *recommendation_lines))
     if missing_lines:
         lines.extend(("", *missing_lines))
     return "\n".join(lines)
+
+
+def _project_brief_starter_recommendations(
+    *,
+    mode: str,
+    lang: str,
+    project_type: str,
+    target_users: str,
+    stack: str,
+    constraints: str,
+) -> tuple[str, ...]:
+    if mode != "new":
+        return ()
+    project_type = project_type.strip()
+    target_users = target_users.strip()
+    stack = stack.strip()
+    constraints = constraints.strip()
+    if not any((project_type, target_users, stack, constraints)):
+        return ()
+
+    if lang == "ko":
+        lines = ["초기 추천:"]
+        if project_type:
+            lines.append(
+                f"- 템플릿: 최소한의 {project_type} 형태로 시작하고 "
+                "선택을 되돌릴 수 있게 유지해라."
+            )
+        if stack:
+            lines.append(f"- 스택: 사용자가 바꾸지 않는 한 {stack}을 우선 고려해라.")
+        if target_users:
+            lines.append(f"- UX 초점: 첫 workflow를 {target_users} 기준으로 설계해라.")
+        if constraints:
+            lines.append(f"- 가드레일: {constraints} 제약을 지켜라.")
+        return tuple(lines)
+
+    lines = ["Starter recommendations:"]
+    if project_type:
+        lines.append(
+            f"- Template: Start with a minimal {project_type} shape and keep "
+            "choices reversible."
+        )
+    if stack:
+        lines.append(f"- Stack: Prefer {stack} unless the user changes direction.")
+    if target_users:
+        lines.append(f"- UX focus: Design the first workflow around {target_users}.")
+    if constraints:
+        lines.append(f"- Guardrails: Respect {constraints}.")
+    return tuple(lines)
 
 
 def _project_brief_start_prompt_from_draft(

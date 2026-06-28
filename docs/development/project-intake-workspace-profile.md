@@ -134,10 +134,11 @@ so existing-project users can confirm that Trinity found the expected source and
 test directories before asking agents to plan against the project.
 
 If an existing-project intake has no detected test commands, source roots, or
-documentation, Start/Nexus and `project status` mark the analysis as sparse.
-This tells users that Trinity has very little project structure to anchor the
-first plan and that rerunning analysis after adding docs, source, or tests may
-improve agent context.
+documentation, Start/Nexus and `project status` mark the analysis as sparse and
+show the missing anchors: tests, source roots, and docs. This tells users that
+Trinity has very little project structure to anchor the first plan and that
+rerunning analysis after adding docs, source, or tests may improve agent
+context.
 
 Provider prompt guidance uses the same readiness contract. When a new-project
 brief is incomplete, providers are told to confirm the missing fields before

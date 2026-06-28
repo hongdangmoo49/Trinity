@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.765`
-- Merged PR range reviewed: #90 through #862
+- Package version inspected: `1.0.767`
+- Merged PR range reviewed: #90 through #864
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #862
-- Latest refresh reviewed: #862
+- Maintenance refresh reviewed: #427 through #864
+- Latest refresh reviewed: #864
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2036,6 +2036,18 @@ and what the next release train should optimize.
 - Added a dedicated design document and Textual coverage for Start/Nexus empty
   target picker selections.
 - Raised the package version from `1.0.764` to `1.0.765` in this patch PR.
+
+### #864: Direct Analyze New Brief Handoff
+
+- Classified direct Start/Nexus `Analyze Existing` targets with Workspace
+  Preflight before writing project intake.
+- Routed empty direct targets into `new` intake and the project brief modal
+  instead of writing `existing` intake.
+- Kept existing direct analysis behavior for workspaces with user files and
+  preserved existing prompt seed behavior.
+- Added a dedicated design document and Textual coverage for Start/Nexus direct
+  empty target flows.
+- Raised the package version from `1.0.766` to `1.0.767` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

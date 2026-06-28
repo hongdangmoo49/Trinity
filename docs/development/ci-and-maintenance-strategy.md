@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.643`
-- Merged PR range reviewed: #90 through #739
+- Package version inspected: `1.0.645`
+- Merged PR range reviewed: #90 through #741
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #739
-- Latest refresh reviewed: #739
+- Maintenance refresh reviewed: #427 through #741
+- Latest refresh reviewed: #741
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1275,6 +1275,20 @@ and what the next release train should optimize.
 - Added intake/protocol/workflow tests and promoted `tests/test_protocol.py`
   into the required smoke manifest.
 - Raised the package version from `1.0.641` to `1.0.642` in this patch PR.
+
+### #741: Project New Command
+
+- Added `trinity project new NAME` as the CLI path for creating a new target
+  project workspace.
+- Added `--parent PATH` and `--git/--no-git` options for parent-folder
+  selection and optional Git initialization.
+- Wrote project intake artifacts under Trinity state after creating the new
+  workspace.
+- Rejected existing project folders and nested project names to avoid accidental
+  broad path creation.
+- Expanded CLI tests for creation, Git init, missing Trinity project, and
+  invalid target handling.
+- Raised the package version from `1.0.643` to `1.0.644` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.777`
-- Merged PR range reviewed: #90 through #874
+- Package version inspected: `1.0.779`
+- Merged PR range reviewed: #90 through #876
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #874
-- Latest refresh reviewed: #874
+- Maintenance refresh reviewed: #427 through #876
+- Latest refresh reviewed: #876
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2102,6 +2102,18 @@ and what the next release train should optimize.
   gates unchanged.
 - Added a dedicated design document and Start/Korean modal coverage.
 - Raised the package version from `1.0.776` to `1.0.777` in this patch PR.
+
+### #876: Existing Analysis Read Preview
+
+- Added a localized `read first` / `먼저 읽기` preview to existing-project
+  intake labels when docs or source roots are detected.
+- Derived the preview from saved `docs_found` and `source_roots` without
+  changing intake persistence or detection.
+- Kept new-project labels, detailed profile sections, readiness policy,
+  prompts, and preflight gates unchanged.
+- Added a dedicated design document and Start label coverage for English,
+  Korean, sparse existing, and new-project cases.
+- Raised the package version from `1.0.778` to `1.0.779` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

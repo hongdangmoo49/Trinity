@@ -319,6 +319,7 @@ class StartScreen(Screen[None]):
         return project_intake_state_label(
             self.config.effective_state_dir,
             lang=self.lang,
+            target_workspace=self.workspace_candidate,
         )
 
     def refresh_project_intake_summary(self) -> None:

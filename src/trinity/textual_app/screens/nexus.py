@@ -547,6 +547,7 @@ class NexusScreen(Screen[None]):
         return project_intake_state_label(
             self.config.effective_state_dir,
             lang=self.config.lang,
+            target_workspace=self._current_workspace_text(),
         )
 
     def refresh_project_intake_summary(self) -> None:

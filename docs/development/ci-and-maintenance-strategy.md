@@ -1378,6 +1378,26 @@ and what the next release train should optimize.
 - Expanded init CLI tests for the new guidance.
 - Raised the package version from `1.0.659` to `1.0.660` in this patch PR.
 
+### #759: Project Onboarding Status Guide
+
+- Documented separate README flows for existing projects and new projects.
+- Added user-facing guidance for `trinity project status --json` and
+  `trinity project status --refresh`.
+- Added `trinity project analyze`, `trinity project new`, and
+  `trinity project status` to the README command tables.
+- Raised the package version from `1.0.661` to `1.0.662` in this patch PR.
+
+### #760: Workbench Project Intake Action Hints
+
+- Expanded Start/Nexus project intake labels so missing intake states show
+  immediate `trinity project analyze [PATH]` and `trinity project new NAME`
+  next actions.
+- Added invalid-intake recovery guidance for `.trinity/project-intake.json`.
+- Added explicit Textual styles for project intake summary labels so longer
+  guidance wraps below the action rows instead of competing with buttons.
+- Expanded Start screen tests for missing-intake action hints.
+- Raised the package version from `1.0.662` to `1.0.663` in this patch PR.
+
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
 `docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture

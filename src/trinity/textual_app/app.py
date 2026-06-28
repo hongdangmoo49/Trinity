@@ -1941,6 +1941,8 @@ class TrinityTextualApp(App[None]):
         self._on_workspace_candidate_selected(preflight)
         if self._project_intake_mode_for_preflight(preflight) == "existing":
             self._seed_start_prompt_for_existing_analysis(preflight.path)
+            return
+        self._open_new_project_brief_if_needed(preflight)
 
     def _on_new_project_workspace_selected(
         self,
@@ -2161,6 +2163,8 @@ class TrinityTextualApp(App[None]):
         )
         if self._project_intake_mode_for_preflight(preflight) == "existing":
             self._seed_nexus_prompt_for_existing_analysis(preflight.path)
+            return
+        self._open_new_project_brief_if_needed(preflight)
 
     def _continue_nexus_new_project_workspace_selection(
         self,

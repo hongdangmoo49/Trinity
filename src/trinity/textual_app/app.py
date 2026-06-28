@@ -1631,8 +1631,7 @@ class TrinityTextualApp(App[None]):
                 intent="select",
             )
             return
-        self._sync_project_intake_for_target(target, mode="existing")
-        self._seed_start_prompt_for_existing_analysis(target)
+        self._apply_start_project_intake_for_direct_target(target)
 
     def on_start_screen_new_project_requested(
         self,
@@ -1757,8 +1756,10 @@ class TrinityTextualApp(App[None]):
             )
             return
         self._set_workspace_candidate(target)
-        self._sync_project_intake_for_target(target, mode="existing")
-        self._seed_nexus_prompt_for_existing_analysis(target)
+        self._apply_nexus_project_intake_for_direct_target(
+            target,
+            event.snapshot or self._current_textual_snapshot(),
+        )
 
     def on_nexus_screen_new_project_requested(
         self,
@@ -3376,6 +3377,40 @@ class TrinityTextualApp(App[None]):
         self._sync_project_intake_for_target(
             preflight.path,
             mode=self._project_intake_mode_for_preflight(preflight),
+        )
+
+    def _apply_start_project_intake_for_direct_target(self, target: Path) -> None:
+        preflight = self._direct_project_intake_preflight(
+            target,
+            WorkflowNexusSnapshot(),
+        )
+        self._sync_project_intake_for_preflight(preflight)
+        if self._project_intake_mode_for_preflight(preflight) == "existing":
+            self._seed_start_prompt_for_existing_analysis(preflight.path)
+            return
+        self._open_new_project_brief_if_needed(preflight)
+
+    def _apply_nexus_project_intake_for_direct_target(
+        self,
+        target: Path,
+        snapshot: WorkflowNexusSnapshot,
+    ) -> None:
+        preflight = self._direct_project_intake_preflight(target, snapshot)
+        self._sync_project_intake_for_preflight(preflight)
+        if self._project_intake_mode_for_preflight(preflight) == "existing":
+            self._seed_nexus_prompt_for_existing_analysis(preflight.path)
+            return
+        self._open_new_project_brief_if_needed(preflight)
+
+    def _direct_project_intake_preflight(
+        self,
+        target: Path,
+        snapshot: WorkflowNexusSnapshot,
+    ) -> WorkspacePreflight:
+        return build_preflight(
+            target,
+            snapshot,
+            project_intake_state_dir=self.config.effective_state_dir,
         )
 
     def _project_intake_mode_for_preflight(self, preflight: WorkspacePreflight) -> str:

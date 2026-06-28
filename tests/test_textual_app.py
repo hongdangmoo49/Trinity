@@ -10798,6 +10798,7 @@ async def test_start_analyze_workspace_button_writes_project_intake(tmp_path) ->
     target = tmp_path / "target"
     control_repo.mkdir()
     target.mkdir()
+    (target / "README.md").write_text("# Existing project\n", encoding="utf-8")
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=control_repo),
         FakeWorkflowController(),
@@ -10822,11 +10823,37 @@ async def test_start_analyze_workspace_button_writes_project_intake(tmp_path) ->
 
 
 @pytest.mark.asyncio
+async def test_start_analyze_workspace_empty_target_opens_project_brief(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "empty-target"
+    control_repo.mkdir()
+    target.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        FakeWorkflowController(),
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#analyze-workspace")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectBriefModal)
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.mode == "new"
+        assert intake.target_workspace == target.resolve()
+
+
+@pytest.mark.asyncio
 async def test_start_analyze_workspace_preserves_existing_prompt(tmp_path) -> None:
     control_repo = tmp_path / "control"
     target = tmp_path / "target"
     control_repo.mkdir()
     target.mkdir()
+    (target / "README.md").write_text("# Existing project\n", encoding="utf-8")
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=control_repo),
         FakeWorkflowController(),
@@ -11260,6 +11287,7 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
     target = tmp_path / "target-app"
     control_repo.mkdir()
     target.mkdir()
+    (target / "README.md").write_text("# Existing project\n", encoding="utf-8")
     controller = FakeWorkflowController(
         WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
     )
@@ -11332,6 +11360,7 @@ async def test_nexus_analyze_workspace_button_writes_project_intake(tmp_path) ->
     target = tmp_path / "target-app"
     control_repo.mkdir()
     target.mkdir()
+    (target / "README.md").write_text("# Existing project\n", encoding="utf-8")
     controller = FakeWorkflowController(
         WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
     )
@@ -11362,6 +11391,37 @@ async def test_nexus_analyze_workspace_button_writes_project_intake(tmp_path) ->
 
 
 @pytest.mark.asyncio
+async def test_nexus_analyze_workspace_empty_target_opens_project_brief(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "empty-target"
+    control_repo.mkdir()
+    target.mkdir()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        controller,
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        await pilot.click("#nexus-analyze-workspace")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectBriefModal)
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.mode == "new"
+        assert intake.target_workspace == target.resolve()
+
+
+@pytest.mark.asyncio
 async def test_nexus_analyze_workspace_preserves_existing_followup_prompt(
     tmp_path,
 ) -> None:
@@ -11369,6 +11429,7 @@ async def test_nexus_analyze_workspace_preserves_existing_followup_prompt(
     target = tmp_path / "target-app"
     control_repo.mkdir()
     target.mkdir()
+    (target / "README.md").write_text("# Existing project\n", encoding="utf-8")
     controller = FakeWorkflowController(
         WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
     )

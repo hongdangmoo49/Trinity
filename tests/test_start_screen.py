@@ -220,12 +220,29 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
             project_type="SaaS dashboard",
             target_users="support operators",
             success_criteria="Operators can complete onboarding.",
+            stack_preferences=("React", "FastAPI", "PostgreSQL"),
             first_milestone="First safe patch.",
+            constraints=("No cloud lock-in", "Keep tests green", "CLI-first"),
             created_at="2026-06-28T00:00:00Z",
         ),
     )
 
-    assert "brief: complete" in project_intake_state_label(state)
+    assert project_intake_state_label(state) == (
+        "Project intake: new | tests: (none) | brief: complete | "
+        "goal: Build a dashboard. | type: SaaS dashboard | "
+        "users: support operators | "
+        "success: Operators can complete onboarding. | "
+        "milestone: First safe patch. | stack: React, FastAPI +1 | "
+        "constraints: No cloud lock-in, Keep tests green +1"
+    )
+    assert project_intake_state_label(state, lang="ko") == (
+        "프로젝트 인테이크: 신규 | 테스트: (없음) | 브리프: 완료 | "
+        "목표: Build a dashboard. | 유형: SaaS dashboard | "
+        "사용자: support operators | "
+        "성공: Operators can complete onboarding. | "
+        "마일스톤: First safe patch. | 스택: React, FastAPI +1 | "
+        "제약: No cloud lock-in, Keep tests green +1"
+    )
 
 
 def test_project_intake_state_label_guides_missing_intake(tmp_path: Path) -> None:

@@ -95,6 +95,12 @@ complete or which fields are still missing. Existing projects do not show this
 readiness warning because read-only workspace analysis is the stronger first
 signal for that journey.
 
+Start/Nexus project-intake labels also surface saved brief details when present:
+goal, project type, target users, success criteria, stack preferences, first
+milestone, and constraints. This lets new-project users verify the intended
+product direction before scaffolding, and lets existing-project users verify
+their saved intent before agents plan against the codebase.
+
 For existing projects, Start/Nexus project-intake labels include the saved Git
 state from the latest intake analysis. Non-Git workspaces show `git: none`, clean
 repositories show the branch and clean state, and dirty repositories show saved

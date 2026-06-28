@@ -15,6 +15,7 @@ from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import ProviderSnapshot, WorkflowNexusSnapshot
 from trinity.textual_app.workspace_labels import (
+    project_brief_action_variant,
     project_intake_state_label,
     target_workspace_state_label,
 )
@@ -231,7 +232,7 @@ class NexusScreen(Screen[None]):
                 yield Button(
                     self._label("edit_brief"),
                     id="nexus-edit-project-brief",
-                    variant="default",
+                    variant=self._project_brief_action_variant(),
                 )
             with Horizontal(id="nexus-main"):
                 with Vertical(id="nexus-center-stack"):
@@ -550,11 +551,20 @@ class NexusScreen(Screen[None]):
             target_workspace=self._current_workspace_text(),
         )
 
+    def _project_brief_action_variant(self) -> str:
+        return project_brief_action_variant(
+            self.config.effective_state_dir,
+            target_workspace=self._current_workspace_text(),
+        )
+
     def refresh_project_intake_summary(self) -> None:
         if not self.is_mounted:
             return
         self.query_one("#nexus-project-intake-summary", Static).update(
             self._project_intake_label()
+        )
+        self.query_one("#nexus-edit-project-brief", Button).variant = (
+            self._project_brief_action_variant()
         )
 
     def _current_workspace_text(self) -> str:

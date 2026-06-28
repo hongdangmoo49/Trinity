@@ -110,6 +110,10 @@ complete or which fields are still missing. Existing projects do not show this
 readiness warning because read-only workspace analysis is the stronger first
 signal for that journey.
 
+When a saved new-project brief is incomplete for the selected workspace,
+Start/Nexus highlight the Workbench "Edit Brief" action. Once the minimum brief
+is complete, the action returns to the default visual priority.
+
 Start/Nexus project-intake labels also surface saved brief details when present:
 goal, project type, target users, success criteria, stack preferences, first
 milestone, and constraints. This lets new-project users verify the intended

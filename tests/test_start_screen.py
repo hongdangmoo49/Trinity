@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from textual.app import App
-from textual.widgets import Static
+from textual.widgets import Button, Static
 
 from trinity.config import TrinityConfig
 from trinity.project_intake import build_project_intake, write_project_intake
@@ -13,6 +13,7 @@ from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.workspace_labels import (
+    project_brief_action_variant,
     project_intake_state_label,
     target_workspace_state_label,
 )
@@ -293,6 +294,51 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
     )
 
 
+def test_project_brief_action_variant_warns_for_incomplete_new_brief(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "new-app"
+    other_target = tmp_path / "other-app"
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build a dashboard.",
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert (
+        project_brief_action_variant(state, target_workspace=target)
+        == "warning"
+    )
+    assert (
+        project_brief_action_variant(state, target_workspace=other_target)
+        == "default"
+    )
+
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build a dashboard.",
+            project_type="SaaS dashboard",
+            target_users="support operators",
+            success_criteria="Operators can complete onboarding.",
+            first_milestone="First safe patch.",
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert (
+        project_brief_action_variant(state, target_workspace=target)
+        == "default"
+    )
+
+
 def test_project_intake_state_label_guides_missing_intake(tmp_path: Path) -> None:
     state = tmp_path / ".trinity"
     target = tmp_path / "customer-app"
@@ -409,6 +455,53 @@ async def test_start_screen_shows_project_intake_summary(tmp_path: Path) -> None
 
 
 @pytest.mark.asyncio
+async def test_start_screen_highlights_edit_brief_for_incomplete_new_project(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "new-app"
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build a dashboard.",
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+    screen = StartScreen(config, workspace_candidate=target)
+    app = StartScreenHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        assert (
+            screen.query_one("#edit-project-brief", Button).variant
+            == "warning"
+        )
+
+        write_project_intake(
+            config.effective_state_dir,
+            build_project_intake(
+                mode="new",
+                target_workspace=target,
+                product_goal="Build a dashboard.",
+                project_type="SaaS dashboard",
+                target_users="support operators",
+                success_criteria="Operators can complete onboarding.",
+                first_milestone="First safe patch.",
+                created_at="2026-06-28T00:00:00Z",
+            ),
+        )
+        screen.refresh_project_intake_summary()
+
+        assert (
+            screen.query_one("#edit-project-brief", Button).variant
+            == "default"
+        )
+
+
+@pytest.mark.asyncio
 async def test_nexus_screen_shows_project_intake_summary(tmp_path: Path) -> None:
     target = tmp_path / "customer-app"
     target.mkdir()
@@ -437,6 +530,34 @@ async def test_nexus_screen_shows_project_intake_summary(tmp_path: Path) -> None
         ) == (
             "프로젝트 인테이크: 기존 | 갱신: 2026-06-28 | "
             "테스트: uv run pytest | git: 없음"
+        )
+
+
+@pytest.mark.asyncio
+async def test_nexus_screen_highlights_edit_brief_for_incomplete_new_project(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "new-app"
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build a dashboard.",
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+    screen = NexusScreen(config)
+    screen.snapshot = WorkflowNexusSnapshot(target_workspace=str(target))
+    app = StartScreenHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        assert (
+            screen.query_one("#nexus-edit-project-brief", Button).variant
+            == "warning"
         )
 
 

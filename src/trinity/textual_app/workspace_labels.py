@@ -164,6 +164,25 @@ def project_intake_state_label(
     )
 
 
+def project_brief_action_variant(
+    state_dir: Path,
+    *,
+    target_workspace: object | None = None,
+) -> str:
+    """Return the Workbench Edit Brief button variant for saved intake state."""
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return "default"
+    if intake is None:
+        return "default"
+    if not _project_intake_targets_match(intake, target_workspace):
+        return "default"
+    if intake.mode == "new" and missing_new_project_brief_field_keys(intake):
+        return "warning"
+    return "default"
+
+
 def format_project_intake_label(
     intake: ProjectIntake,
     *,
@@ -351,10 +370,20 @@ def _format_project_intake_target_mismatch(
     target_text = str(target or "").strip()
     if not target_text:
         return ""
-    if _same_resolved_path(Path(target_text), intake.target_workspace):
+    if _project_intake_targets_match(intake, target):
         return ""
     intake_target = _format_project_intake_target(intake.target_workspace)
     return labels["target_mismatch"].format(target=intake_target)
+
+
+def _project_intake_targets_match(
+    intake: ProjectIntake,
+    target: object | None,
+) -> bool:
+    target_text = str(target or "").strip()
+    if not target_text:
+        return True
+    return _same_resolved_path(Path(target_text), intake.target_workspace)
 
 
 def _same_resolved_path(left: Path, right: Path) -> bool:

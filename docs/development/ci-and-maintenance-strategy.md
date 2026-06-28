@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.641`
-- Merged PR range reviewed: #90 through #737
+- Package version inspected: `1.0.643`
+- Merged PR range reviewed: #90 through #739
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #737
-- Latest refresh reviewed: #737
+- Maintenance refresh reviewed: #427 through #739
+- Latest refresh reviewed: #739
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1263,6 +1263,18 @@ and what the next release train should optimize.
   init unchanged when `--mode` is omitted.
 - Expanded CLI tests for mode intake writing and prompt policy.
 - Raised the package version from `1.0.639` to `1.0.640` in this patch PR.
+
+### #739: Project Intake Prompt Context
+
+- Added project intake prompt block loading from `.trinity/project-intake.md`.
+- Injected project intake context into DeliberationProtocol provider round
+  prompts.
+- Injected project intake context into WorkflowEngine central continuation
+  prompts.
+- Preserved existing prompt output when project intake is absent.
+- Added intake/protocol/workflow tests and promoted `tests/test_protocol.py`
+  into the required smoke manifest.
+- Raised the package version from `1.0.641` to `1.0.642` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

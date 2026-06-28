@@ -246,6 +246,7 @@ from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.model_settings_modal import ModelSettingsModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
+from trinity.textual_app.widgets.project_brief_modal import ProjectBriefModal
 from trinity.textual_app.widgets.question_panel import QuestionPanel
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
 from trinity.textual_app.widgets.status_modal import StatusCommandModal
@@ -10835,6 +10836,57 @@ async def test_start_create_project_button_creates_new_project_intake(
 
 
 @pytest.mark.asyncio
+async def test_start_edit_project_brief_button_writes_project_brief(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target-app"
+    control_repo.mkdir()
+    target.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        FakeWorkflowController(),
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#edit-project-brief")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectBriefModal)
+        app.screen.query_one("#project-brief-goal", Input).value = (
+            "Build customer onboarding."
+        )
+        app.screen.query_one("#project-brief-stack", Input).value = "python, textual"
+        app.screen.query_one("#project-brief-milestone", Input).value = (
+            "First safe patch."
+        )
+        app.screen.query_one("#project-brief-constraints", Input).value = (
+            "Keep tests green, no generated scaffold"
+        )
+        app.screen.query_one("#project-brief-notes", Input).value = (
+            "Use existing patterns."
+        )
+        app.screen.action_save()
+        await pilot.pause()
+
+        start = app.get_screen("start", StartScreen)
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.mode == "existing"
+        assert intake.target_workspace == target.resolve()
+        assert intake.product_goal == "Build customer onboarding."
+        assert intake.stack_preferences == ("python", "textual")
+        assert intake.first_milestone == "First safe patch."
+        assert intake.constraints == ("Keep tests green", "no generated scaffold")
+        assert intake.notes == "Use existing patterns."
+        assert start.query_one(PromptComposer).text == "Build customer onboarding."
+        assert "goal: Build customer onboarding." in str(
+            start.query_one("#project-intake-summary", Static).content
+        )
+
+
+@pytest.mark.asyncio
 async def test_start_cta_buttons_keep_stable_dimensions(tmp_path) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),
@@ -10850,6 +10902,7 @@ async def test_start_cta_buttons_keep_stable_dimensions(tmp_path) -> None:
         assert start.query_one("#plan-first", Button).styles.width.value == 14
         assert start.query_one("#analyze-workspace", Button).styles.width.value == 20
         assert start.query_one("#create-project", Button).styles.width.value == 16
+        assert start.query_one("#edit-project-brief", Button).styles.width.value == 14
 
 
 def test_workbench_syncs_created_workspace_as_new_project_intake(tmp_path) -> None:
@@ -11031,6 +11084,9 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
         assert str(nexus.query_one("#nexus-create-project", Button).label) == (
             "Create Project"
         )
+        assert str(nexus.query_one("#nexus-edit-project-brief", Button).label) == (
+            "Edit Brief"
+        )
         assert [child.id for child in nexus.query_one("#nexus-action-bar").children] == [
             "open-provider-inspector",
             "select-workspace",
@@ -11094,6 +11150,59 @@ async def test_nexus_analyze_workspace_button_writes_project_intake(tmp_path) ->
         assert intake.target_workspace == target.resolve()
         nexus = app.get_screen("nexus", NexusScreen)
         assert "Project intake: existing" in str(
+            nexus.query_one("#nexus-project-intake-summary", Static).content
+        )
+
+
+@pytest.mark.asyncio
+async def test_nexus_edit_project_brief_button_writes_project_brief(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target-app"
+    control_repo.mkdir()
+    target.mkdir()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        controller,
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        await pilot.click("#nexus-edit-project-brief")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectBriefModal)
+        app.screen.query_one("#project-brief-goal", Input).value = (
+            "Modernize project docs."
+        )
+        app.screen.query_one("#project-brief-stack", Input).value = "python"
+        app.screen.query_one("#project-brief-milestone", Input).value = (
+            "Document current workflow."
+        )
+        app.screen.query_one("#project-brief-constraints", Input).value = (
+            "Preserve existing CLI behavior"
+        )
+        app.screen.action_save()
+        await pilot.pause()
+
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.mode == "existing"
+        assert intake.target_workspace == target.resolve()
+        assert intake.product_goal == "Modernize project docs."
+        assert intake.stack_preferences == ("python",)
+        assert intake.first_milestone == "Document current workflow."
+        assert intake.constraints == ("Preserve existing CLI behavior",)
+        assert controller.target_workspace is None
+        nexus = app.get_screen("nexus", NexusScreen)
+        assert "goal: Modernize project docs." in str(
             nexus.query_one("#nexus-project-intake-summary", Static).content
         )
 

@@ -37,6 +37,7 @@ PROJECT_INTAKE_LABELS = {
         "dev": "dev",
         "docs": "docs",
         "entrypoints": "entry",
+        "goal": "goal",
         "summary": "Project intake: {mode}",
         "tests": "tests",
         "tests_none": "(none)",
@@ -54,6 +55,7 @@ PROJECT_INTAKE_LABELS = {
         "dev": "개발",
         "docs": "문서",
         "entrypoints": "진입점",
+        "goal": "목표",
         "summary": "프로젝트 인테이크: {mode}",
         "tests": "테스트",
         "tests_none": "(없음)",
@@ -116,6 +118,10 @@ def _format_project_intake_label(intake: ProjectIntake, *, lang: str) -> str:
             empty_label=labels["tests_none"],
         ),
     ]
+    if intake.product_goal.strip():
+        parts.append(
+            f"{labels['goal']}: {_format_project_intake_text(intake.product_goal)}"
+        )
     for label_key, values in (
         ("dev", intake.dev_commands),
         ("build", intake.build_commands),
@@ -151,6 +157,13 @@ def _format_project_intake_values(
         else ""
     )
     return f"{', '.join(visible)}{suffix}"
+
+
+def _format_project_intake_text(value: str, *, max_chars: int = 64) -> str:
+    text = " ".join(value.split())
+    if len(text) <= max_chars:
+        return text
+    return text[: max_chars - 3].rstrip() + "..."
 
 
 def _same_resolved_path(left: Path, right: Path) -> bool:

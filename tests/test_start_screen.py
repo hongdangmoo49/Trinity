@@ -115,19 +115,22 @@ def test_project_intake_state_label_includes_workspace_profile(
         build_project_intake(
             mode="existing",
             target_workspace=target,
+            product_goal="Launch customer onboarding.",
             created_at="2026-06-28T00:00:00Z",
         ),
     )
 
     assert project_intake_state_label(state) == (
-        "Project intake: existing | tests: (none) | dev: npm run dev | "
-        "build: npm run build | entry: dist/index.js, customer -> bin/customer.js "
-        "| docs: README.md, docs"
+        "Project intake: existing | tests: (none) | "
+        "goal: Launch customer onboarding. | dev: npm run dev | "
+        "build: npm run build | entry: dist/index.js, "
+        "customer -> bin/customer.js | docs: README.md, docs"
     )
     assert project_intake_state_label(state, lang="ko") == (
-        "프로젝트 인테이크: 기존 | 테스트: (없음) | 개발: npm run dev | "
-        "빌드: npm run build | 진입점: dist/index.js, customer -> bin/customer.js "
-        "| 문서: README.md, docs"
+        "프로젝트 인테이크: 기존 | 테스트: (없음) | "
+        "목표: Launch customer onboarding. | 개발: npm run dev | "
+        "빌드: npm run build | 진입점: dist/index.js, "
+        "customer -> bin/customer.js | 문서: README.md, docs"
     )
 
 

@@ -29,6 +29,7 @@ START_LABELS = {
     "en": {
         "analyze_workspace": "Analyze Workspace",
         "create_project": "Create Project",
+        "edit_brief": "Edit Brief",
         "plan_first": "Plan first",
         "placeholder": "What should Trinity work on?",
         "select_agent_warning": "Select at least one agent.",
@@ -38,6 +39,7 @@ START_LABELS = {
     "ko": {
         "analyze_workspace": "작업 폴더 분석",
         "create_project": "새 프로젝트",
+        "edit_brief": "브리프 편집",
         "plan_first": "먼저 계획",
         "placeholder": "Trinity가 무엇을 진행하면 될까요?",
         "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
@@ -101,6 +103,9 @@ class StartScreen(Screen[None]):
 
     class NewProjectRequested(Message):
         """Posted when the user wants to create a new project workspace."""
+
+    class ProjectBriefRequested(Message):
+        """Posted when the user wants to edit the project brief."""
 
     BINDINGS = [
         ("ctrl+enter", "submit", "Plan"),
@@ -185,6 +190,11 @@ class StartScreen(Screen[None]):
                         id="create-project",
                         variant="default",
                     )
+                    yield Button(
+                        self._label("edit_brief"),
+                        id="edit-project-brief",
+                        variant="default",
+                    )
         yield Footer()
 
     def on_mount(self) -> None:
@@ -235,6 +245,9 @@ class StartScreen(Screen[None]):
         elif button_id == "create-project":
             event.stop()
             self.post_message(self.NewProjectRequested())
+        elif button_id == "edit-project-brief":
+            event.stop()
+            self.post_message(self.ProjectBriefRequested())
 
     def action_submit(self) -> None:
         composer = self._prompt_composer()

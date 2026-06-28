@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.735`
-- Merged PR range reviewed: #90 through #832
+- Package version inspected: `1.0.737`
+- Merged PR range reviewed: #90 through #834
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #832
-- Latest refresh reviewed: #832
+- Maintenance refresh reviewed: #427 through #834
+- Latest refresh reviewed: #834
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1843,6 +1843,18 @@ and what the next release train should optimize.
 - Added WorkspacePicker coverage for clean/dirty preflight state, execute mode
   double-confirm behavior, and select-mode bypass behavior.
 - Raised the package version from `1.0.734` to `1.0.735` in this patch PR.
+
+### #834: Stale/Sparse Intake Execute Preflight Gate
+
+- Added stale/sparse project-intake safety warnings to Execute Preflight for
+  existing-project targets.
+- Reused the two-step execute confirmation gate so stale or sparse intake
+  requires an explicit second `Confirm Execute` before running.
+- Kept Select Workspace mode ungated for read-only target selection and
+  analysis.
+- Added WorkspacePicker coverage for sparse intake, stale intake, execute-mode
+  confirmation, and select-mode bypass behavior.
+- Raised the package version from `1.0.736` to `1.0.737` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

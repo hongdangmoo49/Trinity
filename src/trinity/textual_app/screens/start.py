@@ -20,6 +20,7 @@ from trinity.textual_app.workspace_labels import (
     project_brief_action_variant,
     project_create_action_variant,
     project_intake_state_label,
+    project_mode_rail_label,
     project_plan_preview_label,
     target_workspace_state_label,
 )
@@ -140,6 +141,7 @@ class StartScreen(Screen[None]):
         self._composer: PromptComposer | None = None
         self._recipient_selector: AgentRecipientModelSelector | None = None
         self._workspace_label_widget: Static | None = None
+        self._project_mode_rail_widget: Static | None = None
         self._project_plan_preview_widget: Static | None = None
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
@@ -204,6 +206,12 @@ class StartScreen(Screen[None]):
                         id="edit-project-brief",
                         variant=self._project_brief_action_variant(),
                     )
+                mode_rail = Static(
+                    self._project_mode_rail_label(),
+                    id="project-mode-rail",
+                )
+                self._project_mode_rail_widget = mode_rail
+                yield mode_rail
                 plan_preview = Static(
                     self._project_plan_preview_label(),
                     id="project-plan-preview",
@@ -307,6 +315,7 @@ class StartScreen(Screen[None]):
         self._composer = None
         self._recipient_selector = None
         self._workspace_label_widget = None
+        self._project_mode_rail_widget = None
         self._project_plan_preview_widget = None
 
     def _prompt_composer(self) -> PromptComposer:
@@ -332,6 +341,14 @@ class StartScreen(Screen[None]):
             )
         return self._project_plan_preview_widget
 
+    def _project_mode_rail_static(self) -> Static:
+        if self._project_mode_rail_widget is None:
+            self._project_mode_rail_widget = self.query_one(
+                "#project-mode-rail",
+                Static,
+            )
+        return self._project_mode_rail_widget
+
     def _workspace_label(self) -> str:
         return target_workspace_state_label(
             self.workspace_candidate,
@@ -348,6 +365,13 @@ class StartScreen(Screen[None]):
 
     def _project_plan_preview_label(self) -> str:
         return project_plan_preview_label(
+            self.config.effective_state_dir,
+            lang=self.lang,
+            target_workspace=self.workspace_candidate,
+        )
+
+    def _project_mode_rail_label(self) -> str:
+        return project_mode_rail_label(
             self.config.effective_state_dir,
             lang=self.lang,
             target_workspace=self.workspace_candidate,
@@ -381,6 +405,9 @@ class StartScreen(Screen[None]):
         )
         self._project_plan_preview_static().update(
             self._project_plan_preview_label()
+        )
+        self._project_mode_rail_static().update(
+            self._project_mode_rail_label()
         )
         analyze_action = self._project_analyze_action_presentation()
         analyze_button = self.query_one("#analyze-workspace", Button)

@@ -165,6 +165,59 @@ PROJECT_PLAN_PREVIEW_LABELS = {
     },
 }
 
+PROJECT_MODE_RAIL_LABELS = {
+    "en": {
+        "invalid": "intake unreadable",
+        "mode_existing": "existing",
+        "mode_new": "new",
+        "mode_none": "none",
+        "next_analyze_or_create": "analyze existing or create new",
+        "next_edit_brief": "edit brief",
+        "next_plan": "plan or execute",
+        "next_recover_target": "recover target",
+        "next_refresh_analysis": "refresh analysis",
+        "next_select_workspace": "select workspace",
+        "next_switch_or_analyze": "switch target or re-analyze",
+        "state_analysis_changed": "analysis changed",
+        "state_analysis_sparse": "analysis sparse",
+        "state_analysis_stale": "analysis stale",
+        "state_brief_missing": "brief missing",
+        "state_intake_missing": "intake missing",
+        "state_ready": "ready",
+        "state_target_missing": "target missing",
+        "state_target_mismatch": "target mismatch",
+        "state_target_unselected": "target not selected",
+        "summary": "Mode rail",
+        "state_label": "state",
+        "next_label": "next",
+    },
+    "ko": {
+        "invalid": "인테이크 읽기 실패",
+        "mode_existing": "기존",
+        "mode_new": "신규",
+        "mode_none": "없음",
+        "next_analyze_or_create": "기존 분석 또는 신규 생성",
+        "next_edit_brief": "브리프 편집",
+        "next_plan": "계획 또는 실행",
+        "next_recover_target": "대상 복구",
+        "next_refresh_analysis": "분석 갱신",
+        "next_select_workspace": "작업 폴더 선택",
+        "next_switch_or_analyze": "대상 전환 또는 재분석",
+        "state_analysis_changed": "분석 변경됨",
+        "state_analysis_sparse": "분석 부족",
+        "state_analysis_stale": "분석 오래됨",
+        "state_brief_missing": "브리프 누락",
+        "state_intake_missing": "인테이크 없음",
+        "state_ready": "준비됨",
+        "state_target_missing": "대상 없음",
+        "state_target_mismatch": "대상 불일치",
+        "state_target_unselected": "대상 미선택",
+        "summary": "모드 레일",
+        "state_label": "상태",
+        "next_label": "다음",
+    },
+}
+
 
 @dataclass(frozen=True)
 class ProjectAnalyzeActionPresentation:
@@ -270,6 +323,117 @@ def project_plan_preview_label(
     if not sections:
         return ""
     return f"{labels['summary']}: {' | '.join(sections)}"
+
+
+def project_mode_rail_label(
+    state_dir: Path,
+    *,
+    lang: str = "en",
+    target_workspace: object | None = None,
+    today: date | None = None,
+) -> str:
+    """Return the current project journey mode and next action label."""
+    labels = PROJECT_MODE_RAIL_LABELS.get(lang, PROJECT_MODE_RAIL_LABELS["en"])
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return _format_project_mode_rail(
+            labels,
+            mode=labels["mode_none"],
+            state=labels["invalid"],
+            next_action=labels["next_analyze_or_create"],
+        )
+
+    target_text = str(target_workspace or "").strip()
+    if intake is None:
+        if not target_text:
+            return _format_project_mode_rail(
+                labels,
+                mode=labels["mode_none"],
+                state=labels["state_target_unselected"],
+                next_action=labels["next_select_workspace"],
+            )
+        return _format_project_mode_rail(
+            labels,
+            mode=labels["mode_none"],
+            state=labels["state_intake_missing"],
+            next_action=labels["next_analyze_or_create"],
+        )
+
+    mode = labels["mode_new"] if intake.mode == "new" else labels["mode_existing"]
+    if target_text and not _project_intake_targets_match(intake, target_workspace):
+        return _format_project_mode_rail(
+            labels,
+            mode=mode,
+            state=labels["state_target_mismatch"],
+            next_action=labels["next_switch_or_analyze"],
+        )
+    if _project_intake_target_missing(intake):
+        return _format_project_mode_rail(
+            labels,
+            mode=mode,
+            state=labels["state_target_missing"],
+            next_action=labels["next_recover_target"],
+        )
+    if intake.mode == "new":
+        if missing_new_project_brief_field_keys(intake):
+            return _format_project_mode_rail(
+                labels,
+                mode=mode,
+                state=labels["state_brief_missing"],
+                next_action=labels["next_edit_brief"],
+            )
+        return _format_project_mode_rail(
+            labels,
+            mode=mode,
+            state=labels["state_ready"],
+            next_action=labels["next_plan"],
+        )
+    if _project_intake_analysis_is_sparse(intake):
+        return _format_project_mode_rail(
+            labels,
+            mode=mode,
+            state=labels["state_analysis_sparse"],
+            next_action=labels["next_refresh_analysis"],
+        )
+    if _project_intake_analysis_stale_days(intake, today=today) is not None:
+        return _format_project_mode_rail(
+            labels,
+            mode=mode,
+            state=labels["state_analysis_stale"],
+            next_action=labels["next_refresh_analysis"],
+        )
+    if _project_intake_analysis_changed_fields(
+        intake,
+        target_workspace,
+        today=today,
+    ):
+        return _format_project_mode_rail(
+            labels,
+            mode=mode,
+            state=labels["state_analysis_changed"],
+            next_action=labels["next_refresh_analysis"],
+        )
+    return _format_project_mode_rail(
+        labels,
+        mode=mode,
+        state=labels["state_ready"],
+        next_action=labels["next_plan"],
+    )
+
+
+def _format_project_mode_rail(
+    labels: dict[str, str],
+    *,
+    mode: str,
+    state: str,
+    next_action: str,
+) -> str:
+    return (
+        f"{labels['summary']}: {mode} | "
+        f"{labels['state_label']}: {state} | "
+        f"{labels['next_label']}: {next_action}"
+    )
 
 
 def project_brief_action_variant(

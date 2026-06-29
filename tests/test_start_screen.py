@@ -20,6 +20,7 @@ from trinity.textual_app.workspace_labels import (
     project_brief_action_variant,
     project_create_action_variant,
     project_intake_state_label,
+    project_mode_rail_label,
     project_plan_preview_label,
     target_workspace_state_label,
 )
@@ -204,6 +205,112 @@ def test_project_plan_preview_label_skips_existing_project(
     )
 
     assert project_plan_preview_label(state, target_workspace=target) == ""
+
+
+def test_project_mode_rail_label_guides_missing_intake(tmp_path: Path) -> None:
+    state = tmp_path / ".trinity"
+    target = tmp_path / "target-app"
+    target.mkdir()
+
+    assert project_mode_rail_label(state) == (
+        "Mode rail: none | state: target not selected | next: select workspace"
+    )
+    assert project_mode_rail_label(state, target_workspace=target) == (
+        "Mode rail: none | state: intake missing | "
+        "next: analyze existing or create new"
+    )
+
+
+def test_project_mode_rail_label_guides_new_project_brief(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "new-app"
+    target.mkdir()
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(mode="new", target_workspace=target),
+    )
+
+    assert project_mode_rail_label(state, target_workspace=target) == (
+        "Mode rail: new | state: brief missing | next: edit brief"
+    )
+    assert project_mode_rail_label(
+        state,
+        lang="ko",
+        target_workspace=target,
+    ) == "모드 레일: 신규 | 상태: 브리프 누락 | 다음: 브리프 편집"
+
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build onboarding.",
+            project_type="SaaS app",
+            target_users="operators",
+            success_criteria="Operators complete onboarding.",
+            first_milestone="First workflow.",
+        ),
+    )
+
+    assert project_mode_rail_label(state, target_workspace=target) == (
+        "Mode rail: new | state: ready | next: plan or execute"
+    )
+
+
+def test_project_mode_rail_label_guides_existing_project_refresh(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "existing-app"
+    target.mkdir()
+    (target / "README.md").write_text("docs\n", encoding="utf-8")
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    (target / "src").mkdir()
+
+    assert project_mode_rail_label(
+        state,
+        target_workspace=target,
+        today=date(2026, 6, 28),
+    ) == (
+        "Mode rail: existing | state: analysis changed | next: refresh analysis"
+    )
+
+
+def test_project_mode_rail_label_prioritizes_target_mismatch(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "new-app"
+    other = tmp_path / "other-app"
+    target.mkdir()
+    other.mkdir()
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build onboarding.",
+            project_type="SaaS app",
+            target_users="operators",
+            success_criteria="Operators complete onboarding.",
+            first_milestone="First workflow.",
+        ),
+    )
+
+    assert project_mode_rail_label(state, target_workspace=other) == (
+        "Mode rail: new | state: target mismatch | "
+        "next: switch target or re-analyze"
+    )
 
 
 def test_project_intake_state_label_includes_workspace_profile(

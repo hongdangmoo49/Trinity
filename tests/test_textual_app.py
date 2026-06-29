@@ -11347,6 +11347,9 @@ async def test_start_create_project_button_creates_new_project_intake(
             "success: Teams can track customer follow-ups. | users: sales teams | "
             "guardrails: Keep setup simple, no cloud dependency"
         )
+        assert str(start.query_one("#project-mode-rail", Static).content) == (
+            "Mode rail: new | state: ready | next: plan or execute"
+        )
 
 
 @pytest.mark.asyncio
@@ -12093,6 +12096,9 @@ async def test_nexus_create_project_button_creates_new_project_intake(
             "Initial plan preview: milestone: First board workflow. | "
             "stack: python, textual | success: Managers can organize weekly work. | "
             "users: project managers | guardrails: No external service"
+        )
+        assert str(nexus.query_one("#nexus-project-mode-rail", Static).content) == (
+            "Mode rail: new | state: ready | next: plan or execute"
         )
 
 

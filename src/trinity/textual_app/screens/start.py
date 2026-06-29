@@ -20,6 +20,7 @@ from trinity.textual_app.workspace_labels import (
     project_brief_action_variant,
     project_create_action_variant,
     project_intake_state_label,
+    project_plan_preview_label,
     target_workspace_state_label,
 )
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
@@ -139,6 +140,7 @@ class StartScreen(Screen[None]):
         self._composer: PromptComposer | None = None
         self._recipient_selector: AgentRecipientModelSelector | None = None
         self._workspace_label_widget: Static | None = None
+        self._project_plan_preview_widget: Static | None = None
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
@@ -202,6 +204,12 @@ class StartScreen(Screen[None]):
                         id="edit-project-brief",
                         variant=self._project_brief_action_variant(),
                     )
+                plan_preview = Static(
+                    self._project_plan_preview_label(),
+                    id="project-plan-preview",
+                )
+                self._project_plan_preview_widget = plan_preview
+                yield plan_preview
         yield Footer()
 
     def on_mount(self) -> None:
@@ -299,6 +307,7 @@ class StartScreen(Screen[None]):
         self._composer = None
         self._recipient_selector = None
         self._workspace_label_widget = None
+        self._project_plan_preview_widget = None
 
     def _prompt_composer(self) -> PromptComposer:
         if self._composer is None:
@@ -315,6 +324,14 @@ class StartScreen(Screen[None]):
             self._workspace_label_widget = self.query_one("#workspace-candidate", Static)
         return self._workspace_label_widget
 
+    def _project_plan_preview_static(self) -> Static:
+        if self._project_plan_preview_widget is None:
+            self._project_plan_preview_widget = self.query_one(
+                "#project-plan-preview",
+                Static,
+            )
+        return self._project_plan_preview_widget
+
     def _workspace_label(self) -> str:
         return target_workspace_state_label(
             self.workspace_candidate,
@@ -324,6 +341,13 @@ class StartScreen(Screen[None]):
 
     def _project_intake_label(self) -> str:
         return project_intake_state_label(
+            self.config.effective_state_dir,
+            lang=self.lang,
+            target_workspace=self.workspace_candidate,
+        )
+
+    def _project_plan_preview_label(self) -> str:
+        return project_plan_preview_label(
             self.config.effective_state_dir,
             lang=self.lang,
             target_workspace=self.workspace_candidate,
@@ -354,6 +378,9 @@ class StartScreen(Screen[None]):
             return
         self.query_one("#project-intake-summary", Static).update(
             self._project_intake_label()
+        )
+        self._project_plan_preview_static().update(
+            self._project_plan_preview_label()
         )
         analyze_action = self._project_analyze_action_presentation()
         analyze_button = self.query_one("#analyze-workspace", Button)

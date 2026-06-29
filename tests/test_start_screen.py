@@ -20,6 +20,7 @@ from trinity.textual_app.workspace_labels import (
     project_brief_action_variant,
     project_create_action_variant,
     project_intake_state_label,
+    project_plan_preview_label,
     target_workspace_state_label,
 )
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
@@ -141,6 +142,68 @@ def test_project_intake_state_label_summarizes_saved_intake(tmp_path: Path) -> N
             "테스트: uv run pytest | git: 없음"
         )
     )
+
+
+def test_project_plan_preview_label_summarizes_new_project_brief(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "new-app"
+    target.mkdir()
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build customer onboarding.",
+            project_type="SaaS dashboard",
+            target_users="support operators",
+            success_criteria="Operators can complete onboarding safely.",
+            stack_preferences=("python", "sqlite", "textual"),
+            first_milestone="First usable onboarding workflow.",
+            constraints=("Keep setup simple", "No paid APIs"),
+        ),
+    )
+
+    assert project_plan_preview_label(state, target_workspace=target) == (
+        "Initial plan preview: milestone: First usable onboarding workflow. | "
+        "stack: python, sqlite, textual | "
+        "success: Operators can complete onboarding safely. | "
+        "users: support operators | guardrails: Keep setup simple, No paid APIs"
+    )
+    assert project_plan_preview_label(
+        state,
+        lang="ko",
+        target_workspace=target,
+    ) == (
+        "초기 계획 미리보기: 마일스톤: First usable onboarding workflow. | "
+        "스택: python, sqlite, textual | "
+        "성공: Operators can complete onboarding safely. | "
+        "사용자: support operators | 가드레일: Keep setup simple, No paid APIs"
+    )
+    assert project_plan_preview_label(
+        state,
+        target_workspace=tmp_path / "other-app",
+    ) == ""
+
+
+def test_project_plan_preview_label_skips_existing_project(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "existing-app"
+    target.mkdir()
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            product_goal="Improve docs.",
+            first_milestone="Review README.",
+        ),
+    )
+
+    assert project_plan_preview_label(state, target_workspace=target) == ""
 
 
 def test_project_intake_state_label_includes_workspace_profile(

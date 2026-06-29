@@ -146,6 +146,25 @@ PROJECT_MODE_LABELS = {
     },
 }
 
+PROJECT_PLAN_PREVIEW_LABELS = {
+    "en": {
+        "constraints": "guardrails",
+        "milestone": "milestone",
+        "stack": "stack",
+        "success": "success",
+        "summary": "Initial plan preview",
+        "users": "users",
+    },
+    "ko": {
+        "constraints": "가드레일",
+        "milestone": "마일스톤",
+        "stack": "스택",
+        "success": "성공",
+        "summary": "초기 계획 미리보기",
+        "users": "사용자",
+    },
+}
+
 
 @dataclass(frozen=True)
 class ProjectAnalyzeActionPresentation:
@@ -195,6 +214,62 @@ def project_intake_state_label(
         target_workspace=target_workspace,
         today=today,
     )
+
+
+def project_plan_preview_label(
+    state_dir: Path,
+    *,
+    lang: str = "en",
+    target_workspace: object | None = None,
+) -> str:
+    """Return a compact first-plan preview for saved new-project intake."""
+    labels = PROJECT_PLAN_PREVIEW_LABELS.get(
+        lang,
+        PROJECT_PLAN_PREVIEW_LABELS["en"],
+    )
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return ""
+    if intake is None or intake.mode != "new":
+        return ""
+    if not _project_intake_targets_match(intake, target_workspace):
+        return ""
+    sections: list[str] = []
+    if intake.first_milestone.strip():
+        sections.append(
+            f"{labels['milestone']}: "
+            f"{_format_project_intake_text(intake.first_milestone)}"
+        )
+    if intake.stack_preferences:
+        sections.append(
+            _format_project_intake_section(
+                labels["stack"],
+                intake.stack_preferences,
+                max_items=3,
+            )
+        )
+    if intake.success_criteria.strip():
+        sections.append(
+            f"{labels['success']}: "
+            f"{_format_project_intake_text(intake.success_criteria)}"
+        )
+    if intake.target_users.strip():
+        sections.append(
+            f"{labels['users']}: "
+            f"{_format_project_intake_text(intake.target_users)}"
+        )
+    if intake.constraints:
+        sections.append(
+            _format_project_intake_section(
+                labels["constraints"],
+                intake.constraints,
+                max_items=2,
+            )
+        )
+    if not sections:
+        return ""
+    return f"{labels['summary']}: {' | '.join(sections)}"
 
 
 def project_brief_action_variant(

@@ -131,6 +131,9 @@ class StartScreen(Screen[None]):
     class ProjectBriefRequested(Message):
         """Posted when the user wants to edit the project brief."""
 
+    class ProjectScopeRequested(Message):
+        """Posted when the user wants to choose an existing-project scope."""
+
     BINDINGS = [
         ("ctrl+enter", "submit", "Plan"),
     ]
@@ -373,6 +376,8 @@ class StartScreen(Screen[None]):
             self.post_message(self.NewProjectRequested())
         elif action == "brief":
             self.post_message(self.ProjectBriefRequested())
+        elif action == "scope":
+            self.post_message(self.ProjectScopeRequested())
         else:
             composer = self._prompt_composer()
             self._submit(composer.submission_text)

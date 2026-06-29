@@ -166,7 +166,7 @@ def test_start_project_setup_next_action_tracks_project_state(
             created_at=date.today().isoformat(),
         ),
     )
-    assert screen._project_setup_next_action() == "analyze"
+    assert screen._project_setup_next_action() == "scope"
 
     new_target = tmp_path / "new-app"
     screen.workspace_candidate = new_target
@@ -231,7 +231,7 @@ def test_nexus_project_setup_next_action_tracks_project_state(
             created_at=date.today().isoformat(),
         ),
     )
-    assert screen._project_setup_next_action() == "analyze"
+    assert screen._project_setup_next_action() == "scope"
 
     new_target = tmp_path / "new-app"
     screen.set_workspace_candidate(new_target)

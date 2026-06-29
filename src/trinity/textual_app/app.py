@@ -16,6 +16,7 @@ from trinity.project_intake import (
     ProjectIntake,
     build_project_intake,
     load_project_intake,
+    missing_new_project_brief_field_keys,
     write_project_intake,
 )
 from trinity.providers.model_discovery import ProviderModelChoice
@@ -208,6 +209,10 @@ from trinity.textual_app.widgets.project_brief_modal import (
     ProjectBriefDraft,
     ProjectBriefModal,
     ProjectBriefModalResult,
+)
+from trinity.textual_app.widgets.project_generation_confirm_modal import (
+    ProjectGenerationConfirmModal,
+    project_generation_confirmation_summary,
 )
 from trinity.textual_app.widgets.project_scope_modal import (
     ProjectScopeModal,
@@ -1813,11 +1818,13 @@ class TrinityTextualApp(App[None]):
             agent_model_overrides=event.agent_model_overrides,
             project_dir=self.config.project_dir,
         )
+        if self._maybe_open_project_generation_confirmation(effect):
+            return
         self._apply_start_submission_effect(effect)
 
     def _apply_start_submission_effect(self, effect: StartSubmissionEffect) -> None:
         self._prepare_start_submission_ui(effect)
-        self._sync_project_intake_for_target(effect.target_workspace, mode="existing")
+        self._sync_project_intake_for_submission_target(effect.target_workspace)
         outcome = self._run_start_submission(effect)
         self._remember_confirmed_target_preflight(
             effect.target_workspace,
@@ -1825,6 +1832,56 @@ class TrinityTextualApp(App[None]):
         )
         self._apply_workflow_outcome(outcome)
         self.switch_to("nexus")
+
+    def _maybe_open_project_generation_confirmation(
+        self,
+        effect: StartSubmissionEffect,
+    ) -> bool:
+        intake = self._new_project_generation_confirmation_intake(
+            effect.target_workspace
+        )
+        if intake is None:
+            return False
+        summary = project_generation_confirmation_summary(
+            intake,
+            lang=self.config.lang,
+        )
+        if not summary.available:
+            return False
+        self.push_screen(
+            ProjectGenerationConfirmModal(summary, lang=self.config.lang),
+            lambda confirmed: self._on_project_generation_confirmation(
+                confirmed,
+                effect,
+            ),
+        )
+        return True
+
+    def _on_project_generation_confirmation(
+        self,
+        confirmed: bool | None,
+        effect: StartSubmissionEffect,
+    ) -> None:
+        if confirmed:
+            self._apply_start_submission_effect(effect)
+
+    def _new_project_generation_confirmation_intake(
+        self,
+        target: Path | None,
+    ) -> ProjectIntake | None:
+        if target is None:
+            return None
+        try:
+            intake = load_project_intake(self.config.effective_state_dir)
+        except ValueError:
+            return None
+        if intake is None or intake.mode != "new":
+            return None
+        if absolute_path(intake.target_workspace) != absolute_path(target):
+            return None
+        if missing_new_project_brief_field_keys(intake):
+            return None
+        return intake
 
     def _prepare_start_submission_ui(self, effect: StartSubmissionEffect) -> None:
         self.initial_prompt = effect.prompt
@@ -3190,12 +3247,11 @@ class TrinityTextualApp(App[None]):
 
     def _run_textual_ask_command(self, action: AskCommandAction) -> AskCommandRun:
         if action.kind == "start":
-            self._sync_project_intake_for_target(
+            self._sync_project_intake_for_submission_target(
                 safe_start_target_workspace(
                     self.workspace_candidate,
                     self.config.project_dir,
-                ),
-                mode="existing",
+                )
             )
         return run_ask_command(
             action,
@@ -3861,6 +3917,17 @@ class TrinityTextualApp(App[None]):
             return
         self._open_project_brief_modal(preflight.path, fallback_mode="new")
 
+    def _sync_project_intake_for_submission_target(
+        self,
+        target: Path | None,
+    ) -> ProjectIntake | None:
+        if target is None:
+            return None
+        return self._sync_project_intake_for_target(
+            target,
+            mode=self._project_intake_mode_for_target(target, fallback="existing"),
+        )
+
     def _sync_project_intake_for_target(
         self,
         target: Path | None,
@@ -4236,6 +4303,7 @@ class TrinityTextualApp(App[None]):
         return {
             "product_goal": current.product_goal,
             "project_type": current.project_type,
+            "starter_profile": current.starter_profile,
             "target_users": current.target_users,
             "success_criteria": current.success_criteria,
             "stack_preferences": current.stack_preferences,

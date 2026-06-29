@@ -6,6 +6,7 @@ from trinity.textual_app.snapshot import (
     WorkflowNexusSnapshot,
 )
 from trinity.textual_app.widgets.execution_confirm_modal import (
+    ExecutionConfirmModal,
     execution_confirmation_summary,
 )
 
@@ -55,6 +56,9 @@ def test_execution_confirmation_summary_uses_snapshot_details() -> None:
     assert summary.providers == ("claude",)
     assert summary.total_packages == 2
     assert summary.executable_packages == 1
+    assert summary.estimated_execution_runs == 1
+    assert summary.estimated_review_runs == 0
+    assert summary.estimated_agent_runs == 1
     assert summary.package_preview == (
         "WP-001 codex: Build API",
         "WP-002 claude: Update docs",
@@ -77,4 +81,76 @@ def test_execution_confirmation_summary_falls_back_to_package_lines() -> None:
     assert summary.package_preview == (
         "WP-001 codex: Build CLI",
         "WP-002 claude: Document flow",
+    )
+
+
+def test_execution_confirmation_summary_estimates_peer_review_runs() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        providers=[
+            ProviderSnapshot(
+                name="claude",
+                provider="claude-code",
+                enabled=True,
+                status="Ready",
+            ),
+            ProviderSnapshot(
+                name="codex",
+                provider="codex-cli",
+                enabled=True,
+                status="Ready",
+            ),
+        ],
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Build CLI",
+                owner_agent="codex",
+                status="pending",
+            ),
+            WorkPackageSnapshot(
+                id="WP-002",
+                title="Build TUI",
+                owner_agent="claude",
+                status="pending",
+            ),
+            WorkPackageSnapshot(
+                id="WP-003",
+                title="Write notes",
+                owner_agent="claude",
+                status="pending",
+                requires_execution=False,
+            ),
+        ],
+    )
+
+    summary = execution_confirmation_summary(snapshot)
+
+    assert summary.executable_packages == 2
+    assert summary.estimated_execution_runs == 2
+    assert summary.estimated_review_runs == 2
+    assert summary.estimated_agent_runs == 4
+
+
+def test_execution_confirmation_modal_shows_agent_run_estimate() -> None:
+    snapshot = WorkflowNexusSnapshot(
+        providers=[
+            ProviderSnapshot(
+                name="claude",
+                provider="claude-code",
+                enabled=True,
+                status="Ready",
+            ),
+            ProviderSnapshot(
+                name="codex",
+                provider="codex-cli",
+                enabled=True,
+                status="Ready",
+            ),
+        ],
+        work_packages=("WP-001 codex: Build CLI",),
+    )
+    summary = execution_confirmation_summary(snapshot)
+
+    assert "Agent runs: 2 approx (1 execution, 1 review)" in (
+        ExecutionConfirmModal(summary)._summary_text()
     )

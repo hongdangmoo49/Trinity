@@ -15,6 +15,7 @@ from trinity.textual_app.snapshot import WorkflowNexusSnapshot, WorkPackageSnaps
 
 EXECUTION_CONFIRM_LABELS = {
     "en": {
+        "agent_runs": "Agent runs",
         "body": "Review the target and work packages before agents write files.",
         "cancel": "Cancel",
         "confirm": "Confirm Execute",
@@ -27,11 +28,13 @@ EXECUTION_CONFIRM_LABELS = {
         "providers": "Providers",
         "risk_none": "none",
         "risks": "Risks",
+        "run_estimate": "{total} approx ({execution} execution, {review} review)",
         "target_workspace": "Target workspace",
         "title": "Confirm Execution",
         "work_packages": "Work packages",
     },
     "ko": {
+        "agent_runs": "에이전트 실행",
         "body": "에이전트가 파일을 쓰기 전에 대상과 작업 패키지를 확인하세요.",
         "cancel": "취소",
         "confirm": "실행 확인",
@@ -44,6 +47,7 @@ EXECUTION_CONFIRM_LABELS = {
         "providers": "프로바이더",
         "risk_none": "없음",
         "risks": "위험",
+        "run_estimate": "{total}회 예상(실행 {execution}, 리뷰 {review})",
         "target_workspace": "대상 작업 폴더",
         "title": "실행 확인",
         "work_packages": "작업 패키지",
@@ -61,6 +65,8 @@ class ExecutionConfirmationSummary:
     providers: tuple[str, ...]
     total_packages: int
     executable_packages: int
+    estimated_execution_runs: int
+    estimated_review_runs: int
     package_preview: tuple[str, ...]
     risk_items: tuple[str, ...] = ()
     instruction: str = ""
@@ -72,6 +78,10 @@ class ExecutionConfirmationSummary:
     @property
     def has_executable_packages(self) -> bool:
         return self.executable_packages > 0
+
+    @property
+    def estimated_agent_runs(self) -> int:
+        return self.estimated_execution_runs + self.estimated_review_runs
 
 
 class ExecutionConfirmModal(ModalScreen[bool]):
@@ -180,6 +190,7 @@ class ExecutionConfirmModal(ModalScreen[bool]):
                 f"{_join_or_none(summary.context_items, self._label('none'))}"
             ),
             f"{self._label('providers')}: {_join_or_none(summary.providers, self._label('none'))}",
+            self._agent_runs_text(summary),
             (
                 f"{self._label('work_packages')}: {summary.total_packages} total, "
                 f"{summary.executable_packages} {self._label('executable')}"
@@ -194,6 +205,14 @@ class ExecutionConfirmModal(ModalScreen[bool]):
                 f"{self._label('instruction')}: {summary.instruction.strip()}"
             )
         return "\n".join(lines)
+
+    def _agent_runs_text(self, summary: ExecutionConfirmationSummary) -> str:
+        estimate = self._label("run_estimate").format(
+            total=summary.estimated_agent_runs,
+            execution=summary.estimated_execution_runs,
+            review=summary.estimated_review_runs,
+        )
+        return f"{self._label('agent_runs')}: {estimate}"
 
     def _preview_text(self) -> str:
         preview = self.summary.package_preview
@@ -226,6 +245,8 @@ def execution_confirmation_summary(
     package_preview = _package_preview(snapshot, preview_limit=preview_limit)
     total_packages = _total_package_count(snapshot)
     executable_packages = _executable_package_count(snapshot)
+    estimated_execution_runs = executable_packages
+    estimated_review_runs = executable_packages if len(providers) >= 2 else 0
     return ExecutionConfirmationSummary(
         target_workspace=str(snapshot.target_workspace or "").strip(),
         project_mode=project_mode.strip(),
@@ -233,6 +254,8 @@ def execution_confirmation_summary(
         providers=providers,
         total_packages=total_packages,
         executable_packages=executable_packages,
+        estimated_execution_runs=estimated_execution_runs,
+        estimated_review_runs=estimated_review_runs,
         package_preview=package_preview,
         risk_items=tuple(item.strip() for item in risk_items if item.strip()),
         instruction=instruction.strip(),

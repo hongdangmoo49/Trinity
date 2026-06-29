@@ -1008,7 +1008,7 @@ def project_status(json_output: bool, refresh: bool) -> None:
                 state_dir=config.effective_state_dir,
             )
             return
-        _display_missing_project_intake_status()
+        _display_missing_project_intake_status(config.effective_state_dir)
         return
     paths: ProjectIntakePaths | None = None
     if refresh:
@@ -1162,10 +1162,17 @@ def _display_project_intake_summary(
     console.print(Panel.fit(body, title="Trinity Project"))
 
 
-def _display_missing_project_intake_status() -> None:
+def _display_missing_project_intake_status(state_dir: Path | None = None) -> None:
+    start_guide = (
+        project_start_choice_guide_label(state_dir)
+        if state_dir is not None
+        else ""
+    )
     body = "\n".join(
         [
             "[yellow]No project intake recorded.[/yellow]",
+            "",
+            *_project_start_guide_status_lines(start_guide),
             "",
             "Existing project: run `trinity project analyze [PATH]`.",
             "New project: run `trinity project new NAME`.",
@@ -1206,6 +1213,11 @@ def _project_status_payload(
     if intake is None:
         return {
             "project_intake": None,
+            "project_start_guide": (
+                project_start_choice_guide_label(state_dir)
+                if state_dir is not None
+                else ""
+            ),
             "current_analysis": None,
             "refreshed": False,
             "project_intake_paths": None,
@@ -1516,14 +1528,12 @@ def _display_project_status(
     ]
     if state_dir is not None:
         lines.extend(
-            [
-                "Start guide:",
-                "  "
-                + project_start_choice_guide_label(
+            _project_start_guide_status_lines(
+                project_start_choice_guide_label(
                     state_dir,
                     target_workspace=intake.target_workspace,
-                ),
-            ]
+                )
+            )
         )
     generation_preview = format_project_generation_preview_label(
         intake,
@@ -1591,6 +1601,13 @@ def _display_project_status(
     )
     body = "\n".join(lines)
     console.print(Panel.fit(body, title="Trinity Project"))
+
+
+def _project_start_guide_status_lines(start_guide: str) -> list[str]:
+    if not start_guide:
+        return ["Start guide:", "  (unavailable)"]
+    parts = [part.strip() for part in start_guide.split(" | ") if part.strip()]
+    return ["Start guide:", *(f"  {part}" for part in parts)]
 
 
 def _unknown_if_none(value: int | None) -> str:

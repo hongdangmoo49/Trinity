@@ -627,6 +627,45 @@ def test_project_read_first_checklist_label_summarizes_existing_project(
     )
 
 
+def test_project_read_first_checklist_label_prompts_scope_choice(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "monorepo"
+    target.mkdir()
+    (target / "README.md").write_text("# Monorepo\n", encoding="utf-8")
+    (target / "src").mkdir()
+    (target / "apps" / "web").mkdir(parents=True)
+    (target / "apps" / "web" / "package.json").write_text("{}", encoding="utf-8")
+    (target / "packages" / "core").mkdir(parents=True)
+    (target / "packages" / "core" / "pyproject.toml").write_text(
+        "[project]\nname='core'\n",
+        encoding="utf-8",
+    )
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+        ),
+    )
+
+    assert project_read_first_checklist_label(state, target_workspace=target) == (
+        "Read-first checklist: scope: choose apps/web, packages/core | "
+        "read: README.md, src, packages | inspect: entrypoints missing | "
+        "verify: record validation command"
+    )
+    assert project_read_first_checklist_label(
+        state,
+        lang="ko",
+        target_workspace=target,
+    ) == (
+        "먼저 읽기 체크리스트: 범위: 선택 apps/web, packages/core | "
+        "읽기: README.md, src, packages | 점검: 진입점 없음 | "
+        "검증: 검증 명령 기록"
+    )
+
+
 def test_project_read_first_checklist_label_handles_sparse_existing_project(
     tmp_path: Path,
 ) -> None:

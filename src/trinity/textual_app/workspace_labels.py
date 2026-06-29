@@ -282,6 +282,35 @@ PROJECT_READ_FIRST_CHECKLIST_LABELS = {
     },
 }
 
+PROJECT_EXISTING_DIAGNOSTIC_LABELS = {
+    "en": {
+        "summary": "Existing diagnosis",
+        "read": "read",
+        "read_missing": "README/docs/source roots missing",
+        "tests": "tests",
+        "dev": "dev",
+        "build": "build",
+        "none": "(none)",
+        "scope": "scope",
+        "choose_scope": "choose",
+        "target_root": "target root",
+        "git": "git",
+    },
+    "ko": {
+        "summary": "기존 프로젝트 진단",
+        "read": "읽기",
+        "read_missing": "README/docs/source roots 없음",
+        "tests": "테스트",
+        "dev": "개발",
+        "build": "빌드",
+        "none": "(없음)",
+        "scope": "범위",
+        "choose_scope": "선택",
+        "target_root": "대상 루트",
+        "git": "git",
+    },
+}
+
 PROJECT_MODE_RAIL_LABELS = {
     "en": {
         "execute_confirm": "confirm",
@@ -901,6 +930,74 @@ def project_read_first_checklist_label(
     )
 
 
+def project_existing_diagnostic_label(
+    state_dir: Path,
+    *,
+    lang: str = "en",
+    target_workspace: object | None = None,
+) -> str:
+    """Return a compact diagnostic summary for saved existing-project intake."""
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return ""
+    if intake is None:
+        return ""
+    return format_project_existing_diagnostic_label(
+        intake,
+        lang=lang,
+        target_workspace=target_workspace,
+    )
+
+
+def format_project_existing_diagnostic_label(
+    intake: ProjectIntake,
+    *,
+    lang: str = "en",
+    target_workspace: object | None = None,
+) -> str:
+    """Format detected existing-project anchors into one scannable summary."""
+    if intake.mode != "existing":
+        return ""
+    if not _project_intake_targets_match(intake, target_workspace):
+        return ""
+    labels = PROJECT_EXISTING_DIAGNOSTIC_LABELS.get(
+        lang,
+        PROJECT_EXISTING_DIAGNOSTIC_LABELS["en"],
+    )
+    sections = (
+        _format_project_intake_section(
+            labels["read"],
+            _existing_diagnostic_read_items(intake, labels),
+            max_items=3,
+        ),
+        _format_project_intake_section(
+            labels["tests"],
+            intake.test_commands,
+            empty_label=labels["none"],
+            max_items=2,
+        ),
+        _format_project_intake_section(
+            labels["dev"],
+            intake.dev_commands,
+            empty_label=labels["none"],
+            max_items=2,
+        ),
+        _format_project_intake_section(
+            labels["build"],
+            intake.build_commands,
+            empty_label=labels["none"],
+            max_items=2,
+        ),
+        _format_existing_diagnostic_scope_section(intake, labels),
+        _format_existing_project_git_state(
+            intake,
+            PROJECT_INTAKE_LABELS.get(lang, PROJECT_INTAKE_LABELS["en"]),
+        ),
+    )
+    return f"{labels['summary']}: {' | '.join(sections)}"
+
+
 def format_project_read_first_checklist_label(
     intake: ProjectIntake,
     *,
@@ -935,6 +1032,34 @@ def format_project_read_first_checklist_label(
         ),
     )
     return f"{labels['summary']}: {' | '.join(sections)}"
+
+
+def _existing_diagnostic_read_items(
+    intake: ProjectIntake,
+    labels: dict[str, str],
+) -> tuple[str, ...]:
+    items = tuple(
+        dict.fromkeys(
+            (*intake.docs_found, *intake.source_roots, *intake.entrypoints)
+        )
+    )
+    return items or (labels["read_missing"],)
+
+
+def _format_existing_diagnostic_scope_section(
+    intake: ProjectIntake,
+    labels: dict[str, str],
+) -> str:
+    selected_scope = intake.selected_scope.strip()
+    if selected_scope:
+        return _format_project_intake_section(labels["scope"], (selected_scope,))
+    if intake.scope_candidates:
+        values = _format_project_intake_values(intake.scope_candidates, max_items=2)
+        return f"{labels['scope']}: {labels['choose_scope']} {values}"
+    return _format_project_intake_section(
+        labels["scope"],
+        (labels["target_root"],),
+    )
 
 
 def _format_read_first_scope_section(

@@ -28,6 +28,7 @@ from trinity.textual_app.workspace_labels import (
     project_brief_action_label_key,
     project_brief_action_variant,
     project_create_action_variant,
+    project_existing_diagnostic_label,
     project_generation_preview_label,
     project_intake_state_label,
     project_mode_rail_label,
@@ -212,6 +213,7 @@ class NexusScreen(Screen[None]):
         self._project_plan_preview_widget: Static | None = None
         self._project_generation_preview_widget: Static | None = None
         self._project_validation_plan_widget: Static | None = None
+        self._project_existing_diagnostic_widget: Static | None = None
         self._project_read_first_checklist_widget: Static | None = None
 
     def compose(self) -> ComposeResult:
@@ -261,6 +263,12 @@ class NexusScreen(Screen[None]):
                 self._project_intake_label(),
                 id="nexus-project-intake-summary",
             )
+            existing_diagnostic = Static(
+                self._project_existing_diagnostic_label(),
+                id="nexus-project-existing-diagnostic",
+            )
+            self._project_existing_diagnostic_widget = existing_diagnostic
+            yield existing_diagnostic
             start_choice_guide = Static(
                 self._project_start_choice_guide_label(),
                 id="nexus-project-start-choice-guide",
@@ -464,6 +472,7 @@ class NexusScreen(Screen[None]):
         self._project_plan_preview_widget = None
         self._project_generation_preview_widget = None
         self._project_validation_plan_widget = None
+        self._project_existing_diagnostic_widget = None
         self._project_read_first_checklist_widget = None
 
     def _reset_render_cache(self) -> None:
@@ -588,6 +597,14 @@ class NexusScreen(Screen[None]):
                 Static,
             )
         return self._project_read_first_checklist_widget
+
+    def _project_existing_diagnostic_static(self) -> Static:
+        if self._project_existing_diagnostic_widget is None:
+            self._project_existing_diagnostic_widget = self.query_one(
+                "#nexus-project-existing-diagnostic",
+                Static,
+            )
+        return self._project_existing_diagnostic_widget
 
     def _project_mode_rail_static(self) -> Static:
         if self._project_mode_rail_widget is None:
@@ -846,6 +863,13 @@ class NexusScreen(Screen[None]):
             target_workspace=self._current_workspace_text(),
         )
 
+    def _project_existing_diagnostic_label(self) -> str:
+        return project_existing_diagnostic_label(
+            self.config.effective_state_dir,
+            lang=self.config.lang,
+            target_workspace=self._current_workspace_text(),
+        )
+
     def _project_startup_readiness_label(
         self,
         selected_agents: tuple[str, ...] | None = None,
@@ -953,6 +977,9 @@ class NexusScreen(Screen[None]):
         )
         self._project_validation_plan_static().update(
             self._project_validation_plan_label()
+        )
+        self._project_existing_diagnostic_static().update(
+            self._project_existing_diagnostic_label()
         )
         self._project_read_first_checklist_static().update(
             self._project_read_first_checklist_label()

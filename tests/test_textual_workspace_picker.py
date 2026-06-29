@@ -425,6 +425,98 @@ def test_build_preflight_accepts_unchanged_existing_project_intake(
     assert "Project intake safety: ok" in preflight.render()
 
 
+def test_build_preflight_renders_matching_existing_selected_scope(
+    tmp_path,
+) -> None:
+    state = tmp_path / ".trinity"
+    target_workspace = tmp_path / "monorepo"
+    target_workspace.mkdir()
+    (target_workspace / "README.md").write_text("docs\n", encoding="utf-8")
+    (target_workspace / "apps" / "web").mkdir(parents=True)
+    (target_workspace / "apps" / "web" / "package.json").write_text(
+        "{}",
+        encoding="utf-8",
+    )
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target_workspace,
+            selected_scope="apps/web",
+            created_at="2026-06-29T00:00:00Z",
+        ),
+    )
+
+    preflight = build_preflight(
+        target_workspace,
+        WorkflowNexusSnapshot(),
+        project_intake_state_dir=state,
+    )
+
+    assert preflight.selected_scope == "apps/web"
+    assert "Selected scope: apps/web" in preflight.render()
+    assert "선택 범위: apps/web" in preflight.render(lang="ko")
+
+
+def test_build_preflight_omits_selected_scope_for_mismatched_target(
+    tmp_path,
+) -> None:
+    state = tmp_path / ".trinity"
+    saved_workspace = tmp_path / "saved"
+    selected_workspace = tmp_path / "selected"
+    saved_workspace.mkdir()
+    selected_workspace.mkdir()
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=saved_workspace,
+            selected_scope="apps/web",
+            created_at="2026-06-29T00:00:00Z",
+        ),
+    )
+
+    preflight = build_preflight(
+        selected_workspace,
+        WorkflowNexusSnapshot(),
+        project_intake_state_dir=state,
+    )
+
+    assert preflight.selected_scope == ""
+    assert "Selected scope:" not in preflight.render()
+
+
+def test_build_preflight_omits_selected_scope_for_new_project_intake(
+    tmp_path,
+) -> None:
+    state = tmp_path / ".trinity"
+    target_workspace = tmp_path / "new-app"
+    target_workspace.mkdir()
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target_workspace,
+            selected_scope="apps/web",
+            product_goal="Build a new app.",
+            project_type="CLI",
+            target_users="developers",
+            success_criteria="Users can run the first command.",
+            first_milestone="Create the CLI skeleton.",
+            created_at="2026-06-29T00:00:00Z",
+        ),
+    )
+
+    preflight = build_preflight(
+        target_workspace,
+        WorkflowNexusSnapshot(),
+        project_intake_state_dir=state,
+    )
+
+    assert preflight.selected_scope == ""
+    assert "Selected scope:" not in preflight.render()
+
+
 def test_build_preflight_marks_changed_existing_project_intake(
     tmp_path,
 ) -> None:

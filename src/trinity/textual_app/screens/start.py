@@ -26,6 +26,7 @@ from trinity.textual_app.workspace_labels import (
     project_brief_action_label_key,
     project_brief_action_variant,
     project_create_action_variant,
+    project_existing_diagnostic_label,
     project_generation_preview_label,
     project_intake_state_label,
     project_mode_rail_label,
@@ -168,6 +169,7 @@ class StartScreen(Screen[None]):
         self._project_plan_preview_widget: Static | None = None
         self._project_generation_preview_widget: Static | None = None
         self._project_validation_plan_widget: Static | None = None
+        self._project_existing_diagnostic_widget: Static | None = None
         self._project_read_first_checklist_widget: Static | None = None
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
@@ -233,6 +235,12 @@ class StartScreen(Screen[None]):
                     self._project_intake_label(),
                     id="project-intake-summary",
                 )
+                existing_diagnostic = Static(
+                    self._project_existing_diagnostic_label(),
+                    id="project-existing-diagnostic",
+                )
+                self._project_existing_diagnostic_widget = existing_diagnostic
+                yield existing_diagnostic
                 start_choice_guide = Static(
                     self._project_start_choice_guide_label(),
                     id="project-start-choice-guide",
@@ -468,6 +476,7 @@ class StartScreen(Screen[None]):
         self._project_plan_preview_widget = None
         self._project_generation_preview_widget = None
         self._project_validation_plan_widget = None
+        self._project_existing_diagnostic_widget = None
         self._project_read_first_checklist_widget = None
 
     def _prompt_composer(self) -> PromptComposer:
@@ -549,6 +558,14 @@ class StartScreen(Screen[None]):
             )
         return self._project_read_first_checklist_widget
 
+    def _project_existing_diagnostic_static(self) -> Static:
+        if self._project_existing_diagnostic_widget is None:
+            self._project_existing_diagnostic_widget = self.query_one(
+                "#project-existing-diagnostic",
+                Static,
+            )
+        return self._project_existing_diagnostic_widget
+
     def _project_mode_rail_static(self) -> Static:
         if self._project_mode_rail_widget is None:
             self._project_mode_rail_widget = self.query_one(
@@ -594,6 +611,13 @@ class StartScreen(Screen[None]):
 
     def _project_read_first_checklist_label(self) -> str:
         return project_read_first_checklist_label(
+            self.config.effective_state_dir,
+            lang=self.lang,
+            target_workspace=self.workspace_candidate,
+        )
+
+    def _project_existing_diagnostic_label(self) -> str:
+        return project_existing_diagnostic_label(
             self.config.effective_state_dir,
             lang=self.lang,
             target_workspace=self.workspace_candidate,
@@ -697,6 +721,9 @@ class StartScreen(Screen[None]):
         )
         self._project_validation_plan_static().update(
             self._project_validation_plan_label()
+        )
+        self._project_existing_diagnostic_static().update(
+            self._project_existing_diagnostic_label()
         )
         self._project_read_first_checklist_static().update(
             self._project_read_first_checklist_label()

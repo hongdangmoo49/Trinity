@@ -21,6 +21,7 @@ from trinity.textual_app.workspace_labels import (
     project_brief_action_label_key,
     project_brief_action_variant,
     project_create_action_variant,
+    project_existing_diagnostic_label,
     project_generation_preview_label,
     project_intake_state_label,
     project_mode_rail_label,
@@ -760,6 +761,64 @@ def test_project_read_first_checklist_label_summarizes_existing_project(
         "먼저 읽기 체크리스트: 범위: apps/web | 읽기: README.md, src | "
         "점검: src/index.js | 검증: npm test"
     )
+
+
+def test_project_existing_diagnostic_label_summarizes_existing_project(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "existing-app"
+    target.mkdir()
+    (target / "README.md").write_text("# Existing\n", encoding="utf-8")
+    (target / "src").mkdir()
+    (target / "package.json").write_text(
+        '{"scripts":{"test":"vitest run","dev":"vite","build":"vite build"}}',
+        encoding="utf-8",
+    )
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            selected_scope="apps/web",
+        ),
+    )
+
+    assert project_existing_diagnostic_label(state, target_workspace=target) == (
+        "Existing diagnosis: read: README.md, src | "
+        "tests: npm test | dev: npm run dev | build: npm run build | "
+        "scope: apps/web | git: none"
+    )
+    assert project_existing_diagnostic_label(
+        state,
+        lang="ko",
+        target_workspace=target,
+    ) == (
+        "기존 프로젝트 진단: 읽기: README.md, src | "
+        "테스트: npm test | 개발: npm run dev | 빌드: npm run build | "
+        "범위: apps/web | git: 없음"
+    )
+
+
+def test_project_existing_diagnostic_label_skips_new_or_mismatched_intake(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "new-app"
+    other = tmp_path / "other-app"
+    target.mkdir()
+    other.mkdir()
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build app.",
+        ),
+    )
+
+    assert project_existing_diagnostic_label(state, target_workspace=target) == ""
+    assert project_existing_diagnostic_label(state, target_workspace=other) == ""
 
 
 def test_project_read_first_checklist_label_prompts_scope_choice(
@@ -1895,6 +1954,13 @@ async def test_start_screen_shows_project_intake_summary(tmp_path: Path) -> None
             "Project intake: existing | target: customer-app | "
             "updated: 2026-06-28 | tests: uv run pytest | git: none"
         )
+        assert str(
+            screen.query_one("#project-existing-diagnostic", Static).content
+        ) == (
+            "Existing diagnosis: read: README/docs/source roots missing | "
+            "tests: uv run pytest | dev: (none) | build: (none) | "
+            "scope: target root | git: none"
+        )
         assert str(screen.query_one("#continue-project-setup", Button).label) == (
             "Continue Setup"
         )
@@ -2035,6 +2101,15 @@ async def test_nexus_screen_shows_read_first_checklist(tmp_path: Path) -> None:
         ) == (
             "Read-first checklist: scope: services/api | read: README.md, src | "
             "inspect: entrypoints missing | verify: record validation command"
+        )
+        assert str(
+            screen.query_one(
+                "#nexus-project-existing-diagnostic",
+                Static,
+            ).content
+        ) == (
+            "Existing diagnosis: read: README.md, src | tests: (none) | "
+            "dev: (none) | build: (none) | scope: services/api | git: none"
         )
         assert str(
             screen.query_one("#nexus-project-startup-readiness", Static).content

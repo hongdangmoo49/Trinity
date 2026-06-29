@@ -469,9 +469,10 @@ def provider_cli_setup_label(
             f"{_format_project_intake_values(found_names, max_items=3)}"
         )
     if missing_names:
+        missing_entries = _provider_cli_missing_entries(agents, missing_names)
         parts.append(
             f"{labels['missing']}: "
-            f"{_format_project_intake_values(missing_names, max_items=3)}"
+            f"{_format_project_intake_values(missing_entries, max_items=3)}"
         )
     if not found_names and not missing_names:
         parts.append(f"{labels['found']}: {labels['none']}")
@@ -1494,6 +1495,33 @@ def _provider_cli_command_found(command: object) -> bool:
         path = Path(executable).expanduser()
         return path.exists() and path.is_file()
     return shutil.which(executable) is not None
+
+
+def _provider_cli_missing_entries(
+    agents: Mapping[str, object],
+    names: tuple[str, ...],
+) -> tuple[str, ...]:
+    return tuple(
+        _provider_cli_missing_entry(
+            name,
+            getattr(agents[name], "cli_command", ""),
+        )
+        for name in names
+    )
+
+
+def _provider_cli_missing_entry(name: str, command: object) -> str:
+    display_command = _provider_cli_display_command(command)
+    if not display_command or display_command.lower() == name.lower():
+        return name
+    return f"{name}({display_command})"
+
+
+def _provider_cli_display_command(command: object) -> str:
+    executable = _provider_cli_executable(command)
+    if not executable:
+        return ""
+    return executable.replace("\\", "/").rsplit("/", 1)[-1]
 
 
 def _provider_cli_executable(command: object) -> str:

@@ -11,6 +11,11 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Static
 
 from trinity.config import TrinityConfig
+from trinity.project_intake import (
+    ProjectIntake,
+    load_project_intake,
+    missing_new_project_brief_field_keys,
+)
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
@@ -44,6 +49,7 @@ START_LABELS = {
         "analyze_workspace": "Analyze Existing",
         "analyze_selected_workspace": "Analyze Selected",
         "complete_brief": "Complete Brief",
+        "continue_setup": "Continue Setup",
         "create_project": "Create New",
         "edit_brief": "Edit Brief",
         "plan_first": "Plan first",
@@ -57,6 +63,7 @@ START_LABELS = {
         "analyze_workspace": "기존 프로젝트 분석",
         "analyze_selected_workspace": "선택 대상 분석",
         "complete_brief": "브리프 완성",
+        "continue_setup": "설정 계속",
         "create_project": "새 프로젝트 생성",
         "edit_brief": "브리프 편집",
         "plan_first": "먼저 계획",
@@ -235,6 +242,11 @@ class StartScreen(Screen[None]):
                 analyze_action = self._project_analyze_action_presentation()
                 with Horizontal(id="project-intake-actions"):
                     yield Button(
+                        self._label("continue_setup"),
+                        id="continue-project-setup",
+                        variant="primary",
+                    )
+                    yield Button(
                         self._label(analyze_action.label_key),
                         id="analyze-workspace",
                         variant=analyze_action.variant,
@@ -327,6 +339,9 @@ class StartScreen(Screen[None]):
             event.stop()
             composer = self._prompt_composer()
             self._submit(composer.submission_text)
+        elif button_id == "continue-project-setup":
+            event.stop()
+            self._continue_project_setup()
         elif button_id == "choose-workspace":
             event.stop()
             self.post_message(self.WorkspaceRequested())
@@ -343,6 +358,63 @@ class StartScreen(Screen[None]):
     def action_submit(self) -> None:
         composer = self._prompt_composer()
         self._submit(composer.submission_text)
+
+    def _continue_project_setup(self) -> None:
+        action = self._project_setup_next_action()
+        if action == "workspace":
+            self.post_message(self.WorkspaceRequested())
+        elif action == "analyze":
+            self.post_message(self.ProjectIntakeRequested())
+        elif action == "create":
+            self.post_message(self.NewProjectRequested())
+        elif action == "brief":
+            self.post_message(self.ProjectBriefRequested())
+        else:
+            composer = self._prompt_composer()
+            self._submit(composer.submission_text)
+
+    def _project_setup_next_action(self) -> str:
+        if self.workspace_candidate is None:
+            return "workspace"
+        try:
+            intake = load_project_intake(self.config.effective_state_dir)
+        except ValueError:
+            return "analyze"
+        if intake is None or not self._intake_matches_workspace(intake):
+            return "analyze"
+        if intake.mode == "new":
+            if self._intake_target_missing(intake):
+                return "create"
+            if missing_new_project_brief_field_keys(intake):
+                return "brief"
+            return "plan"
+        analyze_action = self._project_analyze_action_presentation()
+        if analyze_action.variant == "warning":
+            return "analyze"
+        if intake.scope_candidates and not intake.selected_scope.strip():
+            return "analyze"
+        return "plan"
+
+    def _intake_matches_workspace(self, intake: ProjectIntake) -> bool:
+        if self.workspace_candidate is None:
+            return True
+        try:
+            return (
+                self.workspace_candidate.expanduser().resolve()
+                == intake.target_workspace.expanduser().resolve()
+            )
+        except OSError:
+            return (
+                self.workspace_candidate.expanduser().absolute()
+                == intake.target_workspace.expanduser().absolute()
+            )
+
+    @staticmethod
+    def _intake_target_missing(intake: ProjectIntake) -> bool:
+        try:
+            return not intake.target_workspace.exists()
+        except OSError:
+            return True
 
     def set_workspace_candidate(self, path: Path | None) -> None:
         next_workspace = str(path or "")

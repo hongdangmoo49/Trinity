@@ -23,6 +23,7 @@ from trinity.textual_app.workspace_labels import (
     project_intake_state_label,
     project_mode_rail_label,
     project_plan_preview_label,
+    provider_execution_review_policy_label,
     project_read_first_checklist_label,
     project_validation_plan_label,
     target_workspace_state_label,
@@ -144,6 +145,7 @@ class StartScreen(Screen[None]):
         self._composer: PromptComposer | None = None
         self._recipient_selector: AgentRecipientModelSelector | None = None
         self._workspace_label_widget: Static | None = None
+        self._provider_policy_widget: Static | None = None
         self._project_mode_rail_widget: Static | None = None
         self._project_plan_preview_widget: Static | None = None
         self._project_generation_preview_widget: Static | None = None
@@ -174,6 +176,12 @@ class StartScreen(Screen[None]):
                 )
                 self._recipient_selector = selector
                 yield selector
+                provider_policy = Static(
+                    self._provider_policy_label(),
+                    id="start-provider-policy",
+                )
+                self._provider_policy_widget = provider_policy
+                yield provider_policy
                 with Horizontal(id="start-actions"):
                     workspace_label = Static(
                         self._workspace_label(),
@@ -277,6 +285,13 @@ class StartScreen(Screen[None]):
         event.stop()
         self._submit(event.text)
 
+    def on_agent_recipient_model_selector_selection_changed(
+        self,
+        event: AgentRecipientModelSelector.SelectionChanged,
+    ) -> None:
+        event.stop()
+        self._refresh_provider_policy_label(event.selected_agents)
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id
         if button_id == "plan-first":
@@ -339,6 +354,7 @@ class StartScreen(Screen[None]):
         self._composer = None
         self._recipient_selector = None
         self._workspace_label_widget = None
+        self._provider_policy_widget = None
         self._project_mode_rail_widget = None
         self._project_plan_preview_widget = None
 
@@ -356,6 +372,14 @@ class StartScreen(Screen[None]):
         if self._workspace_label_widget is None:
             self._workspace_label_widget = self.query_one("#workspace-candidate", Static)
         return self._workspace_label_widget
+
+    def _provider_policy_static(self) -> Static:
+        if self._provider_policy_widget is None:
+            self._provider_policy_widget = self.query_one(
+                "#start-provider-policy",
+                Static,
+            )
+        return self._provider_policy_widget
 
     def _project_plan_preview_static(self) -> Static:
         if self._project_plan_preview_widget is None:
@@ -439,6 +463,18 @@ class StartScreen(Screen[None]):
             target_workspace=self.workspace_candidate,
         )
 
+    def _provider_policy_label(
+        self,
+        selected_agents: tuple[str, ...] | None = None,
+    ) -> str:
+        if selected_agents is None and self.is_mounted:
+            selected_agents = self._agent_selector().selected_agents()
+        return provider_execution_review_policy_label(
+            self.config.agents,
+            selected_agents=selected_agents,
+            lang=self.lang,
+        )
+
     def _project_mode_rail_label(self) -> str:
         return project_mode_rail_label(
             self.config.effective_state_dir,
@@ -496,6 +532,16 @@ class StartScreen(Screen[None]):
         )
         self.query_one("#edit-project-brief", Button).variant = (
             self._project_brief_action_variant()
+        )
+
+    def _refresh_provider_policy_label(
+        self,
+        selected_agents: tuple[str, ...] | None = None,
+    ) -> None:
+        if not self.is_mounted:
+            return
+        self._provider_policy_static().update(
+            self._provider_policy_label(selected_agents)
         )
 
     def _label(self, key: str) -> str:

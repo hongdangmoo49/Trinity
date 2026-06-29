@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -289,6 +290,39 @@ PROJECT_MODE_RAIL_LABELS = {
     },
 }
 
+PROVIDER_EXECUTION_REVIEW_POLICY_LABELS = {
+    "en": {
+        "summary": "Provider policy",
+        "active": "{count} active ({names})",
+        "active_none": "0 active",
+        "execution_label": "execution",
+        "review_label": "review",
+        "none": "none",
+        "execution_unavailable": "unavailable",
+        "review_unavailable": "unavailable",
+        "single_executor": "single executor",
+        "self_or_manual_review": "self-check/manual",
+        "parallel_capable": "parallel capable",
+        "one_peer_reviewer": "one peer reviewer",
+        "peer_reviewer_pool": "peer reviewer pool",
+    },
+    "ko": {
+        "summary": "프로바이더 정책",
+        "active": "활성 {count}개({names})",
+        "active_none": "활성 0개",
+        "execution_label": "실행",
+        "review_label": "리뷰",
+        "none": "없음",
+        "execution_unavailable": "불가",
+        "review_unavailable": "불가",
+        "single_executor": "단일 실행",
+        "self_or_manual_review": "자체 확인/수동",
+        "parallel_capable": "병렬 가능",
+        "one_peer_reviewer": "동료 리뷰 1명",
+        "peer_reviewer_pool": "동료 리뷰 풀",
+    },
+}
+
 
 @dataclass(frozen=True)
 class ProjectAnalyzeActionPresentation:
@@ -312,6 +346,62 @@ def target_workspace_state_label(
     if control_repo is not None and _same_resolved_path(Path(target_text), control_repo):
         return labels["control_repo"].format(target=target_text)
     return labels["planning_target"].format(target=target_text)
+
+
+def provider_execution_review_policy_label(
+    agents: Mapping[str, object],
+    *,
+    selected_agents: Sequence[str] | None = None,
+    lang: str = "en",
+) -> str:
+    """Return a compact execution/review policy label for active providers."""
+    labels = PROVIDER_EXECUTION_REVIEW_POLICY_LABELS.get(
+        lang,
+        PROVIDER_EXECUTION_REVIEW_POLICY_LABELS["en"],
+    )
+    enabled_names = tuple(
+        name
+        for name, spec in agents.items()
+        if bool(getattr(spec, "enabled", False))
+    )
+    if selected_agents is None:
+        active_names = enabled_names
+    else:
+        requested = {
+            str(name).strip()
+            for name in selected_agents
+            if str(name).strip()
+        }
+        active_names = tuple(name for name in enabled_names if name in requested)
+
+    count = len(active_names)
+    if count <= 0:
+        active_label = labels["active_none"]
+        execution = labels["execution_unavailable"]
+        review = labels["review_unavailable"]
+    else:
+        active_label = labels["active"].format(
+            count=count,
+            names=_format_project_intake_values(
+                active_names,
+                empty_label=labels["none"],
+                max_items=3,
+            ),
+        )
+        if count == 1:
+            execution = labels["single_executor"]
+            review = labels["self_or_manual_review"]
+        elif count == 2:
+            execution = labels["parallel_capable"]
+            review = labels["one_peer_reviewer"]
+        else:
+            execution = labels["parallel_capable"]
+            review = labels["peer_reviewer_pool"]
+    return (
+        f"{labels['summary']}: {active_label} | "
+        f"{labels['execution_label']}: {execution} | "
+        f"{labels['review_label']}: {review}"
+    )
 
 
 def project_intake_state_label(

@@ -23,6 +23,7 @@ from trinity.textual_app.workspace_labels import (
     project_intake_state_label,
     project_mode_rail_label,
     project_plan_preview_label,
+    provider_execution_review_policy_label,
     project_read_first_checklist_label,
     project_validation_plan_label,
     target_workspace_state_label,
@@ -181,6 +182,7 @@ class NexusScreen(Screen[None]):
         self._applied_snapshot_identity: int | None = None
         self._provider_panels: dict[str, ProviderPanel] = {}
         self._workspace_label_widget: Static | None = None
+        self._provider_policy_widget: Static | None = None
         self._central_view: CentralAgentView | None = None
         self._question_panel: QuestionPanel | None = None
         self._inspector: WorkflowInspector | None = None
@@ -301,6 +303,12 @@ class NexusScreen(Screen[None]):
             )
             self._recipient_selector = selector
             yield selector
+            provider_policy = Static(
+                self._provider_policy_label(),
+                id="nexus-provider-policy",
+            )
+            self._provider_policy_widget = provider_policy
+            yield provider_policy
             composer = PromptComposer(
                 placeholder=self._label("composer_placeholder"),
                 id="nexus-composer",
@@ -320,6 +328,7 @@ class NexusScreen(Screen[None]):
         if self._selected_agents or self._agent_model_overrides:
             self._apply_agent_selection()
         self._apply_model_choices()
+        self._refresh_provider_policy_label()
         self._prompt_composer().focus_text_area()
 
     def set_initial_prompt(self, prompt: str) -> None:
@@ -348,6 +357,7 @@ class NexusScreen(Screen[None]):
         if not self.is_mounted:
             return
         self._apply_agent_selection()
+        self._refresh_provider_policy_label()
 
     def _apply_agent_selection(self) -> None:
         selector = self._agent_selector()
@@ -393,6 +403,7 @@ class NexusScreen(Screen[None]):
     def _reset_widget_cache(self) -> None:
         self._provider_panels = {}
         self._workspace_label_widget = None
+        self._provider_policy_widget = None
         self._central_view = None
         self._question_panel = None
         self._inspector = None
@@ -424,6 +435,14 @@ class NexusScreen(Screen[None]):
                 Static,
             )
         return self._workspace_label_widget
+
+    def _provider_policy_static(self) -> Static:
+        if self._provider_policy_widget is None:
+            self._provider_policy_widget = self.query_one(
+                "#nexus-provider-policy",
+                Static,
+            )
+        return self._provider_policy_widget
 
     def _central_agent(self) -> CentralAgentView:
         if self._central_view is None:
@@ -576,6 +595,13 @@ class NexusScreen(Screen[None]):
         event.stop()
         self._submit_follow_up(event.text)
 
+    def on_agent_recipient_model_selector_selection_changed(
+        self,
+        event: AgentRecipientModelSelector.SelectionChanged,
+    ) -> None:
+        event.stop()
+        self._refresh_provider_policy_label(event.selected_agents)
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "open-provider-inspector":
             event.stop()
@@ -667,6 +693,21 @@ class NexusScreen(Screen[None]):
             target_workspace=self._current_workspace_text(),
         )
 
+    def _provider_policy_label(
+        self,
+        selected_agents: tuple[str, ...] | None = None,
+    ) -> str:
+        if selected_agents is None:
+            if self.is_mounted:
+                selected_agents = self._agent_selector().selected_agents()
+            elif self._selected_agents:
+                selected_agents = self._selected_agents
+        return provider_execution_review_policy_label(
+            self.config.agents,
+            selected_agents=selected_agents,
+            lang=self.config.lang,
+        )
+
     def _project_mode_rail_label(self) -> str:
         return project_mode_rail_label(
             self.config.effective_state_dir,
@@ -724,6 +765,16 @@ class NexusScreen(Screen[None]):
         )
         self.query_one("#nexus-edit-project-brief", Button).variant = (
             self._project_brief_action_variant()
+        )
+
+    def _refresh_provider_policy_label(
+        self,
+        selected_agents: tuple[str, ...] | None = None,
+    ) -> None:
+        if not self.is_mounted:
+            return
+        self._provider_policy_static().update(
+            self._provider_policy_label(selected_agents)
         )
 
     def _current_workspace_text(self) -> str:

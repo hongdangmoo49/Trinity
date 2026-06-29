@@ -23,6 +23,7 @@ from trinity.textual_app.workspace_labels import (
     project_intake_state_label,
     project_mode_rail_label,
     project_plan_preview_label,
+    provider_execution_review_policy_label,
     project_read_first_checklist_label,
     project_validation_plan_label,
     target_workspace_state_label,
@@ -112,6 +113,47 @@ def test_start_and_nexus_project_actions_use_mode_specific_labels(
     assert ko_nexus._label("create_project") == "새 프로젝트 생성"
     assert ko_start._label("refresh_analysis") == "분석 갱신"
     assert ko_nexus._label("refresh_analysis") == "분석 갱신"
+
+
+def test_provider_execution_review_policy_label_handles_provider_counts(
+    tmp_path: Path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+
+    assert provider_execution_review_policy_label(config.agents) == (
+        "Provider policy: 1 active (claude) | "
+        "execution: single executor | review: self-check/manual"
+    )
+
+    config.agents["codex"].enabled = True
+    assert provider_execution_review_policy_label(config.agents) == (
+        "Provider policy: 2 active (claude, codex) | "
+        "execution: parallel capable | review: one peer reviewer"
+    )
+    assert provider_execution_review_policy_label(
+        config.agents,
+        selected_agents=("claude",),
+    ) == (
+        "Provider policy: 1 active (claude) | "
+        "execution: single executor | review: self-check/manual"
+    )
+    assert provider_execution_review_policy_label(
+        config.agents,
+        selected_agents=(),
+    ) == (
+        "Provider policy: 0 active | execution: unavailable | "
+        "review: unavailable"
+    )
+
+    config.agents["antigravity"].enabled = True
+    assert provider_execution_review_policy_label(config.agents) == (
+        "Provider policy: 3 active (claude, codex, antigravity) | "
+        "execution: parallel capable | review: peer reviewer pool"
+    )
+    assert provider_execution_review_policy_label(config.agents, lang="ko") == (
+        "프로바이더 정책: 활성 3개(claude, codex, antigravity) | "
+        "실행: 병렬 가능 | 리뷰: 동료 리뷰 풀"
+    )
 
 
 def test_project_intake_state_label_summarizes_saved_intake(tmp_path: Path) -> None:
@@ -1256,6 +1298,36 @@ async def test_start_screen_shows_project_intake_summary(tmp_path: Path) -> None
 
 
 @pytest.mark.asyncio
+async def test_start_screen_updates_provider_policy_from_recipient_selection(
+    tmp_path: Path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    screen = StartScreen(config)
+    app = StartScreenHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        assert str(screen.query_one("#start-provider-policy", Static).content) == (
+            "Provider policy: 2 active (claude, codex) | "
+            "execution: parallel capable | review: one peer reviewer"
+        )
+
+        selector = screen.query_one(AgentRecipientModelSelector)
+        selector.set_selected_agents(("claude",))
+        screen.on_agent_recipient_model_selector_selection_changed(
+            AgentRecipientModelSelector.SelectionChanged(selector.selected_agents())
+        )
+        await pilot.pause()
+
+        assert str(screen.query_one("#start-provider-policy", Static).content) == (
+            "Provider policy: 1 active (claude) | "
+            "execution: single executor | review: self-check/manual"
+        )
+
+
+@pytest.mark.asyncio
 async def test_nexus_screen_shows_read_first_checklist(tmp_path: Path) -> None:
     target = tmp_path / "customer-app"
     target.mkdir()
@@ -1283,6 +1355,46 @@ async def test_nexus_screen_shows_read_first_checklist(tmp_path: Path) -> None:
         ) == (
             "Read-first checklist: scope: services/api | read: README.md, src | "
             "inspect: entrypoints missing | verify: record validation command"
+        )
+
+
+@pytest.mark.asyncio
+async def test_nexus_screen_shows_provider_policy_from_selected_agents(
+    tmp_path: Path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    config.agents["antigravity"].enabled = True
+    screen = NexusScreen(config)
+    screen.set_agent_selection(("claude", "codex"), {})
+    app = StartScreenHarness(screen)  # type: ignore[arg-type]
+
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+
+        assert str(screen.query_one("#nexus-provider-policy", Static).content) == (
+            "Provider policy: 2 active (claude, codex) | "
+            "execution: parallel capable | review: one peer reviewer"
+        )
+
+        screen.set_agent_selection(("claude", "antigravity"), {})
+        await pilot.pause()
+
+        assert str(screen.query_one("#nexus-provider-policy", Static).content) == (
+            "Provider policy: 2 active (claude, antigravity) | "
+            "execution: parallel capable | review: one peer reviewer"
+        )
+
+        selector = screen.query_one(AgentRecipientModelSelector)
+        selector.set_selected_agents(("claude",))
+        screen.on_agent_recipient_model_selector_selection_changed(
+            AgentRecipientModelSelector.SelectionChanged(selector.selected_agents())
+        )
+        await pilot.pause()
+
+        assert str(screen.query_one("#nexus-provider-policy", Static).content) == (
+            "Provider policy: 1 active (claude) | "
+            "execution: single executor | review: self-check/manual"
         )
 
 

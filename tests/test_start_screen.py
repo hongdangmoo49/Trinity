@@ -200,6 +200,54 @@ def test_start_project_setup_next_action_tracks_project_state(
     assert screen._project_setup_next_action() == "brief"
 
 
+def test_start_project_setup_next_action_uses_mode_focus(tmp_path: Path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    target = tmp_path / "target"
+    target.mkdir()
+    screen = StartScreen(config)
+
+    assert screen._project_setup_next_action() == "workspace"
+    screen.project_mode_focus = "new"
+    assert screen._project_setup_next_action() == "create"
+    screen.project_mode_focus = "existing"
+    assert screen._project_setup_next_action() == "workspace"
+
+    screen.workspace_candidate = target
+    assert screen._project_setup_next_action() == "analyze"
+    screen.project_mode_focus = "new"
+    assert screen._project_setup_next_action() == "create"
+
+
+@pytest.mark.asyncio
+async def test_start_mode_focus_buttons_update_variants_and_route(
+    tmp_path: Path,
+) -> None:
+    screen = StartScreen(TrinityConfig.default_config(project_dir=tmp_path))
+    app = StartScreenHarness(screen)
+
+    async with app.run_test(size=(130, 44)) as pilot:
+        await pilot.pause()
+
+        assert screen.query_one("#focus-existing-project", Button).variant == "default"
+        assert screen.query_one("#focus-new-project", Button).variant == "default"
+
+        await pilot.click("#focus-new-project")
+        await pilot.pause()
+
+        assert screen.project_mode_focus == "new"
+        assert screen._project_setup_next_action() == "create"
+        assert screen.query_one("#focus-existing-project", Button).variant == "default"
+        assert screen.query_one("#focus-new-project", Button).variant == "primary"
+
+        await pilot.click("#focus-existing-project")
+        await pilot.pause()
+
+        assert screen.project_mode_focus == "existing"
+        assert screen._project_setup_next_action() == "workspace"
+        assert screen.query_one("#focus-existing-project", Button).variant == "primary"
+        assert screen.query_one("#focus-new-project", Button).variant == "default"
+
+
 def test_nexus_project_setup_next_action_tracks_project_state(
     tmp_path: Path,
 ) -> None:

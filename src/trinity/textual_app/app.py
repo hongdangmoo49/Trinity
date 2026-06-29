@@ -889,6 +889,22 @@ class TrinityTextualApp(App[None]):
         align-horizontal: right;
     }
 
+    #project-mode-focus-actions {
+        width: 100%;
+        height: auto;
+        margin-top: 1;
+        align-horizontal: right;
+    }
+
+    #focus-existing-project {
+        width: 12;
+    }
+
+    #focus-new-project {
+        width: 12;
+        margin-left: 1;
+    }
+
     #analyze-workspace {
         width: 20;
     }

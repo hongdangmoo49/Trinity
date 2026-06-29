@@ -49,6 +49,8 @@ START_LABELS = {
         "continue_setup": "Continue Setup",
         "create_project": "Create New",
         "edit_brief": "Edit Brief",
+        "focus_existing": "Existing",
+        "focus_new": "New",
         "plan_first": "Plan first",
         "placeholder": "What should Trinity work on?",
         "refresh_analysis": "Refresh Analysis",
@@ -63,6 +65,8 @@ START_LABELS = {
         "continue_setup": "설정 계속",
         "create_project": "새 프로젝트 생성",
         "edit_brief": "브리프 편집",
+        "focus_existing": "기존",
+        "focus_new": "신규",
         "plan_first": "먼저 계획",
         "placeholder": "Trinity가 무엇을 진행하면 될까요?",
         "refresh_analysis": "분석 갱신",
@@ -176,6 +180,7 @@ class StartScreen(Screen[None]):
         self._project_validation_plan_widget: Static | None = None
         self._project_existing_diagnostic_widget: Static | None = None
         self._project_read_first_checklist_widget: Static | None = None
+        self.project_mode_focus = "auto"
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
@@ -252,6 +257,17 @@ class StartScreen(Screen[None]):
                 )
                 self._project_start_choice_guide_widget = start_choice_guide
                 yield start_choice_guide
+                with Horizontal(id="project-mode-focus-actions"):
+                    yield Button(
+                        self._label("focus_existing"),
+                        id="focus-existing-project",
+                        variant=self._project_mode_focus_variant("existing"),
+                    )
+                    yield Button(
+                        self._label("focus_new"),
+                        id="focus-new-project",
+                        variant=self._project_mode_focus_variant("new"),
+                    )
                 analyze_action = self._project_analyze_action_presentation()
                 with Horizontal(id="project-intake-actions"):
                     yield Button(
@@ -355,14 +371,22 @@ class StartScreen(Screen[None]):
         elif button_id == "continue-project-setup":
             event.stop()
             self._continue_project_setup()
+        elif button_id == "focus-existing-project":
+            event.stop()
+            self._set_project_mode_focus("existing")
+        elif button_id == "focus-new-project":
+            event.stop()
+            self._set_project_mode_focus("new")
         elif button_id == "choose-workspace":
             event.stop()
             self.post_message(self.WorkspaceRequested())
         elif button_id == "analyze-workspace":
             event.stop()
+            self._set_project_mode_focus("existing")
             self.post_message(self.ProjectIntakeRequested())
         elif button_id == "create-project":
             event.stop()
+            self._set_project_mode_focus("new")
             self.post_message(self.NewProjectRequested())
         elif button_id == "edit-project-brief":
             event.stop()
@@ -398,6 +422,7 @@ class StartScreen(Screen[None]):
             self.workspace_candidate,
             ready_action="plan",
             analyze_variant=self._project_analyze_action_presentation().variant,
+            preferred_mode=self.project_mode_focus,
         )
 
     def set_workspace_candidate(self, path: Path | None) -> None:
@@ -717,6 +742,29 @@ class StartScreen(Screen[None]):
         brief_button = self.query_one("#edit-project-brief", Button)
         brief_button.label = self._label(self._project_brief_action_label_key())
         brief_button.variant = self._project_brief_action_variant()
+        self._refresh_project_mode_focus_buttons()
+
+    def _set_project_mode_focus(self, mode: str) -> None:
+        normalized = mode if mode in {"existing", "new"} else "auto"
+        if self.project_mode_focus == normalized:
+            return
+        self.project_mode_focus = normalized
+        self._refresh_project_mode_focus_buttons()
+
+    def _refresh_project_mode_focus_buttons(self) -> None:
+        if not self.is_mounted:
+            return
+        self.query_one("#focus-existing-project", Button).variant = (
+            self._project_mode_focus_variant("existing")
+        )
+        self.query_one("#focus-new-project", Button).variant = (
+            self._project_mode_focus_variant("new")
+        )
+
+    def _project_mode_focus_variant(self, mode: str) -> str:
+        if self.project_mode_focus == mode:
+            return "primary"
+        return "default"
 
     def _refresh_provider_policy_label(
         self,

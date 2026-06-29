@@ -18,6 +18,59 @@ def test_project_setup_next_action_requires_workspace_before_intake(tmp_path) ->
         )
         == "workspace"
     )
+    assert (
+        project_setup_next_action(
+            tmp_path / ".trinity",
+            None,
+            ready_action="plan",
+            preferred_mode="new",
+        )
+        == "create"
+    )
+
+
+def test_project_setup_next_action_respects_preferred_mode(tmp_path) -> None:
+    state_dir = tmp_path / ".trinity"
+    target = tmp_path / "target"
+    target.mkdir()
+
+    assert (
+        project_setup_next_action(
+            state_dir,
+            target,
+            ready_action="plan",
+            preferred_mode="new",
+        )
+        == "create"
+    )
+    assert (
+        project_setup_next_action(
+            state_dir,
+            target,
+            ready_action="plan",
+            preferred_mode="existing",
+        )
+        == "analyze"
+    )
+
+    write_project_intake(
+        state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            validation_commands=("pytest",),
+            created_at=date.today().isoformat(),
+        ),
+    )
+    assert (
+        project_setup_next_action(
+            state_dir,
+            target,
+            ready_action="plan",
+            preferred_mode="new",
+        )
+        == "create"
+    )
 
 
 def test_project_setup_next_action_routes_existing_project_to_ready_action(

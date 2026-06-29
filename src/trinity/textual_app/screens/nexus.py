@@ -16,6 +16,7 @@ from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import ProviderSnapshot, WorkflowNexusSnapshot
 from trinity.textual_app.workspace_labels import (
     ProjectAnalyzeActionPresentation,
+    provider_cli_setup_label,
     project_analyze_action_presentation,
     project_brief_action_variant,
     project_create_action_variant,
@@ -186,6 +187,7 @@ class NexusScreen(Screen[None]):
         self._provider_panels: dict[str, ProviderPanel] = {}
         self._workspace_label_widget: Static | None = None
         self._provider_policy_widget: Static | None = None
+        self._provider_cli_setup_widget: Static | None = None
         self._project_startup_readiness_widget: Static | None = None
         self._central_view: CentralAgentView | None = None
         self._question_panel: QuestionPanel | None = None
@@ -319,6 +321,12 @@ class NexusScreen(Screen[None]):
             )
             self._provider_policy_widget = provider_policy
             yield provider_policy
+            provider_cli_setup = Static(
+                self._provider_cli_setup_label(),
+                id="nexus-provider-cli-setup",
+            )
+            self._provider_cli_setup_widget = provider_cli_setup
+            yield provider_cli_setup
             composer = PromptComposer(
                 placeholder=self._label("composer_placeholder"),
                 id="nexus-composer",
@@ -415,6 +423,7 @@ class NexusScreen(Screen[None]):
         self._provider_panels = {}
         self._workspace_label_widget = None
         self._provider_policy_widget = None
+        self._provider_cli_setup_widget = None
         self._project_startup_readiness_widget = None
         self._central_view = None
         self._question_panel = None
@@ -458,6 +467,14 @@ class NexusScreen(Screen[None]):
                 Static,
             )
         return self._provider_policy_widget
+
+    def _provider_cli_setup_static(self) -> Static:
+        if self._provider_cli_setup_widget is None:
+            self._provider_cli_setup_widget = self.query_one(
+                "#nexus-provider-cli-setup",
+                Static,
+            )
+        return self._provider_cli_setup_widget
 
     def _project_startup_readiness_static(self) -> Static:
         if self._project_startup_readiness_widget is None:
@@ -759,6 +776,21 @@ class NexusScreen(Screen[None]):
             lang=self.config.lang,
         )
 
+    def _provider_cli_setup_label(
+        self,
+        selected_agents: tuple[str, ...] | None = None,
+    ) -> str:
+        if selected_agents is None:
+            if self.is_mounted:
+                selected_agents = self._agent_selector().selected_agents()
+            elif self._selected_agents:
+                selected_agents = self._selected_agents
+        return provider_cli_setup_label(
+            self.config.agents,
+            selected_agents=selected_agents,
+            lang=self.config.lang,
+        )
+
     def _project_mode_rail_label(self) -> str:
         return project_mode_rail_label(
             self.config.effective_state_dir,
@@ -829,6 +861,9 @@ class NexusScreen(Screen[None]):
             return
         self._provider_policy_static().update(
             self._provider_policy_label(selected_agents)
+        )
+        self._provider_cli_setup_static().update(
+            self._provider_cli_setup_label(selected_agents)
         )
         self._project_startup_readiness_static().update(
             self._project_startup_readiness_label(selected_agents)

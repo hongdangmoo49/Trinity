@@ -16,6 +16,7 @@ from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.workspace_labels import (
     ProjectAnalyzeActionPresentation,
+    provider_cli_setup_label,
     project_analyze_action_presentation,
     project_brief_action_variant,
     project_create_action_variant,
@@ -149,6 +150,7 @@ class StartScreen(Screen[None]):
         self._recipient_selector: AgentRecipientModelSelector | None = None
         self._workspace_label_widget: Static | None = None
         self._provider_policy_widget: Static | None = None
+        self._provider_cli_setup_widget: Static | None = None
         self._project_startup_readiness_widget: Static | None = None
         self._project_mode_rail_widget: Static | None = None
         self._project_plan_preview_widget: Static | None = None
@@ -186,6 +188,12 @@ class StartScreen(Screen[None]):
                 )
                 self._provider_policy_widget = provider_policy
                 yield provider_policy
+                provider_cli_setup = Static(
+                    self._provider_cli_setup_label(),
+                    id="start-provider-cli-setup",
+                )
+                self._provider_cli_setup_widget = provider_cli_setup
+                yield provider_cli_setup
                 with Horizontal(id="start-actions"):
                     workspace_label = Static(
                         self._workspace_label(),
@@ -369,6 +377,7 @@ class StartScreen(Screen[None]):
         self._recipient_selector = None
         self._workspace_label_widget = None
         self._provider_policy_widget = None
+        self._provider_cli_setup_widget = None
         self._project_startup_readiness_widget = None
         self._project_mode_rail_widget = None
         self._project_plan_preview_widget = None
@@ -398,6 +407,14 @@ class StartScreen(Screen[None]):
                 Static,
             )
         return self._provider_policy_widget
+
+    def _provider_cli_setup_static(self) -> Static:
+        if self._provider_cli_setup_widget is None:
+            self._provider_cli_setup_widget = self.query_one(
+                "#start-provider-cli-setup",
+                Static,
+            )
+        return self._provider_cli_setup_widget
 
     def _project_startup_readiness_static(self) -> Static:
         if self._project_startup_readiness_widget is None:
@@ -515,6 +532,18 @@ class StartScreen(Screen[None]):
             lang=self.lang,
         )
 
+    def _provider_cli_setup_label(
+        self,
+        selected_agents: tuple[str, ...] | None = None,
+    ) -> str:
+        if selected_agents is None and self.is_mounted:
+            selected_agents = self._agent_selector().selected_agents()
+        return provider_cli_setup_label(
+            self.config.agents,
+            selected_agents=selected_agents,
+            lang=self.lang,
+        )
+
     def _project_mode_rail_label(self) -> str:
         return project_mode_rail_label(
             self.config.effective_state_dir,
@@ -585,6 +614,9 @@ class StartScreen(Screen[None]):
             return
         self._provider_policy_static().update(
             self._provider_policy_label(selected_agents)
+        )
+        self._provider_cli_setup_static().update(
+            self._provider_cli_setup_label(selected_agents)
         )
         self._project_startup_readiness_static().update(
             self._project_startup_readiness_label(selected_agents)

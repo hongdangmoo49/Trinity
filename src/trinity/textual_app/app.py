@@ -358,6 +358,7 @@ def _project_intake_has_analysis_anchor_signal(intake: ProjectIntake | None) -> 
             intake.dev_commands,
             intake.build_commands,
             intake.selected_scope.strip(),
+            intake.scope_candidates,
         )
     )
 
@@ -373,6 +374,7 @@ def _project_intake_with_anchor_draft(
         test_commands=draft.test_commands,
         dev_commands=draft.dev_commands,
         build_commands=draft.build_commands,
+        selected_scope=draft.selected_scope,
     )
 
 

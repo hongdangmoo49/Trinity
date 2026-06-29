@@ -10964,8 +10964,10 @@ async def test_start_analyze_workspace_button_writes_project_intake(tmp_path) ->
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        await pilot.click("#analyze-workspace")
-        await pilot.pause()
+        app.get_screen("start", StartScreen).post_message(
+            StartScreen.ProjectIntakeRequested()
+        )
+        await pilot.pause(0.2)
 
         assert isinstance(app.screen, ProjectAnchorsModal)
         app.screen.query_one("#project-anchors-docs", Input).value = (
@@ -11027,8 +11029,10 @@ async def test_start_analyze_workspace_anchor_review_cancel_keeps_detected_promp
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        await pilot.click("#analyze-workspace")
-        await pilot.pause()
+        app.get_screen("start", StartScreen).post_message(
+            StartScreen.ProjectIntakeRequested()
+        )
+        await pilot.pause(0.2)
 
         assert isinstance(app.screen, ProjectAnchorsModal)
         app.screen.query_one("#project-anchors-docs", Input).value = (
@@ -11072,13 +11076,26 @@ async def test_start_analyze_workspace_prompt_includes_scope_candidates(
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        await pilot.click("#analyze-workspace")
+        app.get_screen("start", StartScreen).post_message(
+            StartScreen.ProjectIntakeRequested()
+        )
+        await pilot.pause(0.2)
+
+        assert isinstance(app.screen, ProjectAnchorsModal)
+        assert "Scope candidates: apps/web" in str(
+            app.screen.query_one("#project-anchors-scope-candidates", Static).content
+        )
+        app.screen.query_one("#project-anchors-selected-scope", Input).value = (
+            "apps/web"
+        )
+        app.screen.action_save()
         await pilot.pause()
 
         start = app.get_screen("start", StartScreen)
         intake = load_project_intake(app.config.effective_state_dir)
         assert intake is not None
         assert intake.scope_candidates == ("apps/web",)
+        assert intake.selected_scope == "apps/web"
         assert start.query_one(PromptComposer).text == (
             f"Analyze the selected existing project at {target.resolve()}. Read its "
             "docs, source roots, and test/build signals before proposing the next "
@@ -11086,6 +11103,7 @@ async def test_start_analyze_workspace_prompt_includes_scope_candidates(
             "is empty."
             "\n\n"
             "Detected anchors:\n"
+            "- selected scope: apps/web\n"
             "- scope candidates: apps/web"
         )
 
@@ -11106,7 +11124,9 @@ async def test_start_analyze_workspace_sparse_existing_prompt_has_no_anchor_bloc
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        await pilot.click("#analyze-workspace")
+        app.get_screen("start", StartScreen).post_message(
+            StartScreen.ProjectIntakeRequested()
+        )
         await pilot.pause()
 
         start = app.get_screen("start", StartScreen)
@@ -11135,7 +11155,9 @@ async def test_start_analyze_workspace_empty_target_opens_project_brief(
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        await pilot.click("#analyze-workspace")
+        app.get_screen("start", StartScreen).post_message(
+            StartScreen.ProjectIntakeRequested()
+        )
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
@@ -11171,7 +11193,9 @@ async def test_project_brief_modal_uses_korean_placeholders(tmp_path) -> None:
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        await pilot.click("#analyze-workspace")
+        app.get_screen("start", StartScreen).post_message(
+            StartScreen.ProjectIntakeRequested()
+        )
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
@@ -11205,7 +11229,9 @@ async def test_project_brief_cancel_preserves_draft_for_same_target(
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        await pilot.click("#analyze-workspace")
+        app.get_screen("start", StartScreen).post_message(
+            StartScreen.ProjectIntakeRequested()
+        )
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
@@ -11236,7 +11262,9 @@ async def test_project_brief_cancel_preserves_draft_for_same_target(
         app.screen.action_cancel()
         await pilot.pause()
 
-        await pilot.click("#edit-project-brief")
+        app.get_screen("start", StartScreen).post_message(
+            StartScreen.ProjectBriefRequested()
+        )
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
@@ -11262,7 +11290,9 @@ async def test_project_brief_cancel_preserves_draft_for_same_target(
         assert intake is not None
         assert intake.product_goal == "Saved goal"
 
-        await pilot.click("#edit-project-brief")
+        app.get_screen("start", StartScreen).post_message(
+            StartScreen.ProjectBriefRequested()
+        )
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
@@ -11286,7 +11316,9 @@ async def test_start_analyze_workspace_preserves_existing_prompt(tmp_path) -> No
         start = app.get_screen("start", StartScreen)
         start.query_one(PromptComposer).set_text("Keep this user prompt.")
 
-        await pilot.click("#analyze-workspace")
+        app.get_screen("start", StartScreen).post_message(
+            StartScreen.ProjectIntakeRequested()
+        )
         await pilot.pause()
 
         intake = load_project_intake(app.config.effective_state_dir)
@@ -11309,7 +11341,9 @@ async def test_start_analyze_workspace_button_opens_picker_for_control_repo(
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        await pilot.click("#analyze-workspace")
+        app.get_screen("start", StartScreen).post_message(
+            StartScreen.ProjectIntakeRequested()
+        )
         await pilot.pause()
 
         assert isinstance(app.screen, WorkspacePicker)
@@ -11332,7 +11366,9 @@ async def test_start_analyze_workspace_picker_opens_brief_for_empty_target(
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        await pilot.click("#analyze-workspace")
+        app.get_screen("start", StartScreen).post_message(
+            StartScreen.ProjectIntakeRequested()
+        )
         await pilot.pause()
 
         picker = app.screen
@@ -11362,7 +11398,9 @@ async def test_start_create_project_button_creates_new_project_intake(
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        await pilot.click("#create-project")
+        app.get_screen("start", StartScreen).post_message(
+            StartScreen.NewProjectRequested()
+        )
         await pilot.pause()
         await pilot.pause()
 
@@ -11472,7 +11510,9 @@ async def test_start_edit_project_brief_button_writes_project_brief(
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        await pilot.click("#edit-project-brief")
+        app.get_screen("start", StartScreen).post_message(
+            StartScreen.ProjectBriefRequested()
+        )
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)

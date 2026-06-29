@@ -85,6 +85,7 @@ from trinity.textual_app.model_settings_commands import (
     model_settings_modal_request,
     model_settings_updated_notification,
 )
+from trinity.textual_app.project_context_summary import build_project_context_summary
 from trinity.textual_app.packages_commands import packages_command_presentation
 from trinity.textual_app.questions_commands import (
     QuestionsCommandPresentation,
@@ -2421,11 +2422,15 @@ class TrinityTextualApp(App[None]):
     ) -> bool:
         if not self._execution_confirmation_eligible(snapshot, instruction):
             return False
+        context_summary = build_project_context_summary(
+            self.config.effective_state_dir,
+            snapshot.target_workspace,
+            lang=self.config.lang,
+        )
         summary = execution_confirmation_summary(
             snapshot,
-            project_mode=self._execution_confirmation_project_mode(
-                snapshot.target_workspace
-            ),
+            project_mode=context_summary.project_mode,
+            context_items=context_summary.items,
             instruction=instruction,
             risk_items=self._execution_confirmation_risk_items(snapshot),
         )
@@ -2485,38 +2490,6 @@ class TrinityTextualApp(App[None]):
             "abort-execution",
             "abort execution",
         }
-
-    def _execution_confirmation_project_mode(self, target_workspace: str) -> str:
-        target = str(target_workspace or "").strip()
-        labels = {
-            "en": {
-                "existing": "existing",
-                "new": "new",
-                "missing": "not recorded",
-                "mismatch": "target mismatch",
-                "unreadable": "unreadable",
-            },
-            "ko": {
-                "existing": "기존",
-                "new": "신규",
-                "missing": "기록 없음",
-                "mismatch": "대상 불일치",
-                "unreadable": "읽기 실패",
-            },
-        }.get(self.config.lang, {})
-        try:
-            intake = load_project_intake(self.config.effective_state_dir)
-        except ValueError:
-            return labels.get("unreadable", "unreadable")
-        if intake is None:
-            return labels.get("missing", "not recorded")
-        if target:
-            try:
-                if absolute_path(intake.target_workspace) != absolute_path(Path(target)):
-                    return labels.get("mismatch", "target mismatch")
-            except OSError:
-                return labels.get("mismatch", "target mismatch")
-        return labels.get(intake.mode, intake.mode)
 
     def _execution_confirmation_risk_items(
         self,

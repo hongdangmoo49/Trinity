@@ -22,6 +22,7 @@ EXECUTION_CONFIRM_LABELS = {
         "instruction": "Instruction",
         "none": "(none)",
         "package_preview": "Preview",
+        "project_context": "Project context",
         "project_mode": "Project mode",
         "providers": "Providers",
         "risk_none": "none",
@@ -38,6 +39,7 @@ EXECUTION_CONFIRM_LABELS = {
         "instruction": "실행 지시",
         "none": "(없음)",
         "package_preview": "미리보기",
+        "project_context": "프로젝트 컨텍스트",
         "project_mode": "프로젝트 모드",
         "providers": "프로바이더",
         "risk_none": "없음",
@@ -55,6 +57,7 @@ class ExecutionConfirmationSummary:
 
     target_workspace: str
     project_mode: str
+    context_items: tuple[str, ...]
     providers: tuple[str, ...]
     total_packages: int
     executable_packages: int
@@ -172,6 +175,10 @@ class ExecutionConfirmModal(ModalScreen[bool]):
         lines = [
             f"{self._label('target_workspace')}: {summary.target_workspace or self._label('none')}",
             f"{self._label('project_mode')}: {summary.project_mode or self._label('none')}",
+            (
+                f"{self._label('project_context')}: "
+                f"{_join_or_none(summary.context_items, self._label('none'))}"
+            ),
             f"{self._label('providers')}: {_join_or_none(summary.providers, self._label('none'))}",
             (
                 f"{self._label('work_packages')}: {summary.total_packages} total, "
@@ -208,6 +215,7 @@ def execution_confirmation_summary(
     snapshot: WorkflowNexusSnapshot,
     *,
     project_mode: str = "",
+    context_items: tuple[str, ...] | list[str] = (),
     selected_agents: tuple[str, ...] | list[str] = (),
     instruction: str = "",
     risk_items: tuple[str, ...] | list[str] = (),
@@ -221,6 +229,7 @@ def execution_confirmation_summary(
     return ExecutionConfirmationSummary(
         target_workspace=str(snapshot.target_workspace or "").strip(),
         project_mode=project_mode.strip(),
+        context_items=tuple(item.strip() for item in context_items if item.strip()),
         providers=providers,
         total_packages=total_packages,
         executable_packages=executable_packages,

@@ -85,6 +85,13 @@ class AgentToggle(Static):
 class AgentRecipientModelSelector(Horizontal):
     """Select which agents receive the next prompt and store model settings."""
 
+    class SelectionChanged(Message):
+        """Posted when the selected recipient agents change."""
+
+        def __init__(self, selected_agents: tuple[str, ...]) -> None:
+            super().__init__()
+            self.selected_agents = selected_agents
+
     def __init__(
         self,
         agents: dict[str, AgentSpec],
@@ -232,6 +239,7 @@ class AgentRecipientModelSelector(Horizontal):
 
     def on_agent_toggle_changed(self, event: AgentToggle.Changed) -> None:
         event.stop()
+        self.post_message(self.SelectionChanged(self.selected_agents()))
 
     def _ensure_model_choice(self, name: str, model: str) -> None:
         if name not in self.agents:

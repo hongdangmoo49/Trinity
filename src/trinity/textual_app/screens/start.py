@@ -23,6 +23,7 @@ from trinity.textual_app.workspace_labels import (
     project_intake_state_label,
     project_mode_rail_label,
     project_plan_preview_label,
+    project_startup_readiness_label,
     provider_execution_review_policy_label,
     project_read_first_checklist_label,
     project_validation_plan_label,
@@ -148,6 +149,7 @@ class StartScreen(Screen[None]):
         self._recipient_selector: AgentRecipientModelSelector | None = None
         self._workspace_label_widget: Static | None = None
         self._provider_policy_widget: Static | None = None
+        self._project_startup_readiness_widget: Static | None = None
         self._project_mode_rail_widget: Static | None = None
         self._project_plan_preview_widget: Static | None = None
         self._project_generation_preview_widget: Static | None = None
@@ -201,6 +203,12 @@ class StartScreen(Screen[None]):
                         id="plan-first",
                         variant="primary",
                     )
+                startup_readiness = Static(
+                    self._project_startup_readiness_label(),
+                    id="project-startup-readiness",
+                )
+                self._project_startup_readiness_widget = startup_readiness
+                yield startup_readiness
                 yield Static(
                     self._project_intake_label(),
                     id="project-intake-summary",
@@ -327,6 +335,10 @@ class StartScreen(Screen[None]):
         label = self._workspace_label_static()
         label.update(workspace_label)
         self._workspace_label_key = workspace_label
+        if self.is_mounted and self._project_startup_readiness_widget is not None:
+            self._project_startup_readiness_widget.update(
+                self._project_startup_readiness_label()
+            )
 
     def _submit(self, prompt: str) -> None:
         text = prompt.strip()
@@ -357,8 +369,12 @@ class StartScreen(Screen[None]):
         self._recipient_selector = None
         self._workspace_label_widget = None
         self._provider_policy_widget = None
+        self._project_startup_readiness_widget = None
         self._project_mode_rail_widget = None
         self._project_plan_preview_widget = None
+        self._project_generation_preview_widget = None
+        self._project_validation_plan_widget = None
+        self._project_read_first_checklist_widget = None
 
     def _prompt_composer(self) -> PromptComposer:
         if self._composer is None:
@@ -382,6 +398,14 @@ class StartScreen(Screen[None]):
                 Static,
             )
         return self._provider_policy_widget
+
+    def _project_startup_readiness_static(self) -> Static:
+        if self._project_startup_readiness_widget is None:
+            self._project_startup_readiness_widget = self.query_one(
+                "#project-startup-readiness",
+                Static,
+            )
+        return self._project_startup_readiness_widget
 
     def _project_plan_preview_static(self) -> Static:
         if self._project_plan_preview_widget is None:
@@ -465,6 +489,20 @@ class StartScreen(Screen[None]):
             target_workspace=self.workspace_candidate,
         )
 
+    def _project_startup_readiness_label(
+        self,
+        selected_agents: tuple[str, ...] | None = None,
+    ) -> str:
+        if selected_agents is None and self.is_mounted:
+            selected_agents = self._agent_selector().selected_agents()
+        return project_startup_readiness_label(
+            self.config.effective_state_dir,
+            self.config.agents,
+            selected_agents=selected_agents,
+            lang=self.lang,
+            target_workspace=self.workspace_candidate,
+        )
+
     def _provider_policy_label(
         self,
         selected_agents: tuple[str, ...] | None = None,
@@ -510,6 +548,9 @@ class StartScreen(Screen[None]):
         self.query_one("#project-intake-summary", Static).update(
             self._project_intake_label()
         )
+        self._project_startup_readiness_static().update(
+            self._project_startup_readiness_label()
+        )
         self._project_plan_preview_static().update(
             self._project_plan_preview_label()
         )
@@ -544,6 +585,9 @@ class StartScreen(Screen[None]):
             return
         self._provider_policy_static().update(
             self._provider_policy_label(selected_agents)
+        )
+        self._project_startup_readiness_static().update(
+            self._project_startup_readiness_label(selected_agents)
         )
 
     def _label(self, key: str) -> str:

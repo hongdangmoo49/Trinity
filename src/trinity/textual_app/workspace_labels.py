@@ -325,6 +325,31 @@ PROVIDER_EXECUTION_REVIEW_POLICY_LABELS = {
     },
 }
 
+PROJECT_STARTUP_READINESS_LABELS = {
+    "en": {
+        "summary": "Startup readiness",
+        "target_ok": "target ok",
+        "target_missing": "target missing",
+        "intake_ok": "intake ok",
+        "intake_missing": "intake missing",
+        "intake_check": "intake check",
+        "providers_count": "providers {count}",
+        "validation_planned": "validation planned",
+        "validation_missing": "validation missing",
+    },
+    "ko": {
+        "summary": "시작 준비",
+        "target_ok": "대상 정상",
+        "target_missing": "대상 없음",
+        "intake_ok": "인테이크 정상",
+        "intake_missing": "인테이크 없음",
+        "intake_check": "인테이크 확인 필요",
+        "providers_count": "프로바이더 {count}개",
+        "validation_planned": "검증 계획됨",
+        "validation_missing": "검증 없음",
+    },
+}
+
 
 @dataclass(frozen=True)
 class ProjectAnalyzeActionPresentation:
@@ -361,21 +386,10 @@ def provider_execution_review_policy_label(
         lang,
         PROVIDER_EXECUTION_REVIEW_POLICY_LABELS["en"],
     )
-    enabled_names = tuple(
-        name
-        for name, spec in agents.items()
-        if bool(getattr(spec, "enabled", False))
+    active_names = _active_provider_names(
+        agents,
+        selected_agents=selected_agents,
     )
-    if selected_agents is None:
-        active_names = enabled_names
-    else:
-        requested = {
-            str(name).strip()
-            for name in selected_agents
-            if str(name).strip()
-        }
-        active_names = tuple(name for name in enabled_names if name in requested)
-
     count = len(active_names)
     if count <= 0:
         active_label = labels["active_none"]
@@ -403,6 +417,51 @@ def provider_execution_review_policy_label(
         f"{labels['summary']}: {active_label} | "
         f"{labels['execution_label']}: {execution} | "
         f"{labels['review_label']}: {review}"
+    )
+
+
+def project_startup_readiness_label(
+    state_dir: Path,
+    agents: Mapping[str, object],
+    *,
+    selected_agents: Sequence[str] | None = None,
+    lang: str = "en",
+    target_workspace: object | None = None,
+    today: date | None = None,
+) -> str:
+    """Return a compact first-run readiness summary for Start/Nexus."""
+    labels = PROJECT_STARTUP_READINESS_LABELS.get(
+        lang,
+        PROJECT_STARTUP_READINESS_LABELS["en"],
+    )
+    target_label = (
+        labels["target_ok"]
+        if _format_project_intake_target(target_workspace)
+        else labels["target_missing"]
+    )
+    intake_label = labels[
+        _project_startup_readiness_intake_key(
+            state_dir,
+            target_workspace=target_workspace,
+            today=today,
+        )
+    ]
+    provider_count = len(
+        _active_provider_names(agents, selected_agents=selected_agents)
+    )
+    validation_label = (
+        labels["validation_planned"]
+        if project_validation_plan_label(
+            state_dir,
+            lang=lang,
+            target_workspace=target_workspace,
+        )
+        else labels["validation_missing"]
+    )
+    return (
+        f"{labels['summary']}: {target_label} | {intake_label} | "
+        f"{labels['providers_count'].format(count=provider_count)} | "
+        f"{validation_label}"
     )
 
 
@@ -783,6 +842,39 @@ def _format_project_mode_rail(
         f"{labels['state_label']}: {state} | "
         f"{labels['next_label']}: {next_action}"
     )
+
+
+def _project_startup_readiness_intake_key(
+    state_dir: Path,
+    *,
+    target_workspace: object | None,
+    today: date | None,
+) -> str:
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return "intake_check"
+    if intake is None:
+        return "intake_missing"
+    if not _project_intake_targets_match(intake, target_workspace):
+        return "intake_check"
+    if _project_intake_target_missing(intake):
+        return "intake_check"
+    if intake.mode == "new":
+        if missing_new_project_brief_field_keys(intake):
+            return "intake_check"
+        return "intake_ok"
+    if _project_intake_analysis_is_sparse(intake):
+        return "intake_check"
+    if _project_intake_analysis_stale_days(intake, today=today) is not None:
+        return "intake_check"
+    if _project_intake_analysis_changed_fields(
+        intake,
+        target_workspace,
+        today=today,
+    ):
+        return "intake_check"
+    return "intake_ok"
 
 
 def project_brief_action_variant(
@@ -1314,6 +1406,26 @@ def _project_intake_missing_analysis_anchors(
 
 def _format_optional_count(value: int | None) -> str:
     return str(value) if value is not None else "unknown"
+
+
+def _active_provider_names(
+    agents: Mapping[str, object],
+    *,
+    selected_agents: Sequence[str] | None = None,
+) -> tuple[str, ...]:
+    enabled_names = tuple(
+        name
+        for name, spec in agents.items()
+        if bool(getattr(spec, "enabled", False))
+    )
+    if selected_agents is None:
+        return enabled_names
+    requested = {
+        str(name).strip()
+        for name in selected_agents
+        if str(name).strip()
+    }
+    return tuple(name for name in enabled_names if name in requested)
 
 
 def _format_project_intake_section(

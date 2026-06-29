@@ -23,6 +23,7 @@ from trinity.textual_app.workspace_labels import (
     project_intake_state_label,
     project_mode_rail_label,
     project_plan_preview_label,
+    project_startup_readiness_label,
     provider_execution_review_policy_label,
     project_read_first_checklist_label,
     project_validation_plan_label,
@@ -157,6 +158,120 @@ def test_provider_execution_review_policy_label_handles_provider_counts(
     assert provider_execution_review_policy_label(config.agents, lang="ko") == (
         "프로바이더 정책: 활성 3개(claude, codex, antigravity) | "
         "실행: 병렬 가능 | 리뷰: 동료 리뷰 풀"
+    )
+
+
+def test_project_startup_readiness_label_summarizes_first_run_state(
+    tmp_path: Path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    state = tmp_path / ".trinity"
+    target = tmp_path / "customer-app"
+    target.mkdir()
+
+    assert project_startup_readiness_label(
+        state,
+        config.agents,
+        target_workspace=target,
+    ) == (
+        "Startup readiness: target ok | intake missing | "
+        "providers 1 | validation missing"
+    )
+    assert project_startup_readiness_label(
+        state,
+        config.agents,
+        selected_agents=(),
+        target_workspace=target,
+    ) == (
+        "Startup readiness: target ok | intake missing | "
+        "providers 0 | validation missing"
+    )
+
+    write_project_intake(
+        state,
+        build_project_intake(mode="new", target_workspace=target),
+    )
+
+    assert project_startup_readiness_label(
+        state,
+        config.agents,
+        target_workspace=target,
+    ) == (
+        "Startup readiness: target ok | intake check | "
+        "providers 1 | validation planned"
+    )
+
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build onboarding.",
+            project_type="SaaS app",
+            target_users="operators",
+            success_criteria="Operators complete onboarding.",
+            first_milestone="First workflow.",
+        ),
+    )
+
+    assert project_startup_readiness_label(
+        state,
+        config.agents,
+        target_workspace=target,
+    ) == (
+        "Startup readiness: target ok | intake ok | "
+        "providers 1 | validation planned"
+    )
+    assert project_startup_readiness_label(
+        state,
+        config.agents,
+        lang="ko",
+        target_workspace=target,
+    ) == (
+        "시작 준비: 대상 정상 | 인테이크 정상 | "
+        "프로바이더 1개 | 검증 계획됨"
+    )
+
+
+def test_project_startup_readiness_label_checks_existing_project_intake(
+    tmp_path: Path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    state = tmp_path / ".trinity"
+    target = tmp_path / "existing-app"
+    target.mkdir()
+    (target / "README.md").write_text("# Existing\n", encoding="utf-8")
+    (target / "src").mkdir()
+    (target / "package.json").write_text(
+        '{"scripts":{"test":"vitest run","build":"vite build"}}',
+        encoding="utf-8",
+    )
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert project_startup_readiness_label(
+        state,
+        config.agents,
+        target_workspace=target,
+        today=date(2026, 6, 28),
+    ) == (
+        "Startup readiness: target ok | intake ok | "
+        "providers 1 | validation planned"
+    )
+    assert project_startup_readiness_label(
+        state,
+        config.agents,
+        target_workspace=tmp_path / "other-app",
+        today=date(2026, 6, 28),
+    ) == (
+        "Startup readiness: target ok | intake check | "
+        "providers 1 | validation missing"
     )
 
 
@@ -1396,6 +1511,12 @@ async def test_start_screen_updates_provider_policy_from_recipient_selection(
             "Provider policy: 2 active (claude, codex) | "
             "execution: parallel capable | review: one peer reviewer"
         )
+        assert str(
+            screen.query_one("#project-startup-readiness", Static).content
+        ) == (
+            "Startup readiness: target missing | intake missing | "
+            "providers 2 | validation missing"
+        )
 
         selector = screen.query_one(AgentRecipientModelSelector)
         selector.set_selected_agents(("claude",))
@@ -1407,6 +1528,12 @@ async def test_start_screen_updates_provider_policy_from_recipient_selection(
         assert str(screen.query_one("#start-provider-policy", Static).content) == (
             "Provider policy: 1 active (claude) | "
             "execution: single executor | review: self-check/manual"
+        )
+        assert str(
+            screen.query_one("#project-startup-readiness", Static).content
+        ) == (
+            "Startup readiness: target missing | intake missing | "
+            "providers 1 | validation missing"
         )
 
 
@@ -1439,6 +1566,12 @@ async def test_nexus_screen_shows_read_first_checklist(tmp_path: Path) -> None:
             "Read-first checklist: scope: services/api | read: README.md, src | "
             "inspect: entrypoints missing | verify: record validation command"
         )
+        assert str(
+            screen.query_one("#nexus-project-startup-readiness", Static).content
+        ) == (
+            "Startup readiness: target ok | intake ok | "
+            "providers 1 | validation planned"
+        )
 
 
 @pytest.mark.asyncio
@@ -1459,6 +1592,12 @@ async def test_nexus_screen_shows_provider_policy_from_selected_agents(
             "Provider policy: 2 active (claude, codex) | "
             "execution: parallel capable | review: one peer reviewer"
         )
+        assert str(
+            screen.query_one("#nexus-project-startup-readiness", Static).content
+        ) == (
+            "Startup readiness: target missing | intake missing | "
+            "providers 2 | validation missing"
+        )
 
         screen.set_agent_selection(("claude", "antigravity"), {})
         await pilot.pause()
@@ -1466,6 +1605,12 @@ async def test_nexus_screen_shows_provider_policy_from_selected_agents(
         assert str(screen.query_one("#nexus-provider-policy", Static).content) == (
             "Provider policy: 2 active (claude, antigravity) | "
             "execution: parallel capable | review: one peer reviewer"
+        )
+        assert str(
+            screen.query_one("#nexus-project-startup-readiness", Static).content
+        ) == (
+            "Startup readiness: target missing | intake missing | "
+            "providers 2 | validation missing"
         )
 
         selector = screen.query_one(AgentRecipientModelSelector)
@@ -1478,6 +1623,12 @@ async def test_nexus_screen_shows_provider_policy_from_selected_agents(
         assert str(screen.query_one("#nexus-provider-policy", Static).content) == (
             "Provider policy: 1 active (claude) | "
             "execution: single executor | review: self-check/manual"
+        )
+        assert str(
+            screen.query_one("#nexus-project-startup-readiness", Static).content
+        ) == (
+            "Startup readiness: target missing | intake missing | "
+            "providers 1 | validation missing"
         )
 
 

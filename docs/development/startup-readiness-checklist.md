@@ -24,13 +24,13 @@ readiness checklist is a compact rollup above those details.
 Render one concise line on Start and Nexus:
 
 ```text
-Startup readiness: target ok | intake ok | providers 2 | validation planned
+Startup readiness: target ok | intake ok | providers 2 selected | validation planned
 ```
 
 Localized Korean copy:
 
 ```text
-시작 준비: 대상 정상 | 인테이크 정상 | 프로바이더 2개 | 검증 계획됨
+시작 준비: 대상 정상 | 인테이크 정상 | 프로바이더 2개 선택 | 검증 계획됨
 ```
 
 The line is intentionally status-only. Detailed next actions remain in the

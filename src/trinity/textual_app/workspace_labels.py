@@ -176,12 +176,14 @@ PROJECT_PLAN_PREVIEW_LABELS = {
 
 PROJECT_GENERATION_PREVIEW_LABELS = {
     "en": {
+        "conflicts": "conflicts",
         "create": "create",
         "guardrails": "guardrails",
         "summary": "Generation preview",
         "validate": "validate",
     },
     "ko": {
+        "conflicts": "충돌",
         "create": "생성",
         "guardrails": "가드레일",
         "summary": "생성 미리보기",
@@ -526,10 +528,11 @@ def format_project_generation_preview_label(
         return ""
     if not _project_intake_targets_match(intake, target_workspace):
         return ""
+    generation_files = _new_project_generation_files(intake)
     sections = [
         _format_project_intake_section(
             labels["create"],
-            _new_project_generation_files(intake),
+            generation_files,
             max_items=3,
         ),
         _format_project_intake_section(
@@ -544,6 +547,15 @@ def format_project_generation_preview_label(
                 labels["guardrails"],
                 intake.constraints,
                 max_items=2,
+            )
+        )
+    conflicts = _new_project_generation_conflicts(intake, generation_files)
+    if conflicts:
+        sections.append(
+            _format_project_intake_section(
+                labels["conflicts"],
+                conflicts,
+                max_items=3,
             )
         )
     return f"{labels['summary']}: {' | '.join(sections)}"
@@ -1079,6 +1091,26 @@ def _new_project_generation_files(intake: ProjectIntake) -> tuple[str, ...]:
     ):
         return ("README.md", "pyproject.toml", "src/", "tests/")
     return ("README.md", "src/", "tests/")
+
+
+def _new_project_generation_conflicts(
+    intake: ProjectIntake,
+    paths: tuple[str, ...],
+) -> tuple[str, ...]:
+    target = intake.target_workspace
+    conflicts: list[str] = []
+    for item in paths:
+        relative = item.strip()
+        if not relative:
+            continue
+        candidate = target / relative.rstrip("/")
+        try:
+            exists = candidate.exists()
+        except OSError:
+            exists = False
+        if exists:
+            conflicts.append(relative)
+    return tuple(conflicts)
 
 
 def _new_project_generation_validation(intake: ProjectIntake) -> tuple[str, ...]:

@@ -4,6 +4,7 @@ from trinity.textual_app.ask_commands import (
     ask_command_action,
     ask_command_run_effect,
     ask_error_presentation,
+    nexus_follow_up_target_workspace,
     run_ask_command,
     start_submission_effect,
 )
@@ -274,6 +275,45 @@ def test_start_submission_effect_skips_control_repo_workspace(tmp_path) -> None:
 
     assert effect.workspace_candidate_to_set == control_repo
     assert effect.target_workspace is None
+
+
+def test_nexus_follow_up_target_workspace_prefers_snapshot_target(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    snapshot_target = tmp_path / "snapshot-app"
+    candidate = tmp_path / "candidate-app"
+
+    target = nexus_follow_up_target_workspace(
+        SimpleNamespace(target_workspace=str(snapshot_target)),
+        candidate,
+        control_repo,
+    )
+
+    assert target == snapshot_target
+
+
+def test_nexus_follow_up_target_workspace_uses_candidate_without_snapshot(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    candidate = tmp_path / "candidate-app"
+
+    target = nexus_follow_up_target_workspace(
+        SimpleNamespace(target_workspace=""),
+        candidate,
+        control_repo,
+    )
+
+    assert target == candidate
+
+
+def test_nexus_follow_up_target_workspace_skips_control_repo_candidate(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+
+    target = nexus_follow_up_target_workspace(
+        SimpleNamespace(target_workspace=""),
+        control_repo,
+        control_repo,
+    )
+
+    assert target is None
 
 
 class _FakeAskNexus:

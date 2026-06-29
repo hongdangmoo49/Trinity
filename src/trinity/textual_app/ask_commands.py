@@ -102,6 +102,25 @@ class StartSubmissionEffect:
     agent_model_overrides: dict[str, str]
 
 
+def nexus_follow_up_target_workspace(
+    snapshot: Any | None,
+    workspace_candidate: Path | None,
+    project_dir: Path,
+) -> Path | None:
+    """Return the visible Nexus workspace that should scope a follow-up."""
+    candidates: list[Path] = []
+    snapshot_target = str(getattr(snapshot, "target_workspace", "") or "").strip()
+    if snapshot_target:
+        candidates.append(Path(snapshot_target))
+    if workspace_candidate is not None:
+        candidates.append(workspace_candidate)
+    for candidate in candidates:
+        target = safe_start_target_workspace(candidate, project_dir)
+        if target is not None:
+            return target
+    return None
+
+
 def ask_command_action(
     args: list[str],
     active_agent_names: Iterable[str],

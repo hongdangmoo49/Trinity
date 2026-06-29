@@ -107,12 +107,16 @@ def test_start_and_nexus_project_actions_use_mode_specific_labels(
     assert nexus._label("create_project") == "Create New"
     assert start._label("refresh_analysis") == "Refresh Analysis"
     assert nexus._label("refresh_analysis") == "Refresh Analysis"
+    assert start._label("analyze_selected_workspace") == "Analyze Selected"
+    assert nexus._label("analyze_selected_workspace") == "Analyze Selected"
     assert ko_start._label("analyze_workspace") == "기존 프로젝트 분석"
     assert ko_start._label("create_project") == "새 프로젝트 생성"
     assert ko_nexus._label("analyze_workspace") == "기존 프로젝트 분석"
     assert ko_nexus._label("create_project") == "새 프로젝트 생성"
     assert ko_start._label("refresh_analysis") == "분석 갱신"
     assert ko_nexus._label("refresh_analysis") == "분석 갱신"
+    assert ko_start._label("analyze_selected_workspace") == "선택 대상 분석"
+    assert ko_nexus._label("analyze_selected_workspace") == "선택 대상 분석"
 
 
 def test_provider_execution_review_policy_label_handles_provider_counts(
@@ -794,7 +798,7 @@ def test_project_analyze_action_label_key_marks_refreshable_intake(
             target_workspace=tmp_path / "other-app",
             today=date(2026, 6, 28),
         )
-        == "analyze_workspace"
+        == "analyze_selected_workspace"
     )
 
 
@@ -1239,6 +1243,52 @@ def test_start_and_nexus_project_intake_warn_when_target_mismatches(
 
     assert "target mismatch" in start._project_intake_label()
     assert "target mismatch" in nexus._project_intake_label()
+    presentation = project_analyze_action_presentation(
+        config.effective_state_dir,
+        target_workspace=selected_target,
+    )
+    assert presentation.label_key == "analyze_selected_workspace"
+    assert presentation.variant == "warning"
+
+
+@pytest.mark.asyncio
+async def test_start_and_nexus_show_reanalyze_cta_when_target_mismatches(
+    tmp_path: Path,
+) -> None:
+    saved_target = tmp_path / "saved-app"
+    selected_target = tmp_path / "selected-app"
+    saved_target.mkdir()
+    selected_target.mkdir()
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=saved_target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    start = StartScreen(config, workspace_candidate=selected_target)
+    start_app = StartScreenHarness(start)
+    async with start_app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        assert str(start.query_one("#analyze-workspace", Button).label) == (
+            "Analyze Selected"
+        )
+        assert start.query_one("#analyze-workspace", Button).variant == "warning"
+
+    nexus = NexusScreen(config)
+    nexus.snapshot = WorkflowNexusSnapshot(target_workspace=str(selected_target))
+    nexus_app = StartScreenHarness(nexus)  # type: ignore[arg-type]
+    async with nexus_app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+
+        assert str(nexus.query_one("#nexus-analyze-workspace", Button).label) == (
+            "Analyze Selected"
+        )
+        assert nexus.query_one("#nexus-analyze-workspace", Button).variant == "warning"
 
 
 def test_nexus_workspace_label_uses_target_state_helper(tmp_path: Path) -> None:

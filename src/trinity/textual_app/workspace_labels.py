@@ -836,7 +836,10 @@ def project_analyze_action_presentation(
             return ProjectAnalyzeActionPresentation("analyze_workspace", "warning")
         return ProjectAnalyzeActionPresentation("analyze_workspace", "default")
     if not _project_intake_targets_match(intake, target_workspace):
-        return ProjectAnalyzeActionPresentation("analyze_workspace", "warning")
+        return ProjectAnalyzeActionPresentation(
+            "analyze_selected_workspace",
+            "warning",
+        )
     if _project_intake_target_missing(intake):
         variant = "warning" if intake.mode != "new" else "default"
         return ProjectAnalyzeActionPresentation("analyze_workspace", variant)

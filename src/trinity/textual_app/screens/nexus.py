@@ -47,6 +47,7 @@ from trinity.workflow.provider_error_gate import (
 NEXUS_LABELS = {
     "en": {
         "analyze_workspace": "Analyze Existing",
+        "analyze_selected_workspace": "Analyze Selected",
         "composer_placeholder": "Reply, refine direction, or type / for commands",
         "create_project": "Create New",
         "edit_brief": "Edit Brief",
@@ -58,6 +59,7 @@ NEXUS_LABELS = {
     },
     "ko": {
         "analyze_workspace": "기존 프로젝트 분석",
+        "analyze_selected_workspace": "선택 대상 분석",
         "composer_placeholder": "답변, 방향 조정 또는 /로 명령 입력",
         "create_project": "새 프로젝트 생성",
         "edit_brief": "브리프 편집",

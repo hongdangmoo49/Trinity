@@ -297,6 +297,39 @@ def test_project_generation_preview_label_summarizes_new_project_shape(
     ) == ""
 
 
+def test_project_generation_preview_label_warns_about_existing_paths(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "new-app"
+    target.mkdir()
+    (target / "README.md").write_text("# Existing\n", encoding="utf-8")
+    (target / "src").mkdir()
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            project_type="SaaS dashboard",
+            starter_profile="Textual TUI",
+            stack_preferences=("python", "textual"),
+        ),
+    )
+
+    assert project_generation_preview_label(state, target_workspace=target) == (
+        "Generation preview: create: README.md, pyproject.toml, src/ +1 | "
+        "validate: uv run pytest | conflicts: README.md, src/"
+    )
+    assert project_generation_preview_label(
+        state,
+        lang="ko",
+        target_workspace=target,
+    ) == (
+        "생성 미리보기: 생성: README.md, pyproject.toml, src/ +1 | "
+        "검증: uv run pytest | 충돌: README.md, src/"
+    )
+
+
 def test_project_generation_preview_label_skips_existing_project(
     tmp_path: Path,
 ) -> None:

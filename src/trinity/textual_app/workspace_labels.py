@@ -159,6 +159,41 @@ PROJECT_MODE_LABELS = {
     },
 }
 
+PROJECT_START_CHOICE_GUIDE_LABELS = {
+    "en": {
+        "analyze_selected_workspace": "Analyze Selected",
+        "analyze_workspace": "Analyze Existing",
+        "complete_brief": "Complete Brief",
+        "create_project": "Create New",
+        "edit_brief": "Edit Brief",
+        "existing": "existing",
+        "fix_intake": "fix intake",
+        "mode": "mode",
+        "new": "new",
+        "next": "next",
+        "plan_first": "Plan first",
+        "refresh_analysis": "Refresh Analysis",
+        "summary": "Project start",
+        "then": "then",
+    },
+    "ko": {
+        "analyze_selected_workspace": "선택 대상 분석",
+        "analyze_workspace": "기존 프로젝트 분석",
+        "complete_brief": "브리프 완성",
+        "create_project": "새 프로젝트 생성",
+        "edit_brief": "브리프 편집",
+        "existing": "기존",
+        "fix_intake": "인테이크 복구",
+        "mode": "모드",
+        "new": "신규",
+        "next": "다음",
+        "plan_first": "먼저 계획",
+        "refresh_analysis": "분석 갱신",
+        "summary": "프로젝트 시작",
+        "then": "이후",
+    },
+}
+
 PROJECT_PLAN_PREVIEW_LABELS = {
     "en": {
         "constraints": "guardrails",
@@ -564,6 +599,78 @@ def project_startup_readiness_label(
         f"{labels['providers_count'].format(count=provider_count)} | "
         f"{validation_label}"
     )
+
+
+def project_start_choice_guide_label(
+    state_dir: Path,
+    *,
+    lang: str = "en",
+    target_workspace: object | None = None,
+    today: date | None = None,
+) -> str:
+    """Return a compact guide for choosing the new/existing project start path."""
+    labels = PROJECT_START_CHOICE_GUIDE_LABELS.get(
+        lang,
+        PROJECT_START_CHOICE_GUIDE_LABELS["en"],
+    )
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return (
+            f"{labels['summary']}: {labels['next']} -> {labels['fix_intake']} | "
+            f"{labels['then']} {labels['plan_first']}"
+        )
+
+    analyze_label = labels[
+        project_analyze_action_presentation(
+            state_dir,
+            target_workspace=target_workspace,
+            today=today,
+        ).label_key
+    ]
+    if intake is None or not _project_intake_targets_match(
+        intake,
+        target_workspace,
+    ):
+        return (
+            f"{labels['summary']}: {labels['existing']} -> {analyze_label} | "
+            f"{labels['new']} -> {labels['create_project']} | "
+            f"{labels['then']} {labels['plan_first']}"
+        )
+
+    mode_label = labels.get(intake.mode, intake.mode)
+    next_action = _project_start_choice_next_action(
+        intake,
+        labels,
+        analyze_label,
+        state_dir=state_dir,
+        target_workspace=target_workspace,
+    )
+    return (
+        f"{labels['summary']}: {labels['mode']} {mode_label} | "
+        f"{labels['next']} -> {next_action} | "
+        f"{labels['then']} {labels['plan_first']}"
+    )
+
+
+def _project_start_choice_next_action(
+    intake: ProjectIntake,
+    labels: dict[str, str],
+    analyze_label: str,
+    *,
+    state_dir: Path,
+    target_workspace: object | None,
+) -> str:
+    if intake.mode == "new":
+        if _project_intake_target_missing(intake):
+            return labels["create_project"]
+        return labels[
+            project_brief_action_label_key(
+                state_dir,
+                target_workspace=target_workspace,
+            )
+        ]
+    return analyze_label
 
 
 def project_intake_state_label(

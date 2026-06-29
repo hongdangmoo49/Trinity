@@ -25,6 +25,7 @@ from trinity.textual_app.workspace_labels import (
     project_intake_state_label,
     project_mode_rail_label,
     project_plan_preview_label,
+    project_start_choice_guide_label,
     project_startup_readiness_label,
     provider_cli_setup_label,
     provider_execution_review_policy_label,
@@ -717,6 +718,42 @@ def test_project_mode_rail_label_guides_missing_intake(tmp_path: Path) -> None:
     assert project_mode_rail_label(state, target_workspace=target) == (
         "Start flow: target: ready -> intake: needed -> plan: locked -> "
         "execute: locked | mode: none | next: analyze existing or create new"
+    )
+
+
+def test_project_start_choice_guide_labels_new_and_existing_paths(
+    tmp_path: Path,
+) -> None:
+    state = tmp_path / ".trinity"
+    target = tmp_path / "customer-app"
+    target.mkdir()
+    (target / "README.md").write_text("# Customer App\n", encoding="utf-8")
+
+    assert project_start_choice_guide_label(state) == (
+        "Project start: existing -> Analyze Existing | new -> Create New | "
+        "then Plan first"
+    )
+    assert project_start_choice_guide_label(
+        state,
+        target_workspace=target,
+        lang="ko",
+    ) == (
+        "프로젝트 시작: 기존 -> 기존 프로젝트 분석 | 신규 -> 새 프로젝트 생성 | "
+        "이후 먼저 계획"
+    )
+
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert project_start_choice_guide_label(state, target_workspace=target) == (
+        "Project start: mode existing | next -> Analyze Existing | "
+        "then Plan first"
     )
 
 
@@ -1724,6 +1761,12 @@ async def test_start_screen_shows_project_intake_summary(tmp_path: Path) -> None
             "Project intake: existing | target: customer-app | "
             "updated: 2026-06-28 | tests: uv run pytest | git: none"
         )
+        assert str(
+            screen.query_one("#project-start-choice-guide", Static).content
+        ) == (
+            "Project start: mode existing | next -> Analyze Existing | "
+            "then Plan first"
+        )
         assert str(screen.query_one("#project-read-first-checklist", Static).content) == (
             "Read-first checklist: scope: target root | "
             "read: README/docs/source roots missing | "
@@ -2151,6 +2194,12 @@ async def test_nexus_screen_shows_project_intake_summary(tmp_path: Path) -> None
         ) == (
             "프로젝트 인테이크: 기존 | 대상: customer-app | "
             "갱신: 2026-06-28 | 테스트: uv run pytest | git: 없음"
+        )
+        assert str(
+            screen.query_one("#nexus-project-start-choice-guide", Static).content
+        ) == (
+            "프로젝트 시작: 모드 기존 | 다음 -> 기존 프로젝트 분석 | "
+            "이후 먼저 계획"
         )
 
 

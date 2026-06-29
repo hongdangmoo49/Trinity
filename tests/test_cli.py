@@ -651,6 +651,10 @@ class TestProjectAnalyze:
 
             assert result.exit_code == 0
             assert "No project intake recorded." in result.output
+            assert "Start guide:" in result.output
+            assert "Project start: existing -> Analyze Existing" in result.output
+            assert "new -> Create New" in result.output
+            assert "then Plan first" in result.output
             assert "trinity project analyze [PATH]" in result.output
             assert "trinity project new NAME" in result.output
             assert "Then run `trinity` to start planning." in result.output
@@ -665,6 +669,10 @@ class TestProjectAnalyze:
             assert result.exit_code == 0
             data = json.loads(result.output)
             assert data["project_intake"] is None
+            assert data["project_start_guide"] == (
+                "Project start: existing -> Analyze Existing | new -> Create New | "
+                "then Plan first"
+            )
             assert data["current_analysis"] is None
             assert data["next_steps"] == [
                 "trinity project analyze [PATH]",
@@ -728,10 +736,9 @@ class TestProjectAnalyze:
                 "updated:"
             ) in result.output
             assert "Start guide:" in result.output
-            assert (
-                "Project start: mode existing | next -> Analyze Existing | "
-                "then Plan first"
-            ) in result.output
+            assert "Project start: mode existing" in result.output
+            assert "next -> Analyze Existing" in result.output
+            assert "then Plan first" in result.output
             assert "Read-first checklist:" in result.output
             assert "Mode: existing" in result.output
             assert "Target name: customer-app" in result.output

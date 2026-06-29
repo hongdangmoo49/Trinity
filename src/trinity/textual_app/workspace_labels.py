@@ -1534,11 +1534,22 @@ def _provider_cli_display_command(command: object) -> str:
 
 def _provider_cli_executable(command: object) -> str:
     raw = str(command or "").strip()
-    if len(raw) >= 2 and raw[0] == raw[-1] and raw[0] in {"'", '"'}:
-        raw = raw[1:-1].strip()
+    quoted = _provider_cli_quoted_executable(raw)
+    if quoted:
+        return quoted
     if _looks_like_path(raw):
         return raw
     return raw.split(maxsplit=1)[0] if raw else ""
+
+
+def _provider_cli_quoted_executable(command: str) -> str:
+    if len(command) < 2 or command[0] not in {"'", '"'}:
+        return ""
+    quote = command[0]
+    end_index = command.find(quote, 1)
+    if end_index < 0:
+        return ""
+    return command[1:end_index].strip()
 
 
 def _looks_like_path(value: str) -> bool:

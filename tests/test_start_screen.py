@@ -177,21 +177,27 @@ def test_provider_cli_setup_label_reports_selected_cli_commands(
     config.agents["codex"].cli_command = "trinity-missing-cli-for-test"
 
     assert provider_cli_setup_label(config.agents) == (
-        "Provider CLI setup: selected 2 | found: claude | missing: codex"
+        "Provider CLI setup: selected 2 | found: claude | "
+        "missing: codex(trinity-missing-cli-for-test)"
     )
     assert provider_cli_setup_label(
         config.agents,
         selected_agents=("codex",),
-    ) == "Provider CLI setup: selected 1 | missing: codex"
+    ) == (
+        "Provider CLI setup: selected 1 | "
+        "missing: codex(trinity-missing-cli-for-test)"
+    )
     assert provider_cli_setup_label(
         config.agents,
         selected_agents=(),
     ) == "Provider CLI setup: selected 0 | found: none"
 
     config.agents["antigravity"].enabled = True
-    config.agents["antigravity"].cli_command = sys.executable
+    config.agents["antigravity"].cli_command = "agy-missing-for-test"
     assert provider_cli_setup_label(config.agents, lang="ko") == (
-        "프로바이더 CLI 설정: 선택 3개 | 발견: claude, antigravity | 없음: codex"
+        "프로바이더 CLI 설정: 선택 3개 | 발견: claude | "
+        "없음: codex(trinity-missing-cli-for-test), "
+        "antigravity(agy-missing-for-test)"
     )
 
 
@@ -1549,7 +1555,10 @@ async def test_start_screen_updates_provider_policy_from_recipient_selection(
         )
         assert str(
             screen.query_one("#start-provider-cli-setup", Static).content
-        ) == "Provider CLI setup: selected 2 | found: claude | missing: codex"
+        ) == (
+            "Provider CLI setup: selected 2 | found: claude | "
+            "missing: codex(trinity-missing-cli-for-test)"
+        )
         assert str(
             screen.query_one("#project-startup-readiness", Static).content
         ) == (
@@ -1639,7 +1648,10 @@ async def test_nexus_screen_shows_provider_policy_from_selected_agents(
         )
         assert str(
             screen.query_one("#nexus-provider-cli-setup", Static).content
-        ) == "Provider CLI setup: selected 2 | found: claude | missing: codex"
+        ) == (
+            "Provider CLI setup: selected 2 | found: claude | "
+            "missing: codex(trinity-missing-cli-for-test)"
+        )
         assert str(
             screen.query_one("#nexus-project-startup-readiness", Static).content
         ) == (

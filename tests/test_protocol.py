@@ -20,6 +20,7 @@ from trinity.models import (
     MessageRole,
     Provider,
 )
+from trinity.project_intake import build_project_intake, write_project_intake
 from trinity.tui.app import AgentTUIState, TrinityTUI
 from trinity.tui.events import TUIEvent, TUIEventType
 
@@ -155,6 +156,34 @@ class TestBuildRoundPrompt:
         assert "Project Intake Context" in prompt
         assert "- Mode: existing" in prompt
         assert "uv run pytest" in prompt
+
+    def test_round_prompt_guards_stale_project_intake_context(self, tmp_path):
+        saved_target = tmp_path / "saved-app"
+        selected_target = tmp_path / "selected-app"
+        saved_target.mkdir()
+        selected_target.mkdir()
+        write_project_intake(
+            tmp_path,
+            build_project_intake(
+                mode="existing",
+                target_workspace=saved_target,
+                product_goal="Improve saved app onboarding.",
+            ),
+        )
+        engine = SharedContextEngine(path=tmp_path / "shared.md")
+        agents = {"claude": _make_mock_agent("claude")}
+        protocol = DeliberationProtocol(
+            agents=agents,
+            shared=engine,
+            max_rounds=5,
+            target_workspace=selected_target,
+        )
+
+        prompt = protocol._build_round_prompt(1, "Design selected app")
+
+        assert "Project Intake Context" in prompt
+        assert "Saved project intake target does not match" in prompt
+        assert "Improve saved app onboarding." not in prompt
 
     def test_round_2_prompt_includes_previous(self, tmp_path):
         engine = SharedContextEngine(path=tmp_path / "shared.md")

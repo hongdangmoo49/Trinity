@@ -180,7 +180,10 @@ class WorkflowCentralFlow:
                 "- The Trinity control repository is orchestration state unless it "
                 "was explicitly selected as the target workspace."
             )
-        intake_block = project_intake_prompt_block(self.engine.state_dir)
+        intake_block = project_intake_prompt_block(
+            self.engine.state_dir,
+            target_workspace=target,
+        )
         if intake_block:
             blocks.append(intake_block)
         if not blocks:

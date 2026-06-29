@@ -66,6 +66,7 @@ from trinity.textual_app.workspace_labels import (
     PROJECT_INTAKE_STALE_AFTER_DAYS,
     format_project_intake_label,
     format_project_generation_preview_label,
+    format_project_read_first_checklist_label,
     format_project_validation_plan_label,
     project_analyze_action_variant,
     project_brief_action_variant,
@@ -1242,6 +1243,10 @@ def _project_status_payload(
                 intake,
                 target_workspace=intake.target_workspace,
             ),
+            "read_first_checklist": format_project_read_first_checklist_label(
+                intake,
+                target_workspace=intake.target_workspace,
+            ),
             "mode": intake.mode,
             "target_name": intake.target_workspace.name or "(root)",
             "target_workspace": str(intake.target_workspace),
@@ -1500,6 +1505,12 @@ def _display_project_status(
     )
     if validation_plan:
         lines.append(validation_plan)
+    read_first_checklist = format_project_read_first_checklist_label(
+        intake,
+        target_workspace=intake.target_workspace,
+    )
+    if read_first_checklist:
+        lines.append(read_first_checklist)
     if refreshed:
         lines.extend(
             [

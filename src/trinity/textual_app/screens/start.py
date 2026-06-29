@@ -23,6 +23,7 @@ from trinity.textual_app.workspace_labels import (
     project_intake_state_label,
     project_mode_rail_label,
     project_plan_preview_label,
+    project_read_first_checklist_label,
     project_validation_plan_label,
     target_workspace_state_label,
 )
@@ -147,6 +148,7 @@ class StartScreen(Screen[None]):
         self._project_plan_preview_widget: Static | None = None
         self._project_generation_preview_widget: Static | None = None
         self._project_validation_plan_widget: Static | None = None
+        self._project_read_first_checklist_widget: Static | None = None
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
@@ -234,6 +236,12 @@ class StartScreen(Screen[None]):
                 )
                 self._project_validation_plan_widget = validation_plan
                 yield validation_plan
+                read_first_checklist = Static(
+                    self._project_read_first_checklist_label(),
+                    id="project-read-first-checklist",
+                )
+                self._project_read_first_checklist_widget = read_first_checklist
+                yield read_first_checklist
         yield Footer()
 
     def on_mount(self) -> None:
@@ -373,6 +381,14 @@ class StartScreen(Screen[None]):
             )
         return self._project_validation_plan_widget
 
+    def _project_read_first_checklist_static(self) -> Static:
+        if self._project_read_first_checklist_widget is None:
+            self._project_read_first_checklist_widget = self.query_one(
+                "#project-read-first-checklist",
+                Static,
+            )
+        return self._project_read_first_checklist_widget
+
     def _project_mode_rail_static(self) -> Static:
         if self._project_mode_rail_widget is None:
             self._project_mode_rail_widget = self.query_one(
@@ -411,6 +427,13 @@ class StartScreen(Screen[None]):
 
     def _project_validation_plan_label(self) -> str:
         return project_validation_plan_label(
+            self.config.effective_state_dir,
+            lang=self.lang,
+            target_workspace=self.workspace_candidate,
+        )
+
+    def _project_read_first_checklist_label(self) -> str:
+        return project_read_first_checklist_label(
             self.config.effective_state_dir,
             lang=self.lang,
             target_workspace=self.workspace_candidate,
@@ -457,6 +480,9 @@ class StartScreen(Screen[None]):
         )
         self._project_validation_plan_static().update(
             self._project_validation_plan_label()
+        )
+        self._project_read_first_checklist_static().update(
+            self._project_read_first_checklist_label()
         )
         self._project_mode_rail_static().update(
             self._project_mode_rail_label()

@@ -724,6 +724,7 @@ class TestProjectAnalyze:
             assert result.exit_code == 0
             assert "Project intake active." in result.output
             assert "Summary: Project intake: existing | updated:" in result.output
+            assert "Read-first checklist:" in result.output
             assert "Mode: existing" in result.output
             assert "Target name: customer-app" in result.output
             assert "Target workspace:" in result.output
@@ -978,6 +979,9 @@ class TestProjectAnalyze:
             assert data["project_intake"]["first_milestone"] == "First safe patch."
             assert data["project_intake"]["constraints"] == ["Keep tests green"]
             assert data["project_intake"]["selected_scope"] == "apps/web"
+            assert data["project_intake"]["read_first_checklist"].startswith(
+                "Read-first checklist: scope: apps/web"
+            )
             assert data["project_intake"]["brief_readiness"] == {
                 "required": False,
                 "complete": True,

@@ -23,6 +23,8 @@ PROJECT_BRIEF_LABELS = {
         "notes_placeholder": "Any context agents should consider",
         "project_type": "Project type",
         "project_type_placeholder": "SaaS dashboard, CLI tool, mobile app",
+        "readiness_complete": "Minimum brief: complete",
+        "readiness_missing": "Minimum brief: missing {fields}",
         "save": "Save Brief",
         "selected_scope": "Selected scope",
         "selected_scope_placeholder": "apps/web, packages/core",
@@ -49,6 +51,8 @@ PROJECT_BRIEF_LABELS = {
         "notes_placeholder": "에이전트가 고려할 추가 맥락",
         "project_type": "프로젝트 유형",
         "project_type_placeholder": "SaaS 대시보드, CLI 도구, 모바일 앱",
+        "readiness_complete": "최소 브리프: 완료",
+        "readiness_missing": "최소 브리프: 누락 {fields}",
         "save": "브리프 저장",
         "selected_scope": "선택 범위",
         "selected_scope_placeholder": "apps/web, packages/core",
@@ -120,6 +124,12 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
         margin-bottom: 1;
     }
 
+    #project-brief-readiness {
+        height: auto;
+        color: $text-muted;
+        margin-bottom: 1;
+    }
+
     .project-brief-row {
         height: 3;
         margin-bottom: 1;
@@ -167,6 +177,11 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
                 yield Static(
                     f"{self._label('target_workspace')}: {self.target_workspace}",
                     id="project-brief-target",
+                )
+            if self.mode == "new":
+                yield Static(
+                    self._brief_readiness_label(self.draft),
+                    id="project-brief-readiness",
                 )
             yield from self._input_row(
                 "goal",
@@ -241,6 +256,14 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
             event.stop()
             self.action_save()
 
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if self.mode != "new":
+            return
+        if not event.input.id or not event.input.id.startswith("project-brief-"):
+            return
+        event.stop()
+        self._refresh_brief_readiness()
+
     def action_cancel(self) -> None:
         self.dismiss(ProjectBriefModalResult(saved=False, draft=self._current_draft()))
 
@@ -289,6 +312,32 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
     def _label(self, key: str) -> str:
         labels = PROJECT_BRIEF_LABELS.get(self.lang, PROJECT_BRIEF_LABELS["en"])
         return labels.get(key, PROJECT_BRIEF_LABELS["en"][key])
+
+    def _format(self, key: str, **values: object) -> str:
+        return self._label(key).format(**values)
+
+    def _refresh_brief_readiness(self) -> None:
+        if not self.is_mounted:
+            return
+        self.query_one("#project-brief-readiness", Static).update(
+            self._brief_readiness_label(self._current_draft())
+        )
+
+    def _brief_readiness_label(self, draft: ProjectBriefDraft) -> str:
+        missing = [
+            self._label(label_key)
+            for label_key, value in (
+                ("goal", draft.product_goal),
+                ("project_type", draft.project_type),
+                ("target_users", draft.target_users),
+                ("success", draft.success_criteria),
+                ("milestone", draft.first_milestone),
+            )
+            if not value.strip()
+        ]
+        if missing:
+            return self._format("readiness_missing", fields=", ".join(missing))
+        return self._label("readiness_complete")
 
 
 def _split_values(value: str) -> tuple[str, ...]:

@@ -11164,6 +11164,12 @@ async def test_start_analyze_workspace_empty_target_opens_project_brief(
         assert str(app.screen.query_one("#project-brief-target", Static).content) == (
             f"Target workspace: {target.resolve()}"
         )
+        assert str(
+            app.screen.query_one("#project-brief-readiness", Static).content
+        ) == (
+            "Minimum brief: missing Product goal, Project type, Target users, "
+            "Success criteria, First milestone"
+        )
         assert (
             app.screen.query_one("#project-brief-goal", Input).placeholder
             == "e.g. Build a local habit tracker"
@@ -11176,6 +11182,17 @@ async def test_start_analyze_workspace_empty_target_opens_project_brief(
         assert intake is not None
         assert intake.mode == "new"
         assert intake.target_workspace == target.resolve()
+        app.screen.query_one("#project-brief-goal", Input).value = "Build a habit app"
+        app.screen.query_one("#project-brief-project-type", Input).value = "CLI tool"
+        app.screen.query_one("#project-brief-target-users", Input).value = "students"
+        app.screen.query_one("#project-brief-success", Input).value = (
+            "Users can log a habit"
+        )
+        app.screen.query_one("#project-brief-milestone", Input).value = "First log"
+        await pilot.pause()
+        assert str(
+            app.screen.query_one("#project-brief-readiness", Static).content
+        ) == "Minimum brief: complete"
 
 
 @pytest.mark.asyncio
@@ -11201,6 +11218,12 @@ async def test_project_brief_modal_uses_korean_placeholders(tmp_path) -> None:
         assert isinstance(app.screen, ProjectBriefModal)
         assert str(app.screen.query_one("#project-brief-target", Static).content) == (
             f"대상 작업 경로: {target.resolve()}"
+        )
+        assert str(
+            app.screen.query_one("#project-brief-readiness", Static).content
+        ) == (
+            "최소 브리프: 누락 제품 목표, 프로젝트 유형, 대상 사용자, "
+            "성공 기준, 첫 마일스톤"
         )
         assert (
             app.screen.query_one("#project-brief-goal", Input).placeholder

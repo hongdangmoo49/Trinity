@@ -85,6 +85,7 @@ from trinity.textual_app.model_settings_commands import (
     model_settings_modal_request,
     model_settings_updated_notification,
 )
+from trinity.textual_app.project_commands import project_command_presentation
 from trinity.textual_app.project_context_summary import build_project_context_summary
 from trinity.textual_app.packages_commands import packages_command_presentation
 from trinity.textual_app.questions_commands import (
@@ -882,6 +883,18 @@ class TrinityTextualApp(App[None]):
         margin-top: 1;
     }
 
+    #project-startup-readiness,
+    #project-intake-summary,
+    #project-existing-diagnostic,
+    #project-start-choice-guide,
+    #project-mode-rail,
+    #project-plan-preview,
+    #project-generation-preview,
+    #project-validation-plan,
+    #project-read-first-checklist {
+        display: none;
+    }
+
     #project-intake-actions {
         width: 100%;
         height: auto;
@@ -1297,6 +1310,18 @@ class TrinityTextualApp(App[None]):
         width: 100%;
         color: $text-muted;
         margin-top: 1;
+    }
+
+    #nexus-project-startup-readiness,
+    #nexus-project-intake-summary,
+    #nexus-project-existing-diagnostic,
+    #nexus-project-start-choice-guide,
+    #nexus-project-mode-rail,
+    #nexus-project-plan-preview,
+    #nexus-project-generation-preview,
+    #nexus-project-validation-plan,
+    #nexus-project-read-first-checklist {
+        display: none;
     }
 
     #nexus-project-intake-actions {
@@ -3106,6 +3131,37 @@ class TrinityTextualApp(App[None]):
     def _handle_textual_status_command(self, command_name: str) -> None:
         snapshot = self._current_textual_snapshot()
         self._show_textual_status(command_name, snapshot)
+
+    def _handle_textual_project_command(self, command_name: str) -> None:
+        snapshot = self._current_textual_snapshot()
+        presentation = project_command_presentation(
+            self.config.effective_state_dir,
+            self.config.active_agents,
+            lang=self.config.lang,
+            target_workspace=self._project_command_target_workspace(snapshot),
+        )
+        self._record_slash_command_result(
+            command_name,
+            presentation.title,
+            presentation.body,
+            severity=presentation.severity,
+            action_hint=presentation.action_hint,
+        )
+
+    def _project_command_target_workspace(
+        self,
+        snapshot: WorkflowNexusSnapshot,
+    ) -> Path | None:
+        if self.current_route == "start":
+            return safe_start_target_workspace(
+                self.workspace_candidate,
+                self.config.project_dir,
+            )
+        return nexus_follow_up_target_workspace(
+            snapshot,
+            self.workspace_candidate,
+            self.config.project_dir,
+        )
 
     def _handle_textual_model_command(self) -> None:
         self._open_model_settings_modal()

@@ -819,6 +819,8 @@ class TestProjectAnalyze:
                     "success_criteria",
                     "first_milestone",
                 ],
+                "scope_choice_required": False,
+                "scope_candidates": [],
             }
             assert data["project_intake"]["action_variants"]["edit_brief"] == (
                 "warning"
@@ -1002,6 +1004,8 @@ class TestProjectAnalyze:
                 "analysis_changed": False,
                 "analysis_changed_fields": [],
                 "missing_brief_fields": [],
+                "scope_choice_required": False,
+                "scope_candidates": ["apps/web"],
             }
             assert data["project_intake"]["action_variants"] == {
                 "analyze_workspace": "default",
@@ -1012,6 +1016,64 @@ class TestProjectAnalyze:
             assert data["current_analysis"]["package_managers"] == ["uv"]
             assert data["current_analysis"]["test_commands"] == ["uv run pytest"]
             assert data["next_steps"] == ["trinity"]
+
+    def test_project_status_guides_existing_scope_choice(
+        self,
+        runner,
+        tmp_path,
+    ):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            init_result = runner.invoke(main, ["init", "--non-interactive"])
+            assert init_result.exit_code == 0
+
+            target = Path("customer-app")
+            target.mkdir()
+            (target / "README.md").write_text("# Customer App\n", encoding="utf-8")
+            (target / "apps" / "web").mkdir(parents=True)
+            (target / "apps" / "web" / "package.json").write_text(
+                "{}",
+                encoding="utf-8",
+            )
+            (target / "packages" / "core").mkdir(parents=True)
+            (target / "packages" / "core" / "pyproject.toml").write_text(
+                "[project]\nname='core'\n",
+                encoding="utf-8",
+            )
+            analyze_result = runner.invoke(main, ["project", "analyze", str(target)])
+            assert analyze_result.exit_code == 0
+
+            result = runner.invoke(main, ["project", "status"])
+
+            assert result.exit_code == 0
+            assert "choose scope: apps/web, packages/core" in result.output
+            assert "trinity project analyze" in result.output
+            assert "--scope <scope>" in result.output
+            assert "choose one of: apps/web, packages/core" in result.output
+
+            json_status = runner.invoke(main, ["project", "status", "--json"])
+            assert json_status.exit_code == 0
+            data = json.loads(json_status.output)
+            assert data["project_intake"]["selected_scope"] == ""
+            assert data["project_intake"]["scope_candidates"] == [
+                "apps/web",
+                "packages/core",
+            ]
+            assert data["project_intake"]["readiness"]["ready"] is False
+            assert data["project_intake"]["readiness"]["recommended_action"] == (
+                "choose_scope"
+            )
+            assert (
+                data["project_intake"]["readiness"]["scope_choice_required"]
+                is True
+            )
+            assert data["project_intake"]["readiness"]["scope_candidates"] == [
+                "apps/web",
+                "packages/core",
+            ]
+            assert data["next_steps"] == [
+                f"trinity project analyze {target.resolve()} --scope <scope>",
+                "trinity",
+            ]
 
     def test_project_status_refresh_preserves_selected_scope(
         self,

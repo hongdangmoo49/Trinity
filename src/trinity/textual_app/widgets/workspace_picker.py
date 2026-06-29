@@ -66,6 +66,9 @@ WORKSPACE_PICKER_LABELS = {
             "Execution safety warning: {reasons}. Press Confirm Execute again "
             "to execute anyway, or cancel and plan first."
         ),
+        "execute_ack": "Execute acknowledgement",
+        "execute_ack_not_required": "not required",
+        "execute_ack_required": "required",
         "invalid_writable_parent": (
             "Choose a path under a writable existing parent before creating it."
         ),
@@ -137,6 +140,9 @@ WORKSPACE_PICKER_LABELS = {
             "실행 전 확인 필요: {reasons}. 그대로 실행하려면 실행 확인을 한 번 "
             "더 누르고, 아니면 취소 후 먼저 계획하세요."
         ),
+        "execute_ack": "실행 확인",
+        "execute_ack_not_required": "필요 없음",
+        "execute_ack_required": "필요",
         "invalid_writable_parent": (
             "생성하기 전에 쓰기 가능한 기존 상위 경로 아래를 선택하세요."
         ),
@@ -223,6 +229,7 @@ class WorkspacePreflight:
         branch = self._branch_label(lang=lang)
         dirty_worktree = self._dirty_worktree_label(lang=lang)
         intake_safety = self._intake_safety_label(lang=lang)
+        execute_ack = self._execute_ack_label(lang=lang)
         return "\n".join(
             [
                 f"{_label(lang, 'path')}: {self.path}",
@@ -235,6 +242,7 @@ class WorkspacePreflight:
                 f"{_label(lang, 'branch')}: {branch}",
                 f"{_label(lang, 'dirty_worktree')}: {dirty_worktree}",
                 f"{_label(lang, 'project_intake_safety')}: {intake_safety}",
+                f"{_label(lang, 'execute_ack')}: {execute_ack}",
                 (
                     f"{_label(lang, 'provider_readiness')}: "
                     f"{_label(lang, 'current_session_snapshot')}"
@@ -277,6 +285,11 @@ class WorkspacePreflight:
             changed=self.changed_count,
             untracked=self.untracked_count,
         )
+
+    def _execute_ack_label(self, *, lang: str = "en") -> str:
+        if self.requires_execute_ack:
+            return _label(lang, "execute_ack_required")
+        return _label(lang, "execute_ack_not_required")
 
     def _intake_safety_label(self, *, lang: str = "en") -> str:
         if not self.intake_safety_warnings:

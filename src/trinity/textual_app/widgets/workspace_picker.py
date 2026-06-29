@@ -934,7 +934,12 @@ def _project_intake_analysis_is_sparse_for_preflight(
 ) -> bool:
     if intake.mode != "existing":
         return False
-    return not (intake.test_commands or intake.source_roots or intake.docs_found)
+    return not (
+        intake.test_commands
+        or intake.source_roots
+        or intake.scope_candidates
+        or intake.docs_found
+    )
 
 
 def _project_intake_analysis_stale_days_for_preflight(

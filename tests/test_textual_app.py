@@ -11007,6 +11007,41 @@ async def test_start_analyze_workspace_anchor_review_cancel_keeps_detected_promp
 
 
 @pytest.mark.asyncio
+async def test_start_analyze_workspace_prompt_includes_scope_candidates(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "monorepo"
+    control_repo.mkdir()
+    target.mkdir()
+    (target / "apps" / "web").mkdir(parents=True)
+    (target / "apps" / "web" / "package.json").write_text("{}", encoding="utf-8")
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        FakeWorkflowController(),
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#analyze-workspace")
+        await pilot.pause()
+
+        start = app.get_screen("start", StartScreen)
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.scope_candidates == ("apps/web",)
+        assert start.query_one(PromptComposer).text == (
+            f"Analyze the selected existing project at {target.resolve()}. Read its "
+            "docs, source roots, and test/build signals before proposing the next "
+            "safe work packages. Do not scaffold a new project unless the workspace "
+            "is empty."
+            "\n\n"
+            "Detected anchors:\n"
+            "- scope candidates: apps/web"
+        )
+
+
+@pytest.mark.asyncio
 async def test_start_analyze_workspace_sparse_existing_prompt_has_no_anchor_block(
     tmp_path,
 ) -> None:

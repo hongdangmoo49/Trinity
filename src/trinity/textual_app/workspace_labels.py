@@ -72,6 +72,7 @@ PROJECT_INTAKE_LABELS = {
         "first_milestone": "milestone",
         "project_type": "type",
         "read_first": "read first",
+        "scope_candidates": "scopes",
         "source_roots": "src",
         "stack_preferences": "stack",
         "success_criteria": "success",
@@ -122,6 +123,7 @@ PROJECT_INTAKE_LABELS = {
         "first_milestone": "마일스톤",
         "project_type": "유형",
         "read_first": "먼저 읽기",
+        "scope_candidates": "범위",
         "source_roots": "소스",
         "stack_preferences": "스택",
         "success_criteria": "성공",
@@ -657,6 +659,7 @@ def _format_project_intake_label(
         if values:
             parts.append(_format_project_intake_section(labels[label_key], values))
     for label_key, values in (
+        ("scope_candidates", intake.scope_candidates),
         ("dev", intake.dev_commands),
         ("build", intake.build_commands),
         ("source_roots", intake.source_roots),
@@ -720,7 +723,12 @@ def _format_new_project_brief_readiness(
 def _project_intake_analysis_is_sparse(intake: ProjectIntake) -> bool:
     if intake.mode != "existing":
         return False
-    return not (intake.test_commands or intake.source_roots or intake.docs_found)
+    return not (
+        intake.test_commands
+        or intake.source_roots
+        or intake.scope_candidates
+        or intake.docs_found
+    )
 
 
 def _project_intake_analysis_stale_days(
@@ -774,6 +782,7 @@ def _project_intake_changed_field_labels(
         "build_commands": "build",
         "entrypoints": "entrypoints",
         "source_roots": "source_roots",
+        "scope_candidates": "scope_candidates",
         "docs_found": "docs",
     }
     field_labels = [

@@ -303,6 +303,7 @@ def _existing_project_analysis_anchor_lines(
         labels = {
             "title": "감지된 앵커:",
             "read_first": "먼저 읽기",
+            "scopes": "범위 후보",
             "tests": "테스트",
             "dev": "개발",
             "build": "빌드",
@@ -311,12 +312,14 @@ def _existing_project_analysis_anchor_lines(
         labels = {
             "title": "Detected anchors:",
             "read_first": "read first",
+            "scopes": "scope candidates",
             "tests": "tests",
             "dev": "dev",
             "build": "build",
         }
     for label_key, values in (
         ("read_first", read_first),
+        ("scopes", intake.scope_candidates),
         ("tests", intake.test_commands),
         ("dev", intake.dev_commands),
         ("build", intake.build_commands),

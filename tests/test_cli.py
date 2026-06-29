@@ -727,6 +727,11 @@ class TestProjectAnalyze:
                 "Summary: Project intake: existing | target: customer-app | "
                 "updated:"
             ) in result.output
+            assert "Start guide:" in result.output
+            assert (
+                "Project start: mode existing | next -> Analyze Existing | "
+                "then Plan first"
+            ) in result.output
             assert "Read-first checklist:" in result.output
             assert "Mode: existing" in result.output
             assert "Target name: customer-app" in result.output
@@ -966,6 +971,10 @@ class TestProjectAnalyze:
             data = json.loads(result.output)
             assert data["project_intake"]["summary"].startswith(
                 "Project intake: existing | target: customer-app | updated:"
+            )
+            assert data["project_intake"]["project_start_guide"] == (
+                "Project start: mode existing | next -> Analyze Existing | "
+                "then Plan first"
             )
             assert data["project_intake"]["mode"] == "existing"
             assert data["project_intake"]["target_name"] == "customer-app"

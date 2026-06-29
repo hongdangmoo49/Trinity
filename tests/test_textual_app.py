@@ -11543,7 +11543,8 @@ async def test_start_create_project_button_creates_new_project_intake(
             "full: first scaffold smoke before release"
         )
         assert str(start.query_one("#project-mode-rail", Static).content) == (
-            "Mode rail: new | state: ready | next: plan or execute"
+            "Start flow: target: ready -> intake: ready -> plan: ready -> "
+            "execute: ready | mode: new | next: plan or execute"
         )
 
 
@@ -12316,7 +12317,8 @@ async def test_nexus_create_project_button_creates_new_project_intake(
             "full: first scaffold smoke before release"
         )
         assert str(nexus.query_one("#nexus-project-mode-rail", Static).content) == (
-            "Mode rail: new | state: ready | next: plan or execute"
+            "Start flow: target: ready -> intake: ready -> plan: ready -> "
+            "execute: ready | mode: new | next: plan or execute"
         )
 
 

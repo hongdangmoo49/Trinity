@@ -7,7 +7,7 @@ anchors, anchor review, and new-project plan preview. These details are useful,
 but users still need to infer the current journey state from several labels.
 
 For both first-time and existing-project users, the Workbench should state the
-current mode and next recommended action directly:
+current start flow, mode, and next recommended action directly:
 
 - no target selected
 - intake not recorded
@@ -19,7 +19,7 @@ current mode and next recommended action directly:
 
 ## Scope
 
-- Add a compact mode rail label shared by Start and Nexus.
+- Add a compact start-flow rail label shared by Start and Nexus.
 - Derive the rail from saved project intake, selected target workspace, and the
   same read-only readiness signals already used by action variants.
 - Render the rail on Start and Nexus near the project-intake controls.
@@ -38,10 +38,10 @@ current mode and next recommended action directly:
 
 Add `project_mode_rail_label()` to `textual_app/workspace_labels.py`.
 
-The helper returns a concise localized string:
+The helper returns a concise localized string with four visible stages:
 
-- English example: `Mode rail: existing | state: analysis changed | next: refresh analysis`
-- Korean example: `모드 레일: 기존 | 상태: 분석 변경됨 | 다음: 분석 갱신`
+- English example: `Start flow: target: ready -> intake: refresh needed -> plan: caution -> execute: confirm | mode: existing | next: refresh analysis`
+- Korean example: `시작 흐름: 대상: 준비됨 -> 인테이크: 갱신 필요 -> 계획: 주의 -> 실행: 확인 필요 | 모드: 기존 | 다음: 분석 갱신`
 
 It should follow the same priority as the current Workbench readiness:
 

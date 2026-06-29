@@ -243,54 +243,78 @@ PROJECT_READ_FIRST_CHECKLIST_LABELS = {
 
 PROJECT_MODE_RAIL_LABELS = {
     "en": {
-        "invalid": "intake unreadable",
+        "execute_confirm": "confirm",
+        "execute_label": "execute",
+        "execute_locked": "locked",
+        "execute_ready": "ready",
+        "intake_brief_needed": "brief needed",
+        "intake_check_target": "check target",
+        "intake_label": "intake",
+        "intake_needed": "needed",
+        "intake_ready": "ready",
+        "intake_refresh_needed": "refresh needed",
+        "intake_unreadable": "unreadable",
+        "intake_waiting": "waiting",
         "mode_existing": "existing",
+        "mode_label": "mode",
         "mode_new": "new",
         "mode_none": "none",
         "next_analyze_or_create": "analyze existing or create new",
         "next_edit_brief": "edit brief",
+        "next_label": "next",
         "next_plan": "plan or execute",
         "next_recover_target": "recover target",
         "next_refresh_analysis": "refresh analysis",
         "next_select_workspace": "select workspace",
         "next_switch_or_analyze": "switch target or re-analyze",
-        "state_analysis_changed": "analysis changed",
-        "state_analysis_sparse": "analysis sparse",
-        "state_analysis_stale": "analysis stale",
-        "state_brief_missing": "brief missing",
-        "state_intake_missing": "intake missing",
-        "state_ready": "ready",
-        "state_target_missing": "target missing",
-        "state_target_mismatch": "target mismatch",
-        "state_target_unselected": "target not selected",
-        "summary": "Mode rail",
-        "state_label": "state",
-        "next_label": "next",
+        "plan_caution": "caution",
+        "plan_label": "plan",
+        "plan_locked": "locked",
+        "plan_ready": "ready",
+        "plan_ready_after_brief": "ready after brief",
+        "summary": "Start flow",
+        "target_label": "target",
+        "target_missing": "missing",
+        "target_mismatch": "mismatch",
+        "target_needed": "needed",
+        "target_ready": "ready",
     },
     "ko": {
-        "invalid": "인테이크 읽기 실패",
+        "execute_confirm": "확인 필요",
+        "execute_label": "실행",
+        "execute_locked": "잠김",
+        "execute_ready": "준비됨",
+        "intake_brief_needed": "브리프 필요",
+        "intake_check_target": "대상 확인",
+        "intake_label": "인테이크",
+        "intake_needed": "필요",
+        "intake_ready": "준비됨",
+        "intake_refresh_needed": "갱신 필요",
+        "intake_unreadable": "읽기 실패",
+        "intake_waiting": "대기",
         "mode_existing": "기존",
+        "mode_label": "모드",
         "mode_new": "신규",
         "mode_none": "없음",
         "next_analyze_or_create": "기존 분석 또는 신규 생성",
         "next_edit_brief": "브리프 편집",
+        "next_label": "다음",
         "next_plan": "계획 또는 실행",
         "next_recover_target": "대상 복구",
         "next_refresh_analysis": "분석 갱신",
         "next_select_workspace": "작업 폴더 선택",
         "next_switch_or_analyze": "대상 전환 또는 재분석",
-        "state_analysis_changed": "분석 변경됨",
-        "state_analysis_sparse": "분석 부족",
-        "state_analysis_stale": "분석 오래됨",
-        "state_brief_missing": "브리프 누락",
-        "state_intake_missing": "인테이크 없음",
-        "state_ready": "준비됨",
-        "state_target_missing": "대상 없음",
-        "state_target_mismatch": "대상 불일치",
-        "state_target_unselected": "대상 미선택",
-        "summary": "모드 레일",
-        "state_label": "상태",
-        "next_label": "다음",
+        "plan_caution": "주의",
+        "plan_label": "계획",
+        "plan_locked": "잠김",
+        "plan_ready": "준비됨",
+        "plan_ready_after_brief": "브리프 후 준비",
+        "summary": "시작 흐름",
+        "target_label": "대상",
+        "target_missing": "없음",
+        "target_mismatch": "불일치",
+        "target_needed": "필요",
+        "target_ready": "준비됨",
     },
 }
 
@@ -807,31 +831,40 @@ def project_mode_rail_label(
     target_workspace: object | None = None,
     today: date | None = None,
 ) -> str:
-    """Return the current project journey mode and next action label."""
+    """Return the current project journey as a compact stage rail."""
     labels = PROJECT_MODE_RAIL_LABELS.get(lang, PROJECT_MODE_RAIL_LABELS["en"])
+    target_text = str(target_workspace or "").strip()
     try:
         intake = load_project_intake(state_dir)
     except ValueError:
         return _format_project_mode_rail(
             labels,
+            target=labels["target_ready"] if target_text else labels["target_needed"],
+            intake=labels["intake_unreadable"],
+            plan=labels["plan_locked"],
+            execute=labels["execute_locked"],
             mode=labels["mode_none"],
-            state=labels["invalid"],
             next_action=labels["next_analyze_or_create"],
         )
 
-    target_text = str(target_workspace or "").strip()
     if intake is None:
         if not target_text:
             return _format_project_mode_rail(
                 labels,
+                target=labels["target_needed"],
+                intake=labels["intake_waiting"],
+                plan=labels["plan_locked"],
+                execute=labels["execute_locked"],
                 mode=labels["mode_none"],
-                state=labels["state_target_unselected"],
                 next_action=labels["next_select_workspace"],
             )
         return _format_project_mode_rail(
             labels,
+            target=labels["target_ready"],
+            intake=labels["intake_needed"],
+            plan=labels["plan_locked"],
+            execute=labels["execute_locked"],
             mode=labels["mode_none"],
-            state=labels["state_intake_missing"],
             next_action=labels["next_analyze_or_create"],
         )
 
@@ -839,43 +872,61 @@ def project_mode_rail_label(
     if target_text and not _project_intake_targets_match(intake, target_workspace):
         return _format_project_mode_rail(
             labels,
+            target=labels["target_mismatch"],
+            intake=labels["intake_check_target"],
+            plan=labels["plan_locked"],
+            execute=labels["execute_locked"],
             mode=mode,
-            state=labels["state_target_mismatch"],
             next_action=labels["next_switch_or_analyze"],
         )
     if _project_intake_target_missing(intake):
         return _format_project_mode_rail(
             labels,
+            target=labels["target_missing"],
+            intake=labels["intake_check_target"],
+            plan=labels["plan_locked"],
+            execute=labels["execute_locked"],
             mode=mode,
-            state=labels["state_target_missing"],
             next_action=labels["next_recover_target"],
         )
     if intake.mode == "new":
         if missing_new_project_brief_field_keys(intake):
             return _format_project_mode_rail(
                 labels,
+                target=labels["target_ready"],
+                intake=labels["intake_brief_needed"],
+                plan=labels["plan_ready_after_brief"],
+                execute=labels["execute_locked"],
                 mode=mode,
-                state=labels["state_brief_missing"],
                 next_action=labels["next_edit_brief"],
             )
         return _format_project_mode_rail(
             labels,
+            target=labels["target_ready"],
+            intake=labels["intake_ready"],
+            plan=labels["plan_ready"],
+            execute=labels["execute_ready"],
             mode=mode,
-            state=labels["state_ready"],
             next_action=labels["next_plan"],
         )
     if _project_intake_analysis_is_sparse(intake):
         return _format_project_mode_rail(
             labels,
+            target=labels["target_ready"],
+            intake=labels["intake_refresh_needed"],
+            plan=labels["plan_caution"],
+            execute=labels["execute_confirm"],
             mode=mode,
-            state=labels["state_analysis_sparse"],
             next_action=labels["next_refresh_analysis"],
         )
     if _project_intake_analysis_stale_days(intake, today=today) is not None:
         return _format_project_mode_rail(
             labels,
+            target=labels["target_ready"],
+            intake=labels["intake_refresh_needed"],
+            plan=labels["plan_caution"],
+            execute=labels["execute_confirm"],
             mode=mode,
-            state=labels["state_analysis_stale"],
             next_action=labels["next_refresh_analysis"],
         )
     if _project_intake_analysis_changed_fields(
@@ -885,14 +936,20 @@ def project_mode_rail_label(
     ):
         return _format_project_mode_rail(
             labels,
+            target=labels["target_ready"],
+            intake=labels["intake_refresh_needed"],
+            plan=labels["plan_caution"],
+            execute=labels["execute_confirm"],
             mode=mode,
-            state=labels["state_analysis_changed"],
             next_action=labels["next_refresh_analysis"],
         )
     return _format_project_mode_rail(
         labels,
+        target=labels["target_ready"],
+        intake=labels["intake_ready"],
+        plan=labels["plan_ready"],
+        execute=labels["execute_ready"],
         mode=mode,
-        state=labels["state_ready"],
         next_action=labels["next_plan"],
     )
 
@@ -900,13 +957,20 @@ def project_mode_rail_label(
 def _format_project_mode_rail(
     labels: dict[str, str],
     *,
+    target: str,
+    intake: str,
+    plan: str,
+    execute: str,
     mode: str,
-    state: str,
     next_action: str,
 ) -> str:
     return (
-        f"{labels['summary']}: {mode} | "
-        f"{labels['state_label']}: {state} | "
+        f"{labels['summary']}: "
+        f"{labels['target_label']}: {target} -> "
+        f"{labels['intake_label']}: {intake} -> "
+        f"{labels['plan_label']}: {plan} -> "
+        f"{labels['execute_label']}: {execute} | "
+        f"{labels['mode_label']}: {mode} | "
         f"{labels['next_label']}: {next_action}"
     )
 

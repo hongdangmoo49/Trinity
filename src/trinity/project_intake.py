@@ -280,6 +280,22 @@ def missing_new_project_brief_fields(intake: ProjectIntake) -> tuple[str, ...]:
     )
 
 
+def project_intake_validation_commands(intake: ProjectIntake) -> tuple[str, ...]:
+    """Return user-confirmed or detected commands that can validate the project."""
+    if intake.validation_commands:
+        return intake.validation_commands
+    if intake.test_commands:
+        return intake.test_commands
+    if intake.build_commands:
+        return intake.build_commands
+    return ()
+
+
+def project_intake_validation_missing(intake: ProjectIntake) -> bool:
+    """Return whether the intake lacks a usable validation command."""
+    return not project_intake_validation_commands(intake)
+
+
 def existing_project_intake_drift_fields(
     intake: ProjectIntake,
     target_workspace: Path,

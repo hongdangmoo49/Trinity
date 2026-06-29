@@ -27,6 +27,10 @@ def test_project_setup_next_action_routes_existing_project_to_ready_action(
     target = tmp_path / "customer-app"
     target.mkdir()
     (target / "README.md").write_text("# Customer App\n", encoding="utf-8")
+    (target / "package.json").write_text(
+        '{"scripts":{"test":"vitest run"}}',
+        encoding="utf-8",
+    )
     intake = build_project_intake(
         mode="existing",
         target_workspace=target,
@@ -103,6 +107,25 @@ def test_project_setup_next_action_routes_stale_existing_to_analyze_and_scope_ch
             target,
             ready_action="execute",
         )
+        == "validation"
+    )
+
+    write_project_intake(
+        state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            selected_scope="apps/web",
+            validation_commands=("npm test",),
+            created_at=date.today().isoformat(),
+        ),
+    )
+    assert (
+        project_setup_next_action(
+            state_dir,
+            target,
+            ready_action="execute",
+        )
         == "execute"
     )
 
@@ -150,6 +173,25 @@ def test_project_setup_next_action_routes_new_project_setup_steps(tmp_path) -> N
             target_users="maintainers",
             success_criteria="Maintainers can run it.",
             first_milestone="First workflow.",
+            created_at=date.today().isoformat(),
+        ),
+    )
+    assert (
+        project_setup_next_action(state_dir, target, ready_action="execute")
+        == "validation"
+    )
+
+    write_project_intake(
+        state_dir,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build an app.",
+            project_type="tool",
+            target_users="maintainers",
+            success_criteria="Maintainers can run it.",
+            first_milestone="First workflow.",
+            validation_commands=("uv run pytest",),
             created_at=date.today().isoformat(),
         ),
     )

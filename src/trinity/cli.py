@@ -50,6 +50,7 @@ from trinity.project_intake import (
     load_project_intake,
     missing_new_project_brief_field_keys,
     missing_new_project_brief_fields,
+    project_intake_validation_missing,
     suggest_test_commands,
     write_project_intake,
 )
@@ -1043,6 +1044,9 @@ def _refresh_project_intake(
         success_criteria=intake.success_criteria,
         stack_preferences=intake.stack_preferences,
         first_milestone=intake.first_milestone,
+        run_commands=intake.run_commands,
+        validation_commands=intake.validation_commands,
+        artifact_targets=intake.artifact_targets,
         constraints=intake.constraints,
         selected_scope=intake.selected_scope,
         notes=intake.notes,
@@ -1360,6 +1364,7 @@ def _project_intake_readiness_payload(
         "analysis_changed": bool(analysis_changed_fields),
         "analysis_changed_fields": list(analysis_changed_fields),
         "missing_brief_fields": missing_brief_fields,
+        "validation_missing": project_intake_validation_missing(intake),
         "scope_choice_required": _project_scope_choice_required(intake),
         "scope_candidates": list(intake.scope_candidates),
     }
@@ -1406,6 +1411,8 @@ def _project_intake_recommended_action(
         return "analyze_workspace"
     if scope_choice_required:
         return "choose_scope"
+    if project_intake_validation_missing(intake):
+        return "record_validation"
     return "start_trinity"
 
 

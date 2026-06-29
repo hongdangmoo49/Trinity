@@ -14,6 +14,8 @@ from trinity.project_intake import (
     existing_project_intake_drift_fields,
     load_project_intake,
     missing_new_project_brief_field_keys,
+    project_intake_validation_commands,
+    project_intake_validation_missing,
 )
 
 
@@ -165,6 +167,7 @@ PROJECT_START_CHOICE_GUIDE_LABELS = {
         "analyze_workspace": "Analyze Existing",
         "complete_brief": "Complete Brief",
         "create_project": "Create New",
+        "choose_scope": "choose scope",
         "edit_brief": "Edit Brief",
         "existing": "existing",
         "fix_intake": "fix intake",
@@ -172,6 +175,7 @@ PROJECT_START_CHOICE_GUIDE_LABELS = {
         "new": "new",
         "next": "next",
         "plan_first": "Plan first",
+        "record_validation": "record validation",
         "refresh_analysis": "Refresh Analysis",
         "summary": "Project start",
         "then": "then",
@@ -181,6 +185,7 @@ PROJECT_START_CHOICE_GUIDE_LABELS = {
         "analyze_workspace": "기존 프로젝트 분석",
         "complete_brief": "브리프 완성",
         "create_project": "새 프로젝트 생성",
+        "choose_scope": "범위 선택",
         "edit_brief": "브리프 편집",
         "existing": "기존",
         "fix_intake": "인테이크 복구",
@@ -188,6 +193,7 @@ PROJECT_START_CHOICE_GUIDE_LABELS = {
         "new": "신규",
         "next": "다음",
         "plan_first": "먼저 계획",
+        "record_validation": "검증 기록",
         "refresh_analysis": "분석 갱신",
         "summary": "프로젝트 시작",
         "then": "이후",
@@ -325,6 +331,7 @@ PROJECT_MODE_RAIL_LABELS = {
         "intake_refresh_needed": "refresh needed",
         "intake_scope_needed": "scope needed",
         "intake_unreadable": "unreadable",
+        "intake_validation_needed": "validation needed",
         "intake_waiting": "waiting",
         "mode_existing": "existing",
         "mode_label": "mode",
@@ -335,6 +342,7 @@ PROJECT_MODE_RAIL_LABELS = {
         "next_edit_brief": "edit brief",
         "next_label": "next",
         "next_plan": "plan or execute",
+        "next_record_validation": "record validation",
         "next_recover_target": "recover target",
         "next_refresh_analysis": "refresh analysis",
         "next_select_workspace": "select workspace",
@@ -364,6 +372,7 @@ PROJECT_MODE_RAIL_LABELS = {
         "intake_refresh_needed": "갱신 필요",
         "intake_scope_needed": "범위 필요",
         "intake_unreadable": "읽기 실패",
+        "intake_validation_needed": "검증 필요",
         "intake_waiting": "대기",
         "mode_existing": "기존",
         "mode_label": "모드",
@@ -374,6 +383,7 @@ PROJECT_MODE_RAIL_LABELS = {
         "next_edit_brief": "브리프 편집",
         "next_label": "다음",
         "next_plan": "계획 또는 실행",
+        "next_record_validation": "검증 기록",
         "next_recover_target": "대상 복구",
         "next_refresh_analysis": "분석 갱신",
         "next_select_workspace": "작업 폴더 선택",
@@ -615,13 +625,12 @@ def project_startup_readiness_label(
         _active_provider_names(agents, selected_agents=selected_agents)
     )
     validation_label = (
-        labels["validation_planned"]
-        if project_validation_plan_label(
+        labels["validation_missing"]
+        if _project_intake_validation_missing_for_state(
             state_dir,
-            lang=lang,
             target_workspace=target_workspace,
         )
-        else labels["validation_missing"]
+        else labels["validation_planned"]
     )
     return (
         f"{labels['summary']}: {target_label} | {intake_label} | "
@@ -693,13 +702,26 @@ def _project_start_choice_next_action(
     if intake.mode == "new":
         if _project_intake_target_missing(intake):
             return labels["create_project"]
-        return labels[
-            project_brief_action_label_key(
-                state_dir,
-                target_workspace=target_workspace,
-            )
-        ]
-    return analyze_label
+        if missing_new_project_brief_field_keys(intake):
+            return labels[
+                project_brief_action_label_key(
+                    state_dir,
+                    target_workspace=target_workspace,
+                )
+            ]
+        if project_intake_validation_missing(intake):
+            return labels["record_validation"]
+        return labels["plan_first"]
+    if project_analyze_action_presentation(
+        state_dir,
+        target_workspace=target_workspace,
+    ).variant == "warning":
+        return analyze_label
+    if _project_intake_scope_choice_needed(intake):
+        return labels["choose_scope"]
+    if project_intake_validation_missing(intake):
+        return labels["record_validation"]
+    return labels["plan_first"]
 
 
 def project_intake_state_label(
@@ -1154,6 +1176,16 @@ def project_mode_rail_label(
                 mode=mode,
                 next_action=labels["next_edit_brief"],
             )
+        if project_intake_validation_missing(intake):
+            return _format_project_mode_rail(
+                labels,
+                target=labels["target_ready"],
+                intake=labels["intake_validation_needed"],
+                plan=labels["plan_caution"],
+                execute=labels["execute_locked"],
+                mode=mode,
+                next_action=labels["next_record_validation"],
+            )
         return _format_project_mode_rail(
             labels,
             target=labels["target_ready"],
@@ -1207,6 +1239,16 @@ def project_mode_rail_label(
             mode=mode,
             next_action=labels["next_choose_scope"],
         )
+    if project_intake_validation_missing(intake):
+        return _format_project_mode_rail(
+            labels,
+            target=labels["target_ready"],
+            intake=labels["intake_validation_needed"],
+            plan=labels["plan_caution"],
+            execute=labels["execute_confirm"],
+            mode=mode,
+            next_action=labels["next_record_validation"],
+        )
     return _format_project_mode_rail(
         labels,
         target=labels["target_ready"],
@@ -1258,6 +1300,8 @@ def _project_startup_readiness_intake_key(
     if intake.mode == "new":
         if missing_new_project_brief_field_keys(intake):
             return "intake_check"
+        if project_intake_validation_missing(intake):
+            return "intake_check"
         return "intake_ok"
     if _project_intake_analysis_is_sparse(intake):
         return "intake_check"
@@ -1271,7 +1315,27 @@ def _project_startup_readiness_intake_key(
         return "intake_check"
     if _project_intake_scope_choice_needed(intake):
         return "intake_check"
+    if project_intake_validation_missing(intake):
+        return "intake_check"
     return "intake_ok"
+
+
+def _project_intake_validation_missing_for_state(
+    state_dir: Path,
+    *,
+    target_workspace: object | None,
+) -> bool:
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return True
+    if intake is None:
+        return True
+    if not _project_intake_targets_match(intake, target_workspace):
+        return True
+    if _project_intake_target_missing(intake):
+        return True
+    return project_intake_validation_missing(intake)
 
 
 def project_brief_action_variant(
@@ -1653,6 +1717,8 @@ def _new_project_generation_conflicts(
 
 
 def _new_project_generation_validation(intake: ProjectIntake) -> tuple[str, ...]:
+    if intake.validation_commands:
+        return intake.validation_commands
     if intake.test_commands:
         return intake.test_commands
     text = _new_project_generation_signal_text(intake)
@@ -1685,6 +1751,9 @@ def _validation_fast_commands(
     intake: ProjectIntake,
     labels: dict[str, str],
 ) -> tuple[str, ...]:
+    commands = project_intake_validation_commands(intake)
+    if commands:
+        return (commands[0],)
     if intake.test_commands:
         return (intake.test_commands[0],)
     if intake.mode == "new":
@@ -1696,6 +1765,8 @@ def _validation_required_commands(
     intake: ProjectIntake,
     labels: dict[str, str],
 ) -> tuple[str, ...]:
+    if intake.validation_commands:
+        return intake.validation_commands
     if intake.test_commands:
         return intake.test_commands
     if intake.build_commands:

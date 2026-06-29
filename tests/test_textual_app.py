@@ -257,6 +257,7 @@ from trinity.textual_app.widgets.project_generation_confirm_modal import (
     ProjectGenerationConfirmModal,
 )
 from trinity.textual_app.widgets.project_scope_modal import ProjectScopeModal
+from trinity.textual_app.widgets.project_validation_modal import ProjectValidationModal
 from trinity.textual_app.widgets.question_panel import QuestionPanel
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
 from trinity.textual_app.widgets.status_modal import StatusCommandModal
@@ -11203,6 +11204,68 @@ async def test_start_continue_setup_opens_existing_scope_picker(
 
 
 @pytest.mark.asyncio
+async def test_start_continue_setup_opens_project_validation_modal_for_new_project(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "new-app"
+    control_repo.mkdir()
+    target.mkdir()
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build a planning board.",
+            project_type="planning tool",
+            target_users="operators",
+            success_criteria="Operators can plan work.",
+            first_milestone="First planning workflow.",
+        ),
+    )
+    app = TrinityTextualApp(config, FakeWorkflowController(), launch_cwd=target)
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.pause()
+
+        app.get_screen("start", StartScreen).query_one(
+            "#continue-project-setup",
+            Button,
+        ).press()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectValidationModal)
+        assert str(
+            app.screen.query_one("#project-validation-plan", Static).content
+        ) == (
+            "Validation plan: fast: define first smoke check | "
+            "required: record required check before merge | "
+            "full: first scaffold smoke before release"
+        )
+        app.screen.query_one("#project-validation-required", Input).value = (
+            "uv run pytest"
+        )
+        app.screen.query_one("#project-validation-run", Input).value = "uv run board"
+        app.screen.action_save()
+        await pilot.pause()
+
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.validation_commands == ("uv run pytest",)
+        assert intake.run_commands == ("uv run board",)
+        start = app.get_screen("start", StartScreen)
+        assert start._project_setup_next_action() == "plan"
+        assert str(start.query_one("#project-startup-readiness", Static).content) == (
+            "Startup readiness: target ok | intake ok | "
+            "providers 1 selected | validation planned"
+        )
+        assert "Validation commands: uv run pytest" in start.query_one(
+            PromptComposer
+        ).text
+
+
+@pytest.mark.asyncio
 async def test_start_analyze_workspace_sparse_existing_prompt_has_no_anchor_block(
     tmp_path,
 ) -> None:
@@ -11671,7 +11734,7 @@ async def test_start_create_project_button_creates_new_project_intake(
         )
         assert str(start.query_one("#project-validation-plan", Static).content) == (
             "Validation plan: fast: uv run pytest | "
-            "required: record required check before merge | "
+            "required: uv run pytest | "
             "full: first scaffold smoke before release"
         )
         assert str(start.query_one("#project-mode-rail", Static).content) == (
@@ -12252,6 +12315,65 @@ async def test_nexus_continue_setup_opens_existing_scope_picker(tmp_path) -> Non
 
 
 @pytest.mark.asyncio
+async def test_nexus_continue_setup_opens_project_validation_modal_for_existing(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target-app"
+    control_repo.mkdir()
+    target.mkdir()
+    (target / "README.md").write_text("# Existing project\n", encoding="utf-8")
+    (target / "src").mkdir()
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-29T00:00:00Z",
+        ),
+    )
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            state="idle",
+            target_workspace=str(target),
+        )
+    )
+    app = TrinityTextualApp(config, controller, launch_cwd=target)
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        await pilot.click("#nexus-continue-project-setup")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectValidationModal)
+        app.screen.query_one("#project-validation-required", Input).value = (
+            "npm test"
+        )
+        app.screen.action_save()
+        await pilot.pause()
+
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.validation_commands == ("npm test",)
+        nexus = app.get_screen("nexus", NexusScreen)
+        assert nexus._project_setup_next_action() == "execute"
+        assert str(
+            nexus.query_one("#nexus-project-validation-plan", Static).content
+        ) == (
+            "Validation plan: fast: npm test | "
+            "required: npm test | full: full suite before merge"
+        )
+        assert "- validation: npm test" in nexus.query_one(
+            "#nexus-composer",
+            PromptComposer,
+        ).text
+
+
+@pytest.mark.asyncio
 async def test_nexus_analyze_workspace_empty_target_opens_project_brief(
     tmp_path,
 ) -> None:
@@ -12596,7 +12718,7 @@ async def test_nexus_create_project_button_creates_new_project_intake(
             nexus.query_one("#nexus-project-validation-plan", Static).content
         ) == (
             "Validation plan: fast: uv run pytest | "
-            "required: record required check before merge | "
+            "required: uv run pytest | "
             "full: first scaffold smoke before release"
         )
         assert str(nexus.query_one("#nexus-project-mode-rail", Static).content) == (

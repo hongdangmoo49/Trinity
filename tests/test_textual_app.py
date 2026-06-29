@@ -253,6 +253,9 @@ from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
 from trinity.textual_app.widgets.project_anchors_modal import ProjectAnchorsModal
 from trinity.textual_app.widgets.project_brief_modal import ProjectBriefModal
+from trinity.textual_app.widgets.project_generation_confirm_modal import (
+    ProjectGenerationConfirmModal,
+)
 from trinity.textual_app.widgets.project_scope_modal import ProjectScopeModal
 from trinity.textual_app.widgets.question_panel import QuestionPanel
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
@@ -11923,6 +11926,101 @@ def test_workbench_project_intake_sync_does_not_carry_brief_to_new_target(
     assert intake.first_milestone == ""
     assert intake.constraints == ()
     assert intake.notes == ""
+
+
+@pytest.mark.asyncio
+async def test_start_new_project_submit_opens_generation_confirmation(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "new-app"
+    control_repo.mkdir()
+    target.mkdir()
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build a planning board.",
+            project_type="textual app",
+            starter_profile="textual-dashboard",
+            target_users="operators",
+            success_criteria="Operators can plan weekly work.",
+            stack_preferences=("python", "textual"),
+            first_milestone="First board workflow.",
+            validation_commands=("uv run pytest",),
+            constraints=("No external service",),
+        ),
+    )
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(config, controller, launch_cwd=target)
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        start = app.get_screen("start", StartScreen)
+        composer = start.query_one(PromptComposer)
+        composer.set_text("Plan the first scaffold.")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectGenerationConfirmModal)
+        assert controller.started_prompts == []
+        assert "Generation preview:" in str(
+            app.screen.query_one(
+                "#project-generation-confirm-summary",
+                Static,
+            ).content
+        )
+
+        app.screen.action_confirm()
+        await pilot.pause()
+
+        assert controller.started_prompts == ["Plan the first scaffold."]
+        assert controller.target_workspace == target.resolve()
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.mode == "new"
+        assert intake.starter_profile == "textual-dashboard"
+        assert intake.validation_commands == ("uv run pytest",)
+        assert app.current_route == "nexus"
+
+
+@pytest.mark.asyncio
+async def test_start_new_project_generation_confirmation_cancel_does_not_start(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "new-app"
+    control_repo.mkdir()
+    target.mkdir()
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build a planning board.",
+            project_type="textual app",
+            target_users="operators",
+            success_criteria="Operators can plan weekly work.",
+            first_milestone="First board workflow.",
+        ),
+    )
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(config, controller, launch_cwd=target)
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        start = app.get_screen("start", StartScreen)
+        composer = start.query_one(PromptComposer)
+        composer.set_text("Plan the first scaffold.")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectGenerationConfirmModal)
+        app.screen.action_cancel()
+        await pilot.pause()
+
+        assert controller.started_prompts == []
+        assert controller.target_workspace is None
+        assert app.current_route == "start"
 
 
 @pytest.mark.asyncio

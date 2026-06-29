@@ -14,6 +14,7 @@ from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.workspace_labels import (
     format_project_generation_preview_label,
     format_project_validation_plan_label,
+    project_generation_dry_run_lines,
 )
 
 
@@ -22,6 +23,7 @@ PROJECT_GENERATION_CONFIRM_LABELS = {
         "body": "Review the first generated shape before Trinity starts planning.",
         "cancel": "Cancel",
         "confirm": "Confirm Plan",
+        "dry_run": "Dry run",
         "generation_preview": "Generation preview",
         "none": "(none)",
         "target_workspace": "Target workspace",
@@ -32,6 +34,7 @@ PROJECT_GENERATION_CONFIRM_LABELS = {
         "body": "Trinity가 계획을 시작하기 전에 첫 생성 형태를 확인하세요.",
         "cancel": "취소",
         "confirm": "계획 확인",
+        "dry_run": "사전 확인",
         "generation_preview": "생성 미리보기",
         "none": "(없음)",
         "target_workspace": "대상 작업 폴더",
@@ -48,6 +51,7 @@ class ProjectGenerationConfirmationSummary:
     target_workspace: str
     generation_preview: str
     validation_plan: str
+    dry_run_lines: tuple[str, ...] = ()
 
     @property
     def available(self) -> bool:
@@ -160,11 +164,18 @@ class ProjectGenerationConfirmModal(ModalScreen[bool]):
                 f"{self._label('target_workspace')}: "
                 f"{summary.target_workspace or self._label('none')}"
             ),
-            summary.generation_preview
-            or f"{self._label('generation_preview')}: {self._label('none')}",
-            summary.validation_plan
-            or f"{self._label('validation_plan')}: {self._label('none')}",
         ]
+        if summary.dry_run_lines:
+            lines.append(f"{self._label('dry_run')}:")
+            lines.extend(f"- {line}" for line in summary.dry_run_lines)
+        lines.extend(
+            [
+                summary.generation_preview
+                or f"{self._label('generation_preview')}: {self._label('none')}",
+                summary.validation_plan
+                or f"{self._label('validation_plan')}: {self._label('none')}",
+            ]
+        )
         return "\n".join(line for line in lines if line.strip())
 
     def _label(self, key: str) -> str:
@@ -194,4 +205,5 @@ def project_generation_confirmation_summary(
             lang=lang,
             target_workspace=intake.target_workspace,
         ),
+        dry_run_lines=project_generation_dry_run_lines(intake, lang=lang),
     )

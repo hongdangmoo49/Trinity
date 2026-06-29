@@ -337,19 +337,20 @@ class StartScreen(Screen[None]):
         self._submit(composer.submission_text)
 
     def set_workspace_candidate(self, path: Path | None) -> None:
-        if path == self.workspace_candidate:
+        next_workspace = str(path or "")
+        if path == self.workspace_candidate or next_workspace == str(
+            self.workspace_candidate or ""
+        ):
             return
         self.workspace_candidate = path
-        workspace_label = self._workspace_label()
-        if workspace_label == self._workspace_label_key:
+        if not self.is_mounted:
+            self._workspace_label_key = self._workspace_label()
             return
-        label = self._workspace_label_static()
-        label.update(workspace_label)
-        self._workspace_label_key = workspace_label
-        if self.is_mounted and self._project_startup_readiness_widget is not None:
-            self._project_startup_readiness_widget.update(
-                self._project_startup_readiness_label()
-            )
+        workspace_label = self._workspace_label()
+        if workspace_label != self._workspace_label_key:
+            self._workspace_label_static().update(workspace_label)
+            self._workspace_label_key = workspace_label
+        self.refresh_project_intake_summary()
 
     def _submit(self, prompt: str) -> None:
         text = prompt.strip()

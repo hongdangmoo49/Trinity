@@ -671,11 +671,12 @@ def test_project_mode_rail_label_guides_missing_intake(tmp_path: Path) -> None:
     target.mkdir()
 
     assert project_mode_rail_label(state) == (
-        "Mode rail: none | state: target not selected | next: select workspace"
+        "Start flow: target: needed -> intake: waiting -> plan: locked -> "
+        "execute: locked | mode: none | next: select workspace"
     )
     assert project_mode_rail_label(state, target_workspace=target) == (
-        "Mode rail: none | state: intake missing | "
-        "next: analyze existing or create new"
+        "Start flow: target: ready -> intake: needed -> plan: locked -> "
+        "execute: locked | mode: none | next: analyze existing or create new"
     )
 
 
@@ -691,13 +692,18 @@ def test_project_mode_rail_label_guides_new_project_brief(
     )
 
     assert project_mode_rail_label(state, target_workspace=target) == (
-        "Mode rail: new | state: brief missing | next: edit brief"
+        "Start flow: target: ready -> intake: brief needed -> "
+        "plan: ready after brief -> execute: locked | mode: new | "
+        "next: edit brief"
     )
     assert project_mode_rail_label(
         state,
         lang="ko",
         target_workspace=target,
-    ) == "모드 레일: 신규 | 상태: 브리프 누락 | 다음: 브리프 편집"
+    ) == (
+        "시작 흐름: 대상: 준비됨 -> 인테이크: 브리프 필요 -> "
+        "계획: 브리프 후 준비 -> 실행: 잠김 | 모드: 신규 | 다음: 브리프 편집"
+    )
 
     write_project_intake(
         state,
@@ -713,7 +719,8 @@ def test_project_mode_rail_label_guides_new_project_brief(
     )
 
     assert project_mode_rail_label(state, target_workspace=target) == (
-        "Mode rail: new | state: ready | next: plan or execute"
+        "Start flow: target: ready -> intake: ready -> plan: ready -> "
+        "execute: ready | mode: new | next: plan or execute"
     )
 
 
@@ -740,7 +747,9 @@ def test_project_mode_rail_label_guides_existing_project_refresh(
         target_workspace=target,
         today=date(2026, 6, 28),
     ) == (
-        "Mode rail: existing | state: analysis changed | next: refresh analysis"
+        "Start flow: target: ready -> intake: refresh needed -> "
+        "plan: caution -> execute: confirm | mode: existing | "
+        "next: refresh analysis"
     )
 
 
@@ -766,7 +775,8 @@ def test_project_mode_rail_label_prioritizes_target_mismatch(
     )
 
     assert project_mode_rail_label(state, target_workspace=other) == (
-        "Mode rail: new | state: target mismatch | "
+        "Start flow: target: mismatch -> intake: check target -> "
+        "plan: locked -> execute: locked | mode: new | "
         "next: switch target or re-analyze"
     )
 

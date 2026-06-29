@@ -671,6 +671,11 @@ class TestProjectAnalyze:
                 encoding="utf-8",
             )
             (target / "uv.lock").write_text("", encoding="utf-8")
+            (target / "apps" / "web").mkdir(parents=True)
+            (target / "apps" / "web" / "package.json").write_text(
+                "{}",
+                encoding="utf-8",
+            )
             analyze_result = runner.invoke(
                 main,
                 [
@@ -691,6 +696,8 @@ class TestProjectAnalyze:
                     "First safe patch.",
                     "--constraint",
                     "Keep tests green",
+                    "--scope",
+                    "apps/web",
                     "--notes",
                     "Use this target.",
                 ],
@@ -708,6 +715,7 @@ class TestProjectAnalyze:
             assert "customer-app" in result.output
             assert "Target exists: True" in result.output
             assert "Saved analysis:" in result.output
+            assert "Selected scope: apps/web" in result.output
             assert "Project brief:" in result.output
             assert "Product goal: Improve customer app." in result.output
             assert "Project type: SaaS dashboard" in result.output
@@ -885,6 +893,11 @@ class TestProjectAnalyze:
                 encoding="utf-8",
             )
             (target / "uv.lock").write_text("", encoding="utf-8")
+            (target / "apps" / "web").mkdir(parents=True)
+            (target / "apps" / "web" / "package.json").write_text(
+                "{}",
+                encoding="utf-8",
+            )
             analyze_result = runner.invoke(
                 main,
                 [
@@ -905,6 +918,8 @@ class TestProjectAnalyze:
                     "First safe patch.",
                     "--constraint",
                     "Keep tests green",
+                    "--scope",
+                    "apps/web",
                 ],
             )
             assert analyze_result.exit_code == 0
@@ -931,6 +946,7 @@ class TestProjectAnalyze:
             ]
             assert data["project_intake"]["first_milestone"] == "First safe patch."
             assert data["project_intake"]["constraints"] == ["Keep tests green"]
+            assert data["project_intake"]["selected_scope"] == "apps/web"
             assert data["project_intake"]["brief_readiness"] == {
                 "required": False,
                 "complete": True,
@@ -958,6 +974,36 @@ class TestProjectAnalyze:
             assert data["current_analysis"]["package_managers"] == ["uv"]
             assert data["current_analysis"]["test_commands"] == ["uv run pytest"]
             assert data["next_steps"] == ["trinity"]
+
+    def test_project_status_refresh_preserves_selected_scope(
+        self,
+        runner,
+        tmp_path,
+    ):
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            init_result = runner.invoke(main, ["init", "--non-interactive"])
+            assert init_result.exit_code == 0
+
+            target = Path("customer-app")
+            (target / "apps" / "web").mkdir(parents=True)
+            (target / "apps" / "web" / "package.json").write_text(
+                "{}",
+                encoding="utf-8",
+            )
+            analyze_result = runner.invoke(
+                main,
+                ["project", "analyze", str(target), "--scope", "apps/web"],
+            )
+            assert analyze_result.exit_code == 0
+
+            refresh_result = runner.invoke(main, ["project", "status", "--refresh"])
+            assert refresh_result.exit_code == 0
+            assert "Selected scope: apps/web" in refresh_result.output
+
+            json_status = runner.invoke(main, ["project", "status", "--json"])
+            assert json_status.exit_code == 0
+            data = json.loads(json_status.output)
+            assert data["project_intake"]["selected_scope"] == "apps/web"
 
     def test_project_status_warns_when_existing_analysis_changed(
         self,

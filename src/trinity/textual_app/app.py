@@ -262,6 +262,7 @@ def initial_start_prompt(config: TrinityConfig, workspace_candidate: Path | None
         stack_preferences=intake.stack_preferences,
         first_milestone=intake.first_milestone,
         constraints=intake.constraints,
+        selected_scope=intake.selected_scope,
         notes=intake.notes,
     )
 
@@ -302,6 +303,7 @@ def _existing_project_analysis_anchor_lines(
     if lang == "ko":
         labels = {
             "title": "감지된 앵커:",
+            "selected_scope": "선택 범위",
             "read_first": "먼저 읽기",
             "scopes": "범위 후보",
             "tests": "테스트",
@@ -311,6 +313,7 @@ def _existing_project_analysis_anchor_lines(
     else:
         labels = {
             "title": "Detected anchors:",
+            "selected_scope": "selected scope",
             "read_first": "read first",
             "scopes": "scope candidates",
             "tests": "tests",
@@ -318,6 +321,7 @@ def _existing_project_analysis_anchor_lines(
             "build": "build",
         }
     for label_key, values in (
+        ("selected_scope", (intake.selected_scope,) if intake.selected_scope else ()),
         ("read_first", read_first),
         ("scopes", intake.scope_candidates),
         ("tests", intake.test_commands),
@@ -350,6 +354,7 @@ def _project_intake_has_analysis_anchor_signal(intake: ProjectIntake | None) -> 
             intake.test_commands,
             intake.dev_commands,
             intake.build_commands,
+            intake.selected_scope.strip(),
         )
     )
 
@@ -379,6 +384,7 @@ def _project_brief_start_prompt(
     stack_preferences: tuple[str, ...] = (),
     first_milestone: str = "",
     constraints: tuple[str, ...] = (),
+    selected_scope: str = "",
     notes: str = "",
 ) -> str:
     goal = product_goal.strip()
@@ -399,6 +405,7 @@ def _project_brief_start_prompt(
             ("유형", project_type.strip()),
             ("사용자", target_users.strip()),
             ("성공 기준", success_criteria.strip()),
+            *((("선택 범위", selected_scope.strip()),) if mode == "existing" else ()),
             ("첫 마일스톤", first_milestone.strip()),
             ("기술 스택", stack),
             ("제약", constraint_text),
@@ -429,6 +436,7 @@ def _project_brief_start_prompt(
             ("Type", project_type.strip()),
             ("Users", target_users.strip()),
             ("Success", success_criteria.strip()),
+            *((("Selected scope", selected_scope.strip()),) if mode == "existing" else ()),
             ("First milestone", first_milestone.strip()),
             ("Stack", stack),
             ("Constraints", constraint_text),
@@ -533,6 +541,7 @@ def _project_brief_start_prompt_from_draft(
         stack_preferences=draft.stack_preferences,
         first_milestone=draft.first_milestone,
         constraints=draft.constraints,
+        selected_scope=draft.selected_scope,
         notes=draft.notes,
     )
 
@@ -3648,6 +3657,10 @@ class TrinityTextualApp(App[None]):
                 self._project_brief_draft_for_target(target),
                 lang=self.config.lang,
                 target_workspace=str(absolute_path(target)),
+                mode=self._project_intake_mode_for_target(
+                    target,
+                    fallback=fallback_mode,
+                ),
             ),
             lambda result: self._on_project_brief_dismissed(
                 target,
@@ -3678,6 +3691,7 @@ class TrinityTextualApp(App[None]):
             stack_preferences=current.stack_preferences,
             first_milestone=current.first_milestone,
             constraints=current.constraints,
+            selected_scope=current.selected_scope,
             notes=current.notes,
         )
 
@@ -3719,6 +3733,7 @@ class TrinityTextualApp(App[None]):
             stack_preferences=draft.stack_preferences,
             first_milestone=draft.first_milestone,
             constraints=draft.constraints,
+            selected_scope=draft.selected_scope,
             notes=draft.notes,
         )
         write_project_intake(self.config.effective_state_dir, intake)

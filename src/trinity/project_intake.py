@@ -66,6 +66,7 @@ class ProjectIntake:
     entrypoints: tuple[str, ...] = ()
     source_roots: tuple[str, ...] = ()
     scope_candidates: tuple[str, ...] = ()
+    selected_scope: str = ""
     docs_found: tuple[str, ...] = ()
     product_goal: str = ""
     project_type: str = ""
@@ -92,6 +93,7 @@ class ProjectIntake:
             "entrypoints": list(self.entrypoints),
             "source_roots": list(self.source_roots),
             "scope_candidates": list(self.scope_candidates),
+            "selected_scope": self.selected_scope,
             "docs_found": list(self.docs_found),
             "product_goal": self.product_goal,
             "project_type": self.project_type,
@@ -111,6 +113,7 @@ class ProjectIntake:
         entrypoints = _csv_or_none(self.entrypoints)
         source_roots = _csv_or_none(self.source_roots)
         scope_candidates = _csv_or_none(self.scope_candidates)
+        selected_scope = self.selected_scope.strip() or "(none)"
         docs_found = _csv_or_none(self.docs_found)
         stack_preferences = _csv_or_none(self.stack_preferences)
         constraints = _csv_or_none(self.constraints)
@@ -140,6 +143,7 @@ class ProjectIntake:
                 f"- Entrypoints: {entrypoints}",
                 f"- Source roots: {source_roots}",
                 f"- Scope candidates: {scope_candidates}",
+                f"- Selected scope: {selected_scope}",
                 f"- Docs found: {docs_found}",
                 "",
                 "## Brief",
@@ -180,6 +184,7 @@ def build_project_intake(
     stack_preferences: tuple[str, ...] | list[str] = (),
     first_milestone: str = "",
     constraints: tuple[str, ...] | list[str] = (),
+    selected_scope: str = "",
     created_at: str | None = None,
 ) -> ProjectIntake:
     """Build read-only project intake metadata for a target workspace."""
@@ -205,6 +210,7 @@ def build_project_intake(
         entrypoints=detect_entrypoints(workspace, package_managers),
         source_roots=detect_source_roots(workspace),
         scope_candidates=detect_scope_candidates(workspace),
+        selected_scope=selected_scope.strip(),
         docs_found=detect_docs(workspace),
         product_goal=product_goal.strip(),
         project_type=project_type.strip(),
@@ -323,6 +329,7 @@ def project_intake_from_dict(data: Mapping[str, Any]) -> ProjectIntake:
         entrypoints=_string_tuple(data.get("entrypoints")),
         source_roots=_string_tuple(data.get("source_roots")),
         scope_candidates=_string_tuple(data.get("scope_candidates")),
+        selected_scope=str(data.get("selected_scope", "")).strip(),
         docs_found=_string_tuple(data.get("docs_found")),
         product_goal=str(data.get("product_goal", "")),
         project_type=str(data.get("project_type", "")),
@@ -434,14 +441,23 @@ def _existing_project_brief_guidance_lines(intake: ProjectIntake) -> list[str]:
 
 
 def _existing_project_scope_guidance_lines(intake: ProjectIntake) -> list[str]:
-    if not intake.scope_candidates:
-        return []
-    return [
-        (
-            "- Detected possible subproject scopes; confirm the intended scope "
-            f"before broad edits: {_csv_or_none(intake.scope_candidates)}."
+    lines: list[str] = []
+    selected_scope = intake.selected_scope.strip()
+    if selected_scope:
+        lines.append(
+            (
+                "- Treat the selected scope as the primary work area for this "
+                f"conversation: {selected_scope}."
+            )
         )
-    ]
+    if intake.scope_candidates:
+        lines.append(
+            (
+                "- Detected possible subproject scopes; confirm the intended scope "
+                f"before broad edits: {_csv_or_none(intake.scope_candidates)}."
+            )
+        )
+    return lines
 
 
 def _has_project_brief_context(intake: ProjectIntake) -> bool:

@@ -11425,6 +11425,9 @@ async def test_start_edit_project_brief_button_writes_project_brief(
         app.screen.query_one("#project-brief-constraints", Input).value = (
             "Keep tests green, no generated scaffold"
         )
+        app.screen.query_one("#project-brief-selected-scope", Input).value = (
+            "apps/web"
+        )
         app.screen.query_one("#project-brief-notes", Input).value = (
             "Use existing patterns."
         )
@@ -11443,6 +11446,7 @@ async def test_start_edit_project_brief_button_writes_project_brief(
         assert intake.stack_preferences == ("python", "textual")
         assert intake.first_milestone == "First safe patch."
         assert intake.constraints == ("Keep tests green", "no generated scaffold")
+        assert intake.selected_scope == "apps/web"
         assert intake.notes == "Use existing patterns."
         assert start.query_one(PromptComposer).text == "\n".join(
             [
@@ -11453,6 +11457,7 @@ async def test_start_edit_project_brief_button_writes_project_brief(
                 "Type: SaaS dashboard",
                 "Users: support operators",
                 "Success: Operators can complete onboarding safely.",
+                "Selected scope: apps/web",
                 "First milestone: First safe patch.",
                 "Stack: python, textual",
                 "Constraints: Keep tests green; no generated scaffold",
@@ -11463,6 +11468,9 @@ async def test_start_edit_project_brief_button_writes_project_brief(
             start.query_one("#project-intake-summary", Static).content
         )
         assert "type: SaaS dashboard" in str(
+            start.query_one("#project-intake-summary", Static).content
+        )
+        assert "scope: apps/web" in str(
             start.query_one("#project-intake-summary", Static).content
         )
         assert str(start.query_one("#project-plan-preview", Static).content) == ""

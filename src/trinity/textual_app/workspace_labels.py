@@ -72,6 +72,7 @@ PROJECT_INTAKE_LABELS = {
         "first_milestone": "milestone",
         "project_type": "type",
         "read_first": "read first",
+        "selected_scope": "scope",
         "scope_candidates": "scopes",
         "source_roots": "src",
         "stack_preferences": "stack",
@@ -123,6 +124,7 @@ PROJECT_INTAKE_LABELS = {
         "first_milestone": "마일스톤",
         "project_type": "유형",
         "read_first": "먼저 읽기",
+        "selected_scope": "선택 범위",
         "scope_candidates": "범위",
         "source_roots": "소스",
         "stack_preferences": "스택",
@@ -659,6 +661,7 @@ def _format_project_intake_label(
         if values:
             parts.append(_format_project_intake_section(labels[label_key], values))
     for label_key, values in (
+        ("selected_scope", (intake.selected_scope,) if intake.selected_scope else ()),
         ("scope_candidates", intake.scope_candidates),
         ("dev", intake.dev_commands),
         ("build", intake.build_commands),

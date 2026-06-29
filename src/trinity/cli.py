@@ -1685,13 +1685,29 @@ def _project_scope_choice_command(intake: ProjectIntake) -> str:
 
 
 def _project_scope_choice_lines(intake: ProjectIntake) -> list[str]:
-    command = _project_scope_choice_command(intake)
-    if not command:
+    if not _project_scope_choice_required(intake):
         return []
+    target = _project_human_cli_target(intake.target_workspace)
+    command = " ".join(
+        [
+            "trinity project analyze",
+            _quote_cli_arg(target),
+            "--scope",
+            "<scope>",
+        ]
+    )
     return [
         f"  {command}",
         f"    choose one of: {_csv_or_none(intake.scope_candidates)}",
     ]
+
+
+def _project_human_cli_target(target: Path) -> str:
+    """Return a compact target path for human-facing CLI examples."""
+    try:
+        return target.resolve().relative_to(Path.cwd().resolve()).as_posix()
+    except (OSError, ValueError):
+        return str(target)
 
 
 def _project_brief_completion_command(intake: ProjectIntake) -> str:

@@ -1213,7 +1213,10 @@ class DeliberationProtocol:
                 "- The Trinity control repository is orchestration state unless "
                 "it was explicitly selected as the target workspace."
             )
-        intake_block = project_intake_prompt_block(self.shared.path.parent)
+        intake_block = project_intake_prompt_block(
+            self.shared.path.parent,
+            target_workspace=self.target_workspace,
+        )
         if intake_block:
             blocks.append(intake_block)
         if not blocks:

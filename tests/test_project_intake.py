@@ -26,6 +26,7 @@ from trinity.project_intake import (
     suggest_test_commands,
     write_project_intake,
 )
+from trinity.workflow.engine import WorkflowEngine
 
 
 def _run_git(tmp_path: Path, *args: str) -> None:
@@ -508,6 +509,78 @@ def test_project_intake_prompt_block_includes_existing_project_guidance(
     assert "- Selected scope: apps/web" in block
     assert "Use recorded brief fields as user intent" in block
     assert "- Docs found: README.md" in block
+
+
+def test_project_intake_prompt_block_guards_mismatched_target(tmp_path) -> None:
+    saved_target = tmp_path / "saved-app"
+    selected_target = tmp_path / "selected-app"
+    saved_target.mkdir()
+    selected_target.mkdir()
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=saved_target,
+            product_goal="Improve saved app onboarding.",
+            selected_scope="apps/web",
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    block = project_intake_prompt_block(state, target_workspace=selected_target)
+
+    assert "Saved project intake target does not match" in block
+    assert f"- Selected target workspace: {selected_target.resolve()}" in block
+    assert f"- Saved intake target: {saved_target.resolve()}" in block
+    assert f"trinity project analyze {selected_target.resolve()}" in block
+    assert "Improve saved app onboarding." not in block
+    assert "- Selected scope: apps/web" not in block
+
+
+def test_project_intake_prompt_block_keeps_matching_target(tmp_path) -> None:
+    target = tmp_path / "customer-app"
+    target.mkdir()
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            product_goal="Improve customer onboarding.",
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    block = project_intake_prompt_block(state, target_workspace=target)
+
+    assert "Saved project intake target does not match" not in block
+    assert "Improve customer onboarding." in block
+    assert "- Target workspace:" in block
+
+
+def test_central_prompt_uses_target_aware_project_intake_block(tmp_path) -> None:
+    saved_target = tmp_path / "saved-app"
+    selected_target = tmp_path / "selected-app"
+    saved_target.mkdir()
+    selected_target.mkdir()
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=saved_target,
+            product_goal="Improve saved app onboarding.",
+        ),
+    )
+    engine = WorkflowEngine(state_dir=state)
+    engine.set_target_workspace(selected_target)
+
+    prompt_block = engine._central_flow()._target_workspace_prompt_block()
+
+    assert "Target Workspace Context" in prompt_block
+    assert "Saved project intake target does not match" in prompt_block
+    assert "Improve saved app onboarding." not in prompt_block
 
 
 def test_project_intake_prompt_block_includes_incomplete_new_project_guidance(

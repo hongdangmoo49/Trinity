@@ -371,8 +371,15 @@ def project_intake_prompt_block(
     state_dir: Path,
     *,
     max_chars: int = PROJECT_INTAKE_PROMPT_MAX_CHARS,
+    target_workspace: object | None = None,
 ) -> str:
     """Return the project intake context block for provider prompts."""
+    stale_guard = project_intake_target_guard_block(
+        state_dir,
+        target_workspace=target_workspace,
+    )
+    if stale_guard:
+        return stale_guard
     markdown = load_project_intake_markdown(state_dir, max_chars=max_chars)
     if not markdown:
         return ""
@@ -382,6 +389,39 @@ def project_intake_prompt_block(
         sections.append(guidance)
     sections.append(markdown)
     return "\n".join(sections)
+
+
+def project_intake_target_guard_block(
+    state_dir: Path,
+    *,
+    target_workspace: object | None,
+) -> str:
+    """Return stale-intake guidance when saved intake targets another workspace."""
+    target = _project_intake_target_path(target_workspace)
+    if target is None:
+        return ""
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return ""
+    if intake is None:
+        return ""
+    saved_target = _safe_resolve(intake.target_workspace)
+    if saved_target == target:
+        return ""
+    return "\n".join(
+        [
+            "Project Intake Context:",
+            "Project Intake Guidance:",
+            (
+                "- Saved project intake target does not match the selected "
+                "target workspace; do not use saved intake as project facts."
+            ),
+            f"- Selected target workspace: {target}",
+            f"- Saved intake target: {saved_target}",
+            f"- Refresh before broad edits: trinity project analyze {target}",
+        ]
+    )
 
 
 def project_intake_guidance_block(state_dir: Path) -> str:
@@ -888,6 +928,13 @@ def _safe_resolve(path: Path) -> Path:
         return path.expanduser().resolve()
     except OSError:
         return path.expanduser().absolute()
+
+
+def _project_intake_target_path(target_workspace: object | None) -> Path | None:
+    text = str(target_workspace or "").strip()
+    if not text:
+        return None
+    return _safe_resolve(Path(text))
 
 
 def _utc_now_iso() -> str:

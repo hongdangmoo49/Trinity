@@ -85,6 +85,7 @@ WORKSPACE_PICKER_LABELS = {
         ),
         "provider_readiness": "Provider readiness",
         "select_workspace_title": "Select Workspace",
+        "selected_scope": "Selected scope",
         "target_workspace_path": "Target workspace path",
         "not_git_repo": "not a git repo",
         "project_intake_safety": "Project intake safety",
@@ -157,6 +158,7 @@ WORKSPACE_PICKER_LABELS = {
         "path_exists_not_directory": "경로가 이미 있고 디렉터리가 아닙니다: {path}",
         "provider_readiness": "프로바이더 준비",
         "select_workspace_title": "작업 폴더 선택",
+        "selected_scope": "선택 범위",
         "target_workspace_path": "작업 폴더 경로",
         "not_git_repo": "Git 저장소 아님",
         "project_intake_safety": "프로젝트 인테이크 안전",
@@ -201,6 +203,7 @@ class WorkspacePreflight:
     created: bool = False
     new_project_candidate: bool = False
     intake_safety_warnings: tuple[str, ...] = ()
+    selected_scope: str = ""
 
     @property
     def can_execute(self) -> bool:
@@ -230,26 +233,30 @@ class WorkspacePreflight:
         dirty_worktree = self._dirty_worktree_label(lang=lang)
         intake_safety = self._intake_safety_label(lang=lang)
         execute_ack = self._execute_ack_label(lang=lang)
-        return "\n".join(
-            [
-                f"{_label(lang, 'path')}: {self.path}",
-                f"{_label(lang, 'workspace_intent')}: {self._workspace_intent_label(lang=lang)}",
-                f"{_label(lang, 'exists')}: {self.exists}",
-                f"{_label(lang, 'directory')}: {self.is_dir}",
-                f"{_label(lang, 'writable')}: {self.writable}",
-                f"{_label(lang, 'git_repo')}: {self.git_repo}",
-                f"{_label(lang, 'creatable')}: {self.creatable}",
-                f"{_label(lang, 'branch')}: {branch}",
-                f"{_label(lang, 'dirty_worktree')}: {dirty_worktree}",
-                f"{_label(lang, 'project_intake_safety')}: {intake_safety}",
-                f"{_label(lang, 'execute_ack')}: {execute_ack}",
-                (
-                    f"{_label(lang, 'provider_readiness')}: "
-                    f"{_label(lang, 'current_session_snapshot')}"
-                ),
-                f"{_label(lang, 'work_packages')}: {self.package_count}",
-            ]
-        )
+        lines = [
+            f"{_label(lang, 'path')}: {self.path}",
+            f"{_label(lang, 'workspace_intent')}: {self._workspace_intent_label(lang=lang)}",
+            f"{_label(lang, 'exists')}: {self.exists}",
+            f"{_label(lang, 'directory')}: {self.is_dir}",
+            f"{_label(lang, 'writable')}: {self.writable}",
+            f"{_label(lang, 'git_repo')}: {self.git_repo}",
+            f"{_label(lang, 'creatable')}: {self.creatable}",
+            f"{_label(lang, 'branch')}: {branch}",
+            f"{_label(lang, 'dirty_worktree')}: {dirty_worktree}",
+            f"{_label(lang, 'project_intake_safety')}: {intake_safety}",
+            f"{_label(lang, 'execute_ack')}: {execute_ack}",
+            (
+                f"{_label(lang, 'provider_readiness')}: "
+                f"{_label(lang, 'current_session_snapshot')}"
+            ),
+            f"{_label(lang, 'work_packages')}: {self.package_count}",
+        ]
+        if self.selected_scope.strip():
+            lines.insert(
+                2,
+                f"{_label(lang, 'selected_scope')}: {self.selected_scope.strip()}",
+            )
+        return "\n".join(lines)
 
     def _branch_label(self, *, lang: str = "en") -> str:
         raw = str(self.branch or "").strip()
@@ -884,6 +891,10 @@ def build_preflight(
             new_project_candidate=new_project_candidate,
             today=today,
         ),
+        selected_scope=_project_intake_selected_scope(
+            project_intake_state_dir,
+            resolved,
+        ),
     )
 
 
@@ -936,6 +947,24 @@ def _project_intake_safety_warnings(
     if existing_project_intake_drift_fields(intake, target, live_git=live_git):
         warnings.append("changed_project_intake")
     return tuple(warnings)
+
+
+def _project_intake_selected_scope(
+    state_dir: Path | None,
+    target: Path,
+) -> str:
+    """Return the saved existing-project scope for a matching preflight target."""
+    if state_dir is None:
+        return ""
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return ""
+    if intake is None or intake.mode != "existing":
+        return ""
+    if not _same_resolved_path(target, intake.target_workspace):
+        return ""
+    return intake.selected_scope.strip()
 
 
 def _new_project_candidate_warnings(new_project_candidate: bool) -> tuple[str, ...]:

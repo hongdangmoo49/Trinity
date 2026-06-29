@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import subprocess
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -12967,6 +12968,7 @@ async def test_nexus_execute_requests_execution_when_target_is_selected(
 ) -> None:
     target = tmp_path / "target-app"
     target.mkdir()
+    (target / "README.md").write_text("# Target\n", encoding="utf-8")
     controller = FakeWorkflowController(
         WorkflowNexusSnapshot(
             session_id="wf-fake",
@@ -13004,12 +13006,71 @@ async def test_nexus_execute_requests_execution_when_target_is_selected(
         assert "Target workspace" in str(
             app.screen.query_one("#execution-confirm-summary", Static).content
         )
+        assert "Risks: none" in str(
+            app.screen.query_one("#execution-confirm-summary", Static).content
+        )
 
         app.screen.action_confirm()
         await pilot.pause()
 
         assert controller.execution_requests == 1
         assert controller.execution_instructions == [""]
+
+
+@pytest.mark.asyncio
+async def test_nexus_execute_confirmation_shows_workspace_risks(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target-app"
+    control_repo.mkdir()
+    target.mkdir()
+    subprocess.run(
+        ["git", "init"],
+        cwd=target,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    intake = build_project_intake(
+        mode="existing",
+        target_workspace=target,
+        created_at="2000-01-01T00:00:00Z",
+    )
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    write_project_intake(config.effective_state_dir, intake)
+    (target / "scratch.txt").write_text("pending work\n", encoding="utf-8")
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            state="blueprint_ready",
+            target_workspace=str(target),
+            work_package_details=[
+                WorkPackageSnapshot(
+                    id="WP-001",
+                    title="Build CLI",
+                    owner_agent="codex",
+                    status="pending",
+                )
+            ],
+        )
+    )
+    app = TrinityTextualApp(config, controller, launch_cwd=target)
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        await pilot.click("#request-execute")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ExecutionConfirmModal)
+        summary = str(
+            app.screen.query_one("#execution-confirm-summary", Static).content
+        )
+        assert "Risks: dirty Git workspace" in summary
+        assert "1 untracked" in summary
+        assert "stale project intake" in summary
 
 
 @pytest.mark.asyncio

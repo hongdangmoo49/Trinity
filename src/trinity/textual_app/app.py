@@ -623,6 +623,48 @@ def _project_brief_draft_from_intake(intake: ProjectIntake) -> ProjectBriefDraft
     )
 
 
+def _execution_confirmation_risk_items_from_preflight(
+    preflight: WorkspacePreflight,
+    *,
+    lang: str,
+) -> tuple[str, ...]:
+    items: list[str] = []
+    if preflight.requires_dirty_execute_ack:
+        changed = preflight.changed_count or 0
+        untracked = preflight.untracked_count or 0
+        if lang == "ko":
+            items.append(
+                f"변경사항이 있는 Git 작업 폴더(변경 {changed}, 미추적 {untracked})"
+            )
+        else:
+            items.append(
+                f"dirty Git workspace ({changed} changed, {untracked} untracked)"
+            )
+    items.extend(
+        _execution_confirmation_intake_risk_label(warning, lang=lang)
+        for warning in preflight.intake_safety_warnings
+    )
+    return tuple(dict.fromkeys(item for item in items if item.strip()))
+
+
+def _execution_confirmation_intake_risk_label(warning: str, *, lang: str) -> str:
+    labels = {
+        "en": {
+            "changed_project_intake": "changed project intake",
+            "missing_new_project_brief": "incomplete new-project brief",
+            "sparse_project_intake": "sparse project intake",
+            "stale_project_intake": "stale project intake",
+        },
+        "ko": {
+            "changed_project_intake": "변경된 프로젝트 인테이크",
+            "missing_new_project_brief": "불완전한 새 프로젝트 브리프",
+            "sparse_project_intake": "부족한 프로젝트 인테이크",
+            "stale_project_intake": "오래된 프로젝트 인테이크",
+        },
+    }.get(lang, {})
+    return labels.get(warning, warning)
+
+
 def _is_directory(path: Path) -> bool:
     try:
         return path.is_dir()
@@ -2385,6 +2427,7 @@ class TrinityTextualApp(App[None]):
                 snapshot.target_workspace
             ),
             instruction=instruction,
+            risk_items=self._execution_confirmation_risk_items(snapshot),
         )
         self.push_screen(
             ExecutionConfirmModal(summary, lang=self.config.lang),
@@ -2474,6 +2517,23 @@ class TrinityTextualApp(App[None]):
             except OSError:
                 return labels.get("mismatch", "target mismatch")
         return labels.get(intake.mode, intake.mode)
+
+    def _execution_confirmation_risk_items(
+        self,
+        snapshot: WorkflowNexusSnapshot,
+    ) -> tuple[str, ...]:
+        target = str(snapshot.target_workspace or "").strip()
+        if not target:
+            return ()
+        preflight = build_preflight(
+            Path(target),
+            snapshot,
+            project_intake_state_dir=self.config.effective_state_dir,
+        )
+        return _execution_confirmation_risk_items_from_preflight(
+            preflight,
+            lang=self.config.lang,
+        )
 
     def _open_workspace_picker(
         self,

@@ -82,6 +82,7 @@ PROJECT_INTAKE_LABELS = {
         "starter_profile": "starter",
         "success_criteria": "success",
         "summary": "Project intake: {mode}",
+        "target": "target",
         "target_missing": "target missing: {target}",
         "target_users": "users",
         "target_mismatch": "target mismatch: intake {target}",
@@ -135,6 +136,7 @@ PROJECT_INTAKE_LABELS = {
         "starter_profile": "스타터",
         "success_criteria": "성공",
         "summary": "프로젝트 인테이크: {mode}",
+        "target": "대상",
         "target_missing": "대상 없음: {target}",
         "target_users": "사용자",
         "target_mismatch": "대상 불일치: 인테이크 {target}",
@@ -1137,6 +1139,9 @@ def _format_project_intake_label(
     parts = [
         labels["summary"].format(mode=mode),
     ]
+    target_name = _format_project_intake_target_name(intake.target_workspace)
+    if target_name:
+        parts.append(f"{labels['target']}: {target_name}")
     mismatch = _format_project_intake_target_mismatch(
         intake,
         target_workspace,
@@ -1681,6 +1686,18 @@ def _format_project_intake_target(target: object | None) -> str:
         escaped = text.replace('"', r"\"")
         return f'"{escaped}"'
     return text
+
+
+def _format_project_intake_target_name(target: object | None) -> str:
+    text = str(target or "").strip()
+    if not text:
+        return ""
+    normalized = text.rstrip("\\/")
+    if "\\" in normalized:
+        name = normalized.replace("\\", "/").split("/")[-1]
+    else:
+        name = Path(normalized).name
+    return _format_project_intake_text(name or text, max_chars=40)
 
 
 def _format_project_intake_target_mismatch(

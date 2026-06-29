@@ -71,6 +71,7 @@ from trinity.textual_app.workspace_labels import (
     project_analyze_action_variant,
     project_brief_action_variant,
     project_create_action_variant,
+    project_start_choice_guide_label,
 )
 from trinity.updater import (
     StartupUpdate,
@@ -1020,7 +1021,12 @@ def project_status(json_output: bool, refresh: bool) -> None:
             paths=paths,
         )
         return
-    _display_project_status(intake, refreshed=refresh, paths=paths)
+    _display_project_status(
+        intake,
+        state_dir=config.effective_state_dir,
+        refreshed=refresh,
+        paths=paths,
+    )
 
 
 def _refresh_project_intake(
@@ -1235,6 +1241,14 @@ def _project_status_payload(
     return {
         "project_intake": {
             "summary": format_project_intake_label(intake),
+            "project_start_guide": (
+                project_start_choice_guide_label(
+                    state_dir,
+                    target_workspace=intake.target_workspace,
+                )
+                if state_dir is not None
+                else ""
+            ),
             "generation_preview": format_project_generation_preview_label(
                 intake,
                 target_workspace=intake.target_workspace,
@@ -1467,6 +1481,7 @@ def _project_intake_paths_payload(
 def _display_project_status(
     intake: ProjectIntake,
     *,
+    state_dir: Path | None = None,
     refreshed: bool = False,
     paths: ProjectIntakePaths | None = None,
 ) -> None:
@@ -1499,6 +1514,17 @@ def _display_project_status(
         "[green]Project intake active.[/green]",
         f"Summary: {format_project_intake_label(intake)}",
     ]
+    if state_dir is not None:
+        lines.extend(
+            [
+                "Start guide:",
+                "  "
+                + project_start_choice_guide_label(
+                    state_dir,
+                    target_workspace=intake.target_workspace,
+                ),
+            ]
+        )
     generation_preview = format_project_generation_preview_label(
         intake,
         target_workspace=intake.target_workspace,

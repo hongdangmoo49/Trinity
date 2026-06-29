@@ -32,7 +32,11 @@ from trinity.project_intake import (
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import COMMAND_SPECS, SESSION_ONLY_SETTING_NOTICE
 from trinity.textual_app import app as textual_app_module
-from trinity.textual_app.app import TrinityTextualApp, initial_start_prompt
+from trinity.textual_app.app import (
+    TrinityTextualApp,
+    initial_start_prompt,
+    initial_workspace_candidate,
+)
 from trinity.textual_app.presenters import (
     agent_change_action_hint,
     agent_current_settings_markdown,
@@ -3623,6 +3627,51 @@ async def test_start_screen_prefers_project_intake_target_workspace(
         assert controller.target_workspace == target_workspace.resolve()
         assert app.confirmed_preflight is not None
         assert app.confirmed_preflight.path == target_workspace.resolve()
+
+
+def test_initial_workspace_candidate_prefers_saved_target_from_control_repo(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target_workspace = tmp_path / "customer-app"
+    control_repo.mkdir()
+    target_workspace.mkdir()
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target_workspace,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert (
+        initial_workspace_candidate(config, control_repo)
+        == target_workspace.resolve()
+    )
+
+
+def test_initial_workspace_candidate_prefers_distinct_launch_cwd(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    saved_target = tmp_path / "saved-app"
+    launch_cwd = tmp_path / "launch-app"
+    control_repo.mkdir()
+    saved_target.mkdir()
+    launch_cwd.mkdir()
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=saved_target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert initial_workspace_candidate(config, launch_cwd) == launch_cwd
 
 
 def test_initial_start_prompt_uses_same_target_project_goal(tmp_path) -> None:

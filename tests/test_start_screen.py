@@ -110,6 +110,7 @@ def test_start_and_nexus_project_actions_use_mode_specific_labels(
     assert start._label("continue_setup") == "Continue Setup"
     assert start._label("create_project") == "Create New"
     assert nexus._label("analyze_workspace") == "Analyze Existing"
+    assert nexus._label("continue_setup") == "Continue Setup"
     assert nexus._label("create_project") == "Create New"
     assert start._label("refresh_analysis") == "Refresh Analysis"
     assert nexus._label("refresh_analysis") == "Refresh Analysis"
@@ -119,6 +120,7 @@ def test_start_and_nexus_project_actions_use_mode_specific_labels(
     assert ko_start._label("continue_setup") == "설정 계속"
     assert ko_start._label("create_project") == "새 프로젝트 생성"
     assert ko_nexus._label("analyze_workspace") == "기존 프로젝트 분석"
+    assert ko_nexus._label("continue_setup") == "설정 계속"
     assert ko_nexus._label("create_project") == "새 프로젝트 생성"
     assert ko_start._label("refresh_analysis") == "분석 갱신"
     assert ko_nexus._label("refresh_analysis") == "분석 갱신"
@@ -167,6 +169,71 @@ def test_start_project_setup_next_action_tracks_project_state(
 
     new_target = tmp_path / "new-app"
     screen.workspace_candidate = new_target
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="new",
+            target_workspace=new_target,
+            product_goal="Build app.",
+            created_at=date.today().isoformat(),
+        ),
+    )
+    assert screen._project_setup_next_action() == "create"
+
+    new_target.mkdir()
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="new",
+            target_workspace=new_target,
+            product_goal="Build app.",
+            created_at=date.today().isoformat(),
+        ),
+    )
+    assert screen._project_setup_next_action() == "brief"
+
+
+def test_nexus_project_setup_next_action_tracks_project_state(
+    tmp_path: Path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    target = tmp_path / "customer-app"
+    target.mkdir()
+
+    screen = NexusScreen(config)
+    assert screen._project_setup_next_action() == "workspace"
+
+    screen.set_workspace_candidate(target)
+    assert screen._project_setup_next_action() == "analyze"
+
+    (target / "README.md").write_text("# Customer App\n", encoding="utf-8")
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at=date.today().isoformat(),
+        ),
+    )
+    assert screen._project_setup_next_action() == "execute"
+
+    (target / "apps" / "web").mkdir(parents=True)
+    (target / "apps" / "web" / "package.json").write_text(
+        "{}",
+        encoding="utf-8",
+    )
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at=date.today().isoformat(),
+        ),
+    )
+    assert screen._project_setup_next_action() == "analyze"
+
+    new_target = tmp_path / "new-app"
+    screen.set_workspace_candidate(new_target)
     write_project_intake(
         config.effective_state_dir,
         build_project_intake(
@@ -2265,6 +2332,9 @@ async def test_nexus_screen_shows_project_intake_summary(tmp_path: Path) -> None
             "프로젝트 인테이크: 기존 | 대상: customer-app | "
             "갱신: 2026-06-28 | 테스트: uv run pytest | git: 없음"
         )
+        assert str(
+            screen.query_one("#nexus-continue-project-setup", Button).label
+        ) == "설정 계속"
         assert str(
             screen.query_one("#nexus-project-start-choice-guide", Static).content
         ) == (

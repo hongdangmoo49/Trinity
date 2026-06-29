@@ -30,6 +30,7 @@ from trinity.textual_app.ask_commands import (
     StartSubmissionEffect,
     ask_command_action,
     ask_command_run_effect,
+    nexus_follow_up_target_workspace,
     run_ask_command,
     start_submission_effect,
 )
@@ -1892,6 +1893,17 @@ class TrinityTextualApp(App[None]):
         event: NexusScreen.FollowUpSubmitted,
     ) -> None:
         event.stop()
+        target = nexus_follow_up_target_workspace(
+            self.active_snapshot
+            or self.workflow_controller.snapshot()
+            or self.snapshot_adapter.load_snapshot(),
+            self.workspace_candidate,
+            self.config.project_dir,
+        )
+        if target is not None:
+            target_outcome = self.workflow_controller.set_target_workspace(target)
+            self._remember_confirmed_target_preflight(target, target_outcome.snapshot)
+            self._set_workspace_candidate(target, sync_start=True)
         outcome = call_controller_method(
             self.workflow_controller.submit_follow_up,
             event.text,

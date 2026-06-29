@@ -286,6 +286,7 @@ class FakeWorkflowController:
         self.follow_ups: list[str] = []
         self.follow_up_targets: list[tuple[str, ...]] = []
         self.follow_up_models: list[dict[str, str]] = []
+        self.follow_up_workspaces: list[Path | None] = []
         self.answers: list[tuple[str, str, bool]] = []
         self.option_answers: list[tuple[str, str, bool]] = []
         self.answer_outcome: TextualWorkflowOutcome | None = None
@@ -350,11 +351,13 @@ class FakeWorkflowController:
         self.follow_ups.append(text)
         self.follow_up_targets.append(tuple(target_agents))
         self.follow_up_models.append(dict(agent_model_overrides or {}))
+        self.follow_up_workspaces.append(self.target_workspace)
         self.current_snapshot = WorkflowNexusSnapshot(
             session_id="wf-fake",
             goal=self.current_snapshot.goal,
             state="deliberating",
             work_packages=[f"follow-up: {text}"],
+            target_workspace=str(self.target_workspace or ""),
         )
         return TextualWorkflowOutcome(self.current_snapshot)
 
@@ -7460,6 +7463,34 @@ async def test_nexus_follow_up_stays_in_current_workflow(tmp_path) -> None:
         assert controller.follow_up_targets == [("claude",)]
         assert screen.snapshot is not None
         assert "follow-up: 이어서 검토해줘" in screen.snapshot.work_packages
+
+
+@pytest.mark.asyncio
+async def test_nexus_follow_up_syncs_visible_workspace_before_submit(tmp_path) -> None:
+    controller = FakeWorkflowController()
+    control_repo = tmp_path / "Trinity"
+    target_workspace = tmp_path / "msu"
+    control_repo.mkdir()
+    target_workspace.mkdir()
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    app = TrinityTextualApp(config, controller, launch_cwd=control_repo)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        app._set_workspace_candidate(target_workspace, sync_nexus=True)
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("프로젝트를 분석해라.")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.target_workspace == target_workspace
+        assert controller.follow_up_workspaces == [target_workspace]
+        assert controller.follow_ups == ["프로젝트를 분석해라."]
 
 
 @pytest.mark.asyncio

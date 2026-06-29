@@ -12,11 +12,7 @@ from textual.widgets import Button, Footer, Header, Static
 
 from trinity.config import TrinityConfig
 from trinity.models import AgentSpec
-from trinity.project_intake import (
-    ProjectIntake,
-    load_project_intake,
-    missing_new_project_brief_field_keys,
-)
+from trinity.textual_app.project_start_runtime import project_setup_next_action
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
@@ -785,48 +781,12 @@ class NexusScreen(Screen[None]):
         )
 
     def _project_setup_next_action(self) -> str:
-        if not self._current_workspace_text():
-            return "workspace"
-        try:
-            intake = load_project_intake(self.config.effective_state_dir)
-        except ValueError:
-            return "analyze"
-        if intake is None or not self._intake_matches_workspace(intake):
-            return "analyze"
-        if intake.mode == "new":
-            if self._intake_target_missing(intake):
-                return "create"
-            if missing_new_project_brief_field_keys(intake):
-                return "brief"
-            return "execute"
-        analyze_action = self._project_analyze_action_presentation()
-        if analyze_action.variant == "warning":
-            return "analyze"
-        if intake.scope_candidates and not intake.selected_scope.strip():
-            return "analyze"
-        return "execute"
-
-    def _intake_matches_workspace(self, intake: ProjectIntake) -> bool:
-        target = self._current_workspace_text()
-        if not target:
-            return True
-        try:
-            return (
-                Path(target).expanduser().resolve()
-                == intake.target_workspace.expanduser().resolve()
-            )
-        except OSError:
-            return (
-                Path(target).expanduser().absolute()
-                == intake.target_workspace.expanduser().absolute()
-            )
-
-    @staticmethod
-    def _intake_target_missing(intake: ProjectIntake) -> bool:
-        try:
-            return not intake.target_workspace.exists()
-        except OSError:
-            return True
+        return project_setup_next_action(
+            self.config.effective_state_dir,
+            self._current_workspace_text(),
+            ready_action="execute",
+            analyze_variant=self._project_analyze_action_presentation().variant,
+        )
 
     def _project_intake_label(self) -> str:
         return project_intake_state_label(

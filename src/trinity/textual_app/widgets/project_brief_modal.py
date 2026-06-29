@@ -24,6 +24,8 @@ PROJECT_BRIEF_LABELS = {
         "project_type": "Project type",
         "project_type_placeholder": "SaaS dashboard, CLI tool, mobile app",
         "save": "Save Brief",
+        "selected_scope": "Selected scope",
+        "selected_scope_placeholder": "apps/web, packages/core",
         "stack": "Stack preferences",
         "stack_placeholder": "python, textual, sqlite",
         "success": "Success criteria",
@@ -46,6 +48,8 @@ PROJECT_BRIEF_LABELS = {
         "project_type": "프로젝트 유형",
         "project_type_placeholder": "SaaS 대시보드, CLI 도구, 모바일 앱",
         "save": "브리프 저장",
+        "selected_scope": "선택 범위",
+        "selected_scope_placeholder": "apps/web, packages/core",
         "stack": "선호 스택",
         "stack_placeholder": "python, textual, sqlite",
         "success": "성공 기준",
@@ -69,6 +73,7 @@ class ProjectBriefDraft:
     stack_preferences: tuple[str, ...] = ()
     first_milestone: str = ""
     constraints: tuple[str, ...] = ()
+    selected_scope: str = ""
     notes: str = ""
 
 
@@ -142,11 +147,13 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
         *,
         lang: str = "en",
         target_workspace: str = "",
+        mode: str = "existing",
     ) -> None:
         super().__init__()
         self.draft = draft or ProjectBriefDraft()
         self.lang = lang
         self.target_workspace = target_workspace.strip()
+        self.mode = mode
 
     def compose(self) -> ComposeResult:
         with Vertical(id="project-brief-modal"):
@@ -191,6 +198,12 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
                 "project-brief-constraints",
                 _join_values(self.draft.constraints),
             )
+            if self.mode == "existing":
+                yield from self._input_row(
+                    "selected_scope",
+                    "project-brief-selected-scope",
+                    self.draft.selected_scope,
+                )
             yield from self._input_row(
                 "notes",
                 "project-brief-notes",
@@ -232,6 +245,11 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
             stack_preferences=_split_values(self._input_value("#project-brief-stack")),
             first_milestone=self._input_value("#project-brief-milestone"),
             constraints=_split_values(self._input_value("#project-brief-constraints")),
+            selected_scope=(
+                self._input_value("#project-brief-selected-scope")
+                if self.mode == "existing"
+                else self.draft.selected_scope
+            ),
             notes=self._input_value("#project-brief-notes"),
         )
 

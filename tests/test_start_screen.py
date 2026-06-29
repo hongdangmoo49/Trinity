@@ -381,12 +381,22 @@ def test_project_intake_state_label_includes_scope_candidates(
         build_project_intake(
             mode="existing",
             target_workspace=target,
+            selected_scope="apps/web",
             created_at="2026-06-28T00:00:00Z",
         ),
     )
 
+    assert "scope: apps/web" in project_intake_state_label(
+        state,
+        today=date(2026, 6, 28),
+    )
     assert "scopes: apps/web, packages/core" in project_intake_state_label(
         state,
+        today=date(2026, 6, 28),
+    )
+    assert "선택 범위: apps/web" in project_intake_state_label(
+        state,
+        lang="ko",
         today=date(2026, 6, 28),
     )
     assert "범위: apps/web, packages/core" in project_intake_state_label(

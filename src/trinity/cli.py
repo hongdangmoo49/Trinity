@@ -905,6 +905,12 @@ def project_new(
     multiple=True,
     help="Project constraint to store in intake. Repeat or comma-separate.",
 )
+@click.option(
+    "--scope",
+    "selected_scope",
+    default="",
+    help="Existing-project relative work scope to store in project intake.",
+)
 @click.option("--notes", default="", help="Optional notes to store in project intake.")
 def project_analyze(
     path: Path | None,
@@ -916,6 +922,7 @@ def project_analyze(
     stack_preferences: tuple[str, ...],
     first_milestone: str,
     constraints: tuple[str, ...],
+    selected_scope: str,
     notes: str,
 ) -> None:
     """Analyze a target workspace and write project intake artifacts."""
@@ -937,6 +944,7 @@ def project_analyze(
         stack_preferences=_split_option_values(stack_preferences),
         first_milestone=first_milestone,
         constraints=_split_option_values(constraints),
+        selected_scope=selected_scope,
         notes=notes,
     )
     paths = write_project_intake(config.effective_state_dir, intake)
@@ -998,6 +1006,7 @@ def _refresh_project_intake(
         stack_preferences=intake.stack_preferences,
         first_milestone=intake.first_milestone,
         constraints=intake.constraints,
+        selected_scope=intake.selected_scope,
         notes=intake.notes,
     )
     paths = write_project_intake(config.effective_state_dir, refreshed)
@@ -1101,6 +1110,7 @@ def _display_project_intake_summary(
             f"Untracked count: {_unknown_if_none(intake.untracked_count)}",
             f"Package managers: {_csv_or_none(intake.package_managers)}",
             f"Test commands: {_csv_or_none(intake.test_commands)}",
+            f"Selected scope: {_text_or_none(intake.selected_scope)}",
             *_project_brief_readiness_lines(intake),
             *_project_brief_lines(intake),
             "",
@@ -1204,6 +1214,7 @@ def _project_status_payload(
             "package_managers": list(intake.package_managers),
             "test_commands": list(intake.test_commands),
             "scope_candidates": list(intake.scope_candidates),
+            "selected_scope": intake.selected_scope,
             "brief_readiness": _project_brief_readiness_payload(intake),
             "readiness": _project_intake_readiness_payload(
                 intake,
@@ -1462,6 +1473,7 @@ def _display_project_status(
             f"  Package managers: {_csv_or_none(intake.package_managers)}",
             f"  Test commands: {_csv_or_none(intake.test_commands)}",
             f"  Scope candidates: {_csv_or_none(intake.scope_candidates)}",
+            f"  Selected scope: {_text_or_none(intake.selected_scope)}",
             *_project_brief_readiness_status_lines(intake),
             *_project_brief_status_lines(intake),
             "",
@@ -1492,6 +1504,11 @@ def _unknown_if_none(value: int | None) -> str:
 
 def _csv_or_none(values: tuple[str, ...]) -> str:
     return ", ".join(values) if values else "(none)"
+
+
+def _text_or_none(value: str) -> str:
+    text = value.strip()
+    return text if text else "(none)"
 
 
 def _split_option_values(values: tuple[str, ...]) -> tuple[str, ...]:

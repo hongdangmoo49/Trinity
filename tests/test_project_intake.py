@@ -177,6 +177,7 @@ def test_build_project_intake_normalizes_metadata(tmp_path) -> None:
         stack_preferences=["python", "textual", "python"],
         first_milestone="Show project intake state.",
         constraints=["read-only analysis", "read-only analysis"],
+        selected_scope=" apps/web ",
         notes="Review before write.",
         created_at="2026-06-28T00:00:00Z",
     )
@@ -192,6 +193,7 @@ def test_build_project_intake_normalizes_metadata(tmp_path) -> None:
     assert intake.entrypoints == ()
     assert intake.source_roots == ()
     assert intake.scope_candidates == ()
+    assert intake.selected_scope == "apps/web"
     assert intake.docs_found == ()
     assert intake.product_goal == "Ship a workflow dashboard."
     assert intake.project_type == "developer tool"
@@ -353,6 +355,7 @@ def test_write_project_intake_writes_json_and_markdown(tmp_path) -> None:
     assert data["entrypoints"] == []
     assert data["source_roots"] == []
     assert data["scope_candidates"] == []
+    assert data["selected_scope"] == ""
     assert data["docs_found"] == []
     assert data["product_goal"] == "Build a terminal snake game."
     assert data["project_type"] == "terminal game"
@@ -371,6 +374,7 @@ def test_write_project_intake_writes_json_and_markdown(tmp_path) -> None:
     assert "- Dev commands: (none)" in markdown
     assert "- Entrypoints: (none)" in markdown
     assert "- Scope candidates: (none)" in markdown
+    assert "- Selected scope: (none)" in markdown
     assert "## Brief" in markdown
     assert "- Product goal: Build a terminal snake game." in markdown
     assert "- Project type: terminal game" in markdown
@@ -401,6 +405,7 @@ def test_load_project_intake_reads_persisted_json(tmp_path) -> None:
     assert loaded.entrypoints == ()
     assert loaded.source_roots == ()
     assert loaded.scope_candidates == ()
+    assert loaded.selected_scope == ""
     assert loaded.docs_found == ()
     assert loaded.product_goal == ""
     assert loaded.project_type == ""
@@ -440,6 +445,7 @@ def test_load_project_intake_accepts_legacy_profile_fields_missing(tmp_path) -> 
     assert loaded.entrypoints == ()
     assert loaded.source_roots == ()
     assert loaded.scope_candidates == ()
+    assert loaded.selected_scope == ""
     assert loaded.docs_found == ()
     assert loaded.product_goal == ""
     assert loaded.project_type == ""
@@ -480,6 +486,7 @@ def test_project_intake_prompt_block_includes_existing_project_guidance(
             mode="existing",
             target_workspace=target,
             product_goal="Improve customer onboarding.",
+            selected_scope="apps/web",
             created_at="2026-06-28T00:00:00Z",
         ),
     )
@@ -489,8 +496,10 @@ def test_project_intake_prompt_block_includes_existing_project_guidance(
 
     assert "existing project under discussion" in guidance
     assert "Read detected docs, entrypoints, and source roots" in block
+    assert "Treat the selected scope as the primary work area" in block
     assert "Detected possible subproject scopes" in block
     assert "apps/web" in block
+    assert "- Selected scope: apps/web" in block
     assert "Use recorded brief fields as user intent" in block
     assert "- Docs found: README.md" in block
 

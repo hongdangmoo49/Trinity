@@ -175,7 +175,7 @@ def test_project_startup_readiness_label_summarizes_first_run_state(
         target_workspace=target,
     ) == (
         "Startup readiness: target ok | intake missing | "
-        "providers 1 | validation missing"
+        "providers 1 selected | validation missing"
     )
     assert project_startup_readiness_label(
         state,
@@ -184,7 +184,7 @@ def test_project_startup_readiness_label_summarizes_first_run_state(
         target_workspace=target,
     ) == (
         "Startup readiness: target ok | intake missing | "
-        "providers 0 | validation missing"
+        "providers 0 selected | validation missing"
     )
 
     write_project_intake(
@@ -198,7 +198,7 @@ def test_project_startup_readiness_label_summarizes_first_run_state(
         target_workspace=target,
     ) == (
         "Startup readiness: target ok | intake check | "
-        "providers 1 | validation planned"
+        "providers 1 selected | validation planned"
     )
 
     write_project_intake(
@@ -220,7 +220,7 @@ def test_project_startup_readiness_label_summarizes_first_run_state(
         target_workspace=target,
     ) == (
         "Startup readiness: target ok | intake ok | "
-        "providers 1 | validation planned"
+        "providers 1 selected | validation planned"
     )
     assert project_startup_readiness_label(
         state,
@@ -229,7 +229,7 @@ def test_project_startup_readiness_label_summarizes_first_run_state(
         target_workspace=target,
     ) == (
         "시작 준비: 대상 정상 | 인테이크 정상 | "
-        "프로바이더 1개 | 검증 계획됨"
+        "프로바이더 1개 선택 | 검증 계획됨"
     )
 
 
@@ -262,7 +262,7 @@ def test_project_startup_readiness_label_checks_existing_project_intake(
         today=date(2026, 6, 28),
     ) == (
         "Startup readiness: target ok | intake ok | "
-        "providers 1 | validation planned"
+        "providers 1 selected | validation planned"
     )
     assert project_startup_readiness_label(
         state,
@@ -271,7 +271,7 @@ def test_project_startup_readiness_label_checks_existing_project_intake(
         today=date(2026, 6, 28),
     ) == (
         "Startup readiness: target ok | intake check | "
-        "providers 1 | validation missing"
+        "providers 1 selected | validation missing"
     )
 
 
@@ -1515,7 +1515,7 @@ async def test_start_screen_updates_provider_policy_from_recipient_selection(
             screen.query_one("#project-startup-readiness", Static).content
         ) == (
             "Startup readiness: target missing | intake missing | "
-            "providers 2 | validation missing"
+            "providers 2 selected | validation missing"
         )
 
         selector = screen.query_one(AgentRecipientModelSelector)
@@ -1533,7 +1533,7 @@ async def test_start_screen_updates_provider_policy_from_recipient_selection(
             screen.query_one("#project-startup-readiness", Static).content
         ) == (
             "Startup readiness: target missing | intake missing | "
-            "providers 1 | validation missing"
+            "providers 1 selected | validation missing"
         )
 
 
@@ -1570,7 +1570,7 @@ async def test_nexus_screen_shows_read_first_checklist(tmp_path: Path) -> None:
             screen.query_one("#nexus-project-startup-readiness", Static).content
         ) == (
             "Startup readiness: target ok | intake ok | "
-            "providers 1 | validation planned"
+            "providers 1 selected | validation planned"
         )
 
 
@@ -1596,7 +1596,7 @@ async def test_nexus_screen_shows_provider_policy_from_selected_agents(
             screen.query_one("#nexus-project-startup-readiness", Static).content
         ) == (
             "Startup readiness: target missing | intake missing | "
-            "providers 2 | validation missing"
+            "providers 2 selected | validation missing"
         )
 
         screen.set_agent_selection(("claude", "antigravity"), {})
@@ -1610,7 +1610,7 @@ async def test_nexus_screen_shows_provider_policy_from_selected_agents(
             screen.query_one("#nexus-project-startup-readiness", Static).content
         ) == (
             "Startup readiness: target missing | intake missing | "
-            "providers 2 | validation missing"
+            "providers 2 selected | validation missing"
         )
 
         selector = screen.query_one(AgentRecipientModelSelector)
@@ -1628,7 +1628,7 @@ async def test_nexus_screen_shows_provider_policy_from_selected_agents(
             screen.query_one("#nexus-project-startup-readiness", Static).content
         ) == (
             "Startup readiness: target missing | intake missing | "
-            "providers 1 | validation missing"
+            "providers 1 selected | validation missing"
         )
 
 

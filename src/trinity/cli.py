@@ -1318,6 +1318,7 @@ def _project_intake_readiness_payload(
         analysis_stale=stale_days is not None,
         analysis_changed=bool(analysis_changed_fields),
         missing_brief_fields=tuple(missing_brief_fields),
+        scope_choice_required=_project_scope_choice_required(intake),
     )
     return {
         "ready": recommended_action == "start_trinity",
@@ -1333,6 +1334,8 @@ def _project_intake_readiness_payload(
         "analysis_changed": bool(analysis_changed_fields),
         "analysis_changed_fields": list(analysis_changed_fields),
         "missing_brief_fields": missing_brief_fields,
+        "scope_choice_required": _project_scope_choice_required(intake),
+        "scope_candidates": list(intake.scope_candidates),
     }
 
 
@@ -1367,6 +1370,7 @@ def _project_intake_recommended_action(
     analysis_stale: bool,
     analysis_changed: bool = False,
     missing_brief_fields: tuple[str, ...],
+    scope_choice_required: bool = False,
 ) -> str:
     if target_missing:
         return "create_project" if intake.mode == "new" else "analyze_workspace"
@@ -1374,6 +1378,8 @@ def _project_intake_recommended_action(
         return "edit_brief"
     if analysis_sparse or analysis_stale or analysis_changed:
         return "analyze_workspace"
+    if scope_choice_required:
+        return "choose_scope"
     return "start_trinity"
 
 
@@ -1596,6 +1602,10 @@ def _project_next_steps(
         steps.append(completion)
     if analysis_changed_fields:
         steps.append("trinity project status --refresh")
+    else:
+        scope_command = _project_scope_choice_command(intake)
+        if scope_command:
+            steps.append(scope_command)
     if include_status:
         steps.append("trinity project status")
     steps.append("trinity")
@@ -1614,6 +1624,8 @@ def _project_next_step_lines(
     lines = _project_brief_completion_lines(intake)
     if analysis_changed_fields:
         lines.append("  trinity project status --refresh")
+    else:
+        lines.extend(_project_scope_choice_lines(intake))
     if include_status:
         lines.append("  trinity project status")
     lines.append("  trinity")
@@ -1651,6 +1663,35 @@ def _project_target_missing(intake: ProjectIntake) -> bool:
         return not intake.target_workspace.exists()
     except OSError:
         return True
+
+
+def _project_scope_choice_required(intake: ProjectIntake) -> bool:
+    if intake.mode != "existing":
+        return False
+    return bool(intake.scope_candidates and not intake.selected_scope.strip())
+
+
+def _project_scope_choice_command(intake: ProjectIntake) -> str:
+    if not _project_scope_choice_required(intake):
+        return ""
+    return " ".join(
+        [
+            "trinity project analyze",
+            _quote_cli_arg(str(intake.target_workspace)),
+            "--scope",
+            "<scope>",
+        ]
+    )
+
+
+def _project_scope_choice_lines(intake: ProjectIntake) -> list[str]:
+    command = _project_scope_choice_command(intake)
+    if not command:
+        return []
+    return [
+        f"  {command}",
+        f"    choose one of: {_csv_or_none(intake.scope_candidates)}",
+    ]
 
 
 def _project_brief_completion_command(intake: ProjectIntake) -> str:

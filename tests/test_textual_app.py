@@ -10970,10 +10970,17 @@ async def test_start_analyze_workspace_button_writes_project_intake(tmp_path) ->
         await pilot.pause(0.2)
 
         assert isinstance(app.screen, ProjectAnchorsModal)
+        assert str(
+            app.screen.query_one("#project-anchors-read-first", Static).content
+        ) == "Read first: README.md, docs, src"
         app.screen.query_one("#project-anchors-docs", Input).value = (
             "README.md, docs/custom.md"
         )
         app.screen.query_one("#project-anchors-source-roots", Input).value = "src"
+        await pilot.pause()
+        assert str(
+            app.screen.query_one("#project-anchors-read-first", Static).content
+        ) == "Read first: README.md, docs/custom.md, src"
         app.screen.query_one("#project-anchors-tests", Input).value = (
             "npm test, npm run lint"
         )

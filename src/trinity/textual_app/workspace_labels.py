@@ -259,6 +259,7 @@ PROJECT_MODE_RAIL_LABELS = {
         "intake_needed": "needed",
         "intake_ready": "ready",
         "intake_refresh_needed": "refresh needed",
+        "intake_scope_needed": "scope needed",
         "intake_unreadable": "unreadable",
         "intake_waiting": "waiting",
         "mode_existing": "existing",
@@ -266,6 +267,7 @@ PROJECT_MODE_RAIL_LABELS = {
         "mode_new": "new",
         "mode_none": "none",
         "next_analyze_or_create": "analyze existing or create new",
+        "next_choose_scope": "choose scope",
         "next_edit_brief": "edit brief",
         "next_label": "next",
         "next_plan": "plan or execute",
@@ -296,6 +298,7 @@ PROJECT_MODE_RAIL_LABELS = {
         "intake_needed": "필요",
         "intake_ready": "준비됨",
         "intake_refresh_needed": "갱신 필요",
+        "intake_scope_needed": "범위 필요",
         "intake_unreadable": "읽기 실패",
         "intake_waiting": "대기",
         "mode_existing": "기존",
@@ -303,6 +306,7 @@ PROJECT_MODE_RAIL_LABELS = {
         "mode_new": "신규",
         "mode_none": "없음",
         "next_analyze_or_create": "기존 분석 또는 신규 생성",
+        "next_choose_scope": "범위 선택",
         "next_edit_brief": "브리프 편집",
         "next_label": "다음",
         "next_plan": "계획 또는 실행",
@@ -961,6 +965,16 @@ def project_mode_rail_label(
             mode=mode,
             next_action=labels["next_refresh_analysis"],
         )
+    if _project_intake_scope_choice_needed(intake):
+        return _format_project_mode_rail(
+            labels,
+            target=labels["target_ready"],
+            intake=labels["intake_scope_needed"],
+            plan=labels["plan_caution"],
+            execute=labels["execute_confirm"],
+            mode=mode,
+            next_action=labels["next_choose_scope"],
+        )
     return _format_project_mode_rail(
         labels,
         target=labels["target_ready"],
@@ -1022,6 +1036,8 @@ def _project_startup_readiness_intake_key(
         target_workspace,
         today=today,
     ):
+        return "intake_check"
+    if _project_intake_scope_choice_needed(intake):
         return "intake_check"
     return "intake_ok"
 
@@ -1501,6 +1517,12 @@ def _project_intake_analysis_is_sparse(intake: ProjectIntake) -> bool:
         or intake.scope_candidates
         or intake.docs_found
     )
+
+
+def _project_intake_scope_choice_needed(intake: ProjectIntake) -> bool:
+    if intake.mode != "existing":
+        return False
+    return bool(intake.scope_candidates and not intake.selected_scope.strip())
 
 
 def _project_intake_analysis_stale_days(

@@ -793,6 +793,60 @@ def test_project_mode_rail_label_guides_existing_project_refresh(
     )
 
 
+def test_project_mode_rail_label_guides_existing_scope_choice(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "monorepo"
+    target.mkdir()
+    (target / "README.md").write_text("# Monorepo\n", encoding="utf-8")
+    (target / "src").mkdir()
+    (target / "apps" / "web").mkdir(parents=True)
+    (target / "apps" / "web" / "package.json").write_text("{}", encoding="utf-8")
+    (target / "packages" / "core").mkdir(parents=True)
+    (target / "packages" / "core" / "pyproject.toml").write_text(
+        "[project]\nname='core'\n",
+        encoding="utf-8",
+    )
+    state = tmp_path / ".trinity"
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    assert project_mode_rail_label(
+        state,
+        target_workspace=target,
+        today=date(2026, 6, 28),
+    ) == (
+        "Start flow: target: ready -> intake: scope needed -> "
+        "plan: caution -> execute: confirm | mode: existing | "
+        "next: choose scope"
+    )
+    assert project_mode_rail_label(
+        state,
+        lang="ko",
+        target_workspace=target,
+        today=date(2026, 6, 28),
+    ) == (
+        "시작 흐름: 대상: 준비됨 -> 인테이크: 범위 필요 -> "
+        "계획: 주의 -> 실행: 확인 필요 | 모드: 기존 | 다음: 범위 선택"
+    )
+    assert project_startup_readiness_label(
+        state,
+        config.agents,
+        target_workspace=target,
+        today=date(2026, 6, 28),
+    ) == (
+        "Startup readiness: target ok | intake check | "
+        "providers 1 selected | validation planned"
+    )
+
+
 def test_project_mode_rail_label_prioritizes_target_mismatch(
     tmp_path: Path,
 ) -> None:

@@ -22,6 +22,9 @@ PROJECT_ANCHORS_LABELS = {
         "docs": "Docs",
         "docs_placeholder": "README.md, docs",
         "save": "Save Anchors",
+        "scope_candidates": "Scope candidates",
+        "selected_scope": "Selected scope",
+        "selected_scope_placeholder": "apps/web, packages/core",
         "source_roots": "Source roots",
         "source_roots_placeholder": "src, tests",
         "target_workspace": "Target workspace",
@@ -38,6 +41,9 @@ PROJECT_ANCHORS_LABELS = {
         "docs": "문서",
         "docs_placeholder": "README.md, docs",
         "save": "앵커 저장",
+        "scope_candidates": "범위 후보",
+        "selected_scope": "선택 범위",
+        "selected_scope_placeholder": "apps/web, packages/core",
         "source_roots": "소스 루트",
         "source_roots_placeholder": "src, tests",
         "target_workspace": "대상 작업 경로",
@@ -57,6 +63,7 @@ class ProjectAnchorsDraft:
     test_commands: tuple[str, ...] = ()
     dev_commands: tuple[str, ...] = ()
     build_commands: tuple[str, ...] = ()
+    selected_scope: str = ""
 
 
 @dataclass(frozen=True)
@@ -92,6 +99,12 @@ class ProjectAnchorsModal(ModalScreen[ProjectAnchorsModalResult]):
     }
 
     #project-anchors-target {
+        height: auto;
+        color: $text-muted;
+        margin-bottom: 1;
+    }
+
+    #project-anchors-scope-candidates {
         height: auto;
         color: $text-muted;
         margin-bottom: 1;
@@ -138,6 +151,7 @@ class ProjectAnchorsModal(ModalScreen[ProjectAnchorsModalResult]):
             test_commands=intake.test_commands,
             dev_commands=intake.dev_commands,
             build_commands=intake.build_commands,
+            selected_scope=intake.selected_scope,
         )
 
     def compose(self) -> ComposeResult:
@@ -146,6 +160,19 @@ class ProjectAnchorsModal(ModalScreen[ProjectAnchorsModalResult]):
             yield Static(
                 f"{self._label('target_workspace')}: {self.intake.target_workspace}",
                 id="project-anchors-target",
+            )
+            if self.intake.scope_candidates:
+                yield Static(
+                    (
+                        f"{self._label('scope_candidates')}: "
+                        f"{_join_values(self.intake.scope_candidates)}"
+                    ),
+                    id="project-anchors-scope-candidates",
+                )
+            yield from self._input_row(
+                "selected_scope",
+                "project-anchors-selected-scope",
+                self.draft.selected_scope,
             )
             yield from self._input_row(
                 "docs",
@@ -182,7 +209,7 @@ class ProjectAnchorsModal(ModalScreen[ProjectAnchorsModalResult]):
         yield Footer()
 
     def on_mount(self) -> None:
-        self.query_one("#project-anchors-docs", Input).focus()
+        self.query_one("#project-anchors-selected-scope", Input).focus()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id
@@ -208,6 +235,7 @@ class ProjectAnchorsModal(ModalScreen[ProjectAnchorsModalResult]):
             test_commands=_split_values(self._input_value("#project-anchors-tests")),
             dev_commands=_split_values(self._input_value("#project-anchors-dev")),
             build_commands=_split_values(self._input_value("#project-anchors-build")),
+            selected_scope=self._input_value("#project-anchors-selected-scope"),
         )
 
     def _input_row(

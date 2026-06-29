@@ -216,6 +216,22 @@ def test_provider_cli_setup_label_reports_selected_cli_commands(
         "next: fix CLI command/PATH"
     )
 
+    quoted_cli = tmp_path / "custom cli"
+    quoted_cli.write_text("#!/bin/sh\n", encoding="utf-8")
+    config.agents["claude"].cli_command = f'"{quoted_cli}" --profile work'
+    assert provider_cli_setup_label(
+        config.agents,
+        selected_agents=("claude",),
+    ) == "Provider CLI setup: selected 1 | found: claude"
+    config.agents["codex"].cli_command = f'"{tmp_path / "missing cli"}" --profile work'
+    assert provider_cli_setup_label(
+        config.agents,
+        selected_agents=("codex",),
+    ) == (
+        "Provider CLI setup: selected 1 | missing: codex(missing cli) | "
+        "next: fix CLI command/PATH"
+    )
+
 
 def test_project_startup_readiness_label_summarizes_first_run_state(
     tmp_path: Path,

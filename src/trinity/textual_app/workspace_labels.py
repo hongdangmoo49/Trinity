@@ -358,6 +358,7 @@ PROVIDER_CLI_SETUP_LABELS = {
         "selected": "selected {count}",
         "found": "found",
         "missing": "missing",
+        "next": "next: install CLI or update cli_command/PATH",
         "none": "none",
     },
     "ko": {
@@ -365,6 +366,7 @@ PROVIDER_CLI_SETUP_LABELS = {
         "selected": "선택 {count}개",
         "found": "발견",
         "missing": "없음",
+        "next": "다음: CLI 설치 또는 cli_command/PATH 수정",
         "none": "없음",
     },
 }
@@ -474,6 +476,7 @@ def provider_cli_setup_label(
             f"{labels['missing']}: "
             f"{_format_project_intake_values(missing_entries, max_items=3)}"
         )
+        parts.append(labels["next"])
     if not found_names and not missing_names:
         parts.append(f"{labels['found']}: {labels['none']}")
     return f"{labels['summary']}: {' | '.join(parts)}"

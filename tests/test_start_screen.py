@@ -178,14 +178,16 @@ def test_provider_cli_setup_label_reports_selected_cli_commands(
 
     assert provider_cli_setup_label(config.agents) == (
         "Provider CLI setup: selected 2 | found: claude | "
-        "missing: codex(trinity-missing-cli-for-test)"
+        "missing: codex(trinity-missing-cli-for-test) | "
+        "next: install CLI or update cli_command/PATH"
     )
     assert provider_cli_setup_label(
         config.agents,
         selected_agents=("codex",),
     ) == (
         "Provider CLI setup: selected 1 | "
-        "missing: codex(trinity-missing-cli-for-test)"
+        "missing: codex(trinity-missing-cli-for-test) | "
+        "next: install CLI or update cli_command/PATH"
     )
     assert provider_cli_setup_label(
         config.agents,
@@ -197,7 +199,8 @@ def test_provider_cli_setup_label_reports_selected_cli_commands(
     assert provider_cli_setup_label(config.agents, lang="ko") == (
         "프로바이더 CLI 설정: 선택 3개 | 발견: claude | "
         "없음: codex(trinity-missing-cli-for-test), "
-        "antigravity(agy-missing-for-test)"
+        "antigravity(agy-missing-for-test) | "
+        "다음: CLI 설치 또는 cli_command/PATH 수정"
     )
 
 
@@ -1557,7 +1560,8 @@ async def test_start_screen_updates_provider_policy_from_recipient_selection(
             screen.query_one("#start-provider-cli-setup", Static).content
         ) == (
             "Provider CLI setup: selected 2 | found: claude | "
-            "missing: codex(trinity-missing-cli-for-test)"
+            "missing: codex(trinity-missing-cli-for-test) | "
+            "next: install CLI or update cli_command/PATH"
         )
         assert str(
             screen.query_one("#project-startup-readiness", Static).content
@@ -1650,7 +1654,8 @@ async def test_nexus_screen_shows_provider_policy_from_selected_agents(
             screen.query_one("#nexus-provider-cli-setup", Static).content
         ) == (
             "Provider CLI setup: selected 2 | found: claude | "
-            "missing: codex(trinity-missing-cli-for-test)"
+            "missing: codex(trinity-missing-cli-for-test) | "
+            "next: install CLI or update cli_command/PATH"
         )
         assert str(
             screen.query_one("#nexus-project-startup-readiness", Static).content

@@ -76,6 +76,23 @@ def test_central_markdown_keeps_conversation_and_hides_internal_dump() -> None:
     assert "### Local Command Results" not in markdown
 
 
+def test_central_markdown_surfaces_target_workspace_context() -> None:
+    view = CentralAgentView(lang="ko")
+    view.snapshot = WorkflowNexusSnapshot(
+        session_id="wf-target",
+        state="blueprint_ready",
+        goal="프로젝트를 분석해라.",
+        target_workspace="/home/user/workspace/msu",
+        synthesis=SynthesisSnapshot(summary="대상 프로젝트 분석 준비."),
+    )
+
+    markdown = view._markdown()
+
+    assert "**대상 작업 폴더:** /home/user/workspace/msu" in markdown
+    assert markdown.index("**진행:**") < markdown.index("**대상 작업 폴더:**")
+    assert markdown.index("**대상 작업 폴더:**") < markdown.index("### 목표")
+
+
 def test_central_markdown_surfaces_blueprint_response_before_wp_overview() -> None:
     view = CentralAgentView()
     view.snapshot = WorkflowNexusSnapshot(

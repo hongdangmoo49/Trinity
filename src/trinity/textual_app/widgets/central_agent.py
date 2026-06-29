@@ -173,6 +173,7 @@ class CentralAgentView(VerticalScroll):
             )
 
         lines = [f"**{self._label('progress')}:** {self._progress_line(snapshot)}"]
+        self._append_target_context(lines, snapshot)
         if snapshot.synthesis.consensus_progress:
             progress = display_consensus_progress(
                 snapshot.synthesis.consensus_progress,
@@ -237,6 +238,16 @@ class CentralAgentView(VerticalScroll):
                 ]
             )
         return "\n".join(lines)
+
+    def _append_target_context(
+        self,
+        lines: list[str],
+        snapshot: WorkflowNexusSnapshot,
+    ) -> None:
+        target = snapshot.target_workspace.strip()
+        if not target:
+            return
+        lines.append(f"**{self._label('target_workspace')}:** {target}")
 
     def _append_work_package_overview(
         self,
@@ -638,6 +649,7 @@ class CentralAgentView(VerticalScroll):
             "repair_action": "리뷰 보정 결정",
             "synthesis": "종합",
             "synthesizing": "중앙 에이전트 종합 중",
+            "target_workspace": "대상 작업 폴더",
             "title": "중앙 에이전트",
             "unknown": "(알 수 없음)",
             "waiting": "종합 대기 중",
@@ -708,6 +720,7 @@ class CentralAgentView(VerticalScroll):
             "repair_action": "Review repair decision",
             "synthesis": "Synthesis",
             "synthesizing": "Central agent is synthesizing",
+            "target_workspace": "Target workspace",
             "title": "Central Agent",
             "unknown": "(unknown)",
             "waiting": "Waiting for synthesis",

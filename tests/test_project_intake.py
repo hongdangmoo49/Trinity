@@ -19,6 +19,8 @@ from trinity.project_intake import (
     load_project_intake_markdown,
     missing_new_project_brief_field_keys,
     missing_new_project_brief_fields,
+    project_intake_validation_commands,
+    project_intake_validation_missing,
     project_intake_guidance_block,
     project_intake_prompt_block,
     suggest_build_commands,
@@ -212,6 +214,30 @@ def test_build_project_intake_normalizes_metadata(tmp_path) -> None:
     assert intake.artifact_targets == ("src/trinity", "docs")
     assert intake.constraints == ("read-only analysis",)
     assert intake.notes == "Review before write."
+
+
+def test_project_intake_validation_commands_prefer_recorded_checks(tmp_path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"scripts": {"test": "vitest run", "build": "vite build"}}),
+        encoding="utf-8",
+    )
+    detected = build_project_intake(mode="existing", target_workspace=tmp_path)
+    recorded = build_project_intake(
+        mode="existing",
+        target_workspace=tmp_path,
+        validation_commands=("npm run check",),
+    )
+    empty = build_project_intake(
+        mode="existing",
+        target_workspace=tmp_path / "empty",
+    )
+
+    assert project_intake_validation_commands(detected) == ("npm test",)
+    assert project_intake_validation_missing(detected) is False
+    assert project_intake_validation_commands(recorded) == ("npm run check",)
+    assert project_intake_validation_missing(recorded) is False
+    assert project_intake_validation_commands(empty) == ()
+    assert project_intake_validation_missing(empty) is True
 
 
 def test_existing_project_intake_drift_ignores_unchanged_analysis(

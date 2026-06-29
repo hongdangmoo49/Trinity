@@ -143,6 +143,10 @@ def test_start_project_setup_next_action_tracks_project_state(
     assert screen._project_setup_next_action() == "analyze"
 
     (target / "README.md").write_text("# Customer App\n", encoding="utf-8")
+    (target / "package.json").write_text(
+        '{"scripts":{"test":"vitest run"}}',
+        encoding="utf-8",
+    )
     write_project_intake(
         config.effective_state_dir,
         build_project_intake(
@@ -208,6 +212,10 @@ def test_nexus_project_setup_next_action_tracks_project_state(
     assert screen._project_setup_next_action() == "analyze"
 
     (target / "README.md").write_text("# Customer App\n", encoding="utf-8")
+    (target / "package.json").write_text(
+        '{"scripts":{"test":"vitest run"}}',
+        encoding="utf-8",
+    )
     write_project_intake(
         config.effective_state_dir,
         build_project_intake(
@@ -407,7 +415,7 @@ def test_project_startup_readiness_label_summarizes_first_run_state(
         target_workspace=target,
     ) == (
         "Startup readiness: target ok | intake check | "
-        "providers 1 selected | validation planned"
+        "providers 1 selected | validation missing"
     )
 
     write_project_intake(
@@ -420,6 +428,29 @@ def test_project_startup_readiness_label_summarizes_first_run_state(
             target_users="operators",
             success_criteria="Operators complete onboarding.",
             first_milestone="First workflow.",
+        ),
+    )
+
+    assert project_startup_readiness_label(
+        state,
+        config.agents,
+        target_workspace=target,
+    ) == (
+        "Startup readiness: target ok | intake check | "
+        "providers 1 selected | validation missing"
+    )
+
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build onboarding.",
+            project_type="SaaS app",
+            target_users="operators",
+            success_criteria="Operators complete onboarding.",
+            first_milestone="First workflow.",
+            validation_commands=("uv run pytest",),
         ),
     )
 
@@ -945,7 +976,7 @@ def test_project_start_choice_guide_labels_new_and_existing_paths(
     )
 
     assert project_start_choice_guide_label(state, target_workspace=target) == (
-        "Project start: mode existing | next -> Analyze Existing | "
+        "Project start: mode existing | next -> record validation | "
         "then Plan first"
     )
 
@@ -985,6 +1016,25 @@ def test_project_mode_rail_label_guides_new_project_brief(
             target_users="operators",
             success_criteria="Operators complete onboarding.",
             first_milestone="First workflow.",
+        ),
+    )
+
+    assert project_mode_rail_label(state, target_workspace=target) == (
+        "Start flow: target: ready -> intake: validation needed -> "
+        "plan: caution -> execute: locked | mode: new | next: record validation"
+    )
+
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build onboarding.",
+            project_type="SaaS app",
+            target_users="operators",
+            success_criteria="Operators complete onboarding.",
+            first_milestone="First workflow.",
+            validation_commands=("uv run pytest",),
         ),
     )
 
@@ -1073,7 +1123,7 @@ def test_project_mode_rail_label_guides_existing_scope_choice(
         today=date(2026, 6, 28),
     ) == (
         "Startup readiness: target ok | intake check | "
-        "providers 1 selected | validation planned"
+        "providers 1 selected | validation missing"
     )
 
 
@@ -1967,7 +2017,7 @@ async def test_start_screen_shows_project_intake_summary(tmp_path: Path) -> None
         assert str(
             screen.query_one("#project-start-choice-guide", Static).content
         ) == (
-            "Project start: mode existing | next -> Analyze Existing | "
+            "Project start: mode existing | next -> Plan first | "
             "then Plan first"
         )
         assert str(screen.query_one("#project-read-first-checklist", Static).content) == (
@@ -2114,8 +2164,8 @@ async def test_nexus_screen_shows_read_first_checklist(tmp_path: Path) -> None:
         assert str(
             screen.query_one("#nexus-project-startup-readiness", Static).content
         ) == (
-            "Startup readiness: target ok | intake ok | "
-            "providers 1 selected | validation planned"
+            "Startup readiness: target ok | intake check | "
+            "providers 1 selected | validation missing"
         )
 
 
@@ -2413,7 +2463,7 @@ async def test_nexus_screen_shows_project_intake_summary(tmp_path: Path) -> None
         assert str(
             screen.query_one("#nexus-project-start-choice-guide", Static).content
         ) == (
-            "프로젝트 시작: 모드 기존 | 다음 -> 기존 프로젝트 분석 | "
+            "프로젝트 시작: 모드 기존 | 다음 -> 먼저 계획 | "
             "이후 먼저 계획"
         )
 

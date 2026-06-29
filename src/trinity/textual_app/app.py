@@ -218,6 +218,10 @@ from trinity.textual_app.widgets.project_scope_modal import (
     ProjectScopeModal,
     ProjectScopeModalResult,
 )
+from trinity.textual_app.widgets.project_validation_modal import (
+    ProjectValidationModal,
+    ProjectValidationModalResult,
+)
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
 from trinity.textual_app.widgets.status_modal import StatusCommandModal
 from trinity.textual_app.widgets.target_workspace_confirm_modal import (
@@ -329,6 +333,7 @@ def _existing_project_analysis_anchor_lines(
             "tests": "테스트",
             "dev": "개발",
             "build": "빌드",
+            "validation": "검증",
         }
     else:
         labels = {
@@ -339,6 +344,7 @@ def _existing_project_analysis_anchor_lines(
             "tests": "tests",
             "dev": "dev",
             "build": "build",
+            "validation": "validation",
         }
     for label_key, values in (
         ("selected_scope", (intake.selected_scope,) if intake.selected_scope else ()),
@@ -347,6 +353,7 @@ def _existing_project_analysis_anchor_lines(
         ("tests", intake.test_commands),
         ("dev", intake.dev_commands),
         ("build", intake.build_commands),
+        ("validation", intake.validation_commands),
     ):
         if values:
             formatted_values = _format_existing_analysis_anchor_values(values)
@@ -593,6 +600,24 @@ def _project_brief_start_prompt_from_draft(
         constraints=draft.constraints,
         selected_scope=draft.selected_scope,
         notes=draft.notes,
+    )
+
+
+def _project_brief_draft_from_intake(intake: ProjectIntake) -> ProjectBriefDraft:
+    return ProjectBriefDraft(
+        product_goal=intake.product_goal,
+        project_type=intake.project_type,
+        starter_profile=intake.starter_profile,
+        target_users=intake.target_users,
+        success_criteria=intake.success_criteria,
+        stack_preferences=intake.stack_preferences,
+        first_milestone=intake.first_milestone,
+        run_commands=intake.run_commands,
+        validation_commands=intake.validation_commands,
+        artifact_targets=intake.artifact_targets,
+        constraints=intake.constraints,
+        selected_scope=intake.selected_scope,
+        notes=intake.notes,
     )
 
 
@@ -1991,6 +2016,24 @@ class TrinityTextualApp(App[None]):
             return
         self._open_existing_project_scope_picker(target, seed_route="start")
 
+    def on_start_screen_project_validation_requested(
+        self,
+        event: StartScreen.ProjectValidationRequested,
+    ) -> None:
+        event.stop()
+        target = safe_start_target_workspace(
+            self.workspace_candidate,
+            self.config.project_dir,
+        )
+        if target is None:
+            self._open_workspace_picker(
+                WorkflowNexusSnapshot(),
+                self._on_existing_project_intake_workspace_selected,
+                intent="select",
+            )
+            return
+        self._open_project_validation_modal(target, seed_route="start")
+
     def on_nexus_screen_follow_up_submitted(
         self,
         event: NexusScreen.FollowUpSubmitted,
@@ -2159,6 +2202,22 @@ class TrinityTextualApp(App[None]):
             return
         self._set_workspace_candidate(target)
         self._open_existing_project_scope_picker(target, seed_route="nexus")
+
+    def on_nexus_screen_project_validation_requested(
+        self,
+        event: NexusScreen.ProjectValidationRequested,
+    ) -> None:
+        event.stop()
+        target = self._safe_nexus_target_workspace(event.snapshot)
+        if target is None:
+            self._open_workspace_picker(
+                event.snapshot or self._current_textual_snapshot(),
+                self._on_nexus_project_intake_workspace_selected,
+                intent="select",
+            )
+            return
+        self._set_workspace_candidate(target)
+        self._open_project_validation_modal(target, seed_route="nexus")
 
     def on_execution_matrix_screen_retry_requested(
         self,
@@ -4119,6 +4178,54 @@ class TrinityTextualApp(App[None]):
         if not composer.text.strip():
             composer.set_text(prompt)
 
+    def _replace_start_prompt_if_auto_seeded(
+        self,
+        target: Path,
+        *,
+        old_prompt: str,
+        new_prompt: str,
+    ) -> None:
+        if not new_prompt:
+            return
+        if not self._screens_installed:
+            return
+        start = self.get_screen("start", StartScreen)
+        if not start.is_mounted:
+            return
+        if self.workspace_candidate is None:
+            return
+        if absolute_path(self.workspace_candidate) != absolute_path(target):
+            return
+        composer = start.query_one(PromptComposer)
+        current = composer.text
+        if not current.strip() or current == old_prompt:
+            composer.set_text(new_prompt)
+
+    def _replace_nexus_prompt_if_auto_seeded(
+        self,
+        target: Path,
+        *,
+        old_prompt: str,
+        new_prompt: str,
+    ) -> None:
+        if not new_prompt:
+            return
+        if self.current_route != "nexus":
+            return
+        if not self._screens_installed:
+            return
+        if self.workspace_candidate is None:
+            return
+        if absolute_path(self.workspace_candidate) != absolute_path(target):
+            return
+        nexus = self.get_screen("nexus", NexusScreen)
+        if not nexus.is_mounted:
+            return
+        composer = nexus.query_one("#nexus-composer", PromptComposer)
+        current = composer.text
+        if not current.strip() or current == old_prompt:
+            composer.set_text(new_prompt)
+
     def _review_start_existing_analysis_or_seed(
         self,
         target: Path,
@@ -4191,6 +4298,43 @@ class TrinityTextualApp(App[None]):
             ),
         )
 
+    def _open_project_validation_modal(
+        self,
+        target: Path,
+        *,
+        seed_route: str,
+    ) -> None:
+        intake = self._matching_project_intake(target)
+        if intake is None:
+            if seed_route == "nexus":
+                self._apply_nexus_project_intake_for_direct_target(
+                    target,
+                    self._current_textual_snapshot(),
+                )
+                return
+            self._apply_start_project_intake_for_direct_target(target)
+            return
+        self.push_screen(
+            ProjectValidationModal(intake, lang=self.config.lang),
+            lambda result: self._on_project_validation_dismissed(
+                target,
+                detected_intake=intake,
+                seed_route=seed_route,
+                result=result,
+            ),
+        )
+
+    def _matching_project_intake(self, target: Path) -> ProjectIntake | None:
+        try:
+            intake = load_project_intake(self.config.effective_state_dir)
+        except ValueError:
+            return None
+        if intake is None:
+            return None
+        if absolute_path(intake.target_workspace) != absolute_path(target):
+            return None
+        return intake
+
     def _matching_existing_project_intake(self, target: Path) -> ProjectIntake | None:
         try:
             intake = load_project_intake(self.config.effective_state_dir)
@@ -4201,6 +4345,74 @@ class TrinityTextualApp(App[None]):
         if absolute_path(intake.target_workspace) != absolute_path(target):
             return None
         return intake
+
+    def _on_project_validation_dismissed(
+        self,
+        target: Path,
+        *,
+        detected_intake: ProjectIntake,
+        seed_route: str,
+        result: ProjectValidationModalResult | None,
+    ) -> None:
+        if self.workspace_candidate is not None and absolute_path(
+            self.workspace_candidate
+        ) != absolute_path(target):
+            return
+        if result is None or not result.saved:
+            return
+        intake = replace(
+            detected_intake,
+            validation_commands=result.draft.validation_commands,
+            test_commands=result.draft.test_commands,
+            build_commands=result.draft.build_commands,
+            run_commands=result.draft.run_commands,
+        )
+        write_project_intake(self.config.effective_state_dir, intake)
+        self._refresh_project_intake_summary_labels()
+        if intake.mode == "new":
+            old_draft = _project_brief_draft_from_intake(detected_intake)
+            draft = _project_brief_draft_from_intake(intake)
+            old_prompt = _project_brief_start_prompt_from_draft(
+                mode=intake.mode,
+                lang=self.config.lang,
+                draft=old_draft,
+            )
+            new_prompt = _project_brief_start_prompt_from_draft(
+                mode=intake.mode,
+                lang=self.config.lang,
+                draft=draft,
+            )
+            if seed_route == "nexus":
+                self._replace_nexus_prompt_if_auto_seeded(
+                    target,
+                    old_prompt=old_prompt,
+                    new_prompt=new_prompt,
+                )
+                return
+            self._replace_start_prompt_if_auto_seeded(
+                target,
+                old_prompt=old_prompt,
+                new_prompt=new_prompt,
+            )
+            return
+        old_prompt = _existing_project_analysis_prompt(
+            self.config.lang,
+            target,
+            detected_intake,
+        )
+        new_prompt = _existing_project_analysis_prompt(self.config.lang, target, intake)
+        if seed_route == "nexus":
+            self._replace_nexus_prompt_if_auto_seeded(
+                target,
+                old_prompt=old_prompt,
+                new_prompt=new_prompt,
+            )
+            return
+        self._replace_start_prompt_if_auto_seeded(
+            target,
+            old_prompt=old_prompt,
+            new_prompt=new_prompt,
+        )
 
     def _on_existing_project_scope_dismissed(
         self,

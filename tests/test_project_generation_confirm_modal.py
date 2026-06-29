@@ -32,7 +32,7 @@ def test_project_generation_confirmation_summary_uses_generation_preview(
     )
     assert summary.validation_plan == (
         "Validation plan: fast: uv run pytest | "
-        "required: record required check before merge | "
+        "required: uv run pytest | "
         "full: first scaffold smoke before release"
     )
 

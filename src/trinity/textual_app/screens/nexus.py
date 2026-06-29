@@ -164,6 +164,13 @@ class NexusScreen(Screen[None]):
             super().__init__()
             self.snapshot = snapshot
 
+    class ProjectValidationRequested(Message):
+        """Posted when the user wants to record validation commands."""
+
+        def __init__(self, snapshot: WorkflowNexusSnapshot | None) -> None:
+            super().__init__()
+            self.snapshot = snapshot
+
     class RepairActionRequested(Message):
         """Posted when the user chooses a review-repair blocked action."""
 
@@ -763,6 +770,8 @@ class NexusScreen(Screen[None]):
             self.action_request_project_brief()
         elif action == "scope":
             self.action_request_project_scope()
+        elif action == "validation":
+            self.action_request_project_validation()
         else:
             self.action_request_execute()
 
@@ -777,6 +786,9 @@ class NexusScreen(Screen[None]):
 
     def action_request_project_scope(self) -> None:
         self.post_message(self.ProjectScopeRequested(self.snapshot))
+
+    def action_request_project_validation(self) -> None:
+        self.post_message(self.ProjectValidationRequested(self.snapshot))
 
     def _refresh_workspace_label(self) -> None:
         label = self._workspace_label()

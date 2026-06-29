@@ -134,6 +134,9 @@ class StartScreen(Screen[None]):
     class ProjectScopeRequested(Message):
         """Posted when the user wants to choose an existing-project scope."""
 
+    class ProjectValidationRequested(Message):
+        """Posted when the user wants to record validation commands."""
+
     BINDINGS = [
         ("ctrl+enter", "submit", "Plan"),
     ]
@@ -378,6 +381,8 @@ class StartScreen(Screen[None]):
             self.post_message(self.ProjectBriefRequested())
         elif action == "scope":
             self.post_message(self.ProjectScopeRequested())
+        elif action == "validation":
+            self.post_message(self.ProjectValidationRequested())
         else:
             composer = self._prompt_composer()
             self._submit(composer.submission_text)

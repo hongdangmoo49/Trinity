@@ -737,7 +737,7 @@ class TestProjectAnalyze:
             ) in result.output
             assert "Start guide:" in result.output
             assert "Project start: mode existing" in result.output
-            assert "next -> Analyze Existing" in result.output
+            assert "next -> Plan first" in result.output
             assert "then Plan first" in result.output
             assert "Read-first checklist:" in result.output
             assert "Mode: existing" in result.output
@@ -831,6 +831,7 @@ class TestProjectAnalyze:
                     "success_criteria",
                     "first_milestone",
                 ],
+                "validation_missing": True,
                 "scope_choice_required": False,
                 "scope_candidates": [],
             }
@@ -980,7 +981,7 @@ class TestProjectAnalyze:
                 "Project intake: existing | target: customer-app | updated:"
             )
             assert data["project_intake"]["project_start_guide"] == (
-                "Project start: mode existing | next -> Analyze Existing | "
+                "Project start: mode existing | next -> Plan first | "
                 "then Plan first"
             )
             assert data["project_intake"]["mode"] == "existing"
@@ -1020,6 +1021,7 @@ class TestProjectAnalyze:
                 "analysis_changed": False,
                 "analysis_changed_fields": [],
                 "missing_brief_fields": [],
+                "validation_missing": False,
                 "scope_choice_required": False,
                 "scope_candidates": ["apps/web"],
             }

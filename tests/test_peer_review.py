@@ -58,7 +58,7 @@ def test_peer_review_planner_assigns_one_primary_non_owner_reviewer_by_default()
     assert "Tests pass" in reviews[0].criteria
 
 
-def test_peer_review_planner_skips_peer_review_for_single_active_agent():
+def test_peer_review_planner_assigns_self_check_for_single_active_agent():
     reviews = PeerReviewPlanner().plan_reviews(
         [_package("WP-001", "codex")],
         active_agents=["codex"],
@@ -67,12 +67,13 @@ def test_peer_review_planner_skips_peer_review_for_single_active_agent():
     assert len(reviews) == 1
     review = reviews[0]
     assert review.package_id == "WP-001"
-    assert review.reviewer_agent == ""
+    assert review.reviewer_agent == "codex"
     assert review.target_agent == "codex"
-    assert review.self_review is False
-    assert review.depth == ReviewDepth.NONE
-    assert review.required is False
-    assert "no non-owner peer reviewer" in review.skipped_reason
+    assert review.self_review is True
+    assert review.depth == ReviewDepth.SELF_CHECK
+    assert review.required is True
+    assert review.reason == "self-check because no non-owner peer reviewer is active"
+    assert "Verify the work package acceptance criteria" in review.criteria[0]
 
 
 def test_peer_review_planner_uses_only_non_owner_for_two_active_agents():

@@ -15,7 +15,7 @@ Keep found providers capped at the existing three visible names, but cap missing
 provider CLI entries at two:
 
 ```text
-Provider CLI setup: selected 3 | missing: claude, codex(codex) +1 | next: install CLI or update cli_command/PATH
+Provider CLI setup: selected 3 | missing: claude, codex(codex) +1 | next: fix CLI command/PATH
 ```
 
 The hidden count still tells the user more selected providers need attention.

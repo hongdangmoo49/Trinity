@@ -179,7 +179,7 @@ def test_provider_cli_setup_label_reports_selected_cli_commands(
     assert provider_cli_setup_label(config.agents) == (
         "Provider CLI setup: selected 2 | found: claude | "
         "missing: codex(trinity-missing-cli-for-test) | "
-        "next: install CLI or update cli_command/PATH"
+        "next: fix CLI command/PATH"
     )
     assert provider_cli_setup_label(
         config.agents,
@@ -187,7 +187,7 @@ def test_provider_cli_setup_label_reports_selected_cli_commands(
     ) == (
         "Provider CLI setup: selected 1 | "
         "missing: codex(trinity-missing-cli-for-test) | "
-        "next: install CLI or update cli_command/PATH"
+        "next: fix CLI command/PATH"
     )
     assert provider_cli_setup_label(
         config.agents,
@@ -205,7 +205,7 @@ def test_provider_cli_setup_label_reports_selected_cli_commands(
         "프로바이더 CLI 설정: 선택 3개 | 발견: claude | "
         "없음: codex(trinity-missing-cli-for-test), "
         "antigravity(agy-missing-for-test) | "
-        "다음: CLI 설치 또는 cli_command/PATH 수정"
+        "다음: CLI 명령/PATH 수정"
     )
 
     config.agents["claude"].cli_command = "claude-missing-for-test"
@@ -213,7 +213,7 @@ def test_provider_cli_setup_label_reports_selected_cli_commands(
         "Provider CLI setup: selected 3 | "
         "missing: claude(claude-missing-for-test), "
         "codex(trinity-missing-cli-for-test) +1 | "
-        "next: install CLI or update cli_command/PATH"
+        "next: fix CLI command/PATH"
     )
 
 
@@ -1574,7 +1574,7 @@ async def test_start_screen_updates_provider_policy_from_recipient_selection(
         ) == (
             "Provider CLI setup: selected 2 | found: claude | "
             "missing: codex(trinity-missing-cli-for-test) | "
-            "next: install CLI or update cli_command/PATH"
+            "next: fix CLI command/PATH"
         )
         assert str(
             screen.query_one("#project-startup-readiness", Static).content
@@ -1668,7 +1668,7 @@ async def test_nexus_screen_shows_provider_policy_from_selected_agents(
         ) == (
             "Provider CLI setup: selected 2 | found: claude | "
             "missing: codex(trinity-missing-cli-for-test) | "
-            "next: install CLI or update cli_command/PATH"
+            "next: fix CLI command/PATH"
         )
         assert str(
             screen.query_one("#nexus-project-startup-readiness", Static).content

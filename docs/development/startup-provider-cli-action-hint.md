@@ -12,13 +12,13 @@ install the CLI, fix PATH, or update `cli_command`.
 When any selected provider CLI is missing, append one compact next-action hint:
 
 ```text
-Provider CLI setup: selected 2 | found: claude | missing: codex | next: install CLI or update cli_command/PATH
+Provider CLI setup: selected 2 | found: claude | missing: codex | next: fix CLI command/PATH
 ```
 
 Korean:
 
 ```text
-프로바이더 CLI 설정: 선택 2개 | 발견: claude | 없음: codex | 다음: CLI 설치 또는 cli_command/PATH 수정
+프로바이더 CLI 설정: 선택 2개 | 발견: claude | 없음: codex | 다음: CLI 명령/PATH 수정
 ```
 
 When no provider CLI is missing, keep the current concise label unchanged.

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.message import Message
@@ -10,6 +12,11 @@ from textual.widgets import Button, Footer, Header, Static
 
 from trinity.config import TrinityConfig
 from trinity.models import AgentSpec
+from trinity.project_intake import (
+    ProjectIntake,
+    load_project_intake,
+    missing_new_project_brief_field_keys,
+)
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
@@ -54,6 +61,7 @@ NEXUS_LABELS = {
         "analyze_selected_workspace": "Analyze Selected",
         "composer_placeholder": "Reply, refine direction, or type / for commands",
         "complete_brief": "Complete Brief",
+        "continue_setup": "Continue Setup",
         "create_project": "Create New",
         "edit_brief": "Edit Brief",
         "execute": "Execute",
@@ -67,6 +75,7 @@ NEXUS_LABELS = {
         "analyze_selected_workspace": "선택 대상 분석",
         "composer_placeholder": "답변, 방향 조정 또는 /로 명령 입력",
         "complete_brief": "브리프 완성",
+        "continue_setup": "설정 계속",
         "create_project": "새 프로젝트 생성",
         "edit_brief": "브리프 편집",
         "execute": "실행",
@@ -260,6 +269,11 @@ class NexusScreen(Screen[None]):
             yield start_choice_guide
             analyze_action = self._project_analyze_action_presentation()
             with Horizontal(id="nexus-project-intake-actions"):
+                yield Button(
+                    self._label("continue_setup"),
+                    id="nexus-continue-project-setup",
+                    variant="primary",
+                )
                 yield Button(
                     self._label(analyze_action.label_key),
                     id="nexus-analyze-workspace",
@@ -691,6 +705,9 @@ class NexusScreen(Screen[None]):
         elif event.button.id == "select-workspace":
             event.stop()
             self.action_request_workspace()
+        elif event.button.id == "nexus-continue-project-setup":
+            event.stop()
+            self.action_continue_project_setup()
         elif event.button.id == "nexus-analyze-workspace":
             event.stop()
             self.action_request_project_intake()
@@ -714,6 +731,19 @@ class NexusScreen(Screen[None]):
     def action_request_workspace(self) -> None:
         self.post_message(self.WorkspaceRequested(self.snapshot))
 
+    def action_continue_project_setup(self) -> None:
+        action = self._project_setup_next_action()
+        if action == "workspace":
+            self.action_request_workspace()
+        elif action == "analyze":
+            self.action_request_project_intake()
+        elif action == "create":
+            self.action_request_new_project()
+        elif action == "brief":
+            self.action_request_project_brief()
+        else:
+            self.action_request_execute()
+
     def action_request_project_intake(self) -> None:
         self.post_message(self.ProjectIntakeRequested(self.snapshot))
 
@@ -736,6 +766,50 @@ class NexusScreen(Screen[None]):
             control_repo=self.config.project_dir,
             lang=self.config.lang,
         )
+
+    def _project_setup_next_action(self) -> str:
+        if not self._current_workspace_text():
+            return "workspace"
+        try:
+            intake = load_project_intake(self.config.effective_state_dir)
+        except ValueError:
+            return "analyze"
+        if intake is None or not self._intake_matches_workspace(intake):
+            return "analyze"
+        if intake.mode == "new":
+            if self._intake_target_missing(intake):
+                return "create"
+            if missing_new_project_brief_field_keys(intake):
+                return "brief"
+            return "execute"
+        analyze_action = self._project_analyze_action_presentation()
+        if analyze_action.variant == "warning":
+            return "analyze"
+        if intake.scope_candidates and not intake.selected_scope.strip():
+            return "analyze"
+        return "execute"
+
+    def _intake_matches_workspace(self, intake: ProjectIntake) -> bool:
+        target = self._current_workspace_text()
+        if not target:
+            return True
+        try:
+            return (
+                Path(target).expanduser().resolve()
+                == intake.target_workspace.expanduser().resolve()
+            )
+        except OSError:
+            return (
+                Path(target).expanduser().absolute()
+                == intake.target_workspace.expanduser().absolute()
+            )
+
+    @staticmethod
+    def _intake_target_missing(intake: ProjectIntake) -> bool:
+        try:
+            return not intake.target_workspace.exists()
+        except OSError:
+            return True
 
     def _project_intake_label(self) -> str:
         return project_intake_state_label(

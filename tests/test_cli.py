@@ -350,6 +350,7 @@ class TestInit:
             assert data["target_workspace"] == str(target.resolve())
             assert data["product_goal"] == "Build a terminal snake game."
             assert data["project_type"] == "terminal game"
+            assert data["starter_profile"] == "Textual TUI"
             assert data["target_users"] == "local CLI users"
             assert data["success_criteria"] == "Playable keyboard loop works."
             assert data["stack_preferences"] == ["python", "textual"]
@@ -357,6 +358,7 @@ class TestInit:
             assert data["constraints"] == ["No network dependency"]
             assert data["notes"] == "Build a terminal snake game."
             assert "Product goal: Build a terminal snake game." in markdown
+            assert "Starter profile: Textual TUI" in markdown
 
     def test_init_project_name_implies_new_mode(self, runner, tmp_path):
         with runner.isolated_filesystem(temp_dir=tmp_path):

@@ -109,6 +109,7 @@ class InitNewProjectRequest:
     git_init: bool
     product_goal: str = ""
     project_type: str = ""
+    starter_profile: str = ""
     target_users: str = ""
     success_criteria: str = ""
     stack_preferences: tuple[str, ...] = ()
@@ -361,6 +362,12 @@ def _run_plain_interactive_tui(config: TrinityConfig) -> None:
     help="Project type or product category for the new project brief.",
 )
 @click.option(
+    "--starter-profile",
+    "--starter",
+    default="",
+    help="Initial implementation/repository shape for the new project.",
+)
+@click.option(
     "--target-users",
     default="",
     help="Target users or audience for the new project brief.",
@@ -398,6 +405,7 @@ def init(
     project_git_init: bool,
     product_goal: str,
     project_type: str,
+    starter_profile: str,
     target_users: str,
     success_criteria: str,
     stack_preferences: tuple[str, ...],
@@ -428,6 +436,7 @@ def init(
         project_git_init=project_git_init,
         product_goal=product_goal,
         project_type=project_type,
+        starter_profile=starter_profile,
         target_users=target_users,
         success_criteria=success_criteria,
         stack_preferences=stack_preferences,
@@ -661,6 +670,7 @@ def _build_init_new_project_request(
     project_git_init: bool,
     product_goal: str,
     project_type: str,
+    starter_profile: str,
     target_users: str,
     success_criteria: str,
     stack_preferences: tuple[str, ...],
@@ -680,6 +690,7 @@ def _build_init_new_project_request(
         git_init=project_git_init,
         product_goal=product_goal,
         project_type=project_type,
+        starter_profile=starter_profile,
         target_users=target_users,
         success_criteria=success_criteria,
         stack_preferences=_split_option_values(stack_preferences),
@@ -719,6 +730,7 @@ def _write_init_new_project(
         target_workspace=target_workspace,
         product_goal=request.product_goal,
         project_type=request.project_type,
+        starter_profile=request.starter_profile,
         target_users=request.target_users,
         success_criteria=request.success_criteria,
         stack_preferences=request.stack_preferences,

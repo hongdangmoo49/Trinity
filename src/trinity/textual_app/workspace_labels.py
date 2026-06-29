@@ -188,6 +188,29 @@ PROJECT_GENERATION_PREVIEW_LABELS = {
     },
 }
 
+PROJECT_VALIDATION_PLAN_LABELS = {
+    "en": {
+        "fast": "fast",
+        "full": "full",
+        "full_existing": "full suite before merge",
+        "full_new": "first scaffold smoke before release",
+        "inspect_scope": "inspect changed scope",
+        "record_required": "record required check before merge",
+        "required": "required",
+        "summary": "Validation plan",
+    },
+    "ko": {
+        "fast": "빠른 확인",
+        "full": "전체 확인",
+        "full_existing": "병합 전 전체 스위트",
+        "full_new": "릴리스 전 첫 스캐폴드 smoke",
+        "inspect_scope": "변경 범위 점검",
+        "record_required": "병합 전 필수 확인 기록",
+        "required": "필수 확인",
+        "summary": "검증 계획",
+    },
+}
+
 PROJECT_MODE_RAIL_LABELS = {
     "en": {
         "invalid": "intake unreadable",
@@ -408,6 +431,59 @@ def format_project_generation_preview_label(
                 max_items=2,
             )
         )
+    return f"{labels['summary']}: {' | '.join(sections)}"
+
+
+def project_validation_plan_label(
+    state_dir: Path,
+    *,
+    lang: str = "en",
+    target_workspace: object | None = None,
+) -> str:
+    """Return a compact validation plan preview for saved project intake."""
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return ""
+    if intake is None:
+        return ""
+    return format_project_validation_plan_label(
+        intake,
+        lang=lang,
+        target_workspace=target_workspace,
+    )
+
+
+def format_project_validation_plan_label(
+    intake: ProjectIntake,
+    *,
+    lang: str = "en",
+    target_workspace: object | None = None,
+) -> str:
+    """Format fast/required/full validation tiers for project intake."""
+    if not _project_intake_targets_match(intake, target_workspace):
+        return ""
+    labels = PROJECT_VALIDATION_PLAN_LABELS.get(
+        lang,
+        PROJECT_VALIDATION_PLAN_LABELS["en"],
+    )
+    sections = (
+        _format_project_intake_section(
+            labels["fast"],
+            _validation_fast_commands(intake, labels),
+            max_items=1,
+        ),
+        _format_project_intake_section(
+            labels["required"],
+            _validation_required_commands(intake, labels),
+            max_items=2,
+        ),
+        _format_project_intake_section(
+            labels["full"],
+            _validation_full_commands(intake, labels),
+            max_items=2,
+        ),
+    )
     return f"{labels['summary']}: {' | '.join(sections)}"
 
 
@@ -854,6 +930,39 @@ def _new_project_generation_signal_text(intake: ProjectIntake) -> str:
         *intake.stack_preferences,
     )
     return " ".join(value.strip().lower() for value in values if value.strip())
+
+
+def _validation_fast_commands(
+    intake: ProjectIntake,
+    labels: dict[str, str],
+) -> tuple[str, ...]:
+    if intake.test_commands:
+        return (intake.test_commands[0],)
+    if intake.mode == "new":
+        return _new_project_generation_validation(intake)
+    return (labels["inspect_scope"],)
+
+
+def _validation_required_commands(
+    intake: ProjectIntake,
+    labels: dict[str, str],
+) -> tuple[str, ...]:
+    if intake.test_commands:
+        return intake.test_commands
+    if intake.build_commands:
+        return intake.build_commands
+    return (labels["record_required"],)
+
+
+def _validation_full_commands(
+    intake: ProjectIntake,
+    labels: dict[str, str],
+) -> tuple[str, ...]:
+    if intake.test_commands and intake.build_commands:
+        return intake.build_commands
+    if intake.mode == "new":
+        return (labels["full_new"],)
+    return (labels["full_existing"],)
 
 
 def _project_intake_analysis_is_sparse(intake: ProjectIntake) -> bool:

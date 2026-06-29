@@ -66,6 +66,7 @@ from trinity.textual_app.workspace_labels import (
     PROJECT_INTAKE_STALE_AFTER_DAYS,
     format_project_intake_label,
     format_project_generation_preview_label,
+    format_project_validation_plan_label,
     project_analyze_action_variant,
     project_brief_action_variant,
     project_create_action_variant,
@@ -1237,6 +1238,10 @@ def _project_status_payload(
                 intake,
                 target_workspace=intake.target_workspace,
             ),
+            "validation_plan": format_project_validation_plan_label(
+                intake,
+                target_workspace=intake.target_workspace,
+            ),
             "mode": intake.mode,
             "target_name": intake.target_workspace.name or "(root)",
             "target_workspace": str(intake.target_workspace),
@@ -1489,6 +1494,12 @@ def _display_project_status(
     )
     if generation_preview:
         lines.append(generation_preview)
+    validation_plan = format_project_validation_plan_label(
+        intake,
+        target_workspace=intake.target_workspace,
+    )
+    if validation_plan:
+        lines.append(validation_plan)
     if refreshed:
         lines.extend(
             [

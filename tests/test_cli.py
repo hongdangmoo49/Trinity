@@ -774,6 +774,7 @@ class TestProjectAnalyze:
             )
             assert "Generation preview:" in status.output
             assert "create: README.md, src/, tests/" in status.output
+            assert "Validation plan:" in status.output
             assert "trinity project analyze" in status.output
             assert '--goal "<goal>"' not in status.output
             assert '--project-type "<type>"' in status.output
@@ -791,6 +792,11 @@ class TestProjectAnalyze:
             assert data["project_intake"]["generation_preview"] == (
                 "Generation preview: create: README.md, src/, tests/ | "
                 "validate: define first smoke check"
+            )
+            assert data["project_intake"]["validation_plan"] == (
+                "Validation plan: fast: define first smoke check | "
+                "required: record required check before merge | "
+                "full: first scaffold smoke before release"
             )
             assert data["project_intake"]["readiness"] == {
                 "ready": False,

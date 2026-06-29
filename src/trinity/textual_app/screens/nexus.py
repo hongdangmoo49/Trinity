@@ -23,6 +23,7 @@ from trinity.textual_app.workspace_labels import (
     project_intake_state_label,
     project_mode_rail_label,
     project_plan_preview_label,
+    project_validation_plan_label,
     target_workspace_state_label,
 )
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
@@ -187,6 +188,7 @@ class NexusScreen(Screen[None]):
         self._project_mode_rail_widget: Static | None = None
         self._project_plan_preview_widget: Static | None = None
         self._project_generation_preview_widget: Static | None = None
+        self._project_validation_plan_widget: Static | None = None
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
@@ -264,6 +266,12 @@ class NexusScreen(Screen[None]):
             )
             self._project_generation_preview_widget = generation_preview
             yield generation_preview
+            validation_plan = Static(
+                self._project_validation_plan_label(),
+                id="nexus-project-validation-plan",
+            )
+            self._project_validation_plan_widget = validation_plan
+            yield validation_plan
             with Horizontal(id="nexus-main"):
                 with Vertical(id="nexus-center-stack"):
                     central = CentralAgentView(id="central-agent", lang=self.config.lang)
@@ -450,6 +458,14 @@ class NexusScreen(Screen[None]):
             )
         return self._project_generation_preview_widget
 
+    def _project_validation_plan_static(self) -> Static:
+        if self._project_validation_plan_widget is None:
+            self._project_validation_plan_widget = self.query_one(
+                "#nexus-project-validation-plan",
+                Static,
+            )
+        return self._project_validation_plan_widget
+
     def _project_mode_rail_static(self) -> Static:
         if self._project_mode_rail_widget is None:
             self._project_mode_rail_widget = self.query_one(
@@ -621,6 +637,13 @@ class NexusScreen(Screen[None]):
             target_workspace=self._current_workspace_text(),
         )
 
+    def _project_validation_plan_label(self) -> str:
+        return project_validation_plan_label(
+            self.config.effective_state_dir,
+            lang=self.config.lang,
+            target_workspace=self._current_workspace_text(),
+        )
+
     def _project_mode_rail_label(self) -> str:
         return project_mode_rail_label(
             self.config.effective_state_dir,
@@ -659,6 +682,9 @@ class NexusScreen(Screen[None]):
         )
         self._project_generation_preview_static().update(
             self._project_generation_preview_label()
+        )
+        self._project_validation_plan_static().update(
+            self._project_validation_plan_label()
         )
         self._project_mode_rail_static().update(
             self._project_mode_rail_label()

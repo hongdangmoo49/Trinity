@@ -23,6 +23,7 @@ from trinity.textual_app.workspace_labels import (
     project_intake_state_label,
     project_mode_rail_label,
     project_plan_preview_label,
+    project_validation_plan_label,
     target_workspace_state_label,
 )
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
@@ -265,6 +266,62 @@ def test_project_generation_preview_label_skips_existing_project(
     )
 
     assert project_generation_preview_label(state, target_workspace=target) == ""
+
+
+def test_project_validation_plan_label_summarizes_new_project_checks(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "new-app"
+    target.mkdir()
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            starter_profile="Textual TUI",
+            stack_preferences=("python", "textual"),
+        ),
+    )
+
+    assert project_validation_plan_label(state, target_workspace=target) == (
+        "Validation plan: fast: uv run pytest | "
+        "required: record required check before merge | "
+        "full: first scaffold smoke before release"
+    )
+    assert project_validation_plan_label(
+        state,
+        lang="ko",
+        target_workspace=target,
+    ) == (
+        "검증 계획: 빠른 확인: uv run pytest | "
+        "필수 확인: 병합 전 필수 확인 기록 | "
+        "전체 확인: 릴리스 전 첫 스캐폴드 smoke"
+    )
+
+
+def test_project_validation_plan_label_summarizes_existing_project_checks(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "existing-app"
+    target.mkdir()
+    (target / "package.json").write_text(
+        '{"scripts":{"test":"vitest run","build":"vite build"}}',
+        encoding="utf-8",
+    )
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+        ),
+    )
+
+    assert project_validation_plan_label(state, target_workspace=target) == (
+        "Validation plan: fast: npm test | "
+        "required: npm test | full: npm run build"
+    )
 
 
 def test_project_mode_rail_label_guides_missing_intake(tmp_path: Path) -> None:

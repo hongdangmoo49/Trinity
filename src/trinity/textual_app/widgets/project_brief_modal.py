@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Input, Static
+
+from trinity.project_intake import ProjectIntake
+from trinity.textual_app.workspace_labels import format_project_generation_preview_label
 
 
 PROJECT_BRIEF_LABELS = {
@@ -130,6 +134,12 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
         margin-bottom: 1;
     }
 
+    #project-brief-generation-preview {
+        height: auto;
+        color: $text-muted;
+        margin-bottom: 1;
+    }
+
     .project-brief-row {
         height: 3;
         margin-bottom: 1;
@@ -182,6 +192,10 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
                 yield Static(
                     self._brief_readiness_label(self.draft),
                     id="project-brief-readiness",
+                )
+                yield Static(
+                    self._generation_preview_label(self.draft),
+                    id="project-brief-generation-preview",
                 )
             yield from self._input_row(
                 "goal",
@@ -263,6 +277,7 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
             return
         event.stop()
         self._refresh_brief_readiness()
+        self._refresh_generation_preview()
 
     def action_cancel(self) -> None:
         self.dismiss(ProjectBriefModalResult(saved=False, draft=self._current_draft()))
@@ -323,6 +338,13 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
             self._brief_readiness_label(self._current_draft())
         )
 
+    def _refresh_generation_preview(self) -> None:
+        if not self.is_mounted:
+            return
+        self.query_one("#project-brief-generation-preview", Static).update(
+            self._generation_preview_label(self._current_draft())
+        )
+
     def _brief_readiness_label(self, draft: ProjectBriefDraft) -> str:
         missing = [
             self._label(label_key)
@@ -338,6 +360,32 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
         if missing:
             return self._format("readiness_missing", fields=", ".join(missing))
         return self._label("readiness_complete")
+
+    def _generation_preview_label(self, draft: ProjectBriefDraft) -> str:
+        target = Path(self.target_workspace) if self.target_workspace else Path(".")
+        intake = ProjectIntake(
+            mode="new",
+            target_workspace=target,
+            created_at="",
+            git_repo=False,
+            branch="(none)",
+            dirty_count=None,
+            untracked_count=None,
+            product_goal=draft.product_goal,
+            project_type=draft.project_type,
+            starter_profile=draft.starter_profile,
+            target_users=draft.target_users,
+            success_criteria=draft.success_criteria,
+            stack_preferences=draft.stack_preferences,
+            first_milestone=draft.first_milestone,
+            constraints=draft.constraints,
+            notes=draft.notes,
+        )
+        return format_project_generation_preview_label(
+            intake,
+            lang=self.lang,
+            target_workspace=target,
+        )
 
 
 def _split_values(value: str) -> tuple[str, ...]:

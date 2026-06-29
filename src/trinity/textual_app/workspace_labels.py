@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import shutil
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
@@ -350,6 +352,23 @@ PROJECT_STARTUP_READINESS_LABELS = {
     },
 }
 
+PROVIDER_CLI_SETUP_LABELS = {
+    "en": {
+        "summary": "Provider CLI setup",
+        "selected": "selected {count}",
+        "found": "found",
+        "missing": "missing",
+        "none": "none",
+    },
+    "ko": {
+        "summary": "프로바이더 CLI 설정",
+        "selected": "선택 {count}개",
+        "found": "발견",
+        "missing": "없음",
+        "none": "없음",
+    },
+}
+
 
 @dataclass(frozen=True)
 class ProjectAnalyzeActionPresentation:
@@ -418,6 +437,45 @@ def provider_execution_review_policy_label(
         f"{labels['execution_label']}: {execution} | "
         f"{labels['review_label']}: {review}"
     )
+
+
+def provider_cli_setup_label(
+    agents: Mapping[str, object],
+    *,
+    selected_agents: Sequence[str] | None = None,
+    lang: str = "en",
+) -> str:
+    """Return a lightweight CLI command availability label for selected providers."""
+    labels = PROVIDER_CLI_SETUP_LABELS.get(
+        lang,
+        PROVIDER_CLI_SETUP_LABELS["en"],
+    )
+    active_names = _active_provider_names(
+        agents,
+        selected_agents=selected_agents,
+    )
+    found_names = tuple(
+        name
+        for name in active_names
+        if _provider_cli_command_found(getattr(agents[name], "cli_command", ""))
+    )
+    missing_names = tuple(name for name in active_names if name not in found_names)
+    parts = [
+        labels["selected"].format(count=len(active_names)),
+    ]
+    if found_names:
+        parts.append(
+            f"{labels['found']}: "
+            f"{_format_project_intake_values(found_names, max_items=3)}"
+        )
+    if missing_names:
+        parts.append(
+            f"{labels['missing']}: "
+            f"{_format_project_intake_values(missing_names, max_items=3)}"
+        )
+    if not found_names and not missing_names:
+        parts.append(f"{labels['found']}: {labels['none']}")
+    return f"{labels['summary']}: {' | '.join(parts)}"
 
 
 def project_startup_readiness_label(
@@ -1426,6 +1484,34 @@ def _active_provider_names(
         if str(name).strip()
     }
     return tuple(name for name in enabled_names if name in requested)
+
+
+def _provider_cli_command_found(command: object) -> bool:
+    executable = _provider_cli_executable(command)
+    if not executable:
+        return False
+    if _looks_like_path(executable):
+        path = Path(executable).expanduser()
+        return path.exists() and path.is_file()
+    return shutil.which(executable) is not None
+
+
+def _provider_cli_executable(command: object) -> str:
+    raw = str(command or "").strip()
+    if len(raw) >= 2 and raw[0] == raw[-1] and raw[0] in {"'", '"'}:
+        raw = raw[1:-1].strip()
+    if _looks_like_path(raw):
+        return raw
+    return raw.split(maxsplit=1)[0] if raw else ""
+
+
+def _looks_like_path(value: str) -> bool:
+    if not value:
+        return False
+    separators = {os.sep, "/", "\\"}
+    if os.altsep:
+        separators.add(os.altsep)
+    return any(separator and separator in value for separator in separators)
 
 
 def _format_project_intake_section(

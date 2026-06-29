@@ -10901,6 +10901,12 @@ async def test_start_analyze_workspace_button_writes_project_intake(tmp_path) ->
     control_repo.mkdir()
     target.mkdir()
     (target / "README.md").write_text("# Existing project\n", encoding="utf-8")
+    (target / "docs").mkdir()
+    (target / "src").mkdir()
+    (target / "package.json").write_text(
+        '{"scripts":{"test":"vitest","dev":"vite --host","build":"vite build"}}',
+        encoding="utf-8",
+    )
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=control_repo),
         FakeWorkflowController(),
@@ -10924,7 +10930,43 @@ async def test_start_analyze_workspace_button_writes_project_intake(tmp_path) ->
             "docs, source roots, and test/build signals before proposing the next "
             "safe work packages. Do not scaffold a new project unless the workspace "
             "is empty."
+            "\n\n"
+            "Detected anchors:\n"
+            "- read first: README.md, docs, src\n"
+            "- tests: npm test\n"
+            "- dev: npm run dev\n"
+            "- build: npm run build"
         )
+
+
+@pytest.mark.asyncio
+async def test_start_analyze_workspace_sparse_existing_prompt_has_no_anchor_block(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target"
+    control_repo.mkdir()
+    target.mkdir()
+    (target / "notes.txt").write_text("Existing notes\n", encoding="utf-8")
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        FakeWorkflowController(),
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#analyze-workspace")
+        await pilot.pause()
+
+        start = app.get_screen("start", StartScreen)
+        prompt = start.query_one(PromptComposer).text
+        assert prompt == (
+            f"Analyze the selected existing project at {target.resolve()}. Read its "
+            "docs, source roots, and test/build signals before proposing the next "
+            "safe work packages. Do not scaffold a new project unless the workspace "
+            "is empty."
+        )
+        assert "Detected anchors:" not in prompt
 
 
 @pytest.mark.asyncio
@@ -11590,6 +11632,12 @@ async def test_nexus_analyze_workspace_button_writes_project_intake(tmp_path) ->
     control_repo.mkdir()
     target.mkdir()
     (target / "README.md").write_text("# Existing project\n", encoding="utf-8")
+    (target / "docs").mkdir()
+    (target / "src").mkdir()
+    (target / "package.json").write_text(
+        '{"scripts":{"test":"vitest","dev":"vite --host","build":"vite build"}}',
+        encoding="utf-8",
+    )
     controller = FakeWorkflowController(
         WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
     )
@@ -11619,6 +11667,12 @@ async def test_nexus_analyze_workspace_button_writes_project_intake(tmp_path) ->
             "docs, source roots, and test/build signals before proposing the next "
             "safe work packages. Do not scaffold a new project unless the workspace "
             "is empty."
+            "\n\n"
+            "Detected anchors:\n"
+            "- read first: README.md, docs, src\n"
+            "- tests: npm test\n"
+            "- dev: npm run dev\n"
+            "- build: npm run build"
         )
 
 

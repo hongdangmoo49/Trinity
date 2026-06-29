@@ -13,6 +13,7 @@ from trinity import __version__
 from trinity.config import TrinityConfig
 from trinity.context.commands import engine_from_config
 from trinity.project_intake import (
+    ProjectIntake,
     build_project_intake,
     load_project_intake,
     write_project_intake,
@@ -260,20 +261,75 @@ def initial_start_prompt(config: TrinityConfig, workspace_candidate: Path | None
     )
 
 
-def _existing_project_analysis_prompt(lang: str, target: Path | None = None) -> str:
+def _existing_project_analysis_prompt(
+    lang: str,
+    target: Path | None = None,
+    intake: ProjectIntake | None = None,
+) -> str:
     target_text = f" at {target}" if target is not None else ""
     if lang == "ko":
         target_text = f" `{target}`" if target is not None else ""
-        return (
+        prompt = (
             f"선택된 기존 프로젝트{target_text}를 분석해라. 문서, 소스 루트, "
             "테스트/빌드 신호를 먼저 읽고 다음 안전한 작업 패키지를 제안해라. "
             "비어 있는 workspace가 아니라면 새 프로젝트로 스캐폴딩하지 마라."
         )
-    return (
-        f"Analyze the selected existing project{target_text}. Read its docs, "
-        "source roots, and test/build signals before proposing the next safe "
-        "work packages. Do not scaffold a new project unless the workspace is empty."
-    )
+    else:
+        prompt = (
+            f"Analyze the selected existing project{target_text}. Read its docs, "
+            "source roots, and test/build signals before proposing the next safe "
+            "work packages. Do not scaffold a new project unless the workspace is empty."
+        )
+    anchor_lines = _existing_project_analysis_anchor_lines(lang, intake)
+    if not anchor_lines:
+        return prompt
+    return "\n".join((prompt, "", *anchor_lines))
+
+
+def _existing_project_analysis_anchor_lines(
+    lang: str,
+    intake: ProjectIntake | None,
+) -> tuple[str, ...]:
+    if intake is None or intake.mode != "existing":
+        return ()
+    read_first = tuple(dict.fromkeys((*intake.docs_found, *intake.source_roots)))
+    sections: list[str] = []
+    if lang == "ko":
+        labels = {
+            "title": "감지된 앵커:",
+            "read_first": "먼저 읽기",
+            "tests": "테스트",
+            "dev": "개발",
+            "build": "빌드",
+        }
+    else:
+        labels = {
+            "title": "Detected anchors:",
+            "read_first": "read first",
+            "tests": "tests",
+            "dev": "dev",
+            "build": "build",
+        }
+    for label_key, values in (
+        ("read_first", read_first),
+        ("tests", intake.test_commands),
+        ("dev", intake.dev_commands),
+        ("build", intake.build_commands),
+    ):
+        if values:
+            formatted_values = _format_existing_analysis_anchor_values(values)
+            sections.append(
+                f"- {labels[label_key]}: {formatted_values}"
+            )
+    if not sections:
+        return ()
+    return (labels["title"], *sections)
+
+
+def _format_existing_analysis_anchor_values(values: tuple[str, ...]) -> str:
+    visible = values[:3]
+    suffix = f" +{len(values) - len(visible)}" if len(values) > len(visible) else ""
+    return f"{', '.join(visible)}{suffix}"
 
 
 def _project_brief_start_prompt(
@@ -2028,11 +2084,11 @@ class TrinityTextualApp(App[None]):
     def _on_workspace_candidate_selected(
         self,
         preflight: WorkspacePreflight | None,
-    ) -> None:
+    ) -> ProjectIntake | None:
         if preflight is None:
-            return
+            return None
         self._set_workspace_candidate(preflight.path, sync_start=True)
-        self._sync_project_intake_for_preflight(preflight)
+        return self._sync_project_intake_for_preflight(preflight)
 
     def _on_existing_project_intake_workspace_selected(
         self,
@@ -2040,9 +2096,9 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         if preflight is None:
             return
-        self._on_workspace_candidate_selected(preflight)
+        intake = self._on_workspace_candidate_selected(preflight)
         if self._project_intake_mode_for_preflight(preflight) == "existing":
-            self._seed_start_prompt_for_existing_analysis(preflight.path)
+            self._seed_start_prompt_for_existing_analysis(preflight.path, intake)
             return
         self._open_new_project_brief_if_needed(preflight)
 
@@ -2244,14 +2300,15 @@ class TrinityTextualApp(App[None]):
         preflight: WorkspacePreflight,
         *,
         control_repo_confirmed: bool,
-    ) -> None:
+    ) -> ProjectIntake | None:
         self._set_workspace_candidate(preflight.path, sync_nexus=False)
         self._set_textual_target_workspace(
             preflight.path,
             control_repo_confirmed=control_repo_confirmed,
         )
-        self._sync_project_intake_for_preflight(preflight)
+        intake = self._sync_project_intake_for_preflight(preflight)
         self._sync_nexus_workspace_candidate()
+        return intake
 
     def _continue_nexus_project_intake_workspace_selection(
         self,
@@ -2259,12 +2316,12 @@ class TrinityTextualApp(App[None]):
         *,
         control_repo_confirmed: bool,
     ) -> None:
-        self._continue_nexus_workspace_selection(
+        intake = self._continue_nexus_workspace_selection(
             preflight,
             control_repo_confirmed=control_repo_confirmed,
         )
         if self._project_intake_mode_for_preflight(preflight) == "existing":
-            self._seed_nexus_prompt_for_existing_analysis(preflight.path)
+            self._seed_nexus_prompt_for_existing_analysis(preflight.path, intake)
             return
         self._open_new_project_brief_if_needed(preflight)
 
@@ -3474,8 +3531,11 @@ class TrinityTextualApp(App[None]):
             self.workspace_candidate,
         )
 
-    def _sync_project_intake_for_preflight(self, preflight: WorkspacePreflight) -> None:
-        self._sync_project_intake_for_target(
+    def _sync_project_intake_for_preflight(
+        self,
+        preflight: WorkspacePreflight,
+    ) -> ProjectIntake | None:
+        return self._sync_project_intake_for_target(
             preflight.path,
             mode=self._project_intake_mode_for_preflight(preflight),
         )
@@ -3485,9 +3545,9 @@ class TrinityTextualApp(App[None]):
             target,
             WorkflowNexusSnapshot(),
         )
-        self._sync_project_intake_for_preflight(preflight)
+        intake = self._sync_project_intake_for_preflight(preflight)
         if self._project_intake_mode_for_preflight(preflight) == "existing":
-            self._seed_start_prompt_for_existing_analysis(preflight.path)
+            self._seed_start_prompt_for_existing_analysis(preflight.path, intake)
             return
         self._open_new_project_brief_if_needed(preflight)
 
@@ -3497,9 +3557,9 @@ class TrinityTextualApp(App[None]):
         snapshot: WorkflowNexusSnapshot,
     ) -> None:
         preflight = self._direct_project_intake_preflight(target, snapshot)
-        self._sync_project_intake_for_preflight(preflight)
+        intake = self._sync_project_intake_for_preflight(preflight)
         if self._project_intake_mode_for_preflight(preflight) == "existing":
-            self._seed_nexus_prompt_for_existing_analysis(preflight.path)
+            self._seed_nexus_prompt_for_existing_analysis(preflight.path, intake)
             return
         self._open_new_project_brief_if_needed(preflight)
 
@@ -3529,9 +3589,9 @@ class TrinityTextualApp(App[None]):
         target: Path | None,
         *,
         mode: str,
-    ) -> None:
+    ) -> ProjectIntake | None:
         if target is None:
-            return
+            return None
         intake = build_project_intake(
             mode=mode,
             target_workspace=target,
@@ -3539,6 +3599,7 @@ class TrinityTextualApp(App[None]):
         )
         write_project_intake(self.config.effective_state_dir, intake)
         self._refresh_project_intake_summary_labels()
+        return intake
 
     def _open_project_brief_modal(
         self,
@@ -3700,7 +3761,11 @@ class TrinityTextualApp(App[None]):
         if not composer.text.strip():
             composer.set_text(prompt)
 
-    def _seed_nexus_prompt_for_existing_analysis(self, target: Path) -> None:
+    def _seed_nexus_prompt_for_existing_analysis(
+        self,
+        target: Path,
+        intake: ProjectIntake | None = None,
+    ) -> None:
         if self.current_route != "nexus":
             return
         if not self._screens_installed:
@@ -3715,10 +3780,14 @@ class TrinityTextualApp(App[None]):
         composer = nexus.query_one("#nexus-composer", PromptComposer)
         if not composer.text.strip():
             composer.set_text(
-                _existing_project_analysis_prompt(self.config.lang, target)
+                _existing_project_analysis_prompt(self.config.lang, target, intake)
             )
 
-    def _seed_start_prompt_for_existing_analysis(self, target: Path) -> None:
+    def _seed_start_prompt_for_existing_analysis(
+        self,
+        target: Path,
+        intake: ProjectIntake | None = None,
+    ) -> None:
         if not self._screens_installed:
             return
         start = self.get_screen("start", StartScreen)
@@ -3731,7 +3800,7 @@ class TrinityTextualApp(App[None]):
         composer = start.query_one(PromptComposer)
         if not composer.text.strip():
             composer.set_text(
-                _existing_project_analysis_prompt(self.config.lang, target)
+                _existing_project_analysis_prompt(self.config.lang, target, intake)
             )
 
     def _preserved_project_intake_user_context(self, target: Path) -> dict[str, object]:

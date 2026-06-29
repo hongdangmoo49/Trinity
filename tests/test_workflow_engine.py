@@ -950,12 +950,16 @@ def test_record_execution_results_moves_to_reviewing(tmp_path):
     assert engine.execution_results[0].summary == "Implemented route bot."
     assert len(engine.review_packages) == 1
     assert engine.review_packages[0]["package_id"] == "WP-001"
-    assert engine.review_packages[0]["reviewer_agent"] == ""
-    assert engine.review_packages[0]["self_review"] is False
-    assert engine.review_packages[0]["depth"] == ReviewDepth.NONE.value
-    assert engine.review_packages[0]["required"] is False
-    assert "no non-owner peer reviewer" in engine.review_packages[0]["skipped_reason"]
-    assert engine.review_packages_for_request("wp") == []
+    assert engine.review_packages[0]["reviewer_agent"] == "codex"
+    assert engine.review_packages[0]["self_review"] is True
+    assert engine.review_packages[0]["depth"] == ReviewDepth.SELF_CHECK.value
+    assert engine.review_packages[0]["required"] is True
+    assert engine.review_packages[0]["reason"] == (
+        "self-check because no non-owner peer reviewer is active"
+    )
+    assert [review.id for review in engine.review_packages_for_request("wp")] == [
+        "RP-WP-001-codex-self-check"
+    ]
 
     loaded = WorkflowEngine(tmp_path / ".trinity")
     assert loaded.state == WorkflowState.REVIEWING

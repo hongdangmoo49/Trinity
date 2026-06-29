@@ -277,7 +277,7 @@ class PeerReviewPlanner:
             )
             if reviewer_agent is None:
                 review_packages.append(
-                    self._skipped_no_peer_package(package, target_agent, result)
+                    self._self_check_package(package, target_agent, result)
                 )
                 continue
             review_packages.append(
@@ -460,26 +460,22 @@ class PeerReviewPlanner:
             return "single available non-owner reviewer"
         return f"selected {reviewer_agent} by profile review fit"
 
-    def _skipped_no_peer_package(
+    def _self_check_package(
         self,
         package: WorkPackage,
         target_agent: str,
         result: ExecutionResult | None,
     ) -> ReviewPackage:
-        skipped_reason = (
-            f"only {target_agent} is active; no non-owner peer reviewer is available"
-        )
         return ReviewPackage(
-            id=f"RP-{package.id}-skipped-no-peer",
+            id=f"RP-{package.id}-{target_agent}-self-check",
             package_id=package.id,
-            reviewer_agent="",
+            reviewer_agent=target_agent,
             target_agent=target_agent,
-            criteria=[],
+            criteria=self._criteria_for(package),
             execution_status=result.status if result else None,
-            depth=ReviewDepth.NONE,
-            required=False,
-            reason="peer review skipped because no peer reviewer is active",
-            skipped_reason=skipped_reason,
+            depth=ReviewDepth.SELF_CHECK,
+            required=True,
+            reason="self-check because no non-owner peer reviewer is active",
         )
 
     def _escalation_reason(

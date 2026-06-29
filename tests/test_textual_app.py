@@ -11177,6 +11177,15 @@ async def test_start_analyze_workspace_empty_target_opens_project_brief(
             "Minimum brief: missing Product goal, Project type, Target users, "
             "Success criteria, First milestone"
         )
+        assert str(
+            app.screen.query_one(
+                "#project-brief-generation-preview",
+                Static,
+            ).content
+        ) == (
+            "Generation preview: create: README.md, src/, tests/ | "
+            "validate: define first smoke check"
+        )
         assert (
             app.screen.query_one("#project-brief-goal", Input).placeholder
             == "e.g. Build a local habit tracker"
@@ -11195,11 +11204,24 @@ async def test_start_analyze_workspace_empty_target_opens_project_brief(
         app.screen.query_one("#project-brief-success", Input).value = (
             "Users can log a habit"
         )
+        app.screen.query_one("#project-brief-starter-profile", Input).value = (
+            "Python CLI package"
+        )
+        app.screen.query_one("#project-brief-stack", Input).value = "python, textual"
         app.screen.query_one("#project-brief-milestone", Input).value = "First log"
         await pilot.pause()
         assert str(
             app.screen.query_one("#project-brief-readiness", Static).content
         ) == "Minimum brief: complete"
+        assert str(
+            app.screen.query_one(
+                "#project-brief-generation-preview",
+                Static,
+            ).content
+        ) == (
+            "Generation preview: create: README.md, pyproject.toml, src/ +1 | "
+            "validate: uv run pytest"
+        )
 
 
 @pytest.mark.asyncio

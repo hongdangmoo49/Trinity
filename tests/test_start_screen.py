@@ -18,6 +18,7 @@ from trinity.textual_app.workspace_labels import (
     project_analyze_action_label_key,
     project_analyze_action_presentation,
     project_analyze_action_variant,
+    project_brief_action_label_key,
     project_brief_action_variant,
     project_create_action_variant,
     project_generation_preview_label,
@@ -1297,8 +1298,16 @@ def test_project_brief_action_variant_warns_for_incomplete_new_brief(
         == "warning"
     )
     assert (
+        project_brief_action_label_key(state, target_workspace=target)
+        == "complete_brief"
+    )
+    assert (
         project_brief_action_variant(state, target_workspace=other_target)
         == "default"
+    )
+    assert (
+        project_brief_action_label_key(state, target_workspace=other_target)
+        == "edit_brief"
     )
 
     write_project_intake(
@@ -1318,6 +1327,10 @@ def test_project_brief_action_variant_warns_for_incomplete_new_brief(
     assert (
         project_brief_action_variant(state, target_workspace=target)
         == "default"
+    )
+    assert (
+        project_brief_action_label_key(state, target_workspace=target)
+        == "edit_brief"
     )
 
 
@@ -1782,6 +1795,9 @@ async def test_start_screen_highlights_edit_brief_for_incomplete_new_project(
             screen.query_one("#edit-project-brief", Button).variant
             == "warning"
         )
+        assert str(screen.query_one("#edit-project-brief", Button).label) == (
+            "Complete Brief"
+        )
         assert screen.query_one("#analyze-workspace", Button).variant == "default"
         assert screen.query_one("#create-project", Button).variant == "default"
 
@@ -1889,6 +1905,9 @@ async def test_nexus_highlights_missing_new_project_target_creation(
             screen.query_one("#nexus-edit-project-brief", Button).variant
             == "default"
         )
+        assert str(screen.query_one("#nexus-edit-project-brief", Button).label) == (
+            "Edit Brief"
+        )
         assert (
             screen.query_one("#nexus-create-project", Button).variant
             == "warning"
@@ -1991,6 +2010,9 @@ async def test_nexus_screen_highlights_edit_brief_for_incomplete_new_project(
         assert (
             screen.query_one("#nexus-edit-project-brief", Button).variant
             == "warning"
+        )
+        assert str(screen.query_one("#nexus-edit-project-brief", Button).label) == (
+            "Complete Brief"
         )
 
 

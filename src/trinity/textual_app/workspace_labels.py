@@ -1029,6 +1029,25 @@ def project_brief_action_variant(
     return "default"
 
 
+def project_brief_action_label_key(
+    state_dir: Path,
+    *,
+    target_workspace: object | None = None,
+) -> str:
+    """Return the Workbench brief action label key for saved intake state."""
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return "edit_brief"
+    if intake is None:
+        return "edit_brief"
+    if not _project_intake_targets_match(intake, target_workspace):
+        return "edit_brief"
+    if intake.mode == "new" and missing_new_project_brief_field_keys(intake):
+        return "complete_brief"
+    return "edit_brief"
+
+
 def project_analyze_action_variant(
     state_dir: Path,
     *,

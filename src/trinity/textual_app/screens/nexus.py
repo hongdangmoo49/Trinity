@@ -18,6 +18,7 @@ from trinity.textual_app.workspace_labels import (
     ProjectAnalyzeActionPresentation,
     provider_cli_setup_label,
     project_analyze_action_presentation,
+    project_brief_action_label_key,
     project_brief_action_variant,
     project_create_action_variant,
     project_generation_preview_label,
@@ -51,6 +52,7 @@ NEXUS_LABELS = {
         "analyze_workspace": "Analyze Existing",
         "analyze_selected_workspace": "Analyze Selected",
         "composer_placeholder": "Reply, refine direction, or type / for commands",
+        "complete_brief": "Complete Brief",
         "create_project": "Create New",
         "edit_brief": "Edit Brief",
         "execute": "Execute",
@@ -63,6 +65,7 @@ NEXUS_LABELS = {
         "analyze_workspace": "기존 프로젝트 분석",
         "analyze_selected_workspace": "선택 대상 분석",
         "composer_placeholder": "답변, 방향 조정 또는 /로 명령 입력",
+        "complete_brief": "브리프 완성",
         "create_project": "새 프로젝트 생성",
         "edit_brief": "브리프 편집",
         "execute": "실행",
@@ -260,7 +263,7 @@ class NexusScreen(Screen[None]):
                     variant=self._project_create_action_variant(),
                 )
                 yield Button(
-                    self._label("edit_brief"),
+                    self._label(self._project_brief_action_label_key()),
                     id="nexus-edit-project-brief",
                     variant=self._project_brief_action_variant(),
                 )
@@ -804,6 +807,12 @@ class NexusScreen(Screen[None]):
             target_workspace=self._current_workspace_text(),
         )
 
+    def _project_brief_action_label_key(self) -> str:
+        return project_brief_action_label_key(
+            self.config.effective_state_dir,
+            target_workspace=self._current_workspace_text(),
+        )
+
     def _project_analyze_action_presentation(
         self,
     ) -> ProjectAnalyzeActionPresentation:
@@ -849,9 +858,9 @@ class NexusScreen(Screen[None]):
         self.query_one("#nexus-create-project", Button).variant = (
             self._project_create_action_variant()
         )
-        self.query_one("#nexus-edit-project-brief", Button).variant = (
-            self._project_brief_action_variant()
-        )
+        brief_button = self.query_one("#nexus-edit-project-brief", Button)
+        brief_button.label = self._label(self._project_brief_action_label_key())
+        brief_button.variant = self._project_brief_action_variant()
 
     def _refresh_provider_policy_label(
         self,

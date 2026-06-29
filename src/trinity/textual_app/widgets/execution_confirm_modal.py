@@ -24,6 +24,8 @@ EXECUTION_CONFIRM_LABELS = {
         "package_preview": "Preview",
         "project_mode": "Project mode",
         "providers": "Providers",
+        "risk_none": "none",
+        "risks": "Risks",
         "target_workspace": "Target workspace",
         "title": "Confirm Execution",
         "work_packages": "Work packages",
@@ -38,6 +40,8 @@ EXECUTION_CONFIRM_LABELS = {
         "package_preview": "미리보기",
         "project_mode": "프로젝트 모드",
         "providers": "프로바이더",
+        "risk_none": "없음",
+        "risks": "위험",
         "target_workspace": "대상 작업 폴더",
         "title": "실행 확인",
         "work_packages": "작업 패키지",
@@ -55,6 +59,7 @@ class ExecutionConfirmationSummary:
     total_packages: int
     executable_packages: int
     package_preview: tuple[str, ...]
+    risk_items: tuple[str, ...] = ()
     instruction: str = ""
 
     @property
@@ -172,6 +177,10 @@ class ExecutionConfirmModal(ModalScreen[bool]):
                 f"{self._label('work_packages')}: {summary.total_packages} total, "
                 f"{summary.executable_packages} {self._label('executable')}"
             ),
+            (
+                f"{self._label('risks')}: "
+                f"{_join_or_none(summary.risk_items, self._label('risk_none'))}"
+            ),
         ]
         if summary.instruction.strip():
             lines.append(
@@ -201,6 +210,7 @@ def execution_confirmation_summary(
     project_mode: str = "",
     selected_agents: tuple[str, ...] | list[str] = (),
     instruction: str = "",
+    risk_items: tuple[str, ...] | list[str] = (),
     preview_limit: int = 4,
 ) -> ExecutionConfirmationSummary:
     """Build a display-only summary for the execution confirmation modal."""
@@ -215,6 +225,7 @@ def execution_confirmation_summary(
         total_packages=total_packages,
         executable_packages=executable_packages,
         package_preview=package_preview,
+        risk_items=tuple(item.strip() for item in risk_items if item.strip()),
         instruction=instruction.strip(),
     )
 

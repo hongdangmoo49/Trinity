@@ -70,6 +70,7 @@ class ProjectIntake:
     docs_found: tuple[str, ...] = ()
     product_goal: str = ""
     project_type: str = ""
+    starter_profile: str = ""
     target_users: str = ""
     success_criteria: str = ""
     stack_preferences: tuple[str, ...] = ()
@@ -97,6 +98,7 @@ class ProjectIntake:
             "docs_found": list(self.docs_found),
             "product_goal": self.product_goal,
             "project_type": self.project_type,
+            "starter_profile": self.starter_profile,
             "target_users": self.target_users,
             "success_criteria": self.success_criteria,
             "stack_preferences": list(self.stack_preferences),
@@ -119,6 +121,7 @@ class ProjectIntake:
         constraints = _csv_or_none(self.constraints)
         product_goal = self.product_goal.strip() or "(none)"
         project_type = self.project_type.strip() or "(none)"
+        starter_profile = self.starter_profile.strip() or "(none)"
         target_users = self.target_users.strip() or "(none)"
         success_criteria = self.success_criteria.strip() or "(none)"
         first_milestone = self.first_milestone.strip() or "(none)"
@@ -150,6 +153,7 @@ class ProjectIntake:
                 "",
                 f"- Product goal: {product_goal}",
                 f"- Project type: {project_type}",
+                f"- Starter profile: {starter_profile}",
                 f"- Target users: {target_users}",
                 f"- Success criteria: {success_criteria}",
                 f"- Stack preferences: {stack_preferences}",
@@ -179,6 +183,7 @@ def build_project_intake(
     notes: str = "",
     product_goal: str = "",
     project_type: str = "",
+    starter_profile: str = "",
     target_users: str = "",
     success_criteria: str = "",
     stack_preferences: tuple[str, ...] | list[str] = (),
@@ -214,6 +219,7 @@ def build_project_intake(
         docs_found=detect_docs(workspace),
         product_goal=product_goal.strip(),
         project_type=project_type.strip(),
+        starter_profile=starter_profile.strip(),
         target_users=target_users.strip(),
         success_criteria=success_criteria.strip(),
         stack_preferences=_normalize_string_tuple(stack_preferences),
@@ -333,6 +339,7 @@ def project_intake_from_dict(data: Mapping[str, Any]) -> ProjectIntake:
         docs_found=_string_tuple(data.get("docs_found")),
         product_goal=str(data.get("product_goal", "")),
         project_type=str(data.get("project_type", "")),
+        starter_profile=str(data.get("starter_profile", "")),
         target_users=str(data.get("target_users", "")),
         success_criteria=str(data.get("success_criteria", "")),
         stack_preferences=_string_tuple(data.get("stack_preferences")),
@@ -406,8 +413,9 @@ def project_intake_guidance_block(state_dir: Path) -> str:
 
 def _new_project_brief_guidance_lines(intake: ProjectIntake) -> list[str]:
     missing = missing_new_project_brief_fields(intake)
+    starter_profile = intake.starter_profile.strip()
     if missing:
-        return [
+        lines = [
             (
                 "- The new-project brief is incomplete; confirm missing fields "
                 f"before scaffolding: {_csv_or_none(missing)}."
@@ -417,7 +425,12 @@ def _new_project_brief_guidance_lines(intake: ProjectIntake) -> list[str]:
                 "until the missing brief fields are answered."
             ),
         ]
-    return [
+        if starter_profile:
+            lines.append(
+                f"- Use the recorded starter profile as the initial project shape: {starter_profile}."
+            )
+        return lines
+    lines = [
         (
             "- The new-project brief is complete; use the recorded goal, type, "
             "users, success criteria, stack, and milestone as planning constraints."
@@ -427,6 +440,11 @@ def _new_project_brief_guidance_lines(intake: ProjectIntake) -> list[str]:
             "the recorded success criteria and constraints."
         ),
     ]
+    if starter_profile:
+        lines.append(
+            f"- Use the recorded starter profile as the initial project shape: {starter_profile}."
+        )
+    return lines
 
 
 def _existing_project_brief_guidance_lines(intake: ProjectIntake) -> list[str]:
@@ -465,6 +483,7 @@ def _has_project_brief_context(intake: ProjectIntake) -> bool:
         (
             intake.product_goal.strip(),
             intake.project_type.strip(),
+            intake.starter_profile.strip(),
             intake.target_users.strip(),
             intake.success_criteria.strip(),
             intake.stack_preferences,

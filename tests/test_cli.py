@@ -314,6 +314,8 @@ class TestInit:
                     "Build a terminal snake game.",
                     "--project-type",
                     "terminal game",
+                    "--starter",
+                    "Textual TUI",
                     "--target-users",
                     "local CLI users",
                     "--success-criteria",
@@ -348,6 +350,7 @@ class TestInit:
             assert data["target_workspace"] == str(target.resolve())
             assert data["product_goal"] == "Build a terminal snake game."
             assert data["project_type"] == "terminal game"
+            assert data["starter_profile"] == "Textual TUI"
             assert data["target_users"] == "local CLI users"
             assert data["success_criteria"] == "Playable keyboard loop works."
             assert data["stack_preferences"] == ["python", "textual"]
@@ -355,6 +358,7 @@ class TestInit:
             assert data["constraints"] == ["No network dependency"]
             assert data["notes"] == "Build a terminal snake game."
             assert "Product goal: Build a terminal snake game." in markdown
+            assert "Starter profile: Textual TUI" in markdown
 
     def test_init_project_name_implies_new_mode(self, runner, tmp_path):
         with runner.isolated_filesystem(temp_dir=tmp_path):
@@ -444,6 +448,8 @@ class TestProjectAnalyze:
                     "Build a terminal snake game.",
                     "--project-type",
                     "terminal game",
+                    "--starter",
+                    "Textual TUI",
                     "--target-users",
                     "local CLI users",
                     "--success-criteria",
@@ -467,6 +473,7 @@ class TestProjectAnalyze:
             assert "Brief readiness: complete" in result.output
             assert "Product goal: Build a terminal snake game." in result.output
             assert "Project type: terminal game" in result.output
+            assert "Starter profile: Textual TUI" in result.output
             assert "Target users: local CLI users" in result.output
             assert "Success criteria: Playable keyboard loop works." in result.output
             assert "Stack preferences: python, textual" in result.output
@@ -484,6 +491,7 @@ class TestProjectAnalyze:
             assert data["git_repo"] is False
             assert data["product_goal"] == "Build a terminal snake game."
             assert data["project_type"] == "terminal game"
+            assert data["starter_profile"] == "Textual TUI"
             assert data["target_users"] == "local CLI users"
             assert data["success_criteria"] == "Playable keyboard loop works."
             assert data["stack_preferences"] == ["python", "textual"]
@@ -492,6 +500,7 @@ class TestProjectAnalyze:
             assert data["notes"] == "Build a terminal snake game."
             assert "## Brief" in markdown
             assert "Product goal: Build a terminal snake game." in markdown
+            assert "Starter profile: Textual TUI" in markdown
             assert "Build a terminal snake game." in markdown
 
     def test_project_new_can_initialize_git_repository(self, runner, tmp_path):
@@ -578,6 +587,8 @@ class TestProjectAnalyze:
                     "Modernize customer onboarding.",
                     "--project-type",
                     "internal workflow tool",
+                    "--starter-profile",
+                    "Python package",
                     "--target-users",
                     "support operators",
                     "--success-criteria",
@@ -600,6 +611,7 @@ class TestProjectAnalyze:
             assert "uv run pytest" in result.output
             assert "Product goal: Modernize customer onboarding." in result.output
             assert "Project type: internal workflow tool" in result.output
+            assert "Starter profile: Python package" in result.output
             assert "Target users: support operators" in result.output
             assert (
                 "Success criteria: Operators can complete onboarding safely."
@@ -620,6 +632,7 @@ class TestProjectAnalyze:
             assert data["test_commands"] == ["uv run pytest"]
             assert data["product_goal"] == "Modernize customer onboarding."
             assert data["project_type"] == "internal workflow tool"
+            assert data["starter_profile"] == "Python package"
             assert data["target_users"] == "support operators"
             assert data["success_criteria"] == (
                 "Operators can complete onboarding safely."
@@ -686,6 +699,8 @@ class TestProjectAnalyze:
                     "Improve customer app.",
                     "--project-type",
                     "SaaS dashboard",
+                    "--starter-profile",
+                    "Textual TUI",
                     "--target-users",
                     "customer success team",
                     "--success-criteria",
@@ -719,6 +734,7 @@ class TestProjectAnalyze:
             assert "Project brief:" in result.output
             assert "Product goal: Improve customer app." in result.output
             assert "Project type: SaaS dashboard" in result.output
+            assert "Starter profile: Textual TUI" in result.output
             assert "Target users: customer success team" in result.output
             assert "Success criteria: First safe patch is merged." in result.output
             assert "Stack preferences: python" in result.output
@@ -908,6 +924,8 @@ class TestProjectAnalyze:
                     "Improve customer app.",
                     "--project-type",
                     "SaaS dashboard",
+                    "--starter-profile",
+                    "Textual TUI",
                     "--target-users",
                     "customer success team",
                     "--success-criteria",
@@ -936,6 +954,7 @@ class TestProjectAnalyze:
             assert data["project_intake"]["target_workspace"] == str(target.resolve())
             assert data["project_intake"]["product_goal"] == "Improve customer app."
             assert data["project_intake"]["project_type"] == "SaaS dashboard"
+            assert data["project_intake"]["starter_profile"] == "Textual TUI"
             assert data["project_intake"]["target_users"] == "customer success team"
             assert data["project_intake"]["success_criteria"] == (
                 "First safe patch is merged."
@@ -992,7 +1011,15 @@ class TestProjectAnalyze:
             )
             analyze_result = runner.invoke(
                 main,
-                ["project", "analyze", str(target), "--scope", "apps/web"],
+                [
+                    "project",
+                    "analyze",
+                    str(target),
+                    "--scope",
+                    "apps/web",
+                    "--starter-profile",
+                    "Textual TUI",
+                ],
             )
             assert analyze_result.exit_code == 0
 
@@ -1004,6 +1031,7 @@ class TestProjectAnalyze:
             assert json_status.exit_code == 0
             data = json.loads(json_status.output)
             assert data["project_intake"]["selected_scope"] == "apps/web"
+            assert data["project_intake"]["starter_profile"] == "Textual TUI"
 
     def test_project_status_warns_when_existing_analysis_changed(
         self,

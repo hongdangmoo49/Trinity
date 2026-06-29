@@ -257,6 +257,7 @@ def initial_start_prompt(config: TrinityConfig, workspace_candidate: Path | None
         lang=config.lang,
         product_goal=intake.product_goal,
         project_type=intake.project_type,
+        starter_profile=intake.starter_profile,
         target_users=intake.target_users,
         success_criteria=intake.success_criteria,
         stack_preferences=intake.stack_preferences,
@@ -379,6 +380,7 @@ def _project_brief_start_prompt(
     lang: str,
     product_goal: str,
     project_type: str = "",
+    starter_profile: str = "",
     target_users: str = "",
     success_criteria: str = "",
     stack_preferences: tuple[str, ...] = (),
@@ -403,6 +405,7 @@ def _project_brief_start_prompt(
         entries = (
             ("목표", goal),
             ("유형", project_type.strip()),
+            ("스타터 프로필", starter_profile.strip()),
             ("사용자", target_users.strip()),
             ("성공 기준", success_criteria.strip()),
             *((("선택 범위", selected_scope.strip()),) if mode == "existing" else ()),
@@ -434,6 +437,7 @@ def _project_brief_start_prompt(
         entries = (
             ("Goal", goal),
             ("Type", project_type.strip()),
+            ("Starter profile", starter_profile.strip()),
             ("Users", target_users.strip()),
             ("Success", success_criteria.strip()),
             *((("Selected scope", selected_scope.strip()),) if mode == "existing" else ()),
@@ -463,6 +467,7 @@ def _project_brief_start_prompt(
         mode=mode,
         lang=lang,
         project_type=project_type,
+        starter_profile=starter_profile,
         target_users=target_users,
         stack=stack,
         constraints=constraint_text,
@@ -482,6 +487,7 @@ def _project_brief_starter_recommendations(
     mode: str,
     lang: str,
     project_type: str,
+    starter_profile: str,
     target_users: str,
     stack: str,
     constraints: str,
@@ -489,10 +495,11 @@ def _project_brief_starter_recommendations(
     if mode != "new":
         return ()
     project_type = project_type.strip()
+    starter_profile = starter_profile.strip()
     target_users = target_users.strip()
     stack = stack.strip()
     constraints = constraints.strip()
-    if not any((project_type, target_users, stack, constraints)):
+    if not any((project_type, starter_profile, target_users, stack, constraints)):
         return ()
 
     if lang == "ko":
@@ -502,6 +509,8 @@ def _project_brief_starter_recommendations(
                 f"- 템플릿: 최소한의 {project_type} 형태로 시작하고 "
                 "선택을 되돌릴 수 있게 유지해라."
             )
+        if starter_profile:
+            lines.append(f"- 스타터: {starter_profile} 형태를 우선 계획해라.")
         if stack:
             lines.append(f"- 스택: 사용자가 바꾸지 않는 한 {stack}을 우선 고려해라.")
         if target_users:
@@ -516,6 +525,8 @@ def _project_brief_starter_recommendations(
             f"- Template: Start with a minimal {project_type} shape and keep "
             "choices reversible."
         )
+    if starter_profile:
+        lines.append(f"- Starter: Prefer a {starter_profile} initial shape.")
     if stack:
         lines.append(f"- Stack: Prefer {stack} unless the user changes direction.")
     if target_users:
@@ -536,6 +547,7 @@ def _project_brief_start_prompt_from_draft(
         lang=lang,
         product_goal=draft.product_goal,
         project_type=draft.project_type,
+        starter_profile=draft.starter_profile,
         target_users=draft.target_users,
         success_criteria=draft.success_criteria,
         stack_preferences=draft.stack_preferences,
@@ -3686,6 +3698,7 @@ class TrinityTextualApp(App[None]):
         return ProjectBriefDraft(
             product_goal=current.product_goal,
             project_type=current.project_type,
+            starter_profile=current.starter_profile,
             target_users=current.target_users,
             success_criteria=current.success_criteria,
             stack_preferences=current.stack_preferences,
@@ -3728,6 +3741,7 @@ class TrinityTextualApp(App[None]):
             target_workspace=target,
             product_goal=draft.product_goal,
             project_type=draft.project_type,
+            starter_profile=draft.starter_profile,
             target_users=draft.target_users,
             success_criteria=draft.success_criteria,
             stack_preferences=draft.stack_preferences,

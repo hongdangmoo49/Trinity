@@ -76,6 +76,7 @@ PROJECT_INTAKE_LABELS = {
         "scope_candidates": "scopes",
         "source_roots": "src",
         "stack_preferences": "stack",
+        "starter_profile": "starter",
         "success_criteria": "success",
         "summary": "Project intake: {mode}",
         "target_missing": "target missing: {target}",
@@ -128,6 +129,7 @@ PROJECT_INTAKE_LABELS = {
         "scope_candidates": "범위",
         "source_roots": "소스",
         "stack_preferences": "스택",
+        "starter_profile": "스타터",
         "success_criteria": "성공",
         "summary": "프로젝트 인테이크: {mode}",
         "target_missing": "대상 없음: {target}",
@@ -155,6 +157,7 @@ PROJECT_PLAN_PREVIEW_LABELS = {
         "constraints": "guardrails",
         "milestone": "milestone",
         "stack": "stack",
+        "starter": "starter",
         "success": "success",
         "summary": "Initial plan preview",
         "users": "users",
@@ -163,6 +166,7 @@ PROJECT_PLAN_PREVIEW_LABELS = {
         "constraints": "가드레일",
         "milestone": "마일스톤",
         "stack": "스택",
+        "starter": "스타터",
         "success": "성공",
         "summary": "초기 계획 미리보기",
         "users": "사용자",
@@ -293,6 +297,11 @@ def project_plan_preview_label(
     if not _project_intake_targets_match(intake, target_workspace):
         return ""
     sections: list[str] = []
+    if intake.starter_profile.strip():
+        sections.append(
+            f"{labels['starter']}: "
+            f"{_format_project_intake_text(intake.starter_profile)}"
+        )
     if intake.first_milestone.strip():
         sections.append(
             f"{labels['milestone']}: "
@@ -638,6 +647,11 @@ def _format_project_intake_label(
         value = _format_project_intake_text(intake.project_type)
         parts.append(
             f"{labels['project_type']}: {value}"
+        )
+    if intake.starter_profile.strip():
+        value = _format_project_intake_text(intake.starter_profile)
+        parts.append(
+            f"{labels['starter_profile']}: {value}"
         )
     if intake.target_users.strip():
         value = _format_project_intake_text(intake.target_users)

@@ -172,6 +172,7 @@ def test_build_project_intake_normalizes_metadata(tmp_path) -> None:
         target_workspace=tmp_path,
         product_goal="Ship a workflow dashboard.",
         project_type="developer tool",
+        starter_profile=" Textual TUI ",
         target_users="solo maintainers",
         success_criteria="The user can start safely.",
         stack_preferences=["python", "textual", "python"],
@@ -197,6 +198,7 @@ def test_build_project_intake_normalizes_metadata(tmp_path) -> None:
     assert intake.docs_found == ()
     assert intake.product_goal == "Ship a workflow dashboard."
     assert intake.project_type == "developer tool"
+    assert intake.starter_profile == "Textual TUI"
     assert intake.target_users == "solo maintainers"
     assert intake.success_criteria == "The user can start safely."
     assert intake.stack_preferences == ("python", "textual")
@@ -359,6 +361,7 @@ def test_write_project_intake_writes_json_and_markdown(tmp_path) -> None:
     assert data["docs_found"] == []
     assert data["product_goal"] == "Build a terminal snake game."
     assert data["project_type"] == "terminal game"
+    assert data["starter_profile"] == ""
     assert data["target_users"] == "local CLI users"
     assert data["success_criteria"] == (
         "The game can be played with keyboard controls."
@@ -378,6 +381,7 @@ def test_write_project_intake_writes_json_and_markdown(tmp_path) -> None:
     assert "## Brief" in markdown
     assert "- Product goal: Build a terminal snake game." in markdown
     assert "- Project type: terminal game" in markdown
+    assert "- Starter profile: (none)" in markdown
     assert "- Target users: local CLI users" in markdown
     assert "- Success criteria: The game can be played" in markdown
     assert "- Stack preferences: python, textual" in markdown
@@ -409,6 +413,7 @@ def test_load_project_intake_reads_persisted_json(tmp_path) -> None:
     assert loaded.docs_found == ()
     assert loaded.product_goal == ""
     assert loaded.project_type == ""
+    assert loaded.starter_profile == ""
     assert loaded.target_users == ""
     assert loaded.success_criteria == ""
     assert loaded.stack_preferences == ()
@@ -449,6 +454,7 @@ def test_load_project_intake_accepts_legacy_profile_fields_missing(tmp_path) -> 
     assert loaded.docs_found == ()
     assert loaded.product_goal == ""
     assert loaded.project_type == ""
+    assert loaded.starter_profile == ""
     assert loaded.target_users == ""
     assert loaded.success_criteria == ""
     assert loaded.stack_preferences == ()
@@ -515,6 +521,7 @@ def test_project_intake_prompt_block_includes_incomplete_new_project_guidance(
             mode="new",
             target_workspace=target,
             product_goal="Build a dashboard.",
+            starter_profile="Textual TUI",
             created_at="2026-06-28T00:00:00Z",
         ),
     )
@@ -524,6 +531,7 @@ def test_project_intake_prompt_block_includes_incomplete_new_project_guidance(
 
     assert "fresh project workspace" in guidance
     assert "new-project brief is incomplete" in block
+    assert "starter profile as the initial project shape: Textual TUI" in block
     assert "type, users, success, milestone" in block
     assert "Do not treat framework, architecture, or UX choices as final" in block
     assert "- Mode: new" in block
@@ -541,6 +549,7 @@ def test_project_intake_prompt_block_includes_complete_new_project_guidance(
             target_workspace=target,
             product_goal="Build a dashboard.",
             project_type="SaaS dashboard",
+            starter_profile="Python CLI package",
             target_users="support operators",
             success_criteria="Operators can complete onboarding.",
             stack_preferences=("python", "textual"),
@@ -554,6 +563,7 @@ def test_project_intake_prompt_block_includes_complete_new_project_guidance(
     block = project_intake_prompt_block(state)
 
     assert "new-project brief is complete" in guidance
+    assert "starter profile as the initial project shape: Python CLI package" in block
     assert "use the recorded goal, type, users, success criteria" in block
     assert "recorded success criteria and constraints" in block
     assert "- Success criteria: Operators can complete onboarding." in block

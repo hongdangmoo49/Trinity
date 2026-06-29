@@ -28,6 +28,8 @@ PROJECT_BRIEF_LABELS = {
         "selected_scope_placeholder": "apps/web, packages/core",
         "stack": "Stack preferences",
         "stack_placeholder": "python, textual, sqlite",
+        "starter_profile": "Starter profile",
+        "starter_profile_placeholder": "Textual TUI, Python CLI package, FastAPI service",
         "success": "Success criteria",
         "success_placeholder": "Users can finish the first workflow",
         "target_users": "Target users",
@@ -52,6 +54,8 @@ PROJECT_BRIEF_LABELS = {
         "selected_scope_placeholder": "apps/web, packages/core",
         "stack": "선호 스택",
         "stack_placeholder": "python, textual, sqlite",
+        "starter_profile": "스타터 프로필",
+        "starter_profile_placeholder": "Textual TUI, Python CLI 패키지, FastAPI 서비스",
         "success": "성공 기준",
         "success_placeholder": "사용자가 첫 workflow를 끝낼 수 있음",
         "target_users": "대상 사용자",
@@ -68,6 +72,7 @@ class ProjectBriefDraft:
 
     product_goal: str = ""
     project_type: str = ""
+    starter_profile: str = ""
     target_users: str = ""
     success_criteria: str = ""
     stack_preferences: tuple[str, ...] = ()
@@ -173,6 +178,12 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
                 "project-brief-project-type",
                 self.draft.project_type,
             )
+            if self.mode == "new":
+                yield from self._input_row(
+                    "starter_profile",
+                    "project-brief-starter-profile",
+                    self.draft.starter_profile,
+                )
             yield from self._input_row(
                 "target_users",
                 "project-brief-target-users",
@@ -240,6 +251,11 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
         return ProjectBriefDraft(
             product_goal=self._input_value("#project-brief-goal"),
             project_type=self._input_value("#project-brief-project-type"),
+            starter_profile=(
+                self._input_value("#project-brief-starter-profile")
+                if self.mode == "new"
+                else self.draft.starter_profile
+            ),
             target_users=self._input_value("#project-brief-target-users"),
             success_criteria=self._input_value("#project-brief-success"),
             stack_preferences=_split_values(self._input_value("#project-brief-stack")),

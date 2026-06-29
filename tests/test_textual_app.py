@@ -11339,6 +11339,9 @@ async def test_start_create_project_button_creates_new_project_intake(
         app.screen.query_one("#project-brief-project-type", Input).value = (
             "SaaS app"
         )
+        app.screen.query_one("#project-brief-starter-profile", Input).value = (
+            "Textual TUI"
+        )
         app.screen.query_one("#project-brief-target-users", Input).value = (
             "sales teams"
         )
@@ -11356,12 +11359,16 @@ async def test_start_create_project_button_creates_new_project_intake(
         await pilot.pause()
 
         start = app.get_screen("start", StartScreen)
+        saved_intake = load_project_intake(app.config.effective_state_dir)
+        assert saved_intake is not None
+        assert saved_intake.starter_profile == "Textual TUI"
         assert start.query_one(PromptComposer).text == "\n".join(
             [
                 "Use this new-project brief to plan the first work packages.",
                 "",
                 "Goal: Build a lightweight CRM.",
                 "Type: SaaS app",
+                "Starter profile: Textual TUI",
                 "Users: sales teams",
                 "Success: Teams can track customer follow-ups.",
                 "First milestone: First usable contact workflow.",
@@ -11371,13 +11378,15 @@ async def test_start_create_project_button_creates_new_project_intake(
                 "Starter recommendations:",
                 "- Template: Start with a minimal SaaS app shape and keep "
                 "choices reversible.",
+                "- Starter: Prefer a Textual TUI initial shape.",
                 "- Stack: Prefer python, sqlite unless the user changes direction.",
                 "- UX focus: Design the first workflow around sales teams.",
                 "- Guardrails: Respect Keep setup simple; no cloud dependency.",
             ]
         )
         assert str(start.query_one("#project-plan-preview", Static).content) == (
-            "Initial plan preview: milestone: First usable contact workflow. | "
+            "Initial plan preview: starter: Textual TUI | "
+            "milestone: First usable contact workflow. | "
             "stack: python, sqlite | "
             "success: Teams can track customer follow-ups. | users: sales teams | "
             "guardrails: Keep setup simple, no cloud dependency"

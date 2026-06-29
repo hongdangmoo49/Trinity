@@ -113,6 +113,60 @@ class ProjectBriefModalResult:
     draft: ProjectBriefDraft
 
 
+@dataclass(frozen=True)
+class StarterPreset:
+    """Starter fields applied from a quick-select preset."""
+
+    label: str
+    starter_profile: str
+    stack_preferences: tuple[str, ...] = ()
+    run_commands: tuple[str, ...] = ()
+    validation_commands: tuple[str, ...] = ()
+    artifact_targets: tuple[str, ...] = ()
+
+
+STARTER_PRESETS = {
+    "python-cli": StarterPreset(
+        label="Python CLI",
+        starter_profile="Python CLI package",
+        stack_preferences=("python", "uv", "pytest"),
+        run_commands=("uv run app",),
+        validation_commands=("uv run pytest",),
+        artifact_targets=("src", "tests", "README.md"),
+    ),
+    "textual-tui": StarterPreset(
+        label="Textual TUI",
+        starter_profile="Textual TUI",
+        stack_preferences=("python", "textual", "sqlite"),
+        run_commands=("uv run app",),
+        validation_commands=("uv run pytest",),
+        artifact_targets=("src", "tests", "README.md"),
+    ),
+    "fastapi": StarterPreset(
+        label="FastAPI Service",
+        starter_profile="FastAPI service",
+        stack_preferences=("python", "fastapi", "uv"),
+        run_commands=("uv run uvicorn app:app --reload",),
+        validation_commands=("uv run pytest",),
+        artifact_targets=("app", "tests", "README.md"),
+    ),
+    "vite-web": StarterPreset(
+        label="Vite Web",
+        starter_profile="Vite web app",
+        stack_preferences=("typescript", "vite"),
+        run_commands=("npm run dev",),
+        validation_commands=("npm test",),
+        artifact_targets=("src", "package.json", "README.md"),
+    ),
+    "empty": StarterPreset(
+        label="Empty",
+        starter_profile="Empty project",
+        artifact_targets=("README.md",),
+    ),
+}
+STARTER_PRESET_ORDER = ("python-cli", "textual-tui", "fastapi", "vite-web", "empty")
+
+
 class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
     """Edit user-provided project intake brief fields."""
 
@@ -152,6 +206,11 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
     #project-brief-generation-preview {
         height: auto;
         color: $text-muted;
+        margin-bottom: 1;
+    }
+
+    #project-brief-starter-presets {
+        height: auto;
         margin-bottom: 1;
     }
 
@@ -216,6 +275,13 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
                     self._generation_preview_label(self.draft),
                     id="project-brief-generation-preview",
                 )
+                with Horizontal(id="project-brief-starter-presets"):
+                    for preset_id in STARTER_PRESET_ORDER:
+                        preset = STARTER_PRESETS[preset_id]
+                        yield Button(
+                            preset.label,
+                            id=f"project-brief-preset-{preset_id}",
+                        )
             with VerticalScroll(id="project-brief-fields"):
                 yield from self._input_row(
                     "goal",
@@ -305,6 +371,11 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
         elif button_id == "save-project-brief":
             event.stop()
             self.action_save()
+        elif button_id and button_id.startswith("project-brief-preset-"):
+            event.stop()
+            self._apply_starter_preset(
+                button_id.removeprefix("project-brief-preset-")
+            )
 
     def on_input_changed(self, event: Input.Changed) -> None:
         if self.mode != "new":
@@ -374,6 +445,30 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
 
     def _input_value(self, selector: str) -> str:
         return self.query_one(selector, Input).value.strip()
+
+    def _apply_starter_preset(self, preset_id: str) -> None:
+        if self.mode != "new":
+            return
+        preset = STARTER_PRESETS.get(preset_id)
+        if preset is None:
+            return
+        self.query_one("#project-brief-starter-profile", Input).value = (
+            preset.starter_profile
+        )
+        self.query_one("#project-brief-stack", Input).value = _join_values(
+            preset.stack_preferences
+        )
+        self.query_one("#project-brief-run-commands", Input).value = _join_values(
+            preset.run_commands
+        )
+        self.query_one("#project-brief-validation-commands", Input).value = (
+            _join_values(preset.validation_commands)
+        )
+        self.query_one("#project-brief-artifact-targets", Input).value = _join_values(
+            preset.artifact_targets
+        )
+        self._refresh_brief_readiness()
+        self._refresh_generation_preview()
 
     def _label(self, key: str) -> str:
         labels = PROJECT_BRIEF_LABELS.get(self.lang, PROJECT_BRIEF_LABELS["en"])

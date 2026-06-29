@@ -45,6 +45,7 @@ from trinity.project_intake import (
     analyze_git_workspace,
     build_project_intake,
     detect_package_managers,
+    detect_scope_candidates,
     existing_project_intake_drift_fields,
     load_project_intake,
     missing_new_project_brief_field_keys,
@@ -1179,6 +1180,11 @@ def _project_status_payload(
         if target_exists
         else intake.test_commands
     )
+    live_scope_candidates = (
+        detect_scope_candidates(intake.target_workspace)
+        if target_exists
+        else intake.scope_candidates
+    )
     analysis_changed_fields = _project_intake_analysis_changed_fields_for_status(
         intake,
         target_exists=target_exists,
@@ -1197,6 +1203,7 @@ def _project_status_payload(
             "untracked_count": intake.untracked_count,
             "package_managers": list(intake.package_managers),
             "test_commands": list(intake.test_commands),
+            "scope_candidates": list(intake.scope_candidates),
             "brief_readiness": _project_brief_readiness_payload(intake),
             "readiness": _project_intake_readiness_payload(
                 intake,
@@ -1226,6 +1233,7 @@ def _project_status_payload(
             ),
             "package_managers": list(live_package_managers),
             "test_commands": list(live_test_commands),
+            "scope_candidates": list(live_scope_candidates),
         },
         "refreshed": refreshed,
         "project_intake_paths": _project_intake_paths_payload(paths),
@@ -1342,7 +1350,12 @@ def _project_analysis_changed_status_lines(
 def _project_intake_analysis_sparse_for_status(intake: ProjectIntake) -> bool:
     if intake.mode != "existing":
         return False
-    return not (intake.test_commands or intake.source_roots or intake.docs_found)
+    return not (
+        intake.test_commands
+        or intake.source_roots
+        or intake.scope_candidates
+        or intake.docs_found
+    )
 
 
 def _project_intake_missing_analysis_anchors_for_status(
@@ -1407,6 +1420,11 @@ def _display_project_status(
         if target_exists
         else intake.test_commands
     )
+    live_scope_candidates = (
+        detect_scope_candidates(intake.target_workspace)
+        if target_exists
+        else intake.scope_candidates
+    )
     live_branch = live_git.branch if live_git is not None else "unknown"
     live_dirty = live_git.dirty_count if live_git is not None else None
     live_untracked = live_git.untracked_count if live_git is not None else None
@@ -1443,6 +1461,7 @@ def _display_project_status(
             f"  Untracked count: {_unknown_if_none(intake.untracked_count)}",
             f"  Package managers: {_csv_or_none(intake.package_managers)}",
             f"  Test commands: {_csv_or_none(intake.test_commands)}",
+            f"  Scope candidates: {_csv_or_none(intake.scope_candidates)}",
             *_project_brief_readiness_status_lines(intake),
             *_project_brief_status_lines(intake),
             "",
@@ -1452,6 +1471,7 @@ def _display_project_status(
             f"  Untracked count: {_unknown_if_none(live_untracked)}",
             f"  Package managers: {_csv_or_none(live_package_managers)}",
             f"  Test commands: {_csv_or_none(live_test_commands)}",
+            f"  Scope candidates: {_csv_or_none(live_scope_candidates)}",
             *_project_analysis_changed_status_lines(analysis_changed_fields),
             "",
             "Next steps:",

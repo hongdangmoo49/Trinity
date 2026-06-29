@@ -26,6 +26,16 @@ NEW_PROJECT_BRIEF_FIELD_LABELS = {
     "success_criteria": "success",
     "first_milestone": "milestone",
 }
+SCOPE_PARENT_DIRS = ("apps", "packages", "services", "libs", "crates", "modules")
+SCOPE_MANIFEST_FILES = (
+    "package.json",
+    "pyproject.toml",
+    "Cargo.toml",
+    "go.mod",
+    "pom.xml",
+    "build.gradle",
+    "build.gradle.kts",
+)
 
 
 @dataclass(frozen=True)
@@ -55,6 +65,7 @@ class ProjectIntake:
     build_commands: tuple[str, ...] = ()
     entrypoints: tuple[str, ...] = ()
     source_roots: tuple[str, ...] = ()
+    scope_candidates: tuple[str, ...] = ()
     docs_found: tuple[str, ...] = ()
     product_goal: str = ""
     project_type: str = ""
@@ -80,6 +91,7 @@ class ProjectIntake:
             "build_commands": list(self.build_commands),
             "entrypoints": list(self.entrypoints),
             "source_roots": list(self.source_roots),
+            "scope_candidates": list(self.scope_candidates),
             "docs_found": list(self.docs_found),
             "product_goal": self.product_goal,
             "project_type": self.project_type,
@@ -98,6 +110,7 @@ class ProjectIntake:
         build_commands = _csv_or_none(self.build_commands)
         entrypoints = _csv_or_none(self.entrypoints)
         source_roots = _csv_or_none(self.source_roots)
+        scope_candidates = _csv_or_none(self.scope_candidates)
         docs_found = _csv_or_none(self.docs_found)
         stack_preferences = _csv_or_none(self.stack_preferences)
         constraints = _csv_or_none(self.constraints)
@@ -126,6 +139,7 @@ class ProjectIntake:
                 f"- Build commands: {build_commands}",
                 f"- Entrypoints: {entrypoints}",
                 f"- Source roots: {source_roots}",
+                f"- Scope candidates: {scope_candidates}",
                 f"- Docs found: {docs_found}",
                 "",
                 "## Brief",
@@ -190,6 +204,7 @@ def build_project_intake(
         build_commands=build_commands,
         entrypoints=detect_entrypoints(workspace, package_managers),
         source_roots=detect_source_roots(workspace),
+        scope_candidates=detect_scope_candidates(workspace),
         docs_found=detect_docs(workspace),
         product_goal=product_goal.strip(),
         project_type=project_type.strip(),
@@ -260,6 +275,7 @@ def existing_project_intake_drift_fields(
         "build_commands": suggest_build_commands(workspace, package_managers),
         "entrypoints": detect_entrypoints(workspace, package_managers),
         "source_roots": detect_source_roots(workspace),
+        "scope_candidates": detect_scope_candidates(workspace),
         "docs_found": detect_docs(workspace),
     }
     fields: list[str] = []
@@ -306,6 +322,7 @@ def project_intake_from_dict(data: Mapping[str, Any]) -> ProjectIntake:
         build_commands=_string_tuple(data.get("build_commands")),
         entrypoints=_string_tuple(data.get("entrypoints")),
         source_roots=_string_tuple(data.get("source_roots")),
+        scope_candidates=_string_tuple(data.get("scope_candidates")),
         docs_found=_string_tuple(data.get("docs_found")),
         product_goal=str(data.get("product_goal", "")),
         project_type=str(data.get("project_type", "")),
@@ -373,6 +390,7 @@ def project_intake_guidance_block(state_dir: Path) -> str:
             "Project Intake Guidance:",
             "- Treat the target workspace as the existing project under discussion.",
             "- Read detected docs, entrypoints, and source roots before proposing edits.",
+            *_existing_project_scope_guidance_lines(intake),
             *_existing_project_brief_guidance_lines(intake),
             "- Prefer the recorded dev/build/test commands when planning validation.",
         ]
@@ -411,6 +429,17 @@ def _existing_project_brief_guidance_lines(intake: ProjectIntake) -> list[str]:
         (
             "- Use recorded brief fields as user intent, but verify them against "
             "the existing docs and source before proposing edits."
+        )
+    ]
+
+
+def _existing_project_scope_guidance_lines(intake: ProjectIntake) -> list[str]:
+    if not intake.scope_candidates:
+        return []
+    return [
+        (
+            "- Detected possible subproject scopes; confirm the intended scope "
+            f"before broad edits: {_csv_or_none(intake.scope_candidates)}."
         )
     ]
 
@@ -613,6 +642,27 @@ def detect_source_roots(path: Path) -> tuple[str, ...]:
     return tuple(roots)
 
 
+def detect_scope_candidates(path: Path) -> tuple[str, ...]:
+    """Detect likely monorepo/package scope candidates without executing code."""
+    workspace = _safe_resolve(path)
+    candidates: list[str] = []
+    candidates.extend(_node_workspace_scope_candidates(workspace))
+    for parent_name in SCOPE_PARENT_DIRS:
+        parent = workspace / parent_name
+        if not parent.is_dir():
+            continue
+        try:
+            children = sorted(parent.iterdir(), key=lambda child: child.name)
+        except OSError:
+            continue
+        for child in children:
+            if not child.is_dir() or child.name.startswith("."):
+                continue
+            if _looks_like_scope_candidate(child):
+                candidates.append(_relative_scope_candidate(workspace, child))
+    return tuple(dict.fromkeys(candidate for candidate in candidates if candidate))
+
+
 def detect_docs(path: Path) -> tuple[str, ...]:
     """Detect documentation files and folders worth reading first."""
     workspace = _safe_resolve(path)
@@ -628,6 +678,59 @@ def detect_docs(path: Path) -> tuple[str, ...]:
         if (workspace / name).exists():
             docs.append(name)
     return tuple(docs)
+
+
+def _node_workspace_scope_candidates(workspace: Path) -> tuple[str, ...]:
+    data = _read_package_json(workspace)
+    raw_workspaces = data.get("workspaces")
+    patterns: list[str] = []
+    if isinstance(raw_workspaces, list):
+        patterns.extend(str(item) for item in raw_workspaces)
+    elif isinstance(raw_workspaces, Mapping):
+        packages = raw_workspaces.get("packages")
+        if isinstance(packages, list):
+            patterns.extend(str(item) for item in packages)
+    candidates: list[str] = []
+    for pattern in patterns:
+        candidates.extend(_scope_candidates_from_workspace_pattern(workspace, pattern))
+    return tuple(dict.fromkeys(candidate for candidate in candidates if candidate))
+
+
+def _scope_candidates_from_workspace_pattern(
+    workspace: Path,
+    pattern: str,
+) -> tuple[str, ...]:
+    clean = pattern.strip().strip("/")
+    if not clean or ".." in Path(clean).parts:
+        return ()
+    if clean.endswith("/*"):
+        parent = workspace / clean[:-2]
+        if not parent.is_dir():
+            return ()
+        candidates: list[str] = []
+        try:
+            children = sorted(parent.iterdir(), key=lambda child: child.name)
+        except OSError:
+            return ()
+        for child in children:
+            if child.is_dir() and _looks_like_scope_candidate(child):
+                candidates.append(_relative_scope_candidate(workspace, child))
+        return tuple(candidates)
+    candidate = workspace / clean
+    if candidate.is_dir() and _looks_like_scope_candidate(candidate):
+        return (_relative_scope_candidate(workspace, candidate),)
+    return ()
+
+
+def _looks_like_scope_candidate(path: Path) -> bool:
+    return any((path / manifest).exists() for manifest in SCOPE_MANIFEST_FILES)
+
+
+def _relative_scope_candidate(workspace: Path, path: Path) -> str:
+    try:
+        return path.relative_to(workspace).as_posix()
+    except ValueError:
+        return ""
 
 
 def _node_test_command(path: Path, managers: tuple[str, ...]) -> str:

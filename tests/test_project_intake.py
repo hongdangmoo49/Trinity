@@ -13,6 +13,7 @@ from trinity.project_intake import (
     detect_entrypoints,
     existing_project_intake_drift_fields,
     detect_package_managers,
+    detect_scope_candidates,
     detect_source_roots,
     load_project_intake,
     load_project_intake_markdown,
@@ -99,6 +100,34 @@ def test_detect_package_managers_and_test_commands(tmp_path) -> None:
     assert detect_docs(tmp_path) == ("README.md", "docs")
 
 
+def test_detect_scope_candidates_from_workspace_dirs_and_package_globs(
+    tmp_path,
+) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"workspaces": ["apps/*", "packages/core"]}),
+        encoding="utf-8",
+    )
+    (tmp_path / "apps" / "web").mkdir(parents=True)
+    (tmp_path / "apps" / "web" / "package.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "apps" / "notes").mkdir()
+    (tmp_path / "packages" / "core").mkdir(parents=True)
+    (tmp_path / "packages" / "core" / "pyproject.toml").write_text(
+        "[project]\nname='core'\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "services" / "api").mkdir(parents=True)
+    (tmp_path / "services" / "api" / "go.mod").write_text(
+        "module api\n",
+        encoding="utf-8",
+    )
+
+    assert detect_scope_candidates(tmp_path) == (
+        "apps/web",
+        "packages/core",
+        "services/api",
+    )
+
+
 def test_python_project_profile_detects_scripts_and_build_backend(tmp_path) -> None:
     (tmp_path / "pyproject.toml").write_text(
         "\n".join(
@@ -162,6 +191,7 @@ def test_build_project_intake_normalizes_metadata(tmp_path) -> None:
     assert intake.build_commands == ()
     assert intake.entrypoints == ()
     assert intake.source_roots == ()
+    assert intake.scope_candidates == ()
     assert intake.docs_found == ()
     assert intake.product_goal == "Ship a workflow dashboard."
     assert intake.project_type == "developer tool"
@@ -201,6 +231,24 @@ def test_existing_project_intake_drift_detects_changed_analysis_anchors(
 
     assert existing_project_intake_drift_fields(intake, tmp_path) == (
         "source_roots",
+    )
+
+
+def test_existing_project_intake_drift_detects_changed_scope_candidates(
+    tmp_path,
+) -> None:
+    (tmp_path / "README.md").write_text("docs\n", encoding="utf-8")
+    intake = build_project_intake(
+        mode="existing",
+        target_workspace=tmp_path,
+        created_at="2026-06-29T00:00:00Z",
+    )
+
+    (tmp_path / "apps" / "web").mkdir(parents=True)
+    (tmp_path / "apps" / "web" / "package.json").write_text("{}", encoding="utf-8")
+
+    assert existing_project_intake_drift_fields(intake, tmp_path) == (
+        "scope_candidates",
     )
 
 
@@ -304,6 +352,7 @@ def test_write_project_intake_writes_json_and_markdown(tmp_path) -> None:
     assert data["build_commands"] == []
     assert data["entrypoints"] == []
     assert data["source_roots"] == []
+    assert data["scope_candidates"] == []
     assert data["docs_found"] == []
     assert data["product_goal"] == "Build a terminal snake game."
     assert data["project_type"] == "terminal game"
@@ -321,6 +370,7 @@ def test_write_project_intake_writes_json_and_markdown(tmp_path) -> None:
     assert "- Git repo: False" in markdown
     assert "- Dev commands: (none)" in markdown
     assert "- Entrypoints: (none)" in markdown
+    assert "- Scope candidates: (none)" in markdown
     assert "## Brief" in markdown
     assert "- Product goal: Build a terminal snake game." in markdown
     assert "- Project type: terminal game" in markdown
@@ -350,6 +400,7 @@ def test_load_project_intake_reads_persisted_json(tmp_path) -> None:
     assert loaded.build_commands == ()
     assert loaded.entrypoints == ()
     assert loaded.source_roots == ()
+    assert loaded.scope_candidates == ()
     assert loaded.docs_found == ()
     assert loaded.product_goal == ""
     assert loaded.project_type == ""
@@ -388,6 +439,7 @@ def test_load_project_intake_accepts_legacy_profile_fields_missing(tmp_path) -> 
     assert loaded.build_commands == ()
     assert loaded.entrypoints == ()
     assert loaded.source_roots == ()
+    assert loaded.scope_candidates == ()
     assert loaded.docs_found == ()
     assert loaded.product_goal == ""
     assert loaded.project_type == ""
@@ -419,6 +471,8 @@ def test_project_intake_prompt_block_includes_existing_project_guidance(
     target.mkdir()
     (target / "README.md").write_text("# Customer App\n", encoding="utf-8")
     (target / "src").mkdir()
+    (target / "apps" / "web").mkdir(parents=True)
+    (target / "apps" / "web" / "package.json").write_text("{}", encoding="utf-8")
     state = tmp_path / ".trinity"
     write_project_intake(
         state,
@@ -435,6 +489,8 @@ def test_project_intake_prompt_block_includes_existing_project_guidance(
 
     assert "existing project under discussion" in guidance
     assert "Read detected docs, entrypoints, and source roots" in block
+    assert "Detected possible subproject scopes" in block
+    assert "apps/web" in block
     assert "Use recorded brief fields as user intent" in block
     assert "- Docs found: README.md" in block
 

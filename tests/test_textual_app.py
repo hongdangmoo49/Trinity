@@ -13003,12 +13003,12 @@ async def test_nexus_execute_requests_execution_when_target_is_selected(
 
         assert isinstance(app.screen, ExecutionConfirmModal)
         assert controller.execution_requests == 0
-        assert "Target workspace" in str(
+        summary = str(
             app.screen.query_one("#execution-confirm-summary", Static).content
         )
-        assert "Risks: none" in str(
-            app.screen.query_one("#execution-confirm-summary", Static).content
-        )
+        assert "Target workspace" in summary
+        assert "Project context: intake: not recorded" in summary
+        assert "Risks: none" in summary
 
         app.screen.action_confirm()
         await pilot.pause()
@@ -13068,6 +13068,9 @@ async def test_nexus_execute_confirmation_shows_workspace_risks(
         summary = str(
             app.screen.query_one("#execution-confirm-summary", Static).content
         )
+        assert "Project mode: existing" in summary
+        assert "Project context: scope: target root" in summary
+        assert "validation: missing" in summary
         assert "Risks: dirty Git workspace" in summary
         assert "1 untracked" in summary
         assert "stale project intake" in summary

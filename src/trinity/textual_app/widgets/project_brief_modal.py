@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Input, Static
 
@@ -21,6 +21,8 @@ PROJECT_BRIEF_LABELS = {
         "constraints_placeholder": "offline-first, no paid APIs",
         "goal": "Product goal",
         "goal_placeholder": "e.g. Build a local habit tracker",
+        "artifact_targets": "Artifact targets",
+        "artifact_targets_placeholder": "apps/web, src/app, README.md",
         "milestone": "First milestone",
         "milestone_placeholder": "First shippable prototype",
         "notes": "Notes",
@@ -29,6 +31,8 @@ PROJECT_BRIEF_LABELS = {
         "project_type_placeholder": "SaaS dashboard, CLI tool, mobile app",
         "readiness_complete": "Minimum brief: complete",
         "readiness_missing": "Minimum brief: missing {fields}",
+        "run_commands": "Run commands",
+        "run_commands_placeholder": "npm run dev, uv run app",
         "save": "Save Brief",
         "selected_scope": "Selected scope",
         "selected_scope_placeholder": "apps/web, packages/core",
@@ -42,6 +46,8 @@ PROJECT_BRIEF_LABELS = {
         "target_users_placeholder": "support operators, students, developers",
         "target_workspace": "Target workspace",
         "title": "Project Brief",
+        "validation_commands": "Validation commands",
+        "validation_commands_placeholder": "npm test, uv run pytest",
     },
     "ko": {
         "cancel": "취소",
@@ -49,6 +55,8 @@ PROJECT_BRIEF_LABELS = {
         "constraints_placeholder": "오프라인 우선, 유료 API 없음",
         "goal": "제품 목표",
         "goal_placeholder": "예: 로컬 습관 추적 앱 만들기",
+        "artifact_targets": "산출물 위치",
+        "artifact_targets_placeholder": "apps/web, src/app, README.md",
         "milestone": "첫 마일스톤",
         "milestone_placeholder": "처음 배포 가능한 프로토타입",
         "notes": "메모",
@@ -57,6 +65,8 @@ PROJECT_BRIEF_LABELS = {
         "project_type_placeholder": "SaaS 대시보드, CLI 도구, 모바일 앱",
         "readiness_complete": "최소 브리프: 완료",
         "readiness_missing": "최소 브리프: 누락 {fields}",
+        "run_commands": "실행 명령",
+        "run_commands_placeholder": "npm run dev, uv run app",
         "save": "브리프 저장",
         "selected_scope": "선택 범위",
         "selected_scope_placeholder": "apps/web, packages/core",
@@ -70,6 +80,8 @@ PROJECT_BRIEF_LABELS = {
         "target_users_placeholder": "지원 담당자, 학생, 개발자",
         "target_workspace": "대상 작업 경로",
         "title": "프로젝트 브리프",
+        "validation_commands": "검증 명령",
+        "validation_commands_placeholder": "npm test, uv run pytest",
     },
 }
 
@@ -85,6 +97,9 @@ class ProjectBriefDraft:
     success_criteria: str = ""
     stack_preferences: tuple[str, ...] = ()
     first_milestone: str = ""
+    run_commands: tuple[str, ...] = ()
+    validation_commands: tuple[str, ...] = ()
+    artifact_targets: tuple[str, ...] = ()
     constraints: tuple[str, ...] = ()
     selected_scope: str = ""
     notes: str = ""
@@ -109,7 +124,7 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
     #project-brief-modal {
         width: 88;
         max-width: 94%;
-        height: auto;
+        height: 90%;
         border: round $accent;
         background: $surface;
         padding: 1 2;
@@ -138,6 +153,10 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
         height: auto;
         color: $text-muted;
         margin-bottom: 1;
+    }
+
+    #project-brief-fields {
+        height: 1fr;
     }
 
     .project-brief-row {
@@ -197,58 +216,75 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
                     self._generation_preview_label(self.draft),
                     id="project-brief-generation-preview",
                 )
-            yield from self._input_row(
-                "goal",
-                "project-brief-goal",
-                self.draft.product_goal,
-            )
-            yield from self._input_row(
-                "project_type",
-                "project-brief-project-type",
-                self.draft.project_type,
-            )
-            if self.mode == "new":
+            with VerticalScroll(id="project-brief-fields"):
                 yield from self._input_row(
-                    "starter_profile",
-                    "project-brief-starter-profile",
-                    self.draft.starter_profile,
+                    "goal",
+                    "project-brief-goal",
+                    self.draft.product_goal,
                 )
-            yield from self._input_row(
-                "target_users",
-                "project-brief-target-users",
-                self.draft.target_users,
-            )
-            yield from self._input_row(
-                "success",
-                "project-brief-success",
-                self.draft.success_criteria,
-            )
-            yield from self._input_row(
-                "stack",
-                "project-brief-stack",
-                _join_values(self.draft.stack_preferences),
-            )
-            yield from self._input_row(
-                "milestone",
-                "project-brief-milestone",
-                self.draft.first_milestone,
-            )
-            yield from self._input_row(
-                "constraints",
-                "project-brief-constraints",
-                _join_values(self.draft.constraints),
-            )
-            if self.mode == "existing":
                 yield from self._input_row(
-                    "selected_scope",
-                    "project-brief-selected-scope",
-                    self.draft.selected_scope,
+                    "project_type",
+                    "project-brief-project-type",
+                    self.draft.project_type,
                 )
-            yield from self._input_row(
-                "notes",
-                "project-brief-notes",
-                self.draft.notes,
-            )
+                if self.mode == "new":
+                    yield from self._input_row(
+                        "starter_profile",
+                        "project-brief-starter-profile",
+                        self.draft.starter_profile,
+                    )
+                yield from self._input_row(
+                    "target_users",
+                    "project-brief-target-users",
+                    self.draft.target_users,
+                )
+                yield from self._input_row(
+                    "success",
+                    "project-brief-success",
+                    self.draft.success_criteria,
+                )
+                yield from self._input_row(
+                    "stack",
+                    "project-brief-stack",
+                    _join_values(self.draft.stack_preferences),
+                )
+                yield from self._input_row(
+                    "milestone",
+                    "project-brief-milestone",
+                    self.draft.first_milestone,
+                )
+                if self.mode == "new":
+                    yield from self._input_row(
+                        "run_commands",
+                        "project-brief-run-commands",
+                        _join_values(self.draft.run_commands),
+                    )
+                    yield from self._input_row(
+                        "validation_commands",
+                        "project-brief-validation-commands",
+                        _join_values(self.draft.validation_commands),
+                    )
+                    yield from self._input_row(
+                        "artifact_targets",
+                        "project-brief-artifact-targets",
+                        _join_values(self.draft.artifact_targets),
+                    )
+                yield from self._input_row(
+                    "constraints",
+                    "project-brief-constraints",
+                    _join_values(self.draft.constraints),
+                )
+                if self.mode == "existing":
+                    yield from self._input_row(
+                        "selected_scope",
+                        "project-brief-selected-scope",
+                        self.draft.selected_scope,
+                    )
+                yield from self._input_row(
+                    "notes",
+                    "project-brief-notes",
+                    self.draft.notes,
+                )
             with Horizontal(id="project-brief-actions"):
                 yield Button(self._label("cancel"), id="cancel-project-brief")
                 yield Button(
@@ -298,6 +334,21 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
             success_criteria=self._input_value("#project-brief-success"),
             stack_preferences=_split_values(self._input_value("#project-brief-stack")),
             first_milestone=self._input_value("#project-brief-milestone"),
+            run_commands=(
+                _split_values(self._input_value("#project-brief-run-commands"))
+                if self.mode == "new"
+                else self.draft.run_commands
+            ),
+            validation_commands=(
+                _split_values(self._input_value("#project-brief-validation-commands"))
+                if self.mode == "new"
+                else self.draft.validation_commands
+            ),
+            artifact_targets=(
+                _split_values(self._input_value("#project-brief-artifact-targets"))
+                if self.mode == "new"
+                else self.draft.artifact_targets
+            ),
             constraints=_split_values(self._input_value("#project-brief-constraints")),
             selected_scope=(
                 self._input_value("#project-brief-selected-scope")
@@ -378,6 +429,9 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
             success_criteria=draft.success_criteria,
             stack_preferences=draft.stack_preferences,
             first_milestone=draft.first_milestone,
+            run_commands=draft.run_commands,
+            validation_commands=draft.validation_commands,
+            artifact_targets=draft.artifact_targets,
             constraints=draft.constraints,
             notes=draft.notes,
         )

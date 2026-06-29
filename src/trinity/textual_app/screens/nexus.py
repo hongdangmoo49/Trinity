@@ -20,6 +20,7 @@ from trinity.textual_app.workspace_labels import (
     project_brief_action_variant,
     project_create_action_variant,
     project_intake_state_label,
+    project_mode_rail_label,
     project_plan_preview_label,
     target_workspace_state_label,
 )
@@ -182,6 +183,7 @@ class NexusScreen(Screen[None]):
         self._inspector: WorkflowInspector | None = None
         self._recipient_selector: AgentRecipientModelSelector | None = None
         self._composer: PromptComposer | None = None
+        self._project_mode_rail_widget: Static | None = None
         self._project_plan_preview_widget: Static | None = None
 
     def compose(self) -> ComposeResult:
@@ -242,6 +244,12 @@ class NexusScreen(Screen[None]):
                     id="nexus-edit-project-brief",
                     variant=self._project_brief_action_variant(),
                 )
+            mode_rail = Static(
+                self._project_mode_rail_label(),
+                id="nexus-project-mode-rail",
+            )
+            self._project_mode_rail_widget = mode_rail
+            yield mode_rail
             plan_preview = Static(
                 self._project_plan_preview_label(),
                 id="nexus-project-plan-preview",
@@ -366,6 +374,7 @@ class NexusScreen(Screen[None]):
         self._inspector = None
         self._recipient_selector = None
         self._composer = None
+        self._project_mode_rail_widget = None
         self._project_plan_preview_widget = None
 
     def _reset_render_cache(self) -> None:
@@ -424,6 +433,14 @@ class NexusScreen(Screen[None]):
                 Static,
             )
         return self._project_plan_preview_widget
+
+    def _project_mode_rail_static(self) -> Static:
+        if self._project_mode_rail_widget is None:
+            self._project_mode_rail_widget = self.query_one(
+                "#nexus-project-mode-rail",
+                Static,
+            )
+        return self._project_mode_rail_widget
 
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
         snapshot_identity = id(snapshot)
@@ -581,6 +598,13 @@ class NexusScreen(Screen[None]):
             target_workspace=self._current_workspace_text(),
         )
 
+    def _project_mode_rail_label(self) -> str:
+        return project_mode_rail_label(
+            self.config.effective_state_dir,
+            lang=self.config.lang,
+            target_workspace=self._current_workspace_text(),
+        )
+
     def _project_brief_action_variant(self) -> str:
         return project_brief_action_variant(
             self.config.effective_state_dir,
@@ -609,6 +633,9 @@ class NexusScreen(Screen[None]):
         )
         self._project_plan_preview_static().update(
             self._project_plan_preview_label()
+        )
+        self._project_mode_rail_static().update(
+            self._project_mode_rail_label()
         )
         analyze_action = self._project_analyze_action_presentation()
         analyze_button = self.query_one("#nexus-analyze-workspace", Button)

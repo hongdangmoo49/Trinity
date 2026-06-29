@@ -19,6 +19,7 @@ from trinity.textual_app.workspace_labels import (
     project_analyze_action_presentation,
     project_brief_action_variant,
     project_create_action_variant,
+    project_generation_preview_label,
     project_intake_state_label,
     project_mode_rail_label,
     project_plan_preview_label,
@@ -185,6 +186,7 @@ class NexusScreen(Screen[None]):
         self._composer: PromptComposer | None = None
         self._project_mode_rail_widget: Static | None = None
         self._project_plan_preview_widget: Static | None = None
+        self._project_generation_preview_widget: Static | None = None
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
@@ -256,6 +258,12 @@ class NexusScreen(Screen[None]):
             )
             self._project_plan_preview_widget = plan_preview
             yield plan_preview
+            generation_preview = Static(
+                self._project_generation_preview_label(),
+                id="nexus-project-generation-preview",
+            )
+            self._project_generation_preview_widget = generation_preview
+            yield generation_preview
             with Horizontal(id="nexus-main"):
                 with Vertical(id="nexus-center-stack"):
                     central = CentralAgentView(id="central-agent", lang=self.config.lang)
@@ -434,6 +442,14 @@ class NexusScreen(Screen[None]):
             )
         return self._project_plan_preview_widget
 
+    def _project_generation_preview_static(self) -> Static:
+        if self._project_generation_preview_widget is None:
+            self._project_generation_preview_widget = self.query_one(
+                "#nexus-project-generation-preview",
+                Static,
+            )
+        return self._project_generation_preview_widget
+
     def _project_mode_rail_static(self) -> Static:
         if self._project_mode_rail_widget is None:
             self._project_mode_rail_widget = self.query_one(
@@ -598,6 +614,13 @@ class NexusScreen(Screen[None]):
             target_workspace=self._current_workspace_text(),
         )
 
+    def _project_generation_preview_label(self) -> str:
+        return project_generation_preview_label(
+            self.config.effective_state_dir,
+            lang=self.config.lang,
+            target_workspace=self._current_workspace_text(),
+        )
+
     def _project_mode_rail_label(self) -> str:
         return project_mode_rail_label(
             self.config.effective_state_dir,
@@ -633,6 +656,9 @@ class NexusScreen(Screen[None]):
         )
         self._project_plan_preview_static().update(
             self._project_plan_preview_label()
+        )
+        self._project_generation_preview_static().update(
+            self._project_generation_preview_label()
         )
         self._project_mode_rail_static().update(
             self._project_mode_rail_label()

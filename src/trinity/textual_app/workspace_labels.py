@@ -173,6 +173,21 @@ PROJECT_PLAN_PREVIEW_LABELS = {
     },
 }
 
+PROJECT_GENERATION_PREVIEW_LABELS = {
+    "en": {
+        "create": "create",
+        "guardrails": "guardrails",
+        "summary": "Generation preview",
+        "validate": "validate",
+    },
+    "ko": {
+        "create": "생성",
+        "guardrails": "가드레일",
+        "summary": "생성 미리보기",
+        "validate": "검증",
+    },
+}
+
 PROJECT_MODE_RAIL_LABELS = {
     "en": {
         "invalid": "intake unreadable",
@@ -335,6 +350,64 @@ def project_plan_preview_label(
         )
     if not sections:
         return ""
+    return f"{labels['summary']}: {' | '.join(sections)}"
+
+
+def project_generation_preview_label(
+    state_dir: Path,
+    *,
+    lang: str = "en",
+    target_workspace: object | None = None,
+) -> str:
+    """Return a compact first-generation preview for saved new-project intake."""
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return ""
+    if intake is None:
+        return ""
+    return format_project_generation_preview_label(
+        intake,
+        lang=lang,
+        target_workspace=target_workspace,
+    )
+
+
+def format_project_generation_preview_label(
+    intake: ProjectIntake,
+    *,
+    lang: str = "en",
+    target_workspace: object | None = None,
+) -> str:
+    """Format a compact first-generation preview for a new-project intake."""
+    labels = PROJECT_GENERATION_PREVIEW_LABELS.get(
+        lang,
+        PROJECT_GENERATION_PREVIEW_LABELS["en"],
+    )
+    if intake.mode != "new":
+        return ""
+    if not _project_intake_targets_match(intake, target_workspace):
+        return ""
+    sections = [
+        _format_project_intake_section(
+            labels["create"],
+            _new_project_generation_files(intake),
+            max_items=3,
+        ),
+        _format_project_intake_section(
+            labels["validate"],
+            _new_project_generation_validation(intake),
+            max_items=2,
+        ),
+    ]
+    if intake.constraints:
+        sections.append(
+            _format_project_intake_section(
+                labels["guardrails"],
+                intake.constraints,
+                max_items=2,
+            )
+        )
     return f"{labels['summary']}: {' | '.join(sections)}"
 
 
@@ -735,6 +808,52 @@ def _format_new_project_brief_readiness(
     return labels["brief_missing"].format(
         fields=_format_project_intake_values(field_labels)
     )
+
+
+def _new_project_generation_files(intake: ProjectIntake) -> tuple[str, ...]:
+    text = _new_project_generation_signal_text(intake)
+    if "docs" in text or "documentation" in text:
+        return ("README.md", "docs/")
+    if any(
+        token in text
+        for token in ("react", "vite", "frontend", "web", "node", "javascript", "typescript")
+    ):
+        return ("README.md", "package.json", "src/", "tests/")
+    if any(
+        token in text
+        for token in ("python", "textual", "fastapi", "cli", "package")
+    ):
+        return ("README.md", "pyproject.toml", "src/", "tests/")
+    return ("README.md", "src/", "tests/")
+
+
+def _new_project_generation_validation(intake: ProjectIntake) -> tuple[str, ...]:
+    if intake.test_commands:
+        return intake.test_commands
+    text = _new_project_generation_signal_text(intake)
+    if "pnpm" in text:
+        return ("pnpm test",)
+    if any(
+        token in text
+        for token in ("react", "vite", "frontend", "web", "node", "npm", "javascript", "typescript")
+    ):
+        return ("npm test",)
+    if any(
+        token in text
+        for token in ("python", "textual", "fastapi", "cli", "package")
+    ):
+        return ("uv run pytest",)
+    return ("define first smoke check",)
+
+
+def _new_project_generation_signal_text(intake: ProjectIntake) -> str:
+    values = (
+        intake.starter_profile,
+        intake.project_type,
+        intake.product_goal,
+        *intake.stack_preferences,
+    )
+    return " ".join(value.strip().lower() for value in values if value.strip())
 
 
 def _project_intake_analysis_is_sparse(intake: ProjectIntake) -> bool:

@@ -772,6 +772,10 @@ class TestProjectAnalyze:
             assert "Brief readiness: missing type, users, success, milestone" in (
                 status.output
             )
+            assert "Generation preview:" in status.output
+            assert "create: README.md, src/, tests/" in status.output
+            assert "define first" in status.output
+            assert "smoke check" in status.output
             assert "trinity project analyze" in status.output
             assert '--goal "<goal>"' not in status.output
             assert '--project-type "<type>"' in status.output
@@ -786,6 +790,10 @@ class TestProjectAnalyze:
             data = json.loads(json_status.output)
             assert data["next_steps"][0] == completion_command
             assert data["next_steps"][1:] == ["trinity"]
+            assert data["project_intake"]["generation_preview"] == (
+                "Generation preview: create: README.md, src/, tests/ | "
+                "validate: define first smoke check"
+            )
             assert data["project_intake"]["readiness"] == {
                 "ready": False,
                 "recommended_action": "edit_brief",

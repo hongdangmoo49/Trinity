@@ -38,6 +38,7 @@ from trinity.tui.sacred_geometry import SacredGeometryAnimator
 START_LABELS = {
     "en": {
         "analyze_workspace": "Analyze Existing",
+        "analyze_selected_workspace": "Analyze Selected",
         "create_project": "Create New",
         "edit_brief": "Edit Brief",
         "plan_first": "Plan first",
@@ -49,6 +50,7 @@ START_LABELS = {
     },
     "ko": {
         "analyze_workspace": "기존 프로젝트 분석",
+        "analyze_selected_workspace": "선택 대상 분석",
         "create_project": "새 프로젝트 생성",
         "edit_brief": "브리프 편집",
         "plan_first": "먼저 계획",

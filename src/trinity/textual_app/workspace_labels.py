@@ -222,6 +222,7 @@ PROJECT_VALIDATION_PLAN_LABELS = {
 
 PROJECT_READ_FIRST_CHECKLIST_LABELS = {
     "en": {
+        "choose_scope": "choose",
         "entrypoints_missing": "entrypoints missing",
         "read_missing": "README/docs/source roots missing",
         "read": "read",
@@ -233,6 +234,7 @@ PROJECT_READ_FIRST_CHECKLIST_LABELS = {
         "verify": "verify",
     },
     "ko": {
+        "choose_scope": "선택",
         "entrypoints_missing": "진입점 없음",
         "read_missing": "README/docs/source roots 없음",
         "read": "읽기",
@@ -804,11 +806,7 @@ def format_project_read_first_checklist_label(
         PROJECT_READ_FIRST_CHECKLIST_LABELS["en"],
     )
     sections = (
-        _format_project_intake_section(
-            labels["scope"],
-            _read_first_scope_items(intake, labels),
-            max_items=2,
-        ),
+        _format_read_first_scope_section(intake, labels),
         _format_project_intake_section(
             labels["read"],
             _read_first_read_items(intake, labels),
@@ -826,6 +824,22 @@ def format_project_read_first_checklist_label(
         ),
     )
     return f"{labels['summary']}: {' | '.join(sections)}"
+
+
+def _format_read_first_scope_section(
+    intake: ProjectIntake,
+    labels: dict[str, str],
+) -> str:
+    selected_scope = intake.selected_scope.strip()
+    if selected_scope:
+        return _format_project_intake_section(labels["scope"], (selected_scope,))
+    if intake.scope_candidates:
+        values = _format_project_intake_values(intake.scope_candidates, max_items=2)
+        return f"{labels['scope']}: {labels['choose_scope']} {values}"
+    return _format_project_intake_section(
+        labels["scope"],
+        (labels["target_root"],),
+    )
 
 
 def project_mode_rail_label(
@@ -1450,18 +1464,6 @@ def _validation_full_commands(
     if intake.mode == "new":
         return (labels["full_new"],)
     return (labels["full_existing"],)
-
-
-def _read_first_scope_items(
-    intake: ProjectIntake,
-    labels: dict[str, str],
-) -> tuple[str, ...]:
-    selected_scope = intake.selected_scope.strip()
-    if selected_scope:
-        return (selected_scope,)
-    if intake.scope_candidates:
-        return intake.scope_candidates
-    return (labels["target_root"],)
 
 
 def _read_first_read_items(

@@ -158,6 +158,7 @@ def test_project_plan_preview_label_summarizes_new_project_brief(
             target_workspace=target,
             product_goal="Build customer onboarding.",
             project_type="SaaS dashboard",
+            starter_profile="Textual TUI",
             target_users="support operators",
             success_criteria="Operators can complete onboarding safely.",
             stack_preferences=("python", "sqlite", "textual"),
@@ -167,7 +168,8 @@ def test_project_plan_preview_label_summarizes_new_project_brief(
     )
 
     assert project_plan_preview_label(state, target_workspace=target) == (
-        "Initial plan preview: milestone: First usable onboarding workflow. | "
+        "Initial plan preview: starter: Textual TUI | "
+        "milestone: First usable onboarding workflow. | "
         "stack: python, sqlite, textual | "
         "success: Operators can complete onboarding safely. | "
         "users: support operators | guardrails: Keep setup simple, No paid APIs"
@@ -177,7 +179,8 @@ def test_project_plan_preview_label_summarizes_new_project_brief(
         lang="ko",
         target_workspace=target,
     ) == (
-        "초기 계획 미리보기: 마일스톤: First usable onboarding workflow. | "
+        "초기 계획 미리보기: 스타터: Textual TUI | "
+        "마일스톤: First usable onboarding workflow. | "
         "스택: python, sqlite, textual | "
         "성공: Operators can complete onboarding safely. | "
         "사용자: support operators | 가드레일: Keep setup simple, No paid APIs"

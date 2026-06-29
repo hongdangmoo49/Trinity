@@ -787,6 +787,12 @@ def project() -> None:
     help="Project type or product category for the brief.",
 )
 @click.option(
+    "--starter-profile",
+    "--starter",
+    default="",
+    help="Initial implementation/repository shape for the new project.",
+)
+@click.option(
     "--target-users",
     default="",
     help="Target users or audience for the brief.",
@@ -821,6 +827,7 @@ def project_new(
     git_init: bool,
     product_goal: str,
     project_type: str,
+    starter_profile: str,
     target_users: str,
     success_criteria: str,
     stack_preferences: tuple[str, ...],
@@ -841,6 +848,7 @@ def project_new(
         target_workspace=target_workspace,
         product_goal=product_goal,
         project_type=project_type,
+        starter_profile=starter_profile,
         target_users=target_users,
         success_criteria=success_criteria,
         stack_preferences=_split_option_values(stack_preferences),
@@ -876,6 +884,12 @@ def project_new(
     "--project-type",
     default="",
     help="Project type or product category to store in project intake.",
+)
+@click.option(
+    "--starter-profile",
+    "--starter",
+    default="",
+    help="Initial implementation/repository shape to store in project intake.",
 )
 @click.option(
     "--target-users",
@@ -917,6 +931,7 @@ def project_analyze(
     mode: str,
     product_goal: str,
     project_type: str,
+    starter_profile: str,
     target_users: str,
     success_criteria: str,
     stack_preferences: tuple[str, ...],
@@ -939,6 +954,7 @@ def project_analyze(
         target_workspace=target_workspace,
         product_goal=product_goal,
         project_type=project_type,
+        starter_profile=starter_profile,
         target_users=target_users,
         success_criteria=success_criteria,
         stack_preferences=_split_option_values(stack_preferences),
@@ -1001,6 +1017,7 @@ def _refresh_project_intake(
         target_workspace=intake.target_workspace,
         product_goal=intake.product_goal,
         project_type=intake.project_type,
+        starter_profile=intake.starter_profile,
         target_users=intake.target_users,
         success_criteria=intake.success_criteria,
         stack_preferences=intake.stack_preferences,
@@ -1227,6 +1244,7 @@ def _project_status_payload(
             ),
             "product_goal": intake.product_goal,
             "project_type": intake.project_type,
+            "starter_profile": intake.starter_profile,
             "target_users": intake.target_users,
             "success_criteria": intake.success_criteria,
             "stack_preferences": list(intake.stack_preferences),
@@ -1670,6 +1688,8 @@ def _project_brief_lines(intake: ProjectIntake) -> list[str]:
         lines.append(f"Product goal: {intake.product_goal}")
     if intake.project_type:
         lines.append(f"Project type: {intake.project_type}")
+    if intake.starter_profile:
+        lines.append(f"Starter profile: {intake.starter_profile}")
     if intake.target_users:
         lines.append(f"Target users: {intake.target_users}")
     if intake.success_criteria:

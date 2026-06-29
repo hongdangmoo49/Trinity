@@ -25,6 +25,7 @@ from trinity.textual_app.workspace_labels import (
     project_intake_state_label,
     project_mode_rail_label,
     project_plan_preview_label,
+    project_start_choice_guide_label,
     project_startup_readiness_label,
     provider_execution_review_policy_label,
     project_read_first_checklist_label,
@@ -192,6 +193,7 @@ class NexusScreen(Screen[None]):
         self._provider_policy_widget: Static | None = None
         self._provider_cli_setup_widget: Static | None = None
         self._project_startup_readiness_widget: Static | None = None
+        self._project_start_choice_guide_widget: Static | None = None
         self._central_view: CentralAgentView | None = None
         self._question_panel: QuestionPanel | None = None
         self._inspector: WorkflowInspector | None = None
@@ -250,6 +252,12 @@ class NexusScreen(Screen[None]):
                 self._project_intake_label(),
                 id="nexus-project-intake-summary",
             )
+            start_choice_guide = Static(
+                self._project_start_choice_guide_label(),
+                id="nexus-project-start-choice-guide",
+            )
+            self._project_start_choice_guide_widget = start_choice_guide
+            yield start_choice_guide
             analyze_action = self._project_analyze_action_presentation()
             with Horizontal(id="nexus-project-intake-actions"):
                 yield Button(
@@ -432,6 +440,7 @@ class NexusScreen(Screen[None]):
         self._provider_policy_widget = None
         self._provider_cli_setup_widget = None
         self._project_startup_readiness_widget = None
+        self._project_start_choice_guide_widget = None
         self._central_view = None
         self._question_panel = None
         self._inspector = None
@@ -490,6 +499,14 @@ class NexusScreen(Screen[None]):
                 Static,
             )
         return self._project_startup_readiness_widget
+
+    def _project_start_choice_guide_static(self) -> Static:
+        if self._project_start_choice_guide_widget is None:
+            self._project_start_choice_guide_widget = self.query_one(
+                "#nexus-project-start-choice-guide",
+                Static,
+            )
+        return self._project_start_choice_guide_widget
 
     def _refresh_project_startup_readiness_cached(
         self,
@@ -772,6 +789,13 @@ class NexusScreen(Screen[None]):
             target_workspace=self._current_workspace_text(),
         )
 
+    def _project_start_choice_guide_label(self) -> str:
+        return project_start_choice_guide_label(
+            self.config.effective_state_dir,
+            lang=self.config.lang,
+            target_workspace=self._current_workspace_text(),
+        )
+
     def _provider_policy_label(
         self,
         selected_agents: tuple[str, ...] | None = None,
@@ -843,6 +867,9 @@ class NexusScreen(Screen[None]):
         )
         self._project_startup_readiness_static().update(
             self._project_startup_readiness_label()
+        )
+        self._project_start_choice_guide_static().update(
+            self._project_start_choice_guide_label()
         )
         self._project_plan_preview_static().update(
             self._project_plan_preview_label()

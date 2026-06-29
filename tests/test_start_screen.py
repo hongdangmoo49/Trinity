@@ -1734,6 +1734,46 @@ async def test_start_screen_shows_project_intake_summary(tmp_path: Path) -> None
 
 
 @pytest.mark.asyncio
+async def test_start_screen_refreshes_project_context_when_target_changes(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "customer-app"
+    other = tmp_path / "other-app"
+    target.mkdir()
+    other.mkdir()
+    (target / "pyproject.toml").write_text(
+        "[project]\nname='customer-app'\n",
+        encoding="utf-8",
+    )
+    (target / "uv.lock").write_text("", encoding="utf-8")
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+    screen = StartScreen(config, workspace_candidate=other)
+    app = StartScreenHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        initial = str(screen.query_one("#project-intake-summary", Static).content)
+        assert "target mismatch" in initial
+
+        screen.set_workspace_candidate(target)
+        await pilot.pause()
+
+        refreshed = str(screen.query_one("#project-intake-summary", Static).content)
+        assert "target mismatch" not in refreshed
+        assert "target: customer-app" in refreshed
+        assert "tests: uv run pytest" in refreshed
+
+
+@pytest.mark.asyncio
 async def test_start_screen_updates_provider_policy_from_recipient_selection(
     tmp_path: Path,
 ) -> None:
@@ -2213,7 +2253,7 @@ async def test_start_workspace_candidate_skips_unchanged_widget_query(
 
         screen.set_workspace_candidate(next_target)
         await pilot.pause()
-        assert queries == []
+        assert "#project-intake-summary" in queries
 
 
 @pytest.mark.asyncio

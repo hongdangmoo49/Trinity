@@ -392,10 +392,14 @@ class NexusScreen(Screen[None]):
         next_candidate = str(path or "")
         if next_candidate == self._workspace_candidate:
             return
+        previous_workspace = self._current_workspace_text()
         self._workspace_candidate = next_candidate
         if self.is_mounted:
             self._refresh_workspace_label()
-            self._refresh_project_startup_readiness_cached()
+            if self._current_workspace_text() != previous_workspace:
+                self.refresh_project_intake_summary()
+            else:
+                self._refresh_project_startup_readiness_cached()
 
     def set_agent_model_choices(
         self,
@@ -570,6 +574,7 @@ class NexusScreen(Screen[None]):
         ):
             self.snapshot = snapshot
             return
+        previous_workspace = self._current_workspace_text()
         self.snapshot = snapshot
         if not self.is_mounted:
             return
@@ -587,7 +592,10 @@ class NexusScreen(Screen[None]):
         self._refresh_questions()
         self._refresh_inspector()
         self._refresh_workspace_label()
-        self._refresh_project_startup_readiness_cached()
+        if self._current_workspace_text() != previous_workspace:
+            self.refresh_project_intake_summary()
+        else:
+            self._refresh_project_startup_readiness_cached()
         if self._snapshot_has_activity_frame_targets(snapshot):
             self._apply_activity_frame()
 

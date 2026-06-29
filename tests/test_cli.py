@@ -723,7 +723,10 @@ class TestProjectAnalyze:
 
             assert result.exit_code == 0
             assert "Project intake active." in result.output
-            assert "Summary: Project intake: existing | updated:" in result.output
+            assert (
+                "Summary: Project intake: existing | target: customer-app | "
+                "updated:"
+            ) in result.output
             assert "Read-first checklist:" in result.output
             assert "Mode: existing" in result.output
             assert "Target name: customer-app" in result.output
@@ -895,7 +898,7 @@ class TestProjectAnalyze:
             assert json_status.exit_code == 0
             data = json.loads(json_status.output)
             assert data["project_intake"]["summary"].startswith(
-                "Project intake: new | target missing:"
+                "Project intake: new | target: missing-new | target missing:"
             )
             assert data["next_steps"] == [recreate_command]
             assert data["project_intake"]["readiness"]["target_missing"] is True
@@ -960,7 +963,7 @@ class TestProjectAnalyze:
             assert result.exit_code == 0
             data = json.loads(result.output)
             assert data["project_intake"]["summary"].startswith(
-                "Project intake: existing | updated:"
+                "Project intake: existing | target: customer-app | updated:"
             )
             assert data["project_intake"]["mode"] == "existing"
             assert data["project_intake"]["target_name"] == "customer-app"

@@ -368,15 +368,15 @@ def test_project_intake_state_label_summarizes_saved_intake(tmp_path: Path) -> N
     assert (
         project_intake_state_label(state, today=date(2026, 6, 28))
         == (
-            "Project intake: existing | updated: 2026-06-28 | "
-            "tests: uv run pytest | git: none"
+            "Project intake: existing | target: customer-app | "
+            "updated: 2026-06-28 | tests: uv run pytest | git: none"
         )
     )
     assert (
         project_intake_state_label(state, lang="ko", today=date(2026, 6, 28))
         == (
-            "프로젝트 인테이크: 기존 | 갱신: 2026-06-28 | "
-            "테스트: uv run pytest | git: 없음"
+            "프로젝트 인테이크: 기존 | 대상: customer-app | "
+            "갱신: 2026-06-28 | 테스트: uv run pytest | git: 없음"
         )
     )
 
@@ -811,7 +811,8 @@ def test_project_intake_state_label_includes_workspace_profile(
     )
 
     assert project_intake_state_label(state, today=date(2026, 6, 28)) == (
-        "Project intake: existing | updated: 2026-06-28 | tests: (none) | "
+        "Project intake: existing | target: customer-app | "
+        "updated: 2026-06-28 | tests: (none) | "
         "read first: README.md, docs, src +1 | git: none | "
         "goal: Launch customer onboarding. | type: SaaS dashboard | "
         "users: support operators | dev: npm run dev | build: npm run build "
@@ -820,7 +821,8 @@ def test_project_intake_state_label_includes_workspace_profile(
         "docs: README.md, docs"
     )
     assert project_intake_state_label(state, lang="ko", today=date(2026, 6, 28)) == (
-        "프로젝트 인테이크: 기존 | 갱신: 2026-06-28 | 테스트: (없음) | "
+        "프로젝트 인테이크: 기존 | 대상: customer-app | "
+        "갱신: 2026-06-28 | 테스트: (없음) | "
         "먼저 읽기: README.md, docs, src +1 | git: 없음 | "
         "목표: Launch customer onboarding. | 유형: SaaS dashboard | "
         "사용자: support operators | 개발: npm run dev | 빌드: npm run build "
@@ -890,11 +892,13 @@ def test_project_intake_state_label_warns_for_sparse_existing_analysis(
     )
 
     assert project_intake_state_label(state, today=date(2026, 6, 28)) == (
-        "Project intake: existing | updated: 2026-06-28 | tests: (none) | "
+        "Project intake: existing | target: empty-app | "
+        "updated: 2026-06-28 | tests: (none) | "
         "analysis: sparse | missing: tests, src, docs | git: none"
     )
     assert project_intake_state_label(state, lang="ko", today=date(2026, 6, 28)) == (
-        "프로젝트 인테이크: 기존 | 갱신: 2026-06-28 | 테스트: (없음) | "
+        "프로젝트 인테이크: 기존 | 대상: empty-app | "
+        "갱신: 2026-06-28 | 테스트: (없음) | "
         "분석: 부족 | 누락: 테스트, 소스, 문서 | git: 없음"
     )
 
@@ -920,7 +924,8 @@ def test_project_intake_state_label_warns_for_stale_existing_analysis(
     )
 
     assert project_intake_state_label(state, today=date(2026, 6, 28)) == (
-        "Project intake: existing | updated: 2026-06-01 | "
+        "Project intake: existing | target: customer-app | "
+        "updated: 2026-06-01 | "
         "analysis: stale 27d | "
         f"refresh: trinity project analyze {target} | "
         "tests: uv run pytest | git: none"
@@ -930,7 +935,8 @@ def test_project_intake_state_label_warns_for_stale_existing_analysis(
         lang="ko",
         today=date(2026, 6, 28),
     ) == (
-        "프로젝트 인테이크: 기존 | 갱신: 2026-06-01 | "
+        "프로젝트 인테이크: 기존 | 대상: customer-app | "
+        "갱신: 2026-06-01 | "
         "분석: 오래됨 27일 | "
         f"재분석: trinity project analyze {target} | "
         "테스트: uv run pytest | git: 없음"
@@ -1119,6 +1125,7 @@ def test_project_intake_state_label_warns_when_target_mismatches(
         target_workspace=selected_target,
     ).startswith(
         "Project intake: existing | "
+        "target: saved-app | "
         f"target mismatch: intake {saved_target} | "
         "updated: 2026-06-28"
     )
@@ -1128,6 +1135,7 @@ def test_project_intake_state_label_warns_when_target_mismatches(
         target_workspace=selected_target,
     ).startswith(
         "프로젝트 인테이크: 기존 | "
+        "대상: saved-app | "
         f"대상 불일치: 인테이크 {saved_target} | "
         "갱신: 2026-06-28"
     )
@@ -1153,6 +1161,7 @@ def test_project_intake_state_label_warns_when_saved_target_is_missing(
 
     assert project_intake_state_label(state, today=date(2026, 6, 28)) == (
         "Project intake: existing | "
+        "target: missing-app | "
         f"target missing: {missing_target} | "
         "updated: 2026-06-28 | tests: (none) | "
         "analysis: sparse | missing: tests, src, docs | git: none"
@@ -1163,6 +1172,7 @@ def test_project_intake_state_label_warns_when_saved_target_is_missing(
         today=date(2026, 6, 28),
     ) == (
         "프로젝트 인테이크: 기존 | "
+        "대상: missing-app | "
         f"대상 없음: {missing_target} | "
         "갱신: 2026-06-28 | 테스트: (없음) | "
         "분석: 부족 | 누락: 테스트, 소스, 문서 | git: 없음"
@@ -1218,11 +1228,13 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
     )
 
     assert project_intake_state_label(state) == (
-        "Project intake: new | updated: 2026-06-28 | tests: (none) | "
+        "Project intake: new | target: new-app | "
+        "updated: 2026-06-28 | tests: (none) | "
         "brief: missing type, users +2 | goal: Build a dashboard."
     )
     assert project_intake_state_label(state, lang="ko") == (
-        "프로젝트 인테이크: 신규 | 갱신: 2026-06-28 | 테스트: (없음) | "
+        "프로젝트 인테이크: 신규 | 대상: new-app | "
+        "갱신: 2026-06-28 | 테스트: (없음) | "
         "브리프: 누락 유형, 사용자 +2 | 목표: Build a dashboard."
     )
 
@@ -1243,7 +1255,8 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
     )
 
     assert project_intake_state_label(state) == (
-        "Project intake: new | updated: 2026-06-28 | tests: (none) | "
+        "Project intake: new | target: new-app | "
+        "updated: 2026-06-28 | tests: (none) | "
         "brief: complete | "
         "goal: Build a dashboard. | type: SaaS dashboard | "
         "users: support operators | "
@@ -1252,7 +1265,8 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
         "constraints: No cloud lock-in, Keep tests green +1"
     )
     assert project_intake_state_label(state, lang="ko") == (
-        "프로젝트 인테이크: 신규 | 갱신: 2026-06-28 | 테스트: (없음) | "
+        "프로젝트 인테이크: 신규 | 대상: new-app | "
+        "갱신: 2026-06-28 | 테스트: (없음) | "
         "브리프: 완료 | "
         "목표: Build a dashboard. | 유형: SaaS dashboard | "
         "사용자: support operators | "
@@ -1565,8 +1579,8 @@ async def test_start_screen_shows_project_intake_summary(tmp_path: Path) -> None
         await pilot.pause()
 
         assert str(screen.query_one("#project-intake-summary", Static).content) == (
-            "Project intake: existing | updated: 2026-06-28 | "
-            "tests: uv run pytest | git: none"
+            "Project intake: existing | target: customer-app | "
+            "updated: 2026-06-28 | tests: uv run pytest | git: none"
         )
         assert str(screen.query_one("#project-read-first-checklist", Static).content) == (
             "Read-first checklist: scope: target root | "
@@ -1947,8 +1961,8 @@ async def test_nexus_screen_shows_project_intake_summary(tmp_path: Path) -> None
         assert str(
             screen.query_one("#nexus-project-intake-summary", Static).content
         ) == (
-            "프로젝트 인테이크: 기존 | 갱신: 2026-06-28 | "
-            "테스트: uv run pytest | git: 없음"
+            "프로젝트 인테이크: 기존 | 대상: customer-app | "
+            "갱신: 2026-06-28 | 테스트: uv run pytest | git: 없음"
         )
 
 

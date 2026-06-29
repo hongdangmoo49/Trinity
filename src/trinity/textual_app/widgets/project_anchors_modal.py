@@ -21,6 +21,8 @@ PROJECT_ANCHORS_LABELS = {
         "dev_placeholder": "npm run dev, uv run app",
         "docs": "Docs",
         "docs_placeholder": "README.md, docs",
+        "none": "(none)",
+        "read_first": "Read first",
         "save": "Save Anchors",
         "scope_candidates": "Scope candidates",
         "selected_scope": "Selected scope",
@@ -40,6 +42,8 @@ PROJECT_ANCHORS_LABELS = {
         "dev_placeholder": "npm run dev, uv run app",
         "docs": "문서",
         "docs_placeholder": "README.md, docs",
+        "none": "(없음)",
+        "read_first": "먼저 읽기",
         "save": "앵커 저장",
         "scope_candidates": "범위 후보",
         "selected_scope": "선택 범위",
@@ -105,6 +109,12 @@ class ProjectAnchorsModal(ModalScreen[ProjectAnchorsModalResult]):
     }
 
     #project-anchors-scope-candidates {
+        height: auto;
+        color: $text-muted;
+        margin-bottom: 1;
+    }
+
+    #project-anchors-read-first {
         height: auto;
         color: $text-muted;
         margin-bottom: 1;
@@ -184,6 +194,10 @@ class ProjectAnchorsModal(ModalScreen[ProjectAnchorsModalResult]):
                 "project-anchors-source-roots",
                 _join_values(self.draft.source_roots),
             )
+            yield Static(
+                self._read_first_label(self.draft),
+                id="project-anchors-read-first",
+            )
             yield from self._input_row(
                 "tests",
                 "project-anchors-tests",
@@ -219,6 +233,15 @@ class ProjectAnchorsModal(ModalScreen[ProjectAnchorsModalResult]):
         elif button_id == "save-project-anchors":
             event.stop()
             self.action_save()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id not in {
+            "project-anchors-docs",
+            "project-anchors-source-roots",
+        }:
+            return
+        event.stop()
+        self._refresh_read_first()
 
     def action_cancel(self) -> None:
         self.dismiss(ProjectAnchorsModalResult(saved=False, draft=self._current_draft()))
@@ -258,6 +281,18 @@ class ProjectAnchorsModal(ModalScreen[ProjectAnchorsModalResult]):
     def _label(self, key: str) -> str:
         labels = PROJECT_ANCHORS_LABELS.get(self.lang, PROJECT_ANCHORS_LABELS["en"])
         return labels.get(key, PROJECT_ANCHORS_LABELS["en"][key])
+
+    def _refresh_read_first(self) -> None:
+        if not self.is_mounted:
+            return
+        self.query_one("#project-anchors-read-first", Static).update(
+            self._read_first_label(self._current_draft())
+        )
+
+    def _read_first_label(self, draft: ProjectAnchorsDraft) -> str:
+        values = tuple(dict.fromkeys((*draft.docs_found, *draft.source_roots)))
+        visible = _join_values(values) if values else self._label("none")
+        return f"{self._label('read_first')}: {visible}"
 
 
 def _split_values(value: str) -> tuple[str, ...]:

@@ -65,6 +65,7 @@ from trinity.textual_app.runtime import resolve_tui_runtime
 from trinity.textual_app.workspace_labels import (
     PROJECT_INTAKE_STALE_AFTER_DAYS,
     format_project_intake_label,
+    format_project_generation_preview_label,
     project_analyze_action_variant,
     project_brief_action_variant,
     project_create_action_variant,
@@ -1232,6 +1233,10 @@ def _project_status_payload(
     return {
         "project_intake": {
             "summary": format_project_intake_label(intake),
+            "generation_preview": format_project_generation_preview_label(
+                intake,
+                target_workspace=intake.target_workspace,
+            ),
             "mode": intake.mode,
             "target_name": intake.target_workspace.name or "(root)",
             "target_workspace": str(intake.target_workspace),
@@ -1478,6 +1483,12 @@ def _display_project_status(
         "[green]Project intake active.[/green]",
         f"Summary: {format_project_intake_label(intake)}",
     ]
+    generation_preview = format_project_generation_preview_label(
+        intake,
+        target_workspace=intake.target_workspace,
+    )
+    if generation_preview:
+        lines.append(generation_preview)
     if refreshed:
         lines.extend(
             [

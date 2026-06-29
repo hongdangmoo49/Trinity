@@ -19,6 +19,7 @@ from trinity.textual_app.workspace_labels import (
     project_analyze_action_variant,
     project_brief_action_variant,
     project_create_action_variant,
+    project_generation_preview_label,
     project_intake_state_label,
     project_mode_rail_label,
     project_plan_preview_label,
@@ -208,6 +209,62 @@ def test_project_plan_preview_label_skips_existing_project(
     )
 
     assert project_plan_preview_label(state, target_workspace=target) == ""
+
+
+def test_project_generation_preview_label_summarizes_new_project_shape(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "new-app"
+    target.mkdir()
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            project_type="SaaS dashboard",
+            starter_profile="Textual TUI",
+            stack_preferences=("python", "textual"),
+            constraints=("Keep setup simple", "No paid APIs"),
+        ),
+    )
+
+    assert project_generation_preview_label(state, target_workspace=target) == (
+        "Generation preview: create: README.md, pyproject.toml, src/ +1 | "
+        "validate: uv run pytest | "
+        "guardrails: Keep setup simple, No paid APIs"
+    )
+    assert project_generation_preview_label(
+        state,
+        lang="ko",
+        target_workspace=target,
+    ) == (
+        "생성 미리보기: 생성: README.md, pyproject.toml, src/ +1 | "
+        "검증: uv run pytest | "
+        "가드레일: Keep setup simple, No paid APIs"
+    )
+    assert project_generation_preview_label(
+        state,
+        target_workspace=tmp_path / "other-app",
+    ) == ""
+
+
+def test_project_generation_preview_label_skips_existing_project(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "existing-app"
+    target.mkdir()
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            product_goal="Improve docs.",
+        ),
+    )
+
+    assert project_generation_preview_label(state, target_workspace=target) == ""
 
 
 def test_project_mode_rail_label_guides_missing_intake(tmp_path: Path) -> None:

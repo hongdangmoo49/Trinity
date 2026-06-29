@@ -10996,6 +10996,87 @@ async def test_project_brief_modal_uses_korean_placeholders(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_project_brief_cancel_preserves_draft_for_same_target(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "empty-target"
+    other_target = tmp_path / "other-target"
+    control_repo.mkdir()
+    target.mkdir()
+    other_target.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        FakeWorkflowController(),
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#analyze-workspace")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectBriefModal)
+        app.screen.query_one("#project-brief-goal", Input).value = "Draft goal"
+        app.screen.query_one("#project-brief-project-type", Input).value = (
+            "CLI tool"
+        )
+        app.screen.query_one("#project-brief-target-users", Input).value = (
+            "maintainers"
+        )
+        app.screen.query_one("#project-brief-stack", Input).value = (
+            "python, sqlite"
+        )
+        app.screen.action_cancel()
+        await pilot.pause()
+
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.product_goal == ""
+        assert intake.project_type == ""
+        assert intake.target_users == ""
+
+        app._open_project_brief_modal(other_target, fallback_mode="new")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectBriefModal)
+        assert app.screen.query_one("#project-brief-goal", Input).value == ""
+        app.screen.action_cancel()
+        await pilot.pause()
+
+        await pilot.click("#edit-project-brief")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectBriefModal)
+        assert app.screen.query_one("#project-brief-goal", Input).value == "Draft goal"
+        assert (
+            app.screen.query_one("#project-brief-project-type", Input).value
+            == "CLI tool"
+        )
+        assert (
+            app.screen.query_one("#project-brief-target-users", Input).value
+            == "maintainers"
+        )
+        assert (
+            app.screen.query_one("#project-brief-stack", Input).value
+            == "python, sqlite"
+        )
+
+        app.screen.query_one("#project-brief-goal", Input).value = "Saved goal"
+        app.screen.action_save()
+        await pilot.pause()
+
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.product_goal == "Saved goal"
+
+        await pilot.click("#edit-project-brief")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectBriefModal)
+        assert app.screen.query_one("#project-brief-goal", Input).value == "Saved goal"
+
+
+@pytest.mark.asyncio
 async def test_start_analyze_workspace_preserves_existing_prompt(tmp_path) -> None:
     control_repo = tmp_path / "control"
     target = tmp_path / "target"

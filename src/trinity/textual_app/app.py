@@ -196,6 +196,7 @@ from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.project_brief_modal import (
     ProjectBriefDraft,
     ProjectBriefModal,
+    ProjectBriefModalResult,
 )
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
 from trinity.textual_app.widgets.status_modal import StatusCommandModal
@@ -1546,6 +1547,7 @@ class TrinityTextualApp(App[None]):
         self.active_snapshot: WorkflowNexusSnapshot | None = None
         self.settings_store = UISettingsStore(config.effective_state_dir)
         self.confirmed_preflight: WorkspacePreflight | None = None
+        self._project_brief_cancel_drafts: dict[Path, ProjectBriefDraft] = {}
 
     def _init_textual_runtime_state(
         self,
@@ -3550,14 +3552,19 @@ class TrinityTextualApp(App[None]):
                 lang=self.config.lang,
                 target_workspace=str(absolute_path(target)),
             ),
-            lambda draft: self._on_project_brief_saved(
+            lambda result: self._on_project_brief_dismissed(
                 target,
                 fallback_mode=fallback_mode,
-                draft=draft,
+                result=result,
             ),
         )
 
     def _project_brief_draft_for_target(self, target: Path) -> ProjectBriefDraft:
+        cached = self._project_brief_cancel_drafts.get(
+            self._project_brief_cache_key(target)
+        )
+        if cached is not None:
+            return cached
         try:
             current = load_project_intake(self.config.effective_state_dir)
         except ValueError:
@@ -3577,15 +3584,33 @@ class TrinityTextualApp(App[None]):
             notes=current.notes,
         )
 
+    def _on_project_brief_dismissed(
+        self,
+        target: Path,
+        *,
+        fallback_mode: str,
+        result: ProjectBriefModalResult | None,
+    ) -> None:
+        if result is None:
+            return
+        cache_key = self._project_brief_cache_key(target)
+        if not result.saved:
+            self._project_brief_cancel_drafts[cache_key] = result.draft
+            return
+        self._project_brief_cancel_drafts.pop(cache_key, None)
+        self._on_project_brief_saved(
+            target,
+            fallback_mode=fallback_mode,
+            draft=result.draft,
+        )
+
     def _on_project_brief_saved(
         self,
         target: Path,
         *,
         fallback_mode: str,
-        draft: ProjectBriefDraft | None,
+        draft: ProjectBriefDraft,
     ) -> None:
-        if draft is None:
-            return
         mode = self._project_intake_mode_for_target(target, fallback=fallback_mode)
         intake = build_project_intake(
             mode=mode,
@@ -3604,6 +3629,9 @@ class TrinityTextualApp(App[None]):
         self._refresh_project_intake_summary_labels()
         self._seed_start_prompt_from_project_brief(target, mode=mode, draft=draft)
         self._seed_nexus_prompt_from_project_brief(target, mode=mode, draft=draft)
+
+    def _project_brief_cache_key(self, target: Path) -> Path:
+        return absolute_path(target)
 
     def _project_intake_mode_for_target(self, target: Path, *, fallback: str) -> str:
         try:

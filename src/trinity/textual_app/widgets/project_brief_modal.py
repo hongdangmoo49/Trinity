@@ -72,7 +72,15 @@ class ProjectBriefDraft:
     notes: str = ""
 
 
-class ProjectBriefModal(ModalScreen[ProjectBriefDraft | None]):
+@dataclass(frozen=True)
+class ProjectBriefModalResult:
+    """Result of closing the project brief modal."""
+
+    saved: bool
+    draft: ProjectBriefDraft
+
+
+class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
     """Edit user-provided project intake brief fields."""
 
     DEFAULT_CSS = """
@@ -210,24 +218,21 @@ class ProjectBriefModal(ModalScreen[ProjectBriefDraft | None]):
             self.action_save()
 
     def action_cancel(self) -> None:
-        self.dismiss(None)
+        self.dismiss(ProjectBriefModalResult(saved=False, draft=self._current_draft()))
 
     def action_save(self) -> None:
-        self.dismiss(
-            ProjectBriefDraft(
-                product_goal=self._input_value("#project-brief-goal"),
-                project_type=self._input_value("#project-brief-project-type"),
-                target_users=self._input_value("#project-brief-target-users"),
-                success_criteria=self._input_value("#project-brief-success"),
-                stack_preferences=_split_values(
-                    self._input_value("#project-brief-stack")
-                ),
-                first_milestone=self._input_value("#project-brief-milestone"),
-                constraints=_split_values(
-                    self._input_value("#project-brief-constraints")
-                ),
-                notes=self._input_value("#project-brief-notes"),
-            )
+        self.dismiss(ProjectBriefModalResult(saved=True, draft=self._current_draft()))
+
+    def _current_draft(self) -> ProjectBriefDraft:
+        return ProjectBriefDraft(
+            product_goal=self._input_value("#project-brief-goal"),
+            project_type=self._input_value("#project-brief-project-type"),
+            target_users=self._input_value("#project-brief-target-users"),
+            success_criteria=self._input_value("#project-brief-success"),
+            stack_preferences=_split_values(self._input_value("#project-brief-stack")),
+            first_milestone=self._input_value("#project-brief-milestone"),
+            constraints=_split_values(self._input_value("#project-brief-constraints")),
+            notes=self._input_value("#project-brief-notes"),
         )
 
     def _input_row(

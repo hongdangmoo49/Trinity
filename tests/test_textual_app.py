@@ -11398,6 +11398,11 @@ async def test_start_create_project_button_creates_new_project_intake(
             "validate: uv run pytest | "
             "guardrails: Keep setup simple, no cloud dependency"
         )
+        assert str(start.query_one("#project-validation-plan", Static).content) == (
+            "Validation plan: fast: uv run pytest | "
+            "required: record required check before merge | "
+            "full: first scaffold smoke before release"
+        )
         assert str(start.query_one("#project-mode-rail", Static).content) == (
             "Mode rail: new | state: ready | next: plan or execute"
         )
@@ -12161,6 +12166,13 @@ async def test_nexus_create_project_button_creates_new_project_intake(
         ) == (
             "Generation preview: create: README.md, pyproject.toml, src/ +1 | "
             "validate: uv run pytest | guardrails: No external service"
+        )
+        assert str(
+            nexus.query_one("#nexus-project-validation-plan", Static).content
+        ) == (
+            "Validation plan: fast: uv run pytest | "
+            "required: record required check before merge | "
+            "full: first scaffold smoke before release"
         )
         assert str(nexus.query_one("#nexus-project-mode-rail", Static).content) == (
             "Mode rail: new | state: ready | next: plan or execute"

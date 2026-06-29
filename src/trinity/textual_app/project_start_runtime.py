@@ -26,6 +26,7 @@ ProjectStartNextAction = Literal[
     "execute",
 ]
 ProjectStartReadyAction = Literal["plan", "execute"]
+ProjectStartPreferredMode = Literal["auto", "existing", "new"]
 
 
 def project_setup_next_action(
@@ -34,16 +35,28 @@ def project_setup_next_action(
     *,
     ready_action: ProjectStartReadyAction,
     analyze_variant: str = "default",
+    preferred_mode: ProjectStartPreferredMode = "auto",
 ) -> ProjectStartNextAction:
     """Return the next safe setup action for a new/existing project journey."""
+    preferred = _normalize_preferred_mode(preferred_mode)
     target = project_start_target_path(target_workspace)
     if target is None:
+        if preferred == "new":
+            return "create"
         return "workspace"
     try:
         intake = load_project_intake(state_dir)
     except ValueError:
+        if preferred == "new":
+            return "create"
         return "analyze"
     if intake is None or not project_intake_matches_workspace(intake, target):
+        if preferred == "new":
+            return "create"
+        return "analyze"
+    if preferred == "new" and intake.mode != "new":
+        return "create"
+    if preferred == "existing" and intake.mode != "existing":
         return "analyze"
     if intake.mode == "new":
         if project_intake_target_missing(intake):
@@ -62,6 +75,12 @@ def project_setup_next_action(
     if project_intake_validation_missing(intake):
         return "validation"
     return ready_action
+
+
+def _normalize_preferred_mode(value: str) -> ProjectStartPreferredMode:
+    if value in {"existing", "new"}:
+        return value
+    return "auto"
 
 
 def project_start_target_path(target_workspace: object | None) -> Path | None:

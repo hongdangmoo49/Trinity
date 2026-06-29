@@ -230,7 +230,9 @@ LocalCommandSnapshotOptionValue = (
 
 
 def initial_workspace_candidate(config: TrinityConfig, launch_cwd: Path) -> Path:
-    """Prefer persisted project intake target when it is still a directory."""
+    """Return the launch cwd unless control-repo launch should restore a target."""
+    if absolute_path(launch_cwd) != absolute_path(config.project_dir):
+        return launch_cwd
     try:
         intake = load_project_intake(config.effective_state_dir)
     except ValueError:

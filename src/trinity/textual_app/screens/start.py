@@ -134,6 +134,9 @@ class StartScreen(Screen[None]):
     class ProjectScopeRequested(Message):
         """Posted when the user wants to choose an existing-project scope."""
 
+    class ProjectReadFirstRequested(Message):
+        """Posted when the user wants to confirm existing-project read-first anchors."""
+
     class ProjectValidationRequested(Message):
         """Posted when the user wants to record validation commands."""
 
@@ -381,6 +384,8 @@ class StartScreen(Screen[None]):
             self.post_message(self.ProjectBriefRequested())
         elif action == "scope":
             self.post_message(self.ProjectScopeRequested())
+        elif action == "read_first":
+            self.post_message(self.ProjectReadFirstRequested())
         elif action == "validation":
             self.post_message(self.ProjectValidationRequested())
         else:

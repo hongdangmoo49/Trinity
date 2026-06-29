@@ -381,6 +381,7 @@ def _project_intake_has_analysis_anchor_signal(intake: ProjectIntake | None) -> 
             intake.test_commands,
             intake.dev_commands,
             intake.build_commands,
+            intake.entrypoints,
             intake.selected_scope.strip(),
             intake.scope_candidates,
         )
@@ -399,6 +400,7 @@ def _project_intake_with_anchor_draft(
         dev_commands=draft.dev_commands,
         build_commands=draft.build_commands,
         selected_scope=draft.selected_scope,
+        read_first_confirmed=True,
     )
 
 
@@ -2016,6 +2018,24 @@ class TrinityTextualApp(App[None]):
             return
         self._open_existing_project_scope_picker(target, seed_route="start")
 
+    def on_start_screen_project_read_first_requested(
+        self,
+        event: StartScreen.ProjectReadFirstRequested,
+    ) -> None:
+        event.stop()
+        target = safe_start_target_workspace(
+            self.workspace_candidate,
+            self.config.project_dir,
+        )
+        if target is None:
+            self._open_workspace_picker(
+                WorkflowNexusSnapshot(),
+                self._on_existing_project_intake_workspace_selected,
+                intent="select",
+            )
+            return
+        self._open_existing_project_read_first_review(target, seed_route="start")
+
     def on_start_screen_project_validation_requested(
         self,
         event: StartScreen.ProjectValidationRequested,
@@ -2202,6 +2222,22 @@ class TrinityTextualApp(App[None]):
             return
         self._set_workspace_candidate(target)
         self._open_existing_project_scope_picker(target, seed_route="nexus")
+
+    def on_nexus_screen_project_read_first_requested(
+        self,
+        event: NexusScreen.ProjectReadFirstRequested,
+    ) -> None:
+        event.stop()
+        target = self._safe_nexus_target_workspace(event.snapshot)
+        if target is None:
+            self._open_workspace_picker(
+                event.snapshot or self._current_textual_snapshot(),
+                self._on_nexus_project_intake_workspace_selected,
+                intent="select",
+            )
+            return
+        self._set_workspace_candidate(target)
+        self._open_existing_project_read_first_review(target, seed_route="nexus")
 
     def on_nexus_screen_project_validation_requested(
         self,
@@ -4085,6 +4121,7 @@ class TrinityTextualApp(App[None]):
         draft: ProjectBriefDraft,
     ) -> None:
         mode = self._project_intake_mode_for_target(target, fallback=fallback_mode)
+        current_intake = self._matching_project_intake(target)
         intake = build_project_intake(
             mode=mode,
             target_workspace=target,
@@ -4100,6 +4137,11 @@ class TrinityTextualApp(App[None]):
             artifact_targets=draft.artifact_targets,
             constraints=draft.constraints,
             selected_scope=draft.selected_scope,
+            read_first_confirmed=(
+                bool(current_intake.read_first_confirmed)
+                if current_intake is not None
+                else False
+            ),
             notes=draft.notes,
         )
         write_project_intake(self.config.effective_state_dir, intake)
@@ -4271,6 +4313,32 @@ class TrinityTextualApp(App[None]):
             ),
         )
         return True
+
+    def _open_existing_project_read_first_review(
+        self,
+        target: Path,
+        *,
+        seed_route: str,
+    ) -> None:
+        intake = self._matching_existing_project_intake(target)
+        if intake is None or not _project_intake_has_analysis_anchor_signal(intake):
+            if seed_route == "nexus":
+                self._apply_nexus_project_intake_for_direct_target(
+                    target,
+                    self._current_textual_snapshot(),
+                )
+                return
+            self._apply_start_project_intake_for_direct_target(target)
+            return
+        self.push_screen(
+            ProjectAnchorsModal(intake, lang=self.config.lang),
+            lambda result: self._on_existing_project_anchor_review_dismissed(
+                target,
+                detected_intake=intake,
+                seed_route=seed_route,
+                result=result,
+            ),
+        )
 
     def _open_existing_project_scope_picker(
         self,
@@ -4525,6 +4593,7 @@ class TrinityTextualApp(App[None]):
             "artifact_targets": current.artifact_targets,
             "constraints": current.constraints,
             "selected_scope": current.selected_scope,
+            "read_first_confirmed": current.read_first_confirmed,
             "notes": current.notes,
         }
 

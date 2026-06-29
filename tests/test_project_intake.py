@@ -19,6 +19,7 @@ from trinity.project_intake import (
     load_project_intake_markdown,
     missing_new_project_brief_field_keys,
     missing_new_project_brief_fields,
+    project_intake_read_first_confirmation_needed,
     project_intake_validation_commands,
     project_intake_validation_missing,
     project_intake_guidance_block,
@@ -185,6 +186,7 @@ def test_build_project_intake_normalizes_metadata(tmp_path) -> None:
         artifact_targets=["src/trinity", "docs"],
         constraints=["read-only analysis", "read-only analysis"],
         selected_scope=" apps/web ",
+        read_first_confirmed=True,
         notes="Review before write.",
         created_at="2026-06-28T00:00:00Z",
     )
@@ -201,6 +203,7 @@ def test_build_project_intake_normalizes_metadata(tmp_path) -> None:
     assert intake.source_roots == ()
     assert intake.scope_candidates == ()
     assert intake.selected_scope == "apps/web"
+    assert intake.read_first_confirmed is True
     assert intake.docs_found == ()
     assert intake.product_goal == "Ship a workflow dashboard."
     assert intake.project_type == "developer tool"
@@ -238,6 +241,27 @@ def test_project_intake_validation_commands_prefer_recorded_checks(tmp_path) -> 
     assert project_intake_validation_missing(recorded) is False
     assert project_intake_validation_commands(empty) == ()
     assert project_intake_validation_missing(empty) is True
+
+
+def test_project_intake_read_first_confirmation_needed_tracks_existing_anchors(
+    tmp_path,
+) -> None:
+    (tmp_path / "README.md").write_text("# Demo\n", encoding="utf-8")
+    (tmp_path / "src").mkdir()
+    intake = build_project_intake(mode="existing", target_workspace=tmp_path)
+    confirmed = build_project_intake(
+        mode="existing",
+        target_workspace=tmp_path,
+        read_first_confirmed=True,
+    )
+    new_project = build_project_intake(
+        mode="new",
+        target_workspace=tmp_path / "new-app",
+    )
+
+    assert project_intake_read_first_confirmation_needed(intake) is True
+    assert project_intake_read_first_confirmation_needed(confirmed) is False
+    assert project_intake_read_first_confirmation_needed(new_project) is False
 
 
 def test_existing_project_intake_drift_ignores_unchanged_analysis(
@@ -395,6 +419,7 @@ def test_write_project_intake_writes_json_and_markdown(tmp_path) -> None:
     assert data["scope_candidates"] == []
     assert data["selected_scope"] == ""
     assert data["docs_found"] == []
+    assert data["read_first_confirmed"] is False
     assert data["product_goal"] == "Build a terminal snake game."
     assert data["project_type"] == "terminal game"
     assert data["starter_profile"] == ""
@@ -417,6 +442,7 @@ def test_write_project_intake_writes_json_and_markdown(tmp_path) -> None:
     assert "- Entrypoints: (none)" in markdown
     assert "- Scope candidates: (none)" in markdown
     assert "- Selected scope: (none)" in markdown
+    assert "- Read-first confirmed: False" in markdown
     assert "## Brief" in markdown
     assert "- Product goal: Build a terminal snake game." in markdown
     assert "- Project type: terminal game" in markdown
@@ -453,6 +479,7 @@ def test_load_project_intake_reads_persisted_json(tmp_path) -> None:
     assert loaded.scope_candidates == ()
     assert loaded.selected_scope == ""
     assert loaded.docs_found == ()
+    assert loaded.read_first_confirmed is False
     assert loaded.product_goal == ""
     assert loaded.project_type == ""
     assert loaded.starter_profile == ""

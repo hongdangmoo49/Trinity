@@ -9,6 +9,7 @@ from trinity.project_intake import (
     ProjectIntake,
     load_project_intake,
     missing_new_project_brief_field_keys,
+    project_intake_read_first_confirmation_needed,
     project_intake_validation_missing,
 )
 
@@ -19,6 +20,7 @@ ProjectStartNextAction = Literal[
     "create",
     "brief",
     "scope",
+    "read_first",
     "validation",
     "plan",
     "execute",
@@ -55,6 +57,8 @@ def project_setup_next_action(
         return "analyze"
     if intake.scope_candidates and not intake.selected_scope.strip():
         return "scope"
+    if project_intake_read_first_confirmation_needed(intake):
+        return "read_first"
     if project_intake_validation_missing(intake):
         return "validation"
     return ready_action

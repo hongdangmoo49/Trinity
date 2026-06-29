@@ -34,6 +34,7 @@ def test_project_setup_next_action_routes_existing_project_to_ready_action(
     intake = build_project_intake(
         mode="existing",
         target_workspace=target,
+        read_first_confirmed=True,
         created_at=date.today().isoformat(),
     )
     write_project_intake(state_dir, intake)
@@ -107,7 +108,7 @@ def test_project_setup_next_action_routes_stale_existing_to_analyze_and_scope_ch
             target,
             ready_action="execute",
         )
-        == "validation"
+        == "read_first"
     )
 
     write_project_intake(
@@ -116,6 +117,7 @@ def test_project_setup_next_action_routes_stale_existing_to_analyze_and_scope_ch
             mode="existing",
             target_workspace=target,
             selected_scope="apps/web",
+            read_first_confirmed=True,
             validation_commands=("npm test",),
             created_at=date.today().isoformat(),
         ),

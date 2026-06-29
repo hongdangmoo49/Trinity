@@ -11332,7 +11332,20 @@ async def test_start_create_project_button_creates_new_project_intake(
                 "First milestone: First usable contact workflow.",
                 "Stack: python, sqlite",
                 "Constraints: Keep setup simple; no cloud dependency",
+                "",
+                "Starter recommendations:",
+                "- Template: Start with a minimal SaaS app shape and keep "
+                "choices reversible.",
+                "- Stack: Prefer python, sqlite unless the user changes direction.",
+                "- UX focus: Design the first workflow around sales teams.",
+                "- Guardrails: Respect Keep setup simple; no cloud dependency.",
             ]
+        )
+        assert str(start.query_one("#project-plan-preview", Static).content) == (
+            "Initial plan preview: milestone: First usable contact workflow. | "
+            "stack: python, sqlite | "
+            "success: Teams can track customer follow-ups. | users: sales teams | "
+            "guardrails: Keep setup simple, no cloud dependency"
         )
 
 
@@ -11414,6 +11427,7 @@ async def test_start_edit_project_brief_button_writes_project_brief(
         assert "type: SaaS dashboard" in str(
             start.query_one("#project-intake-summary", Static).content
         )
+        assert str(start.query_one("#project-plan-preview", Static).content) == ""
 
 
 @pytest.mark.asyncio
@@ -12050,6 +12064,35 @@ async def test_nexus_create_project_button_creates_new_project_intake(
         nexus = app.get_screen("nexus", NexusScreen)
         assert str(target.resolve()) in str(
             nexus.query_one("#nexus-target-workspace", Static).content
+        )
+        app.screen.query_one("#project-brief-goal", Input).value = (
+            "Build a local planning board."
+        )
+        app.screen.query_one("#project-brief-project-type", Input).value = (
+            "desktop app"
+        )
+        app.screen.query_one("#project-brief-target-users", Input).value = (
+            "project managers"
+        )
+        app.screen.query_one("#project-brief-success", Input).value = (
+            "Managers can organize weekly work."
+        )
+        app.screen.query_one("#project-brief-stack", Input).value = "python, textual"
+        app.screen.query_one("#project-brief-milestone", Input).value = (
+            "First board workflow."
+        )
+        app.screen.query_one("#project-brief-constraints", Input).value = (
+            "No external service"
+        )
+        app.screen.action_save()
+        await pilot.pause()
+
+        assert str(
+            nexus.query_one("#nexus-project-plan-preview", Static).content
+        ) == (
+            "Initial plan preview: milestone: First board workflow. | "
+            "stack: python, textual | success: Managers can organize weekly work. | "
+            "users: project managers | guardrails: No external service"
         )
 
 

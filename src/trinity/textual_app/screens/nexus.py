@@ -20,6 +20,7 @@ from trinity.textual_app.workspace_labels import (
     project_brief_action_variant,
     project_create_action_variant,
     project_intake_state_label,
+    project_plan_preview_label,
     target_workspace_state_label,
 )
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
@@ -181,6 +182,7 @@ class NexusScreen(Screen[None]):
         self._inspector: WorkflowInspector | None = None
         self._recipient_selector: AgentRecipientModelSelector | None = None
         self._composer: PromptComposer | None = None
+        self._project_plan_preview_widget: Static | None = None
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
@@ -240,6 +242,12 @@ class NexusScreen(Screen[None]):
                     id="nexus-edit-project-brief",
                     variant=self._project_brief_action_variant(),
                 )
+            plan_preview = Static(
+                self._project_plan_preview_label(),
+                id="nexus-project-plan-preview",
+            )
+            self._project_plan_preview_widget = plan_preview
+            yield plan_preview
             with Horizontal(id="nexus-main"):
                 with Vertical(id="nexus-center-stack"):
                     central = CentralAgentView(id="central-agent", lang=self.config.lang)
@@ -358,6 +366,7 @@ class NexusScreen(Screen[None]):
         self._inspector = None
         self._recipient_selector = None
         self._composer = None
+        self._project_plan_preview_widget = None
 
     def _reset_render_cache(self) -> None:
         self._provider_state_cache = {}
@@ -407,6 +416,14 @@ class NexusScreen(Screen[None]):
         if self._composer is None:
             self._composer = self.query_one("#nexus-composer", PromptComposer)
         return self._composer
+
+    def _project_plan_preview_static(self) -> Static:
+        if self._project_plan_preview_widget is None:
+            self._project_plan_preview_widget = self.query_one(
+                "#nexus-project-plan-preview",
+                Static,
+            )
+        return self._project_plan_preview_widget
 
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
         snapshot_identity = id(snapshot)
@@ -557,6 +574,13 @@ class NexusScreen(Screen[None]):
             target_workspace=self._current_workspace_text(),
         )
 
+    def _project_plan_preview_label(self) -> str:
+        return project_plan_preview_label(
+            self.config.effective_state_dir,
+            lang=self.config.lang,
+            target_workspace=self._current_workspace_text(),
+        )
+
     def _project_brief_action_variant(self) -> str:
         return project_brief_action_variant(
             self.config.effective_state_dir,
@@ -582,6 +606,9 @@ class NexusScreen(Screen[None]):
             return
         self.query_one("#nexus-project-intake-summary", Static).update(
             self._project_intake_label()
+        )
+        self._project_plan_preview_static().update(
+            self._project_plan_preview_label()
         )
         analyze_action = self._project_analyze_action_presentation()
         analyze_button = self.query_one("#nexus-analyze-workspace", Button)

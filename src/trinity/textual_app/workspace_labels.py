@@ -479,7 +479,7 @@ def provider_cli_setup_label(
         missing_entries = _provider_cli_missing_entries(agents, missing_names)
         parts.append(
             f"{labels['missing']}: "
-            f"{_format_project_intake_values(missing_entries, max_items=3)}"
+            f"{_format_project_intake_values(missing_entries, max_items=2)}"
         )
         parts.append(labels["next"])
     if not found_names and not missing_names:

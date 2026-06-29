@@ -208,6 +208,14 @@ def test_provider_cli_setup_label_reports_selected_cli_commands(
         "다음: CLI 설치 또는 cli_command/PATH 수정"
     )
 
+    config.agents["claude"].cli_command = "claude-missing-for-test"
+    assert provider_cli_setup_label(config.agents) == (
+        "Provider CLI setup: selected 3 | "
+        "missing: claude(claude-missing-for-test), "
+        "codex(trinity-missing-cli-for-test) +1 | "
+        "next: install CLI or update cli_command/PATH"
+    )
+
 
 def test_project_startup_readiness_label_summarizes_first_run_state(
     tmp_path: Path,

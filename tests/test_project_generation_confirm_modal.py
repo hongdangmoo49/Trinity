@@ -30,6 +30,12 @@ def test_project_generation_confirmation_summary_uses_generation_preview(
         "Generation preview: create: README.md, pyproject.toml, src/ +1 | "
         "validate: uv run pytest | guardrails: No external service"
     )
+    assert summary.dry_run_lines == (
+        "create: README.md, pyproject.toml, src/, tests/",
+        "validate: uv run pytest",
+        "guardrails: No external service",
+        "conflicts: none",
+    )
     assert summary.validation_plan == (
         "Validation plan: fast: uv run pytest | "
         "required: uv run pytest | "
@@ -55,4 +61,27 @@ def test_project_generation_confirmation_summary_supports_korean(tmp_path) -> No
     assert summary.available is True
     assert summary.generation_preview.startswith("생성 미리보기: ")
     assert "검증: uv run pytest" in summary.generation_preview
+    assert summary.dry_run_lines[0].startswith("생성: ")
+    assert "검증: uv run pytest" in summary.dry_run_lines
     assert summary.validation_plan.startswith("검증 계획: ")
+
+
+def test_project_generation_confirmation_summary_reports_dry_run_gaps(
+    tmp_path,
+) -> None:
+    (tmp_path / "README.md").write_text("# Existing\n", encoding="utf-8")
+    intake = build_project_intake(
+        mode="new",
+        target_workspace=tmp_path,
+        product_goal="Build a CLI package.",
+        project_type="python cli",
+        target_users="developers",
+        success_criteria="Developers can run the command.",
+        stack_preferences=("python",),
+        first_milestone="First command.",
+    )
+
+    summary = project_generation_confirmation_summary(intake)
+
+    assert "validate: missing (suggested: uv run pytest)" in summary.dry_run_lines
+    assert "conflicts: README.md" in summary.dry_run_lines

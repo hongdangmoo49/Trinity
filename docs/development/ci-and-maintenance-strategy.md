@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.779`
-- Merged PR range reviewed: #90 through #876
+- Package version inspected: `1.0.781`
+- Merged PR range reviewed: #90 through #878
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #876
-- Latest refresh reviewed: #876
+- Maintenance refresh reviewed: #427 through #878
+- Latest refresh reviewed: #878
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2114,6 +2114,20 @@ and what the next release train should optimize.
 - Added a dedicated design document and Start label coverage for English,
   Korean, sparse existing, and new-project cases.
 - Raised the package version from `1.0.778` to `1.0.779` in this patch PR.
+
+### #878: Project Brief Cancel Draft Cache
+
+- Preserved canceled project brief edits in memory for the current Workbench
+  session.
+- Restored canceled drafts when reopening the brief for the same target
+  workspace.
+- Cleared cached drafts on Save and kept saved project intake as the durable
+  source of truth.
+- Avoided persisting canceled drafts to disk and left intake JSON, readiness,
+  preflight, and provider prompt contracts unchanged.
+- Added a dedicated design document and Textual coverage for cancel, reopen,
+  save, and target isolation behavior.
+- Raised the package version from `1.0.780` to `1.0.781` in this patch PR.
 
 This refresh moved the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

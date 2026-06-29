@@ -52,6 +52,7 @@ PROJECT_INTAKE_LABELS = {
         "build": "build",
         "brief_complete": "brief: complete",
         "brief_missing": "brief: missing {fields}",
+        "choose_scope": "choose scope",
         "analysis_missing": "missing",
         "analysis_changed": "analysis: changed {fields}",
         "analysis_sparse": "analysis: sparse",
@@ -106,6 +107,7 @@ PROJECT_INTAKE_LABELS = {
         "build": "빌드",
         "brief_complete": "브리프: 완료",
         "brief_missing": "브리프: 누락 {fields}",
+        "choose_scope": "범위 선택",
         "analysis_missing": "누락",
         "analysis_changed": "분석: 변경됨 {fields}",
         "analysis_sparse": "분석: 부족",
@@ -1260,9 +1262,8 @@ def _format_project_intake_label(
     ):
         if values:
             parts.append(_format_project_intake_section(labels[label_key], values))
+    parts.extend(_format_existing_project_scope_summary(intake, labels))
     for label_key, values in (
-        ("selected_scope", (intake.selected_scope,) if intake.selected_scope else ()),
-        ("scope_candidates", intake.scope_candidates),
         ("dev", intake.dev_commands),
         ("build", intake.build_commands),
         ("source_roots", intake.source_roots),
@@ -1272,6 +1273,35 @@ def _format_project_intake_label(
         if values:
             parts.append(_format_project_intake_section(labels[label_key], values))
     return " | ".join(parts)
+
+
+def _format_existing_project_scope_summary(
+    intake: ProjectIntake,
+    labels: dict[str, str],
+) -> tuple[str, ...]:
+    if intake.mode != "existing":
+        return ()
+    selected_scope = intake.selected_scope.strip()
+    if selected_scope:
+        sections = [
+            _format_project_intake_section(labels["selected_scope"], (selected_scope,))
+        ]
+        if intake.scope_candidates:
+            sections.append(
+                _format_project_intake_section(
+                    labels["scope_candidates"],
+                    intake.scope_candidates,
+                )
+            )
+        return tuple(sections)
+    if intake.scope_candidates:
+        return (
+            _format_project_intake_section(
+                labels["choose_scope"],
+                intake.scope_candidates,
+            ),
+        )
+    return ()
 
 
 def _format_existing_project_git_state(

@@ -877,6 +877,42 @@ def test_project_intake_state_label_includes_scope_candidates(
     )
 
 
+def test_project_intake_state_label_prompts_scope_choice_when_unselected(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "monorepo"
+    target.mkdir()
+    (target / "README.md").write_text("# Monorepo\n", encoding="utf-8")
+    (target / "apps" / "web").mkdir(parents=True)
+    (target / "apps" / "web" / "package.json").write_text("{}", encoding="utf-8")
+    (target / "packages" / "core").mkdir(parents=True)
+    (target / "packages" / "core" / "pyproject.toml").write_text(
+        "[project]\nname='core'\n",
+        encoding="utf-8",
+    )
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+
+    label = project_intake_state_label(state, today=date(2026, 6, 28))
+    assert "choose scope: apps/web, packages/core" in label
+    assert "scopes: apps/web, packages/core" not in label
+
+    ko_label = project_intake_state_label(
+        state,
+        lang="ko",
+        today=date(2026, 6, 28),
+    )
+    assert "범위 선택: apps/web, packages/core" in ko_label
+    assert "범위: apps/web, packages/core" not in ko_label
+
+
 def test_project_intake_state_label_warns_for_sparse_existing_analysis(
     tmp_path: Path,
 ) -> None:

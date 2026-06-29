@@ -13069,7 +13069,7 @@ async def test_nexus_execute_confirmation_shows_workspace_risks(
             app.screen.query_one("#execution-confirm-summary", Static).content
         )
         assert "Project mode: existing" in summary
-        assert "Project context: scope: target root" in summary
+        assert "Project context: scope: target root, read: missing" in summary
         assert "validation: missing" in summary
         assert "Risks: dirty Git workspace" in summary
         assert "1 untracked" in summary

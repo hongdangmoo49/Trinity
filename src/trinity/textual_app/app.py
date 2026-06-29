@@ -194,6 +194,11 @@ from trinity.textual_app.widgets.execution_retry_modal import (
 from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.model_settings_modal import ModelSettingsModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
+from trinity.textual_app.widgets.project_anchors_modal import (
+    ProjectAnchorsDraft,
+    ProjectAnchorsModal,
+    ProjectAnchorsModalResult,
+)
 from trinity.textual_app.widgets.project_brief_modal import (
     ProjectBriefDraft,
     ProjectBriefModal,
@@ -330,6 +335,34 @@ def _format_existing_analysis_anchor_values(values: tuple[str, ...]) -> str:
     visible = values[:3]
     suffix = f" +{len(values) - len(visible)}" if len(values) > len(visible) else ""
     return f"{', '.join(visible)}{suffix}"
+
+
+def _project_intake_has_analysis_anchor_signal(intake: ProjectIntake | None) -> bool:
+    if intake is None or intake.mode != "existing":
+        return False
+    return any(
+        (
+            intake.docs_found,
+            intake.source_roots,
+            intake.test_commands,
+            intake.dev_commands,
+            intake.build_commands,
+        )
+    )
+
+
+def _project_intake_with_anchor_draft(
+    intake: ProjectIntake,
+    draft: ProjectAnchorsDraft,
+) -> ProjectIntake:
+    return replace(
+        intake,
+        docs_found=draft.docs_found,
+        source_roots=draft.source_roots,
+        test_commands=draft.test_commands,
+        dev_commands=draft.dev_commands,
+        build_commands=draft.build_commands,
+    )
 
 
 def _project_brief_start_prompt(
@@ -2098,7 +2131,7 @@ class TrinityTextualApp(App[None]):
             return
         intake = self._on_workspace_candidate_selected(preflight)
         if self._project_intake_mode_for_preflight(preflight) == "existing":
-            self._seed_start_prompt_for_existing_analysis(preflight.path, intake)
+            self._review_start_existing_analysis_or_seed(preflight.path, intake)
             return
         self._open_new_project_brief_if_needed(preflight)
 
@@ -2321,7 +2354,7 @@ class TrinityTextualApp(App[None]):
             control_repo_confirmed=control_repo_confirmed,
         )
         if self._project_intake_mode_for_preflight(preflight) == "existing":
-            self._seed_nexus_prompt_for_existing_analysis(preflight.path, intake)
+            self._review_nexus_existing_analysis_or_seed(preflight.path, intake)
             return
         self._open_new_project_brief_if_needed(preflight)
 
@@ -3547,7 +3580,7 @@ class TrinityTextualApp(App[None]):
         )
         intake = self._sync_project_intake_for_preflight(preflight)
         if self._project_intake_mode_for_preflight(preflight) == "existing":
-            self._seed_start_prompt_for_existing_analysis(preflight.path, intake)
+            self._review_start_existing_analysis_or_seed(preflight.path, intake)
             return
         self._open_new_project_brief_if_needed(preflight)
 
@@ -3559,7 +3592,7 @@ class TrinityTextualApp(App[None]):
         preflight = self._direct_project_intake_preflight(target, snapshot)
         intake = self._sync_project_intake_for_preflight(preflight)
         if self._project_intake_mode_for_preflight(preflight) == "existing":
-            self._seed_nexus_prompt_for_existing_analysis(preflight.path, intake)
+            self._review_nexus_existing_analysis_or_seed(preflight.path, intake)
             return
         self._open_new_project_brief_if_needed(preflight)
 
@@ -3760,6 +3793,74 @@ class TrinityTextualApp(App[None]):
         composer = nexus.query_one("#nexus-composer", PromptComposer)
         if not composer.text.strip():
             composer.set_text(prompt)
+
+    def _review_start_existing_analysis_or_seed(
+        self,
+        target: Path,
+        intake: ProjectIntake | None,
+    ) -> None:
+        if self._open_existing_project_anchor_review_if_needed(
+            target,
+            intake,
+            seed_route="start",
+        ):
+            return
+        self._seed_start_prompt_for_existing_analysis(target, intake)
+
+    def _review_nexus_existing_analysis_or_seed(
+        self,
+        target: Path,
+        intake: ProjectIntake | None,
+    ) -> None:
+        if self._open_existing_project_anchor_review_if_needed(
+            target,
+            intake,
+            seed_route="nexus",
+        ):
+            return
+        self._seed_nexus_prompt_for_existing_analysis(target, intake)
+
+    def _open_existing_project_anchor_review_if_needed(
+        self,
+        target: Path,
+        intake: ProjectIntake | None,
+        *,
+        seed_route: str,
+    ) -> bool:
+        if intake is None or not _project_intake_has_analysis_anchor_signal(intake):
+            return False
+        self.push_screen(
+            ProjectAnchorsModal(intake, lang=self.config.lang),
+            lambda result: self._on_existing_project_anchor_review_dismissed(
+                target,
+                detected_intake=intake,
+                seed_route=seed_route,
+                result=result,
+            ),
+        )
+        return True
+
+    def _on_existing_project_anchor_review_dismissed(
+        self,
+        target: Path,
+        *,
+        detected_intake: ProjectIntake,
+        seed_route: str,
+        result: ProjectAnchorsModalResult | None,
+    ) -> None:
+        if self.workspace_candidate is not None and absolute_path(
+            self.workspace_candidate
+        ) != absolute_path(target):
+            return
+        intake = detected_intake
+        if result is not None and result.saved:
+            intake = _project_intake_with_anchor_draft(detected_intake, result.draft)
+            write_project_intake(self.config.effective_state_dir, intake)
+            self._refresh_project_intake_summary_labels()
+        if seed_route == "nexus":
+            self._seed_nexus_prompt_for_existing_analysis(target, intake)
+            return
+        self._seed_start_prompt_for_existing_analysis(target, intake)
 
     def _seed_nexus_prompt_for_existing_analysis(
         self,

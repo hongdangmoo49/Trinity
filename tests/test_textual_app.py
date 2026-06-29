@@ -246,6 +246,7 @@ from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.model_settings_modal import ModelSettingsModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
+from trinity.textual_app.widgets.project_anchors_modal import ProjectAnchorsModal
 from trinity.textual_app.widgets.project_brief_modal import ProjectBriefModal
 from trinity.textual_app.widgets.question_panel import QuestionPanel
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
@@ -10917,14 +10918,80 @@ async def test_start_analyze_workspace_button_writes_project_intake(tmp_path) ->
         await pilot.click("#analyze-workspace")
         await pilot.pause()
 
+        assert isinstance(app.screen, ProjectAnchorsModal)
+        app.screen.query_one("#project-anchors-docs", Input).value = (
+            "README.md, docs/custom.md"
+        )
+        app.screen.query_one("#project-anchors-source-roots", Input).value = "src"
+        app.screen.query_one("#project-anchors-tests", Input).value = (
+            "npm test, npm run lint"
+        )
+        app.screen.query_one("#project-anchors-dev", Input).value = "npm run dev"
+        app.screen.query_one("#project-anchors-build", Input).value = "npm run build"
+        app.screen.action_save()
+        await pilot.pause()
+
         start = app.get_screen("start", StartScreen)
         intake = load_project_intake(app.config.effective_state_dir)
         assert intake is not None
         assert intake.mode == "existing"
         assert intake.target_workspace == target.resolve()
+        assert intake.docs_found == ("README.md", "docs/custom.md")
+        assert intake.source_roots == ("src",)
+        assert intake.test_commands == ("npm test", "npm run lint")
         assert "Project intake: existing" in str(
             start.query_one("#project-intake-summary", Static).content
         )
+        assert start.query_one(PromptComposer).text == (
+            f"Analyze the selected existing project at {target.resolve()}. Read its "
+            "docs, source roots, and test/build signals before proposing the next "
+            "safe work packages. Do not scaffold a new project unless the workspace "
+            "is empty."
+            "\n\n"
+            "Detected anchors:\n"
+            "- read first: README.md, docs/custom.md, src\n"
+            "- tests: npm test, npm run lint\n"
+            "- dev: npm run dev\n"
+            "- build: npm run build"
+        )
+
+
+@pytest.mark.asyncio
+async def test_start_analyze_workspace_anchor_review_cancel_keeps_detected_prompt(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target"
+    control_repo.mkdir()
+    target.mkdir()
+    (target / "README.md").write_text("# Existing project\n", encoding="utf-8")
+    (target / "docs").mkdir()
+    (target / "src").mkdir()
+    (target / "package.json").write_text(
+        '{"scripts":{"test":"vitest","dev":"vite --host","build":"vite build"}}',
+        encoding="utf-8",
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        FakeWorkflowController(),
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.click("#analyze-workspace")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectAnchorsModal)
+        app.screen.query_one("#project-anchors-docs", Input).value = (
+            "README.md, changed.md"
+        )
+        app.screen.action_cancel()
+        await pilot.pause()
+
+        start = app.get_screen("start", StartScreen)
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.docs_found == ("README.md", "docs")
         assert start.query_one(PromptComposer).text == (
             f"Analyze the selected existing project at {target.resolve()}. Read its "
             "docs, source roots, and test/build signals before proposing the next "
@@ -11654,10 +11721,26 @@ async def test_nexus_analyze_workspace_button_writes_project_intake(tmp_path) ->
         await pilot.click("#nexus-analyze-workspace")
         await pilot.pause()
 
+        assert isinstance(app.screen, ProjectAnchorsModal)
+        app.screen.query_one("#project-anchors-docs", Input).value = (
+            "README.md, docs/custom.md"
+        )
+        app.screen.query_one("#project-anchors-source-roots", Input).value = "src"
+        app.screen.query_one("#project-anchors-tests", Input).value = (
+            "npm test, npm run lint"
+        )
+        app.screen.query_one("#project-anchors-dev", Input).value = "npm run dev"
+        app.screen.query_one("#project-anchors-build", Input).value = "npm run build"
+        app.screen.action_save()
+        await pilot.pause()
+
         intake = load_project_intake(app.config.effective_state_dir)
         assert intake is not None
         assert intake.mode == "existing"
         assert intake.target_workspace == target.resolve()
+        assert intake.docs_found == ("README.md", "docs/custom.md")
+        assert intake.source_roots == ("src",)
+        assert intake.test_commands == ("npm test", "npm run lint")
         nexus = app.get_screen("nexus", NexusScreen)
         assert "Project intake: existing" in str(
             nexus.query_one("#nexus-project-intake-summary", Static).content
@@ -11669,8 +11752,8 @@ async def test_nexus_analyze_workspace_button_writes_project_intake(tmp_path) ->
             "is empty."
             "\n\n"
             "Detected anchors:\n"
-            "- read first: README.md, docs, src\n"
-            "- tests: npm test\n"
+            "- read first: README.md, docs/custom.md, src\n"
+            "- tests: npm test, npm run lint\n"
             "- dev: npm run dev\n"
             "- build: npm run build"
         )

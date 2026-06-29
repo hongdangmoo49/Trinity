@@ -27,6 +27,7 @@ PROJECT_CONTEXT_LABELS = {
         "new": "new",
         "not_recorded": "not recorded",
         "not_required": "not required",
+        "read": "read",
         "read_first": "read-first",
         "scope": "scope",
         "starter": "starter",
@@ -46,6 +47,7 @@ PROJECT_CONTEXT_LABELS = {
         "new": "신규",
         "not_recorded": "기록 없음",
         "not_required": "필요 없음",
+        "read": "읽기",
         "read_first": "먼저 읽기",
         "scope": "범위",
         "starter": "스타터",
@@ -134,9 +136,21 @@ def _existing_project_context_items(
         read_first = labels["not_required"]
     return (
         f"{labels['scope']}: {scope}",
+        _read_anchor_context_item(intake, labels),
         f"{labels['read_first']}: {read_first}",
         _validation_context_item(intake, labels),
     )
+
+
+def _read_anchor_context_item(
+    intake: ProjectIntake,
+    labels: dict[str, str],
+) -> str:
+    anchors = tuple(
+        dict.fromkeys((*intake.docs_found, *intake.source_roots, *intake.entrypoints))
+    )
+    value = _format_values(anchors) if anchors else labels["missing"]
+    return f"{labels['read']}: {value}"
 
 
 def _validation_context_item(

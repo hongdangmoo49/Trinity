@@ -359,6 +359,7 @@ PROVIDER_CLI_SETUP_LABELS = {
         "found": "found",
         "missing": "missing",
         "next": "next: install CLI or update cli_command/PATH",
+        "select_provider": "next: select at least one provider",
         "none": "none",
     },
     "ko": {
@@ -367,6 +368,7 @@ PROVIDER_CLI_SETUP_LABELS = {
         "found": "발견",
         "missing": "없음",
         "next": "다음: CLI 설치 또는 cli_command/PATH 수정",
+        "select_provider": "다음: 프로바이더를 하나 이상 선택",
         "none": "없음",
     },
 }
@@ -465,6 +467,9 @@ def provider_cli_setup_label(
     parts = [
         labels["selected"].format(count=len(active_names)),
     ]
+    if not active_names:
+        parts.append(labels["select_provider"])
+        return f"{labels['summary']}: {' | '.join(parts)}"
     if found_names:
         parts.append(
             f"{labels['found']}: "

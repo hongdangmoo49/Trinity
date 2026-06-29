@@ -192,7 +192,12 @@ def test_provider_cli_setup_label_reports_selected_cli_commands(
     assert provider_cli_setup_label(
         config.agents,
         selected_agents=(),
-    ) == "Provider CLI setup: selected 0 | found: none"
+    ) == "Provider CLI setup: selected 0 | next: select at least one provider"
+    assert provider_cli_setup_label(
+        config.agents,
+        selected_agents=(),
+        lang="ko",
+    ) == "프로바이더 CLI 설정: 선택 0개 | 다음: 프로바이더를 하나 이상 선택"
 
     config.agents["antigravity"].enabled = True
     config.agents["antigravity"].cli_command = "agy-missing-for-test"

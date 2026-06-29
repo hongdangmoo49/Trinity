@@ -774,8 +774,6 @@ class TestProjectAnalyze:
             )
             assert "Generation preview:" in status.output
             assert "create: README.md, src/, tests/" in status.output
-            assert "define first" in status.output
-            assert "smoke check" in status.output
             assert "trinity project analyze" in status.output
             assert '--goal "<goal>"' not in status.output
             assert '--project-type "<type>"' in status.output

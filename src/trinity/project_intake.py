@@ -68,6 +68,7 @@ class ProjectIntake:
     scope_candidates: tuple[str, ...] = ()
     selected_scope: str = ""
     docs_found: tuple[str, ...] = ()
+    read_first_confirmed: bool = False
     product_goal: str = ""
     project_type: str = ""
     starter_profile: str = ""
@@ -99,6 +100,7 @@ class ProjectIntake:
             "scope_candidates": list(self.scope_candidates),
             "selected_scope": self.selected_scope,
             "docs_found": list(self.docs_found),
+            "read_first_confirmed": self.read_first_confirmed,
             "product_goal": self.product_goal,
             "project_type": self.project_type,
             "starter_profile": self.starter_profile,
@@ -123,6 +125,7 @@ class ProjectIntake:
         scope_candidates = _csv_or_none(self.scope_candidates)
         selected_scope = self.selected_scope.strip() or "(none)"
         docs_found = _csv_or_none(self.docs_found)
+        read_first_confirmed = self.read_first_confirmed
         stack_preferences = _csv_or_none(self.stack_preferences)
         run_commands = _csv_or_none(self.run_commands)
         validation_commands = _csv_or_none(self.validation_commands)
@@ -157,6 +160,7 @@ class ProjectIntake:
                 f"- Scope candidates: {scope_candidates}",
                 f"- Selected scope: {selected_scope}",
                 f"- Docs found: {docs_found}",
+                f"- Read-first confirmed: {read_first_confirmed}",
                 "",
                 "## Brief",
                 "",
@@ -205,6 +209,7 @@ def build_project_intake(
     artifact_targets: tuple[str, ...] | list[str] = (),
     constraints: tuple[str, ...] | list[str] = (),
     selected_scope: str = "",
+    read_first_confirmed: bool = False,
     created_at: str | None = None,
 ) -> ProjectIntake:
     """Build read-only project intake metadata for a target workspace."""
@@ -232,6 +237,7 @@ def build_project_intake(
         scope_candidates=detect_scope_candidates(workspace),
         selected_scope=selected_scope.strip(),
         docs_found=detect_docs(workspace),
+        read_first_confirmed=bool(read_first_confirmed),
         product_goal=product_goal.strip(),
         project_type=project_type.strip(),
         starter_profile=starter_profile.strip(),
@@ -294,6 +300,20 @@ def project_intake_validation_commands(intake: ProjectIntake) -> tuple[str, ...]
 def project_intake_validation_missing(intake: ProjectIntake) -> bool:
     """Return whether the intake lacks a usable validation command."""
     return not project_intake_validation_commands(intake)
+
+
+def project_intake_read_first_confirmation_needed(intake: ProjectIntake) -> bool:
+    """Return whether an existing-project intake still needs read-first review."""
+    if intake.mode != "existing":
+        return False
+    if intake.read_first_confirmed:
+        return False
+    return bool(
+        intake.selected_scope.strip()
+        or intake.docs_found
+        or intake.source_roots
+        or intake.entrypoints
+    )
 
 
 def existing_project_intake_drift_fields(
@@ -371,6 +391,7 @@ def project_intake_from_dict(data: Mapping[str, Any]) -> ProjectIntake:
         scope_candidates=_string_tuple(data.get("scope_candidates")),
         selected_scope=str(data.get("selected_scope", "")).strip(),
         docs_found=_string_tuple(data.get("docs_found")),
+        read_first_confirmed=bool(data.get("read_first_confirmed", False)),
         product_goal=str(data.get("product_goal", "")),
         project_type=str(data.get("project_type", "")),
         starter_profile=str(data.get("starter_profile", "")),

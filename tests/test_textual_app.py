@@ -11042,6 +11042,7 @@ async def test_start_analyze_workspace_button_writes_project_intake(tmp_path) ->
         assert intake.docs_found == ("README.md", "docs/custom.md")
         assert intake.source_roots == ("src",)
         assert intake.test_commands == ("npm test", "npm run lint")
+        assert intake.read_first_confirmed is True
         assert "Project intake: existing" in str(
             start.query_one("#project-intake-summary", Static).content
         )
@@ -11097,6 +11098,7 @@ async def test_start_analyze_workspace_anchor_review_cancel_keeps_detected_promp
         intake = load_project_intake(app.config.effective_state_dir)
         assert intake is not None
         assert intake.docs_found == ("README.md", "docs")
+        assert intake.read_first_confirmed is False
         assert start.query_one(PromptComposer).text == (
             f"Analyze the selected existing project at {target.resolve()}. Read its "
             "docs, source roots, and test/build signals before proposing the next "
@@ -11148,6 +11150,7 @@ async def test_start_analyze_workspace_prompt_includes_scope_candidates(
         assert intake is not None
         assert intake.scope_candidates == ("apps/web",)
         assert intake.selected_scope == "apps/web"
+        assert intake.read_first_confirmed is True
         assert start.query_one(PromptComposer).text == (
             f"Analyze the selected existing project at {target.resolve()}. Read its "
             "docs, source roots, and test/build signals before proposing the next "
@@ -11201,6 +11204,54 @@ async def test_start_continue_setup_opens_existing_scope_picker(
         assert "scope: apps/web" in str(
             start.query_one("#project-intake-summary", Static).content
         )
+
+
+@pytest.mark.asyncio
+async def test_start_continue_setup_opens_existing_read_first_review(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target-app"
+    control_repo.mkdir()
+    target.mkdir()
+    (target / "README.md").write_text("# Existing project\n", encoding="utf-8")
+    (target / "src").mkdir()
+    (target / "package.json").write_text(
+        '{"scripts":{"test":"vitest"}}',
+        encoding="utf-8",
+    )
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            created_at="2026-06-29T00:00:00Z",
+        ),
+    )
+    app = TrinityTextualApp(config, FakeWorkflowController(), launch_cwd=target)
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.pause()
+
+        app.get_screen("start", StartScreen).query_one(
+            "#continue-project-setup",
+            Button,
+        ).press()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectAnchorsModal)
+        assert str(
+            app.screen.query_one("#project-anchors-read-first", Static).content
+        ) == "Read first: README.md, src"
+        app.screen.action_save()
+        await pilot.pause()
+
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.read_first_confirmed is True
+        start = app.get_screen("start", StartScreen)
+        assert start._project_setup_next_action() == "plan"
 
 
 @pytest.mark.asyncio
@@ -12254,6 +12305,7 @@ async def test_nexus_analyze_workspace_button_writes_project_intake(tmp_path) ->
         assert intake.docs_found == ("README.md", "docs/custom.md")
         assert intake.source_roots == ("src",)
         assert intake.test_commands == ("npm test", "npm run lint")
+        assert intake.read_first_confirmed is True
         nexus = app.get_screen("nexus", NexusScreen)
         assert "Project intake: existing" in str(
             nexus.query_one("#nexus-project-intake-summary", Static).content
@@ -12330,6 +12382,7 @@ async def test_nexus_continue_setup_opens_project_validation_modal_for_existing(
         build_project_intake(
             mode="existing",
             target_workspace=target,
+            read_first_confirmed=True,
             created_at="2026-06-29T00:00:00Z",
         ),
     )

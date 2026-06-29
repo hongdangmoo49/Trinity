@@ -737,7 +737,7 @@ class TestProjectAnalyze:
             ) in result.output
             assert "Start guide:" in result.output
             assert "Project start: mode existing" in result.output
-            assert "next -> Plan first" in result.output
+            assert "next -> confirm read-first" in result.output
             assert "then Plan first" in result.output
             assert "Read-first checklist:" in result.output
             assert "Mode: existing" in result.output
@@ -831,6 +831,7 @@ class TestProjectAnalyze:
                     "success_criteria",
                     "first_milestone",
                 ],
+                "read_first_confirmation_required": False,
                 "validation_missing": True,
                 "scope_choice_required": False,
                 "scope_candidates": [],
@@ -981,7 +982,7 @@ class TestProjectAnalyze:
                 "Project intake: existing | target: customer-app | updated:"
             )
             assert data["project_intake"]["project_start_guide"] == (
-                "Project start: mode existing | next -> Plan first | "
+                "Project start: mode existing | next -> confirm read-first | "
                 "then Plan first"
             )
             assert data["project_intake"]["mode"] == "existing"
@@ -1001,6 +1002,7 @@ class TestProjectAnalyze:
             assert data["project_intake"]["first_milestone"] == "First safe patch."
             assert data["project_intake"]["constraints"] == ["Keep tests green"]
             assert data["project_intake"]["selected_scope"] == "apps/web"
+            assert data["project_intake"]["read_first_confirmed"] is False
             assert data["project_intake"]["read_first_checklist"].startswith(
                 "Read-first checklist: scope: apps/web"
             )
@@ -1010,8 +1012,8 @@ class TestProjectAnalyze:
                 "missing_fields": [],
             }
             assert data["project_intake"]["readiness"] == {
-                "ready": True,
-                "recommended_action": "start_trinity",
+                "ready": False,
+                "recommended_action": "confirm_read_first",
                 "target_exists": True,
                 "target_missing": False,
                 "analysis_sparse": False,
@@ -1021,6 +1023,7 @@ class TestProjectAnalyze:
                 "analysis_changed": False,
                 "analysis_changed_fields": [],
                 "missing_brief_fields": [],
+                "read_first_confirmation_required": True,
                 "validation_missing": False,
                 "scope_choice_required": False,
                 "scope_candidates": ["apps/web"],

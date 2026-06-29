@@ -164,6 +164,13 @@ class NexusScreen(Screen[None]):
             super().__init__()
             self.snapshot = snapshot
 
+    class ProjectReadFirstRequested(Message):
+        """Posted when the user wants to confirm existing-project read-first anchors."""
+
+        def __init__(self, snapshot: WorkflowNexusSnapshot | None) -> None:
+            super().__init__()
+            self.snapshot = snapshot
+
     class ProjectValidationRequested(Message):
         """Posted when the user wants to record validation commands."""
 
@@ -770,6 +777,8 @@ class NexusScreen(Screen[None]):
             self.action_request_project_brief()
         elif action == "scope":
             self.action_request_project_scope()
+        elif action == "read_first":
+            self.action_request_project_read_first()
         elif action == "validation":
             self.action_request_project_validation()
         else:
@@ -786,6 +795,9 @@ class NexusScreen(Screen[None]):
 
     def action_request_project_scope(self) -> None:
         self.post_message(self.ProjectScopeRequested(self.snapshot))
+
+    def action_request_project_read_first(self) -> None:
+        self.post_message(self.ProjectReadFirstRequested(self.snapshot))
 
     def action_request_project_validation(self) -> None:
         self.post_message(self.ProjectValidationRequested(self.snapshot))

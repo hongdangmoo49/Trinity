@@ -14,6 +14,7 @@ from trinity.project_intake import (
     existing_project_intake_drift_fields,
     load_project_intake,
     missing_new_project_brief_field_keys,
+    project_intake_read_first_confirmation_needed,
     project_intake_validation_commands,
     project_intake_validation_missing,
 )
@@ -166,6 +167,7 @@ PROJECT_START_CHOICE_GUIDE_LABELS = {
         "analyze_selected_workspace": "Analyze Selected",
         "analyze_workspace": "Analyze Existing",
         "complete_brief": "Complete Brief",
+        "confirm_read_first": "confirm read-first",
         "create_project": "Create New",
         "choose_scope": "choose scope",
         "edit_brief": "Edit Brief",
@@ -184,6 +186,7 @@ PROJECT_START_CHOICE_GUIDE_LABELS = {
         "analyze_selected_workspace": "선택 대상 분석",
         "analyze_workspace": "기존 프로젝트 분석",
         "complete_brief": "브리프 완성",
+        "confirm_read_first": "먼저 읽기 확인",
         "create_project": "새 프로젝트 생성",
         "choose_scope": "범위 선택",
         "edit_brief": "브리프 편집",
@@ -327,6 +330,7 @@ PROJECT_MODE_RAIL_LABELS = {
         "intake_check_target": "check target",
         "intake_label": "intake",
         "intake_needed": "needed",
+        "intake_read_first_needed": "read-first needed",
         "intake_ready": "ready",
         "intake_refresh_needed": "refresh needed",
         "intake_scope_needed": "scope needed",
@@ -342,6 +346,7 @@ PROJECT_MODE_RAIL_LABELS = {
         "next_edit_brief": "edit brief",
         "next_label": "next",
         "next_plan": "plan or execute",
+        "next_confirm_read_first": "confirm read-first",
         "next_record_validation": "record validation",
         "next_recover_target": "recover target",
         "next_refresh_analysis": "refresh analysis",
@@ -368,6 +373,7 @@ PROJECT_MODE_RAIL_LABELS = {
         "intake_check_target": "대상 확인",
         "intake_label": "인테이크",
         "intake_needed": "필요",
+        "intake_read_first_needed": "먼저 읽기 필요",
         "intake_ready": "준비됨",
         "intake_refresh_needed": "갱신 필요",
         "intake_scope_needed": "범위 필요",
@@ -383,6 +389,7 @@ PROJECT_MODE_RAIL_LABELS = {
         "next_edit_brief": "브리프 편집",
         "next_label": "다음",
         "next_plan": "계획 또는 실행",
+        "next_confirm_read_first": "먼저 읽기 확인",
         "next_record_validation": "검증 기록",
         "next_recover_target": "대상 복구",
         "next_refresh_analysis": "분석 갱신",
@@ -719,6 +726,8 @@ def _project_start_choice_next_action(
         return analyze_label
     if _project_intake_scope_choice_needed(intake):
         return labels["choose_scope"]
+    if project_intake_read_first_confirmation_needed(intake):
+        return labels["confirm_read_first"]
     if project_intake_validation_missing(intake):
         return labels["record_validation"]
     return labels["plan_first"]
@@ -1239,6 +1248,16 @@ def project_mode_rail_label(
             mode=mode,
             next_action=labels["next_choose_scope"],
         )
+    if project_intake_read_first_confirmation_needed(intake):
+        return _format_project_mode_rail(
+            labels,
+            target=labels["target_ready"],
+            intake=labels["intake_read_first_needed"],
+            plan=labels["plan_caution"],
+            execute=labels["execute_confirm"],
+            mode=mode,
+            next_action=labels["next_confirm_read_first"],
+        )
     if project_intake_validation_missing(intake):
         return _format_project_mode_rail(
             labels,
@@ -1314,6 +1333,8 @@ def _project_startup_readiness_intake_key(
     ):
         return "intake_check"
     if _project_intake_scope_choice_needed(intake):
+        return "intake_check"
+    if project_intake_read_first_confirmation_needed(intake):
         return "intake_check"
     if project_intake_validation_missing(intake):
         return "intake_check"

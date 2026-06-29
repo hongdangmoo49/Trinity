@@ -50,6 +50,7 @@ from trinity.project_intake import (
     load_project_intake,
     missing_new_project_brief_field_keys,
     missing_new_project_brief_fields,
+    project_intake_read_first_confirmation_needed,
     project_intake_validation_missing,
     suggest_test_commands,
     write_project_intake,
@@ -1049,6 +1050,7 @@ def _refresh_project_intake(
         artifact_targets=intake.artifact_targets,
         constraints=intake.constraints,
         selected_scope=intake.selected_scope,
+        read_first_confirmed=intake.read_first_confirmed,
         notes=intake.notes,
     )
     paths = write_project_intake(config.effective_state_dir, refreshed)
@@ -1289,6 +1291,7 @@ def _project_status_payload(
             "test_commands": list(intake.test_commands),
             "scope_candidates": list(intake.scope_candidates),
             "selected_scope": intake.selected_scope,
+            "read_first_confirmed": intake.read_first_confirmed,
             "brief_readiness": _project_brief_readiness_payload(intake),
             "readiness": _project_intake_readiness_payload(
                 intake,
@@ -1349,6 +1352,9 @@ def _project_intake_readiness_payload(
         analysis_changed=bool(analysis_changed_fields),
         missing_brief_fields=tuple(missing_brief_fields),
         scope_choice_required=_project_scope_choice_required(intake),
+        read_first_confirmation_required=(
+            project_intake_read_first_confirmation_needed(intake)
+        ),
     )
     return {
         "ready": recommended_action == "start_trinity",
@@ -1364,6 +1370,9 @@ def _project_intake_readiness_payload(
         "analysis_changed": bool(analysis_changed_fields),
         "analysis_changed_fields": list(analysis_changed_fields),
         "missing_brief_fields": missing_brief_fields,
+        "read_first_confirmation_required": (
+            project_intake_read_first_confirmation_needed(intake)
+        ),
         "validation_missing": project_intake_validation_missing(intake),
         "scope_choice_required": _project_scope_choice_required(intake),
         "scope_candidates": list(intake.scope_candidates),
@@ -1402,6 +1411,7 @@ def _project_intake_recommended_action(
     analysis_changed: bool = False,
     missing_brief_fields: tuple[str, ...],
     scope_choice_required: bool = False,
+    read_first_confirmation_required: bool = False,
 ) -> str:
     if target_missing:
         return "create_project" if intake.mode == "new" else "analyze_workspace"
@@ -1411,6 +1421,8 @@ def _project_intake_recommended_action(
         return "analyze_workspace"
     if scope_choice_required:
         return "choose_scope"
+    if read_first_confirmation_required:
+        return "confirm_read_first"
     if project_intake_validation_missing(intake):
         return "record_validation"
     return "start_trinity"

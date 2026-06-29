@@ -152,6 +152,7 @@ def test_start_project_setup_next_action_tracks_project_state(
         build_project_intake(
             mode="existing",
             target_workspace=target,
+            read_first_confirmed=True,
             created_at=date.today().isoformat(),
         ),
     )
@@ -167,6 +168,7 @@ def test_start_project_setup_next_action_tracks_project_state(
         build_project_intake(
             mode="existing",
             target_workspace=target,
+            read_first_confirmed=True,
             created_at=date.today().isoformat(),
         ),
     )
@@ -221,6 +223,7 @@ def test_nexus_project_setup_next_action_tracks_project_state(
         build_project_intake(
             mode="existing",
             target_workspace=target,
+            read_first_confirmed=True,
             created_at=date.today().isoformat(),
         ),
     )
@@ -491,6 +494,7 @@ def test_project_startup_readiness_label_checks_existing_project_intake(
         build_project_intake(
             mode="existing",
             target_workspace=target,
+            read_first_confirmed=True,
             created_at="2026-06-28T00:00:00Z",
         ),
     )
@@ -976,7 +980,7 @@ def test_project_start_choice_guide_labels_new_and_existing_paths(
     )
 
     assert project_start_choice_guide_label(state, target_workspace=target) == (
-        "Project start: mode existing | next -> record validation | "
+        "Project start: mode existing | next -> confirm read-first | "
         "then Plan first"
     )
 

@@ -23,6 +23,7 @@ from trinity.textual_app.workspace_labels import (
     project_intake_state_label,
     project_mode_rail_label,
     project_plan_preview_label,
+    project_read_first_checklist_label,
     project_validation_plan_label,
     target_workspace_state_label,
 )
@@ -322,6 +323,80 @@ def test_project_validation_plan_label_summarizes_existing_project_checks(
         "Validation plan: fast: npm test | "
         "required: npm test | full: npm run build"
     )
+
+
+def test_project_read_first_checklist_label_summarizes_existing_project(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "existing-app"
+    target.mkdir()
+    (target / "README.md").write_text("# Existing\n", encoding="utf-8")
+    (target / "src").mkdir()
+    (target / "package.json").write_text(
+        '{"scripts":{"test":"vitest run"},"main":"src/index.js"}',
+        encoding="utf-8",
+    )
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            selected_scope="apps/web",
+        ),
+    )
+
+    assert project_read_first_checklist_label(state, target_workspace=target) == (
+        "Read-first checklist: scope: apps/web | read: README.md, src | "
+        "inspect: src/index.js | verify: npm test"
+    )
+    assert project_read_first_checklist_label(
+        state,
+        lang="ko",
+        target_workspace=target,
+    ) == (
+        "먼저 읽기 체크리스트: 범위: apps/web | 읽기: README.md, src | "
+        "점검: src/index.js | 검증: npm test"
+    )
+
+
+def test_project_read_first_checklist_label_handles_sparse_existing_project(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "existing-app"
+    target.mkdir()
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+        ),
+    )
+
+    assert project_read_first_checklist_label(state, target_workspace=target) == (
+        "Read-first checklist: scope: target root | "
+        "read: README/docs/source roots missing | "
+        "inspect: entrypoints missing | verify: record validation command"
+    )
+
+
+def test_project_read_first_checklist_label_skips_new_project(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "new-app"
+    target.mkdir()
+    state = tmp_path / ".trinity"
+    write_project_intake(
+        state,
+        build_project_intake(
+            mode="new",
+            target_workspace=target,
+            product_goal="Build app.",
+        ),
+    )
+
+    assert project_read_first_checklist_label(state, target_workspace=target) == ""
 
 
 def test_project_mode_rail_label_guides_missing_intake(tmp_path: Path) -> None:
@@ -1171,8 +1246,44 @@ async def test_start_screen_shows_project_intake_summary(tmp_path: Path) -> None
             "Project intake: existing | updated: 2026-06-28 | "
             "tests: uv run pytest | git: none"
         )
+        assert str(screen.query_one("#project-read-first-checklist", Static).content) == (
+            "Read-first checklist: scope: target root | "
+            "read: README/docs/source roots missing | "
+            "inspect: entrypoints missing | verify: uv run pytest"
+        )
         assert screen.query_one("#analyze-workspace", Button).variant == "default"
         assert screen.query_one("#create-project", Button).variant == "default"
+
+
+@pytest.mark.asyncio
+async def test_nexus_screen_shows_read_first_checklist(tmp_path: Path) -> None:
+    target = tmp_path / "customer-app"
+    target.mkdir()
+    (target / "README.md").write_text("# Customer App\n", encoding="utf-8")
+    (target / "src").mkdir()
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            selected_scope="services/api",
+            created_at="2026-06-28T00:00:00Z",
+        ),
+    )
+    screen = NexusScreen(config)
+    screen.snapshot = WorkflowNexusSnapshot(target_workspace=str(target))
+    app = StartScreenHarness(screen)  # type: ignore[arg-type]
+
+    async with app.run_test(size=(140, 40)) as pilot:
+        await pilot.pause()
+
+        assert str(
+            screen.query_one("#nexus-project-read-first-checklist", Static).content
+        ) == (
+            "Read-first checklist: scope: services/api | read: README.md, src | "
+            "inspect: entrypoints missing | verify: record validation command"
+        )
 
 
 @pytest.mark.asyncio

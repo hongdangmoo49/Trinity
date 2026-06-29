@@ -211,6 +211,31 @@ PROJECT_VALIDATION_PLAN_LABELS = {
     },
 }
 
+PROJECT_READ_FIRST_CHECKLIST_LABELS = {
+    "en": {
+        "entrypoints_missing": "entrypoints missing",
+        "read_missing": "README/docs/source roots missing",
+        "read": "read",
+        "record_validation": "record validation command",
+        "scope": "scope",
+        "summary": "Read-first checklist",
+        "target_root": "target root",
+        "inspect": "inspect",
+        "verify": "verify",
+    },
+    "ko": {
+        "entrypoints_missing": "진입점 없음",
+        "read_missing": "README/docs/source roots 없음",
+        "read": "읽기",
+        "record_validation": "검증 명령 기록",
+        "scope": "범위",
+        "summary": "먼저 읽기 체크리스트",
+        "target_root": "대상 루트",
+        "inspect": "점검",
+        "verify": "검증",
+    },
+}
+
 PROJECT_MODE_RAIL_LABELS = {
     "en": {
         "invalid": "intake unreadable",
@@ -481,6 +506,66 @@ def format_project_validation_plan_label(
         _format_project_intake_section(
             labels["full"],
             _validation_full_commands(intake, labels),
+            max_items=2,
+        ),
+    )
+    return f"{labels['summary']}: {' | '.join(sections)}"
+
+
+def project_read_first_checklist_label(
+    state_dir: Path,
+    *,
+    lang: str = "en",
+    target_workspace: object | None = None,
+) -> str:
+    """Return a compact read-first checklist for saved existing-project intake."""
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return ""
+    if intake is None:
+        return ""
+    return format_project_read_first_checklist_label(
+        intake,
+        lang=lang,
+        target_workspace=target_workspace,
+    )
+
+
+def format_project_read_first_checklist_label(
+    intake: ProjectIntake,
+    *,
+    lang: str = "en",
+    target_workspace: object | None = None,
+) -> str:
+    """Format the minimum read-first checklist for existing-project intake."""
+    if intake.mode != "existing":
+        return ""
+    if not _project_intake_targets_match(intake, target_workspace):
+        return ""
+    labels = PROJECT_READ_FIRST_CHECKLIST_LABELS.get(
+        lang,
+        PROJECT_READ_FIRST_CHECKLIST_LABELS["en"],
+    )
+    sections = (
+        _format_project_intake_section(
+            labels["scope"],
+            _read_first_scope_items(intake, labels),
+            max_items=2,
+        ),
+        _format_project_intake_section(
+            labels["read"],
+            _read_first_read_items(intake, labels),
+            max_items=3,
+        ),
+        _format_project_intake_section(
+            labels["inspect"],
+            _read_first_inspect_items(intake, labels),
+            max_items=2,
+        ),
+        _format_project_intake_section(
+            labels["verify"],
+            _read_first_verify_items(intake, labels),
             max_items=2,
         ),
     )
@@ -963,6 +1048,44 @@ def _validation_full_commands(
     if intake.mode == "new":
         return (labels["full_new"],)
     return (labels["full_existing"],)
+
+
+def _read_first_scope_items(
+    intake: ProjectIntake,
+    labels: dict[str, str],
+) -> tuple[str, ...]:
+    selected_scope = intake.selected_scope.strip()
+    if selected_scope:
+        return (selected_scope,)
+    if intake.scope_candidates:
+        return intake.scope_candidates
+    return (labels["target_root"],)
+
+
+def _read_first_read_items(
+    intake: ProjectIntake,
+    labels: dict[str, str],
+) -> tuple[str, ...]:
+    anchors = tuple(dict.fromkeys((*intake.docs_found, *intake.source_roots)))
+    return anchors or (labels["read_missing"],)
+
+
+def _read_first_inspect_items(
+    intake: ProjectIntake,
+    labels: dict[str, str],
+) -> tuple[str, ...]:
+    return intake.entrypoints or (labels["entrypoints_missing"],)
+
+
+def _read_first_verify_items(
+    intake: ProjectIntake,
+    labels: dict[str, str],
+) -> tuple[str, ...]:
+    if intake.test_commands:
+        return intake.test_commands
+    if intake.build_commands:
+        return intake.build_commands
+    return (labels["record_validation"],)
 
 
 def _project_intake_analysis_is_sparse(intake: ProjectIntake) -> bool:

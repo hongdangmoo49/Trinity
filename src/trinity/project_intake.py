@@ -75,6 +75,9 @@ class ProjectIntake:
     success_criteria: str = ""
     stack_preferences: tuple[str, ...] = ()
     first_milestone: str = ""
+    run_commands: tuple[str, ...] = ()
+    validation_commands: tuple[str, ...] = ()
+    artifact_targets: tuple[str, ...] = ()
     constraints: tuple[str, ...] = ()
     notes: str = ""
 
@@ -103,6 +106,9 @@ class ProjectIntake:
             "success_criteria": self.success_criteria,
             "stack_preferences": list(self.stack_preferences),
             "first_milestone": self.first_milestone,
+            "run_commands": list(self.run_commands),
+            "validation_commands": list(self.validation_commands),
+            "artifact_targets": list(self.artifact_targets),
             "constraints": list(self.constraints),
             "notes": self.notes,
         }
@@ -118,6 +124,9 @@ class ProjectIntake:
         selected_scope = self.selected_scope.strip() or "(none)"
         docs_found = _csv_or_none(self.docs_found)
         stack_preferences = _csv_or_none(self.stack_preferences)
+        run_commands = _csv_or_none(self.run_commands)
+        validation_commands = _csv_or_none(self.validation_commands)
+        artifact_targets = _csv_or_none(self.artifact_targets)
         constraints = _csv_or_none(self.constraints)
         product_goal = self.product_goal.strip() or "(none)"
         project_type = self.project_type.strip() or "(none)"
@@ -158,6 +167,9 @@ class ProjectIntake:
                 f"- Success criteria: {success_criteria}",
                 f"- Stack preferences: {stack_preferences}",
                 f"- First milestone: {first_milestone}",
+                f"- Run commands: {run_commands}",
+                f"- Validation commands: {validation_commands}",
+                f"- Artifact targets: {artifact_targets}",
                 f"- Constraints: {constraints}",
                 "",
                 "## Notes",
@@ -188,6 +200,9 @@ def build_project_intake(
     success_criteria: str = "",
     stack_preferences: tuple[str, ...] | list[str] = (),
     first_milestone: str = "",
+    run_commands: tuple[str, ...] | list[str] = (),
+    validation_commands: tuple[str, ...] | list[str] = (),
+    artifact_targets: tuple[str, ...] | list[str] = (),
     constraints: tuple[str, ...] | list[str] = (),
     selected_scope: str = "",
     created_at: str | None = None,
@@ -224,6 +239,9 @@ def build_project_intake(
         success_criteria=success_criteria.strip(),
         stack_preferences=_normalize_string_tuple(stack_preferences),
         first_milestone=first_milestone.strip(),
+        run_commands=_normalize_string_tuple(run_commands),
+        validation_commands=_normalize_string_tuple(validation_commands),
+        artifact_targets=_normalize_string_tuple(artifact_targets),
         constraints=_normalize_string_tuple(constraints),
         notes=notes,
     )
@@ -344,6 +362,9 @@ def project_intake_from_dict(data: Mapping[str, Any]) -> ProjectIntake:
         success_criteria=str(data.get("success_criteria", "")),
         stack_preferences=_string_tuple(data.get("stack_preferences")),
         first_milestone=str(data.get("first_milestone", "")),
+        run_commands=_string_tuple(data.get("run_commands")),
+        validation_commands=_string_tuple(data.get("validation_commands")),
+        artifact_targets=_string_tuple(data.get("artifact_targets")),
         constraints=_string_tuple(data.get("constraints")),
         notes=str(data.get("notes", "")),
     )
@@ -469,6 +490,7 @@ def _new_project_brief_guidance_lines(intake: ProjectIntake) -> list[str]:
             lines.append(
                 f"- Use the recorded starter profile as the initial project shape: {starter_profile}."
             )
+        lines.extend(_new_project_delivery_guidance_lines(intake))
         return lines
     lines = [
         (
@@ -483,6 +505,27 @@ def _new_project_brief_guidance_lines(intake: ProjectIntake) -> list[str]:
     if starter_profile:
         lines.append(
             f"- Use the recorded starter profile as the initial project shape: {starter_profile}."
+        )
+    lines.extend(_new_project_delivery_guidance_lines(intake))
+    return lines
+
+
+def _new_project_delivery_guidance_lines(intake: ProjectIntake) -> list[str]:
+    lines: list[str] = []
+    if intake.artifact_targets:
+        lines.append(
+            "- Scope initial scaffolding outputs to the recorded artifact targets: "
+            f"{_csv_or_none(intake.artifact_targets)}."
+        )
+    if intake.run_commands:
+        lines.append(
+            "- Include the recorded run commands in setup or local verification steps: "
+            f"{_csv_or_none(intake.run_commands)}."
+        )
+    if intake.validation_commands:
+        lines.append(
+            "- Use the recorded validation commands as milestone acceptance checks: "
+            f"{_csv_or_none(intake.validation_commands)}."
         )
     return lines
 
@@ -528,6 +571,9 @@ def _has_project_brief_context(intake: ProjectIntake) -> bool:
             intake.success_criteria.strip(),
             intake.stack_preferences,
             intake.first_milestone.strip(),
+            intake.run_commands,
+            intake.validation_commands,
+            intake.artifact_targets,
             intake.constraints,
             intake.notes.strip(),
         )

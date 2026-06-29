@@ -3731,6 +3731,9 @@ def test_initial_start_prompt_uses_full_project_brief(tmp_path) -> None:
             success_criteria="Operators can complete onboarding safely.",
             stack_preferences=("python", "textual"),
             first_milestone="First safe patch.",
+            run_commands=("uv run app",),
+            validation_commands=("uv run pytest",),
+            artifact_targets=("src/customer_app", "README.md"),
             constraints=("Keep tests green",),
             notes="Use existing patterns.",
             created_at="2026-06-28T00:00:00Z",
@@ -3747,6 +3750,9 @@ def test_initial_start_prompt_uses_full_project_brief(tmp_path) -> None:
             "Success: Operators can complete onboarding safely.",
             "First milestone: First safe patch.",
             "Stack: python, textual",
+            "Run commands: uv run app",
+            "Validation commands: uv run pytest",
+            "Artifact targets: src/customer_app, README.md",
             "Constraints: Keep tests green",
             "Notes: Use existing patterns.",
             "",
@@ -11225,6 +11231,21 @@ async def test_start_analyze_workspace_empty_target_opens_project_brief(
             app.screen.query_one("#project-brief-success", Input).placeholder
             == "Users can finish the first workflow"
         )
+        assert (
+            app.screen.query_one("#project-brief-run-commands", Input).placeholder
+            == "npm run dev, uv run app"
+        )
+        assert (
+            app.screen.query_one(
+                "#project-brief-validation-commands",
+                Input,
+            ).placeholder
+            == "npm test, uv run pytest"
+        )
+        assert (
+            app.screen.query_one("#project-brief-artifact-targets", Input).placeholder
+            == "apps/web, src/app, README.md"
+        )
         intake = load_project_intake(app.config.effective_state_dir)
         assert intake is not None
         assert intake.mode == "new"
@@ -11292,6 +11313,21 @@ async def test_project_brief_modal_uses_korean_placeholders(tmp_path) -> None:
         assert (
             app.screen.query_one("#project-brief-target-users", Input).placeholder
             == "지원 담당자, 학생, 개발자"
+        )
+        assert (
+            app.screen.query_one("#project-brief-run-commands", Input).placeholder
+            == "npm run dev, uv run app"
+        )
+        assert (
+            app.screen.query_one(
+                "#project-brief-validation-commands",
+                Input,
+            ).placeholder
+            == "npm test, uv run pytest"
+        )
+        assert (
+            app.screen.query_one("#project-brief-artifact-targets", Input).placeholder
+            == "apps/web, src/app, README.md"
         )
 
 
@@ -11522,6 +11558,15 @@ async def test_start_create_project_button_creates_new_project_intake(
         app.screen.query_one("#project-brief-milestone", Input).value = (
             "First usable contact workflow."
         )
+        app.screen.query_one("#project-brief-run-commands", Input).value = (
+            "uv run crm, uv run worker"
+        )
+        app.screen.query_one("#project-brief-validation-commands", Input).value = (
+            "uv run pytest"
+        )
+        app.screen.query_one("#project-brief-artifact-targets", Input).value = (
+            "src/crm, README.md"
+        )
         app.screen.query_one("#project-brief-constraints", Input).value = (
             "Keep setup simple, no cloud dependency"
         )
@@ -11532,6 +11577,9 @@ async def test_start_create_project_button_creates_new_project_intake(
         saved_intake = load_project_intake(app.config.effective_state_dir)
         assert saved_intake is not None
         assert saved_intake.starter_profile == "Textual TUI"
+        assert saved_intake.run_commands == ("uv run crm", "uv run worker")
+        assert saved_intake.validation_commands == ("uv run pytest",)
+        assert saved_intake.artifact_targets == ("src/crm", "README.md")
         assert start.query_one(PromptComposer).text == "\n".join(
             [
                 "Use this new-project brief to plan the first work packages.",
@@ -11543,6 +11591,9 @@ async def test_start_create_project_button_creates_new_project_intake(
                 "Success: Teams can track customer follow-ups.",
                 "First milestone: First usable contact workflow.",
                 "Stack: python, sqlite",
+                "Run commands: uv run crm; uv run worker",
+                "Validation commands: uv run pytest",
+                "Artifact targets: src/crm, README.md",
                 "Constraints: Keep setup simple; no cloud dependency",
                 "",
                 "Starter recommendations:",
@@ -12321,12 +12372,26 @@ async def test_nexus_create_project_button_creates_new_project_intake(
         app.screen.query_one("#project-brief-milestone", Input).value = (
             "First board workflow."
         )
+        app.screen.query_one("#project-brief-run-commands", Input).value = (
+            "uv run board"
+        )
+        app.screen.query_one("#project-brief-validation-commands", Input).value = (
+            "uv run pytest"
+        )
+        app.screen.query_one("#project-brief-artifact-targets", Input).value = (
+            "src/board"
+        )
         app.screen.query_one("#project-brief-constraints", Input).value = (
             "No external service"
         )
         app.screen.action_save()
         await pilot.pause()
 
+        saved_intake = load_project_intake(app.config.effective_state_dir)
+        assert saved_intake is not None
+        assert saved_intake.run_commands == ("uv run board",)
+        assert saved_intake.validation_commands == ("uv run pytest",)
+        assert saved_intake.artifact_targets == ("src/board",)
         assert str(
             nexus.query_one("#nexus-project-plan-preview", Static).content
         ) == (

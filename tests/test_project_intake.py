@@ -178,6 +178,9 @@ def test_build_project_intake_normalizes_metadata(tmp_path) -> None:
         success_criteria="The user can start safely.",
         stack_preferences=["python", "textual", "python"],
         first_milestone="Show project intake state.",
+        run_commands=["uv run trinity", "uv run trinity"],
+        validation_commands=["uv run pytest"],
+        artifact_targets=["src/trinity", "docs"],
         constraints=["read-only analysis", "read-only analysis"],
         selected_scope=" apps/web ",
         notes="Review before write.",
@@ -204,6 +207,9 @@ def test_build_project_intake_normalizes_metadata(tmp_path) -> None:
     assert intake.success_criteria == "The user can start safely."
     assert intake.stack_preferences == ("python", "textual")
     assert intake.first_milestone == "Show project intake state."
+    assert intake.run_commands == ("uv run trinity",)
+    assert intake.validation_commands == ("uv run pytest",)
+    assert intake.artifact_targets == ("src/trinity", "docs")
     assert intake.constraints == ("read-only analysis",)
     assert intake.notes == "Review before write."
 
@@ -342,6 +348,9 @@ def test_write_project_intake_writes_json_and_markdown(tmp_path) -> None:
         success_criteria="The game can be played with keyboard controls.",
         stack_preferences=("python", "textual"),
         first_milestone="Playable local prototype.",
+        run_commands=("uv run snake",),
+        validation_commands=("uv run pytest", "uv run ruff check"),
+        artifact_targets=("src/snake_game", "README.md"),
         constraints=("No network dependency",),
         created_at="2026-06-28T00:00:00Z",
     )
@@ -369,6 +378,9 @@ def test_write_project_intake_writes_json_and_markdown(tmp_path) -> None:
     )
     assert data["stack_preferences"] == ["python", "textual"]
     assert data["first_milestone"] == "Playable local prototype."
+    assert data["run_commands"] == ["uv run snake"]
+    assert data["validation_commands"] == ["uv run pytest", "uv run ruff check"]
+    assert data["artifact_targets"] == ["src/snake_game", "README.md"]
     assert data["constraints"] == ["No network dependency"]
     assert paths.json_path.name == "project-intake.json"
     assert paths.markdown_path.name == "project-intake.md"
@@ -387,6 +399,9 @@ def test_write_project_intake_writes_json_and_markdown(tmp_path) -> None:
     assert "- Success criteria: The game can be played" in markdown
     assert "- Stack preferences: python, textual" in markdown
     assert "- First milestone: Playable local prototype." in markdown
+    assert "- Run commands: uv run snake" in markdown
+    assert "- Validation commands: uv run pytest, uv run ruff check" in markdown
+    assert "- Artifact targets: src/snake_game, README.md" in markdown
     assert "- Constraints: No network dependency" in markdown
 
 
@@ -419,6 +434,9 @@ def test_load_project_intake_reads_persisted_json(tmp_path) -> None:
     assert loaded.success_criteria == ""
     assert loaded.stack_preferences == ()
     assert loaded.first_milestone == ""
+    assert loaded.run_commands == ()
+    assert loaded.validation_commands == ()
+    assert loaded.artifact_targets == ()
     assert loaded.constraints == ()
     assert loaded.notes == "Use recorded context."
 
@@ -460,6 +478,9 @@ def test_load_project_intake_accepts_legacy_profile_fields_missing(tmp_path) -> 
     assert loaded.success_criteria == ""
     assert loaded.stack_preferences == ()
     assert loaded.first_milestone == ""
+    assert loaded.run_commands == ()
+    assert loaded.validation_commands == ()
+    assert loaded.artifact_targets == ()
     assert loaded.constraints == ()
 
 
@@ -595,6 +616,8 @@ def test_project_intake_prompt_block_includes_incomplete_new_project_guidance(
             target_workspace=target,
             product_goal="Build a dashboard.",
             starter_profile="Textual TUI",
+            run_commands=("uv run app",),
+            artifact_targets=("src/app",),
             created_at="2026-06-28T00:00:00Z",
         ),
     )
@@ -605,6 +628,9 @@ def test_project_intake_prompt_block_includes_incomplete_new_project_guidance(
     assert "fresh project workspace" in guidance
     assert "new-project brief is incomplete" in block
     assert "starter profile as the initial project shape: Textual TUI" in block
+    assert "recorded artifact targets: src/app" in block
+    assert "recorded run commands" in block
+    assert "uv run app" in block
     assert "type, users, success, milestone" in block
     assert "Do not treat framework, architecture, or UX choices as final" in block
     assert "- Mode: new" in block
@@ -627,6 +653,9 @@ def test_project_intake_prompt_block_includes_complete_new_project_guidance(
             success_criteria="Operators can complete onboarding.",
             stack_preferences=("python", "textual"),
             first_milestone="First safe patch.",
+            run_commands=("uv run dashboard",),
+            validation_commands=("uv run pytest",),
+            artifact_targets=("src/dashboard", "README.md"),
             constraints=("Keep tests green",),
             created_at="2026-06-28T00:00:00Z",
         ),
@@ -637,6 +666,11 @@ def test_project_intake_prompt_block_includes_complete_new_project_guidance(
 
     assert "new-project brief is complete" in guidance
     assert "starter profile as the initial project shape: Python CLI package" in block
+    assert "recorded artifact targets: src/dashboard, README.md" in block
+    assert "recorded run commands" in block
+    assert "uv run dashboard" in block
+    assert "recorded validation commands" in block
+    assert "uv run pytest" in block
     assert "use the recorded goal, type, users, success criteria" in block
     assert "recorded success criteria and constraints" in block
     assert "- Success criteria: Operators can complete onboarding." in block

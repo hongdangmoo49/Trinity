@@ -265,6 +265,9 @@ def initial_start_prompt(config: TrinityConfig, workspace_candidate: Path | None
         success_criteria=intake.success_criteria,
         stack_preferences=intake.stack_preferences,
         first_milestone=intake.first_milestone,
+        run_commands=intake.run_commands,
+        validation_commands=intake.validation_commands,
+        artifact_targets=intake.artifact_targets,
         constraints=intake.constraints,
         selected_scope=intake.selected_scope,
         notes=intake.notes,
@@ -390,6 +393,9 @@ def _project_brief_start_prompt(
     success_criteria: str = "",
     stack_preferences: tuple[str, ...] = (),
     first_milestone: str = "",
+    run_commands: tuple[str, ...] = (),
+    validation_commands: tuple[str, ...] = (),
+    artifact_targets: tuple[str, ...] = (),
     constraints: tuple[str, ...] = (),
     selected_scope: str = "",
     notes: str = "",
@@ -399,6 +405,11 @@ def _project_brief_start_prompt(
         return ""
 
     stack = ", ".join(item.strip() for item in stack_preferences if item.strip())
+    run_text = "; ".join(item.strip() for item in run_commands if item.strip())
+    validation_text = "; ".join(
+        item.strip() for item in validation_commands if item.strip()
+    )
+    artifact_text = ", ".join(item.strip() for item in artifact_targets if item.strip())
     constraint_text = "; ".join(item.strip() for item in constraints if item.strip())
     missing_field_labels: tuple[str, ...]
     if lang == "ko":
@@ -416,6 +427,9 @@ def _project_brief_start_prompt(
             *((("선택 범위", selected_scope.strip()),) if mode == "existing" else ()),
             ("첫 마일스톤", first_milestone.strip()),
             ("기술 스택", stack),
+            ("실행 명령", run_text),
+            ("검증 명령", validation_text),
+            ("산출물 위치", artifact_text),
             ("제약", constraint_text),
             ("메모", notes.strip()),
         )
@@ -448,6 +462,9 @@ def _project_brief_start_prompt(
             *((("Selected scope", selected_scope.strip()),) if mode == "existing" else ()),
             ("First milestone", first_milestone.strip()),
             ("Stack", stack),
+            ("Run commands", run_text),
+            ("Validation commands", validation_text),
+            ("Artifact targets", artifact_text),
             ("Constraints", constraint_text),
             ("Notes", notes.strip()),
         )
@@ -557,6 +574,9 @@ def _project_brief_start_prompt_from_draft(
         success_criteria=draft.success_criteria,
         stack_preferences=draft.stack_preferences,
         first_milestone=draft.first_milestone,
+        run_commands=draft.run_commands,
+        validation_commands=draft.validation_commands,
+        artifact_targets=draft.artifact_targets,
         constraints=draft.constraints,
         selected_scope=draft.selected_scope,
         notes=draft.notes,
@@ -3725,6 +3745,9 @@ class TrinityTextualApp(App[None]):
             success_criteria=current.success_criteria,
             stack_preferences=current.stack_preferences,
             first_milestone=current.first_milestone,
+            run_commands=current.run_commands,
+            validation_commands=current.validation_commands,
+            artifact_targets=current.artifact_targets,
             constraints=current.constraints,
             selected_scope=current.selected_scope,
             notes=current.notes,
@@ -3768,6 +3791,9 @@ class TrinityTextualApp(App[None]):
             success_criteria=draft.success_criteria,
             stack_preferences=draft.stack_preferences,
             first_milestone=draft.first_milestone,
+            run_commands=draft.run_commands,
+            validation_commands=draft.validation_commands,
+            artifact_targets=draft.artifact_targets,
             constraints=draft.constraints,
             selected_scope=draft.selected_scope,
             notes=draft.notes,
@@ -3974,6 +4000,9 @@ class TrinityTextualApp(App[None]):
             "success_criteria": current.success_criteria,
             "stack_preferences": current.stack_preferences,
             "first_milestone": current.first_milestone,
+            "run_commands": current.run_commands,
+            "validation_commands": current.validation_commands,
+            "artifact_targets": current.artifact_targets,
             "constraints": current.constraints,
             "notes": current.notes,
         }

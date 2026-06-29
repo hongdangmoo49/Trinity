@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 from textual import events
+from textual.app import App
 from textual.containers import VerticalScroll
 from textual.widgets import (
     Button,
@@ -252,7 +253,10 @@ from trinity.textual_app.widgets.model_settings_modal import ModelSettingsModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
 from trinity.textual_app.widgets.project_anchors_modal import ProjectAnchorsModal
-from trinity.textual_app.widgets.project_brief_modal import ProjectBriefModal
+from trinity.textual_app.widgets.project_brief_modal import (
+    ProjectBriefDraft,
+    ProjectBriefModal,
+)
 from trinity.textual_app.widgets.project_generation_confirm_modal import (
     ProjectGenerationConfirmModal,
 )
@@ -281,6 +285,15 @@ from trinity.workflow import (
     WorkflowState,
     WorkStatus,
 )
+
+
+class ScreenHarness(App[None]):
+    def __init__(self, screen) -> None:
+        super().__init__()
+        self.target_screen = screen
+
+    def on_mount(self) -> None:
+        self.push_screen(self.target_screen)
 
 
 class FakeWorkflowController:
@@ -11492,6 +11505,43 @@ async def test_project_brief_modal_uses_korean_placeholders(tmp_path) -> None:
         assert (
             app.screen.query_one("#project-brief-artifact-targets", Input).placeholder
             == "apps/web, src/app, README.md"
+        )
+
+
+@pytest.mark.asyncio
+async def test_project_brief_modal_starter_preset_fills_new_project_fields(
+    tmp_path,
+) -> None:
+    modal = ProjectBriefModal(
+        ProjectBriefDraft(),
+        target_workspace=str(tmp_path / "api"),
+        mode="new",
+    )
+    app = ScreenHarness(modal)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        modal.query_one("#project-brief-preset-fastapi", Button).press()
+        await pilot.pause()
+
+        assert modal.query_one("#project-brief-starter-profile", Input).value == (
+            "FastAPI service"
+        )
+        assert modal.query_one("#project-brief-stack", Input).value == (
+            "python, fastapi, uv"
+        )
+        assert modal.query_one("#project-brief-run-commands", Input).value == (
+            "uv run uvicorn app:app --reload"
+        )
+        assert modal.query_one("#project-brief-validation-commands", Input).value == (
+            "uv run pytest"
+        )
+        assert modal.query_one("#project-brief-artifact-targets", Input).value == (
+            "app, tests, README.md"
+        )
+        assert "validate: uv run pytest" in str(
+            modal.query_one("#project-brief-generation-preview", Static).content
         )
 
 

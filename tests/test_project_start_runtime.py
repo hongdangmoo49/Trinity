@@ -52,7 +52,7 @@ def test_project_setup_next_action_routes_existing_project_to_ready_action(
     )
 
 
-def test_project_setup_next_action_routes_stale_or_scoped_existing_to_analyze(
+def test_project_setup_next_action_routes_stale_existing_to_analyze_and_scope_choice(
     tmp_path,
 ) -> None:
     state_dir = tmp_path / ".trinity"
@@ -85,7 +85,25 @@ def test_project_setup_next_action_routes_stale_or_scoped_existing_to_analyze(
             target,
             ready_action="execute",
         )
-        == "analyze"
+        == "scope"
+    )
+
+    write_project_intake(
+        state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+            selected_scope="apps/web",
+            created_at=date.today().isoformat(),
+        ),
+    )
+    assert (
+        project_setup_next_action(
+            state_dir,
+            target,
+            ready_action="execute",
+        )
+        == "execute"
     )
 
 

@@ -157,6 +157,13 @@ class NexusScreen(Screen[None]):
             super().__init__()
             self.snapshot = snapshot
 
+    class ProjectScopeRequested(Message):
+        """Posted when the user wants to choose an existing-project scope."""
+
+        def __init__(self, snapshot: WorkflowNexusSnapshot | None) -> None:
+            super().__init__()
+            self.snapshot = snapshot
+
     class RepairActionRequested(Message):
         """Posted when the user chooses a review-repair blocked action."""
 
@@ -754,6 +761,8 @@ class NexusScreen(Screen[None]):
             self.action_request_new_project()
         elif action == "brief":
             self.action_request_project_brief()
+        elif action == "scope":
+            self.action_request_project_scope()
         else:
             self.action_request_execute()
 
@@ -765,6 +774,9 @@ class NexusScreen(Screen[None]):
 
     def action_request_project_brief(self) -> None:
         self.post_message(self.ProjectBriefRequested(self.snapshot))
+
+    def action_request_project_scope(self) -> None:
+        self.post_message(self.ProjectScopeRequested(self.snapshot))
 
     def _refresh_workspace_label(self) -> None:
         label = self._workspace_label()

@@ -253,6 +253,7 @@ from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
 from trinity.textual_app.widgets.project_anchors_modal import ProjectAnchorsModal
 from trinity.textual_app.widgets.project_brief_modal import ProjectBriefModal
+from trinity.textual_app.widgets.project_scope_modal import ProjectScopeModal
 from trinity.textual_app.widgets.question_panel import QuestionPanel
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
 from trinity.textual_app.widgets.status_modal import StatusCommandModal
@@ -11156,6 +11157,49 @@ async def test_start_analyze_workspace_prompt_includes_scope_candidates(
 
 
 @pytest.mark.asyncio
+async def test_start_continue_setup_opens_existing_scope_picker(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "monorepo"
+    control_repo.mkdir()
+    target.mkdir()
+    (target / "apps" / "web").mkdir(parents=True)
+    (target / "apps" / "web" / "package.json").write_text("{}", encoding="utf-8")
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+        ),
+    )
+    app = TrinityTextualApp(config, FakeWorkflowController(), launch_cwd=target)
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        await pilot.pause()
+
+        app.get_screen("start", StartScreen).query_one(
+            "#continue-project-setup",
+            Button,
+        ).press()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectScopeModal)
+        app.screen.query_one("#project-scope-input", Input).value = "apps/web"
+        app.screen.action_save()
+        await pilot.pause()
+
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.selected_scope == "apps/web"
+        start = app.get_screen("start", StartScreen)
+        assert "scope: apps/web" in str(
+            start.query_one("#project-intake-summary", Static).content
+        )
+
+
+@pytest.mark.asyncio
 async def test_start_analyze_workspace_sparse_existing_prompt_has_no_anchor_block(
     tmp_path,
 ) -> None:
@@ -12064,6 +12108,48 @@ async def test_nexus_analyze_workspace_button_writes_project_intake(tmp_path) ->
             "- tests: npm test, npm run lint\n"
             "- dev: npm run dev\n"
             "- build: npm run build"
+        )
+
+
+@pytest.mark.asyncio
+async def test_nexus_continue_setup_opens_existing_scope_picker(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "monorepo"
+    control_repo.mkdir()
+    target.mkdir()
+    (target / "apps" / "web").mkdir(parents=True)
+    (target / "apps" / "web" / "package.json").write_text("{}", encoding="utf-8")
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    write_project_intake(
+        config.effective_state_dir,
+        build_project_intake(
+            mode="existing",
+            target_workspace=target,
+        ),
+    )
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
+    )
+    app = TrinityTextualApp(config, controller, launch_cwd=target)
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        await pilot.click("#nexus-continue-project-setup")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectScopeModal)
+        app.screen.query_one("#project-scope-input", Input).value = "apps/web"
+        app.screen.action_save()
+        await pilot.pause()
+
+        intake = load_project_intake(app.config.effective_state_dir)
+        assert intake is not None
+        assert intake.selected_scope == "apps/web"
+        nexus = app.get_screen("nexus", NexusScreen)
+        assert "scope: apps/web" in str(
+            nexus.query_one("#nexus-project-intake-summary", Static).content
         )
 
 

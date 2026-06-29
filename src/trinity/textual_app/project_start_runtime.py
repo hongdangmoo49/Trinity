@@ -17,6 +17,7 @@ ProjectStartNextAction = Literal[
     "analyze",
     "create",
     "brief",
+    "scope",
     "plan",
     "execute",
 ]
@@ -49,7 +50,7 @@ def project_setup_next_action(
     if analyze_variant == "warning":
         return "analyze"
     if intake.scope_candidates and not intake.selected_scope.strip():
-        return "analyze"
+        return "scope"
     return ready_action
 
 
@@ -70,7 +71,10 @@ def project_intake_matches_workspace(
     if target is None:
         return True
     try:
-        return target.expanduser().resolve() == intake.target_workspace.expanduser().resolve()
+        return (
+            target.expanduser().resolve()
+            == intake.target_workspace.expanduser().resolve()
+        )
     except OSError:
         return (
             target.expanduser().absolute()

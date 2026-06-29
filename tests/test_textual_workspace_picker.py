@@ -99,7 +99,9 @@ def test_build_preflight_reports_clean_git_worktree(tmp_path) -> None:
     assert preflight.untracked_count == 0
     assert preflight.requires_execute_ack is False
     assert "Dirty worktree: clean" in preflight.render()
+    assert "Execute acknowledgement: not required" in preflight.render()
     assert "변경사항: 깨끗함" in preflight.render(lang="ko")
+    assert "실행 확인: 필요 없음" in preflight.render(lang="ko")
 
 
 def test_build_preflight_counts_changed_git_entries(tmp_path) -> None:
@@ -124,6 +126,8 @@ def test_build_preflight_counts_untracked_git_entries(tmp_path) -> None:
     assert preflight.untracked_count == 1
     assert preflight.requires_execute_ack is True
     assert "Dirty worktree: 0 changed, 1 untracked" in preflight.render()
+    assert "Execute acknowledgement: required" in preflight.render()
+    assert "실행 확인: 필요" in preflight.render(lang="ko")
 
 
 def test_build_preflight_marks_missing_child_as_creatable(tmp_path) -> None:

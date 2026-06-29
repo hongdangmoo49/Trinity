@@ -245,6 +245,7 @@ from trinity.textual_app.widgets.execution_retry_modal import (
     ExecutionRetrySelection,
     _retry_note,
 )
+from trinity.textual_app.widgets.execution_confirm_modal import ExecutionConfirmModal
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.model_settings_modal import ModelSettingsModal
@@ -294,6 +295,7 @@ class FakeWorkflowController:
         self.resume_options: list[TextualWorkflowArchiveOption] = []
         self.execution_outcome: TextualWorkflowOutcome | None = None
         self.execution_requests = 0
+        self.execution_instructions: list[str] = []
         self.retry_previews: list[tuple[str, list[str]]] = []
         self.retry_confirms: list[tuple[str, list[str]]] = []
         self.retry_outcome: TextualWorkflowOutcome | None = None
@@ -399,6 +401,7 @@ class FakeWorkflowController:
 
     def request_execution(self, instruction: str = "") -> TextualWorkflowOutcome:
         self.execution_requests += 1
+        self.execution_instructions.append(instruction)
         if self.execution_outcome is not None:
             return self.execution_outcome
         return TextualWorkflowOutcome(
@@ -12560,6 +12563,14 @@ async def test_nexus_execute_requests_execution_when_target_is_selected(
             session_id="wf-fake",
             state="blueprint_ready",
             target_workspace=str(target),
+            work_package_details=[
+                WorkPackageSnapshot(
+                    id="WP-001",
+                    title="Build CLI",
+                    owner_agent="codex",
+                    status="pending",
+                )
+            ],
         )
     )
     app = TrinityTextualApp(
@@ -12579,7 +12590,106 @@ async def test_nexus_execute_requests_execution_when_target_is_selected(
         await pilot.click("#request-execute")
         await pilot.pause()
 
+        assert isinstance(app.screen, ExecutionConfirmModal)
+        assert controller.execution_requests == 0
+        assert "Target workspace" in str(
+            app.screen.query_one("#execution-confirm-summary", Static).content
+        )
+
+        app.screen.action_confirm()
+        await pilot.pause()
+
         assert controller.execution_requests == 1
+        assert controller.execution_instructions == [""]
+
+
+@pytest.mark.asyncio
+async def test_nexus_execute_confirmation_cancel_leaves_execution_untouched(
+    tmp_path,
+) -> None:
+    target = tmp_path / "target-app"
+    target.mkdir()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            state="blueprint_ready",
+            target_workspace=str(target),
+            work_package_details=[
+                WorkPackageSnapshot(
+                    id="WP-001",
+                    title="Build CLI",
+                    owner_agent="codex",
+                    status="pending",
+                )
+            ],
+        )
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        controller,
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        await pilot.click("#request-execute")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ExecutionConfirmModal)
+        app.screen.action_cancel()
+        await pilot.pause()
+
+        assert controller.execution_requests == 0
+        assert controller.execution_instructions == []
+
+
+@pytest.mark.asyncio
+async def test_nexus_execute_slash_command_uses_confirmation(
+    tmp_path,
+) -> None:
+    target = tmp_path / "target-app"
+    target.mkdir()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            state="blueprint_ready",
+            target_workspace=str(target),
+            work_package_details=[
+                WorkPackageSnapshot(
+                    id="WP-001",
+                    title="Build CLI",
+                    owner_agent="codex",
+                    status="pending",
+                )
+            ],
+        )
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        controller,
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/execute focus cli")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ExecutionConfirmModal)
+        assert controller.execution_requests == 0
+        assert "Instruction: focus cli" in str(
+            app.screen.query_one("#execution-confirm-summary", Static).content
+        )
+
+        app.screen.action_confirm()
+        await pilot.pause()
+
+        assert controller.execution_requests == 1
+        assert controller.execution_instructions == ["focus cli"]
 
 
 @pytest.mark.asyncio

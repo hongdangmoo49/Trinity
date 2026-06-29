@@ -58,8 +58,8 @@ from trinity.textual_app.execute_commands import (
     execute_command_effect,
     execution_retry_request_effect,
     execution_recovery_snapshot,
-    run_execute_command,
 )
+from trinity.textual_app.command_parsers import parse_execute_args
 from trinity.textual_app.help_commands import help_command_presentation
 from trinity.textual_app.history_commands import history_command_presentation
 from trinity.textual_app.improve_commands import (
@@ -191,6 +191,10 @@ from trinity.textual_app.widgets.composer import PromptComposer
 from trinity.textual_app.widgets.execution_retry_modal import (
     ExecutionRetryModal,
     ExecutionRetrySelection,
+)
+from trinity.textual_app.widgets.execution_confirm_modal import (
+    ExecutionConfirmModal,
+    execution_confirmation_summary,
 )
 from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.model_settings_modal import ModelSettingsModal
@@ -1969,7 +1973,23 @@ class TrinityTextualApp(App[None]):
         event: NexusScreen.ExecuteRequested,
     ) -> None:
         event.stop()
-        outcome = self.workflow_controller.request_execution()
+        snapshot = (
+            event.snapshot
+            or self.active_snapshot
+            or self.workflow_controller.snapshot()
+            or self.snapshot_adapter.load_snapshot()
+        )
+        if self._maybe_open_execution_confirmation(
+            snapshot,
+            command_name="/execute",
+            instruction="",
+            slash_command=False,
+        ):
+            return
+        self._request_nexus_execution()
+
+    def _request_nexus_execution(self, instruction: str = "") -> None:
+        outcome = self.workflow_controller.request_execution(instruction)
         outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
         if outcome.execution_recovery_required:
             self._present_execution_recovery(
@@ -2158,6 +2178,112 @@ class TrinityTextualApp(App[None]):
 
     def _open_execute_workspace_picker(self, snapshot: WorkflowNexusSnapshot) -> None:
         self._open_workspace_picker(snapshot, self._on_workspace_preflight)
+
+    def _maybe_open_execution_confirmation(
+        self,
+        snapshot: WorkflowNexusSnapshot,
+        *,
+        command_name: str,
+        instruction: str,
+        slash_command: bool,
+    ) -> bool:
+        if not self._execution_confirmation_eligible(snapshot, instruction):
+            return False
+        summary = execution_confirmation_summary(
+            snapshot,
+            project_mode=self._execution_confirmation_project_mode(
+                snapshot.target_workspace
+            ),
+            instruction=instruction,
+        )
+        self.push_screen(
+            ExecutionConfirmModal(summary, lang=self.config.lang),
+            lambda confirmed: self._on_execution_confirmation(
+                confirmed,
+                command_name=command_name,
+                instruction=instruction,
+                slash_command=slash_command,
+            ),
+        )
+        return True
+
+    def _on_execution_confirmation(
+        self,
+        confirmed: bool | None,
+        *,
+        command_name: str,
+        instruction: str,
+        slash_command: bool,
+    ) -> None:
+        if not confirmed:
+            return
+        if slash_command:
+            self._run_textual_execute_command(command_name, instruction)
+            return
+        self._request_nexus_execution(instruction)
+
+    def _execution_confirmation_eligible(
+        self,
+        snapshot: WorkflowNexusSnapshot,
+        instruction: str,
+    ) -> bool:
+        if self.current_route != "nexus":
+            return False
+        if self._execute_instruction_bypasses_confirmation(instruction):
+            return False
+        if snapshot.state != "blueprint_ready":
+            return False
+        if not str(snapshot.target_workspace or "").strip():
+            return False
+        summary = execution_confirmation_summary(snapshot, instruction=instruction)
+        return summary.has_executable_packages
+
+    @staticmethod
+    def _execute_instruction_bypasses_confirmation(instruction: str) -> bool:
+        normalized = instruction.strip().lower()
+        return normalized in {
+            "retry",
+            "retry-interrupted",
+            "recovery retry",
+            "mark-interrupted",
+            "mark interrupted",
+            "mark",
+            "abort",
+            "abort-execution",
+            "abort execution",
+        }
+
+    def _execution_confirmation_project_mode(self, target_workspace: str) -> str:
+        target = str(target_workspace or "").strip()
+        labels = {
+            "en": {
+                "existing": "existing",
+                "new": "new",
+                "missing": "not recorded",
+                "mismatch": "target mismatch",
+                "unreadable": "unreadable",
+            },
+            "ko": {
+                "existing": "기존",
+                "new": "신규",
+                "missing": "기록 없음",
+                "mismatch": "대상 불일치",
+                "unreadable": "읽기 실패",
+            },
+        }.get(self.config.lang, {})
+        try:
+            intake = load_project_intake(self.config.effective_state_dir)
+        except ValueError:
+            return labels.get("unreadable", "unreadable")
+        if intake is None:
+            return labels.get("missing", "not recorded")
+        if target:
+            try:
+                if absolute_path(intake.target_workspace) != absolute_path(Path(target)):
+                    return labels.get("mismatch", "target mismatch")
+            except OSError:
+                return labels.get("mismatch", "target mismatch")
+        return labels.get(intake.mode, intake.mode)
 
     def _open_workspace_picker(
         self,
@@ -2928,8 +3054,22 @@ class TrinityTextualApp(App[None]):
         command_name: str,
         args: list[str],
     ) -> None:
-        run = run_execute_command(args, self.workflow_controller)
-        outcome = run.outcome
+        parsed_execute = parse_execute_args(args)
+        if self._maybe_open_execution_confirmation(
+            self._current_textual_snapshot(),
+            command_name=command_name,
+            instruction=parsed_execute.instruction,
+            slash_command=True,
+        ):
+            return
+        self._run_textual_execute_command(command_name, parsed_execute.instruction)
+
+    def _run_textual_execute_command(
+        self,
+        command_name: str,
+        instruction: str,
+    ) -> None:
+        outcome = self.workflow_controller.request_execution(instruction)
         outcome, message = self._apply_workflow_outcome_without_inline_message(outcome)
         self._apply_textual_execute_effect(
             command_name,

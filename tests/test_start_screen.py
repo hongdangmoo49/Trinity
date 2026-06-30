@@ -100,12 +100,12 @@ def test_start_and_nexus_labels_use_visible_copy(
     ko_start = StartScreen(ko_config, lang="ko")
     ko_nexus = NexusScreen(ko_config)
 
-    assert start._label("placeholder") == "What should Trinity work on?"
-    assert nexus._label("composer_placeholder") == (
+    assert start.label_text("placeholder") == "What should Trinity work on?"
+    assert nexus.label_text("composer_placeholder") == (
         "Reply, refine direction, or type / for commands"
     )
-    assert ko_start._label("placeholder") == "Trinity가 무엇을 진행하면 될까요?"
-    assert ko_nexus._label("composer_placeholder") == "답변, 방향 조정 또는 /로 명령 입력"
+    assert ko_start.label_text("placeholder") == "Trinity가 무엇을 진행하면 될까요?"
+    assert ko_nexus.label_text("composer_placeholder") == "답변, 방향 조정 또는 /로 명령 입력"
 
 
 def test_provider_execution_review_policy_label_handles_provider_counts(

@@ -198,7 +198,7 @@ class NexusScreen(Screen[None]):
             self._recipient_selector = selector
             yield selector
             composer = PromptComposer(
-                placeholder=self._label("composer_placeholder"),
+                placeholder=self.label_text("composer_placeholder"),
                 id="nexus-composer",
                 lang=self.config.lang,
             )
@@ -478,7 +478,7 @@ class NexusScreen(Screen[None]):
         selector = self._agent_selector()
         target_agents = selector.selected_agents()
         if not target_agents:
-            self.app.notify(self._label("select_agent_warning"), severity="warning")
+            self.app.notify(self.label_text("select_agent_warning"), severity="warning")
             return
         self.follow_ups.append(cleaned)
         self._prompt_composer().clear()
@@ -523,7 +523,7 @@ class NexusScreen(Screen[None]):
             for provider in snapshot.providers
         )
 
-    def _label(self, key: str) -> str:
+    def label_text(self, key: str) -> str:
         labels = NEXUS_LABELS.get(self.config.lang, NEXUS_LABELS["en"])
         return labels.get(key, NEXUS_LABELS["en"][key])
 

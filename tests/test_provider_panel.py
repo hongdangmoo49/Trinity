@@ -9,6 +9,7 @@ from trinity.textual_app.widgets.provider_panel import (
     ProviderPanelState,
     provider_panel_classes,
     provider_panel_state_group,
+    provider_panel_status_label,
 )
 
 
@@ -49,10 +50,8 @@ def test_provider_panel_normalizes_status_labels(
         enabled=True,
         status=status,
     )
-    panel = ProviderPanel(state)
-
     assert provider_panel_state_group(state) == expected_state
-    assert expected_label in panel._status_label()
+    assert expected_label in provider_panel_status_label(state)
     assert f"provider-state-{expected_state}" in provider_panel_classes(state)
 
 
@@ -63,10 +62,8 @@ def test_provider_panel_uses_off_state_for_disabled_provider() -> None:
         enabled=False,
         status="Running",
     )
-    panel = ProviderPanel(state)
-
     assert provider_panel_state_group(state) == "off"
-    assert panel._status_label() == "OFF"
+    assert provider_panel_status_label(state) == "OFF"
     assert "provider-disabled" in provider_panel_classes(state)
 
 
@@ -77,9 +74,7 @@ def test_provider_panel_supports_korean_status_labels() -> None:
         enabled=True,
         status="Running",
     )
-    panel = ProviderPanel(state, lang="ko")
-
-    assert "실행" in panel._status_label()
+    assert "실행" in provider_panel_status_label(state, lang="ko")
 
 
 @pytest.mark.parametrize(
@@ -108,9 +103,7 @@ def test_provider_panel_supports_all_korean_status_labels(
         enabled=enabled,
         status=status,
     )
-    panel = ProviderPanel(state, lang="ko")
-
-    assert expected_label in panel._status_label()
+    assert expected_label in provider_panel_status_label(state, lang="ko")
 
 
 @pytest.mark.asyncio
@@ -318,12 +311,9 @@ def test_provider_panel_treats_error_summary_as_issue() -> None:
         status="Ready",
         summary="[Error: exit code 1]",
     )
-    panel = ProviderPanel(state)
-    ko_panel = ProviderPanel(state, lang="ko")
-
     assert provider_panel_state_group(state) == "issue"
-    assert "ISSUE" in panel._status_label()
-    assert "문제" in ko_panel._status_label()
+    assert "ISSUE" in provider_panel_status_label(state)
+    assert "문제" in provider_panel_status_label(state, lang="ko")
 
 
 def test_provider_panel_compacts_long_summary() -> None:

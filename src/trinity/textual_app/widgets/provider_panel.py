@@ -75,6 +75,37 @@ def provider_panel_classes(state: ProviderPanelState) -> str:
     return " ".join(classes)
 
 
+def provider_panel_state_label(state: str, *, lang: str = "en") -> str:
+    ko = {
+        "done": "완료",
+        "idle": "휴식",
+        "issue": "문제",
+        "off": "끔",
+        "running": "실행",
+        "unknown": "?",
+        "waiting": "대기",
+    }
+    en = {
+        "off": "OFF",
+        **COMPACT_STATUS_LABELS,
+    }
+    labels = ko if lang == "ko" else en
+    return labels.get(state, state.upper())
+
+
+def provider_panel_status_label(
+    state: ProviderPanelState,
+    *,
+    activity_frame: int = 0,
+    lang: str = "en",
+) -> str:
+    state_group = provider_panel_state_group(state)
+    prefix = ""
+    if state_group == "running":
+        prefix = f"{ACTIVITY_FRAMES[activity_frame % len(ACTIVITY_FRAMES)]} "
+    return f"{prefix}{provider_panel_state_label(state_group, lang=lang)}"
+
+
 class ProviderPanel(Vertical):
     """Compact status surface for a provider."""
 
@@ -94,7 +125,14 @@ class ProviderPanel(Vertical):
     def compose(self) -> ComposeResult:
         with Horizontal(classes="provider-heading"):
             name = Static(self.state.name.title(), classes="provider-name")
-            status = Static(self._status_label(), classes="provider-status")
+            status = Static(
+                provider_panel_status_label(
+                    self.state,
+                    activity_frame=self._activity_frame,
+                    lang=self.lang,
+                ),
+                classes="provider-status",
+            )
             self._static_cache[".provider-name"] = name
             self._static_cache[".provider-status"] = status
             yield name
@@ -111,7 +149,11 @@ class ProviderPanel(Vertical):
             return
         previous_name = self.state.name.title()
         previous_provider_line = self._provider_line()
-        previous_status_label = self._status_label()
+        previous_status_label = provider_panel_status_label(
+            self.state,
+            activity_frame=self._activity_frame,
+            lang=self.lang,
+        )
         previous_summary_line = self._summary_line()
         previous_classes = provider_panel_classes(self.state)
         self.state = state
@@ -120,7 +162,11 @@ class ProviderPanel(Vertical):
             self.set_classes(classes)
         name = state.name.title()
         provider_line = self._provider_line()
-        status_label = self._status_label()
+        status_label = provider_panel_status_label(
+            self.state,
+            activity_frame=self._activity_frame,
+            lang=self.lang,
+        )
         summary_line = self._summary_line()
         if name != previous_name:
             self._static_for(".provider-name").update(name)
@@ -137,7 +183,13 @@ class ProviderPanel(Vertical):
             return
         self._activity_frame = next_frame
         if self.is_mounted and provider_panel_state_group(self.state) == "running":
-            self._static_for(".provider-status").update(self._status_label())
+            self._static_for(".provider-status").update(
+                provider_panel_status_label(
+                    self.state,
+                    activity_frame=self._activity_frame,
+                    lang=self.lang,
+                )
+            )
 
     def has_running_activity(self) -> bool:
         return provider_panel_state_group(self.state) == "running"
@@ -163,13 +215,6 @@ class ProviderPanel(Vertical):
         if quality:
             parts.append(quality)
         return self._compact_line(" · ".join(part for part in parts if part))
-
-    def _status_label(self) -> str:
-        prefix = ""
-        state = provider_panel_state_group(self.state)
-        if state == "running":
-            prefix = f"{ACTIVITY_FRAMES[self._activity_frame]} "
-        return f"{prefix}{self._label_for_state(state)}"
 
     def _summary_line(self) -> str:
         text = self.state.details or self.state.summary or self._empty_summary()
@@ -255,23 +300,6 @@ class ProviderPanel(Vertical):
         if text == "-0":
             return "0"
         return text or "0"
-
-    def _label_for_state(self, state: str) -> str:
-        ko = {
-            "done": "완료",
-            "idle": "휴식",
-            "issue": "문제",
-            "off": "끔",
-            "running": "실행",
-            "unknown": "?",
-            "waiting": "대기",
-        }
-        en = {
-            "off": "OFF",
-            **COMPACT_STATUS_LABELS,
-        }
-        labels = ko if self.lang == "ko" else en
-        return labels.get(state, state.upper())
 
     def _empty_summary(self) -> str:
         return "응답 없음" if self.lang == "ko" else "No response yet"

@@ -1006,8 +1006,6 @@ def _format_project_intake_label(
             empty_label=labels["tests_none"],
         )
     )
-    if intake.mode == "new":
-        parts.append(_format_new_project_brief_readiness(intake, labels))
     if _project_intake_analysis_is_sparse(intake):
         parts.append(labels["analysis_sparse"])
         parts.append(
@@ -1022,6 +1020,8 @@ def _format_project_intake_label(
         parts.append(git_state)
     if compact:
         return " | ".join(parts)
+    if intake.mode == "new":
+        parts.append(_format_new_project_brief_readiness(intake, labels))
     if intake.product_goal.strip():
         parts.append(
             f"{labels['goal']}: {_format_project_intake_text(intake.product_goal)}"

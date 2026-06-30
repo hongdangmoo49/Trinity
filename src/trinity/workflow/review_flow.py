@@ -97,7 +97,7 @@ class WorkflowReviewFlow:
             for package in session.work_packages
             if package.requires_execution
             and package.status in {WorkStatus.DONE, WorkStatus.NEEDS_REVIEW}
-            and not self._latest_review_is_approved(package.id)
+            and not self.latest_review_is_approved(package.id)
         ]
         reviews = planner.plan_reviews(
             reviewable_packages,
@@ -112,7 +112,7 @@ class WorkflowReviewFlow:
     def _plan_review_packages(self) -> None:
         self.plan_review_packages()
 
-    def _latest_review_is_approved(self, package_id: str) -> bool:
+    def latest_review_is_approved(self, package_id: str) -> bool:
         planned = [
             review
             for review in self._planned_review_packages()

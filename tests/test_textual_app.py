@@ -254,7 +254,10 @@ from trinity.textual_app.widgets.execution_confirm_modal import ExecutionConfirm
 from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.model_settings_modal import ModelSettingsModal
-from trinity.textual_app.widgets.provider_inspector import ProviderInspector
+from trinity.textual_app.widgets.provider_inspector import (
+    ProviderInspector,
+    provider_inspector_provider_output,
+)
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
 from trinity.textual_app.widgets.question_panel import QuestionPanel
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
@@ -10468,7 +10471,10 @@ async def test_provider_panel_shows_summary_and_keeps_raw_in_inspector(tmp_path)
         await pilot.pause()
 
         assert isinstance(app.screen, ProviderInspector)
-        assert "line 29" in app.screen._provider_output(app.screen.providers[0])
+        assert "line 29" in provider_inspector_provider_output(
+            app.screen.providers[0],
+            lang=app.screen.lang,
+        )
 
 
 @pytest.mark.asyncio

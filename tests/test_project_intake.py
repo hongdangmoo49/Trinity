@@ -645,6 +645,7 @@ def test_target_workspace_context_block_guides_scope_and_user_intent(
     assert f"- Target workspace: {target}" in block
     assert "Treat the selected workspace as context" in block
     assert "requires_execution" in block
+    assert "analysis-only unless the user also asks to change files" in block
     assert "If intent is ambiguous" in block
     assert target_workspace_context_block(None) == ""
 

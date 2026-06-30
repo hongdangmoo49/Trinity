@@ -168,7 +168,7 @@ class NexusScreen(Screen[None]):
                     )
                     self._provider_panels[state.name] = panel
                     yield panel
-            workspace_label_text = self._workspace_label()
+            workspace_label_text = self.workspace_label()
             workspace_label = Static(
                 workspace_label_text,
                 id="nexus-target-workspace",
@@ -454,13 +454,13 @@ class NexusScreen(Screen[None]):
         self.post_message(self.ExecuteRequested(self.snapshot))
 
     def _refresh_workspace_label(self) -> None:
-        label = self._workspace_label()
+        label = self.workspace_label()
         if label == self._workspace_label_key:
             return
         self._workspace_label_static().update(label)
         self._workspace_label_key = label
 
-    def _workspace_label(self) -> str:
+    def workspace_label(self) -> str:
         return target_workspace_state_label(
             nexus_current_workspace_text(self.snapshot, self._workspace_candidate),
             control_repo=self.config.project_dir,

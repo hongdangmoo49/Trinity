@@ -1232,13 +1232,13 @@ def test_nexus_workspace_label_uses_target_state_helper(tmp_path: Path) -> None:
     target.mkdir()
     screen = NexusScreen(TrinityConfig.default_config(project_dir=control_repo))
 
-    assert screen._workspace_label() == "No target workspace selected"
+    assert screen.workspace_label() == "No target workspace selected"
 
     screen.snapshot = WorkflowNexusSnapshot(target_workspace=str(target))
-    assert screen._workspace_label() == f"Planning target: {target}"
+    assert screen.workspace_label() == f"Planning target: {target}"
 
     screen.snapshot = WorkflowNexusSnapshot(target_workspace=str(control_repo))
-    assert screen._workspace_label() == (
+    assert screen.workspace_label() == (
         "Control repo selected; confirmation required before write: "
         f"{control_repo}"
     )

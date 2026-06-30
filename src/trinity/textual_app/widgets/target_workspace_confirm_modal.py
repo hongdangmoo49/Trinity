@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Static
 
@@ -49,7 +49,8 @@ class TargetWorkspaceConfirmModal(ModalScreen[bool]):
     #target-confirm-modal {
         width: 78;
         max-width: 92%;
-        height: auto;
+        height: 95%;
+        max-height: 95%;
         border: round $warning;
         padding: 1 2;
         background: $surface;
@@ -67,6 +68,11 @@ class TargetWorkspaceConfirmModal(ModalScreen[bool]):
 
     #target-confirm-paths {
         color: $text-muted;
+        margin-bottom: 1;
+    }
+
+    #target-confirm-content {
+        height: 1fr;
         margin-bottom: 1;
     }
 
@@ -100,15 +106,16 @@ class TargetWorkspaceConfirmModal(ModalScreen[bool]):
     def compose(self) -> ComposeResult:
         with Vertical(id="target-confirm-modal"):
             yield Static(self._label("title"), id="target-confirm-title")
-            yield Static(
-                self._label("body"),
-                id="target-confirm-body",
-            )
-            yield Static(
-                f"{self._label('target')}: {self.target_path}\n"
-                f"{self._label('control_repo')}: {self.control_repo}",
-                id="target-confirm-paths",
-            )
+            with VerticalScroll(id="target-confirm-content"):
+                yield Static(
+                    self._label("body"),
+                    id="target-confirm-body",
+                )
+                yield Static(
+                    f"{self._label('target')}: {self.target_path}\n"
+                    f"{self._label('control_repo')}: {self.control_repo}",
+                    id="target-confirm-paths",
+                )
             with Horizontal(id="target-confirm-actions"):
                 yield Button(self._label("cancel"), id="cancel-target-confirm")
                 yield Button(

@@ -1,16 +1,16 @@
-# Project Intake Workspace Profile
+# Saved Project Context Workspace Profile
 
-This document defines the first workspace-profile extension for Trinity project
-intake. The goal is to make new and existing project starts provide enough
-orientation for agents before they plan or edit files.
+This document defines the first workspace-profile extension for Trinity saved
+project context. The goal is to make new and existing project starts provide
+enough orientation for agents before they plan or edit files.
 
 ## Problem
 
-The previous intake artifact recorded the selected target workspace, Git state,
-package managers, and likely test commands. That was enough to prove that
+The previous saved context artifact recorded the selected target workspace, Git
+state, package managers, and likely test commands. That was enough to prove that
 Trinity was pointed at the right directory, but not enough to tell agents where
-to begin reading, how to run the app locally, or which documentation files should
-anchor the first response.
+to begin reading, how to run the app locally, or which documentation files
+should anchor the first response.
 
 This is especially visible in two user journeys:
 
@@ -22,7 +22,7 @@ This is especially visible in two user journeys:
 
 ## Contract
 
-Project intake now includes read-only workspace profile fields:
+Saved project context now includes read-only workspace profile fields:
 
 - `dev_commands`: likely local development commands.
 - `build_commands`: likely build/package commands.
@@ -30,7 +30,7 @@ Project intake now includes read-only workspace profile fields:
 - `source_roots`: common source/test directories.
 - `docs_found`: documentation files and folders worth reading first.
 
-Project intake also includes optional user-provided project brief fields:
+Saved project context also includes optional user-provided project brief fields:
 
 - `product_goal`: the outcome the user wants the target project to achieve.
 - `project_type`: the type or category of product being started or improved.
@@ -43,20 +43,20 @@ Project intake also includes optional user-provided project brief fields:
 
 These fields must be safe to compute during project diagnostics, workspace
 selection, and execution preflight. They must not execute package managers,
-tests, build tools, or user code. Older intake JSON without these fields
+tests, build tools, or user code. Older saved context JSON without these fields
 remains valid and loads with empty tuples.
 
 ## Prompt Guidance
 
-Provider prompts include mode-specific project intake guidance when both
+Provider prompts include mode-specific saved project context guidance when both
 `project-intake.json` and `project-intake.md` are present. Existing projects are
 framed as established workspaces that should be read before edits. New projects
 are framed as fresh workspaces that should confirm product goal, stack, and first
 milestone before scaffolding.
 
-The guidance is derived from persisted intake JSON. Legacy states with only
-`project-intake.md` keep the older prompt shape and include the Markdown context
-without extra guidance.
+The guidance is derived from persisted project context JSON. Legacy states with
+only `project-intake.md` keep the older prompt shape and include the Markdown
+context without extra guidance.
 
 CLI users can record the brief with `trinity project new` or
 `trinity project analyze`:
@@ -70,10 +70,10 @@ CLI users can record the brief with `trinity project new` or
 - `--constraint TEXT` repeated or comma-separated
 
 `trinity init --mode new --project-name NAME` can also create the initial
-target workspace during setup and write the same new-project intake artifacts.
+target workspace during setup and write the same new-project context artifacts.
 If `--project-name` is provided without `--mode`, init treats the flow as new
-project onboarding. `--mode new` without `--project-name` keeps project intake
-deferred, but the generic init next steps stay prompt-led: check
+project onboarding. `--mode new` without `--project-name` keeps saved project
+context deferred, but the generic init next steps stay prompt-led: check
 `trinity project status`, then run `trinity` from the selected workspace.
 
 When a new-project brief is incomplete, `trinity project new`,
@@ -85,12 +85,12 @@ before running `trinity`.
 `trinity project status --refresh` refreshes filesystem-derived analysis while
 preserving the saved project brief.
 
-`trinity project status` also prints the same compact project-intake summary
-used by `/project` diagnostics before the detailed saved/current analysis
-sections. This lets CLI users verify the Workbench-facing target, brief, test,
-and safety signals without opening the Textual UI. JSON status includes the
-same compact summary under `project_intake.summary` so scripts can reuse the
-same readiness signal without scraping panel text.
+`trinity project status` also prints the same compact saved project context
+summary used by `/project` diagnostics before the detailed saved/current
+analysis sections. This lets CLI users verify the Workbench-facing target,
+brief, test, and safety signals without opening the Textual UI. JSON status
+includes the same compact summary under `project_intake.summary` so scripts can
+reuse the same readiness signal without scraping panel text.
 JSON status also exposes `project_intake.readiness`. This field provides target
 existence, sparse/stale/changed analysis, missing new-project brief fields, and
 the prompt-led next step without requiring callers to parse the compact
@@ -103,37 +103,38 @@ uses UI-neutral values such as `select_workspace`, `describe_project`,
 `describe_validation`, and `describe_work`. The older `recommended_action` field
 has been removed.
 
-When matching existing-project intake differs from the current workspace profile,
-`trinity project status` marks the analysis as changed, lists the changed intake
+When saved existing-project context differs from the current workspace profile,
+`trinity project status` marks the analysis as changed, lists the changed context
 fields, and recommends `trinity project status --refresh` before `trinity`. This
 uses the same read-only drift signals as Execute Preflight and lets CLI users
 refresh saved context before opening the Workbench.
 
 Project diagnostics use the same changed-analysis signal for matching
-existing-project intake. When the saved profile differs from the live workspace,
-the compact summary shows changed analysis and the
+saved existing-project context. When the saved profile differs from the live
+workspace, the compact summary shows changed analysis and the
 `trinity project analyze <target>` refresh command. Missing targets, target
 mismatches, sparse analysis, and stale analysis keep their existing priority
 over the changed-analysis hint.
 
-When no project intake has been recorded yet, the Workbench stays prompt-led:
-the user should select or keep the target workspace, then type the analysis or
-work request. CLI users can still run `trinity project analyze <path>` when
-they want to pre-record project intake before opening Workbench.
+When no saved project context has been recorded yet, the Workbench stays
+prompt-led: the user should select or keep the target workspace, then type the
+analysis or work request. CLI users can still run
+`trinity project analyze <path>` when they want to pre-record project context
+before opening Workbench.
 
-When Trinity opens the Workbench and the saved intake target matches the active
+When Trinity opens the Workbench and the saved context target matches the active
 workspace candidate, the composer remains user-authored. Saved `product_goal`
 stays visible through diagnostics and prompt guidance instead of being injected
 as the starting prompt.
 
-When saved project intake exists but points at a different workspace than the
+When saved project context exists but points at a different workspace than the
 current Workbench target, project diagnostics show a target mismatch warning.
 This prevents users from planning against one workspace while the saved analysis
 and brief still describe another.
 
-When the saved intake target no longer exists, `/project` diagnostics and
+When the saved context target no longer exists, `/project` diagnostics and
 `trinity project status` mark the compact summary as target missing. This
-prevents users from trusting stale intake after moving, deleting, or renaming a
+prevents users from trusting stale context after moving, deleting, or renaming a
 project folder. CLI status next steps prefer target recovery in this state:
 existing projects are sent back to `trinity project analyze [PATH]`, while new
 projects are given a `trinity project new <name> --parent <path>` recreation
@@ -160,9 +161,10 @@ highlighting an edit button.
 When the Workbench preflight sees an existing empty non-Git directory, it treats
 that directory as a new-project candidate instead of an existing project. This
 lets users create a folder outside Trinity first, select it, and still get
-new-project intake guidance and brief readiness instead of sparse existing
-project analysis warnings. Non-empty directories continue to use existing
-project intake unless they were created by the Workbench new-folder flow.
+new-project context guidance and brief readiness instead of sparse existing
+project analysis warnings. Non-empty directories continue to use saved
+existing-project context unless they were created by the Workbench new-folder
+flow.
 
 Project diagnostics and CLI status also surface saved brief details when present:
 goal, project type, target users, success criteria, stack preferences, first
@@ -171,36 +173,38 @@ product direction before scaffolding, and lets existing-project users verify
 their saved intent before agents plan against the codebase.
 
 Project diagnostics and CLI status include the saved analysis date as
-`updated: YYYY-MM-DD` / `갱신: YYYY-MM-DD`. Existing-project intake older than
-14 days is also marked as stale and includes a `trinity project analyze <target>`
-refresh command. This gives existing-project users a quick staleness check
-before planning against a workspace that may have changed since the last
+`updated: YYYY-MM-DD` / `갱신: YYYY-MM-DD`. Saved existing-project context older
+than 14 days is also marked as stale and includes a
+`trinity project analyze <target>` refresh command. This gives
+existing-project users a quick staleness check before planning against a
+workspace that may have changed since the last
 `trinity project analyze` or `trinity project status --refresh`.
 
 For existing projects, project diagnostics and CLI status include the saved Git
-state from the latest intake analysis. Non-Git workspaces show `git: none`, clean
-repositories show the branch and clean state, and dirty repositories show saved
-dirty and untracked counts. This keeps the selected project safety signal visible
-before planning or execution. The same diagnostics also surface detected source
-roots, so existing-project users can confirm that Trinity found the expected
-source and test directories before asking agents to plan against the project.
+state from the latest saved analysis. Non-Git workspaces show `git: none`,
+clean repositories show the branch and clean state, and dirty repositories show
+saved dirty and untracked counts. This keeps the selected project safety signal
+visible before planning or execution. The same diagnostics also surface detected
+source roots, so existing-project users can confirm that Trinity found the
+expected source and test directories before asking agents to plan against the
+project.
 
 Execute preflight treats a dirty Git target, stale or sparse existing-project
-intake, existing-project intake that differs from the live workspace profile, and
-incomplete new-project briefs as explicit safety gates. The first
+context, saved existing-project context that differs from the live workspace
+profile, and incomplete new-project briefs as explicit safety gates. The first
 `Confirm Execute` on a gated target shows a warning and keeps the preflight
 modal open. Pressing `Confirm Execute` again confirms that the user wants to
 execute anyway. Workspace selection mode is not gated, because selecting or
 analyzing a target should remain read-only.
 
-For matching existing-project intake, execute preflight compares the saved intake
-to a fresh read-only profile before execution. A changed Git branch, dirty or
-untracked count, package manager signal, test/dev/build command, entrypoint,
-source root, or documentation anchor is shown as changed saved analysis. This
-avoids using a recently recorded but already outdated project profile as if it
-still described the selected workspace.
+For matching saved existing-project context, execute preflight compares the
+saved context to a fresh read-only profile before execution. A changed Git
+branch, dirty or untracked count, package manager signal, test/dev/build
+command, entrypoint, source root, or documentation anchor is shown as changed
+saved analysis. This avoids using a recently recorded but already outdated
+project profile as if it still described the selected workspace.
 
-If an existing-project intake has no detected test commands, source roots, or
+If saved existing-project context has no detected test commands, source roots, or
 documentation, project diagnostics and `project status` mark the analysis as
 sparse and show the missing anchors: tests, source roots, and docs. This tells
 users that Trinity has very little project structure to anchor the first plan

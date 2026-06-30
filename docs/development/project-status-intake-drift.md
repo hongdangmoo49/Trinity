@@ -1,21 +1,21 @@
-# Project Status Intake Drift
+# Project Status Context Drift
 
 This design extends `trinity project status` after the execute-preflight drift
 gate landed.
 
 ## Problem
 
-Execute Preflight now warns when saved existing-project intake differs from the
+Execute Preflight now warns when saved existing-project context differs from the
 live workspace. That protects the final execution step, but CLI users should be
 able to see the same condition before opening the Textual workbench or pressing
 execute.
 
 ## Contract
 
-`trinity project status` should report whether matching existing-project intake
+`trinity project status` should report whether matching existing-project context
 has drifted from the current workspace profile.
 
-For changed existing-project intake:
+For changed existing-project context:
 
 - human output shows an analysis changed line and recommends
   `trinity project status --refresh`;
@@ -45,7 +45,7 @@ code.
 
 Coverage should prove:
 
-- unchanged existing-project intake keeps `analysis_changed` false;
+- unchanged existing-project context keeps `analysis_changed` false;
 - changed analysis anchors are shown in human output and JSON;
 - drift recommends `trinity project status --refresh`;
-- `--refresh` clears the drift because the saved intake is rewritten.
+- `--refresh` clears the drift because the saved context is rewritten.

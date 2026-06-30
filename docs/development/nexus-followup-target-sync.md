@@ -19,8 +19,8 @@ the user later selects another project in the Nexus page.
   candidate.
 - Do not silently select the Trinity control repository unless the existing target
   confirmation flow has already approved it.
-- Keep explicit workspace selection, project intake, execution, and review flows
-  unchanged.
+- Keep explicit workspace selection, saved project context, execution, and
+  review flows unchanged.
 
 ## User Experience
 
@@ -56,7 +56,7 @@ plan for `msu`, not the Trinity control repository that happened to be the launc
 ## Non-goals
 
 - This change does not alter provider cwd isolation.
-- This change does not redesign project intake persistence.
+- This change does not redesign saved project context persistence.
 - This change does not add another confirmation modal for control-repo targets; those
   still go through the existing explicit selection and confirmation paths.
 

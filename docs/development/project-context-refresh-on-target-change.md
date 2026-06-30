@@ -10,7 +10,7 @@ and Nexus exposed several project-context surfaces:
 
 - workspace label
 - startup readiness
-- project intake summary
+- saved project context summary
 - plan/generation/validation previews
 - read-first checklist
 - analyze/create/brief action state
@@ -40,7 +40,7 @@ Whenever the effective target workspace changes:
   refresh.
 - Wire Nexus `set_workspace_candidate()` and `apply_snapshot()` to refresh the
   workspace label when the effective target changes.
-- Keep project diagnostics and project intake semantics unchanged.
+- Keep project diagnostics and saved project context semantics unchanged.
 
 ## Validation
 

@@ -1829,7 +1829,6 @@ async def test_start_screen_stays_within_narrow_viewport(tmp_path) -> None:
             start.query_one("#start-recipient-selector", AgentRecipientModelSelector),
             start.query_one("#start-actions"),
             start.query_one("#workspace-candidate", Static),
-            start.query_one("#choose-workspace", Button),
         )
         for widget in widgets:
             assert widget.region.x >= 0
@@ -1839,7 +1838,7 @@ async def test_start_screen_stays_within_narrow_viewport(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_start_workspace_label_keeps_button_height_with_long_path(
+async def test_start_workspace_label_stays_compact_with_long_path(
     tmp_path,
 ) -> None:
     control_repo = tmp_path / "control"
@@ -1858,10 +1857,11 @@ async def test_start_workspace_label_keeps_button_height_with_long_path(
         assert isinstance(start, StartScreen)
         actions = start.query_one("#start-actions")
         workspace_label = start.query_one("#workspace-candidate", Static)
-        button = start.query_one("#choose-workspace", Button)
 
-        assert workspace_label.region.height == button.region.height
-        assert actions.region.height == button.region.height
+        with pytest.raises(NoMatches):
+            start.query_one("#choose-workspace", Button)
+        assert workspace_label.region.height == 1
+        assert actions.region.height == 1
         assert actions.region.y + actions.region.height <= start.size.height
 
 
@@ -7312,9 +7312,8 @@ async def test_start_and_central_chrome_uses_korean_labels(
         assert isinstance(start, StartScreen)
         with pytest.raises(NoMatches):
             start.query_one("#start-subtitle", Static)
-        assert str(start.query_one("#choose-workspace", Button).label) == (
-            "작업 폴더"
-        )
+        with pytest.raises(NoMatches):
+            start.query_one("#choose-workspace", Button)
         with pytest.raises(NoMatches):
             start.query_one("#plan-first", Button)
         assert str(start.query_one("#workspace-candidate", Static).content).startswith(
@@ -11095,7 +11094,7 @@ async def test_provider_inspector_localizes_korean_raw_path_truncation(tmp_path)
 
 
 @pytest.mark.asyncio
-async def test_start_select_workspace_opens_workspace_picker(tmp_path) -> None:
+async def test_start_project_workspace_command_opens_workspace_picker(tmp_path) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),
         FakeWorkflowController(),
@@ -11103,7 +11102,7 @@ async def test_start_select_workspace_opens_workspace_picker(tmp_path) -> None:
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        await pilot.click("#choose-workspace")
+        app._handle_textual_slash_command("/project workspace")
         await pilot.pause()
 
         assert isinstance(app.screen, WorkspacePicker)
@@ -11116,7 +11115,7 @@ async def test_start_select_workspace_opens_workspace_picker(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_start_select_workspace_updates_workspace_candidate(tmp_path) -> None:
+async def test_start_project_workspace_command_updates_workspace_candidate(tmp_path) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),
         FakeWorkflowController(),
@@ -11124,7 +11123,7 @@ async def test_start_select_workspace_updates_workspace_candidate(tmp_path) -> N
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        await pilot.click("#choose-workspace")
+        app._handle_textual_slash_command("/project workspace")
         await pilot.pause()
         picker = app.screen
         assert isinstance(picker, WorkspacePicker)
@@ -12062,7 +12061,7 @@ async def test_start_project_brief_request_writes_project_brief(
 
 
 @pytest.mark.asyncio
-async def test_start_workspace_button_keeps_stable_dimension(tmp_path) -> None:
+async def test_start_workspace_label_keeps_stable_dimension(tmp_path) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),
         FakeWorkflowController(),
@@ -12073,7 +12072,9 @@ async def test_start_workspace_button_keeps_stable_dimension(tmp_path) -> None:
         await pilot.pause()
         start = app.get_screen("start", StartScreen)
 
-        assert start.query_one("#choose-workspace", Button).styles.width.value == 14
+        with pytest.raises(NoMatches):
+            start.query_one("#choose-workspace", Button)
+        assert start.query_one("#workspace-candidate", Static).styles.height.value == 1
 
 
 def test_workbench_syncs_created_workspace_as_new_project_intake(tmp_path) -> None:
@@ -12315,7 +12316,7 @@ async def test_start_selected_workspace_overrides_launch_cwd_on_submit(
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        await pilot.click("#choose-workspace")
+        app._handle_textual_slash_command("/project workspace")
         await pilot.pause()
         picker = app.screen
         assert isinstance(picker, WorkspacePicker)

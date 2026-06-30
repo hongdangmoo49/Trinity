@@ -801,22 +801,16 @@ class TrinityTextualApp(App[None]):
 
     #start-actions {
         width: 100%;
-        height: auto;
+        height: 1;
         margin-top: 1;
-        align-horizontal: right;
     }
 
     #workspace-candidate {
         width: 1fr;
         min-width: 0;
-        height: 3;
+        height: 1;
         color: $text-muted;
-        content-align: left bottom;
-    }
-
-    #choose-workspace {
-        width: 14;
-        margin-left: 1;
+        content-align: left middle;
     }
 
     #nexus-screen {
@@ -1825,17 +1819,6 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         event.stop()
         self._handle_textual_slash_command(event.text)
-
-    def on_start_screen_workspace_requested(
-        self,
-        event: StartScreen.WorkspaceRequested,
-    ) -> None:
-        event.stop()
-        self._open_workspace_picker(
-            WorkflowNexusSnapshot(),
-            self._on_workspace_candidate_selected,
-            intent="select",
-        )
 
     def on_nexus_screen_follow_up_submitted(
         self,

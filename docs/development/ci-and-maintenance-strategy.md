@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.857`
-- Merged PR range reviewed: #90 through #1017
+- Package version inspected: `1.0.860`
+- Merged PR range reviewed: #90 through #1020
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1017
-- Latest refresh reviewed: #1017
+- Maintenance refresh reviewed: #427 through #1020
+- Latest refresh reviewed: #1020
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2160,7 +2160,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1017: Prompt-Led Workbench Simplification
+### #977-#1020: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2168,7 +2168,8 @@ and what the next release train should optimize.
   shortcuts, modal runtime paths, and unused project setup widgets.
 - Replaced button-led readiness with prompt-led `workbench_next_step` metadata.
 - Removed stale project CTA/selector tests, superseded Workbench action notes,
-  old Workbench plan reports, and obsolete init next-step wording.
+  old Workbench plan reports, obsolete init next-step wording, stale
+  `project_start_guide` assertions, and dead project rail/runtime notes.
 
 This refresh moves the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
@@ -2381,7 +2382,7 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #1017:
+Current main snapshot after #1020:
 
 - `src/trinity/textual_app/app.py`: 3,506 lines
 - `src/trinity/workflow/engine.py`: 625 lines

@@ -52,9 +52,9 @@ class StatusCommandModal(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="status-command-modal"):
-            yield Static(self._label("title"), id="status-command-title")
+            yield Static(self.label_text("title"), id="status-command-title")
             yield Static(
-                self._label("body"),
+                self.label_text("body"),
                 id="status-command-body",
             )
             yield Static(
@@ -62,7 +62,7 @@ class StatusCommandModal(ModalScreen[None]):
                 id="status-command-table",
                 classes="status-readonly-table",
             )
-            yield Button(self._label("close"), id="close-status-command")
+            yield Button(self.label_text("close"), id="close-status-command")
         yield Footer()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -79,13 +79,13 @@ class StatusCommandModal(ModalScreen[None]):
         rows = [tuple(self.result.table_columns), *self.result.table_rows]
         rows = [row for row in rows if row]
         if not rows:
-            return self._label("empty")
+            return self.label_text("empty")
         item_width = max(len(row[0]) for row in rows)
         return "\n".join(
             f"{item:<{item_width}}  {value}"
             for item, value, *_ in rows
         )
 
-    def _label(self, key: str) -> str:
+    def label_text(self, key: str) -> str:
         labels = STATUS_MODAL_LABELS.get(self.lang, STATUS_MODAL_LABELS["en"])
         return labels.get(key, STATUS_MODAL_LABELS["en"][key])

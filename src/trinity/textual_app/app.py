@@ -1670,7 +1670,7 @@ class TrinityTextualApp(App[None]):
         )
         summary = execution_confirmation_summary(
             snapshot,
-            project_mode=context_summary.project_mode,
+            workspace_context=context_summary.workspace_context,
             context_items=context_summary.items,
             instruction=instruction,
             risk_items=self._execution_confirmation_risk_items(snapshot),

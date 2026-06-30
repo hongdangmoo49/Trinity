@@ -367,7 +367,7 @@ class InteractiveSession:
         """Show compact project diagnostics."""
         if args:
             self.console.print(
-                "[yellow]/project only shows diagnostics. Use /workspace <path> to select a target.[/yellow]"
+                "[yellow]/project only shows diagnostics. Use /target <path> to select a target.[/yellow]"
             )
             return
         presentation = project_command_presentation(

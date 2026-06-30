@@ -649,6 +649,7 @@ class TestProjectAnalyze:
             assert "Start guide:" not in result.output
             assert "Project start:" not in result.output
             assert "Run `trinity` in the workspace you want to use" in result.output
+            assert "Or set it with `/target <PATH>`." in result.output
             assert "Describe whether you want analysis" in result.output
             assert "Use `/project` inside Trinity" in result.output
 
@@ -665,7 +666,7 @@ class TestProjectAnalyze:
             assert data["current_analysis"] is None
             assert data["next_steps"] == [
                 "trinity",
-                "/workspace <PATH>",
+                "/target <PATH>",
                 "describe analysis or work in the prompt",
             ]
 

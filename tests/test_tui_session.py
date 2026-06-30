@@ -373,7 +373,7 @@ class TestSessionHandleCommand:
             session._handle_command(f"/project workspace {target}")
 
         print_.assert_called_once_with(
-            "[yellow]/project only shows diagnostics. Use /workspace <path> to select a target.[/yellow]"
+            "[yellow]/project only shows diagnostics. Use /target <path> to select a target.[/yellow]"
         )
         assert session.workflow.session.target_workspace is None
         assert not target.exists()

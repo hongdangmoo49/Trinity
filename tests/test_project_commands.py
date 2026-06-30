@@ -16,7 +16,7 @@ def test_project_command_presentation_uses_selected_workspace(tmp_path) -> None:
 
     assert presentation.title == "프로젝트 진단"
     assert f"대상 워크스페이스: {target}" in presentation.body
-    assert "시작 준비:" in presentation.body
+    assert "준비 상태:" in presentation.body
     assert (
         "프로젝트 인테이크: 기록 없음 | 다음: 분석이나 작업 요청 입력"
         in presentation.body

@@ -18,9 +18,9 @@ from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.workspace_labels import (
     project_existing_diagnostic_label,
     project_generation_preview_label,
+    project_diagnostic_readiness_label,
     project_intake_state_label,
     project_plan_preview_label,
-    project_startup_readiness_label,
     provider_cli_setup_label,
     provider_execution_review_policy_label,
     project_read_first_checklist_label,
@@ -203,7 +203,7 @@ def test_provider_cli_setup_label_reports_selected_cli_commands(
     )
 
 
-def test_project_startup_readiness_label_summarizes_first_run_state(
+def test_project_diagnostic_readiness_label_summarizes_first_run_state(
     tmp_path: Path,
 ) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
@@ -211,21 +211,21 @@ def test_project_startup_readiness_label_summarizes_first_run_state(
     target = tmp_path / "customer-app"
     target.mkdir()
 
-    assert project_startup_readiness_label(
+    assert project_diagnostic_readiness_label(
         state,
         config.agents,
         target_workspace=target,
     ) == (
-        "Startup readiness: target ok | intake missing | "
+        "Readiness: target ok | intake missing | "
         "providers 1 selected | validation missing"
     )
-    assert project_startup_readiness_label(
+    assert project_diagnostic_readiness_label(
         state,
         config.agents,
         selected_agents=(),
         target_workspace=target,
     ) == (
-        "Startup readiness: target ok | intake missing | "
+        "Readiness: target ok | intake missing | "
         "providers 0 selected | validation missing"
     )
 
@@ -234,12 +234,12 @@ def test_project_startup_readiness_label_summarizes_first_run_state(
         build_project_intake(mode="new", target_workspace=target),
     )
 
-    assert project_startup_readiness_label(
+    assert project_diagnostic_readiness_label(
         state,
         config.agents,
         target_workspace=target,
     ) == (
-        "Startup readiness: target ok | intake check | "
+        "Readiness: target ok | intake check | "
         "providers 1 selected | validation missing"
     )
 
@@ -256,12 +256,12 @@ def test_project_startup_readiness_label_summarizes_first_run_state(
         ),
     )
 
-    assert project_startup_readiness_label(
+    assert project_diagnostic_readiness_label(
         state,
         config.agents,
         target_workspace=target,
     ) == (
-        "Startup readiness: target ok | intake check | "
+        "Readiness: target ok | intake check | "
         "providers 1 selected | validation missing"
     )
 
@@ -279,26 +279,26 @@ def test_project_startup_readiness_label_summarizes_first_run_state(
         ),
     )
 
-    assert project_startup_readiness_label(
+    assert project_diagnostic_readiness_label(
         state,
         config.agents,
         target_workspace=target,
     ) == (
-        "Startup readiness: target ok | intake ok | "
+        "Readiness: target ok | intake ok | "
         "providers 1 selected | validation planned"
     )
-    assert project_startup_readiness_label(
+    assert project_diagnostic_readiness_label(
         state,
         config.agents,
         lang="ko",
         target_workspace=target,
     ) == (
-        "시작 준비: 대상 정상 | 인테이크 정상 | "
+        "준비 상태: 대상 정상 | 인테이크 정상 | "
         "프로바이더 1개 선택 | 검증 계획됨"
     )
 
 
-def test_project_startup_readiness_label_checks_existing_project_intake(
+def test_project_diagnostic_readiness_label_checks_existing_project_intake(
     tmp_path: Path,
 ) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
@@ -321,22 +321,22 @@ def test_project_startup_readiness_label_checks_existing_project_intake(
         ),
     )
 
-    assert project_startup_readiness_label(
+    assert project_diagnostic_readiness_label(
         state,
         config.agents,
         target_workspace=target,
         today=date(2026, 6, 28),
     ) == (
-        "Startup readiness: target ok | intake ok | "
+        "Readiness: target ok | intake ok | "
         "providers 1 selected | validation planned"
     )
-    assert project_startup_readiness_label(
+    assert project_diagnostic_readiness_label(
         state,
         config.agents,
         target_workspace=tmp_path / "other-app",
         today=date(2026, 6, 28),
     ) == (
-        "Startup readiness: target ok | intake check | "
+        "Readiness: target ok | intake check | "
         "providers 1 selected | validation missing"
     )
 

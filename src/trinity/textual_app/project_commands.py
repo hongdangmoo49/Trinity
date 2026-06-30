@@ -9,10 +9,10 @@ from pathlib import Path
 from trinity.textual_app.workspace_labels import (
     project_existing_diagnostic_label,
     project_generation_preview_label,
+    project_diagnostic_readiness_label,
     project_intake_state_label,
     project_plan_preview_label,
     project_read_first_checklist_label,
-    project_startup_readiness_label,
     project_validation_plan_label,
 )
 
@@ -41,7 +41,7 @@ def project_command_presentation(
     missing_target = "선택 안 됨" if lang == "ko" else "not selected"
     lines = [
         f"{target_label}: {str(target_workspace or '').strip() or missing_target}",
-        project_startup_readiness_label(
+        project_diagnostic_readiness_label(
             state_dir,
             agents,
             selected_agents=selected_agents,

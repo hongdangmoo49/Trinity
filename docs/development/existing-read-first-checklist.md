@@ -2,7 +2,7 @@
 
 ## Problem
 
-Existing-project intake detects documentation, source roots, entrypoints, scope
+Existing-project context detects documentation, source roots, entrypoints, scope
 candidates, and test/build commands. `/project` diagnostics and CLI status
 already include a compact `read first` hint, and analysis prompts include
 detected anchors.
@@ -16,11 +16,11 @@ context.
 ## Scope
 
 - Add a derived read-first checklist preview for saved `mode == "existing"`
-  project intake.
-- Show the preview through `/project` diagnostics near the other project-intake
+  project context.
+- Show the preview through `/project` diagnostics near the other project-context
   previews.
 - Expose the same preview through `trinity project status` text and JSON.
-- Derive the checklist from saved intake only:
+- Derive the checklist from saved project context only:
   `selected_scope`, `docs_found`, `source_roots`, `entrypoints`,
   `scope_candidates`, and validation commands.
 - Keep the preview advisory and non-blocking.
@@ -36,7 +36,7 @@ context.
 ## Design
 
 Add a shared `project_read_first_checklist_label()` helper next to the existing
-project-intake label helpers. It returns an empty string unless the saved intake
+project-intake label helpers. It returns an empty string unless the saved context
 matches the selected existing-project target.
 
 The helper should render a compact localized line:
@@ -66,8 +66,8 @@ tracking or per-agent evidence, but this change keeps the UX focused and safe.
 
 ## Tests
 
-- Shared helper returns English and Korean checklists for existing intake.
-- Existing intake with no anchors still returns a useful sparse checklist.
-- New-project intake returns no read-first checklist.
-- CLI `project status` text and JSON include the checklist for existing intake.
-- `/project` diagnostics refresh the checklist after project intake changes.
+- Shared helper returns English and Korean checklists for existing context.
+- Existing context with no anchors still returns a useful sparse checklist.
+- New-project context returns no read-first checklist.
+- CLI `project status` text and JSON include the checklist for existing context.
+- `/project` diagnostics refresh the checklist after project context changes.

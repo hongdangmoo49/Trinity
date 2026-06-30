@@ -95,8 +95,8 @@ class ExecutionConfirmModal(ModalScreen[bool]):
     #execution-confirm-modal {
         width: 86;
         max-width: 94%;
-        height: auto;
-        max-height: 86%;
+        height: 95%;
+        max-height: 95%;
         border: round $primary;
         padding: 1 2;
         background: $surface;
@@ -117,9 +117,13 @@ class ExecutionConfirmModal(ModalScreen[bool]):
         margin-bottom: 1;
     }
 
+    #execution-confirm-content {
+        height: 1fr;
+        margin-bottom: 1;
+    }
+
     #execution-confirm-preview {
         height: auto;
-        max-height: 12;
         margin-bottom: 1;
     }
 
@@ -154,9 +158,9 @@ class ExecutionConfirmModal(ModalScreen[bool]):
         with Vertical(id="execution-confirm-modal"):
             yield Static(self._label("title"), id="execution-confirm-title")
             yield Static(self._label("body"), id="execution-confirm-body")
-            yield Static(self._summary_text(), id="execution-confirm-summary")
-            with VerticalScroll(id="execution-confirm-preview"):
-                yield Static(self._preview_text(), id="execution-confirm-preview-text")
+            with VerticalScroll(id="execution-confirm-content"):
+                yield Static(self._summary_text(), id="execution-confirm-summary")
+                yield Static(self._preview_text(), id="execution-confirm-preview")
             with Horizontal(id="execution-confirm-actions"):
                 yield Button(self._label("cancel"), id="cancel-execution-confirm")
                 yield Button(

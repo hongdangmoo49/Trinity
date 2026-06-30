@@ -493,6 +493,7 @@ def project_intake_state_label(
     lang: str = "en",
     target_workspace: object | None = None,
     today: date | None = None,
+    compact: bool = True,
 ) -> str:
     """Return a concise label for the saved project context state."""
     labels = PROJECT_INTAKE_LABELS.get(lang, PROJECT_INTAKE_LABELS["en"])
@@ -510,6 +511,7 @@ def project_intake_state_label(
         lang=lang,
         target_workspace=target_workspace,
         today=today,
+        compact=compact,
     )
 
 
@@ -928,6 +930,7 @@ def format_project_intake_label(
     lang: str = "en",
     target_workspace: object | None = None,
     today: date | None = None,
+    compact: bool = False,
 ) -> str:
     """Return a concise label for a loaded saved project context value."""
     return _format_project_intake_label(
@@ -935,6 +938,7 @@ def format_project_intake_label(
         lang=lang,
         target_workspace=target_workspace,
         today=today,
+        compact=compact,
     )
 
 
@@ -944,6 +948,7 @@ def _format_project_intake_label(
     lang: str,
     target_workspace: object | None = None,
     today: date | None = None,
+    compact: bool = False,
 ) -> str:
     labels = PROJECT_INTAKE_LABELS.get(lang, PROJECT_INTAKE_LABELS["en"])
     parts = [
@@ -992,6 +997,8 @@ def _format_project_intake_label(
                 target=_format_project_intake_target(intake.target_workspace)
             )
         )
+    if not compact:
+        parts.extend(_format_existing_project_scope_summary(intake, labels))
     parts.append(
         _format_project_intake_section(
             labels["tests"],
@@ -1010,12 +1017,11 @@ def _format_project_intake_label(
                 max_items=3,
             )
         )
-    read_preview = _format_existing_project_read_preview(intake, labels)
-    if read_preview:
-        parts.append(read_preview)
     git_state = _format_existing_project_git_state(intake, labels)
     if git_state:
         parts.append(git_state)
+    if compact:
+        return " | ".join(parts)
     if intake.product_goal.strip():
         parts.append(
             f"{labels['goal']}: {_format_project_intake_text(intake.product_goal)}"
@@ -1051,7 +1057,6 @@ def _format_project_intake_label(
     ):
         if values:
             parts.append(_format_project_intake_section(labels[label_key], values))
-    parts.extend(_format_existing_project_scope_summary(intake, labels))
     for label_key, values in (
         ("dev", intake.dev_commands),
         ("build", intake.build_commands),
@@ -1110,22 +1115,6 @@ def _format_existing_project_git_state(
         branch=branch,
         dirty=dirty,
         untracked=untracked,
-    )
-
-
-def _format_existing_project_read_preview(
-    intake: ProjectIntake,
-    labels: dict[str, str],
-) -> str:
-    if intake.mode != "existing":
-        return ""
-    anchors = tuple(dict.fromkeys((*intake.docs_found, *intake.source_roots)))
-    if not anchors:
-        return ""
-    return _format_project_intake_section(
-        labels["read_first"],
-        anchors,
-        max_items=3,
     )
 
 

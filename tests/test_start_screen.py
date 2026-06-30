@@ -787,23 +787,11 @@ def test_project_intake_state_label_includes_workspace_profile(
 
     assert project_intake_state_label(state, today=date(2026, 6, 28)) == (
         "Project context: recorded | target: customer-app | "
-        "updated: 2026-06-28 | tests: (none) | "
-        "read first: README.md, docs, src +1 | git: none | "
-        "goal: Launch customer onboarding. | type: SaaS dashboard | "
-        "users: support operators | dev: npm run dev | build: npm run build "
-        "| src: src, tests "
-        "| entry: dist/index.js, customer -> bin/customer.js | "
-        "docs: README.md, docs"
+        "updated: 2026-06-28 | tests: (none) | git: none"
     )
     assert project_intake_state_label(state, lang="ko", today=date(2026, 6, 28)) == (
         "프로젝트 컨텍스트: 기록됨 | 대상: customer-app | "
-        "갱신: 2026-06-28 | 테스트: (없음) | "
-        "먼저 읽기: README.md, docs, src +1 | git: 없음 | "
-        "목표: Launch customer onboarding. | 유형: SaaS dashboard | "
-        "사용자: support operators | 개발: npm run dev | 빌드: npm run build "
-        "| 소스: src, tests "
-        "| 진입점: dist/index.js, customer -> bin/customer.js | "
-        "문서: README.md, docs"
+        "갱신: 2026-06-28 | 테스트: (없음) | git: 없음"
     )
 
 
@@ -831,20 +819,20 @@ def test_project_intake_state_label_includes_scope_candidates(
         ),
     )
 
-    assert "scope: apps/web" in project_intake_state_label(
+    assert "scope: apps/web" not in project_intake_state_label(
         state,
         today=date(2026, 6, 28),
     )
-    assert "scopes: apps/web, packages/core" in project_intake_state_label(
+    assert "scopes: apps/web, packages/core" not in project_intake_state_label(
         state,
         today=date(2026, 6, 28),
     )
-    assert "선택 범위: apps/web" in project_intake_state_label(
+    assert "선택 범위: apps/web" not in project_intake_state_label(
         state,
         lang="ko",
         today=date(2026, 6, 28),
     )
-    assert "범위: apps/web, packages/core" in project_intake_state_label(
+    assert "범위: apps/web, packages/core" not in project_intake_state_label(
         state,
         lang="ko",
         today=date(2026, 6, 28),
@@ -875,7 +863,7 @@ def test_project_intake_state_label_prompts_scope_choice_when_unselected(
     )
 
     label = project_intake_state_label(state, today=date(2026, 6, 28))
-    assert "choose scope: apps/web, packages/core" in label
+    assert "choose scope: apps/web, packages/core" not in label
     assert "scopes: apps/web, packages/core" not in label
 
     ko_label = project_intake_state_label(
@@ -883,7 +871,7 @@ def test_project_intake_state_label_prompts_scope_choice_when_unselected(
         lang="ko",
         today=date(2026, 6, 28),
     )
-    assert "범위 선택: apps/web, packages/core" in ko_label
+    assert "범위 선택: apps/web, packages/core" not in ko_label
     assert "범위: apps/web, packages/core" not in ko_label
 
 
@@ -1117,12 +1105,12 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
     assert project_intake_state_label(state) == (
         "Project context: recorded | target: new-app | "
         "updated: 2026-06-28 | tests: (none) | "
-        "brief: missing type, users +2 | goal: Build a dashboard."
+        "brief: missing type, users +2"
     )
     assert project_intake_state_label(state, lang="ko") == (
         "프로젝트 컨텍스트: 기록됨 | 대상: new-app | "
         "갱신: 2026-06-28 | 테스트: (없음) | "
-        "브리프: 누락 유형, 사용자 +2 | 목표: Build a dashboard."
+        "브리프: 누락 유형, 사용자 +2"
     )
 
     write_project_intake(
@@ -1144,22 +1132,12 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
     assert project_intake_state_label(state) == (
         "Project context: recorded | target: new-app | "
         "updated: 2026-06-28 | tests: (none) | "
-        "brief: complete | "
-        "goal: Build a dashboard. | type: SaaS dashboard | "
-        "users: support operators | "
-        "success: Operators can complete onboarding. | "
-        "milestone: First safe patch. | stack: React, FastAPI +1 | "
-        "constraints: No cloud lock-in, Keep tests green +1"
+        "brief: complete"
     )
     assert project_intake_state_label(state, lang="ko") == (
         "프로젝트 컨텍스트: 기록됨 | 대상: new-app | "
         "갱신: 2026-06-28 | 테스트: (없음) | "
-        "브리프: 완료 | "
-        "목표: Build a dashboard. | 유형: SaaS dashboard | "
-        "사용자: support operators | "
-        "성공: Operators can complete onboarding. | "
-        "마일스톤: First safe patch. | 스택: React, FastAPI +1 | "
-        "제약: No cloud lock-in, Keep tests green +1"
+        "브리프: 완료"
     )
 
 

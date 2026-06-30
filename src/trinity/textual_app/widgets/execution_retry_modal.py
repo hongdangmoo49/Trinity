@@ -71,7 +71,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
         self._selected_text_key = self.selected_text()
         self._confirm_disabled_key = not self.selected_package_ids()
         with Vertical(id="execution-retry-modal"):
-            yield Static(self._label("title"), id="execution-retry-title")
+            yield Static(self.label_text("title"), id="execution-retry-title")
             yield Static(self.summary_text(), id="execution-retry-summary")
             with Horizontal(id="execution-retry-filters"):
                 for filter_name in self.FILTERS:
@@ -84,7 +84,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
                 yield Static(self.header_text(), id="execution-retry-header")
                 packages = self.display_packages()
                 if not packages:
-                    yield Static(self._label("empty"), classes="retry-row")
+                    yield Static(self.label_text("empty"), classes="retry-row")
                 for package in packages:
                     with Horizontal(classes="retry-row"):
                         if self.selector == "custom":
@@ -118,9 +118,9 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
                         )
             yield Static(self._selected_text_key, id="execution-retry-selected")
             with Horizontal(id="execution-retry-actions"):
-                yield Button(self._label("cancel"), id="cancel-execute-retry")
+                yield Button(self.label_text("cancel"), id="cancel-execute-retry")
                 yield Button(
-                    self._label("confirm"),
+                    self.label_text("confirm"),
                     id="confirm-execute-retry",
                     variant="primary",
                     disabled=self._confirm_disabled_key,
@@ -254,11 +254,11 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
         recovery = display_status_value(
             recovery_state,
             lang=self.lang,
-            empty=self._label("none") if self.lang == "ko" else "none",
+            empty=self.label_text("none") if self.lang == "ko" else "none",
         )
         return (
-            f"{self._label('recovery')}: {recovery}  "
-            f"{self._label('target')}: {target or self._label('not_selected')}"
+            f"{self.label_text('recovery')}: {recovery}  "
+            f"{self.label_text('target')}: {target or self.label_text('not_selected')}"
         )
 
     def header_text(self) -> str:
@@ -271,8 +271,8 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
     def selected_text(self) -> str:
         selected = self.selected_package_ids()
         if selected:
-            return f"{self._label('selected')}: {', '.join(selected)}"
-        return f"{self._label('selected')}: {self._label('none')}"
+            return f"{self.label_text('selected')}: {', '.join(selected)}"
+        return f"{self.label_text('selected')}: {self.label_text('none')}"
 
     def filter_label(self, selector: str) -> str:
         labels = {
@@ -293,7 +293,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
         }
         return labels.get(self.lang, labels["en"]).get(selector, selector.title())
 
-    def _label(self, key: str) -> str:
+    def label_text(self, key: str) -> str:
         labels = {
             "ko": {
                 "cancel": "취소",

@@ -15,7 +15,10 @@ from trinity.models import AgentSpec
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
-from trinity.textual_app.presenters import nexus_refine_prompt
+from trinity.textual_app.presenters import (
+    nexus_current_workspace_text,
+    nexus_refine_prompt,
+)
 from trinity.textual_app.snapshot import ProviderSnapshot, WorkflowNexusSnapshot
 from trinity.textual_app.workspace_labels import (
     target_workspace_state_label,
@@ -443,15 +446,10 @@ class NexusScreen(Screen[None]):
 
     def _workspace_label(self) -> str:
         return target_workspace_state_label(
-            self._current_workspace_text(),
+            nexus_current_workspace_text(self.snapshot, self._workspace_candidate),
             control_repo=self.config.project_dir,
             lang=self.config.lang,
         )
-
-    def _current_workspace_text(self) -> str:
-        if self.snapshot and self.snapshot.target_workspace.strip():
-            return self.snapshot.target_workspace.strip()
-        return self._workspace_candidate.strip()
 
     def _submit_follow_up(self, text: str) -> None:
         cleaned = text.strip()

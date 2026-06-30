@@ -7,6 +7,7 @@ from textual.app import App
 from textual.widgets import Static
 
 from trinity.config import TrinityConfig
+from trinity.textual_app.presenters import nexus_current_workspace_text
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 
@@ -55,6 +56,7 @@ async def test_nexus_keeps_snapshot_target_when_fallback_candidate_changes(
     fallback = tmp_path / "fallback-project"
     active.mkdir()
     fallback.mkdir()
+    assert nexus_current_workspace_text(None, fallback) == str(fallback)
     screen = NexusScreen(TrinityConfig.default_config(project_dir=tmp_path))
     screen.snapshot = WorkflowNexusSnapshot(target_workspace=str(active))
     app = NexusHarness(screen)
@@ -65,7 +67,7 @@ async def test_nexus_keeps_snapshot_target_when_fallback_candidate_changes(
         screen.set_workspace_candidate(fallback)
         await pilot.pause()
 
-        assert screen._current_workspace_text() == str(active)
+        assert nexus_current_workspace_text(screen.snapshot, fallback) == str(active)
         assert str(active) in str(
             screen.query_one("#nexus-target-workspace", Static).content
         )

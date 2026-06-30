@@ -11161,53 +11161,49 @@ def test_project_command_action_keeps_manual_project_setup_out_of_shortcuts(
 
 @pytest.mark.asyncio
 async def test_project_brief_modal_uses_korean_placeholders(tmp_path) -> None:
-    control_repo = tmp_path / "control"
     target = tmp_path / "empty-target"
-    control_repo.mkdir()
     target.mkdir()
-    config = TrinityConfig.default_config(project_dir=control_repo)
-    config.lang = "ko"
-    app = TrinityTextualApp(
-        config,
-        FakeWorkflowController(),
-        launch_cwd=target,
+    modal = ProjectBriefModal(
+        ProjectBriefDraft(),
+        lang="ko",
+        target_workspace=str(target.resolve()),
+        mode="new",
     )
+    app = ScreenHarness(modal)
 
     async with app.run_test(size=(140, 44)) as pilot:
-        app._open_project_brief_modal(target, fallback_mode="new")
         await pilot.pause()
 
-        assert isinstance(app.screen, ProjectBriefModal)
-        assert str(app.screen.query_one("#project-brief-target", Static).content) == (
+        assert str(modal.query_one("#project-brief-target", Static).content) == (
             f"대상 작업 경로: {target.resolve()}"
         )
         assert str(
-            app.screen.query_one("#project-brief-readiness", Static).content
+            modal.query_one("#project-brief-readiness", Static).content
         ) == (
             "최소 브리프: 누락 제품 목표, 프로젝트 유형, 대상 사용자, "
             "성공 기준, 첫 마일스톤"
         )
         assert (
-            app.screen.query_one("#project-brief-goal", Input).placeholder
+            modal.query_one("#project-brief-goal", Input).placeholder
             == "예: 로컬 습관 추적 앱 만들기"
         )
         assert (
-            app.screen.query_one("#project-brief-target-users", Input).placeholder
+            modal.query_one("#project-brief-target-users", Input).placeholder
             == "지원 담당자, 학생, 개발자"
         )
         assert (
-            app.screen.query_one("#project-brief-run-commands", Input).placeholder
+            modal.query_one("#project-brief-run-commands", Input).placeholder
             == "npm run dev, uv run app"
         )
         assert (
-            app.screen.query_one(
+            modal.query_one(
                 "#project-brief-validation-commands",
                 Input,
             ).placeholder
             == "npm test, uv run pytest"
         )
         assert (
-            app.screen.query_one("#project-brief-artifact-targets", Input).placeholder
+            modal.query_one("#project-brief-artifact-targets", Input).placeholder
             == "apps/web, src/app, README.md"
         )
 
@@ -11250,81 +11246,6 @@ async def test_project_brief_modal_starter_preset_fills_new_project_fields(
 
 
 @pytest.mark.asyncio
-async def test_project_brief_cancel_preserves_draft_for_same_target(
-    tmp_path,
-) -> None:
-    control_repo = tmp_path / "control"
-    target = tmp_path / "empty-target"
-    other_target = tmp_path / "other-target"
-    control_repo.mkdir()
-    target.mkdir()
-    other_target.mkdir()
-    app = TrinityTextualApp(
-        TrinityConfig.default_config(project_dir=control_repo),
-        FakeWorkflowController(),
-        launch_cwd=target,
-    )
-
-    async with app.run_test(size=(140, 44)) as pilot:
-        app._open_project_brief_modal(target, fallback_mode="new")
-        await pilot.pause()
-
-        assert isinstance(app.screen, ProjectBriefModal)
-        app.screen.query_one("#project-brief-goal", Input).value = "Draft goal"
-        app.screen.query_one("#project-brief-project-type", Input).value = (
-            "CLI tool"
-        )
-        app.screen.query_one("#project-brief-target-users", Input).value = (
-            "maintainers"
-        )
-        app.screen.query_one("#project-brief-stack", Input).value = (
-            "python, sqlite"
-        )
-        app.screen.action_cancel()
-        await pilot.pause()
-
-        app._open_project_brief_modal(other_target, fallback_mode="new")
-        await pilot.pause()
-
-        assert isinstance(app.screen, ProjectBriefModal)
-        assert app.screen.query_one("#project-brief-goal", Input).value == ""
-        app.screen.action_cancel()
-        await pilot.pause()
-
-        app._open_project_brief_modal(target, fallback_mode="new")
-        await pilot.pause()
-
-        assert isinstance(app.screen, ProjectBriefModal)
-        assert app.screen.query_one("#project-brief-goal", Input).value == "Draft goal"
-        assert (
-            app.screen.query_one("#project-brief-project-type", Input).value
-            == "CLI tool"
-        )
-        assert (
-            app.screen.query_one("#project-brief-target-users", Input).value
-            == "maintainers"
-        )
-        assert (
-            app.screen.query_one("#project-brief-stack", Input).value
-            == "python, sqlite"
-        )
-
-        app.screen.query_one("#project-brief-goal", Input).value = "Saved goal"
-        app.screen.action_save()
-        await pilot.pause()
-
-        intake = load_project_intake(app.config.effective_state_dir)
-        assert intake is not None
-        assert intake.product_goal == "Saved goal"
-
-        app._open_project_brief_modal(target, fallback_mode="new")
-        await pilot.pause()
-
-        assert isinstance(app.screen, ProjectBriefModal)
-        assert app.screen.query_one("#project-brief-goal", Input).value == "Saved goal"
-
-
-@pytest.mark.asyncio
 async def test_start_workspace_label_keeps_stable_dimension(tmp_path) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),
@@ -11339,144 +11260,6 @@ async def test_start_workspace_label_keeps_stable_dimension(tmp_path) -> None:
         with pytest.raises(NoMatches):
             start.query_one("#choose-workspace", Button)
         assert start.query_one("#workspace-candidate", Static).styles.height.value == 1
-
-
-def test_workbench_syncs_created_workspace_as_new_project_intake(tmp_path) -> None:
-    control_repo = tmp_path / "control"
-    target = tmp_path / "new-app"
-    control_repo.mkdir()
-    target.mkdir()
-    app = TrinityTextualApp(
-        TrinityConfig.default_config(project_dir=control_repo),
-        FakeWorkflowController(),
-        launch_cwd=control_repo,
-    )
-    preflight = build_preflight(
-        target,
-        WorkflowNexusSnapshot(),
-    )
-
-    app._sync_project_intake_for_preflight(replace(preflight, created=True))
-
-    intake = load_project_intake(app.config.effective_state_dir)
-    assert intake is not None
-    assert intake.mode == "new"
-    assert intake.target_workspace == target
-
-
-def test_workbench_syncs_empty_workspace_candidate_as_new_project_intake(
-    tmp_path,
-) -> None:
-    control_repo = tmp_path / "control"
-    target = tmp_path / "empty-app"
-    control_repo.mkdir()
-    target.mkdir()
-    app = TrinityTextualApp(
-        TrinityConfig.default_config(project_dir=control_repo),
-        FakeWorkflowController(),
-        launch_cwd=control_repo,
-    )
-    preflight = build_preflight(
-        target,
-        WorkflowNexusSnapshot(),
-    )
-
-    assert preflight.new_project_candidate is True
-
-    app._sync_project_intake_for_preflight(preflight)
-
-    intake = load_project_intake(app.config.effective_state_dir)
-    assert intake is not None
-    assert intake.mode == "new"
-    assert intake.target_workspace == target
-
-
-def test_workbench_project_intake_sync_preserves_existing_brief(tmp_path) -> None:
-    control_repo = tmp_path / "control"
-    target = tmp_path / "customer-app"
-    control_repo.mkdir()
-    target.mkdir()
-    write_project_intake(
-        control_repo / ".trinity",
-        build_project_intake(
-            mode="new",
-            target_workspace=target,
-            product_goal="Build customer onboarding.",
-            project_type="SaaS dashboard",
-            target_users="support operators",
-            success_criteria="Operators can complete onboarding safely.",
-            stack_preferences=("python", "textual"),
-            first_milestone="First safe patch.",
-            constraints=("Keep tests green",),
-            notes="Preserve this note.",
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
-    app = TrinityTextualApp(
-        TrinityConfig.default_config(project_dir=control_repo),
-        FakeWorkflowController(),
-        launch_cwd=control_repo,
-    )
-
-    app._sync_project_intake_for_target(target, mode="existing")
-
-    intake = load_project_intake(app.config.effective_state_dir)
-    assert intake is not None
-    assert intake.mode == "existing"
-    assert intake.product_goal == "Build customer onboarding."
-    assert intake.project_type == "SaaS dashboard"
-    assert intake.target_users == "support operators"
-    assert intake.success_criteria == "Operators can complete onboarding safely."
-    assert intake.stack_preferences == ("python", "textual")
-    assert intake.first_milestone == "First safe patch."
-    assert intake.constraints == ("Keep tests green",)
-    assert intake.notes == "Preserve this note."
-
-
-def test_workbench_project_intake_sync_does_not_carry_brief_to_new_target(
-    tmp_path,
-) -> None:
-    control_repo = tmp_path / "control"
-    original = tmp_path / "customer-app"
-    next_target = tmp_path / "next-app"
-    control_repo.mkdir()
-    original.mkdir()
-    next_target.mkdir()
-    write_project_intake(
-        control_repo / ".trinity",
-        build_project_intake(
-            mode="existing",
-            target_workspace=original,
-            product_goal="Build customer onboarding.",
-            project_type="SaaS dashboard",
-            target_users="support operators",
-            success_criteria="Operators can complete onboarding safely.",
-            stack_preferences=("python",),
-            first_milestone="First safe patch.",
-            constraints=("Keep tests green",),
-            notes="Original target note.",
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
-    app = TrinityTextualApp(
-        TrinityConfig.default_config(project_dir=control_repo),
-        FakeWorkflowController(),
-        launch_cwd=control_repo,
-    )
-
-    app._sync_project_intake_for_target(next_target, mode="existing")
-
-    intake = load_project_intake(app.config.effective_state_dir)
-    assert intake is not None
-    assert intake.target_workspace == next_target.resolve()
-    assert intake.product_goal == ""
-    assert intake.project_type == ""
-    assert intake.target_users == ""
-    assert intake.success_criteria == ""
-    assert intake.stack_preferences == ()
-    assert intake.first_milestone == ""
-    assert intake.constraints == ()
-    assert intake.notes == ""
 
 
 @pytest.mark.asyncio

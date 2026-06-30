@@ -307,9 +307,9 @@ PROVIDER_EXECUTION_REVIEW_POLICY_LABELS = {
     },
 }
 
-PROJECT_STARTUP_READINESS_LABELS = {
+PROJECT_DIAGNOSTIC_READINESS_LABELS = {
     "en": {
-        "summary": "Startup readiness",
+        "summary": "Readiness",
         "target_ok": "target ok",
         "target_missing": "target missing",
         "intake_ok": "intake ok",
@@ -320,7 +320,7 @@ PROJECT_STARTUP_READINESS_LABELS = {
         "validation_missing": "validation missing",
     },
     "ko": {
-        "summary": "시작 준비",
+        "summary": "준비 상태",
         "target_ok": "대상 정상",
         "target_missing": "대상 없음",
         "intake_ok": "인테이크 정상",
@@ -454,7 +454,7 @@ def provider_cli_setup_label(
     return f"{labels['summary']}: {' | '.join(parts)}"
 
 
-def project_startup_readiness_label(
+def project_diagnostic_readiness_label(
     state_dir: Path,
     agents: Mapping[str, object],
     *,
@@ -464,9 +464,9 @@ def project_startup_readiness_label(
     today: date | None = None,
 ) -> str:
     """Return a compact readiness summary for project diagnostics."""
-    labels = PROJECT_STARTUP_READINESS_LABELS.get(
+    labels = PROJECT_DIAGNOSTIC_READINESS_LABELS.get(
         lang,
-        PROJECT_STARTUP_READINESS_LABELS["en"],
+        PROJECT_DIAGNOSTIC_READINESS_LABELS["en"],
     )
     target_label = (
         labels["target_ok"]
@@ -474,7 +474,7 @@ def project_startup_readiness_label(
         else labels["target_missing"]
     )
     intake_label = labels[
-        _project_startup_readiness_intake_key(
+        _project_diagnostic_readiness_intake_key(
             state_dir,
             target_workspace=target_workspace,
             today=today,
@@ -874,7 +874,7 @@ def _format_read_first_scope_section(
     )
 
 
-def _project_startup_readiness_intake_key(
+def _project_diagnostic_readiness_intake_key(
     state_dir: Path,
     *,
     target_workspace: object | None,

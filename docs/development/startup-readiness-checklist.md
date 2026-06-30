@@ -1,4 +1,4 @@
-# Startup Readiness Checklist
+# Project Diagnostic Readiness Checklist
 
 ## Goal
 
@@ -24,13 +24,13 @@ checklist is a compact rollup for those diagnostic surfaces.
 Render one concise line in `/project` diagnostics:
 
 ```text
-Startup readiness: target ok | intake ok | providers 2 selected | validation planned
+Readiness: target ok | intake ok | providers 2 selected | validation planned
 ```
 
 Localized Korean copy:
 
 ```text
-시작 준비: 대상 정상 | 인테이크 정상 | 프로바이더 2개 선택 | 검증 계획됨
+준비 상태: 대상 정상 | 인테이크 정상 | 프로바이더 2개 선택 | 검증 계획됨
 ```
 
 The line is intentionally status-only. Detailed next-action context remains in

@@ -2008,7 +2008,7 @@ async def test_model_slash_modal_updates_selector_model_override(tmp_path) -> No
         await pilot.pause()
 
         menu = app.screen.query_one("#model-choice-list", OptionList)
-        labels = app.screen._choice_labels("codex")
+        labels = app.screen.choice_labels("codex")
         menu.highlighted = next(
             index for index, label in enumerate(labels) if "gpt-5.5" in label
         )
@@ -2107,7 +2107,7 @@ def test_model_settings_modal_uses_korean_source_labels(tmp_path) -> None:
         lang="ko",
     )
 
-    assert modal._choice_labels("codex") == ["gpt-5.5  CLI 실시간"]
+    assert modal.choice_labels("codex") == ["gpt-5.5  CLI 실시간"]
 
 
 @pytest.mark.asyncio
@@ -2201,7 +2201,7 @@ async def test_open_model_modal_receives_late_discovered_models(tmp_path) -> Non
         assert isinstance(app.screen, ModelSettingsModal)
         app.screen.query_one("#model-agent-codex", Button).press()
         await pilot.pause()
-        assert "gpt-5.5" not in app.screen._choice_labels("codex")
+        assert "gpt-5.5" not in app.screen.choice_labels("codex")
 
         app._apply_discovered_model_choices(
             {
@@ -2226,7 +2226,7 @@ async def test_open_model_modal_receives_late_discovered_models(tmp_path) -> Non
         )
         await pilot.pause()
 
-        assert "gpt-5.5  cli-live" in app.screen._choice_labels("codex")
+        assert "gpt-5.5  cli-live" in app.screen.choice_labels("codex")
 
 
 @pytest.mark.asyncio

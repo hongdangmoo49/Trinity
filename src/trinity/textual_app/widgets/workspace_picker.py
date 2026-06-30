@@ -45,12 +45,12 @@ WORKSPACE_PICKER_LABELS = {
         "folder_already_exists": "Folder already exists: {path}",
         "folder_name": "Folder name",
         "git_repo": "Git repo",
-        "intent_existing_directory": "Existing directory workspace",
-        "intent_existing_git": "Existing Git workspace",
+        "intent_existing_directory": "Readable workspace",
+        "intent_existing_git": "Readable Git workspace",
         "intent_invalid": "Invalid path",
         "intent_missing": "Missing path",
-        "intent_new_directory": "New workspace folder",
-        "intent_new_empty_directory": "Empty new project folder",
+        "intent_new_directory": "Creatable workspace folder",
+        "intent_new_empty_directory": "Empty workspace folder",
         "invalid_missing_not_creatable": (
             "Enable Create missing directory or select an existing writable directory."
         ),
@@ -59,12 +59,12 @@ WORKSPACE_PICKER_LABELS = {
         ),
         "dirty_execute_warning": (
             "Dirty Git workspace detected. Press Confirm Execute again to execute "
-            "anyway, or cancel and plan first."
+            "anyway, or cancel and adjust the prompt or workspace."
         ),
         "dirty_execute_reason": "dirty Git workspace",
         "execute_safety_warning": (
             "Execution safety warning: {reasons}. Press Confirm Execute again "
-            "to execute anyway, or cancel and plan first."
+            "to execute anyway, or cancel and adjust the prompt or workspace."
         ),
         "execute_ack": "Execute acknowledgement",
         "execute_ack_not_required": "not required",
@@ -74,7 +74,7 @@ WORKSPACE_PICKER_LABELS = {
         ),
         "loading_folders": "Loading folders from {root}...",
         "changed_intake_reason": "changed project intake",
-        "missing_new_project_brief_reason": "incomplete new-project brief",
+        "missing_new_project_brief_reason": "incomplete project brief",
         "new_folder": "New Folder",
         "new_folder_created": "New folder created: {path}",
         "none": "(none)",
@@ -96,7 +96,7 @@ WORKSPACE_PICKER_LABELS = {
         "use_folder": "Use Folder",
         "use_workspace": "Use Workspace",
         "work_packages": "Work packages",
-        "workspace_intent": "Workspace intent",
+        "workspace_intent": "Workspace state",
         "writable": "Writable",
         "cannot_create_under": "Cannot create folders under: {path}",
         "execute_preflight_title": "Execute Preflight",
@@ -120,12 +120,12 @@ WORKSPACE_PICKER_LABELS = {
         "folder_already_exists": "이미 있는 폴더입니다: {path}",
         "folder_name": "폴더 이름",
         "git_repo": "Git 저장소",
-        "intent_existing_directory": "기존 디렉터리 작업 폴더",
-        "intent_existing_git": "기존 Git 작업 폴더",
+        "intent_existing_directory": "읽을 수 있는 작업 폴더",
+        "intent_existing_git": "읽을 수 있는 Git 작업 폴더",
         "intent_invalid": "잘못된 경로",
         "intent_missing": "없는 경로",
-        "intent_new_directory": "새 작업 폴더 생성",
-        "intent_new_empty_directory": "빈 새 프로젝트 폴더",
+        "intent_new_directory": "생성할 작업 폴더",
+        "intent_new_empty_directory": "빈 작업 폴더",
         "invalid_missing_not_creatable": (
             "누락된 디렉터리 생성을 활성화하거나 기존의 쓰기 가능한 디렉터리를 선택하세요."
         ),
@@ -134,12 +134,12 @@ WORKSPACE_PICKER_LABELS = {
         ),
         "dirty_execute_warning": (
             "변경사항이 있는 Git 작업 폴더입니다. 그대로 실행하려면 실행 확인을 "
-            "한 번 더 누르고, 아니면 취소 후 먼저 계획하세요."
+            "한 번 더 누르고, 아니면 취소 후 프롬프트나 작업 폴더를 조정하세요."
         ),
         "dirty_execute_reason": "변경사항이 있는 Git 작업 폴더",
         "execute_safety_warning": (
             "실행 전 확인 필요: {reasons}. 그대로 실행하려면 실행 확인을 한 번 "
-            "더 누르고, 아니면 취소 후 먼저 계획하세요."
+            "더 누르고, 아니면 취소 후 프롬프트나 작업 폴더를 조정하세요."
         ),
         "execute_ack": "실행 확인",
         "execute_ack_not_required": "필요 없음",
@@ -149,7 +149,7 @@ WORKSPACE_PICKER_LABELS = {
         ),
         "loading_folders": "폴더를 불러오는 중: {root}...",
         "changed_intake_reason": "변경된 프로젝트 인테이크",
-        "missing_new_project_brief_reason": "불완전한 새 프로젝트 브리프",
+        "missing_new_project_brief_reason": "불완전한 프로젝트 브리프",
         "new_folder": "새 폴더",
         "new_folder_created": "새 폴더를 만들었습니다: {path}",
         "none": "(없음)",
@@ -169,7 +169,7 @@ WORKSPACE_PICKER_LABELS = {
         "use_folder": "폴더 사용",
         "use_workspace": "작업 폴더 사용",
         "work_packages": "작업 패키지",
-        "workspace_intent": "작업 의도",
+        "workspace_intent": "작업 폴더 상태",
         "writable": "쓰기 가능",
         "cannot_create_under": "다음 위치 아래에는 폴더를 만들 수 없습니다: {path}",
         "execute_preflight_title": "실행 전 확인",

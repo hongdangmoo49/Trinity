@@ -60,7 +60,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
             }
         else:
             base_selector = "all" if self.selector == "custom" else self.selector
-            self.selected_ids = set(self._ids_for_selector(base_selector))
+            self.selected_ids = set(self.ids_for_selector(base_selector))
         self._selected_text_key = self.selected_text()
         self._confirm_disabled_key = not self.selected_package_ids()
         self._selected_widget: Static | None = None
@@ -76,7 +76,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
             with Horizontal(id="execution-retry-filters"):
                 for filter_name in self.FILTERS:
                     yield Button(
-                        self._filter_label(filter_name),
+                        self.filter_label(filter_name),
                         id=f"retry-filter-{filter_name}",
                         variant="primary" if filter_name == self.selector else "default",
                     )
@@ -135,7 +135,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
             if next_selector == self.selector:
                 return
             self.selector = next_selector
-            self.selected_ids = set(self._ids_for_selector(self.selector))
+            self.selected_ids = set(self.ids_for_selector(self.selector))
             self.refresh(recompose=True)
             return
         if button_id == "cancel-execute-retry":
@@ -191,7 +191,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
             if package.retryable
         ]
 
-    def _ids_for_selector(self, selector: str) -> tuple[str, ...]:
+    def ids_for_selector(self, selector: str) -> tuple[str, ...]:
         selected: list[str] = []
         for package in self._retry_candidate_packages():
             if selector in {"all", "custom"}:
@@ -274,7 +274,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
             return f"{self._label('selected')}: {', '.join(selected)}"
         return f"{self._label('selected')}: {self._label('none')}"
 
-    def _filter_label(self, selector: str) -> str:
+    def filter_label(self, selector: str) -> str:
         labels = {
             "ko": {
                 "all": "전체",

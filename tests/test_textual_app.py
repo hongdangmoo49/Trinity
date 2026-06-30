@@ -4707,7 +4707,7 @@ def test_execution_retry_modal_supports_korean_chrome_labels() -> None:
         lang="ko",
     )
 
-    assert modal._label("title") == "실행 재시도"
+    assert modal.label_text("title") == "실행 재시도"
     assert modal.filter_label("failed") == "실패"
     assert modal.summary_text() == "복구: 실패  대상: /workspace/game"
     assert modal.header_text().startswith("작업 ID 상태")
@@ -4787,7 +4787,7 @@ def test_execution_retry_modal_keeps_english_chrome_labels() -> None:
         )
     )
 
-    assert modal._label("title") == "Execute Retry"
+    assert modal.label_text("title") == "Execute Retry"
     assert modal.filter_label("failed") == "Failed"
     assert modal.summary_text() == "Recovery: none  Target: (not selected)"
     assert modal.header_text().startswith("WP      Status")

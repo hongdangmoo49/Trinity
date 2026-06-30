@@ -258,9 +258,6 @@ from trinity.textual_app.widgets.project_brief_modal import (
     ProjectBriefDraft,
     ProjectBriefModal,
 )
-from trinity.textual_app.widgets.project_generation_confirm_modal import (
-    ProjectGenerationConfirmModal,
-)
 from trinity.textual_app.widgets.project_scope_modal import ProjectScopeModal
 from trinity.textual_app.widgets.project_validation_modal import ProjectValidationModal
 from trinity.textual_app.widgets.question_panel import QuestionPanel
@@ -3606,10 +3603,7 @@ async def test_start_screen_defaults_target_workspace_to_launch_cwd(tmp_path) ->
         assert controller.target_workspace == launch_cwd.resolve()
         assert app.confirmed_preflight is not None
         assert app.confirmed_preflight.path == launch_cwd.resolve()
-        intake = load_project_intake(app.config.effective_state_dir)
-        assert intake is not None
-        assert intake.mode == "existing"
-        assert intake.target_workspace == launch_cwd.resolve()
+        assert load_project_intake(app.config.effective_state_dir) is None
 
         app.action_go_execution()
         await pilot.pause()
@@ -3992,10 +3986,7 @@ async def test_start_ask_slash_starts_targeted_workflow(tmp_path) -> None:
         assert controller.started_targets == [("codex",)]
         assert controller.started_models[-1] == {"codex": "gpt-5"}
         assert controller.target_workspace == target
-        intake = load_project_intake(app.config.effective_state_dir)
-        assert intake is not None
-        assert intake.mode == "existing"
-        assert intake.target_workspace == target
+        assert load_project_intake(app.config.effective_state_dir) is None
         assert app.current_route == "nexus"
         assert isinstance(app.screen, NexusScreen)
 
@@ -12123,7 +12114,9 @@ def test_workbench_project_intake_sync_does_not_carry_brief_to_new_target(
 
 
 @pytest.mark.asyncio
-async def test_start_new_project_submit_opens_generation_confirmation(tmp_path) -> None:
+async def test_start_new_project_submit_bypasses_generation_confirmation(
+    tmp_path,
+) -> None:
     control_repo = tmp_path / "control"
     target = tmp_path / "new-app"
     control_repo.mkdir()
@@ -12155,18 +12148,6 @@ async def test_start_new_project_submit_opens_generation_confirmation(tmp_path) 
         composer.action_submit()
         await pilot.pause()
 
-        assert isinstance(app.screen, ProjectGenerationConfirmModal)
-        assert controller.started_prompts == []
-        assert "Generation preview:" in str(
-            app.screen.query_one(
-                "#project-generation-confirm-summary",
-                Static,
-            ).content
-        )
-
-        app.screen.action_confirm()
-        await pilot.pause()
-
         assert controller.started_prompts == ["Plan the first scaffold."]
         assert controller.target_workspace == target.resolve()
         intake = load_project_intake(app.config.effective_state_dir)
@@ -12175,10 +12156,11 @@ async def test_start_new_project_submit_opens_generation_confirmation(tmp_path) 
         assert intake.starter_profile == "textual-dashboard"
         assert intake.validation_commands == ("uv run pytest",)
         assert app.current_route == "nexus"
+        assert isinstance(app.screen, NexusScreen)
 
 
 @pytest.mark.asyncio
-async def test_start_new_project_generation_confirmation_cancel_does_not_start(
+async def test_start_incomplete_new_project_submit_starts_directly(
     tmp_path,
 ) -> None:
     control_repo = tmp_path / "control"
@@ -12208,13 +12190,10 @@ async def test_start_new_project_generation_confirmation_cancel_does_not_start(
         composer.action_submit()
         await pilot.pause()
 
-        assert isinstance(app.screen, ProjectGenerationConfirmModal)
-        app.screen.action_cancel()
-        await pilot.pause()
-
-        assert controller.started_prompts == []
-        assert controller.target_workspace is None
-        assert app.current_route == "start"
+        assert controller.started_prompts == ["Plan the first scaffold."]
+        assert controller.target_workspace == target.resolve()
+        assert app.current_route == "nexus"
+        assert isinstance(app.screen, NexusScreen)
 
 
 @pytest.mark.asyncio

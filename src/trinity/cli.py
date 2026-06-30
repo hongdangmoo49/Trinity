@@ -876,7 +876,7 @@ def project_new(
     type=click.Choice(["existing", "new"]),
     default="existing",
     show_default=True,
-    help="Project onboarding mode to store in the intake artifact.",
+    help="Project onboarding mode to store in project context.",
 )
 @click.option(
     "--goal",
@@ -921,7 +921,7 @@ def project_new(
     "--constraint",
     "constraints",
     multiple=True,
-    help="Project constraint to store in intake. Repeat or comma-separate.",
+    help="Project constraint to store in project context. Repeat or comma-separate.",
 )
 @click.option(
     "--scope",
@@ -976,7 +976,7 @@ def project_analyze(
 @click.option(
     "--refresh",
     is_flag=True,
-    help="Refresh saved intake from the current target workspace before display.",
+    help="Refresh saved project context from the current target workspace before display.",
 )
 def project_status(json_output: bool, refresh: bool) -> None:
     """Show the currently recorded project context."""

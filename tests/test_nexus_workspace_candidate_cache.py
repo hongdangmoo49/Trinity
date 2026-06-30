@@ -10,6 +10,7 @@ from trinity.config import TrinityConfig
 from trinity.textual_app.presenters import nexus_current_workspace_text
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
+from trinity.textual_app.workspace_labels import target_workspace_state_label
 
 
 class NexusHarness(App[None]):
@@ -68,6 +69,9 @@ async def test_nexus_keeps_snapshot_target_when_fallback_candidate_changes(
         await pilot.pause()
 
         assert nexus_current_workspace_text(screen.snapshot, fallback) == str(active)
-        assert str(active) in str(
+        assert str(
             screen.query_one("#nexus-target-workspace", Static).content
+        ) == target_workspace_state_label(
+            active,
+            control_repo=tmp_path,
         )

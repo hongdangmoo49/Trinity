@@ -7,6 +7,7 @@ from trinity.config import TrinityConfig
 from trinity.textual_app.presenters import (
     nexus_agent_provider_panel_state,
     nexus_central_snapshot_has_activity,
+    nexus_fallback_snapshot,
     nexus_provider_panel_state,
 )
 from trinity.textual_app.screens.nexus import NexusScreen
@@ -84,6 +85,21 @@ def test_nexus_agent_provider_panel_state_maps_config_agent(tmp_path) -> None:
     assert state.configured_model == spec.model
     assert state.context_window == spec.effective_context_budget
     assert state.budget_source == "trinity_config"
+
+
+def test_nexus_fallback_snapshot_keeps_recent_followups() -> None:
+    snapshot = nexus_fallback_snapshot(
+        "Initial goal",
+        ["first", "second", "third", "fourth"],
+    )
+
+    assert snapshot.goal == "Initial goal"
+    assert snapshot.questions == []
+    assert snapshot.work_packages == [
+        "follow-up: second",
+        "follow-up: third",
+        "follow-up: fourth",
+    ]
 
 
 @pytest.mark.asyncio

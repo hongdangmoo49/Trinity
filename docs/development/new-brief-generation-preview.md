@@ -2,10 +2,10 @@
 
 ## Problem
 
-Start/Nexus can show a generation preview after a new-project intake is saved,
-but the project brief modal itself only shows readiness. While filling the
-brief, users cannot see what Trinity currently expects to create or validate
-until after saving.
+`/project` diagnostics and `trinity project status` can show a generation
+preview after a new-project intake is saved, but the project brief flow itself
+only captures intent. While filling the brief, users cannot inspect what Trinity
+currently expects to create or validate until after saving.
 
 For a new project, that feedback should be visible before the user commits the
 brief.
@@ -17,7 +17,7 @@ Show a compact live generation preview inside the new-project brief modal.
 ## Scope
 
 - Reuse the existing `format_project_generation_preview_label` formatter so the
-  modal and Start/Nexus labels stay consistent.
+  brief flow, `/project`, and CLI status labels stay consistent.
 - Build the preview from the current unsaved draft.
 - Update the preview when relevant inputs change.
 - Show the preview only when `mode == "new"`.

@@ -2,10 +2,11 @@
 
 ## Problem
 
-New-project intake now captures product intent and starter profile, and the
-Workbench shows an initial plan preview. However, before execution the user still
-cannot see what kind of files Trinity expects agents to create or how the first
-generated state should be validated.
+New-project intake captures product intent and starter profile, and local
+project diagnostics can show an initial plan preview. However, before execution
+the user still needs a way to inspect what kind of files Trinity expects agents
+to create or how the first generated state should be validated without adding
+more Start/Nexus chrome.
 
 For new projects, this creates uncertainty at the exact point where users are
 about to allow writes into an empty or newly created workspace.
@@ -13,8 +14,8 @@ about to allow writes into an empty or newly created workspace.
 ## Scope
 
 - Add a derived generation preview for saved `mode == "new"` project intake.
-- Show the preview in Start and Nexus below the existing initial plan preview.
-- Expose the same preview through `trinity project status` text and JSON.
+- Show the preview through `/project` diagnostics and
+  `trinity project status` text/JSON.
 - Derive preview text from saved intake only: `starter_profile`, `project_type`,
   `stack_preferences`, `constraints`, and detected test commands.
 - Keep the preview advisory and non-blocking.
@@ -62,4 +63,5 @@ generated a concrete file list.
 - Shared helper returns English and Korean generation previews for new intake.
 - Existing-project intake returns no generation preview.
 - CLI `project status` text and JSON include the preview for new intake.
-- Start and Nexus refresh the preview after saving a new-project brief.
+- `/project` diagnostics and `trinity project status` refresh the preview after
+  saving a new-project brief.

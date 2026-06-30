@@ -168,7 +168,7 @@ def test_build_preflight_marks_empty_directory_as_new_project_candidate(
     assert preflight.intake_safety_warnings == ("missing_new_project_brief",)
     assert preflight.requires_execute_ack is True
     assert "Workspace state: Empty workspace folder" in preflight.render()
-    assert "Project intake safety: incomplete project brief" in preflight.render()
+    assert "Project context: incomplete project brief" in preflight.render()
     assert "작업 폴더 상태: 빈 작업 폴더" in preflight.render(lang="ko")
 
 
@@ -306,8 +306,8 @@ def test_build_preflight_marks_incomplete_new_project_brief(tmp_path) -> None:
 
     assert preflight.intake_safety_warnings == ("missing_new_project_brief",)
     assert preflight.requires_execute_ack is True
-    assert "Project intake safety: incomplete project brief" in preflight.render()
-    assert "프로젝트 인테이크 안전: 불완전한 프로젝트 브리프" in preflight.render(
+    assert "Project context: incomplete project brief" in preflight.render()
+    assert "프로젝트 컨텍스트: 불완전한 프로젝트 브리프" in preflight.render(
         lang="ko",
     )
 
@@ -339,7 +339,7 @@ def test_build_preflight_accepts_complete_new_project_brief(tmp_path) -> None:
     assert preflight.new_project_candidate is True
     assert preflight.intake_safety_warnings == ()
     assert preflight.requires_execute_ack is False
-    assert "Project intake safety: ok" in preflight.render()
+    assert "Project context: ok" in preflight.render()
 
 
 def test_build_preflight_marks_sparse_existing_project_intake(tmp_path) -> None:
@@ -364,8 +364,8 @@ def test_build_preflight_marks_sparse_existing_project_intake(tmp_path) -> None:
 
     assert preflight.intake_safety_warnings == ("sparse_project_intake",)
     assert preflight.requires_execute_ack is True
-    assert "Project intake safety: sparse project intake" in preflight.render()
-    assert "프로젝트 인테이크 안전: 부족한 프로젝트 인테이크" in preflight.render(
+    assert "Project context: saved analysis sparse" in preflight.render()
+    assert "프로젝트 컨텍스트: 저장된 분석 부족함" in preflight.render(
         lang="ko",
     )
 
@@ -393,7 +393,7 @@ def test_build_preflight_marks_stale_existing_project_intake(tmp_path) -> None:
 
     assert preflight.intake_safety_warnings == ("stale_project_intake",)
     assert preflight.requires_execute_ack is True
-    assert "Project intake safety: stale project intake" in preflight.render()
+    assert "Project context: saved analysis stale" in preflight.render()
 
 
 def test_build_preflight_accepts_unchanged_existing_project_intake(
@@ -422,7 +422,7 @@ def test_build_preflight_accepts_unchanged_existing_project_intake(
 
     assert preflight.intake_safety_warnings == ()
     assert preflight.requires_execute_ack is False
-    assert "Project intake safety: ok" in preflight.render()
+    assert "Project context: ok" in preflight.render()
 
 
 def test_build_preflight_renders_matching_existing_selected_scope(
@@ -544,8 +544,8 @@ def test_build_preflight_marks_changed_existing_project_intake(
 
     assert preflight.intake_safety_warnings == ("changed_project_intake",)
     assert preflight.requires_execute_ack is True
-    assert "Project intake safety: changed project intake" in preflight.render()
-    assert "프로젝트 인테이크 안전: 변경된 프로젝트 인테이크" in preflight.render(
+    assert "Project context: saved analysis changed" in preflight.render()
+    assert "프로젝트 컨텍스트: 저장된 분석 변경됨" in preflight.render(
         lang="ko",
     )
 
@@ -961,7 +961,7 @@ async def test_workspace_picker_requires_second_confirm_for_stale_intake(
 
         status = picker.query_one("#workspace-picker-status", Static)
         assert dismissed == []
-        assert "stale project intake" in str(status.content)
+        assert "saved analysis stale" in str(status.content)
 
         picker.action_confirm()
         await pilot.pause()
@@ -1010,7 +1010,7 @@ async def test_workspace_picker_requires_second_confirm_for_changed_intake(
 
         status = picker.query_one("#workspace-picker-status", Static)
         assert dismissed == []
-        assert "changed project intake" in str(status.content)
+        assert "saved analysis changed" in str(status.content)
 
         picker.action_confirm()
         await pilot.pause()

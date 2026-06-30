@@ -11618,12 +11618,13 @@ async def test_nexus_execute_confirmation_shows_workspace_risks(
         summary = str(
             app.screen.query_one("#execution-confirm-summary", Static).content
         )
-        assert "Workspace context: workspace recorded" in summary
-        assert "Project context: scope: target root, read: missing" in summary
+        assert "Workspace context: recorded" in summary
+        assert "Project context:" in summary
+        assert "scope: target root" in summary
         assert "validation: missing" in summary
         assert "Risks: dirty Git workspace" in summary
         assert "1 untracked" in summary
-        assert "stale project intake" in summary
+        assert "saved analysis stale" in summary
 
 
 @pytest.mark.asyncio

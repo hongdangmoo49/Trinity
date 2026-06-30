@@ -805,16 +805,16 @@ def test_project_start_choice_guide_labels_new_and_existing_paths(
     (target / "README.md").write_text("# Customer App\n", encoding="utf-8")
 
     assert project_start_choice_guide_label(state) == (
-        "Project start: existing -> Analyze Existing | new -> Create New | "
-        "then Plan first"
+        "Project start: workspace: select workspace | "
+        "next: describe analysis or work"
     )
     assert project_start_choice_guide_label(
         state,
         target_workspace=target,
         lang="ko",
     ) == (
-        "프로젝트 시작: 기존 -> 기존 프로젝트 분석 | 신규 -> 새 프로젝트 생성 | "
-        "이후 먼저 계획"
+        "프로젝트 시작: 작업 폴더: 준비됨 | "
+        "다음: 분석 또는 작업을 프롬프트로 설명"
     )
 
     write_project_intake(
@@ -827,8 +827,7 @@ def test_project_start_choice_guide_labels_new_and_existing_paths(
     )
 
     assert project_start_choice_guide_label(state, target_workspace=target) == (
-        "Project start: mode existing | next -> confirm read-first | "
-        "then Plan first"
+        "Project start: workspace: ready | next: describe analysis or work"
     )
 
 
@@ -2241,8 +2240,8 @@ async def test_nexus_screen_project_intake_summary_stays_offscreen(
             lang="ko",
             target_workspace=target,
         ) == (
-            "프로젝트 시작: 모드 기존 | 다음 -> 먼저 계획 | "
-            "이후 먼저 계획"
+            "프로젝트 시작: 작업 폴더: 준비됨 | "
+            "다음: 분석 또는 작업을 프롬프트로 설명"
         )
         with pytest.raises(NoMatches):
             screen.query_one("#nexus-project-intake-summary", Static)

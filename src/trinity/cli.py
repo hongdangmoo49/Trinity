@@ -1180,9 +1180,12 @@ def _display_missing_project_intake_status(state_dir: Path | None = None) -> Non
             "",
             *_project_start_guide_status_lines(start_guide),
             "",
-            "Existing project: run `trinity project analyze [PATH]`.",
-            "New project: run `trinity project new NAME`.",
-            "Then run `trinity` to start planning.",
+            (
+                "Run `trinity` in the workspace you want to use, "
+                "or set it with `/workspace <PATH>`."
+            ),
+            "Describe whether you want analysis, implementation, or both in the prompt.",
+            "Use `/project` inside Trinity for optional diagnostics.",
         ]
     )
     console.print(Panel.fit(body, title="Trinity Project"))
@@ -1228,9 +1231,9 @@ def _project_status_payload(
             "refreshed": False,
             "project_intake_paths": None,
             "next_steps": [
-                "trinity project analyze [PATH]",
-                "trinity project new NAME",
                 "trinity",
+                "/workspace <PATH>",
+                "describe analysis or work in the prompt",
             ],
         }
 

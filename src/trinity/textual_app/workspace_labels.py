@@ -463,7 +463,7 @@ def project_startup_readiness_label(
     target_workspace: object | None = None,
     today: date | None = None,
 ) -> str:
-    """Return a compact first-run readiness summary for Start/Nexus."""
+    """Return a compact readiness summary for project diagnostics."""
     labels = PROJECT_STARTUP_READINESS_LABELS.get(
         lang,
         PROJECT_STARTUP_READINESS_LABELS["en"],

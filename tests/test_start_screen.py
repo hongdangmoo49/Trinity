@@ -1271,9 +1271,13 @@ async def test_start_screen_does_not_render_project_diagnostics(
         await pilot.pause()
 
         for selector in (
+            "#project-startup-readiness",
             "#project-intake-summary",
             "#project-existing-diagnostic",
             "#project-start-choice-guide",
+            "#project-plan-preview",
+            "#project-generation-preview",
+            "#project-validation-plan",
             "#project-read-first-checklist",
         ):
             with pytest.raises(NoMatches):
@@ -1379,9 +1383,13 @@ async def test_nexus_screen_does_not_render_project_diagnostics(
         await pilot.pause()
 
         for selector in (
+            "#nexus-project-startup-readiness",
+            "#nexus-project-intake-summary",
             "#nexus-project-read-first-checklist",
             "#nexus-project-existing-diagnostic",
-            "#nexus-project-startup-readiness",
+            "#nexus-project-plan-preview",
+            "#nexus-project-generation-preview",
+            "#nexus-project-validation-plan",
         ):
             with pytest.raises(NoMatches):
                 screen.query_one(selector, Static)

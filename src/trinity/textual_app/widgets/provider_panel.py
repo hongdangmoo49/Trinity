@@ -64,6 +64,17 @@ def _looks_like_error_output(text: str) -> bool:
     )
 
 
+def provider_panel_classes(state: ProviderPanelState) -> str:
+    classes = ["provider-panel", f"provider-{state.name.lower()}"]
+    state_group = provider_panel_state_group(state)
+    classes.append(f"provider-state-{state_group}")
+    if state_group == "running":
+        classes.append("provider-running")
+    if state_group == "off":
+        classes.append("provider-disabled")
+    return " ".join(classes)
+
+
 class ProviderPanel(Vertical):
     """Compact status surface for a provider."""
 
@@ -74,7 +85,7 @@ class ProviderPanel(Vertical):
         id: str | None = None,
         lang: str = "en",
     ) -> None:
-        super().__init__(id=id, classes=self._classes_for(state))
+        super().__init__(id=id, classes=provider_panel_classes(state))
         self.state = state
         self.lang = lang
         self._activity_frame = 0
@@ -102,9 +113,9 @@ class ProviderPanel(Vertical):
         previous_provider_line = self._provider_line()
         previous_status_label = self._status_label()
         previous_summary_line = self._summary_line()
-        previous_classes = self._classes_for(self.state)
+        previous_classes = provider_panel_classes(self.state)
         self.state = state
-        classes = self._classes_for(state)
+        classes = provider_panel_classes(state)
         if classes != previous_classes:
             self.set_classes(classes)
         name = state.name.title()
@@ -264,14 +275,3 @@ class ProviderPanel(Vertical):
 
     def _empty_summary(self) -> str:
         return "응답 없음" if self.lang == "ko" else "No response yet"
-
-    @staticmethod
-    def _classes_for(state: ProviderPanelState) -> str:
-        classes = ["provider-panel", f"provider-{state.name.lower()}"]
-        state_group = provider_panel_state_group(state)
-        classes.append(f"provider-state-{state_group}")
-        if state_group == "running":
-            classes.append("provider-running")
-        if state_group == "off":
-            classes.append("provider-disabled")
-        return " ".join(classes)

@@ -26,9 +26,7 @@ def test_target_current_presentation_describes_unset_target() -> None:
     assert presentation.title == "Target"
     assert presentation.body == "Current target: `(not set)`"
     assert presentation.empty is True
-    assert presentation.action_hint == (
-        "Use `/target <path>` or Select Workspace before execution."
-    )
+    assert presentation.action_hint == "Use `/target <path>` before execution."
 
 
 def test_target_cleared_presentation_describes_cleared_target() -> None:

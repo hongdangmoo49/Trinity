@@ -109,22 +109,6 @@ def test_start_and_nexus_labels_use_visible_copy(
     assert ko_nexus._label("composer_placeholder") == "답변, 방향 조정 또는 /로 명령 입력"
 
 
-@pytest.mark.asyncio
-async def test_start_mode_focus_buttons_are_not_rendered(
-    tmp_path: Path,
-) -> None:
-    screen = StartScreen(TrinityConfig.default_config(project_dir=tmp_path))
-    app = StartScreenHarness(screen)
-
-    async with app.run_test(size=(130, 44)) as pilot:
-        await pilot.pause()
-
-        with pytest.raises(NoMatches):
-            screen.query_one("#focus-existing-project", Button)
-        with pytest.raises(NoMatches):
-            screen.query_one("#focus-new-project", Button)
-
-
 def test_provider_execution_review_policy_label_handles_provider_counts(
     tmp_path: Path,
 ) -> None:

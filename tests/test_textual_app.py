@@ -41,7 +41,6 @@ from trinity.textual_app.app import (
     initial_start_prompt,
     initial_workspace_candidate,
 )
-from trinity.textual_app.project_start_runtime import project_setup_next_action
 from trinity.textual_app.presenters import (
     agent_change_action_hint,
     agent_current_settings_markdown,
@@ -229,7 +228,6 @@ from trinity.textual_app.snapshot import (
     WorkflowNexusSnapshot,
     WorkPackageSnapshot,
 )
-from trinity.textual_app.workspace_labels import project_analyze_action_presentation
 from trinity.textual_app.workflow_controller import (
     TextualWorkflowArchiveOption,
     TextualWorkflowOutcome,
@@ -11390,18 +11388,6 @@ async def test_start_continue_setup_opens_existing_read_first_review(
         intake = load_project_intake(app.config.effective_state_dir)
         assert intake is not None
         assert intake.read_first_confirmed is True
-        assert (
-            project_setup_next_action(
-                app.config.effective_state_dir,
-                target,
-                ready_action="plan",
-                analyze_variant=project_analyze_action_presentation(
-                    app.config.effective_state_dir,
-                    target_workspace=target,
-                ).variant,
-            )
-            == "plan"
-        )
 
 
 @pytest.mark.asyncio
@@ -11452,18 +11438,6 @@ async def test_start_continue_setup_opens_project_validation_modal_for_new_proje
         assert intake is not None
         assert intake.validation_commands == ("uv run pytest",)
         assert intake.run_commands == ("uv run board",)
-        assert (
-            project_setup_next_action(
-                app.config.effective_state_dir,
-                target,
-                ready_action="plan",
-                analyze_variant=project_analyze_action_presentation(
-                    app.config.effective_state_dir,
-                    target_workspace=target,
-                ).variant,
-            )
-            == "plan"
-        )
         with pytest.raises(NoMatches):
             app.get_screen("start", StartScreen).query_one(
                 "#project-startup-readiness",
@@ -12676,18 +12650,6 @@ async def test_nexus_continue_setup_opens_project_validation_modal_for_existing(
         intake = load_project_intake(app.config.effective_state_dir)
         assert intake is not None
         assert intake.validation_commands == ("npm test",)
-        assert (
-            project_setup_next_action(
-                app.config.effective_state_dir,
-                target,
-                ready_action="execute",
-                analyze_variant=project_analyze_action_presentation(
-                    app.config.effective_state_dir,
-                    target_workspace=target,
-                ).variant,
-            )
-            == "execute"
-        )
         with pytest.raises(NoMatches):
             app.get_screen("nexus", NexusScreen).query_one(
                 "#nexus-project-validation-plan",

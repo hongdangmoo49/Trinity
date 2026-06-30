@@ -70,9 +70,6 @@ from trinity.textual_app.workspace_labels import (
     format_project_generation_preview_label,
     format_project_read_first_checklist_label,
     format_project_validation_plan_label,
-    project_analyze_action_variant,
-    project_brief_action_variant,
-    project_create_action_variant,
     project_start_choice_guide_label,
 )
 from trinity.updater import (
@@ -1294,10 +1291,6 @@ def _project_status_payload(
                 target_exists=target_exists,
                 analysis_changed_fields=analysis_changed_fields,
             ),
-            "action_variants": _project_intake_action_variants_payload(
-                state_dir,
-                intake,
-            ),
             "product_goal": intake.product_goal,
             "project_type": intake.project_type,
             "starter_profile": intake.starter_profile,
@@ -1372,29 +1365,6 @@ def _project_intake_readiness_payload(
         "validation_missing": project_intake_validation_missing(intake),
         "scope_choice_required": _project_scope_choice_required(intake),
         "scope_candidates": list(intake.scope_candidates),
-    }
-
-
-def _project_intake_action_variants_payload(
-    state_dir: Path | None,
-    intake: ProjectIntake,
-) -> dict[str, str]:
-    if state_dir is None:
-        return {}
-    target_workspace = intake.target_workspace
-    return {
-        "analyze_workspace": project_analyze_action_variant(
-            state_dir,
-            target_workspace=target_workspace,
-        ),
-        "create_project": project_create_action_variant(
-            state_dir,
-            target_workspace=target_workspace,
-        ),
-        "edit_brief": project_brief_action_variant(
-            state_dir,
-            target_workspace=target_workspace,
-        ),
     }
 
 

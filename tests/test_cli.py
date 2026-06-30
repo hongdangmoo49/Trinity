@@ -829,9 +829,6 @@ class TestProjectAnalyze:
                 "scope_choice_required": False,
                 "scope_candidates": [],
             }
-            assert data["project_intake"]["action_variants"]["edit_brief"] == (
-                "warning"
-            )
 
     def test_project_status_summary_warns_when_target_is_missing(
         self,
@@ -864,9 +861,6 @@ class TestProjectAnalyze:
             assert data["project_intake"]["readiness"]["target_missing"] is True
             assert data["project_intake"]["readiness"]["recommended_action"] == (
                 "analyze_workspace"
-            )
-            assert data["project_intake"]["action_variants"]["analyze_workspace"] == (
-                "warning"
             )
 
     def test_project_status_guides_recreating_missing_new_project_target(
@@ -913,9 +907,6 @@ class TestProjectAnalyze:
             assert data["project_intake"]["readiness"]["target_missing"] is True
             assert data["project_intake"]["readiness"]["recommended_action"] == (
                 "create_project"
-            )
-            assert data["project_intake"]["action_variants"]["create_project"] == (
-                "warning"
             )
 
     def test_project_status_json_shows_saved_and_current_analysis(
@@ -1019,11 +1010,6 @@ class TestProjectAnalyze:
                 "validation_missing": False,
                 "scope_choice_required": False,
                 "scope_candidates": ["apps/web"],
-            }
-            assert data["project_intake"]["action_variants"] == {
-                "analyze_workspace": "default",
-                "create_project": "default",
-                "edit_brief": "default",
             }
             assert data["current_analysis"]["target_exists"] is True
             assert data["current_analysis"]["package_managers"] == ["uv"]

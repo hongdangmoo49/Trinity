@@ -2703,6 +2703,9 @@ class TrinityTextualApp(App[None]):
     def _handle_textual_providers_command(self) -> None:
         self._open_provider_inspector(self._current_textual_snapshot())
 
+    def _handle_textual_workspace_command(self) -> None:
+        self._open_project_command_action("workspace")
+
     def _handle_textual_project_command(
         self,
         command_name: str,

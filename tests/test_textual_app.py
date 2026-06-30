@@ -11096,7 +11096,7 @@ async def test_provider_inspector_localizes_korean_raw_path_truncation(tmp_path)
 
 
 @pytest.mark.asyncio
-async def test_start_project_workspace_command_opens_workspace_picker(tmp_path) -> None:
+async def test_start_workspace_command_opens_workspace_picker(tmp_path) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),
         FakeWorkflowController(),
@@ -11104,7 +11104,7 @@ async def test_start_project_workspace_command_opens_workspace_picker(tmp_path) 
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        app._handle_textual_slash_command("/project workspace")
+        app._handle_textual_slash_command("/workspace")
         await pilot.pause()
 
         assert isinstance(app.screen, WorkspacePicker)
@@ -11117,7 +11117,7 @@ async def test_start_project_workspace_command_opens_workspace_picker(tmp_path) 
 
 
 @pytest.mark.asyncio
-async def test_start_project_workspace_command_updates_workspace_candidate(tmp_path) -> None:
+async def test_start_workspace_command_updates_workspace_candidate(tmp_path) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),
         FakeWorkflowController(),
@@ -11125,7 +11125,7 @@ async def test_start_project_workspace_command_updates_workspace_candidate(tmp_p
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        app._handle_textual_slash_command("/project workspace")
+        app._handle_textual_slash_command("/workspace")
         await pilot.pause()
         picker = app.screen
         assert isinstance(picker, WorkspacePicker)
@@ -12318,7 +12318,7 @@ async def test_start_selected_workspace_overrides_launch_cwd_on_submit(
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        app._handle_textual_slash_command("/project workspace")
+        app._handle_textual_slash_command("/workspace")
         await pilot.pause()
         picker = app.screen
         assert isinstance(picker, WorkspacePicker)
@@ -12345,7 +12345,7 @@ async def test_start_selected_workspace_overrides_launch_cwd_on_submit(
 
 
 @pytest.mark.asyncio
-async def test_nexus_project_workspace_command_selects_target_without_execution(
+async def test_nexus_workspace_command_selects_target_without_execution(
     tmp_path,
 ) -> None:
     control_repo = tmp_path / "control"
@@ -12388,7 +12388,7 @@ async def test_nexus_project_workspace_command_selects_target_without_execution(
         assert workspace_label.styles.height.value == 1
         assert workspace_label.styles.content_align_vertical == "middle"
 
-        app._handle_textual_slash_command("/project workspace")
+        app._handle_textual_slash_command("/workspace")
         await pilot.pause()
 
         assert controller.execution_requests == 0

@@ -43,6 +43,9 @@ def test_textual_slash_command_route_argument_shapes() -> None:
     assert textual_slash_command_route("providers") == TextualSlashCommandRoute(
         "_handle_textual_providers_command"
     )
+    assert textual_slash_command_route("workspace") == TextualSlashCommandRoute(
+        "_handle_textual_workspace_command"
+    )
     assert textual_slash_command_route("execute") == TextualSlashCommandRoute(
         "_handle_textual_execute_command",
         "name_args",

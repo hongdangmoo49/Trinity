@@ -44,6 +44,15 @@ def test_parse_slash_command_registers_providers_command() -> None:
     assert parsed.spec.summary == "open provider inspector"
 
 
+def test_parse_slash_command_registers_workspace_command() -> None:
+    parsed = parse_slash_command("/workspace")
+
+    assert parsed is not None
+    assert parsed.command_id == "workspace"
+    assert parsed.spec is not None
+    assert parsed.spec.summary == "select target workspace"
+
+
 def test_parse_slash_command_keeps_project_action_args() -> None:
     parsed = parse_slash_command("/project brief")
 

@@ -199,7 +199,7 @@ async def test_execution_matrix_updates_row_action_buttons_without_list_rebuild(
         screen.apply_execution_state(None, review_snapshot)
         await pilot.pause()
 
-        package_list = screen._package_list()
+        package_list = screen.package_list()
         rebuilds: list[bool] = []
         original_remove_children = package_list.remove_children
 

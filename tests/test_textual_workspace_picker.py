@@ -60,7 +60,7 @@ def test_build_preflight_accepts_existing_writable_directory(tmp_path) -> None:
     assert preflight.exists is True
     assert preflight.is_dir is True
     assert preflight.package_count == 1
-    assert "Workspace intent: Existing directory workspace" in preflight.render()
+    assert "Workspace state: Readable workspace" in preflight.render()
 
 
 def test_build_preflight_detects_git_branch(tmp_path) -> None:
@@ -72,7 +72,7 @@ def test_build_preflight_detects_git_branch(tmp_path) -> None:
 
     assert preflight.git_repo is True
     assert preflight.branch == "feature/ui"
-    assert "Workspace intent: Existing Git workspace" in preflight.render()
+    assert "Workspace state: Readable Git workspace" in preflight.render()
 
 
 def test_build_preflight_detects_git_worktree_file_branch(tmp_path) -> None:
@@ -139,8 +139,8 @@ def test_build_preflight_marks_missing_child_as_creatable(tmp_path) -> None:
     assert preflight.can_execute is False
     assert preflight.can_create is True
     assert "Creatable: True" in preflight.render()
-    assert "Workspace intent: New workspace folder" in preflight.render()
-    assert "작업 의도: 새 작업 폴더 생성" in preflight.render(lang="ko")
+    assert "Workspace state: Creatable workspace folder" in preflight.render()
+    assert "작업 폴더 상태: 생성할 작업 폴더" in preflight.render(lang="ko")
 
 
 def test_build_preflight_reports_invalid_path_intent(tmp_path) -> None:
@@ -152,7 +152,7 @@ def test_build_preflight_reports_invalid_path_intent(tmp_path) -> None:
     assert preflight.exists is True
     assert preflight.is_dir is False
     assert preflight.can_execute is False
-    assert "Workspace intent: Invalid path" in preflight.render()
+    assert "Workspace state: Invalid path" in preflight.render()
 
 
 def test_build_preflight_marks_empty_directory_as_new_project_candidate(
@@ -167,9 +167,9 @@ def test_build_preflight_marks_empty_directory_as_new_project_candidate(
     assert preflight.created is False
     assert preflight.intake_safety_warnings == ("missing_new_project_brief",)
     assert preflight.requires_execute_ack is True
-    assert "Workspace intent: Empty new project folder" in preflight.render()
-    assert "Project intake safety: incomplete new-project brief" in preflight.render()
-    assert "작업 의도: 빈 새 프로젝트 폴더" in preflight.render(lang="ko")
+    assert "Workspace state: Empty workspace folder" in preflight.render()
+    assert "Project intake safety: incomplete project brief" in preflight.render()
+    assert "작업 폴더 상태: 빈 작업 폴더" in preflight.render(lang="ko")
 
 
 def test_build_preflight_keeps_non_empty_directory_existing(
@@ -182,7 +182,7 @@ def test_build_preflight_keeps_non_empty_directory_existing(
     preflight = build_preflight(target, WorkflowNexusSnapshot())
 
     assert preflight.new_project_candidate is False
-    assert "Workspace intent: Existing directory workspace" in preflight.render()
+    assert "Workspace state: Readable workspace" in preflight.render()
 
 
 def test_build_preflight_respects_creatable_override(tmp_path) -> None:
@@ -306,8 +306,8 @@ def test_build_preflight_marks_incomplete_new_project_brief(tmp_path) -> None:
 
     assert preflight.intake_safety_warnings == ("missing_new_project_brief",)
     assert preflight.requires_execute_ack is True
-    assert "Project intake safety: incomplete new-project brief" in preflight.render()
-    assert "프로젝트 인테이크 안전: 불완전한 새 프로젝트 브리프" in preflight.render(
+    assert "Project intake safety: incomplete project brief" in preflight.render()
+    assert "프로젝트 인테이크 안전: 불완전한 프로젝트 브리프" in preflight.render(
         lang="ko",
     )
 
@@ -1057,7 +1057,7 @@ async def test_workspace_picker_requires_second_confirm_for_incomplete_new_brief
 
         status = picker.query_one("#workspace-picker-status", Static)
         assert dismissed == []
-        assert "incomplete new-project brief" in str(status.content)
+        assert "incomplete project brief" in str(status.content)
 
         picker.action_confirm()
         await pilot.pause()

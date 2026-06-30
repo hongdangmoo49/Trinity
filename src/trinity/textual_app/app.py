@@ -620,13 +620,13 @@ def _execution_confirmation_intake_risk_label(warning: str, *, lang: str) -> str
     labels = {
         "en": {
             "changed_project_intake": "changed project intake",
-            "missing_new_project_brief": "incomplete new-project brief",
+            "missing_new_project_brief": "incomplete project brief",
             "sparse_project_intake": "sparse project intake",
             "stale_project_intake": "stale project intake",
         },
         "ko": {
             "changed_project_intake": "변경된 프로젝트 인테이크",
-            "missing_new_project_brief": "불완전한 새 프로젝트 브리프",
+            "missing_new_project_brief": "불완전한 프로젝트 브리프",
             "sparse_project_intake": "부족한 프로젝트 인테이크",
             "stale_project_intake": "오래된 프로젝트 인테이크",
         },

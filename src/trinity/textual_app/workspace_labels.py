@@ -82,7 +82,7 @@ PROJECT_INTAKE_LABELS = {
         "stack_preferences": "stack",
         "starter_profile": "starter",
         "success_criteria": "success",
-        "summary": "Project intake: {mode}",
+        "summary": "Project intake: recorded",
         "target": "target",
         "target_missing": "target missing: {target}",
         "target_users": "users",
@@ -135,7 +135,7 @@ PROJECT_INTAKE_LABELS = {
         "stack_preferences": "스택",
         "starter_profile": "스타터",
         "success_criteria": "성공",
-        "summary": "프로젝트 인테이크: {mode}",
+        "summary": "프로젝트 인테이크: 기록됨",
         "target": "대상",
         "target_missing": "대상 없음: {target}",
         "target_users": "사용자",
@@ -143,17 +143,6 @@ PROJECT_INTAKE_LABELS = {
         "tests": "테스트",
         "tests_none": "(없음)",
         "updated": "갱신",
-    },
-}
-
-PROJECT_MODE_LABELS = {
-    "en": {
-        "existing": "existing",
-        "new": "new",
-    },
-    "ko": {
-        "existing": "기존",
-        "new": "신규",
     },
 }
 
@@ -957,10 +946,8 @@ def _format_project_intake_label(
     today: date | None = None,
 ) -> str:
     labels = PROJECT_INTAKE_LABELS.get(lang, PROJECT_INTAKE_LABELS["en"])
-    mode_labels = PROJECT_MODE_LABELS.get(lang, PROJECT_MODE_LABELS["en"])
-    mode = mode_labels.get(intake.mode, intake.mode)
     parts = [
-        labels["summary"].format(mode=mode),
+        labels["summary"],
     ]
     target_name = _format_project_intake_target_name(intake.target_workspace)
     if target_name:

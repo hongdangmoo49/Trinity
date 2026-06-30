@@ -34,7 +34,7 @@ first milestone.
 
 ## User Experience
 
-For a new project, the Project Brief modal should show:
+For a new project, saved intake may include practical delivery context:
 
 ```text
 Run commands          npm run dev, uv run trinity
@@ -44,16 +44,21 @@ Artifact targets      apps/web, src/trinity
 
 The saved intake should then appear in the Markdown brief and prompt context so work
 packages can include concrete validation and output locations from the start.
+The prompt-led Workbench does not need separate Start/Nexus buttons or a modal-only
+capture step for these optional fields; users can provide the same details in the
+prompt, and persisted intake remains the durable source when present.
 
 ## Non-goals
 
 - Do not require these fields before planning.
 - Do not infer commands from an empty new-project folder.
 - Do not change execution semantics; these values guide planning only.
+- Do not add Workbench chrome solely to collect these optional fields.
 
 ## Validation
 
 - Unit tests for serialization and Markdown output.
-- Modal tests for preserving and saving the new fields.
-- Start/Nexus prompt seeding tests continue to pass.
+- Provider guidance and project-context summary tests include the saved fields.
+- Start/Nexus prompt-led submission tests continue to pass without injecting
+  saved brief text into the composer.
 - Required smoke tests before merge.

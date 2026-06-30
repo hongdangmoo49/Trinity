@@ -25,7 +25,7 @@ import click
 from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Confirm
 from rich.table import Table
 
 from trinity import __version__
@@ -334,7 +334,7 @@ def _run_plain_interactive_tui(config: TrinityConfig) -> None:
     "--mode",
     type=click.Choice(["existing", "new"]),
     default=None,
-    help="Record a new/existing project intake during init.",
+    help="Optionally record project intake during init.",
 )
 @click.option(
     "--project-name",
@@ -655,17 +655,10 @@ def _resolve_init_project_mode(
     interactive: bool,
 ) -> str | None:
     """Resolve the optional project intake mode for init."""
+    _ = lang, interactive
     if mode:
         return mode
-    if not interactive:
-        return None
-    prompt = "프로젝트 모드" if lang == "ko" else "Project mode"
-    return Prompt.ask(
-        prompt,
-        choices=["existing", "new"],
-        default="existing",
-        console=console,
-    )
+    return None
 
 
 def _build_init_new_project_request(

@@ -405,18 +405,13 @@ class TestInit:
             assert not Path(".trinity").exists()
             assert not Path("wrong-mode").exists()
 
-    def test_resolve_init_project_mode_prompt_policy(self):
+    def test_resolve_init_project_mode_uses_explicit_option_only(self):
         assert (
             _resolve_init_project_mode("new", lang="en", interactive=True)
             == "new"
         )
         assert _resolve_init_project_mode(None, lang="en", interactive=False) is None
-        with patch("trinity.cli.Prompt.ask", return_value="existing") as ask:
-            assert (
-                _resolve_init_project_mode(None, lang="ko", interactive=True)
-                == "existing"
-            )
-        ask.assert_called_once()
+        assert _resolve_init_project_mode(None, lang="ko", interactive=True) is None
 
 
 class TestProjectAnalyze:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Input, Static
 
@@ -55,7 +55,8 @@ class ProjectScopeModal(ModalScreen[ProjectScopeModalResult]):
     #project-scope-modal {
         width: 82;
         max-width: 94%;
-        height: auto;
+        height: 95%;
+        max-height: 95%;
         border: round $accent;
         background: $surface;
         padding: 1 2;
@@ -70,6 +71,11 @@ class ProjectScopeModal(ModalScreen[ProjectScopeModalResult]):
     #project-scope-target,
     #project-scope-candidates {
         color: $text-muted;
+        margin-bottom: 1;
+    }
+
+    #project-scope-content {
+        height: 1fr;
         margin-bottom: 1;
     }
 
@@ -116,31 +122,39 @@ class ProjectScopeModal(ModalScreen[ProjectScopeModalResult]):
     def compose(self) -> ComposeResult:
         with Vertical(id="project-scope-modal"):
             yield Static(self._label("title"), id="project-scope-title")
-            yield Static(
-                f"{self._label('target_workspace')}: {self.intake.target_workspace}",
-                id="project-scope-target",
-            )
-            yield Static(
-                (
-                    f"{self._label('candidates')}: "
-                    f"{_join_values(self.intake.scope_candidates, self._label('none'))}"
-                ),
-                id="project-scope-candidates",
-            )
-            with Horizontal(id="project-scope-input-row"):
-                yield Static(self._label("selected_scope"))
-                yield Input(
-                    value=self.intake.selected_scope,
-                    id="project-scope-input",
-                    placeholder=self._label("selected_scope_placeholder"),
+            with VerticalScroll(id="project-scope-content"):
+                yield Static(
+                    f"{self._label('target_workspace')}: {self.intake.target_workspace}",
+                    id="project-scope-target",
                 )
-            with Horizontal(id="project-scope-candidate-actions"):
-                for index, candidate in enumerate(self.intake.scope_candidates, start=1):
-                    yield Button(
-                        candidate,
-                        id=f"project-scope-candidate-{index}",
-                        variant="primary" if candidate == self.intake.selected_scope else "default",
+                yield Static(
+                    (
+                        f"{self._label('candidates')}: "
+                        f"{_join_values(self.intake.scope_candidates, self._label('none'))}"
+                    ),
+                    id="project-scope-candidates",
+                )
+                with Horizontal(id="project-scope-input-row"):
+                    yield Static(self._label("selected_scope"))
+                    yield Input(
+                        value=self.intake.selected_scope,
+                        id="project-scope-input",
+                        placeholder=self._label("selected_scope_placeholder"),
                     )
+                with Horizontal(id="project-scope-candidate-actions"):
+                    for index, candidate in enumerate(
+                        self.intake.scope_candidates,
+                        start=1,
+                    ):
+                        yield Button(
+                            candidate,
+                            id=f"project-scope-candidate-{index}",
+                            variant=(
+                                "primary"
+                                if candidate == self.intake.selected_scope
+                                else "default"
+                            ),
+                        )
             with Horizontal(id="project-scope-actions"):
                 yield Button(self._label("cancel"), id="cancel-project-scope")
                 yield Button(

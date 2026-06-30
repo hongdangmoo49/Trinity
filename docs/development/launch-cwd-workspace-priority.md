@@ -3,8 +3,9 @@
 ## Context
 
 Trinity currently seeds the initial target workspace from persisted project
-intake when that intake target still exists. This is useful when the user starts
-Trinity from the control repository and wants to resume the previous target.
+context when that saved target still exists. This is useful when the user
+starts Trinity from the control repository and wants to resume the previous
+target.
 
 However, it can be surprising when the user launches `trinity` from another
 project directory. In that case the launch cwd is an explicit user signal, and
@@ -19,29 +20,29 @@ control repository path.
 ## Scope
 
 - Update `initial_workspace_candidate` so a distinct launch cwd wins over
-  persisted intake target.
-- Keep persisted intake target restore behavior when launching from the control
-  repository.
+  persisted project context target.
+- Keep persisted project context target restore behavior when launching from the
+  control repository.
 - Add unit coverage for both branches.
 
 ## Non-goals
 
 - Do not change workspace picker behavior.
-- Do not change persisted project intake files.
+- Do not change persisted project context files.
 - Do not change target workspace confirmation logic.
 - Do not add migration behavior.
 
 ## Expected Behavior
 
-- Launch from control repo: restore saved intake target if it still exists.
+- Launch from control repo: restore saved context target if it still exists.
 - Launch from another project path: use that launch path as the initial
   workspace.
 - Invalid or unreadable intake: use launch cwd as before.
 
 ## Test Plan
 
-- Saved intake target exists and launch cwd equals control repo: returns saved
+- Saved context target exists and launch cwd equals control repo: returns saved
   target.
-- Saved intake target exists and launch cwd differs from control repo: returns
+- Saved context target exists and launch cwd differs from control repo: returns
   launch cwd.
 - Invalid intake remains fallback-safe.

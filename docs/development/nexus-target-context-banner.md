@@ -39,8 +39,8 @@ the action bar scroll position or central response body changes.
 - Add a target workspace line to `CentralAgentView._markdown()`.
 - Localize the label in English and Korean.
 - Keep the existing action bar workspace label unchanged.
-- Do not load project intake from the widget in this slice; only render the
-  workflow snapshot target.
+- Do not load saved project context from the widget in this slice; only render
+  the workflow snapshot target.
 
 ## Validation
 

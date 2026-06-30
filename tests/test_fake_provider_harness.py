@@ -100,16 +100,26 @@ def test_fake_provider_clis_support_versions_and_model_discovery(tmp_path) -> No
         assert completed.returncode == 0
         assert label in completed.stdout
 
+    def discovery_runner(argv, timeout_seconds):
+        return run_fake_cli(
+            list(argv),
+            cwd=tmp_path,
+            env=env,
+            timeout_seconds=timeout_seconds,
+        )
+
     clear_model_discovery_cache()
     codex_choices = discover_provider_models(
         Provider.CODEX,
         str(fake.codex),
         use_cache=False,
+        runner=discovery_runner,
     )
     agy_choices = discover_provider_models(
         Provider.ANTIGRAVITY_CLI,
         str(fake.agy),
         use_cache=False,
+        runner=discovery_runner,
     )
 
     assert [choice.model for choice in codex_choices[:3]] == [

@@ -1008,7 +1008,7 @@ class TrinityTextualApp(App[None]):
         width: 88;
         max-width: 95%;
         height: auto;
-        max-height: 85%;
+        max-height: 95%;
         border: round $primary;
         background: $surface;
         padding: 1 2;

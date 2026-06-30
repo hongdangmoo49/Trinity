@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.865`
-- Merged PR range reviewed: #90 through #1025
+- Package version inspected: `1.0.866`
+- Merged PR range reviewed: #90 through #1027
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1025
-- Latest refresh reviewed: #1025
+- Maintenance refresh reviewed: #427 through #1027
+- Latest refresh reviewed: #1027
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -1192,8 +1192,9 @@ and what the next release train should optimize.
 
 ### #728: New/Existing Project Onboarding Redesign
 
-- Added `docs/plans/2026-06-28-new-existing-project-onboarding-redesign.md`
-  to separate Trinity's entry path for new projects and existing projects.
+- Added a design plan to separate Trinity's entry path for new projects and
+  existing projects. The root plan file was removed later when the prompt-led
+  Workbench contract superseded mode-led onboarding surfaces.
 - Proposed explicit CLI surfaces for `trinity init --mode new`,
   `trinity init --mode existing`, and `trinity project analyze [PATH]`.
 - Defined project intake artifacts under `.trinity/project-intake.json` and
@@ -2160,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1025: Prompt-Led Workbench Simplification
+### #977-#1027: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2172,6 +2173,8 @@ and what the next release train should optimize.
   `project_start_guide` assertions, dead project rail/runtime notes,
   superseded readiness notes, unused auto-seed prompt helpers, and the leftover
   unused `absolute_path` import.
+- Removed the old new/existing onboarding redesign plan that still described
+  mode-led Workbench surfaces after the prompt-led contract replaced them.
 
 This refresh moves the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
@@ -2384,7 +2387,7 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #1025:
+Current main snapshot after #1027:
 
 - `src/trinity/textual_app/app.py`: 3,457 lines
 - `src/trinity/workflow/engine.py`: 625 lines

@@ -88,9 +88,9 @@ class CentralAgentView(VerticalScroll):
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
         self._reset_render_cache()
-        title = Static(self._label("title"), id="central-title")
+        title = Static(self.label("title"), id="central-title")
         self._title_widget = title
-        self._title_key = self._label("title")
+        self._title_key = self.label("title")
         yield title
         markdown = self.render_markdown()
         self._markdown_key = markdown
@@ -168,11 +168,11 @@ class CentralAgentView(VerticalScroll):
         snapshot = self.snapshot
         if snapshot is None:
             return (
-                f"**{self._label('progress')}:** {self._label('waiting')}\n\n"
-                f"{self._label('planning_no_workspace')}"
+                f"**{self.label('progress')}:** {self.label('waiting')}\n\n"
+                f"{self.label('planning_no_workspace')}"
             )
 
-        lines = [f"**{self._label('progress')}:** {self._progress_line(snapshot)}"]
+        lines = [f"**{self.label('progress')}:** {self._progress_line(snapshot)}"]
         self._append_target_context(lines, snapshot)
         if snapshot.synthesis.consensus_progress:
             progress = display_consensus_progress(
@@ -180,16 +180,16 @@ class CentralAgentView(VerticalScroll):
                 lang=self.lang,
             )
             lines.append(
-                f"**{self._label('synthesis')}:** `{progress}`"
+                f"**{self.label('synthesis')}:** `{progress}`"
             )
         if snapshot.goal:
-            lines.extend(["", f"### {self._label('goal')}", snapshot.goal])
+            lines.extend(["", f"### {self.label('goal')}", snapshot.goal])
         central_response = self._central_response(snapshot)
         if central_response:
             lines.extend(
                 [
                     "",
-                    f"### {self._label('central_response')}",
+                    f"### {self.label('central_response')}",
                     central_response,
                 ]
             )
@@ -197,9 +197,9 @@ class CentralAgentView(VerticalScroll):
             lines.extend(
                 [
                     "",
-                    self._label("waiting"),
+                    self.label("waiting"),
                     "",
-                    self._label("planning_no_workspace"),
+                    self.label("planning_no_workspace"),
                 ]
             )
         self._append_work_package_overview(lines, snapshot)
@@ -211,14 +211,14 @@ class CentralAgentView(VerticalScroll):
             lines.extend(
                 [
                     "",
-                    f"### {self._label('final_review')}",
+                    f"### {self.label('final_review')}",
                     self._final_review_line(review),
                 ]
             )
             if review.summary:
                 lines.append(f"- {review.summary}")
         if snapshot.post_review_items:
-            lines.extend(["", f"### {self._label('follow_up_work')}"])
+            lines.extend(["", f"### {self.label('follow_up_work')}"])
             for item in snapshot.post_review_items:
                 title = item.title or item.summary or item.id
                 status = self._status_value(item.status)
@@ -227,14 +227,14 @@ class CentralAgentView(VerticalScroll):
                     f"- **{item.id}** [{severity}][{status}] {title}"
                 )
             lines.append("")
-            lines.append(self._label("improve_follow_up_hint"))
+            lines.append(self.label("improve_follow_up_hint"))
         elif snapshot.state == "post_review_ready":
             lines.extend(
                 [
                     "",
-                    f"### {self._label('follow_up_work')}",
-                    self._label("no_follow_up_items"),
-                    self._label("improve_done_hint"),
+                    f"### {self.label('follow_up_work')}",
+                    self.label("no_follow_up_items"),
+                    self.label("improve_done_hint"),
                 ]
             )
         return "\n".join(lines)
@@ -247,7 +247,7 @@ class CentralAgentView(VerticalScroll):
         target = snapshot.target_workspace.strip()
         if not target:
             return
-        lines.append(f"**{self._label('target_workspace')}:** {target}")
+        lines.append(f"**{self.label('target_workspace')}:** {target}")
 
     def _append_work_package_overview(
         self,
@@ -259,27 +259,27 @@ class CentralAgentView(VerticalScroll):
         if package_count <= 0:
             return
 
-        lines.extend(["", f"### {self._label('work_packages')}"])
+        lines.extend(["", f"### {self.label('work_packages')}"])
         count_text = self._package_count_text(package_count)
         if snapshot.work_package_details:
             lines.append(
                 f"- {progress_summary_line(snapshot.work_package_details, lang=self.lang)}"
             )
         else:
-            lines.append(f"- {count_text} · {self._label('ready')}")
+            lines.append(f"- {count_text} · {self.label('ready')}")
         current = current_work_packages(snapshot.work_package_details, limit=1)
         if current:
             lines.append(
-                f"- {self._label('current')}: "
+                f"- {self.label('current')}: "
                 f"{compact_wp_line(current[0], lang=self.lang)}"
             )
         blocked = blocked_work_packages(snapshot.work_package_details, limit=1)
         if blocked:
             lines.append(
-                f"- {self._label('blocked')}: "
+                f"- {self.label('blocked')}: "
                 f"{compact_wp_line(blocked[0], lang=self.lang)}"
             )
-        lines.append(f"- {self._label('details_in_inspector')}")
+        lines.append(f"- {self.label('details_in_inspector')}")
 
     def _append_execution_overview(
         self,
@@ -298,7 +298,7 @@ class CentralAgentView(VerticalScroll):
         if not active:
             return
 
-        lines.extend(["", f"### {self._label('current_focus')}"])
+        lines.extend(["", f"### {self.label('current_focus')}"])
         for package in active[:5]:
             executor = package.current_executor or package.last_executor or package.owner_agent
             status = self._status_value(
@@ -310,7 +310,7 @@ class CentralAgentView(VerticalScroll):
                 lines.append(f"  - {package.last_result_summary}")
             blockers = self._compact_list(package.last_result_blockers, limit=2)
             if blockers:
-                lines.append(f"  - {self._label('blockers')}: {blockers}")
+                lines.append(f"  - {self.label('blockers')}: {blockers}")
 
     def _append_latest_command(
         self,
@@ -320,13 +320,13 @@ class CentralAgentView(VerticalScroll):
         lines.extend(
             [
                 "",
-                f"### {self._label('command_result')}",
+                f"### {self.label('command_result')}",
                 f"**{command.command} - {command.title}**",
                 command.body,
             ]
         )
         if command.action_hint:
-            lines.append(f"_{self._label('next')}:_ {command.action_hint}")
+            lines.append(f"_{self.label('next')}:_ {command.action_hint}")
 
     def _compact_list(self, values: list[str], *, limit: int = 5) -> str:
         items = [value for value in values if value]
@@ -455,29 +455,29 @@ class CentralAgentView(VerticalScroll):
     def _progress_line(self, snapshot: WorkflowNexusSnapshot) -> str:
         open_questions = sum(1 for question in snapshot.questions if not question.answer)
         if open_questions:
-            return f"{self._label('awaiting_answers')} ({open_questions})"
+            return f"{self.label('awaiting_answers')} ({open_questions})"
         if snapshot.state in {"preflight", "deliberating"}:
-            return self._label("collecting_provider_responses")
+            return self.label("collecting_provider_responses")
         if snapshot.synthesis.status in {"running", "waiting"}:
-            return self._label("synthesizing")
+            return self.label("synthesizing")
         if snapshot.state == "blueprint_ready":
-            return self._label("blueprint_ready")
+            return self.label("blueprint_ready")
         if snapshot.state == "executing":
             return self._execution_progress(snapshot)
         if snapshot.state == "reviewing":
-            return self._label("reviewing")
+            return self.label("reviewing")
         if snapshot.state == "post_review_ready":
-            return self._label("post_review_ready")
+            return self.label("post_review_ready")
         if snapshot.state == "needs_user_decision":
-            return self._label("awaiting_decision")
+            return self.label("awaiting_decision")
         if snapshot.state == "completed":
-            return self._label("completed")
-        return snapshot.state or self._label("idle")
+            return self.label("completed")
+        return snapshot.state or self.label("idle")
 
     def _execution_progress(self, snapshot: WorkflowNexusSnapshot) -> str:
         counts = work_package_counts(snapshot.work_package_details)
         if not counts:
-            return self._label("executing")
+            return self.label("executing")
         done = counts.get("done", 0)
         running = counts.get("running", 0)
         blocked = counts.get("blocked", 0)
@@ -490,7 +490,7 @@ class CentralAgentView(VerticalScroll):
         if blocked:
             parts.append(self._progress_count(blocked, "blocked"))
         return (
-            f"{self._label('executing')}: "
+            f"{self.label('executing')}: "
             + " / ".join(parts)
         )
 
@@ -498,13 +498,13 @@ class CentralAgentView(VerticalScroll):
         return display_status_value(value, lang=self.lang)
 
     def _progress_count(self, count: int, key: str) -> str:
-        return f"{count} {self._label(f'progress_{key}')}"
+        return f"{count} {self.label(f'progress_{key}')}"
 
     def _final_review_line(self, review) -> str:
         status = self._status_value(review.status or "unknown")
-        reviewer = review.reviewer_agent or self._label("unknown")
+        reviewer = review.reviewer_agent or self.label("unknown")
         if self.lang == "ko":
-            return f"- `{status}` / {self._label('reviewer')} `{reviewer}`"
+            return f"- `{status}` / {self.label('reviewer')} `{reviewer}`"
         return f"- `{status}` by `{reviewer}`"
 
     @staticmethod
@@ -541,16 +541,16 @@ class CentralAgentView(VerticalScroll):
             self._set_action_title("")
             return
 
-        self._set_action_title(self._label(plan.title_key))
+        self._set_action_title(self.label(plan.title_key))
         for button in plan.buttons:
             button_id = f"central-action-{render_version}-{button.action}"
             self._button_actions[button_id] = button.action
             container.mount(
                 Button(
-                    self._label(button.label_key),
+                    self.label(button.label_key),
                     id=button_id,
                     variant=button.variant,
-                    tooltip=self._label(button.tooltip_key),
+                    tooltip=self.label(button.tooltip_key),
                 )
             )
 
@@ -605,7 +605,7 @@ class CentralAgentView(VerticalScroll):
             self._actions_container = self.query_one("#central-actions", Grid)
         return self._actions_container
 
-    def _label(self, key: str) -> str:
+    def label(self, key: str) -> str:
         ko = {
             "awaiting_answers": "사용자 답변 대기",
             "awaiting_decision": "사용자 결정 대기",
@@ -754,7 +754,7 @@ class CentralAgentView(VerticalScroll):
     def _refresh_title(self) -> None:
         if not self.is_mounted:
             return
-        title = self._label("title")
+        title = self.label("title")
         if self._is_running():
             title = f"{title} {ACTIVITY_FRAMES[self._activity_frame]}"
         if title == self._title_key:

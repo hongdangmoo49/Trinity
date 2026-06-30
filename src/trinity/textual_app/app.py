@@ -2137,19 +2137,15 @@ class TrinityTextualApp(App[None]):
         self._open_provider_inspector(self._current_textual_snapshot())
 
     def _handle_textual_workspace_command(self) -> None:
-        self._open_project_command_action("workspace")
+        self._open_workspace_command()
 
     def _handle_textual_project_command(
         self,
         command_name: str,
         args: list[str],
     ) -> None:
-        action = self._project_command_action(args)
-        if action is not None:
-            self._open_project_command_action(action)
-            return
         if args:
-            self._record_unknown_project_command_action(command_name, args[0])
+            self._record_project_command_argument_error(command_name, args[0])
             return
         snapshot = self._current_textual_snapshot()
         presentation = project_command_presentation(
@@ -2166,33 +2162,22 @@ class TrinityTextualApp(App[None]):
             action_hint=presentation.action_hint,
         )
 
-    def _project_command_action(self, args: list[str]) -> str | None:
-        if not args:
-            return None
-        token = args[0].strip().lower().replace("_", "-")
-        aliases = {
-            "workspace": "workspace",
-            "target": "workspace",
-            "select": "workspace",
-        }
-        return aliases.get(token)
-
-    def _record_unknown_project_command_action(
+    def _record_project_command_argument_error(
         self,
         command_name: str,
         action: str,
     ) -> None:
         if self.config.lang == "ko":
-            title = "알 수 없는 프로젝트 명령"
+            title = "프로젝트 명령 인자 미지원"
             body = (
-                f"`{action}`는 /project 하위 명령이 아닙니다.\n\n"
-                "사용 가능: workspace"
+                f"`/project {action}`는 지원하지 않습니다.\n\n"
+                "작업 폴더 선택은 `/workspace`를 사용하세요."
             )
         else:
-            title = "Unknown Project Command"
+            title = "Project Command Takes No Arguments"
             body = (
-                f"`{action}` is not a /project action.\n\n"
-                "Available: workspace"
+                f"`/project {action}` is not supported.\n\n"
+                "Use `/workspace` to select a target workspace."
             )
         self._record_slash_command_result(
             command_name,
@@ -2201,28 +2186,20 @@ class TrinityTextualApp(App[None]):
             severity="warning",
         )
 
-    def _open_project_command_action(self, action: str) -> None:
+    def _open_workspace_command(self) -> None:
         if self.current_route == "start":
-            self._open_start_project_command_action(action)
-            return
-        self._open_nexus_project_command_action(action)
-
-    def _open_start_project_command_action(self, action: str) -> None:
-        if action == "workspace":
             self._open_workspace_picker(
                 WorkflowNexusSnapshot(),
                 self._on_workspace_candidate_selected,
                 intent="select",
             )
-
-    def _open_nexus_project_command_action(self, action: str) -> None:
+            return
         snapshot = self._current_textual_snapshot()
-        if action == "workspace":
-            self._open_workspace_picker(
-                snapshot,
-                self._on_nexus_workspace_selected,
-                intent="select",
-            )
+        self._open_workspace_picker(
+            snapshot,
+            self._on_nexus_workspace_selected,
+            intent="select",
+        )
 
     def _project_command_target_workspace(
         self,

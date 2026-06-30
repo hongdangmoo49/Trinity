@@ -67,7 +67,7 @@ def test_textual_slash_command_dispatch_routes_known_command() -> None:
     )
 
 
-def test_textual_slash_command_dispatch_routes_project_action_args() -> None:
+def test_textual_slash_command_dispatch_routes_project_args_for_error() -> None:
     dispatch = textual_slash_command_dispatch("/project nope")
 
     assert dispatch == TextualSlashCommandDispatch(

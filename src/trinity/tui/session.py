@@ -364,14 +364,10 @@ class InteractiveSession:
         self.console.print(Panel("\n".join(lines), title="Current Session Context"))
 
     def _cmd_project(self, args: list[str]) -> None:
-        """Show compact project diagnostics or target workspace shortcut."""
-        action = args[0].strip().lower().replace("_", "-") if args else ""
-        if action in {"workspace", "target", "select"}:
-            self._cmd_target(args[1:])
-            return
-        if action:
+        """Show compact project diagnostics."""
+        if args:
             self.console.print(
-                "[yellow]Only /project workspace is available in the plain TUI.[/yellow]"
+                "[yellow]/project only shows diagnostics. Use /workspace <path> to select a target.[/yellow]"
             )
             return
         presentation = project_command_presentation(

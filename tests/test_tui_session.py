@@ -366,13 +366,17 @@ class TestSessionHandleCommand:
 
         print_.assert_called_once()
 
-    def test_project_workspace_command_sets_target_workspace(self, session):
+    def test_project_command_rejects_workspace_shortcut(self, session):
         target = session.config.project_dir.parent / "project-workspace-alias"
 
-        session._handle_command(f"/project workspace {target}")
+        with patch.object(session.console, "print") as print_:
+            session._handle_command(f"/project workspace {target}")
 
-        assert session.workflow.session.target_workspace == target.resolve()
-        assert target.is_dir()
+        print_.assert_called_once_with(
+            "[yellow]/project only shows diagnostics. Use /workspace <path> to select a target.[/yellow]"
+        )
+        assert session.workflow.session.target_workspace is None
+        assert not target.exists()
 
     def test_providers_command_shows_plain_status(self, session):
         with patch.object(session, "_cmd_status") as status:

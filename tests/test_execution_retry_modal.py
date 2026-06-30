@@ -4,6 +4,8 @@ import pytest
 from textual.app import App
 from textual.widgets import Button, Static
 
+from trinity.config import TrinityConfig
+from trinity.textual_app.app import TrinityTextualApp
 from trinity.textual_app.snapshot import WorkPackageSnapshot, WorkflowNexusSnapshot
 from trinity.textual_app.widgets.execution_retry_modal import ExecutionRetryModal
 
@@ -135,3 +137,48 @@ async def test_execution_retry_modal_skips_current_filter_recompose() -> None:
         modal.query_one("#retry-filter-blocked", Button).press()
         await pilot.pause()
         assert recompose_calls[0] is True
+
+
+@pytest.mark.asyncio
+async def test_execution_retry_modal_keeps_actions_inside_narrow_viewport(
+    tmp_path,
+) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        target_workspace="/workspace/" + "long-target-directory-" * 6,
+        work_package_details=[
+            WorkPackageSnapshot(
+                id=f"WP-{index:03d}",
+                title=f"Retryable package {index} with a long topic name",
+                topic=f"Retryable package {index} with a long topic name",
+                owner_agent="codex" if index % 2 else "claude",
+                status=("failed", "blocked", "running")[index % 3],
+                current_executor="codex",
+                retryable=True,
+            )
+            for index in range(18)
+        ],
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.push_screen(ExecutionRetryModal(snapshot, selector="custom", lang="en"))
+        await pilot.pause()
+        modal = app.screen
+        assert isinstance(modal, ExecutionRetryModal)
+        shell = modal.query_one("#execution-retry-modal")
+
+        for widget_id in (
+            "#execution-retry-title",
+            "#execution-retry-summary",
+            "#execution-retry-filters",
+            "#execution-retry-list",
+            "#execution-retry-selected",
+            "#execution-retry-actions",
+            "#cancel-execute-retry",
+            "#confirm-execute-retry",
+        ):
+            widget = modal.query_one(widget_id)
+            assert widget.region.y >= shell.region.y
+            assert widget.region.y + widget.region.height <= (
+                shell.region.y + shell.region.height
+            )

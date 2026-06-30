@@ -11086,7 +11086,7 @@ def test_project_command_rejects_workspace_shortcut(
             "Project Command Takes No Arguments",
             (
                 "`/project workspace` is not supported.\n\n"
-                "Use `/workspace` to select a target workspace."
+                "Use `/target <path>` to set a target or `/workspace` to browse."
             ),
             "warning",
         )

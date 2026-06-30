@@ -81,10 +81,12 @@ def project_command_presentation(
     ]
     body = "\n".join(f"- {line}" for line in lines if line.strip())
     action_hint = (
-        "작업 폴더는 /workspace에서 선택하고, 분석이나 작업은 프롬프트에 입력하세요."
+        "작업 폴더는 /target <path>로 지정하거나 /workspace에서 선택하세요. "
+        "분석이나 작업은 프롬프트에 입력하세요."
         if lang == "ko"
         else (
-            "Use /workspace to select a target; describe analysis or work in the prompt."
+            "Use /target <path> to set a target or /workspace to browse; "
+            "describe analysis or work in the prompt."
         )
     )
     return ProjectCommandPresentation(

@@ -48,10 +48,10 @@ class ContextCommandModal(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="context-command-modal"):
-            yield Static(self._label("title"), id="context-command-title")
+            yield Static(self.label_text("title"), id="context-command-title")
             with VerticalScroll(id="context-command-content"):
                 yield Markdown(self.result.body, id="context-command-body")
-            yield Button(self._label("close"), id="close-context-command")
+            yield Button(self.label_text("close"), id="close-context-command")
         yield Footer()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -63,6 +63,6 @@ class ContextCommandModal(ModalScreen[None]):
     def action_close(self) -> None:
         self.dismiss(None)
 
-    def _label(self, key: str) -> str:
+    def label_text(self, key: str) -> str:
         labels = CONTEXT_MODAL_LABELS.get(self.lang, CONTEXT_MODAL_LABELS["en"])
         return labels.get(key, CONTEXT_MODAL_LABELS["en"][key])

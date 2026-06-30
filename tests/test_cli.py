@@ -415,6 +415,18 @@ class TestInit:
 
 
 class TestProjectAnalyze:
+    def test_project_help_uses_project_context_wording(self, runner):
+        analyze_result = runner.invoke(main, ["project", "analyze", "--help"])
+        status_result = runner.invoke(main, ["project", "status", "--help"])
+
+        assert analyze_result.exit_code == 0
+        assert status_result.exit_code == 0
+        assert "Project onboarding mode to store in project" in analyze_result.output
+        assert "Project constraint to store in project" in analyze_result.output
+        assert "Refresh saved project context" in status_result.output
+        assert "intake" not in analyze_result.output
+        assert "saved intake" not in status_result.output
+
     def test_project_new_requires_trinity_project(self, runner, tmp_path):
         with runner.isolated_filesystem(temp_dir=tmp_path):
             result = runner.invoke(main, ["project", "new", "app"])

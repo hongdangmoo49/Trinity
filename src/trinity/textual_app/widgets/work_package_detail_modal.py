@@ -176,7 +176,7 @@ class WorkPackageDetailModal(ModalScreen[None]):
                 id="work-package-detail-title",
             )
             with VerticalScroll(id="work-package-detail-body"):
-                yield Markdown(self._markdown())
+                yield Markdown(self.render_markdown())
             yield Button(self._label("close"), id="close-work-package-detail")
         yield Footer()
 
@@ -189,7 +189,7 @@ class WorkPackageDetailModal(ModalScreen[None]):
     def action_close(self) -> None:
         self.dismiss(None)
 
-    def _markdown(self) -> str:
+    def render_markdown(self) -> str:
         package = self.package
         lines = [
             f"## {self._label('summary')}",

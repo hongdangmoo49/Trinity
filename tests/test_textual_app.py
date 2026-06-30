@@ -8580,7 +8580,7 @@ async def test_execution_matrix_labels_blocked_detail_action(tmp_path) -> None:
         await pilot.pause()
 
         assert isinstance(app.screen, WorkPackageDetailModal)
-        assert "duplicate_required_changes" in app.screen._markdown()
+        assert "duplicate_required_changes" in app.screen.render_markdown()
 
 
 @pytest.mark.asyncio
@@ -9439,7 +9439,7 @@ async def test_execution_matrix_surfaces_skipped_review_reason(tmp_path) -> None
         await pilot.pause()
 
         assert isinstance(app.screen, WorkPackageDetailModal)
-        markdown = app.screen._markdown()
+        markdown = app.screen.render_markdown()
         assert "- Status: `skipped`" in markdown
         assert (
             "- Review skipped reason: only codex is active; "
@@ -9783,7 +9783,7 @@ def test_work_package_detail_modal_orders_execution_sections_first() -> None:
             parallel_group=1,
         )
     )
-    markdown = modal._markdown()
+    markdown = modal.render_markdown()
 
     assert markdown.index("## Summary") < markdown.index("## Result")
     assert markdown.index("## Action Context") < markdown.index("## Result")
@@ -9811,7 +9811,7 @@ def test_work_package_detail_modal_surfaces_retry_action_context() -> None:
         )
     )
 
-    markdown = modal._markdown()
+    markdown = modal.render_markdown()
 
     assert "## Action Context" in markdown
     assert "- Retry candidate: `WP-001`" in markdown
@@ -9832,7 +9832,7 @@ def test_work_package_detail_modal_surfaces_retry_disabled_reason() -> None:
         )
     )
 
-    markdown = modal._markdown()
+    markdown = modal.render_markdown()
 
     assert "- Retry unavailable: already done" in markdown
     assert "- Retry candidate: `WP-002`" not in markdown
@@ -9851,7 +9851,7 @@ def test_work_package_detail_modal_localizes_korean_retry_disabled_reason() -> N
         lang="ko",
     )
 
-    markdown = modal._markdown()
+    markdown = modal.render_markdown()
 
     assert "- 재시도 불가: 이미 완료됨" in markdown
     assert "- 재시도 후보: `WP-002`" not in markdown
@@ -9904,10 +9904,10 @@ def test_work_package_detail_modal_localizes_korean_retry_disabled_reason_varian
         lang="ko",
     )
 
-    assert "- 재시도 불가: 이미 리뷰 대기 중" in modal._markdown()
-    assert "- 재시도 불가: 실행이 필요하지 않음" in no_execution_modal._markdown()
-    assert "- 재시도 불가: 현재 상태가 대기 상태임" in pending_modal._markdown()
-    assert "- 재시도 불가: custom policy" in custom_modal._markdown()
+    assert "- 재시도 불가: 이미 리뷰 대기 중" in modal.render_markdown()
+    assert "- 재시도 불가: 실행이 필요하지 않음" in no_execution_modal.render_markdown()
+    assert "- 재시도 불가: 현재 상태가 대기 상태임" in pending_modal.render_markdown()
+    assert "- 재시도 불가: custom policy" in custom_modal.render_markdown()
 
 
 def test_work_package_detail_modal_surfaces_review_skip_reason() -> None:
@@ -9924,7 +9924,7 @@ def test_work_package_detail_modal_surfaces_review_skip_reason() -> None:
         )
     )
 
-    markdown = modal._markdown()
+    markdown = modal.render_markdown()
 
     assert (
         "- Review skipped reason: only codex is active; "
@@ -9946,7 +9946,7 @@ def test_work_package_detail_modal_keeps_review_skip_fallback() -> None:
         )
     )
 
-    markdown = modal._markdown()
+    markdown = modal.render_markdown()
 
     assert "- Peer review was skipped; treat confidence as lower." in markdown
 
@@ -9963,7 +9963,7 @@ def test_work_package_detail_modal_keeps_korean_review_skip_fallback() -> None:
         lang="ko",
     )
 
-    markdown = modal._markdown()
+    markdown = modal.render_markdown()
 
     assert "- 동료 리뷰가 생략되었습니다. 신뢰도를 낮게 보세요." in markdown
     assert "Peer review가 생략되었습니다" not in markdown
@@ -9984,7 +9984,7 @@ def test_work_package_detail_modal_surfaces_korean_review_skip_reason() -> None:
         lang="ko",
     )
 
-    markdown = modal._markdown()
+    markdown = modal.render_markdown()
 
     assert (
         "- 리뷰 생략 사유: 활성 에이전트가 codex뿐이라 "
@@ -10006,7 +10006,7 @@ def test_work_package_detail_modal_localizes_korean_generic_review_skip_summary(
         lang="ko",
     )
 
-    markdown = modal._markdown()
+    markdown = modal.render_markdown()
 
     assert "- 리뷰 생략 사유: 동료 리뷰가 생략되었습니다." in markdown
     assert "Peer review skipped" not in markdown
@@ -10025,7 +10025,7 @@ def test_work_package_detail_modal_surfaces_second_review_plan() -> None:
         )
     )
 
-    markdown = modal._markdown()
+    markdown = modal.render_markdown()
 
     assert "## Review Plan" in markdown
     assert "- Status: `needs_second_review`" in markdown
@@ -10054,7 +10054,7 @@ def test_work_package_detail_modal_localizes_korean_status_values() -> None:
         lang="ko",
     )
 
-    markdown = modal._markdown()
+    markdown = modal.render_markdown()
 
     assert "- 상태: `실패`" in markdown
     assert "- 리뷰: `변경 요청`" in markdown
@@ -10084,7 +10084,7 @@ def test_work_package_detail_modal_localizes_korean_risk_and_severity_values() -
         lang="ko",
     )
 
-    markdown = modal._markdown()
+    markdown = modal.render_markdown()
 
     assert "- 리스크: `높음`" in markdown
     assert "- 심각도: `보통`" in markdown
@@ -10106,7 +10106,7 @@ def test_work_package_detail_modal_localizes_korean_task_kind_value() -> None:
         lang="ko",
     )
 
-    markdown = modal._markdown()
+    markdown = modal.render_markdown()
 
     assert "- 작업 유형: `구현`" in markdown
     assert "- 라우팅 사유: 구현 강점" in markdown
@@ -10136,8 +10136,8 @@ def test_work_package_detail_modal_localizes_empty_risk_placeholder() -> None:
         lang="en",
     )
 
-    assert "- 리스크: `알 수 없음`" in korean._markdown()
-    assert "- Risk: `unknown`" in english._markdown()
+    assert "- 리스크: `알 수 없음`" in korean.render_markdown()
+    assert "- Risk: `unknown`" in english.render_markdown()
 
 
 def test_work_package_detail_modal_localizes_korean_second_review_status() -> None:
@@ -10154,7 +10154,7 @@ def test_work_package_detail_modal_localizes_korean_second_review_status() -> No
         lang="ko",
     )
 
-    markdown = modal._markdown()
+    markdown = modal.render_markdown()
 
     assert "- 상태: `완료`" in markdown
     assert "- 리뷰: `2차 리뷰 필요`" in markdown
@@ -10174,7 +10174,7 @@ def test_work_package_detail_modal_localizes_known_external_input_status() -> No
         lang="ko",
     )
 
-    markdown = modal._markdown()
+    markdown = modal.render_markdown()
 
     assert "- 상태: `외부 입력 대기`" in markdown
     assert "waiting_for_external_input" not in markdown
@@ -10220,7 +10220,7 @@ async def test_work_package_detail_modal_supports_korean_chrome_labels(
         assert str(app.screen.query_one("#close-work-package-detail", Button).label) == (
             "닫기"
         )
-        markdown = app.screen._markdown()
+        markdown = app.screen.render_markdown()
         assert "## 요약" in markdown
         assert "- 제목: Client" in markdown
         assert "- 상태: `실패`" in markdown
@@ -10250,7 +10250,7 @@ def test_work_package_detail_modal_clips_header_and_preserves_full_title() -> No
     )
 
     title_text = modal._title_text()
-    markdown = modal._markdown()
+    markdown = modal.render_markdown()
 
     assert len(title_text) <= 86
     assert title_text.endswith("...")
@@ -10270,7 +10270,7 @@ def test_work_package_detail_modal_marks_serial_execution_lane() -> None:
         )
     )
 
-    assert "- Execution lane: `serial`" in modal._markdown()
+    assert "- Execution lane: `serial`" in modal.render_markdown()
 
 
 def test_work_package_detail_modal_localizes_korean_execution_lane() -> None:
@@ -10305,9 +10305,9 @@ def test_work_package_detail_modal_localizes_korean_execution_lane() -> None:
         lang="ko",
     )
 
-    assert "- 실행 그룹: `직렬`" in serial._markdown()
-    assert "- 실행 그룹: `미지정`" in unspecified._markdown()
-    assert "- 실행 그룹: `g3`" in grouped._markdown()
+    assert "- 실행 그룹: `직렬`" in serial.render_markdown()
+    assert "- 실행 그룹: `미지정`" in unspecified.render_markdown()
+    assert "- 실행 그룹: `g3`" in grouped.render_markdown()
 
 
 def test_provider_inspector_meta_includes_profile_summary() -> None:

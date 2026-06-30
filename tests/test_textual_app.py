@@ -9585,13 +9585,13 @@ def test_execution_log_modal_keeps_short_logs_complete() -> None:
     lines = [f"event-{index}" for index in range(1, MAX_RENDERED_LOG_LINES + 1)]
     modal = ExecutionLogModal(lines)
 
-    assert modal._render_lines() == lines
+    assert modal.render_log_lines() == lines
 
 
 def test_execution_log_modal_windows_large_logs() -> None:
     lines = [f"event-{index}" for index in range(1, MAX_RENDERED_LOG_LINES + 26)]
     modal = ExecutionLogModal(lines)
-    rendered = modal._render_lines()
+    rendered = modal.render_log_lines()
 
     assert rendered[0] == "... 25 earlier log lines hidden"
     assert rendered[1] == "event-26"
@@ -9624,11 +9624,11 @@ def test_execution_log_modal_unfiltered_window_avoids_full_iteration() -> None:
     modal = ExecutionLogModal([])
     modal.lines = source
 
-    assert modal._status_text() == (
+    assert modal.status_text() == (
         f"Showing {MAX_RENDERED_LOG_LINES} of {MAX_RENDERED_LOG_LINES + 25} lines"
     )
 
-    rendered = modal._render_lines()
+    rendered = modal.render_log_lines()
 
     assert rendered[0] == "... 25 earlier log lines hidden"
     assert rendered[1] == "event-26"
@@ -9643,11 +9643,11 @@ def test_execution_log_modal_reports_visible_line_count() -> None:
     )
     korean = ExecutionLogModal(["event-1", "event-2"], lang="ko")
 
-    assert short._status_text() == "Showing 2 of 2 lines"
-    assert large._status_text() == (
+    assert short.status_text() == "Showing 2 of 2 lines"
+    assert large.status_text() == (
         f"Showing {MAX_RENDERED_LOG_LINES} of {MAX_RENDERED_LOG_LINES + 25} lines"
     )
-    assert korean._status_text() == "2/2줄 표시"
+    assert korean.status_text() == "2/2줄 표시"
 
 
 def test_execution_log_modal_filters_lines_case_insensitively() -> None:
@@ -9660,12 +9660,12 @@ def test_execution_log_modal_filters_lines_case_insensitively() -> None:
         ]
     )
 
-    assert modal._render_lines("FAILED") == [
+    assert modal.render_log_lines("FAILED") == [
         "WP-002 failed with provider error",
         "wp-004 FAILED after retry",
     ]
-    assert modal._render_lines("review") == ["WP-003 review completed"]
-    assert modal._status_text("FAILED") == "Showing 2 of 2 matches"
+    assert modal.render_log_lines("review") == ["WP-003 review completed"]
+    assert modal.status_text("FAILED") == "Showing 2 of 2 matches"
 
 
 def test_execution_log_modal_render_state_filters_once() -> None:
@@ -9700,12 +9700,12 @@ def test_execution_log_modal_render_state_filters_once() -> None:
 def test_execution_log_modal_filters_large_match_sets() -> None:
     lines = [f"WP-{index:03d} failed" for index in range(1, MAX_RENDERED_LOG_LINES + 4)]
     modal = ExecutionLogModal(lines)
-    rendered = modal._render_lines("failed")
+    rendered = modal.render_log_lines("failed")
 
     assert rendered[0] == "... 3 earlier log lines hidden"
     assert rendered[1] == "WP-004 failed"
     assert rendered[-1] == f"WP-{MAX_RENDERED_LOG_LINES + 3:03d} failed"
-    assert modal._status_text("failed") == (
+    assert modal.status_text("failed") == (
         f"Showing {MAX_RENDERED_LOG_LINES} of {MAX_RENDERED_LOG_LINES + 3} matches"
     )
 
@@ -9714,22 +9714,22 @@ def test_execution_log_modal_shows_empty_filtered_state() -> None:
     modal = ExecutionLogModal(["WP-001 started"])
     korean = ExecutionLogModal(["WP-001 started"], lang="ko")
 
-    assert modal._render_lines("missing") == ["No matching execution log lines."]
-    assert korean._render_lines("missing") == ["일치하는 실행 로그가 없습니다."]
-    assert modal._status_text("missing") == "0 matches"
-    assert korean._status_text("missing") == "0개 결과"
+    assert modal.render_log_lines("missing") == ["No matching execution log lines."]
+    assert korean.render_log_lines("missing") == ["일치하는 실행 로그가 없습니다."]
+    assert modal.status_text("missing") == "0 matches"
+    assert korean.status_text("missing") == "0개 결과"
 
 
 def test_execution_log_modal_localizes_large_log_window() -> None:
     lines = [f"event-{index}" for index in range(1, MAX_RENDERED_LOG_LINES + 3)]
     modal = ExecutionLogModal(lines, lang="ko")
 
-    assert modal._render_lines()[0] == "... 이전 로그 2줄 숨김"
+    assert modal.render_log_lines()[0] == "... 이전 로그 2줄 숨김"
 
 
 def test_execution_log_modal_keeps_empty_state() -> None:
-    assert ExecutionLogModal([])._render_lines() == ["No execution log yet."]
-    assert ExecutionLogModal([], lang="ko")._render_lines() == [
+    assert ExecutionLogModal([]).render_log_lines() == ["No execution log yet."]
+    assert ExecutionLogModal([], lang="ko").render_log_lines() == [
         "실행 로그가 아직 없습니다."
     ]
 

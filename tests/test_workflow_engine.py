@@ -1060,7 +1060,7 @@ def test_review_request_keeps_legacy_multi_review_pending(tmp_path):
     assert [(review.id, review.reviewer_agent) for review in pending] == [
         (planned[1].id, "antigravity")
     ]
-    assert engine._review_flow()._latest_review_is_approved("WP-001") is False
+    assert engine._review_flow().latest_review_is_approved("WP-001") is False
 
 
 def test_record_review_results_requests_repair_notes(tmp_path):

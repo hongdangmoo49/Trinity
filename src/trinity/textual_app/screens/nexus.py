@@ -13,7 +13,7 @@ from textual.widgets import Footer, Header, Static
 from trinity.config import TrinityConfig
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
-from trinity.textual_app.i18n import localize_bindings
+from trinity.textual_app.i18n import localize_bindings, ui_text
 from trinity.textual_app.presenters import (
     nexus_agent_provider_panel_state,
     nexus_central_snapshot_has_activity,
@@ -42,18 +42,6 @@ from trinity.workflow.provider_error_gate import (
     PROVIDER_ERROR_GATE_QUESTION_ID,
     provider_error_action_answer,
 )
-
-
-NEXUS_LABELS = {
-    "en": {
-        "composer_placeholder": "Reply, refine direction, or type / for commands",
-        "select_agent_warning": "Select at least one agent.",
-    },
-    "ko": {
-        "composer_placeholder": "답변, 방향 조정 또는 /로 명령 입력",
-        "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
-    },
-}
 
 
 class NexusScreen(Screen[None]):
@@ -524,8 +512,7 @@ class NexusScreen(Screen[None]):
         )
 
     def label_text(self, key: str) -> str:
-        labels = NEXUS_LABELS.get(self.config.lang, NEXUS_LABELS["en"])
-        return labels.get(key, NEXUS_LABELS["en"][key])
+        return ui_text(f"nexus_{key}", self.config.lang)
 
     def _refresh_central(self) -> None:
         central = self._central_agent()

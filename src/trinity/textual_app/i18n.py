@@ -38,9 +38,13 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "binding_send": "Send",
         "binding_settings": "Settings",
         "binding_start": "Start",
+        "nexus_composer_placeholder": "Reply, refine direction, or type / for commands",
+        "nexus_select_agent_warning": "Select at least one agent.",
         "recipient_all": "All",
         "recipient_label": "Ask",
         "recipient_provider_default": "default",
+        "start_placeholder": "What should Trinity work on?",
+        "start_select_agent_warning": "Select at least one agent.",
     },
     "ko": {
         "command_no_matches": "일치하는 명령이 없습니다",
@@ -69,9 +73,13 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "binding_send": "보내기",
         "binding_settings": "설정",
         "binding_start": "시작",
+        "nexus_composer_placeholder": "답변, 방향 조정 또는 /로 명령 입력",
+        "nexus_select_agent_warning": "에이전트를 하나 이상 선택하세요.",
         "recipient_all": "전체",
         "recipient_label": "물어볼 대상",
         "recipient_provider_default": "기본값",
+        "start_placeholder": "Trinity가 무엇을 진행하면 될까요?",
+        "start_select_agent_warning": "에이전트를 하나 이상 선택하세요.",
     },
 }
 
@@ -98,6 +106,11 @@ def command_description(command: str, lang: str | None = None) -> str:
 
 def command_palette_text(key: str, lang: str | None = None) -> str:
     """Return localized command palette chrome text."""
+    return ui_text(key, lang)
+
+
+def ui_text(key: str, lang: str | None = None) -> str:
+    """Return localized Textual UI text."""
     safe_lang = textual_lang(lang)
     strings = UI_TEXT.get(safe_lang, UI_TEXT[DEFAULT_LANG])
     fallback = UI_TEXT[DEFAULT_LANG]

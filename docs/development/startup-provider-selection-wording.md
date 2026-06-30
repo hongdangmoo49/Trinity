@@ -16,13 +16,13 @@ not confuse "two providers selected" with "two providers are ready to run".
 Keep the checklist compact, but make the provider segment explicit:
 
 ```text
-Readiness: target ok | intake ok | providers 2 selected | validation planned
+Readiness: target ok | context ok | providers 2 selected | validation planned
 ```
 
 Korean:
 
 ```text
-준비 상태: 대상 정상 | 인테이크 정상 | 프로바이더 2개 선택 | 검증 계획됨
+준비 상태: 대상 정상 | 컨텍스트 정상 | 프로바이더 2개 선택 | 검증 계획됨
 ```
 
 ## Non-Goals

@@ -216,7 +216,7 @@ def test_project_diagnostic_readiness_label_summarizes_first_run_state(
         config.agents,
         target_workspace=target,
     ) == (
-        "Readiness: target ok | intake missing | "
+        "Readiness: target ok | context missing | "
         "providers 1 selected | validation missing"
     )
     assert project_diagnostic_readiness_label(
@@ -225,7 +225,7 @@ def test_project_diagnostic_readiness_label_summarizes_first_run_state(
         selected_agents=(),
         target_workspace=target,
     ) == (
-        "Readiness: target ok | intake missing | "
+        "Readiness: target ok | context missing | "
         "providers 0 selected | validation missing"
     )
 
@@ -239,7 +239,7 @@ def test_project_diagnostic_readiness_label_summarizes_first_run_state(
         config.agents,
         target_workspace=target,
     ) == (
-        "Readiness: target ok | intake check | "
+        "Readiness: target ok | context check | "
         "providers 1 selected | validation missing"
     )
 
@@ -261,7 +261,7 @@ def test_project_diagnostic_readiness_label_summarizes_first_run_state(
         config.agents,
         target_workspace=target,
     ) == (
-        "Readiness: target ok | intake check | "
+        "Readiness: target ok | context check | "
         "providers 1 selected | validation missing"
     )
 
@@ -284,7 +284,7 @@ def test_project_diagnostic_readiness_label_summarizes_first_run_state(
         config.agents,
         target_workspace=target,
     ) == (
-        "Readiness: target ok | intake ok | "
+        "Readiness: target ok | context ok | "
         "providers 1 selected | validation planned"
     )
     assert project_diagnostic_readiness_label(
@@ -293,7 +293,7 @@ def test_project_diagnostic_readiness_label_summarizes_first_run_state(
         lang="ko",
         target_workspace=target,
     ) == (
-        "준비 상태: 대상 정상 | 인테이크 정상 | "
+        "준비 상태: 대상 정상 | 컨텍스트 정상 | "
         "프로바이더 1개 선택 | 검증 계획됨"
     )
 
@@ -327,7 +327,7 @@ def test_project_diagnostic_readiness_label_checks_existing_project_intake(
         target_workspace=target,
         today=date(2026, 6, 28),
     ) == (
-        "Readiness: target ok | intake ok | "
+        "Readiness: target ok | context ok | "
         "providers 1 selected | validation planned"
     )
     assert project_diagnostic_readiness_label(
@@ -336,7 +336,7 @@ def test_project_diagnostic_readiness_label_checks_existing_project_intake(
         target_workspace=tmp_path / "other-app",
         today=date(2026, 6, 28),
     ) == (
-        "Readiness: target ok | intake check | "
+        "Readiness: target ok | context check | "
         "providers 1 selected | validation missing"
     )
 

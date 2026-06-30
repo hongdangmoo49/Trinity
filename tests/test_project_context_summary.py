@@ -9,7 +9,7 @@ def test_project_context_summary_reports_missing_intake(tmp_path: Path) -> None:
 
     summary = build_project_context_summary(tmp_path / ".trinity", target)
 
-    assert summary.project_mode == "not recorded"
+    assert summary.workspace_context == "not recorded"
     assert summary.items == ("intake: not recorded",)
 
 
@@ -32,7 +32,7 @@ def test_project_context_summary_reports_existing_project_context(
 
     summary = build_project_context_summary(state, target)
 
-    assert summary.project_mode == "workspace recorded"
+    assert summary.workspace_context == "workspace recorded"
     assert summary.items == (
         "scope: src/app",
         "read: README.md, src",
@@ -83,7 +83,7 @@ def test_project_context_summary_reports_new_project_context(tmp_path: Path) -> 
 
     summary = build_project_context_summary(state, target)
 
-    assert summary.project_mode == "workspace brief"
+    assert summary.workspace_context == "workspace brief"
     assert summary.items == (
         "starter: Textual TUI",
         "brief: complete",
@@ -102,5 +102,5 @@ def test_project_context_summary_reports_target_mismatch(tmp_path: Path) -> None
 
     summary = build_project_context_summary(state, selected)
 
-    assert summary.project_mode == "target mismatch"
+    assert summary.workspace_context == "target mismatch"
     assert summary.items == ("intake: target mismatch", "scope: target root")

@@ -52,12 +52,12 @@ def test_execution_confirmation_summary_uses_snapshot_details() -> None:
 
     summary = execution_confirmation_summary(
         snapshot,
-        project_mode="existing",
+        workspace_context="existing",
         instruction="focus api",
     )
 
     assert summary.target_workspace == "/workspace/app"
-    assert summary.project_mode == "existing"
+    assert summary.workspace_context == "existing"
     assert summary.providers == ("claude",)
     assert summary.total_packages == 2
     assert summary.executable_packages == 1
@@ -165,7 +165,7 @@ def test_execution_confirmation_modal_shows_agent_run_estimate() -> None:
 async def test_execution_confirmation_modal_keeps_actions_inside_narrow_viewport() -> None:
     summary = ExecutionConfirmationSummary(
         target_workspace="/workspace/" + "long-target-directory-" * 8,
-        project_mode="existing-project-with-long-mode-name",
+        workspace_context="existing-project-with-long-mode-name",
         context_items=tuple(f"context-item-{index}-with-long-text" for index in range(8)),
         providers=("claude", "codex", "antigravity"),
         total_packages=12,

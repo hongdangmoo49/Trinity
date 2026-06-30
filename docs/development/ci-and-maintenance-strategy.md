@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.916`
-- Merged PR range reviewed: #90 through #1077
+- Package version inspected: `1.0.917`
+- Merged PR range reviewed: #90 through #1078
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1077
-- Latest refresh reviewed: #1077
+- Maintenance refresh reviewed: #427 through #1078
+- Latest refresh reviewed: #1078
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1077: Prompt-Led Workbench Simplification
+### #977-#1078: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2274,6 +2274,8 @@ and what the next release train should optimize.
   label and removing always-on toggle backgrounds.
 - Removed the unused new-project generation confirmation modal and its dry-run
   label helpers after the prompt-led flow made that UI path obsolete.
+- Renamed Textual execution confirmation context from `project_mode` to
+  `workspace_context` so the confirm path no longer carries mode-led wording.
 
 This refresh moves the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

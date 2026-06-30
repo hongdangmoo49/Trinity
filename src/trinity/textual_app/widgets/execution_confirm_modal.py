@@ -24,7 +24,7 @@ EXECUTION_CONFIRM_LABELS = {
         "none": "(none)",
         "package_preview": "Preview",
         "project_context": "Project context",
-        "project_mode": "Workspace context",
+        "workspace_context": "Workspace context",
         "providers": "Providers",
         "risk_none": "none",
         "risks": "Risks",
@@ -43,7 +43,7 @@ EXECUTION_CONFIRM_LABELS = {
         "none": "(없음)",
         "package_preview": "미리보기",
         "project_context": "프로젝트 컨텍스트",
-        "project_mode": "작업 폴더 컨텍스트",
+        "workspace_context": "작업 폴더 컨텍스트",
         "providers": "프로바이더",
         "risk_none": "없음",
         "risks": "위험",
@@ -60,7 +60,7 @@ class ExecutionConfirmationSummary:
     """Compact execution context shown before starting agents."""
 
     target_workspace: str
-    project_mode: str
+    workspace_context: str
     context_items: tuple[str, ...]
     providers: tuple[str, ...]
     total_packages: int
@@ -188,7 +188,7 @@ class ExecutionConfirmModal(ModalScreen[bool]):
         summary = self.summary
         lines = [
             f"{self._label('target_workspace')}: {summary.target_workspace or self._label('none')}",
-            f"{self._label('project_mode')}: {summary.project_mode or self._label('none')}",
+            f"{self._label('workspace_context')}: {summary.workspace_context or self._label('none')}",
             (
                 f"{self._label('project_context')}: "
                 f"{_join_or_none(summary.context_items, self._label('none'))}"
@@ -237,7 +237,7 @@ class ExecutionConfirmModal(ModalScreen[bool]):
 def execution_confirmation_summary(
     snapshot: WorkflowNexusSnapshot,
     *,
-    project_mode: str = "",
+    workspace_context: str = "",
     context_items: tuple[str, ...] | list[str] = (),
     selected_agents: tuple[str, ...] | list[str] = (),
     instruction: str = "",
@@ -253,7 +253,7 @@ def execution_confirmation_summary(
     estimated_review_runs = executable_packages if len(providers) >= 2 else 0
     return ExecutionConfirmationSummary(
         target_workspace=str(snapshot.target_workspace or "").strip(),
-        project_mode=project_mode.strip(),
+        workspace_context=workspace_context.strip(),
         context_items=tuple(item.strip() for item in context_items if item.strip()),
         providers=providers,
         total_packages=total_packages,

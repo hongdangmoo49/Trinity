@@ -62,7 +62,7 @@ PROJECT_CONTEXT_LABELS = {
 class ProjectContextSummary:
     """Compact project context displayed before agents plan or execute."""
 
-    project_mode: str
+    workspace_context: str
     items: tuple[str, ...]
 
 
@@ -79,17 +79,17 @@ def build_project_context_summary(
         intake = load_project_intake(state_dir)
     except ValueError:
         return ProjectContextSummary(
-            project_mode=labels["unreadable"],
+            workspace_context=labels["unreadable"],
             items=(f"{labels['intake']}: {labels['unreadable']}",),
         )
     if intake is None:
         return ProjectContextSummary(
-            project_mode=labels["not_recorded"],
+            workspace_context=labels["not_recorded"],
             items=(f"{labels['intake']}: {labels['not_recorded']}",),
         )
     if target is not None and not _same_path(intake.target_workspace, target):
         return ProjectContextSummary(
-            project_mode=labels["mismatch"],
+            workspace_context=labels["mismatch"],
             items=(
                 f"{labels['intake']}: {labels['mismatch']}",
                 f"{labels['scope']}: {labels['target_root']}",
@@ -97,11 +97,11 @@ def build_project_context_summary(
         )
     if intake.mode == "new":
         return ProjectContextSummary(
-            project_mode=labels["new"],
+            workspace_context=labels["new"],
             items=_new_project_context_items(intake, labels),
         )
     return ProjectContextSummary(
-        project_mode=labels["existing"],
+        workspace_context=labels["existing"],
         items=_existing_project_context_items(intake, labels),
     )
 

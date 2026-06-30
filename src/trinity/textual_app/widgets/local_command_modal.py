@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Vertical
+from textual.containers import Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Markdown, Static
 
@@ -43,15 +43,16 @@ class LocalCommandModal(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="local-command-modal"):
             yield Static(self.result.title, id="local-command-title")
-            yield Markdown(self.result.body, id="local-command-body")
-            if self.result.table_columns and self.result.table_rows:
-                yield Static(
-                    self._table_text(),
-                    id="local-command-table",
-                    classes="local-command-readonly-table",
-                )
-            if self.result.action_hint:
-                yield Static(self.result.action_hint, id="local-command-hint")
+            with VerticalScroll(id="local-command-content"):
+                yield Markdown(self.result.body, id="local-command-body")
+                if self.result.table_columns and self.result.table_rows:
+                    yield Static(
+                        self._table_text(),
+                        id="local-command-table",
+                        classes="local-command-readonly-table",
+                    )
+                if self.result.action_hint:
+                    yield Static(self.result.action_hint, id="local-command-hint")
             yield Button(self._label("close"), id="close-local-command")
         yield Footer()
 

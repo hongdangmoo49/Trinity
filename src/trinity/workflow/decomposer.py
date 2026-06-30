@@ -804,8 +804,10 @@ DESIGN_ONLY_MARKERS: tuple[str, ...] = (
     "proposal only",
     "spec only",
     "architecture only",
+    "do not change",
     "do not implement",
     "do not modify",
+    "don't change",
     "don't edit",
     "don't implement",
     "fix nothing",
@@ -834,6 +836,7 @@ DESIGN_REQUEST_MARKERS: tuple[str, ...] = (
     "architecture",
     "analysis",
     "analyze",
+    "explain",
     "inspect",
     "review",
     "설계",
@@ -843,6 +846,7 @@ DESIGN_REQUEST_MARKERS: tuple[str, ...] = (
     "아키텍처",
     "분석",
     "검토",
+    "설명",
     "파악",
 )
 

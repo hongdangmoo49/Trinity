@@ -92,7 +92,7 @@ class CentralAgentView(VerticalScroll):
         self._title_widget = title
         self._title_key = self._label("title")
         yield title
-        markdown = self._markdown()
+        markdown = self.render_markdown()
         self._markdown_key = markdown
         markdown_widget = Markdown(markdown, id="central-markdown")
         self._markdown_widget = markdown_widget
@@ -123,7 +123,7 @@ class CentralAgentView(VerticalScroll):
         self._applied_snapshot_identity = snapshot_identity
         self._sync_running_class()
         self._refresh_title()
-        markdown = self._markdown()
+        markdown = self.render_markdown()
         if markdown != self._markdown_key:
             self._markdown_view().update(markdown)
             self._markdown_key = markdown
@@ -164,7 +164,7 @@ class CentralAgentView(VerticalScroll):
         self.set_class(running, "central-running")
         self._running_class_key = running
 
-    def _markdown(self) -> str:
+    def render_markdown(self) -> str:
         snapshot = self.snapshot
         if snapshot is None:
             return (

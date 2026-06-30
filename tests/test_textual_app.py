@@ -3436,7 +3436,7 @@ def test_central_agent_view_localizes_korean_status_values() -> None:
         ],
     )
 
-    markdown = view._markdown()
+    markdown = view.render_markdown()
 
     assert "- `승인` / 리뷰어 `codex`" in markdown
     assert "- **AI-001** [높음][대기] Add smoke test" in markdown
@@ -3452,7 +3452,7 @@ def test_central_agent_view_localizes_korean_status_values() -> None:
         ),
     )
 
-    assert "- `승인` / 리뷰어 `(알 수 없음)`" in view._markdown()
+    assert "- `승인` / 리뷰어 `(알 수 없음)`" in view.render_markdown()
 
 
 def test_central_agent_view_keeps_english_status_values() -> None:
@@ -3473,7 +3473,7 @@ def test_central_agent_view_keeps_english_status_values() -> None:
         ],
     )
 
-    markdown = view._markdown()
+    markdown = view.render_markdown()
 
     assert "- `approved` by `codex`" in markdown
     assert "- **AI-001** [high][pending] Add smoke test" in markdown
@@ -3492,7 +3492,7 @@ def test_central_agent_view_localizes_korean_guidance_labels() -> None:
         ]
     )
 
-    command_markdown = view._markdown()
+    command_markdown = view.render_markdown()
 
     assert "_다음:_ 질문 패널 버튼을 사용하세요." in command_markdown
     assert "_Next:_" not in command_markdown
@@ -3509,7 +3509,7 @@ def test_central_agent_view_localizes_korean_guidance_labels() -> None:
         ],
     )
 
-    follow_up_markdown = view._markdown()
+    follow_up_markdown = view.render_markdown()
 
     assert (
         "`/improve high`, `/improve all`, `/improve AI-001`, "
@@ -3519,7 +3519,7 @@ def test_central_agent_view_localizes_korean_guidance_labels() -> None:
 
     view.snapshot = WorkflowNexusSnapshot(state="post_review_ready")
 
-    done_markdown = view._markdown()
+    done_markdown = view.render_markdown()
 
     assert "`/improve done`으로 워크플로우를 종료하세요." in done_markdown
     assert "Use `/improve done`" not in done_markdown
@@ -4340,8 +4340,8 @@ async def test_nexus_slash_workflow_does_not_submit_followup(tmp_path) -> None:
         assert central.snapshot is not None
         assert central.snapshot.local_commands[-1].command == "/workflow"
         assert central.snapshot.local_commands[-1].title == "Workflow"
-        assert "Command Result" in central._markdown()
-        assert "**/workflow - Workflow**" in central._markdown()
+        assert "Command Result" in central.render_markdown()
+        assert "**/workflow - Workflow**" in central.render_markdown()
 
 
 @pytest.mark.asyncio
@@ -5132,8 +5132,8 @@ async def test_nexus_unknown_slash_does_not_submit_followup(tmp_path) -> None:
         assert central.snapshot is not None
         assert central.snapshot.local_commands[-1].command == "/not-a-command"
         assert central.snapshot.local_commands[-1].title == "Unknown Command"
-        assert "Command Result" in central._markdown()
-        assert "**/not-a-command - Unknown Command**" in central._markdown()
+        assert "Command Result" in central.render_markdown()
+        assert "**/not-a-command - Unknown Command**" in central.render_markdown()
 
 
 @pytest.mark.asyncio
@@ -5170,7 +5170,7 @@ async def test_nexus_save_and_target_commands_record_local_results(
         assert target_result.command == "/target"
         assert target_result.title == "Target"
         assert "Current target" in target_result.body
-        assert "Use `/target <path>`" in central._markdown()
+        assert "Use `/target <path>`" in central.render_markdown()
         assert controller.started_prompts == []
         assert controller.follow_ups == []
 
@@ -7755,8 +7755,8 @@ async def test_central_agent_view_renders_local_command_tables(tmp_path) -> None
         assert table.row_count == 2
         assert table.show_cursor is False
         assert table.cursor_type == "none"
-        assert "Command Result" in central._markdown()
-        assert "Local Command Results" not in central._markdown()
+        assert "Command Result" in central.render_markdown()
+        assert "Local Command Results" not in central.render_markdown()
 
 
 @pytest.mark.asyncio
@@ -7965,7 +7965,7 @@ async def test_nexus_running_surfaces_show_activity(tmp_path) -> None:
         assert "RUN" in str(panel.query_one(".provider-status").content)
         assert central.has_class("central-running")
         assert "Central Agent" in str(central.query_one("#central-title").content)
-        assert "round 1 synthesizing" in central._markdown()
+        assert "round 1 synthesizing" in central.render_markdown()
 
 
 @pytest.mark.asyncio

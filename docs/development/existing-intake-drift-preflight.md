@@ -1,15 +1,15 @@
-# Existing Intake Drift Preflight
+# Existing Context Drift Preflight
 
-This design covers the next project-intake safety improvement for existing
-projects. It focuses on users who analyze a project, keep working, then execute
-later from Nexus or Start.
+This design covers the next saved project context safety improvement for
+existing projects. It focuses on users who analyze a project, keep working, then
+execute later from Nexus or Start.
 
 ## Problem
 
-Existing-project intake is a point-in-time read-only profile. It records Git
-state, package managers, test/dev/build commands, entrypoints, source roots, and
-docs found. That profile can become misleading even when it is not old enough to
-be considered stale:
+Saved existing-project context is a point-in-time read-only profile. It records
+Git state, package managers, test/dev/build commands, entrypoints, source roots,
+and docs found. That profile can become misleading even when it is not old
+enough to be considered stale:
 
 - the user changes branch after analysis;
 - the Git dirty or untracked count changes after analysis;
@@ -20,7 +20,7 @@ agents may plan from outdated assumptions.
 
 ## User Contract
 
-During execute preflight, when the saved existing-project intake target matches
+During execute preflight, when the saved existing-project context target matches
 the selected workspace, Trinity compares the saved profile to a fresh read-only
 profile.
 
@@ -34,7 +34,7 @@ analyze a workspace without passing an execution gate.
 ## Drift Signals
 
 The first implementation checks only cheap, deterministic signals already used
-by intake:
+by the saved project context profile:
 
 - Git repository flag, branch, dirty count, and untracked count.
 - Package managers.
@@ -50,7 +50,7 @@ It may call `git status --porcelain`, matching existing preflight behavior.
 
 ## Non-Goals
 
-- Automatically refreshing the saved intake during execute.
+- Automatically refreshing the saved context during execute.
 - Blocking execution outright.
 - Semantic project classification.
 - Provider prompt changes.
@@ -62,7 +62,7 @@ Those can be added later after the warning contract is stable.
 
 Coverage should prove:
 
-- unchanged existing-project intake is not gated;
+- unchanged saved existing-project context is not gated;
 - changed Git state is reported as `changed_project_intake`;
 - changed analysis anchors are reported as `changed_project_intake`;
 - Textual execute mode requires a second confirmation for this warning;

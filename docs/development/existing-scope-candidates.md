@@ -13,10 +13,11 @@ or app.
 
 ## Scope
 
-- Add a backward-compatible `scope_candidates` field to project intake.
+- Add a backward-compatible `scope_candidates` field to the saved project
+  context.
 - Detect likely scope candidates read-only from common workspace directories and
   package workspace globs.
-- Include scope candidates in project-intake JSON and Markdown.
+- Include scope candidates in saved project context JSON and Markdown.
 - Include scope candidates in existing-project drift detection.
 - Show scope candidates in `/project` diagnostics and CLI status summaries.
 - Include scope candidates in existing-project analysis seed prompts when

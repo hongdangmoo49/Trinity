@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+import pytest
+from textual.app import App, ComposeResult
+from textual.widgets import Static
+
 from trinity.project_intake import build_project_intake
 from trinity.textual_app.widgets.project_generation_confirm_modal import (
+    ProjectGenerationConfirmationSummary,
+    ProjectGenerationConfirmModal,
     project_generation_confirmation_summary,
 )
 
@@ -85,3 +91,49 @@ def test_project_generation_confirmation_summary_reports_dry_run_gaps(
 
     assert "validate: missing (suggested: uv run pytest)" in summary.dry_run_lines
     assert "conflicts: README.md" in summary.dry_run_lines
+
+
+@pytest.mark.asyncio
+async def test_project_generation_confirm_modal_keeps_actions_inside_narrow_viewport() -> None:
+    summary = ProjectGenerationConfirmationSummary(
+        target_workspace="/workspace/" + "long-target-directory-" * 8,
+        generation_preview=(
+            "Generation preview: "
+            + "create many files with long generated names, " * 16
+        ),
+        validation_plan=(
+            "Validation plan: "
+            + "run a long validation command before release, " * 16
+        ),
+        dry_run_lines=tuple(
+            f"dry-run-{index}: create generated-file-{index}-with-a-long-name.py"
+            for index in range(16)
+        ),
+    )
+
+    class ProbeApp(App[None]):
+        def compose(self) -> ComposeResult:
+            yield Static("root")
+
+        def on_mount(self) -> None:
+            self.push_screen(ProjectGenerationConfirmModal(summary, lang="en"))
+
+    app = ProbeApp()
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        modal = app.screen
+        shell = modal.query_one("#project-generation-confirm-modal")
+
+        for widget_id in (
+            "#project-generation-confirm-title",
+            "#project-generation-confirm-body",
+            "#project-generation-confirm-content",
+            "#project-generation-confirm-actions",
+            "#cancel-project-generation-confirm",
+            "#confirm-project-generation",
+        ):
+            widget = modal.query_one(widget_id)
+            assert widget.region.y >= shell.region.y
+            assert widget.region.y + widget.region.height <= (
+                shell.region.y + shell.region.height
+            )

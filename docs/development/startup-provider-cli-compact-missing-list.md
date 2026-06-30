@@ -4,7 +4,7 @@
 
 `Provider CLI setup` can become wide when multiple selected providers are
 missing. Missing entries include command details such as `antigravity(agy)`, so
-three missing providers can make the Start/Nexus line hard to scan.
+three missing providers can make the status notice hard to scan.
 
 Found provider entries only use short agent names. Missing entries need a
 smaller visible cap.

@@ -17,7 +17,7 @@ actual executable path exists.
 
 ## Contract
 
-For the lightweight Start/Nexus CLI setup hint:
+For the lightweight provider CLI setup notice:
 
 - If `cli_command` starts with a quote, extract text up to the matching closing
   quote as the executable.

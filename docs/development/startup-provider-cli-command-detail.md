@@ -2,7 +2,7 @@
 
 ## Problem
 
-The startup provider CLI setup hint reports which selected providers have a
+The provider CLI setup notice reports which selected providers have a
 missing CLI. For agents whose name differs from the actual command, the missing
 entry is not actionable enough. The most visible case is Antigravity: the agent
 is named `antigravity`, but Trinity invokes `agy`.
@@ -37,5 +37,5 @@ missing: reviewer(custom-cli.exe)
 ## Test Plan
 
 - Unit-test missing command details for same-name and different-name commands.
-- Update Start/Nexus render tests for the changed missing CLI text.
+- Update provider notice tests for the changed missing CLI text.
 - Run focused Start screen tests and required smoke tests.

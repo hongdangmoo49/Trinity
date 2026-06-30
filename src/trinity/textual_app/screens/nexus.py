@@ -11,11 +11,11 @@ from textual.screen import Screen
 from textual.widgets import Footer, Header, Static
 
 from trinity.config import TrinityConfig
-from trinity.models import AgentSpec
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.presenters import (
+    nexus_agent_provider_panel_state,
     nexus_central_snapshot_has_activity,
     nexus_current_workspace_text,
     nexus_provider_panel_state,
@@ -145,7 +145,7 @@ class NexusScreen(Screen[None]):
         self._reset_widget_cache()
         self._reset_render_cache()
         provider_states = [
-            self._state_from_spec(name, spec)
+            nexus_agent_provider_panel_state(name, spec)
             for name, spec in self.config.agents.items()
         ]
         provider_strip_class = f"provider-strip-{min(max(len(provider_states), 1), 3)}"
@@ -412,7 +412,12 @@ class NexusScreen(Screen[None]):
         spec = self.config.agents.get(name)
         if spec is None:
             return
-        state = self._state_from_spec(name, spec, status=status, summary=summary)
+        state = nexus_agent_provider_panel_state(
+            name,
+            spec,
+            status=status,
+            summary=summary,
+        )
         if self._provider_state_cache.get(name) == state:
             return
         panel = self._provider_panel(name)
@@ -516,27 +521,6 @@ class NexusScreen(Screen[None]):
     def _label(self, key: str) -> str:
         labels = NEXUS_LABELS.get(self.config.lang, NEXUS_LABELS["en"])
         return labels.get(key, NEXUS_LABELS["en"][key])
-
-    def _state_from_spec(
-        self,
-        name: str,
-        spec: AgentSpec,
-        *,
-        status: str | None = None,
-        summary: str = "",
-    ) -> ProviderPanelState:
-        default_status = "Queued" if spec.enabled else "Disabled"
-        return ProviderPanelState(
-            name=name,
-            provider=spec.provider.value,
-            enabled=spec.enabled,
-            status=status or default_status,
-            summary=summary,
-            configured_model=spec.model,
-            context_window=spec.effective_context_budget,
-            budget_source="trinity_config",
-            output_contract=spec.profile.output_contracts.get("execute", ""),
-        )
 
     def _refresh_central(self) -> None:
         central = self._central_agent()

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from difflib import get_close_matches
 from typing import Literal, Mapping, Protocol, Sequence
 
+from trinity.models import AgentSpec
 from trinity.slash_commands import COMMAND_SPECS, SESSION_ONLY_SETTING_NOTICE
 from trinity.display_labels import display_kind_value, display_severity_value
 from trinity.textual_app.snapshot import (
@@ -94,6 +95,27 @@ def nexus_provider_panel_state(provider: ProviderSnapshot) -> ProviderPanelState
         quality_signal_count=provider.quality_signal_count,
         quality_success_count=provider.quality_success_count,
         quality_score=provider.quality_score,
+    )
+
+
+def nexus_agent_provider_panel_state(
+    name: str,
+    spec: AgentSpec,
+    *,
+    status: str | None = None,
+    summary: str = "",
+) -> ProviderPanelState:
+    default_status = "Queued" if spec.enabled else "Disabled"
+    return ProviderPanelState(
+        name=name,
+        provider=spec.provider.value,
+        enabled=spec.enabled,
+        status=status or default_status,
+        summary=summary,
+        configured_model=spec.model,
+        context_window=spec.effective_context_budget,
+        budget_source="trinity_config",
+        output_contract=spec.profile.output_contracts.get("execute", ""),
     )
 
 

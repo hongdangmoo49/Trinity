@@ -229,6 +229,10 @@ from trinity.textual_app.widgets.workspace_picker import (
     build_workspace_picker,
     build_preflight,
 )
+from trinity.textual_app.workspace_labels import (
+    provider_cli_setup_label,
+    provider_execution_review_policy_label,
+)
 from trinity.tui.kitty_compat import install_textual_parser_patch
 
 
@@ -3372,9 +3376,35 @@ class TrinityTextualApp(App[None]):
             snapshot,
             self._local_command_results,
             current_route=self.current_route,
+            extra_table_rows=self._status_provider_notice_rows(),
             lang=self.config.lang,
         )
         self._apply_textual_status_effect(effect)
+
+    def _status_provider_notice_rows(self) -> tuple[tuple[str, str], ...]:
+        selected_agents: tuple[str, ...] | None = None
+        selector = self._active_agent_selector()
+        if selector is not None:
+            selected_agents = selector.selected_agents()
+        notices = (
+            provider_execution_review_policy_label(
+                self.config.agents,
+                selected_agents=selected_agents,
+                lang=self.config.lang,
+            ),
+            provider_cli_setup_label(
+                self.config.agents,
+                selected_agents=selected_agents,
+                lang=self.config.lang,
+            ),
+        )
+        rows: list[tuple[str, str]] = []
+        for notice in notices:
+            if not notice:
+                continue
+            item, _, value = notice.partition(": ")
+            rows.append((item, value or notice))
+        return tuple(rows)
 
     def _apply_textual_status_effect(self, effect: LocalCommandResultEffect) -> None:
         self._local_command_results = effect.local_command_results

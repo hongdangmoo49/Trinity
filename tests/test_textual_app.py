@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 import subprocess
+import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -212,6 +213,7 @@ from trinity.textual_app.screens.report import (
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import SacredGeometryAnimation, StartScreen
 from trinity.textual_app.slash_palette import SlashCommandPaletteProvider
+from trinity.textual_app.status_commands import status_command_result
 from trinity.textual_app.settings import UISettingsStore
 from trinity.textual_app.snapshot import (
     AgentQualitySnapshot,
@@ -678,6 +680,16 @@ def test_status_modal_centers_and_uses_read_only_table() -> None:
     assert "Item" in text
     assert "Value" in text
     assert "Workflow" in text
+
+
+def test_status_command_result_appends_provider_notice_rows() -> None:
+    result = status_command_result(
+        "/status",
+        WorkflowNexusSnapshot(session_id="wf-status"),
+        extra_table_rows=(("Provider policy", "1 active"),),
+    )
+
+    assert result.table_rows[-1] == ("Provider policy", "1 active")
 
 
 def test_status_modal_uses_korean_chrome_labels() -> None:
@@ -4036,7 +4048,28 @@ async def test_start_slash_status_does_not_start_workflow(tmp_path) -> None:
         table_text = str(table.render())
         assert "Item" in table_text
         assert "Workflow" in table_text
+        assert "Provider policy" in table_text
+        assert "single executor" in table_text
         assert "readiness=not checked" in table_text
+
+
+@pytest.mark.asyncio
+async def test_start_slash_status_reports_provider_cli_setup(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["claude"].cli_command = sys.executable
+    config.agents["codex"].enabled = True
+    config.agents["codex"].cli_command = "trinity-missing-cli-for-test"
+    app = TrinityTextualApp(config, FakeWorkflowController())
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+        composer.set_text("/status ")
+        composer.action_submit()
+        await pilot.pause()
+
+        table_text = str(app.screen.query_one("#status-command-table", Static).render())
+        assert "Provider CLI setup" in table_text
+        assert "codex(trinity-missing-cli-for-test)" in table_text
 
 
 @pytest.mark.asyncio
@@ -4068,6 +4101,8 @@ async def test_start_slash_status_uses_korean_modal_chrome(tmp_path) -> None:
         assert ("상태", "대기") in app.active_snapshot.local_commands[-1].table_rows
         table_text = str(app.screen.query_one("#status-command-table", Static).render())
         assert "워크플로우" in table_text
+        assert "프로바이더 정책" in table_text
+        assert "단일 실행" in table_text
 
 
 @pytest.mark.asyncio

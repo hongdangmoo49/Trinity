@@ -14,6 +14,18 @@ def test_help_command_presentation_describes_registry_commands() -> None:
         "Summary",
     )
     assert any(row[0] == "/status" for row in presentation.table_rows)
+    assert (
+        "/target",
+        "workflow_local",
+        "none",
+        "show, set, or clear target path",
+    ) in presentation.table_rows
+    assert (
+        "/workspace",
+        "local_ui",
+        "none",
+        "browse for a target workspace",
+    ) in presentation.table_rows
 
 
 def test_help_command_presentation_uses_korean_labels() -> None:
@@ -29,3 +41,15 @@ def test_help_command_presentation_uses_korean_labels() -> None:
         "요약",
     )
     assert any(row[0] == "/status" for row in presentation.table_rows)
+    assert (
+        "/target",
+        "workflow_local",
+        "none",
+        "대상 경로 보기, 설정 또는 초기화",
+    ) in presentation.table_rows
+    assert (
+        "/workspace",
+        "local_ui",
+        "none",
+        "대상 워크스페이스 찾아 선택",
+    ) in presentation.table_rows

@@ -112,8 +112,8 @@ COMMAND_SPECS: tuple[SlashCommandSpec, ...] = (
     SlashCommandSpec(
         name="/workspace",
         usage="/workspace",
-        summary="select target workspace",
-        summary_ko="대상 워크스페이스 선택",
+        summary="browse for a target workspace",
+        summary_ko="대상 워크스페이스 찾아 선택",
         category=SlashCommandCategory.LOCAL_UI,
     ),
     SlashCommandSpec(
@@ -270,8 +270,8 @@ COMMAND_SPECS: tuple[SlashCommandSpec, ...] = (
     SlashCommandSpec(
         name="/target",
         usage="/target [path|clear]",
-        summary="set target workspace candidate",
-        summary_ko="대상 워크스페이스 후보 설정",
+        summary="show, set, or clear target path",
+        summary_ko="대상 경로 보기, 설정 또는 초기화",
         category=SlashCommandCategory.WORKFLOW_LOCAL,
         mutates_workflow=True,
     ),

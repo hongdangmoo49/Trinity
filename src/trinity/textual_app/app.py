@@ -223,9 +223,8 @@ LocalCommandSnapshotOptionValue = (
 )
 
 
-def initial_workspace_candidate(config: TrinityConfig, launch_cwd: Path) -> Path:
+def initial_workspace_candidate(launch_cwd: Path) -> Path:
     """Return the process launch cwd as the default target candidate."""
-    _ = config
     return launch_cwd
 
 
@@ -1284,10 +1283,7 @@ class TrinityTextualApp(App[None]):
         self.current_route: WorkbenchRoute = "start"
         self.initial_prompt: str | None = None
         self.launch_cwd = default_launch_cwd(launch_cwd)
-        self.workspace_candidate: Path | None = initial_workspace_candidate(
-            config,
-            self.launch_cwd,
-        )
+        self.workspace_candidate: Path | None = initial_workspace_candidate(self.launch_cwd)
         self.snapshot_adapter = NexusSnapshotAdapter(config)
         self.active_snapshot: WorkflowNexusSnapshot | None = None
         self.settings_store = UISettingsStore(config.effective_state_dir)

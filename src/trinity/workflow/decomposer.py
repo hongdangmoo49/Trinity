@@ -887,8 +887,11 @@ ASPIRATIONAL_IMPLEMENTATION_MARKERS: tuple[str, ...] = (
 
 STRONG_ANALYSIS_REQUEST_MARKERS: tuple[str, ...] = (
     "tell me",
+    "cause of",
     "do i need to",
+    "failure reason",
     "is it okay to",
+    "root cause",
     "should i",
     "ways to",
     "what should",
@@ -896,6 +899,9 @@ STRONG_ANALYSIS_REQUEST_MARKERS: tuple[str, ...] = (
     "which file should",
     "which files should",
     "how should",
+    "why did",
+    "why does",
+    "why is",
     "suggest",
     "recommend",
     "알려줘",

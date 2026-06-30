@@ -330,7 +330,7 @@ def _run_plain_interactive_tui(config: TrinityConfig) -> None:
     "--mode",
     type=click.Choice(["existing", "new"]),
     default=None,
-    help="Optionally record project intake during init.",
+    help="Optionally record project context during init.",
 )
 @click.option(
     "--project-name",
@@ -397,7 +397,7 @@ def _run_plain_interactive_tui(config: TrinityConfig) -> None:
     multiple=True,
     help="New project constraint. Repeat or comma-separate.",
 )
-@click.option("--notes", default="", help="Optional notes for the new project intake.")
+@click.option("--notes", default="", help="Optional notes for the new project context.")
 def init(
     force: bool,
     non_interactive: bool,
@@ -647,7 +647,7 @@ def _resolve_init_project_mode(
     lang: str,
     interactive: bool,
 ) -> str | None:
-    """Resolve the optional project intake mode for init."""
+    """Resolve the optional project context mode for init."""
     _ = lang, interactive
     if mode:
         return mode
@@ -824,7 +824,7 @@ def project() -> None:
     multiple=True,
     help="Project constraint for the brief. Repeat or comma-separate.",
 )
-@click.option("--notes", default="", help="Optional notes to store in project intake.")
+@click.option("--notes", default="", help="Optional notes to store in project context.")
 def project_new(
     name: str,
     parent: Path,
@@ -839,7 +839,7 @@ def project_new(
     constraints: tuple[str, ...],
     notes: str,
 ) -> None:
-    """Create a new target project folder and write project intake artifacts."""
+    """Create a new target project folder and write project context artifacts."""
     config_path = find_config_path()
     if config_path is None:
         raise click.ClickException("No Trinity project found. Run `trinity init` first.")
@@ -882,40 +882,40 @@ def project_new(
     "--goal",
     "product_goal",
     default="",
-    help="Product goal to store in project intake.",
+    help="Product goal to store in project context.",
 )
 @click.option(
     "--project-type",
     default="",
-    help="Project type or product category to store in project intake.",
+    help="Project type or product category to store in project context.",
 )
 @click.option(
     "--starter-profile",
     "--starter",
     default="",
-    help="Initial implementation/repository shape to store in project intake.",
+    help="Initial implementation/repository shape to store in project context.",
 )
 @click.option(
     "--target-users",
     default="",
-    help="Target users or audience to store in project intake.",
+    help="Target users or audience to store in project context.",
 )
 @click.option(
     "--success-criteria",
     default="",
-    help="Success criteria to store in project intake.",
+    help="Success criteria to store in project context.",
 )
 @click.option(
     "--stack",
     "stack_preferences",
     multiple=True,
-    help="Preferred stack item for project intake. Repeat or comma-separate.",
+    help="Preferred stack item for project context. Repeat or comma-separate.",
 )
 @click.option(
     "--milestone",
     "first_milestone",
     default="",
-    help="First milestone to store in project intake.",
+    help="First milestone to store in project context.",
 )
 @click.option(
     "--constraint",
@@ -927,9 +927,9 @@ def project_new(
     "--scope",
     "selected_scope",
     default="",
-    help="Existing-project relative work scope to store in project intake.",
+    help="Existing-project relative work scope to store in project context.",
 )
-@click.option("--notes", default="", help="Optional notes to store in project intake.")
+@click.option("--notes", default="", help="Optional notes to store in project context.")
 def project_analyze(
     path: Path | None,
     mode: str,
@@ -944,7 +944,7 @@ def project_analyze(
     selected_scope: str,
     notes: str,
 ) -> None:
-    """Analyze a target workspace and write project intake artifacts."""
+    """Analyze a target workspace and write project context artifacts."""
     config_path = find_config_path()
     if config_path is None:
         raise click.ClickException(
@@ -979,7 +979,7 @@ def project_analyze(
     help="Refresh saved intake from the current target workspace before display.",
 )
 def project_status(json_output: bool, refresh: bool) -> None:
-    """Show the currently recorded project intake."""
+    """Show the currently recorded project context."""
     config_path = find_config_path()
     if config_path is None:
         raise click.ClickException("No Trinity project found. Run `trinity init` first.")
@@ -1127,7 +1127,7 @@ def _display_project_intake_summary(
     json_path: Path,
     markdown_path: Path,
 ) -> None:
-    """Display a compact project intake write summary."""
+    """Display a compact project context write summary."""
     body = "\n".join(
         [
             "[green]Project context saved.[/green]",
@@ -1157,7 +1157,7 @@ def _display_project_intake_summary(
 def _display_missing_project_intake_status(state_dir: Path | None = None) -> None:
     body = "\n".join(
         [
-            "[yellow]No project intake recorded.[/yellow]",
+            "[yellow]No project context recorded.[/yellow]",
             "",
             "Run `trinity` in the workspace you want to use.",
             "Or set it with `/target <PATH>`.",

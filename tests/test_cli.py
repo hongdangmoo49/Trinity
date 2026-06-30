@@ -645,7 +645,7 @@ class TestProjectAnalyze:
             result = runner.invoke(main, ["project", "status"])
 
             assert result.exit_code == 0
-            assert "No project intake recorded." in result.output
+            assert "No project context recorded." in result.output
             assert "Start guide:" not in result.output
             assert "Project start:" not in result.output
             assert "Run `trinity` in the workspace you want to use" in result.output

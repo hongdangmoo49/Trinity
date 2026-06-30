@@ -92,13 +92,6 @@ class NexusScreen(Screen[None]):
             super().__init__()
             self.snapshot = snapshot
 
-    class WorkspaceRequested(Message):
-        """Posted when the user wants to choose a target workspace."""
-
-        def __init__(self, snapshot: WorkflowNexusSnapshot | None) -> None:
-            super().__init__()
-            self.snapshot = snapshot
-
     class RepairActionRequested(Message):
         """Posted when the user chooses a review-repair blocked action."""
 
@@ -439,9 +432,6 @@ class NexusScreen(Screen[None]):
 
     def action_request_execute(self) -> None:
         self.post_message(self.ExecuteRequested(self.snapshot))
-
-    def action_request_workspace(self) -> None:
-        self.post_message(self.WorkspaceRequested(self.snapshot))
 
     def _refresh_workspace_label(self) -> None:
         label = self._workspace_label()

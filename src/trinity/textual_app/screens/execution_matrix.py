@@ -658,10 +658,11 @@ class ExecutionMatrixScreen(Screen[None]):
     def append_log(self, line: str) -> None:
         if not self.is_mounted:
             return
+        current_lines = self._activity_lines_key or tuple(self._activity_lines())
         self._applied_state_identity = None
         self._render_content_key = None
-        self._activity_lines_key = ()
         self._execution_log().write(line)
+        self._activity_lines_key = (*current_lines, str(line))
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "toggle-task-expanded":

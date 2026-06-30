@@ -32,7 +32,7 @@ def test_project_context_summary_reports_existing_project_context(
 
     summary = build_project_context_summary(state, target)
 
-    assert summary.workspace_context == "workspace recorded"
+    assert summary.workspace_context == "recorded"
     assert summary.items == (
         "scope: src/app",
         "read: README.md, src",
@@ -83,7 +83,7 @@ def test_project_context_summary_reports_new_project_context(tmp_path: Path) -> 
 
     summary = build_project_context_summary(state, target)
 
-    assert summary.workspace_context == "workspace brief"
+    assert summary.workspace_context == "recorded"
     assert summary.items == (
         "starter: Textual TUI",
         "brief: complete",

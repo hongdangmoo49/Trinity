@@ -54,8 +54,8 @@ def test_parse_slash_command_registers_workspace_command() -> None:
 
 
 def test_parse_slash_command_keeps_project_action_args() -> None:
-    parsed = parse_slash_command("/project brief")
+    parsed = parse_slash_command("/project analyze")
 
     assert parsed is not None
     assert parsed.command_id == "project"
-    assert parsed.args == ("brief",)
+    assert parsed.args == ("analyze",)

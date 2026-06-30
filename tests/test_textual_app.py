@@ -11138,7 +11138,9 @@ async def test_start_workspace_command_updates_workspace_candidate(tmp_path) -> 
             start.query_one("#project-intake-summary", Static)
 
 
-def test_project_command_action_does_not_split_new_project_creation(tmp_path) -> None:
+def test_project_command_action_keeps_manual_project_setup_out_of_shortcuts(
+    tmp_path,
+) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),
         FakeWorkflowController(),
@@ -11148,6 +11150,7 @@ def test_project_command_action_does_not_split_new_project_creation(tmp_path) ->
     assert app._project_command_action(["workspace"]) == "workspace"
     assert app._project_command_action(["create"]) is None
     assert app._project_command_action(["new"]) is None
+    assert app._project_command_action(["brief"]) is None
 
 
 @pytest.mark.asyncio
@@ -11581,30 +11584,6 @@ async def test_start_analyze_workspace_empty_target_opens_project_brief(
 
 
 @pytest.mark.asyncio
-async def test_start_project_brief_slash_opens_project_brief_modal(
-    tmp_path,
-) -> None:
-    control_repo = tmp_path / "control"
-    target = tmp_path / "target-app"
-    control_repo.mkdir()
-    target.mkdir()
-    app = TrinityTextualApp(
-        TrinityConfig.default_config(project_dir=control_repo),
-        FakeWorkflowController(),
-        launch_cwd=target,
-    )
-
-    async with app.run_test(size=(140, 44)) as pilot:
-        app._handle_textual_slash_command("/project brief")
-        await pilot.pause()
-
-        assert isinstance(app.screen, ProjectBriefModal)
-        assert str(app.screen.query_one("#project-brief-target", Static).content) == (
-            f"Target workspace: {target.resolve()}"
-        )
-
-
-@pytest.mark.asyncio
 async def test_project_brief_modal_uses_korean_placeholders(tmp_path) -> None:
     control_repo = tmp_path / "control"
     target = tmp_path / "empty-target"
@@ -11742,7 +11721,7 @@ async def test_project_brief_cancel_preserves_draft_for_same_target(
         app.screen.action_cancel()
         await pilot.pause()
 
-        app._handle_textual_slash_command("/project brief")
+        app._open_project_brief_modal(target, fallback_mode="new")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
@@ -11768,7 +11747,7 @@ async def test_project_brief_cancel_preserves_draft_for_same_target(
         assert intake is not None
         assert intake.product_goal == "Saved goal"
 
-        app._handle_textual_slash_command("/project brief")
+        app._open_project_brief_modal(target, fallback_mode="new")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
@@ -11852,89 +11831,6 @@ async def test_start_analyze_workspace_picker_opens_brief_for_empty_target(
         assert intake is not None
         assert intake.mode == "new"
         assert intake.target_workspace == target.resolve()
-
-
-@pytest.mark.asyncio
-async def test_start_project_brief_request_writes_project_brief(
-    tmp_path,
-) -> None:
-    control_repo = tmp_path / "control"
-    target = tmp_path / "target-app"
-    control_repo.mkdir()
-    target.mkdir()
-    app = TrinityTextualApp(
-        TrinityConfig.default_config(project_dir=control_repo),
-        FakeWorkflowController(),
-        launch_cwd=target,
-    )
-
-    async with app.run_test(size=(140, 44)) as pilot:
-        app._handle_textual_slash_command("/project brief")
-        await pilot.pause()
-
-        assert isinstance(app.screen, ProjectBriefModal)
-        app.screen.query_one("#project-brief-goal", Input).value = (
-            "Build customer onboarding."
-        )
-        app.screen.query_one("#project-brief-project-type", Input).value = (
-            "SaaS dashboard"
-        )
-        app.screen.query_one("#project-brief-target-users", Input).value = (
-            "support operators"
-        )
-        app.screen.query_one("#project-brief-success", Input).value = (
-            "Operators can complete onboarding safely."
-        )
-        app.screen.query_one("#project-brief-stack", Input).value = "python, textual"
-        app.screen.query_one("#project-brief-milestone", Input).value = (
-            "First safe patch."
-        )
-        app.screen.query_one("#project-brief-constraints", Input).value = (
-            "Keep tests green, no generated scaffold"
-        )
-        app.screen.query_one("#project-brief-selected-scope", Input).value = (
-            "apps/web"
-        )
-        app.screen.query_one("#project-brief-notes", Input).value = (
-            "Use existing patterns."
-        )
-        app.screen.action_save()
-        await pilot.pause()
-
-        start = app.get_screen("start", StartScreen)
-        intake = load_project_intake(app.config.effective_state_dir)
-        assert intake is not None
-        assert intake.mode == "existing"
-        assert intake.target_workspace == target.resolve()
-        assert intake.product_goal == "Build customer onboarding."
-        assert intake.project_type == "SaaS dashboard"
-        assert intake.target_users == "support operators"
-        assert intake.success_criteria == "Operators can complete onboarding safely."
-        assert intake.stack_preferences == ("python", "textual")
-        assert intake.first_milestone == "First safe patch."
-        assert intake.constraints == ("Keep tests green", "no generated scaffold")
-        assert intake.selected_scope == "apps/web"
-        assert intake.notes == "Use existing patterns."
-        assert start.query_one(PromptComposer).text == "\n".join(
-            [
-                "Use this project brief and existing codebase to plan the next "
-                "safe work packages.",
-                "",
-                "Goal: Build customer onboarding.",
-                "Type: SaaS dashboard",
-                "Users: support operators",
-                "Success: Operators can complete onboarding safely.",
-                "Selected scope: apps/web",
-                "First milestone: First safe patch.",
-                "Stack: python, textual",
-                "Constraints: Keep tests green; no generated scaffold",
-                "Notes: Use existing patterns.",
-            ]
-        )
-        with pytest.raises(NoMatches):
-            start.query_one("#project-intake-summary", Static)
-        with pytest.raises(NoMatches):
-            start.query_one("#project-plan-preview", Static)
 
 
 @pytest.mark.asyncio
@@ -12667,124 +12563,6 @@ async def test_nexus_analyze_workspace_picker_opens_brief_for_empty_target(
         assert intake.mode == "new"
         assert intake.target_workspace == target.resolve()
         assert controller.target_workspace == target.resolve()
-
-
-@pytest.mark.asyncio
-async def test_nexus_project_brief_command_writes_project_brief(
-    tmp_path,
-) -> None:
-    control_repo = tmp_path / "control"
-    target = tmp_path / "target-app"
-    control_repo.mkdir()
-    target.mkdir()
-    controller = FakeWorkflowController(
-        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
-    )
-    app = TrinityTextualApp(
-        TrinityConfig.default_config(project_dir=control_repo),
-        controller,
-        launch_cwd=target,
-    )
-
-    async with app.run_test(size=(140, 44)) as pilot:
-        app.switch_to("nexus")
-        await pilot.pause()
-
-        app._handle_textual_slash_command("/project brief")
-        await pilot.pause()
-
-        assert isinstance(app.screen, ProjectBriefModal)
-        app.screen.query_one("#project-brief-goal", Input).value = (
-            "Modernize project docs."
-        )
-        app.screen.query_one("#project-brief-project-type", Input).value = (
-            "developer tool"
-        )
-        app.screen.query_one("#project-brief-target-users", Input).value = (
-            "maintainers"
-        )
-        app.screen.query_one("#project-brief-success", Input).value = (
-            "Maintainers can follow the workflow."
-        )
-        app.screen.query_one("#project-brief-stack", Input).value = "python"
-        app.screen.query_one("#project-brief-milestone", Input).value = (
-            "Document current workflow."
-        )
-        app.screen.query_one("#project-brief-constraints", Input).value = (
-            "Preserve existing CLI behavior"
-        )
-        app.screen.action_save()
-        await pilot.pause()
-
-        intake = load_project_intake(app.config.effective_state_dir)
-        assert intake is not None
-        assert intake.mode == "existing"
-        assert intake.target_workspace == target.resolve()
-        assert intake.product_goal == "Modernize project docs."
-        assert intake.project_type == "developer tool"
-        assert intake.target_users == "maintainers"
-        assert intake.success_criteria == "Maintainers can follow the workflow."
-        assert intake.stack_preferences == ("python",)
-        assert intake.first_milestone == "Document current workflow."
-        assert intake.constraints == ("Preserve existing CLI behavior",)
-        assert controller.target_workspace is None
-        nexus = app.get_screen("nexus", NexusScreen)
-        with pytest.raises(NoMatches):
-            nexus.query_one("#nexus-project-intake-summary", Static)
-        assert nexus.query_one("#nexus-composer", PromptComposer).text == "\n".join(
-            [
-                "Use this project brief and existing codebase to plan the next "
-                "safe work packages.",
-                "",
-                "Goal: Modernize project docs.",
-                "Type: developer tool",
-                "Users: maintainers",
-                "Success: Maintainers can follow the workflow.",
-                "First milestone: Document current workflow.",
-                "Stack: python",
-                "Constraints: Preserve existing CLI behavior",
-            ]
-        )
-
-
-@pytest.mark.asyncio
-async def test_nexus_edit_project_brief_preserves_existing_followup_prompt(
-    tmp_path,
-) -> None:
-    control_repo = tmp_path / "control"
-    target = tmp_path / "target-app"
-    control_repo.mkdir()
-    target.mkdir()
-    controller = FakeWorkflowController(
-        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
-    )
-    app = TrinityTextualApp(
-        TrinityConfig.default_config(project_dir=control_repo),
-        controller,
-        launch_cwd=target,
-    )
-
-    async with app.run_test(size=(140, 44)) as pilot:
-        app.switch_to("nexus")
-        await pilot.pause()
-
-        nexus = app.get_screen("nexus", NexusScreen)
-        nexus.query_one("#nexus-composer", PromptComposer).set_text(
-            "Keep this follow-up."
-        )
-        app._handle_textual_slash_command("/project brief")
-        await pilot.pause()
-
-        assert isinstance(app.screen, ProjectBriefModal)
-        app.screen.query_one("#project-brief-goal", Input).value = (
-            "Modernize project docs."
-        )
-        app.screen.action_save()
-        await pilot.pause()
-
-        assert nexus.query_one("#nexus-composer", PromptComposer).text == (
-            "Keep this follow-up."
-        )
 
 
 def test_nexus_safe_target_prefers_snapshot_target(tmp_path) -> None:

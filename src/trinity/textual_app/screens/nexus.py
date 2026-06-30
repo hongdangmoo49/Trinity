@@ -32,7 +32,11 @@ from trinity.textual_app.widgets.agent_recipient_model_selector import (
 from trinity.textual_app.widgets.composer import PromptComposer
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.inspector import WorkflowInspector
-from trinity.textual_app.widgets.provider_panel import ProviderPanel, ProviderPanelState
+from trinity.textual_app.widgets.provider_panel import (
+    ProviderPanel,
+    ProviderPanelState,
+    provider_panel_state_group,
+)
 from trinity.textual_app.widgets.question_panel import QuestionAnswer, QuestionPanel
 from trinity.workflow.provider_error_gate import (
     PROVIDER_ERROR_GATE_QUESTION_ID,
@@ -502,7 +506,7 @@ class NexusScreen(Screen[None]):
         ):
             return True
         return any(
-            ProviderPanel._state_group(state) == "running"
+            provider_panel_state_group(state) == "running"
             for state in self._provider_state_cache.values()
         )
 
@@ -513,7 +517,7 @@ class NexusScreen(Screen[None]):
         if nexus_central_snapshot_has_activity(snapshot):
             return True
         return any(
-            ProviderPanel._state_group(
+            provider_panel_state_group(
                 nexus_provider_panel_state(provider)
             ) == "running"
             for provider in snapshot.providers

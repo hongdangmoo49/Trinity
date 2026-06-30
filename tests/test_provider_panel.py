@@ -7,6 +7,7 @@ from textual.widgets import Static
 from trinity.textual_app.widgets.provider_panel import (
     ProviderPanel,
     ProviderPanelState,
+    provider_panel_state_group,
 )
 
 
@@ -49,7 +50,7 @@ def test_provider_panel_normalizes_status_labels(
     )
     panel = ProviderPanel(state)
 
-    assert ProviderPanel._state_group(state) == expected_state
+    assert provider_panel_state_group(state) == expected_state
     assert expected_label in panel._status_label()
     assert f"provider-state-{expected_state}" in ProviderPanel._classes_for(state)
 
@@ -63,7 +64,7 @@ def test_provider_panel_uses_off_state_for_disabled_provider() -> None:
     )
     panel = ProviderPanel(state)
 
-    assert ProviderPanel._state_group(state) == "off"
+    assert provider_panel_state_group(state) == "off"
     assert panel._status_label() == "OFF"
     assert "provider-disabled" in ProviderPanel._classes_for(state)
 
@@ -319,7 +320,7 @@ def test_provider_panel_treats_error_summary_as_issue() -> None:
     panel = ProviderPanel(state)
     ko_panel = ProviderPanel(state, lang="ko")
 
-    assert ProviderPanel._state_group(state) == "issue"
+    assert provider_panel_state_group(state) == "issue"
     assert "ISSUE" in panel._status_label()
     assert "문제" in ko_panel._status_label()
 

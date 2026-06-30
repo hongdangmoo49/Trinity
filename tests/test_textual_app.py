@@ -1866,6 +1866,34 @@ async def test_start_workspace_label_keeps_button_height_with_long_path(
 
 
 @pytest.mark.asyncio
+async def test_start_command_palette_stays_within_narrow_viewport(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        composer = start.query_one("#start-composer", PromptComposer)
+        composer.set_text("/")
+        await pilot.pause()
+
+        start_shell = start.query_one("#start-screen")
+        widgets = (
+            composer,
+            composer.query_one("#prompt-command-palette"),
+            start.query_one("#start-recipient-selector"),
+            start.query_one("#start-actions"),
+        )
+        for widget in widgets:
+            assert widget.region.y >= start_shell.region.y
+            assert (
+                widget.region.y + widget.region.height
+                <= start_shell.region.y + start_shell.region.height
+            )
+
+
+@pytest.mark.asyncio
 async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     config.agents["codex"].enabled = True
@@ -12311,6 +12339,33 @@ async def test_nexus_screen_stays_within_narrow_viewport(tmp_path) -> None:
         for widget in widgets:
             assert widget.region.x >= 0
             assert widget.region.x + widget.region.width <= nexus.size.width
+            assert widget.region.y >= nexus_shell.region.y
+            assert (
+                widget.region.y + widget.region.height
+                <= nexus_shell.region.y + nexus_shell.region.height
+            )
+
+
+@pytest.mark.asyncio
+async def test_nexus_command_palette_stays_within_narrow_viewport(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        composer = nexus.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/")
+        await pilot.pause()
+
+        nexus_shell = nexus.query_one("#nexus-screen")
+        widgets = (
+            composer,
+            composer.query_one("#prompt-command-palette"),
+        )
+        for widget in widgets:
             assert widget.region.y >= nexus_shell.region.y
             assert (
                 widget.region.y + widget.region.height

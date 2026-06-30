@@ -45,12 +45,10 @@ PROJECT_INTAKE_LABELS = {
             "or rerun trinity project analyze [PATH]"
         ),
         "missing": (
-            "Project intake: not recorded | existing: trinity project analyze [PATH] "
-            "| new: trinity project new NAME"
+            "Project intake: not recorded | next: type the task or /project analyze"
         ),
         "missing_with_target": (
-            "Project intake: not recorded | analyze: trinity project analyze {target} "
-            "| new: trinity project new NAME"
+            "Project intake: not recorded | next: type the task or /project analyze"
         ),
         "build": "build",
         "brief_complete": "brief: complete",
@@ -100,12 +98,10 @@ PROJECT_INTAKE_LABELS = {
             "또는 trinity project analyze [PATH] 재실행"
         ),
         "missing": (
-            "프로젝트 인테이크: 기록 없음 | 기존: trinity project analyze [PATH] "
-            "| 신규: trinity project new NAME"
+            "프로젝트 인테이크: 기록 없음 | 다음: 작업을 입력하거나 /project analyze"
         ),
         "missing_with_target": (
-            "프로젝트 인테이크: 기록 없음 | 분석: trinity project analyze {target} "
-            "| 신규: trinity project new NAME"
+            "프로젝트 인테이크: 기록 없음 | 다음: 작업을 입력하거나 /project analyze"
         ),
         "build": "빌드",
         "brief_complete": "브리프: 완료",

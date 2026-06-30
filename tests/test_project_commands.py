@@ -24,6 +24,10 @@ def test_project_command_presentation_uses_selected_workspace(tmp_path) -> None:
     assert "trinity project new" not in presentation.body
     assert "프로젝트 시작:" not in presentation.body
     assert "프로젝트 모드:" not in presentation.body
+    assert presentation.action_hint == (
+        "작업 폴더는 /workspace, 프로젝트 도구는 /project analyze 또는 "
+        "/project brief에서 엽니다."
+    )
 
 
 def test_project_command_presentation_marks_missing_target(tmp_path) -> None:
@@ -39,6 +43,6 @@ def test_project_command_presentation_marks_missing_target(tmp_path) -> None:
     assert "Project start:" not in presentation.body
     assert "Project mode:" not in presentation.body
     assert presentation.action_hint == (
-        "Open the main project tools with /project workspace, "
-        "/project analyze, or /project brief."
+        "Use /workspace to select a target; open project tools with "
+        "/project analyze or /project brief."
     )

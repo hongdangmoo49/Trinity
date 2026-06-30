@@ -106,6 +106,22 @@ def provider_panel_status_label(
     return f"{prefix}{provider_panel_state_label(state_group, lang=lang)}"
 
 
+def provider_panel_summary_line(state: ProviderPanelState, *, lang: str = "en") -> str:
+    text = state.details or state.summary or _provider_panel_empty_summary(lang=lang)
+    return _compact_provider_panel_line(text)
+
+
+def _compact_provider_panel_line(text: str, limit: int = 72) -> str:
+    normalized = " ".join(text.split())
+    if len(normalized) <= limit:
+        return normalized
+    return normalized[: limit - 1].rstrip() + "…"
+
+
+def _provider_panel_empty_summary(*, lang: str = "en") -> str:
+    return "응답 없음" if lang == "ko" else "No response yet"
+
+
 class ProviderPanel(Vertical):
     """Compact status surface for a provider."""
 
@@ -138,7 +154,10 @@ class ProviderPanel(Vertical):
             yield name
             yield status
         meta = Static(self._provider_line(), classes="provider-meta")
-        summary = Static(self._summary_line(), classes="provider-summary")
+        summary = Static(
+            provider_panel_summary_line(self.state, lang=self.lang),
+            classes="provider-summary",
+        )
         self._static_cache[".provider-meta"] = meta
         self._static_cache[".provider-summary"] = summary
         yield meta
@@ -154,7 +173,10 @@ class ProviderPanel(Vertical):
             activity_frame=self._activity_frame,
             lang=self.lang,
         )
-        previous_summary_line = self._summary_line()
+        previous_summary_line = provider_panel_summary_line(
+            self.state,
+            lang=self.lang,
+        )
         previous_classes = provider_panel_classes(self.state)
         self.state = state
         classes = provider_panel_classes(state)
@@ -167,7 +189,7 @@ class ProviderPanel(Vertical):
             activity_frame=self._activity_frame,
             lang=self.lang,
         )
-        summary_line = self._summary_line()
+        summary_line = provider_panel_summary_line(self.state, lang=self.lang)
         if name != previous_name:
             self._static_for(".provider-name").update(name)
         if provider_line != previous_provider_line:
@@ -214,11 +236,7 @@ class ProviderPanel(Vertical):
         quality = self._quality_label()
         if quality:
             parts.append(quality)
-        return self._compact_line(" · ".join(part for part in parts if part))
-
-    def _summary_line(self) -> str:
-        text = self.state.details or self.state.summary or self._empty_summary()
-        return self._compact_line(text)
+        return _compact_provider_panel_line(" · ".join(part for part in parts if part))
 
     def _static_for(self, selector: str) -> Static:
         widget = self._static_cache.get(selector)
@@ -227,13 +245,6 @@ class ProviderPanel(Vertical):
         widget = self.query_one(selector, Static)
         self._static_cache[selector] = widget
         return widget
-
-    @staticmethod
-    def _compact_line(text: str, limit: int = 72) -> str:
-        normalized = " ".join(text.split())
-        if len(normalized) <= limit:
-            return normalized
-        return normalized[: limit - 1].rstrip() + "…"
 
     def _model_label(self) -> str:
         return (
@@ -300,6 +311,3 @@ class ProviderPanel(Vertical):
         if text == "-0":
             return "0"
         return text or "0"
-
-    def _empty_summary(self) -> str:
-        return "응답 없음" if self.lang == "ko" else "No response yet"

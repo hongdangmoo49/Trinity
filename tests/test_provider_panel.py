@@ -10,6 +10,7 @@ from trinity.textual_app.widgets.provider_panel import (
     provider_panel_classes,
     provider_panel_state_group,
     provider_panel_status_label,
+    provider_panel_summary_line,
 )
 
 
@@ -324,10 +325,8 @@ def test_provider_panel_compacts_long_summary() -> None:
         status="Ready",
         summary=" ".join(f"line-{index}" for index in range(20)),
     )
-    panel = ProviderPanel(state)
-
-    assert len(panel._summary_line()) <= 72
-    assert panel._summary_line().endswith("…")
+    assert len(provider_panel_summary_line(state)) <= 72
+    assert provider_panel_summary_line(state).endswith("…")
 
 
 def test_provider_panel_shows_compact_model_context_and_session_metadata() -> None:

@@ -352,6 +352,34 @@ class TestSessionHandleCommand:
         session._handle_command("/help")
         # Should print help text — no crash
 
+    def test_workspace_command_sets_target_workspace(self, session):
+        target = session.config.project_dir.parent / "workspace-alias"
+
+        session._handle_command(f"/workspace {target}")
+
+        assert session.workflow.session.target_workspace == target.resolve()
+        assert target.is_dir()
+
+    def test_project_command_shows_plain_diagnostics(self, session):
+        with patch.object(session.console, "print") as print_:
+            session._handle_command("/project")
+
+        print_.assert_called_once()
+
+    def test_project_workspace_command_sets_target_workspace(self, session):
+        target = session.config.project_dir.parent / "project-workspace-alias"
+
+        session._handle_command(f"/project workspace {target}")
+
+        assert session.workflow.session.target_workspace == target.resolve()
+        assert target.is_dir()
+
+    def test_providers_command_shows_plain_status(self, session):
+        with patch.object(session, "_cmd_status") as status:
+            session._handle_command("/providers")
+
+        status.assert_called_once()
+
     def test_workflow_command(self, session):
         session._handle_command("/workflow")
         # Should print workflow state

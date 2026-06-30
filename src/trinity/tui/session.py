@@ -40,6 +40,7 @@ from trinity.slash_commands import (
     parse_execute_retry_args,
     parse_slash_command,
 )
+from trinity.textual_app.project_commands import project_command_presentation
 from trinity.tui.app import AgentTUIState, TrinityTUI
 from trinity.tui.events import TUIEvent, TUIEventBus
 from trinity.tui.kitty_compat import install_prompt_toolkit_parser_patch
@@ -64,6 +65,8 @@ PLAIN_TUI_COMMAND_HANDLERS: dict[str, str] = {
     "help": "_cmd_help",
     "status": "_cmd_status",
     "context": "_cmd_context",
+    "project": "_cmd_project",
+    "providers": "_cmd_providers",
     "rounds": "_cmd_rounds",
     "agent": "_cmd_agent",
     "model": "_cmd_model",
@@ -84,6 +87,7 @@ PLAIN_TUI_COMMAND_HANDLERS: dict[str, str] = {
     "review": "_cmd_review",
     "improve": "_cmd_improve",
     "target": "_cmd_target",
+    "workspace": "_cmd_target",
     "memory": "_cmd_memory",
     "artifact": "_cmd_artifact",
 }
@@ -93,6 +97,7 @@ PLAIN_TUI_COMMANDS_WITH_ARGS = frozenset(
         "rounds",
         "agent",
         "caveman",
+        "project",
         "questions",
         "answer",
         "ask",
@@ -103,6 +108,7 @@ PLAIN_TUI_COMMANDS_WITH_ARGS = frozenset(
         "review",
         "improve",
         "target",
+        "workspace",
         "memory",
         "artifact",
     }
@@ -332,6 +338,10 @@ class InteractiveSession:
         )
         self._cmd_workflow()
 
+    def _cmd_providers(self) -> None:
+        """Show provider status in the plain TUI."""
+        self._cmd_status()
+
     def _cmd_context(self) -> None:
         """Show current workflow session context."""
         session = self.workflow.session
@@ -352,6 +362,32 @@ class InteractiveSession:
         if session.blueprint and session.blueprint.summary:
             lines.extend(["", "[bold]Synthesis[/bold]:", session.blueprint.summary])
         self.console.print(Panel("\n".join(lines), title="Current Session Context"))
+
+    def _cmd_project(self, args: list[str]) -> None:
+        """Show compact project diagnostics or target workspace shortcut."""
+        action = args[0].strip().lower().replace("_", "-") if args else ""
+        if action in {"workspace", "target", "select"}:
+            self._cmd_target(args[1:])
+            return
+        if action:
+            self.console.print(
+                "[yellow]Only /project workspace is available in the plain TUI. "
+                "Use the Textual app for project analyze, brief, scope, read-first, "
+                "or validation tools.[/yellow]"
+            )
+            return
+        presentation = project_command_presentation(
+            self.config.effective_state_dir,
+            self.config.active_agents,
+            lang=self.config.lang,
+            target_workspace=self.workflow.session.target_workspace,
+        )
+        self.console.print(
+            Panel(
+                f"{presentation.body}\n\n{presentation.action_hint}",
+                title=presentation.title,
+            )
+        )
 
     def _cmd_memory(self, args: list[str]) -> None:
         """Show or compact shared context memory."""

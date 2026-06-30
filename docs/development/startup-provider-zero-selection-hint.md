@@ -7,8 +7,8 @@ falls back to `found: none`. That is technically true, but it points at CLI
 discovery instead of the actual recovery step: the user needs to select at least
 one provider before planning or execution can start.
 
-This matters for both new and existing project starts because provider selection
-is a prerequisite regardless of project mode.
+Provider selection is a prerequisite regardless of the selected workspace
+context.
 
 ## Contract
 

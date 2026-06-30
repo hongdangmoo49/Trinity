@@ -5,7 +5,7 @@ Branch: `feature/execution-risk-gate`
 
 ## Problem
 
-Nexus execution confirmation currently shows the target workspace, project mode,
+Nexus execution confirmation currently shows the target workspace, workspace context,
 providers, and work package preview. It does not surface the same risk signals
 that the workspace preflight already knows about:
 
@@ -25,7 +25,7 @@ Add execution risk visibility to the Nexus execution confirmation modal.
 
 1. User clicks Execute from Nexus.
 2. Trinity opens the execution confirmation modal.
-3. The modal shows existing summary fields plus a risk section.
+3. The modal shows the target, workspace context, providers, packages, and a risk section.
 4. If no risks are present, the risk section says "none".
 5. If risks are present, the modal lists concise reasons before the package
    preview, so confirmation is deliberate.

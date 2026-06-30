@@ -9,7 +9,7 @@ Trinity now records a useful project intake for both first-run journeys, but the
 user still has to infer which project context will be sent to agents:
 
 - target workspace
-- project mode
+- workspace context
 - selected existing-project scope
 - read-first confirmation state
 - validation command state
@@ -30,7 +30,7 @@ act on the project.
 1. User prepares a new or existing project from Start or Nexus.
 2. Before planning or execution, Trinity shows a compact project context
    summary in the existing confirmation surfaces.
-3. The summary tells the user which target, mode, scope, read-first state,
+3. The summary tells the user which target, workspace context, scope, read-first state,
    validation command, providers, and risks are active.
 4. If a field is missing, the summary says so explicitly instead of staying
    silent.
@@ -41,7 +41,7 @@ act on the project.
   saved project intake, provider selection, and preflight risk state.
 - Reuse the summary from the execution confirmation modal first.
 - Keep modal behavior unchanged; this slice improves context visibility.
-- Add tests for new-project and existing-project summaries so target/mode/scope
+- Add tests for new-project and existing-project summaries so target/context/scope
   and validation state cannot silently drift.
 
 ## Non-Goals

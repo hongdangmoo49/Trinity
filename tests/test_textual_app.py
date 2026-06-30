@@ -261,7 +261,6 @@ from trinity.textual_app.widgets.project_brief_modal import (
     ProjectBriefDraft,
     ProjectBriefModal,
 )
-from trinity.textual_app.widgets.project_scope_modal import ProjectScopeModal
 from trinity.textual_app.widgets.project_validation_modal import ProjectValidationModal
 from trinity.textual_app.widgets.question_panel import QuestionPanel
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
@@ -11151,6 +11150,7 @@ def test_project_command_action_keeps_manual_project_setup_out_of_shortcuts(
     assert app._project_command_action(["create"]) is None
     assert app._project_command_action(["new"]) is None
     assert app._project_command_action(["brief"]) is None
+    assert app._project_command_action(["scope"]) is None
 
 
 @pytest.mark.asyncio
@@ -11318,47 +11318,6 @@ async def test_start_analyze_workspace_prompt_includes_scope_candidates(
             "- selected scope: apps/web\n"
             "- scope candidates: apps/web"
         )
-
-
-@pytest.mark.asyncio
-async def test_start_continue_setup_opens_existing_scope_picker(
-    tmp_path,
-) -> None:
-    control_repo = tmp_path / "control"
-    target = tmp_path / "monorepo"
-    control_repo.mkdir()
-    target.mkdir()
-    (target / "apps" / "web").mkdir(parents=True)
-    (target / "apps" / "web" / "package.json").write_text("{}", encoding="utf-8")
-    config = TrinityConfig.default_config(project_dir=control_repo)
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="existing",
-            target_workspace=target,
-        ),
-    )
-    app = TrinityTextualApp(config, FakeWorkflowController(), launch_cwd=target)
-
-    async with app.run_test(size=(140, 44)) as pilot:
-        await pilot.pause()
-
-        app._handle_textual_slash_command("/project scope")
-        await pilot.pause()
-
-        assert isinstance(app.screen, ProjectScopeModal)
-        app.screen.query_one("#project-scope-input", Input).value = "apps/web"
-        app.screen.action_save()
-        await pilot.pause()
-
-        intake = load_project_intake(app.config.effective_state_dir)
-        assert intake is not None
-        assert intake.selected_scope == "apps/web"
-        with pytest.raises(NoMatches):
-            app.get_screen("start", StartScreen).query_one(
-                "#project-intake-summary",
-                Static,
-            )
 
 
 @pytest.mark.asyncio
@@ -12358,47 +12317,6 @@ async def test_nexus_project_analyze_slash_opens_project_anchors_modal(
         assert str(app.screen.query_one("#project-anchors-target", Static).content) == (
             f"Target workspace: {target.resolve()}"
         )
-
-
-@pytest.mark.asyncio
-async def test_nexus_continue_setup_opens_existing_scope_picker(tmp_path) -> None:
-    control_repo = tmp_path / "control"
-    target = tmp_path / "monorepo"
-    control_repo.mkdir()
-    target.mkdir()
-    (target / "apps" / "web").mkdir(parents=True)
-    (target / "apps" / "web" / "package.json").write_text("{}", encoding="utf-8")
-    config = TrinityConfig.default_config(project_dir=control_repo)
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="existing",
-            target_workspace=target,
-        ),
-    )
-    controller = FakeWorkflowController(
-        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
-    )
-    app = TrinityTextualApp(config, controller, launch_cwd=target)
-
-    async with app.run_test(size=(140, 44)) as pilot:
-        app.switch_to("nexus")
-        await pilot.pause()
-
-        app._handle_textual_slash_command("/project scope")
-        await pilot.pause()
-
-        assert isinstance(app.screen, ProjectScopeModal)
-        app.screen.query_one("#project-scope-input", Input).value = "apps/web"
-        app.screen.action_save()
-        await pilot.pause()
-
-        intake = load_project_intake(app.config.effective_state_dir)
-        assert intake is not None
-        assert intake.selected_scope == "apps/web"
-        nexus = app.get_screen("nexus", NexusScreen)
-        with pytest.raises(NoMatches):
-            nexus.query_one("#nexus-project-intake-summary", Static)
 
 
 @pytest.mark.asyncio

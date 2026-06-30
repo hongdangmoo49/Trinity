@@ -87,7 +87,7 @@ class SharedContextEngine:
         return self.path.read_text(encoding="utf-8")
 
     @staticmethod
-    def _sanitize_md_heading(text: str) -> str:
+    def sanitize_md_heading(text: str) -> str:
         """Escape heading markers to prevent markdown section injection."""
         return re.sub(r'^#{1,3}\s+', r'\\# ', text, flags=re.MULTILINE)
 
@@ -158,8 +158,8 @@ class SharedContextEngine:
     def append_opinion(self, agent: str, round_num: int, opinion: str) -> None:
         """Append an agent's opinion to the round section."""
         section_name = f"Round {round_num} Opinions"
-        safe_agent = self._sanitize_md_heading(agent)
-        safe_opinion = self._sanitize_md_heading(opinion)
+        safe_agent = self.sanitize_md_heading(agent)
+        safe_opinion = self.sanitize_md_heading(opinion)
         entry = f"\n### {safe_agent}\n{safe_opinion}\n"
         self.append_to_section(section_name, entry)
 
@@ -176,9 +176,9 @@ class SharedContextEngine:
         token_count: int | None = None,
     ) -> None:
         """Append provider response artifact references without response body text."""
-        safe_agent = self._sanitize_md_heading(agent)
-        safe_request = self._sanitize_md_heading(request_id)
-        safe_status = self._sanitize_md_heading(status)
+        safe_agent = self.sanitize_md_heading(agent)
+        safe_request = self.sanitize_md_heading(request_id)
+        safe_status = self.sanitize_md_heading(status)
         lines = [
             f"\n### {safe_agent}",
             f"- request_id: `{safe_request}`",
@@ -229,8 +229,8 @@ class SharedContextEngine:
         """Write task assignments."""
         lines = []
         for agent, task in tasks.items():
-            safe_agent = self._sanitize_md_heading(agent)
-            safe_task = self._sanitize_md_heading(task)
+            safe_agent = self.sanitize_md_heading(agent)
+            safe_task = self.sanitize_md_heading(task)
             lines.append(f"- **{safe_agent}**: {safe_task}")
         self.write_section("Task Assignment", "\n".join(lines))
 
@@ -249,9 +249,9 @@ class SharedContextEngine:
     ) -> None:
         """Append a work package execution result to shared.md."""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        safe_package = self._sanitize_md_heading(package_id)
-        safe_agent = self._sanitize_md_heading(agent)
-        safe_summary = self._bounded_block(self._sanitize_md_heading(summary))
+        safe_package = self.sanitize_md_heading(package_id)
+        safe_agent = self.sanitize_md_heading(agent)
+        safe_summary = self._bounded_block(self.sanitize_md_heading(summary))
 
         lines = [
             f"\n### {safe_package} / {safe_agent} — {timestamp}",
@@ -302,12 +302,12 @@ class SharedContextEngine:
     ) -> None:
         """Append a provider-internal delegation report to shared.md."""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        safe_subtask = self._sanitize_md_heading(subtask_id)
-        safe_package = self._sanitize_md_heading(parent_package_id)
-        safe_agent = self._sanitize_md_heading(parent_agent)
-        safe_delegate = self._sanitize_md_heading(delegated_to)
-        safe_objective = self._bounded_block(self._sanitize_md_heading(objective))
-        safe_summary = self._bounded_block(self._sanitize_md_heading(result_summary))
+        safe_subtask = self.sanitize_md_heading(subtask_id)
+        safe_package = self.sanitize_md_heading(parent_package_id)
+        safe_agent = self.sanitize_md_heading(parent_agent)
+        safe_delegate = self.sanitize_md_heading(delegated_to)
+        safe_objective = self._bounded_block(self.sanitize_md_heading(objective))
+        safe_summary = self._bounded_block(self.sanitize_md_heading(result_summary))
 
         lines = [
             f"\n### {safe_subtask} / {safe_package} — {timestamp}",
@@ -346,8 +346,8 @@ class SharedContextEngine:
     def append_session_summary(self, agent: str, summary: str) -> None:
         """Append a session rotation summary to session history."""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-        safe_agent = self._sanitize_md_heading(agent)
-        safe_summary = self._sanitize_md_heading(summary)
+        safe_agent = self.sanitize_md_heading(agent)
+        safe_summary = self.sanitize_md_heading(summary)
         entry = f"\n### {safe_agent} — {timestamp}\n{safe_summary}\n"
         self.append_to_section("Session History", entry)
 
@@ -370,21 +370,21 @@ class SharedContextEngine:
         """Store the central synthesis result for a completed round."""
         lines: list[str] = []
         if source:
-            lines.append(f"- source: {self._sanitize_md_heading(source)}")
+            lines.append(f"- source: {self.sanitize_md_heading(source)}")
         if provider:
-            lines.append(f"- provider: {self._sanitize_md_heading(provider)}")
+            lines.append(f"- provider: {self.sanitize_md_heading(provider)}")
         if model:
-            lines.append(f"- model: {self._sanitize_md_heading(model)}")
+            lines.append(f"- model: {self.sanitize_md_heading(model)}")
         if fallback_used is not None:
             fallback_text = "true" if bool(fallback_used) else "false"
             lines.append(f"- fallback_used: {fallback_text}")
         if fallback_reason:
-            reason = self._sanitize_md_heading(fallback_reason)
+            reason = self.sanitize_md_heading(fallback_reason)
             lines.append(f"- fallback_reason: {reason}")
-        safe_summary = self._sanitize_md_heading(summary)
+        safe_summary = self.sanitize_md_heading(summary)
         if safe_summary:
             lines.extend(["", "### Summary", safe_summary])
-        safe_next = self._sanitize_md_heading(next_round_prompt)
+        safe_next = self.sanitize_md_heading(next_round_prompt)
         if safe_next:
             lines.extend(["", "### Next Round Prompt", safe_next])
         self.write_section(f"Round {round_num} Synthesis", "\n".join(lines).strip())
@@ -845,7 +845,7 @@ class SharedContextEngine:
         values: list[str] = []
         omitted = 0
         for raw in items:
-            value = self._sanitize_md_heading(str(raw).strip())
+            value = self.sanitize_md_heading(str(raw).strip())
             if not value:
                 continue
             if len(value) > DEFAULT_LIST_ITEM_MAX_CHARS:

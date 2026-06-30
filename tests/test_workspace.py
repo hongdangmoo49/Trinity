@@ -54,10 +54,10 @@ def _mock_git_failure(stderr="error"):
 
 class TestBranchName:
     def test_format(self, wi):
-        assert wi._branch_name("claude") == "trinity/claude"
+        assert wi.branch_name("claude") == "trinity/claude"
 
     def test_with_hyphen(self, wi):
-        assert wi._branch_name("code-reviewer") == "trinity/code-reviewer"
+        assert wi.branch_name("code-reviewer") == "trinity/code-reviewer"
 
 
 # ===========================================================================

@@ -662,7 +662,6 @@ class TestProjectAnalyze:
             assert result.exit_code == 0
             data = json.loads(result.output)
             assert data["project_intake"] is None
-            assert "project_start_guide" not in data
             assert data["current_analysis"] is None
             assert data["next_steps"] == [
                 "trinity",
@@ -960,7 +959,6 @@ class TestProjectAnalyze:
             assert data["project_intake"]["summary"].startswith(
                 "Project intake: existing | target: customer-app | updated:"
             )
-            assert "project_start_guide" not in data["project_intake"]
             assert data["project_intake"]["mode"] == "existing"
             assert data["project_intake"]["target_name"] == "customer-app"
             assert data["project_intake"]["target_workspace"] == str(target.resolve())

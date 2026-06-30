@@ -657,13 +657,13 @@ async def test_central_apply_snapshot_skips_body_only_local_command_table_render
         await pilot.pause()
 
         renders: list[list[LocalCommandSnapshot]] = []
-        original_render = view._render_local_command_tables
+        original_render = view.render_local_command_tables
 
         def counted_render(commands: list[LocalCommandSnapshot]) -> None:
             renders.append(commands)
             original_render(commands)
 
-        view._render_local_command_tables = counted_render
+        view.render_local_command_tables = counted_render
 
         view.apply_snapshot(snapshot("Updated body.", (("WP-001", "done"),)))
         await pilot.pause()

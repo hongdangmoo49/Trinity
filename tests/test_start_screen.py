@@ -1433,44 +1433,6 @@ async def test_nexus_screen_does_not_render_inline_provider_notices(
 
 
 @pytest.mark.asyncio
-async def test_nexus_screen_project_intake_summary_stays_offscreen(
-    tmp_path: Path,
-) -> None:
-    target = tmp_path / "customer-app"
-    target.mkdir()
-    (target / "pyproject.toml").write_text(
-        "[project]\nname='customer-app'\n",
-        encoding="utf-8",
-    )
-    (target / "uv.lock").write_text("", encoding="utf-8")
-    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="existing",
-            target_workspace=target,
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
-    screen = NexusScreen(config)
-    app = StartScreenHarness(screen)
-
-    async with app.run_test(size=(120, 36)) as pilot:
-        await pilot.pause()
-
-        assert project_intake_state_label(
-            config.effective_state_dir,
-            lang="ko",
-            target_workspace=target,
-        ) == (
-            "프로젝트 인테이크: 기존 | 대상: customer-app | "
-            "갱신: 2026-06-28 | 테스트: uv run pytest | git: 없음"
-        )
-        with pytest.raises(NoMatches):
-            screen.query_one("#nexus-project-intake-summary", Static)
-
-
-@pytest.mark.asyncio
 async def test_start_workspace_label_skips_unchanged_update(tmp_path: Path) -> None:
     control_repo = tmp_path / "control"
     target = tmp_path / "target"

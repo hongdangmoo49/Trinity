@@ -81,12 +81,12 @@ def project_command_presentation(
     ]
     body = "\n".join(f"- {line}" for line in lines if line.strip())
     action_hint = (
-        "주요 프로젝트 도구는 /project workspace, /project analyze, "
+        "작업 폴더는 /workspace, 프로젝트 도구는 /project analyze 또는 "
         "/project brief에서 엽니다."
         if lang == "ko"
         else (
-            "Open the main project tools with /project workspace, "
-            "/project analyze, or /project brief."
+            "Use /workspace to select a target; open project tools with "
+            "/project analyze or /project brief."
         )
     )
     return ProjectCommandPresentation(

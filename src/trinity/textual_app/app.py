@@ -1032,8 +1032,8 @@ class TrinityTextualApp(App[None]):
     #context-command-modal {
         width: 88;
         max-width: 95%;
-        height: auto;
-        max-height: 85%;
+        height: 95%;
+        max-height: 95%;
         border: round $primary;
         background: $surface;
         padding: 1 2;
@@ -1042,6 +1042,11 @@ class TrinityTextualApp(App[None]):
     #context-command-title {
         text-style: bold;
         color: $accent;
+        margin-bottom: 1;
+    }
+
+    #context-command-content {
+        height: 1fr;
         margin-bottom: 1;
     }
 

@@ -4317,6 +4317,56 @@ async def test_start_slash_context_uses_korean_modal_and_body(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_context_modal_keeps_controls_in_narrow_viewport(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-context",
+            goal="긴 컨텍스트 확인",
+            state="executing",
+            round_num=3,
+            synthesis=SynthesisSnapshot(
+                summary="요약 " * 80,
+                consensus_progress="ready",
+            ),
+            decisions=[
+                f"결정 {index}: 긴 결정 내용입니다."
+                for index in range(15)
+            ],
+            work_packages=[
+                f"WP-{index:03d} 긴 작업 패키지 설명입니다."
+                for index in range(15)
+            ],
+            workflow_events=[
+                f"이벤트 {index}: 진행 로그입니다."
+                for index in range(20)
+            ],
+        )
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        controller,
+    )
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app._handle_textual_slash_command("/context")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ContextCommandModal)
+        modal_shell = app.screen.query_one("#context-command-modal")
+        widgets = (
+            app.screen.query_one("#context-command-title", Static),
+            app.screen.query_one("#context-command-content"),
+            app.screen.query_one("#close-context-command", Button),
+        )
+        for widget in widgets:
+            assert widget.region.y >= modal_shell.region.y
+            assert (
+                widget.region.y + widget.region.height
+                <= modal_shell.region.y + modal_shell.region.height
+            )
+
+
+@pytest.mark.asyncio
 async def test_nexus_slash_workflow_does_not_submit_followup(tmp_path) -> None:
     controller = FakeWorkflowController(
         WorkflowNexusSnapshot(session_id="wf-fake", goal="game", state="blueprint_ready")

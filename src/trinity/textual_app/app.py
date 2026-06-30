@@ -229,12 +229,6 @@ def initial_workspace_candidate(config: TrinityConfig, launch_cwd: Path) -> Path
     return launch_cwd
 
 
-def initial_start_prompt(config: TrinityConfig, workspace_candidate: Path | None) -> str:
-    """Leave Start blank so the user's prompt is the source of intent."""
-    _ = config, workspace_candidate
-    return ""
-
-
 def _execution_confirmation_risk_items_from_preflight(
     preflight: WorkspacePreflight,
     *,
@@ -1326,7 +1320,7 @@ class TrinityTextualApp(App[None]):
             self.config,
             self.settings_store,
             self.workspace_candidate,
-            start_prompt=initial_start_prompt(self.config, self.workspace_candidate),
+            start_prompt="",
         ):
             self.install_screen(spec.screen, spec.route)
 

@@ -38,7 +38,6 @@ from trinity.slash_commands import COMMAND_SPECS, SESSION_ONLY_SETTING_NOTICE
 from trinity.textual_app import app as textual_app_module
 from trinity.textual_app.app import (
     TrinityTextualApp,
-    initial_start_prompt,
     initial_workspace_candidate,
 )
 from trinity.textual_app.presenters import (
@@ -3777,29 +3776,6 @@ def test_initial_workspace_candidate_prefers_distinct_launch_cwd(
     )
 
     assert initial_workspace_candidate(config, launch_cwd) == launch_cwd
-
-
-def test_initial_start_prompt_ignores_saved_project_intake(tmp_path) -> None:
-    control_repo = tmp_path / "control"
-    target_workspace = tmp_path / "customer-app"
-    other_workspace = tmp_path / "other-app"
-    control_repo.mkdir()
-    target_workspace.mkdir()
-    other_workspace.mkdir()
-    config = TrinityConfig.default_config(project_dir=control_repo)
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="new",
-            target_workspace=target_workspace,
-            product_goal="Build customer onboarding.",
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
-
-    assert initial_start_prompt(config, target_workspace) == ""
-    assert initial_start_prompt(config, other_workspace) == ""
-    assert initial_start_prompt(config, None) == ""
 
 
 @pytest.mark.asyncio

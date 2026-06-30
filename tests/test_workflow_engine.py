@@ -2323,9 +2323,16 @@ def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_execution_intent("find issues and implement fixes") is True
     assert classify_execution_intent("what should I fix") is False
     assert classify_execution_intent("what should I change") is False
+    assert classify_execution_intent("should I fix this") is False
+    assert classify_execution_intent("should I update docs") is False
+    assert classify_execution_intent("where should I add tests") is False
+    assert classify_execution_intent("do I need to refactor this") is False
+    assert classify_execution_intent("is it okay to delete this file") is False
     assert classify_execution_intent("how should I implement this") is False
     assert classify_execution_intent("tell me how to implement this") is False
     assert classify_execution_intent("which file should I edit") is False
+    assert classify_execution_intent("can you fix this") is True
+    assert classify_execution_intent("please update docs") is True
     assert classify_execution_intent("tell me what to fix") is False
     assert classify_execution_intent("delete it") is True
     assert classify_execution_intent("delete unused files") is True
@@ -2355,6 +2362,11 @@ def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_execution_intent("무엇을 수정해야해?") is False
     assert classify_execution_intent("어떻게 개선해야해?") is False
     assert classify_execution_intent("어떤 파일을 추가해야해?") is False
+    assert classify_execution_intent("수정해야 할까?") is False
+    assert classify_execution_intent("업데이트해야 할까?") is False
+    assert classify_execution_intent("추가해도 될까?") is False
+    assert classify_execution_intent("삭제해도 될까?") is False
+    assert classify_execution_intent("리팩터링이 필요할까?") is False
     assert classify_execution_intent("추천 기능 추가해줘") is True
     assert classify_execution_intent("새 프로젝트 생성해줘") is True
     assert classify_execution_intent("README 업데이트해줘") is True

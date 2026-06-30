@@ -848,7 +848,11 @@ ASPIRATIONAL_IMPLEMENTATION_MARKERS: tuple[str, ...] = (
 
 STRONG_ANALYSIS_REQUEST_MARKERS: tuple[str, ...] = (
     "tell me",
+    "do i need to",
+    "is it okay to",
+    "should i",
     "what should",
+    "where should",
     "which file should",
     "which files should",
     "how should",
@@ -860,6 +864,9 @@ STRONG_ANALYSIS_REQUEST_MARKERS: tuple[str, ...] = (
     "무엇을",
     "어떤 파일",
     "어떻게",
+    "해야 할까",
+    "해도 될까",
+    "필요할까",
     "제안해",
     "추천해",
 )

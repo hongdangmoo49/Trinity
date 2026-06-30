@@ -261,7 +261,6 @@ from trinity.textual_app.widgets.project_brief_modal import (
     ProjectBriefDraft,
     ProjectBriefModal,
 )
-from trinity.textual_app.widgets.project_validation_modal import ProjectValidationModal
 from trinity.textual_app.widgets.question_panel import QuestionPanel
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
 from trinity.textual_app.widgets.status_modal import StatusCommandModal
@@ -11154,6 +11153,8 @@ def test_project_command_action_keeps_manual_project_setup_out_of_shortcuts(
     assert app._project_command_action(["read"]) is None
     assert app._project_command_action(["read-first"]) is None
     assert app._project_command_action(["readfirst"]) is None
+    assert app._project_command_action(["validation"]) is None
+    assert app._project_command_action(["validate"]) is None
 
 
 @pytest.mark.asyncio
@@ -11321,65 +11322,6 @@ async def test_start_analyze_workspace_prompt_includes_scope_candidates(
             "- selected scope: apps/web\n"
             "- scope candidates: apps/web"
         )
-
-
-@pytest.mark.asyncio
-async def test_start_continue_setup_opens_project_validation_modal_for_new_project(
-    tmp_path,
-) -> None:
-    control_repo = tmp_path / "control"
-    target = tmp_path / "new-app"
-    control_repo.mkdir()
-    target.mkdir()
-    config = TrinityConfig.default_config(project_dir=control_repo)
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="new",
-            target_workspace=target,
-            product_goal="Build a planning board.",
-            project_type="planning tool",
-            target_users="operators",
-            success_criteria="Operators can plan work.",
-            first_milestone="First planning workflow.",
-        ),
-    )
-    app = TrinityTextualApp(config, FakeWorkflowController(), launch_cwd=target)
-
-    async with app.run_test(size=(140, 44)) as pilot:
-        await pilot.pause()
-
-        app._handle_textual_slash_command("/project validation")
-        await pilot.pause()
-
-        assert isinstance(app.screen, ProjectValidationModal)
-        assert str(
-            app.screen.query_one("#project-validation-plan", Static).content
-        ) == (
-            "Validation plan: fast: define first smoke check | "
-            "required: record required check before merge | "
-            "full: first scaffold smoke before release"
-        )
-        app.screen.query_one("#project-validation-required", Input).value = (
-            "uv run pytest"
-        )
-        app.screen.query_one("#project-validation-run", Input).value = "uv run board"
-        app.screen.action_save()
-        await pilot.pause()
-
-        intake = load_project_intake(app.config.effective_state_dir)
-        assert intake is not None
-        assert intake.validation_commands == ("uv run pytest",)
-        assert intake.run_commands == ("uv run board",)
-        with pytest.raises(NoMatches):
-            app.get_screen("start", StartScreen).query_one(
-                "#project-startup-readiness",
-                Static,
-            )
-        assert "Validation commands: uv run pytest" in app.get_screen(
-            "start",
-            StartScreen,
-        ).query_one(PromptComposer).text
 
 
 @pytest.mark.asyncio
@@ -12277,63 +12219,6 @@ async def test_nexus_project_analyze_slash_opens_project_anchors_modal(
         assert str(app.screen.query_one("#project-anchors-target", Static).content) == (
             f"Target workspace: {target.resolve()}"
         )
-
-
-@pytest.mark.asyncio
-async def test_nexus_continue_setup_opens_project_validation_modal_for_existing(
-    tmp_path,
-) -> None:
-    control_repo = tmp_path / "control"
-    target = tmp_path / "target-app"
-    control_repo.mkdir()
-    target.mkdir()
-    (target / "README.md").write_text("# Existing project\n", encoding="utf-8")
-    (target / "src").mkdir()
-    config = TrinityConfig.default_config(project_dir=control_repo)
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="existing",
-            target_workspace=target,
-            read_first_confirmed=True,
-            created_at="2026-06-29T00:00:00Z",
-        ),
-    )
-    controller = FakeWorkflowController(
-        WorkflowNexusSnapshot(
-            session_id="wf-fake",
-            state="idle",
-            target_workspace=str(target),
-        )
-    )
-    app = TrinityTextualApp(config, controller, launch_cwd=target)
-
-    async with app.run_test(size=(140, 44)) as pilot:
-        app.switch_to("nexus")
-        await pilot.pause()
-
-        app._handle_textual_slash_command("/project validation")
-        await pilot.pause()
-
-        assert isinstance(app.screen, ProjectValidationModal)
-        app.screen.query_one("#project-validation-required", Input).value = (
-            "npm test"
-        )
-        app.screen.action_save()
-        await pilot.pause()
-
-        intake = load_project_intake(app.config.effective_state_dir)
-        assert intake is not None
-        assert intake.validation_commands == ("npm test",)
-        with pytest.raises(NoMatches):
-            app.get_screen("nexus", NexusScreen).query_one(
-                "#nexus-project-validation-plan",
-                Static,
-            )
-        assert "- validation: npm test" in app.get_screen(
-            "nexus",
-            NexusScreen,
-        ).query_one("#nexus-composer", PromptComposer).text
 
 
 @pytest.mark.asyncio

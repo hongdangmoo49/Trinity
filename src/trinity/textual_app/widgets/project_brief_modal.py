@@ -178,7 +178,8 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
     #project-brief-modal {
         width: 88;
         max-width: 94%;
-        height: 90%;
+        height: 95%;
+        max-height: 95%;
         border: round $accent;
         background: $surface;
         padding: 1 2;
@@ -214,8 +215,13 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
         margin-bottom: 1;
     }
 
-    #project-brief-fields {
+    #project-brief-content {
         height: 1fr;
+        margin-bottom: 1;
+    }
+
+    #project-brief-fields {
+        height: auto;
     }
 
     .project-brief-row {
@@ -236,7 +242,6 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
     #project-brief-actions {
         height: auto;
         align-horizontal: right;
-        margin-top: 1;
     }
     """
 
@@ -261,96 +266,97 @@ class ProjectBriefModal(ModalScreen[ProjectBriefModalResult]):
     def compose(self) -> ComposeResult:
         with Vertical(id="project-brief-modal"):
             yield Static(self._label("title"), id="project-brief-title")
-            if self.target_workspace:
-                yield Static(
-                    f"{self._label('target_workspace')}: {self.target_workspace}",
-                    id="project-brief-target",
-                )
-            if self.mode == "new":
-                yield Static(
-                    self._brief_readiness_label(self.draft),
-                    id="project-brief-readiness",
-                )
-                yield Static(
-                    self._generation_preview_label(self.draft),
-                    id="project-brief-generation-preview",
-                )
-                with Horizontal(id="project-brief-starter-presets"):
-                    for preset_id in STARTER_PRESET_ORDER:
-                        preset = STARTER_PRESETS[preset_id]
-                        yield Button(
-                            preset.label,
-                            id=f"project-brief-preset-{preset_id}",
+            with VerticalScroll(id="project-brief-content"):
+                if self.target_workspace:
+                    yield Static(
+                        f"{self._label('target_workspace')}: {self.target_workspace}",
+                        id="project-brief-target",
+                    )
+                if self.mode == "new":
+                    yield Static(
+                        self._brief_readiness_label(self.draft),
+                        id="project-brief-readiness",
+                    )
+                    yield Static(
+                        self._generation_preview_label(self.draft),
+                        id="project-brief-generation-preview",
+                    )
+                    with Horizontal(id="project-brief-starter-presets"):
+                        for preset_id in STARTER_PRESET_ORDER:
+                            preset = STARTER_PRESETS[preset_id]
+                            yield Button(
+                                preset.label,
+                                id=f"project-brief-preset-{preset_id}",
+                            )
+                with Vertical(id="project-brief-fields"):
+                    yield from self._input_row(
+                        "goal",
+                        "project-brief-goal",
+                        self.draft.product_goal,
+                    )
+                    yield from self._input_row(
+                        "project_type",
+                        "project-brief-project-type",
+                        self.draft.project_type,
+                    )
+                    if self.mode == "new":
+                        yield from self._input_row(
+                            "starter_profile",
+                            "project-brief-starter-profile",
+                            self.draft.starter_profile,
                         )
-            with VerticalScroll(id="project-brief-fields"):
-                yield from self._input_row(
-                    "goal",
-                    "project-brief-goal",
-                    self.draft.product_goal,
-                )
-                yield from self._input_row(
-                    "project_type",
-                    "project-brief-project-type",
-                    self.draft.project_type,
-                )
-                if self.mode == "new":
                     yield from self._input_row(
-                        "starter_profile",
-                        "project-brief-starter-profile",
-                        self.draft.starter_profile,
-                    )
-                yield from self._input_row(
-                    "target_users",
-                    "project-brief-target-users",
-                    self.draft.target_users,
-                )
-                yield from self._input_row(
-                    "success",
-                    "project-brief-success",
-                    self.draft.success_criteria,
-                )
-                yield from self._input_row(
-                    "stack",
-                    "project-brief-stack",
-                    _join_values(self.draft.stack_preferences),
-                )
-                yield from self._input_row(
-                    "milestone",
-                    "project-brief-milestone",
-                    self.draft.first_milestone,
-                )
-                if self.mode == "new":
-                    yield from self._input_row(
-                        "run_commands",
-                        "project-brief-run-commands",
-                        _join_values(self.draft.run_commands),
+                        "target_users",
+                        "project-brief-target-users",
+                        self.draft.target_users,
                     )
                     yield from self._input_row(
-                        "validation_commands",
-                        "project-brief-validation-commands",
-                        _join_values(self.draft.validation_commands),
+                        "success",
+                        "project-brief-success",
+                        self.draft.success_criteria,
                     )
                     yield from self._input_row(
-                        "artifact_targets",
-                        "project-brief-artifact-targets",
-                        _join_values(self.draft.artifact_targets),
+                        "stack",
+                        "project-brief-stack",
+                        _join_values(self.draft.stack_preferences),
                     )
-                yield from self._input_row(
-                    "constraints",
-                    "project-brief-constraints",
-                    _join_values(self.draft.constraints),
-                )
-                if self.mode == "existing":
                     yield from self._input_row(
-                        "selected_scope",
-                        "project-brief-selected-scope",
-                        self.draft.selected_scope,
+                        "milestone",
+                        "project-brief-milestone",
+                        self.draft.first_milestone,
                     )
-                yield from self._input_row(
-                    "notes",
-                    "project-brief-notes",
-                    self.draft.notes,
-                )
+                    if self.mode == "new":
+                        yield from self._input_row(
+                            "run_commands",
+                            "project-brief-run-commands",
+                            _join_values(self.draft.run_commands),
+                        )
+                        yield from self._input_row(
+                            "validation_commands",
+                            "project-brief-validation-commands",
+                            _join_values(self.draft.validation_commands),
+                        )
+                        yield from self._input_row(
+                            "artifact_targets",
+                            "project-brief-artifact-targets",
+                            _join_values(self.draft.artifact_targets),
+                        )
+                    yield from self._input_row(
+                        "constraints",
+                        "project-brief-constraints",
+                        _join_values(self.draft.constraints),
+                    )
+                    if self.mode == "existing":
+                        yield from self._input_row(
+                            "selected_scope",
+                            "project-brief-selected-scope",
+                            self.draft.selected_scope,
+                        )
+                    yield from self._input_row(
+                        "notes",
+                        "project-brief-notes",
+                        self.draft.notes,
+                    )
             with Horizontal(id="project-brief-actions"):
                 yield Button(self._label("cancel"), id="cancel-project-brief")
                 yield Button(

@@ -1159,10 +1159,8 @@ def _display_missing_project_intake_status(state_dir: Path | None = None) -> Non
         [
             "[yellow]No project intake recorded.[/yellow]",
             "",
-            (
-                "Run `trinity` in the workspace you want to use, "
-                "or set it with `/workspace <PATH>`."
-            ),
+            "Run `trinity` in the workspace you want to use.",
+            "Or set it with `/target <PATH>`.",
             "Describe whether you want analysis, implementation, or both in the prompt.",
             "Use `/project` inside Trinity for optional diagnostics.",
         ]
@@ -1206,7 +1204,7 @@ def _project_status_payload(
             "project_intake_paths": None,
             "next_steps": [
                 "trinity",
-                "/workspace <PATH>",
+                "/target <PATH>",
                 "describe analysis or work in the prompt",
             ],
         }

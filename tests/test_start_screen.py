@@ -1942,7 +1942,7 @@ async def test_start_screen_updates_provider_policy_from_recipient_selection(
             "Provider CLI setup: missing: codex(trinity-missing-cli-for-test) | "
             "next: fix CLI command/PATH"
         )
-        assert provider_cli_setup.display is True
+        assert provider_cli_setup.display is False
         selector = screen.query_one(AgentRecipientModelSelector)
         selector.set_selected_agents(("claude",))
         screen.on_agent_recipient_model_selector_selection_changed(
@@ -1954,7 +1954,7 @@ async def test_start_screen_updates_provider_policy_from_recipient_selection(
             "Provider policy: 1 active (claude) | "
             "execution: single executor | review: self-check/manual"
         )
-        assert provider_policy.display is True
+        assert provider_policy.display is False
         assert str(provider_cli_setup.content) == ""
         assert provider_cli_setup.display is False
         with pytest.raises(NoMatches):
@@ -2022,7 +2022,7 @@ async def test_nexus_screen_shows_provider_policy_from_selected_agents(
             "Provider CLI setup: missing: codex(trinity-missing-cli-for-test) | "
             "next: fix CLI command/PATH"
         )
-        assert provider_cli_setup.display is True
+        assert provider_cli_setup.display is False
         screen.set_agent_selection(("claude", "antigravity"), {})
         await pilot.pause()
 
@@ -2041,7 +2041,7 @@ async def test_nexus_screen_shows_provider_policy_from_selected_agents(
             "Provider policy: 1 active (claude) | "
             "execution: single executor | review: self-check/manual"
         )
-        assert provider_policy.display is True
+        assert provider_policy.display is False
         assert str(provider_cli_setup.content) == ""
         assert provider_cli_setup.display is False
         with pytest.raises(NoMatches):

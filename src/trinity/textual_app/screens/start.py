@@ -146,7 +146,7 @@ class StartScreen(Screen[None]):
                     provider_policy_label,
                     id="start-provider-policy",
                 )
-                provider_policy.display = bool(provider_policy_label)
+                provider_policy.display = False
                 self._provider_policy_widget = provider_policy
                 yield provider_policy
                 provider_cli_setup_label = self._provider_cli_setup_label()
@@ -154,7 +154,7 @@ class StartScreen(Screen[None]):
                     provider_cli_setup_label,
                     id="start-provider-cli-setup",
                 )
-                provider_cli_setup.display = bool(provider_cli_setup_label)
+                provider_cli_setup.display = False
                 self._provider_cli_setup_widget = provider_cli_setup
                 yield provider_cli_setup
                 with Horizontal(id="start-actions"):
@@ -338,11 +338,11 @@ class StartScreen(Screen[None]):
         policy_label = self._provider_policy_label(selected_agents)
         policy = self._provider_policy_static()
         policy.update(policy_label)
-        policy.display = bool(policy_label)
+        policy.display = False
         cli_setup_label = self._provider_cli_setup_label(selected_agents)
         cli_setup = self._provider_cli_setup_static()
         cli_setup.update(cli_setup_label)
-        cli_setup.display = bool(cli_setup_label)
+        cli_setup.display = False
 
     def _label(self, key: str) -> str:
         labels = START_LABELS.get(self.lang, START_LABELS["en"])

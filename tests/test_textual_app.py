@@ -10864,10 +10864,7 @@ async def test_start_select_workspace_updates_workspace_candidate(tmp_path) -> N
         start = app.get_screen("start", StartScreen)
         assert app.workspace_candidate == tmp_path
         assert str(tmp_path) in str(start.query_one("#workspace-candidate").content)
-        intake = load_project_intake(app.config.effective_state_dir)
-        assert intake is not None
-        assert intake.mode == "existing"
-        assert intake.target_workspace == tmp_path
+        assert load_project_intake(app.config.effective_state_dir) is None
         with pytest.raises(NoMatches):
             start.query_one("#project-intake-summary", Static)
 

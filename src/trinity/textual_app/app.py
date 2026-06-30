@@ -2180,11 +2180,10 @@ class TrinityTextualApp(App[None]):
     def _on_workspace_candidate_selected(
         self,
         preflight: WorkspacePreflight | None,
-    ) -> ProjectIntake | None:
+    ) -> None:
         if preflight is None:
-            return None
+            return
         self._set_workspace_candidate(preflight.path, sync_start=True)
-        return self._sync_project_intake_for_preflight(preflight)
 
     def _on_existing_project_intake_workspace_selected(
         self,
@@ -2192,7 +2191,8 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         if preflight is None:
             return
-        intake = self._on_workspace_candidate_selected(preflight)
+        self._on_workspace_candidate_selected(preflight)
+        intake = self._sync_project_intake_for_preflight(preflight)
         if self._project_intake_mode_for_preflight(preflight) == "existing":
             self._review_start_existing_analysis_or_seed(preflight.path, intake)
             return
@@ -2205,6 +2205,7 @@ class TrinityTextualApp(App[None]):
         if preflight is None:
             return
         self._on_workspace_candidate_selected(preflight)
+        self._sync_project_intake_for_preflight(preflight)
         self._open_new_project_brief_if_needed(preflight)
 
     def _on_project_brief_workspace_selected(
@@ -2396,15 +2397,13 @@ class TrinityTextualApp(App[None]):
         preflight: WorkspacePreflight,
         *,
         control_repo_confirmed: bool,
-    ) -> ProjectIntake | None:
+    ) -> None:
         self._set_workspace_candidate(preflight.path, sync_nexus=False)
         self._set_textual_target_workspace(
             preflight.path,
             control_repo_confirmed=control_repo_confirmed,
         )
-        intake = self._sync_project_intake_for_preflight(preflight)
         self._sync_nexus_workspace_candidate()
-        return intake
 
     def _continue_nexus_project_intake_workspace_selection(
         self,
@@ -2412,10 +2411,11 @@ class TrinityTextualApp(App[None]):
         *,
         control_repo_confirmed: bool,
     ) -> None:
-        intake = self._continue_nexus_workspace_selection(
+        self._continue_nexus_workspace_selection(
             preflight,
             control_repo_confirmed=control_repo_confirmed,
         )
+        intake = self._sync_project_intake_for_preflight(preflight)
         if self._project_intake_mode_for_preflight(preflight) == "existing":
             self._review_nexus_existing_analysis_or_seed(preflight.path, intake)
             return
@@ -2431,6 +2431,7 @@ class TrinityTextualApp(App[None]):
             preflight,
             control_repo_confirmed=control_repo_confirmed,
         )
+        self._sync_project_intake_for_preflight(preflight)
         self._open_new_project_brief_if_needed(preflight)
 
     def _continue_nexus_project_brief_workspace_selection(
@@ -2527,7 +2528,6 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         preflight = continuation.preflight
         self.confirmed_preflight = preflight
-        self._sync_project_intake_for_preflight(preflight)
         outcome = self._run_workspace_preflight_continuation(continuation)
         self._apply_workflow_outcome(outcome)
         self._apply_workspace_preflight_effect(
@@ -3794,7 +3794,6 @@ class TrinityTextualApp(App[None]):
         effect: TargetWorkspaceApplyEffect,
     ) -> None:
         self._remember_confirmed_target_preflight(effect.resolved, effect.snapshot)
-        self._sync_project_intake_for_target(effect.resolved, mode="existing")
         if effect.apply_workflow_outcome:
             self._apply_workflow_outcome(effect.workflow_outcome)
         self._set_workspace_candidate(effect.resolved)

@@ -382,3 +382,6 @@ class SettingsScreen(Screen[None]):
         }
         labels = ko if self.lang == "ko" else en
         return labels.get(key, key)
+
+    def label_text(self, key: str) -> str:
+        return self._label(key)

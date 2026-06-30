@@ -112,24 +112,6 @@ class StartScreen(Screen[None]):
     class WorkspaceRequested(Message):
         """Posted when the user wants to choose a workspace candidate early."""
 
-    class ProjectIntakeRequested(Message):
-        """Posted when the user wants to analyze the current workspace candidate."""
-
-    class NewProjectRequested(Message):
-        """Posted when the user wants to create a new project workspace."""
-
-    class ProjectBriefRequested(Message):
-        """Posted when the user wants to edit the project brief."""
-
-    class ProjectScopeRequested(Message):
-        """Posted when the user wants to choose an existing-project scope."""
-
-    class ProjectReadFirstRequested(Message):
-        """Posted when the user wants to confirm existing-project read-first anchors."""
-
-    class ProjectValidationRequested(Message):
-        """Posted when the user wants to record validation commands."""
-
     BINDINGS = [
         ("ctrl+enter", "submit", "Plan"),
     ]

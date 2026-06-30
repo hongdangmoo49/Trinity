@@ -10890,9 +10890,7 @@ async def test_start_project_analyze_request_writes_project_intake(tmp_path) -> 
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        app.get_screen("start", StartScreen).post_message(
-            StartScreen.ProjectIntakeRequested()
-        )
+        app._handle_textual_slash_command("/project analyze")
         await pilot.pause(0.2)
 
         assert isinstance(app.screen, ProjectAnchorsModal)
@@ -10962,9 +10960,7 @@ async def test_start_analyze_workspace_anchor_review_cancel_keeps_detected_promp
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        app.get_screen("start", StartScreen).post_message(
-            StartScreen.ProjectIntakeRequested()
-        )
+        app._handle_textual_slash_command("/project analyze")
         await pilot.pause(0.2)
 
         assert isinstance(app.screen, ProjectAnchorsModal)
@@ -11010,9 +11006,7 @@ async def test_start_analyze_workspace_prompt_includes_scope_candidates(
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        app.get_screen("start", StartScreen).post_message(
-            StartScreen.ProjectIntakeRequested()
-        )
+        app._handle_textual_slash_command("/project analyze")
         await pilot.pause(0.2)
 
         assert isinstance(app.screen, ProjectAnchorsModal)
@@ -11202,9 +11196,7 @@ async def test_start_analyze_workspace_sparse_existing_prompt_has_no_anchor_bloc
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        app.get_screen("start", StartScreen).post_message(
-            StartScreen.ProjectIntakeRequested()
-        )
+        app._handle_textual_slash_command("/project analyze")
         await pilot.pause()
 
         start = app.get_screen("start", StartScreen)
@@ -11233,9 +11225,7 @@ async def test_start_analyze_workspace_empty_target_opens_project_brief(
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        app.get_screen("start", StartScreen).post_message(
-            StartScreen.ProjectIntakeRequested()
-        )
+        app._handle_textual_slash_command("/project analyze")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
@@ -11349,9 +11339,7 @@ async def test_project_brief_modal_uses_korean_placeholders(tmp_path) -> None:
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        app.get_screen("start", StartScreen).post_message(
-            StartScreen.ProjectIntakeRequested()
-        )
+        app._handle_textual_slash_command("/project analyze")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
@@ -11443,9 +11431,7 @@ async def test_project_brief_cancel_preserves_draft_for_same_target(
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        app.get_screen("start", StartScreen).post_message(
-            StartScreen.ProjectIntakeRequested()
-        )
+        app._handle_textual_slash_command("/project analyze")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
@@ -11476,9 +11462,7 @@ async def test_project_brief_cancel_preserves_draft_for_same_target(
         app.screen.action_cancel()
         await pilot.pause()
 
-        app.get_screen("start", StartScreen).post_message(
-            StartScreen.ProjectBriefRequested()
-        )
+        app._handle_textual_slash_command("/project brief")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
@@ -11504,9 +11488,7 @@ async def test_project_brief_cancel_preserves_draft_for_same_target(
         assert intake is not None
         assert intake.product_goal == "Saved goal"
 
-        app.get_screen("start", StartScreen).post_message(
-            StartScreen.ProjectBriefRequested()
-        )
+        app._handle_textual_slash_command("/project brief")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
@@ -11530,9 +11512,7 @@ async def test_start_analyze_workspace_preserves_existing_prompt(tmp_path) -> No
         start = app.get_screen("start", StartScreen)
         start.query_one(PromptComposer).set_text("Keep this user prompt.")
 
-        app.get_screen("start", StartScreen).post_message(
-            StartScreen.ProjectIntakeRequested()
-        )
+        app._handle_textual_slash_command("/project analyze")
         await pilot.pause()
 
         intake = load_project_intake(app.config.effective_state_dir)
@@ -11555,9 +11535,7 @@ async def test_start_project_analyze_request_opens_picker_for_control_repo(
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        app.get_screen("start", StartScreen).post_message(
-            StartScreen.ProjectIntakeRequested()
-        )
+        app._handle_textual_slash_command("/project analyze")
         await pilot.pause()
 
         assert isinstance(app.screen, WorkspacePicker)
@@ -11580,9 +11558,7 @@ async def test_start_analyze_workspace_picker_opens_brief_for_empty_target(
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        app.get_screen("start", StartScreen).post_message(
-            StartScreen.ProjectIntakeRequested()
-        )
+        app._handle_textual_slash_command("/project analyze")
         await pilot.pause()
 
         picker = app.screen
@@ -11612,9 +11588,7 @@ async def test_start_project_create_request_creates_new_project_intake(
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        app.get_screen("start", StartScreen).post_message(
-            StartScreen.NewProjectRequested()
-        )
+        app._handle_textual_slash_command("/project create")
         await pilot.pause()
         await pilot.pause()
 
@@ -11725,9 +11699,7 @@ async def test_start_project_brief_request_writes_project_brief(
     )
 
     async with app.run_test(size=(140, 44)) as pilot:
-        app.get_screen("start", StartScreen).post_message(
-            StartScreen.ProjectBriefRequested()
-        )
+        app._handle_textual_slash_command("/project brief")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)

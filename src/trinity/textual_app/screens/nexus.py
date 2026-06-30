@@ -124,48 +124,6 @@ class NexusScreen(Screen[None]):
             super().__init__()
             self.snapshot = snapshot
 
-    class ProjectIntakeRequested(Message):
-        """Posted when the user wants to analyze the current Nexus workspace."""
-
-        def __init__(self, snapshot: WorkflowNexusSnapshot | None) -> None:
-            super().__init__()
-            self.snapshot = snapshot
-
-    class NewProjectRequested(Message):
-        """Posted when the user wants to create a new project workspace."""
-
-        def __init__(self, snapshot: WorkflowNexusSnapshot | None) -> None:
-            super().__init__()
-            self.snapshot = snapshot
-
-    class ProjectBriefRequested(Message):
-        """Posted when the user wants to edit the project brief."""
-
-        def __init__(self, snapshot: WorkflowNexusSnapshot | None) -> None:
-            super().__init__()
-            self.snapshot = snapshot
-
-    class ProjectScopeRequested(Message):
-        """Posted when the user wants to choose an existing-project scope."""
-
-        def __init__(self, snapshot: WorkflowNexusSnapshot | None) -> None:
-            super().__init__()
-            self.snapshot = snapshot
-
-    class ProjectReadFirstRequested(Message):
-        """Posted when the user wants to confirm existing-project read-first anchors."""
-
-        def __init__(self, snapshot: WorkflowNexusSnapshot | None) -> None:
-            super().__init__()
-            self.snapshot = snapshot
-
-    class ProjectValidationRequested(Message):
-        """Posted when the user wants to record validation commands."""
-
-        def __init__(self, snapshot: WorkflowNexusSnapshot | None) -> None:
-            super().__init__()
-            self.snapshot = snapshot
-
     class RepairActionRequested(Message):
         """Posted when the user chooses a review-repair blocked action."""
 
@@ -566,24 +524,6 @@ class NexusScreen(Screen[None]):
 
     def action_request_workspace(self) -> None:
         self.post_message(self.WorkspaceRequested(self.snapshot))
-
-    def action_request_project_intake(self) -> None:
-        self.post_message(self.ProjectIntakeRequested(self.snapshot))
-
-    def action_request_new_project(self) -> None:
-        self.post_message(self.NewProjectRequested(self.snapshot))
-
-    def action_request_project_brief(self) -> None:
-        self.post_message(self.ProjectBriefRequested(self.snapshot))
-
-    def action_request_project_scope(self) -> None:
-        self.post_message(self.ProjectScopeRequested(self.snapshot))
-
-    def action_request_project_read_first(self) -> None:
-        self.post_message(self.ProjectReadFirstRequested(self.snapshot))
-
-    def action_request_project_validation(self) -> None:
-        self.post_message(self.ProjectValidationRequested(self.snapshot))
 
     def _refresh_workspace_label(self) -> None:
         label = self._workspace_label()

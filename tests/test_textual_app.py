@@ -11129,28 +11129,37 @@ async def test_start_workspace_command_updates_workspace_candidate(tmp_path) -> 
             start.query_one("#project-intake-summary", Static)
 
 
-def test_project_command_action_keeps_manual_project_setup_out_of_shortcuts(
+def test_project_command_rejects_workspace_shortcut(
     tmp_path,
+    monkeypatch,
 ) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),
         FakeWorkflowController(),
         launch_cwd=tmp_path,
     )
+    results: list[tuple[str, str, str, str]] = []
+    monkeypatch.setattr(
+        app,
+        "_record_slash_command_result",
+        lambda command, title, body, **kwargs: results.append(
+            (command, title, body, str(kwargs.get("severity", "")))
+        ),
+    )
 
-    assert app._project_command_action(["workspace"]) == "workspace"
-    assert app._project_command_action(["analyze"]) is None
-    assert app._project_command_action(["analysis"]) is None
-    assert app._project_command_action(["intake"]) is None
-    assert app._project_command_action(["create"]) is None
-    assert app._project_command_action(["new"]) is None
-    assert app._project_command_action(["brief"]) is None
-    assert app._project_command_action(["scope"]) is None
-    assert app._project_command_action(["read"]) is None
-    assert app._project_command_action(["read-first"]) is None
-    assert app._project_command_action(["readfirst"]) is None
-    assert app._project_command_action(["validation"]) is None
-    assert app._project_command_action(["validate"]) is None
+    app._handle_textual_project_command("/project", ["workspace"])
+
+    assert results == [
+        (
+            "/project",
+            "Project Command Takes No Arguments",
+            (
+                "`/project workspace` is not supported.\n\n"
+                "Use `/workspace` to select a target workspace."
+            ),
+            "warning",
+        )
+    ]
 
 
 @pytest.mark.asyncio

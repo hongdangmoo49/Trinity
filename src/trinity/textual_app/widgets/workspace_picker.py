@@ -437,7 +437,6 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         tree_root: Path | None = None,
         intent: str = "execute",
         lang: str = "en",
-        open_new_folder: bool = False,
         project_intake_state_dir: Path | None = None,
         today: date | None = None,
     ) -> None:
@@ -448,7 +447,6 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         self.tree_root = tree_root or self.cwd
         self.intent = "select" if intent == "select" else "execute"
         self.lang = lang
-        self.open_new_folder = open_new_folder
         self.project_intake_state_dir = project_intake_state_dir
         self.today = today
         self._tree_mounted = False
@@ -529,8 +527,6 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
 
     def on_mount(self) -> None:
         self.set_timer(0.05, self._mount_directory_tree)
-        if self.open_new_folder:
-            self.set_timer(0.05, self.action_new_folder)
 
     def _mount_directory_tree(self) -> None:
         if self._tree_mounted or not self.is_mounted:
@@ -830,7 +826,6 @@ def build_workspace_picker(
     control_repo_path: Path,
     lang: str = "en",
     intent: str = "execute",
-    open_new_folder: bool = False,
     project_intake_state_dir: Path | None = None,
     today: date | None = None,
 ) -> WorkspacePicker:
@@ -842,7 +837,6 @@ def build_workspace_picker(
         cwd=control_repo_path,
         tree_root=default_workspace_tree_root(control_repo_path),
         intent=intent,
-        open_new_folder=open_new_folder,
         project_intake_state_dir=project_intake_state_dir,
         today=today,
     )

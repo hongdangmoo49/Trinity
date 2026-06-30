@@ -90,13 +90,12 @@ lets CLI users verify the Workbench-facing target, brief, test, and safety
 signals without opening the Textual UI. JSON status includes the same compact
 summary under `project_intake.summary` so scripts can reuse the same readiness
 signal without scraping panel text.
-JSON status also exposes `project_intake.readiness` and
-`project_intake.action_variants`. These fields provide target existence,
-sparse/stale/changed analysis, missing new-project brief fields, the recommended
-next action, and compatibility action-variant metadata without requiring callers
-to parse the compact summary string. The current Workbench does not render those
-project setup actions as buttons; it keeps workspace selection visible and lets
-the prompt carry analysis or work intent.
+JSON status also exposes `project_intake.readiness`. This field provides target
+existence, sparse/stale/changed analysis, missing new-project brief fields, and
+the recommended next action without requiring callers to parse the compact
+summary string. The current Workbench does not expose project setup actions as
+buttons; it keeps workspace selection visible and lets the prompt carry analysis
+or work intent.
 For that prompt-led Workbench flow, `project_intake.readiness.workbench_next_step`
 uses UI-neutral values such as `select_workspace`, `describe_project`,
 `describe_analysis`, `describe_scope`, `describe_read_first`,

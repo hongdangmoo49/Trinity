@@ -256,6 +256,7 @@ from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.model_settings_modal import ModelSettingsModal
 from trinity.textual_app.widgets.provider_inspector import (
     ProviderInspector,
+    provider_inspector_label,
     provider_inspector_provider_output,
 )
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
@@ -10792,7 +10793,7 @@ async def test_provider_inspector_modal_uses_korean_chrome(tmp_path) -> None:
         assert str(app.screen.query_one("#close-provider-inspector", Button).label) == (
             "닫기"
         )
-        assert app.screen._label("all") == "전체"
+        assert provider_inspector_label("all", lang="ko") == "전체"
         output = app.screen.query_one("#inspect-codex .provider-inspector-output", RichLog)
         text = "\n".join(line.text for line in output.lines)
         assert "아직 캡처된 원본 출력이 없습니다." in text
@@ -12011,7 +12012,7 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
 
         preview = str(screen.query_one("#theme-preview", Static).content)
 
-        assert screen._label("central_provider") == "중앙 프로바이더"
+        assert screen.label_text("central_provider") == "중앙 프로바이더"
         assert "테마 모드: 시스템" in preview
         assert "밀도: 여유" in preview
         assert "중앙: 자동 / 강력" in preview

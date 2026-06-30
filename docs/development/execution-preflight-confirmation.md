@@ -3,7 +3,7 @@
 ## Background
 
 After planning, Nexus can move directly into execution. Trinity now shows the selected
-workspace and project intake state more clearly, but the final "execute" action still
+workspace and saved project context more clearly, but the final "execute" action still
 has a high cost: agents may start writing files in the selected target immediately.
 
 Users need one last confirmation that the execution target, workspace context,
@@ -40,7 +40,7 @@ The user can cancel or confirm. Only confirm calls the existing
 
 - Do not change the workflow engine execution state machine.
 - Do not change retry selection modals.
-- Do not block execution for missing optional project intake fields.
+- Do not block execution for missing optional project context fields.
 
 ## Validation
 

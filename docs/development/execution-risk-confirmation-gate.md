@@ -10,8 +10,8 @@ providers, and work package preview. It does not surface the same risk signals
 that the workspace preflight already knows about:
 
 - dirty Git workspace
-- stale or changed existing-project intake
-- sparse existing-project intake
+- stale or changed existing-project context
+- sparse existing-project context
 - incomplete new-project brief
 
 Users can therefore press Execute from Nexus and see a confirmation modal that
@@ -49,7 +49,7 @@ Add execution risk visibility to the Nexus execution confirmation modal.
 ## Success Criteria
 
 - Execution confirmation shows "Risks: none" for clean execution.
-- Execution confirmation lists dirty workspace and intake safety warnings when
+- Execution confirmation lists dirty workspace and context safety warnings when
   present.
 - Existing confirmation behavior still works.
 - Tests and required smoke pass.

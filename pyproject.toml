@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "trinity-agent"
-version = "1.0.943"
+version = "1.0.944"
 description = "Three minds, one context — Multi-agent AI orchestrator for Claude Code, Codex, and Antigravity CLI."
 readme = "README.md"
 requires-python = ">=3.10"

@@ -2,18 +2,18 @@
 
 ## Problem
 
-The Start and Nexus screens now show how many providers are selected, but a
-first-time user can still discover a missing CLI only after starting the
-workflow. That is especially painful when beginning a new project or onboarding
-Trinity into an existing project, because the first action appears ready but the
-provider cannot launch.
+The prompt-led Workbench keeps Start/Nexus chrome small, but a first-time user
+can still discover a missing CLI only after starting a workflow. That is
+especially painful when beginning a new project or onboarding Trinity into an
+existing project, because the prompt can look ready while a selected provider
+cannot launch.
 
 Provider readiness runtime already performs the full check later. The startup
 screen should not duplicate that expensive or side-effect-prone flow.
 
 ## Contract
 
-Add a lightweight setup hint below the provider policy:
+Add a lightweight setup notice to Textual status/provider diagnostics:
 
 ```text
 Provider CLI setup: selected 2 | found: claude | missing: codex
@@ -44,7 +44,6 @@ most common first-run setup miss early.
 
 ## Test Plan
 
-- Unit-test found, missing, mixed, and zero selected provider CLI labels.
-- Render-test Start and Nexus to confirm the label updates when provider
-  selection changes.
+- Unit-test found, missing, mixed, and zero selected provider CLI notices.
+- Verify `/status` provider notice rows update when provider selection changes.
 - Run focused Start screen tests and required smoke tests.

@@ -3,9 +3,9 @@
 ## Problem
 
 The missing-provider CLI recovery hint is actionable, but the phrase
-`install CLI or update cli_command/PATH` is long for a compact Start/Nexus
-status line. After capping missing entries, the recovery text is now the widest
-remaining fixed segment.
+`install CLI or update cli_command/PATH` is long for a compact status notice.
+After capping missing entries, the recovery text is now the widest remaining
+fixed segment.
 
 ## Contract
 

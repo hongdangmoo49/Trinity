@@ -4,15 +4,16 @@
 
 For existing projects, Trinity already detects useful anchors such as docs, source
 roots, entrypoints, package managers, test/dev/build commands, Git state, and possible
-subproject scopes. These values are visible across several compact labels, but users
-do not get one direct "what did Trinity understand about this project?" summary.
+subproject scopes. These values are visible across several compact diagnostic
+labels, but users do not get one direct "what did Trinity understand about this
+project?" summary.
 
 That makes the first existing-project run feel less trustworthy, especially when the
 selected target differs from the directory where Trinity was launched.
 
 ## Goal
 
-- Add a compact existing-project diagnostic summary to Start and Nexus.
+- Add a compact existing-project diagnostic summary to `/project` diagnostics.
 - Reuse the existing project intake analysis data.
 - Show the summary only for matching existing-project intake.
 - Keep new-project surfaces unchanged.
@@ -34,12 +35,12 @@ Existing diagnosis: read: README.md, src | tests: uv run pytest | dev: uv run ap
 
 ## Non-goals
 
-- Do not run additional filesystem scans from the UI label.
+- Do not run additional filesystem scans from the diagnostic label.
 - Do not replace the existing read-first checklist or validation plan.
 - Do not show the label for new-project intake.
 
 ## Validation
 
 - Unit tests for empty/mismatched/new/existing intake states.
-- Start and Nexus screen tests that verify the label renders and refreshes.
+- Project diagnostic tests that verify the label renders for matching intake.
 - Required smoke tests before merge.

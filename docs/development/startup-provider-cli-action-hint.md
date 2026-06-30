@@ -2,7 +2,7 @@
 
 ## Problem
 
-The startup provider CLI setup label now shows missing provider commands, but a
+The provider CLI setup notice now shows missing provider commands, but a
 first-time user still needs to infer the recovery action. For example,
 `missing: codex(codex)` tells them what is absent, but not whether they should
 install the CLI, fix PATH, or update `cli_command`.
@@ -25,7 +25,7 @@ When no provider CLI is missing, keep the current concise label unchanged.
 
 ## Non-Goals
 
-- Do not add provider-specific install URLs to the compact Start/Nexus label.
+- Do not add provider-specific install URLs to the compact status notice.
 - Do not run provider commands.
 - Do not change provider readiness runtime behavior.
 - Do not add a modal.
@@ -33,5 +33,5 @@ When no provider CLI is missing, keep the current concise label unchanged.
 ## Test Plan
 
 - Unit-test that the action hint appears only when missing CLIs exist.
-- Update Start/Nexus render tests for the appended hint.
+- Update provider notice tests for the appended hint.
 - Run focused Start screen tests and required smoke tests.

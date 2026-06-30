@@ -16,7 +16,8 @@ For both new and existing projects, this creates two practical issues:
 ## Scope
 
 - Add a derived validation plan preview for saved project intake.
-- Show the preview in Start and Nexus near the project-intake previews.
+- Show the preview through `/project` diagnostics near the project-intake
+  previews.
 - Expose the same preview through `trinity project status` text and JSON.
 - Derive the plan from saved intake only: detected `test_commands`,
   `build_commands`, `mode`, and new-project starter/profile signals.
@@ -63,4 +64,5 @@ coverage visible before execution without forcing a particular CI setup.
 - Existing projects with test/build commands show fast/required/full tiers.
 - Intake without tests still returns a useful non-blocking plan.
 - CLI `project status` text and JSON include the plan.
-- Start and Nexus refresh the validation plan after project intake changes.
+- `/project` diagnostics refresh the validation plan after project intake
+  changes.

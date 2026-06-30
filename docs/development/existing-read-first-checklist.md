@@ -3,8 +3,9 @@
 ## Problem
 
 Existing-project intake detects documentation, source roots, entrypoints, scope
-candidates, and test/build commands. Start/Nexus summaries already include a
-compact `read first` hint, and analysis prompts include detected anchors.
+candidates, and test/build commands. `/project` diagnostics and CLI status
+already include a compact `read first` hint, and analysis prompts include
+detected anchors.
 
 The remaining UX problem is visibility: before planning or execution, users
 cannot clearly see the minimum reading checklist agents should complete before
@@ -16,7 +17,8 @@ context.
 
 - Add a derived read-first checklist preview for saved `mode == "existing"`
   project intake.
-- Show the preview in Start and Nexus near the other project-intake previews.
+- Show the preview through `/project` diagnostics near the other project-intake
+  previews.
 - Expose the same preview through `trinity project status` text and JSON.
 - Derive the checklist from saved intake only:
   `selected_scope`, `docs_found`, `source_roots`, `entrypoints`,
@@ -68,4 +70,4 @@ tracking or per-agent evidence, but this change keeps the UX focused and safe.
 - Existing intake with no anchors still returns a useful sparse checklist.
 - New-project intake returns no read-first checklist.
 - CLI `project status` text and JSON include the checklist for existing intake.
-- Start and Nexus refresh the checklist after project intake changes.
+- `/project` diagnostics refresh the checklist after project intake changes.

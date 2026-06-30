@@ -18,7 +18,7 @@ or app.
   package workspace globs.
 - Include scope candidates in project-intake JSON and Markdown.
 - Include scope candidates in existing-project drift detection.
-- Show scope candidates in Start/Nexus project-intake summaries.
+- Show scope candidates in `/project` diagnostics and CLI status summaries.
 - Include scope candidates in existing-project analysis seed prompts when
   present.
 
@@ -57,4 +57,5 @@ execution behavior.
 - `build_project_intake` persists scope candidates to JSON and Markdown.
 - Loading older intake without the field remains valid.
 - Existing-project drift detects changed scope candidates.
-- Start/Nexus summary and existing-analysis prompt include scope candidates.
+- `/project` diagnostics, CLI status, and existing-analysis prompt include
+  scope candidates.

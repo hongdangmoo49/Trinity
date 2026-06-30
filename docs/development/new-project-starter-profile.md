@@ -18,7 +18,7 @@ user's intent.
 - Let CLI users record it with `trinity project new/analyze --starter-profile`
   or `--starter`.
 - Preserve the starter profile during `trinity project status --refresh`.
-- Show it in project-intake JSON/Markdown, CLI status, Start/Nexus summaries,
+- Show it in project-intake JSON/Markdown, CLI status, `/project` diagnostics,
   and the new-project plan preview.
 - Add a Starter profile input to the Workbench Project Brief modal for new
   project flows.
@@ -56,6 +56,6 @@ Older intake JSON without the field loads with an empty string.
 - Loading older intake without `starter_profile` remains valid.
 - CLI `project new/analyze --starter-profile` persists and displays it.
 - `project status --refresh` preserves the starter profile.
-- Start/Nexus summaries and new-project plan preview include it.
+- `/project` diagnostics and new-project plan preview include it.
 - Project Brief modal saves it for new project flows.
 - Prompt guidance includes it for new project planning.

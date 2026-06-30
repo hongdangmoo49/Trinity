@@ -167,11 +167,11 @@ class ExecutionLogModal(ModalScreen[None]):
 
     def _render_state(self, query: str = "") -> tuple[str, list[str]]:
         if not query.strip():
-            return self._status_text(), self._render_unfiltered_lines()
+            return self.status_text(), self._render_unfiltered_lines()
         source = self._filtered_lines(query)
         return self._filtered_status_text(source), self._render_filtered_lines(source)
 
-    def _render_lines(self, query: str = "") -> list[str]:
+    def render_log_lines(self, query: str = "") -> list[str]:
         if not query.strip():
             return self._render_unfiltered_lines()
         source = self._filtered_lines(query)
@@ -209,7 +209,7 @@ class ExecutionLogModal(ModalScreen[None]):
             return list(self.lines)
         return [line for line in self.lines if needle in str(line).casefold()]
 
-    def _status_text(self, query: str = "") -> str:
+    def status_text(self, query: str = "") -> str:
         if query.strip():
             return self._filtered_status_text(self._filtered_lines(query))
         total = len(self.lines)

@@ -8,7 +8,12 @@ from typing import Literal, Mapping, Protocol, Sequence
 
 from trinity.slash_commands import COMMAND_SPECS, SESSION_ONLY_SETTING_NOTICE
 from trinity.display_labels import display_kind_value, display_severity_value
-from trinity.textual_app.snapshot import LocalCommandSnapshot, WorkflowNexusSnapshot
+from trinity.textual_app.snapshot import (
+    LocalCommandSnapshot,
+    ProviderSnapshot,
+    WorkflowNexusSnapshot,
+)
+from trinity.textual_app.widgets.provider_panel import ProviderPanelState
 from trinity.textual_app.widgets.status_label import (
     display_consensus_progress,
     display_readiness_value,
@@ -69,6 +74,27 @@ def nexus_central_snapshot_has_activity(snapshot: WorkflowNexusSnapshot) -> bool
     if snapshot.synthesis.status in {"running", "waiting"}:
         return True
     return snapshot.state in {"preflight", "deliberating", "executing", "reviewing"}
+
+
+def nexus_provider_panel_state(provider: ProviderSnapshot) -> ProviderPanelState:
+    return ProviderPanelState(
+        name=provider.name,
+        provider=provider.provider,
+        enabled=provider.enabled,
+        status=provider.status,
+        summary=provider.summary,
+        response_status=provider.response_status,
+        configured_model=provider.configured_model,
+        actual_model=provider.actual_model,
+        model_label=provider.model_label,
+        context_window=provider.context_window,
+        budget_source=provider.budget_source,
+        session_id=provider.session_id,
+        output_contract=provider.output_contract,
+        quality_signal_count=provider.quality_signal_count,
+        quality_success_count=provider.quality_success_count,
+        quality_score=provider.quality_score,
+    )
 
 
 class AgentRowSpec(Protocol):

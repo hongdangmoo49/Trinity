@@ -1885,8 +1885,14 @@ class TrinityTextualApp(App[None]):
         event: NexusScreen.InspectorRequested,
     ) -> None:
         event.stop()
+        self._open_provider_inspector(event.snapshot)
+
+    def _open_provider_inspector(
+        self,
+        snapshot: WorkflowNexusSnapshot | None = None,
+    ) -> None:
         snapshot = (
-            event.snapshot
+            snapshot
             or self.active_snapshot
             or self.workflow_controller.snapshot()
             or self.snapshot_adapter.load_snapshot()
@@ -2735,6 +2741,9 @@ class TrinityTextualApp(App[None]):
     def _handle_textual_status_command(self, command_name: str) -> None:
         snapshot = self._current_textual_snapshot()
         self._show_textual_status(command_name, snapshot)
+
+    def _handle_textual_providers_command(self) -> None:
+        self._open_provider_inspector(self._current_textual_snapshot())
 
     def _handle_textual_project_command(
         self,

@@ -6,7 +6,7 @@ When a user asks for project diagnostics, Trinity should answer one immediate
 question: "Can I safely start planning or execution from this state?"
 
 The current Workbench keeps Start/Nexus chrome small: workspace selection stays
-visible, and detailed target, project intake, validation, read-first, and
+visible, and detailed target, saved project context, validation, read-first, and
 generation previews live in `/project` diagnostics and CLI status. The readiness
 checklist is a compact rollup for those diagnostic surfaces.
 
@@ -14,10 +14,11 @@ checklist is a compact rollup for those diagnostic surfaces.
 
 - New project: show whether a target folder is selected, the project brief is
   usable, providers are selected, and validation is planned.
-- Existing project: show whether a target folder is selected, project intake is
-  usable for that target, providers are selected, and validation is planned.
+- Existing project: show whether a target folder is selected, saved project
+  context is usable for that target, providers are selected, and validation is
+  planned.
 - Partial setup: keep the line useful when only one provider is enabled or when
-  no project intake has been recorded yet.
+  no project context has been recorded yet.
 
 ## Diagnostic Contract
 
@@ -39,10 +40,10 @@ project diagnostics, CLI status, and the user's prompt.
 ## State Rules
 
 - Target is `ok` when a non-empty workspace target is selected.
-- Intake is `missing` when there is no saved intake.
-- Intake is `check` when intake is unreadable, target-mismatched, target-missing,
-  incomplete for a new-project brief, sparse/stale/changed for an existing
-  project analysis.
+- Context is `missing` when there is no saved project context.
+- Context is `check` when the saved context is unreadable, target-mismatched,
+  target-missing, incomplete for a new-project brief, or sparse/stale/changed
+  for an existing project analysis.
 - Providers show the count of active selected providers, falling back to all
   enabled providers before the selector is mounted.
 - Validation is `planned` when the existing validation plan helper can render a
@@ -52,8 +53,8 @@ project diagnostics, CLI status, and the user's prompt.
 
 - Put the rollup logic in `trinity.textual_app.workspace_labels` so Textual
   diagnostics can share the same decisions.
-- Reuse existing intake and validation helper functions instead of adding a
-  second project-state model.
+- Reuse existing saved-context and validation helper functions instead of adding
+  a second project-state model.
 - Compute the label on demand when `/project` diagnostics are requested.
 
 ## Test Plan

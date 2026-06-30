@@ -90,7 +90,7 @@ async def test_execution_matrix_reuses_composed_fixed_widgets() -> None:
 
 
 @pytest.mark.asyncio
-async def test_execution_matrix_skips_same_state_object_reapply() -> None:
+async def test_execution_matrix_skips_same_render_content_reapply() -> None:
     screen = ExecutionMatrixScreen()
     snapshot = _snapshot()
     app = ExecutionHarness(screen)
@@ -120,6 +120,26 @@ async def test_execution_matrix_skips_same_state_object_reapply() -> None:
         assert calls == []
 
         screen.apply_execution_state(None, _snapshot())
+        await pilot.pause()
+        assert calls == []
+
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                session_id="wf-execution-cache",
+                state="executing",
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Build API",
+                        owner_agent="codex",
+                        status="done",
+                        current_executor="codex",
+                    )
+                ],
+                execution_log=["event-1", "event-2"],
+            ),
+        )
         await pilot.pause()
         assert calls == ["chrome", "packages", "log"]
 
@@ -201,6 +221,7 @@ async def test_execution_matrix_recompose_resets_render_identity_caches() -> Non
         first_package_list = screen._package_list_widget
         first_log = screen._log_widget
         assert screen._applied_state_identity == (None, id(snapshot))
+        assert screen._render_content_key is not None
         assert screen._chrome_render_key is not None
         assert screen._package_list_identity is not None
         assert screen._activity_lines_key
@@ -214,6 +235,7 @@ async def test_execution_matrix_recompose_resets_render_identity_caches() -> Non
         assert screen._applied_state_identity is None
         assert screen._chrome_render_key is None
         assert screen._chrome_projection_cache is None
+        assert screen._render_content_key is None
         assert screen._package_list_identity is None
         assert screen._package_row_keys == {}
         assert screen._package_rows == {}

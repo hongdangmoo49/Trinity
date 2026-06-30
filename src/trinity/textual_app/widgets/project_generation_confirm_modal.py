@@ -59,7 +59,7 @@ class ProjectGenerationConfirmationSummary:
 
 
 class ProjectGenerationConfirmModal(ModalScreen[bool]):
-    """Ask before starting a workflow from a complete new-project brief."""
+    """Ask before starting a workflow from a complete project brief."""
 
     DEFAULT_CSS = """
     ProjectGenerationConfirmModal {

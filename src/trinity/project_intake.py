@@ -553,7 +553,7 @@ def _new_project_brief_guidance_lines(intake: ProjectIntake) -> list[str]:
     if missing:
         lines = [
             (
-                "- The new-project brief is incomplete; confirm missing fields "
+                "- The project brief is incomplete; confirm missing fields "
                 f"before scaffolding: {_csv_or_none(missing)}."
             ),
             (
@@ -569,7 +569,7 @@ def _new_project_brief_guidance_lines(intake: ProjectIntake) -> list[str]:
         return lines
     lines = [
         (
-            "- The new-project brief is complete; use the recorded goal, type, "
+            "- The project brief is complete; use the recorded goal, type, "
             "users, success criteria, stack, and milestone as planning constraints."
         ),
         (

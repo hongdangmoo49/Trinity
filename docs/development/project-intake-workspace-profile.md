@@ -41,9 +41,10 @@ Project intake also includes optional user-provided project brief fields:
 - `constraints`: boundaries such as "no network dependency" or "keep tests
   green".
 
-These fields must be safe to compute during Start/Nexus selection. They must not
-execute package managers, tests, build tools, or user code. Older intake JSON
-without these fields remains valid and loads with empty tuples.
+These fields must be safe to compute during project diagnostics, workspace
+selection, and execution preflight. They must not execute package managers,
+tests, build tools, or user code. Older intake JSON without these fields
+remains valid and loads with empty tuples.
 
 ## Prompt Guidance
 
@@ -85,11 +86,11 @@ before running `trinity`.
 preserving the saved project brief.
 
 `trinity project status` also prints the same compact project-intake summary
-used by Start/Nexus before the detailed saved/current analysis sections. This
-lets CLI users verify the Workbench-facing target, brief, test, and safety
-signals without opening the Textual UI. JSON status includes the same compact
-summary under `project_intake.summary` so scripts can reuse the same readiness
-signal without scraping panel text.
+used by `/project` diagnostics before the detailed saved/current analysis
+sections. This lets CLI users verify the Workbench-facing target, brief, test,
+and safety signals without opening the Textual UI. JSON status includes the
+same compact summary under `project_intake.summary` so scripts can reuse the
+same readiness signal without scraping panel text.
 JSON status also exposes `project_intake.readiness`. This field provides target
 existence, sparse/stale/changed analysis, missing new-project brief fields, and
 the prompt-led next step without requiring callers to parse the compact
@@ -108,27 +109,29 @@ fields, and recommends `trinity project status --refresh` before `trinity`. This
 uses the same read-only drift signals as Execute Preflight and lets CLI users
 refresh saved context before opening the Workbench.
 
-Start/Nexus project-intake labels use the same changed-analysis signal for
-matching existing-project intake. When the saved profile differs from the live
-workspace, the label shows changed analysis and the `trinity project analyze
-<target>` refresh command. Missing targets, target mismatches, sparse analysis,
-and stale analysis keep their existing priority over the changed-analysis hint.
+Project diagnostics use the same changed-analysis signal for matching
+existing-project intake. When the saved profile differs from the live workspace,
+the compact summary shows changed analysis and the
+`trinity project analyze <target>` refresh command. Missing targets, target
+mismatches, sparse analysis, and stale analysis keep their existing priority
+over the changed-analysis hint.
 
-When no project intake has been recorded yet, Start/Nexus project-intake labels
-stay prompt-led: the user should select or keep the target workspace, then type
-the analysis or work request. CLI users can still run `trinity project analyze
-<path>` when they want to pre-record project intake before opening Workbench.
+When no project intake has been recorded yet, the Workbench stays prompt-led:
+the user should select or keep the target workspace, then type the analysis or
+work request. CLI users can still run `trinity project analyze <path>` when
+they want to pre-record project intake before opening Workbench.
 
 When Trinity opens the Workbench and the saved intake target matches the active
-workspace candidate, Start seeds the composer with `product_goal`. This avoids
-asking CLI users to retype the same new/existing project goal before planning.
+workspace candidate, the composer remains user-authored. Saved `product_goal`
+stays visible through diagnostics and prompt guidance instead of being injected
+as the starting prompt.
 
 When saved project intake exists but points at a different workspace than the
-current Start/Nexus target, the project-intake label shows a target mismatch
-warning. This prevents users from planning against one workspace while the saved
-analysis and brief still describe another.
+current Workbench target, project diagnostics show a target mismatch warning.
+This prevents users from planning against one workspace while the saved analysis
+and brief still describe another.
 
-When the saved intake target no longer exists, Start/Nexus and
+When the saved intake target no longer exists, `/project` diagnostics and
 `trinity project status` mark the compact summary as target missing. This
 prevents users from trusting stale intake after moving, deleting, or renaming a
 project folder. CLI status next steps prefer target recovery in this state:
@@ -145,13 +148,13 @@ language.
 For new projects, Trinity treats `product_goal`, `project_type`,
 `target_users`, `success_criteria`, and `first_milestone` as the minimum brief
 needed before high-quality scaffolding. CLI summaries, `project status`, and
-Start/Nexus project-intake labels show whether that new-project brief is
+`/project` diagnostics show whether that new-project brief is
 complete or which fields are still missing. Existing projects do not show this
 readiness warning because read-only workspace analysis is the stronger first
 signal for that journey.
 
 When a saved new-project brief is incomplete for the selected workspace,
-Start/Nexus surface that state in summaries and execution preflight instead of
+project diagnostics and execution preflight surface that state instead of
 highlighting an edit button.
 
 When the Workbench preflight sees an existing empty non-Git directory, it treats
@@ -161,26 +164,26 @@ new-project intake guidance and brief readiness instead of sparse existing
 project analysis warnings. Non-empty directories continue to use existing
 project intake unless they were created by the Workbench new-folder flow.
 
-Start/Nexus project-intake labels also surface saved brief details when present:
+Project diagnostics and CLI status also surface saved brief details when present:
 goal, project type, target users, success criteria, stack preferences, first
 milestone, and constraints. This lets new-project users verify the intended
 product direction before scaffolding, and lets existing-project users verify
 their saved intent before agents plan against the codebase.
 
-Start/Nexus project-intake labels include the saved analysis date as
+Project diagnostics and CLI status include the saved analysis date as
 `updated: YYYY-MM-DD` / `갱신: YYYY-MM-DD`. Existing-project intake older than
 14 days is also marked as stale and includes a `trinity project analyze <target>`
 refresh command. This gives existing-project users a quick staleness check
 before planning against a workspace that may have changed since the last
 `trinity project analyze` or `trinity project status --refresh`.
 
-For existing projects, Start/Nexus project-intake labels include the saved Git
+For existing projects, project diagnostics and CLI status include the saved Git
 state from the latest intake analysis. Non-Git workspaces show `git: none`, clean
 repositories show the branch and clean state, and dirty repositories show saved
 dirty and untracked counts. This keeps the selected project safety signal visible
-before planning or execution. The same labels also surface detected source roots,
-so existing-project users can confirm that Trinity found the expected source and
-test directories before asking agents to plan against the project.
+before planning or execution. The same diagnostics also surface detected source
+roots, so existing-project users can confirm that Trinity found the expected
+source and test directories before asking agents to plan against the project.
 
 Execute preflight treats a dirty Git target, stale or sparse existing-project
 intake, existing-project intake that differs from the live workspace profile, and
@@ -198,11 +201,11 @@ avoids using a recently recorded but already outdated project profile as if it
 still described the selected workspace.
 
 If an existing-project intake has no detected test commands, source roots, or
-documentation, Start/Nexus and `project status` mark the analysis as sparse and
-show the missing anchors: tests, source roots, and docs. This tells users that
-Trinity has very little project structure to anchor the first plan and that
-rerunning analysis after adding docs, source, or tests may improve agent
-context.
+documentation, project diagnostics and `project status` mark the analysis as
+sparse and show the missing anchors: tests, source roots, and docs. This tells
+users that Trinity has very little project structure to anchor the first plan
+and that rerunning analysis after adding docs, source, or tests may improve
+agent context.
 
 Provider prompt guidance uses the same readiness contract. When a new-project
 brief is incomplete, providers are told to confirm the missing fields before

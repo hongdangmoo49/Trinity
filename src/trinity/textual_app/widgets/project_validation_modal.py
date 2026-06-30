@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Input, Static
 
@@ -90,7 +90,8 @@ class ProjectValidationModal(ModalScreen[ProjectValidationModalResult]):
     #project-validation-modal {
         width: 86;
         max-width: 94%;
-        height: auto;
+        height: 95%;
+        max-height: 95%;
         border: round $accent;
         background: $surface;
         padding: 1 2;
@@ -106,6 +107,11 @@ class ProjectValidationModal(ModalScreen[ProjectValidationModalResult]):
     #project-validation-target,
     #project-validation-plan {
         color: $text-muted;
+        margin-bottom: 1;
+    }
+
+    #project-validation-content {
+        height: 1fr;
         margin-bottom: 1;
     }
 
@@ -127,7 +133,6 @@ class ProjectValidationModal(ModalScreen[ProjectValidationModalResult]):
     #project-validation-actions {
         height: auto;
         align-horizontal: right;
-        margin-top: 1;
     }
     """
 
@@ -154,41 +159,42 @@ class ProjectValidationModal(ModalScreen[ProjectValidationModalResult]):
     def compose(self) -> ComposeResult:
         with Vertical(id="project-validation-modal"):
             yield Static(self._label("title"), id="project-validation-title")
-            yield Static(self._body_text(), id="project-validation-body")
-            yield Static(
-                (
-                    f"{self._label('target_workspace')}: "
-                    f"{self.intake.target_workspace}\n"
-                    f"{self._label('mode')}: {self.intake.mode}"
-                ),
-                id="project-validation-target",
-            )
-            yield Static(
-                self._validation_plan_label(self.draft),
-                id="project-validation-plan",
-            )
-            yield from self._input_row(
-                "validation_commands",
-                "project-validation-required",
-                _join_values(self.draft.validation_commands),
-            )
-            if self.intake.mode == "new":
-                yield from self._input_row(
-                    "run_commands",
-                    "project-validation-run",
-                    _join_values(self.draft.run_commands),
+            with VerticalScroll(id="project-validation-content"):
+                yield Static(self._body_text(), id="project-validation-body")
+                yield Static(
+                    (
+                        f"{self._label('target_workspace')}: "
+                        f"{self.intake.target_workspace}\n"
+                        f"{self._label('mode')}: {self.intake.mode}"
+                    ),
+                    id="project-validation-target",
                 )
-            else:
-                yield from self._input_row(
-                    "test_commands",
-                    "project-validation-tests",
-                    _join_values(self.draft.test_commands),
+                yield Static(
+                    self._validation_plan_label(self.draft),
+                    id="project-validation-plan",
                 )
                 yield from self._input_row(
-                    "build_commands",
-                    "project-validation-build",
-                    _join_values(self.draft.build_commands),
+                    "validation_commands",
+                    "project-validation-required",
+                    _join_values(self.draft.validation_commands),
                 )
+                if self.intake.mode == "new":
+                    yield from self._input_row(
+                        "run_commands",
+                        "project-validation-run",
+                        _join_values(self.draft.run_commands),
+                    )
+                else:
+                    yield from self._input_row(
+                        "test_commands",
+                        "project-validation-tests",
+                        _join_values(self.draft.test_commands),
+                    )
+                    yield from self._input_row(
+                        "build_commands",
+                        "project-validation-build",
+                        _join_values(self.draft.build_commands),
+                    )
             with Horizontal(id="project-validation-actions"):
                 yield Button(self._label("cancel"), id="cancel-project-validation")
                 yield Button(

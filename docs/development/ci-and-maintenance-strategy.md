@@ -8,7 +8,7 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.956`
+- Package version inspected: `1.0.957`
 - Merged PR range reviewed: #90 through #1113
 - Baseline iteration reviewed: #90 through #426
 - Maintenance refresh reviewed: #427 through #1113
@@ -1502,7 +1502,7 @@ and what the next release train should optimize.
 
 ### #778: Project Intake Prompt Guidance
 
-- Added mode-specific guidance to `Project Intake Context` when persisted
+- Added mode-specific guidance to `Saved Project Context` when persisted
   intake JSON and Markdown are both available.
 - Framed existing projects as established workspaces where agents should read
   docs, entrypoints, and source roots before proposing edits.
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1117: Prompt-Led Workbench Simplification
+### #977-#1118: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.

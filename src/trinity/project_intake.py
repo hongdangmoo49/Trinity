@@ -442,7 +442,7 @@ def project_intake_prompt_block(
     if not markdown:
         return ""
     guidance = project_intake_guidance_block(state_dir)
-    sections = ["Project Intake Context:"]
+    sections = ["Saved Project Context:"]
     if guidance:
         sections.append(guidance)
     sections.append(markdown)
@@ -492,7 +492,7 @@ def project_intake_target_guard_block(
     *,
     target_workspace: object | None,
 ) -> str:
-    """Return stale-intake guidance when saved intake targets another workspace."""
+    """Return stale-context guidance when saved context targets another workspace."""
     target = _project_intake_target_path(target_workspace)
     if target is None:
         return ""
@@ -507,14 +507,14 @@ def project_intake_target_guard_block(
         return ""
     return "\n".join(
         [
-            "Project Intake Context:",
-            "Project Intake Guidance:",
+            "Saved Project Context:",
+            "Saved Project Context Guidance:",
             (
-                "- Saved project intake target does not match the selected "
-                "target workspace; do not use saved intake as project facts."
+                "- Saved project context target does not match the selected "
+                "target workspace; do not use saved context as project facts."
             ),
             f"- Selected target workspace: {target}",
-            f"- Saved intake target: {saved_target}",
+            f"- Saved context target: {saved_target}",
             f"- Refresh before broad edits: trinity project analyze {target}",
         ]
     )
@@ -530,14 +530,14 @@ def project_intake_guidance_block(state_dir: Path) -> str:
         return ""
     if intake.mode == "new":
         lines = [
-            "Project Intake Guidance:",
+            "Saved Project Context Guidance:",
             "- Treat the target workspace as a fresh project workspace.",
             *_new_project_brief_guidance_lines(intake),
             "- Prefer the recorded dev/build/test commands when planning validation.",
         ]
     else:
         lines = [
-            "Project Intake Guidance:",
+            "Saved Project Context Guidance:",
             "- Treat the target workspace as the existing project under discussion.",
             "- Read detected docs, entrypoints, and source roots before proposing edits.",
             *_existing_project_scope_guidance_lines(intake),

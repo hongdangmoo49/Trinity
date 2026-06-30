@@ -815,7 +815,7 @@ def test_question_answer_continuation_includes_project_intake(tmp_path):
     action = engine.answer_question("q-001", "Use a mixed score.")
 
     assert action.should_deliberate is True
-    assert "Project Intake Context" in action.prompt
+    assert "Saved Project Context" in action.prompt
     assert "- Mode: existing" in action.prompt
     assert "Use a mixed score." in action.prompt
 

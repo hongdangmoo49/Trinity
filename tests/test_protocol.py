@@ -156,7 +156,7 @@ class TestBuildRoundPrompt:
 
         prompt = protocol._build_round_prompt(1, "Design route bot")
 
-        assert "Project Intake Context" in prompt
+        assert "Saved Project Context" in prompt
         assert "- Mode: existing" in prompt
         assert "uv run pytest" in prompt
 
@@ -184,8 +184,8 @@ class TestBuildRoundPrompt:
 
         prompt = protocol._build_round_prompt(1, "Design selected app")
 
-        assert "Project Intake Context" in prompt
-        assert "Saved project intake target does not match" in prompt
+        assert "Saved Project Context" in prompt
+        assert "Saved project context target does not match" in prompt
         assert "Improve saved app onboarding." not in prompt
 
     def test_round_2_prompt_includes_previous(self, tmp_path):

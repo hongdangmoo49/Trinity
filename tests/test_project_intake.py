@@ -548,7 +548,7 @@ def test_project_intake_prompt_block_loads_and_truncates_markdown(tmp_path) -> N
 
     assert load_project_intake_markdown(state, max_chars=10).endswith("[truncated]")
     block = project_intake_prompt_block(state, max_chars=10)
-    assert block.startswith("Project Intake Context:\n# Project")
+    assert block.startswith("Saved Project Context:\n# Project")
     assert "[truncated]" in block
 
 
@@ -605,9 +605,9 @@ def test_project_intake_prompt_block_guards_mismatched_target(tmp_path) -> None:
 
     block = project_intake_prompt_block(state, target_workspace=selected_target)
 
-    assert "Saved project intake target does not match" in block
+    assert "Saved project context target does not match" in block
     assert f"- Selected target workspace: {selected_target.resolve()}" in block
-    assert f"- Saved intake target: {saved_target.resolve()}" in block
+    assert f"- Saved context target: {saved_target.resolve()}" in block
     assert f"trinity project analyze {selected_target.resolve()}" in block
     assert "Improve saved app onboarding." not in block
     assert "- Selected scope: apps/web" not in block
@@ -629,7 +629,7 @@ def test_project_intake_prompt_block_keeps_matching_target(tmp_path) -> None:
 
     block = project_intake_prompt_block(state, target_workspace=target)
 
-    assert "Saved project intake target does not match" not in block
+    assert "Saved project context target does not match" not in block
     assert "Improve customer onboarding." in block
     assert "- Target workspace:" in block
 
@@ -670,7 +670,7 @@ def test_central_prompt_uses_target_aware_project_intake_block(tmp_path) -> None
 
     assert "Target Workspace Context" in prompt_block
     assert "User Intent Handling" in prompt_block
-    assert "Saved project intake target does not match" in prompt_block
+    assert "Saved project context target does not match" in prompt_block
     assert "Improve saved app onboarding." not in prompt_block
 
 

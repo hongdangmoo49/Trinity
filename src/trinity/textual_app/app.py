@@ -799,16 +799,11 @@ class TrinityTextualApp(App[None]):
         border: none;
     }
 
-    #start-actions {
-        width: 100%;
-        height: 1;
-        margin-top: 1;
-    }
-
     #workspace-candidate {
         width: 1fr;
         min-width: 0;
         height: 1;
+        margin-top: 1;
         color: $text-muted;
         content-align: left middle;
     }
@@ -1181,14 +1176,11 @@ class TrinityTextualApp(App[None]):
         padding: 0 1;
     }
 
-    #nexus-action-bar {
-        height: 1;
-    }
-
     #nexus-target-workspace {
         width: 1fr;
         min-width: 0;
         height: 1;
+        margin-top: 1;
         content-align: left middle;
         color: $text-muted;
     }

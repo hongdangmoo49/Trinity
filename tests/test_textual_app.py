@@ -1827,7 +1827,6 @@ async def test_start_screen_stays_within_narrow_viewport(tmp_path) -> None:
             start.query_one("#start-title", Static),
             start.query_one("#start-composer", PromptComposer),
             start.query_one("#start-recipient-selector", AgentRecipientModelSelector),
-            start.query_one("#start-actions"),
             start.query_one("#workspace-candidate", Static),
         )
         for widget in widgets:
@@ -1855,14 +1854,17 @@ async def test_start_workspace_label_stays_compact_with_long_path(
 
         start = app.screen
         assert isinstance(start, StartScreen)
-        actions = start.query_one("#start-actions")
         workspace_label = start.query_one("#workspace-candidate", Static)
 
         with pytest.raises(NoMatches):
             start.query_one("#choose-workspace", Button)
+        with pytest.raises(NoMatches):
+            start.query_one("#start-actions")
         assert workspace_label.region.height == 1
-        assert actions.region.height == 1
-        assert actions.region.y + actions.region.height <= start.size.height
+        assert (
+            workspace_label.region.y + workspace_label.region.height
+            <= start.size.height
+        )
 
 
 @pytest.mark.asyncio
@@ -1883,7 +1885,7 @@ async def test_start_command_palette_stays_within_narrow_viewport(tmp_path) -> N
             composer,
             composer.query_one("#prompt-command-palette"),
             start.query_one("#start-recipient-selector"),
-            start.query_one("#start-actions"),
+            start.query_one("#workspace-candidate", Static),
         )
         for widget in widgets:
             assert widget.region.y >= start_shell.region.y
@@ -12378,9 +12380,8 @@ async def test_nexus_workspace_action_selects_target_without_execution(
             nexus.query_one("#nexus-create-project", Button)
         with pytest.raises(NoMatches):
             nexus.query_one("#nexus-edit-project-brief", Button)
-        assert [child.id for child in nexus.query_one("#nexus-action-bar").children] == [
-            "nexus-target-workspace",
-        ]
+        with pytest.raises(NoMatches):
+            nexus.query_one("#nexus-action-bar")
         workspace_label = nexus.query_one("#nexus-target-workspace", Static)
         assert str(target.resolve()) in str(workspace_label.content)
         assert workspace_label.styles.min_width.value == 0
@@ -12407,7 +12408,7 @@ async def test_nexus_workspace_action_selects_target_without_execution(
 
 
 @pytest.mark.asyncio
-async def test_nexus_action_bar_stays_within_narrow_width(tmp_path) -> None:
+async def test_nexus_workspace_label_stays_within_narrow_width(tmp_path) -> None:
     control_repo = tmp_path / "control"
     target = tmp_path / "target-app-with-a-very-long-directory-name"
     control_repo.mkdir()
@@ -12448,7 +12449,7 @@ async def test_nexus_screen_stays_within_narrow_viewport(tmp_path) -> None:
         nexus_shell = nexus.query_one("#nexus-screen")
         widgets = (
             nexus.query_one("#provider-strip"),
-            nexus.query_one("#nexus-action-bar"),
+            nexus.query_one("#nexus-target-workspace", Static),
             nexus.query_one("#nexus-main"),
             nexus.query_one("#nexus-recipient-selector"),
             nexus.query_one("#nexus-composer", PromptComposer),

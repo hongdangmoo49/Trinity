@@ -162,15 +162,14 @@ class NexusScreen(Screen[None]):
                     )
                     self._provider_panels[state.name] = panel
                     yield panel
-            with Horizontal(id="nexus-action-bar"):
-                workspace_label_text = self._workspace_label()
-                workspace_label = Static(
-                    workspace_label_text,
-                    id="nexus-target-workspace",
-                )
-                self._workspace_label_widget = workspace_label
-                self._workspace_label_key = workspace_label_text
-                yield workspace_label
+            workspace_label_text = self._workspace_label()
+            workspace_label = Static(
+                workspace_label_text,
+                id="nexus-target-workspace",
+            )
+            self._workspace_label_widget = workspace_label
+            self._workspace_label_key = workspace_label_text
+            yield workspace_label
             with Horizontal(id="nexus-main"):
                 with Vertical(id="nexus-center-stack"):
                     central = CentralAgentView(id="central-agent", lang=self.config.lang)

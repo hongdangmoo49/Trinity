@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Vertical
 from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Footer, Header, Static
@@ -132,13 +132,12 @@ class StartScreen(Screen[None]):
                 )
                 self._recipient_selector = selector
                 yield selector
-                with Horizontal(id="start-actions"):
-                    workspace_label = Static(
-                        self._workspace_label(),
-                        id="workspace-candidate",
-                    )
-                    self._workspace_label_widget = workspace_label
-                    yield workspace_label
+                workspace_label = Static(
+                    self._workspace_label(),
+                    id="workspace-candidate",
+                )
+                self._workspace_label_widget = workspace_label
+                yield workspace_label
         yield Footer()
 
     def on_mount(self) -> None:

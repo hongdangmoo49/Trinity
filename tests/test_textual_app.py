@@ -9185,7 +9185,7 @@ async def test_execution_matrix_80_columns_keeps_review_risk_and_spec_visible(
         ):
             assert widget.region.x + widget.region.width <= 80
 
-        activity_lines = screen._activity_lines()
+        activity_lines = screen.activity_lines()
         assert activity_lines[0] == "Activity"
         assert "... 4 earlier log lines hidden" in activity_lines
         assert "event-11" in activity_lines
@@ -9213,7 +9213,7 @@ def test_execution_matrix_recent_activity_reads_only_recent_log_window() -> None
     screen = ExecutionMatrixScreen()
     screen.snapshot = WorkflowNexusSnapshot(execution_log=source)
 
-    activity_lines = screen._activity_lines()
+    activity_lines = screen.activity_lines()
 
     assert activity_lines[0] == "Activity"
     assert "... 93 earlier log lines hidden" in activity_lines
@@ -9399,7 +9399,7 @@ async def test_execution_matrix_viewport_qa_matrix_with_long_workspace(
                 ):
                     assert widget.region.x + widget.region.width <= width
 
-            activity_lines = screen._activity_lines()
+            activity_lines = screen.activity_lines()
             assert activity_lines[0] == "활동"
             assert len(activity_lines) <= 9
             assert "event-13" in activity_lines
@@ -9468,7 +9468,7 @@ async def test_execution_matrix_opens_full_activity_log_modal(tmp_path) -> None:
         assert "Full Log" in str(
             screen.query_one("#toggle-activity-expanded", Button).label
         )
-        recent_lines = screen._activity_lines()
+        recent_lines = screen.activity_lines()
         assert "... 4 earlier log lines hidden" in recent_lines
         assert "event-1" not in recent_lines
 
@@ -9481,7 +9481,7 @@ async def test_execution_matrix_opens_full_activity_log_modal(tmp_path) -> None:
         assert str(app.screen.query_one("#execution-log-modal-title", Static).content) == (
             "Full Execution Log"
         )
-        assert screen._activity_lines() == recent_lines
+        assert screen.activity_lines() == recent_lines
 
 
 @pytest.mark.asyncio
@@ -9568,7 +9568,7 @@ async def test_execution_matrix_supports_korean_chrome_labels(tmp_path) -> None:
         assert "상세" in first_row_text
         assert "리스크: 알 수 없음" in second_row_text
 
-        activity_lines = screen._activity_lines()
+        activity_lines = screen.activity_lines()
         assert activity_lines[0] == "활동"
         assert "... 이전 로그 2줄 숨김" in activity_lines
 

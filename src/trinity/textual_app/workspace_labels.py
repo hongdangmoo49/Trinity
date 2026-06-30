@@ -157,27 +157,6 @@ PROJECT_MODE_LABELS = {
     },
 }
 
-PROJECT_START_CHOICE_GUIDE_LABELS = {
-    "en": {
-        "fix_intake": "fix intake",
-        "next": "next",
-        "prompt_next": "describe analysis or work",
-        "summary": "Project start",
-        "workspace": "workspace",
-        "workspace_missing": "select workspace",
-        "workspace_ready": "ready",
-    },
-    "ko": {
-        "fix_intake": "인테이크 복구",
-        "next": "다음",
-        "prompt_next": "분석 또는 작업을 프롬프트로 설명",
-        "summary": "프로젝트 시작",
-        "workspace": "작업 폴더",
-        "workspace_missing": "선택 필요",
-        "workspace_ready": "준비됨",
-    },
-}
-
 PROJECT_PLAN_PREVIEW_LABELS = {
     "en": {
         "constraints": "guardrails",
@@ -537,38 +516,6 @@ def project_startup_readiness_label(
         f"{labels['summary']}: {target_label} | {intake_label} | "
         f"{labels['providers_count'].format(count=provider_count)} | "
         f"{validation_label}"
-    )
-
-
-def project_start_choice_guide_label(
-    state_dir: Path,
-    *,
-    lang: str = "en",
-    target_workspace: object | None = None,
-    today: date | None = None,
-) -> str:
-    """Return a compact prompt-led project start guide."""
-    _ = today
-    labels = PROJECT_START_CHOICE_GUIDE_LABELS.get(
-        lang,
-        PROJECT_START_CHOICE_GUIDE_LABELS["en"],
-    )
-    workspace_state = (
-        labels["workspace_ready"]
-        if _format_project_intake_target(target_workspace)
-        else labels["workspace_missing"]
-    )
-    try:
-        load_project_intake(state_dir)
-    except ValueError:
-        return (
-            f"{labels['summary']}: {labels['workspace']}: {workspace_state} | "
-            f"{labels['next']}: {labels['fix_intake']}"
-        )
-
-    return (
-        f"{labels['summary']}: {labels['workspace']}: {workspace_state} | "
-        f"{labels['next']}: {labels['prompt_next']}"
     )
 
 

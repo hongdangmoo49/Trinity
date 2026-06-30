@@ -4,7 +4,8 @@ Date: 2026-06-29
 Branch: `feature/project-status-missing-start-guide`
 Status: Superseded by the simplified Workbench flow. Status output no longer
 needs to mirror Workbench existing/new action buttons; prompt-led guidance is
-the current Workbench model.
+the current Workbench model, and the legacy top-level `project_start_guide`
+JSON field has been removed.
 
 ## Problem
 
@@ -28,12 +29,13 @@ Start guide:
   Project start: existing -> Analyze Existing | new -> Create New | then Plan first
 ```
 
-For JSON output, add a top-level `project_start_guide` field even when
-`project_intake` is `null`.
+This top-level JSON field is no longer part of the current status contract.
+Consumers should use `next_steps` and, when intake exists,
+`project_intake.readiness.workbench_next_step`.
 
 ## Scope
 
-- Reuse `project_start_choice_guide_label(...)` for missing-intake status.
+- The old `project_start_choice_guide_label(...)` helper has been removed.
 - Keep existing command next steps unchanged.
 - Keep populated-intake JSON shape from the previous PR unchanged.
 

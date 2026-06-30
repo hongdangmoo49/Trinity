@@ -118,7 +118,7 @@ class StartScreen(Screen[None]):
                 yield SacredGeometryAnimation()
                 yield Static("TRINITY", id="start-title")
                 composer = PromptComposer(
-                    placeholder=self._label("placeholder"),
+                    placeholder=self.label_text("placeholder"),
                     initial_text=self.initial_prompt,
                     id="start-composer",
                     lang=self.lang,
@@ -211,7 +211,7 @@ class StartScreen(Screen[None]):
         selector = self._agent_selector()
         target_agents = selector.selected_agents()
         if not target_agents:
-            self.app.notify(self._label("select_agent_warning"), severity="warning")
+            self.app.notify(self.label_text("select_agent_warning"), severity="warning")
             return
         self.post_message(
             self.Submitted(
@@ -249,6 +249,6 @@ class StartScreen(Screen[None]):
             lang=self.lang,
         )
 
-    def _label(self, key: str) -> str:
+    def label_text(self, key: str) -> str:
         labels = START_LABELS.get(self.lang, START_LABELS["en"])
         return labels.get(key, START_LABELS["en"][key])

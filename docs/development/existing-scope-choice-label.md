@@ -5,7 +5,7 @@ Branch: `feature/existing-scope-choice-label`
 
 ## Problem
 
-Existing-project intake can detect scope candidates such as `apps/web` or
+Saved existing-project context can detect scope candidates such as `apps/web` or
 `packages/core`, and it can persist a user-confirmed `selected_scope`.
 
 When `selected_scope` is empty, project diagnostics and CLI status can show
@@ -15,7 +15,7 @@ In monorepos, that ambiguity can make agents analyze or plan too broadly.
 
 ## Proposed UX
 
-When an existing-project intake has scope candidates but no selected scope,
+When saved existing-project context has scope candidates but no selected scope,
 show an action-oriented segment:
 
 ```text
@@ -37,8 +37,8 @@ scopes: apps/web, packages/core
 
 ## Scope
 
-- Update the project intake diagnostic/summary label only.
-- Keep project intake schema unchanged.
+- Update the project context diagnostic/summary label only.
+- Keep the persisted project context schema unchanged.
 - Keep prompt guidance unchanged; it already tells providers to ask before broad
   edits when only candidates are available.
 - Do not auto-select scope candidates.

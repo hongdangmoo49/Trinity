@@ -799,7 +799,9 @@ class TrinityTextualApp(App[None]):
     }
 
     #start-provider-policy,
-    #nexus-provider-policy {
+    #start-provider-cli-setup,
+    #nexus-provider-policy,
+    #nexus-provider-cli-setup {
         width: 100%;
         color: $text-muted;
     }

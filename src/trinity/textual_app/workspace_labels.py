@@ -536,7 +536,7 @@ def provider_execution_review_policy_label(
     selected_agents: Sequence[str] | None = None,
     lang: str = "en",
 ) -> str:
-    """Return a compact execution/review policy label for active providers."""
+    """Return a compact execution/review notice for limited provider coverage."""
     labels = PROVIDER_EXECUTION_REVIEW_POLICY_LABELS.get(
         lang,
         PROVIDER_EXECUTION_REVIEW_POLICY_LABELS["en"],
@@ -546,6 +546,8 @@ def provider_execution_review_policy_label(
         selected_agents=selected_agents,
     )
     count = len(active_names)
+    if count >= 2:
+        return ""
     if count <= 0:
         active_label = labels["active_none"]
         execution = labels["execution_unavailable"]
@@ -581,7 +583,7 @@ def provider_cli_setup_label(
     selected_agents: Sequence[str] | None = None,
     lang: str = "en",
 ) -> str:
-    """Return a lightweight CLI command availability label for selected providers."""
+    """Return a lightweight CLI setup notice when user action is needed."""
     labels = PROVIDER_CLI_SETUP_LABELS.get(
         lang,
         PROVIDER_CLI_SETUP_LABELS["en"],
@@ -596,26 +598,19 @@ def provider_cli_setup_label(
         if _provider_cli_command_found(getattr(agents[name], "cli_command", ""))
     )
     missing_names = tuple(name for name in active_names if name not in found_names)
-    parts = [
-        labels["selected"].format(count=len(active_names)),
-    ]
     if not active_names:
-        parts.append(labels["select_provider"])
-        return f"{labels['summary']}: {' | '.join(parts)}"
-    if found_names:
-        parts.append(
-            f"{labels['found']}: "
-            f"{_format_project_intake_values(found_names, max_items=3)}"
+        return (
+            f"{labels['summary']}: "
+            f"{labels['selected'].format(count=0)} | {labels['select_provider']}"
         )
-    if missing_names:
-        missing_entries = _provider_cli_missing_entries(agents, missing_names)
-        parts.append(
-            f"{labels['missing']}: "
-            f"{_format_project_intake_values(missing_entries, max_items=2)}"
-        )
-        parts.append(labels["next"])
-    if not found_names and not missing_names:
-        parts.append(f"{labels['found']}: {labels['none']}")
+    if not missing_names:
+        return ""
+    missing_entries = _provider_cli_missing_entries(agents, missing_names)
+    parts = [
+        f"{labels['missing']}: "
+        f"{_format_project_intake_values(missing_entries, max_items=2)}",
+        labels["next"],
+    ]
     return f"{labels['summary']}: {' | '.join(parts)}"
 
 

@@ -122,7 +122,7 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
                         id="model-choice-header",
                     )
                     choice_list = OptionList(
-                        *self._choice_labels(self.active_agent),
+                        *self.choice_labels(self.active_agent),
                         id="model-choice-list",
                         compact=True,
                     )
@@ -237,7 +237,7 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         )
         return f"{self._agent_label(self.active_agent)}\n{self._text('current')}: {current}"
 
-    def _choice_labels(self, name: str) -> list[str]:
+    def choice_labels(self, name: str) -> list[str]:
         return [
             self._choice_label(choice)
             for choice in self.choices_by_agent.get(name, ())

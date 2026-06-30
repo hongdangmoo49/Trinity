@@ -7200,7 +7200,7 @@ async def test_screen_and_composer_bindings_use_configured_language(tmp_path) ->
     async with app.run_test(size=(120, 40)) as pilot:
         start = app.screen
         assert isinstance(start, StartScreen)
-        assert _binding_description(start._bindings, "ctrl+enter", "submit") == "계획"
+        assert _binding_description(start._bindings, "ctrl+enter", "submit") == "보내기"
 
         composer = start.query_one(PromptComposer)
         textarea = composer.query_one(ComposerTextArea)

@@ -2364,6 +2364,13 @@ def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_execution_intent("tradeoffs for update strategy") is False
     assert classify_execution_intent("downsides of rename") is False
     assert classify_execution_intent("change this API") is True
+    assert classify_execution_intent("I want to fix this") is False
+    assert classify_execution_intent("I want to update docs") is False
+    assert classify_execution_intent("I would like to refactor this") is False
+    assert classify_execution_intent("planning to update docs") is False
+    assert classify_execution_intent("thinking about updating dependencies") is False
+    assert classify_execution_intent("considering refactoring this") is False
+    assert classify_execution_intent("I want you to fix this") is True
     assert classify_execution_intent("이 프로젝트를 설명해라") is False
     assert classify_execution_intent("수정할 곳을 알려줘") is False
     assert classify_execution_intent("리뷰하고 수정할 곳을 알려줘") is False
@@ -2410,6 +2417,11 @@ def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_execution_intent("아무것도 바꾸지 말고 검토해줘") is False
     assert classify_execution_intent("읽기 전용으로 검토해줘") is False
     assert classify_execution_intent("수정은 나중에 하고 지금 설명해줘") is False
+    assert classify_execution_intent("수정하고 싶다") is False
+    assert classify_execution_intent("업데이트하고 싶다") is False
+    assert classify_execution_intent("리팩터링하고 싶다") is False
+    assert classify_execution_intent("변경하고 싶다") is False
+    assert classify_execution_intent("수정해줘") is True
     assert classify_execution_intent("수정 방안을 평가해줘") is False
     assert classify_execution_intent("업데이트 전략을 비교해줘") is False
     assert classify_execution_intent("어떻게 수정할지 진단해줘") is False

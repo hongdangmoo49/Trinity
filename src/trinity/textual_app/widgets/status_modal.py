@@ -58,7 +58,7 @@ class StatusCommandModal(ModalScreen[None]):
                 id="status-command-body",
             )
             yield Static(
-                self._status_table_text(),
+                self.status_table_text(),
                 id="status-command-table",
                 classes="status-readonly-table",
             )
@@ -74,7 +74,7 @@ class StatusCommandModal(ModalScreen[None]):
     def action_close(self) -> None:
         self.dismiss(None)
 
-    def _status_table_text(self) -> str:
+    def status_table_text(self) -> str:
         """Render a non-interactive status table as aligned plain text."""
         rows = [tuple(self.result.table_columns), *self.result.table_rows]
         rows = [row for row in rows if row]

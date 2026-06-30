@@ -12326,7 +12326,7 @@ async def test_start_selected_workspace_overrides_launch_cwd_on_submit(
 
 
 @pytest.mark.asyncio
-async def test_nexus_select_workspace_cta_selects_target_without_execution(
+async def test_nexus_workspace_action_selects_target_without_execution(
     tmp_path,
 ) -> None:
     control_repo = tmp_path / "control"
@@ -12349,13 +12349,12 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
 
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
-        assert str(nexus.query_one("#open-provider-inspector", Button).label) == (
-            "Providers"
-        )
-        assert str(nexus.query_one("#request-execute", Button).label) == "Execute"
-        assert str(nexus.query_one("#select-workspace", Button).label) == (
-            "Workspace"
-        )
+        with pytest.raises(NoMatches):
+            nexus.query_one("#open-provider-inspector", Button)
+        with pytest.raises(NoMatches):
+            nexus.query_one("#request-execute", Button)
+        with pytest.raises(NoMatches):
+            nexus.query_one("#select-workspace", Button)
         with pytest.raises(NoMatches):
             nexus.query_one("#nexus-analyze-workspace", Button)
         with pytest.raises(NoMatches):
@@ -12363,18 +12362,15 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
         with pytest.raises(NoMatches):
             nexus.query_one("#nexus-edit-project-brief", Button)
         assert [child.id for child in nexus.query_one("#nexus-action-bar").children] == [
-            "open-provider-inspector",
-            "select-workspace",
             "nexus-target-workspace",
-            "request-execute",
         ]
         workspace_label = nexus.query_one("#nexus-target-workspace", Static)
         assert str(target.resolve()) in str(workspace_label.content)
         assert workspace_label.styles.min_width.value == 0
-        assert workspace_label.styles.height.value == 3
-        assert workspace_label.styles.content_align_vertical == "bottom"
+        assert workspace_label.styles.height.value == 1
+        assert workspace_label.styles.content_align_vertical == "middle"
 
-        await pilot.click("#select-workspace")
+        nexus.action_request_workspace()
         await pilot.pause()
 
         assert controller.execution_requests == 0
@@ -12391,11 +12387,6 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
         assert controller.execution_requests == 0
         assert controller.target_workspace == target.resolve()
         assert app.current_route == "nexus"
-        nexus = app.get_screen("nexus", NexusScreen)
-        assert str(nexus.query_one("#request-execute", Button).label) == "Execute"
-        assert str(nexus.query_one("#select-workspace", Button).label) == (
-            "Workspace"
-        )
 
 
 @pytest.mark.asyncio
@@ -12420,10 +12411,7 @@ async def test_nexus_action_bar_stays_within_narrow_width(tmp_path) -> None:
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
         widgets = (
-            nexus.query_one("#open-provider-inspector", Button),
-            nexus.query_one("#select-workspace", Button),
             nexus.query_one("#nexus-target-workspace", Static),
-            nexus.query_one("#request-execute", Button),
         )
         for widget in widgets:
             assert widget.region.x >= 0
@@ -13116,7 +13104,7 @@ async def test_nexus_workspace_label_skips_unchanged_update(
 
 
 @pytest.mark.asyncio
-async def test_nexus_action_bar_uses_configured_korean_labels(tmp_path) -> None:
+async def test_nexus_action_bar_keeps_korean_workspace_label(tmp_path) -> None:
     control_repo = tmp_path / "control"
     target = tmp_path / "target-app"
     control_repo.mkdir()
@@ -13136,13 +13124,12 @@ async def test_nexus_action_bar_uses_configured_korean_labels(tmp_path) -> None:
 
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
-        assert str(nexus.query_one("#open-provider-inspector", Button).label) == (
-            "프로바이더"
-        )
-        assert str(nexus.query_one("#request-execute", Button).label) == "실행"
-        assert str(nexus.query_one("#select-workspace", Button).label) == (
-            "작업 폴더"
-        )
+        with pytest.raises(NoMatches):
+            nexus.query_one("#open-provider-inspector", Button)
+        with pytest.raises(NoMatches):
+            nexus.query_one("#request-execute", Button)
+        with pytest.raises(NoMatches):
+            nexus.query_one("#select-workspace", Button)
         workspace_label = str(
             nexus.query_one("#nexus-target-workspace", Static).content
         )
@@ -13192,9 +13179,8 @@ async def test_nexus_execute_requests_execution_when_target_is_selected(
 
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
-        assert str(nexus.query_one("#request-execute", Button).label) == "Execute"
 
-        await pilot.click("#request-execute")
+        nexus.action_request_execute()
         await pilot.pause()
 
         assert isinstance(app.screen, ExecutionConfirmModal)
@@ -13257,7 +13243,9 @@ async def test_nexus_execute_confirmation_shows_workspace_risks(
         app.switch_to("nexus")
         await pilot.pause()
 
-        await pilot.click("#request-execute")
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        nexus.action_request_execute()
         await pilot.pause()
 
         assert isinstance(app.screen, ExecutionConfirmModal)
@@ -13303,7 +13291,9 @@ async def test_nexus_execute_confirmation_cancel_leaves_execution_untouched(
         app.switch_to("nexus")
         await pilot.pause()
 
-        await pilot.click("#request-execute")
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        nexus.action_request_execute()
         await pilot.pause()
 
         assert isinstance(app.screen, ExecutionConfirmModal)

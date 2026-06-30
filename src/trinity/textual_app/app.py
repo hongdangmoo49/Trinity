@@ -1188,30 +1188,14 @@ class TrinityTextualApp(App[None]):
     }
 
     #nexus-action-bar {
-        height: auto;
-        margin-top: 1;
-    }
-
-    #open-provider-inspector {
-        width: 14;
-    }
-
-    #request-execute {
-        width: 12;
-        margin-left: 1;
-    }
-
-    #select-workspace {
-        width: 14;
-        margin-left: 1;
+        height: 1;
     }
 
     #nexus-target-workspace {
         width: 1fr;
         min-width: 0;
-        height: 3;
-        margin-left: 2;
-        content-align: left bottom;
+        height: 1;
+        content-align: left middle;
         color: $text-muted;
     }
 

@@ -2,13 +2,16 @@
 
 Date: 2026-06-29
 Branch: `feature/project-status-scope-choice-guidance`
+Status: Superseded by the prompt-led readiness contract. The old
+`recommended_action`/`start_trinity` hint has been removed; use
+`project_intake.readiness.workbench_next_step`.
 
 ## Problem
 
 Start/Nexus now show `choose scope` when an existing-project intake has detected
 scope candidates but no confirmed `selected_scope`. The CLI `trinity project
-status` still reports readiness as `start_trinity` in this state, and its next
-steps do not tell the user how to confirm a scope.
+status` used to report the old ready action in this state, and its next steps
+did not tell the user how to confirm a scope.
 
 This creates a mismatch between CLI onboarding and Workbench onboarding.
 
@@ -18,7 +21,7 @@ When an existing-project intake has `scope_candidates` and no `selected_scope`:
 
 - JSON readiness:
   - `ready: false`
-  - `recommended_action: "choose_scope"`
+  - `workbench_next_step: "describe_scope"`
   - `scope_choice_required: true`
   - `scope_candidates: [...]`
 - Human `Next steps`:

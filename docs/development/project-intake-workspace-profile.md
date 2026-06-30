@@ -92,15 +92,15 @@ summary under `project_intake.summary` so scripts can reuse the same readiness
 signal without scraping panel text.
 JSON status also exposes `project_intake.readiness`. This field provides target
 existence, sparse/stale/changed analysis, missing new-project brief fields, and
-the recommended next action without requiring callers to parse the compact
+the prompt-led next step without requiring callers to parse the compact
 summary string. The current Workbench does not expose project setup actions as
 buttons; it keeps workspace selection visible and lets the prompt carry analysis
 or work intent.
 For that prompt-led Workbench flow, `project_intake.readiness.workbench_next_step`
 uses UI-neutral values such as `select_workspace`, `describe_project`,
 `describe_analysis`, `describe_scope`, `describe_read_first`,
-`describe_validation`, and `describe_work`. The older `recommended_action` values
-remain compatibility hints for CLI/status consumers.
+`describe_validation`, and `describe_work`. The older `recommended_action` field
+has been removed.
 
 When matching existing-project intake differs from the current workspace profile,
 `trinity project status` marks the analysis as changed, lists the changed intake

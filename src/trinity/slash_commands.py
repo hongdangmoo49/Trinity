@@ -103,6 +103,13 @@ COMMAND_SPECS: tuple[SlashCommandSpec, ...] = (
         category=SlashCommandCategory.LOCAL_UI,
     ),
     SlashCommandSpec(
+        name="/providers",
+        usage="/providers",
+        summary="open provider inspector",
+        summary_ko="프로바이더 인스펙터 열기",
+        category=SlashCommandCategory.LOCAL_UI,
+    ),
+    SlashCommandSpec(
         name="/rounds",
         usage="/rounds [N]",
         summary="show or set deliberation rounds",

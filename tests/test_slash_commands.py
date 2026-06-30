@@ -35,6 +35,15 @@ def test_parse_slash_command_registers_project_command() -> None:
     assert parsed.spec.summary_ko == "간결한 프로젝트 진단 보기 또는 도구 열기"
 
 
+def test_parse_slash_command_registers_providers_command() -> None:
+    parsed = parse_slash_command("/providers")
+
+    assert parsed is not None
+    assert parsed.command_id == "providers"
+    assert parsed.spec is not None
+    assert parsed.spec.summary == "open provider inspector"
+
+
 def test_parse_slash_command_keeps_project_action_args() -> None:
     parsed = parse_slash_command("/project brief")
 

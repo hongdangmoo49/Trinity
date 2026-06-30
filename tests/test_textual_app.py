@@ -7500,9 +7500,10 @@ async def test_prompt_composer_scrolls_slash_command_window(tmp_path) -> None:
 
         selected = [str(option.content) for option in composer.query(".command-option-selected")]
         visible = [str(option.content) for option in composer.query(".command-option")]
+        expected = COMMAND_SPECS[COMMAND_LIMIT + 3].name
 
-        assert any("/workflow" in option for option in selected)
-        assert any("/workflow" in option for option in visible)
+        assert any(expected in option for option in selected)
+        assert any(expected in option for option in visible)
 
 
 @pytest.mark.asyncio
@@ -10823,6 +10824,21 @@ async def test_provider_inspector_modal_opens_from_nexus(tmp_path) -> None:
         screen = app.screen
         assert isinstance(screen, NexusScreen)
         screen.action_open_inspector()
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProviderInspector)
+        assert app.screen.query_one("#inspect-claude")
+
+
+@pytest.mark.asyncio
+async def test_providers_slash_command_opens_provider_inspector(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/providers")
         await pilot.pause()
 
         assert isinstance(app.screen, ProviderInspector)

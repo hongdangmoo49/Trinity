@@ -699,8 +699,8 @@ def test_context_modal_uses_korean_chrome_labels() -> None:
     result = LocalCommandSnapshot(command="/context", title="Context", body="context")
     modal = ContextCommandModal(result, lang="ko")
 
-    assert modal._label("title") == "현재 세션 컨텍스트"
-    assert modal._label("close") == "닫기"
+    assert modal.label_text("title") == "현재 세션 컨텍스트"
+    assert modal.label_text("close") == "닫기"
 
 
 def test_local_command_modal_uses_korean_close_label() -> None:

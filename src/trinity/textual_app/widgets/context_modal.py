@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Vertical
+from textual.containers import Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Markdown, Static
 
@@ -49,7 +49,8 @@ class ContextCommandModal(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="context-command-modal"):
             yield Static(self._label("title"), id="context-command-title")
-            yield Markdown(self.result.body, id="context-command-body")
+            with VerticalScroll(id="context-command-content"):
+                yield Markdown(self.result.body, id="context-command-body")
             yield Button(self._label("close"), id="close-context-command")
         yield Footer()
 

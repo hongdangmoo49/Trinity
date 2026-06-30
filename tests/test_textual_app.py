@@ -11946,7 +11946,7 @@ async def test_start_project_create_request_creates_new_project_intake(
         assert saved_intake.artifact_targets == ("src/crm", "README.md")
         assert start.query_one(PromptComposer).text == "\n".join(
             [
-                "Use this new-project brief to plan the first work packages.",
+                "Use this project brief to plan the first work packages.",
                 "",
                 "Goal: Build a lightweight CRM.",
                 "Type: SaaS app",

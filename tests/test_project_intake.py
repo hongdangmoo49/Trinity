@@ -696,7 +696,7 @@ def test_project_intake_prompt_block_includes_incomplete_new_project_guidance(
     block = project_intake_prompt_block(state)
 
     assert "fresh project workspace" in guidance
-    assert "new-project brief is incomplete" in block
+    assert "project brief is incomplete" in block
     assert "starter profile as the initial project shape: Textual TUI" in block
     assert "recorded artifact targets: src/app" in block
     assert "recorded run commands" in block
@@ -734,7 +734,7 @@ def test_project_intake_prompt_block_includes_complete_new_project_guidance(
     guidance = project_intake_guidance_block(state)
     block = project_intake_prompt_block(state)
 
-    assert "new-project brief is complete" in guidance
+    assert "project brief is complete" in guidance
     assert "starter profile as the initial project shape: Python CLI package" in block
     assert "recorded artifact targets: src/dashboard, README.md" in block
     assert "recorded run commands" in block

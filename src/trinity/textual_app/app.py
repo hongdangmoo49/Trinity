@@ -405,7 +405,7 @@ def _project_brief_start_prompt(
     missing_field_labels: tuple[str, ...]
     if lang == "ko":
         intro = (
-            "아래 새 프로젝트 브리프를 기준으로 첫 작업 패키지를 계획해라."
+            "아래 프로젝트 브리프를 기준으로 첫 작업 패키지를 계획해라."
             if mode == "new"
             else "아래 프로젝트 브리프와 기존 코드베이스를 기준으로 다음 작업 패키지를 계획해라."
         )
@@ -437,7 +437,7 @@ def _project_brief_start_prompt(
         )
     else:
         intro = (
-            "Use this new-project brief to plan the first work packages."
+            "Use this project brief to plan the first work packages."
             if mode == "new"
             else (
                 "Use this project brief and existing codebase to plan the next "

@@ -463,7 +463,7 @@ class CentralAgentView(VerticalScroll):
         if snapshot.state == "blueprint_ready":
             return self.label("blueprint_ready")
         if snapshot.state == "executing":
-            return self._execution_progress(snapshot)
+            return self.execution_progress(snapshot)
         if snapshot.state == "reviewing":
             return self.label("reviewing")
         if snapshot.state == "post_review_ready":
@@ -474,7 +474,7 @@ class CentralAgentView(VerticalScroll):
             return self.label("completed")
         return snapshot.state or self.label("idle")
 
-    def _execution_progress(self, snapshot: WorkflowNexusSnapshot) -> str:
+    def execution_progress(self, snapshot: WorkflowNexusSnapshot) -> str:
         counts = work_package_counts(snapshot.work_package_details)
         if not counts:
             return self.label("executing")

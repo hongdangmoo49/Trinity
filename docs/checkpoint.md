@@ -48,7 +48,6 @@ cross-platform 안정화, Textual Workbench 기본 UI, Textual execution wiring�
 - [Slash Command Analysis Documentation](test-results/2026-06-06-slash-command-analysis.md)
 - [WP Graph Synthesis Hardening Plan](plans/2026-06-06-wp-graph-synthesis.md)
 - [WP Graph Synthesis Hardening Result](test-results/2026-06-06-wp-graph-synthesis.md)
-- [Textual Workbench Execution Branch Report](test-results/2026-06-05-textual-workbench-execution-branch-report.md)
 - [Execution Matrix Hardening](test-results/2026-06-05-execution-matrix-hardening.md)
 - [Execution Timeline Logging](test-results/2026-06-06-execution-timeline-logging.md)
 - [Follow-up Target Workspace Reuse](test-results/2026-06-06-followup-target-workspace-reuse.md)
@@ -56,7 +55,6 @@ cross-platform 안정화, Textual Workbench 기본 UI, Textual execution wiring�
 - [Workspace Picker Latency Follow-up](test-results/2026-06-06-workspace-picker-latency.md)
 - [Textual Question ID Hardening](test-results/2026-06-06-textual-question-id-hardening.md)
 - [Execution Failure Hardening](test-results/2026-06-06-execution-failure-hardening.md)
-- [Textual Workbench UI Screen Report](test-results/2026-06-05-textual-workbench-ui-screen-report.md)
 - [Cross-platform Stability Implementation](test-results/2026-06-05-cross-platform-stability-implementation.md)
 - [Target Workspace Boundary result](test-results/2026-06-05-target-workspace-boundary.md)
 

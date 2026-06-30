@@ -36,7 +36,7 @@ class WorkspaceIsolation:
         self.project_root = project_root.resolve()
         self.workspace_root = (state_dir or project_root / ".trinity" / "workspace").resolve()
 
-    def _branch_name(self, agent_name: str) -> str:
+    def branch_name(self, agent_name: str) -> str:
         """Generate branch name for an agent."""
         return f"trinity/{agent_name}"
 
@@ -70,7 +70,7 @@ class WorkspaceIsolation:
             WorkspaceError: If worktree creation fails.
         """
         worktree_path = self._worktree_path(agent_name)
-        branch_name = self._branch_name(agent_name)
+        branch_name = self.branch_name(agent_name)
 
         if worktree_path.exists():
             logger.info(f"Worktree already exists for '{agent_name}': {worktree_path}")
@@ -109,7 +109,7 @@ class WorkspaceIsolation:
             True if cleanup succeeded.
         """
         worktree_path = self._worktree_path(agent_name)
-        branch_name = self._branch_name(agent_name)
+        branch_name = self.branch_name(agent_name)
         success = True
 
         # Remove worktree
@@ -183,7 +183,7 @@ class WorkspaceIsolation:
         Returns:
             True if merge succeeded.
         """
-        branch_name = self._branch_name(agent_name)
+        branch_name = self.branch_name(agent_name)
         result = self._run_git("merge", branch_name, "--no-edit")
         if result.returncode != 0:
             # Abort merge on conflict

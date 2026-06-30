@@ -150,10 +150,7 @@ def test_provider_execution_review_policy_label_handles_provider_counts(
     )
 
     config.agents["codex"].enabled = True
-    assert provider_execution_review_policy_label(config.agents) == (
-        "Provider policy: 2 active (claude, codex) | "
-        "execution: parallel capable | review: one peer reviewer"
-    )
+    assert provider_execution_review_policy_label(config.agents) == ""
     assert provider_execution_review_policy_label(
         config.agents,
         selected_agents=("claude",),
@@ -170,14 +167,8 @@ def test_provider_execution_review_policy_label_handles_provider_counts(
     )
 
     config.agents["antigravity"].enabled = True
-    assert provider_execution_review_policy_label(config.agents) == (
-        "Provider policy: 3 active (claude, codex, antigravity) | "
-        "execution: parallel capable | review: peer reviewer pool"
-    )
-    assert provider_execution_review_policy_label(config.agents, lang="ko") == (
-        "프로바이더 정책: 활성 3개(claude, codex, antigravity) | "
-        "실행: 병렬 가능 | 리뷰: 동료 리뷰 풀"
-    )
+    assert provider_execution_review_policy_label(config.agents) == ""
+    assert provider_execution_review_policy_label(config.agents, lang="ko") == ""
 
 
 def test_provider_cli_setup_label_reports_selected_cli_commands(
@@ -186,24 +177,20 @@ def test_provider_cli_setup_label_reports_selected_cli_commands(
     config = TrinityConfig.default_config(project_dir=tmp_path)
     config.agents["claude"].cli_command = sys.executable
 
-    assert provider_cli_setup_label(config.agents) == (
-        "Provider CLI setup: selected 1 | found: claude"
-    )
+    assert provider_cli_setup_label(config.agents) == ""
 
     config.agents["codex"].enabled = True
     config.agents["codex"].cli_command = "trinity-missing-cli-for-test"
 
     assert provider_cli_setup_label(config.agents) == (
-        "Provider CLI setup: selected 2 | found: claude | "
-        "missing: codex(trinity-missing-cli-for-test) | "
+        "Provider CLI setup: missing: codex(trinity-missing-cli-for-test) | "
         "next: fix CLI command/PATH"
     )
     assert provider_cli_setup_label(
         config.agents,
         selected_agents=("codex",),
     ) == (
-        "Provider CLI setup: selected 1 | "
-        "missing: codex(trinity-missing-cli-for-test) | "
+        "Provider CLI setup: missing: codex(trinity-missing-cli-for-test) | "
         "next: fix CLI command/PATH"
     )
     assert provider_cli_setup_label(
@@ -219,16 +206,14 @@ def test_provider_cli_setup_label_reports_selected_cli_commands(
     config.agents["antigravity"].enabled = True
     config.agents["antigravity"].cli_command = "agy-missing-for-test"
     assert provider_cli_setup_label(config.agents, lang="ko") == (
-        "프로바이더 CLI 설정: 선택 3개 | 발견: claude | "
-        "없음: codex(trinity-missing-cli-for-test), "
+        "프로바이더 CLI 설정: 없음: codex(trinity-missing-cli-for-test), "
         "antigravity(agy-missing-for-test) | "
         "다음: CLI 명령/PATH 수정"
     )
 
     config.agents["claude"].cli_command = "claude-missing-for-test"
     assert provider_cli_setup_label(config.agents) == (
-        "Provider CLI setup: selected 3 | "
-        "missing: claude(claude-missing-for-test), "
+        "Provider CLI setup: missing: claude(claude-missing-for-test), "
         "codex(trinity-missing-cli-for-test) +1 | "
         "next: fix CLI command/PATH"
     )
@@ -239,14 +224,13 @@ def test_provider_cli_setup_label_reports_selected_cli_commands(
     assert provider_cli_setup_label(
         config.agents,
         selected_agents=("claude",),
-    ) == "Provider CLI setup: selected 1 | found: claude"
+    ) == ""
     config.agents["codex"].cli_command = f'"{tmp_path / "missing cli"}" --profile work'
     assert provider_cli_setup_label(
         config.agents,
         selected_agents=("codex",),
     ) == (
-        "Provider CLI setup: selected 1 | missing: codex(missing cli) | "
-        "next: fix CLI command/PATH"
+        "Provider CLI setup: missing: codex(missing cli) | next: fix CLI command/PATH"
     )
 
 
@@ -1948,17 +1932,17 @@ async def test_start_screen_updates_provider_policy_from_recipient_selection(
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
 
-        assert str(screen.query_one("#start-provider-policy", Static).content) == (
-            "Provider policy: 2 active (claude, codex) | "
-            "execution: parallel capable | review: one peer reviewer"
-        )
+        provider_policy = screen.query_one("#start-provider-policy", Static)
+        assert str(provider_policy.content) == ""
+        assert provider_policy.display is False
+        provider_cli_setup = screen.query_one("#start-provider-cli-setup", Static)
         assert str(
-            screen.query_one("#start-provider-cli-setup", Static).content
+            provider_cli_setup.content
         ) == (
-            "Provider CLI setup: selected 2 | found: claude | "
-            "missing: codex(trinity-missing-cli-for-test) | "
+            "Provider CLI setup: missing: codex(trinity-missing-cli-for-test) | "
             "next: fix CLI command/PATH"
         )
+        assert provider_cli_setup.display is True
         selector = screen.query_one(AgentRecipientModelSelector)
         selector.set_selected_agents(("claude",))
         screen.on_agent_recipient_model_selector_selection_changed(
@@ -1966,13 +1950,13 @@ async def test_start_screen_updates_provider_policy_from_recipient_selection(
         )
         await pilot.pause()
 
-        assert str(screen.query_one("#start-provider-policy", Static).content) == (
+        assert str(provider_policy.content) == (
             "Provider policy: 1 active (claude) | "
             "execution: single executor | review: self-check/manual"
         )
-        assert str(
-            screen.query_one("#start-provider-cli-setup", Static).content
-        ) == "Provider CLI setup: selected 1 | found: claude"
+        assert provider_policy.display is True
+        assert str(provider_cli_setup.content) == ""
+        assert provider_cli_setup.display is False
         with pytest.raises(NoMatches):
             screen.query_one("#project-startup-readiness", Static)
 
@@ -2028,27 +2012,24 @@ async def test_nexus_screen_shows_provider_policy_from_selected_agents(
     async with app.run_test(size=(140, 40)) as pilot:
         await pilot.pause()
 
-        assert str(screen.query_one("#nexus-provider-policy", Static).content) == (
-            "Provider policy: 2 active (claude, codex) | "
-            "execution: parallel capable | review: one peer reviewer"
-        )
+        provider_policy = screen.query_one("#nexus-provider-policy", Static)
+        assert str(provider_policy.content) == ""
+        assert provider_policy.display is False
+        provider_cli_setup = screen.query_one("#nexus-provider-cli-setup", Static)
         assert str(
-            screen.query_one("#nexus-provider-cli-setup", Static).content
+            provider_cli_setup.content
         ) == (
-            "Provider CLI setup: selected 2 | found: claude | "
-            "missing: codex(trinity-missing-cli-for-test) | "
+            "Provider CLI setup: missing: codex(trinity-missing-cli-for-test) | "
             "next: fix CLI command/PATH"
         )
+        assert provider_cli_setup.display is True
         screen.set_agent_selection(("claude", "antigravity"), {})
         await pilot.pause()
 
-        assert str(screen.query_one("#nexus-provider-policy", Static).content) == (
-            "Provider policy: 2 active (claude, antigravity) | "
-            "execution: parallel capable | review: one peer reviewer"
-        )
-        assert str(
-            screen.query_one("#nexus-provider-cli-setup", Static).content
-        ) == "Provider CLI setup: selected 2 | found: claude, antigravity"
+        assert str(provider_policy.content) == ""
+        assert provider_policy.display is False
+        assert str(provider_cli_setup.content) == ""
+        assert provider_cli_setup.display is False
         selector = screen.query_one(AgentRecipientModelSelector)
         selector.set_selected_agents(("claude",))
         screen.on_agent_recipient_model_selector_selection_changed(
@@ -2056,13 +2037,13 @@ async def test_nexus_screen_shows_provider_policy_from_selected_agents(
         )
         await pilot.pause()
 
-        assert str(screen.query_one("#nexus-provider-policy", Static).content) == (
+        assert str(provider_policy.content) == (
             "Provider policy: 1 active (claude) | "
             "execution: single executor | review: self-check/manual"
         )
-        assert str(
-            screen.query_one("#nexus-provider-cli-setup", Static).content
-        ) == "Provider CLI setup: selected 1 | found: claude"
+        assert provider_policy.display is True
+        assert str(provider_cli_setup.content) == ""
+        assert provider_cli_setup.display is False
         with pytest.raises(NoMatches):
             screen.query_one("#nexus-project-startup-readiness", Static)
 

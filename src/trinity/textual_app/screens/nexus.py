@@ -212,16 +212,20 @@ class NexusScreen(Screen[None]):
             )
             self._recipient_selector = selector
             yield selector
+            provider_policy_label = self._provider_policy_label()
             provider_policy = Static(
-                self._provider_policy_label(),
+                provider_policy_label,
                 id="nexus-provider-policy",
             )
+            provider_policy.display = bool(provider_policy_label)
             self._provider_policy_widget = provider_policy
             yield provider_policy
+            provider_cli_setup_label = self._provider_cli_setup_label()
             provider_cli_setup = Static(
-                self._provider_cli_setup_label(),
+                provider_cli_setup_label,
                 id="nexus-provider-cli-setup",
             )
+            provider_cli_setup.display = bool(provider_cli_setup_label)
             self._provider_cli_setup_widget = provider_cli_setup
             yield provider_cli_setup
             composer = PromptComposer(
@@ -558,12 +562,14 @@ class NexusScreen(Screen[None]):
     ) -> None:
         if not self.is_mounted:
             return
-        self._provider_policy_static().update(
-            self._provider_policy_label(selected_agents)
-        )
-        self._provider_cli_setup_static().update(
-            self._provider_cli_setup_label(selected_agents)
-        )
+        policy_label = self._provider_policy_label(selected_agents)
+        policy = self._provider_policy_static()
+        policy.update(policy_label)
+        policy.display = bool(policy_label)
+        cli_setup_label = self._provider_cli_setup_label(selected_agents)
+        cli_setup = self._provider_cli_setup_static()
+        cli_setup.update(cli_setup_label)
+        cli_setup.display = bool(cli_setup_label)
 
     def _current_workspace_text(self) -> str:
         if self.snapshot and self.snapshot.target_workspace.strip():

@@ -846,18 +846,30 @@ ASPIRATIONAL_IMPLEMENTATION_MARKERS: tuple[str, ...] = (
     "만들고 싶",
 )
 
-ANALYSIS_REQUEST_MARKERS: tuple[str, ...] = (
+STRONG_ANALYSIS_REQUEST_MARKERS: tuple[str, ...] = (
     "tell me",
-    "find",
+    "what should",
+    "which file should",
+    "which files should",
+    "how should",
     "suggest",
     "recommend",
     "알려줘",
     "알려",
+    "어디를",
+    "무엇을",
+    "어떤 파일",
+    "어떻게",
+    "제안해",
+    "추천해",
+)
+
+ANALYSIS_REQUEST_MARKERS: tuple[str, ...] = (
+    "find",
+    *STRONG_ANALYSIS_REQUEST_MARKERS,
     "찾아줘",
     "찾아",
-    "제안해",
     "제안",
-    "추천해",
     "추천",
 )
 
@@ -956,6 +968,10 @@ def classify_execution_intent(text: str) -> bool:
         ASPIRATIONAL_IMPLEMENTATION_MARKERS,
     )
     has_analysis_request = _contains_any(normalized, ANALYSIS_REQUEST_MARKERS)
+    has_strong_analysis_request = _contains_any(
+        normalized,
+        STRONG_ANALYSIS_REQUEST_MARKERS,
+    )
     has_explicit_execution = _contains_any(
         normalized,
         EXPLICIT_EXECUTION_COMMAND_MARKERS,
@@ -964,6 +980,8 @@ def classify_execution_intent(text: str) -> bool:
     if has_design_request and not has_explicit_execution:
         return False
     if has_aspirational_implementation and not has_explicit_execution:
+        return False
+    if has_strong_analysis_request:
         return False
     if has_analysis_request and not has_explicit_execution:
         return False

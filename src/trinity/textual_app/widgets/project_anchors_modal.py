@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Input, Static
 
@@ -89,7 +89,8 @@ class ProjectAnchorsModal(ModalScreen[ProjectAnchorsModalResult]):
     #project-anchors-modal {
         width: 88;
         max-width: 94%;
-        height: auto;
+        height: 95%;
+        max-height: 95%;
         border: round $accent;
         background: $surface;
         padding: 1 2;
@@ -120,6 +121,11 @@ class ProjectAnchorsModal(ModalScreen[ProjectAnchorsModalResult]):
         margin-bottom: 1;
     }
 
+    #project-anchors-content {
+        height: 1fr;
+        margin-bottom: 1;
+    }
+
     .project-anchors-row {
         height: 3;
         margin-bottom: 1;
@@ -138,7 +144,6 @@ class ProjectAnchorsModal(ModalScreen[ProjectAnchorsModalResult]):
     #project-anchors-actions {
         height: auto;
         align-horizontal: right;
-        margin-top: 1;
     }
     """
 
@@ -167,52 +172,53 @@ class ProjectAnchorsModal(ModalScreen[ProjectAnchorsModalResult]):
     def compose(self) -> ComposeResult:
         with Vertical(id="project-anchors-modal"):
             yield Static(self._label("title"), id="project-anchors-title")
-            yield Static(
-                f"{self._label('target_workspace')}: {self.intake.target_workspace}",
-                id="project-anchors-target",
-            )
-            if self.intake.scope_candidates:
+            with VerticalScroll(id="project-anchors-content"):
                 yield Static(
-                    (
-                        f"{self._label('scope_candidates')}: "
-                        f"{_join_values(self.intake.scope_candidates)}"
-                    ),
-                    id="project-anchors-scope-candidates",
+                    f"{self._label('target_workspace')}: {self.intake.target_workspace}",
+                    id="project-anchors-target",
                 )
-            yield from self._input_row(
-                "selected_scope",
-                "project-anchors-selected-scope",
-                self.draft.selected_scope,
-            )
-            yield from self._input_row(
-                "docs",
-                "project-anchors-docs",
-                _join_values(self.draft.docs_found),
-            )
-            yield from self._input_row(
-                "source_roots",
-                "project-anchors-source-roots",
-                _join_values(self.draft.source_roots),
-            )
-            yield Static(
-                self._read_first_label(self.draft),
-                id="project-anchors-read-first",
-            )
-            yield from self._input_row(
-                "tests",
-                "project-anchors-tests",
-                _join_values(self.draft.test_commands),
-            )
-            yield from self._input_row(
-                "dev",
-                "project-anchors-dev",
-                _join_values(self.draft.dev_commands),
-            )
-            yield from self._input_row(
-                "build",
-                "project-anchors-build",
-                _join_values(self.draft.build_commands),
-            )
+                if self.intake.scope_candidates:
+                    yield Static(
+                        (
+                            f"{self._label('scope_candidates')}: "
+                            f"{_join_values(self.intake.scope_candidates)}"
+                        ),
+                        id="project-anchors-scope-candidates",
+                    )
+                yield from self._input_row(
+                    "selected_scope",
+                    "project-anchors-selected-scope",
+                    self.draft.selected_scope,
+                )
+                yield from self._input_row(
+                    "docs",
+                    "project-anchors-docs",
+                    _join_values(self.draft.docs_found),
+                )
+                yield from self._input_row(
+                    "source_roots",
+                    "project-anchors-source-roots",
+                    _join_values(self.draft.source_roots),
+                )
+                yield Static(
+                    self._read_first_label(self.draft),
+                    id="project-anchors-read-first",
+                )
+                yield from self._input_row(
+                    "tests",
+                    "project-anchors-tests",
+                    _join_values(self.draft.test_commands),
+                )
+                yield from self._input_row(
+                    "dev",
+                    "project-anchors-dev",
+                    _join_values(self.draft.dev_commands),
+                )
+                yield from self._input_row(
+                    "build",
+                    "project-anchors-build",
+                    _join_values(self.draft.build_commands),
+                )
             with Horizontal(id="project-anchors-actions"):
                 yield Button(self._label("cancel"), id="cancel-project-anchors")
                 yield Button(

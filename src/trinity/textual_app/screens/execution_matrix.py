@@ -237,10 +237,12 @@ class ExecutionPackageRow(Horizontal):
         self.lang = lang
         self._static_cache: dict[str, Static] = {}
         self._button_cache: dict[str, Button] = {}
+        self._actions_container: Horizontal | None = None
 
     def compose(self) -> ComposeResult:
         self._static_cache = {}
         self._button_cache = {}
+        self._actions_container = None
         with Vertical(classes="execution-package-lines"):
             with Horizontal(classes="execution-package-primary"):
                 task = Static(
@@ -284,7 +286,9 @@ class ExecutionPackageRow(Horizontal):
                 yield assignee
                 yield review
                 yield risk
-                with Horizontal(classes="execution-package-actions"):
+                actions = Horizontal(classes="execution-package-actions")
+                self._actions_container = actions
+                with actions:
                     detail_button = Button(
                         self.button_label,
                         id=self.button_id,
@@ -321,9 +325,17 @@ class ExecutionPackageRow(Horizontal):
     def update_projection(self, projection: _PackageRowProjection) -> None:
         """Update row labels without remounting the row widget."""
         previous_fields = self._field_texts()
-        previous_detail = (self.button_label, self.detail_enabled)
-        previous_retry_label = self.retry_label
-        previous_review_label = self.review_label
+        previous_detail = (self.button_id, self.button_label, self.detail_enabled)
+        previous_retry = (
+            self.retry_enabled,
+            self.retry_button_id,
+            self.retry_label,
+        )
+        previous_review = (
+            self.review_enabled,
+            self.review_button_id,
+            self.review_label,
+        )
         self.package_id = projection.package_id
         self.task_label = projection.task
         self.assignee = projection.assignee
@@ -346,23 +358,41 @@ class ExecutionPackageRow(Horizontal):
         for selector, text in next_fields.items():
             if text != previous_fields[selector]:
                 self._static_for(selector).update(text)
-        if previous_detail != (self.button_label, self.detail_enabled):
+        if previous_detail != (
+            self.button_id,
+            self.button_label,
+            self.detail_enabled,
+        ):
             detail_button = self._button_for(".execution-package-spec")
+            if detail_button.id != self.button_id:
+                detail_button.id = self.button_id
             if str(detail_button.label) != self.button_label:
                 detail_button.label = self.button_label
             disabled = not self.detail_enabled
             if detail_button.disabled != disabled:
                 detail_button.disabled = disabled
-        if self.retry_enabled and previous_retry_label != self.retry_label:
-            retry_button = self._optional_button_for(".execution-package-retry")
-            if retry_button is not None:
-                retry_button.label = self.retry_label
-        if self.review_enabled and previous_review_label != self.review_label:
-            review_button = self._optional_button_for(
-                ".execution-package-review-action"
+        if previous_retry != (
+            self.retry_enabled,
+            self.retry_button_id,
+            self.retry_label,
+        ):
+            self._sync_optional_button(
+                ".execution-package-retry",
+                enabled=self.retry_enabled,
+                button_id=self.retry_button_id,
+                label=self.retry_label,
             )
-            if review_button is not None:
-                review_button.label = self.review_label
+        if previous_review != (
+            self.review_enabled,
+            self.review_button_id,
+            self.review_label,
+        ):
+            self._sync_optional_button(
+                ".execution-package-review-action",
+                enabled=self.review_enabled,
+                button_id=self.review_button_id,
+                label=self.review_label,
+            )
 
     def _field_texts(self) -> dict[str, str]:
         return {
@@ -403,6 +433,14 @@ class ExecutionPackageRow(Horizontal):
         self._button_cache[selector] = button
         return button
 
+    def _actions_for(self) -> Horizontal:
+        if self._actions_container is None:
+            self._actions_container = self.query_one(
+                ".execution-package-actions",
+                Horizontal,
+            )
+        return self._actions_container
+
     def _optional_button_for(self, selector: str) -> Button | None:
         button = self._button_cache.get(selector)
         if button is not None:
@@ -415,6 +453,43 @@ class ExecutionPackageRow(Horizontal):
             return None
         self._button_cache[selector] = button
         return button
+
+    def _sync_optional_button(
+        self,
+        selector: str,
+        *,
+        enabled: bool,
+        button_id: str,
+        label: str,
+    ) -> None:
+        button = self._optional_button_for(selector)
+        if not enabled:
+            if button is not None:
+                button.remove()
+                self._button_cache.pop(selector, None)
+            return
+        if button is None:
+            button = Button(
+                label,
+                id=button_id,
+                name=self.package_id,
+                compact=True,
+                classes=selector.removeprefix("."),
+            )
+            self._button_cache[selector] = button
+            before = (
+                self._optional_button_for(".execution-package-review-action")
+                if selector == ".execution-package-retry"
+                else None
+            )
+            self._actions_for().mount(button, before=before)
+            return
+        if button.id != button_id:
+            button.id = button_id
+        if button.name != self.package_id:
+            button.name = self.package_id
+        if str(button.label) != label:
+            button.label = label
 
 
 class ExecutionPackageHeader(Vertical):
@@ -639,6 +714,7 @@ class ExecutionMatrixScreen(Screen[None]):
         self._task_toggle().label = self._task_toggle_label()
         self._sync_task_expanded_view()
         self._render_package_list()
+        self._render_content_key = self._execution_render_content_key()
 
     def action_open_full_log(self) -> None:
         """Open the full activity log while keeping the page feed compact."""
@@ -759,10 +835,7 @@ class ExecutionMatrixScreen(Screen[None]):
     def _render_package_list(self) -> None:
         projections = self._package_row_projections()
         identity = tuple(
-            (
-                f"{projection.lane_label}|{projection.identity}|"
-                f"retry:{projection.retry_enabled}|review:{projection.review_enabled}"
-            )
+            f"{projection.lane_label}|{projection.identity}"
             for projection in projections
         )
         if identity == self._package_list_identity:

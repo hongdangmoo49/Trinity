@@ -5,7 +5,7 @@ Branch: `feature/read-first-scope-choice-label`
 
 ## Problem
 
-The project intake summary now distinguishes detected scope candidates from a
+The saved project context summary now distinguishes detected scope candidates from a
 confirmed `selected_scope` by showing `choose scope`. The read-first checklist
 still renders unconfirmed candidates as plain scope values:
 
@@ -40,7 +40,7 @@ Korean:
 
 - Update only the read-first checklist label presenter.
 - Keep target-root fallback unchanged.
-- Keep project intake schema and prompt injection unchanged.
+- Keep saved project context schema and prompt injection unchanged.
 
 ## Validation
 

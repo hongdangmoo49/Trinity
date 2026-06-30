@@ -1,4 +1,4 @@
-# Project Intake Target Name Summary
+# Saved Project Context Target Name Summary
 
 Date: 2026-06-29
 Branch: `feature/project-intake-target-name-summary`
@@ -6,12 +6,12 @@ Branch: `feature/project-intake-target-name-summary`
 ## Problem
 
 `/project` diagnostics and `trinity project status` display the selected target
-workspace separately from the saved project intake summary. The compact summary
-says whether the mode is `new` or `existing`, when it was updated, tests, Git
-state, source roots, and brief fields.
+workspace separately from the saved project context summary. The compact
+summary says whether the mode is `new` or `existing`, when it was updated,
+tests, Git state, source roots, and brief fields.
 
 However, users still need to compare labels mentally to confirm which project
-the saved intake belongs to. This is especially awkward when:
+the saved context belongs to. This is especially awkward when:
 
 - Trinity was launched from a control workspace.
 - The target workspace was changed after analysis.
@@ -21,7 +21,7 @@ the saved intake belongs to. This is especially awkward when:
 
 ## Proposed UX
 
-Keep a compact target name segment near the front of the saved project intake
+Keep a compact target name segment near the front of the saved project context
 summary:
 
 ```text
@@ -39,16 +39,16 @@ resolved target path string.
 
 ## Scope
 
-- Update the shared compact project-intake summary formatter through its
+- Update the shared compact project context summary formatter through its
   existing internal helper.
-- Keep missing-intake and invalid-intake labels unchanged.
+- Keep missing and invalid saved-context labels unchanged.
 - Do not change target mismatch or target missing semantics.
 - Keep the full target path visible in the dedicated workspace/diagnostic
   detail surfaces.
 
 ## Validation
 
-- Update shared formatter and CLI status tests that assert project-intake
+- Update shared formatter and CLI status tests that assert project context
   summary strings.
 - Run:
   - `uv run pytest tests/test_start_screen.py tests/test_cli.py -q`

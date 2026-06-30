@@ -13,7 +13,7 @@ from textual.widgets import Footer, Header, Static
 from trinity.config import TrinityConfig
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
-from trinity.textual_app.i18n import localize_bindings
+from trinity.textual_app.i18n import localize_bindings, ui_text
 from trinity.textual_app.workspace_labels import (
     target_workspace_state_label,
 )
@@ -22,18 +22,6 @@ from trinity.textual_app.widgets.agent_recipient_model_selector import (
 )
 from trinity.textual_app.widgets.composer import PromptComposer
 from trinity.tui.sacred_geometry import SacredGeometryAnimator
-
-
-START_LABELS = {
-    "en": {
-        "placeholder": "What should Trinity work on?",
-        "select_agent_warning": "Select at least one agent.",
-    },
-    "ko": {
-        "placeholder": "Trinity가 무엇을 진행하면 될까요?",
-        "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
-    },
-}
 
 
 class SacredGeometryAnimation(Static):
@@ -250,5 +238,4 @@ class StartScreen(Screen[None]):
         )
 
     def label_text(self, key: str) -> str:
-        labels = START_LABELS.get(self.lang, START_LABELS["en"])
-        return labels.get(key, START_LABELS["en"][key])
+        return ui_text(f"start_{key}", self.lang)

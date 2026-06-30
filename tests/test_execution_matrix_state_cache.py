@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from textual.app import App
 from textual.containers import Vertical
-from textual.widgets import RichLog
+from textual.widgets import Button, RichLog
 
 from trinity.textual_app.screens.execution_matrix import ExecutionMatrixScreen
 from trinity.textual_app.snapshot import WorkPackageSnapshot, WorkflowNexusSnapshot
@@ -142,6 +142,91 @@ async def test_execution_matrix_skips_same_render_content_reapply() -> None:
         )
         await pilot.pause()
         assert calls == ["chrome", "packages", "log"]
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_updates_row_action_buttons_without_list_rebuild() -> None:
+    screen = ExecutionMatrixScreen()
+    review_snapshot = WorkflowNexusSnapshot(
+        session_id="wf-execution-cache",
+        state="executing",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Build API",
+                owner_agent="codex",
+                status="running",
+                current_executor="codex",
+                review_status="needs_second_review",
+            )
+        ],
+        execution_log=["event-1"],
+    )
+    retry_review_snapshot = WorkflowNexusSnapshot(
+        session_id="wf-execution-cache",
+        state="executing",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Build API",
+                owner_agent="codex",
+                status="failed",
+                current_executor="codex",
+                review_status="needs_second_review",
+                retryable=True,
+            )
+        ],
+        execution_log=["event-1", "event-2"],
+    )
+    plain_snapshot = WorkflowNexusSnapshot(
+        session_id="wf-execution-cache",
+        state="executing",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Build API",
+                owner_agent="codex",
+                status="running",
+                current_executor="codex",
+            )
+        ],
+        execution_log=["event-1", "event-2", "event-3"],
+    )
+    app = ExecutionHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        screen.apply_execution_state(None, review_snapshot)
+        await pilot.pause()
+
+        package_list = screen._package_list()
+        rebuilds: list[bool] = []
+        original_remove_children = package_list.remove_children
+
+        def counted_remove_children(*args, **kwargs):
+            rebuilds.append(True)
+            return original_remove_children(*args, **kwargs)
+
+        package_list.remove_children = counted_remove_children
+
+        screen.apply_execution_state(None, retry_review_snapshot)
+        await pilot.pause()
+
+        assert rebuilds == []
+        retry_button = screen.query_one("#wp-retry-0", Button)
+        assert retry_button.name == "WP-001"
+        action_ids = [
+            button.id
+            for button in screen.query(".execution-package-actions Button")
+        ]
+        assert action_ids == ["wp-detail-0", "wp-retry-0", "wp-review-0"]
+
+        screen.apply_execution_state(None, plain_snapshot)
+        await pilot.pause()
+
+        assert rebuilds == []
+        assert not list(screen.query("#wp-retry-0"))
+        assert not list(screen.query("#wp-review-0"))
 
 
 @pytest.mark.asyncio

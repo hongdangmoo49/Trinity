@@ -2,7 +2,7 @@
 
 ## Problem
 
-New-project intake captures product intent and starter profile, and local
+New-project context captures product intent and starter profile, and local
 project diagnostics can show an initial plan preview. However, before execution
 the user still needs a way to inspect what kind of files Trinity expects agents
 to create or how the first generated state should be validated without adding
@@ -13,10 +13,10 @@ about to allow writes into an empty or newly created workspace.
 
 ## Scope
 
-- Add a derived generation preview for saved `mode == "new"` project intake.
+- Add a derived generation preview for saved `mode == "new"` project context.
 - Show the preview through `/project` diagnostics and
   `trinity project status` text/JSON.
-- Derive preview text from saved intake only: `starter_profile`, `project_type`,
+- Derive preview text from saved project context only: `starter_profile`, `project_type`,
   `stack_preferences`, `constraints`, and detected test commands.
 - Keep the preview advisory and non-blocking.
 
@@ -25,13 +25,13 @@ about to allow writes into an empty or newly created workspace.
 - Do not generate files from this preview.
 - Do not execute package managers or test commands.
 - Do not add a template catalog or template selection wizard.
-- Do not show the preview for existing-project intake.
+- Do not show the preview for existing-project context.
 - Do not change execute preflight gating.
 
 ## Design
 
 Add a shared `project_generation_preview_label()` helper next to the existing
-project-intake label helpers. It returns an empty string unless the saved intake
+workspace label helpers. It returns an empty string unless the saved context
 matches the selected new-project target.
 
 The helper should render a compact localized line:
@@ -60,8 +60,8 @@ generated a concrete file list.
 
 ## Tests
 
-- Shared helper returns English and Korean generation previews for new intake.
-- Existing-project intake returns no generation preview.
-- CLI `project status` text and JSON include the preview for new intake.
+- Shared helper returns English and Korean generation previews for new context.
+- Existing-project context returns no generation preview.
+- CLI `project status` text and JSON include the preview for new context.
 - `/project` diagnostics and `trinity project status` refresh the preview after
   saving a new-project brief.

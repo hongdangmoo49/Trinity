@@ -3,7 +3,7 @@
 ## Problem
 
 `/project` diagnostics and `trinity project status` can show a generation
-preview after a new-project intake is saved, but the project brief flow itself
+preview after new-project context is saved, but the project brief flow itself
 only captures intent. While filling the brief, users cannot inspect what Trinity
 currently expects to create or validate until after saving.
 
@@ -21,7 +21,7 @@ Show a compact live generation preview inside the new-project brief modal.
 - Build the preview from the current unsaved draft.
 - Update the preview when relevant inputs change.
 - Show the preview only when `mode == "new"`.
-- Keep save/cancel behavior, project intake persistence, and execution preflight
+- Keep save/cancel behavior, project context persistence, and execution preflight
   unchanged.
 
 ## Validation

@@ -2,7 +2,7 @@
 
 ## Context
 
-New-project intake already shows a generation preview based on starter profile,
+New-project context already shows a generation preview based on starter profile,
 project type, stack preferences, and validation hints. The preview tells users
 which files/directories Trinity is likely to create, but it does not identify
 whether those paths already exist in the selected target workspace.

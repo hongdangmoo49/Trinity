@@ -3528,26 +3528,26 @@ def test_central_agent_view_localizes_korean_guidance_labels() -> None:
 def test_central_agent_view_localizes_korean_review_repair_action_labels() -> None:
     view = CentralAgentView(lang="ko")
 
-    assert view._label("details_in_inspector") == (
+    assert view.label("details_in_inspector") == (
         "상세 설계와 작업 패키지 목록은 인스펙터 또는 리포트에서 확인하세요."
     )
-    assert view._label("execution_retry") == "실패 작업 재시도"
-    assert view._label("refine_work_packages") == "작업 재분배"
-    assert view._label("execute_tooltip") == "현재 작업 패키지를 실행합니다."
-    assert view._label("execution-retry_tooltip") == (
+    assert view.label("execution_retry") == "실패 작업 재시도"
+    assert view.label("refine_work_packages") == "작업 재분배"
+    assert view.label("execute_tooltip") == "현재 작업 패키지를 실행합니다."
+    assert view.label("execution-retry_tooltip") == (
         "실패, 막힘, 중단 상태의 작업 패키지를 선택해서 다시 실행합니다."
     )
-    assert view._label("refine-work-packages_tooltip") == (
+    assert view.label("refine-work-packages_tooltip") == (
         "작업 패키지 분해, 담당자, 의존성을 다시 정리합니다."
     )
-    assert view._label("repair_action") == "리뷰 보정 결정"
-    assert view._label("repair-retry-once_tooltip") == (
+    assert view.label("repair_action") == "리뷰 보정 결정"
+    assert view.label("repair-retry-once_tooltip") == (
         "리뷰 보정으로 막힌 작업 패키지만 한 번 더 실행합니다."
     )
-    assert view._label("repair-mark-done_tooltip") == (
+    assert view.label("repair-mark-done_tooltip") == (
         "막힌 리뷰 보정을 사용자가 수용하고 작업 패키지를 완료 처리합니다."
     )
-    assert view._label("repair-open-review_tooltip") == (
+    assert view.label("repair-open-review_tooltip") == (
         "현재 리뷰 보정 차단 상세를 봅니다."
     )
 

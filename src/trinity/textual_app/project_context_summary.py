@@ -72,7 +72,7 @@ def build_project_context_summary(
     *,
     lang: str = "en",
 ) -> ProjectContextSummary:
-    """Return project-intake context for a selected target workspace."""
+    """Return saved project context for a selected target workspace."""
     labels = PROJECT_CONTEXT_LABELS.get(lang, PROJECT_CONTEXT_LABELS["en"])
     target = _target_path(target_workspace)
     try:

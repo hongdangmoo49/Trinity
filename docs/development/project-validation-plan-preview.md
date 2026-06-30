@@ -27,14 +27,14 @@ For both new and existing projects, this creates two practical issues:
 
 - Do not execute validation commands.
 - Do not edit GitHub Actions or repository CI configuration.
-- Do not add new project-intake schema fields.
+- Do not add new saved project context schema fields.
 - Do not block execution when a validation plan is weak.
 - Do not introduce a test selection wizard.
 
 ## Design
 
 Add a shared `project_validation_plan_label()` helper next to existing
-project-intake label helpers. It returns a compact localized line:
+project context label helpers. It returns a compact localized line:
 
 - English: `Validation plan: fast ... | required ... | full ...`
 - Korean: `검증 계획: 빠른 확인 ... | 필수 확인 ... | 전체 확인 ...`

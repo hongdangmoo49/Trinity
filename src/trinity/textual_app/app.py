@@ -2157,18 +2157,6 @@ class TrinityTextualApp(App[None]):
             return
         self._open_new_project_brief_if_needed(preflight)
 
-    def _on_project_brief_workspace_selected(
-        self,
-        preflight: WorkspacePreflight | None,
-    ) -> None:
-        if preflight is None:
-            return
-        self._set_workspace_candidate(preflight.path, sync_start=True)
-        self._open_project_brief_modal(
-            preflight.path,
-            fallback_mode=self._project_intake_mode_for_preflight(preflight),
-        )
-
     def _on_nexus_workspace_selected(
         self,
         preflight: WorkspacePreflight | None,
@@ -2191,19 +2179,6 @@ class TrinityTextualApp(App[None]):
         if self._open_nexus_project_intake_confirm_if_needed(preflight):
             return
         self._continue_nexus_project_intake_workspace_selection(
-            preflight,
-            control_repo_confirmed=False,
-        )
-
-    def _on_nexus_project_brief_workspace_selected(
-        self,
-        preflight: WorkspacePreflight | None,
-    ) -> None:
-        if preflight is None:
-            return
-        if self._open_nexus_project_brief_confirm_if_needed(preflight):
-            return
-        self._continue_nexus_project_brief_workspace_selection(
             preflight,
             control_repo_confirmed=False,
         )
@@ -2232,21 +2207,6 @@ class TrinityTextualApp(App[None]):
         self._open_target_workspace_confirm_modal(
             preflight.path,
             lambda confirmed: self._on_nexus_project_intake_workspace_confirmed(
-                preflight,
-                confirmed,
-            ),
-        )
-        return True
-
-    def _open_nexus_project_brief_confirm_if_needed(
-        self,
-        preflight: WorkspacePreflight,
-    ) -> bool:
-        if not is_control_repo_target(preflight.path, self.config.project_dir):
-            return False
-        self._open_target_workspace_confirm_modal(
-            preflight.path,
-            lambda confirmed: self._on_nexus_project_brief_workspace_confirmed(
                 preflight,
                 confirmed,
             ),
@@ -2283,21 +2243,6 @@ class TrinityTextualApp(App[None]):
             target_cancelled_snapshot(lang=self.config.lang)
         )
 
-    def _on_nexus_project_brief_workspace_confirmed(
-        self,
-        preflight: WorkspacePreflight,
-        confirmed: bool | None,
-    ) -> None:
-        if confirmed:
-            self._continue_nexus_project_brief_workspace_selection(
-                preflight,
-                control_repo_confirmed=True,
-            )
-            return
-        self._record_local_command_snapshot(
-            target_cancelled_snapshot(lang=self.config.lang)
-        )
-
     def _continue_nexus_workspace_selection(
         self,
         preflight: WorkspacePreflight,
@@ -2326,21 +2271,6 @@ class TrinityTextualApp(App[None]):
             self._review_nexus_existing_analysis_or_seed(preflight.path, intake)
             return
         self._open_new_project_brief_if_needed(preflight)
-
-    def _continue_nexus_project_brief_workspace_selection(
-        self,
-        preflight: WorkspacePreflight,
-        *,
-        control_repo_confirmed: bool,
-    ) -> None:
-        self._continue_nexus_workspace_selection(
-            preflight,
-            control_repo_confirmed=control_repo_confirmed,
-        )
-        self._open_project_brief_modal(
-            preflight.path,
-            fallback_mode=self._project_intake_mode_for_preflight(preflight),
-        )
 
     def _remember_confirmed_target_preflight(
         self,
@@ -2676,7 +2606,6 @@ class TrinityTextualApp(App[None]):
             "analyze": "analyze",
             "analysis": "analyze",
             "intake": "analyze",
-            "brief": "brief",
             "scope": "scope",
             "read": "read-first",
             "read-first": "read-first",
@@ -2695,14 +2624,14 @@ class TrinityTextualApp(App[None]):
             title = "알 수 없는 프로젝트 명령"
             body = (
                 f"`{action}`는 /project 하위 명령이 아닙니다.\n\n"
-                "사용 가능: workspace, analyze, brief, scope, "
+                "사용 가능: workspace, analyze, scope, "
                 "read-first, validation"
             )
         else:
             title = "Unknown Project Command"
             body = (
                 f"`{action}` is not a /project action.\n\n"
-                "Available: workspace, analyze, brief, scope, "
+                "Available: workspace, analyze, scope, "
                 "read-first, validation"
             )
         self._record_slash_command_result(
@@ -2739,8 +2668,6 @@ class TrinityTextualApp(App[None]):
             return
         if action == "analyze":
             self._apply_start_project_intake_for_direct_target(target)
-        elif action == "brief":
-            self._open_project_brief_modal(target, fallback_mode="existing")
         elif action == "scope":
             self._open_existing_project_scope_picker(target, seed_route="start")
         elif action == "read-first":
@@ -2768,8 +2695,6 @@ class TrinityTextualApp(App[None]):
         self._set_workspace_candidate(target)
         if action == "analyze":
             self._apply_nexus_project_intake_for_direct_target(target, snapshot)
-        elif action == "brief":
-            self._open_project_brief_modal(target, fallback_mode="existing")
         elif action == "scope":
             self._open_existing_project_scope_picker(target, seed_route="nexus")
         elif action == "read-first":

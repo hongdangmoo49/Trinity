@@ -7954,6 +7954,7 @@ async def test_nexus_provider_strip_stays_compact_on_small_viewport(tmp_path) ->
         panels = list(screen.query(ProviderPanel))
 
         assert strip.region.height == 5
+        assert strip.has_class("provider-strip-3")
         assert len(panels) == 3
         for panel in panels:
             assert panel.region.height == 5
@@ -7971,6 +7972,29 @@ async def test_nexus_provider_strip_stays_compact_on_small_viewport(tmp_path) ->
         assert "out execution_v1" in str(
             screen.query_one("#provider-codex .provider-meta").content
         )
+
+
+@pytest.mark.asyncio
+async def test_nexus_provider_strip_uses_configured_provider_count(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents.pop("antigravity")
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        strip = screen.query_one("#provider-strip")
+        panels = list(screen.query(ProviderPanel))
+
+        assert strip.has_class("provider-strip-2")
+        assert len(panels) == 2
+        assert screen.query_one("#provider-claude", ProviderPanel)
+        assert screen.query_one("#provider-codex", ProviderPanel)
+        with pytest.raises(NoMatches):
+            screen.query_one("#provider-antigravity", ProviderPanel)
 
 
 @pytest.mark.asyncio

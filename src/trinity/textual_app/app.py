@@ -840,8 +840,19 @@ class TrinityTextualApp(App[None]):
         width: 100%;
         height: 5;
         layout: grid;
-        grid-size: 3 1;
         grid-gutter: 1;
+    }
+
+    .provider-strip-1 {
+        grid-size: 1 1;
+    }
+
+    .provider-strip-2 {
+        grid-size: 2 1;
+    }
+
+    .provider-strip-3 {
+        grid-size: 3 1;
     }
 
     .provider-panel {

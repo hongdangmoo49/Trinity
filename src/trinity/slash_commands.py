@@ -97,9 +97,9 @@ COMMAND_SPECS: tuple[SlashCommandSpec, ...] = (
     ),
     SlashCommandSpec(
         name="/project",
-        usage="/project [workspace|analyze]",
-        summary="show compact project diagnostics or open project tools",
-        summary_ko="간결한 프로젝트 진단 보기 또는 도구 열기",
+        usage="/project [workspace]",
+        summary="show compact project diagnostics or select a target workspace",
+        summary_ko="간결한 프로젝트 진단 보기 또는 작업 폴더 선택",
         category=SlashCommandCategory.LOCAL_UI,
     ),
     SlashCommandSpec(

@@ -32,7 +32,7 @@ def test_parse_slash_command_registers_project_command() -> None:
     assert parsed is not None
     assert parsed.command_id == "project"
     assert parsed.spec is not None
-    assert parsed.spec.summary_ko == "간결한 프로젝트 진단 보기 또는 도구 열기"
+    assert parsed.spec.summary_ko == "간결한 프로젝트 진단 보기 또는 작업 폴더 선택"
 
 
 def test_parse_slash_command_registers_providers_command() -> None:
@@ -54,8 +54,8 @@ def test_parse_slash_command_registers_workspace_command() -> None:
 
 
 def test_parse_slash_command_keeps_project_action_args() -> None:
-    parsed = parse_slash_command("/project analyze")
+    parsed = parse_slash_command("/project nope")
 
     assert parsed is not None
     assert parsed.command_id == "project"
-    assert parsed.args == ("analyze",)
+    assert parsed.args == ("nope",)

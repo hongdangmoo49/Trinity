@@ -1220,20 +1220,20 @@ def test_project_intake_state_label_guides_missing_intake(tmp_path: Path) -> Non
     target = tmp_path / "customer-app"
 
     assert project_intake_state_label(state) == (
-        "Project intake: not recorded | next: type the task or /project analyze"
+        "Project intake: not recorded | next: type the analysis or work request"
     )
     assert project_intake_state_label(state, lang="ko") == (
-        "프로젝트 인테이크: 기록 없음 | 다음: 작업을 입력하거나 /project analyze"
+        "프로젝트 인테이크: 기록 없음 | 다음: 분석이나 작업 요청 입력"
     )
     assert project_intake_state_label(state, target_workspace=target) == (
-        "Project intake: not recorded | next: type the task or /project analyze"
+        "Project intake: not recorded | next: type the analysis or work request"
     )
     assert project_intake_state_label(
         state,
         lang="ko",
         target_workspace=target,
     ) == (
-        "프로젝트 인테이크: 기록 없음 | 다음: 작업을 입력하거나 /project analyze"
+        "프로젝트 인테이크: 기록 없음 | 다음: 분석이나 작업 요청 입력"
     )
 
 
@@ -1249,7 +1249,7 @@ def test_start_and_nexus_missing_project_intake_stays_prompt_driven(
     )
 
     assert label == (
-        "Project intake: not recorded | next: type the task or /project analyze"
+        "Project intake: not recorded | next: type the analysis or work request"
     )
     assert str(target) not in label
     assert "trinity project new" not in label

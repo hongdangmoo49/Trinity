@@ -56,6 +56,15 @@ def nexus_refine_prompt(action: str, *, lang: str = "en") -> str:
     return prompts.get(action, prompts["refine-features"])
 
 
+def nexus_current_workspace_text(
+    snapshot: WorkflowNexusSnapshot | None,
+    fallback: object | None,
+) -> str:
+    if snapshot and snapshot.target_workspace.strip():
+        return snapshot.target_workspace.strip()
+    return str(fallback or "").strip()
+
+
 class AgentRowSpec(Protocol):
     """Small presenter-facing subset of an agent spec."""
 

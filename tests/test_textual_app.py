@@ -1839,6 +1839,33 @@ async def test_start_screen_stays_within_narrow_viewport(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_start_workspace_label_keeps_button_height_with_long_path(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / ("target-" + "very-long-directory-name-" * 6)
+    control_repo.mkdir()
+    target.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        actions = start.query_one("#start-actions")
+        workspace_label = start.query_one("#workspace-candidate", Static)
+        button = start.query_one("#choose-workspace", Button)
+
+        assert workspace_label.region.height == button.region.height
+        assert actions.region.height == button.region.height
+        assert actions.region.y + actions.region.height <= start.size.height
+
+
+@pytest.mark.asyncio
 async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     config.agents["codex"].enabled = True

@@ -809,8 +809,9 @@ class TrinityTextualApp(App[None]):
     #workspace-candidate {
         width: 1fr;
         min-width: 0;
+        height: 3;
         color: $text-muted;
-        content-align: left middle;
+        content-align: left bottom;
     }
 
     #choose-workspace {

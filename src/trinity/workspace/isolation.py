@@ -40,7 +40,7 @@ class WorkspaceIsolation:
         """Generate branch name for an agent."""
         return f"trinity/{agent_name}"
 
-    def _worktree_path(self, agent_name: str) -> Path:
+    def worktree_path(self, agent_name: str) -> Path:
         """Return the worktree directory path for an agent."""
         return self.workspace_root / agent_name
 
@@ -69,7 +69,7 @@ class WorkspaceIsolation:
         Raises:
             WorkspaceError: If worktree creation fails.
         """
-        worktree_path = self._worktree_path(agent_name)
+        worktree_path = self.worktree_path(agent_name)
         branch_name = self.branch_name(agent_name)
 
         if worktree_path.exists():
@@ -108,7 +108,7 @@ class WorkspaceIsolation:
         Returns:
             True if cleanup succeeded.
         """
-        worktree_path = self._worktree_path(agent_name)
+        worktree_path = self.worktree_path(agent_name)
         branch_name = self.branch_name(agent_name)
         success = True
 
@@ -132,7 +132,7 @@ class WorkspaceIsolation:
 
     def exists(self, agent_name: str) -> bool:
         """Check if a worktree exists for the given agent."""
-        return self._worktree_path(agent_name).exists()
+        return self.worktree_path(agent_name).exists()
 
     def list_worktrees(self) -> dict[str, Path]:
         """List all agent worktrees.
@@ -152,12 +152,12 @@ class WorkspaceIsolation:
 
     def get_worktree(self, agent_name: str) -> Path | None:
         """Get the worktree path for an agent, or None if not created."""
-        path = self._worktree_path(agent_name)
+        path = self.worktree_path(agent_name)
         return path if path.exists() else None
 
     def has_changes(self, agent_name: str) -> bool:
         """Check if the worktree has uncommitted changes."""
-        worktree_path = self._worktree_path(agent_name)
+        worktree_path = self.worktree_path(agent_name)
         if not worktree_path.exists():
             return False
 
@@ -166,7 +166,7 @@ class WorkspaceIsolation:
 
     def get_diff(self, agent_name: str) -> str:
         """Get the diff of uncommitted changes in the worktree."""
-        worktree_path = self._worktree_path(agent_name)
+        worktree_path = self.worktree_path(agent_name)
         if not worktree_path.exists():
             return ""
 

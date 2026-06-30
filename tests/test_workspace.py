@@ -66,7 +66,7 @@ class TestBranchName:
 
 class TestWorktreePath:
     def test_path_format(self, wi):
-        path = wi._worktree_path("claude")
+        path = wi.worktree_path("claude")
         assert path.name == "claude"
         assert "workspace" in str(path)
 
@@ -84,7 +84,7 @@ class TestCreate:
             ]
             path = wi.create("claude")
 
-        assert path == wi._worktree_path("claude")
+        assert path == wi.worktree_path("claude")
 
     def test_reuses_existing_branch(self, wi):
         """이미 존재하는 브랜치는 재사용."""
@@ -95,7 +95,7 @@ class TestCreate:
             ]
             path = wi.create("codex")
 
-        assert path == wi._worktree_path("codex")
+        assert path == wi.worktree_path("codex")
 
     def test_raises_on_branch_failure(self, wi):
         """브랜치 생성 실패 시 WorkspaceError."""
@@ -118,7 +118,7 @@ class TestCreate:
 
     def test_returns_existing_path_if_exists(self, wi):
         """worktree 디렉토리가 이미 존재하면 경로만 반환."""
-        worktree_path = wi._worktree_path("claude")
+        worktree_path = wi.worktree_path("claude")
         worktree_path.mkdir(parents=True)
 
         path = wi.create("claude")
@@ -163,7 +163,7 @@ class TestCleanup:
         assert result is True
 
     def test_returns_false_on_remove_failure(self, wi):
-        worktree_path = wi._worktree_path("claude")
+        worktree_path = wi.worktree_path("claude")
         worktree_path.mkdir(parents=True)
 
         with patch.object(wi, "_run_git") as mock_git:
@@ -185,9 +185,9 @@ class TestQuery:
         assert wi.exists("claude") is False
 
     def test_exists_true(self, wi):
-        wi._worktree_path("claude").mkdir(parents=True)
+        wi.worktree_path("claude").mkdir(parents=True)
         # Need .git marker for list_worktrees
-        (wi._worktree_path("claude") / ".git").mkdir()
+        (wi.worktree_path("claude") / ".git").mkdir()
         assert wi.exists("claude") is True
 
     def test_list_worktrees_empty(self, wi):
@@ -195,7 +195,7 @@ class TestQuery:
 
     def test_list_worktrees_returns_existing(self, wi):
         for name in ["claude", "codex"]:
-            path = wi._worktree_path(name)
+            path = wi.worktree_path(name)
             path.mkdir(parents=True)
             (path / ".git").mkdir()
 
@@ -206,7 +206,7 @@ class TestQuery:
         assert wi.get_worktree("nonexistent") is None
 
     def test_get_worktree_returns_path(self, wi):
-        path = wi._worktree_path("claude")
+        path = wi.worktree_path("claude")
         path.mkdir(parents=True)
         assert wi.get_worktree("claude") == path
 
@@ -220,13 +220,13 @@ class TestChanges:
         assert wi.has_changes("claude") is False
 
     def test_has_changes_with_dirty_worktree(self, wi):
-        wi._worktree_path("claude").mkdir(parents=True)
+        wi.worktree_path("claude").mkdir(parents=True)
         with patch.object(wi, "_run_git") as mock_git:
             mock_git.return_value = _mock_git_success(stdout="M file.py\n")
             assert wi.has_changes("claude") is True
 
     def test_has_changes_with_clean_worktree(self, wi):
-        wi._worktree_path("claude").mkdir(parents=True)
+        wi.worktree_path("claude").mkdir(parents=True)
         with patch.object(wi, "_run_git") as mock_git:
             mock_git.return_value = _mock_git_success(stdout="")
             assert wi.has_changes("claude") is False
@@ -235,7 +235,7 @@ class TestChanges:
         assert wi.get_diff("nonexistent") == ""
 
     def test_get_diff_returns_output(self, wi):
-        wi._worktree_path("claude").mkdir(parents=True)
+        wi.worktree_path("claude").mkdir(parents=True)
         with patch.object(wi, "_run_git") as mock_git:
             mock_git.return_value = _mock_git_success(stdout="diff content here")
             assert wi.get_diff("claude") == "diff content here"
@@ -275,7 +275,7 @@ class TestCleanupAll:
             mock_cleanup.return_value = True
             # Create fake worktree dirs
             for name in ["claude", "codex"]:
-                path = wi._worktree_path(name)
+                path = wi.worktree_path(name)
                 path.mkdir(parents=True)
                 (path / ".git").mkdir()
 

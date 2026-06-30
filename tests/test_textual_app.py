@@ -4128,6 +4128,40 @@ async def test_start_slash_status_reports_provider_cli_setup(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_status_modal_contains_controls_in_narrow_korean_viewport(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    config.agents["claude"].cli_command = sys.executable
+    config.agents["codex"].enabled = True
+    config.agents["codex"].cli_command = "trinity-missing-cli-for-test"
+    config.agents["antigravity"].enabled = True
+    config.agents["antigravity"].cli_command = "agy-missing-cli-for-test"
+    app = TrinityTextualApp(config, FakeWorkflowController())
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        composer = app.screen.query_one(PromptComposer)
+        composer.set_text("/status ")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert isinstance(app.screen, StatusCommandModal)
+        modal_shell = app.screen.query_one("#status-command-modal")
+        widgets = (
+            app.screen.query_one("#status-command-title", Static),
+            app.screen.query_one("#status-command-body", Static),
+            app.screen.query_one("#status-command-table", Static),
+            app.screen.query_one("#close-status-command", Button),
+        )
+        for widget in widgets:
+            assert widget.region.y >= modal_shell.region.y
+            assert (
+                widget.region.y + widget.region.height
+                <= modal_shell.region.y + modal_shell.region.height
+            )
+
+
+@pytest.mark.asyncio
 async def test_start_slash_status_uses_korean_modal_chrome(tmp_path) -> None:
     controller = FakeWorkflowController()
     app = TrinityTextualApp(

@@ -11,14 +11,11 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Static
 
 from trinity.config import TrinityConfig
-from trinity.textual_app.project_start_runtime import project_setup_next_action
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.workspace_labels import (
-    ProjectAnalyzeActionPresentation,
     provider_cli_setup_label,
-    project_analyze_action_presentation,
     provider_execution_review_policy_label,
     target_workspace_state_label,
 )
@@ -31,31 +28,13 @@ from trinity.tui.sacred_geometry import SacredGeometryAnimator
 
 START_LABELS = {
     "en": {
-        "analyze_workspace": "Analyze Existing",
-        "analyze_selected_workspace": "Analyze Selected",
-        "complete_brief": "Complete Brief",
-        "continue_setup": "Continue Setup",
-        "create_project": "Create New",
-        "edit_brief": "Edit Brief",
-        "focus_existing": "Existing",
-        "focus_new": "New",
         "placeholder": "What should Trinity work on?",
-        "refresh_analysis": "Refresh Analysis",
         "select_agent_warning": "Select at least one agent.",
         "select_workspace": "Select Workspace",
         "subtitle": "Three minds, one context",
     },
     "ko": {
-        "analyze_workspace": "기존 프로젝트 분석",
-        "analyze_selected_workspace": "선택 대상 분석",
-        "complete_brief": "브리프 완성",
-        "continue_setup": "설정 계속",
-        "create_project": "새 프로젝트 생성",
-        "edit_brief": "브리프 편집",
-        "focus_existing": "기존",
-        "focus_new": "신규",
         "placeholder": "Trinity가 무엇을 진행하면 될까요?",
-        "refresh_analysis": "분석 갱신",
         "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
         "select_workspace": "작업 폴더 선택",
         "subtitle": "세 개의 관점, 하나의 컨텍스트",
@@ -140,7 +119,6 @@ class StartScreen(Screen[None]):
         self._workspace_label_widget: Static | None = None
         self._provider_policy_widget: Static | None = None
         self._provider_cli_setup_widget: Static | None = None
-        self.project_mode_focus = "auto"
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
@@ -241,15 +219,6 @@ class StartScreen(Screen[None]):
     def action_submit(self) -> None:
         composer = self._prompt_composer()
         self._submit(composer.submission_text)
-
-    def _project_setup_next_action(self) -> str:
-        return project_setup_next_action(
-            self.config.effective_state_dir,
-            self.workspace_candidate,
-            ready_action="plan",
-            analyze_variant=self._project_analyze_action_presentation().variant,
-            preferred_mode=self.project_mode_focus,
-        )
 
     def set_workspace_candidate(self, path: Path | None) -> None:
         next_workspace = str(path or "")
@@ -357,14 +326,6 @@ class StartScreen(Screen[None]):
             self.config.agents,
             selected_agents=selected_agents,
             lang=self.lang,
-        )
-
-    def _project_analyze_action_presentation(
-        self,
-    ) -> ProjectAnalyzeActionPresentation:
-        return project_analyze_action_presentation(
-            self.config.effective_state_dir,
-            target_workspace=self.workspace_candidate,
         )
 
     def _refresh_provider_policy_label(

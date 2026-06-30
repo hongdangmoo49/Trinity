@@ -5,6 +5,7 @@ from textual.app import App
 
 from trinity.config import TrinityConfig
 from trinity.textual_app.presenters import (
+    nexus_agent_provider_panel_state,
     nexus_central_snapshot_has_activity,
     nexus_provider_panel_state,
 )
@@ -63,6 +64,26 @@ def test_nexus_provider_panel_state_maps_provider_snapshot() -> None:
     assert state.context_window == 123
     assert state.output_contract == "execute-v1"
     assert state.quality_score == 0.75
+
+
+def test_nexus_agent_provider_panel_state_maps_config_agent(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    spec = config.agents["claude"]
+
+    state = nexus_agent_provider_panel_state(
+        "claude",
+        spec,
+        status="Running",
+        summary="Runtime progress.",
+    )
+
+    assert state.name == "claude"
+    assert state.provider == spec.provider.value
+    assert state.status == "Running"
+    assert state.summary == "Runtime progress."
+    assert state.configured_model == spec.model
+    assert state.context_window == spec.effective_context_budget
+    assert state.budget_source == "trinity_config"
 
 
 @pytest.mark.asyncio

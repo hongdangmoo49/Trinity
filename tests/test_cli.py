@@ -646,9 +646,8 @@ class TestProjectAnalyze:
 
             assert result.exit_code == 0
             assert "No project intake recorded." in result.output
-            assert "Start guide:" in result.output
-            assert "Project start: workspace: select workspace" in result.output
-            assert "next: describe analysis or work" in result.output
+            assert "Start guide:" not in result.output
+            assert "Project start:" not in result.output
             assert "Run `trinity` in the workspace you want to use" in result.output
             assert "Describe whether you want analysis" in result.output
             assert "Use `/project` inside Trinity" in result.output
@@ -729,9 +728,8 @@ class TestProjectAnalyze:
                 "Summary: Project intake: existing | target: customer-app | "
                 "updated:"
             ) in result.output
-            assert "Start guide:" in result.output
-            assert "Project start: workspace: ready" in result.output
-            assert "next: describe analysis or work" in result.output
+            assert "Start guide:" not in result.output
+            assert "Project start:" not in result.output
             assert "Read-first checklist:" in result.output
             assert "Mode: existing" in result.output
             assert "Target name: customer-app" in result.output

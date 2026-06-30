@@ -1159,16 +1159,9 @@ def _display_project_intake_summary(
 
 
 def _display_missing_project_intake_status(state_dir: Path | None = None) -> None:
-    start_guide = (
-        project_start_choice_guide_label(state_dir)
-        if state_dir is not None
-        else ""
-    )
     body = "\n".join(
         [
             "[yellow]No project intake recorded.[/yellow]",
-            "",
-            *_project_start_guide_status_lines(start_guide),
             "",
             (
                 "Run `trinity` in the workspace you want to use, "
@@ -1549,15 +1542,6 @@ def _display_project_status(
         "[green]Project intake active.[/green]",
         f"Summary: {format_project_intake_label(intake)}",
     ]
-    if state_dir is not None:
-        lines.extend(
-            _project_start_guide_status_lines(
-                project_start_choice_guide_label(
-                    state_dir,
-                    target_workspace=intake.target_workspace,
-                )
-            )
-        )
     generation_preview = format_project_generation_preview_label(
         intake,
         target_workspace=intake.target_workspace,
@@ -1624,13 +1608,6 @@ def _display_project_status(
     )
     body = "\n".join(lines)
     console.print(Panel.fit(body, title="Trinity Project"))
-
-
-def _project_start_guide_status_lines(start_guide: str) -> list[str]:
-    if not start_guide:
-        return ["Start guide:", "  (unavailable)"]
-    parts = [part.strip() for part in start_guide.split(" | ") if part.strip()]
-    return ["Start guide:", *(f"  {part}" for part in parts)]
 
 
 def _unknown_if_none(value: int | None) -> str:

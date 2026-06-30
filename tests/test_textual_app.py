@@ -3584,7 +3584,7 @@ def test_central_agent_view_localizes_korean_execution_progress() -> None:
         ],
     )
 
-    assert view._execution_progress(snapshot) == (
+    assert view.execution_progress(snapshot) == (
         "실행 중: 1 완료 / 1 실행 중 / 1 대기 / 1 막힘"
     )
 
@@ -3615,7 +3615,7 @@ def test_central_agent_view_keeps_english_execution_progress() -> None:
         ],
     )
 
-    assert view._execution_progress(snapshot) == (
+    assert view.execution_progress(snapshot) == (
         "Executing: 1 done / 1 running / 1 waiting"
     )
 

@@ -38,6 +38,7 @@ TEXTUAL_SLASH_COMMAND_ROUTES: dict[str, TextualSlashCommandRoute] = {
     "status": TextualSlashCommandRoute("_handle_textual_status_command", "name"),
     "project": TextualSlashCommandRoute("_handle_textual_project_command", "name_args"),
     "providers": TextualSlashCommandRoute("_handle_textual_providers_command"),
+    "workspace": TextualSlashCommandRoute("_handle_textual_workspace_command"),
     "workflow": TextualSlashCommandRoute("_handle_textual_workflow_command", "name"),
     "questions": TextualSlashCommandRoute(
         "_handle_textual_questions_command",

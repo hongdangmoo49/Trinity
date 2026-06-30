@@ -134,7 +134,7 @@ class CentralAgentView(VerticalScroll):
         action_plan = central_action_plan(snapshot)
         actions_key = self._action_plan_key(action_plan)
         if actions_key != self._actions_key:
-            self._render_blueprint_actions(action_plan)
+            self.render_blueprint_actions(action_plan)
             self._actions_key = actions_key
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -530,7 +530,7 @@ class CentralAgentView(VerticalScroll):
     def _should_show_blueprint_actions(snapshot: WorkflowNexusSnapshot) -> bool:
         return should_show_blueprint_actions(snapshot)
 
-    def _render_blueprint_actions(self, plan: CentralActionPlan) -> None:
+    def render_blueprint_actions(self, plan: CentralActionPlan) -> None:
         container = self._actions_grid()
         container.remove_children()
         self._button_actions = {}

@@ -610,13 +610,13 @@ async def test_central_apply_snapshot_skips_unchanged_action_plan_render() -> No
         await pilot.pause()
 
         renders: list[object] = []
-        original_render = view._render_blueprint_actions
+        original_render = view.render_blueprint_actions
 
         def counted_render(plan) -> None:
             renders.append(plan)
             original_render(plan)
 
-        view._render_blueprint_actions = counted_render
+        view.render_blueprint_actions = counted_render
 
         view.apply_snapshot(second)
         await pilot.pause()
@@ -703,7 +703,7 @@ async def test_central_action_render_skips_unchanged_title_update() -> None:
             ),
         )
 
-        view._render_blueprint_actions(first)
+        view.render_blueprint_actions(first)
         await pilot.pause()
 
         title = view.query_one("#central-action-title", Static)
@@ -716,11 +716,11 @@ async def test_central_action_render_skips_unchanged_title_update() -> None:
 
         title.update = counted_update
 
-        view._render_blueprint_actions(second)
+        view.render_blueprint_actions(second)
         await pilot.pause()
         assert updates == []
 
-        view._render_blueprint_actions(CentralActionPlan())
+        view.render_blueprint_actions(CentralActionPlan())
         await pilot.pause()
         assert updates == [""]
 

@@ -136,6 +136,9 @@ class TestBuildRoundPrompt:
 
         assert "Target Workspace Context" in prompt
         assert str(target.resolve()) in prompt
+        assert "User Intent Handling" in prompt
+        assert "Treat the selected workspace as context" in prompt
+        assert "requires_execution" in prompt
         assert "Design route bot" in prompt
 
     def test_round_prompt_includes_project_intake_context(self, tmp_path):

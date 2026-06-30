@@ -449,6 +449,44 @@ def project_intake_prompt_block(
     return "\n".join(sections)
 
 
+def target_workspace_context_block(target_workspace: object | None) -> str:
+    """Return the provider prompt block for a selected target workspace."""
+    target = str(target_workspace or "").strip()
+    if not target:
+        return ""
+    return "\n".join(
+        [
+            "Target Workspace Context:",
+            f"- Target workspace: {target}",
+            (
+                "- Scope project file references and implementation artifacts to "
+                "this workspace."
+            ),
+            (
+                "- The Trinity control repository is orchestration state unless "
+                "it was explicitly selected as the target workspace."
+            ),
+            "User Intent Handling:",
+            (
+                "- Treat the selected workspace as context, not as a request to "
+                "edit it by itself."
+            ),
+            (
+                "- Infer whether the user wants analysis/planning or "
+                "implementation from the user's words."
+            ),
+            (
+                "- Mark tasks as requires_execution only when the user clearly "
+                "asks for file changes, implementation, execution, or delivery."
+            ),
+            (
+                "- If intent is ambiguous, ask a clarifying question or keep the "
+                "plan analysis-only."
+            ),
+        ]
+    )
+
+
 def project_intake_target_guard_block(
     state_dir: Path,
     *,

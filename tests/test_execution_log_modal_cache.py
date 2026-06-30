@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 from textual.app import App
-from textual.widgets import Input, RichLog, Static
+from textual.widgets import Button, Input, RichLog, Static
 
 from trinity.textual_app.widgets.execution_log_modal import ExecutionLogModal
 
@@ -227,3 +227,32 @@ async def test_execution_log_modal_recompose_rebinds_render_keys() -> None:
         assert status_updates == ["Showing 1 of 1 matches"]
         assert writes
         assert set(writes) == {"WP-002 failed with provider error"}
+
+
+@pytest.mark.asyncio
+async def test_execution_log_modal_keeps_controls_inside_narrow_viewport() -> None:
+    modal = ExecutionLogModal(
+        [
+            f"WP-{index:03d} produced a very long execution log line with details"
+            for index in range(700)
+        ]
+    )
+    app = ExecutionLogModalHarness(modal)
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        shell = modal.query_one("#execution-log-modal")
+
+        for widget_id in (
+            "#execution-log-modal-title",
+            "#execution-log-search",
+            "#execution-log-search-status",
+            "#execution-log-modal-body",
+            "#close-execution-log",
+        ):
+            widget = modal.query_one(widget_id)
+            assert widget.region.y >= shell.region.y
+            assert widget.region.y + widget.region.height <= (
+                shell.region.y + shell.region.height
+            )
+        assert str(modal.query_one("#close-execution-log", Button).label) == "Close"

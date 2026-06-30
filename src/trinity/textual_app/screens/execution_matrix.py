@@ -496,6 +496,7 @@ class ExecutionMatrixScreen(Screen[None]):
         self._chrome_render_key: tuple[object, ...] | None = None
         self._chrome_projection_cache: _ChromeProjection | None = None
         self._applied_state_identity: tuple[int | None, int] | None = None
+        self._render_content_key: tuple[object, ...] | None = None
         self._task_expanded_view_key: bool | None = None
         self._screen_container: Vertical | None = None
         self._header_widget: Static | None = None
@@ -568,7 +569,12 @@ class ExecutionMatrixScreen(Screen[None]):
         self.snapshot = snapshot
         if not self.is_mounted:
             return
+        content_key = self._execution_render_content_key()
+        if self._render_content_key == content_key:
+            self._applied_state_identity = state_identity
+            return
         self._applied_state_identity = state_identity
+        self._render_content_key = content_key
         self._render_chrome()
         self._sync_task_expanded_view()
         self._render_package_list()
@@ -578,6 +584,7 @@ class ExecutionMatrixScreen(Screen[None]):
         if not self.is_mounted:
             return
         self._applied_state_identity = None
+        self._render_content_key = None
         self._activity_lines_key = ()
         self._execution_log().write(line)
 
@@ -689,6 +696,7 @@ class ExecutionMatrixScreen(Screen[None]):
         self._chrome_render_key = None
         self._chrome_projection_cache = None
         self._applied_state_identity = None
+        self._render_content_key = None
         self._task_expanded_view_key = None
 
     def _execution_screen(self) -> Vertical:
@@ -797,6 +805,19 @@ class ExecutionMatrixScreen(Screen[None]):
             self._package_rows[projection.identity] = row
             self._package_row_keys[projection.identity] = projection.render_key
         self._package_list_identity = identity
+
+    def _execution_render_content_key(self) -> tuple[object, ...]:
+        projections = self._package_row_projections()
+        return (
+            str(self.preflight.path) if self.preflight is not None else "",
+            self.tasks_expanded,
+            self._chrome_projection().render_key,
+            tuple(
+                (projection.identity, projection.render_key)
+                for projection in projections
+            ),
+            tuple(self._activity_lines()),
+        )
 
     def _package_row_projections(self) -> list[_PackageRowProjection]:
         task_width = self._task_clip_width()

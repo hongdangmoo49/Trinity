@@ -71,11 +71,11 @@ class StartScreen(Screen[None]):
             self.text = text
 
     BINDINGS = [
-        ("ctrl+enter", "submit", "Plan"),
+        ("ctrl+enter", "submit", "Send"),
     ]
 
     LOCALIZED_BINDINGS = {
-        ("ctrl+enter", "submit"): ("binding_plan", None),
+        ("ctrl+enter", "submit"): ("binding_send", None),
     }
 
     def __init__(

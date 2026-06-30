@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.928`
-- Merged PR range reviewed: #90 through #1089
+- Package version inspected: `1.0.929`
+- Merged PR range reviewed: #90 through #1090
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1089
-- Latest refresh reviewed: #1089
+- Maintenance refresh reviewed: #427 through #1090
+- Latest refresh reviewed: #1090
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1089: Prompt-Led Workbench Simplification
+### #977-#1090: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2302,6 +2302,8 @@ and what the next release train should optimize.
   capture.
 - Simplified the `/target` current-state hint so it points to the slash command
   directly instead of implying a persistent Select Workspace action.
+- Unified the Start submit binding label with the composer/Nexus `Send` wording
+  so the first screen no longer exposes a separate Plan action label.
 
 This refresh moves the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root

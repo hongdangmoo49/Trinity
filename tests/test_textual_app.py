@@ -689,9 +689,9 @@ def test_status_modal_uses_korean_chrome_labels() -> None:
     result = LocalCommandSnapshot(command="/status", title="Status", body="status")
     modal = StatusCommandModal(result, lang="ko")
 
-    assert modal._label("title") == "상태"
-    assert modal._label("body").startswith("현재 로컬 상태")
-    assert modal._label("close") == "닫기"
+    assert modal.label_text("title") == "상태"
+    assert modal.label_text("body").startswith("현재 로컬 상태")
+    assert modal.label_text("close") == "닫기"
     assert modal.status_table_text() == "(상태 행 없음)"
 
 

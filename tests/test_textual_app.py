@@ -3740,42 +3740,20 @@ def test_initial_workspace_candidate_keeps_control_repo_launch_cwd(
     tmp_path,
 ) -> None:
     control_repo = tmp_path / "control"
-    target_workspace = tmp_path / "customer-app"
     control_repo.mkdir()
-    target_workspace.mkdir()
-    config = TrinityConfig.default_config(project_dir=control_repo)
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="existing",
-            target_workspace=target_workspace,
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
 
-    assert initial_workspace_candidate(config, control_repo) == control_repo
+    assert initial_workspace_candidate(control_repo) == control_repo
 
 
 def test_initial_workspace_candidate_prefers_distinct_launch_cwd(
     tmp_path,
 ) -> None:
     control_repo = tmp_path / "control"
-    saved_target = tmp_path / "saved-app"
     launch_cwd = tmp_path / "launch-app"
     control_repo.mkdir()
-    saved_target.mkdir()
     launch_cwd.mkdir()
-    config = TrinityConfig.default_config(project_dir=control_repo)
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="existing",
-            target_workspace=saved_target,
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
 
-    assert initial_workspace_candidate(config, launch_cwd) == launch_cwd
+    assert initial_workspace_candidate(launch_cwd) == launch_cwd
 
 
 @pytest.mark.asyncio

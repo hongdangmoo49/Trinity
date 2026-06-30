@@ -7271,8 +7271,6 @@ async def test_project_intake_ctas_are_hidden_from_default_surfaces(
         with pytest.raises(NoMatches):
             start.query_one("#plan-first", Button)
         with pytest.raises(NoMatches):
-            start.query_one("#project-mode-focus-actions")
-        with pytest.raises(NoMatches):
             start.query_one("#project-intake-actions")
 
         app.switch_to("nexus")

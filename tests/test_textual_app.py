@@ -297,6 +297,12 @@ class ScreenHarness(App[None]):
         self.push_screen(self.target_screen)
 
 
+def _press_nexus_button(app: TrinityTextualApp, selector: str) -> None:
+    nexus = app.get_screen("nexus", NexusScreen)
+    button = nexus.query_one(selector, Button)
+    nexus.on_button_pressed(Button.Pressed(button))
+
+
 class FakeWorkflowController:
     def __init__(self, snapshot: WorkflowNexusSnapshot | None = None) -> None:
         self.current_snapshot = snapshot or WorkflowNexusSnapshot()
@@ -7192,6 +7198,29 @@ async def test_screen_and_composer_bindings_use_configured_language(tmp_path) ->
 
 
 @pytest.mark.asyncio
+async def test_project_intake_ctas_are_hidden_from_default_surfaces(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        assert start.query_one("#plan-first", Button).styles.display == "none"
+        assert start.query_one("#project-mode-focus-actions").styles.display == "none"
+        assert start.query_one("#project-intake-actions").styles.display == "none"
+
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        assert (
+            nexus.query_one("#nexus-project-intake-actions").styles.display == "none"
+        )
+
+
+@pytest.mark.asyncio
 async def test_start_and_central_chrome_uses_korean_labels(
     tmp_path,
     monkeypatch,
@@ -7393,7 +7422,7 @@ async def test_prompt_composer_scrolls_slash_command_window(tmp_path) -> None:
         composer.focus_text_area()
         await pilot.pause()
 
-        for _ in range(COMMAND_LIMIT + 2):
+        for _ in range(COMMAND_LIMIT + 3):
             await pilot.press("down")
         await pilot.pause()
 
@@ -12333,7 +12362,7 @@ async def test_nexus_analyze_workspace_button_writes_project_intake(tmp_path) ->
         app.switch_to("nexus")
         await pilot.pause()
 
-        await pilot.click("#nexus-analyze-workspace")
+        _press_nexus_button(app, "#nexus-analyze-workspace")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectAnchorsModal)
@@ -12400,7 +12429,7 @@ async def test_nexus_continue_setup_opens_existing_scope_picker(tmp_path) -> Non
         app.switch_to("nexus")
         await pilot.pause()
 
-        await pilot.click("#nexus-continue-project-setup")
+        _press_nexus_button(app, "#nexus-continue-project-setup")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectScopeModal)
@@ -12450,7 +12479,7 @@ async def test_nexus_continue_setup_opens_project_validation_modal_for_existing(
         app.switch_to("nexus")
         await pilot.pause()
 
-        await pilot.click("#nexus-continue-project-setup")
+        _press_nexus_button(app, "#nexus-continue-project-setup")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectValidationModal)
@@ -12498,7 +12527,7 @@ async def test_nexus_analyze_workspace_empty_target_opens_project_brief(
         app.switch_to("nexus")
         await pilot.pause()
 
-        await pilot.click("#nexus-analyze-workspace")
+        _press_nexus_button(app, "#nexus-analyze-workspace")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
@@ -12534,7 +12563,7 @@ async def test_nexus_analyze_workspace_preserves_existing_followup_prompt(
         nexus.query_one("#nexus-composer", PromptComposer).set_text(
             "Keep my follow-up."
         )
-        await pilot.click("#nexus-analyze-workspace")
+        _press_nexus_button(app, "#nexus-analyze-workspace")
         await pilot.pause()
 
         intake = load_project_intake(app.config.effective_state_dir)
@@ -12567,7 +12596,7 @@ async def test_nexus_analyze_workspace_picker_opens_brief_for_empty_target(
         app.switch_to("nexus")
         await pilot.pause()
 
-        await pilot.click("#nexus-analyze-workspace")
+        _press_nexus_button(app, "#nexus-analyze-workspace")
         await pilot.pause()
 
         picker = app.screen
@@ -12605,7 +12634,7 @@ async def test_nexus_edit_project_brief_button_writes_project_brief(
         app.switch_to("nexus")
         await pilot.pause()
 
-        await pilot.click("#nexus-edit-project-brief")
+        _press_nexus_button(app, "#nexus-edit-project-brief")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
@@ -12691,7 +12720,7 @@ async def test_nexus_edit_project_brief_preserves_existing_followup_prompt(
         nexus.query_one("#nexus-composer", PromptComposer).set_text(
             "Keep this follow-up."
         )
-        await pilot.click("#nexus-edit-project-brief")
+        _press_nexus_button(app, "#nexus-edit-project-brief")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
@@ -12745,7 +12774,7 @@ async def test_nexus_create_project_button_creates_new_project_intake(
         app.switch_to("nexus")
         await pilot.pause()
 
-        await pilot.click("#nexus-create-project")
+        _press_nexus_button(app, "#nexus-create-project")
         await pilot.pause()
         await pilot.pause()
 

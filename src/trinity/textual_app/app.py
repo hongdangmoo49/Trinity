@@ -883,10 +883,13 @@ class TrinityTextualApp(App[None]):
         margin-top: 1;
     }
 
+    #plan-first,
     #project-startup-readiness,
     #project-intake-summary,
     #project-existing-diagnostic,
     #project-start-choice-guide,
+    #project-mode-focus-actions,
+    #project-intake-actions,
     #project-mode-rail,
     #project-plan-preview,
     #project-generation-preview,
@@ -1316,6 +1319,7 @@ class TrinityTextualApp(App[None]):
     #nexus-project-intake-summary,
     #nexus-project-existing-diagnostic,
     #nexus-project-start-choice-guide,
+    #nexus-project-intake-actions,
     #nexus-project-mode-rail,
     #nexus-project-plan-preview,
     #nexus-project-generation-preview,

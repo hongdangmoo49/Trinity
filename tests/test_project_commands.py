@@ -18,6 +18,8 @@ def test_project_command_presentation_uses_selected_workspace(tmp_path) -> None:
     assert f"대상 워크스페이스: {target}" in presentation.body
     assert "시작 준비:" in presentation.body
     assert "인테이크" in presentation.body
+    assert "프로젝트 시작:" not in presentation.body
+    assert "프로젝트 모드:" not in presentation.body
 
 
 def test_project_command_presentation_marks_missing_target(tmp_path) -> None:
@@ -25,4 +27,9 @@ def test_project_command_presentation_marks_missing_target(tmp_path) -> None:
 
     assert presentation.title == "Project Diagnostics"
     assert "Target workspace: not selected" in presentation.body
-    assert presentation.action_hint.endswith("/project.")
+    assert "Project start:" not in presentation.body
+    assert "Project mode:" not in presentation.body
+    assert presentation.action_hint == (
+        "Open the main project tools with /project workspace, "
+        "/project analyze, or /project brief."
+    )

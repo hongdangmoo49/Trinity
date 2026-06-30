@@ -707,7 +707,7 @@ def test_local_command_modal_uses_korean_close_label() -> None:
     result = LocalCommandSnapshot(command="/workflow", title="Workflow", body="body")
     modal = LocalCommandModal(result, lang="ko")
 
-    assert modal._label("close") == "닫기"
+    assert modal.label_text("close") == "닫기"
 
 
 def test_resume_picker_modal_centers() -> None:

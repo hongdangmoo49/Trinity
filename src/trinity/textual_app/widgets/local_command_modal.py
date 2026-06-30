@@ -53,7 +53,7 @@ class LocalCommandModal(ModalScreen[None]):
                     )
                 if self.result.action_hint:
                     yield Static(self.result.action_hint, id="local-command-hint")
-            yield Button(self._label("close"), id="close-local-command")
+            yield Button(self.label_text("close"), id="close-local-command")
         yield Footer()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -83,7 +83,7 @@ class LocalCommandModal(ModalScreen[None]):
             lines.append("  ".join(cells).rstrip())
         return "\n".join(lines)
 
-    def _label(self, key: str) -> str:
+    def label_text(self, key: str) -> str:
         labels = LOCAL_COMMAND_MODAL_LABELS.get(
             self.lang, LOCAL_COMMAND_MODAL_LABELS["en"]
         )

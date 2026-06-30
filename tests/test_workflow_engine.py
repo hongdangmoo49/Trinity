@@ -2361,6 +2361,9 @@ def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_execution_intent("would it be safe to remove this module") is False
     assert classify_execution_intent("allowed to update this package") is False
     assert classify_execution_intent("please update dependencies safely") is True
+    assert classify_execution_intent("tradeoffs for update strategy") is False
+    assert classify_execution_intent("downsides of rename") is False
+    assert classify_execution_intent("change this API") is True
     assert classify_execution_intent("이 프로젝트를 설명해라") is False
     assert classify_execution_intent("수정할 곳을 알려줘") is False
     assert classify_execution_intent("리뷰하고 수정할 곳을 알려줘") is False

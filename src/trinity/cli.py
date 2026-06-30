@@ -542,9 +542,9 @@ def _init_interactive(
         )
     elif intake_paths is not None:
         summary_lines.append(f"  Project intake: {intake_paths.markdown_path}")
-        summary_lines.append(_project_intake_next_steps(project_mode))
+        summary_lines.append(_project_intake_next_steps())
     elif project_mode == "new":
-        summary_lines.append(_project_intake_next_steps(project_mode))
+        summary_lines.append(_project_intake_next_steps())
 
     summary_lines.append(
         f"\n{S.summary_start_hint}\n"
@@ -604,12 +604,12 @@ def _init_default(
     )
     intake_line = (
         f"  Project intake: {intake_paths.markdown_path}\n"
-        f"{_project_intake_next_steps(project_mode)}\n"
+        f"{_project_intake_next_steps()}\n"
         if intake_paths is not None and not new_project_line
         else ""
     )
     next_steps_line = (
-        f"{_project_intake_next_steps(project_mode)}\n"
+        f"{_project_intake_next_steps()}\n"
         if project_mode == "new" and intake_paths is None and not new_project_line
         else ""
     )
@@ -627,17 +627,14 @@ def _init_default(
     ))
 
 
-def _project_intake_next_steps(mode: str | None = "existing") -> str:
-    steps = ["  Next steps:"]
-    if mode == "new":
-        steps.append("    trinity project new NAME --parent PATH")
-    steps.extend(
+def _project_intake_next_steps() -> str:
+    return "\n".join(
         [
+            "  Next steps:",
             "    trinity project status",
             "    trinity",
         ]
     )
-    return "\n".join(steps)
 
 
 def _project_intake_next_steps_for_intake(intake: ProjectIntake) -> str:

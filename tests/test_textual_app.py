@@ -668,7 +668,7 @@ def test_status_modal_centers_and_uses_read_only_table() -> None:
         table_rows=(("Workflow", "(new)"),),
     )
 
-    text = StatusCommandModal(result)._status_table_text()
+    text = StatusCommandModal(result).status_table_text()
 
     assert "Item" in text
     assert "Value" in text
@@ -692,7 +692,7 @@ def test_status_modal_uses_korean_chrome_labels() -> None:
     assert modal._label("title") == "상태"
     assert modal._label("body").startswith("현재 로컬 상태")
     assert modal._label("close") == "닫기"
-    assert modal._status_table_text() == "(상태 행 없음)"
+    assert modal.status_table_text() == "(상태 행 없음)"
 
 
 def test_context_modal_uses_korean_chrome_labels() -> None:

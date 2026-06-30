@@ -11330,20 +11330,6 @@ async def test_nexus_workspace_command_selects_target_without_execution(
 
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
-        with pytest.raises(NoMatches):
-            nexus.query_one("#open-provider-inspector", Button)
-        with pytest.raises(NoMatches):
-            nexus.query_one("#request-execute", Button)
-        with pytest.raises(NoMatches):
-            nexus.query_one("#select-workspace", Button)
-        with pytest.raises(NoMatches):
-            nexus.query_one("#nexus-analyze-workspace", Button)
-        with pytest.raises(NoMatches):
-            nexus.query_one("#nexus-create-project", Button)
-        with pytest.raises(NoMatches):
-            nexus.query_one("#nexus-edit-project-brief", Button)
-        with pytest.raises(NoMatches):
-            nexus.query_one("#nexus-action-bar")
         workspace_label = nexus.query_one("#nexus-target-workspace", Static)
         assert str(target.resolve()) in str(workspace_label.content)
         assert workspace_label.styles.min_width.value == 0

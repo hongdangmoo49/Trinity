@@ -1811,6 +1811,7 @@ async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> 
             "#start-recipient-selector",
             AgentRecipientModelSelector,
         )
+        assert start_selector.query_one(".recipient-label").styles.min_width.value == 4
         assert start_selector.selected_agents() == ("claude", "codex")
         claude_toggle = start_selector.query_one("#recipient-claude", AgentToggle)
         codex_toggle = start_selector.query_one("#recipient-codex", AgentToggle)
@@ -1832,6 +1833,7 @@ async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> 
             "#nexus-recipient-selector",
             AgentRecipientModelSelector,
         )
+        assert nexus_selector.query_one(".recipient-label").styles.min_width.value == 4
         assert nexus_selector.selected_agents() == ("claude", "codex")
         assert nexus_selector.selected_model("claude") == "default"
         assert nexus_selector.query_one("#recipient-antigravity", AgentToggle).value is False

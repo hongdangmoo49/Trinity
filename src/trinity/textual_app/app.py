@@ -765,7 +765,7 @@ class TrinityTextualApp(App[None]):
 
     .recipient-label {
         width: auto;
-        min-width: 10;
+        min-width: 4;
         content-align: left middle;
         color: $text-muted;
         margin-right: 1;

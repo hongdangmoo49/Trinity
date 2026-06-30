@@ -8,7 +8,7 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Header, Static
+from textual.widgets import Footer, Header, Static
 
 from trinity.config import TrinityConfig
 from trinity.providers.model_discovery import ProviderModelChoice
@@ -28,12 +28,10 @@ START_LABELS = {
     "en": {
         "placeholder": "What should Trinity work on?",
         "select_agent_warning": "Select at least one agent.",
-        "select_workspace": "Workspace",
     },
     "ko": {
         "placeholder": "Trinity가 무엇을 진행하면 될까요?",
         "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
-        "select_workspace": "작업 폴더",
     },
 }
 
@@ -83,9 +81,6 @@ class StartScreen(Screen[None]):
         def __init__(self, text: str) -> None:
             super().__init__()
             self.text = text
-
-    class WorkspaceRequested(Message):
-        """Posted when the user wants to choose a workspace candidate early."""
 
     BINDINGS = [
         ("ctrl+enter", "submit", "Plan"),
@@ -144,11 +139,6 @@ class StartScreen(Screen[None]):
                     )
                     self._workspace_label_widget = workspace_label
                     yield workspace_label
-                    yield Button(
-                        self._label("select_workspace"),
-                        id="choose-workspace",
-                        variant="default",
-                    )
         yield Footer()
 
     def on_mount(self) -> None:
@@ -189,12 +179,6 @@ class StartScreen(Screen[None]):
         event: AgentRecipientModelSelector.SelectionChanged,
     ) -> None:
         event.stop()
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        button_id = event.button.id
-        if button_id == "choose-workspace":
-            event.stop()
-            self.post_message(self.WorkspaceRequested())
 
     def action_submit(self) -> None:
         composer = self._prompt_composer()

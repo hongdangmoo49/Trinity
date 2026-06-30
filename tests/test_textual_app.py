@@ -12115,6 +12115,7 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
         ]
         workspace_label = nexus.query_one("#nexus-target-workspace", Static)
         assert str(target.resolve()) in str(workspace_label.content)
+        assert workspace_label.styles.min_width.value == 0
         assert workspace_label.styles.height.value == 3
         assert workspace_label.styles.content_align_vertical == "bottom"
 
@@ -12140,6 +12141,38 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
         assert str(nexus.query_one("#select-workspace", Button).label) == (
             "Select Workspace"
         )
+
+
+@pytest.mark.asyncio
+async def test_nexus_action_bar_stays_within_narrow_width(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target-app-with-a-very-long-directory-name"
+    control_repo.mkdir()
+    target.mkdir()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        controller,
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(80, 36)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        widgets = (
+            nexus.query_one("#open-provider-inspector", Button),
+            nexus.query_one("#select-workspace", Button),
+            nexus.query_one("#nexus-target-workspace", Static),
+            nexus.query_one("#request-execute", Button),
+        )
+        for widget in widgets:
+            assert widget.region.x >= 0
+            assert widget.region.x + widget.region.width <= nexus.size.width
 
 
 @pytest.mark.asyncio

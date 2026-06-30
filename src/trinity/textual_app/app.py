@@ -1198,6 +1198,7 @@ class TrinityTextualApp(App[None]):
 
     #nexus-target-workspace {
         width: 1fr;
+        min-width: 0;
         height: 3;
         margin-left: 2;
         content-align: left bottom;

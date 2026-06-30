@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from trinity.textual_app.snapshot import ProviderSnapshot
-from trinity.textual_app.widgets.provider_inspector import ProviderInspector
+from trinity.textual_app.widgets.provider_inspector import (
+    format_provider_inspector_output,
+    provider_inspector_provider_output,
+)
 
 
-def test_provider_inspector_caches_formatted_provider_output(monkeypatch) -> None:
+def test_provider_inspector_caches_formatted_provider_output() -> None:
     provider = ProviderSnapshot(
         name="codex",
         provider="codex",
@@ -12,18 +15,23 @@ def test_provider_inspector_caches_formatted_provider_output(monkeypatch) -> Non
         status="Ready",
         raw_output='{"name":"Trinity","items":[{"id":1}]}',
     )
-    inspector = ProviderInspector([provider])
-    original_format_output = inspector._format_output
+    formatted_cache: dict[str, str] = {}
     calls: list[str] = []
 
     def counted_format_output(output: str, *, lang: str = "en") -> str:
         calls.append(output)
-        return original_format_output(output, lang=lang)
+        return format_provider_inspector_output(output, lang=lang)
 
-    monkeypatch.setattr(inspector, "_format_output", counted_format_output)
-
-    first = inspector._provider_output(provider)
-    second = inspector._provider_output(provider)
+    first = provider_inspector_provider_output(
+        provider,
+        formatted_output_cache=formatted_cache,
+        format_output=counted_format_output,
+    )
+    second = provider_inspector_provider_output(
+        provider,
+        formatted_output_cache=formatted_cache,
+        format_output=counted_format_output,
+    )
 
     assert first == second
     assert calls == [provider.raw_output]

@@ -5,10 +5,10 @@ Branch: `feature/project-intake-target-name-summary`
 
 ## Problem
 
-Start and Nexus already display the selected target workspace separately from
-the saved project intake summary. The intake summary says whether the mode is
-`new` or `existing`, when it was updated, tests, Git state, source roots, and
-brief fields.
+`/project` diagnostics and `trinity project status` display the selected target
+workspace separately from the saved project intake summary. The compact summary
+says whether the mode is `new` or `existing`, when it was updated, tests, Git
+state, source roots, and brief fields.
 
 However, users still need to compare labels mentally to confirm which project
 the saved intake belongs to. This is especially awkward when:
@@ -21,7 +21,7 @@ the saved intake belongs to. This is especially awkward when:
 
 ## Proposed UX
 
-Add a compact target name segment near the front of the saved project intake
+Keep a compact target name segment near the front of the saved project intake
 summary:
 
 ```text
@@ -39,15 +39,17 @@ resolved target path string.
 
 ## Scope
 
-- Update `format_project_intake_label()` through its existing internal helper.
+- Update the shared compact project-intake summary formatter through its
+  existing internal helper.
 - Keep missing-intake and invalid-intake labels unchanged.
 - Do not change target mismatch or target missing semantics.
-- Keep the full target path visible in the dedicated workspace label.
+- Keep the full target path visible in the dedicated workspace/diagnostic
+  detail surfaces.
 
 ## Validation
 
-- Update focused Start/Nexus presenter tests that assert project-intake summary
-  strings.
+- Update shared formatter and CLI status tests that assert project-intake
+  summary strings.
 - Run:
-  - `uv run pytest tests/test_start_screen.py -q`
+  - `uv run pytest tests/test_start_screen.py tests/test_cli.py -q`
   - `uv run python scripts/run_required_smoke_tests.py -q`

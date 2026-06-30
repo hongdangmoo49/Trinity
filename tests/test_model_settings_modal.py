@@ -265,3 +265,42 @@ async def test_model_settings_modal_rebinds_choice_list_cache_after_refresh(
         assert modal._choice_list_widget is not None
         assert modal._choice_list_widget is not first_choice_list
         assert modal._choice_list_widget.highlighted == 1
+
+
+@pytest.mark.asyncio
+async def test_model_settings_modal_keeps_actions_inside_narrow_viewport(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    choices = {
+        name: tuple(
+            ProviderModelChoice(
+                provider=spec.provider,
+                model=f"{name}-very-long-model-identifier-{index}",
+                label=f"{name} very long model label {index} with extra details",
+                source="cli-live",
+                context_budget=1_000_000 + index,
+            )
+            for index in range(12)
+        )
+        for name, spec in config.agents.items()
+    }
+    modal = ModelSettingsModal(config.agents, choices, {}, lang="en")
+    app = ModelSettingsModalHarness(modal)
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        shell = modal.query_one("#model-settings-modal")
+
+        for widget_id in (
+            "#model-settings-title",
+            "#model-settings-body",
+            "#model-settings-actions",
+            "#cancel-model-settings",
+            "#apply-model-settings",
+        ):
+            widget = modal.query_one(widget_id)
+            assert widget.region.y >= shell.region.y
+            assert widget.region.y + widget.region.height <= (
+                shell.region.y + shell.region.height
+            )

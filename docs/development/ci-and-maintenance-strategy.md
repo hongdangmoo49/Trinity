@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.781`
-- Merged PR range reviewed: #90 through #878
+- Package version inspected: `1.0.857`
+- Merged PR range reviewed: #90 through #1017
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #878
-- Latest refresh reviewed: #878
+- Maintenance refresh reviewed: #427 through #1017
+- Latest refresh reviewed: #1017
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2129,11 +2129,53 @@ and what the next release train should optimize.
   save, and target isolation behavior.
 - Raised the package version from `1.0.780` to `1.0.781` in this patch PR.
 
-This refresh moved the project further from "large batch of one-PR plans" to a
+### #879-#889: Project Intake Preview Expansion
+
+- Added target-aware existing analysis prompts, anchor review, scope previews,
+  starter profiles, generation previews, validation previews, and read-first
+  checklists.
+- Continued improving new-project and existing-project intake context before
+  the later Workbench simplification pass.
+
+### #890-#940: Project Safety Gates and Runtime Feedback
+
+- Added provider execution/review policy, handoff context, launch CWD priority,
+  target mismatch recovery, generation conflict previews, execute
+  acknowledgement, self-check review, read-first evidence, execution risk gates,
+  and run estimates.
+- Expanded project confirmation, scope, validation, starter preset, dry-run,
+  and diagnostic flows before those controls were later consolidated.
+
+### #941-#954: Start/Nexus Density and Provider Notice Cleanup
+
+- Shifted project command output toward diagnostics.
+- Tightened workspace labels, provider inspector copy, recipient controls, and
+  Start geometry for narrower terminals.
+- Began moving provider notices out of persistent screen chrome.
+
+### #955-#976: Narrow Viewport and Render Cost Hardening
+
+- Added narrow-layout coverage for Nexus, command/modals, project confirmation
+  dialogs, model settings, work package detail, execution logs, and retry
+  modals.
+- Reduced repeated execution matrix row/action/log reconciliation work.
+
+### #977-#1017: Prompt-Led Workbench Simplification
+
+- Simplified the Nexus action bar and Start workspace action.
+- Added provider inspector and workspace slash commands.
+- Made `/project` diagnostics-only and removed workbench project setup slash
+  shortcuts, modal runtime paths, and unused project setup widgets.
+- Replaced button-led readiness with prompt-led `workbench_next_step` metadata.
+- Removed stale project CTA/selector tests, superseded Workbench action notes,
+  old Workbench plan reports, and obsolete init next-step wording.
+
+This refresh moves the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
-`docs/plans/` no longer contains 2026-06-27 one-PR plans. Older architecture
-and migration plans remain in the root; archive only the groups that have a
-current contract document, merged PR evidence, and focused test coverage.
+`docs/plans/` no longer contains the deleted 2026-06-05 Workbench plan/report
+set or the 2026-06-27 one-PR plans. Older architecture and migration plans
+remain in the root; archive only the groups that have a current contract
+document, merged PR evidence, and focused test coverage.
 
 ## Main Structure
 
@@ -2339,9 +2381,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #650:
+Current main snapshot after #1017:
 
-- `src/trinity/textual_app/app.py`: 2,829 lines
+- `src/trinity/textual_app/app.py`: 3,506 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

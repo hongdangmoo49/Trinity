@@ -122,6 +122,104 @@ def _provider_panel_empty_summary(*, lang: str = "en") -> str:
     return "응답 없음" if lang == "ko" else "No response yet"
 
 
+def provider_panel_provider_line(state: ProviderPanelState, *, lang: str = "en") -> str:
+    parts = [state.provider]
+    model = _provider_panel_model_label(state)
+    if model and model.lower() not in state.provider.lower():
+        parts.append(model)
+    context = _provider_panel_context_label(state, lang=lang)
+    if context:
+        parts.append(context)
+    session = state.session_id.strip()
+    if session:
+        parts.append(f"{_provider_panel_meta_label('session', lang=lang)} {session[:8]}")
+    output_contract = state.output_contract.strip()
+    if output_contract:
+        parts.append(
+            f"{_provider_panel_meta_label('output', lang=lang)} "
+            f"{display_profile_value(output_contract, lang=lang)}"
+        )
+    quality = _provider_panel_quality_label(state, lang=lang)
+    if quality:
+        parts.append(quality)
+    return _compact_provider_panel_line(" · ".join(part for part in parts if part))
+
+
+def _provider_panel_model_label(state: ProviderPanelState) -> str:
+    return (
+        state.actual_model
+        or state.model_label
+        or state.configured_model
+    ).strip()
+
+
+def _provider_panel_context_label(
+    state: ProviderPanelState,
+    *,
+    lang: str = "en",
+) -> str:
+    if state.context_window <= 0:
+        return ""
+    label = (
+        f"{_provider_panel_meta_label('context', lang=lang)} "
+        f"{_format_provider_panel_context_window(state.context_window)}"
+    )
+    source = compact_source_value(state.budget_source, lang=lang)
+    if source:
+        label = f"{label}/{source}"
+    return label
+
+
+def _provider_panel_quality_label(
+    state: ProviderPanelState,
+    *,
+    lang: str = "en",
+) -> str:
+    if state.quality_signal_count <= 0:
+        return ""
+    label = _provider_panel_meta_label("quality", lang=lang)
+    score = _format_provider_panel_score(state.quality_score)
+    return (
+        f"{label} {score} "
+        f"{state.quality_success_count}/{state.quality_signal_count}"
+    )
+
+
+def _provider_panel_meta_label(key: str, *, lang: str = "en") -> str:
+    labels = {
+        "ko": {
+            "context": "컨텍스트",
+            "output": "출력",
+            "quality": "품질",
+            "session": "세션",
+        },
+        "en": {
+            "context": "ctx",
+            "output": "out",
+            "quality": "q",
+            "session": "sid",
+        },
+    }
+    return labels.get(lang, labels["en"]).get(key, key)
+
+
+def _format_provider_panel_context_window(context_window: int) -> str:
+    if context_window >= 1_000_000:
+        value = context_window / 1_000_000
+        return f"{value:g}M"
+    if context_window >= 1_000:
+        value = context_window / 1_000
+        return f"{value:g}K"
+    return str(context_window)
+
+
+def _format_provider_panel_score(score: float) -> str:
+    text = f"{score:.3f}".rstrip("0").rstrip(".")
+    if text == "-0":
+        return "0"
+    return text or "0"
+
+
 class ProviderPanel(Vertical):
     """Compact status surface for a provider."""
 
@@ -153,7 +251,10 @@ class ProviderPanel(Vertical):
             self._static_cache[".provider-status"] = status
             yield name
             yield status
-        meta = Static(self._provider_line(), classes="provider-meta")
+        meta = Static(
+            provider_panel_provider_line(self.state, lang=self.lang),
+            classes="provider-meta",
+        )
         summary = Static(
             provider_panel_summary_line(self.state, lang=self.lang),
             classes="provider-summary",
@@ -167,7 +268,10 @@ class ProviderPanel(Vertical):
         if state == self.state:
             return
         previous_name = self.state.name.title()
-        previous_provider_line = self._provider_line()
+        previous_provider_line = provider_panel_provider_line(
+            self.state,
+            lang=self.lang,
+        )
         previous_status_label = provider_panel_status_label(
             self.state,
             activity_frame=self._activity_frame,
@@ -183,7 +287,7 @@ class ProviderPanel(Vertical):
         if classes != previous_classes:
             self.set_classes(classes)
         name = state.name.title()
-        provider_line = self._provider_line()
+        provider_line = provider_panel_provider_line(self.state, lang=self.lang)
         status_label = provider_panel_status_label(
             self.state,
             activity_frame=self._activity_frame,
@@ -216,28 +320,6 @@ class ProviderPanel(Vertical):
     def has_running_activity(self) -> bool:
         return provider_panel_state_group(self.state) == "running"
 
-    def _provider_line(self) -> str:
-        parts = [self.state.provider]
-        model = self._model_label()
-        if model and model.lower() not in self.state.provider.lower():
-            parts.append(model)
-        context = self._context_label()
-        if context:
-            parts.append(context)
-        session = self.state.session_id.strip()
-        if session:
-            parts.append(f"{self._meta_label('session')} {session[:8]}")
-        output_contract = self.state.output_contract.strip()
-        if output_contract:
-            parts.append(
-                f"{self._meta_label('output')} "
-                f"{display_profile_value(output_contract, lang=self.lang)}"
-            )
-        quality = self._quality_label()
-        if quality:
-            parts.append(quality)
-        return _compact_provider_panel_line(" · ".join(part for part in parts if part))
-
     def _static_for(self, selector: str) -> Static:
         widget = self._static_cache.get(selector)
         if widget is not None:
@@ -245,69 +327,3 @@ class ProviderPanel(Vertical):
         widget = self.query_one(selector, Static)
         self._static_cache[selector] = widget
         return widget
-
-    def _model_label(self) -> str:
-        return (
-            self.state.actual_model
-            or self.state.model_label
-            or self.state.configured_model
-        ).strip()
-
-    def _context_label(self) -> str:
-        if self.state.context_window <= 0:
-            return ""
-        label = (
-            f"{self._meta_label('context')} "
-            f"{self._format_context_window(self.state.context_window)}"
-        )
-        source = self._budget_source_label()
-        if source:
-            label = f"{label}/{source}"
-        return label
-
-    def _quality_label(self) -> str:
-        if self.state.quality_signal_count <= 0:
-            return ""
-        label = self._meta_label("quality")
-        score = self._format_score(self.state.quality_score)
-        return (
-            f"{label} {score} "
-            f"{self.state.quality_success_count}/{self.state.quality_signal_count}"
-        )
-
-    def _budget_source_label(self) -> str:
-        return compact_source_value(self.state.budget_source, lang=self.lang)
-
-    def _meta_label(self, key: str) -> str:
-        labels = {
-            "ko": {
-                "context": "컨텍스트",
-                "output": "출력",
-                "quality": "품질",
-                "session": "세션",
-            },
-            "en": {
-                "context": "ctx",
-                "output": "out",
-                "quality": "q",
-                "session": "sid",
-            },
-        }
-        return labels.get(self.lang, labels["en"]).get(key, key)
-
-    @staticmethod
-    def _format_context_window(context_window: int) -> str:
-        if context_window >= 1_000_000:
-            value = context_window / 1_000_000
-            return f"{value:g}M"
-        if context_window >= 1_000:
-            value = context_window / 1_000
-            return f"{value:g}K"
-        return str(context_window)
-
-    @staticmethod
-    def _format_score(score: float) -> str:
-        text = f"{score:.3f}".rstrip("0").rstrip(".")
-        if text == "-0":
-            return "0"
-        return text or "0"

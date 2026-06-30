@@ -8,6 +8,7 @@ from trinity.textual_app.widgets.provider_panel import (
     ProviderPanel,
     ProviderPanelState,
     provider_panel_classes,
+    provider_panel_provider_line,
     provider_panel_state_group,
     provider_panel_status_label,
     provider_panel_summary_line,
@@ -342,9 +343,7 @@ def test_provider_panel_shows_compact_model_context_and_session_metadata() -> No
         session_id="019ea9e3-426f",
         output_contract="execution_v1",
     )
-    panel = ProviderPanel(state)
-
-    assert panel._provider_line() == (
+    assert provider_panel_provider_line(state) == (
         "codex · gpt-5.5 · ctx 272K/local · sid 019ea9e3 · out execution_v1"
     )
 
@@ -359,9 +358,7 @@ def test_provider_panel_localizes_compact_source_metadata() -> None:
         context_window=272000,
         budget_source="local_cli_cache",
     )
-    panel = ProviderPanel(state, lang="ko")
-
-    assert "컨텍스트 272K/로컬" in panel._provider_line()
+    assert "컨텍스트 272K/로컬" in provider_panel_provider_line(state, lang="ko")
 
 
 def test_provider_panel_localizes_korean_compact_metadata_labels() -> None:
@@ -379,9 +376,7 @@ def test_provider_panel_localizes_korean_compact_metadata_labels() -> None:
         quality_success_count=2,
         quality_score=0.667,
     )
-    panel = ProviderPanel(state, lang="ko")
-
-    assert panel._provider_line() == (
+    assert provider_panel_provider_line(state, lang="ko") == (
         "codex · gpt-5.5 · 컨텍스트 272K/로컬 · 세션 019ea9e3 · "
         "출력 실행 v1 · 품질 0.667 2/3"
     )
@@ -397,9 +392,7 @@ def test_provider_panel_shows_compact_quality_signal_metadata() -> None:
         quality_success_count=2,
         quality_score=0.667,
     )
-    panel = ProviderPanel(state)
-
-    assert panel._provider_line() == "codex · q 0.667 2/3"
+    assert provider_panel_provider_line(state) == "codex · q 0.667 2/3"
 
 
 def test_provider_panel_does_not_duplicate_snapshot_provider_model_label() -> None:
@@ -413,7 +406,7 @@ def test_provider_panel_does_not_duplicate_snapshot_provider_model_label() -> No
         context_window=272000,
         budget_source="runtime_metadata",
     )
-    panel = ProviderPanel(state)
+    provider_line = provider_panel_provider_line(state)
 
-    assert panel._provider_line().count("gpt-5.5") == 1
-    assert "ctx 272K/runtime" in panel._provider_line()
+    assert provider_line.count("gpt-5.5") == 1
+    assert "ctx 272K/runtime" in provider_line

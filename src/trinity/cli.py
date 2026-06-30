@@ -70,7 +70,6 @@ from trinity.textual_app.workspace_labels import (
     format_project_generation_preview_label,
     format_project_read_first_checklist_label,
     format_project_validation_plan_label,
-    project_start_choice_guide_label,
 )
 from trinity.updater import (
     StartupUpdate,
@@ -1205,11 +1204,6 @@ def _project_status_payload(
     if intake is None:
         return {
             "project_intake": None,
-            "project_start_guide": (
-                project_start_choice_guide_label(state_dir)
-                if state_dir is not None
-                else ""
-            ),
             "current_analysis": None,
             "refreshed": False,
             "project_intake_paths": None,
@@ -1245,14 +1239,6 @@ def _project_status_payload(
     return {
         "project_intake": {
             "summary": format_project_intake_label(intake),
-            "project_start_guide": (
-                project_start_choice_guide_label(
-                    state_dir,
-                    target_workspace=intake.target_workspace,
-                )
-                if state_dir is not None
-                else ""
-            ),
             "generation_preview": format_project_generation_preview_label(
                 intake,
                 target_workspace=intake.target_workspace,

@@ -3,7 +3,9 @@
 Date: 2026-06-29
 Branch: `feature/project-status-start-guide`
 Status: Superseded by the simplified Workbench flow. Project status no longer
-mirrors Workbench `Analyze Existing` / `Create New` button guidance.
+mirrors Workbench `Analyze Existing` / `Create New` button guidance, and the
+legacy `project_start_guide` JSON field has been removed in favor of
+`project_intake.readiness.workbench_next_step`.
 
 ## Problem
 
@@ -31,13 +33,12 @@ When intake exists:
 Start guide: Project start: mode existing | next -> Analyze Existing | then Plan first
 ```
 
-JSON output should include the same value under
-`project_intake.project_start_guide`, so tests and downstream tooling can use a
-stable field.
+This JSON field is no longer part of the current status contract. Consumers
+should use `project_intake.readiness.workbench_next_step` instead.
 
 ## Scope
 
-- Reuse `project_start_choice_guide_label(...)`.
+- The old `project_start_choice_guide_label(...)` helper has been removed.
 - Add the guide to human `project status` output.
 - Add the guide to `project status --json` when project intake exists.
 - Keep next-step commands unchanged.

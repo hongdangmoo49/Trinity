@@ -20,7 +20,6 @@ from trinity.textual_app.workspace_labels import (
     project_generation_preview_label,
     project_intake_state_label,
     project_plan_preview_label,
-    project_start_choice_guide_label,
     project_startup_readiness_label,
     provider_cli_setup_label,
     provider_execution_review_policy_label,
@@ -757,41 +756,6 @@ def test_project_read_first_checklist_label_skips_new_project(
     assert project_read_first_checklist_label(state, target_workspace=target) == ""
 
 
-def test_project_start_choice_guide_labels_new_and_existing_paths(
-    tmp_path: Path,
-) -> None:
-    state = tmp_path / ".trinity"
-    target = tmp_path / "customer-app"
-    target.mkdir()
-    (target / "README.md").write_text("# Customer App\n", encoding="utf-8")
-
-    assert project_start_choice_guide_label(state) == (
-        "Project start: workspace: select workspace | "
-        "next: describe analysis or work"
-    )
-    assert project_start_choice_guide_label(
-        state,
-        target_workspace=target,
-        lang="ko",
-    ) == (
-        "프로젝트 시작: 작업 폴더: 준비됨 | "
-        "다음: 분석 또는 작업을 프롬프트로 설명"
-    )
-
-    write_project_intake(
-        state,
-        build_project_intake(
-            mode="existing",
-            target_workspace=target,
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
-
-    assert project_start_choice_guide_label(state, target_workspace=target) == (
-        "Project start: workspace: ready | next: describe analysis or work"
-    )
-
-
 def test_project_intake_state_label_includes_workspace_profile(
     tmp_path: Path,
 ) -> None:
@@ -1501,14 +1465,6 @@ async def test_nexus_screen_project_intake_summary_stays_offscreen(
         ) == (
             "프로젝트 인테이크: 기존 | 대상: customer-app | "
             "갱신: 2026-06-28 | 테스트: uv run pytest | git: 없음"
-        )
-        assert project_start_choice_guide_label(
-            config.effective_state_dir,
-            lang="ko",
-            target_workspace=target,
-        ) == (
-            "프로젝트 시작: 작업 폴더: 준비됨 | "
-            "다음: 분석 또는 작업을 프롬프트로 설명"
         )
         with pytest.raises(NoMatches):
             screen.query_one("#nexus-project-intake-summary", Static)

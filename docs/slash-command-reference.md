@@ -96,7 +96,7 @@ text table로 렌더링한다.
 | :--- | :--- | :--- | :--- |
 | `/status` | `/status` | 없음 | agent 상태, readiness, context, transport, synthesis 설정, workflow 요약을 표시한다. |
 | `/context` | `/context` | 없음 | 현재 세션의 목표, 합의, 질문, 결정, 작업 패키지 요약을 표시한다. |
-| `/project` | `/project [workspace\|analyze\|validation]` | 선택 시 로컬 UI | 간결한 프로젝트 진단을 표시하거나 workspace, 분석, 검증 modal을 연다. |
+| `/project` | `/project [workspace\|analyze]` | 선택 시 로컬 UI | 간결한 프로젝트 진단을 표시하거나 workspace 선택 또는 분석을 연다. |
 | `/providers` | `/providers` | 로컬 UI | 프로바이더 인스펙터를 연다. |
 | `/workspace` | `/workspace` | 로컬 UI | target workspace 선택 picker를 연다. |
 | `/rounds` | `/rounds [N]` | 세션 메모리 | 최대 deliberation round를 조회하거나 1-20 범위 값으로 바꾼다. |

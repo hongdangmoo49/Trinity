@@ -2,6 +2,11 @@
 
 Date: 2026-06-29
 Branch: `feature/project-validation-confirmation`
+Status: Superseded by the simplified Start/Nexus project flow.
+
+Note: Start/Nexus no longer expose a dedicated validation modal. Validation
+signals remain part of project intake and analysis prompts, but users should not
+have to pick a separate setup tool before describing the work they want.
 
 ## Problem
 
@@ -30,7 +35,7 @@ After the target folder exists and the minimum brief is complete:
 
 1. `Continue Setup` checks the saved intake.
 2. If no `validation_commands`, detected test command, or build command exists,
-   Trinity opens a focused validation modal.
+   Trinity keeps the missing validation signal in the project intake and prompt.
 3. The user records at least one validation command, such as `uv run pytest`.
 4. Start/Nexus labels refresh, and `Continue Setup` can proceed to plan/execute.
 
@@ -39,8 +44,8 @@ After the target folder exists and the minimum brief is complete:
 After analysis and optional scope selection:
 
 1. `Continue Setup` checks detected/recorded validation commands.
-2. If no test/build/validation command exists, Trinity opens the same focused
-   modal with existing-project fields.
+2. If no test/build/validation command exists, Trinity keeps the missing
+   validation signal in the project intake and prompt.
 3. The user records test/build/required validation commands.
 4. The read-first prompt and validation plan use the saved commands.
 
@@ -50,7 +55,8 @@ After analysis and optional scope selection:
   missing" so CLI labels, Start/Nexus runtime, and Textual labels share the same
   rule.
 - Extend `ProjectStartNextAction` with `validation`.
-- Add a `ProjectValidationModal` for focused validation command edits.
+- Keep validation command edits inside project intake/analyze flows instead of a
+  dedicated modal.
 - Add Start/Nexus messages and app handlers that open the modal from
   `Continue Setup`.
 - Refresh intake labels and seed the relevant prompt after saving.

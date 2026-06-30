@@ -3,6 +3,7 @@ from __future__ import annotations
 from trinity.models import ConsensusResult, DeliberationResult
 from trinity.workflow.engine import WorkflowInputAction
 from trinity.workflow.models import DecisionRecord, WorkflowSession, WorkflowState
+from trinity.workflow.provider_error_gate import provider_error_action_answer
 from trinity.workflow.provider_error_gate_flow import ProviderErrorGateFlow
 
 
@@ -91,6 +92,17 @@ def _flow(session: WorkflowSession):
         states,
         marked_results,
     )
+
+
+def test_provider_error_action_answer_maps_central_actions() -> None:
+    assert provider_error_action_answer("provider-error-retry") == (
+        "Retry failed providers"
+    )
+    assert provider_error_action_answer("provider-error-continue") == (
+        "Continue without failed providers"
+    )
+    assert provider_error_action_answer("provider-error-stop") == "Stop workflow"
+    assert provider_error_action_answer("provider-error-unknown") == ""
 
 
 def test_provider_error_gate_flow_opens_and_retries_failed_agents() -> None:

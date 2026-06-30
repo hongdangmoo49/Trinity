@@ -29,10 +29,8 @@ from trinity.textual_app.widgets.inspector import WorkflowInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel, ProviderPanelState
 from trinity.textual_app.widgets.question_panel import QuestionAnswer, QuestionPanel
 from trinity.workflow.provider_error_gate import (
-    PROVIDER_ERROR_CONTINUE_OPTION,
     PROVIDER_ERROR_GATE_QUESTION_ID,
-    PROVIDER_ERROR_RETRY_OPTION,
-    PROVIDER_ERROR_STOP_OPTION,
+    provider_error_action_answer,
 )
 
 
@@ -376,7 +374,7 @@ class NexusScreen(Screen[None]):
             self.post_message(self.RepairActionRequested(event.action, self.snapshot))
             return
         if event.action.startswith("provider-error-"):
-            answer = self._provider_error_action_answer(event.action)
+            answer = provider_error_action_answer(event.action)
             if answer:
                 self.post_message(
                     self.QuestionAnswered(
@@ -478,15 +476,6 @@ class NexusScreen(Screen[None]):
                 selector.model_overrides(),
             )
         )
-
-    @staticmethod
-    def _provider_error_action_answer(action: str) -> str:
-        answers = {
-            "provider-error-retry": PROVIDER_ERROR_RETRY_OPTION,
-            "provider-error-continue": PROVIDER_ERROR_CONTINUE_OPTION,
-            "provider-error-stop": PROVIDER_ERROR_STOP_OPTION,
-        }
-        return answers.get(action, "")
 
     def advance_activity_frame(self) -> None:
         """Advance running indicators for provider and central-agent surfaces."""

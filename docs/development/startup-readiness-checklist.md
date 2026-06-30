@@ -33,8 +33,8 @@ Localized Korean copy:
 시작 준비: 대상 정상 | 인테이크 정상 | 프로바이더 2개 선택 | 검증 계획됨
 ```
 
-The line is intentionally status-only. Detailed next actions remain in the
-existing mode rail and project intake labels.
+The line is intentionally status-only. Detailed next-action context remains in
+the project intake labels and the user's prompt.
 
 ## State Rules
 

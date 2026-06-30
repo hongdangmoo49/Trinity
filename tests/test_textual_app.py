@@ -4595,10 +4595,10 @@ def test_execution_retry_modal_limits_rows_to_retry_candidates() -> None:
         )
     )
 
-    assert [package.id for package in modal._display_packages()] == ["WP-001", "WP-003"]
+    assert [package.id for package in modal.display_packages()] == ["WP-001", "WP-003"]
     assert modal._ids_for_selector("all") == ("WP-001", "WP-003")
     modal.selector = "failed"
-    assert [package.id for package in modal._display_packages()] == ["WP-001"]
+    assert [package.id for package in modal.display_packages()] == ["WP-001"]
 
 
 def test_execution_retry_modal_large_snapshot_keeps_only_retry_candidates() -> None:
@@ -4638,14 +4638,14 @@ def test_execution_retry_modal_large_snapshot_keeps_only_retry_candidates() -> N
         WorkflowNexusSnapshot(work_package_details=details),
     )
 
-    assert [package.id for package in modal._display_packages()] == [
+    assert [package.id for package in modal.display_packages()] == [
         "WP-010",
         "WP-050",
         "WP-075",
     ]
     assert modal._ids_for_selector("all") == ("WP-010", "WP-050", "WP-075")
     modal.selector = "blocked"
-    assert [package.id for package in modal._display_packages()] == ["WP-050"]
+    assert [package.id for package in modal.display_packages()] == ["WP-050"]
 
 
 def test_execution_retry_modal_custom_keeps_selected_retry_candidates() -> None:
@@ -4682,8 +4682,8 @@ def test_execution_retry_modal_custom_keeps_selected_retry_candidates() -> None:
         package_ids=("WP-002", "WP-003"),
     )
 
-    assert [package.id for package in modal._display_packages()] == ["WP-001", "WP-003"]
-    assert modal._selected_package_ids() == ("WP-003",)
+    assert [package.id for package in modal.display_packages()] == ["WP-001", "WP-003"]
+    assert modal.selected_package_ids() == ("WP-003",)
 
 
 def test_execution_retry_modal_supports_korean_chrome_labels() -> None:

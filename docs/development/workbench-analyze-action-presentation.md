@@ -1,5 +1,10 @@
 # Workbench Analyze Action Presentation
 
+Status: Superseded by the simplified Workbench flow. Start/Nexus no longer
+render an analyze/refresh action button; drift and refresh guidance now appear
+through status/readiness labels, CLI next steps, and
+`project_intake.readiness.workbench_next_step`.
+
 This design reduces duplicated Workbench project-intake analysis work introduced
 by the dynamic `Refresh Analysis` label.
 

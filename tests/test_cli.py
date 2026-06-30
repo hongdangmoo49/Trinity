@@ -810,6 +810,7 @@ class TestProjectAnalyze:
             assert data["project_intake"]["readiness"] == {
                 "ready": False,
                 "recommended_action": "edit_brief",
+                "workbench_next_step": "describe_project",
                 "target_exists": True,
                 "target_missing": False,
                 "analysis_sparse": False,
@@ -862,6 +863,9 @@ class TestProjectAnalyze:
             assert data["project_intake"]["readiness"]["recommended_action"] == (
                 "analyze_workspace"
             )
+            assert data["project_intake"]["readiness"]["workbench_next_step"] == (
+                "select_workspace"
+            )
 
     def test_project_status_guides_recreating_missing_new_project_target(
         self,
@@ -907,6 +911,9 @@ class TestProjectAnalyze:
             assert data["project_intake"]["readiness"]["target_missing"] is True
             assert data["project_intake"]["readiness"]["recommended_action"] == (
                 "create_project"
+            )
+            assert data["project_intake"]["readiness"]["workbench_next_step"] == (
+                "select_workspace"
             )
 
     def test_project_status_json_shows_saved_and_current_analysis(
@@ -997,6 +1004,7 @@ class TestProjectAnalyze:
             assert data["project_intake"]["readiness"] == {
                 "ready": False,
                 "recommended_action": "confirm_read_first",
+                "workbench_next_step": "describe_read_first",
                 "target_exists": True,
                 "target_missing": False,
                 "analysis_sparse": False,
@@ -1060,6 +1068,9 @@ class TestProjectAnalyze:
             assert data["project_intake"]["readiness"]["ready"] is False
             assert data["project_intake"]["readiness"]["recommended_action"] == (
                 "choose_scope"
+            )
+            assert data["project_intake"]["readiness"]["workbench_next_step"] == (
+                "describe_scope"
             )
             assert (
                 data["project_intake"]["readiness"]["scope_choice_required"]
@@ -1149,6 +1160,9 @@ class TestProjectAnalyze:
             ]
             assert data["project_intake"]["readiness"]["recommended_action"] == (
                 "analyze_workspace"
+            )
+            assert data["project_intake"]["readiness"]["workbench_next_step"] == (
+                "describe_analysis"
             )
             assert data["next_steps"] == [
                 "trinity project status --refresh",

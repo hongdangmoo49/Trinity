@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.866`
-- Merged PR range reviewed: #90 through #1027
+- Package version inspected: `1.0.867`
+- Merged PR range reviewed: #90 through #1028
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1027
-- Latest refresh reviewed: #1027
+- Maintenance refresh reviewed: #427 through #1028
+- Latest refresh reviewed: #1028
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1027: Prompt-Led Workbench Simplification
+### #977-#1028: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2175,6 +2175,8 @@ and what the next release train should optimize.
   unused `absolute_path` import.
 - Removed the old new/existing onboarding redesign plan that still described
   mode-led Workbench surfaces after the prompt-led contract replaced them.
+- Removed the leftover `initial_start_prompt` helper and its stale intake
+  regression test now that Start always begins from a blank user prompt.
 
 This refresh moves the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
@@ -2387,9 +2389,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #1027:
+Current main snapshot after #1028:
 
-- `src/trinity/textual_app/app.py`: 3,457 lines
+- `src/trinity/textual_app/app.py`: 3,451 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

@@ -1919,7 +1919,7 @@ async def test_start_screen_target_change_does_not_render_project_context(
 
 
 @pytest.mark.asyncio
-async def test_start_screen_updates_provider_policy_from_recipient_selection(
+async def test_start_screen_does_not_render_inline_provider_notices(
     tmp_path: Path,
 ) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
@@ -1932,17 +1932,11 @@ async def test_start_screen_updates_provider_policy_from_recipient_selection(
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
 
-        provider_policy = screen.query_one("#start-provider-policy", Static)
-        assert str(provider_policy.content) == ""
-        assert provider_policy.display is False
-        provider_cli_setup = screen.query_one("#start-provider-cli-setup", Static)
-        assert str(
-            provider_cli_setup.content
-        ) == (
-            "Provider CLI setup: missing: codex(trinity-missing-cli-for-test) | "
-            "next: fix CLI command/PATH"
-        )
-        assert provider_cli_setup.display is False
+        with pytest.raises(NoMatches):
+            screen.query_one("#start-provider-policy", Static)
+        with pytest.raises(NoMatches):
+            screen.query_one("#start-provider-cli-setup", Static)
+
         selector = screen.query_one(AgentRecipientModelSelector)
         selector.set_selected_agents(("claude",))
         screen.on_agent_recipient_model_selector_selection_changed(
@@ -1950,13 +1944,10 @@ async def test_start_screen_updates_provider_policy_from_recipient_selection(
         )
         await pilot.pause()
 
-        assert str(provider_policy.content) == (
-            "Provider policy: 1 active (claude) | "
-            "execution: single executor | review: self-check/manual"
-        )
-        assert provider_policy.display is False
-        assert str(provider_cli_setup.content) == ""
-        assert provider_cli_setup.display is False
+        with pytest.raises(NoMatches):
+            screen.query_one("#start-provider-policy", Static)
+        with pytest.raises(NoMatches):
+            screen.query_one("#start-provider-cli-setup", Static)
         with pytest.raises(NoMatches):
             screen.query_one("#project-startup-readiness", Static)
 
@@ -1996,7 +1987,7 @@ async def test_nexus_screen_does_not_render_project_diagnostics(
 
 
 @pytest.mark.asyncio
-async def test_nexus_screen_shows_provider_policy_from_selected_agents(
+async def test_nexus_screen_does_not_render_inline_provider_notices(
     tmp_path: Path,
 ) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
@@ -2012,24 +2003,19 @@ async def test_nexus_screen_shows_provider_policy_from_selected_agents(
     async with app.run_test(size=(140, 40)) as pilot:
         await pilot.pause()
 
-        provider_policy = screen.query_one("#nexus-provider-policy", Static)
-        assert str(provider_policy.content) == ""
-        assert provider_policy.display is False
-        provider_cli_setup = screen.query_one("#nexus-provider-cli-setup", Static)
-        assert str(
-            provider_cli_setup.content
-        ) == (
-            "Provider CLI setup: missing: codex(trinity-missing-cli-for-test) | "
-            "next: fix CLI command/PATH"
-        )
-        assert provider_cli_setup.display is False
+        with pytest.raises(NoMatches):
+            screen.query_one("#nexus-provider-policy", Static)
+        with pytest.raises(NoMatches):
+            screen.query_one("#nexus-provider-cli-setup", Static)
+
         screen.set_agent_selection(("claude", "antigravity"), {})
         await pilot.pause()
 
-        assert str(provider_policy.content) == ""
-        assert provider_policy.display is False
-        assert str(provider_cli_setup.content) == ""
-        assert provider_cli_setup.display is False
+        with pytest.raises(NoMatches):
+            screen.query_one("#nexus-provider-policy", Static)
+        with pytest.raises(NoMatches):
+            screen.query_one("#nexus-provider-cli-setup", Static)
+
         selector = screen.query_one(AgentRecipientModelSelector)
         selector.set_selected_agents(("claude",))
         screen.on_agent_recipient_model_selector_selection_changed(
@@ -2037,13 +2023,10 @@ async def test_nexus_screen_shows_provider_policy_from_selected_agents(
         )
         await pilot.pause()
 
-        assert str(provider_policy.content) == (
-            "Provider policy: 1 active (claude) | "
-            "execution: single executor | review: self-check/manual"
-        )
-        assert provider_policy.display is False
-        assert str(provider_cli_setup.content) == ""
-        assert provider_cli_setup.display is False
+        with pytest.raises(NoMatches):
+            screen.query_one("#nexus-provider-policy", Static)
+        with pytest.raises(NoMatches):
+            screen.query_one("#nexus-provider-cli-setup", Static)
         with pytest.raises(NoMatches):
             screen.query_one("#nexus-project-startup-readiness", Static)
 

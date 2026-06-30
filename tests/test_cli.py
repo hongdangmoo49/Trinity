@@ -652,12 +652,11 @@ class TestProjectAnalyze:
             assert result.exit_code == 0
             assert "No project intake recorded." in result.output
             assert "Start guide:" in result.output
-            assert "Project start: existing -> Analyze Existing" in result.output
-            assert "new -> Create New" in result.output
-            assert "then Plan first" in result.output
-            assert "trinity project analyze [PATH]" in result.output
-            assert "trinity project new NAME" in result.output
-            assert "Then run `trinity` to start planning." in result.output
+            assert "Project start: workspace: select workspace" in result.output
+            assert "next: describe analysis or work" in result.output
+            assert "Run `trinity` in the workspace you want to use" in result.output
+            assert "Describe whether you want analysis" in result.output
+            assert "Use `/project` inside Trinity" in result.output
 
     def test_project_status_json_guides_when_intake_is_missing(self, runner, tmp_path):
         with runner.isolated_filesystem(temp_dir=tmp_path):
@@ -670,14 +669,14 @@ class TestProjectAnalyze:
             data = json.loads(result.output)
             assert data["project_intake"] is None
             assert data["project_start_guide"] == (
-                "Project start: existing -> Analyze Existing | new -> Create New | "
-                "then Plan first"
+                "Project start: workspace: select workspace | "
+                "next: describe analysis or work"
             )
             assert data["current_analysis"] is None
             assert data["next_steps"] == [
-                "trinity project analyze [PATH]",
-                "trinity project new NAME",
                 "trinity",
+                "/workspace <PATH>",
+                "describe analysis or work in the prompt",
             ]
 
     def test_project_status_shows_saved_and_current_analysis(self, runner, tmp_path):
@@ -736,9 +735,8 @@ class TestProjectAnalyze:
                 "updated:"
             ) in result.output
             assert "Start guide:" in result.output
-            assert "Project start: mode existing" in result.output
-            assert "next -> confirm read-first" in result.output
-            assert "then Plan first" in result.output
+            assert "Project start: workspace: ready" in result.output
+            assert "next: describe analysis or work" in result.output
             assert "Read-first checklist:" in result.output
             assert "Mode: existing" in result.output
             assert "Target name: customer-app" in result.output
@@ -982,8 +980,7 @@ class TestProjectAnalyze:
                 "Project intake: existing | target: customer-app | updated:"
             )
             assert data["project_intake"]["project_start_guide"] == (
-                "Project start: mode existing | next -> confirm read-first | "
-                "then Plan first"
+                "Project start: workspace: ready | next: describe analysis or work"
             )
             assert data["project_intake"]["mode"] == "existing"
             assert data["project_intake"]["target_name"] == "customer-app"

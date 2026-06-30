@@ -211,10 +211,6 @@ from trinity.textual_app.widgets.project_brief_modal import (
     ProjectBriefModal,
     ProjectBriefModalResult,
 )
-from trinity.textual_app.widgets.project_scope_modal import (
-    ProjectScopeModal,
-    ProjectScopeModalResult,
-)
 from trinity.textual_app.widgets.project_validation_modal import (
     ProjectValidationModal,
     ProjectValidationModalResult,
@@ -2606,7 +2602,6 @@ class TrinityTextualApp(App[None]):
             "analyze": "analyze",
             "analysis": "analyze",
             "intake": "analyze",
-            "scope": "scope",
             "read": "read-first",
             "read-first": "read-first",
             "readfirst": "read-first",
@@ -2624,15 +2619,13 @@ class TrinityTextualApp(App[None]):
             title = "알 수 없는 프로젝트 명령"
             body = (
                 f"`{action}`는 /project 하위 명령이 아닙니다.\n\n"
-                "사용 가능: workspace, analyze, scope, "
-                "read-first, validation"
+                "사용 가능: workspace, analyze, read-first, validation"
             )
         else:
             title = "Unknown Project Command"
             body = (
                 f"`{action}` is not a /project action.\n\n"
-                "Available: workspace, analyze, scope, "
-                "read-first, validation"
+                "Available: workspace, analyze, read-first, validation"
             )
         self._record_slash_command_result(
             command_name,
@@ -2668,8 +2661,6 @@ class TrinityTextualApp(App[None]):
             return
         if action == "analyze":
             self._apply_start_project_intake_for_direct_target(target)
-        elif action == "scope":
-            self._open_existing_project_scope_picker(target, seed_route="start")
         elif action == "read-first":
             self._open_existing_project_read_first_review(target, seed_route="start")
         elif action == "validation":
@@ -2695,8 +2686,6 @@ class TrinityTextualApp(App[None]):
         self._set_workspace_candidate(target)
         if action == "analyze":
             self._apply_nexus_project_intake_for_direct_target(target, snapshot)
-        elif action == "scope":
-            self._open_existing_project_scope_picker(target, seed_route="nexus")
         elif action == "read-first":
             self._open_existing_project_read_first_review(target, seed_route="nexus")
         elif action == "validation":
@@ -4004,32 +3993,6 @@ class TrinityTextualApp(App[None]):
             ),
         )
 
-    def _open_existing_project_scope_picker(
-        self,
-        target: Path,
-        *,
-        seed_route: str,
-    ) -> None:
-        intake = self._matching_existing_project_intake(target)
-        if intake is None or not intake.scope_candidates:
-            if seed_route == "nexus":
-                self._apply_nexus_project_intake_for_direct_target(
-                    target,
-                    self._current_textual_snapshot(),
-                )
-                return
-            self._apply_start_project_intake_for_direct_target(target)
-            return
-        self.push_screen(
-            ProjectScopeModal(intake, lang=self.config.lang),
-            lambda result: self._on_existing_project_scope_dismissed(
-                target,
-                detected_intake=intake,
-                seed_route=seed_route,
-                result=result,
-            ),
-        )
-
     def _open_project_validation_modal(
         self,
         target: Path,
@@ -4144,30 +4107,6 @@ class TrinityTextualApp(App[None]):
             old_prompt=old_prompt,
             new_prompt=new_prompt,
         )
-
-    def _on_existing_project_scope_dismissed(
-        self,
-        target: Path,
-        *,
-        detected_intake: ProjectIntake,
-        seed_route: str,
-        result: ProjectScopeModalResult | None,
-    ) -> None:
-        if self.workspace_candidate is not None and absolute_path(
-            self.workspace_candidate
-        ) != absolute_path(target):
-            return
-        if result is None or not result.saved:
-            return
-        intake = replace(
-            detected_intake,
-            selected_scope=result.selected_scope.strip(),
-        )
-        write_project_intake(self.config.effective_state_dir, intake)
-        if seed_route == "nexus":
-            self._seed_nexus_prompt_for_existing_analysis(target, intake)
-            return
-        self._seed_start_prompt_for_existing_analysis(target, intake)
 
     def _on_existing_project_anchor_review_dismissed(
         self,

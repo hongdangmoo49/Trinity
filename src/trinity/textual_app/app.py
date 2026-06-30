@@ -161,7 +161,6 @@ from trinity.textual_app.target_workspace import (
     TargetWorkspacePreparation,
     WorkspacePreflightContinuation,
     WorkspacePreflightEffect,
-    absolute_path,
     default_launch_cwd,
     is_control_repo_target,
     prepare_target_workspace,

@@ -3135,54 +3135,6 @@ class TrinityTextualApp(App[None]):
             self.workspace_candidate,
         )
 
-    def _replace_start_prompt_if_auto_seeded(
-        self,
-        target: Path,
-        *,
-        old_prompt: str,
-        new_prompt: str,
-    ) -> None:
-        if not new_prompt:
-            return
-        if not self._screens_installed:
-            return
-        start = self.get_screen("start", StartScreen)
-        if not start.is_mounted:
-            return
-        if self.workspace_candidate is None:
-            return
-        if absolute_path(self.workspace_candidate) != absolute_path(target):
-            return
-        composer = start.query_one(PromptComposer)
-        current = composer.text
-        if not current.strip() or current == old_prompt:
-            composer.set_text(new_prompt)
-
-    def _replace_nexus_prompt_if_auto_seeded(
-        self,
-        target: Path,
-        *,
-        old_prompt: str,
-        new_prompt: str,
-    ) -> None:
-        if not new_prompt:
-            return
-        if self.current_route != "nexus":
-            return
-        if not self._screens_installed:
-            return
-        if self.workspace_candidate is None:
-            return
-        if absolute_path(self.workspace_candidate) != absolute_path(target):
-            return
-        nexus = self.get_screen("nexus", NexusScreen)
-        if not nexus.is_mounted:
-            return
-        composer = nexus.query_one("#nexus-composer", PromptComposer)
-        current = composer.text
-        if not current.strip() or current == old_prompt:
-            composer.set_text(new_prompt)
-
     def _safe_nexus_target_workspace(
         self,
         snapshot: WorkflowNexusSnapshot | None,

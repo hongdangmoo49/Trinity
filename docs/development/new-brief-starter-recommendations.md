@@ -15,7 +15,7 @@ or template.
   `project_type`, `stack_preferences`, `target_users`, and constraints.
 - Keep existing-project prompts unchanged.
 - Do not create files, templates, config, or package manifests.
-- Do not change project-intake persistence, readiness policy, or preflight
+- Do not change project-context persistence, readiness policy, or preflight
   gates.
 
 ## Design

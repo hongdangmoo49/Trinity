@@ -795,6 +795,7 @@ class TrinityTextualApp(App[None]):
     #nexus-provider-policy,
     #nexus-provider-cli-setup {
         width: 100%;
+        height: 1;
         color: $text-muted;
     }
 
@@ -825,7 +826,7 @@ class TrinityTextualApp(App[None]):
     #nexus-screen {
         width: 100%;
         height: 1fr;
-        padding: 1;
+        padding: 0 1;
     }
 
     #provider-strip {

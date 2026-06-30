@@ -12229,6 +12229,34 @@ async def test_nexus_action_bar_stays_within_narrow_width(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_nexus_screen_stays_within_narrow_viewport(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        nexus_shell = nexus.query_one("#nexus-screen")
+        widgets = (
+            nexus.query_one("#provider-strip"),
+            nexus.query_one("#nexus-action-bar"),
+            nexus.query_one("#nexus-main"),
+            nexus.query_one("#nexus-recipient-selector"),
+            nexus.query_one("#nexus-composer", PromptComposer),
+        )
+        for widget in widgets:
+            assert widget.region.x >= 0
+            assert widget.region.x + widget.region.width <= nexus.size.width
+            assert widget.region.y >= nexus_shell.region.y
+            assert (
+                widget.region.y + widget.region.height
+                <= nexus_shell.region.y + nexus_shell.region.height
+            )
+
+
+@pytest.mark.asyncio
 async def test_nexus_project_analyze_command_writes_project_intake(tmp_path) -> None:
     control_repo = tmp_path / "control"
     target = tmp_path / "target-app"

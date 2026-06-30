@@ -11555,7 +11555,7 @@ async def test_nexus_execute_requests_execution_when_target_is_selected(
             app.screen.query_one("#execution-confirm-summary", Static).content
         )
         assert "Target workspace" in summary
-        assert "Project context: intake: not recorded" in summary
+        assert "Project context: saved context: not recorded" in summary
         assert "Risks: none" in summary
 
         app.screen.action_confirm()

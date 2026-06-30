@@ -10,7 +10,7 @@ def test_project_context_summary_reports_missing_intake(tmp_path: Path) -> None:
     summary = build_project_context_summary(tmp_path / ".trinity", target)
 
     assert summary.workspace_context == "not recorded"
-    assert summary.items == ("intake: not recorded",)
+    assert summary.items == ("saved context: not recorded",)
 
 
 def test_project_context_summary_reports_existing_project_context(
@@ -103,4 +103,4 @@ def test_project_context_summary_reports_target_mismatch(tmp_path: Path) -> None
     summary = build_project_context_summary(state, selected)
 
     assert summary.workspace_context == "target mismatch"
-    assert summary.items == ("intake: target mismatch", "scope: target root")
+    assert summary.items == ("saved context: target mismatch", "scope: target root")

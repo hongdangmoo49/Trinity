@@ -809,7 +809,7 @@ class ExecutionMatrixScreen(Screen[None]):
             self._retry_button = self.query_one("#execution-retry", Button)
         return self._retry_button
 
-    def _package_list(self) -> VerticalScroll:
+    def package_list(self) -> VerticalScroll:
         if self._package_list_widget is None:
             self._package_list_widget = self.query_one(
                 "#execution-package-list",
@@ -851,7 +851,7 @@ class ExecutionMatrixScreen(Screen[None]):
                     self._package_row_keys[projection.identity] = projection.render_key
             return
 
-        package_list = self._package_list()
+        package_list = self.package_list()
         package_list.remove_children()
         self._package_rows = {}
         self._package_row_keys = {}

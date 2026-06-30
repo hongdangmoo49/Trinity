@@ -11328,6 +11328,30 @@ async def test_start_analyze_workspace_empty_target_opens_project_brief(
 
 
 @pytest.mark.asyncio
+async def test_start_project_brief_slash_opens_project_brief_modal(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target-app"
+    control_repo.mkdir()
+    target.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        FakeWorkflowController(),
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app._handle_textual_slash_command("/project brief")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectBriefModal)
+        assert str(app.screen.query_one("#project-brief-target", Static).content) == (
+            f"Target workspace: {target.resolve()}"
+        )
+
+
+@pytest.mark.asyncio
 async def test_project_brief_modal_uses_korean_placeholders(tmp_path) -> None:
     control_repo = tmp_path / "control"
     target = tmp_path / "empty-target"
@@ -12232,6 +12256,37 @@ async def test_nexus_analyze_workspace_button_writes_project_intake(tmp_path) ->
             "- tests: npm test, npm run lint\n"
             "- dev: npm run dev\n"
             "- build: npm run build"
+        )
+
+
+@pytest.mark.asyncio
+async def test_nexus_project_analyze_slash_opens_project_anchors_modal(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target-app"
+    control_repo.mkdir()
+    target.mkdir()
+    (target / "README.md").write_text("# Existing project\n", encoding="utf-8")
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        controller,
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app._handle_textual_slash_command("/project analyze")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ProjectAnchorsModal)
+        assert str(app.screen.query_one("#project-anchors-target", Static).content) == (
+            f"Target workspace: {target.resolve()}"
         )
 
 

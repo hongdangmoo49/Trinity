@@ -3033,7 +3033,18 @@ class TrinityTextualApp(App[None]):
         snapshot = self._current_textual_snapshot()
         self._show_textual_status(command_name, snapshot)
 
-    def _handle_textual_project_command(self, command_name: str) -> None:
+    def _handle_textual_project_command(
+        self,
+        command_name: str,
+        args: list[str],
+    ) -> None:
+        action = self._project_command_action(args)
+        if action is not None:
+            self._open_project_command_action(action)
+            return
+        if args:
+            self._record_unknown_project_command_action(command_name, args[0])
+            return
         snapshot = self._current_textual_snapshot()
         presentation = project_command_presentation(
             self.config.effective_state_dir,
@@ -3048,6 +3059,138 @@ class TrinityTextualApp(App[None]):
             severity=presentation.severity,
             action_hint=presentation.action_hint,
         )
+
+    def _project_command_action(self, args: list[str]) -> str | None:
+        if not args:
+            return None
+        token = args[0].strip().lower().replace("_", "-")
+        aliases = {
+            "workspace": "workspace",
+            "target": "workspace",
+            "select": "workspace",
+            "analyze": "analyze",
+            "analysis": "analyze",
+            "intake": "analyze",
+            "create": "create",
+            "new": "create",
+            "brief": "brief",
+            "scope": "scope",
+            "read": "read-first",
+            "read-first": "read-first",
+            "readfirst": "read-first",
+            "validation": "validation",
+            "validate": "validation",
+        }
+        return aliases.get(token)
+
+    def _record_unknown_project_command_action(
+        self,
+        command_name: str,
+        action: str,
+    ) -> None:
+        if self.config.lang == "ko":
+            title = "알 수 없는 프로젝트 명령"
+            body = (
+                f"`{action}`는 /project 하위 명령이 아닙니다.\n\n"
+                "사용 가능: workspace, analyze, create, brief, scope, "
+                "read-first, validation"
+            )
+        else:
+            title = "Unknown Project Command"
+            body = (
+                f"`{action}` is not a /project action.\n\n"
+                "Available: workspace, analyze, create, brief, scope, "
+                "read-first, validation"
+            )
+        self._record_slash_command_result(
+            command_name,
+            title,
+            body,
+            severity="warning",
+        )
+
+    def _open_project_command_action(self, action: str) -> None:
+        if self.current_route == "start":
+            self._open_start_project_command_action(action)
+            return
+        self._open_nexus_project_command_action(action)
+
+    def _open_start_project_command_action(self, action: str) -> None:
+        if action == "workspace":
+            self._open_workspace_picker(
+                WorkflowNexusSnapshot(),
+                self._on_workspace_candidate_selected,
+                intent="select",
+            )
+            return
+        if action == "create":
+            self._open_workspace_picker(
+                WorkflowNexusSnapshot(),
+                self._on_new_project_workspace_selected,
+                intent="select",
+                open_new_folder=True,
+            )
+            return
+
+        target = safe_start_target_workspace(
+            self.workspace_candidate,
+            self.config.project_dir,
+        )
+        if target is None:
+            self._open_workspace_picker(
+                WorkflowNexusSnapshot(),
+                self._on_existing_project_intake_workspace_selected,
+                intent="select",
+            )
+            return
+        if action == "analyze":
+            self._apply_start_project_intake_for_direct_target(target)
+        elif action == "brief":
+            self._open_project_brief_modal(target, fallback_mode="existing")
+        elif action == "scope":
+            self._open_existing_project_scope_picker(target, seed_route="start")
+        elif action == "read-first":
+            self._open_existing_project_read_first_review(target, seed_route="start")
+        elif action == "validation":
+            self._open_project_validation_modal(target, seed_route="start")
+
+    def _open_nexus_project_command_action(self, action: str) -> None:
+        snapshot = self._current_textual_snapshot()
+        if action == "workspace":
+            self._open_workspace_picker(
+                snapshot,
+                self._on_nexus_workspace_selected,
+                intent="select",
+            )
+            return
+        if action == "create":
+            self._open_workspace_picker(
+                snapshot,
+                self._on_nexus_new_project_workspace_selected,
+                intent="select",
+                open_new_folder=True,
+            )
+            return
+
+        target = self._safe_nexus_target_workspace(snapshot)
+        if target is None:
+            self._open_workspace_picker(
+                snapshot,
+                self._on_nexus_project_intake_workspace_selected,
+                intent="select",
+            )
+            return
+        self._set_workspace_candidate(target)
+        if action == "analyze":
+            self._apply_nexus_project_intake_for_direct_target(target, snapshot)
+        elif action == "brief":
+            self._open_project_brief_modal(target, fallback_mode="existing")
+        elif action == "scope":
+            self._open_existing_project_scope_picker(target, seed_route="nexus")
+        elif action == "read-first":
+            self._open_existing_project_read_first_review(target, seed_route="nexus")
+        elif action == "validation":
+            self._open_project_validation_modal(target, seed_route="nexus")
 
     def _project_command_target_workspace(
         self,

@@ -480,6 +480,10 @@ def target_workspace_context_block(target_workspace: object | None) -> str:
                 "asks for file changes, implementation, execution, or delivery."
             ),
             (
+                "- Requests such as analyze, inspect, review, explain, or plan "
+                "are analysis-only unless the user also asks to change files."
+            ),
+            (
                 "- If intent is ambiguous, ask a clarifying question or keep the "
                 "plan analysis-only."
             ),

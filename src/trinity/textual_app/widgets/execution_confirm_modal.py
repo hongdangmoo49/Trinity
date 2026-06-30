@@ -159,7 +159,7 @@ class ExecutionConfirmModal(ModalScreen[bool]):
             yield Static(self._label("title"), id="execution-confirm-title")
             yield Static(self._label("body"), id="execution-confirm-body")
             with VerticalScroll(id="execution-confirm-content"):
-                yield Static(self._summary_text(), id="execution-confirm-summary")
+                yield Static(self.summary_text(), id="execution-confirm-summary")
                 yield Static(self._preview_text(), id="execution-confirm-preview")
             with Horizontal(id="execution-confirm-actions"):
                 yield Button(self._label("cancel"), id="cancel-execution-confirm")
@@ -184,7 +184,7 @@ class ExecutionConfirmModal(ModalScreen[bool]):
     def action_confirm(self) -> None:
         self.dismiss(True)
 
-    def _summary_text(self) -> str:
+    def summary_text(self) -> str:
         summary = self.summary
         lines = [
             f"{self._label('target_workspace')}: {summary.target_workspace or self._label('none')}",

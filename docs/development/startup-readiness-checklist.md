@@ -2,13 +2,13 @@
 
 ## Goal
 
-When a user starts Trinity on a new or existing project, the Start and Nexus
-screens should answer one immediate question: "Can I safely start planning or
-execution from this state?"
+When a user asks for project diagnostics, Trinity should answer one immediate
+question: "Can I safely start planning or execution from this state?"
 
-The current workbench already exposes detailed target, project intake,
-provider policy, validation plan, read-first, and generation previews. The
-readiness checklist is a compact rollup above those details.
+The current Workbench keeps Start/Nexus chrome small: workspace selection stays
+visible, and detailed target, project intake, validation, read-first, and
+generation previews live in `/project` diagnostics and CLI status. The readiness
+checklist is a compact rollup for those diagnostic surfaces.
 
 ## User Cases
 
@@ -19,9 +19,9 @@ readiness checklist is a compact rollup above those details.
 - Partial setup: keep the line useful when only one provider is enabled or when
   no project intake has been recorded yet.
 
-## UI Contract
+## Diagnostic Contract
 
-Render one concise line on Start and Nexus:
+Render one concise line in `/project` diagnostics:
 
 ```text
 Startup readiness: target ok | intake ok | providers 2 selected | validation planned
@@ -34,7 +34,7 @@ Localized Korean copy:
 ```
 
 The line is intentionally status-only. Detailed next-action context remains in
-the project intake labels and the user's prompt.
+project diagnostics, CLI status, and the user's prompt.
 
 ## State Rules
 
@@ -50,16 +50,15 @@ the project intake labels and the user's prompt.
 
 ## Implementation Notes
 
-- Put the rollup logic in `trinity.textual_app.workspace_labels` so Start and
-  Nexus share the same decisions.
+- Put the rollup logic in `trinity.textual_app.workspace_labels` so Textual
+  diagnostics can share the same decisions.
 - Reuse existing intake and validation helper functions instead of adding a
   second project-state model.
-- Refresh the label when project intake, target workspace, or selected providers
-  change.
+- Compute the label on demand when `/project` diagnostics are requested.
 
 ## Test Plan
 
 - Unit-test the readiness label for missing, ready new-project, and existing
   project states.
-- Render-test Start and Nexus to confirm the new static label appears.
+- Verify `/project` diagnostics include the readiness line.
 - Verify provider selection updates the provider count in the readiness line.

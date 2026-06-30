@@ -29,7 +29,8 @@ Make project intake prompt context target-aware.
 - Do not re-run project analysis automatically.
 - Do not delete stale intake artifacts.
 - Do not block workflow start.
-- Do not change the visible project intake labels in Start/Nexus.
+- Do not add project intake labels back into Start/Nexus; `/project`
+  diagnostics own that detail.
 
 ## Expected Behavior
 

@@ -157,7 +157,7 @@ def test_execution_confirmation_modal_shows_agent_run_estimate() -> None:
     summary = execution_confirmation_summary(snapshot)
 
     assert "Agent runs: 2 approx (1 execution, 1 review)" in (
-        ExecutionConfirmModal(summary)._summary_text()
+        ExecutionConfirmModal(summary).summary_text()
     )
 
 

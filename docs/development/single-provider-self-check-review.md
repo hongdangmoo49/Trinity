@@ -2,19 +2,18 @@
 
 ## Context
 
-The Start/Nexus provider policy label says a single active provider uses
-single-executor mode with self-check/manual review. The actual review planner,
-however, currently creates a non-required skipped review package when no
-non-owner peer reviewer is available.
+The limited provider policy notice says a single active provider uses
+single-executor mode with self-check/manual review. The review planner must keep
+that policy true when no non-owner peer reviewer is available.
 
-That means single-provider workflows can move past work-package review without a
-structured self-check request, even though the UI says self-check is the expected
-review mode.
+Without this alignment, single-provider workflows could move past work-package
+review without a structured self-check request even though diagnostics describe
+self-check as the expected review mode.
 
 ## Goal
 
-Align single-provider review routing with the UI policy by creating a required
-self-check review package when no peer reviewer is active.
+Align single-provider review routing with the limited provider policy by
+creating a required self-check review package when no peer reviewer is active.
 
 ## Scope
 

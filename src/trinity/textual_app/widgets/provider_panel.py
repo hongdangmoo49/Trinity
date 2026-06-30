@@ -41,6 +41,29 @@ class ProviderPanelState:
 ACTIVITY_FRAMES = ("|", "/", "-", "\\")
 
 
+def provider_panel_state_group(state: ProviderPanelState) -> str:
+    if not state.enabled:
+        return "off"
+    response_status = state.response_status.strip().lower()
+    if response_status and response_status != "ok":
+        return "issue"
+    if _looks_like_error_output(state.details or state.summary):
+        return "issue"
+    return compact_status_group(state.status)
+
+
+def _looks_like_error_output(text: str) -> bool:
+    normalized = " ".join(text.strip().split()).lower()
+    if not normalized:
+        return False
+    return (
+        normalized.startswith("[error:")
+        or normalized.startswith("error:")
+        or normalized.startswith("traceback ")
+        or "exit code " in normalized
+    )
+
+
 class ProviderPanel(Vertical):
     """Compact status surface for a provider."""
 
@@ -102,11 +125,11 @@ class ProviderPanel(Vertical):
         if next_frame == self._activity_frame:
             return
         self._activity_frame = next_frame
-        if self.is_mounted and self._state_group(self.state) == "running":
+        if self.is_mounted and provider_panel_state_group(self.state) == "running":
             self._static_for(".provider-status").update(self._status_label())
 
     def has_running_activity(self) -> bool:
-        return self._state_group(self.state) == "running"
+        return provider_panel_state_group(self.state) == "running"
 
     def _provider_line(self) -> str:
         parts = [self.state.provider]
@@ -132,7 +155,7 @@ class ProviderPanel(Vertical):
 
     def _status_label(self) -> str:
         prefix = ""
-        state = self._state_group(self.state)
+        state = provider_panel_state_group(self.state)
         if state == "running":
             prefix = f"{ACTIVITY_FRAMES[self._activity_frame]} "
         return f"{prefix}{self._label_for_state(state)}"
@@ -245,33 +268,10 @@ class ProviderPanel(Vertical):
     @staticmethod
     def _classes_for(state: ProviderPanelState) -> str:
         classes = ["provider-panel", f"provider-{state.name.lower()}"]
-        state_group = ProviderPanel._state_group(state)
+        state_group = provider_panel_state_group(state)
         classes.append(f"provider-state-{state_group}")
         if state_group == "running":
             classes.append("provider-running")
         if state_group == "off":
             classes.append("provider-disabled")
         return " ".join(classes)
-
-    @staticmethod
-    def _state_group(state: ProviderPanelState) -> str:
-        if not state.enabled:
-            return "off"
-        response_status = state.response_status.strip().lower()
-        if response_status and response_status != "ok":
-            return "issue"
-        if ProviderPanel._looks_like_error_output(state.details or state.summary):
-            return "issue"
-        return compact_status_group(state.status)
-
-    @staticmethod
-    def _looks_like_error_output(text: str) -> bool:
-        normalized = " ".join(text.strip().split()).lower()
-        if not normalized:
-            return False
-        return (
-            normalized.startswith("[error:")
-            or normalized.startswith("error:")
-            or normalized.startswith("traceback ")
-            or "exit code " in normalized
-        )

@@ -2333,6 +2333,13 @@ def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_execution_intent("estimate update scope") is False
     assert classify_execution_intent("map files to update") is False
     assert classify_execution_intent("summarize and fix this") is True
+    assert classify_execution_intent("why is the build failing") is False
+    assert classify_execution_intent("why did update fail") is False
+    assert classify_execution_intent("why does this fix fail") is False
+    assert classify_execution_intent("root cause of the build failure") is False
+    assert classify_execution_intent("failure reason for the refactor") is False
+    assert classify_execution_intent("cause of failed update") is False
+    assert classify_execution_intent("please fix the build failure") is True
     assert classify_execution_intent("이 프로젝트를 설명해라") is False
     assert classify_execution_intent("수정할 곳을 알려줘") is False
     assert classify_execution_intent("리뷰하고 수정할 곳을 알려줘") is False

@@ -75,13 +75,13 @@ STATUS_CONTEXT_LABELS = {
         "enabled": "Enabled",
         "execution": "Execution",
         "execute": "Execute",
-        "execute_finish_planning_hint": "Finish planning first, then run `/execute` from Nexus.",
+        "execute_finish_planning_hint": "Prepare work packages, then run `/execute` from Nexus.",
         "execute_retry": "Execute Retry",
         "execute_retry_no_packages": (
             "No work packages are available in the current workflow."
         ),
         "execute_retry_no_packages_hint": (
-            "Finish planning and execute at least one package first."
+            "Prepare and execute at least one package first."
         ),
         "execute_recovery_hint": (
             "Use `/execute-retry`, `/execute mark-interrupted`, or `/execute abort`."
@@ -309,13 +309,13 @@ STATUS_CONTEXT_LABELS = {
         "enabled": "활성화",
         "execution": "실행",
         "execute": "실행",
-        "execute_finish_planning_hint": "먼저 계획을 완료한 뒤 Nexus에서 `/execute`를 실행하세요.",
+        "execute_finish_planning_hint": "작업 패키지가 준비되면 Nexus에서 `/execute`를 실행하세요.",
         "execute_retry": "실행 재시도",
         "execute_retry_no_packages": (
             "현재 워크플로우에 사용할 수 있는 작업 패키지가 없습니다."
         ),
         "execute_retry_no_packages_hint": (
-            "먼저 계획을 완료하고 하나 이상의 작업 패키지를 실행하세요."
+            "하나 이상의 작업 패키지를 준비하고 실행하세요."
         ),
         "execute_recovery_hint": (
             "`/execute-retry`, `/execute mark-interrupted`, "

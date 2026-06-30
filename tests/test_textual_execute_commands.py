@@ -29,7 +29,7 @@ def test_execute_result_presentation_wraps_message() -> None:
     assert presentation.severity == "warning"
     assert presentation.empty is True
     assert presentation.action_hint == (
-        "Finish planning first, then run `/execute` from Nexus."
+        "Prepare work packages, then run `/execute` from Nexus."
     )
 
 
@@ -43,7 +43,7 @@ def test_execute_retry_no_packages_presentation_uses_retry_copy() -> None:
     assert presentation.severity == "warning"
     assert presentation.empty is True
     assert presentation.action_hint == (
-        "Finish planning and execute at least one package first."
+        "Prepare and execute at least one package first."
     )
 
 
@@ -55,7 +55,7 @@ def test_execute_retry_no_packages_presentation_supports_korean() -> None:
         "현재 워크플로우에 사용할 수 있는 작업 패키지가 없습니다."
     )
     assert presentation.action_hint == (
-        "먼저 계획을 완료하고 하나 이상의 작업 패키지를 실행하세요."
+        "하나 이상의 작업 패키지를 준비하고 실행하세요."
     )
 
 

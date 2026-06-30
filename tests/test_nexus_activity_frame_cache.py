@@ -4,8 +4,13 @@ import pytest
 from textual.app import App
 
 from trinity.config import TrinityConfig
+from trinity.textual_app.presenters import nexus_central_snapshot_has_activity
 from trinity.textual_app.screens.nexus import NexusScreen
-from trinity.textual_app.snapshot import ProviderSnapshot, WorkflowNexusSnapshot
+from trinity.textual_app.snapshot import (
+    ProviderSnapshot,
+    SynthesisSnapshot,
+    WorkflowNexusSnapshot,
+)
 
 
 class NexusHarness(App[None]):
@@ -15,6 +20,21 @@ class NexusHarness(App[None]):
 
     def on_mount(self) -> None:
         self.push_screen(self.nexus)
+
+
+def test_nexus_central_snapshot_has_activity() -> None:
+    assert nexus_central_snapshot_has_activity(
+        WorkflowNexusSnapshot(state="blueprint_ready")
+    ) is False
+    assert nexus_central_snapshot_has_activity(
+        WorkflowNexusSnapshot(state="deliberating")
+    ) is True
+    assert nexus_central_snapshot_has_activity(
+        WorkflowNexusSnapshot(
+            state="blueprint_ready",
+            synthesis=SynthesisSnapshot(status="waiting"),
+        )
+    ) is True
 
 
 @pytest.mark.asyncio

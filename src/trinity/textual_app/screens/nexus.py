@@ -16,6 +16,7 @@ from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.presenters import (
+    nexus_central_snapshot_has_activity,
     nexus_current_workspace_text,
     nexus_refine_prompt,
 )
@@ -489,7 +490,7 @@ class NexusScreen(Screen[None]):
     def _has_activity_frame_targets(self) -> bool:
         if not self.is_mounted:
             return False
-        if self.snapshot is not None and self._central_snapshot_is_running(
+        if self.snapshot is not None and nexus_central_snapshot_has_activity(
             self.snapshot
         ):
             return True
@@ -502,7 +503,7 @@ class NexusScreen(Screen[None]):
         self,
         snapshot: WorkflowNexusSnapshot,
     ) -> bool:
-        if self._central_snapshot_is_running(snapshot):
+        if nexus_central_snapshot_has_activity(snapshot):
             return True
         return any(
             ProviderPanel._state_group(
@@ -510,14 +511,6 @@ class NexusScreen(Screen[None]):
             ) == "running"
             for provider in snapshot.providers
         )
-
-    @staticmethod
-    def _central_snapshot_is_running(snapshot: WorkflowNexusSnapshot) -> bool:
-        if snapshot.synthesis.status in {"running", "waiting"}:
-            return True
-        if snapshot.state in {"preflight", "deliberating", "executing", "reviewing"}:
-            return True
-        return False
 
     @staticmethod
     def _provider_panel_state(provider: ProviderSnapshot) -> ProviderPanelState:

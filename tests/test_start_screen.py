@@ -7,10 +7,12 @@ from pathlib import Path
 
 import pytest
 from textual.app import App
+from textual.css.query import NoMatches
 from textual.widgets import Button, Static
 
 from trinity.config import TrinityConfig
 from trinity.project_intake import build_project_intake, write_project_intake
+from trinity.textual_app.project_start_runtime import project_setup_next_action
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
@@ -96,7 +98,7 @@ def test_target_workspace_state_label_distinguishes_project_states(
     ) == f"계획 대상: {target}"
 
 
-def test_start_and_nexus_project_actions_use_mode_specific_labels(
+def test_start_and_nexus_labels_use_visible_copy(
     tmp_path: Path,
 ) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
@@ -107,119 +109,22 @@ def test_start_and_nexus_project_actions_use_mode_specific_labels(
     ko_start = StartScreen(ko_config, lang="ko")
     ko_nexus = NexusScreen(ko_config)
 
-    assert start._label("analyze_workspace") == "Analyze Existing"
-    assert start._label("continue_setup") == "Continue Setup"
-    assert start._label("create_project") == "Create New"
-    assert nexus._label("analyze_workspace") == "Analyze Existing"
-    assert nexus._label("continue_setup") == "Continue Setup"
-    assert nexus._label("create_project") == "Create New"
-    assert start._label("refresh_analysis") == "Refresh Analysis"
-    assert nexus._label("refresh_analysis") == "Refresh Analysis"
-    assert start._label("analyze_selected_workspace") == "Analyze Selected"
-    assert nexus._label("analyze_selected_workspace") == "Analyze Selected"
-    assert ko_start._label("analyze_workspace") == "기존 프로젝트 분석"
-    assert ko_start._label("continue_setup") == "설정 계속"
-    assert ko_start._label("create_project") == "새 프로젝트 생성"
-    assert ko_nexus._label("analyze_workspace") == "기존 프로젝트 분석"
-    assert ko_nexus._label("continue_setup") == "설정 계속"
-    assert ko_nexus._label("create_project") == "새 프로젝트 생성"
-    assert ko_start._label("refresh_analysis") == "분석 갱신"
-    assert ko_nexus._label("refresh_analysis") == "분석 갱신"
-    assert ko_start._label("analyze_selected_workspace") == "선택 대상 분석"
-    assert ko_nexus._label("analyze_selected_workspace") == "선택 대상 분석"
-
-
-def test_start_project_setup_next_action_tracks_project_state(
-    tmp_path: Path,
-) -> None:
-    config = TrinityConfig.default_config(project_dir=tmp_path)
-    target = tmp_path / "customer-app"
-    target.mkdir()
-
-    screen = StartScreen(config)
-    assert screen._project_setup_next_action() == "workspace"
-
-    screen.workspace_candidate = target
-    assert screen._project_setup_next_action() == "analyze"
-
-    (target / "README.md").write_text("# Customer App\n", encoding="utf-8")
-    (target / "package.json").write_text(
-        '{"scripts":{"test":"vitest run"}}',
-        encoding="utf-8",
+    assert start._label("placeholder") == "What should Trinity work on?"
+    assert start._label("select_workspace") == "Select Workspace"
+    assert nexus._label("execute") == "Execute"
+    assert nexus._label("open_provider_inspector") == "Open Provider Inspector"
+    assert nexus._label("composer_placeholder") == (
+        "Reply, refine direction, or type / for commands"
     )
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="existing",
-            target_workspace=target,
-            read_first_confirmed=True,
-            created_at=date.today().isoformat(),
-        ),
-    )
-    assert screen._project_setup_next_action() == "plan"
-
-    (target / "apps" / "web").mkdir(parents=True)
-    (target / "apps" / "web" / "package.json").write_text(
-        "{}",
-        encoding="utf-8",
-    )
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="existing",
-            target_workspace=target,
-            read_first_confirmed=True,
-            created_at=date.today().isoformat(),
-        ),
-    )
-    assert screen._project_setup_next_action() == "scope"
-
-    new_target = tmp_path / "new-app"
-    screen.workspace_candidate = new_target
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="new",
-            target_workspace=new_target,
-            product_goal="Build app.",
-            created_at=date.today().isoformat(),
-        ),
-    )
-    assert screen._project_setup_next_action() == "create"
-
-    new_target.mkdir()
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="new",
-            target_workspace=new_target,
-            product_goal="Build app.",
-            created_at=date.today().isoformat(),
-        ),
-    )
-    assert screen._project_setup_next_action() == "brief"
-
-
-def test_start_project_setup_next_action_uses_mode_focus(tmp_path: Path) -> None:
-    config = TrinityConfig.default_config(project_dir=tmp_path)
-    target = tmp_path / "target"
-    target.mkdir()
-    screen = StartScreen(config)
-
-    assert screen._project_setup_next_action() == "workspace"
-    screen.project_mode_focus = "new"
-    assert screen._project_setup_next_action() == "create"
-    screen.project_mode_focus = "existing"
-    assert screen._project_setup_next_action() == "workspace"
-
-    screen.workspace_candidate = target
-    assert screen._project_setup_next_action() == "analyze"
-    screen.project_mode_focus = "new"
-    assert screen._project_setup_next_action() == "create"
+    assert ko_start._label("placeholder") == "Trinity가 무엇을 진행하면 될까요?"
+    assert ko_start._label("select_workspace") == "작업 폴더 선택"
+    assert ko_nexus._label("execute") == "실행"
+    assert ko_nexus._label("open_provider_inspector") == "프로바이더 인스펙터 열기"
+    assert ko_nexus._label("composer_placeholder") == "답변, 방향 조정 또는 /로 명령 입력"
 
 
 @pytest.mark.asyncio
-async def test_start_mode_focus_buttons_update_variants_and_route(
+async def test_start_mode_focus_buttons_are_not_rendered(
     tmp_path: Path,
 ) -> None:
     screen = StartScreen(TrinityConfig.default_config(project_dir=tmp_path))
@@ -228,94 +133,10 @@ async def test_start_mode_focus_buttons_update_variants_and_route(
     async with app.run_test(size=(130, 44)) as pilot:
         await pilot.pause()
 
-        assert screen.query_one("#focus-existing-project", Button).variant == "default"
-        assert screen.query_one("#focus-new-project", Button).variant == "default"
-
-        await pilot.click("#focus-new-project")
-        await pilot.pause()
-
-        assert screen.project_mode_focus == "new"
-        assert screen._project_setup_next_action() == "create"
-        assert screen.query_one("#focus-existing-project", Button).variant == "default"
-        assert screen.query_one("#focus-new-project", Button).variant == "primary"
-
-        await pilot.click("#focus-existing-project")
-        await pilot.pause()
-
-        assert screen.project_mode_focus == "existing"
-        assert screen._project_setup_next_action() == "workspace"
-        assert screen.query_one("#focus-existing-project", Button).variant == "primary"
-        assert screen.query_one("#focus-new-project", Button).variant == "default"
-
-
-def test_nexus_project_setup_next_action_tracks_project_state(
-    tmp_path: Path,
-) -> None:
-    config = TrinityConfig.default_config(project_dir=tmp_path)
-    target = tmp_path / "customer-app"
-    target.mkdir()
-
-    screen = NexusScreen(config)
-    assert screen._project_setup_next_action() == "workspace"
-
-    screen.set_workspace_candidate(target)
-    assert screen._project_setup_next_action() == "analyze"
-
-    (target / "README.md").write_text("# Customer App\n", encoding="utf-8")
-    (target / "package.json").write_text(
-        '{"scripts":{"test":"vitest run"}}',
-        encoding="utf-8",
-    )
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="existing",
-            target_workspace=target,
-            read_first_confirmed=True,
-            created_at=date.today().isoformat(),
-        ),
-    )
-    assert screen._project_setup_next_action() == "execute"
-
-    (target / "apps" / "web").mkdir(parents=True)
-    (target / "apps" / "web" / "package.json").write_text(
-        "{}",
-        encoding="utf-8",
-    )
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="existing",
-            target_workspace=target,
-            created_at=date.today().isoformat(),
-        ),
-    )
-    assert screen._project_setup_next_action() == "scope"
-
-    new_target = tmp_path / "new-app"
-    screen.set_workspace_candidate(new_target)
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="new",
-            target_workspace=new_target,
-            product_goal="Build app.",
-            created_at=date.today().isoformat(),
-        ),
-    )
-    assert screen._project_setup_next_action() == "create"
-
-    new_target.mkdir()
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="new",
-            target_workspace=new_target,
-            product_goal="Build app.",
-            created_at=date.today().isoformat(),
-        ),
-    )
-    assert screen._project_setup_next_action() == "brief"
+        with pytest.raises(NoMatches):
+            screen.query_one("#focus-existing-project", Button)
+        with pytest.raises(NoMatches):
+            screen.query_one("#focus-new-project", Button)
 
 
 def test_provider_execution_review_policy_label_handles_provider_counts(
@@ -1931,12 +1752,11 @@ def test_start_and_nexus_missing_project_intake_use_selected_workspace(
     target = tmp_path / "customer-app"
     target.mkdir()
     config = TrinityConfig.default_config(project_dir=tmp_path)
-    start = StartScreen(config, workspace_candidate=target)
-    nexus = NexusScreen(config)
-    nexus.snapshot = WorkflowNexusSnapshot(target_workspace=str(target))
 
-    assert f"trinity project analyze {target}" in start._project_intake_label()
-    assert f"trinity project analyze {target}" in nexus._project_intake_label()
+    assert f"trinity project analyze {target}" in project_intake_state_label(
+        config.effective_state_dir,
+        target_workspace=target,
+    )
 
 
 def test_start_and_nexus_project_intake_warn_when_target_mismatches(
@@ -1955,12 +1775,10 @@ def test_start_and_nexus_project_intake_warn_when_target_mismatches(
             created_at="2026-06-28T00:00:00Z",
         ),
     )
-    start = StartScreen(config, workspace_candidate=selected_target)
-    nexus = NexusScreen(config)
-    nexus.snapshot = WorkflowNexusSnapshot(target_workspace=str(selected_target))
-
-    assert "target mismatch" in start._project_intake_label()
-    assert "target mismatch" in nexus._project_intake_label()
+    assert "target mismatch" in project_intake_state_label(
+        config.effective_state_dir,
+        target_workspace=selected_target,
+    )
     presentation = project_analyze_action_presentation(
         config.effective_state_dir,
         target_workspace=selected_target,
@@ -1970,7 +1788,7 @@ def test_start_and_nexus_project_intake_warn_when_target_mismatches(
 
 
 @pytest.mark.asyncio
-async def test_start_and_nexus_show_reanalyze_cta_when_target_mismatches(
+async def test_start_and_nexus_keep_reanalyze_signal_offscreen(
     tmp_path: Path,
 ) -> None:
     saved_target = tmp_path / "saved-app"
@@ -1992,10 +1810,14 @@ async def test_start_and_nexus_show_reanalyze_cta_when_target_mismatches(
     async with start_app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
 
-        assert str(start.query_one("#analyze-workspace", Button).label) == (
-            "Analyze Selected"
+        start_presentation = project_analyze_action_presentation(
+            config.effective_state_dir,
+            target_workspace=selected_target,
         )
-        assert start.query_one("#analyze-workspace", Button).variant == "warning"
+        assert start_presentation.label_key == "analyze_selected_workspace"
+        assert start_presentation.variant == "warning"
+        with pytest.raises(NoMatches):
+            start.query_one("#analyze-workspace", Button)
 
     nexus = NexusScreen(config)
     nexus.snapshot = WorkflowNexusSnapshot(target_workspace=str(selected_target))
@@ -2003,10 +1825,14 @@ async def test_start_and_nexus_show_reanalyze_cta_when_target_mismatches(
     async with nexus_app.run_test(size=(140, 40)) as pilot:
         await pilot.pause()
 
-        assert str(nexus.query_one("#nexus-analyze-workspace", Button).label) == (
-            "Analyze Selected"
+        nexus_presentation = project_analyze_action_presentation(
+            config.effective_state_dir,
+            target_workspace=selected_target,
         )
-        assert nexus.query_one("#nexus-analyze-workspace", Button).variant == "warning"
+        assert nexus_presentation.label_key == "analyze_selected_workspace"
+        assert nexus_presentation.variant == "warning"
+        with pytest.raises(NoMatches):
+            nexus.query_one("#nexus-analyze-workspace", Button)
 
 
 def test_nexus_workspace_label_uses_target_state_helper(tmp_path: Path) -> None:
@@ -2029,7 +1855,9 @@ def test_nexus_workspace_label_uses_target_state_helper(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_start_screen_shows_project_intake_summary(tmp_path: Path) -> None:
+async def test_start_screen_does_not_render_project_diagnostics(
+    tmp_path: Path,
+) -> None:
     target = tmp_path / "customer-app"
     target.mkdir()
     (target / "pyproject.toml").write_text(
@@ -2052,37 +1880,24 @@ async def test_start_screen_shows_project_intake_summary(tmp_path: Path) -> None
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
 
-        assert str(screen.query_one("#project-intake-summary", Static).content) == (
-            "Project intake: existing | target: customer-app | "
-            "updated: 2026-06-28 | tests: uv run pytest | git: none"
-        )
-        assert str(
-            screen.query_one("#project-existing-diagnostic", Static).content
-        ) == (
-            "Existing diagnosis: read: README/docs/source roots missing | "
-            "tests: uv run pytest | dev: (none) | build: (none) | "
-            "scope: target root | git: none"
-        )
-        assert str(screen.query_one("#continue-project-setup", Button).label) == (
-            "Continue Setup"
-        )
-        assert str(
-            screen.query_one("#project-start-choice-guide", Static).content
-        ) == (
-            "Project start: mode existing | next -> Plan first | "
-            "then Plan first"
-        )
-        assert str(screen.query_one("#project-read-first-checklist", Static).content) == (
-            "Read-first checklist: scope: target root | "
-            "read: README/docs/source roots missing | "
-            "inspect: entrypoints missing | verify: uv run pytest"
-        )
-        assert screen.query_one("#analyze-workspace", Button).variant == "default"
-        assert screen.query_one("#create-project", Button).variant == "default"
+        for selector in (
+            "#project-intake-summary",
+            "#project-existing-diagnostic",
+            "#project-start-choice-guide",
+            "#project-read-first-checklist",
+        ):
+            with pytest.raises(NoMatches):
+                screen.query_one(selector, Static)
+        with pytest.raises(NoMatches):
+            screen.query_one("#continue-project-setup", Button)
+        with pytest.raises(NoMatches):
+            screen.query_one("#analyze-workspace", Button)
+        with pytest.raises(NoMatches):
+            screen.query_one("#create-project", Button)
 
 
 @pytest.mark.asyncio
-async def test_start_screen_refreshes_project_context_when_target_changes(
+async def test_start_screen_target_change_does_not_render_project_context(
     tmp_path: Path,
 ) -> None:
     target = tmp_path / "customer-app"
@@ -2109,16 +1924,15 @@ async def test_start_screen_refreshes_project_context_when_target_changes(
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
 
-        initial = str(screen.query_one("#project-intake-summary", Static).content)
-        assert "target mismatch" in initial
+        with pytest.raises(NoMatches):
+            screen.query_one("#project-intake-summary", Static)
 
         screen.set_workspace_candidate(target)
         await pilot.pause()
 
-        refreshed = str(screen.query_one("#project-intake-summary", Static).content)
-        assert "target mismatch" not in refreshed
-        assert "target: customer-app" in refreshed
-        assert "tests: uv run pytest" in refreshed
+        assert screen.workspace_candidate == target
+        with pytest.raises(NoMatches):
+            screen.query_one("#project-intake-summary", Static)
 
 
 @pytest.mark.asyncio
@@ -2146,13 +1960,6 @@ async def test_start_screen_updates_provider_policy_from_recipient_selection(
             "missing: codex(trinity-missing-cli-for-test) | "
             "next: fix CLI command/PATH"
         )
-        assert str(
-            screen.query_one("#project-startup-readiness", Static).content
-        ) == (
-            "Startup readiness: target missing | intake missing | "
-            "providers 2 selected | validation missing"
-        )
-
         selector = screen.query_one(AgentRecipientModelSelector)
         selector.set_selected_agents(("claude",))
         screen.on_agent_recipient_model_selector_selection_changed(
@@ -2167,16 +1974,14 @@ async def test_start_screen_updates_provider_policy_from_recipient_selection(
         assert str(
             screen.query_one("#start-provider-cli-setup", Static).content
         ) == "Provider CLI setup: selected 1 | found: claude"
-        assert str(
-            screen.query_one("#project-startup-readiness", Static).content
-        ) == (
-            "Startup readiness: target missing | intake missing | "
-            "providers 1 selected | validation missing"
-        )
+        with pytest.raises(NoMatches):
+            screen.query_one("#project-startup-readiness", Static)
 
 
 @pytest.mark.asyncio
-async def test_nexus_screen_shows_read_first_checklist(tmp_path: Path) -> None:
+async def test_nexus_screen_does_not_render_project_diagnostics(
+    tmp_path: Path,
+) -> None:
     target = tmp_path / "customer-app"
     target.mkdir()
     (target / "README.md").write_text("# Customer App\n", encoding="utf-8")
@@ -2198,27 +2003,13 @@ async def test_nexus_screen_shows_read_first_checklist(tmp_path: Path) -> None:
     async with app.run_test(size=(140, 40)) as pilot:
         await pilot.pause()
 
-        assert str(
-            screen.query_one("#nexus-project-read-first-checklist", Static).content
-        ) == (
-            "Read-first checklist: scope: services/api | read: README.md, src | "
-            "inspect: entrypoints missing | verify: record validation command"
-        )
-        assert str(
-            screen.query_one(
-                "#nexus-project-existing-diagnostic",
-                Static,
-            ).content
-        ) == (
-            "Existing diagnosis: read: README.md, src | tests: (none) | "
-            "dev: (none) | build: (none) | scope: services/api | git: none"
-        )
-        assert str(
-            screen.query_one("#nexus-project-startup-readiness", Static).content
-        ) == (
-            "Startup readiness: target ok | intake check | "
-            "providers 1 selected | validation missing"
-        )
+        for selector in (
+            "#nexus-project-read-first-checklist",
+            "#nexus-project-existing-diagnostic",
+            "#nexus-project-startup-readiness",
+        ):
+            with pytest.raises(NoMatches):
+                screen.query_one(selector, Static)
 
 
 @pytest.mark.asyncio
@@ -2249,13 +2040,6 @@ async def test_nexus_screen_shows_provider_policy_from_selected_agents(
             "missing: codex(trinity-missing-cli-for-test) | "
             "next: fix CLI command/PATH"
         )
-        assert str(
-            screen.query_one("#nexus-project-startup-readiness", Static).content
-        ) == (
-            "Startup readiness: target missing | intake missing | "
-            "providers 2 selected | validation missing"
-        )
-
         screen.set_agent_selection(("claude", "antigravity"), {})
         await pilot.pause()
 
@@ -2266,13 +2050,6 @@ async def test_nexus_screen_shows_provider_policy_from_selected_agents(
         assert str(
             screen.query_one("#nexus-provider-cli-setup", Static).content
         ) == "Provider CLI setup: selected 2 | found: claude, antigravity"
-        assert str(
-            screen.query_one("#nexus-project-startup-readiness", Static).content
-        ) == (
-            "Startup readiness: target missing | intake missing | "
-            "providers 2 selected | validation missing"
-        )
-
         selector = screen.query_one(AgentRecipientModelSelector)
         selector.set_selected_agents(("claude",))
         screen.on_agent_recipient_model_selector_selection_changed(
@@ -2287,12 +2064,8 @@ async def test_nexus_screen_shows_provider_policy_from_selected_agents(
         assert str(
             screen.query_one("#nexus-provider-cli-setup", Static).content
         ) == "Provider CLI setup: selected 1 | found: claude"
-        assert str(
-            screen.query_one("#nexus-project-startup-readiness", Static).content
-        ) == (
-            "Startup readiness: target missing | intake missing | "
-            "providers 1 selected | validation missing"
-        )
+        with pytest.raises(NoMatches):
+            screen.query_one("#nexus-project-startup-readiness", Static)
 
 
 @pytest.mark.asyncio
@@ -2317,15 +2090,12 @@ async def test_start_screen_highlights_edit_brief_for_incomplete_new_project(
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
 
-        assert (
-            screen.query_one("#edit-project-brief", Button).variant
-            == "warning"
-        )
-        assert str(screen.query_one("#edit-project-brief", Button).label) == (
-            "Complete Brief"
-        )
-        assert screen.query_one("#analyze-workspace", Button).variant == "default"
-        assert screen.query_one("#create-project", Button).variant == "default"
+        with pytest.raises(NoMatches):
+            screen.query_one("#edit-project-brief", Button)
+        with pytest.raises(NoMatches):
+            screen.query_one("#analyze-workspace", Button)
+        with pytest.raises(NoMatches):
+            screen.query_one("#create-project", Button)
 
 
 @pytest.mark.asyncio
@@ -2341,8 +2111,10 @@ async def test_start_screen_highlights_project_intake_recovery_actions(
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
 
-        assert screen.query_one("#analyze-workspace", Button).variant == "warning"
-        assert screen.query_one("#create-project", Button).variant == "default"
+        with pytest.raises(NoMatches):
+            screen.query_one("#analyze-workspace", Button)
+        with pytest.raises(NoMatches):
+            screen.query_one("#create-project", Button)
 
 
 @pytest.mark.asyncio
@@ -2367,18 +2139,23 @@ async def test_start_screen_refreshes_analyze_action_label_for_changed_intake(
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
 
-        assert str(screen.query_one("#analyze-workspace", Button).label) == (
-            "Analyze Existing"
+        presentation = project_analyze_action_presentation(
+            config.effective_state_dir,
+            target_workspace=target,
         )
+        assert presentation.label_key == "analyze_workspace"
 
         (target / "src").mkdir()
-        screen.refresh_project_intake_summary()
         await pilot.pause()
 
-        assert str(screen.query_one("#analyze-workspace", Button).label) == (
-            "Refresh Analysis"
+        presentation = project_analyze_action_presentation(
+            config.effective_state_dir,
+            target_workspace=target,
         )
-        assert screen.query_one("#analyze-workspace", Button).variant == "warning"
+        assert presentation.label_key == "refresh_analysis"
+        assert presentation.variant == "warning"
+        with pytest.raises(NoMatches):
+            screen.query_one("#analyze-workspace", Button)
 
 
 @pytest.mark.asyncio
@@ -2403,14 +2180,10 @@ async def test_nexus_highlights_missing_new_project_target_creation(
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
 
-        assert (
-            screen.query_one("#nexus-create-project", Button).variant
-            == "warning"
-        )
-        assert (
-            screen.query_one("#nexus-analyze-workspace", Button).variant
-            == "default"
-        )
+        with pytest.raises(NoMatches):
+            screen.query_one("#nexus-create-project", Button)
+        with pytest.raises(NoMatches):
+            screen.query_one("#nexus-analyze-workspace", Button)
 
         write_project_intake(
             config.effective_state_dir,
@@ -2425,19 +2198,9 @@ async def test_nexus_highlights_missing_new_project_target_creation(
                 created_at="2026-06-28T00:00:00Z",
             ),
         )
-        screen.refresh_project_intake_summary()
 
-        assert (
-            screen.query_one("#nexus-edit-project-brief", Button).variant
-            == "default"
-        )
-        assert str(screen.query_one("#nexus-edit-project-brief", Button).label) == (
-            "Edit Brief"
-        )
-        assert (
-            screen.query_one("#nexus-create-project", Button).variant
-            == "warning"
-        )
+        with pytest.raises(NoMatches):
+            screen.query_one("#nexus-edit-project-brief", Button)
 
 
 @pytest.mark.asyncio
@@ -2463,24 +2226,29 @@ async def test_nexus_refreshes_analyze_action_label_for_changed_intake(
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
 
-        assert str(screen.query_one("#nexus-analyze-workspace", Button).label) == (
-            "기존 프로젝트 분석"
+        presentation = project_analyze_action_presentation(
+            config.effective_state_dir,
+            target_workspace=target,
         )
+        assert presentation.label_key == "analyze_workspace"
 
         (target / "src").mkdir()
-        screen.refresh_project_intake_summary()
         await pilot.pause()
 
-        assert str(screen.query_one("#nexus-analyze-workspace", Button).label) == (
-            "분석 갱신"
+        presentation = project_analyze_action_presentation(
+            config.effective_state_dir,
+            target_workspace=target,
         )
-        assert screen.query_one("#nexus-analyze-workspace", Button).variant == (
-            "warning"
-        )
+        assert presentation.label_key == "refresh_analysis"
+        assert presentation.variant == "warning"
+        with pytest.raises(NoMatches):
+            screen.query_one("#nexus-analyze-workspace", Button)
 
 
 @pytest.mark.asyncio
-async def test_nexus_screen_shows_project_intake_summary(tmp_path: Path) -> None:
+async def test_nexus_screen_project_intake_summary_stays_offscreen(
+    tmp_path: Path,
+) -> None:
     target = tmp_path / "customer-app"
     target.mkdir()
     (target / "pyproject.toml").write_text(
@@ -2503,21 +2271,26 @@ async def test_nexus_screen_shows_project_intake_summary(tmp_path: Path) -> None
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
 
-        assert str(
-            screen.query_one("#nexus-project-intake-summary", Static).content
+        assert project_intake_state_label(
+            config.effective_state_dir,
+            lang="ko",
+            target_workspace=target,
         ) == (
             "프로젝트 인테이크: 기존 | 대상: customer-app | "
             "갱신: 2026-06-28 | 테스트: uv run pytest | git: 없음"
         )
-        assert str(
-            screen.query_one("#nexus-continue-project-setup", Button).label
-        ) == "설정 계속"
-        assert str(
-            screen.query_one("#nexus-project-start-choice-guide", Static).content
+        assert project_start_choice_guide_label(
+            config.effective_state_dir,
+            lang="ko",
+            target_workspace=target,
         ) == (
             "프로젝트 시작: 모드 기존 | 다음 -> 먼저 계획 | "
             "이후 먼저 계획"
         )
+        with pytest.raises(NoMatches):
+            screen.query_one("#nexus-project-intake-summary", Static)
+        with pytest.raises(NoMatches):
+            screen.query_one("#nexus-continue-project-setup", Button)
 
 
 @pytest.mark.asyncio
@@ -2542,13 +2315,8 @@ async def test_nexus_screen_highlights_edit_brief_for_incomplete_new_project(
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
 
-        assert (
-            screen.query_one("#nexus-edit-project-brief", Button).variant
-            == "warning"
-        )
-        assert str(screen.query_one("#nexus-edit-project-brief", Button).label) == (
-            "Complete Brief"
-        )
+        with pytest.raises(NoMatches):
+            screen.query_one("#nexus-edit-project-brief", Button)
 
 
 @pytest.mark.asyncio
@@ -2619,7 +2387,7 @@ async def test_start_workspace_candidate_skips_unchanged_widget_query(
 
         screen.set_workspace_candidate(next_target)
         await pilot.pause()
-        assert "#project-intake-summary" in queries
+        assert "#project-intake-summary" not in queries
 
 
 @pytest.mark.asyncio

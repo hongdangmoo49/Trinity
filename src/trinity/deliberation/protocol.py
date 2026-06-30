@@ -34,7 +34,10 @@ from trinity.models import (
     MessageRole,
     ResponseStatus,
 )
-from trinity.project_intake import project_intake_prompt_block
+from trinity.project_intake import (
+    project_intake_prompt_block,
+    target_workspace_context_block,
+)
 from trinity.tui.events import TUIEvent, TUIEventType
 from trinity.workflow.structured import (
     StructuredConsensusResult,
@@ -1204,15 +1207,9 @@ class DeliberationProtocol:
     def _append_target_workspace_context(self, prompt: str) -> str:
         """Append selected target workspace context to provider round prompts."""
         blocks: list[str] = []
-        if self.target_workspace is not None:
-            blocks.append(
-                "Target Workspace Context:\n"
-                f"- Target workspace: {self.target_workspace}\n"
-                "- Scope project file references and implementation artifacts to "
-                "this workspace.\n"
-                "- The Trinity control repository is orchestration state unless "
-                "it was explicitly selected as the target workspace."
-            )
+        target_block = target_workspace_context_block(self.target_workspace)
+        if target_block:
+            blocks.append(target_block)
         intake_block = project_intake_prompt_block(
             self.shared.path.parent,
             target_workspace=self.target_workspace,

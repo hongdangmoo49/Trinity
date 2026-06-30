@@ -16,7 +16,6 @@ from trinity.project_intake import (
     ProjectIntake,
     build_project_intake,
     load_project_intake,
-    missing_new_project_brief_field_keys,
     write_project_intake,
 )
 from trinity.providers.model_discovery import ProviderModelChoice
@@ -85,6 +84,7 @@ from trinity.textual_app.model_settings_commands import (
     model_settings_modal_request,
     model_settings_updated_notification,
 )
+from trinity.textual_app.project_commands import project_command_presentation
 from trinity.textual_app.project_context_summary import build_project_context_summary
 from trinity.textual_app.packages_commands import packages_command_presentation
 from trinity.textual_app.questions_commands import (
@@ -211,10 +211,6 @@ from trinity.textual_app.widgets.project_brief_modal import (
     ProjectBriefModal,
     ProjectBriefModalResult,
 )
-from trinity.textual_app.widgets.project_generation_confirm_modal import (
-    ProjectGenerationConfirmModal,
-    project_generation_confirmation_summary,
-)
 from trinity.textual_app.widgets.project_scope_modal import (
     ProjectScopeModal,
     ProjectScopeModalResult,
@@ -249,47 +245,15 @@ LocalCommandSnapshotOptionValue = (
 
 
 def initial_workspace_candidate(config: TrinityConfig, launch_cwd: Path) -> Path:
-    """Return the launch cwd unless control-repo launch should restore a target."""
-    if absolute_path(launch_cwd) != absolute_path(config.project_dir):
-        return launch_cwd
-    try:
-        intake = load_project_intake(config.effective_state_dir)
-    except ValueError:
-        return launch_cwd
-    if intake is not None and _is_directory(intake.target_workspace):
-        return intake.target_workspace.resolve()
+    """Return the process launch cwd as the default target candidate."""
+    _ = config
     return launch_cwd
 
 
 def initial_start_prompt(config: TrinityConfig, workspace_candidate: Path | None) -> str:
-    """Seed Start prompt from the saved project brief for the same target."""
-    if workspace_candidate is None:
-        return ""
-    try:
-        intake = load_project_intake(config.effective_state_dir)
-    except ValueError:
-        return ""
-    if intake is None or not intake.product_goal.strip():
-        return ""
-    if absolute_path(intake.target_workspace) != absolute_path(workspace_candidate):
-        return ""
-    return _project_brief_start_prompt(
-        mode=intake.mode,
-        lang=config.lang,
-        product_goal=intake.product_goal,
-        project_type=intake.project_type,
-        starter_profile=intake.starter_profile,
-        target_users=intake.target_users,
-        success_criteria=intake.success_criteria,
-        stack_preferences=intake.stack_preferences,
-        first_milestone=intake.first_milestone,
-        run_commands=intake.run_commands,
-        validation_commands=intake.validation_commands,
-        artifact_targets=intake.artifact_targets,
-        constraints=intake.constraints,
-        selected_scope=intake.selected_scope,
-        notes=intake.notes,
-    )
+    """Leave Start blank so the user's prompt is the source of intent."""
+    _ = config, workspace_candidate
+    return ""
 
 
 def _existing_project_analysis_prompt(
@@ -666,13 +630,6 @@ def _execution_confirmation_intake_risk_label(warning: str, *, lang: str) -> str
     return labels.get(warning, warning)
 
 
-def _is_directory(path: Path) -> bool:
-    try:
-        return path.is_dir()
-    except OSError:
-        return False
-
-
 class TrinityTextualApp(App[None]):
     """Desktop-style Textual workbench for Trinity."""
 
@@ -868,54 +825,6 @@ class TrinityTextualApp(App[None]):
 
     #choose-workspace {
         width: 20;
-        margin-left: 1;
-    }
-
-    #plan-first {
-        width: 14;
-        margin-left: 1;
-    }
-
-    #project-intake-summary {
-        width: 100%;
-        color: $text-muted;
-        margin-top: 1;
-    }
-
-    #project-intake-actions {
-        width: 100%;
-        height: auto;
-        margin-top: 1;
-        align-horizontal: right;
-    }
-
-    #project-mode-focus-actions {
-        width: 100%;
-        height: auto;
-        margin-top: 1;
-        align-horizontal: right;
-    }
-
-    #focus-existing-project {
-        width: 12;
-    }
-
-    #focus-new-project {
-        width: 12;
-        margin-left: 1;
-    }
-
-    #analyze-workspace {
-        width: 20;
-    }
-
-    #create-project {
-        width: 16;
-        margin-left: 1;
-    }
-
-    #edit-project-brief {
-        width: 14;
         margin-left: 1;
     }
 
@@ -1291,33 +1200,6 @@ class TrinityTextualApp(App[None]):
         margin-left: 2;
         content-align: left bottom;
         color: $text-muted;
-    }
-
-    #nexus-project-intake-summary {
-        width: 100%;
-        color: $text-muted;
-        margin-top: 1;
-    }
-
-    #nexus-project-intake-actions {
-        width: 100%;
-        height: auto;
-        margin-top: 1;
-        align-horizontal: right;
-    }
-
-    #nexus-analyze-workspace {
-        width: 20;
-    }
-
-    #nexus-create-project {
-        width: 16;
-        margin-left: 1;
-    }
-
-    #nexus-edit-project-brief {
-        width: 14;
-        margin-left: 1;
     }
 
     ProviderInspector {
@@ -1904,13 +1786,10 @@ class TrinityTextualApp(App[None]):
             agent_model_overrides=event.agent_model_overrides,
             project_dir=self.config.project_dir,
         )
-        if self._maybe_open_project_generation_confirmation(effect):
-            return
         self._apply_start_submission_effect(effect)
 
     def _apply_start_submission_effect(self, effect: StartSubmissionEffect) -> None:
         self._prepare_start_submission_ui(effect)
-        self._sync_project_intake_for_submission_target(effect.target_workspace)
         outcome = self._run_start_submission(effect)
         self._remember_confirmed_target_preflight(
             effect.target_workspace,
@@ -1918,56 +1797,6 @@ class TrinityTextualApp(App[None]):
         )
         self._apply_workflow_outcome(outcome)
         self.switch_to("nexus")
-
-    def _maybe_open_project_generation_confirmation(
-        self,
-        effect: StartSubmissionEffect,
-    ) -> bool:
-        intake = self._new_project_generation_confirmation_intake(
-            effect.target_workspace
-        )
-        if intake is None:
-            return False
-        summary = project_generation_confirmation_summary(
-            intake,
-            lang=self.config.lang,
-        )
-        if not summary.available:
-            return False
-        self.push_screen(
-            ProjectGenerationConfirmModal(summary, lang=self.config.lang),
-            lambda confirmed: self._on_project_generation_confirmation(
-                confirmed,
-                effect,
-            ),
-        )
-        return True
-
-    def _on_project_generation_confirmation(
-        self,
-        confirmed: bool | None,
-        effect: StartSubmissionEffect,
-    ) -> None:
-        if confirmed:
-            self._apply_start_submission_effect(effect)
-
-    def _new_project_generation_confirmation_intake(
-        self,
-        target: Path | None,
-    ) -> ProjectIntake | None:
-        if target is None:
-            return None
-        try:
-            intake = load_project_intake(self.config.effective_state_dir)
-        except ValueError:
-            return None
-        if intake is None or intake.mode != "new":
-            return None
-        if absolute_path(intake.target_workspace) != absolute_path(target):
-            return None
-        if missing_new_project_brief_field_keys(intake):
-            return None
-        return intake
 
     def _prepare_start_submission_ui(self, effect: StartSubmissionEffect) -> None:
         self.initial_prompt = effect.prompt
@@ -2010,108 +1839,6 @@ class TrinityTextualApp(App[None]):
             self._on_workspace_candidate_selected,
             intent="select",
         )
-
-    def on_start_screen_project_intake_requested(
-        self,
-        event: StartScreen.ProjectIntakeRequested,
-    ) -> None:
-        event.stop()
-        target = safe_start_target_workspace(
-            self.workspace_candidate,
-            self.config.project_dir,
-        )
-        if target is None:
-            self._open_workspace_picker(
-                WorkflowNexusSnapshot(),
-                self._on_existing_project_intake_workspace_selected,
-                intent="select",
-            )
-            return
-        self._apply_start_project_intake_for_direct_target(target)
-
-    def on_start_screen_new_project_requested(
-        self,
-        event: StartScreen.NewProjectRequested,
-    ) -> None:
-        event.stop()
-        self._open_workspace_picker(
-            WorkflowNexusSnapshot(),
-            self._on_new_project_workspace_selected,
-            intent="select",
-            open_new_folder=True,
-        )
-
-    def on_start_screen_project_brief_requested(
-        self,
-        event: StartScreen.ProjectBriefRequested,
-    ) -> None:
-        event.stop()
-        target = safe_start_target_workspace(
-            self.workspace_candidate,
-            self.config.project_dir,
-        )
-        if target is None:
-            self._open_workspace_picker(
-                WorkflowNexusSnapshot(),
-                self._on_project_brief_workspace_selected,
-                intent="select",
-            )
-            return
-        self._open_project_brief_modal(target, fallback_mode="existing")
-
-    def on_start_screen_project_scope_requested(
-        self,
-        event: StartScreen.ProjectScopeRequested,
-    ) -> None:
-        event.stop()
-        target = safe_start_target_workspace(
-            self.workspace_candidate,
-            self.config.project_dir,
-        )
-        if target is None:
-            self._open_workspace_picker(
-                WorkflowNexusSnapshot(),
-                self._on_existing_project_intake_workspace_selected,
-                intent="select",
-            )
-            return
-        self._open_existing_project_scope_picker(target, seed_route="start")
-
-    def on_start_screen_project_read_first_requested(
-        self,
-        event: StartScreen.ProjectReadFirstRequested,
-    ) -> None:
-        event.stop()
-        target = safe_start_target_workspace(
-            self.workspace_candidate,
-            self.config.project_dir,
-        )
-        if target is None:
-            self._open_workspace_picker(
-                WorkflowNexusSnapshot(),
-                self._on_existing_project_intake_workspace_selected,
-                intent="select",
-            )
-            return
-        self._open_existing_project_read_first_review(target, seed_route="start")
-
-    def on_start_screen_project_validation_requested(
-        self,
-        event: StartScreen.ProjectValidationRequested,
-    ) -> None:
-        event.stop()
-        target = safe_start_target_workspace(
-            self.workspace_candidate,
-            self.config.project_dir,
-        )
-        if target is None:
-            self._open_workspace_picker(
-                WorkflowNexusSnapshot(),
-                self._on_existing_project_intake_workspace_selected,
-                intent="select",
-            )
-            return
-        self._open_project_validation_modal(target, seed_route="start")
 
     def on_nexus_screen_follow_up_submitted(
         self,
@@ -2218,101 +1945,6 @@ class TrinityTextualApp(App[None]):
             self._on_nexus_workspace_selected,
             intent="select",
         )
-
-    def on_nexus_screen_project_intake_requested(
-        self,
-        event: NexusScreen.ProjectIntakeRequested,
-    ) -> None:
-        event.stop()
-        target = self._safe_nexus_target_workspace(event.snapshot)
-        if target is None:
-            self._open_workspace_picker(
-                event.snapshot or self._current_textual_snapshot(),
-                self._on_nexus_project_intake_workspace_selected,
-                intent="select",
-            )
-            return
-        self._set_workspace_candidate(target)
-        self._apply_nexus_project_intake_for_direct_target(
-            target,
-            event.snapshot or self._current_textual_snapshot(),
-        )
-
-    def on_nexus_screen_new_project_requested(
-        self,
-        event: NexusScreen.NewProjectRequested,
-    ) -> None:
-        event.stop()
-        self._open_workspace_picker(
-            event.snapshot or self._current_textual_snapshot(),
-            self._on_nexus_new_project_workspace_selected,
-            intent="select",
-            open_new_folder=True,
-        )
-
-    def on_nexus_screen_project_brief_requested(
-        self,
-        event: NexusScreen.ProjectBriefRequested,
-    ) -> None:
-        event.stop()
-        target = self._safe_nexus_target_workspace(event.snapshot)
-        if target is None:
-            self._open_workspace_picker(
-                event.snapshot or self._current_textual_snapshot(),
-                self._on_nexus_project_brief_workspace_selected,
-                intent="select",
-            )
-            return
-        self._set_workspace_candidate(target)
-        self._open_project_brief_modal(target, fallback_mode="existing")
-
-    def on_nexus_screen_project_scope_requested(
-        self,
-        event: NexusScreen.ProjectScopeRequested,
-    ) -> None:
-        event.stop()
-        target = self._safe_nexus_target_workspace(event.snapshot)
-        if target is None:
-            self._open_workspace_picker(
-                event.snapshot or self._current_textual_snapshot(),
-                self._on_nexus_project_intake_workspace_selected,
-                intent="select",
-            )
-            return
-        self._set_workspace_candidate(target)
-        self._open_existing_project_scope_picker(target, seed_route="nexus")
-
-    def on_nexus_screen_project_read_first_requested(
-        self,
-        event: NexusScreen.ProjectReadFirstRequested,
-    ) -> None:
-        event.stop()
-        target = self._safe_nexus_target_workspace(event.snapshot)
-        if target is None:
-            self._open_workspace_picker(
-                event.snapshot or self._current_textual_snapshot(),
-                self._on_nexus_project_intake_workspace_selected,
-                intent="select",
-            )
-            return
-        self._set_workspace_candidate(target)
-        self._open_existing_project_read_first_review(target, seed_route="nexus")
-
-    def on_nexus_screen_project_validation_requested(
-        self,
-        event: NexusScreen.ProjectValidationRequested,
-    ) -> None:
-        event.stop()
-        target = self._safe_nexus_target_workspace(event.snapshot)
-        if target is None:
-            self._open_workspace_picker(
-                event.snapshot or self._current_textual_snapshot(),
-                self._on_nexus_project_intake_workspace_selected,
-                intent="select",
-            )
-            return
-        self._set_workspace_candidate(target)
-        self._open_project_validation_modal(target, seed_route="nexus")
 
     def on_execution_matrix_screen_retry_requested(
         self,
@@ -2548,11 +2180,10 @@ class TrinityTextualApp(App[None]):
     def _on_workspace_candidate_selected(
         self,
         preflight: WorkspacePreflight | None,
-    ) -> ProjectIntake | None:
+    ) -> None:
         if preflight is None:
-            return None
+            return
         self._set_workspace_candidate(preflight.path, sync_start=True)
-        return self._sync_project_intake_for_preflight(preflight)
 
     def _on_existing_project_intake_workspace_selected(
         self,
@@ -2560,7 +2191,8 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         if preflight is None:
             return
-        intake = self._on_workspace_candidate_selected(preflight)
+        self._on_workspace_candidate_selected(preflight)
+        intake = self._sync_project_intake_for_preflight(preflight)
         if self._project_intake_mode_for_preflight(preflight) == "existing":
             self._review_start_existing_analysis_or_seed(preflight.path, intake)
             return
@@ -2573,6 +2205,7 @@ class TrinityTextualApp(App[None]):
         if preflight is None:
             return
         self._on_workspace_candidate_selected(preflight)
+        self._sync_project_intake_for_preflight(preflight)
         self._open_new_project_brief_if_needed(preflight)
 
     def _on_project_brief_workspace_selected(
@@ -2764,15 +2397,13 @@ class TrinityTextualApp(App[None]):
         preflight: WorkspacePreflight,
         *,
         control_repo_confirmed: bool,
-    ) -> ProjectIntake | None:
+    ) -> None:
         self._set_workspace_candidate(preflight.path, sync_nexus=False)
         self._set_textual_target_workspace(
             preflight.path,
             control_repo_confirmed=control_repo_confirmed,
         )
-        intake = self._sync_project_intake_for_preflight(preflight)
         self._sync_nexus_workspace_candidate()
-        return intake
 
     def _continue_nexus_project_intake_workspace_selection(
         self,
@@ -2780,10 +2411,11 @@ class TrinityTextualApp(App[None]):
         *,
         control_repo_confirmed: bool,
     ) -> None:
-        intake = self._continue_nexus_workspace_selection(
+        self._continue_nexus_workspace_selection(
             preflight,
             control_repo_confirmed=control_repo_confirmed,
         )
+        intake = self._sync_project_intake_for_preflight(preflight)
         if self._project_intake_mode_for_preflight(preflight) == "existing":
             self._review_nexus_existing_analysis_or_seed(preflight.path, intake)
             return
@@ -2799,6 +2431,7 @@ class TrinityTextualApp(App[None]):
             preflight,
             control_repo_confirmed=control_repo_confirmed,
         )
+        self._sync_project_intake_for_preflight(preflight)
         self._open_new_project_brief_if_needed(preflight)
 
     def _continue_nexus_project_brief_workspace_selection(
@@ -2895,7 +2528,6 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         preflight = continuation.preflight
         self.confirmed_preflight = preflight
-        self._sync_project_intake_for_preflight(preflight)
         outcome = self._run_workspace_preflight_continuation(continuation)
         self._apply_workflow_outcome(outcome)
         self._apply_workspace_preflight_effect(
@@ -3106,6 +2738,180 @@ class TrinityTextualApp(App[None]):
     def _handle_textual_status_command(self, command_name: str) -> None:
         snapshot = self._current_textual_snapshot()
         self._show_textual_status(command_name, snapshot)
+
+    def _handle_textual_project_command(
+        self,
+        command_name: str,
+        args: list[str],
+    ) -> None:
+        action = self._project_command_action(args)
+        if action is not None:
+            self._open_project_command_action(action)
+            return
+        if args:
+            self._record_unknown_project_command_action(command_name, args[0])
+            return
+        snapshot = self._current_textual_snapshot()
+        presentation = project_command_presentation(
+            self.config.effective_state_dir,
+            self.config.active_agents,
+            lang=self.config.lang,
+            target_workspace=self._project_command_target_workspace(snapshot),
+        )
+        self._record_slash_command_result(
+            command_name,
+            presentation.title,
+            presentation.body,
+            severity=presentation.severity,
+            action_hint=presentation.action_hint,
+        )
+
+    def _project_command_action(self, args: list[str]) -> str | None:
+        if not args:
+            return None
+        token = args[0].strip().lower().replace("_", "-")
+        aliases = {
+            "workspace": "workspace",
+            "target": "workspace",
+            "select": "workspace",
+            "analyze": "analyze",
+            "analysis": "analyze",
+            "intake": "analyze",
+            "create": "create",
+            "new": "create",
+            "brief": "brief",
+            "scope": "scope",
+            "read": "read-first",
+            "read-first": "read-first",
+            "readfirst": "read-first",
+            "validation": "validation",
+            "validate": "validation",
+        }
+        return aliases.get(token)
+
+    def _record_unknown_project_command_action(
+        self,
+        command_name: str,
+        action: str,
+    ) -> None:
+        if self.config.lang == "ko":
+            title = "알 수 없는 프로젝트 명령"
+            body = (
+                f"`{action}`는 /project 하위 명령이 아닙니다.\n\n"
+                "사용 가능: workspace, analyze, create, brief, scope, "
+                "read-first, validation"
+            )
+        else:
+            title = "Unknown Project Command"
+            body = (
+                f"`{action}` is not a /project action.\n\n"
+                "Available: workspace, analyze, create, brief, scope, "
+                "read-first, validation"
+            )
+        self._record_slash_command_result(
+            command_name,
+            title,
+            body,
+            severity="warning",
+        )
+
+    def _open_project_command_action(self, action: str) -> None:
+        if self.current_route == "start":
+            self._open_start_project_command_action(action)
+            return
+        self._open_nexus_project_command_action(action)
+
+    def _open_start_project_command_action(self, action: str) -> None:
+        if action == "workspace":
+            self._open_workspace_picker(
+                WorkflowNexusSnapshot(),
+                self._on_workspace_candidate_selected,
+                intent="select",
+            )
+            return
+        if action == "create":
+            self._open_workspace_picker(
+                WorkflowNexusSnapshot(),
+                self._on_new_project_workspace_selected,
+                intent="select",
+                open_new_folder=True,
+            )
+            return
+
+        target = safe_start_target_workspace(
+            self.workspace_candidate,
+            self.config.project_dir,
+        )
+        if target is None:
+            self._open_workspace_picker(
+                WorkflowNexusSnapshot(),
+                self._on_existing_project_intake_workspace_selected,
+                intent="select",
+            )
+            return
+        if action == "analyze":
+            self._apply_start_project_intake_for_direct_target(target)
+        elif action == "brief":
+            self._open_project_brief_modal(target, fallback_mode="existing")
+        elif action == "scope":
+            self._open_existing_project_scope_picker(target, seed_route="start")
+        elif action == "read-first":
+            self._open_existing_project_read_first_review(target, seed_route="start")
+        elif action == "validation":
+            self._open_project_validation_modal(target, seed_route="start")
+
+    def _open_nexus_project_command_action(self, action: str) -> None:
+        snapshot = self._current_textual_snapshot()
+        if action == "workspace":
+            self._open_workspace_picker(
+                snapshot,
+                self._on_nexus_workspace_selected,
+                intent="select",
+            )
+            return
+        if action == "create":
+            self._open_workspace_picker(
+                snapshot,
+                self._on_nexus_new_project_workspace_selected,
+                intent="select",
+                open_new_folder=True,
+            )
+            return
+
+        target = self._safe_nexus_target_workspace(snapshot)
+        if target is None:
+            self._open_workspace_picker(
+                snapshot,
+                self._on_nexus_project_intake_workspace_selected,
+                intent="select",
+            )
+            return
+        self._set_workspace_candidate(target)
+        if action == "analyze":
+            self._apply_nexus_project_intake_for_direct_target(target, snapshot)
+        elif action == "brief":
+            self._open_project_brief_modal(target, fallback_mode="existing")
+        elif action == "scope":
+            self._open_existing_project_scope_picker(target, seed_route="nexus")
+        elif action == "read-first":
+            self._open_existing_project_read_first_review(target, seed_route="nexus")
+        elif action == "validation":
+            self._open_project_validation_modal(target, seed_route="nexus")
+
+    def _project_command_target_workspace(
+        self,
+        snapshot: WorkflowNexusSnapshot,
+    ) -> Path | None:
+        if self.current_route == "start":
+            return safe_start_target_workspace(
+                self.workspace_candidate,
+                self.config.project_dir,
+            )
+        return nexus_follow_up_target_workspace(
+            snapshot,
+            self.workspace_candidate,
+            self.config.project_dir,
+        )
 
     def _handle_textual_model_command(self) -> None:
         self._open_model_settings_modal()
@@ -3390,13 +3196,6 @@ class TrinityTextualApp(App[None]):
         )
 
     def _run_textual_ask_command(self, action: AskCommandAction) -> AskCommandRun:
-        if action.kind == "start":
-            self._sync_project_intake_for_submission_target(
-                safe_start_target_workspace(
-                    self.workspace_candidate,
-                    self.config.project_dir,
-                )
-            )
         return run_ask_command(
             action,
             nexus=self.get_screen("nexus", NexusScreen),
@@ -3995,7 +3794,6 @@ class TrinityTextualApp(App[None]):
         effect: TargetWorkspaceApplyEffect,
     ) -> None:
         self._remember_confirmed_target_preflight(effect.resolved, effect.snapshot)
-        self._sync_project_intake_for_target(effect.resolved, mode="existing")
         if effect.apply_workflow_outcome:
             self._apply_workflow_outcome(effect.workflow_outcome)
         self._set_workspace_candidate(effect.resolved)
@@ -4061,17 +3859,6 @@ class TrinityTextualApp(App[None]):
             return
         self._open_project_brief_modal(preflight.path, fallback_mode="new")
 
-    def _sync_project_intake_for_submission_target(
-        self,
-        target: Path | None,
-    ) -> ProjectIntake | None:
-        if target is None:
-            return None
-        return self._sync_project_intake_for_target(
-            target,
-            mode=self._project_intake_mode_for_target(target, fallback="existing"),
-        )
-
     def _sync_project_intake_for_target(
         self,
         target: Path | None,
@@ -4086,7 +3873,6 @@ class TrinityTextualApp(App[None]):
             **self._preserved_project_intake_user_context(target),
         )
         write_project_intake(self.config.effective_state_dir, intake)
-        self._refresh_project_intake_summary_labels()
         return intake
 
     def _open_project_brief_modal(
@@ -4195,7 +3981,6 @@ class TrinityTextualApp(App[None]):
         )
         write_project_intake(self.config.effective_state_dir, intake)
         self._set_workspace_candidate(target, sync_start=True)
-        self._refresh_project_intake_summary_labels()
         self._seed_start_prompt_from_project_brief(target, mode=mode, draft=draft)
         self._seed_nexus_prompt_from_project_brief(target, mode=mode, draft=draft)
 
@@ -4485,7 +4270,6 @@ class TrinityTextualApp(App[None]):
             run_commands=result.draft.run_commands,
         )
         write_project_intake(self.config.effective_state_dir, intake)
-        self._refresh_project_intake_summary_labels()
         if intake.mode == "new":
             old_draft = _project_brief_draft_from_intake(detected_intake)
             draft = _project_brief_draft_from_intake(intake)
@@ -4550,7 +4334,6 @@ class TrinityTextualApp(App[None]):
             selected_scope=result.selected_scope.strip(),
         )
         write_project_intake(self.config.effective_state_dir, intake)
-        self._refresh_project_intake_summary_labels()
         if seed_route == "nexus":
             self._seed_nexus_prompt_for_existing_analysis(target, intake)
             return
@@ -4572,7 +4355,6 @@ class TrinityTextualApp(App[None]):
         if result is not None and result.saved:
             intake = _project_intake_with_anchor_draft(detected_intake, result.draft)
             write_project_intake(self.config.effective_state_dir, intake)
-            self._refresh_project_intake_summary_labels()
         if seed_route == "nexus":
             self._seed_nexus_prompt_for_existing_analysis(target, intake)
             return
@@ -4645,12 +4427,6 @@ class TrinityTextualApp(App[None]):
             "read_first_confirmed": current.read_first_confirmed,
             "notes": current.notes,
         }
-
-    def _refresh_project_intake_summary_labels(self) -> None:
-        if not self._screens_installed:
-            return
-        self.get_screen("start", StartScreen).refresh_project_intake_summary()
-        self.get_screen("nexus", NexusScreen).refresh_project_intake_summary()
 
     def _safe_nexus_target_workspace(
         self,

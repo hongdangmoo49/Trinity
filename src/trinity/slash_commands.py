@@ -96,6 +96,13 @@ COMMAND_SPECS: tuple[SlashCommandSpec, ...] = (
         category=SlashCommandCategory.LOCAL_UI,
     ),
     SlashCommandSpec(
+        name="/project",
+        usage="/project [workspace|analyze|create|brief|scope|read-first|validation]",
+        summary="show project diagnostics or open project setup tools",
+        summary_ko="프로젝트 진단 보기 또는 설정 도구 열기",
+        category=SlashCommandCategory.LOCAL_UI,
+    ),
+    SlashCommandSpec(
         name="/rounds",
         usage="/rounds [N]",
         summary="show or set deliberation rounds",

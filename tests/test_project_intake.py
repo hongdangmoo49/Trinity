@@ -27,6 +27,7 @@ from trinity.project_intake import (
     suggest_build_commands,
     suggest_dev_commands,
     suggest_test_commands,
+    target_workspace_context_block,
     write_project_intake,
 )
 from trinity.workflow.engine import WorkflowEngine
@@ -633,6 +634,21 @@ def test_project_intake_prompt_block_keeps_matching_target(tmp_path) -> None:
     assert "- Target workspace:" in block
 
 
+def test_target_workspace_context_block_guides_scope_and_user_intent(
+    tmp_path,
+) -> None:
+    target = tmp_path / "customer-app"
+
+    block = target_workspace_context_block(target)
+
+    assert block.startswith("Target Workspace Context:")
+    assert f"- Target workspace: {target}" in block
+    assert "Treat the selected workspace as context" in block
+    assert "requires_execution" in block
+    assert "If intent is ambiguous" in block
+    assert target_workspace_context_block(None) == ""
+
+
 def test_central_prompt_uses_target_aware_project_intake_block(tmp_path) -> None:
     saved_target = tmp_path / "saved-app"
     selected_target = tmp_path / "selected-app"
@@ -653,6 +669,7 @@ def test_central_prompt_uses_target_aware_project_intake_block(tmp_path) -> None
     prompt_block = engine._central_flow()._target_workspace_prompt_block()
 
     assert "Target Workspace Context" in prompt_block
+    assert "User Intent Handling" in prompt_block
     assert "Saved project intake target does not match" in prompt_block
     assert "Improve saved app onboarding." not in prompt_block
 

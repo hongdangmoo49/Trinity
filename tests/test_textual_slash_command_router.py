@@ -36,6 +36,10 @@ def test_textual_slash_command_route_argument_shapes() -> None:
         "_handle_textual_memory_command",
         "args",
     )
+    assert textual_slash_command_route("project") == TextualSlashCommandRoute(
+        "_handle_textual_project_command",
+        "name_args",
+    )
     assert textual_slash_command_route("execute") == TextualSlashCommandRoute(
         "_handle_textual_execute_command",
         "name_args",
@@ -54,6 +58,16 @@ def test_textual_slash_command_dispatch_routes_known_command() -> None:
         route=TextualSlashCommandRoute("_handle_textual_help_command", "name"),
         command_name="/help",
         args=("status",),
+    )
+
+
+def test_textual_slash_command_dispatch_routes_project_action_args() -> None:
+    dispatch = textual_slash_command_dispatch("/project brief")
+
+    assert dispatch == TextualSlashCommandDispatch(
+        route=TextualSlashCommandRoute("_handle_textual_project_command", "name_args"),
+        command_name="/project",
+        args=("brief",),
     )
 
 

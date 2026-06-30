@@ -2,21 +2,21 @@
 
 ## Problem
 
-New-project onboarding now records a project brief and seeds a strong Start/Nexus
-prompt. However, the Workbench still hides most of the first-plan interpretation
-inside the composer text. Users who are starting a new project should be able to
-verify the first milestone, stack, and success direction before asking agents to
-plan or scaffold.
+New-project onboarding records a project brief and seeds a strong prompt.
+However, users who are starting a new project still need a compact way to verify
+the first milestone, stack, and success direction before asking agents to plan
+or scaffold.
 
 ## Scope
 
-- Add a compact Workbench preview for saved `mode == "new"` project intake.
-- Show the preview on both Start and Nexus below the existing project-intake
-  summary.
+- Add a compact preview for saved `mode == "new"` project intake.
+- Show the preview through `/project` diagnostics and
+  `trinity project status`, not as always-visible Start/Nexus chrome.
 - Derive the preview from saved brief fields only:
   `first_milestone`, `stack_preferences`, `success_criteria`, `target_users`,
   and `constraints`.
-- Refresh the preview whenever Start/Nexus refresh project-intake summary labels.
+- Refresh the preview whenever project diagnostics or CLI status read the saved
+  project intake.
 - Keep existing prompt seeding behavior unchanged.
 - Keep existing-project UI unchanged by rendering no preview for existing intake.
 
@@ -39,13 +39,12 @@ localized label:
 - English: `Initial plan preview: milestone ... | stack ... | success ...`
 - Korean: `초기 계획 미리보기: 마일스톤 ... | 스택 ... | 성공 ...`
 
-Start and Nexus mount one extra `Static` widget below their project-intake
-summary. Their existing `refresh_project_intake_summary()` methods update both
-the summary and preview so no new app-level refresh path is needed.
+Project diagnostics reuse the helper when building `/project` output, and CLI
+status formats the same saved intake state. No Start/Nexus widget is required.
 
 ## Tests
 
 - The shared preview helper returns an English and Korean preview for new intake.
 - Existing-project intake returns no preview.
-- Start shows the preview after saving a new-project brief.
-- Nexus shows the preview after saving a new-project brief.
+- `/project` shows the preview after saving a new-project brief.
+- `trinity project status` shows the preview after saving a new-project brief.

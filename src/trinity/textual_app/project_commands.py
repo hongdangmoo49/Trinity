@@ -6,6 +6,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from trinity.project_intake import load_project_intake
 from trinity.textual_app.workspace_labels import (
     project_existing_diagnostic_label,
     project_generation_preview_label,
@@ -48,7 +49,7 @@ def project_command_presentation(
             lang=lang,
             target_workspace=target_workspace,
         ),
-        project_intake_state_label(
+        _project_intake_line(
             state_dir,
             lang=lang,
             target_workspace=target_workspace,
@@ -94,3 +95,28 @@ def project_command_presentation(
         body=body,
         action_hint=action_hint,
     )
+
+
+def _project_intake_line(
+    state_dir: Path,
+    *,
+    lang: str,
+    target_workspace: object | None,
+) -> str:
+    try:
+        intake = load_project_intake(state_dir)
+    except ValueError:
+        return project_intake_state_label(
+            state_dir,
+            lang=lang,
+            target_workspace=target_workspace,
+        )
+    if intake is not None:
+        return project_intake_state_label(
+            state_dir,
+            lang=lang,
+            target_workspace=target_workspace,
+        )
+    if lang == "ko":
+        return "프로젝트 인테이크: 기록 없음 | 다음: 작업을 입력하거나 /project analyze"
+    return "Project intake: not recorded | next: type the task or /project analyze"

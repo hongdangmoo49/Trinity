@@ -737,14 +737,6 @@ class TrinityTextualApp(App[None]):
         color: $accent;
     }
 
-    #start-subtitle {
-        width: 100%;
-        content-align: center middle;
-        text-align: center;
-        color: $text-muted;
-        margin-bottom: 1;
-    }
-
     #start-composer {
         width: 100%;
         height: 10;

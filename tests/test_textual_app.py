@@ -7083,9 +7083,8 @@ async def test_start_and_central_chrome_uses_korean_labels(
     async with app.run_test(size=(120, 40)) as pilot:
         start = app.screen
         assert isinstance(start, StartScreen)
-        assert str(start.query_one("#start-subtitle", Static).content) == (
-            "세 개의 관점, 하나의 컨텍스트"
-        )
+        with pytest.raises(NoMatches):
+            start.query_one("#start-subtitle", Static)
         assert str(start.query_one("#choose-workspace", Button).label) == (
             "작업 폴더"
         )

@@ -31,13 +31,11 @@ START_LABELS = {
         "placeholder": "What should Trinity work on?",
         "select_agent_warning": "Select at least one agent.",
         "select_workspace": "Workspace",
-        "subtitle": "Three minds, one context",
     },
     "ko": {
         "placeholder": "Trinity가 무엇을 진행하면 될까요?",
         "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
         "select_workspace": "작업 폴더",
-        "subtitle": "세 개의 관점, 하나의 컨텍스트",
     },
 }
 
@@ -128,7 +126,6 @@ class StartScreen(Screen[None]):
             with Vertical(id="start-shell"):
                 yield SacredGeometryAnimation()
                 yield Static("TRINITY", id="start-title")
-                yield Static(self._label("subtitle"), id="start-subtitle")
                 composer = PromptComposer(
                     placeholder=self._label("placeholder"),
                     initial_text=self.initial_prompt,

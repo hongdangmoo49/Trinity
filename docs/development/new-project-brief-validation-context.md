@@ -16,8 +16,8 @@ do not match the user's intended workflow.
 ## Goal
 
 - Add optional new-project brief fields for practical delivery context.
-- Persist the fields in project intake JSON and Markdown.
-- Include the fields in provider prompt context through the existing project intake
+- Persist the fields in project context JSON and Markdown.
+- Include the fields in provider prompt context through the existing project context
   block.
 - Keep existing-project brief UX unchanged except for preserving the values when they
   already exist.
@@ -34,7 +34,7 @@ first milestone.
 
 ## User Experience
 
-For a new project, saved intake may include practical delivery context:
+For a new project, saved context may include practical delivery context:
 
 ```text
 Run commands          npm run dev, uv run trinity
@@ -42,11 +42,11 @@ Validation commands   npm test, uv run pytest
 Artifact targets      apps/web, src/trinity
 ```
 
-The saved intake should then appear in the Markdown brief and prompt context so work
+The saved context should then appear in the Markdown brief and prompt context so work
 packages can include concrete validation and output locations from the start.
 The prompt-led Workbench does not need separate Start/Nexus buttons or a modal-only
 capture step for these optional fields; users can provide the same details in the
-prompt, and persisted intake remains the durable source when present.
+prompt, and persisted context remains the durable source when present.
 
 ## Non-goals
 

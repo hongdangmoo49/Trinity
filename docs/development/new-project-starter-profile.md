@@ -2,7 +2,7 @@
 
 ## Problem
 
-New-project intake records the product goal, users, success criteria, stack, and
+New-project context records the product goal, users, success criteria, stack, and
 first milestone. That helps agents understand why the project exists, but it does
 not clearly state what shape the initial project should take.
 
@@ -14,14 +14,14 @@ user's intent.
 
 ## Scope
 
-- Add a backward-compatible `starter_profile` field to project intake.
+- Add a backward-compatible `starter_profile` field to project context.
 - Let CLI users record it with `trinity project new/analyze --starter-profile`
   or `--starter`.
 - Preserve the starter profile during `trinity project status --refresh`.
-- Show it in project-intake JSON/Markdown, CLI status, `/project` diagnostics,
+- Show it in project context JSON/Markdown, CLI status, `/project` diagnostics,
   and the new-project plan preview.
 - Keep Workbench entry prompt-led; users can provide or revise this context in
-  natural language, while saved intake continues to surface through diagnostics
+  natural language, while saved context continues to surface through diagnostics
   and provider guidance.
 - Include the starter profile in provider prompt guidance.
 
@@ -49,7 +49,7 @@ text. It is separate from `project_type`:
 - `project_type`: product/category from the user's point of view.
 - `starter_profile`: implementation/repository shape for the first scaffold.
 
-Older intake JSON without the field loads with an empty string.
+Older context JSON without the field loads with an empty string.
 
 ## Tests
 

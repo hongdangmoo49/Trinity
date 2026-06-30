@@ -392,12 +392,12 @@ Reply, refine direction, or type / for commands
 
 ### Start
 
-첫 화면에서는 prompt composer 아래, workspace action 위에 recipient/model selector를 둔다.
+첫 화면에서는 prompt composer 아래, workspace label 위에 recipient/model selector를 둔다.
 
 ```text
 What should Trinity work on?
 [x] All  [x] Claude ▾ sonnet  [x] Codex ▾ default  [x] Antigravity ▾ default
-Target workspace: Not selected     Choose now   Plan first
+Workspace: /path/to/project
 ```
 
 초기 기본값은 전체 선택이며, 모델은 현재 config의 `AgentSpec.model`을 따른다.

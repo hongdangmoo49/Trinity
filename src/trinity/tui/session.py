@@ -371,8 +371,7 @@ class InteractiveSession:
             return
         if action:
             self.console.print(
-                "[yellow]Only /project workspace is available in the plain TUI. "
-                "Use the Textual app for project analyze tools.[/yellow]"
+                "[yellow]Only /project workspace is available in the plain TUI.[/yellow]"
             )
             return
         presentation = project_command_presentation(

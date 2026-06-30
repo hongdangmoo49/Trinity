@@ -2595,9 +2595,6 @@ class TrinityTextualApp(App[None]):
             "workspace": "workspace",
             "target": "workspace",
             "select": "workspace",
-            "analyze": "analyze",
-            "analysis": "analyze",
-            "intake": "analyze",
         }
         return aliases.get(token)
 
@@ -2610,13 +2607,13 @@ class TrinityTextualApp(App[None]):
             title = "알 수 없는 프로젝트 명령"
             body = (
                 f"`{action}`는 /project 하위 명령이 아닙니다.\n\n"
-                "사용 가능: workspace, analyze"
+                "사용 가능: workspace"
             )
         else:
             title = "Unknown Project Command"
             body = (
                 f"`{action}` is not a /project action.\n\n"
-                "Available: workspace, analyze"
+                "Available: workspace"
             )
         self._record_slash_command_result(
             command_name,
@@ -2638,20 +2635,6 @@ class TrinityTextualApp(App[None]):
                 self._on_workspace_candidate_selected,
                 intent="select",
             )
-            return
-        target = safe_start_target_workspace(
-            self.workspace_candidate,
-            self.config.project_dir,
-        )
-        if target is None:
-            self._open_workspace_picker(
-                WorkflowNexusSnapshot(),
-                self._on_existing_project_intake_workspace_selected,
-                intent="select",
-            )
-            return
-        if action == "analyze":
-            self._apply_start_project_intake_for_direct_target(target)
 
     def _open_nexus_project_command_action(self, action: str) -> None:
         snapshot = self._current_textual_snapshot()
@@ -2661,18 +2644,6 @@ class TrinityTextualApp(App[None]):
                 self._on_nexus_workspace_selected,
                 intent="select",
             )
-            return
-        target = self._safe_nexus_target_workspace(snapshot)
-        if target is None:
-            self._open_workspace_picker(
-                snapshot,
-                self._on_nexus_project_intake_workspace_selected,
-                intent="select",
-            )
-            return
-        self._set_workspace_candidate(target)
-        if action == "analyze":
-            self._apply_nexus_project_intake_for_direct_target(target, snapshot)
 
     def _project_command_target_workspace(
         self,

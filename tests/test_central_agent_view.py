@@ -62,7 +62,7 @@ def test_central_markdown_keeps_conversation_and_hides_internal_dump() -> None:
         ],
     )
 
-    markdown = view._markdown()
+    markdown = view.render_markdown()
 
     assert "### Work Packages" in markdown
     assert "- 1 package · ready" in markdown
@@ -86,7 +86,7 @@ def test_central_markdown_surfaces_target_workspace_context() -> None:
         synthesis=SynthesisSnapshot(summary="대상 프로젝트 분석 준비."),
     )
 
-    markdown = view._markdown()
+    markdown = view.render_markdown()
 
     assert "**대상 작업 폴더:** /home/user/workspace/msu" in markdown
     assert markdown.index("**진행:**") < markdown.index("**대상 작업 폴더:**")
@@ -109,7 +109,7 @@ def test_central_markdown_surfaces_blueprint_response_before_wp_overview() -> No
         central_work_packages=["gameplay: Build combat loop"],
     )
 
-    markdown = view._markdown()
+    markdown = view.render_markdown()
 
     assert "### Central Agent Response" in markdown
     assert "**Vampire Survival Roguelike**" in markdown
@@ -144,7 +144,7 @@ def test_central_markdown_compacts_verbose_blueprint_for_user_view() -> None:
         ],
     )
 
-    markdown = view._markdown()
+    markdown = view.render_markdown()
 
     assert "제안: 테스트 요청 처리 및 시스템 검증" in markdown
     assert "사용자 테스트 메시지 정상 수신" in markdown
@@ -179,7 +179,7 @@ def test_central_markdown_localizes_korean_current_focus() -> None:
         ],
     )
 
-    markdown = view._markdown()
+    markdown = view.render_markdown()
 
     assert "### 현재 진행/주의 항목" in markdown
     assert "- **WP-001** [차단] `codex`: 클라이언트" in markdown
@@ -346,7 +346,7 @@ def test_central_markdown_summarizes_execution_progress_without_result_dump() ->
         ],
     )
 
-    markdown = view._markdown()
+    markdown = view.render_markdown()
 
     assert "Progress" in markdown
     assert "1 done / 1 running / 0 waiting / 1 blocked" in markdown
@@ -491,7 +491,7 @@ async def test_central_apply_snapshot_skips_same_snapshot_object_reapply() -> No
             calls.append("markdown")
             return ""
 
-        view._markdown = counted_markdown
+        view.render_markdown = counted_markdown
 
         view.apply_snapshot(snapshot)
         await pilot.pause()

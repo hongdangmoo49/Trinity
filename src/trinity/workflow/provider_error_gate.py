@@ -17,6 +17,11 @@ PROVIDER_ERROR_GATE_QUESTION_ID = "q-provider-error-retry"
 PROVIDER_ERROR_RETRY_OPTION = "Retry failed providers"
 PROVIDER_ERROR_CONTINUE_OPTION = "Continue without failed providers"
 PROVIDER_ERROR_STOP_OPTION = "Stop workflow"
+PROVIDER_ERROR_ACTION_ANSWERS = {
+    "provider-error-retry": PROVIDER_ERROR_RETRY_OPTION,
+    "provider-error-continue": PROVIDER_ERROR_CONTINUE_OPTION,
+    "provider-error-stop": PROVIDER_ERROR_STOP_OPTION,
+}
 
 
 @dataclass(frozen=True)
@@ -115,6 +120,10 @@ def provider_error_gate_choice(answer: str) -> str:
     if "stop" in normalized or "abort" in normalized:
         return "stop"
     return "retry"
+
+
+def provider_error_action_answer(action: str) -> str:
+    return PROVIDER_ERROR_ACTION_ANSWERS.get(action, "")
 
 
 def provider_error_retry_prompt(gate: dict[str, Any]) -> str:

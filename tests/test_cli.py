@@ -259,7 +259,7 @@ class TestInit:
             )
 
             assert result.exit_code == 0
-            assert "Project intake:" in result.output
+            assert "Project context:" in result.output
             assert "Next steps:" in result.output
             assert "trinity project status" in result.output
             data = json.loads(
@@ -282,7 +282,7 @@ class TestInit:
             )
 
             assert result.exit_code == 0
-            assert "Project intake:" not in result.output
+            assert "Project context:" not in result.output
             assert "Next steps:" in result.output
             assert "trinity project new NAME --parent PATH" not in result.output
             assert "trinity project status" in result.output
@@ -336,7 +336,7 @@ class TestInit:
             assert target.is_dir()
             assert "New project workspace:" in result.output
             assert "Git init: skipped" in result.output
-            assert "Project intake:" in result.output
+            assert "Project context:" in result.output
             assert "trinity project new NAME --parent PATH" not in result.output
             assert "trinity project status" in result.output
             assert "trinity" in result.output
@@ -602,7 +602,7 @@ class TestProjectAnalyze:
             )
 
             assert result.exit_code == 0
-            assert "Project intake written." in result.output
+            assert "Project context saved." in result.output
             assert "uv run pytest" in result.output
             assert "Product goal: Modernize customer onboarding." in result.output
             assert "Project type: internal workflow tool" in result.output
@@ -720,7 +720,7 @@ class TestProjectAnalyze:
             result = runner.invoke(main, ["project", "status"])
 
             assert result.exit_code == 0
-            assert "Project intake active." in result.output
+            assert "Project context active." in result.output
             assert (
                 "Summary: Project context: recorded | target: customer-app | "
                 "updated:"
@@ -1205,7 +1205,7 @@ class TestProjectAnalyze:
             result = runner.invoke(main, ["project", "status", "--refresh"])
 
             assert result.exit_code == 0
-            assert "Project intake refreshed." in result.output
+            assert "Project context refreshed." in result.output
             assert "npm test" in result.output
             data = json.loads(
                 Path(".trinity/project-intake.json").read_text(encoding="utf-8")

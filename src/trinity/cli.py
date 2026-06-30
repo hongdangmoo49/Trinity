@@ -536,12 +536,12 @@ def _init_interactive(
             [
                 f"  New project workspace: {new_project_intake.target_workspace}",
                 f"  Git init: {new_project_git}",
-                f"  Project intake: {new_project_paths.markdown_path}",
+                f"  Project context: {new_project_paths.markdown_path}",
                 _project_intake_next_steps_for_intake(new_project_intake),
             ]
         )
     elif intake_paths is not None:
-        summary_lines.append(f"  Project intake: {intake_paths.markdown_path}")
+        summary_lines.append(f"  Project context: {intake_paths.markdown_path}")
         summary_lines.append(_project_intake_next_steps())
     elif project_mode == "new":
         summary_lines.append(_project_intake_next_steps())
@@ -597,13 +597,13 @@ def _init_default(
     new_project_line = (
         f"  New project workspace: {new_project_intake.target_workspace}\n"
         f"  Git init: {new_project_git}\n"
-        f"  Project intake: {new_project_paths.markdown_path}\n"
+        f"  Project context: {new_project_paths.markdown_path}\n"
         f"{_project_intake_next_steps_for_intake(new_project_intake)}\n"
         if new_project_intake is not None and new_project_paths is not None
         else ""
     )
     intake_line = (
-        f"  Project intake: {intake_paths.markdown_path}\n"
+        f"  Project context: {intake_paths.markdown_path}\n"
         f"{_project_intake_next_steps()}\n"
         if intake_paths is not None and not new_project_line
         else ""
@@ -1130,7 +1130,7 @@ def _display_project_intake_summary(
     """Display a compact project intake write summary."""
     body = "\n".join(
         [
-            "[green]Project intake written.[/green]",
+            "[green]Project context saved.[/green]",
             "",
             f"Mode: {intake.mode}",
             f"Target workspace: {intake.target_workspace}",
@@ -1482,7 +1482,7 @@ def _display_project_status(
         live_git=live_git,
     )
     lines = [
-        "[green]Project intake active.[/green]",
+        "[green]Project context active.[/green]",
         f"Summary: {format_project_intake_label(intake)}",
     ]
     generation_preview = format_project_generation_preview_label(
@@ -1506,7 +1506,7 @@ def _display_project_status(
     if refreshed:
         lines.extend(
             [
-                "[green]Project intake refreshed.[/green]",
+                "[green]Project context refreshed.[/green]",
                 f"JSON: {paths.json_path if paths is not None else '(unknown)'}",
                 f"Markdown: {paths.markdown_path if paths is not None else '(unknown)'}",
             ]

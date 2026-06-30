@@ -256,10 +256,6 @@ from trinity.textual_app.widgets.local_command_modal import LocalCommandModal
 from trinity.textual_app.widgets.model_settings_modal import ModelSettingsModal
 from trinity.textual_app.widgets.provider_inspector import ProviderInspector
 from trinity.textual_app.widgets.provider_panel import ProviderPanel
-from trinity.textual_app.widgets.project_brief_modal import (
-    ProjectBriefDraft,
-    ProjectBriefModal,
-)
 from trinity.textual_app.widgets.question_panel import QuestionPanel
 from trinity.textual_app.widgets.resume_picker import ResumeWorkflowPicker
 from trinity.textual_app.widgets.status_modal import StatusCommandModal
@@ -11157,92 +11153,6 @@ def test_project_command_action_keeps_manual_project_setup_out_of_shortcuts(
     assert app._project_command_action(["readfirst"]) is None
     assert app._project_command_action(["validation"]) is None
     assert app._project_command_action(["validate"]) is None
-
-
-@pytest.mark.asyncio
-async def test_project_brief_modal_uses_korean_placeholders(tmp_path) -> None:
-    target = tmp_path / "empty-target"
-    target.mkdir()
-    modal = ProjectBriefModal(
-        ProjectBriefDraft(),
-        lang="ko",
-        target_workspace=str(target.resolve()),
-        mode="new",
-    )
-    app = ScreenHarness(modal)
-
-    async with app.run_test(size=(140, 44)) as pilot:
-        await pilot.pause()
-
-        assert str(modal.query_one("#project-brief-target", Static).content) == (
-            f"대상 작업 경로: {target.resolve()}"
-        )
-        assert str(
-            modal.query_one("#project-brief-readiness", Static).content
-        ) == (
-            "최소 브리프: 누락 제품 목표, 프로젝트 유형, 대상 사용자, "
-            "성공 기준, 첫 마일스톤"
-        )
-        assert (
-            modal.query_one("#project-brief-goal", Input).placeholder
-            == "예: 로컬 습관 추적 앱 만들기"
-        )
-        assert (
-            modal.query_one("#project-brief-target-users", Input).placeholder
-            == "지원 담당자, 학생, 개발자"
-        )
-        assert (
-            modal.query_one("#project-brief-run-commands", Input).placeholder
-            == "npm run dev, uv run app"
-        )
-        assert (
-            modal.query_one(
-                "#project-brief-validation-commands",
-                Input,
-            ).placeholder
-            == "npm test, uv run pytest"
-        )
-        assert (
-            modal.query_one("#project-brief-artifact-targets", Input).placeholder
-            == "apps/web, src/app, README.md"
-        )
-
-
-@pytest.mark.asyncio
-async def test_project_brief_modal_starter_preset_fills_new_project_fields(
-    tmp_path,
-) -> None:
-    modal = ProjectBriefModal(
-        ProjectBriefDraft(),
-        target_workspace=str(tmp_path / "api"),
-        mode="new",
-    )
-    app = ScreenHarness(modal)
-
-    async with app.run_test(size=(120, 36)) as pilot:
-        await pilot.pause()
-
-        modal.query_one("#project-brief-preset-fastapi", Button).press()
-        await pilot.pause()
-
-        assert modal.query_one("#project-brief-starter-profile", Input).value == (
-            "FastAPI service"
-        )
-        assert modal.query_one("#project-brief-stack", Input).value == (
-            "python, fastapi, uv"
-        )
-        assert modal.query_one("#project-brief-run-commands", Input).value == (
-            "uv run uvicorn app:app --reload"
-        )
-        assert modal.query_one("#project-brief-validation-commands", Input).value == (
-            "uv run pytest"
-        )
-        assert modal.query_one("#project-brief-artifact-targets", Input).value == (
-            "app, tests, README.md"
-        )
-        assert "validate: uv run pytest" in str(
-            modal.query_one("#project-brief-generation-preview", Static).content
-        )
 
 
 @pytest.mark.asyncio

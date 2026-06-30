@@ -25,13 +25,13 @@ Keep a compact target name segment near the front of the saved project intake
 summary:
 
 ```text
-Project intake: existing | target: customer-app | updated: 2026-06-28 | ...
+Project intake: recorded | target: customer-app | updated: 2026-06-28 | ...
 ```
 
 Korean:
 
 ```text
-프로젝트 인테이크: 기존 | 대상: customer-app | 갱신: 2026-06-28 | ...
+프로젝트 인테이크: 기록됨 | 대상: customer-app | 갱신: 2026-06-28 | ...
 ```
 
 Use the final path name for readability. If the path has no name, use the

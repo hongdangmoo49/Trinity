@@ -2309,7 +2309,6 @@ async def test_start_screen_refreshes_analyze_action_label_for_changed_intake(
         )
 
         (target / "src").mkdir()
-        screen.refresh_project_intake_summary()
         await pilot.pause()
 
         assert (
@@ -2361,7 +2360,6 @@ async def test_nexus_highlights_missing_new_project_target_creation(
                 created_at="2026-06-28T00:00:00Z",
             ),
         )
-        screen.refresh_project_intake_summary()
 
         with pytest.raises(NoMatches):
             screen.query_one("#nexus-edit-project-brief", Button)
@@ -2396,7 +2394,6 @@ async def test_nexus_refreshes_analyze_action_label_for_changed_intake(
         )
 
         (target / "src").mkdir()
-        screen.refresh_project_intake_summary()
         await pilot.pause()
 
         assert (

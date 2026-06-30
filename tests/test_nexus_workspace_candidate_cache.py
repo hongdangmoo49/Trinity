@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from textual.app import App
+from textual.widgets import Static
 
 from trinity.config import TrinityConfig
 from trinity.textual_app.screens.nexus import NexusScreen
@@ -47,7 +48,7 @@ async def test_nexus_skips_unchanged_workspace_candidate_refresh(tmp_path) -> No
 
 
 @pytest.mark.asyncio
-async def test_nexus_skips_full_project_refresh_when_snapshot_target_owns_context(
+async def test_nexus_keeps_snapshot_target_when_fallback_candidate_changes(
     tmp_path,
 ) -> None:
     active = tmp_path / "active-project"
@@ -61,14 +62,10 @@ async def test_nexus_skips_full_project_refresh_when_snapshot_target_owns_contex
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
 
-        calls: list[str] = []
-
-        def counted_refresh() -> None:
-            calls.append("refresh")
-
-        screen.refresh_project_intake_summary = counted_refresh
-
         screen.set_workspace_candidate(fallback)
         await pilot.pause()
 
-        assert calls == []
+        assert screen._current_workspace_text() == str(active)
+        assert str(active) in str(
+            screen.query_one("#nexus-target-workspace", Static).content
+        )

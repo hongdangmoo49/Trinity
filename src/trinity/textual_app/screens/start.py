@@ -283,7 +283,6 @@ class StartScreen(Screen[None]):
         if workspace_label != self._workspace_label_key:
             self._workspace_label_static().update(workspace_label)
             self._workspace_label_key = workspace_label
-        self.refresh_project_intake_summary()
 
     def _submit(self, prompt: str) -> None:
         text = prompt.strip()
@@ -315,14 +314,6 @@ class StartScreen(Screen[None]):
         self._workspace_label_widget = None
         self._provider_policy_widget = None
         self._provider_cli_setup_widget = None
-        self._project_startup_readiness_widget = None
-        self._project_start_choice_guide_widget = None
-        self._project_mode_rail_widget = None
-        self._project_plan_preview_widget = None
-        self._project_generation_preview_widget = None
-        self._project_validation_plan_widget = None
-        self._project_existing_diagnostic_widget = None
-        self._project_read_first_checklist_widget = None
 
     def _prompt_composer(self) -> PromptComposer:
         if self._composer is None:
@@ -393,9 +384,6 @@ class StartScreen(Screen[None]):
             self.config.effective_state_dir,
             target_workspace=self.workspace_candidate,
         )
-
-    def refresh_project_intake_summary(self) -> None:
-        return
 
     def _refresh_provider_policy_label(
         self,

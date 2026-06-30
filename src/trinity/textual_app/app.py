@@ -4071,7 +4071,6 @@ class TrinityTextualApp(App[None]):
             **self._preserved_project_intake_user_context(target),
         )
         write_project_intake(self.config.effective_state_dir, intake)
-        self._refresh_project_intake_summary_labels()
         return intake
 
     def _open_project_brief_modal(
@@ -4180,7 +4179,6 @@ class TrinityTextualApp(App[None]):
         )
         write_project_intake(self.config.effective_state_dir, intake)
         self._set_workspace_candidate(target, sync_start=True)
-        self._refresh_project_intake_summary_labels()
         self._seed_start_prompt_from_project_brief(target, mode=mode, draft=draft)
         self._seed_nexus_prompt_from_project_brief(target, mode=mode, draft=draft)
 
@@ -4470,7 +4468,6 @@ class TrinityTextualApp(App[None]):
             run_commands=result.draft.run_commands,
         )
         write_project_intake(self.config.effective_state_dir, intake)
-        self._refresh_project_intake_summary_labels()
         if intake.mode == "new":
             old_draft = _project_brief_draft_from_intake(detected_intake)
             draft = _project_brief_draft_from_intake(intake)
@@ -4535,7 +4532,6 @@ class TrinityTextualApp(App[None]):
             selected_scope=result.selected_scope.strip(),
         )
         write_project_intake(self.config.effective_state_dir, intake)
-        self._refresh_project_intake_summary_labels()
         if seed_route == "nexus":
             self._seed_nexus_prompt_for_existing_analysis(target, intake)
             return
@@ -4557,7 +4553,6 @@ class TrinityTextualApp(App[None]):
         if result is not None and result.saved:
             intake = _project_intake_with_anchor_draft(detected_intake, result.draft)
             write_project_intake(self.config.effective_state_dir, intake)
-            self._refresh_project_intake_summary_labels()
         if seed_route == "nexus":
             self._seed_nexus_prompt_for_existing_analysis(target, intake)
             return
@@ -4630,12 +4625,6 @@ class TrinityTextualApp(App[None]):
             "read_first_confirmed": current.read_first_confirmed,
             "notes": current.notes,
         }
-
-    def _refresh_project_intake_summary_labels(self) -> None:
-        if not self._screens_installed:
-            return
-        self.get_screen("start", StartScreen).refresh_project_intake_summary()
-        self.get_screen("nexus", NexusScreen).refresh_project_intake_summary()
 
     def _safe_nexus_target_workspace(
         self,

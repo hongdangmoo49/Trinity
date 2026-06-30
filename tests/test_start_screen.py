@@ -16,6 +16,7 @@ from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.workspace_labels import (
+    format_project_intake_label,
     project_existing_diagnostic_label,
     project_generation_preview_label,
     project_diagnostic_readiness_label,
@@ -1092,53 +1093,55 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
     target = tmp_path / "new-app"
     target.mkdir()
     state = tmp_path / ".trinity"
+    partial_intake = build_project_intake(
+        mode="new",
+        target_workspace=target,
+        product_goal="Build a dashboard.",
+        created_at="2026-06-28T00:00:00Z",
+    )
     write_project_intake(
         state,
-        build_project_intake(
-            mode="new",
-            target_workspace=target,
-            product_goal="Build a dashboard.",
-            created_at="2026-06-28T00:00:00Z",
-        ),
+        partial_intake,
     )
 
     assert project_intake_state_label(state) == (
         "Project context: recorded | target: new-app | "
-        "updated: 2026-06-28 | tests: (none) | "
-        "brief: missing type, users +2"
+        "updated: 2026-06-28 | tests: (none)"
     )
     assert project_intake_state_label(state, lang="ko") == (
         "프로젝트 컨텍스트: 기록됨 | 대상: new-app | "
-        "갱신: 2026-06-28 | 테스트: (없음) | "
-        "브리프: 누락 유형, 사용자 +2"
+        "갱신: 2026-06-28 | 테스트: (없음)"
+    )
+    assert "brief: missing type, users +2" in format_project_intake_label(
+        partial_intake
     )
 
+    complete_intake = build_project_intake(
+        mode="new",
+        target_workspace=target,
+        product_goal="Build a dashboard.",
+        project_type="SaaS dashboard",
+        target_users="support operators",
+        success_criteria="Operators can complete onboarding.",
+        stack_preferences=("React", "FastAPI", "PostgreSQL"),
+        first_milestone="First safe patch.",
+        constraints=("No cloud lock-in", "Keep tests green", "CLI-first"),
+        created_at="2026-06-28T00:00:00Z",
+    )
     write_project_intake(
         state,
-        build_project_intake(
-            mode="new",
-            target_workspace=target,
-            product_goal="Build a dashboard.",
-            project_type="SaaS dashboard",
-            target_users="support operators",
-            success_criteria="Operators can complete onboarding.",
-            stack_preferences=("React", "FastAPI", "PostgreSQL"),
-            first_milestone="First safe patch.",
-            constraints=("No cloud lock-in", "Keep tests green", "CLI-first"),
-            created_at="2026-06-28T00:00:00Z",
-        ),
+        complete_intake,
     )
 
     assert project_intake_state_label(state) == (
         "Project context: recorded | target: new-app | "
-        "updated: 2026-06-28 | tests: (none) | "
-        "brief: complete"
+        "updated: 2026-06-28 | tests: (none)"
     )
     assert project_intake_state_label(state, lang="ko") == (
         "프로젝트 컨텍스트: 기록됨 | 대상: new-app | "
-        "갱신: 2026-06-28 | 테스트: (없음) | "
-        "브리프: 완료"
+        "갱신: 2026-06-28 | 테스트: (없음)"
     )
+    assert "brief: complete" in format_project_intake_label(complete_intake)
 
 
 def test_project_intake_state_label_guides_missing_intake(tmp_path: Path) -> None:

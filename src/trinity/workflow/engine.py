@@ -437,6 +437,10 @@ class WorkflowEngine:
             package_ids=package_ids,
         )
 
+    def latest_review_is_approved(self, package_id: str) -> bool:
+        """Return whether the latest required reviews for a package are approved."""
+        return self._review_flow().latest_review_is_approved(package_id)
+
     def record_review_results(
         self,
         results: Iterable[ReviewResult],

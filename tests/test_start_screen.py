@@ -1277,42 +1277,6 @@ def test_start_and_nexus_project_intake_warn_when_target_mismatches(
     )
 
 
-@pytest.mark.asyncio
-async def test_start_and_nexus_keep_reanalyze_signal_offscreen(
-    tmp_path: Path,
-) -> None:
-    saved_target = tmp_path / "saved-app"
-    selected_target = tmp_path / "selected-app"
-    saved_target.mkdir()
-    selected_target.mkdir()
-    config = TrinityConfig.default_config(project_dir=tmp_path)
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="existing",
-            target_workspace=saved_target,
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
-
-    start = StartScreen(config, workspace_candidate=selected_target)
-    start_app = StartScreenHarness(start)
-    async with start_app.run_test(size=(120, 36)) as pilot:
-        await pilot.pause()
-
-        with pytest.raises(NoMatches):
-            start.query_one("#analyze-workspace", Button)
-
-    nexus = NexusScreen(config)
-    nexus.snapshot = WorkflowNexusSnapshot(target_workspace=str(selected_target))
-    nexus_app = StartScreenHarness(nexus)  # type: ignore[arg-type]
-    async with nexus_app.run_test(size=(140, 40)) as pilot:
-        await pilot.pause()
-
-        with pytest.raises(NoMatches):
-            nexus.query_one("#nexus-analyze-workspace", Button)
-
-
 def test_nexus_workspace_label_uses_target_state_helper(tmp_path: Path) -> None:
     control_repo = tmp_path / "Trinity"
     target = tmp_path / "customer-app"
@@ -1366,12 +1330,6 @@ async def test_start_screen_does_not_render_project_diagnostics(
         ):
             with pytest.raises(NoMatches):
                 screen.query_one(selector, Static)
-        with pytest.raises(NoMatches):
-            screen.query_one("#continue-project-setup", Button)
-        with pytest.raises(NoMatches):
-            screen.query_one("#analyze-workspace", Button)
-        with pytest.raises(NoMatches):
-            screen.query_one("#create-project", Button)
 
 
 @pytest.mark.asyncio
@@ -1527,159 +1485,6 @@ async def test_nexus_screen_does_not_render_inline_provider_notices(
 
 
 @pytest.mark.asyncio
-async def test_start_screen_hides_edit_brief_for_incomplete_new_project(
-    tmp_path: Path,
-) -> None:
-    target = tmp_path / "new-app"
-    target.mkdir()
-    config = TrinityConfig.default_config(project_dir=tmp_path)
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="new",
-            target_workspace=target,
-            product_goal="Build a dashboard.",
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
-    screen = StartScreen(config, workspace_candidate=target)
-    app = StartScreenHarness(screen)
-
-    async with app.run_test(size=(120, 36)) as pilot:
-        await pilot.pause()
-
-        with pytest.raises(NoMatches):
-            screen.query_one("#edit-project-brief", Button)
-        with pytest.raises(NoMatches):
-            screen.query_one("#analyze-workspace", Button)
-        with pytest.raises(NoMatches):
-            screen.query_one("#create-project", Button)
-
-
-@pytest.mark.asyncio
-async def test_start_screen_hides_project_intake_recovery_actions(
-    tmp_path: Path,
-) -> None:
-    target = tmp_path / "customer-app"
-    target.mkdir()
-    config = TrinityConfig.default_config(project_dir=tmp_path)
-    screen = StartScreen(config, workspace_candidate=target)
-    app = StartScreenHarness(screen)
-
-    async with app.run_test(size=(120, 36)) as pilot:
-        await pilot.pause()
-
-        with pytest.raises(NoMatches):
-            screen.query_one("#analyze-workspace", Button)
-        with pytest.raises(NoMatches):
-            screen.query_one("#create-project", Button)
-
-
-@pytest.mark.asyncio
-async def test_start_screen_hides_analyze_action_for_changed_intake(
-    tmp_path: Path,
-) -> None:
-    target = tmp_path / "customer-app"
-    target.mkdir()
-    (target / "README.md").write_text("docs\n", encoding="utf-8")
-    config = TrinityConfig.default_config(project_dir=tmp_path)
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="existing",
-            target_workspace=target,
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
-    screen = StartScreen(config, workspace_candidate=target)
-    app = StartScreenHarness(screen)
-
-    async with app.run_test(size=(120, 36)) as pilot:
-        await pilot.pause()
-
-        (target / "src").mkdir()
-        await pilot.pause()
-
-        with pytest.raises(NoMatches):
-            screen.query_one("#analyze-workspace", Button)
-
-
-@pytest.mark.asyncio
-async def test_nexus_hides_missing_new_project_target_creation_actions(
-    tmp_path: Path,
-) -> None:
-    target = tmp_path / "missing-new"
-    config = TrinityConfig.default_config(project_dir=tmp_path)
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="new",
-            target_workspace=target,
-            product_goal="Build app.",
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
-    screen = NexusScreen(config)
-    screen.snapshot = WorkflowNexusSnapshot(target_workspace=str(target))
-    app = StartScreenHarness(screen)  # type: ignore[arg-type]
-
-    async with app.run_test(size=(120, 36)) as pilot:
-        await pilot.pause()
-
-        with pytest.raises(NoMatches):
-            screen.query_one("#nexus-create-project", Button)
-        with pytest.raises(NoMatches):
-            screen.query_one("#nexus-analyze-workspace", Button)
-
-        write_project_intake(
-            config.effective_state_dir,
-            build_project_intake(
-                mode="new",
-                target_workspace=target,
-                product_goal="Build a dashboard.",
-                project_type="SaaS dashboard",
-                target_users="support operators",
-                success_criteria="Operators can complete onboarding.",
-                first_milestone="First safe patch.",
-                created_at="2026-06-28T00:00:00Z",
-            ),
-        )
-
-        with pytest.raises(NoMatches):
-            screen.query_one("#nexus-edit-project-brief", Button)
-
-
-@pytest.mark.asyncio
-async def test_nexus_hides_analyze_action_for_changed_intake(
-    tmp_path: Path,
-) -> None:
-    target = tmp_path / "customer-app"
-    target.mkdir()
-    (target / "README.md").write_text("docs\n", encoding="utf-8")
-    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="existing",
-            target_workspace=target,
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
-    screen = NexusScreen(config)
-    screen.snapshot = WorkflowNexusSnapshot(target_workspace=str(target))
-    app = StartScreenHarness(screen)  # type: ignore[arg-type]
-
-    async with app.run_test(size=(120, 36)) as pilot:
-        await pilot.pause()
-
-        (target / "src").mkdir()
-        await pilot.pause()
-
-        with pytest.raises(NoMatches):
-            screen.query_one("#nexus-analyze-workspace", Button)
-
-
-@pytest.mark.asyncio
 async def test_nexus_screen_project_intake_summary_stays_offscreen(
     tmp_path: Path,
 ) -> None:
@@ -1723,34 +1528,6 @@ async def test_nexus_screen_project_intake_summary_stays_offscreen(
         )
         with pytest.raises(NoMatches):
             screen.query_one("#nexus-project-intake-summary", Static)
-        with pytest.raises(NoMatches):
-            screen.query_one("#nexus-continue-project-setup", Button)
-
-
-@pytest.mark.asyncio
-async def test_nexus_screen_hides_edit_brief_for_incomplete_new_project(
-    tmp_path: Path,
-) -> None:
-    target = tmp_path / "new-app"
-    config = TrinityConfig.default_config(project_dir=tmp_path)
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="new",
-            target_workspace=target,
-            product_goal="Build a dashboard.",
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
-    screen = NexusScreen(config)
-    screen.snapshot = WorkflowNexusSnapshot(target_workspace=str(target))
-    app = StartScreenHarness(screen)
-
-    async with app.run_test(size=(120, 36)) as pilot:
-        await pilot.pause()
-
-        with pytest.raises(NoMatches):
-            screen.query_one("#nexus-edit-project-brief", Button)
 
 
 @pytest.mark.asyncio

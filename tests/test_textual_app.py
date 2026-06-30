@@ -4596,7 +4596,7 @@ def test_execution_retry_modal_limits_rows_to_retry_candidates() -> None:
     )
 
     assert [package.id for package in modal.display_packages()] == ["WP-001", "WP-003"]
-    assert modal._ids_for_selector("all") == ("WP-001", "WP-003")
+    assert modal.ids_for_selector("all") == ("WP-001", "WP-003")
     modal.selector = "failed"
     assert [package.id for package in modal.display_packages()] == ["WP-001"]
 
@@ -4643,7 +4643,7 @@ def test_execution_retry_modal_large_snapshot_keeps_only_retry_candidates() -> N
         "WP-050",
         "WP-075",
     ]
-    assert modal._ids_for_selector("all") == ("WP-010", "WP-050", "WP-075")
+    assert modal.ids_for_selector("all") == ("WP-010", "WP-050", "WP-075")
     modal.selector = "blocked"
     assert [package.id for package in modal.display_packages()] == ["WP-050"]
 
@@ -4708,7 +4708,7 @@ def test_execution_retry_modal_supports_korean_chrome_labels() -> None:
     )
 
     assert modal._label("title") == "실행 재시도"
-    assert modal._filter_label("failed") == "실패"
+    assert modal.filter_label("failed") == "실패"
     assert modal.summary_text() == "복구: 실패  대상: /workspace/game"
     assert modal.header_text().startswith("작업 ID 상태")
     assert modal.selected_text() == "선택됨: WP-001"
@@ -4788,7 +4788,7 @@ def test_execution_retry_modal_keeps_english_chrome_labels() -> None:
     )
 
     assert modal._label("title") == "Execute Retry"
-    assert modal._filter_label("failed") == "Failed"
+    assert modal.filter_label("failed") == "Failed"
     assert modal.summary_text() == "Recovery: none  Target: (not selected)"
     assert modal.header_text().startswith("WP      Status")
     assert modal.selected_text() == "Selected: WP-001"

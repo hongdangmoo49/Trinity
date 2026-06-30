@@ -181,7 +181,7 @@ def test_build_project_intake_normalizes_metadata(tmp_path) -> None:
         target_users="solo maintainers",
         success_criteria="The user can start safely.",
         stack_preferences=["python", "textual", "python"],
-        first_milestone="Show project intake state.",
+        first_milestone="Show project context state.",
         run_commands=["uv run trinity", "uv run trinity"],
         validation_commands=["uv run pytest"],
         artifact_targets=["src/trinity", "docs"],
@@ -212,7 +212,7 @@ def test_build_project_intake_normalizes_metadata(tmp_path) -> None:
     assert intake.target_users == "solo maintainers"
     assert intake.success_criteria == "The user can start safely."
     assert intake.stack_preferences == ("python", "textual")
-    assert intake.first_milestone == "Show project intake state."
+    assert intake.first_milestone == "Show project context state."
     assert intake.run_commands == ("uv run trinity",)
     assert intake.validation_commands == ("uv run pytest",)
     assert intake.artifact_targets == ("src/trinity", "docs")
@@ -344,7 +344,7 @@ def test_existing_project_intake_drift_detects_changed_git_state(
 
 
 def test_build_project_intake_rejects_unknown_mode(tmp_path) -> None:
-    with pytest.raises(ValueError, match="Unsupported project intake mode"):
+    with pytest.raises(ValueError, match="Unsupported saved project context mode"):
         build_project_intake(mode="repair", target_workspace=tmp_path)
 
 

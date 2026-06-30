@@ -186,7 +186,7 @@ class ProjectIntake:
 
 @dataclass(frozen=True)
 class ProjectIntakePaths:
-    """Written project intake artifact paths."""
+    """Written saved project context artifact paths."""
 
     json_path: Path
     markdown_path: Path
@@ -212,7 +212,7 @@ def build_project_intake(
     read_first_confirmed: bool = False,
     created_at: str | None = None,
 ) -> ProjectIntake:
-    """Build read-only project intake metadata for a target workspace."""
+    """Build read-only saved project context metadata for a target workspace."""
     normalized_mode = _normalize_mode(mode)
     workspace = _safe_resolve(target_workspace)
     git = analyze_git_workspace(workspace)
@@ -254,7 +254,7 @@ def build_project_intake(
 
 
 def write_project_intake(state_dir: Path, intake: ProjectIntake) -> ProjectIntakePaths:
-    """Write project intake JSON and Markdown under the Trinity state directory."""
+    """Write saved project context JSON and Markdown under Trinity state."""
     state = state_dir.expanduser()
     state.mkdir(parents=True, exist_ok=True)
     json_path = state / PROJECT_INTAKE_JSON
@@ -298,12 +298,12 @@ def project_intake_validation_commands(intake: ProjectIntake) -> tuple[str, ...]
 
 
 def project_intake_validation_missing(intake: ProjectIntake) -> bool:
-    """Return whether the intake lacks a usable validation command."""
+    """Return whether saved project context lacks a usable validation command."""
     return not project_intake_validation_commands(intake)
 
 
 def project_intake_read_first_confirmation_needed(intake: ProjectIntake) -> bool:
-    """Return whether an existing-project intake still needs read-first review."""
+    """Return whether saved existing-project context still needs read-first review."""
     if intake.mode != "existing":
         return False
     if intake.read_first_confirmed:
@@ -322,7 +322,7 @@ def existing_project_intake_drift_fields(
     *,
     live_git: GitWorkspaceAnalysis | None = None,
 ) -> tuple[str, ...]:
-    """Return saved existing-project intake fields that differ from live analysis."""
+    """Return saved existing-project context fields that differ from live analysis."""
     if intake.mode != "existing":
         return ()
     workspace = _safe_resolve(target_workspace)
@@ -352,28 +352,28 @@ def existing_project_intake_drift_fields(
 
 
 def load_project_intake(state_dir: Path) -> ProjectIntake | None:
-    """Load persisted project intake JSON from Trinity state."""
+    """Load persisted saved project context JSON from Trinity state."""
     path = state_dir.expanduser() / PROJECT_INTAKE_JSON
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return None
     except json.JSONDecodeError as exc:
-        raise ValueError(f"Invalid project intake JSON: {path}") from exc
+        raise ValueError(f"Invalid saved project context JSON: {path}") from exc
     except OSError as exc:
-        raise ValueError(f"Could not read project intake JSON: {path}") from exc
+        raise ValueError(f"Could not read saved project context JSON: {path}") from exc
     if not isinstance(data, Mapping):
-        raise ValueError(f"Invalid project intake JSON: {path}")
+        raise ValueError(f"Invalid saved project context JSON: {path}")
     return project_intake_from_dict(data)
 
 
 def project_intake_from_dict(data: Mapping[str, Any]) -> ProjectIntake:
-    """Build a project intake value from persisted JSON data."""
+    """Build a saved project context value from persisted JSON data."""
     try:
         mode = _normalize_mode(str(data["mode"]))
         target_workspace = Path(str(data["target_workspace"]))
     except KeyError as exc:
-        raise ValueError(f"Missing project intake field: {exc.args[0]}") from exc
+        raise ValueError(f"Missing saved project context field: {exc.args[0]}") from exc
     return ProjectIntake(
         mode=mode,
         target_workspace=target_workspace,
@@ -412,7 +412,7 @@ def load_project_intake_markdown(
     *,
     max_chars: int = PROJECT_INTAKE_PROMPT_MAX_CHARS,
 ) -> str:
-    """Load project intake markdown from Trinity state for prompt context."""
+    """Load saved project context Markdown from Trinity state."""
     path = state_dir.expanduser() / PROJECT_INTAKE_MARKDOWN
     try:
         text = path.read_text(encoding="utf-8").strip()
@@ -431,7 +431,7 @@ def project_intake_prompt_block(
     max_chars: int = PROJECT_INTAKE_PROMPT_MAX_CHARS,
     target_workspace: object | None = None,
 ) -> str:
-    """Return the project intake context block for provider prompts."""
+    """Return the saved project context block for provider prompts."""
     stale_guard = project_intake_target_guard_block(
         state_dir,
         target_workspace=target_workspace,
@@ -1040,7 +1040,7 @@ def _git_head_path(path: Path) -> Path:
 def _normalize_mode(mode: str) -> str:
     normalized = mode.strip().lower()
     if normalized not in PROJECT_MODES:
-        raise ValueError(f"Unsupported project intake mode: {mode}")
+        raise ValueError(f"Unsupported saved project context mode: {mode}")
     return normalized
 
 

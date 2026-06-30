@@ -494,7 +494,7 @@ def project_intake_state_label(
     target_workspace: object | None = None,
     today: date | None = None,
 ) -> str:
-    """Return a concise label for the saved project intake state."""
+    """Return a concise label for the saved project context state."""
     labels = PROJECT_INTAKE_LABELS.get(lang, PROJECT_INTAKE_LABELS["en"])
     try:
         intake = load_project_intake(state_dir)
@@ -519,7 +519,7 @@ def project_plan_preview_label(
     lang: str = "en",
     target_workspace: object | None = None,
 ) -> str:
-    """Return a compact first-plan preview for saved new-project intake."""
+    """Return a compact first-plan preview for saved new-project context."""
     labels = PROJECT_PLAN_PREVIEW_LABELS.get(
         lang,
         PROJECT_PLAN_PREVIEW_LABELS["en"],
@@ -580,7 +580,7 @@ def project_generation_preview_label(
     lang: str = "en",
     target_workspace: object | None = None,
 ) -> str:
-    """Return a compact first-generation preview for saved new-project intake."""
+    """Return a compact first-generation preview for saved new-project context."""
     try:
         intake = load_project_intake(state_dir)
     except ValueError:
@@ -600,7 +600,7 @@ def format_project_generation_preview_label(
     lang: str = "en",
     target_workspace: object | None = None,
 ) -> str:
-    """Format a compact first-generation preview for a new-project intake."""
+    """Format a compact first-generation preview for new-project context."""
     labels = PROJECT_GENERATION_PREVIEW_LABELS.get(
         lang,
         PROJECT_GENERATION_PREVIEW_LABELS["en"],
@@ -648,7 +648,7 @@ def project_validation_plan_label(
     lang: str = "en",
     target_workspace: object | None = None,
 ) -> str:
-    """Return a compact validation plan preview for saved project intake."""
+    """Return a compact validation plan preview for saved project context."""
     try:
         intake = load_project_intake(state_dir)
     except ValueError:
@@ -668,7 +668,7 @@ def format_project_validation_plan_label(
     lang: str = "en",
     target_workspace: object | None = None,
 ) -> str:
-    """Format fast/required/full validation tiers for project intake."""
+    """Format fast/required/full validation tiers for saved project context."""
     if not _project_intake_targets_match(intake, target_workspace):
         return ""
     labels = PROJECT_VALIDATION_PLAN_LABELS.get(
@@ -701,7 +701,7 @@ def project_read_first_checklist_label(
     lang: str = "en",
     target_workspace: object | None = None,
 ) -> str:
-    """Return a compact read-first checklist for saved existing-project intake."""
+    """Return a compact read-first checklist for saved existing-project context."""
     try:
         intake = load_project_intake(state_dir)
     except ValueError:
@@ -721,7 +721,7 @@ def project_existing_diagnostic_label(
     lang: str = "en",
     target_workspace: object | None = None,
 ) -> str:
-    """Return a compact diagnostic summary for saved existing-project intake."""
+    """Return a compact diagnostic summary for saved existing-project context."""
     try:
         intake = load_project_intake(state_dir)
     except ValueError:
@@ -789,7 +789,7 @@ def format_project_read_first_checklist_label(
     lang: str = "en",
     target_workspace: object | None = None,
 ) -> str:
-    """Format the minimum read-first checklist for existing-project intake."""
+    """Format the minimum read-first checklist for existing-project context."""
     if intake.mode != "existing":
         return ""
     if not _project_intake_targets_match(intake, target_workspace):
@@ -929,7 +929,7 @@ def format_project_intake_label(
     target_workspace: object | None = None,
     today: date | None = None,
 ) -> str:
-    """Return a concise label for a loaded project intake value."""
+    """Return a concise label for a loaded saved project context value."""
     return _format_project_intake_label(
         intake,
         lang=lang,

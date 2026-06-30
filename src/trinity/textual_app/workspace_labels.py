@@ -40,14 +40,14 @@ WORKSPACE_STATE_LABELS = {
 PROJECT_INTAKE_LABELS = {
     "en": {
         "invalid": (
-            "Project intake: unreadable | fix .trinity/project-intake.json "
+            "Project context: unreadable | fix .trinity/project-intake.json "
             "or rerun trinity project analyze [PATH]"
         ),
         "missing": (
-            "Project intake: not recorded | next: type the analysis or work request"
+            "Project context: not recorded | next: type the analysis or work request"
         ),
         "missing_with_target": (
-            "Project intake: not recorded | next: type the analysis or work request"
+            "Project context: not recorded | next: type the analysis or work request"
         ),
         "build": "build",
         "brief_complete": "brief: complete",
@@ -82,7 +82,7 @@ PROJECT_INTAKE_LABELS = {
         "stack_preferences": "stack",
         "starter_profile": "starter",
         "success_criteria": "success",
-        "summary": "Project intake: recorded",
+        "summary": "Project context: recorded",
         "target": "target",
         "target_missing": "target missing: {target}",
         "target_users": "users",
@@ -93,14 +93,14 @@ PROJECT_INTAKE_LABELS = {
     },
     "ko": {
         "invalid": (
-            "프로젝트 인테이크: 읽을 수 없음 | .trinity/project-intake.json 수정 "
+            "프로젝트 컨텍스트: 읽을 수 없음 | .trinity/project-intake.json 수정 "
             "또는 trinity project analyze [PATH] 재실행"
         ),
         "missing": (
-            "프로젝트 인테이크: 기록 없음 | 다음: 분석이나 작업 요청 입력"
+            "프로젝트 컨텍스트: 기록 없음 | 다음: 분석이나 작업 요청 입력"
         ),
         "missing_with_target": (
-            "프로젝트 인테이크: 기록 없음 | 다음: 분석이나 작업 요청 입력"
+            "프로젝트 컨텍스트: 기록 없음 | 다음: 분석이나 작업 요청 입력"
         ),
         "build": "빌드",
         "brief_complete": "브리프: 완료",
@@ -135,7 +135,7 @@ PROJECT_INTAKE_LABELS = {
         "stack_preferences": "스택",
         "starter_profile": "스타터",
         "success_criteria": "성공",
-        "summary": "프로젝트 인테이크: 기록됨",
+        "summary": "프로젝트 컨텍스트: 기록됨",
         "target": "대상",
         "target_missing": "대상 없음: {target}",
         "target_users": "사용자",

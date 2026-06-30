@@ -362,14 +362,14 @@ def test_project_intake_state_label_summarizes_saved_intake(tmp_path: Path) -> N
     assert (
         project_intake_state_label(state, today=date(2026, 6, 28))
         == (
-            "Project intake: recorded | target: customer-app | "
+            "Project context: recorded | target: customer-app | "
             "updated: 2026-06-28 | tests: uv run pytest | git: none"
         )
     )
     assert (
         project_intake_state_label(state, lang="ko", today=date(2026, 6, 28))
         == (
-            "프로젝트 인테이크: 기록됨 | 대상: customer-app | "
+            "프로젝트 컨텍스트: 기록됨 | 대상: customer-app | "
             "갱신: 2026-06-28 | 테스트: uv run pytest | git: 없음"
         )
     )
@@ -786,7 +786,7 @@ def test_project_intake_state_label_includes_workspace_profile(
     )
 
     assert project_intake_state_label(state, today=date(2026, 6, 28)) == (
-        "Project intake: recorded | target: customer-app | "
+        "Project context: recorded | target: customer-app | "
         "updated: 2026-06-28 | tests: (none) | "
         "read first: README.md, docs, src +1 | git: none | "
         "goal: Launch customer onboarding. | type: SaaS dashboard | "
@@ -796,7 +796,7 @@ def test_project_intake_state_label_includes_workspace_profile(
         "docs: README.md, docs"
     )
     assert project_intake_state_label(state, lang="ko", today=date(2026, 6, 28)) == (
-        "프로젝트 인테이크: 기록됨 | 대상: customer-app | "
+        "프로젝트 컨텍스트: 기록됨 | 대상: customer-app | "
         "갱신: 2026-06-28 | 테스트: (없음) | "
         "먼저 읽기: README.md, docs, src +1 | git: 없음 | "
         "목표: Launch customer onboarding. | 유형: SaaS dashboard | "
@@ -903,12 +903,12 @@ def test_project_intake_state_label_warns_for_sparse_existing_analysis(
     )
 
     assert project_intake_state_label(state, today=date(2026, 6, 28)) == (
-        "Project intake: recorded | target: empty-app | "
+        "Project context: recorded | target: empty-app | "
         "updated: 2026-06-28 | tests: (none) | "
         "analysis: sparse | missing: tests, src, docs | git: none"
     )
     assert project_intake_state_label(state, lang="ko", today=date(2026, 6, 28)) == (
-        "프로젝트 인테이크: 기록됨 | 대상: empty-app | "
+        "프로젝트 컨텍스트: 기록됨 | 대상: empty-app | "
         "갱신: 2026-06-28 | 테스트: (없음) | "
         "분석: 부족 | 누락: 테스트, 소스, 문서 | git: 없음"
     )
@@ -935,7 +935,7 @@ def test_project_intake_state_label_warns_for_stale_existing_analysis(
     )
 
     assert project_intake_state_label(state, today=date(2026, 6, 28)) == (
-        "Project intake: recorded | target: customer-app | "
+        "Project context: recorded | target: customer-app | "
         "updated: 2026-06-01 | "
         "analysis: stale 27d | "
         f"refresh: trinity project analyze {target} | "
@@ -946,7 +946,7 @@ def test_project_intake_state_label_warns_for_stale_existing_analysis(
         lang="ko",
         today=date(2026, 6, 28),
     ) == (
-        "프로젝트 인테이크: 기록됨 | 대상: customer-app | "
+        "프로젝트 컨텍스트: 기록됨 | 대상: customer-app | "
         "갱신: 2026-06-01 | "
         "분석: 오래됨 27일 | "
         f"재분석: trinity project analyze {target} | "
@@ -1011,7 +1011,7 @@ def test_project_intake_state_label_warns_when_target_mismatches(
         state,
         target_workspace=selected_target,
     ).startswith(
-        "Project intake: recorded | "
+        "Project context: recorded | "
         "target: saved-app | "
         f"target mismatch: intake {saved_target} | "
         "updated: 2026-06-28"
@@ -1021,7 +1021,7 @@ def test_project_intake_state_label_warns_when_target_mismatches(
         lang="ko",
         target_workspace=selected_target,
     ).startswith(
-        "프로젝트 인테이크: 기록됨 | "
+        "프로젝트 컨텍스트: 기록됨 | "
         "대상: saved-app | "
         f"대상 불일치: 인테이크 {saved_target} | "
         "갱신: 2026-06-28"
@@ -1047,7 +1047,7 @@ def test_project_intake_state_label_warns_when_saved_target_is_missing(
     )
 
     assert project_intake_state_label(state, today=date(2026, 6, 28)) == (
-        "Project intake: recorded | "
+        "Project context: recorded | "
         "target: missing-app | "
         f"target missing: {missing_target} | "
         "updated: 2026-06-28 | tests: (none) | "
@@ -1058,7 +1058,7 @@ def test_project_intake_state_label_warns_when_saved_target_is_missing(
         lang="ko",
         today=date(2026, 6, 28),
     ) == (
-        "프로젝트 인테이크: 기록됨 | "
+        "프로젝트 컨텍스트: 기록됨 | "
         "대상: missing-app | "
         f"대상 없음: {missing_target} | "
         "갱신: 2026-06-28 | 테스트: (없음) | "
@@ -1115,12 +1115,12 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
     )
 
     assert project_intake_state_label(state) == (
-        "Project intake: recorded | target: new-app | "
+        "Project context: recorded | target: new-app | "
         "updated: 2026-06-28 | tests: (none) | "
         "brief: missing type, users +2 | goal: Build a dashboard."
     )
     assert project_intake_state_label(state, lang="ko") == (
-        "프로젝트 인테이크: 기록됨 | 대상: new-app | "
+        "프로젝트 컨텍스트: 기록됨 | 대상: new-app | "
         "갱신: 2026-06-28 | 테스트: (없음) | "
         "브리프: 누락 유형, 사용자 +2 | 목표: Build a dashboard."
     )
@@ -1142,7 +1142,7 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
     )
 
     assert project_intake_state_label(state) == (
-        "Project intake: recorded | target: new-app | "
+        "Project context: recorded | target: new-app | "
         "updated: 2026-06-28 | tests: (none) | "
         "brief: complete | "
         "goal: Build a dashboard. | type: SaaS dashboard | "
@@ -1152,7 +1152,7 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
         "constraints: No cloud lock-in, Keep tests green +1"
     )
     assert project_intake_state_label(state, lang="ko") == (
-        "프로젝트 인테이크: 기록됨 | 대상: new-app | "
+        "프로젝트 컨텍스트: 기록됨 | 대상: new-app | "
         "갱신: 2026-06-28 | 테스트: (없음) | "
         "브리프: 완료 | "
         "목표: Build a dashboard. | 유형: SaaS dashboard | "
@@ -1168,20 +1168,20 @@ def test_project_intake_state_label_guides_missing_intake(tmp_path: Path) -> Non
     target = tmp_path / "customer-app"
 
     assert project_intake_state_label(state) == (
-        "Project intake: not recorded | next: type the analysis or work request"
+        "Project context: not recorded | next: type the analysis or work request"
     )
     assert project_intake_state_label(state, lang="ko") == (
-        "프로젝트 인테이크: 기록 없음 | 다음: 분석이나 작업 요청 입력"
+        "프로젝트 컨텍스트: 기록 없음 | 다음: 분석이나 작업 요청 입력"
     )
     assert project_intake_state_label(state, target_workspace=target) == (
-        "Project intake: not recorded | next: type the analysis or work request"
+        "Project context: not recorded | next: type the analysis or work request"
     )
     assert project_intake_state_label(
         state,
         lang="ko",
         target_workspace=target,
     ) == (
-        "프로젝트 인테이크: 기록 없음 | 다음: 분석이나 작업 요청 입력"
+        "프로젝트 컨텍스트: 기록 없음 | 다음: 분석이나 작업 요청 입력"
     )
 
 
@@ -1197,7 +1197,7 @@ def test_start_and_nexus_missing_project_intake_stays_prompt_driven(
     )
 
     assert label == (
-        "Project intake: not recorded | next: type the analysis or work request"
+        "Project context: not recorded | next: type the analysis or work request"
     )
     assert str(target) not in label
     assert "trinity project new" not in label

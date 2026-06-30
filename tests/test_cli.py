@@ -722,7 +722,7 @@ class TestProjectAnalyze:
             assert result.exit_code == 0
             assert "Project intake active." in result.output
             assert (
-                "Summary: Project intake: recorded | target: customer-app | "
+                "Summary: Project context: recorded | target: customer-app | "
                 "updated:"
             ) in result.output
             assert "Start guide:" not in result.output
@@ -896,7 +896,7 @@ class TestProjectAnalyze:
             assert json_status.exit_code == 0
             data = json.loads(json_status.output)
             assert data["project_intake"]["summary"].startswith(
-                "Project intake: recorded | target: missing-new | target missing:"
+                "Project context: recorded | target: missing-new | target missing:"
             )
             assert data["next_steps"] == [recreate_command]
             assert data["project_intake"]["readiness"]["target_missing"] is True
@@ -958,7 +958,7 @@ class TestProjectAnalyze:
             assert result.exit_code == 0
             data = json.loads(result.output)
             assert data["project_intake"]["summary"].startswith(
-                "Project intake: recorded | target: customer-app | updated:"
+                "Project context: recorded | target: customer-app | updated:"
             )
             assert data["project_intake"]["mode"] == "existing"
             assert data["project_intake"]["target_name"] == "customer-app"

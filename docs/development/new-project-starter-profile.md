@@ -20,10 +20,10 @@ user's intent.
 - Preserve the starter profile during `trinity project status --refresh`.
 - Show it in project-intake JSON/Markdown, CLI status, `/project` diagnostics,
   and the new-project plan preview.
-- Add a Starter profile input to the Workbench Project Brief modal for new
-  project flows.
-- Include the starter profile in project-brief prompt seeding and provider
-  guidance.
+- Keep Workbench entry prompt-led; users can provide or revise this context in
+  natural language, while saved intake continues to surface through diagnostics
+  and provider guidance.
+- Include the starter profile in provider prompt guidance.
 
 ## Non-Goals
 
@@ -57,5 +57,4 @@ Older intake JSON without the field loads with an empty string.
 - CLI `project new/analyze --starter-profile` persists and displays it.
 - `project status --refresh` preserves the starter profile.
 - `/project` diagnostics and new-project plan preview include it.
-- Project Brief modal saves it for new project flows.
 - Prompt guidance includes it for new project planning.

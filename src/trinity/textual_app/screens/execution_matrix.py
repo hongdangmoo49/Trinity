@@ -627,7 +627,7 @@ class ExecutionMatrixScreen(Screen[None]):
         yield Footer()
 
     def on_mount(self) -> None:
-        self._sync_task_expanded_view()
+        self.sync_task_expanded_view()
         self.apply_execution_state(self.preflight, self.snapshot)
 
     def apply_execution_state(
@@ -651,7 +651,7 @@ class ExecutionMatrixScreen(Screen[None]):
         self._applied_state_identity = state_identity
         self._render_content_key = content_key
         self._render_chrome()
-        self._sync_task_expanded_view()
+        self.sync_task_expanded_view()
         self._render_package_list()
         self._render_log()
 
@@ -713,7 +713,7 @@ class ExecutionMatrixScreen(Screen[None]):
         if not self.is_mounted:
             return
         self._task_toggle().label = self._task_toggle_label()
-        self._sync_task_expanded_view()
+        self.sync_task_expanded_view()
         self._render_package_list()
         self._render_content_key = self._execution_render_content_key()
 
@@ -822,7 +822,7 @@ class ExecutionMatrixScreen(Screen[None]):
             self._log_widget = self.query_one("#execution-log", RichLog)
         return self._log_widget
 
-    def _sync_task_expanded_view(self) -> None:
+    def sync_task_expanded_view(self) -> None:
         if not self.is_mounted:
             return
         if self._task_expanded_view_key == self.tasks_expanded:

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.874`
-- Merged PR range reviewed: #90 through #1035
+- Package version inspected: `1.0.875`
+- Merged PR range reviewed: #90 through #1036
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1035
-- Latest refresh reviewed: #1035
+- Maintenance refresh reviewed: #427 through #1036
+- Latest refresh reviewed: #1036
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1035: Prompt-Led Workbench Simplification
+### #977-#1036: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2189,6 +2189,8 @@ and what the next release train should optimize.
   removed the screen private method from tests.
 - Inlined one-use Nexus provider strip setup helpers in `compose()`.
 - Moved Nexus central activity-frame eligibility into a pure presenter helper.
+- Moved provider snapshot to provider panel state mapping into a presenter
+  helper and removed the Nexus private static method.
 
 This refresh moves the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
@@ -2401,7 +2403,7 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #1035:
+Current main snapshot after #1036:
 
 - `src/trinity/textual_app/app.py`: 3,447 lines
 - `src/trinity/workflow/engine.py`: 625 lines

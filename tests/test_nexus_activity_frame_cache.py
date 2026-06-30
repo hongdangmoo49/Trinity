@@ -4,7 +4,10 @@ import pytest
 from textual.app import App
 
 from trinity.config import TrinityConfig
-from trinity.textual_app.presenters import nexus_central_snapshot_has_activity
+from trinity.textual_app.presenters import (
+    nexus_central_snapshot_has_activity,
+    nexus_provider_panel_state,
+)
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.snapshot import (
     ProviderSnapshot,
@@ -35,6 +38,31 @@ def test_nexus_central_snapshot_has_activity() -> None:
             synthesis=SynthesisSnapshot(status="waiting"),
         )
     ) is True
+
+
+def test_nexus_provider_panel_state_maps_provider_snapshot() -> None:
+    state = nexus_provider_panel_state(
+        ProviderSnapshot(
+            name="codex",
+            provider="codex-cli",
+            enabled=True,
+            status="Running",
+            summary="Working",
+            response_status="ok",
+            configured_model="default",
+            actual_model="gpt-test",
+            context_window=123,
+            output_contract="execute-v1",
+            quality_score=0.75,
+        )
+    )
+
+    assert state.name == "codex"
+    assert state.status == "Running"
+    assert state.actual_model == "gpt-test"
+    assert state.context_window == 123
+    assert state.output_contract == "execute-v1"
+    assert state.quality_score == 0.75
 
 
 @pytest.mark.asyncio

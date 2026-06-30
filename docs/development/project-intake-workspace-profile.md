@@ -97,6 +97,11 @@ next action, and compatibility action-variant metadata without requiring callers
 to parse the compact summary string. The current Workbench does not render those
 project setup actions as buttons; it keeps workspace selection visible and lets
 the prompt carry analysis or work intent.
+For that prompt-led Workbench flow, `project_intake.readiness.workbench_next_step`
+uses UI-neutral values such as `select_workspace`, `describe_project`,
+`describe_analysis`, `describe_scope`, `describe_read_first`,
+`describe_validation`, and `describe_work`. The older `recommended_action` values
+remain compatibility hints for CLI/status consumers.
 
 When matching existing-project intake differs from the current workspace profile,
 `trinity project status` marks the analysis as changed, lists the changed intake

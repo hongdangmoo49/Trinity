@@ -1348,6 +1348,18 @@ def _project_intake_readiness_payload(
     return {
         "ready": recommended_action == "start_trinity",
         "recommended_action": recommended_action,
+        "workbench_next_step": _project_intake_workbench_next_step(
+            intake,
+            target_missing=target_missing,
+            analysis_sparse=sparse,
+            analysis_stale=stale_days is not None,
+            analysis_changed=bool(analysis_changed_fields),
+            missing_brief_fields=tuple(missing_brief_fields),
+            scope_choice_required=_project_scope_choice_required(intake),
+            read_first_confirmation_required=(
+                project_intake_read_first_confirmation_needed(intake)
+            ),
+        ),
         "target_exists": target_exists,
         "target_missing": target_missing,
         "analysis_sparse": sparse,
@@ -1392,6 +1404,32 @@ def _project_intake_recommended_action(
     if project_intake_validation_missing(intake):
         return "record_validation"
     return "start_trinity"
+
+
+def _project_intake_workbench_next_step(
+    intake: ProjectIntake,
+    *,
+    target_missing: bool,
+    analysis_sparse: bool,
+    analysis_stale: bool,
+    analysis_changed: bool = False,
+    missing_brief_fields: tuple[str, ...],
+    scope_choice_required: bool = False,
+    read_first_confirmation_required: bool = False,
+) -> str:
+    if target_missing:
+        return "select_workspace"
+    if intake.mode == "new" and missing_brief_fields:
+        return "describe_project"
+    if analysis_sparse or analysis_stale or analysis_changed:
+        return "describe_analysis"
+    if scope_choice_required:
+        return "describe_scope"
+    if read_first_confirmation_required:
+        return "describe_read_first"
+    if project_intake_validation_missing(intake):
+        return "describe_validation"
+    return "describe_work"
 
 
 def _project_intake_analysis_changed_fields_for_status(

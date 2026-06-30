@@ -105,6 +105,7 @@ from trinity.textual_app.presenters import (
     model_settings_title,
     model_settings_unavailable_markdown,
     model_settings_updated_markdown,
+    nexus_refine_prompt,
     packages_action_hint,
     packages_markdown,
     packages_rows,
@@ -12423,12 +12424,10 @@ async def test_nexus_repair_mark_done_and_stop_delegate_to_controller(tmp_path) 
         assert app.active_snapshot.state == "failed"
 
 
-def test_nexus_refine_prompts_are_scope_specific(tmp_path) -> None:
-    screen = NexusScreen(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
-
-    feature_prompt = screen._refine_prompt("refine-features")
-    risk_prompt = screen._refine_prompt("refine-risks")
-    package_prompt = screen._refine_prompt("refine-work-packages")
+def test_nexus_refine_prompts_are_scope_specific() -> None:
+    feature_prompt = nexus_refine_prompt("refine-features", lang="ko")
+    risk_prompt = nexus_refine_prompt("refine-risks", lang="ko")
+    package_prompt = nexus_refine_prompt("refine-work-packages", lang="ko")
 
     assert "핵심 기능" in feature_prompt
     assert "실행 리스크" in risk_prompt

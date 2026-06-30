@@ -15,6 +15,7 @@ from trinity.models import AgentSpec
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
+from trinity.textual_app.presenters import nexus_refine_prompt
 from trinity.textual_app.snapshot import ProviderSnapshot, WorkflowNexusSnapshot
 from trinity.textual_app.workspace_labels import (
     target_workspace_state_label,
@@ -390,7 +391,9 @@ class NexusScreen(Screen[None]):
             self.post_message(self.ExecuteRequested(self.snapshot))
             return
         if event.action.startswith("refine-"):
-            self._submit_follow_up(self._refine_prompt(event.action))
+            self._submit_follow_up(
+                nexus_refine_prompt(event.action, lang=self.config.lang)
+            )
 
     def update_provider(
         self,
@@ -475,39 +478,6 @@ class NexusScreen(Screen[None]):
                 selector.model_overrides(),
             )
         )
-
-    def _refine_prompt(self, action: str) -> str:
-        prompts_ko = {
-            "refine-features": (
-                "현재 설계에서 핵심 기능, 게임 루프, 사용자 경험을 더 구체화하고 "
-                "빠진 결정 사항을 정리해라."
-            ),
-            "refine-risks": (
-                "현재 설계의 실행 리스크, 안티패턴 가능성, 성능 우려, 검증 기준을 "
-                "더 구체화해라."
-            ),
-            "refine-work-packages": (
-                "현재 작업 패키지의 범위, 담당 에이전트, 의존성, 병렬 실행 가능성을 다시 "
-                "검토하고 필요한 재분배안을 제안해라."
-            ),
-        }
-        prompts_en = {
-            "refine-features": (
-                "Refine the current blueprint around core features, gameplay loop, "
-                "user experience, and missing decisions."
-            ),
-            "refine-risks": (
-                "Refine the current blueprint around execution risks, possible "
-                "anti-patterns, performance concerns, and validation criteria."
-            ),
-            "refine-work-packages": (
-                "Review the current WP scope, owner agents, dependencies, and "
-                "parallel execution plan, then propose any needed rebalance."
-            ),
-        }
-        if self.config.lang == "ko":
-            return prompts_ko.get(action, prompts_ko["refine-features"])
-        return prompts_en.get(action, prompts_en["refine-features"])
 
     @staticmethod
     def _provider_error_action_answer(action: str) -> str:

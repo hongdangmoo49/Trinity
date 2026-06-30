@@ -76,7 +76,7 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "nexus_composer_placeholder": "답변, 방향 조정 또는 /로 명령 입력",
         "nexus_select_agent_warning": "에이전트를 하나 이상 선택하세요.",
         "recipient_all": "전체",
-        "recipient_label": "물어볼 대상",
+        "recipient_label": "대상",
         "recipient_provider_default": "기본값",
         "start_placeholder": "Trinity가 무엇을 진행하면 될까요?",
         "start_select_agent_warning": "에이전트를 하나 이상 선택하세요.",

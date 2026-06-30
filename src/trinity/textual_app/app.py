@@ -2123,7 +2123,6 @@ class TrinityTextualApp(App[None]):
         callback,
         *,
         intent: str = "execute",
-        open_new_folder: bool = False,
     ) -> None:
         self.push_screen(
             build_workspace_picker(
@@ -2132,7 +2131,6 @@ class TrinityTextualApp(App[None]):
                 snapshot=snapshot,
                 control_repo_path=self.config.project_dir,
                 intent=intent,
-                open_new_folder=open_new_folder,
                 project_intake_state_dir=self.config.effective_state_dir,
             ),
             callback,
@@ -2157,16 +2155,6 @@ class TrinityTextualApp(App[None]):
         if self._project_intake_mode_for_preflight(preflight) == "existing":
             self._review_start_existing_analysis_or_seed(preflight.path, intake)
             return
-        self._open_new_project_brief_if_needed(preflight)
-
-    def _on_new_project_workspace_selected(
-        self,
-        preflight: WorkspacePreflight | None,
-    ) -> None:
-        if preflight is None:
-            return
-        self._on_workspace_candidate_selected(preflight)
-        self._sync_project_intake_for_preflight(preflight)
         self._open_new_project_brief_if_needed(preflight)
 
     def _on_project_brief_workspace_selected(
@@ -2203,19 +2191,6 @@ class TrinityTextualApp(App[None]):
         if self._open_nexus_project_intake_confirm_if_needed(preflight):
             return
         self._continue_nexus_project_intake_workspace_selection(
-            preflight,
-            control_repo_confirmed=False,
-        )
-
-    def _on_nexus_new_project_workspace_selected(
-        self,
-        preflight: WorkspacePreflight | None,
-    ) -> None:
-        if preflight is None:
-            return
-        if self._open_nexus_new_project_confirm_if_needed(preflight):
-            return
-        self._continue_nexus_new_project_workspace_selection(
             preflight,
             control_repo_confirmed=False,
         )
@@ -2257,21 +2232,6 @@ class TrinityTextualApp(App[None]):
         self._open_target_workspace_confirm_modal(
             preflight.path,
             lambda confirmed: self._on_nexus_project_intake_workspace_confirmed(
-                preflight,
-                confirmed,
-            ),
-        )
-        return True
-
-    def _open_nexus_new_project_confirm_if_needed(
-        self,
-        preflight: WorkspacePreflight,
-    ) -> bool:
-        if not is_control_repo_target(preflight.path, self.config.project_dir):
-            return False
-        self._open_target_workspace_confirm_modal(
-            preflight.path,
-            lambda confirmed: self._on_nexus_new_project_workspace_confirmed(
                 preflight,
                 confirmed,
             ),
@@ -2323,21 +2283,6 @@ class TrinityTextualApp(App[None]):
             target_cancelled_snapshot(lang=self.config.lang)
         )
 
-    def _on_nexus_new_project_workspace_confirmed(
-        self,
-        preflight: WorkspacePreflight,
-        confirmed: bool | None,
-    ) -> None:
-        if confirmed:
-            self._continue_nexus_new_project_workspace_selection(
-                preflight,
-                control_repo_confirmed=True,
-            )
-            return
-        self._record_local_command_snapshot(
-            target_cancelled_snapshot(lang=self.config.lang)
-        )
-
     def _on_nexus_project_brief_workspace_confirmed(
         self,
         preflight: WorkspacePreflight,
@@ -2380,19 +2325,6 @@ class TrinityTextualApp(App[None]):
         if self._project_intake_mode_for_preflight(preflight) == "existing":
             self._review_nexus_existing_analysis_or_seed(preflight.path, intake)
             return
-        self._open_new_project_brief_if_needed(preflight)
-
-    def _continue_nexus_new_project_workspace_selection(
-        self,
-        preflight: WorkspacePreflight,
-        *,
-        control_repo_confirmed: bool,
-    ) -> None:
-        self._continue_nexus_workspace_selection(
-            preflight,
-            control_repo_confirmed=control_repo_confirmed,
-        )
-        self._sync_project_intake_for_preflight(preflight)
         self._open_new_project_brief_if_needed(preflight)
 
     def _continue_nexus_project_brief_workspace_selection(
@@ -2744,8 +2676,6 @@ class TrinityTextualApp(App[None]):
             "analyze": "analyze",
             "analysis": "analyze",
             "intake": "analyze",
-            "create": "create",
-            "new": "create",
             "brief": "brief",
             "scope": "scope",
             "read": "read-first",
@@ -2765,14 +2695,14 @@ class TrinityTextualApp(App[None]):
             title = "알 수 없는 프로젝트 명령"
             body = (
                 f"`{action}`는 /project 하위 명령이 아닙니다.\n\n"
-                "사용 가능: workspace, analyze, create, brief, scope, "
+                "사용 가능: workspace, analyze, brief, scope, "
                 "read-first, validation"
             )
         else:
             title = "Unknown Project Command"
             body = (
                 f"`{action}` is not a /project action.\n\n"
-                "Available: workspace, analyze, create, brief, scope, "
+                "Available: workspace, analyze, brief, scope, "
                 "read-first, validation"
             )
         self._record_slash_command_result(
@@ -2796,15 +2726,6 @@ class TrinityTextualApp(App[None]):
                 intent="select",
             )
             return
-        if action == "create":
-            self._open_workspace_picker(
-                WorkflowNexusSnapshot(),
-                self._on_new_project_workspace_selected,
-                intent="select",
-                open_new_folder=True,
-            )
-            return
-
         target = safe_start_target_workspace(
             self.workspace_candidate,
             self.config.project_dir,
@@ -2836,15 +2757,6 @@ class TrinityTextualApp(App[None]):
                 intent="select",
             )
             return
-        if action == "create":
-            self._open_workspace_picker(
-                snapshot,
-                self._on_nexus_new_project_workspace_selected,
-                intent="select",
-                open_new_folder=True,
-            )
-            return
-
         target = self._safe_nexus_target_workspace(snapshot)
         if target is None:
             self._open_workspace_picker(

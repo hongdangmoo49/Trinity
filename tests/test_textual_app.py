@@ -271,7 +271,6 @@ from trinity.textual_app.widgets.target_workspace_confirm_modal import (
 )
 from trinity.textual_app.widgets.work_package_detail_modal import WorkPackageDetailModal
 from trinity.textual_app.widgets.workspace_picker import (
-    FolderNamePrompt,
     WorkspacePicker,
     build_preflight,
 )
@@ -11139,6 +11138,18 @@ async def test_start_workspace_command_updates_workspace_candidate(tmp_path) -> 
             start.query_one("#project-intake-summary", Static)
 
 
+def test_project_command_action_does_not_split_new_project_creation(tmp_path) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        FakeWorkflowController(),
+        launch_cwd=tmp_path,
+    )
+
+    assert app._project_command_action(["workspace"]) == "workspace"
+    assert app._project_command_action(["create"]) is None
+    assert app._project_command_action(["new"]) is None
+
+
 @pytest.mark.asyncio
 async def test_start_project_analyze_request_writes_project_intake(tmp_path) -> None:
     control_repo = tmp_path / "control"
@@ -11841,116 +11852,6 @@ async def test_start_analyze_workspace_picker_opens_brief_for_empty_target(
         assert intake is not None
         assert intake.mode == "new"
         assert intake.target_workspace == target.resolve()
-
-
-@pytest.mark.asyncio
-async def test_start_project_create_request_creates_new_project_intake(
-    tmp_path,
-) -> None:
-    control_repo = tmp_path / "control"
-    target = tmp_path / "new-app"
-    control_repo.mkdir()
-    app = TrinityTextualApp(
-        TrinityConfig.default_config(project_dir=control_repo),
-        FakeWorkflowController(),
-        launch_cwd=control_repo,
-    )
-
-    async with app.run_test(size=(140, 44)) as pilot:
-        app._handle_textual_slash_command("/project create")
-        await pilot.pause()
-        await pilot.pause()
-
-        assert isinstance(app.screen, FolderNamePrompt)
-        app.screen.query_one("#workspace-folder-name", Input).value = "new-app"
-        app.screen.action_submit()
-        await pilot.pause()
-
-        assert isinstance(app.screen, WorkspacePicker)
-        assert target.exists()
-        assert app.screen.preflight.created is True
-        app.screen.action_confirm()
-        await pilot.pause()
-
-        assert isinstance(app.screen, ProjectBriefModal)
-        intake = load_project_intake(app.config.effective_state_dir)
-        assert intake is not None
-        assert intake.mode == "new"
-        assert intake.target_workspace == target
-        app.screen.query_one("#project-brief-goal", Input).value = (
-            "Build a lightweight CRM."
-        )
-        app.screen.query_one("#project-brief-project-type", Input).value = (
-            "SaaS app"
-        )
-        app.screen.query_one("#project-brief-starter-profile", Input).value = (
-            "Textual TUI"
-        )
-        app.screen.query_one("#project-brief-target-users", Input).value = (
-            "sales teams"
-        )
-        app.screen.query_one("#project-brief-success", Input).value = (
-            "Teams can track customer follow-ups."
-        )
-        app.screen.query_one("#project-brief-stack", Input).value = "python, sqlite"
-        app.screen.query_one("#project-brief-milestone", Input).value = (
-            "First usable contact workflow."
-        )
-        app.screen.query_one("#project-brief-run-commands", Input).value = (
-            "uv run crm, uv run worker"
-        )
-        app.screen.query_one("#project-brief-validation-commands", Input).value = (
-            "uv run pytest"
-        )
-        app.screen.query_one("#project-brief-artifact-targets", Input).value = (
-            "src/crm, README.md"
-        )
-        app.screen.query_one("#project-brief-constraints", Input).value = (
-            "Keep setup simple, no cloud dependency"
-        )
-        app.screen.action_save()
-        await pilot.pause()
-
-        start = app.get_screen("start", StartScreen)
-        saved_intake = load_project_intake(app.config.effective_state_dir)
-        assert saved_intake is not None
-        assert saved_intake.starter_profile == "Textual TUI"
-        assert saved_intake.run_commands == ("uv run crm", "uv run worker")
-        assert saved_intake.validation_commands == ("uv run pytest",)
-        assert saved_intake.artifact_targets == ("src/crm", "README.md")
-        assert start.query_one(PromptComposer).text == "\n".join(
-            [
-                "Use this project brief to plan the first work packages.",
-                "",
-                "Goal: Build a lightweight CRM.",
-                "Type: SaaS app",
-                "Starter profile: Textual TUI",
-                "Users: sales teams",
-                "Success: Teams can track customer follow-ups.",
-                "First milestone: First usable contact workflow.",
-                "Stack: python, sqlite",
-                "Run commands: uv run crm; uv run worker",
-                "Validation commands: uv run pytest",
-                "Artifact targets: src/crm, README.md",
-                "Constraints: Keep setup simple; no cloud dependency",
-                "",
-                "Starter recommendations:",
-                "- Template: Start with a minimal SaaS app shape and keep "
-                "choices reversible.",
-                "- Starter: Prefer a Textual TUI initial shape.",
-                "- Stack: Prefer python, sqlite unless the user changes direction.",
-                "- UX focus: Design the first workflow around sales teams.",
-                "- Guardrails: Respect Keep setup simple; no cloud dependency.",
-            ]
-        )
-        for selector in (
-            "#project-plan-preview",
-            "#project-generation-preview",
-            "#project-validation-plan",
-            "#project-mode-rail",
-        ):
-            with pytest.raises(NoMatches):
-                start.query_one(selector, Static)
 
 
 @pytest.mark.asyncio
@@ -12903,96 +12804,6 @@ def test_nexus_safe_target_prefers_snapshot_target(tmp_path) -> None:
     assert app._safe_nexus_target_workspace(
         WorkflowNexusSnapshot(target_workspace=str(snapshot_target))
     ) == snapshot_target
-
-
-@pytest.mark.asyncio
-async def test_nexus_project_create_command_creates_new_project_intake(
-    tmp_path,
-) -> None:
-    control_repo = tmp_path / "control"
-    target = tmp_path / "new-app"
-    control_repo.mkdir()
-    controller = FakeWorkflowController(
-        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
-    )
-    app = TrinityTextualApp(
-        TrinityConfig.default_config(project_dir=control_repo),
-        controller,
-        launch_cwd=control_repo,
-    )
-
-    async with app.run_test(size=(140, 44)) as pilot:
-        app.switch_to("nexus")
-        await pilot.pause()
-
-        app._handle_textual_slash_command("/project create")
-        await pilot.pause()
-        await pilot.pause()
-
-        assert isinstance(app.screen, FolderNamePrompt)
-        app.screen.query_one("#workspace-folder-name", Input).value = "new-app"
-        app.screen.action_submit()
-        await pilot.pause()
-
-        assert isinstance(app.screen, WorkspacePicker)
-        assert target.exists()
-        app.screen.action_confirm()
-        await pilot.pause()
-
-        assert isinstance(app.screen, ProjectBriefModal)
-        intake = load_project_intake(app.config.effective_state_dir)
-        assert intake is not None
-        assert intake.mode == "new"
-        assert intake.target_workspace == target
-        assert controller.target_workspace == target
-        nexus = app.get_screen("nexus", NexusScreen)
-        assert str(target.resolve()) in str(
-            nexus.query_one("#nexus-target-workspace", Static).content
-        )
-        app.screen.query_one("#project-brief-goal", Input).value = (
-            "Build a local planning board."
-        )
-        app.screen.query_one("#project-brief-project-type", Input).value = (
-            "desktop app"
-        )
-        app.screen.query_one("#project-brief-target-users", Input).value = (
-            "project managers"
-        )
-        app.screen.query_one("#project-brief-success", Input).value = (
-            "Managers can organize weekly work."
-        )
-        app.screen.query_one("#project-brief-stack", Input).value = "python, textual"
-        app.screen.query_one("#project-brief-milestone", Input).value = (
-            "First board workflow."
-        )
-        app.screen.query_one("#project-brief-run-commands", Input).value = (
-            "uv run board"
-        )
-        app.screen.query_one("#project-brief-validation-commands", Input).value = (
-            "uv run pytest"
-        )
-        app.screen.query_one("#project-brief-artifact-targets", Input).value = (
-            "src/board"
-        )
-        app.screen.query_one("#project-brief-constraints", Input).value = (
-            "No external service"
-        )
-        app.screen.action_save()
-        await pilot.pause()
-
-        saved_intake = load_project_intake(app.config.effective_state_dir)
-        assert saved_intake is not None
-        assert saved_intake.run_commands == ("uv run board",)
-        assert saved_intake.validation_commands == ("uv run pytest",)
-        assert saved_intake.artifact_targets == ("src/board",)
-        for selector in (
-            "#nexus-project-plan-preview",
-            "#nexus-project-generation-preview",
-            "#nexus-project-validation-plan",
-            "#nexus-project-mode-rail",
-        ):
-            with pytest.raises(NoMatches):
-                nexus.query_one(selector, Static)
 
 
 @pytest.mark.asyncio

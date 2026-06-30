@@ -1527,7 +1527,7 @@ async def test_nexus_screen_does_not_render_inline_provider_notices(
 
 
 @pytest.mark.asyncio
-async def test_start_screen_highlights_edit_brief_for_incomplete_new_project(
+async def test_start_screen_hides_edit_brief_for_incomplete_new_project(
     tmp_path: Path,
 ) -> None:
     target = tmp_path / "new-app"
@@ -1557,7 +1557,7 @@ async def test_start_screen_highlights_edit_brief_for_incomplete_new_project(
 
 
 @pytest.mark.asyncio
-async def test_start_screen_highlights_project_intake_recovery_actions(
+async def test_start_screen_hides_project_intake_recovery_actions(
     tmp_path: Path,
 ) -> None:
     target = tmp_path / "customer-app"
@@ -1576,7 +1576,7 @@ async def test_start_screen_highlights_project_intake_recovery_actions(
 
 
 @pytest.mark.asyncio
-async def test_start_screen_refreshes_analyze_action_label_for_changed_intake(
+async def test_start_screen_hides_analyze_action_for_changed_intake(
     tmp_path: Path,
 ) -> None:
     target = tmp_path / "customer-app"
@@ -1605,7 +1605,7 @@ async def test_start_screen_refreshes_analyze_action_label_for_changed_intake(
 
 
 @pytest.mark.asyncio
-async def test_nexus_highlights_missing_new_project_target_creation(
+async def test_nexus_hides_missing_new_project_target_creation_actions(
     tmp_path: Path,
 ) -> None:
     target = tmp_path / "missing-new"
@@ -1650,7 +1650,7 @@ async def test_nexus_highlights_missing_new_project_target_creation(
 
 
 @pytest.mark.asyncio
-async def test_nexus_refreshes_analyze_action_label_for_changed_intake(
+async def test_nexus_hides_analyze_action_for_changed_intake(
     tmp_path: Path,
 ) -> None:
     target = tmp_path / "customer-app"
@@ -1728,7 +1728,7 @@ async def test_nexus_screen_project_intake_summary_stays_offscreen(
 
 
 @pytest.mark.asyncio
-async def test_nexus_screen_highlights_edit_brief_for_incomplete_new_project(
+async def test_nexus_screen_hides_edit_brief_for_incomplete_new_project(
     tmp_path: Path,
 ) -> None:
     target = tmp_path / "new-app"

@@ -29,15 +29,15 @@ context.
 
 - Do not track whether an agent actually read each item.
 - Do not execute commands or inspect file contents.
-- Do not add new project-intake schema fields.
+- Do not add new saved project context schema fields.
 - Do not block execution when the checklist is sparse.
 - Do not replace the existing anchor review modal.
 
 ## Design
 
 Add a shared `project_read_first_checklist_label()` helper next to the existing
-project-intake label helpers. It returns an empty string unless the saved context
-matches the selected existing-project target.
+project context label helpers. It returns an empty string unless the saved
+context matches the selected existing-project target.
 
 The helper should render a compact localized line:
 

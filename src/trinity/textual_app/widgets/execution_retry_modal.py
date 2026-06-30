@@ -61,18 +61,18 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
         else:
             base_selector = "all" if self.selector == "custom" else self.selector
             self.selected_ids = set(self._ids_for_selector(base_selector))
-        self._selected_text_key = self._selected_text()
+        self._selected_text_key = self.selected_text()
         self._confirm_disabled_key = not self._selected_package_ids()
         self._selected_widget: Static | None = None
         self._confirm_button: Button | None = None
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
-        self._selected_text_key = self._selected_text()
+        self._selected_text_key = self.selected_text()
         self._confirm_disabled_key = not self._selected_package_ids()
         with Vertical(id="execution-retry-modal"):
             yield Static(self._label("title"), id="execution-retry-title")
-            yield Static(self._summary_text(), id="execution-retry-summary")
+            yield Static(self.summary_text(), id="execution-retry-summary")
             with Horizontal(id="execution-retry-filters"):
                 for filter_name in self.FILTERS:
                     yield Button(
@@ -81,7 +81,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
                         variant="primary" if filter_name == self.selector else "default",
                     )
             with VerticalScroll(id="execution-retry-list"):
-                yield Static(self._header_text(), id="execution-retry-header")
+                yield Static(self.header_text(), id="execution-retry-header")
                 packages = self._display_packages()
                 if not packages:
                     yield Static(self._label("empty"), classes="retry-row")
@@ -217,7 +217,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
         return tuple(ordered)
 
     def _refresh_selection_state(self) -> None:
-        selected_text = self._selected_text()
+        selected_text = self.selected_text()
         if selected_text != self._selected_text_key:
             self._selected_summary_widget().update(selected_text)
             self._selected_text_key = selected_text
@@ -240,7 +240,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
             self._confirm_button = self.query_one("#confirm-execute-retry", Button)
         return self._confirm_button
 
-    def _summary_text(self) -> str:
+    def summary_text(self) -> str:
         target = ""
         if self.snapshot.execution_recovery and self.snapshot.execution_recovery.target_workspace:
             target = self.snapshot.execution_recovery.target_workspace
@@ -261,14 +261,14 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
             f"{self._label('target')}: {target or self._label('not_selected')}"
         )
 
-    def _header_text(self) -> str:
+    def header_text(self) -> str:
         if self.lang == "ko":
             prefix = "선택  " if self.selector == "custom" else ""
             return f"{prefix}작업 ID 상태       주제                          소유자       실행자       메모"
         prefix = "Use  " if self.selector == "custom" else ""
         return f"{prefix}WP      Status     Topic                         Owner      Executor    Note"
 
-    def _selected_text(self) -> str:
+    def selected_text(self) -> str:
         selected = self._selected_package_ids()
         if selected:
             return f"{self._label('selected')}: {', '.join(selected)}"

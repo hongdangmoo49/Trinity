@@ -794,15 +794,6 @@ class TrinityTextualApp(App[None]):
         text-style: dim;
     }
 
-    #start-provider-policy,
-    #start-provider-cli-setup,
-    #nexus-provider-policy,
-    #nexus-provider-cli-setup {
-        width: 100%;
-        height: 1;
-        color: $text-muted;
-    }
-
     #prompt-textarea {
         height: 1fr;
         border: none;

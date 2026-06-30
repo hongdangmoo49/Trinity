@@ -15,8 +15,6 @@ from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.slash_commands import is_slash_command_text
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.workspace_labels import (
-    provider_cli_setup_label,
-    provider_execution_review_policy_label,
     target_workspace_state_label,
 )
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
@@ -115,8 +113,6 @@ class StartScreen(Screen[None]):
         self._composer: PromptComposer | None = None
         self._recipient_selector: AgentRecipientModelSelector | None = None
         self._workspace_label_widget: Static | None = None
-        self._provider_policy_widget: Static | None = None
-        self._provider_cli_setup_widget: Static | None = None
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
@@ -141,22 +137,6 @@ class StartScreen(Screen[None]):
                 )
                 self._recipient_selector = selector
                 yield selector
-                provider_policy_label = self._provider_policy_label()
-                provider_policy = Static(
-                    provider_policy_label,
-                    id="start-provider-policy",
-                )
-                provider_policy.display = False
-                self._provider_policy_widget = provider_policy
-                yield provider_policy
-                provider_cli_setup_label = self._provider_cli_setup_label()
-                provider_cli_setup = Static(
-                    provider_cli_setup_label,
-                    id="start-provider-cli-setup",
-                )
-                provider_cli_setup.display = False
-                self._provider_cli_setup_widget = provider_cli_setup
-                yield provider_cli_setup
                 with Horizontal(id="start-actions"):
                     workspace_label = Static(
                         self._workspace_label(),
@@ -209,7 +189,6 @@ class StartScreen(Screen[None]):
         event: AgentRecipientModelSelector.SelectionChanged,
     ) -> None:
         event.stop()
-        self._refresh_provider_policy_label(event.selected_agents)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id
@@ -264,8 +243,6 @@ class StartScreen(Screen[None]):
         self._composer = None
         self._recipient_selector = None
         self._workspace_label_widget = None
-        self._provider_policy_widget = None
-        self._provider_cli_setup_widget = None
 
     def _prompt_composer(self) -> PromptComposer:
         if self._composer is None:
@@ -282,67 +259,12 @@ class StartScreen(Screen[None]):
             self._workspace_label_widget = self.query_one("#workspace-candidate", Static)
         return self._workspace_label_widget
 
-    def _provider_policy_static(self) -> Static:
-        if self._provider_policy_widget is None:
-            self._provider_policy_widget = self.query_one(
-                "#start-provider-policy",
-                Static,
-            )
-        return self._provider_policy_widget
-
-    def _provider_cli_setup_static(self) -> Static:
-        if self._provider_cli_setup_widget is None:
-            self._provider_cli_setup_widget = self.query_one(
-                "#start-provider-cli-setup",
-                Static,
-            )
-        return self._provider_cli_setup_widget
-
     def _workspace_label(self) -> str:
         return target_workspace_state_label(
             self.workspace_candidate,
             control_repo=self.config.project_dir,
             lang=self.lang,
         )
-
-    def _provider_policy_label(
-        self,
-        selected_agents: tuple[str, ...] | None = None,
-    ) -> str:
-        if selected_agents is None and self.is_mounted:
-            selected_agents = self._agent_selector().selected_agents()
-        return provider_execution_review_policy_label(
-            self.config.agents,
-            selected_agents=selected_agents,
-            lang=self.lang,
-        )
-
-    def _provider_cli_setup_label(
-        self,
-        selected_agents: tuple[str, ...] | None = None,
-    ) -> str:
-        if selected_agents is None and self.is_mounted:
-            selected_agents = self._agent_selector().selected_agents()
-        return provider_cli_setup_label(
-            self.config.agents,
-            selected_agents=selected_agents,
-            lang=self.lang,
-        )
-
-    def _refresh_provider_policy_label(
-        self,
-        selected_agents: tuple[str, ...] | None = None,
-    ) -> None:
-        if not self.is_mounted:
-            return
-        policy_label = self._provider_policy_label(selected_agents)
-        policy = self._provider_policy_static()
-        policy.update(policy_label)
-        policy.display = False
-        cli_setup_label = self._provider_cli_setup_label(selected_agents)
-        cli_setup = self._provider_cli_setup_static()
-        cli_setup.update(cli_setup_label)
-        cli_setup.display = False
 
     def _label(self, key: str) -> str:
         labels = START_LABELS.get(self.lang, START_LABELS["en"])

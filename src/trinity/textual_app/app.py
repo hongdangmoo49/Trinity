@@ -2160,13 +2160,13 @@ class TrinityTextualApp(App[None]):
             title = "프로젝트 명령 인자 미지원"
             body = (
                 f"`/project {action}`는 지원하지 않습니다.\n\n"
-                "작업 폴더 선택은 `/workspace`를 사용하세요."
+                "작업 폴더는 `/target <path>`로 지정하거나 `/workspace`에서 선택하세요."
             )
         else:
             title = "Project Command Takes No Arguments"
             body = (
                 f"`/project {action}` is not supported.\n\n"
-                "Use `/workspace` to select a target workspace."
+                "Use `/target <path>` to set a target or `/workspace` to browse."
             )
         self._record_slash_command_result(
             command_name,

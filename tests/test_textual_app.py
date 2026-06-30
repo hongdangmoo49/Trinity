@@ -11151,6 +11151,9 @@ def test_project_command_action_keeps_manual_project_setup_out_of_shortcuts(
     assert app._project_command_action(["new"]) is None
     assert app._project_command_action(["brief"]) is None
     assert app._project_command_action(["scope"]) is None
+    assert app._project_command_action(["read"]) is None
+    assert app._project_command_action(["read-first"]) is None
+    assert app._project_command_action(["readfirst"]) is None
 
 
 @pytest.mark.asyncio
@@ -11318,49 +11321,6 @@ async def test_start_analyze_workspace_prompt_includes_scope_candidates(
             "- selected scope: apps/web\n"
             "- scope candidates: apps/web"
         )
-
-
-@pytest.mark.asyncio
-async def test_start_continue_setup_opens_existing_read_first_review(
-    tmp_path,
-) -> None:
-    control_repo = tmp_path / "control"
-    target = tmp_path / "target-app"
-    control_repo.mkdir()
-    target.mkdir()
-    (target / "README.md").write_text("# Existing project\n", encoding="utf-8")
-    (target / "src").mkdir()
-    (target / "package.json").write_text(
-        '{"scripts":{"test":"vitest"}}',
-        encoding="utf-8",
-    )
-    config = TrinityConfig.default_config(project_dir=control_repo)
-    write_project_intake(
-        config.effective_state_dir,
-        build_project_intake(
-            mode="existing",
-            target_workspace=target,
-            created_at="2026-06-29T00:00:00Z",
-        ),
-    )
-    app = TrinityTextualApp(config, FakeWorkflowController(), launch_cwd=target)
-
-    async with app.run_test(size=(140, 44)) as pilot:
-        await pilot.pause()
-
-        app._handle_textual_slash_command("/project read-first")
-        await pilot.pause()
-
-        assert isinstance(app.screen, ProjectAnchorsModal)
-        assert str(
-            app.screen.query_one("#project-anchors-read-first", Static).content
-        ) == "Read first: README.md, src"
-        app.screen.action_save()
-        await pilot.pause()
-
-        intake = load_project_intake(app.config.effective_state_dir)
-        assert intake is not None
-        assert intake.read_first_confirmed is True
 
 
 @pytest.mark.asyncio

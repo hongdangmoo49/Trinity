@@ -2602,9 +2602,6 @@ class TrinityTextualApp(App[None]):
             "analyze": "analyze",
             "analysis": "analyze",
             "intake": "analyze",
-            "read": "read-first",
-            "read-first": "read-first",
-            "readfirst": "read-first",
             "validation": "validation",
             "validate": "validation",
         }
@@ -2619,13 +2616,13 @@ class TrinityTextualApp(App[None]):
             title = "알 수 없는 프로젝트 명령"
             body = (
                 f"`{action}`는 /project 하위 명령이 아닙니다.\n\n"
-                "사용 가능: workspace, analyze, read-first, validation"
+                "사용 가능: workspace, analyze, validation"
             )
         else:
             title = "Unknown Project Command"
             body = (
                 f"`{action}` is not a /project action.\n\n"
-                "Available: workspace, analyze, read-first, validation"
+                "Available: workspace, analyze, validation"
             )
         self._record_slash_command_result(
             command_name,
@@ -2661,8 +2658,6 @@ class TrinityTextualApp(App[None]):
             return
         if action == "analyze":
             self._apply_start_project_intake_for_direct_target(target)
-        elif action == "read-first":
-            self._open_existing_project_read_first_review(target, seed_route="start")
         elif action == "validation":
             self._open_project_validation_modal(target, seed_route="start")
 
@@ -2686,8 +2681,6 @@ class TrinityTextualApp(App[None]):
         self._set_workspace_candidate(target)
         if action == "analyze":
             self._apply_nexus_project_intake_for_direct_target(target, snapshot)
-        elif action == "read-first":
-            self._open_existing_project_read_first_review(target, seed_route="nexus")
         elif action == "validation":
             self._open_project_validation_modal(target, seed_route="nexus")
 
@@ -3966,32 +3959,6 @@ class TrinityTextualApp(App[None]):
             ),
         )
         return True
-
-    def _open_existing_project_read_first_review(
-        self,
-        target: Path,
-        *,
-        seed_route: str,
-    ) -> None:
-        intake = self._matching_existing_project_intake(target)
-        if intake is None or not _project_intake_has_analysis_anchor_signal(intake):
-            if seed_route == "nexus":
-                self._apply_nexus_project_intake_for_direct_target(
-                    target,
-                    self._current_textual_snapshot(),
-                )
-                return
-            self._apply_start_project_intake_for_direct_target(target)
-            return
-        self.push_screen(
-            ProjectAnchorsModal(intake, lang=self.config.lang),
-            lambda result: self._on_existing_project_anchor_review_dismissed(
-                target,
-                detected_intake=intake,
-                seed_route=seed_route,
-                result=result,
-            ),
-        )
 
     def _open_project_validation_modal(
         self,

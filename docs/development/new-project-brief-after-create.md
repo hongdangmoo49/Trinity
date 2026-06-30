@@ -1,5 +1,9 @@
 # New Project Brief After Create
 
+Status: Superseded by the simplified Workbench flow. Workbench no longer
+separates `Create New` from existing-project starts or opens `ProjectBriefModal`;
+the selected workspace and user prompt now drive intent.
+
 ## Problem
 
 Workbench now separates existing-project analysis from new-project creation, but

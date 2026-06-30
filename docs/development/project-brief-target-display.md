@@ -1,5 +1,9 @@
 # Project Brief Target Display
 
+Status: Superseded by the simplified Workbench flow. `ProjectBriefModal` and
+`TrinityTextualApp._open_project_brief_modal` were removed; target visibility is
+handled by the Start/Nexus workspace label.
+
 ## Problem
 
 The project brief modal edits intake fields for the selected target workspace,

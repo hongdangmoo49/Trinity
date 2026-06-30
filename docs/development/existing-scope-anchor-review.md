@@ -1,5 +1,9 @@
 # Existing Scope Anchor Review
 
+Status: Superseded by the simplified Workbench flow. Start/Nexus no longer use
+analysis-anchor review modals or `Analyze Existing`; selected scope remains a
+project-intake field for CLI/status/provider context.
+
 ## Problem
 
 Existing-project intake can detect monorepo-like scope candidates such as

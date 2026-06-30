@@ -1,5 +1,9 @@
 # Project Brief Complete Action Label
 
+Status: Superseded by the simplified Workbench flow. Start/Nexus no longer
+highlight an `Edit Brief` action; incomplete brief state is shown through
+summaries and execution preflight.
+
 Date: 2026-06-29
 Branch: `feature/project-brief-complete-action-label`
 

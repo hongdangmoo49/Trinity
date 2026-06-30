@@ -2,6 +2,9 @@
 
 Date: 2026-06-29
 Branch: `feature/existing-read-first-confirmation`
+Status: Superseded by the simplified Workbench flow. Start/Nexus no longer use
+`Continue Setup` or `ProjectAnchorsModal`; read-first context remains a
+project-intake signal rather than a Workbench modal step.
 
 ## Problem
 

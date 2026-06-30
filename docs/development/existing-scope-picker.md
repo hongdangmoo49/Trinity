@@ -1,5 +1,9 @@
 # Existing Scope Picker
 
+Status: Superseded by the simplified Workbench flow. Start/Nexus no longer
+route `Continue Setup` through scope or anchor modals; selected scope remains
+part of project intake and provider prompt context.
+
 ## Background
 
 Existing-project analysis can detect subproject scope candidates such as

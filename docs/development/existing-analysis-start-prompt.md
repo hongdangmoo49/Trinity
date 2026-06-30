@@ -1,5 +1,9 @@
 # Existing Project Analysis Start Prompt
 
+Status: Superseded by the simplified Workbench flow. Start no longer seeds the
+composer from a Workbench `Analyze Existing` action; the user's prompt is the
+source of analysis/work intent.
+
 ## Problem
 
 For an existing project, the Start screen `Analyze Existing` action writes a

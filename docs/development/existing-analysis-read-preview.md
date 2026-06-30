@@ -1,5 +1,9 @@
 # Existing Analysis Read Preview
 
+Status: Superseded by the simplified Workbench flow. Start/Nexus no longer show
+an `Analyze Existing` action or analysis preview step; workspace context is
+shown through compact labels and provider prompt context.
+
 ## Problem
 
 Existing-project analysis records docs, source roots, and test commands. The

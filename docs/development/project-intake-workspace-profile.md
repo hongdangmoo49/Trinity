@@ -93,9 +93,10 @@ signal without scraping panel text.
 JSON status also exposes `project_intake.readiness` and
 `project_intake.action_variants`. These fields provide target existence,
 sparse/stale/changed analysis, missing new-project brief fields, the recommended
-next action, and the Workbench-equivalent Analyze Workspace/Create Project/Edit
-Brief button variants without requiring callers to parse the compact summary
-string.
+next action, and compatibility action-variant metadata without requiring callers
+to parse the compact summary string. The current Workbench does not render those
+project setup actions as buttons; it keeps workspace selection visible and lets
+the prompt carry analysis or work intent.
 
 When matching existing-project intake differs from the current workspace profile,
 `trinity project status` marks the analysis as changed, lists the changed intake
@@ -106,25 +107,13 @@ refresh saved context before opening the Workbench.
 Start/Nexus project-intake labels use the same changed-analysis signal for
 matching existing-project intake. When the saved profile differs from the live
 workspace, the label shows changed analysis and the `trinity project analyze
-<target>` refresh command, and the Workbench "Analyze Existing" action is
-highlighted. Missing targets, target mismatches, sparse analysis, and stale
-analysis keep their existing priority over the changed-analysis hint.
-When the selected existing-project intake already matches the active workspace
-but needs analysis refresh because it is sparse, stale, or changed, the same
-action is labeled `Refresh Analysis` / `분석 갱신`. The action id and event flow
-remain the existing analyze-workspace path so automation and tests can keep using
-the stable action identifiers.
-
-Workbench project-intake sync follows the same preservation rule. When the
-current saved intake points at the same target workspace, Start/Nexus workspace
-sync preserves the saved brief and notes while refreshing filesystem-derived
-analysis. When the target changes, the saved brief is not carried to the new
-workspace.
+<target>` refresh command. Missing targets, target mismatches, sparse analysis,
+and stale analysis keep their existing priority over the changed-analysis hint.
 
 When no project intake has been recorded yet, Start/Nexus project-intake labels
-use the currently selected workspace candidate to show a concrete
-`trinity project analyze <path>` next step. If no workspace is selected, the
-generic existing/new project commands remain visible.
+stay prompt-led: the user should select or keep the target workspace, then type
+the analysis or work request. CLI users can still run `trinity project analyze
+<path>` when they want to pre-record project intake before opening Workbench.
 
 When Trinity opens the Workbench and the saved intake target matches the active
 workspace candidate, Start seeds the composer with `product_goal`. This avoids
@@ -143,23 +132,11 @@ existing projects are sent back to `trinity project analyze [PATH]`, while new
 projects are given a `trinity project new <name> --parent <path>` recreation
 command.
 
-Start and Nexus also expose a Workbench "Edit Brief" action. It writes the same
-project brief and product discovery fields as the CLI flags, refreshes the
-project-intake summary, and keeps the active target workspace unchanged. Saving
-a product goal from Start also seeds the Start composer when the composer is
-still empty.
-
-Workbench action buttons use the same intake readiness policy as the compact
-summary. The analyze action is highlighted when selected-workspace analysis is
-missing, mismatched, stale, sparse, unreadable, or points at a missing existing
-target. The create action is highlighted when a saved new-project target no
-longer exists. The brief action remains focused on incomplete new-project brief
-fields.
-Start and Nexus expose those actions with journey-oriented labels:
-`Analyze Existing`, `Create New`, and `Edit Brief` in English, and
-`기존 프로젝트 분석`, `새 프로젝트 생성`, and `브리프 편집` in Korean. The
-underlying action IDs remain stable so existing readiness and variant logic can
-continue to use `analyze_workspace`, `create_project`, and `edit_brief`.
+Start and Nexus no longer expose Workbench "Analyze Existing", "Create New", or
+"Edit Brief" action buttons. The compact summaries remain available as context,
+but the active user decision is the prompt itself: analysis-only requests,
+new-project starts, and existing-project edits are expressed in natural
+language.
 
 For new projects, Trinity treats `product_goal`, `project_type`,
 `target_users`, `success_criteria`, and `first_milestone` as the minimum brief
@@ -170,8 +147,8 @@ readiness warning because read-only workspace analysis is the stronger first
 signal for that journey.
 
 When a saved new-project brief is incomplete for the selected workspace,
-Start/Nexus highlight the Workbench "Edit Brief" action. Once the minimum brief
-is complete, the action returns to the default visual priority.
+Start/Nexus surface that state in summaries and execution preflight instead of
+highlighting an edit button.
 
 When the Workbench preflight sees an existing empty non-Git directory, it treats
 that directory as a new-project candidate instead of an existing project. This

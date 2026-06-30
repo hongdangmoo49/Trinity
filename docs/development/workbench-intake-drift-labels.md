@@ -1,5 +1,9 @@
 # Workbench Intake Drift Labels
 
+Status: Superseded by the simplified Workbench flow. Workbench no longer
+highlights an `Analyze Existing` action; drift remains visible in labels,
+status, and execution preflight.
+
 This design extends the existing-project intake drift signal into Start/Nexus
 Workbench labels.
 

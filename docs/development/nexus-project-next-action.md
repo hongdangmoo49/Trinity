@@ -2,6 +2,9 @@
 
 Date: 2026-06-29
 Branch: `feature/nexus-project-next-action`
+Status: Superseded by the simplified Workbench flow. Nexus no longer exposes
+`Continue Setup` or individual project setup buttons; execution remains a
+workflow action, while project intent comes from the prompt.
 
 ## Problem
 

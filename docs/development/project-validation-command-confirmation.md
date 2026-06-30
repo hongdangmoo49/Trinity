@@ -57,8 +57,8 @@ After analysis and optional scope selection:
 - Extend `ProjectStartNextAction` with `validation`.
 - Keep validation command edits inside project intake/analyze flows instead of a
   dedicated modal.
-- Add Start/Nexus messages and app handlers that open the modal from
-  `Continue Setup`.
+- Keep Start/Nexus free of validation setup modals; surface missing validation
+  through project-intake summaries, prompts, and execution preflight.
 - Refresh intake labels and seed the relevant prompt after saving.
 - Update tests for new/existing project next actions, labels, and Textual modal
   behavior.
@@ -71,8 +71,8 @@ After analysis and optional scope selection:
 
 ## Success Criteria
 
-- `Continue Setup` routes to validation before ready state when validation is
-  missing.
+- Missing validation is visible in project-intake summaries and preflight before
+  execution.
 - Saving validation commands updates `.trinity/project-intake.json`.
 - The validation plan shows user-recorded commands before generated fallbacks.
 - Existing tests and required smoke tests pass.

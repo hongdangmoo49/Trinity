@@ -2,6 +2,8 @@
 
 Date: 2026-06-29
 Branch: `feature/project-status-start-guide`
+Status: Superseded by the simplified Workbench flow. Project status no longer
+mirrors Workbench `Analyze Existing` / `Create New` button guidance.
 
 ## Problem
 

@@ -2,6 +2,9 @@
 
 Date: 2026-06-29
 Branch: `feature/project-start-choice-guide`
+Status: Superseded by the simplified Workbench flow. Start/Nexus no longer show
+project-start guide lines or separate existing/new action buttons; workspace
+selection plus prompt intent is the current model.
 
 ## Problem
 

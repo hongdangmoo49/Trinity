@@ -2,6 +2,9 @@
 
 Date: 2026-06-29
 Branch: `feature/start-mode-focus`
+Status: Superseded by the simplified Workbench flow. Start no longer exposes
+mode focus or setup buttons; prompt intent replaces explicit existing/new UI
+branching.
 
 ## Problem
 

@@ -1,5 +1,9 @@
 # Existing Analysis Target Prompt
 
+Status: Superseded by the simplified Workbench flow. Start/Nexus no longer
+generate target-aware analysis prompts from `Analyze Existing`; the visible
+workspace label supplies the target and the user prompt supplies intent.
+
 ## Problem
 
 `Analyze Existing` seeds a generic prompt. The workflow target is set

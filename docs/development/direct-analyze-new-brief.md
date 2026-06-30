@@ -1,5 +1,9 @@
 # Direct Analyze New Brief Handoff
 
+Status: Superseded by the simplified Workbench flow. Start/Nexus no longer
+route `Analyze Existing` into project-intake sync or `ProjectBriefModal`; the
+Workbench keeps workspace selection separate from prompt intent.
+
 ## Problem
 
 The picker path for `Analyze Existing` now opens the project brief modal when

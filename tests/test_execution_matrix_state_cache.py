@@ -272,21 +272,21 @@ async def test_execution_matrix_skips_unchanged_task_expanded_class_sync() -> No
 
         shell.set_class = counted_set_class
 
-        screen._sync_task_expanded_view()
+        screen.sync_task_expanded_view()
         await pilot.pause()
         assert class_calls == [False]
 
         class_calls.clear()
-        screen._sync_task_expanded_view()
+        screen.sync_task_expanded_view()
         await pilot.pause()
         assert class_calls == []
 
         screen.tasks_expanded = True
-        screen._sync_task_expanded_view()
+        screen.sync_task_expanded_view()
         await pilot.pause()
         assert class_calls == [True]
 
-        screen._sync_task_expanded_view()
+        screen.sync_task_expanded_view()
         await pilot.pause()
         assert class_calls == [True]
 

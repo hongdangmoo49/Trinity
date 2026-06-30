@@ -1,5 +1,9 @@
 # Analyze Picker New Brief Handoff
 
+Status: Superseded by the simplified Workbench flow. Start/Nexus no longer
+expose `Analyze Existing`, project brief edit, or project setup modal paths;
+users select a workspace and describe analysis or work in the prompt.
+
 ## Problem
 
 `Analyze Existing` can open the workspace picker when Trinity was launched from

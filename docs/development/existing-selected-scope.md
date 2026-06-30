@@ -1,5 +1,9 @@
 # Existing Project Selected Scope
 
+Status: Superseded by the simplified Workbench flow. Workbench `Edit Brief` and
+anchor modal editing were removed; selected scope is still supported through
+project intake and CLI/status context.
+
 ## Problem
 
 Existing-project intake can now detect likely monorepo scope candidates such as

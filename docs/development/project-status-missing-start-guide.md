@@ -2,6 +2,9 @@
 
 Date: 2026-06-29
 Branch: `feature/project-status-missing-start-guide`
+Status: Superseded by the simplified Workbench flow. Status output no longer
+needs to mirror Workbench existing/new action buttons; prompt-led guidance is
+the current Workbench model.
 
 ## Problem
 

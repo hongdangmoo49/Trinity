@@ -1,5 +1,9 @@
 # Target Mismatch Reanalyze CTA
 
+Status: Superseded by the simplified Workbench flow. Workbench no longer shows
+`Analyze Existing` CTA copy; target mismatch remains a project-intake/status
+signal.
+
 ## Context
 
 Start and Nexus already detect when persisted project intake belongs to a

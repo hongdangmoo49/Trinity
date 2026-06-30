@@ -1,5 +1,9 @@
 # Nexus Brief Follow-Up Prompt
 
+Status: Superseded by the simplified Workbench flow. Nexus no longer exposes
+`Edit Brief` or project brief save handlers; users express product intent in the
+follow-up prompt.
+
 ## Problem
 
 The project brief modal can be opened from Nexus. After saving the brief,

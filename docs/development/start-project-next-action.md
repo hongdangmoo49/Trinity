@@ -2,6 +2,9 @@
 
 Date: 2026-06-29
 Branch: `feature/start-project-next-action`
+Status: Superseded by the simplified Workbench flow. Start no longer exposes
+`Continue Setup`, `Analyze Existing`, `Create New`, `Edit Brief`, or `Plan first`
+buttons; Enter on the prompt is the primary action.
 
 ## Problem
 

@@ -1,5 +1,9 @@
 # Existing Analysis Anchor Review
 
+Status: Superseded by the simplified Workbench flow. `ProjectAnchorsModal` and
+the Workbench `Analyze Existing` path were removed; existing-project analysis is
+now expressed through CLI project-intake commands or the user's prompt.
+
 ## Problem
 
 `Analyze Existing` can now detect concrete read, test, dev, and build anchors

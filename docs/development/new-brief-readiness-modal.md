@@ -1,5 +1,9 @@
 # New Brief Readiness Modal
 
+Status: Superseded by the simplified Workbench flow. `ProjectBriefModal` was
+removed from Start/Nexus; new-project brief readiness remains visible through
+CLI/project-intake summaries and execution preflight.
+
 ## Problem
 
 New-project intake already tracks the minimum brief fields needed for useful

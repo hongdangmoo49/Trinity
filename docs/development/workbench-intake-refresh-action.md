@@ -1,5 +1,9 @@
 # Workbench Intake Refresh Action
 
+Status: Superseded by the simplified Workbench flow. Workbench no longer shows
+an `Analyze Existing`/`Refresh Analysis` action button; refresh guidance is now
+CLI/status context rather than a Start/Nexus button.
+
 This design improves the visible Start/Nexus action after existing-project
 intake drift detection.
 

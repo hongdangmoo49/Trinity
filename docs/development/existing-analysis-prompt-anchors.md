@@ -1,5 +1,9 @@
 # Existing Analysis Prompt Anchors
 
+Status: Superseded by the simplified Workbench flow. Start/Nexus no longer seed
+analysis prompts from a Workbench `Analyze Existing` action; users express
+analysis intent directly in the prompt.
+
 ## Problem
 
 After `Analyze Existing`, the Workbench summary can show concrete read anchors

@@ -1,5 +1,9 @@
 # Nexus Analysis Follow-Up Prompt
 
+Status: Superseded by the simplified Workbench flow. Nexus no longer seeds
+follow-up prompts from a Workbench `Analyze Existing` path; the composer remains
+user-authored.
+
 ## Problem
 
 Start `Analyze Existing` now writes existing-project intake and seeds the Start

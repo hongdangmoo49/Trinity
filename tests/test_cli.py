@@ -284,7 +284,7 @@ class TestInit:
             assert result.exit_code == 0
             assert "Project intake:" not in result.output
             assert "Next steps:" in result.output
-            assert "trinity project new NAME --parent PATH" in result.output
+            assert "trinity project new NAME --parent PATH" not in result.output
             assert "trinity project status" in result.output
             assert "trinity" in result.output
             assert not Path(".trinity/project-intake.json").exists()

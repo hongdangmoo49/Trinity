@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import pytest
+from textual.app import App, ComposeResult
+from textual.widgets import Static
+
 from trinity.textual_app.snapshot import (
     ProviderSnapshot,
     WorkPackageSnapshot,
     WorkflowNexusSnapshot,
 )
 from trinity.textual_app.widgets.execution_confirm_modal import (
+    ExecutionConfirmationSummary,
     ExecutionConfirmModal,
     execution_confirmation_summary,
 )
@@ -154,3 +159,50 @@ def test_execution_confirmation_modal_shows_agent_run_estimate() -> None:
     assert "Agent runs: 2 approx (1 execution, 1 review)" in (
         ExecutionConfirmModal(summary)._summary_text()
     )
+
+
+@pytest.mark.asyncio
+async def test_execution_confirmation_modal_keeps_actions_inside_narrow_viewport() -> None:
+    summary = ExecutionConfirmationSummary(
+        target_workspace="/workspace/" + "long-target-directory-" * 8,
+        project_mode="existing-project-with-long-mode-name",
+        context_items=tuple(f"context-item-{index}-with-long-text" for index in range(8)),
+        providers=("claude", "codex", "antigravity"),
+        total_packages=12,
+        executable_packages=10,
+        estimated_execution_runs=10,
+        estimated_review_runs=10,
+        package_preview=tuple(
+            f"WP-{index:03d} owner: long package preview title {'x' * 40}"
+            for index in range(8)
+        ),
+        risk_items=tuple(f"risk-{index}-long-risk-description" for index in range(6)),
+        instruction="long execution instruction " * 30,
+    )
+
+    class ProbeApp(App[None]):
+        def compose(self) -> ComposeResult:
+            yield Static("root")
+
+        def on_mount(self) -> None:
+            self.push_screen(ExecutionConfirmModal(summary, lang="en"))
+
+    app = ProbeApp()
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        modal = app.screen
+        shell = modal.query_one("#execution-confirm-modal")
+
+        for widget_id in (
+            "#execution-confirm-title",
+            "#execution-confirm-body",
+            "#execution-confirm-content",
+            "#execution-confirm-actions",
+            "#cancel-execution-confirm",
+            "#confirm-execution",
+        ):
+            widget = modal.query_one(widget_id)
+            assert widget.region.y >= shell.region.y
+            assert widget.region.y + widget.region.height <= (
+                shell.region.y + shell.region.height
+            )

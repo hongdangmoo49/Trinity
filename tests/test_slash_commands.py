@@ -51,4 +51,14 @@ def test_parse_slash_command_registers_workspace_command() -> None:
     assert parsed is not None
     assert parsed.command_id == "workspace"
     assert parsed.spec is not None
-    assert parsed.spec.summary == "select target workspace"
+    assert parsed.spec.summary == "browse for a target workspace"
+
+
+def test_parse_slash_command_registers_target_command() -> None:
+    parsed = parse_slash_command("/target")
+
+    assert parsed is not None
+    assert parsed.command_id == "target"
+    assert parsed.spec is not None
+    assert parsed.spec.summary == "show, set, or clear target path"
+    assert parsed.spec.summary_ko == "대상 경로 보기, 설정 또는 초기화"

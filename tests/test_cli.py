@@ -804,7 +804,6 @@ class TestProjectAnalyze:
             )
             assert data["project_intake"]["readiness"] == {
                 "ready": False,
-                "recommended_action": "edit_brief",
                 "workbench_next_step": "describe_project",
                 "target_exists": True,
                 "target_missing": False,
@@ -855,9 +854,6 @@ class TestProjectAnalyze:
             data = json.loads(json_status.output)
             assert data["next_steps"] == ["trinity project analyze [PATH]"]
             assert data["project_intake"]["readiness"]["target_missing"] is True
-            assert data["project_intake"]["readiness"]["recommended_action"] == (
-                "analyze_workspace"
-            )
             assert data["project_intake"]["readiness"]["workbench_next_step"] == (
                 "select_workspace"
             )
@@ -904,9 +900,6 @@ class TestProjectAnalyze:
             )
             assert data["next_steps"] == [recreate_command]
             assert data["project_intake"]["readiness"]["target_missing"] is True
-            assert data["project_intake"]["readiness"]["recommended_action"] == (
-                "create_project"
-            )
             assert data["project_intake"]["readiness"]["workbench_next_step"] == (
                 "select_workspace"
             )
@@ -996,7 +989,6 @@ class TestProjectAnalyze:
             }
             assert data["project_intake"]["readiness"] == {
                 "ready": False,
-                "recommended_action": "confirm_read_first",
                 "workbench_next_step": "describe_read_first",
                 "target_exists": True,
                 "target_missing": False,
@@ -1059,9 +1051,6 @@ class TestProjectAnalyze:
                 "packages/core",
             ]
             assert data["project_intake"]["readiness"]["ready"] is False
-            assert data["project_intake"]["readiness"]["recommended_action"] == (
-                "choose_scope"
-            )
             assert data["project_intake"]["readiness"]["workbench_next_step"] == (
                 "describe_scope"
             )
@@ -1151,9 +1140,6 @@ class TestProjectAnalyze:
             assert data["project_intake"]["readiness"]["analysis_changed_fields"] == [
                 "source_roots",
             ]
-            assert data["project_intake"]["readiness"]["recommended_action"] == (
-                "analyze_workspace"
-            )
             assert data["project_intake"]["readiness"]["workbench_next_step"] == (
                 "describe_analysis"
             )

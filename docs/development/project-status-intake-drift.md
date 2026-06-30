@@ -20,8 +20,6 @@ For changed existing-project intake:
 - human output shows an analysis changed line and recommends
   `trinity project status --refresh`;
 - JSON readiness includes `analysis_changed` and `analysis_changed_fields`;
-- JSON `recommended_action` remains the compatibility value
-  `analyze_workspace`;
 - JSON `workbench_next_step` becomes `describe_analysis` for the simplified
   prompt-led Workbench flow;
 - JSON `next_steps` starts with `trinity project status --refresh`.

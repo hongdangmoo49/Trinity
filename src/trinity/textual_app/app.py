@@ -245,47 +245,15 @@ LocalCommandSnapshotOptionValue = (
 
 
 def initial_workspace_candidate(config: TrinityConfig, launch_cwd: Path) -> Path:
-    """Return the launch cwd unless control-repo launch should restore a target."""
-    if absolute_path(launch_cwd) != absolute_path(config.project_dir):
-        return launch_cwd
-    try:
-        intake = load_project_intake(config.effective_state_dir)
-    except ValueError:
-        return launch_cwd
-    if intake is not None and _is_directory(intake.target_workspace):
-        return intake.target_workspace.resolve()
+    """Return the process launch cwd as the default target candidate."""
+    _ = config
     return launch_cwd
 
 
 def initial_start_prompt(config: TrinityConfig, workspace_candidate: Path | None) -> str:
-    """Seed Start prompt from the saved project brief for the same target."""
-    if workspace_candidate is None:
-        return ""
-    try:
-        intake = load_project_intake(config.effective_state_dir)
-    except ValueError:
-        return ""
-    if intake is None or not intake.product_goal.strip():
-        return ""
-    if absolute_path(intake.target_workspace) != absolute_path(workspace_candidate):
-        return ""
-    return _project_brief_start_prompt(
-        mode=intake.mode,
-        lang=config.lang,
-        product_goal=intake.product_goal,
-        project_type=intake.project_type,
-        starter_profile=intake.starter_profile,
-        target_users=intake.target_users,
-        success_criteria=intake.success_criteria,
-        stack_preferences=intake.stack_preferences,
-        first_milestone=intake.first_milestone,
-        run_commands=intake.run_commands,
-        validation_commands=intake.validation_commands,
-        artifact_targets=intake.artifact_targets,
-        constraints=intake.constraints,
-        selected_scope=intake.selected_scope,
-        notes=intake.notes,
-    )
+    """Leave Start blank so the user's prompt is the source of intent."""
+    _ = config, workspace_candidate
+    return ""
 
 
 def _existing_project_analysis_prompt(
@@ -660,13 +628,6 @@ def _execution_confirmation_intake_risk_label(warning: str, *, lang: str) -> str
         },
     }.get(lang, {})
     return labels.get(warning, warning)
-
-
-def _is_directory(path: Path) -> bool:
-    try:
-        return path.is_dir()
-    except OSError:
-        return False
 
 
 class TrinityTextualApp(App[None]):

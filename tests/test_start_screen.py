@@ -12,17 +12,10 @@ from textual.widgets import Button, Static
 
 from trinity.config import TrinityConfig
 from trinity.project_intake import build_project_intake, write_project_intake
-from trinity.textual_app.project_start_runtime import project_setup_next_action
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.start import StartScreen
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.workspace_labels import (
-    project_analyze_action_label_key,
-    project_analyze_action_presentation,
-    project_analyze_action_variant,
-    project_brief_action_label_key,
-    project_brief_action_variant,
-    project_create_action_variant,
     project_existing_diagnostic_label,
     project_generation_preview_label,
     project_intake_state_label,
@@ -1049,130 +1042,6 @@ def test_project_intake_state_label_warns_for_changed_existing_analysis(
     assert f"재분석: trinity project analyze {target}" in ko_label
 
 
-def test_project_analyze_action_label_key_marks_refreshable_intake(
-    tmp_path: Path,
-) -> None:
-    target = tmp_path / "customer-app"
-    target.mkdir()
-    (target / "README.md").write_text("docs\n", encoding="utf-8")
-    state = tmp_path / ".trinity"
-    write_project_intake(
-        state,
-        build_project_intake(
-            mode="existing",
-            target_workspace=target,
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
-
-    assert (
-        project_analyze_action_label_key(
-            state,
-            target_workspace=target,
-            today=date(2026, 6, 28),
-        )
-        == "analyze_workspace"
-    )
-    presentation = project_analyze_action_presentation(
-        state,
-        target_workspace=target,
-        today=date(2026, 6, 28),
-    )
-    assert presentation.label_key == "analyze_workspace"
-    assert presentation.variant == "default"
-
-    (target / "src").mkdir()
-
-    presentation = project_analyze_action_presentation(
-        state,
-        target_workspace=target,
-        today=date(2026, 6, 28),
-    )
-    assert presentation.label_key == "refresh_analysis"
-    assert presentation.variant == "warning"
-    assert (
-        project_analyze_action_label_key(
-            state,
-            target_workspace=target,
-            today=date(2026, 6, 28),
-        )
-        == "refresh_analysis"
-    )
-    assert (
-        project_analyze_action_label_key(
-            state,
-            target_workspace=tmp_path / "other-app",
-            today=date(2026, 6, 28),
-        )
-        == "analyze_selected_workspace"
-    )
-
-
-def test_project_analyze_action_label_key_marks_sparse_and_stale_as_refresh(
-    tmp_path: Path,
-) -> None:
-    sparse_target = tmp_path / "sparse-app"
-    sparse_target.mkdir()
-    sparse_state = tmp_path / ".trinity-sparse"
-    write_project_intake(
-        sparse_state,
-        build_project_intake(
-            mode="existing",
-            target_workspace=sparse_target,
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
-
-    assert (
-        project_analyze_action_label_key(
-            sparse_state,
-            target_workspace=sparse_target,
-            today=date(2026, 6, 28),
-        )
-        == "refresh_analysis"
-    )
-    sparse_presentation = project_analyze_action_presentation(
-        sparse_state,
-        target_workspace=sparse_target,
-        today=date(2026, 6, 28),
-    )
-    assert sparse_presentation.label_key == "refresh_analysis"
-    assert sparse_presentation.variant == "warning"
-
-    stale_target = tmp_path / "stale-app"
-    stale_target.mkdir()
-    (stale_target / "pyproject.toml").write_text(
-        "[project]\nname='stale-app'\n",
-        encoding="utf-8",
-    )
-    (stale_target / "uv.lock").write_text("", encoding="utf-8")
-    stale_state = tmp_path / ".trinity-stale"
-    write_project_intake(
-        stale_state,
-        build_project_intake(
-            mode="existing",
-            target_workspace=stale_target,
-            created_at="2026-06-01T00:00:00Z",
-        ),
-    )
-
-    assert (
-        project_analyze_action_label_key(
-            stale_state,
-            target_workspace=stale_target,
-            today=date(2026, 6, 28),
-        )
-        == "refresh_analysis"
-    )
-    stale_presentation = project_analyze_action_presentation(
-        stale_state,
-        target_workspace=stale_target,
-        today=date(2026, 6, 28),
-    )
-    assert stale_presentation.label_key == "refresh_analysis"
-    assert stale_presentation.variant == "warning"
-
-
 def test_project_intake_state_label_warns_when_target_mismatches(
     tmp_path: Path,
 ) -> None:
@@ -1346,165 +1215,6 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
     )
 
 
-def test_project_brief_action_variant_warns_for_incomplete_new_brief(
-    tmp_path: Path,
-) -> None:
-    target = tmp_path / "new-app"
-    other_target = tmp_path / "other-app"
-    state = tmp_path / ".trinity"
-    write_project_intake(
-        state,
-        build_project_intake(
-            mode="new",
-            target_workspace=target,
-            product_goal="Build a dashboard.",
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
-
-    assert (
-        project_brief_action_variant(state, target_workspace=target)
-        == "warning"
-    )
-    assert (
-        project_brief_action_label_key(state, target_workspace=target)
-        == "complete_brief"
-    )
-    assert (
-        project_brief_action_variant(state, target_workspace=other_target)
-        == "default"
-    )
-    assert (
-        project_brief_action_label_key(state, target_workspace=other_target)
-        == "edit_brief"
-    )
-
-    write_project_intake(
-        state,
-        build_project_intake(
-            mode="new",
-            target_workspace=target,
-            product_goal="Build a dashboard.",
-            project_type="SaaS dashboard",
-            target_users="support operators",
-            success_criteria="Operators can complete onboarding.",
-            first_milestone="First safe patch.",
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
-
-    assert (
-        project_brief_action_variant(state, target_workspace=target)
-        == "default"
-    )
-    assert (
-        project_brief_action_label_key(state, target_workspace=target)
-        == "edit_brief"
-    )
-
-
-def test_project_action_variants_prioritize_intake_recovery(
-    tmp_path: Path,
-) -> None:
-    target = tmp_path / "customer-app"
-    target.mkdir()
-    state = tmp_path / ".trinity"
-
-    assert (
-        project_analyze_action_variant(state, target_workspace=target)
-        == "warning"
-    )
-    assert (
-        project_analyze_action_variant(state, target_workspace=None)
-        == "default"
-    )
-    assert (
-        project_create_action_variant(state, target_workspace=target)
-        == "default"
-    )
-
-    write_project_intake(
-        state,
-        build_project_intake(
-            mode="existing",
-            target_workspace=target,
-            created_at="2026-06-01T00:00:00Z",
-        ),
-    )
-    assert (
-        project_analyze_action_variant(
-            state,
-            target_workspace=target,
-            today=date(2026, 6, 28),
-        )
-        == "warning"
-    )
-
-    (target / "pyproject.toml").write_text(
-        "[project]\nname='customer-app'\n",
-        encoding="utf-8",
-    )
-    (target / "uv.lock").write_text("", encoding="utf-8")
-    write_project_intake(
-        state,
-        build_project_intake(
-            mode="existing",
-            target_workspace=target,
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
-    assert (
-        project_analyze_action_variant(
-            state,
-            target_workspace=target,
-            today=date(2026, 6, 28),
-        )
-        == "default"
-    )
-
-    (target / "src").mkdir()
-    assert (
-        project_analyze_action_variant(
-            state,
-            target_workspace=target,
-            today=date(2026, 6, 28),
-        )
-        == "warning"
-    )
-
-    other_target = tmp_path / "other-app"
-    other_target.mkdir()
-    assert (
-        project_analyze_action_variant(state, target_workspace=other_target)
-        == "warning"
-    )
-
-
-def test_project_create_action_variant_warns_for_missing_new_target(
-    tmp_path: Path,
-) -> None:
-    missing_target = tmp_path / "missing-new"
-    state = tmp_path / ".trinity"
-    write_project_intake(
-        state,
-        build_project_intake(
-            mode="new",
-            target_workspace=missing_target,
-            product_goal="Build app.",
-            created_at="2026-06-28T00:00:00Z",
-        ),
-    )
-
-    assert (
-        project_create_action_variant(state, target_workspace=missing_target)
-        == "warning"
-    )
-    assert (
-        project_analyze_action_variant(state, target_workspace=missing_target)
-        == "default"
-    )
-
-
 def test_project_intake_state_label_guides_missing_intake(tmp_path: Path) -> None:
     state = tmp_path / ".trinity"
     target = tmp_path / "customer-app"
@@ -1565,12 +1275,6 @@ def test_start_and_nexus_project_intake_warn_when_target_mismatches(
         config.effective_state_dir,
         target_workspace=selected_target,
     )
-    presentation = project_analyze_action_presentation(
-        config.effective_state_dir,
-        target_workspace=selected_target,
-    )
-    assert presentation.label_key == "analyze_selected_workspace"
-    assert presentation.variant == "warning"
 
 
 @pytest.mark.asyncio
@@ -1596,12 +1300,6 @@ async def test_start_and_nexus_keep_reanalyze_signal_offscreen(
     async with start_app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
 
-        start_presentation = project_analyze_action_presentation(
-            config.effective_state_dir,
-            target_workspace=selected_target,
-        )
-        assert start_presentation.label_key == "analyze_selected_workspace"
-        assert start_presentation.variant == "warning"
         with pytest.raises(NoMatches):
             start.query_one("#analyze-workspace", Button)
 
@@ -1611,12 +1309,6 @@ async def test_start_and_nexus_keep_reanalyze_signal_offscreen(
     async with nexus_app.run_test(size=(140, 40)) as pilot:
         await pilot.pause()
 
-        nexus_presentation = project_analyze_action_presentation(
-            config.effective_state_dir,
-            target_workspace=selected_target,
-        )
-        assert nexus_presentation.label_key == "analyze_selected_workspace"
-        assert nexus_presentation.variant == "warning"
         with pytest.raises(NoMatches):
             nexus.query_one("#nexus-analyze-workspace", Button)
 
@@ -1905,21 +1597,9 @@ async def test_start_screen_refreshes_analyze_action_label_for_changed_intake(
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
 
-        presentation = project_analyze_action_presentation(
-            config.effective_state_dir,
-            target_workspace=target,
-        )
-        assert presentation.label_key == "analyze_workspace"
-
         (target / "src").mkdir()
         await pilot.pause()
 
-        presentation = project_analyze_action_presentation(
-            config.effective_state_dir,
-            target_workspace=target,
-        )
-        assert presentation.label_key == "refresh_analysis"
-        assert presentation.variant == "warning"
         with pytest.raises(NoMatches):
             screen.query_one("#analyze-workspace", Button)
 
@@ -1992,21 +1672,9 @@ async def test_nexus_refreshes_analyze_action_label_for_changed_intake(
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
 
-        presentation = project_analyze_action_presentation(
-            config.effective_state_dir,
-            target_workspace=target,
-        )
-        assert presentation.label_key == "analyze_workspace"
-
         (target / "src").mkdir()
         await pilot.pause()
 
-        presentation = project_analyze_action_presentation(
-            config.effective_state_dir,
-            target_workspace=target,
-        )
-        assert presentation.label_key == "refresh_analysis"
-        assert presentation.variant == "warning"
         with pytest.raises(NoMatches):
             screen.query_one("#nexus-analyze-workspace", Button)
 

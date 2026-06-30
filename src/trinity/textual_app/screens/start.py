@@ -30,13 +30,13 @@ START_LABELS = {
     "en": {
         "placeholder": "What should Trinity work on?",
         "select_agent_warning": "Select at least one agent.",
-        "select_workspace": "Select Workspace",
+        "select_workspace": "Workspace",
         "subtitle": "Three minds, one context",
     },
     "ko": {
         "placeholder": "Trinity가 무엇을 진행하면 될까요?",
         "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
-        "select_workspace": "작업 폴더 선택",
+        "select_workspace": "작업 폴더",
         "subtitle": "세 개의 관점, 하나의 컨텍스트",
     },
 }

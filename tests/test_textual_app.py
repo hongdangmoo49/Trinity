@@ -7082,7 +7082,7 @@ async def test_start_and_central_chrome_uses_korean_labels(
             "세 개의 관점, 하나의 컨텍스트"
         )
         assert str(start.query_one("#choose-workspace", Button).label) == (
-            "작업 폴더 선택"
+            "작업 폴더"
         )
         with pytest.raises(NoMatches):
             start.query_one("#plan-first", Button)
@@ -11802,7 +11802,7 @@ async def test_start_workspace_button_keeps_stable_dimension(tmp_path) -> None:
         await pilot.pause()
         start = app.get_screen("start", StartScreen)
 
-        assert start.query_one("#choose-workspace", Button).styles.width.value == 20
+        assert start.query_one("#choose-workspace", Button).styles.width.value == 14
 
 
 def test_workbench_syncs_created_workspace_as_new_project_intake(tmp_path) -> None:
@@ -12099,7 +12099,7 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
         )
         assert str(nexus.query_one("#request-execute", Button).label) == "Execute"
         assert str(nexus.query_one("#select-workspace", Button).label) == (
-            "Select Workspace"
+            "Workspace"
         )
         with pytest.raises(NoMatches):
             nexus.query_one("#nexus-analyze-workspace", Button)
@@ -12139,7 +12139,7 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
         nexus = app.get_screen("nexus", NexusScreen)
         assert str(nexus.query_one("#request-execute", Button).label) == "Execute"
         assert str(nexus.query_one("#select-workspace", Button).label) == (
-            "Select Workspace"
+            "Workspace"
         )
 
 
@@ -12831,7 +12831,7 @@ async def test_nexus_action_bar_uses_configured_korean_labels(tmp_path) -> None:
         )
         assert str(nexus.query_one("#request-execute", Button).label) == "실행"
         assert str(nexus.query_one("#select-workspace", Button).label) == (
-            "작업 폴더 선택"
+            "작업 폴더"
         )
         workspace_label = str(
             nexus.query_one("#nexus-target-workspace", Static).content

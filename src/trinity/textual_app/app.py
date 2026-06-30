@@ -826,7 +826,7 @@ class TrinityTextualApp(App[None]):
     }
 
     #choose-workspace {
-        width: 20;
+        width: 14;
         margin-left: 1;
     }
 
@@ -1192,7 +1192,7 @@ class TrinityTextualApp(App[None]):
     }
 
     #select-workspace {
-        width: 20;
+        width: 14;
         margin-left: 1;
     }
 

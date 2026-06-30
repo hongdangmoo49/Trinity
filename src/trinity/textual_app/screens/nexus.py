@@ -43,14 +43,14 @@ NEXUS_LABELS = {
         "execute": "Execute",
         "open_provider_inspector": "Providers",
         "select_agent_warning": "Select at least one agent.",
-        "select_workspace": "Select Workspace",
+        "select_workspace": "Workspace",
     },
     "ko": {
         "composer_placeholder": "답변, 방향 조정 또는 /로 명령 입력",
         "execute": "실행",
         "open_provider_inspector": "프로바이더",
         "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
-        "select_workspace": "작업 폴더 선택",
+        "select_workspace": "작업 폴더",
     },
 }
 

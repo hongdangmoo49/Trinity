@@ -129,7 +129,7 @@ class CentralAgentView(VerticalScroll):
             self._markdown_key = markdown
         local_commands_key = self._local_command_key(snapshot.local_commands)
         if local_commands_key != self._local_commands_key:
-            self._render_local_command_tables(snapshot.local_commands)
+            self.render_local_command_tables(snapshot.local_commands)
             self._local_commands_key = local_commands_key
         action_plan = central_action_plan(snapshot)
         actions_key = self._action_plan_key(action_plan)
@@ -409,7 +409,7 @@ class CentralAgentView(VerticalScroll):
         word = "package" if count == 1 else "packages"
         return f"{count} {word}"
 
-    def _render_local_command_tables(
+    def render_local_command_tables(
         self,
         commands: list[LocalCommandSnapshot],
     ) -> None:

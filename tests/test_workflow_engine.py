@@ -2354,6 +2354,13 @@ def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_execution_intent("compatibility risk of rename") is False
     assert classify_execution_intent("please update the risk report") is True
     assert classify_execution_intent("fix the performance impact") is True
+    assert classify_execution_intent("can I update dependencies safely") is False
+    assert classify_execution_intent("is it safe to update dependencies") is False
+    assert classify_execution_intent("is it possible to refactor this") is False
+    assert classify_execution_intent("can we change the API safely") is False
+    assert classify_execution_intent("would it be safe to remove this module") is False
+    assert classify_execution_intent("allowed to update this package") is False
+    assert classify_execution_intent("please update dependencies safely") is True
     assert classify_execution_intent("이 프로젝트를 설명해라") is False
     assert classify_execution_intent("수정할 곳을 알려줘") is False
     assert classify_execution_intent("리뷰하고 수정할 곳을 알려줘") is False
@@ -2412,6 +2419,8 @@ def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_execution_intent("문서를 업데이트해줘") is True
     assert classify_execution_intent("수정 비용을 추정해줘") is False
     assert classify_execution_intent("성능 영향을 수정해줘") is True
+    assert classify_execution_intent("API를 변경해도 괜찮을까") is False
+    assert classify_execution_intent("안전하게 수정해줘") is True
     assert classify_execution_intent("고칠 곳을 알려줘") is False
     assert classify_execution_intent("바꿀 곳을 알려줘") is False
     assert classify_execution_intent("뭘 삭제할지 알려줘") is False

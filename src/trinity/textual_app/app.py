@@ -722,7 +722,7 @@ class TrinityTextualApp(App[None]):
 
     #start-geometry {
         width: 100%;
-        height: 14;
+        height: 6;
         content-align: center middle;
         text-align: center;
         color: $accent;

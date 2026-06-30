@@ -1797,6 +1797,7 @@ async def test_textual_app_boots_to_start_screen(tmp_path) -> None:
         assert app.screen.name == "start"
         assert app.screen.query_one(PromptComposer)
         geometry = app.screen.query_one("#start-geometry", SacredGeometryAnimation)
+        assert geometry.styles.height.value == 6
         assert str(geometry.render()).strip()
 
 

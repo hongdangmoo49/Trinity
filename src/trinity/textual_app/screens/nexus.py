@@ -21,9 +21,6 @@ from trinity.textual_app.workspace_labels import (
     ProjectAnalyzeActionPresentation,
     provider_cli_setup_label,
     project_analyze_action_presentation,
-    project_brief_action_label_key,
-    project_brief_action_variant,
-    project_create_action_variant,
     project_existing_diagnostic_label,
     project_generation_preview_label,
     project_intake_state_label,
@@ -292,28 +289,6 @@ class NexusScreen(Screen[None]):
             )
             self._project_start_choice_guide_widget = start_choice_guide
             yield start_choice_guide
-            analyze_action = self._project_analyze_action_presentation()
-            with Horizontal(id="nexus-project-intake-actions"):
-                yield Button(
-                    self._label("continue_setup"),
-                    id="nexus-continue-project-setup",
-                    variant="primary",
-                )
-                yield Button(
-                    self._label(analyze_action.label_key),
-                    id="nexus-analyze-workspace",
-                    variant=analyze_action.variant,
-                )
-                yield Button(
-                    self._label("create_project"),
-                    id="nexus-create-project",
-                    variant=self._project_create_action_variant(),
-                )
-                yield Button(
-                    self._label(self._project_brief_action_label_key()),
-                    id="nexus-edit-project-brief",
-                    variant=self._project_brief_action_variant(),
-                )
             mode_rail = Static(
                 self._project_mode_rail_label(),
                 id="nexus-project-mode-rail",
@@ -739,18 +714,6 @@ class NexusScreen(Screen[None]):
         elif event.button.id == "select-workspace":
             event.stop()
             self.action_request_workspace()
-        elif event.button.id == "nexus-continue-project-setup":
-            event.stop()
-            self.action_continue_project_setup()
-        elif event.button.id == "nexus-analyze-workspace":
-            event.stop()
-            self.action_request_project_intake()
-        elif event.button.id == "nexus-create-project":
-            event.stop()
-            self.action_request_new_project()
-        elif event.button.id == "nexus-edit-project-brief":
-            event.stop()
-            self.action_request_project_brief()
 
     def action_submit_follow_up(self) -> None:
         composer = self._prompt_composer()
@@ -764,25 +727,6 @@ class NexusScreen(Screen[None]):
 
     def action_request_workspace(self) -> None:
         self.post_message(self.WorkspaceRequested(self.snapshot))
-
-    def action_continue_project_setup(self) -> None:
-        action = self._project_setup_next_action()
-        if action == "workspace":
-            self.action_request_workspace()
-        elif action == "analyze":
-            self.action_request_project_intake()
-        elif action == "create":
-            self.action_request_new_project()
-        elif action == "brief":
-            self.action_request_project_brief()
-        elif action == "scope":
-            self.action_request_project_scope()
-        elif action == "read_first":
-            self.action_request_project_read_first()
-        elif action == "validation":
-            self.action_request_project_validation()
-        else:
-            self.action_request_execute()
 
     def action_request_project_intake(self) -> None:
         self.post_message(self.ProjectIntakeRequested(self.snapshot))
@@ -927,28 +871,10 @@ class NexusScreen(Screen[None]):
             target_workspace=self._current_workspace_text(),
         )
 
-    def _project_brief_action_variant(self) -> str:
-        return project_brief_action_variant(
-            self.config.effective_state_dir,
-            target_workspace=self._current_workspace_text(),
-        )
-
-    def _project_brief_action_label_key(self) -> str:
-        return project_brief_action_label_key(
-            self.config.effective_state_dir,
-            target_workspace=self._current_workspace_text(),
-        )
-
     def _project_analyze_action_presentation(
         self,
     ) -> ProjectAnalyzeActionPresentation:
         return project_analyze_action_presentation(
-            self.config.effective_state_dir,
-            target_workspace=self._current_workspace_text(),
-        )
-
-    def _project_create_action_variant(self) -> str:
-        return project_create_action_variant(
             self.config.effective_state_dir,
             target_workspace=self._current_workspace_text(),
         )
@@ -983,16 +909,6 @@ class NexusScreen(Screen[None]):
         self._project_mode_rail_static().update(
             self._project_mode_rail_label()
         )
-        analyze_action = self._project_analyze_action_presentation()
-        analyze_button = self.query_one("#nexus-analyze-workspace", Button)
-        analyze_button.label = self._label(analyze_action.label_key)
-        analyze_button.variant = analyze_action.variant
-        self.query_one("#nexus-create-project", Button).variant = (
-            self._project_create_action_variant()
-        )
-        brief_button = self.query_one("#nexus-edit-project-brief", Button)
-        brief_button.label = self._label(self._project_brief_action_label_key())
-        brief_button.variant = self._project_brief_action_variant()
 
     def _refresh_provider_policy_label(
         self,

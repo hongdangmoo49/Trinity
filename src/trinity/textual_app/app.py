@@ -838,51 +838,12 @@ class TrinityTextualApp(App[None]):
     #project-intake-summary,
     #project-existing-diagnostic,
     #project-start-choice-guide,
-    #project-mode-focus-actions,
-    #project-intake-actions,
     #project-mode-rail,
     #project-plan-preview,
     #project-generation-preview,
     #project-validation-plan,
     #project-read-first-checklist {
         display: none;
-    }
-
-    #project-intake-actions {
-        width: 100%;
-        height: auto;
-        margin-top: 1;
-        align-horizontal: right;
-    }
-
-    #project-mode-focus-actions {
-        width: 100%;
-        height: auto;
-        margin-top: 1;
-        align-horizontal: right;
-    }
-
-    #focus-existing-project {
-        width: 12;
-    }
-
-    #focus-new-project {
-        width: 12;
-        margin-left: 1;
-    }
-
-    #analyze-workspace {
-        width: 20;
-    }
-
-    #create-project {
-        width: 16;
-        margin-left: 1;
-    }
-
-    #edit-project-brief {
-        width: 14;
-        margin-left: 1;
     }
 
     #nexus-screen {
@@ -1269,34 +1230,12 @@ class TrinityTextualApp(App[None]):
     #nexus-project-intake-summary,
     #nexus-project-existing-diagnostic,
     #nexus-project-start-choice-guide,
-    #nexus-project-intake-actions,
     #nexus-project-mode-rail,
     #nexus-project-plan-preview,
     #nexus-project-generation-preview,
     #nexus-project-validation-plan,
     #nexus-project-read-first-checklist {
         display: none;
-    }
-
-    #nexus-project-intake-actions {
-        width: 100%;
-        height: auto;
-        margin-top: 1;
-        align-horizontal: right;
-    }
-
-    #nexus-analyze-workspace {
-        width: 20;
-    }
-
-    #nexus-create-project {
-        width: 16;
-        margin-left: 1;
-    }
-
-    #nexus-edit-project-brief {
-        width: 14;
-        margin-left: 1;
     }
 
     ProviderInspector {

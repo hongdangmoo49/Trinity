@@ -295,12 +295,6 @@ class ScreenHarness(App[None]):
         self.push_screen(self.target_screen)
 
 
-def _press_nexus_button(app: TrinityTextualApp, selector: str) -> None:
-    nexus = app.get_screen("nexus", NexusScreen)
-    button = nexus.query_one(selector, Button)
-    nexus.on_button_pressed(Button.Pressed(button))
-
-
 class FakeWorkflowController:
     def __init__(self, snapshot: WorkflowNexusSnapshot | None = None) -> None:
         self.current_snapshot = snapshot or WorkflowNexusSnapshot()
@@ -7050,17 +7044,18 @@ async def test_project_intake_ctas_are_hidden_from_default_surfaces(
         assert isinstance(start, StartScreen)
         with pytest.raises(NoMatches):
             start.query_one("#plan-first", Button)
-        assert start.query_one("#project-mode-focus-actions").styles.display == "none"
-        assert start.query_one("#project-intake-actions").styles.display == "none"
+        with pytest.raises(NoMatches):
+            start.query_one("#project-mode-focus-actions")
+        with pytest.raises(NoMatches):
+            start.query_one("#project-intake-actions")
 
         app.switch_to("nexus")
         await pilot.pause()
 
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
-        assert (
-            nexus.query_one("#nexus-project-intake-actions").styles.display == "none"
-        )
+        with pytest.raises(NoMatches):
+            nexus.query_one("#nexus-project-intake-actions")
 
 
 @pytest.mark.asyncio
@@ -10877,7 +10872,7 @@ async def test_start_select_workspace_updates_workspace_candidate(tmp_path) -> N
 
 
 @pytest.mark.asyncio
-async def test_start_analyze_workspace_button_writes_project_intake(tmp_path) -> None:
+async def test_start_project_analyze_request_writes_project_intake(tmp_path) -> None:
     control_repo = tmp_path / "control"
     target = tmp_path / "target"
     control_repo.mkdir()
@@ -11073,10 +11068,7 @@ async def test_start_continue_setup_opens_existing_scope_picker(
     async with app.run_test(size=(140, 44)) as pilot:
         await pilot.pause()
 
-        app.get_screen("start", StartScreen).query_one(
-            "#continue-project-setup",
-            Button,
-        ).press()
+        app._handle_textual_slash_command("/project scope")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectScopeModal)
@@ -11121,10 +11113,7 @@ async def test_start_continue_setup_opens_existing_read_first_review(
     async with app.run_test(size=(140, 44)) as pilot:
         await pilot.pause()
 
-        app.get_screen("start", StartScreen).query_one(
-            "#continue-project-setup",
-            Button,
-        ).press()
+        app._handle_textual_slash_command("/project read-first")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectAnchorsModal)
@@ -11167,10 +11156,7 @@ async def test_start_continue_setup_opens_project_validation_modal_for_new_proje
     async with app.run_test(size=(140, 44)) as pilot:
         await pilot.pause()
 
-        app.get_screen("start", StartScreen).query_one(
-            "#continue-project-setup",
-            Button,
-        ).press()
+        app._handle_textual_slash_command("/project validation")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectValidationModal)
@@ -11560,7 +11546,7 @@ async def test_start_analyze_workspace_preserves_existing_prompt(tmp_path) -> No
 
 
 @pytest.mark.asyncio
-async def test_start_analyze_workspace_button_opens_picker_for_control_repo(
+async def test_start_project_analyze_request_opens_picker_for_control_repo(
     tmp_path,
 ) -> None:
     control_repo = tmp_path / "control"
@@ -11616,7 +11602,7 @@ async def test_start_analyze_workspace_picker_opens_brief_for_empty_target(
 
 
 @pytest.mark.asyncio
-async def test_start_create_project_button_creates_new_project_intake(
+async def test_start_project_create_request_creates_new_project_intake(
     tmp_path,
 ) -> None:
     control_repo = tmp_path / "control"
@@ -11743,7 +11729,7 @@ async def test_start_create_project_button_creates_new_project_intake(
 
 
 @pytest.mark.asyncio
-async def test_start_edit_project_brief_button_writes_project_brief(
+async def test_start_project_brief_request_writes_project_brief(
     tmp_path,
 ) -> None:
     control_repo = tmp_path / "control"
@@ -11834,7 +11820,7 @@ async def test_start_edit_project_brief_button_writes_project_brief(
 
 
 @pytest.mark.asyncio
-async def test_start_cta_buttons_keep_stable_dimensions(tmp_path) -> None:
+async def test_start_workspace_button_keeps_stable_dimension(tmp_path) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),
         FakeWorkflowController(),
@@ -11846,9 +11832,6 @@ async def test_start_cta_buttons_keep_stable_dimensions(tmp_path) -> None:
         start = app.get_screen("start", StartScreen)
 
         assert start.query_one("#choose-workspace", Button).styles.width.value == 20
-        assert start.query_one("#analyze-workspace", Button).styles.width.value == 20
-        assert start.query_one("#create-project", Button).styles.width.value == 16
-        assert start.query_one("#edit-project-brief", Button).styles.width.value == 14
 
 
 def test_workbench_syncs_created_workspace_as_new_project_intake(tmp_path) -> None:
@@ -12147,15 +12130,12 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
         assert str(nexus.query_one("#select-workspace", Button).label) == (
             "Select Workspace"
         )
-        assert str(nexus.query_one("#nexus-analyze-workspace", Button).label) == (
-            "Analyze Existing"
-        )
-        assert str(nexus.query_one("#nexus-create-project", Button).label) == (
-            "Create New"
-        )
-        assert str(nexus.query_one("#nexus-edit-project-brief", Button).label) == (
-            "Edit Brief"
-        )
+        with pytest.raises(NoMatches):
+            nexus.query_one("#nexus-analyze-workspace", Button)
+        with pytest.raises(NoMatches):
+            nexus.query_one("#nexus-create-project", Button)
+        with pytest.raises(NoMatches):
+            nexus.query_one("#nexus-edit-project-brief", Button)
         assert [child.id for child in nexus.query_one("#nexus-action-bar").children] == [
             "open-provider-inspector",
             "select-workspace",
@@ -12192,7 +12172,7 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
 
 
 @pytest.mark.asyncio
-async def test_nexus_analyze_workspace_button_writes_project_intake(tmp_path) -> None:
+async def test_nexus_project_analyze_command_writes_project_intake(tmp_path) -> None:
     control_repo = tmp_path / "control"
     target = tmp_path / "target-app"
     control_repo.mkdir()
@@ -12217,7 +12197,7 @@ async def test_nexus_analyze_workspace_button_writes_project_intake(tmp_path) ->
         app.switch_to("nexus")
         await pilot.pause()
 
-        _press_nexus_button(app, "#nexus-analyze-workspace")
+        app._handle_textual_slash_command("/project analyze")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectAnchorsModal)
@@ -12315,7 +12295,7 @@ async def test_nexus_continue_setup_opens_existing_scope_picker(tmp_path) -> Non
         app.switch_to("nexus")
         await pilot.pause()
 
-        _press_nexus_button(app, "#nexus-continue-project-setup")
+        app._handle_textual_slash_command("/project scope")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectScopeModal)
@@ -12365,7 +12345,7 @@ async def test_nexus_continue_setup_opens_project_validation_modal_for_existing(
         app.switch_to("nexus")
         await pilot.pause()
 
-        _press_nexus_button(app, "#nexus-continue-project-setup")
+        app._handle_textual_slash_command("/project validation")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectValidationModal)
@@ -12413,7 +12393,7 @@ async def test_nexus_analyze_workspace_empty_target_opens_project_brief(
         app.switch_to("nexus")
         await pilot.pause()
 
-        _press_nexus_button(app, "#nexus-analyze-workspace")
+        app._handle_textual_slash_command("/project analyze")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
@@ -12449,7 +12429,7 @@ async def test_nexus_analyze_workspace_preserves_existing_followup_prompt(
         nexus.query_one("#nexus-composer", PromptComposer).set_text(
             "Keep my follow-up."
         )
-        _press_nexus_button(app, "#nexus-analyze-workspace")
+        app._handle_textual_slash_command("/project analyze")
         await pilot.pause()
 
         intake = load_project_intake(app.config.effective_state_dir)
@@ -12482,7 +12462,7 @@ async def test_nexus_analyze_workspace_picker_opens_brief_for_empty_target(
         app.switch_to("nexus")
         await pilot.pause()
 
-        _press_nexus_button(app, "#nexus-analyze-workspace")
+        app._handle_textual_slash_command("/project analyze")
         await pilot.pause()
 
         picker = app.screen
@@ -12500,7 +12480,7 @@ async def test_nexus_analyze_workspace_picker_opens_brief_for_empty_target(
 
 
 @pytest.mark.asyncio
-async def test_nexus_edit_project_brief_button_writes_project_brief(
+async def test_nexus_project_brief_command_writes_project_brief(
     tmp_path,
 ) -> None:
     control_repo = tmp_path / "control"
@@ -12520,7 +12500,7 @@ async def test_nexus_edit_project_brief_button_writes_project_brief(
         app.switch_to("nexus")
         await pilot.pause()
 
-        _press_nexus_button(app, "#nexus-edit-project-brief")
+        app._handle_textual_slash_command("/project brief")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
@@ -12606,7 +12586,7 @@ async def test_nexus_edit_project_brief_preserves_existing_followup_prompt(
         nexus.query_one("#nexus-composer", PromptComposer).set_text(
             "Keep this follow-up."
         )
-        _press_nexus_button(app, "#nexus-edit-project-brief")
+        app._handle_textual_slash_command("/project brief")
         await pilot.pause()
 
         assert isinstance(app.screen, ProjectBriefModal)
@@ -12641,7 +12621,7 @@ def test_nexus_safe_target_prefers_snapshot_target(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_nexus_create_project_button_creates_new_project_intake(
+async def test_nexus_project_create_command_creates_new_project_intake(
     tmp_path,
 ) -> None:
     control_repo = tmp_path / "control"
@@ -12660,7 +12640,7 @@ async def test_nexus_create_project_button_creates_new_project_intake(
         app.switch_to("nexus")
         await pilot.pause()
 
-        _press_nexus_button(app, "#nexus-create-project")
+        app._handle_textual_slash_command("/project create")
         await pilot.pause()
         await pilot.pause()
 

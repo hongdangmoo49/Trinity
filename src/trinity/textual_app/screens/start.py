@@ -19,9 +19,6 @@ from trinity.textual_app.workspace_labels import (
     ProjectAnalyzeActionPresentation,
     provider_cli_setup_label,
     project_analyze_action_presentation,
-    project_brief_action_label_key,
-    project_brief_action_variant,
-    project_create_action_variant,
     project_existing_diagnostic_label,
     project_generation_preview_label,
     project_intake_state_label,
@@ -250,39 +247,6 @@ class StartScreen(Screen[None]):
                 )
                 self._project_start_choice_guide_widget = start_choice_guide
                 yield start_choice_guide
-                with Horizontal(id="project-mode-focus-actions"):
-                    yield Button(
-                        self._label("focus_existing"),
-                        id="focus-existing-project",
-                        variant=self._project_mode_focus_variant("existing"),
-                    )
-                    yield Button(
-                        self._label("focus_new"),
-                        id="focus-new-project",
-                        variant=self._project_mode_focus_variant("new"),
-                    )
-                analyze_action = self._project_analyze_action_presentation()
-                with Horizontal(id="project-intake-actions"):
-                    yield Button(
-                        self._label("continue_setup"),
-                        id="continue-project-setup",
-                        variant="primary",
-                    )
-                    yield Button(
-                        self._label(analyze_action.label_key),
-                        id="analyze-workspace",
-                        variant=analyze_action.variant,
-                    )
-                    yield Button(
-                        self._label("create_project"),
-                        id="create-project",
-                        variant=self._project_create_action_variant(),
-                    )
-                    yield Button(
-                        self._label(self._project_brief_action_label_key()),
-                        id="edit-project-brief",
-                        variant=self._project_brief_action_variant(),
-                    )
                 mode_rail = Static(
                     self._project_mode_rail_label(),
                     id="project-mode-rail",
@@ -357,53 +321,13 @@ class StartScreen(Screen[None]):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id
-        if button_id == "continue-project-setup":
-            event.stop()
-            self._continue_project_setup()
-        elif button_id == "focus-existing-project":
-            event.stop()
-            self._set_project_mode_focus("existing")
-        elif button_id == "focus-new-project":
-            event.stop()
-            self._set_project_mode_focus("new")
-        elif button_id == "choose-workspace":
+        if button_id == "choose-workspace":
             event.stop()
             self.post_message(self.WorkspaceRequested())
-        elif button_id == "analyze-workspace":
-            event.stop()
-            self._set_project_mode_focus("existing")
-            self.post_message(self.ProjectIntakeRequested())
-        elif button_id == "create-project":
-            event.stop()
-            self._set_project_mode_focus("new")
-            self.post_message(self.NewProjectRequested())
-        elif button_id == "edit-project-brief":
-            event.stop()
-            self.post_message(self.ProjectBriefRequested())
 
     def action_submit(self) -> None:
         composer = self._prompt_composer()
         self._submit(composer.submission_text)
-
-    def _continue_project_setup(self) -> None:
-        action = self._project_setup_next_action()
-        if action == "workspace":
-            self.post_message(self.WorkspaceRequested())
-        elif action == "analyze":
-            self.post_message(self.ProjectIntakeRequested())
-        elif action == "create":
-            self.post_message(self.NewProjectRequested())
-        elif action == "brief":
-            self.post_message(self.ProjectBriefRequested())
-        elif action == "scope":
-            self.post_message(self.ProjectScopeRequested())
-        elif action == "read_first":
-            self.post_message(self.ProjectReadFirstRequested())
-        elif action == "validation":
-            self.post_message(self.ProjectValidationRequested())
-        else:
-            composer = self._prompt_composer()
-            self._submit(composer.submission_text)
 
     def _project_setup_next_action(self) -> str:
         return project_setup_next_action(
@@ -665,28 +589,10 @@ class StartScreen(Screen[None]):
             target_workspace=self.workspace_candidate,
         )
 
-    def _project_brief_action_variant(self) -> str:
-        return project_brief_action_variant(
-            self.config.effective_state_dir,
-            target_workspace=self.workspace_candidate,
-        )
-
-    def _project_brief_action_label_key(self) -> str:
-        return project_brief_action_label_key(
-            self.config.effective_state_dir,
-            target_workspace=self.workspace_candidate,
-        )
-
     def _project_analyze_action_presentation(
         self,
     ) -> ProjectAnalyzeActionPresentation:
         return project_analyze_action_presentation(
-            self.config.effective_state_dir,
-            target_workspace=self.workspace_candidate,
-        )
-
-    def _project_create_action_variant(self) -> str:
-        return project_create_action_variant(
             self.config.effective_state_dir,
             target_workspace=self.workspace_candidate,
         )
@@ -721,39 +627,6 @@ class StartScreen(Screen[None]):
         self._project_mode_rail_static().update(
             self._project_mode_rail_label()
         )
-        analyze_action = self._project_analyze_action_presentation()
-        analyze_button = self.query_one("#analyze-workspace", Button)
-        analyze_button.label = self._label(analyze_action.label_key)
-        analyze_button.variant = analyze_action.variant
-        self.query_one("#create-project", Button).variant = (
-            self._project_create_action_variant()
-        )
-        brief_button = self.query_one("#edit-project-brief", Button)
-        brief_button.label = self._label(self._project_brief_action_label_key())
-        brief_button.variant = self._project_brief_action_variant()
-        self._refresh_project_mode_focus_buttons()
-
-    def _set_project_mode_focus(self, mode: str) -> None:
-        normalized = mode if mode in {"existing", "new"} else "auto"
-        if self.project_mode_focus == normalized:
-            return
-        self.project_mode_focus = normalized
-        self._refresh_project_mode_focus_buttons()
-
-    def _refresh_project_mode_focus_buttons(self) -> None:
-        if not self.is_mounted:
-            return
-        self.query_one("#focus-existing-project", Button).variant = (
-            self._project_mode_focus_variant("existing")
-        )
-        self.query_one("#focus-new-project", Button).variant = (
-            self._project_mode_focus_variant("new")
-        )
-
-    def _project_mode_focus_variant(self, mode: str) -> str:
-        if self.project_mode_focus == mode:
-            return "primary"
-        return "default"
 
     def _refresh_provider_policy_label(
         self,

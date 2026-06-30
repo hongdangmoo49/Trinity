@@ -658,7 +658,7 @@ class ExecutionMatrixScreen(Screen[None]):
     def append_log(self, line: str) -> None:
         if not self.is_mounted:
             return
-        current_lines = self._activity_lines_key or tuple(self._activity_lines())
+        current_lines = self._activity_lines_key or tuple(self.activity_lines())
         self._applied_state_identity = None
         self._render_content_key = None
         self._execution_log().write(line)
@@ -890,7 +890,7 @@ class ExecutionMatrixScreen(Screen[None]):
                 (projection.identity, projection.render_key)
                 for projection in projections
             ),
-            tuple(self._activity_lines()),
+            tuple(self.activity_lines()),
         )
 
     def _package_row_projections(self) -> list[_PackageRowProjection]:
@@ -1019,7 +1019,7 @@ class ExecutionMatrixScreen(Screen[None]):
         )
 
     def _render_log(self) -> None:
-        lines = self._activity_lines()
+        lines = self.activity_lines()
         lines_key = tuple(lines)
         if lines_key == self._activity_lines_key:
             return
@@ -1131,7 +1131,7 @@ class ExecutionMatrixScreen(Screen[None]):
             parts.append(f"{self._label('target')}: {_clip(target, 28)}")
         return " · ".join(parts), retry_count
 
-    def _activity_lines(self) -> list[str]:
+    def activity_lines(self) -> list[str]:
         source = self._activity_source_lines()
         if not source:
             return [self._label("activity"), self._label("execution_not_started")]

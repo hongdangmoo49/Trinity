@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.863`
-- Merged PR range reviewed: #90 through #1023
+- Package version inspected: `1.0.865`
+- Merged PR range reviewed: #90 through #1025
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1023
-- Latest refresh reviewed: #1023
+- Maintenance refresh reviewed: #427 through #1025
+- Latest refresh reviewed: #1025
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2160,7 +2160,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1023: Prompt-Led Workbench Simplification
+### #977-#1025: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2170,7 +2170,8 @@ and what the next release train should optimize.
 - Removed stale project CTA/selector tests, superseded Workbench action notes,
   old Workbench plan reports, obsolete init next-step wording, stale
   `project_start_guide` assertions, dead project rail/runtime notes,
-  superseded readiness notes, and unused auto-seed prompt helpers.
+  superseded readiness notes, unused auto-seed prompt helpers, and the leftover
+  unused `absolute_path` import.
 
 This refresh moves the project further from "large batch of one-PR plans" to a
 smaller set of durable maintenance documents and focused archive bundles. Root
@@ -2383,9 +2384,9 @@ Keep auditing these files for private wrappers that only forward to a flow:
 - `src/trinity/orchestrator.py`
 - `src/trinity/textual_app/app.py`
 
-Current main snapshot after #1023:
+Current main snapshot after #1025:
 
-- `src/trinity/textual_app/app.py`: 3,458 lines
+- `src/trinity/textual_app/app.py`: 3,457 lines
 - `src/trinity/workflow/engine.py`: 625 lines
 - `src/trinity/orchestrator.py`: 914 lines
 

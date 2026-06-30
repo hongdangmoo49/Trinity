@@ -8,7 +8,7 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Header, Static
+from textual.widgets import Footer, Header, Static
 
 from trinity.config import TrinityConfig
 from trinity.models import AgentSpec
@@ -38,17 +38,11 @@ from trinity.workflow.provider_error_gate import (
 NEXUS_LABELS = {
     "en": {
         "composer_placeholder": "Reply, refine direction, or type / for commands",
-        "execute": "Execute",
-        "open_provider_inspector": "Providers",
         "select_agent_warning": "Select at least one agent.",
-        "select_workspace": "Workspace",
     },
     "ko": {
         "composer_placeholder": "답변, 방향 조정 또는 /로 명령 입력",
-        "execute": "실행",
-        "open_provider_inspector": "프로바이더",
         "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
-        "select_workspace": "작업 폴더",
     },
 }
 
@@ -169,15 +163,6 @@ class NexusScreen(Screen[None]):
                     self._provider_panels[state.name] = panel
                     yield panel
             with Horizontal(id="nexus-action-bar"):
-                yield Button(
-                    self._label("open_provider_inspector"),
-                    id="open-provider-inspector",
-                )
-                yield Button(
-                    self._label("select_workspace"),
-                    id="select-workspace",
-                    variant="default",
-                )
                 workspace_label_text = self._workspace_label()
                 workspace_label = Static(
                     workspace_label_text,
@@ -186,11 +171,6 @@ class NexusScreen(Screen[None]):
                 self._workspace_label_widget = workspace_label
                 self._workspace_label_key = workspace_label_text
                 yield workspace_label
-                yield Button(
-                    self._label("execute"),
-                    id="request-execute",
-                    variant="primary",
-                )
             with Horizontal(id="nexus-main"):
                 with Vertical(id="nexus-center-stack"):
                     central = CentralAgentView(id="central-agent", lang=self.config.lang)
@@ -450,17 +430,6 @@ class NexusScreen(Screen[None]):
         event: AgentRecipientModelSelector.SelectionChanged,
     ) -> None:
         event.stop()
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "open-provider-inspector":
-            event.stop()
-            self.action_open_inspector()
-        elif event.button.id == "request-execute":
-            event.stop()
-            self.action_request_execute()
-        elif event.button.id == "select-workspace":
-            event.stop()
-            self.action_request_workspace()
 
     def action_submit_follow_up(self) -> None:
         composer = self._prompt_composer()

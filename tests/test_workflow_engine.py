@@ -2318,6 +2318,10 @@ def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_execution_intent("리뷰하고 수정할 곳을 알려줘") is False
     assert classify_execution_intent("개선점을 추천해줘") is False
     assert classify_execution_intent("improve this workspace") is True
+    assert classify_execution_intent("find and fix bugs") is True
+    assert classify_execution_intent("find bugs and fix them") is True
+    assert classify_execution_intent("find issues and implement fixes") is True
+    assert classify_execution_intent("tell me what to fix") is False
     assert classify_execution_intent("개발하고 싶다. 설계해라") is False
     assert classify_execution_intent("만들고 싶다. 구조를 잡아라") is False
     assert classify_execution_intent("구현하지 말고 설계만 해라") is False

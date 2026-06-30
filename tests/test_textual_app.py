@@ -4709,9 +4709,9 @@ def test_execution_retry_modal_supports_korean_chrome_labels() -> None:
 
     assert modal._label("title") == "실행 재시도"
     assert modal._filter_label("failed") == "실패"
-    assert modal._summary_text() == "복구: 실패  대상: /workspace/game"
-    assert modal._header_text().startswith("작업 ID 상태")
-    assert modal._selected_text() == "선택됨: WP-001"
+    assert modal.summary_text() == "복구: 실패  대상: /workspace/game"
+    assert modal.header_text().startswith("작업 ID 상태")
+    assert modal.selected_text() == "선택됨: WP-001"
 
 
 @pytest.mark.asyncio
@@ -4789,9 +4789,9 @@ def test_execution_retry_modal_keeps_english_chrome_labels() -> None:
 
     assert modal._label("title") == "Execute Retry"
     assert modal._filter_label("failed") == "Failed"
-    assert modal._summary_text() == "Recovery: none  Target: (not selected)"
-    assert modal._header_text().startswith("WP      Status")
-    assert modal._selected_text() == "Selected: WP-001"
+    assert modal.summary_text() == "Recovery: none  Target: (not selected)"
+    assert modal.header_text().startswith("WP      Status")
+    assert modal.selected_text() == "Selected: WP-001"
 
 
 @pytest.mark.asyncio

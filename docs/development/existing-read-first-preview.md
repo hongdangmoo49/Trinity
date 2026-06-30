@@ -19,7 +19,7 @@ review modal.
 
 - Derive the preview from `docs_found + source_roots`.
 - Update the preview when the docs or source roots fields change.
-- Keep saved project intake, prompt generation, and execution preflight behavior
+- Keep saved project context, prompt generation, and execution preflight behavior
   unchanged.
 - Do not add provider calls or filesystem reads during modal editing.
 

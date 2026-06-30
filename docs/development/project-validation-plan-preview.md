@@ -2,7 +2,7 @@
 
 ## Problem
 
-Project intake detects likely test commands and generation preview now suggests a
+Project context detects likely test commands and generation preview now suggests a
 first validation command for new projects. However, users still see validation as
 a single undifferentiated action.
 
@@ -15,11 +15,11 @@ For both new and existing projects, this creates two practical issues:
 
 ## Scope
 
-- Add a derived validation plan preview for saved project intake.
-- Show the preview through `/project` diagnostics near the project-intake
+- Add a derived validation plan preview for saved project context.
+- Show the preview through `/project` diagnostics near the project-context
   previews.
 - Expose the same preview through `trinity project status` text and JSON.
-- Derive the plan from saved intake only: detected `test_commands`,
+- Derive the plan from saved project context only: detected `test_commands`,
   `build_commands`, `mode`, and new-project starter/profile signals.
 - Keep the preview advisory and non-blocking.
 
@@ -60,9 +60,9 @@ coverage visible before execution without forcing a particular CI setup.
 
 ## Tests
 
-- Shared helper returns English and Korean validation plans for new intake.
+- Shared helper returns English and Korean validation plans for new context.
 - Existing projects with test/build commands show fast/required/full tiers.
-- Intake without tests still returns a useful non-blocking plan.
+- Context without tests still returns a useful non-blocking plan.
 - CLI `project status` text and JSON include the plan.
-- `/project` diagnostics refresh the validation plan after project intake
+- `/project` diagnostics refresh the validation plan after project context
   changes.

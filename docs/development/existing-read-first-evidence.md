@@ -21,7 +21,7 @@ plan or execute.
 ## User Experience
 
 1. User analyzes an existing project.
-2. Trinity records docs/source/entrypoint anchors in project intake.
+2. Trinity records docs/source/entrypoint anchors in project context.
 3. Execution confirmation shows a compact `read` item such as
    `read: README.md, src, +1`.
 4. If no anchors are available, the summary says `read: missing`.

@@ -12345,7 +12345,7 @@ async def test_start_selected_workspace_overrides_launch_cwd_on_submit(
 
 
 @pytest.mark.asyncio
-async def test_nexus_workspace_action_selects_target_without_execution(
+async def test_nexus_project_workspace_command_selects_target_without_execution(
     tmp_path,
 ) -> None:
     control_repo = tmp_path / "control"
@@ -12388,7 +12388,7 @@ async def test_nexus_workspace_action_selects_target_without_execution(
         assert workspace_label.styles.height.value == 1
         assert workspace_label.styles.content_align_vertical == "middle"
 
-        nexus.action_request_workspace()
+        app._handle_textual_slash_command("/project workspace")
         await pilot.pause()
 
         assert controller.execution_requests == 0

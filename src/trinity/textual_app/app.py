@@ -1907,23 +1907,6 @@ class TrinityTextualApp(App[None]):
         if outcome.target_workspace_required:
             self._open_execute_workspace_picker(outcome.snapshot)
 
-    def on_nexus_screen_workspace_requested(
-        self,
-        event: NexusScreen.WorkspaceRequested,
-    ) -> None:
-        event.stop()
-        snapshot = (
-            event.snapshot
-            or self.active_snapshot
-            or self.workflow_controller.snapshot()
-            or self.snapshot_adapter.load_snapshot()
-        )
-        self._open_workspace_picker(
-            snapshot,
-            self._on_nexus_workspace_selected,
-            intent="select",
-        )
-
     def on_execution_matrix_screen_retry_requested(
         self,
         event: ExecutionMatrixScreen.RetryRequested,

@@ -10,10 +10,8 @@ from trinity.textual_app.workspace_labels import (
     project_existing_diagnostic_label,
     project_generation_preview_label,
     project_intake_state_label,
-    project_mode_rail_label,
     project_plan_preview_label,
     project_read_first_checklist_label,
-    project_start_choice_guide_label,
     project_startup_readiness_label,
     project_validation_plan_label,
 )
@@ -60,16 +58,6 @@ def project_command_presentation(
             lang=lang,
             target_workspace=target_workspace,
         ),
-        project_start_choice_guide_label(
-            state_dir,
-            lang=lang,
-            target_workspace=target_workspace,
-        ),
-        project_mode_rail_label(
-            state_dir,
-            lang=lang,
-            target_workspace=target_workspace,
-        ),
         project_plan_preview_label(
             state_dir,
             lang=lang,
@@ -93,9 +81,13 @@ def project_command_presentation(
     ]
     body = "\n".join(f"- {line}" for line in lines if line.strip())
     action_hint = (
-        "시작/Nexus 화면의 긴 프로젝트 진단은 /project에서 확인합니다."
+        "주요 프로젝트 도구는 /project workspace, /project analyze, "
+        "/project brief에서 엽니다."
         if lang == "ko"
-        else "Long Start/Nexus project diagnostics are available from /project."
+        else (
+            "Open the main project tools with /project workspace, "
+            "/project analyze, or /project brief."
+        )
     )
     return ProjectCommandPresentation(
         title=title,

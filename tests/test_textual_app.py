@@ -5215,9 +5215,7 @@ async def test_nexus_target_current_uses_korean_labels(tmp_path) -> None:
         assert result.command == "/target"
         assert result.title == "대상"
         assert result.body == "현재 대상: `(미설정)`"
-        assert result.action_hint == (
-            "실행 전에 `/target <path>`를 사용하거나 작업 폴더를 선택하세요."
-        )
+        assert result.action_hint == "실행 전에 `/target <path>`를 사용하세요."
         assert result.empty is True
 
 

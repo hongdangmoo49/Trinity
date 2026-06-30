@@ -46,7 +46,7 @@ class SacredGeometryAnimation(Static):
     def __init__(self) -> None:
         super().__init__("", id="start-geometry")
         self._angle = 0.0
-        self._animator = SacredGeometryAnimator(width=56, height=6, mode="ascii")
+        self._animator = SacredGeometryAnimator(width=56, height=4, mode="ascii")
 
     def on_mount(self) -> None:
         self._render_frame()

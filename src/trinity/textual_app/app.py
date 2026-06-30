@@ -711,7 +711,7 @@ class TrinityTextualApp(App[None]):
         width: 100%;
         height: 1fr;
         align: center middle;
-        padding: 1 2;
+        padding: 0 2;
     }
 
     #start-shell {
@@ -722,7 +722,7 @@ class TrinityTextualApp(App[None]):
 
     #start-geometry {
         width: 100%;
-        height: 6;
+        height: 4;
         content-align: center middle;
         text-align: center;
         color: $accent;
@@ -739,13 +739,13 @@ class TrinityTextualApp(App[None]):
 
     #start-composer {
         width: 100%;
-        height: 10;
+        height: 8;
         border: round $accent;
         padding: 0 1;
     }
 
     #start-composer.-commands-open {
-        height: 13;
+        height: 11;
     }
 
     .agent-recipient-selector {

@@ -1797,8 +1797,33 @@ async def test_textual_app_boots_to_start_screen(tmp_path) -> None:
         assert app.screen.name == "start"
         assert app.screen.query_one(PromptComposer)
         geometry = app.screen.query_one("#start-geometry", SacredGeometryAnimation)
-        assert geometry.styles.height.value == 6
+        assert geometry.styles.height.value == 4
         assert str(geometry.render()).strip()
+
+
+@pytest.mark.asyncio
+async def test_start_screen_stays_within_narrow_viewport(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        widgets = (
+            start.query_one("#start-geometry", Static),
+            start.query_one("#start-title", Static),
+            start.query_one("#start-composer", PromptComposer),
+            start.query_one("#start-recipient-selector", AgentRecipientModelSelector),
+            start.query_one("#start-actions"),
+            start.query_one("#workspace-candidate", Static),
+            start.query_one("#choose-workspace", Button),
+        )
+        for widget in widgets:
+            assert widget.region.x >= 0
+            assert widget.region.x + widget.region.width <= start.size.width
+            assert widget.region.y >= 0
+            assert widget.region.y + widget.region.height <= start.size.height
 
 
 @pytest.mark.asyncio

@@ -1322,14 +1322,14 @@ def test_ask_presenter_uses_korean_labels() -> None:
 def test_execute_presenter_uses_korean_labels() -> None:
     assert execute_title(lang="ko") == "실행"
     assert execute_finish_planning_action_hint(lang="ko") == (
-        "먼저 계획을 완료한 뒤 Nexus에서 `/execute`를 실행하세요."
+        "작업 패키지가 준비되면 Nexus에서 `/execute`를 실행하세요."
     )
     assert execute_retry_title(lang="ko") == "실행 재시도"
     assert execute_retry_no_packages_markdown(lang="ko") == (
         "현재 워크플로우에 사용할 수 있는 작업 패키지가 없습니다."
     )
     assert execute_retry_no_packages_action_hint(lang="ko") == (
-        "먼저 계획을 완료하고 하나 이상의 작업 패키지를 실행하세요."
+        "하나 이상의 작업 패키지를 준비하고 실행하세요."
     )
     assert execution_recovery_title(lang="ko") == "실행 복구"
     assert execution_recovery_action_hint(lang="ko") == (
@@ -4464,7 +4464,7 @@ async def test_nexus_execute_retry_empty_uses_korean_labels(tmp_path) -> None:
         assert result.command == "/execute-retry"
         assert result.title == "실행 재시도"
         assert result.body == "현재 워크플로우에 사용할 수 있는 작업 패키지가 없습니다."
-        assert result.action_hint == "먼저 계획을 완료하고 하나 이상의 작업 패키지를 실행하세요."
+        assert result.action_hint == "하나 이상의 작업 패키지를 준비하고 실행하세요."
         assert result.severity == "warning"
         assert result.empty is True
 
@@ -6091,7 +6091,7 @@ async def test_nexus_execute_error_uses_korean_labels(tmp_path) -> None:
         assert result.title == "실행"
         assert result.body == "준비된 설계안이 없습니다. 실행 전에 계획을 완료하세요."
         assert result.action_hint == (
-            "먼저 계획을 완료한 뒤 Nexus에서 `/execute`를 실행하세요."
+            "작업 패키지가 준비되면 Nexus에서 `/execute`를 실행하세요."
         )
         assert result.severity == "warning"
         assert result.empty is True

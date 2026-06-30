@@ -828,18 +828,12 @@ class TrinityTextualApp(App[None]):
         margin-left: 1;
     }
 
-    #plan-first {
-        width: 14;
-        margin-left: 1;
-    }
-
     #project-intake-summary {
         width: 100%;
         color: $text-muted;
         margin-top: 1;
     }
 
-    #plan-first,
     #project-startup-readiness,
     #project-intake-summary,
     #project-existing-diagnostic,

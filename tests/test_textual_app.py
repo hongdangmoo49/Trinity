@@ -10,6 +10,7 @@ import pytest
 from textual import events
 from textual.app import App
 from textual.containers import VerticalScroll
+from textual.css.query import NoMatches
 from textual.widgets import (
     Button,
     DataTable,
@@ -7047,7 +7048,8 @@ async def test_project_intake_ctas_are_hidden_from_default_surfaces(
     async with app.run_test(size=(120, 40)) as pilot:
         start = app.screen
         assert isinstance(start, StartScreen)
-        assert start.query_one("#plan-first", Button).styles.display == "none"
+        with pytest.raises(NoMatches):
+            start.query_one("#plan-first", Button)
         assert start.query_one("#project-mode-focus-actions").styles.display == "none"
         assert start.query_one("#project-intake-actions").styles.display == "none"
 
@@ -7085,7 +7087,8 @@ async def test_start_and_central_chrome_uses_korean_labels(
         assert str(start.query_one("#choose-workspace", Button).label) == (
             "작업 폴더 선택"
         )
-        assert str(start.query_one("#plan-first", Button).label) == "먼저 계획"
+        with pytest.raises(NoMatches):
+            start.query_one("#plan-first", Button)
         assert str(start.query_one("#workspace-candidate", Static).content).startswith(
             "계획 대상: "
         )
@@ -11819,7 +11822,6 @@ async def test_start_cta_buttons_keep_stable_dimensions(tmp_path) -> None:
         start = app.get_screen("start", StartScreen)
 
         assert start.query_one("#choose-workspace", Button).styles.width.value == 20
-        assert start.query_one("#plan-first", Button).styles.width.value == 14
         assert start.query_one("#analyze-workspace", Button).styles.width.value == 20
         assert start.query_one("#create-project", Button).styles.width.value == 16
         assert start.query_one("#edit-project-brief", Button).styles.width.value == 14

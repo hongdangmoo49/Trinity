@@ -51,7 +51,6 @@ START_LABELS = {
         "edit_brief": "Edit Brief",
         "focus_existing": "Existing",
         "focus_new": "New",
-        "plan_first": "Plan first",
         "placeholder": "What should Trinity work on?",
         "refresh_analysis": "Refresh Analysis",
         "select_agent_warning": "Select at least one agent.",
@@ -67,7 +66,6 @@ START_LABELS = {
         "edit_brief": "브리프 편집",
         "focus_existing": "기존",
         "focus_new": "신규",
-        "plan_first": "먼저 계획",
         "placeholder": "Trinity가 무엇을 진행하면 될까요?",
         "refresh_analysis": "분석 갱신",
         "select_agent_warning": "에이전트를 하나 이상 선택하세요.",
@@ -230,11 +228,6 @@ class StartScreen(Screen[None]):
                         id="choose-workspace",
                         variant="default",
                     )
-                    yield Button(
-                        self._label("plan_first"),
-                        id="plan-first",
-                        variant="primary",
-                    )
                 startup_readiness = Static(
                     self._project_startup_readiness_label(),
                     id="project-startup-readiness",
@@ -364,11 +357,7 @@ class StartScreen(Screen[None]):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id
-        if button_id == "plan-first":
-            event.stop()
-            composer = self._prompt_composer()
-            self._submit(composer.submission_text)
-        elif button_id == "continue-project-setup":
+        if button_id == "continue-project-setup":
             event.stop()
             self._continue_project_setup()
         elif button_id == "focus-existing-project":

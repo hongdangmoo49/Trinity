@@ -2348,6 +2348,12 @@ def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_execution_intent("add release notes") is True
     assert classify_execution_intent("create report page") is True
     assert classify_execution_intent("write the docs update") is True
+    assert classify_execution_intent("impact of refactor") is False
+    assert classify_execution_intent("performance impact of change") is False
+    assert classify_execution_intent("security implications of update") is False
+    assert classify_execution_intent("compatibility risk of rename") is False
+    assert classify_execution_intent("please update the risk report") is True
+    assert classify_execution_intent("fix the performance impact") is True
     assert classify_execution_intent("이 프로젝트를 설명해라") is False
     assert classify_execution_intent("수정할 곳을 알려줘") is False
     assert classify_execution_intent("리뷰하고 수정할 곳을 알려줘") is False
@@ -2404,6 +2410,8 @@ def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_execution_intent("수정할 파일 보고서를 작성해줘") is False
     assert classify_execution_intent("빌드 수정 가이드를 작성해줘") is False
     assert classify_execution_intent("문서를 업데이트해줘") is True
+    assert classify_execution_intent("수정 비용을 추정해줘") is False
+    assert classify_execution_intent("성능 영향을 수정해줘") is True
     assert classify_execution_intent("고칠 곳을 알려줘") is False
     assert classify_execution_intent("바꿀 곳을 알려줘") is False
     assert classify_execution_intent("뭘 삭제할지 알려줘") is False

@@ -773,7 +773,7 @@ class TrinityTextualApp(App[None]):
     }
 
     .recipient-agent-toggle {
-        width: 14;
+        width: 12;
         height: 1;
         margin-right: 1;
         padding: 0 1;

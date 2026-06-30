@@ -1815,6 +1815,8 @@ async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> 
         assert start_selector.selected_agents() == ("claude", "codex")
         claude_toggle = start_selector.query_one("#recipient-claude", AgentToggle)
         codex_toggle = start_selector.query_one("#recipient-codex", AgentToggle)
+        assert claude_toggle.styles.width.value == 12
+        assert codex_toggle.styles.width.value == 12
         assert claude_toggle.value is True
         assert codex_toggle.value is True
         assert start_selector.selected_model("codex") == "default"

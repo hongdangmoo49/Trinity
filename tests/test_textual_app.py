@@ -10249,7 +10249,7 @@ def test_work_package_detail_modal_clips_header_and_preserves_full_title() -> No
         )
     )
 
-    title_text = modal._title_text()
+    title_text = modal.title_text()
     markdown = modal.render_markdown()
 
     assert len(title_text) <= 86

@@ -172,7 +172,7 @@ class WorkPackageDetailModal(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="work-package-detail-modal"):
             yield Static(
-                self._title_text(),
+                self.title_text(),
                 id="work-package-detail-title",
             )
             with VerticalScroll(id="work-package-detail-body"):
@@ -389,7 +389,7 @@ class WorkPackageDetailModal(ModalScreen[None]):
             return display_review_skip_reason(package.review_summary, lang=self.lang)
         return package.review_summary
 
-    def _title_text(self) -> str:
+    def title_text(self) -> str:
         return _clip(f"{self.package.id}: {self.package.title or self.package.topic}", 86)
 
     def _yes_no(self, value: bool) -> str:

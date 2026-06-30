@@ -391,7 +391,7 @@ class TrinityTextualApp(App[None]):
     .agent-recipient-selector {
         width: 100%;
         height: auto;
-        margin-top: 1;
+        margin-top: 0;
         align-vertical: middle;
     }
 
@@ -405,12 +405,12 @@ class TrinityTextualApp(App[None]):
     }
 
     .recipient-agent-toggle {
-        width: 12;
+        width: auto;
+        min-width: 8;
         height: 1;
         margin-right: 1;
-        padding: 0 1;
+        padding: 0;
         content-align: left middle;
-        background: $surface;
         color: $text-muted;
     }
 

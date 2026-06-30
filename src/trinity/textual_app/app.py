@@ -1054,8 +1054,8 @@ class TrinityTextualApp(App[None]):
     #local-command-modal {
         width: 92;
         max-width: 95%;
-        height: auto;
-        max-height: 85%;
+        height: 95%;
+        max-height: 95%;
         border: round $primary;
         background: $surface;
         padding: 1 2;
@@ -1064,6 +1064,11 @@ class TrinityTextualApp(App[None]):
     #local-command-title {
         text-style: bold;
         color: $accent;
+        margin-bottom: 1;
+    }
+
+    #local-command-content {
+        height: 1fr;
         margin-bottom: 1;
     }
 

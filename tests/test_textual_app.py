@@ -5439,6 +5439,34 @@ async def test_start_slash_help_uses_korean_labels(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_local_command_modal_keeps_help_controls_in_narrow_viewport(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        FakeWorkflowController(),
+    )
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app._handle_textual_slash_command("/help")
+        await pilot.pause()
+
+        assert isinstance(app.screen, LocalCommandModal)
+        modal_shell = app.screen.query_one("#local-command-modal")
+        widgets = (
+            app.screen.query_one("#local-command-title", Static),
+            app.screen.query_one("#local-command-content"),
+            app.screen.query_one("#close-local-command", Button),
+        )
+        for widget in widgets:
+            assert widget.region.y >= modal_shell.region.y
+            assert (
+                widget.region.y + widget.region.height
+                <= modal_shell.region.y + modal_shell.region.height
+            )
+
+
+@pytest.mark.asyncio
 async def test_nexus_lookup_commands_record_tables_from_current_snapshot(
     tmp_path,
 ) -> None:

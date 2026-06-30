@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Static
 
@@ -69,7 +69,8 @@ class ProjectGenerationConfirmModal(ModalScreen[bool]):
     #project-generation-confirm-modal {
         width: 88;
         max-width: 94%;
-        height: auto;
+        height: 95%;
+        max-height: 95%;
         border: round $accent;
         background: $surface;
         padding: 1 2;
@@ -87,6 +88,11 @@ class ProjectGenerationConfirmModal(ModalScreen[bool]):
 
     #project-generation-confirm-summary {
         color: $text-muted;
+        margin-bottom: 1;
+    }
+
+    #project-generation-confirm-content {
+        height: 1fr;
         margin-bottom: 1;
     }
 
@@ -127,10 +133,11 @@ class ProjectGenerationConfirmModal(ModalScreen[bool]):
                 self._label("body"),
                 id="project-generation-confirm-body",
             )
-            yield Static(
-                self._summary_text(),
-                id="project-generation-confirm-summary",
-            )
+            with VerticalScroll(id="project-generation-confirm-content"):
+                yield Static(
+                    self._summary_text(),
+                    id="project-generation-confirm-summary",
+                )
             with Horizontal(id="project-generation-confirm-actions"):
                 yield Button(
                     self._label("cancel"),

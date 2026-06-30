@@ -10866,9 +10866,8 @@ async def test_start_select_workspace_updates_workspace_candidate(tmp_path) -> N
         assert intake is not None
         assert intake.mode == "existing"
         assert intake.target_workspace == tmp_path
-        assert "Project intake: existing" in str(
-            start.query_one("#project-intake-summary", Static).content
-        )
+        with pytest.raises(NoMatches):
+            start.query_one("#project-intake-summary", Static)
 
 
 @pytest.mark.asyncio
@@ -10925,9 +10924,8 @@ async def test_start_project_analyze_request_writes_project_intake(tmp_path) -> 
         assert intake.source_roots == ("src",)
         assert intake.test_commands == ("npm test", "npm run lint")
         assert intake.read_first_confirmed is True
-        assert "Project intake: existing" in str(
-            start.query_one("#project-intake-summary", Static).content
-        )
+        with pytest.raises(NoMatches):
+            start.query_one("#project-intake-summary", Static)
         assert start.query_one(PromptComposer).text == (
             f"Analyze the selected existing project at {target.resolve()}. Read its "
             "docs, source roots, and test/build signals before proposing the next "
@@ -11079,10 +11077,11 @@ async def test_start_continue_setup_opens_existing_scope_picker(
         intake = load_project_intake(app.config.effective_state_dir)
         assert intake is not None
         assert intake.selected_scope == "apps/web"
-        start = app.get_screen("start", StartScreen)
-        assert "scope: apps/web" in str(
-            start.query_one("#project-intake-summary", Static).content
-        )
+        with pytest.raises(NoMatches):
+            app.get_screen("start", StartScreen).query_one(
+                "#project-intake-summary",
+                Static,
+            )
 
 
 @pytest.mark.asyncio
@@ -11180,10 +11179,8 @@ async def test_start_continue_setup_opens_project_validation_modal_for_new_proje
         assert intake.run_commands == ("uv run board",)
         start = app.get_screen("start", StartScreen)
         assert start._project_setup_next_action() == "plan"
-        assert str(start.query_one("#project-startup-readiness", Static).content) == (
-            "Startup readiness: target ok | intake ok | "
-            "providers 1 selected | validation planned"
-        )
+        with pytest.raises(NoMatches):
+            start.query_one("#project-startup-readiness", Static)
         assert "Validation commands: uv run pytest" in start.query_one(
             PromptComposer
         ).text
@@ -11703,29 +11700,14 @@ async def test_start_project_create_request_creates_new_project_intake(
                 "- Guardrails: Respect Keep setup simple; no cloud dependency.",
             ]
         )
-        assert str(start.query_one("#project-plan-preview", Static).content) == (
-            "Initial plan preview: starter: Textual TUI | "
-            "milestone: First usable contact workflow. | "
-            "stack: python, sqlite | "
-            "success: Teams can track customer follow-ups. | users: sales teams | "
-            "guardrails: Keep setup simple, no cloud dependency"
-        )
-        assert str(
-            start.query_one("#project-generation-preview", Static).content
-        ) == (
-            "Generation preview: create: README.md, pyproject.toml, src/ +1 | "
-            "validate: uv run pytest | "
-            "guardrails: Keep setup simple, no cloud dependency"
-        )
-        assert str(start.query_one("#project-validation-plan", Static).content) == (
-            "Validation plan: fast: uv run pytest | "
-            "required: uv run pytest | "
-            "full: first scaffold smoke before release"
-        )
-        assert str(start.query_one("#project-mode-rail", Static).content) == (
-            "Start flow: target: ready -> intake: ready -> plan: ready -> "
-            "execute: ready | mode: new | next: plan or execute"
-        )
+        for selector in (
+            "#project-plan-preview",
+            "#project-generation-preview",
+            "#project-validation-plan",
+            "#project-mode-rail",
+        ):
+            with pytest.raises(NoMatches):
+                start.query_one(selector, Static)
 
 
 @pytest.mark.asyncio
@@ -11807,16 +11789,10 @@ async def test_start_project_brief_request_writes_project_brief(
                 "Notes: Use existing patterns.",
             ]
         )
-        assert "goal: Build customer onboarding." in str(
-            start.query_one("#project-intake-summary", Static).content
-        )
-        assert "type: SaaS dashboard" in str(
-            start.query_one("#project-intake-summary", Static).content
-        )
-        assert "scope: apps/web" in str(
-            start.query_one("#project-intake-summary", Static).content
-        )
-        assert str(start.query_one("#project-plan-preview", Static).content) == ""
+        with pytest.raises(NoMatches):
+            start.query_one("#project-intake-summary", Static)
+        with pytest.raises(NoMatches):
+            start.query_one("#project-plan-preview", Static)
 
 
 @pytest.mark.asyncio
@@ -12222,9 +12198,8 @@ async def test_nexus_project_analyze_command_writes_project_intake(tmp_path) -> 
         assert intake.test_commands == ("npm test", "npm run lint")
         assert intake.read_first_confirmed is True
         nexus = app.get_screen("nexus", NexusScreen)
-        assert "Project intake: existing" in str(
-            nexus.query_one("#nexus-project-intake-summary", Static).content
-        )
+        with pytest.raises(NoMatches):
+            nexus.query_one("#nexus-project-intake-summary", Static)
         assert nexus.query_one("#nexus-composer", PromptComposer).text == (
             f"Analyze the selected existing project at {target.resolve()}. Read its "
             "docs, source roots, and test/build signals before proposing the next "
@@ -12307,9 +12282,8 @@ async def test_nexus_continue_setup_opens_existing_scope_picker(tmp_path) -> Non
         assert intake is not None
         assert intake.selected_scope == "apps/web"
         nexus = app.get_screen("nexus", NexusScreen)
-        assert "scope: apps/web" in str(
-            nexus.query_one("#nexus-project-intake-summary", Static).content
-        )
+        with pytest.raises(NoMatches):
+            nexus.query_one("#nexus-project-intake-summary", Static)
 
 
 @pytest.mark.asyncio
@@ -12360,12 +12334,8 @@ async def test_nexus_continue_setup_opens_project_validation_modal_for_existing(
         assert intake.validation_commands == ("npm test",)
         nexus = app.get_screen("nexus", NexusScreen)
         assert nexus._project_setup_next_action() == "execute"
-        assert str(
-            nexus.query_one("#nexus-project-validation-plan", Static).content
-        ) == (
-            "Validation plan: fast: npm test | "
-            "required: npm test | full: full suite before merge"
-        )
+        with pytest.raises(NoMatches):
+            nexus.query_one("#nexus-project-validation-plan", Static)
         assert "- validation: npm test" in nexus.query_one(
             "#nexus-composer",
             PromptComposer,
@@ -12539,12 +12509,8 @@ async def test_nexus_project_brief_command_writes_project_brief(
         assert intake.constraints == ("Preserve existing CLI behavior",)
         assert controller.target_workspace is None
         nexus = app.get_screen("nexus", NexusScreen)
-        assert "goal: Modernize project docs." in str(
-            nexus.query_one("#nexus-project-intake-summary", Static).content
-        )
-        assert "type: developer tool" in str(
-            nexus.query_one("#nexus-project-intake-summary", Static).content
-        )
+        with pytest.raises(NoMatches):
+            nexus.query_one("#nexus-project-intake-summary", Static)
         assert nexus.query_one("#nexus-composer", PromptComposer).text == "\n".join(
             [
                 "Use this project brief and existing codebase to plan the next "
@@ -12700,30 +12666,14 @@ async def test_nexus_project_create_command_creates_new_project_intake(
         assert saved_intake.run_commands == ("uv run board",)
         assert saved_intake.validation_commands == ("uv run pytest",)
         assert saved_intake.artifact_targets == ("src/board",)
-        assert str(
-            nexus.query_one("#nexus-project-plan-preview", Static).content
-        ) == (
-            "Initial plan preview: milestone: First board workflow. | "
-            "stack: python, textual | success: Managers can organize weekly work. | "
-            "users: project managers | guardrails: No external service"
-        )
-        assert str(
-            nexus.query_one("#nexus-project-generation-preview", Static).content
-        ) == (
-            "Generation preview: create: README.md, pyproject.toml, src/ +1 | "
-            "validate: uv run pytest | guardrails: No external service"
-        )
-        assert str(
-            nexus.query_one("#nexus-project-validation-plan", Static).content
-        ) == (
-            "Validation plan: fast: uv run pytest | "
-            "required: uv run pytest | "
-            "full: first scaffold smoke before release"
-        )
-        assert str(nexus.query_one("#nexus-project-mode-rail", Static).content) == (
-            "Start flow: target: ready -> intake: ready -> plan: ready -> "
-            "execute: ready | mode: new | next: plan or execute"
-        )
+        for selector in (
+            "#nexus-project-plan-preview",
+            "#nexus-project-generation-preview",
+            "#nexus-project-validation-plan",
+            "#nexus-project-mode-rail",
+        ):
+            with pytest.raises(NoMatches):
+                nexus.query_one(selector, Static)
 
 
 @pytest.mark.asyncio

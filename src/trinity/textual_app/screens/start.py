@@ -19,16 +19,7 @@ from trinity.textual_app.workspace_labels import (
     ProjectAnalyzeActionPresentation,
     provider_cli_setup_label,
     project_analyze_action_presentation,
-    project_existing_diagnostic_label,
-    project_generation_preview_label,
-    project_intake_state_label,
-    project_mode_rail_label,
-    project_plan_preview_label,
-    project_start_choice_guide_label,
-    project_startup_readiness_label,
     provider_execution_review_policy_label,
-    project_read_first_checklist_label,
-    project_validation_plan_label,
     target_workspace_state_label,
 )
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
@@ -167,14 +158,6 @@ class StartScreen(Screen[None]):
         self._workspace_label_widget: Static | None = None
         self._provider_policy_widget: Static | None = None
         self._provider_cli_setup_widget: Static | None = None
-        self._project_startup_readiness_widget: Static | None = None
-        self._project_start_choice_guide_widget: Static | None = None
-        self._project_mode_rail_widget: Static | None = None
-        self._project_plan_preview_widget: Static | None = None
-        self._project_generation_preview_widget: Static | None = None
-        self._project_validation_plan_widget: Static | None = None
-        self._project_existing_diagnostic_widget: Static | None = None
-        self._project_read_first_checklist_widget: Static | None = None
         self.project_mode_focus = "auto"
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
@@ -225,58 +208,6 @@ class StartScreen(Screen[None]):
                         id="choose-workspace",
                         variant="default",
                     )
-                startup_readiness = Static(
-                    self._project_startup_readiness_label(),
-                    id="project-startup-readiness",
-                )
-                self._project_startup_readiness_widget = startup_readiness
-                yield startup_readiness
-                yield Static(
-                    self._project_intake_label(),
-                    id="project-intake-summary",
-                )
-                existing_diagnostic = Static(
-                    self._project_existing_diagnostic_label(),
-                    id="project-existing-diagnostic",
-                )
-                self._project_existing_diagnostic_widget = existing_diagnostic
-                yield existing_diagnostic
-                start_choice_guide = Static(
-                    self._project_start_choice_guide_label(),
-                    id="project-start-choice-guide",
-                )
-                self._project_start_choice_guide_widget = start_choice_guide
-                yield start_choice_guide
-                mode_rail = Static(
-                    self._project_mode_rail_label(),
-                    id="project-mode-rail",
-                )
-                self._project_mode_rail_widget = mode_rail
-                yield mode_rail
-                plan_preview = Static(
-                    self._project_plan_preview_label(),
-                    id="project-plan-preview",
-                )
-                self._project_plan_preview_widget = plan_preview
-                yield plan_preview
-                generation_preview = Static(
-                    self._project_generation_preview_label(),
-                    id="project-generation-preview",
-                )
-                self._project_generation_preview_widget = generation_preview
-                yield generation_preview
-                validation_plan = Static(
-                    self._project_validation_plan_label(),
-                    id="project-validation-plan",
-                )
-                self._project_validation_plan_widget = validation_plan
-                yield validation_plan
-                read_first_checklist = Static(
-                    self._project_read_first_checklist_label(),
-                    id="project-read-first-checklist",
-                )
-                self._project_read_first_checklist_widget = read_first_checklist
-                yield read_first_checklist
         yield Footer()
 
     def on_mount(self) -> None:
@@ -424,138 +355,11 @@ class StartScreen(Screen[None]):
             )
         return self._provider_cli_setup_widget
 
-    def _project_startup_readiness_static(self) -> Static:
-        if self._project_startup_readiness_widget is None:
-            self._project_startup_readiness_widget = self.query_one(
-                "#project-startup-readiness",
-                Static,
-            )
-        return self._project_startup_readiness_widget
-
-    def _project_start_choice_guide_static(self) -> Static:
-        if self._project_start_choice_guide_widget is None:
-            self._project_start_choice_guide_widget = self.query_one(
-                "#project-start-choice-guide",
-                Static,
-            )
-        return self._project_start_choice_guide_widget
-
-    def _project_plan_preview_static(self) -> Static:
-        if self._project_plan_preview_widget is None:
-            self._project_plan_preview_widget = self.query_one(
-                "#project-plan-preview",
-                Static,
-            )
-        return self._project_plan_preview_widget
-
-    def _project_generation_preview_static(self) -> Static:
-        if self._project_generation_preview_widget is None:
-            self._project_generation_preview_widget = self.query_one(
-                "#project-generation-preview",
-                Static,
-            )
-        return self._project_generation_preview_widget
-
-    def _project_validation_plan_static(self) -> Static:
-        if self._project_validation_plan_widget is None:
-            self._project_validation_plan_widget = self.query_one(
-                "#project-validation-plan",
-                Static,
-            )
-        return self._project_validation_plan_widget
-
-    def _project_read_first_checklist_static(self) -> Static:
-        if self._project_read_first_checklist_widget is None:
-            self._project_read_first_checklist_widget = self.query_one(
-                "#project-read-first-checklist",
-                Static,
-            )
-        return self._project_read_first_checklist_widget
-
-    def _project_existing_diagnostic_static(self) -> Static:
-        if self._project_existing_diagnostic_widget is None:
-            self._project_existing_diagnostic_widget = self.query_one(
-                "#project-existing-diagnostic",
-                Static,
-            )
-        return self._project_existing_diagnostic_widget
-
-    def _project_mode_rail_static(self) -> Static:
-        if self._project_mode_rail_widget is None:
-            self._project_mode_rail_widget = self.query_one(
-                "#project-mode-rail",
-                Static,
-            )
-        return self._project_mode_rail_widget
-
     def _workspace_label(self) -> str:
         return target_workspace_state_label(
             self.workspace_candidate,
             control_repo=self.config.project_dir,
             lang=self.lang,
-        )
-
-    def _project_intake_label(self) -> str:
-        return project_intake_state_label(
-            self.config.effective_state_dir,
-            lang=self.lang,
-            target_workspace=self.workspace_candidate,
-        )
-
-    def _project_plan_preview_label(self) -> str:
-        return project_plan_preview_label(
-            self.config.effective_state_dir,
-            lang=self.lang,
-            target_workspace=self.workspace_candidate,
-        )
-
-    def _project_generation_preview_label(self) -> str:
-        return project_generation_preview_label(
-            self.config.effective_state_dir,
-            lang=self.lang,
-            target_workspace=self.workspace_candidate,
-        )
-
-    def _project_validation_plan_label(self) -> str:
-        return project_validation_plan_label(
-            self.config.effective_state_dir,
-            lang=self.lang,
-            target_workspace=self.workspace_candidate,
-        )
-
-    def _project_read_first_checklist_label(self) -> str:
-        return project_read_first_checklist_label(
-            self.config.effective_state_dir,
-            lang=self.lang,
-            target_workspace=self.workspace_candidate,
-        )
-
-    def _project_existing_diagnostic_label(self) -> str:
-        return project_existing_diagnostic_label(
-            self.config.effective_state_dir,
-            lang=self.lang,
-            target_workspace=self.workspace_candidate,
-        )
-
-    def _project_startup_readiness_label(
-        self,
-        selected_agents: tuple[str, ...] | None = None,
-    ) -> str:
-        if selected_agents is None and self.is_mounted:
-            selected_agents = self._agent_selector().selected_agents()
-        return project_startup_readiness_label(
-            self.config.effective_state_dir,
-            self.config.agents,
-            selected_agents=selected_agents,
-            lang=self.lang,
-            target_workspace=self.workspace_candidate,
-        )
-
-    def _project_start_choice_guide_label(self) -> str:
-        return project_start_choice_guide_label(
-            self.config.effective_state_dir,
-            lang=self.lang,
-            target_workspace=self.workspace_candidate,
         )
 
     def _provider_policy_label(
@@ -582,13 +386,6 @@ class StartScreen(Screen[None]):
             lang=self.lang,
         )
 
-    def _project_mode_rail_label(self) -> str:
-        return project_mode_rail_label(
-            self.config.effective_state_dir,
-            lang=self.lang,
-            target_workspace=self.workspace_candidate,
-        )
-
     def _project_analyze_action_presentation(
         self,
     ) -> ProjectAnalyzeActionPresentation:
@@ -598,35 +395,7 @@ class StartScreen(Screen[None]):
         )
 
     def refresh_project_intake_summary(self) -> None:
-        if not self.is_mounted:
-            return
-        self.query_one("#project-intake-summary", Static).update(
-            self._project_intake_label()
-        )
-        self._project_startup_readiness_static().update(
-            self._project_startup_readiness_label()
-        )
-        self._project_start_choice_guide_static().update(
-            self._project_start_choice_guide_label()
-        )
-        self._project_plan_preview_static().update(
-            self._project_plan_preview_label()
-        )
-        self._project_generation_preview_static().update(
-            self._project_generation_preview_label()
-        )
-        self._project_validation_plan_static().update(
-            self._project_validation_plan_label()
-        )
-        self._project_existing_diagnostic_static().update(
-            self._project_existing_diagnostic_label()
-        )
-        self._project_read_first_checklist_static().update(
-            self._project_read_first_checklist_label()
-        )
-        self._project_mode_rail_static().update(
-            self._project_mode_rail_label()
-        )
+        return
 
     def _refresh_provider_policy_label(
         self,
@@ -639,9 +408,6 @@ class StartScreen(Screen[None]):
         )
         self._provider_cli_setup_static().update(
             self._provider_cli_setup_label(selected_agents)
-        )
-        self._project_startup_readiness_static().update(
-            self._project_startup_readiness_label(selected_agents)
         )
 
     def _label(self, key: str) -> str:

@@ -828,24 +828,6 @@ class TrinityTextualApp(App[None]):
         margin-left: 1;
     }
 
-    #project-intake-summary {
-        width: 100%;
-        color: $text-muted;
-        margin-top: 1;
-    }
-
-    #project-startup-readiness,
-    #project-intake-summary,
-    #project-existing-diagnostic,
-    #project-start-choice-guide,
-    #project-mode-rail,
-    #project-plan-preview,
-    #project-generation-preview,
-    #project-validation-plan,
-    #project-read-first-checklist {
-        display: none;
-    }
-
     #nexus-screen {
         width: 100%;
         height: 1fr;
@@ -1218,24 +1200,6 @@ class TrinityTextualApp(App[None]):
         margin-left: 2;
         content-align: left bottom;
         color: $text-muted;
-    }
-
-    #nexus-project-intake-summary {
-        width: 100%;
-        color: $text-muted;
-        margin-top: 1;
-    }
-
-    #nexus-project-startup-readiness,
-    #nexus-project-intake-summary,
-    #nexus-project-existing-diagnostic,
-    #nexus-project-start-choice-guide,
-    #nexus-project-mode-rail,
-    #nexus-project-plan-preview,
-    #nexus-project-generation-preview,
-    #nexus-project-validation-plan,
-    #nexus-project-read-first-checklist {
-        display: none;
     }
 
     ProviderInspector {

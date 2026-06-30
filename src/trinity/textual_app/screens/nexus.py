@@ -21,16 +21,7 @@ from trinity.textual_app.workspace_labels import (
     ProjectAnalyzeActionPresentation,
     provider_cli_setup_label,
     project_analyze_action_presentation,
-    project_existing_diagnostic_label,
-    project_generation_preview_label,
-    project_intake_state_label,
-    project_mode_rail_label,
-    project_plan_preview_label,
-    project_start_choice_guide_label,
-    project_startup_readiness_label,
     provider_execution_review_policy_label,
-    project_read_first_checklist_label,
-    project_validation_plan_label,
     target_workspace_state_label,
 )
 from trinity.textual_app.widgets.agent_recipient_model_selector import (
@@ -216,19 +207,11 @@ class NexusScreen(Screen[None]):
         self._workspace_label_widget: Static | None = None
         self._provider_policy_widget: Static | None = None
         self._provider_cli_setup_widget: Static | None = None
-        self._project_startup_readiness_widget: Static | None = None
-        self._project_start_choice_guide_widget: Static | None = None
         self._central_view: CentralAgentView | None = None
         self._question_panel: QuestionPanel | None = None
         self._inspector: WorkflowInspector | None = None
         self._recipient_selector: AgentRecipientModelSelector | None = None
         self._composer: PromptComposer | None = None
-        self._project_mode_rail_widget: Static | None = None
-        self._project_plan_preview_widget: Static | None = None
-        self._project_generation_preview_widget: Static | None = None
-        self._project_validation_plan_widget: Static | None = None
-        self._project_existing_diagnostic_widget: Static | None = None
-        self._project_read_first_checklist_widget: Static | None = None
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
@@ -267,58 +250,6 @@ class NexusScreen(Screen[None]):
                     id="request-execute",
                     variant="primary",
                 )
-            startup_readiness = Static(
-                self._project_startup_readiness_label(),
-                id="nexus-project-startup-readiness",
-            )
-            self._project_startup_readiness_widget = startup_readiness
-            yield startup_readiness
-            yield Static(
-                self._project_intake_label(),
-                id="nexus-project-intake-summary",
-            )
-            existing_diagnostic = Static(
-                self._project_existing_diagnostic_label(),
-                id="nexus-project-existing-diagnostic",
-            )
-            self._project_existing_diagnostic_widget = existing_diagnostic
-            yield existing_diagnostic
-            start_choice_guide = Static(
-                self._project_start_choice_guide_label(),
-                id="nexus-project-start-choice-guide",
-            )
-            self._project_start_choice_guide_widget = start_choice_guide
-            yield start_choice_guide
-            mode_rail = Static(
-                self._project_mode_rail_label(),
-                id="nexus-project-mode-rail",
-            )
-            self._project_mode_rail_widget = mode_rail
-            yield mode_rail
-            plan_preview = Static(
-                self._project_plan_preview_label(),
-                id="nexus-project-plan-preview",
-            )
-            self._project_plan_preview_widget = plan_preview
-            yield plan_preview
-            generation_preview = Static(
-                self._project_generation_preview_label(),
-                id="nexus-project-generation-preview",
-            )
-            self._project_generation_preview_widget = generation_preview
-            yield generation_preview
-            validation_plan = Static(
-                self._project_validation_plan_label(),
-                id="nexus-project-validation-plan",
-            )
-            self._project_validation_plan_widget = validation_plan
-            yield validation_plan
-            read_first_checklist = Static(
-                self._project_read_first_checklist_label(),
-                id="nexus-project-read-first-checklist",
-            )
-            self._project_read_first_checklist_widget = read_first_checklist
-            yield read_first_checklist
             with Horizontal(id="nexus-main"):
                 with Vertical(id="nexus-center-stack"):
                     central = CentralAgentView(id="central-agent", lang=self.config.lang)
@@ -420,8 +351,6 @@ class NexusScreen(Screen[None]):
             self._refresh_workspace_label()
             if self._current_workspace_text() != previous_workspace:
                 self.refresh_project_intake_summary()
-            else:
-                self._refresh_project_startup_readiness_cached()
 
     def set_agent_model_choices(
         self,
@@ -453,19 +382,11 @@ class NexusScreen(Screen[None]):
         self._workspace_label_widget = None
         self._provider_policy_widget = None
         self._provider_cli_setup_widget = None
-        self._project_startup_readiness_widget = None
-        self._project_start_choice_guide_widget = None
         self._central_view = None
         self._question_panel = None
         self._inspector = None
         self._recipient_selector = None
         self._composer = None
-        self._project_mode_rail_widget = None
-        self._project_plan_preview_widget = None
-        self._project_generation_preview_widget = None
-        self._project_validation_plan_widget = None
-        self._project_existing_diagnostic_widget = None
-        self._project_read_first_checklist_widget = None
 
     def _reset_render_cache(self) -> None:
         self._provider_state_cache = {}
@@ -507,32 +428,6 @@ class NexusScreen(Screen[None]):
             )
         return self._provider_cli_setup_widget
 
-    def _project_startup_readiness_static(self) -> Static:
-        if self._project_startup_readiness_widget is None:
-            self._project_startup_readiness_widget = self.query_one(
-                "#nexus-project-startup-readiness",
-                Static,
-            )
-        return self._project_startup_readiness_widget
-
-    def _project_start_choice_guide_static(self) -> Static:
-        if self._project_start_choice_guide_widget is None:
-            self._project_start_choice_guide_widget = self.query_one(
-                "#nexus-project-start-choice-guide",
-                Static,
-            )
-        return self._project_start_choice_guide_widget
-
-    def _refresh_project_startup_readiness_cached(
-        self,
-        selected_agents: tuple[str, ...] | None = None,
-    ) -> None:
-        if self._project_startup_readiness_widget is None:
-            return
-        self._project_startup_readiness_widget.update(
-            self._project_startup_readiness_label(selected_agents)
-        )
-
     def _central_agent(self) -> CentralAgentView:
         if self._central_view is None:
             self._central_view = self.query_one(CentralAgentView)
@@ -557,54 +452,6 @@ class NexusScreen(Screen[None]):
         if self._composer is None:
             self._composer = self.query_one("#nexus-composer", PromptComposer)
         return self._composer
-
-    def _project_plan_preview_static(self) -> Static:
-        if self._project_plan_preview_widget is None:
-            self._project_plan_preview_widget = self.query_one(
-                "#nexus-project-plan-preview",
-                Static,
-            )
-        return self._project_plan_preview_widget
-
-    def _project_generation_preview_static(self) -> Static:
-        if self._project_generation_preview_widget is None:
-            self._project_generation_preview_widget = self.query_one(
-                "#nexus-project-generation-preview",
-                Static,
-            )
-        return self._project_generation_preview_widget
-
-    def _project_validation_plan_static(self) -> Static:
-        if self._project_validation_plan_widget is None:
-            self._project_validation_plan_widget = self.query_one(
-                "#nexus-project-validation-plan",
-                Static,
-            )
-        return self._project_validation_plan_widget
-
-    def _project_read_first_checklist_static(self) -> Static:
-        if self._project_read_first_checklist_widget is None:
-            self._project_read_first_checklist_widget = self.query_one(
-                "#nexus-project-read-first-checklist",
-                Static,
-            )
-        return self._project_read_first_checklist_widget
-
-    def _project_existing_diagnostic_static(self) -> Static:
-        if self._project_existing_diagnostic_widget is None:
-            self._project_existing_diagnostic_widget = self.query_one(
-                "#nexus-project-existing-diagnostic",
-                Static,
-            )
-        return self._project_existing_diagnostic_widget
-
-    def _project_mode_rail_static(self) -> Static:
-        if self._project_mode_rail_widget is None:
-            self._project_mode_rail_widget = self.query_one(
-                "#nexus-project-mode-rail",
-                Static,
-            )
-        return self._project_mode_rail_widget
 
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
         snapshot_identity = id(snapshot)
@@ -634,8 +481,6 @@ class NexusScreen(Screen[None]):
         self._refresh_workspace_label()
         if self._current_workspace_text() != previous_workspace:
             self.refresh_project_intake_summary()
-        else:
-            self._refresh_project_startup_readiness_cached()
         if self._snapshot_has_activity_frame_targets(snapshot):
             self._apply_activity_frame()
 
@@ -768,72 +613,6 @@ class NexusScreen(Screen[None]):
             analyze_variant=self._project_analyze_action_presentation().variant,
         )
 
-    def _project_intake_label(self) -> str:
-        return project_intake_state_label(
-            self.config.effective_state_dir,
-            lang=self.config.lang,
-            target_workspace=self._current_workspace_text(),
-        )
-
-    def _project_plan_preview_label(self) -> str:
-        return project_plan_preview_label(
-            self.config.effective_state_dir,
-            lang=self.config.lang,
-            target_workspace=self._current_workspace_text(),
-        )
-
-    def _project_generation_preview_label(self) -> str:
-        return project_generation_preview_label(
-            self.config.effective_state_dir,
-            lang=self.config.lang,
-            target_workspace=self._current_workspace_text(),
-        )
-
-    def _project_validation_plan_label(self) -> str:
-        return project_validation_plan_label(
-            self.config.effective_state_dir,
-            lang=self.config.lang,
-            target_workspace=self._current_workspace_text(),
-        )
-
-    def _project_read_first_checklist_label(self) -> str:
-        return project_read_first_checklist_label(
-            self.config.effective_state_dir,
-            lang=self.config.lang,
-            target_workspace=self._current_workspace_text(),
-        )
-
-    def _project_existing_diagnostic_label(self) -> str:
-        return project_existing_diagnostic_label(
-            self.config.effective_state_dir,
-            lang=self.config.lang,
-            target_workspace=self._current_workspace_text(),
-        )
-
-    def _project_startup_readiness_label(
-        self,
-        selected_agents: tuple[str, ...] | None = None,
-    ) -> str:
-        if selected_agents is None:
-            if self.is_mounted:
-                selected_agents = self._agent_selector().selected_agents()
-            elif self._selected_agents:
-                selected_agents = self._selected_agents
-        return project_startup_readiness_label(
-            self.config.effective_state_dir,
-            self.config.agents,
-            selected_agents=selected_agents,
-            lang=self.config.lang,
-            target_workspace=self._current_workspace_text(),
-        )
-
-    def _project_start_choice_guide_label(self) -> str:
-        return project_start_choice_guide_label(
-            self.config.effective_state_dir,
-            lang=self.config.lang,
-            target_workspace=self._current_workspace_text(),
-        )
-
     def _provider_policy_label(
         self,
         selected_agents: tuple[str, ...] | None = None,
@@ -864,13 +643,6 @@ class NexusScreen(Screen[None]):
             lang=self.config.lang,
         )
 
-    def _project_mode_rail_label(self) -> str:
-        return project_mode_rail_label(
-            self.config.effective_state_dir,
-            lang=self.config.lang,
-            target_workspace=self._current_workspace_text(),
-        )
-
     def _project_analyze_action_presentation(
         self,
     ) -> ProjectAnalyzeActionPresentation:
@@ -880,35 +652,7 @@ class NexusScreen(Screen[None]):
         )
 
     def refresh_project_intake_summary(self) -> None:
-        if not self.is_mounted:
-            return
-        self.query_one("#nexus-project-intake-summary", Static).update(
-            self._project_intake_label()
-        )
-        self._project_startup_readiness_static().update(
-            self._project_startup_readiness_label()
-        )
-        self._project_start_choice_guide_static().update(
-            self._project_start_choice_guide_label()
-        )
-        self._project_plan_preview_static().update(
-            self._project_plan_preview_label()
-        )
-        self._project_generation_preview_static().update(
-            self._project_generation_preview_label()
-        )
-        self._project_validation_plan_static().update(
-            self._project_validation_plan_label()
-        )
-        self._project_existing_diagnostic_static().update(
-            self._project_existing_diagnostic_label()
-        )
-        self._project_read_first_checklist_static().update(
-            self._project_read_first_checklist_label()
-        )
-        self._project_mode_rail_static().update(
-            self._project_mode_rail_label()
-        )
+        return
 
     def _refresh_provider_policy_label(
         self,
@@ -921,9 +665,6 @@ class NexusScreen(Screen[None]):
         )
         self._provider_cli_setup_static().update(
             self._provider_cli_setup_label(selected_agents)
-        )
-        self._project_startup_readiness_static().update(
-            self._project_startup_readiness_label(selected_agents)
         )
 
     def _current_workspace_text(self) -> str:

@@ -2313,6 +2313,10 @@ def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_execution_intent("수정하지 말고 검토해라") is False
     assert classify_execution_intent("파일 변경 없이 리뷰해라") is False
     assert classify_execution_intent("review this project, do not edit files") is False
+    assert classify_execution_intent("fix nothing, just explain") is False
+    assert classify_execution_intent("do not modify anything") is False
+    assert classify_execution_intent("read-only review") is False
+    assert classify_execution_intent("inspect without changing files") is False
     assert classify_execution_intent("이 프로젝트를 설명해라") is False
     assert classify_execution_intent("수정할 곳을 알려줘") is False
     assert classify_execution_intent("리뷰하고 수정할 곳을 알려줘") is False
@@ -2354,6 +2358,10 @@ def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_execution_intent("삭제해줘") is True
     assert classify_execution_intent("제거해줘") is True
     assert classify_execution_intent("지워줘") is True
+    assert classify_execution_intent("수정하지 말고 설명해줘") is False
+    assert classify_execution_intent("변경하지 말고 분석해줘") is False
+    assert classify_execution_intent("아무것도 바꾸지 말고 검토해줘") is False
+    assert classify_execution_intent("읽기 전용으로 검토해줘") is False
     assert classify_execution_intent("고칠 곳을 알려줘") is False
     assert classify_execution_intent("바꿀 곳을 알려줘") is False
     assert classify_execution_intent("뭘 삭제할지 알려줘") is False

@@ -196,7 +196,7 @@ analyzing a target should remain read-only.
 For matching existing-project intake, execute preflight compares the saved intake
 to a fresh read-only profile before execution. A changed Git branch, dirty or
 untracked count, package manager signal, test/dev/build command, entrypoint,
-source root, or documentation anchor is shown as changed project intake. This
+source root, or documentation anchor is shown as changed saved analysis. This
 avoids using a recently recorded but already outdated project profile as if it
 still described the selected workspace.
 

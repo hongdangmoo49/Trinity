@@ -255,16 +255,16 @@ def _execution_confirmation_risk_items_from_preflight(
 def _execution_confirmation_intake_risk_label(warning: str, *, lang: str) -> str:
     labels = {
         "en": {
-            "changed_project_intake": "changed project intake",
+            "changed_project_intake": "saved analysis changed",
             "missing_new_project_brief": "incomplete project brief",
-            "sparse_project_intake": "sparse project intake",
-            "stale_project_intake": "stale project intake",
+            "sparse_project_intake": "saved analysis sparse",
+            "stale_project_intake": "saved analysis stale",
         },
         "ko": {
-            "changed_project_intake": "변경된 프로젝트 인테이크",
+            "changed_project_intake": "저장된 분석 변경됨",
             "missing_new_project_brief": "불완전한 프로젝트 브리프",
-            "sparse_project_intake": "부족한 프로젝트 인테이크",
-            "stale_project_intake": "오래된 프로젝트 인테이크",
+            "sparse_project_intake": "저장된 분석 부족함",
+            "stale_project_intake": "저장된 분석 오래됨",
         },
     }.get(lang, {})
     return labels.get(warning, warning)

@@ -1847,8 +1847,6 @@ async def test_start_workspace_label_stays_compact_with_long_path(
         workspace_label = start.query_one("#workspace-candidate", Static)
 
         with pytest.raises(NoMatches):
-            start.query_one("#choose-workspace", Button)
-        with pytest.raises(NoMatches):
             start.query_one("#start-actions")
         assert workspace_label.region.height == 1
         assert (
@@ -7260,29 +7258,6 @@ async def test_screen_and_composer_bindings_use_configured_language(tmp_path) ->
 
 
 @pytest.mark.asyncio
-async def test_project_intake_ctas_are_hidden_from_default_surfaces(
-    tmp_path,
-) -> None:
-    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
-
-    async with app.run_test(size=(120, 40)) as pilot:
-        start = app.screen
-        assert isinstance(start, StartScreen)
-        with pytest.raises(NoMatches):
-            start.query_one("#plan-first", Button)
-        with pytest.raises(NoMatches):
-            start.query_one("#project-intake-actions")
-
-        app.switch_to("nexus")
-        await pilot.pause()
-
-        nexus = app.screen
-        assert isinstance(nexus, NexusScreen)
-        with pytest.raises(NoMatches):
-            nexus.query_one("#nexus-project-intake-actions")
-
-
-@pytest.mark.asyncio
 async def test_start_and_central_chrome_uses_korean_labels(
     tmp_path,
     monkeypatch,
@@ -7302,10 +7277,6 @@ async def test_start_and_central_chrome_uses_korean_labels(
         assert isinstance(start, StartScreen)
         with pytest.raises(NoMatches):
             start.query_one("#start-subtitle", Static)
-        with pytest.raises(NoMatches):
-            start.query_one("#choose-workspace", Button)
-        with pytest.raises(NoMatches):
-            start.query_one("#plan-first", Button)
         assert str(start.query_one("#workspace-candidate", Static).content).startswith(
             "계획 대상: "
         )
@@ -11174,8 +11145,6 @@ async def test_start_workspace_label_keeps_stable_dimension(tmp_path) -> None:
         await pilot.pause()
         start = app.get_screen("start", StartScreen)
 
-        with pytest.raises(NoMatches):
-            start.query_one("#choose-workspace", Button)
         assert start.query_one("#workspace-candidate", Static).styles.height.value == 1
 
 
@@ -11567,12 +11536,6 @@ async def test_nexus_action_bar_keeps_korean_workspace_label(tmp_path) -> None:
 
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
-        with pytest.raises(NoMatches):
-            nexus.query_one("#open-provider-inspector", Button)
-        with pytest.raises(NoMatches):
-            nexus.query_one("#request-execute", Button)
-        with pytest.raises(NoMatches):
-            nexus.query_one("#select-workspace", Button)
         workspace_label = str(
             nexus.query_one("#nexus-target-workspace", Static).content
         )

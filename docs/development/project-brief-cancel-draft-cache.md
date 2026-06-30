@@ -12,25 +12,25 @@ only to re-check the selected workspace or previous analysis.
 - Preserve canceled project brief edits for the current app session.
 - Restore the canceled draft when reopening the brief for the same target
   workspace.
-- Keep saved project intake as the durable source of truth after Save.
+- Keep saved project context as the durable source of truth after Save.
 - Do not persist canceled drafts to disk.
-- Do not change project-intake JSON, readiness policy, preflight gates, or
+- Do not change saved project context JSON, readiness policy, preflight gates, or
   provider prompts.
 
 ## Design
 
 Introduce an explicit modal result:
 
-- `saved=True`: write intake exactly as today and clear any cached draft for the
-  target.
+- `saved=True`: write saved project context exactly as today and clear any cached
+  draft for the target.
 - `saved=False`: cache the current modal draft in memory and do not write
-  intake.
+  saved context.
 
 `TrinityTextualApp` owns a small dictionary keyed by resolved target workspace
 path. `_project_brief_draft_for_target` prefers:
 
 1. cached unsaved draft for the same target;
-2. saved intake for the same target;
+2. saved context for the same target;
 3. an empty draft.
 
 This keeps cancel recovery local to the current Workbench session and avoids
@@ -38,7 +38,7 @@ surprising persistence of abandoned content.
 
 ## Tests
 
-- Canceling a brief caches typed values without writing them as saved intake.
+- Canceling a brief caches typed values without writing them as saved context.
 - Reopening the same target restores the cached draft.
-- Saving clears the cached draft and writes durable intake.
+- Saving clears the cached draft and writes durable context.
 - Different target workspaces do not receive another target's cached draft.

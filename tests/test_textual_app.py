@@ -11509,7 +11509,7 @@ async def test_nexus_action_bar_keeps_korean_workspace_label(tmp_path) -> None:
     screen = NexusScreen(
         TrinityConfig.default_config(project_dir=control_repo, lang="ko")
     )
-    assert screen._workspace_label() == "대상 작업 폴더 없음"
+    assert screen.workspace_label() == "대상 작업 폴더 없음"
 
 
 @pytest.mark.asyncio

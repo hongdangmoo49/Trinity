@@ -71,9 +71,9 @@ CLI users can record the brief with `trinity project new` or
 `trinity init --mode new --project-name NAME` can also create the initial
 target workspace during setup and write the same new-project intake artifacts.
 If `--project-name` is provided without `--mode`, init treats the flow as new
-project onboarding. `--mode new` without `--project-name` keeps the older
-deferred behavior and prints the `trinity project new NAME --parent PATH` next
-step.
+project onboarding. `--mode new` without `--project-name` keeps project intake
+deferred, but the generic init next steps stay prompt-led: check
+`trinity project status`, then run `trinity` from the selected workspace.
 
 When a new-project brief is incomplete, `trinity project new`,
 `trinity project analyze --mode new`, and `trinity project status` include a

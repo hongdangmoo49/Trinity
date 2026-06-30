@@ -119,6 +119,17 @@ def nexus_agent_provider_panel_state(
     )
 
 
+def nexus_fallback_snapshot(
+    initial_prompt: str,
+    follow_ups: Sequence[str],
+) -> WorkflowNexusSnapshot:
+    return WorkflowNexusSnapshot(
+        goal=initial_prompt,
+        questions=[],
+        work_packages=[f"follow-up: {item}" for item in follow_ups[-3:]],
+    )
+
+
 class AgentRowSpec(Protocol):
     """Small presenter-facing subset of an agent spec."""
 

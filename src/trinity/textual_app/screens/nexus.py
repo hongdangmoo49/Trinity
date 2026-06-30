@@ -18,6 +18,7 @@ from trinity.textual_app.presenters import (
     nexus_agent_provider_panel_state,
     nexus_central_snapshot_has_activity,
     nexus_current_workspace_text,
+    nexus_fallback_snapshot,
     nexus_provider_panel_state,
     nexus_refine_prompt,
 )
@@ -527,24 +528,29 @@ class NexusScreen(Screen[None]):
         if self.snapshot is not None:
             central.apply_snapshot(self.snapshot)
             return
-        central.apply_snapshot(self._fallback_snapshot())
+        central.apply_snapshot(
+            nexus_fallback_snapshot(
+                self.initial_prompt,
+                self.follow_ups,
+            )
+        )
 
     def _refresh_questions(self) -> None:
         question_panel = self._questions()
-        snapshot = self.snapshot or self._fallback_snapshot()
+        snapshot = self.snapshot or nexus_fallback_snapshot(
+            self.initial_prompt,
+            self.follow_ups,
+        )
         question_panel.apply_questions(snapshot.questions)
 
     def _refresh_inspector(self) -> None:
         inspector = self._workflow_inspector()
-        inspector.apply_snapshot(self.snapshot or self._fallback_snapshot())
-
-    def _fallback_snapshot(self) -> WorkflowNexusSnapshot:
-        return WorkflowNexusSnapshot(
-            goal=self.initial_prompt,
-            questions=[],
-            work_packages=[
-                f"follow-up: {item}" for item in self.follow_ups[-3:]
-            ],
+        inspector.apply_snapshot(
+            self.snapshot
+            or nexus_fallback_snapshot(
+                self.initial_prompt,
+                self.follow_ups,
+            )
         )
 
     def _apply_activity_frame(self) -> None:

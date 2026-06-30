@@ -62,14 +62,14 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
             base_selector = "all" if self.selector == "custom" else self.selector
             self.selected_ids = set(self._ids_for_selector(base_selector))
         self._selected_text_key = self.selected_text()
-        self._confirm_disabled_key = not self._selected_package_ids()
+        self._confirm_disabled_key = not self.selected_package_ids()
         self._selected_widget: Static | None = None
         self._confirm_button: Button | None = None
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
         self._selected_text_key = self.selected_text()
-        self._confirm_disabled_key = not self._selected_package_ids()
+        self._confirm_disabled_key = not self.selected_package_ids()
         with Vertical(id="execution-retry-modal"):
             yield Static(self._label("title"), id="execution-retry-title")
             yield Static(self.summary_text(), id="execution-retry-summary")
@@ -82,7 +82,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
                     )
             with VerticalScroll(id="execution-retry-list"):
                 yield Static(self.header_text(), id="execution-retry-header")
-                packages = self._display_packages()
+                packages = self.display_packages()
                 if not packages:
                     yield Static(self._label("empty"), classes="retry-row")
                 for package in packages:
@@ -144,7 +144,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
             return
         if button_id == "confirm-execute-retry":
             event.stop()
-            selected = self._selected_package_ids()
+            selected = self.selected_package_ids()
             if selected:
                 self.dismiss(
                     ExecutionRetrySelection(
@@ -167,7 +167,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
     def action_cancel(self) -> None:
         self.dismiss(None)
 
-    def _display_packages(self) -> list[WorkPackageSnapshot]:
+    def display_packages(self) -> list[WorkPackageSnapshot]:
         packages = self._retry_candidate_packages()
         if self.selector in {"all", "custom"}:
             return packages
@@ -207,7 +207,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
                 selected.append(package.id)
         return tuple(selected)
 
-    def _selected_package_ids(self) -> tuple[str, ...]:
+    def selected_package_ids(self) -> tuple[str, ...]:
         allowed = {package.id for package in self._retry_candidate_packages()}
         ordered = [
             package.id
@@ -221,7 +221,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
         if selected_text != self._selected_text_key:
             self._selected_summary_widget().update(selected_text)
             self._selected_text_key = selected_text
-        disabled = not self._selected_package_ids()
+        disabled = not self.selected_package_ids()
         if disabled != self._confirm_disabled_key:
             self._confirm_retry_button().disabled = disabled
             self._confirm_disabled_key = disabled
@@ -269,7 +269,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
         return f"{prefix}WP      Status     Topic                         Owner      Executor    Note"
 
     def selected_text(self) -> str:
-        selected = self._selected_package_ids()
+        selected = self.selected_package_ids()
         if selected:
             return f"{self._label('selected')}: {', '.join(selected)}"
         return f"{self._label('selected')}: {self._label('none')}"

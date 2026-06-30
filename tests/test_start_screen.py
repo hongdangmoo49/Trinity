@@ -112,14 +112,14 @@ def test_start_and_nexus_labels_use_visible_copy(
     assert start._label("placeholder") == "What should Trinity work on?"
     assert start._label("select_workspace") == "Select Workspace"
     assert nexus._label("execute") == "Execute"
-    assert nexus._label("open_provider_inspector") == "Open Provider Inspector"
+    assert nexus._label("open_provider_inspector") == "Providers"
     assert nexus._label("composer_placeholder") == (
         "Reply, refine direction, or type / for commands"
     )
     assert ko_start._label("placeholder") == "Trinity가 무엇을 진행하면 될까요?"
     assert ko_start._label("select_workspace") == "작업 폴더 선택"
     assert ko_nexus._label("execute") == "실행"
-    assert ko_nexus._label("open_provider_inspector") == "프로바이더 인스펙터 열기"
+    assert ko_nexus._label("open_provider_inspector") == "프로바이더"
     assert ko_nexus._label("composer_placeholder") == "답변, 방향 조정 또는 /로 명령 입력"
 
 

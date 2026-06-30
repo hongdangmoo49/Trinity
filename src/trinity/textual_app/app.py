@@ -1183,7 +1183,7 @@ class TrinityTextualApp(App[None]):
     }
 
     #open-provider-inspector {
-        width: 28;
+        width: 14;
     }
 
     #request-execute {

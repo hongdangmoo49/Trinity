@@ -12095,7 +12095,7 @@ async def test_nexus_select_workspace_cta_selects_target_without_execution(
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
         assert str(nexus.query_one("#open-provider-inspector", Button).label) == (
-            "Open Provider Inspector"
+            "Providers"
         )
         assert str(nexus.query_one("#request-execute", Button).label) == "Execute"
         assert str(nexus.query_one("#select-workspace", Button).label) == (
@@ -12827,7 +12827,7 @@ async def test_nexus_action_bar_uses_configured_korean_labels(tmp_path) -> None:
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
         assert str(nexus.query_one("#open-provider-inspector", Button).label) == (
-            "프로바이더 인스펙터 열기"
+            "프로바이더"
         )
         assert str(nexus.query_one("#request-execute", Button).label) == "실행"
         assert str(nexus.query_one("#select-workspace", Button).label) == (

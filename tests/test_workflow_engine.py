@@ -2340,6 +2340,14 @@ def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_execution_intent("failure reason for the refactor") is False
     assert classify_execution_intent("cause of failed update") is False
     assert classify_execution_intent("please fix the build failure") is True
+    assert classify_execution_intent("report on files to update") is False
+    assert classify_execution_intent("guide to fixing the build") is False
+    assert classify_execution_intent("document how to update docs") is False
+    assert classify_execution_intent("write a report about refactor options") is False
+    assert classify_execution_intent("draft migration notes for update") is False
+    assert classify_execution_intent("add release notes") is True
+    assert classify_execution_intent("create report page") is True
+    assert classify_execution_intent("write the docs update") is True
     assert classify_execution_intent("이 프로젝트를 설명해라") is False
     assert classify_execution_intent("수정할 곳을 알려줘") is False
     assert classify_execution_intent("리뷰하고 수정할 곳을 알려줘") is False
@@ -2393,6 +2401,9 @@ def test_blueprint_followup_classifier_uses_execute_only_for_clear_intent():
     assert classify_execution_intent("수정 항목을 요약해줘") is False
     assert classify_execution_intent("수정 우선순위를 정리해줘") is False
     assert classify_execution_intent("요약하고 수정해줘") is True
+    assert classify_execution_intent("수정할 파일 보고서를 작성해줘") is False
+    assert classify_execution_intent("빌드 수정 가이드를 작성해줘") is False
+    assert classify_execution_intent("문서를 업데이트해줘") is True
     assert classify_execution_intent("고칠 곳을 알려줘") is False
     assert classify_execution_intent("바꿀 곳을 알려줘") is False
     assert classify_execution_intent("뭘 삭제할지 알려줘") is False

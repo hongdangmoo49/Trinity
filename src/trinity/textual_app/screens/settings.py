@@ -108,7 +108,7 @@ class SettingsScreen(Screen[None]):
                     self._central_model_values(self.config.synthesis_model),
                     self.config.synthesis_model or "agent-default",
                 )
-            preview_text = self._preview_text()
+            preview_text = self.preview_text()
             self._preview_render_key = preview_text
             preview = Static(preview_text, id="theme-preview")
             self._preview_widget = preview
@@ -140,7 +140,7 @@ class SettingsScreen(Screen[None]):
         self.config.synthesis_agent = "" if central_provider == "auto" else central_provider
         self.config.synthesis_model = self._value("central-model")
         self.config.save(self.config.effective_state_dir / "trinity.config")
-        self._set_preview_text(self._preview_text())
+        self._set_preview_text(self.preview_text())
         self._set_status_text(self._label("saved"))
 
     def _set_preview_text(self, text: str) -> None:
@@ -191,7 +191,7 @@ class SettingsScreen(Screen[None]):
         self._status_widget = self.query_one("#settings-status", Static)
         return self._status_widget
 
-    def _preview_text(self) -> str:
+    def preview_text(self) -> str:
         model_lines = []
         for name, spec in self.config.agents.items():
             model = self._display_value(spec.model or "default")

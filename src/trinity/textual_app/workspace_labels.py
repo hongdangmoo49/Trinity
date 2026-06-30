@@ -195,27 +195,6 @@ PROJECT_GENERATION_PREVIEW_LABELS = {
     },
 }
 
-PROJECT_GENERATION_DRY_RUN_LABELS = {
-    "en": {
-        "conflicts": "conflicts",
-        "create": "create",
-        "guardrails": "guardrails",
-        "missing": "missing",
-        "none": "none",
-        "suggested": "suggested",
-        "validate": "validate",
-    },
-    "ko": {
-        "conflicts": "충돌",
-        "create": "생성",
-        "guardrails": "가드레일",
-        "missing": "없음",
-        "none": "없음",
-        "suggested": "추천",
-        "validate": "검증",
-    },
-}
-
 PROJECT_VALIDATION_PLAN_LABELS = {
     "en": {
         "fast": "fast",
@@ -672,63 +651,6 @@ def format_project_generation_preview_label(
             )
         )
     return f"{labels['summary']}: {' | '.join(sections)}"
-
-
-def project_generation_dry_run_lines(
-    intake: ProjectIntake,
-    *,
-    lang: str = "en",
-) -> tuple[str, ...]:
-    """Return a structured dry-run checklist for new-project confirmation."""
-    if intake.mode != "new":
-        return ()
-    labels = PROJECT_GENERATION_DRY_RUN_LABELS.get(
-        lang,
-        PROJECT_GENERATION_DRY_RUN_LABELS["en"],
-    )
-    create_targets = _new_project_generation_files(intake)
-    conflicts = _new_project_generation_conflicts(intake, create_targets)
-    return (
-        _format_project_intake_section(
-            labels["create"],
-            create_targets,
-            max_items=4,
-        ),
-        _format_generation_dry_run_validation(intake, labels),
-        _format_project_intake_section(
-            labels["guardrails"],
-            intake.constraints,
-            empty_label=labels["none"],
-            max_items=3,
-        ),
-        _format_project_intake_section(
-            labels["conflicts"],
-            conflicts,
-            empty_label=labels["none"],
-            max_items=4,
-        ),
-    )
-
-
-def _format_generation_dry_run_validation(
-    intake: ProjectIntake,
-    labels: dict[str, str],
-) -> str:
-    confirmed = project_intake_validation_commands(intake)
-    if confirmed:
-        return _format_project_intake_section(
-            labels["validate"],
-            confirmed,
-            max_items=3,
-        )
-    suggested = _format_project_intake_values(
-        _new_project_generation_validation(intake),
-        max_items=2,
-    )
-    return (
-        f"{labels['validate']}: {labels['missing']} "
-        f"({labels['suggested']}: {suggested})"
-    )
 
 
 def project_validation_plan_label(

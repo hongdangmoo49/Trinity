@@ -157,10 +157,14 @@ class NexusScreen(Screen[None]):
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
         self._reset_render_cache()
+        provider_states = self._initial_provider_states()
         yield Header(show_clock=False)
         with Vertical(id="nexus-screen"):
-            with Horizontal(id="provider-strip"):
-                for state in self._initial_provider_states():
+            with Horizontal(
+                id="provider-strip",
+                classes=self._provider_strip_class(provider_states),
+            ):
+                for state in provider_states:
                     panel = ProviderPanel(
                         state,
                         id=f"provider-{state.name}",
@@ -687,6 +691,11 @@ class NexusScreen(Screen[None]):
             self._state_from_spec(name, spec)
             for name, spec in self.config.agents.items()
         ]
+
+    @staticmethod
+    def _provider_strip_class(states: list[ProviderPanelState]) -> str:
+        count = min(max(len(states), 1), 3)
+        return f"provider-strip-{count}"
 
     @staticmethod
     def _provider_panel_state(provider: ProviderSnapshot) -> ProviderPanelState:

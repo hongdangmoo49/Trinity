@@ -1723,40 +1723,39 @@ def test_project_intake_state_label_guides_missing_intake(tmp_path: Path) -> Non
     target = tmp_path / "customer-app"
 
     assert project_intake_state_label(state) == (
-        "Project intake: not recorded | existing: trinity project analyze [PATH] "
-        "| new: trinity project new NAME"
+        "Project intake: not recorded | next: type the task or /project analyze"
     )
     assert project_intake_state_label(state, lang="ko") == (
-        "프로젝트 인테이크: 기록 없음 | 기존: trinity project analyze [PATH] "
-        "| 신규: trinity project new NAME"
+        "프로젝트 인테이크: 기록 없음 | 다음: 작업을 입력하거나 /project analyze"
     )
     assert project_intake_state_label(state, target_workspace=target) == (
-        "Project intake: not recorded | "
-        f"analyze: trinity project analyze {target} | "
-        "new: trinity project new NAME"
+        "Project intake: not recorded | next: type the task or /project analyze"
     )
     assert project_intake_state_label(
         state,
         lang="ko",
         target_workspace=target,
     ) == (
-        "프로젝트 인테이크: 기록 없음 | "
-        f"분석: trinity project analyze {target} | "
-        "신규: trinity project new NAME"
+        "프로젝트 인테이크: 기록 없음 | 다음: 작업을 입력하거나 /project analyze"
     )
 
 
-def test_start_and_nexus_missing_project_intake_use_selected_workspace(
+def test_start_and_nexus_missing_project_intake_stays_prompt_driven(
     tmp_path: Path,
 ) -> None:
     target = tmp_path / "customer-app"
     target.mkdir()
     config = TrinityConfig.default_config(project_dir=tmp_path)
-
-    assert f"trinity project analyze {target}" in project_intake_state_label(
+    label = project_intake_state_label(
         config.effective_state_dir,
         target_workspace=target,
     )
+
+    assert label == (
+        "Project intake: not recorded | next: type the task or /project analyze"
+    )
+    assert str(target) not in label
+    assert "trinity project new" not in label
 
 
 def test_start_and_nexus_project_intake_warn_when_target_mismatches(

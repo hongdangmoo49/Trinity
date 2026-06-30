@@ -1013,7 +1013,7 @@ def test_project_intake_state_label_warns_when_target_mismatches(
     ).startswith(
         "Project context: recorded | "
         "target: saved-app | "
-        f"target mismatch: intake {saved_target} | "
+        f"target mismatch: saved target {saved_target} | "
         "updated: 2026-06-28"
     )
     assert project_intake_state_label(
@@ -1023,7 +1023,7 @@ def test_project_intake_state_label_warns_when_target_mismatches(
     ).startswith(
         "프로젝트 컨텍스트: 기록됨 | "
         "대상: saved-app | "
-        f"대상 불일치: 인테이크 {saved_target} | "
+        f"대상 불일치: 저장된 대상 {saved_target} | "
         "갱신: 2026-06-28"
     )
     assert "target mismatch" not in project_intake_state_label(

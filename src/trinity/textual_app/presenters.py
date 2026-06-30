@@ -65,6 +65,12 @@ def nexus_current_workspace_text(
     return str(fallback or "").strip()
 
 
+def nexus_central_snapshot_has_activity(snapshot: WorkflowNexusSnapshot) -> bool:
+    if snapshot.synthesis.status in {"running", "waiting"}:
+        return True
+    return snapshot.state in {"preflight", "deliberating", "executing", "reviewing"}
+
+
 class AgentRowSpec(Protocol):
     """Small presenter-facing subset of an agent spec."""
 

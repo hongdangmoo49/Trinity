@@ -345,6 +345,22 @@ async def test_settings_reverted_selects_return_to_saved_status(tmp_path) -> Non
         await pilot.pause()
         assert str(status.content) == "Saved"
 
+        screen.query_one("#central-model").value = "fast"
+        await pilot.pause()
+        assert str(status.content) == SETTINGS_UNSAVED_STATUS
+
+        screen.query_one("#central-model").value = "strong"
+        await pilot.pause()
+        assert str(status.content) == "Saved"
+
+        screen.query_one("#model-claude").value = "sonnet"
+        await pilot.pause()
+        assert str(status.content) == SETTINGS_UNSAVED_STATUS
+
+        screen.query_one("#model-claude").value = "default"
+        await pilot.pause()
+        assert str(status.content) == "Saved"
+
 
 @pytest.mark.asyncio
 async def test_settings_apply_button_saves_preferences(tmp_path) -> None:

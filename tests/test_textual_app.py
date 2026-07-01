@@ -1831,6 +1831,41 @@ async def test_start_screen_stays_within_standard_viewport(tmp_path) -> None:
             assert widget.region.y + widget.region.height <= start.size.height
 
 
+@pytest.mark.parametrize(
+    ("size", "geometry_visible"),
+    [((120, 20), False), ((120, 32), False), ((120, 33), True)],
+)
+@pytest.mark.asyncio
+async def test_start_screen_compacts_geometry_in_low_viewport(
+    tmp_path,
+    size: tuple[int, int],
+    geometry_visible: bool,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=size) as pilot:
+        await pilot.pause()
+
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        start_shell = start.query_one("#start-screen")
+        geometry = start.query_one("#start-geometry", Static)
+        assert geometry.display is geometry_visible
+        widgets = (
+            start.query_one("#start-composer", PromptComposer),
+            start.query_one("#start-recipient-selector", AgentRecipientModelSelector),
+            start.query_one("#start-actions"),
+            start.query_one("#start-select-workspace", Button),
+            start.query_one("#workspace-candidate", Static),
+        )
+        for widget in widgets:
+            assert widget.region.y >= start_shell.region.y
+            assert (
+                widget.region.y + widget.region.height
+                <= start_shell.region.y + start_shell.region.height
+            )
+
+
 @pytest.mark.asyncio
 async def test_start_workspace_label_stays_compact_with_long_path(
     tmp_path,
@@ -1861,11 +1896,19 @@ async def test_start_workspace_label_stays_compact_with_long_path(
         )
 
 
+@pytest.mark.parametrize(
+    ("size", "geometry_visible"),
+    [((120, 20), False), ((120, 32), False), ((120, 33), True), ((120, 36), True)],
+)
 @pytest.mark.asyncio
-async def test_start_command_palette_keyboard_selection_stays_visible(tmp_path) -> None:
+async def test_start_command_palette_keyboard_selection_stays_visible(
+    tmp_path,
+    size: tuple[int, int],
+    geometry_visible: bool,
+) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
-    async with app.run_test(size=(120, 36)) as pilot:
+    async with app.run_test(size=size) as pilot:
         await pilot.pause()
 
         start = app.screen
@@ -1878,6 +1921,8 @@ async def test_start_command_palette_keyboard_selection_stays_visible(tmp_path) 
         await pilot.pause()
 
         start_shell = start.query_one("#start-screen")
+        geometry = start.query_one("#start-geometry", Static)
+        assert geometry.display is geometry_visible
         selected_option = composer.query_one(".command-option-selected")
         palette = composer.query_one("#prompt-command-palette")
         more = composer.query_one("#command-option-more")

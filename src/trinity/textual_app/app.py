@@ -369,6 +369,10 @@ class TrinityTextualApp(App[None]):
         margin-bottom: 1;
     }
 
+    #start-screen.start-compact #start-geometry {
+        display: none;
+    }
+
     #start-title {
         width: 100%;
         content-align: center middle;

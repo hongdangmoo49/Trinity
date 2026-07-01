@@ -269,15 +269,15 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
             return choices
         spec = self.agents[name]
         label = "기본값" if selected == "default" and self.lang == "ko" else selected
-        return (
-            *choices,
-            ProviderModelChoice(
-                provider=spec.provider,
-                model=selected,
-                label=label,
-                source="static-fallback",
-            ),
+        selected_choice = ProviderModelChoice(
+            provider=spec.provider,
+            model=selected,
+            label=label,
+            source="static-fallback",
         )
+        if selected == "default":
+            return (selected_choice, *choices)
+        return (*choices, selected_choice)
 
     def _model_label(self, name: str, model: str) -> str:
         for choice in self.choices_by_agent.get(name, ()):

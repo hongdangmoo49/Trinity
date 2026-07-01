@@ -13107,6 +13107,51 @@ async def test_settings_screen_syncs_mounted_agent_model_selectors(tmp_path) -> 
 
 
 @pytest.mark.asyncio
+async def test_settings_apply_refreshes_stale_nexus_provider_models(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
+    app._start_model_discovery = lambda: None  # type: ignore[method-assign]
+    app._refresh_provider_models = (  # type: ignore[method-assign]
+        lambda *, use_cache: None
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        app._handle_textual_slash_command("/status")
+        await pilot.pause()
+        assert (
+            nexus.query_one("#provider-claude", ProviderPanel).state.configured_model
+            == "default"
+        )
+
+        app.switch_to("settings")
+        await pilot.pause()
+        settings = app.screen
+        assert isinstance(settings, SettingsScreen)
+        settings.query_one("#model-claude").value = "sonnet[1m]"
+        settings.action_apply()
+        await pilot.pause()
+
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        assert (
+            nexus.query_one("#provider-claude", ProviderPanel).state.configured_model
+            == "sonnet[1m]"
+        )
+        assert app.active_snapshot is not None
+        claude = next(
+            provider
+            for provider in app.active_snapshot.providers
+            if provider.name == "claude"
+        )
+        assert claude.configured_model == "sonnet[1m]"
+
+
+@pytest.mark.asyncio
 async def test_nexus_renders_blueprint_action_buttons(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
     app = TrinityTextualApp(config)

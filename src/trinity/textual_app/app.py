@@ -1569,6 +1569,7 @@ class TrinityTextualApp(App[None]):
         self._apply_ui_settings(self.ui_settings)
         self.get_screen("start", StartScreen).sync_ui_settings()
         self._sync_configured_agent_model_selectors()
+        self._refresh_agent_enabled_snapshot()
 
     def _apply_ui_settings(self, settings: UISettings) -> None:
         self.theme = textual_theme_for_mode(settings.theme_mode)

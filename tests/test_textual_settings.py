@@ -298,6 +298,35 @@ async def test_settings_color_profile_select_keeps_legacy_auto_value(tmp_path) -
 
 
 @pytest.mark.asyncio
+async def test_settings_legacy_select_labels_use_korean_fallbacks(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    store = UISettingsStore(tmp_path / ".trinity")
+    store.save(
+        UISettings(
+            theme_mode="system",
+            color_profile="auto",
+            unicode_rendering="auto",
+        )
+    )
+    screen = SettingsScreen(store, config, lang="ko")
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        theme = screen.query_one("#theme-mode", Select)
+        color = screen.query_one("#color-profile", Select)
+        glyphs = screen.query_one("#unicode-rendering", Select)
+        theme_labels = {value: str(label) for label, value in theme._options}
+        color_labels = {value: str(label) for label, value in color._options}
+        glyph_labels = {value: str(label) for label, value in glyphs._options}
+
+    assert theme_labels["system"] == "다크 모드로 대체"
+    assert color_labels["auto"] == "기본 팔레트"
+    assert glyph_labels["auto"] == "ASCII로 대체"
+
+
+@pytest.mark.asyncio
 async def test_settings_apply_uses_cached_controls(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)

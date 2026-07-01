@@ -8,7 +8,7 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1029`
+- Package version inspected: `1.0.1030`
 - Merged PR range reviewed: #90 through #1113
 - Baseline iteration reviewed: #90 through #426
 - Maintenance refresh reviewed: #427 through #1113
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1190: Prompt-Led Workbench Simplification
+### #977-#1191: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2218,6 +2218,8 @@ and what the next release train should optimize.
   of duplicating theme updates inside the settings screen.
 - Localized the Korean Settings applied status so Start/Nexus surface names no
   longer leak into the Korean UI.
+- Clarified Korean Settings fallback labels for legacy theme and glyph
+  preferences.
 - Added visible truecolor accent styling for the Settings color profile.
 - Refreshed Settings preview summaries when provider model discovery arrives.
 - Displayed central provider choices with agent labels in Settings.

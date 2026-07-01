@@ -99,7 +99,7 @@ text table로 렌더링한다.
 | `/project` | `/project` | 없음 | 간결한 프로젝트 진단을 표시한다. target 경로 직접 지정은 `/target <path>`, 탐색 선택은 `/workspace`를 사용하고, 분석이나 작업 의도는 prompt로 입력한다. |
 | `/providers` | `/providers` | 로컬 UI | 프로바이더 인스펙터를 연다. |
 | `/workspace` | `/workspace` | 로컬 UI | target workspace를 찾아 선택하는 picker를 연다. 직접 경로 지정은 `/target <path>`를 사용한다. |
-| `/settings` | `/settings` | 로컬 UI | Textual Workbench 설정 화면을 연다. plain TUI에서는 기본 Workbench 진입 안내를 표시한다. |
+| `/settings` | `/settings` | 로컬 UI | Textual Workbench 설정 화면을 연다. plain TUI에서는 기본 Workbench에서 `/settings` 또는 `Ctrl+,`를 사용하라는 안내를 표시한다. |
 | `/rounds` | `/rounds [N]` | 세션 메모리 | 최대 deliberation round를 조회하거나 1-20 범위 값으로 바꾼다. |
 | `/agent` | `/agent [<name> on\|off]` | 세션 메모리 | 현재 세션의 agent 목록을 보거나 agent enable flag와 TUI 표시 상태를 변경한다. |
 | `/model` | `/model` | 세션 메모리 | Textual Start/Nexus에서 에이전트별 모델 선택 modal을 열고 다음 요청의 모델 override를 설정한다. |

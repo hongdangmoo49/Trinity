@@ -331,6 +331,7 @@ Trinity는 기본 실행 화면으로 **Textual 기반 Workbench TUI**를 제공
   실패, 차단, 중단된 WP를 선택해 재시도합니다.
 - **Workbench Settings** — 앱 안에서 theme mode, color compatibility, density,
   시작 로고 motion/Unicode glyph, 에이전트/중앙 모델 기본값을 저장합니다.
+  `/settings` 또는 `Ctrl+,`로 열 수 있습니다.
 - **Startup Update Check** — `trinity` 실행 시 업데이트가 있으면 적용 여부를 묻고,
   `--skip-update-check`로 건너뛸 수 있습니다.
 - **Plain fallback** — `trinity --plain` 또는 `TRINITY_TUI=plain`으로 기존 Rich/prompt_toolkit TUI를 사용할 수 있습니다.

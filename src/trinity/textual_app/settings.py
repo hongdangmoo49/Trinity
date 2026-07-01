@@ -20,7 +20,7 @@ class UISettings:
     """User-level Textual UI preferences."""
 
     theme_mode: str = "dark"
-    color_profile: str = "auto"
+    color_profile: str = "default"
     density: str = "comfortable"
     motion: str = "normal"
     unicode_rendering: str = "ascii"
@@ -40,8 +40,8 @@ class UISettings:
             theme_mode=_choice(data.get("theme_mode"), {"system", "dark", "light"}, "dark"),
             color_profile=_choice(
                 data.get("color_profile"),
-                {"auto", "truecolor", "256color", "ascii-safe"},
-                "auto",
+                {"auto", "default", "truecolor", "256color", "ascii-safe"},
+                "default",
             ),
             density=_choice(data.get("density"), {"comfortable", "compact"}, "comfortable"),
             motion=_choice(data.get("motion"), {"normal", "reduced"}, "normal"),

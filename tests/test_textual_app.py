@@ -1867,6 +1867,27 @@ async def test_start_screen_compacts_geometry_in_low_viewport(
 
 
 @pytest.mark.asyncio
+async def test_start_screen_compact_geometry_tracks_terminal_resize(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        geometry = start.query_one("#start-geometry", Static)
+        assert geometry.display is True
+
+        await pilot.resize_terminal(60, 20)
+        await pilot.pause()
+        assert geometry.display is False
+
+        await pilot.resize_terminal(120, 36)
+        await pilot.pause()
+        assert geometry.display is True
+
+
+@pytest.mark.asyncio
 async def test_start_workspace_label_stays_compact_with_long_path(
     tmp_path,
 ) -> None:

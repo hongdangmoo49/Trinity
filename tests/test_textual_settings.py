@@ -378,12 +378,14 @@ async def test_settings_apply_normalizes_legacy_visual_values(tmp_path) -> None:
         theme = screen.query_one("#theme-mode", Select)
         color = screen.query_one("#color-profile", Select)
         glyphs = screen.query_one("#unicode-rendering", Select)
+        status = str(screen.query_one("#settings-status", Static).content)
         preview = str(screen.query_one("#theme-preview", Static).content)
 
     saved = store.load()
     assert saved.theme_mode == "dark"
     assert saved.color_profile == "default"
     assert saved.unicode_rendering == "ascii"
+    assert status == SETTINGS_APPLIED_STATUS
     assert "Current selections" in preview
     assert theme.value == "dark"
     assert color.value == "default"

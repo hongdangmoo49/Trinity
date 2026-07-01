@@ -1408,6 +1408,25 @@ class TrinityTextualApp(App[None]):
         if isinstance(self.screen, ModelSettingsModal):
             self.screen.set_model_choices(changed_choices)
 
+    def on_settings_screen_applied(self, event: SettingsScreen.Applied) -> None:
+        event.stop()
+        self._sync_configured_agent_model_selectors()
+
+    def _sync_configured_agent_model_selectors(self) -> None:
+        selections = {
+            name: spec.model or "default"
+            for name, spec in self.config.agents.items()
+        }
+        for screen_name, screen_type in (
+            ("start", StartScreen),
+            ("nexus", NexusScreen),
+        ):
+            screen = self.get_screen(screen_name, screen_type)
+            if screen.is_mounted:
+                screen.query_one(AgentRecipientModelSelector).set_model_selections(
+                    selections,
+                )
+
     def on_start_screen_submitted(self, event: StartScreen.Submitted) -> None:
         event.stop()
         effect = start_submission_effect(

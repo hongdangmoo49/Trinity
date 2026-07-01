@@ -12315,6 +12315,55 @@ async def test_settings_screen_saves_agent_and_central_models(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_settings_screen_syncs_mounted_agent_model_selectors(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        assert (
+            start.query_one(AgentRecipientModelSelector).selected_model("claude")
+            == "default"
+        )
+
+        app.switch_to("nexus")
+        await pilot.pause()
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        assert (
+            nexus.query_one(AgentRecipientModelSelector).selected_model("claude")
+            == "default"
+        )
+
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        screen.query_one("#model-claude").value = "sonnet[1m]"
+        screen.query_one("#model-codex").value = "gpt-5"
+        screen.action_apply()
+        await pilot.pause()
+
+        app.switch_to("start")
+        await pilot.pause()
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        start_selector = start.query_one(AgentRecipientModelSelector)
+        assert start_selector.selected_model("claude") == "sonnet[1m]"
+        assert start_selector.selected_model("codex") == "gpt-5"
+
+        app.switch_to("nexus")
+        await pilot.pause()
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        nexus_selector = nexus.query_one(AgentRecipientModelSelector)
+        assert nexus_selector.selected_model("claude") == "sonnet[1m]"
+        assert nexus_selector.selected_model("codex") == "gpt-5"
+
+
+@pytest.mark.asyncio
 async def test_nexus_renders_blueprint_action_buttons(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
     app = TrinityTextualApp(config)

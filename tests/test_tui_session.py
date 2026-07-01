@@ -384,6 +384,15 @@ class TestSessionHandleCommand:
 
         status.assert_called_once()
 
+    def test_settings_command_explains_textual_settings(self, session):
+        with patch.object(session.console, "print") as print_:
+            session._handle_command("/settings")
+
+        print_.assert_called_once_with(
+            "[yellow]/settings opens the Textual Workbench settings screen. "
+            "Run `trinity --textual` or use Ctrl+, in the workbench.[/yellow]"
+        )
+
     def test_workflow_command(self, session):
         session._handle_command("/workflow")
         # Should print workflow state

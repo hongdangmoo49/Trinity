@@ -67,6 +67,7 @@ PLAIN_TUI_COMMAND_HANDLERS: dict[str, str] = {
     "context": "_cmd_context",
     "project": "_cmd_project",
     "providers": "_cmd_providers",
+    "settings": "_cmd_settings",
     "rounds": "_cmd_rounds",
     "agent": "_cmd_agent",
     "model": "_cmd_model",
@@ -341,6 +342,13 @@ class InteractiveSession:
     def _cmd_providers(self) -> None:
         """Show provider status in the plain TUI."""
         self._cmd_status()
+
+    def _cmd_settings(self) -> None:
+        """Explain how to open persistent UI settings."""
+        self.console.print(
+            "[yellow]/settings opens the Textual Workbench settings screen. "
+            "Run `trinity --textual` or use Ctrl+, in the workbench.[/yellow]"
+        )
 
     def _cmd_context(self) -> None:
         """Show current workflow session context."""

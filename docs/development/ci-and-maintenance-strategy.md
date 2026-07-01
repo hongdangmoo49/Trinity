@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1062`
-- Merged PR range reviewed: #90 through #1223
+- Package version inspected: `1.0.1063`
+- Merged PR range reviewed: #90 through #1224
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1223
-- Latest refresh reviewed: #1223
+- Maintenance refresh reviewed: #427 through #1224
+- Latest refresh reviewed: #1224
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1223: Prompt-Led Workbench Simplification
+### #977-#1224: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2218,6 +2218,8 @@ and what the next release train should optimize.
   so provider panels show the newly configured model.
 - Added `/settings` as a local Textual slash command so users can open
   Workbench Settings from the prompt flow.
+- Covered `/settings` in the plain TUI command table with a clear Textual
+  Workbench handoff message.
 - Added Nexus slash command palette resize regression coverage for
   low-to-standard terminal transitions.
 - Added Start slash command palette resize regression coverage for

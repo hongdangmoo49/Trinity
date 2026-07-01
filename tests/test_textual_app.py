@@ -2607,6 +2607,17 @@ async def test_app_skips_unchanged_discovered_model_choice_sync(
         ]
 
 
+def test_settings_shortcut_binding_is_registered() -> None:
+    binding = next(
+        binding
+        for binding in TrinityTextualApp.BINDINGS
+        if binding.action == "go_settings"
+    )
+
+    assert binding.key == "ctrl+comma"
+    assert binding.description == "Settings"
+
+
 @pytest.mark.asyncio
 async def test_textual_app_switches_named_routes(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))

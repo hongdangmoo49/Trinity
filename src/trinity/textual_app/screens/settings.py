@@ -54,6 +54,7 @@ class SettingsScreen(Screen[None]):
         self._status_widget: Static | None = None
         self._central_provider_value = config.synthesis_agent or "auto"
         self._select_events_ready = False
+        self._pending_select_values: dict[str, str] = {}
         self._persisted_agent_enabled = {
             name: bool(spec.enabled)
             for name, spec in config.agents.items()
@@ -69,6 +70,7 @@ class SettingsScreen(Screen[None]):
             "central-provider",
             self.config.synthesis_agent or "auto",
         )
+        self._pending_select_values = pending_values
         self._select_cache = {}
         self._preview_widget = None
         self._status_widget = None
@@ -173,10 +175,13 @@ class SettingsScreen(Screen[None]):
         yield Footer()
 
     def _current_select_values(self) -> dict[str, str]:
-        return {
-            id: str(select.value)
-            for id, select in self._select_cache.items()
-        }
+        values: dict[str, str] = {}
+        for id, select in self._select_cache.items():
+            value = str(select.value)
+            if value.startswith("Select."):
+                continue
+            values[id] = value
+        return values
 
     def _enable_select_events(self) -> None:
         self._select_events_ready = True
@@ -269,6 +274,7 @@ class SettingsScreen(Screen[None]):
             unicode_rendering=self._saved_setting_value("unicode-rendering"),
         )
         self.settings_store.save(self.settings)
+        self._pending_select_values = {}
         self._normalize_visual_selects()
         for name, spec in self.config.agents.items():
             selector_id = f"model-{name}"
@@ -504,7 +510,10 @@ class SettingsScreen(Screen[None]):
 
     def _preview_value(self, id: str, fallback: str) -> str:
         if self.is_mounted:
-            return self._value(id)
+            value = self._value(id)
+            if value.startswith("Select."):
+                return self._pending_select_values.get(id, fallback)
+            return value
         return fallback
 
     def _agent_model_values(

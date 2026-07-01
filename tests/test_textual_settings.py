@@ -338,6 +338,60 @@ async def test_settings_apply_button_saves_preferences(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_settings_recompose_preserves_unsaved_central_model(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    store = UISettingsStore(tmp_path / ".trinity")
+    screen = SettingsScreen(store, config)
+    app = SettingsHarness(screen)
+    spec = config.agents["claude"]
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        screen.set_agent_model_choices(
+            {
+                "claude": (
+                    ProviderModelChoice(
+                        provider=spec.provider,
+                        model="opus-live",
+                        label="Opus Live",
+                        source="cli-live",
+                        context_budget=1_000_000,
+                    ),
+                )
+            }
+        )
+        await pilot.pause()
+
+        screen.query_one("#central-provider", Select).value = "claude"
+        await pilot.pause()
+        screen.query_one("#central-model", Select).value = "opus-live"
+        await pilot.pause()
+        assert str(screen.query_one("#settings-status", Static).content) == (
+            SETTINGS_UNSAVED_STATUS
+        )
+
+        screen.refresh(recompose=True)
+        await pilot.pause()
+
+        assert str(screen.query_one("#central-provider", Select).value) == "claude"
+        assert str(screen.query_one("#central-model", Select).value) == "opus-live"
+        preview = str(screen.query_one("#theme-preview", Static).content)
+        assert "- Claude / Opus Live" in preview
+        assert str(screen.query_one("#settings-status", Static).content) == (
+            SETTINGS_UNSAVED_STATUS
+        )
+
+        screen.action_apply()
+        await pilot.pause()
+
+    saved_config = TrinityConfig.load(tmp_path / ".trinity" / "trinity.config")
+    assert saved_config.synthesis_agent == "claude"
+    assert saved_config.synthesis_model == "opus-live"
+
+
+@pytest.mark.asyncio
 async def test_settings_status_uses_korean_apply_label(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
     screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config, lang="ko")

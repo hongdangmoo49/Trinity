@@ -62,7 +62,7 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "binding_new_line": "새 줄",
         "binding_new_session": "새 세션",
         "binding_next_command": "다음 명령",
-        "binding_nexus": "Nexus",
+        "binding_nexus": "넥서스",
         "binding_palette": "팔레트",
         "binding_palette_tooltip": "명령 팔레트 열기",
         "binding_previous_command": "이전 명령",

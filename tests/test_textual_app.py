@@ -196,6 +196,7 @@ from trinity.textual_app.report_export import (
     snapshot_report_markdown,
     unique_report_path,
 )
+from trinity.textual_app.i18n import ui_text
 from trinity.textual_app.screens.execution_matrix import (
     ExecutionPackageRow,
     ExecutionMatrixScreen,
@@ -987,11 +988,16 @@ def test_artifact_presenter_uses_korean_labels() -> None:
 def test_model_settings_presenter_uses_korean_labels() -> None:
     assert model_settings_title(lang="ko") == "모델 설정"
     assert model_settings_unavailable_markdown(lang="ko") == (
-        "모델 설정은 시작 화면과 Nexus에서 사용할 수 있습니다."
+        "모델 설정은 시작 화면과 넥서스에서 사용할 수 있습니다."
     )
     assert model_settings_updated_markdown(lang="ko") == (
         "모델 설정을 업데이트했습니다."
     )
+
+
+def test_textual_nexus_binding_label_is_localized() -> None:
+    assert ui_text("binding_nexus", "en") == "Nexus"
+    assert ui_text("binding_nexus", "ko") == "넥서스"
 
 
 def test_slash_command_notification_title_uses_korean_label() -> None:
@@ -1316,7 +1322,7 @@ def test_ask_presenter_uses_korean_labels() -> None:
 def test_execute_presenter_uses_korean_labels() -> None:
     assert execute_title(lang="ko") == "실행"
     assert execute_finish_planning_action_hint(lang="ko") == (
-        "작업 패키지가 준비되면 Nexus에서 `/execute`를 실행하세요."
+        "작업 패키지가 준비되면 넥서스에서 `/execute`를 실행하세요."
     )
     assert execute_retry_title(lang="ko") == "실행 재시도"
     assert execute_retry_no_packages_markdown(lang="ko") == (
@@ -2280,7 +2286,7 @@ def test_open_model_settings_unavailable_uses_korean_notification(
 
     assert notifications == [
         (
-            "모델 설정은 시작 화면과 Nexus에서 사용할 수 있습니다.",
+            "모델 설정은 시작 화면과 넥서스에서 사용할 수 있습니다.",
             "모델 설정",
             "warning",
         )
@@ -6268,7 +6274,7 @@ async def test_nexus_execute_error_uses_korean_labels(tmp_path) -> None:
         assert result.title == "실행"
         assert result.body == "준비된 설계안이 없습니다. 실행 전에 계획을 완료하세요."
         assert result.action_hint == (
-            "작업 패키지가 준비되면 Nexus에서 `/execute`를 실행하세요."
+            "작업 패키지가 준비되면 넥서스에서 `/execute`를 실행하세요."
         )
         assert result.severity == "warning"
         assert result.empty is True

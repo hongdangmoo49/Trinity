@@ -2360,6 +2360,9 @@ class TrinityTextualApp(App[None]):
     def _handle_textual_workspace_command(self) -> None:
         self._open_workspace_command()
 
+    def _handle_textual_settings_command(self) -> None:
+        self.action_go_settings()
+
     def _handle_textual_project_command(
         self,
         command_name: str,

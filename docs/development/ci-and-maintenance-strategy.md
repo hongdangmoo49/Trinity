@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1061`
-- Merged PR range reviewed: #90 through #1222
+- Package version inspected: `1.0.1062`
+- Merged PR range reviewed: #90 through #1223
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1222
-- Latest refresh reviewed: #1222
+- Maintenance refresh reviewed: #427 through #1223
+- Latest refresh reviewed: #1223
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1222: Prompt-Led Workbench Simplification
+### #977-#1223: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2216,6 +2216,8 @@ and what the next release train should optimize.
   Apply in Settings for UI or model defaults.
 - Refreshed stale Nexus provider snapshots after Settings model-default Apply
   so provider panels show the newly configured model.
+- Added `/settings` as a local Textual slash command so users can open
+  Workbench Settings from the prompt flow.
 - Added Nexus slash command palette resize regression coverage for
   low-to-standard terminal transitions.
 - Added Start slash command palette resize regression coverage for

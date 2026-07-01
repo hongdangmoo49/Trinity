@@ -12376,7 +12376,7 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
 
 
 @pytest.mark.asyncio
-async def test_settings_visual_preferences_reach_settings_and_nexus_surfaces(
+async def test_settings_visual_preferences_reach_workbench_surfaces(
     tmp_path,
 ) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
@@ -12406,6 +12406,24 @@ async def test_settings_visual_preferences_reach_settings_and_nexus_surfaces(
         assert app.has_class("ui-density-compact")
         assert nexus.query_one("#provider-strip").is_mounted
         assert nexus.query_one("#nexus-composer", PromptComposer).is_mounted
+
+        app.switch_to("execution")
+        await pilot.pause()
+        execution = app.screen
+        assert isinstance(execution, ExecutionMatrixScreen)
+        assert execution.query_one("#execution-screen").styles.padding.top == 0
+        assert execution.query_one("#execution-summary").styles.margin.top == 0
+        assert execution.query_one("#execution-package-list").styles.height.value == 12
+        assert execution.query_one("#execution-log").styles.height.value == 8
+
+        app.switch_to("report")
+        await pilot.pause()
+        report = app.screen
+        assert isinstance(report, ReportScreen)
+        assert report.query_one("#report-screen").styles.padding.top == 0
+        assert report.query_one("#report-header").styles.height.value == 3
+        assert report.query_one("#report-header").styles.margin.bottom == 0
+        assert report.query_one("#report-body").styles.padding.top == 0
 
 
 @pytest.mark.asyncio

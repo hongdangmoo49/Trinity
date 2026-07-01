@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1090`
-- Merged PR range reviewed: #90 through #1251
+- Package version inspected: `1.0.1091`
+- Merged PR range reviewed: #90 through #1252
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1251
-- Latest refresh reviewed: #1251
+- Maintenance refresh reviewed: #427 through #1252
+- Latest refresh reviewed: #1252
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2260,6 +2260,8 @@ and what the next release train should optimize.
   returning to the Settings screen before Save & Apply.
 - Preserved Settings preview values during recompose by ignoring Textual
   `Select.NULL` sentinels and falling back to pending unsaved selections.
+- Returned Settings status to saved when users revert all selections to saved
+  values, including restoring the saved central model when provider is reverted.
 - Updated the README interactive command tables to include `/project`,
   `/providers`, `/workspace`, and `/settings`.
 - Added README slash command drift coverage so the Korean and English quick

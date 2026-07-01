@@ -196,20 +196,26 @@ class SettingsScreen(Screen[None]):
             return
         if event.select.id != "central-provider":
             self._set_preview_text(self.preview_text())
-            self._set_status_text(self._label("unsaved_changes"))
+            self._sync_saved_status()
             return
         event.stop()
         central_provider = str(event.value)
         if central_provider == self._central_provider_value:
             return
         self._central_provider_value = central_provider
+        saved_provider = self.config.synthesis_agent or "auto"
+        central_model = (
+            self.config.synthesis_model or "agent-default"
+            if central_provider == saved_provider
+            else "agent-default"
+        )
         self._refresh_select_options(
             "central-model",
-            self._central_model_values("agent-default", central_provider),
-            current="agent-default",
+            self._central_model_values(central_model, central_provider),
+            current=central_model,
         )
         self._set_preview_text(self.preview_text())
-        self._set_status_text(self._label("unsaved_changes"))
+        self._sync_saved_status()
 
     def set_agent_model_choices(
         self,
@@ -330,6 +336,14 @@ class SettingsScreen(Screen[None]):
             return
         self._status_static().update(text)
         self._status_key = text
+
+    def _sync_saved_status(self) -> None:
+        status = (
+            self._label("unsaved_changes")
+            if self._has_unsaved_changes()
+            else self._label("saved")
+        )
+        self._set_status_text(status)
 
     def _select(
         self,
@@ -515,6 +529,31 @@ class SettingsScreen(Screen[None]):
                 return self._pending_select_values.get(id, fallback)
             return value
         return fallback
+
+    def _saved_select_values(self) -> dict[str, str]:
+        values = {
+            "theme-mode": self.settings.theme_mode,
+            "color-profile": self.settings.color_profile,
+            "density": self.settings.density,
+            "motion": self.settings.motion,
+            "unicode-rendering": self.settings.unicode_rendering,
+            "central-provider": self.config.synthesis_agent or "auto",
+            "central-model": self.config.synthesis_model or "agent-default",
+        }
+        values.update(
+            {
+                f"model-{name}": spec.model or "default"
+                for name, spec in self.config.agents.items()
+            }
+        )
+        return values
+
+    def _has_unsaved_changes(self) -> bool:
+        saved_values = self._saved_select_values()
+        for id, saved in saved_values.items():
+            if self._preview_value(id, saved) != saved:
+                return True
+        return False
 
     def _agent_model_values(
         self,

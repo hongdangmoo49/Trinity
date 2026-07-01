@@ -210,6 +210,10 @@ agent 이름과 `on` 또는 `off`를 받아 현재 세션의 `config.agents[name
 인자가 없으면 agent 목록 table을 보여주고, 변경 결과도 중앙 로그에 남긴다.
 config 파일 미저장 안내는 항상 함께 표시된다.
 
+모델 선택도 같은 원칙을 따른다. `/model`은 Start/Nexus의 다음 요청에 적용할
+세션 override이고, 저장된 agent/central 모델 기본값은 Settings 화면에서
+`Save & Apply`로 관리한다.
+
 ### `/history`
 
 Plain TUI에서는 현재 `TrinityTUI.history`에 있는 deliberation history를 표로 출력한다.

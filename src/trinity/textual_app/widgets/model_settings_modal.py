@@ -265,6 +265,16 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         choices: tuple[ProviderModelChoice, ...],
     ) -> tuple[ProviderModelChoice, ...]:
         selected = str(self.selected_models.get(name, "default")).strip() or "default"
+        if selected == "default":
+            existing = next(
+                (choice for choice in choices if choice.model == "default"),
+                None,
+            )
+            if existing is not None:
+                return (
+                    existing,
+                    *(choice for choice in choices if choice.model != "default"),
+                )
         if selected in {choice.model for choice in choices}:
             return choices
         spec = self.agents[name]

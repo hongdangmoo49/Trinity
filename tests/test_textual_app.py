@@ -6397,6 +6397,36 @@ async def test_agent_command_syncs_open_settings_agent_rows(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_agent_command_preserves_open_settings_unsaved_status(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
+    app._refresh_provider_models = lambda *, use_cache: None  # type: ignore[method-assign]
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+        status = screen.query_one("#settings-status", Static)
+
+        screen.query_one("#density").value = "compact"
+        await pilot.pause()
+        assert str(status.content) == "Unsaved changes · press Save & Apply to save"
+
+        app._handle_textual_slash_command("/agent codex on")
+        await pilot.pause()
+
+        assert screen.query_one("#density", Select).value == "compact"
+        assert str(status.content) == "Unsaved changes · press Save & Apply to save"
+
+        app._handle_textual_slash_command("/agent codex off")
+        await pilot.pause()
+
+        assert screen.query_one("#density", Select).value == "compact"
+        assert str(status.content) == "Unsaved changes · press Save & Apply to save"
+
+
+@pytest.mark.asyncio
 async def test_nexus_agent_errors_use_korean_labels(tmp_path) -> None:
     controller = FakeWorkflowController()
     app = TrinityTextualApp(

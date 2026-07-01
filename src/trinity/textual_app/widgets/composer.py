@@ -17,7 +17,7 @@ from trinity.textual_app.i18n import (
 )
 
 
-COMMAND_LIMIT = 6
+COMMAND_LIMIT = 4
 PASTE_SUMMARY_THRESHOLD = 1_000
 
 _PASTE_PLACEHOLDERS = {

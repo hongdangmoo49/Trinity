@@ -30,7 +30,7 @@ class SacredGeometryAnimation(Static):
     def __init__(self) -> None:
         super().__init__("", id="start-geometry")
         self._angle = 0.0
-        self._animator = SacredGeometryAnimator(width=56, height=6, mode="ascii")
+        self._animator = SacredGeometryAnimator(width=56, height=14, mode="ascii")
 
     def on_mount(self) -> None:
         self._render_frame()
@@ -124,16 +124,16 @@ class StartScreen(Screen[None]):
                 self._recipient_selector = selector
                 yield selector
                 with Horizontal(id="start-actions"):
-                    yield Button(
-                        self.label_text("select_workspace"),
-                        id="start-select-workspace",
-                    )
                     workspace_label = Static(
                         self._workspace_label(),
                         id="workspace-candidate",
                     )
                     self._workspace_label_widget = workspace_label
                     yield workspace_label
+                    yield Button(
+                        self.label_text("select_workspace"),
+                        id="start-select-workspace",
+                    )
         yield Footer()
 
     def on_mount(self) -> None:

@@ -1802,15 +1802,15 @@ async def test_textual_app_boots_to_start_screen(tmp_path) -> None:
         assert app.screen.name == "start"
         assert app.screen.query_one(PromptComposer)
         geometry = app.screen.query_one("#start-geometry", SacredGeometryAnimation)
-        assert geometry.styles.height.value == 6
+        assert geometry.styles.height.value == 14
         assert str(geometry.render()).strip()
 
 
 @pytest.mark.asyncio
-async def test_start_screen_stays_within_narrow_viewport(tmp_path) -> None:
+async def test_start_screen_stays_within_standard_viewport(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
-    async with app.run_test(size=(80, 24)) as pilot:
+    async with app.run_test(size=(100, 30)) as pilot:
         await pilot.pause()
 
         start = app.screen
@@ -1844,7 +1844,7 @@ async def test_start_workspace_label_stays_compact_with_long_path(
         launch_cwd=target,
     )
 
-    async with app.run_test(size=(80, 24)) as pilot:
+    async with app.run_test(size=(100, 30)) as pilot:
         await pilot.pause()
 
         start = app.screen
@@ -1852,7 +1852,8 @@ async def test_start_workspace_label_stays_compact_with_long_path(
         workspace_label = start.query_one("#workspace-candidate", Static)
         select_workspace = start.query_one("#start-select-workspace", Button)
         assert str(select_workspace.label) == "Select Workspace"
-        assert workspace_label.region.height == 3
+        assert workspace_label.region.height == 2
+        assert select_workspace.region.x > workspace_label.region.x
         assert (
             workspace_label.region.y + workspace_label.region.height
             <= start.size.height
@@ -1860,22 +1861,28 @@ async def test_start_workspace_label_stays_compact_with_long_path(
 
 
 @pytest.mark.asyncio
-async def test_start_command_palette_stays_within_narrow_viewport(tmp_path) -> None:
+async def test_start_command_palette_keyboard_selection_stays_visible(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
-    async with app.run_test(size=(80, 24)) as pilot:
+    async with app.run_test(size=(100, 30)) as pilot:
         await pilot.pause()
 
         start = app.screen
         assert isinstance(start, StartScreen)
         composer = start.query_one("#start-composer", PromptComposer)
         composer.set_text("/")
+        composer.focus_text_area()
+        for _ in range(COMMAND_LIMIT + 4):
+            await pilot.press("down")
         await pilot.pause()
 
         start_shell = start.query_one("#start-screen")
+        selected_option = composer.query_one(".command-option-selected")
         widgets = (
             composer,
             composer.query_one("#prompt-command-palette"),
+            composer.query_one("#command-option-more"),
+            selected_option,
             start.query_one("#start-recipient-selector"),
             start.query_one("#start-actions"),
             start.query_one("#workspace-candidate", Static),

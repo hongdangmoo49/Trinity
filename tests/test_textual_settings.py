@@ -6,7 +6,7 @@ from textual.widgets import Select, Static
 
 from trinity.config import TrinityConfig
 from trinity.textual_app.screens.settings import SettingsScreen
-from trinity.textual_app.settings import UISettings, UISettingsStore
+from trinity.textual_app.settings import UISettings, UISettingsStore, textual_theme_for_mode
 
 SETTINGS_APPLIED_STATUS = "Saved · applied to UI and Start/Nexus model selectors"
 
@@ -56,6 +56,8 @@ def test_settings_preview_includes_agent_profile_summary(tmp_path) -> None:
 
     preview = screen.preview_text()
 
+    assert "Theme mode: auto (dark fallback)" in preview
+    assert textual_theme_for_mode("system") == "textual-dark"
     assert "architect" in preview
     assert "implementer" in preview
     assert "architecture 0.95" in preview

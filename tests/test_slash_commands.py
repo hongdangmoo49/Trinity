@@ -54,6 +54,16 @@ def test_parse_slash_command_registers_workspace_command() -> None:
     assert parsed.spec.summary == "browse for a target workspace"
 
 
+def test_parse_slash_command_registers_settings_command() -> None:
+    parsed = parse_slash_command("/settings")
+
+    assert parsed is not None
+    assert parsed.command_id == "settings"
+    assert parsed.spec is not None
+    assert parsed.spec.summary == "open workbench settings"
+    assert parsed.spec.summary_ko == "워크벤치 설정 열기"
+
+
 def test_parse_slash_command_registers_target_command() -> None:
     parsed = parse_slash_command("/target")
 

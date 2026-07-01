@@ -162,6 +162,23 @@ async def test_settings_select_change_marks_unsaved(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_settings_status_uses_korean_apply_label(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config, lang="ko")
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        status = screen.query_one("#settings-status", Static)
+
+        screen.action_apply()
+        await pilot.pause()
+
+        assert str(status.content) == "저장됨 · 화면과 시작/넥서스 모델 선택에 적용됨"
+        assert "Start/Nexus" not in str(status.content)
+
+
+@pytest.mark.asyncio
 async def test_settings_preview_updates_before_apply(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)

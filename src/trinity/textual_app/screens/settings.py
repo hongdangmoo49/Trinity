@@ -559,7 +559,7 @@ class SettingsScreen(Screen[None]):
             "auto": "자동",
             "apply": "적용",
             "saved": "저장됨",
-            "saved_applied": "저장됨 · UI와 Start/Nexus 모델 선택에 적용됨",
+            "saved_applied": "저장됨 · 화면과 시작/넥서스 모델 선택에 적용됨",
             "unsaved_changes": "미저장 변경 · 적용을 눌러 저장",
             "preview": "미리보기",
             "profile": "프로필",

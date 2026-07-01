@@ -9,7 +9,7 @@ from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.settings import UISettings, UISettingsStore, textual_theme_for_mode
 
-SETTINGS_APPLIED_STATUS = "Saved · applied to UI and Start/Nexus model selectors"
+SETTINGS_APPLIED_STATUS = "Saved · applied to UI and model defaults"
 SETTINGS_UNSAVED_STATUS = "Unsaved changes · press Apply to save"
 
 
@@ -260,8 +260,9 @@ async def test_settings_status_uses_korean_apply_label(tmp_path) -> None:
         screen.action_apply()
         await pilot.pause()
 
-        assert str(status.content) == "저장됨 · 화면과 시작/넥서스 모델 선택에 적용됨"
+        assert str(status.content) == "저장됨 · 화면과 모델 기본값에 적용됨"
         assert "Start/Nexus" not in str(status.content)
+        assert "시작/넥서스" not in str(status.content)
 
 
 @pytest.mark.asyncio

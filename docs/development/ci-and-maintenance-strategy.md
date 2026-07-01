@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1068`
-- Merged PR range reviewed: #90 through #1229
+- Package version inspected: `1.0.1069`
+- Merged PR range reviewed: #90 through #1230
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1229
-- Latest refresh reviewed: #1229
+- Maintenance refresh reviewed: #427 through #1230
+- Latest refresh reviewed: #1230
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1229: Prompt-Led Workbench Simplification
+### #977-#1230: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2248,6 +2248,8 @@ and what the next release train should optimize.
   rendering values.
 - Clarified Settings Apply status to show UI preferences and Start/Nexus model
   selectors were applied.
+- Clarified Settings Apply status again so it describes applied UI preferences
+  and saved model defaults instead of naming only Start/Nexus selectors.
 - Synced Settings model selects with provider-discovered model choices.
 - Preserved provider model display labels, source labels, and context budgets
   in Settings model selects.

@@ -224,6 +224,13 @@ class SettingsScreen(Screen[None]):
                 ),
                 f"{self._label('density')}: {self._display_value(self.settings.density)}",
                 (
+                    f"{self._label('color_profile')}: "
+                    f"{self._display_value(self.settings.color_profile)} · "
+                    f"{self._label('motion')}: {self._display_value(self.settings.motion)} · "
+                    f"{self._label('unicode')}: "
+                    f"{self._display_value(self.settings.unicode_rendering)}"
+                ),
+                (
                     f"{self._label('central')}: {self._display_value(central_provider)} / "
                     f"{self._display_value(central_model)}"
                 ),

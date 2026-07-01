@@ -12329,9 +12329,11 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
         screen.query_one("#color-profile").value = "ascii-safe"
         screen.action_apply()
         await pilot.pause()
+        preview = str(screen.query_one("#theme-preview", Static).content)
 
         assert app.has_class("ui-color-profile-ascii-safe")
         assert not app.has_class("ui-color-profile-256color")
+        assert "Color profile: ascii-safe · Motion: normal · Unicode: Auto" in preview
 
         screen.query_one("#color-profile").value = "auto"
         screen.action_apply()
@@ -12411,12 +12413,16 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
         assert screen.label_text("central_provider") == "중앙 프로바이더"
         assert "테마 모드: 시스템" in preview
         assert "밀도: 여유" in preview
+        assert "색상 프로필: 자동 · 애니메이션: 기본 · 유니코드: 자동" in preview
         assert "중앙: 자동 / 강력" in preview
         assert "Claude: 기본값" in preview
         assert "Claude: 기본값 · 설계자 · 아키텍처 0.95" in preview
         assert "출력 형식 실행:실행 v1 리뷰:리뷰 v1" in preview
         assert "Mode:" not in preview
         assert "Density:" not in preview
+        assert "Color profile:" not in preview
+        assert "Motion:" not in preview
+        assert "Unicode:" not in preview
         assert "Central:" not in preview
         assert "architecture 0.95" not in preview
         assert "테마 모드: system" not in preview

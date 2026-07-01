@@ -12518,6 +12518,36 @@ def test_textual_app_applies_saved_theme_on_startup(tmp_path) -> None:
     assert app.theme == "textual-light"
 
 
+@pytest.mark.asyncio
+async def test_settings_screen_loads_saved_ui_preferences(tmp_path) -> None:
+    UISettingsStore(tmp_path / ".trinity").save(
+        UISettings(
+            theme_mode="light",
+            color_profile="truecolor",
+            density="compact",
+            motion="reduced",
+            unicode_rendering="unicode",
+        )
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        assert screen.query_one("#theme-mode", Select).value == "light"
+        assert screen.query_one("#color-profile", Select).value == "truecolor"
+        assert screen.query_one("#density", Select).value == "compact"
+        assert screen.query_one("#motion", Select).value == "reduced"
+        assert screen.query_one("#unicode-rendering", Select).value == "unicode"
+        preview = str(screen.query_one("#theme-preview", Static).content)
+        assert "- Theme mode: light" in preview
+        assert "- Color compatibility: truecolor" in preview
+        assert "- Density: compact" in preview
+
+
 def test_textual_app_discovers_models_for_enabled_agents_only(
     tmp_path,
     monkeypatch,

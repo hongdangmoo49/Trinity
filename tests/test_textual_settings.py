@@ -90,7 +90,10 @@ def test_settings_preview_includes_agent_profile_summary(tmp_path) -> None:
 
     preview = screen.preview_text()
 
-    assert "Theme mode: dark" in preview
+    assert "UI preferences" in preview
+    assert "- Theme mode: dark" in preview
+    assert "Agent model defaults" in preview
+    assert "- Claude: default" in preview
     assert textual_theme_for_mode("system") == "textual-dark"
     assert "architect" in preview
     assert "implementer" in preview
@@ -217,9 +220,9 @@ async def test_settings_preview_updates_before_apply(tmp_path) -> None:
         await pilot.pause()
 
         text = str(preview.content)
-        assert "Theme mode: light" in text
-        assert "Density: compact" in text
-        assert "Central: Codex / Agent default" in text
+        assert "- Theme mode: light" in text
+        assert "- Density: compact" in text
+        assert "Central agent default model\n- Codex / Agent default" in text
 
     assert UISettingsStore(tmp_path / ".trinity").load() == UISettings()
     assert config.synthesis_agent == ""

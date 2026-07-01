@@ -1980,6 +1980,60 @@ async def test_start_command_palette_keyboard_selection_stays_visible(
         assert more.region.y < palette_bottom_border
 
 
+@pytest.mark.asyncio
+async def test_start_command_palette_stays_visible_after_terminal_resize(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        composer = start.query_one("#start-composer", PromptComposer)
+        composer.set_text("/")
+        composer.focus_text_area()
+        for _ in range(COMMAND_LIMIT + 4):
+            await pilot.press("down")
+        await pilot.pause()
+
+        for size, geometry_visible in (((60, 20), False), ((120, 36), True)):
+            await pilot.resize_terminal(*size)
+            await pilot.pause()
+            start_shell = start.query_one("#start-screen")
+            geometry = start.query_one("#start-geometry", Static)
+            selected_option = composer.query_one(".command-option-selected")
+            palette = composer.query_one("#prompt-command-palette")
+            more = composer.query_one("#command-option-more")
+            assert geometry.display is geometry_visible
+            widgets = (
+                composer,
+                palette,
+                selected_option,
+                more,
+                start.query_one("#start-recipient-selector"),
+                start.query_one("#start-actions"),
+                start.query_one("#workspace-candidate", Static),
+            )
+            for widget in widgets:
+                assert widget.region.x >= start_shell.region.x
+                assert (
+                    widget.region.x + widget.region.width
+                    <= start_shell.region.x + start_shell.region.width
+                )
+                assert widget.region.y >= start_shell.region.y
+                assert (
+                    widget.region.y + widget.region.height
+                    <= start_shell.region.y + start_shell.region.height
+                )
+            palette_bottom_border = palette.region.y + palette.region.height - 1
+            composer_bottom_border = composer.region.y + composer.region.height - 1
+            assert palette.region.y + palette.region.height <= composer_bottom_border
+            assert selected_option.region.y < palette_bottom_border
+            assert more.region.y < palette_bottom_border
+
+
 @pytest.mark.parametrize("size", [(60, 20), (80, 20), (120, 20), (120, 36)])
 @pytest.mark.asyncio
 async def test_nexus_command_palette_keyboard_selection_stays_visible(

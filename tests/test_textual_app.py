@@ -12364,6 +12364,20 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
 
 
 @pytest.mark.asyncio
+async def test_settings_preview_uses_auto_height(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+        preview = screen.query_one("#theme-preview", Static)
+
+        assert preview.styles.height.is_auto
+
+
+@pytest.mark.asyncio
 async def test_settings_screen_applies_unicode_rendering_preference(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

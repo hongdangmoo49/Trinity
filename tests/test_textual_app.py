@@ -12555,6 +12555,7 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
         preview = str(screen.query_one("#theme-preview", Static).content)
 
         assert screen.label_text("central_provider") == "중앙 에이전트 프로바이더"
+        assert "현재 선택 요약" in preview
         assert "화면 설정" in preview
         assert "- 테마 모드: 다크" in preview
         assert "- 밀도: 여유" in preview

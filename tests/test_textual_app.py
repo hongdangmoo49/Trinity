@@ -12660,7 +12660,8 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
 async def test_settings_visual_preferences_reach_workbench_surfaces(
     tmp_path,
 ) -> None:
-    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
 
     async with app.run_test(size=(120, 40)) as pilot:
         app.switch_to("settings")
@@ -12690,6 +12691,56 @@ async def test_settings_visual_preferences_reach_workbench_surfaces(
         assert app.has_class("ui-density-compact")
         assert nexus.query_one("#provider-strip").is_mounted
         assert nexus.query_one("#nexus-composer", PromptComposer).is_mounted
+
+        app.push_screen(
+            ProviderInspector(
+                [
+                    ProviderSnapshot(
+                        name="claude",
+                        provider="claude-code",
+                        enabled=True,
+                        status="Ready",
+                    )
+                ]
+            )
+        )
+        await pilot.pause()
+        provider_inspector = app.screen
+        assert provider_inspector.query_one(
+            "#provider-inspector-title",
+            Static,
+        ).styles.color == truecolor
+        assert (
+            provider_inspector.query_one("#provider-inspector").styles.border_top[1]
+            == truecolor
+        )
+        assert (
+            provider_inspector.query_one(
+                ".provider-inspector-output",
+                RichLog,
+            ).styles.border_top[1]
+            == truecolor
+        )
+        app.pop_screen()
+        await pilot.pause()
+
+        app.push_screen(ModelSettingsModal(config.agents, {}, {}))
+        await pilot.pause()
+        model_settings = app.screen
+        assert model_settings.query_one(
+            "#model-settings-title",
+            Static,
+        ).styles.color == truecolor
+        assert (
+            model_settings.query_one("#model-settings-modal").styles.border_top[1]
+            == truecolor
+        )
+        assert (
+            model_settings.query_one("#model-choice-list", OptionList).styles.border_top[1]
+            == truecolor
+        )
+        app.pop_screen()
+        await pilot.pause()
 
         app.switch_to("execution")
         await pilot.pause()

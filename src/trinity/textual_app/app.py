@@ -1387,6 +1387,8 @@ class TrinityTextualApp(App[None]):
     .ui-color-profile-truecolor .recipient-agent-toggle-selected,
     .ui-color-profile-truecolor .command-option-selected,
     .ui-color-profile-truecolor .command-option-first,
+    .ui-color-profile-truecolor #provider-inspector-title,
+    .ui-color-profile-truecolor #model-settings-title,
     .ui-color-profile-truecolor #settings-title {
         color: #5ce1e6;
     }
@@ -1401,6 +1403,10 @@ class TrinityTextualApp(App[None]):
     .ui-color-profile-truecolor #report-body,
     .ui-color-profile-truecolor #work-package-detail-modal,
     .ui-color-profile-truecolor #work-package-detail-body,
+    .ui-color-profile-truecolor #provider-inspector,
+    .ui-color-profile-truecolor .provider-inspector-output,
+    .ui-color-profile-truecolor #model-settings-modal,
+    .ui-color-profile-truecolor #model-choice-list,
     .ui-color-profile-truecolor #theme-preview {
         border: round #5ce1e6;
     }
@@ -1415,6 +1421,8 @@ class TrinityTextualApp(App[None]):
     .ui-color-profile-256color .recipient-agent-toggle-selected,
     .ui-color-profile-256color .command-option-selected,
     .ui-color-profile-256color .command-option-first,
+    .ui-color-profile-256color #provider-inspector-title,
+    .ui-color-profile-256color #model-settings-title,
     .ui-color-profile-256color #settings-title {
         color: cyan;
     }
@@ -1429,6 +1437,10 @@ class TrinityTextualApp(App[None]):
     .ui-color-profile-256color #report-body,
     .ui-color-profile-256color #work-package-detail-modal,
     .ui-color-profile-256color #work-package-detail-body,
+    .ui-color-profile-256color #provider-inspector,
+    .ui-color-profile-256color .provider-inspector-output,
+    .ui-color-profile-256color #model-settings-modal,
+    .ui-color-profile-256color #model-choice-list,
     .ui-color-profile-256color #theme-preview {
         border: round cyan;
     }
@@ -1444,6 +1456,8 @@ class TrinityTextualApp(App[None]):
     .ui-color-profile-ascii-safe .command-option-selected,
     .ui-color-profile-ascii-safe .command-option-first,
     .ui-color-profile-ascii-safe .provider-status,
+    .ui-color-profile-ascii-safe #provider-inspector-title,
+    .ui-color-profile-ascii-safe #model-settings-title,
     .ui-color-profile-ascii-safe #settings-title {
         color: $text;
     }
@@ -1461,6 +1475,10 @@ class TrinityTextualApp(App[None]):
     .ui-color-profile-ascii-safe #report-body,
     .ui-color-profile-ascii-safe #work-package-detail-modal,
     .ui-color-profile-ascii-safe #work-package-detail-body,
+    .ui-color-profile-ascii-safe #provider-inspector,
+    .ui-color-profile-ascii-safe .provider-inspector-output,
+    .ui-color-profile-ascii-safe #model-settings-modal,
+    .ui-color-profile-ascii-safe #model-choice-list,
     .ui-color-profile-ascii-safe #theme-preview {
         border: round white;
     }

@@ -339,7 +339,8 @@ start after you choose `Execute` and approve the workspace preflight.
 - **Execution Matrix** — work package DataTable plus execution log.
 - **Resume/Retry** — restore saved workflows with `/resume` and use the
   `/execute-retry` modal to retry failed, blocked, or interrupted WPs.
-- **Theme Settings** — save theme mode, density, motion, and Unicode rendering preferences.
+- **Workbench Settings** — save theme mode, color compatibility, density,
+  Start-logo motion/glyphs, and agent/central model defaults.
 - **Startup Update Check** — when `trinity` starts, it can ask whether to apply an
   available update; use `--skip-update-check` to bypass this check.
 - **Plain fallback** — use `trinity --plain` or `TRINITY_TUI=plain` for the legacy Rich/prompt_toolkit UI.
@@ -532,7 +533,7 @@ trinity/
 │   ├── screens/            #   Start, Nexus, Execution Matrix, Settings
 │   ├── widgets/            #   composer, provider panels, inspector, workspace picker
 │   ├── snapshot.py         #   read-only workflow/shared.md projection
-│   └── settings.py         #   user UI theme preferences
+│   └── settings.py         #   user UI preferences
 │
 ├── tui/                    # Legacy/plain interactive terminal UI
 │   ├── app.py              #   TrinityTUI — Rich Live rendering engine

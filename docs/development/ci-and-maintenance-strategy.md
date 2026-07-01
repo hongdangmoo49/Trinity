@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1067`
-- Merged PR range reviewed: #90 through #1228
+- Package version inspected: `1.0.1068`
+- Merged PR range reviewed: #90 through #1229
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1228
-- Latest refresh reviewed: #1228
+- Maintenance refresh reviewed: #427 through #1229
+- Latest refresh reviewed: #1229
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1228: Prompt-Led Workbench Simplification
+### #977-#1229: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2242,6 +2242,8 @@ and what the next release train should optimize.
   classes.
 - Extended Settings color compatibility styling to Execution and Report
   surfaces so later workflow screens follow the selected terminal palette.
+- Updated README and workflow guide Settings descriptions so they mention color
+  compatibility, Start-logo preferences, and agent/central model defaults.
 - Added Settings preview coverage for color profile, motion, and unicode
   rendering values.
 - Clarified Settings Apply status to show UI preferences and Start/Nexus model

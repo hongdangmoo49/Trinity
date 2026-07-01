@@ -329,7 +329,8 @@ Trinity는 기본 실행 화면으로 **Textual 기반 Workbench TUI**를 제공
 - **Execution Matrix** — work package DataTable과 execution log를 모니터링 화면으로 표시합니다.
 - **Resume/Retry** — `/resume`으로 이전 workflow를 복원하고 `/execute-retry` modal에서
   실패, 차단, 중단된 WP를 선택해 재시도합니다.
-- **Theme Settings** — 앱 안에서 theme mode, density, motion, Unicode rendering preference를 저장합니다.
+- **Workbench Settings** — 앱 안에서 theme mode, color compatibility, density,
+  시작 로고 motion/Unicode glyph, 에이전트/중앙 모델 기본값을 저장합니다.
 - **Startup Update Check** — `trinity` 실행 시 업데이트가 있으면 적용 여부를 묻고,
   `--skip-update-check`로 건너뛸 수 있습니다.
 - **Plain fallback** — `trinity --plain` 또는 `TRINITY_TUI=plain`으로 기존 Rich/prompt_toolkit TUI를 사용할 수 있습니다.
@@ -520,7 +521,7 @@ trinity/
 │   ├── screens/            #   Start, Nexus, Execution Matrix, Settings
 │   ├── widgets/            #   composer, provider panels, inspector, workspace picker
 │   ├── snapshot.py         #   workflow/shared.md read-only projection
-│   └── settings.py         #   사용자 UI theme preference 저장소
+│   └── settings.py         #   사용자 UI preference 저장소
 │
 ├── tui/                    # legacy/plain 대화형 터미널 UI
 │   ├── app.py              #   TrinityTUI — Rich Live 라이브러리를 활용한 렌더링 엔진

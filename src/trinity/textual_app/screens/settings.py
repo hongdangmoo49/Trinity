@@ -222,9 +222,10 @@ class SettingsScreen(Screen[None]):
             ),
             ("unicode-rendering", ["ascii", "unicode"], self.settings.unicode_rendering),
         )
-        for id, values, current in normalized:
-            if self._value(id) != current:
-                self._refresh_select_options(id, values, current=current)
+        with self.prevent(Select.Changed):
+            for id, values, current in normalized:
+                if self._value(id) != current:
+                    self._refresh_select_options(id, values, current=current)
 
     def _set_preview_text(self, text: str) -> None:
         if text == self._preview_render_key:

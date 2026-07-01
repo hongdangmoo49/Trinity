@@ -16,7 +16,7 @@ from trinity.project_intake import (
 
 PROJECT_CONTEXT_LABELS = {
     "en": {
-        "brief": "brief",
+        "brief": "prompt",
         "brief_complete": "complete",
         "brief_missing": "missing {fields}",
         "confirmed": "confirmed",
@@ -36,7 +36,7 @@ PROJECT_CONTEXT_LABELS = {
         "validation": "validation",
     },
     "ko": {
-        "brief": "브리프",
+        "brief": "프롬프트",
         "brief_complete": "완료",
         "brief_missing": "누락 {fields}",
         "confirmed": "확인됨",

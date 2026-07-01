@@ -86,7 +86,7 @@ def test_project_context_summary_reports_new_project_context(tmp_path: Path) -> 
     assert summary.workspace_context == "recorded"
     assert summary.items == (
         "starter: Textual TUI",
-        "brief: complete",
+        "prompt: complete",
         "validation: uv run pytest",
     )
 

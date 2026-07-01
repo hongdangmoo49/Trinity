@@ -1130,7 +1130,7 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
         "프로젝트 컨텍스트: 기록됨 | 대상: new-app | "
         "갱신: 2026-06-28 | 테스트: (없음)"
     )
-    assert "brief: missing type, users +2" in format_project_intake_label(
+    assert "prompt: missing type, users +2" in format_project_intake_label(
         partial_intake
     )
 
@@ -1159,7 +1159,7 @@ def test_project_intake_state_label_shows_new_project_brief_readiness(
         "프로젝트 컨텍스트: 기록됨 | 대상: new-app | "
         "갱신: 2026-06-28 | 테스트: (없음)"
     )
-    assert "brief: complete" in format_project_intake_label(complete_intake)
+    assert "prompt: complete" in format_project_intake_label(complete_intake)
 
 
 def test_project_intake_state_label_guides_missing_intake(tmp_path: Path) -> None:

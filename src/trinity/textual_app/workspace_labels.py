@@ -50,8 +50,8 @@ PROJECT_INTAKE_LABELS = {
             "Project context: not recorded | next: type the analysis or work request"
         ),
         "build": "build",
-        "brief_complete": "brief: complete",
-        "brief_missing": "brief: missing {fields}",
+        "brief_complete": "prompt: complete",
+        "brief_missing": "prompt: missing {fields}",
         "choose_scope": "choose scope",
         "analysis_missing": "missing",
         "analysis_changed": "analysis: changed {fields}",
@@ -103,8 +103,8 @@ PROJECT_INTAKE_LABELS = {
             "프로젝트 컨텍스트: 기록 없음 | 다음: 분석이나 작업 요청 입력"
         ),
         "build": "빌드",
-        "brief_complete": "브리프: 완료",
-        "brief_missing": "브리프: 누락 {fields}",
+        "brief_complete": "프롬프트: 완료",
+        "brief_missing": "프롬프트: 누락 {fields}",
         "choose_scope": "범위 선택",
         "analysis_missing": "누락",
         "analysis_changed": "분석: 변경됨 {fields}",

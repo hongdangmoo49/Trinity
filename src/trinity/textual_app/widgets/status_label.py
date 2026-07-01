@@ -32,7 +32,7 @@ COMPACT_STATUS_LABELS_BY_LANG = {
     "en": COMPACT_STATUS_LABELS,
     "ko": {
         "done": "완료",
-        "idle": "대기",
+        "idle": "휴식",
         "issue": "문제",
         "running": "실행",
         "unknown": "?",

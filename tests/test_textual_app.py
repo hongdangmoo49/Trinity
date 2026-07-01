@@ -9289,6 +9289,12 @@ async def test_execution_matrix_renders_korean_compact_status_labels(
                     ),
                     WorkPackageSnapshot(
                         id="WP-005",
+                        title="Idle task",
+                        owner_agent="claude",
+                        status="idle",
+                    ),
+                    WorkPackageSnapshot(
+                        id="WP-006",
                         title="Unknown task",
                         owner_agent="codex",
                         status="paused",
@@ -9308,6 +9314,7 @@ async def test_execution_matrix_renders_korean_compact_status_labels(
             "대기",
             "완료",
             "문제",
+            "휴식",
             "?",
         ]
 

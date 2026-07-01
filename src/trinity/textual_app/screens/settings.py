@@ -178,17 +178,19 @@ class SettingsScreen(Screen[None]):
             changed = True
             if self.is_mounted:
                 spec = self.config.agents[name]
-                self._refresh_select_options(
-                    f"model-{name}",
-                    self._agent_model_values(name, spec.provider, spec.model),
-                )
+                with self.prevent(Select.Changed):
+                    self._refresh_select_options(
+                        f"model-{name}",
+                        self._agent_model_values(name, spec.provider, spec.model),
+                    )
         if changed and self.is_mounted:
             central_model = self._value("central-model")
             central_provider = self._value("central-provider")
-            self._refresh_select_options(
-                "central-model",
-                self._central_model_values(central_model, central_provider),
-            )
+            with self.prevent(Select.Changed):
+                self._refresh_select_options(
+                    "central-model",
+                    self._central_model_values(central_model, central_provider),
+                )
             self._set_preview_text(self.preview_text())
 
     def action_apply(self) -> None:

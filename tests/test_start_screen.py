@@ -661,7 +661,7 @@ def test_project_existing_diagnostic_label_summarizes_existing_project(
     )
 
     assert project_existing_diagnostic_label(state, target_workspace=target) == (
-        "Existing diagnosis: read: README.md, src | "
+        "Workspace diagnosis: read: README.md, src | "
         "tests: npm test | dev: npm run dev | build: npm run build | "
         "scope: apps/web | git: none"
     )
@@ -670,7 +670,7 @@ def test_project_existing_diagnostic_label_summarizes_existing_project(
         lang="ko",
         target_workspace=target,
     ) == (
-        "기존 프로젝트 진단: 읽기: README.md, src | "
+        "작업 폴더 진단: 읽기: README.md, src | "
         "테스트: npm test | 개발: npm run dev | 빌드: npm run build | "
         "범위: apps/web | git: 없음"
     )

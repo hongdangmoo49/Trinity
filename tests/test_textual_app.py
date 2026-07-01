@@ -12348,10 +12348,9 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
         assert app.has_class("ui-color-profile-truecolor")
         assert not app.has_class("ui-color-profile-256color")
         assert not app.has_class("ui-color-profile-ascii-safe")
-        assert (
-            "Terminal colors: truecolor · Start logo motion: animated · "
-            "Start logo glyphs: ascii"
-        ) in preview
+        assert "- Terminal colors: truecolor" in preview
+        assert "- Start logo motion: animated" in preview
+        assert "- Start logo glyphs: ascii" in preview
 
         screen.query_one("#color-profile").value = "ascii-safe"
         screen.action_apply()
@@ -12361,10 +12360,9 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
         assert app.has_class("ui-color-profile-ascii-safe")
         assert not app.has_class("ui-color-profile-256color")
         assert not app.has_class("ui-color-profile-truecolor")
-        assert (
-            "Terminal colors: ascii-safe · Start logo motion: animated · "
-            "Start logo glyphs: ascii"
-        ) in preview
+        assert "- Terminal colors: ascii-safe" in preview
+        assert "- Start logo motion: animated" in preview
+        assert "- Start logo glyphs: ascii" in preview
 
         screen.query_one("#color-profile").value = "default"
         screen.action_apply()
@@ -12510,15 +12508,16 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
         preview = str(screen.query_one("#theme-preview", Static).content)
 
         assert screen.label_text("central_provider") == "중앙 에이전트 프로바이더"
-        assert "테마 모드: 다크" in preview
-        assert "밀도: 여유" in preview
-        assert (
-            "터미널 색상: 기본 팔레트 · 시작 로고 애니메이션: 애니메이션 · "
-            "시작 로고 글리프: ASCII"
-        ) in preview
-        assert "중앙: 자동 / 강력" in preview
+        assert "화면 설정" in preview
+        assert "- 테마 모드: 다크" in preview
+        assert "- 밀도: 여유" in preview
+        assert "- 터미널 색상: 기본 팔레트" in preview
+        assert "- 시작 로고 애니메이션: 애니메이션" in preview
+        assert "- 시작 로고 글리프: ASCII" in preview
+        assert "중앙 에이전트 기본 모델\n- 자동 / 강력" in preview
+        assert "에이전트 기본 모델" in preview
         assert "Claude: 기본값" in preview
-        assert "Claude: 기본값 · 설계자 · 아키텍처 0.95" in preview
+        assert "설계자 · 아키텍처 0.95" in preview
         assert "출력 형식 실행:실행 v1 리뷰:리뷰 v1" in preview
         assert "Mode:" not in preview
         assert "Density:" not in preview
@@ -12615,8 +12614,11 @@ async def test_settings_screen_uses_discovered_model_choices(tmp_path) -> None:
         await pilot.pause()
         preview = str(screen.query_one("#theme-preview", Static).content)
 
-        assert "Claude: Opus Live  cli-live  1,000,000 ctx" in preview
-        assert "Central: Claude / Opus Live  cli-live  1,000,000 ctx" in preview
+        assert "- Claude: Opus Live  cli-live  1,000,000 ctx" in preview
+        assert (
+            "Central agent default model\n"
+            "- Claude / Opus Live  cli-live  1,000,000 ctx"
+        ) in preview
 
     assert config.agents["claude"].model == "opus-live"
     assert config.synthesis_agent == "claude"
@@ -12649,15 +12651,18 @@ async def test_settings_preview_refreshes_when_model_choices_arrive(tmp_path) ->
         assert isinstance(screen, SettingsScreen)
 
         preview = str(screen.query_one("#theme-preview", Static).content)
-        assert "Claude: opus-live" in preview
-        assert "Central: Claude / opus-live" in preview
+        assert "- Claude: opus-live" in preview
+        assert "Central agent default model\n- Claude / opus-live" in preview
 
         app._apply_discovered_model_choices({"claude": discovered})
         await pilot.pause()
         preview = str(screen.query_one("#theme-preview", Static).content)
 
-        assert "Claude: Opus Live  cli-live  1,000,000 ctx" in preview
-        assert "Central: Claude / Opus Live  cli-live  1,000,000 ctx" in preview
+        assert "- Claude: Opus Live  cli-live  1,000,000 ctx" in preview
+        assert (
+            "Central agent default model\n"
+            "- Claude / Opus Live  cli-live  1,000,000 ctx"
+        ) in preview
 
 
 @pytest.mark.asyncio
@@ -12756,8 +12761,8 @@ async def test_settings_central_model_label_prefers_selected_provider(tmp_path) 
         preview = str(screen.query_one("#theme-preview", Static).content)
 
         assert central_labels["shared-live"] == "Codex Shared  cli-live"
-        assert "Central: Codex / Codex Shared  cli-live" in preview
-        assert "Central: Codex / Claude Shared" not in preview
+        assert "Central agent default model\n- Codex / Codex Shared  cli-live" in preview
+        assert "Central agent default model\n- Codex / Claude Shared" not in preview
 
 
 @pytest.mark.asyncio

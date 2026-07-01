@@ -322,10 +322,10 @@ class SettingsScreen(Screen[None]):
                 if model_value == "default"
                 else self._agent_model_display_value(name, spec.provider, model_value)
             )
+            model_lines.append(f"- {self._agent_label(name)}: {model}")
             model_lines.append(
                 (
-                    f"{self._agent_label(name)}: {model} · "
-                    f"{display_profile_value(spec.profile.context_profile, lang=self.lang)} · "
+                    f"  {display_profile_value(spec.profile.context_profile, lang=self.lang)} · "
                     f"{self._profile_strength_summary(spec)} · "
                     f"{self._profile_contract_summary(spec)}"
                 )
@@ -361,23 +361,30 @@ class SettingsScreen(Screen[None]):
         return "\n".join(
             [
                 self._label("preview"),
+                self._label("appearance"),
                 (
-                    f"{self._label('theme_mode')}: "
+                    f"- {self._label('theme_mode')}: "
                     f"{self._settings_display_value('theme-mode', theme_mode)}"
                 ),
-                f"{self._label('density')}: {self._display_value(density)}",
+                f"- {self._label('density')}: {self._display_value(density)}",
                 (
-                    f"{self._label('color_profile')}: "
-                    f"{self._settings_display_value('color-profile', color_profile)} · "
-                    f"{self._label('motion')}: "
-                    f"{self._settings_display_value('motion', motion)} · "
-                    f"{self._label('unicode')}: "
+                    f"- {self._label('color_profile')}: "
+                    f"{self._settings_display_value('color-profile', color_profile)}"
+                ),
+                (
+                    f"- {self._label('motion')}: "
+                    f"{self._settings_display_value('motion', motion)}"
+                ),
+                (
+                    f"- {self._label('unicode')}: "
                     f"{self._settings_display_value('unicode-rendering', unicode_rendering)}"
                 ),
+                self._label("central_agent"),
                 (
-                    f"{self._label('central')}: {central_provider_label} / "
+                    f"- {central_provider_label} / "
                     f"{central_model_label}"
                 ),
+                self._label("agent_models"),
                 *model_lines,
             ]
         )

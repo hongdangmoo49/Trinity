@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from textual import events
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.message import Message
@@ -137,6 +138,7 @@ class StartScreen(Screen[None]):
         yield Footer()
 
     def on_mount(self) -> None:
+        self._sync_compact_mode()
         self._apply_model_choices()
         self._prompt_composer().focus_text_area()
 
@@ -168,6 +170,9 @@ class StartScreen(Screen[None]):
     def on_prompt_composer_submitted(self, event: PromptComposer.Submitted) -> None:
         event.stop()
         self._submit(event.text)
+
+    def on_resize(self, event: events.Resize) -> None:
+        self._sync_compact_mode()
 
     def on_agent_recipient_model_selector_selection_changed(
         self,
@@ -233,6 +238,14 @@ class StartScreen(Screen[None]):
         if self._composer is None:
             self._composer = self.query_one("#start-composer", PromptComposer)
         return self._composer
+
+    def _sync_compact_mode(self) -> None:
+        if not self.is_mounted:
+            return
+        self.query_one("#start-screen").set_class(
+            self.size.height <= 32,
+            "start-compact",
+        )
 
     def _agent_selector(self) -> AgentRecipientModelSelector:
         if self._recipient_selector is None:

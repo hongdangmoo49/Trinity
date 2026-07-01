@@ -12534,6 +12534,43 @@ async def test_settings_screen_uses_discovered_model_choices(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_settings_preview_refreshes_when_model_choices_arrive(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["claude"].model = "opus-live"
+    config.synthesis_agent = "claude"
+    config.synthesis_model = "opus-live"
+    app = TrinityTextualApp(config)
+    app._model_discovery_started = True
+    spec = config.agents["claude"]
+    discovered = (
+        ProviderModelChoice(
+            provider=spec.provider,
+            model="opus-live",
+            label="Opus Live",
+            source="cli-live",
+            context_budget=1_000_000,
+        ),
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        preview = str(screen.query_one("#theme-preview", Static).content)
+        assert "Claude: opus-live" in preview
+        assert "Central: claude / opus-live" in preview
+
+        app._apply_discovered_model_choices({"claude": discovered})
+        await pilot.pause()
+        preview = str(screen.query_one("#theme-preview", Static).content)
+
+        assert "Claude: Opus Live  cli-live  1,000,000 ctx" in preview
+        assert "Central: claude / Opus Live  cli-live  1,000,000 ctx" in preview
+
+
+@pytest.mark.asyncio
 async def test_settings_screen_syncs_mounted_agent_model_selectors(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     app = TrinityTextualApp(config)

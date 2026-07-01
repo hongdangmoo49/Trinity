@@ -121,6 +121,7 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
                                 if name == self.active_agent
                                 else "default"
                             ),
+                            disabled=not spec.enabled,
                         )
                 with Vertical(id="model-choice-panel"):
                     yield Static(

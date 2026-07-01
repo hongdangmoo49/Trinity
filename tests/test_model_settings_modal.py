@@ -121,6 +121,7 @@ async def test_model_settings_modal_refresh_preserves_selected_model(tmp_path) -
 @pytest.mark.asyncio
 async def test_model_settings_modal_keeps_missing_default_first(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
     spec = config.agents["codex"]
     live_choice = ProviderModelChoice(
         provider=spec.provider,
@@ -151,6 +152,7 @@ async def test_model_settings_modal_keeps_missing_default_first(tmp_path) -> Non
 @pytest.mark.asyncio
 async def test_model_settings_modal_moves_existing_default_first(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
     spec = config.agents["codex"]
     default_choice = ProviderModelChoice(
         provider=spec.provider,
@@ -213,12 +215,20 @@ async def test_model_settings_modal_starts_on_first_enabled_agent(tmp_path) -> N
         assert modal.active_agent == "codex"
         assert "Codex" in str(choice_header.content)
         assert str(modal.query_one("#model-agent-codex", Button).label).startswith("> ")
-        assert "off" in str(modal.query_one("#model-agent-claude", Button).label)
+        claude_button = modal.query_one("#model-agent-claude", Button)
+        assert "off" in str(claude_button.label)
+        assert claude_button.disabled is True
+
+        claude_button.press()
+        await pilot.pause()
+
+        assert modal.active_agent == "codex"
 
 
 @pytest.mark.asyncio
 async def test_model_settings_modal_skips_active_agent_reselect_refresh(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
     choices = {
         name: (
             ProviderModelChoice(
@@ -366,6 +376,7 @@ async def test_model_settings_modal_rebinds_choice_list_cache_after_refresh(
     tmp_path,
 ) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
     choices = {
         name: (
             ProviderModelChoice(

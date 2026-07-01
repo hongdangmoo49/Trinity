@@ -1037,6 +1037,10 @@ class TrinityTextualApp(App[None]):
         padding: 1;
     }
 
+    .ui-density-compact #execution-screen {
+        padding: 0;
+    }
+
     #execution-header-row {
         height: 1;
     }
@@ -1059,11 +1063,20 @@ class TrinityTextualApp(App[None]):
         color: $text-muted;
     }
 
+    .ui-density-compact #execution-summary {
+        margin-top: 0;
+    }
+
     #execution-package-list {
         height: 13;
         margin-top: 1;
         border: round $primary;
         padding: 0 1;
+    }
+
+    .ui-density-compact #execution-package-list {
+        height: 12;
+        margin-top: 0;
     }
 
     .execution-task-expanded #execution-package-list {
@@ -1151,6 +1164,11 @@ class TrinityTextualApp(App[None]):
         border: round $primary;
         margin-top: 1;
         padding: 0 1;
+    }
+
+    .ui-density-compact #execution-log {
+        height: 8;
+        margin-top: 0;
     }
 
     .execution-task-expanded #execution-log {
@@ -1268,9 +1286,18 @@ class TrinityTextualApp(App[None]):
         padding: 1 2;
     }
 
+    .ui-density-compact #report-screen {
+        padding: 0 1;
+    }
+
     #report-header {
         height: 4;
         margin-bottom: 1;
+    }
+
+    .ui-density-compact #report-header {
+        height: 3;
+        margin-bottom: 0;
     }
 
     #report-title {
@@ -1282,6 +1309,10 @@ class TrinityTextualApp(App[None]):
         margin-top: 1;
     }
 
+    .ui-density-compact #report-export-btn {
+        margin-top: 0;
+    }
+
     #report-export-status {
         color: $text-muted;
     }
@@ -1290,6 +1321,10 @@ class TrinityTextualApp(App[None]):
         height: 1fr;
         border: round $primary;
         padding: 1 2;
+    }
+
+    .ui-density-compact #report-body {
+        padding: 0 1;
     }
 
     #nexus-composer {

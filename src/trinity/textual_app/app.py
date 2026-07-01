@@ -949,14 +949,13 @@ class TrinityTextualApp(App[None]):
 
     #theme-preview {
         width: 72;
-        height: 10;
+        height: auto;
         border: round $accent;
         margin-top: 1;
         padding: 1 2;
     }
 
     .ui-density-compact #theme-preview {
-        height: 8;
         margin-top: 0;
         padding: 0 1;
     }

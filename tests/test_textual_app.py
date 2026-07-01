@@ -1909,6 +1909,39 @@ async def test_start_command_palette_keyboard_selection_stays_visible(tmp_path) 
 
 
 @pytest.mark.asyncio
+async def test_nexus_command_palette_keyboard_selection_stays_visible(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/")
+        composer.focus_text_area()
+        for _ in range(COMMAND_LIMIT + 4):
+            await pilot.press("down")
+        await pilot.pause()
+
+        selected_option = composer.query_one(".command-option-selected")
+        palette = composer.query_one("#prompt-command-palette")
+        more = composer.query_one("#command-option-more")
+        widgets = (composer, palette, more, selected_option)
+        for widget in widgets:
+            assert widget.region.x >= 0
+            assert widget.region.x + widget.region.width <= screen.size.width
+            assert widget.region.y >= 0
+            assert widget.region.y + widget.region.height <= screen.size.height
+        palette_bottom_border = palette.region.y + palette.region.height - 1
+        composer_bottom_border = composer.region.y + composer.region.height - 1
+        assert palette.region.y + palette.region.height <= composer_bottom_border
+        assert selected_option.region.y < palette_bottom_border
+        assert more.region.y < palette_bottom_border
+
+
+@pytest.mark.asyncio
 async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     config.agents["codex"].enabled = True

@@ -389,8 +389,9 @@ class TestSessionHandleCommand:
             session._handle_command("/settings")
 
         print_.assert_called_once_with(
-            "[yellow]/settings opens the Textual Workbench settings screen. "
-            "Run `trinity --textual` or use Ctrl+, in the workbench.[/yellow]"
+            "[yellow]/settings opens in the default Textual Workbench. "
+            "Run `trinity` without `--plain` or `TRINITY_TUI=plain`, "
+            "then use /settings or Ctrl+comma.[/yellow]"
         )
 
     def test_workflow_command(self, session):

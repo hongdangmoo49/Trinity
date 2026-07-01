@@ -346,8 +346,9 @@ class InteractiveSession:
     def _cmd_settings(self) -> None:
         """Explain how to open persistent UI settings."""
         self.console.print(
-            "[yellow]/settings opens the Textual Workbench settings screen. "
-            "Run `trinity --textual` or use Ctrl+, in the workbench.[/yellow]"
+            "[yellow]/settings opens in the default Textual Workbench. "
+            "Run `trinity` without `--plain` or `TRINITY_TUI=plain`, "
+            "then use /settings or Ctrl+comma.[/yellow]"
         )
 
     def _cmd_context(self) -> None:

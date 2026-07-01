@@ -114,6 +114,7 @@ def test_build_preflight_counts_changed_git_entries(tmp_path) -> None:
     assert preflight.changed_count == 1
     assert preflight.untracked_count == 0
     assert "Dirty worktree: 1 changed, 0 untracked" in preflight.render()
+    assert "변경사항: 변경 1개, 미추적 0개" in preflight.render(lang="ko")
 
 
 def test_build_preflight_counts_untracked_git_entries(tmp_path) -> None:
@@ -126,6 +127,7 @@ def test_build_preflight_counts_untracked_git_entries(tmp_path) -> None:
     assert preflight.untracked_count == 1
     assert preflight.requires_execute_ack is True
     assert "Dirty worktree: 0 changed, 1 untracked" in preflight.render()
+    assert "변경사항: 변경 0개, 미추적 1개" in preflight.render(lang="ko")
     assert "Execute acknowledgement: required" in preflight.render()
     assert "실행 확인: 필요" in preflight.render(lang="ko")
 

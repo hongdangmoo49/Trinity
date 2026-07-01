@@ -90,6 +90,7 @@ def test_settings_preview_includes_agent_profile_summary(tmp_path) -> None:
 
     preview = screen.preview_text()
 
+    assert "Current selections" in preview
     assert "UI preferences" in preview
     assert "- Theme mode: dark" in preview
     assert "Agent model defaults" in preview
@@ -383,6 +384,7 @@ async def test_settings_apply_normalizes_legacy_visual_values(tmp_path) -> None:
     assert saved.theme_mode == "dark"
     assert saved.color_profile == "default"
     assert saved.unicode_rendering == "ascii"
+    assert "Current selections" in preview
     assert theme.value == "dark"
     assert color.value == "default"
     assert glyphs.value == "ascii"

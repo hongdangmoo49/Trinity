@@ -8,7 +8,7 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1043`
+- Package version inspected: `1.0.1044`
 - Merged PR range reviewed: #90 through #1113
 - Baseline iteration reviewed: #90 through #426
 - Maintenance refresh reviewed: #427 through #1113
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1204: Prompt-Led Workbench Simplification
+### #977-#1205: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2244,6 +2244,8 @@ and what the next release train should optimize.
   color profile rather than a glyph setting.
 - Normalized legacy Settings fallback selections in the open Settings screen
   after Apply so controls and preview match the saved current values.
+- Renamed the Settings preview heading to current selections so users can tell
+  it reflects pending selections before Apply.
 - Added visible truecolor accent styling for the Settings color profile.
 - Refreshed Settings preview summaries when provider model discovery arrives.
 - Displayed central provider choices with agent labels in Settings.

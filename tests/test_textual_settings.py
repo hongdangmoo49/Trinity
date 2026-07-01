@@ -334,6 +334,22 @@ async def test_settings_status_uses_korean_apply_label(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_settings_unsaved_status_uses_korean_save_apply_label(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config, lang="ko")
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        status = screen.query_one("#settings-status", Static)
+
+        screen.query_one("#density").value = "compact"
+        await pilot.pause()
+
+        assert str(status.content) == "미저장 변경 · 저장 및 적용을 눌러 저장"
+
+
+@pytest.mark.asyncio
 async def test_settings_preview_updates_before_apply(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     config.agents["codex"].enabled = True

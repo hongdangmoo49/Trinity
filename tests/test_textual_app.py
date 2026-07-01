@@ -12512,6 +12512,10 @@ async def test_settings_screen_uses_discovered_model_choices(tmp_path) -> None:
         central_select.value = "opus-live"
         screen.action_apply()
         await pilot.pause()
+        preview = str(screen.query_one("#theme-preview", Static).content)
+
+        assert "Claude: Opus Live  cli-live  1,000,000 ctx" in preview
+        assert "Central: claude / Opus Live  cli-live  1,000,000 ctx" in preview
 
     assert config.agents["claude"].model == "opus-live"
     assert config.synthesis_agent == "claude"

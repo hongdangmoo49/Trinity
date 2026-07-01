@@ -12394,6 +12394,8 @@ async def test_settings_visual_preferences_reach_workbench_surfaces(
         assert app.has_class("ui-color-profile-truecolor")
         assert app.has_class("ui-density-compact")
         assert preview.is_mounted
+        assert preview.styles.max_height.value == 10
+        assert str(preview.styles.overflow_y) == "auto"
 
         app.switch_to("nexus")
         await pilot.pause()
@@ -12437,8 +12439,29 @@ async def test_settings_controls_use_flexible_width(tmp_path) -> None:
         model_select = screen.query_one("#model-claude", Select)
 
         assert preview.styles.height.is_auto
+        assert preview.styles.max_height.value == 14
+        assert str(preview.styles.overflow_y) == "auto"
         assert not preview.styles.width.is_cells
         assert model_select.styles.width.is_fraction
+
+
+@pytest.mark.asyncio
+async def test_settings_preview_stays_bounded_on_small_terminals(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        preview = screen.query_one("#theme-preview", Static)
+        apply_button = screen.query_one("#apply-settings", Button)
+
+        assert preview.styles.height.is_auto
+        assert preview.styles.max_height.value == 14
+        assert str(preview.styles.overflow_y) == "auto"
+        assert apply_button.is_mounted
 
 
 @pytest.mark.asyncio

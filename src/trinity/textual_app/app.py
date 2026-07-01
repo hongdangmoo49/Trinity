@@ -953,12 +953,15 @@ class TrinityTextualApp(App[None]):
         width: 100%;
         max-width: 96;
         height: auto;
+        max-height: 14;
+        overflow-y: auto;
         border: round $accent;
         margin-top: 1;
         padding: 1 2;
     }
 
     .ui-density-compact #theme-preview {
+        max-height: 10;
         margin-top: 0;
         padding: 0 1;
     }

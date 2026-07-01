@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from textual.app import ComposeResult
 from textual.containers import Horizontal, VerticalScroll
+from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Label, Select, Static
 
@@ -20,6 +21,9 @@ from trinity.textual_app.settings import (
 
 class SettingsScreen(Screen[None]):
     """User UI preference screen."""
+
+    class Applied(Message):
+        """Posted when settings are saved and applied to config."""
 
     BINDINGS = [
         ("ctrl+s", "apply", "Apply"),
@@ -147,6 +151,7 @@ class SettingsScreen(Screen[None]):
         self.config.save(self.config.effective_state_dir / "trinity.config")
         self._set_preview_text(self.preview_text())
         self._set_status_text(self._label("saved"))
+        self.post_message(self.Applied())
 
     def _set_preview_text(self, text: str) -> None:
         if text == self._preview_render_key:

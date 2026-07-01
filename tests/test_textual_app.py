@@ -6211,6 +6211,83 @@ async def test_nexus_agent_uses_korean_labels(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_agent_command_syncs_recipient_selectors(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
+    refreshes: list[bool] = []
+    app._refresh_provider_models = (  # type: ignore[method-assign]
+        lambda *, use_cache: refreshes.append(use_cache)
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        start_selector = start.query_one(AgentRecipientModelSelector)
+
+        app._handle_textual_slash_command("/agent codex on")
+        await pilot.pause()
+
+        codex_toggle = start_selector.query_one("#recipient-codex", AgentToggle)
+        assert config.agents["codex"].enabled is True
+        assert codex_toggle.disabled is False
+        assert codex_toggle.value is True
+        assert "codex" in start_selector.selected_agents()
+        assert refreshes == [True]
+
+        app.switch_to("nexus")
+        await pilot.pause()
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        nexus_selector = nexus.query_one(AgentRecipientModelSelector)
+
+        app._handle_textual_slash_command("/agent claude off")
+        await pilot.pause()
+
+        claude_toggle = nexus_selector.query_one("#recipient-claude", AgentToggle)
+        assert config.agents["claude"].enabled is False
+        assert claude_toggle.disabled is True
+        assert claude_toggle.value is False
+        assert "claude" not in nexus_selector.selected_agents()
+        assert refreshes == [True]
+
+
+@pytest.mark.asyncio
+async def test_agent_command_syncs_open_settings_agent_rows(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
+    refreshes: list[bool] = []
+    app._refresh_provider_models = (  # type: ignore[method-assign]
+        lambda *, use_cache: refreshes.append(use_cache)
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+        assert screen.query_one("#model-codex", Select).disabled is True
+        labels = [str(label.content) for label in screen.query(".settings-row Label")]
+        assert "Codex (off)" in labels
+
+        app._handle_textual_slash_command("/agent codex on")
+        await pilot.pause()
+
+        labels = [str(label.content) for label in screen.query(".settings-row Label")]
+        central_values = {
+            value
+            for _label, value in screen.query_one("#central-provider", Select)._options
+        }
+        preview = str(screen.query_one("#theme-preview", Static).content)
+        assert screen.query_one("#model-codex", Select).disabled is False
+        assert "Codex" in labels
+        assert "Codex (off)" not in labels
+        assert "codex" in central_values
+        assert "- Codex: default" in preview
+        assert refreshes == [True]
+
+
+@pytest.mark.asyncio
 async def test_nexus_agent_errors_use_korean_labels(tmp_path) -> None:
     controller = FakeWorkflowController()
     app = TrinityTextualApp(

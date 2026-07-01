@@ -58,6 +58,17 @@ class AgentToggle(Static):
         self.value = next_value
         self._refresh()
 
+    def set_enabled(self, enabled: bool) -> None:
+        """Update whether the agent can be selected."""
+        next_enabled = bool(enabled)
+        if next_enabled == self.agent_enabled:
+            return
+        was_enabled = self.agent_enabled
+        self.agent_enabled = next_enabled
+        self.disabled = not next_enabled
+        self.value = bool(next_enabled and (self.value or not was_enabled))
+        self._refresh()
+
     def on_click(self, event: events.Click) -> None:
         event.stop()
         self._toggle()
@@ -183,6 +194,11 @@ class AgentRecipientModelSelector(Horizontal):
         for name, spec in self.agents.items():
             toggle = self._toggle_for(name)
             toggle.set_value(spec.enabled and name in requested)
+
+    def sync_agent_states(self) -> None:
+        """Refresh toggle enabled states from the mutable agent config."""
+        for name, spec in self.agents.items():
+            self._toggle_for(name).set_enabled(bool(spec.enabled))
 
     def set_model_overrides(self, values: dict[str, str]) -> None:
         """Update model selections from saved session overrides."""

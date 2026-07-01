@@ -685,10 +685,10 @@ async def test_central_action_render_skips_unchanged_title_update() -> None:
             "next_actions",
             (
                 CentralActionButton(
-                    "refine-features",
-                    "refine_features",
+                    "execution-retry",
+                    "execution_retry",
                     "default",
-                    "refine-features_tooltip",
+                    "execution-retry_tooltip",
                 ),
             ),
         )

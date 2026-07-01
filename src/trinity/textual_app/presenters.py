@@ -29,39 +29,6 @@ NO_CURRENT_CONTEXT_MESSAGE = (
 TargetCancelKind = Literal["selection", "preflight"]
 
 
-def nexus_refine_prompt(action: str, *, lang: str = "en") -> str:
-    prompts_ko = {
-        "refine-features": (
-            "현재 설계에서 핵심 기능, 게임 루프, 사용자 경험을 더 구체화하고 "
-            "빠진 결정 사항을 정리해라."
-        ),
-        "refine-risks": (
-            "현재 설계의 실행 리스크, 안티패턴 가능성, 성능 우려, 검증 기준을 "
-            "더 구체화해라."
-        ),
-        "refine-work-packages": (
-            "현재 작업 패키지의 범위, 담당 에이전트, 의존성, 병렬 실행 가능성을 다시 "
-            "검토하고 필요한 재분배안을 제안해라."
-        ),
-    }
-    prompts_en = {
-        "refine-features": (
-            "Refine the current blueprint around core features, gameplay loop, "
-            "user experience, and missing decisions."
-        ),
-        "refine-risks": (
-            "Refine the current blueprint around execution risks, possible "
-            "anti-patterns, performance concerns, and validation criteria."
-        ),
-        "refine-work-packages": (
-            "Review the current WP scope, owner agents, dependencies, and "
-            "parallel execution plan, then propose any needed rebalance."
-        ),
-    }
-    prompts = prompts_ko if lang == "ko" else prompts_en
-    return prompts.get(action, prompts["refine-features"])
-
-
 def nexus_current_workspace_text(
     snapshot: WorkflowNexusSnapshot | None,
     fallback: object | None,

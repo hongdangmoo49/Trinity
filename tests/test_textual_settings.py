@@ -363,6 +363,33 @@ async def test_settings_reverted_selects_return_to_saved_status(tmp_path) -> Non
 
 
 @pytest.mark.asyncio
+async def test_settings_reverted_selects_use_korean_saved_status(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config, lang="ko")
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        status = screen.query_one("#settings-status", Static)
+
+        screen.query_one("#density").value = "compact"
+        await pilot.pause()
+        assert str(status.content) == "미저장 변경 · 저장 및 적용을 눌러 저장"
+
+        screen.query_one("#density").value = "comfortable"
+        await pilot.pause()
+        assert str(status.content) == "저장됨"
+
+        screen.query_one("#central-model").value = "fast"
+        await pilot.pause()
+        assert str(status.content) == "미저장 변경 · 저장 및 적용을 눌러 저장"
+
+        screen.query_one("#central-model").value = "strong"
+        await pilot.pause()
+        assert str(status.content) == "저장됨"
+
+
+@pytest.mark.asyncio
 async def test_settings_apply_button_saves_preferences(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     store = UISettingsStore(tmp_path / ".trinity")

@@ -19,6 +19,7 @@ from textual.widgets import (
     Markdown,
     OptionList,
     RichLog,
+    Select,
     Static,
     TabbedContent,
     TextArea,
@@ -2465,6 +2466,7 @@ async def test_app_skips_unchanged_discovered_model_choice_sync(
 ) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     app = TrinityTextualApp(config, FakeWorkflowController())
+    app._model_discovery_started = True
     spec = config.agents["claude"]
     initial = (
         ProviderModelChoice(
@@ -2494,6 +2496,7 @@ async def test_app_skips_unchanged_discovered_model_choice_sync(
 
         start = app.get_screen("start", StartScreen)
         nexus = app.get_screen("nexus", NexusScreen)
+        settings = app.get_screen("settings", SettingsScreen)
         calls: list[tuple[str, dict[str, tuple[ProviderModelChoice, ...]]]] = []
 
         def counted_start(choices_by_agent) -> None:
@@ -2502,8 +2505,12 @@ async def test_app_skips_unchanged_discovered_model_choice_sync(
         def counted_nexus(choices_by_agent) -> None:
             calls.append(("nexus", dict(choices_by_agent)))
 
+        def counted_settings(choices_by_agent) -> None:
+            calls.append(("settings", dict(choices_by_agent)))
+
         monkeypatch.setattr(start, "set_agent_model_choices", counted_start)
         monkeypatch.setattr(nexus, "set_agent_model_choices", counted_nexus)
+        monkeypatch.setattr(settings, "set_agent_model_choices", counted_settings)
 
         app._apply_discovered_model_choices({"claude": tuple(initial)})
         await pilot.pause()
@@ -2514,6 +2521,7 @@ async def test_app_skips_unchanged_discovered_model_choice_sync(
         assert calls == [
             ("start", {"claude": updated}),
             ("nexus", {"claude": updated}),
+            ("settings", {"claude": updated}),
         ]
 
 
@@ -12454,6 +12462,56 @@ async def test_settings_screen_saves_agent_and_central_models(tmp_path) -> None:
     assert saved_config.agents["codex"].model == "gpt-5"
     assert saved_config.synthesis_agent == "codex"
     assert saved_config.synthesis_model == "agent-default"
+
+
+@pytest.mark.asyncio
+async def test_settings_screen_uses_discovered_model_choices(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
+    app._model_discovery_started = True
+    spec = config.agents["claude"]
+    discovered = (
+        ProviderModelChoice(
+            provider=spec.provider,
+            model="default",
+            label="claude(default)",
+            source="static-fallback",
+            is_default=True,
+            context_budget=200_000,
+        ),
+        ProviderModelChoice(
+            provider=spec.provider,
+            model="opus-live",
+            label="Opus Live",
+            source="cli-live",
+            context_budget=1_000_000,
+        ),
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        app._apply_discovered_model_choices({"claude": discovered})
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        model_select = screen.query_one("#model-claude", Select)
+        central_select = screen.query_one("#central-model", Select)
+        model_values = {value for _label, value in model_select._options}
+        central_values = {value for _label, value in central_select._options}
+        assert "opus-live" in model_values
+        assert "opus-live" in central_values
+
+        model_select.value = "opus-live"
+        screen.query_one("#central-provider").value = "claude"
+        central_select.value = "opus-live"
+        screen.action_apply()
+        await pilot.pause()
+
+    assert config.agents["claude"].model == "opus-live"
+    assert config.synthesis_agent == "claude"
+    assert config.synthesis_model == "opus-live"
 
 
 @pytest.mark.asyncio

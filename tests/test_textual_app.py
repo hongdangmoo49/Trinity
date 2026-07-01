@@ -1833,7 +1833,7 @@ async def test_start_screen_stays_within_standard_viewport(tmp_path) -> None:
 
 @pytest.mark.parametrize(
     ("size", "geometry_visible"),
-    [((120, 20), False), ((120, 32), False), ((120, 33), True)],
+    [((60, 20), False), ((120, 20), False), ((120, 32), False), ((120, 33), True)],
 )
 @pytest.mark.asyncio
 async def test_start_screen_compacts_geometry_in_low_viewport(
@@ -1898,7 +1898,13 @@ async def test_start_workspace_label_stays_compact_with_long_path(
 
 @pytest.mark.parametrize(
     ("size", "geometry_visible"),
-    [((120, 20), False), ((120, 32), False), ((120, 33), True), ((120, 36), True)],
+    [
+        ((60, 20), False),
+        ((120, 20), False),
+        ((120, 32), False),
+        ((120, 33), True),
+        ((120, 36), True),
+    ],
 )
 @pytest.mark.asyncio
 async def test_start_command_palette_keyboard_selection_stays_visible(
@@ -1953,7 +1959,7 @@ async def test_start_command_palette_keyboard_selection_stays_visible(
         assert more.region.y < palette_bottom_border
 
 
-@pytest.mark.parametrize("size", [(120, 20), (120, 36)])
+@pytest.mark.parametrize("size", [(60, 20), (80, 20), (120, 20), (120, 36)])
 @pytest.mark.asyncio
 async def test_nexus_command_palette_keyboard_selection_stays_visible(
     tmp_path,
@@ -11434,11 +11440,15 @@ async def test_nexus_workspace_label_stays_within_narrow_width(tmp_path) -> None
             assert widget.region.x + widget.region.width <= nexus.size.width
 
 
+@pytest.mark.parametrize("size", [(60, 20), (80, 24)])
 @pytest.mark.asyncio
-async def test_nexus_screen_stays_within_narrow_viewport(tmp_path) -> None:
+async def test_nexus_screen_stays_within_narrow_viewport(
+    tmp_path,
+    size: tuple[int, int],
+) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
-    async with app.run_test(size=(80, 24)) as pilot:
+    async with app.run_test(size=size) as pilot:
         app.switch_to("nexus")
         await pilot.pause()
 

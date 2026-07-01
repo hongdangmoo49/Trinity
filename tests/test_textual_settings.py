@@ -88,6 +88,28 @@ async def test_settings_apply_button_labels_describe_save_and_apply(tmp_path) ->
         assert apply_button.region.width >= 16
 
 
+@pytest.mark.asyncio
+async def test_settings_initial_status_shows_saved_state(tmp_path) -> None:
+    en = SettingsScreen(
+        UISettingsStore(tmp_path / ".trinity-en"),
+        TrinityConfig.default_config(project_dir=tmp_path / "en"),
+    )
+    ko_config = TrinityConfig.default_config(project_dir=tmp_path / "ko", lang="ko")
+    ko = SettingsScreen(
+        UISettingsStore(tmp_path / ".trinity-ko"),
+        ko_config,
+        lang="ko",
+    )
+
+    async with SettingsHarness(en).run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        assert str(en.query_one("#settings-status", Static).content) == "Saved"
+
+    async with SettingsHarness(ko).run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        assert str(ko.query_one("#settings-status", Static).content) == "저장됨"
+
+
 def test_ui_settings_store_uses_defaults_for_invalid_values(tmp_path) -> None:
     store = UISettingsStore(tmp_path / ".trinity")
     store.path.parent.mkdir(parents=True)
@@ -780,8 +802,8 @@ async def test_settings_recompose_rebinds_cached_controls(tmp_path) -> None:
         assert screen._select_cache["theme-mode"] is not first_select
         assert screen._status_widget is not None
         assert screen._status_widget is not first_status
-        assert screen._status_key == ""
-        assert str(screen._status_widget.content) == ""
+        assert screen._status_key == "Saved"
+        assert str(screen._status_widget.content) == "Saved"
 
         queries: list[str] = []
         original_query_one = screen.query_one

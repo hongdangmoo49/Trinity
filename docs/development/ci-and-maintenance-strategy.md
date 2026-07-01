@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1076`
-- Merged PR range reviewed: #90 through #1237
+- Package version inspected: `1.0.1077`
+- Merged PR range reviewed: #90 through #1238
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1237
-- Latest refresh reviewed: #1237
+- Maintenance refresh reviewed: #427 through #1238
+- Latest refresh reviewed: #1238
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1237: Prompt-Led Workbench Simplification
+### #977-#1238: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2230,10 +2230,12 @@ and what the next release train should optimize.
   shortcut stays attached to the Settings route action.
 - Added Settings Apply binding registration coverage so `Ctrl+S` remains wired
   to the Settings save/apply action.
-- Added Korean Settings Apply binding label coverage so the footer action stays
-  localized as `적용`.
+- Added Korean Settings Save & Apply binding label coverage so the footer
+  action stays localized as `저장 및 적용`.
 - Added Settings Apply button coverage so the visible button keeps routing
   through the same save/apply path as the shortcut.
+- Clarified Settings action copy from Apply to Save & Apply so users can tell
+  selections are saved only after the action runs.
 - Updated the README interactive command tables to include `/project`,
   `/providers`, `/workspace`, and `/settings`.
 - Added README slash command drift coverage so the Korean and English quick
@@ -2243,7 +2245,7 @@ and what the next release train should optimize.
 - Added Start slash command palette resize regression coverage for
   low-to-standard terminal transitions.
 - Applied saved Settings theme mode to the Textual app on startup and when
-  users press Apply.
+  users press Save & Apply.
 - Synced already-mounted Start and Nexus agent model selectors after Settings
   model changes.
 - Applied saved Settings density and reduced-motion preferences to live Textual
@@ -2289,7 +2291,7 @@ and what the next release train should optimize.
 - Extended compact density styling from Start/Nexus/Settings into Execution
   and Report surfaces.
 - Normalized legacy Settings `system` and `auto` visual preferences to current
-  saved values when users press Apply.
+  saved values when users press Save & Apply.
 - Clarified Settings section labels so UI preferences and saved model defaults
   are easier to distinguish.
 - Split Settings preview summaries into UI, central model, and agent model

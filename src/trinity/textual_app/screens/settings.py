@@ -26,11 +26,11 @@ class SettingsScreen(Screen[None]):
         """Posted when settings are saved and applied to config."""
 
     BINDINGS = [
-        ("ctrl+s", "apply", "Apply"),
+        ("ctrl+s", "apply", "Save & Apply"),
     ]
 
     LOCALIZED_BINDINGS = {
-        ("ctrl+s", "apply"): ("binding_apply", None),
+        ("ctrl+s", "apply"): ("binding_save_apply", None),
     }
 
     def __init__(
@@ -667,10 +667,10 @@ class SettingsScreen(Screen[None]):
             "central_model": "중앙 에이전트 모델",
             "agent_default": "에이전트 기본값",
             "auto": "자동",
-            "apply": "적용",
+            "apply": "저장 및 적용",
             "saved": "저장됨",
             "saved_applied": "저장됨 · 화면과 모델 기본값에 적용됨",
-            "unsaved_changes": "미저장 변경 · 적용을 눌러 저장",
+            "unsaved_changes": "미저장 변경 · 저장 및 적용을 눌러 저장",
             "preview": "현재 선택 요약",
             "profile": "프로필",
             "balanced": "균형",
@@ -709,10 +709,10 @@ class SettingsScreen(Screen[None]):
             "central_model": "Central agent model",
             "agent_default": "Agent default",
             "auto": "Auto",
-            "apply": "Apply",
+            "apply": "Save & Apply",
             "saved": "Saved",
             "saved_applied": "Saved · applied to UI and model defaults",
-            "unsaved_changes": "Unsaved changes · press Apply to save",
+            "unsaved_changes": "Unsaved changes · press Save & Apply to save",
             "preview": "Current selections",
             "profile": "profile",
             "balanced": "balanced",

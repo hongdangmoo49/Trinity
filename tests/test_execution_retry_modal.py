@@ -40,6 +40,15 @@ def _retry_snapshot() -> WorkflowNexusSnapshot:
     )
 
 
+def test_execution_retry_modal_cancel_binding_uses_korean_label() -> None:
+    modal = ExecutionRetryModal(_retry_snapshot(), lang="ko")
+    binding = next(iter(modal._bindings.get_bindings_for_key("escape")))
+
+    assert binding.key == "escape"
+    assert binding.action == "cancel"
+    assert binding.description == "취소"
+
+
 @pytest.mark.asyncio
 async def test_execution_retry_modal_reuses_cached_state_widgets() -> None:
     modal = ExecutionRetryModal(_retry_snapshot())

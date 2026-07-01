@@ -9,6 +9,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Footer, Static
 
+from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkPackageSnapshot, WorkflowNexusSnapshot
 from trinity.textual_app.widgets.status_label import (
     display_retry_disabled_reason,
@@ -37,6 +38,10 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
         ("escape", "cancel", "Cancel"),
     ]
 
+    LOCALIZED_BINDINGS = {
+        ("escape", "cancel"): ("binding_cancel", None),
+    }
+
     FILTERS = ("all", "failed", "blocked", "interrupted", "custom")
 
     def __init__(
@@ -51,6 +56,7 @@ class ExecutionRetryModal(ModalScreen[ExecutionRetrySelection | None]):
         self.snapshot = snapshot
         self.selector = selector if selector in self.FILTERS else "custom"
         self.lang = lang
+        localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
         initial_ids = set(package_ids)
         if self.selector == "custom" and initial_ids:
             self.selected_ids = {

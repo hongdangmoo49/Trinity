@@ -318,7 +318,7 @@ class SettingsScreen(Screen[None]):
                 self._current_central_provider(),
             )
         if id == "central-provider" and value != "auto":
-            return self._agent_label(value)
+            return self._agent_label_with_state(value)
         if id == "theme-mode" and value == "system":
             return self._label("dark_fallback")
         if id == "color-profile" and value in {"auto", "default"}:
@@ -359,7 +359,7 @@ class SettingsScreen(Screen[None]):
         central_provider_label = (
             self._display_value(central_provider)
             if central_provider == "auto"
-            else self._agent_label(central_provider)
+            else self._agent_label_with_state(central_provider)
         )
         central_model_label = self._central_model_display_value(
             central_model,
@@ -428,7 +428,14 @@ class SettingsScreen(Screen[None]):
         return self._dedupe_values([*values, current or "default"])
 
     def _central_provider_values(self) -> list[str]:
-        values = ["auto", *self.config.agents.keys()]
+        values = [
+            "auto",
+            *(
+                name
+                for name, spec in self.config.agents.items()
+                if spec.enabled
+            ),
+        ]
         current = self.config.synthesis_agent
         if current and current not in values:
             values.append(current)
@@ -454,10 +461,15 @@ class SettingsScreen(Screen[None]):
             if choices:
                 values.extend(choice.model for choice in choices)
         else:
-            for provider in Provider:
-                for choice in provider_model_choices(provider):
+            for spec in self.config.agents.values():
+                if not spec.enabled:
+                    continue
+                for choice in provider_model_choices(spec.provider):
                     values.append(choice.model)
-            for choices in self._agent_model_choices.values():
+            for name, choices in self._agent_model_choices.items():
+                spec = self.config.agents.get(name)
+                if spec is None or not spec.enabled:
+                    continue
                 values.extend(choice.model for choice in choices)
         return self._dedupe_values([*values, current or "agent-default"])
 
@@ -554,6 +566,13 @@ class SettingsScreen(Screen[None]):
             "antigravity": "Antigravity",
         }
         return labels.get(name, name)
+
+    def _agent_label_with_state(self, name: str) -> str:
+        spec = self.config.agents.get(name)
+        if spec is None or spec.enabled:
+            return self._agent_label(name)
+        suffix = "비활성" if self.lang == "ko" else "off"
+        return f"{self._agent_label(name)} ({suffix})"
 
     def _display_value(self, value: str) -> str:
         labels = {

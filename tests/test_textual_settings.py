@@ -128,6 +128,38 @@ def test_settings_labels_describe_ui_and_model_scopes(tmp_path) -> None:
     assert ko.label_text("central_model") == "중앙 에이전트 모델"
 
 
+def test_settings_central_provider_values_use_enabled_agents(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)
+
+    assert screen._central_provider_values() == ["auto", "claude"]
+
+    config.agents["codex"].enabled = True
+
+    assert screen._central_provider_values() == ["auto", "claude", "codex"]
+
+
+@pytest.mark.asyncio
+async def test_settings_central_provider_keeps_saved_disabled_value(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.synthesis_agent = "codex"
+    config.synthesis_model = "agent-default"
+    screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        central_provider = screen.query_one("#central-provider", Select)
+        labels = {value: str(label) for label, value in central_provider._options}
+        preview = str(screen.query_one("#theme-preview", Static).content)
+
+    assert central_provider.value == "codex"
+    assert set(labels) == {"auto", "claude", "codex"}
+    assert labels["codex"] == "Codex (off)"
+    assert "Central agent default model\n- Codex (off) / Agent default" in preview
+
+
 @pytest.mark.asyncio
 async def test_settings_apply_skips_unchanged_display_updates(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
@@ -211,6 +243,7 @@ async def test_settings_status_uses_korean_apply_label(tmp_path) -> None:
 @pytest.mark.asyncio
 async def test_settings_preview_updates_before_apply(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
     screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)
     app = SettingsHarness(screen)
 

@@ -528,6 +528,70 @@ async def test_settings_model_discovery_preserves_selected_model(tmp_path) -> No
 
 
 @pytest.mark.asyncio
+async def test_settings_model_discovery_preserves_selected_central_model(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)
+    app = SettingsHarness(screen)
+    spec = config.agents["claude"]
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        status = screen.query_one("#settings-status", Static)
+
+        screen.set_agent_model_choices(
+            {
+                "claude": (
+                    ProviderModelChoice(
+                        provider=spec.provider,
+                        model="opus-live",
+                        label="Opus Live",
+                        source="cli-live",
+                        context_budget=1_000_000,
+                    ),
+                )
+            }
+        )
+        await pilot.pause()
+
+        central_provider = screen.query_one("#central-provider", Select)
+        central_provider.value = "claude"
+        await pilot.pause()
+        central_model = screen.query_one("#central-model", Select)
+        central_model.value = "opus-live"
+        await pilot.pause()
+        assert str(status.content) == SETTINGS_UNSAVED_STATUS
+
+        screen.set_agent_model_choices(
+            {
+                "claude": (
+                    ProviderModelChoice(
+                        provider=spec.provider,
+                        model="opus-live",
+                        label="Opus Live",
+                        source="cli-live",
+                        context_budget=1_000_000,
+                    ),
+                    ProviderModelChoice(
+                        provider=spec.provider,
+                        model="sonnet-live",
+                        label="Sonnet Live",
+                        source="cli-live",
+                        context_budget=200_000,
+                    ),
+                )
+            }
+        )
+        await pilot.pause()
+
+        labels = {value: str(label) for label, value in central_model._options}
+        assert central_model.value == "opus-live"
+        assert "Sonnet Live" in labels["sonnet-live"]
+        assert str(status.content) == SETTINGS_UNSAVED_STATUS
+
+
+@pytest.mark.asyncio
 async def test_settings_apply_uses_cached_controls(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)

@@ -98,6 +98,29 @@ def test_settings_preview_includes_agent_profile_summary(tmp_path) -> None:
     assert "implementation 0.95" in preview
 
 
+def test_settings_labels_describe_ui_and_model_scopes(tmp_path) -> None:
+    en = SettingsScreen(
+        UISettingsStore(tmp_path / ".trinity-en"),
+        TrinityConfig.default_config(project_dir=tmp_path / "en"),
+    )
+    ko = SettingsScreen(
+        UISettingsStore(tmp_path / ".trinity-ko"),
+        TrinityConfig.default_config(project_dir=tmp_path / "ko", lang="ko"),
+        lang="ko",
+    )
+
+    assert en.label_text("appearance") == "UI preferences"
+    assert en.label_text("agent_models") == "Agent model defaults"
+    assert en.label_text("central_agent") == "Central agent default model"
+    assert en.label_text("central_provider") == "Central agent provider"
+    assert en.label_text("central_model") == "Central agent model"
+    assert ko.label_text("appearance") == "화면 설정"
+    assert ko.label_text("agent_models") == "에이전트 기본 모델"
+    assert ko.label_text("central_agent") == "중앙 에이전트 기본 모델"
+    assert ko.label_text("central_provider") == "중앙 에이전트 프로바이더"
+    assert ko.label_text("central_model") == "중앙 에이전트 모델"
+
+
 @pytest.mark.asyncio
 async def test_settings_apply_skips_unchanged_display_updates(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)

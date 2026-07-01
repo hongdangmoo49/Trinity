@@ -113,11 +113,13 @@ def test_settings_labels_describe_ui_and_model_scopes(tmp_path) -> None:
     )
 
     assert en.label_text("appearance") == "UI preferences"
+    assert en.label_text("color_profile") == "Color compatibility"
     assert en.label_text("agent_models") == "Agent model defaults"
     assert en.label_text("central_agent") == "Central agent default model"
     assert en.label_text("central_provider") == "Central agent provider"
     assert en.label_text("central_model") == "Central agent model"
     assert ko.label_text("appearance") == "화면 설정"
+    assert ko.label_text("color_profile") == "색상 호환성"
     assert ko.label_text("agent_models") == "에이전트 기본 모델"
     assert ko.label_text("central_agent") == "중앙 에이전트 기본 모델"
     assert ko.label_text("central_provider") == "중앙 에이전트 프로바이더"
@@ -261,7 +263,7 @@ async def test_settings_select_labels_describe_fallbacks(tmp_path) -> None:
     assert "system" not in theme_labels
     assert theme_labels["dark"] == "dark"
     assert "auto" not in color_labels
-    assert color_labels["default"] == "default palette"
+    assert color_labels["default"] == "default colors"
     assert motion_labels["normal"] == "animated"
     assert motion_labels["reduced"] == "reduced motion"
     assert "auto" not in glyph_labels
@@ -320,7 +322,7 @@ async def test_settings_color_profile_select_keeps_legacy_auto_value(tmp_path) -
         labels = {value: str(label) for label, value in color._options}
 
     assert color.value == "auto"
-    assert labels["auto"] == "default palette"
+    assert labels["auto"] == "default colors"
 
 
 @pytest.mark.asyncio
@@ -348,7 +350,7 @@ async def test_settings_legacy_select_labels_use_korean_fallbacks(tmp_path) -> N
         glyph_labels = {value: str(label) for label, value in glyphs._options}
 
     assert theme_labels["system"] == "다크 모드로 대체"
-    assert color_labels["auto"] == "기본 팔레트"
+    assert color_labels["auto"] == "기본 색상"
     assert glyph_labels["auto"] == "ASCII로 대체"
 
 

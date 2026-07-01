@@ -12348,7 +12348,7 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
         assert app.has_class("ui-color-profile-truecolor")
         assert not app.has_class("ui-color-profile-256color")
         assert not app.has_class("ui-color-profile-ascii-safe")
-        assert "- Terminal colors: truecolor" in preview
+        assert "- Color compatibility: truecolor" in preview
         assert "- Start logo motion: animated" in preview
         assert "- Start logo glyphs: ascii" in preview
 
@@ -12360,7 +12360,7 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
         assert app.has_class("ui-color-profile-ascii-safe")
         assert not app.has_class("ui-color-profile-256color")
         assert not app.has_class("ui-color-profile-truecolor")
-        assert "- Terminal colors: ascii-safe" in preview
+        assert "- Color compatibility: ascii-safe colors" in preview
         assert "- Start logo motion: animated" in preview
         assert "- Start logo glyphs: ascii" in preview
 
@@ -12558,7 +12558,7 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
         assert "화면 설정" in preview
         assert "- 테마 모드: 다크" in preview
         assert "- 밀도: 여유" in preview
-        assert "- 터미널 색상: 기본 팔레트" in preview
+        assert "- 색상 호환성: 기본 색상" in preview
         assert "- 시작 로고 애니메이션: 애니메이션" in preview
         assert "- 시작 로고 글리프: ASCII" in preview
         assert "중앙 에이전트 기본 모델\n- 자동 / 강력" in preview
@@ -12568,7 +12568,7 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
         assert "출력 형식 실행:실행 v1 리뷰:리뷰 v1" in preview
         assert "Mode:" not in preview
         assert "Density:" not in preview
-        assert "Terminal colors:" not in preview
+        assert "Color compatibility:" not in preview
         assert "Motion:" not in preview
         assert "Unicode:" not in preview
         assert "Central:" not in preview

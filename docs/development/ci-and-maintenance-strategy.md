@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1070`
-- Merged PR range reviewed: #90 through #1231
+- Package version inspected: `1.0.1071`
+- Merged PR range reviewed: #90 through #1232
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1231
-- Latest refresh reviewed: #1231
+- Maintenance refresh reviewed: #427 through #1232
+- Latest refresh reviewed: #1232
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1231: Prompt-Led Workbench Simplification
+### #977-#1232: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2224,6 +2224,8 @@ and what the next release train should optimize.
   default `trinity` Workbench path instead of a non-existent `--textual` flag.
 - Updated Settings shortcut copy to use the human-facing `Ctrl+,` notation in
   plain TUI guidance, README, and slash command docs.
+- Added Settings action-route coverage so the shortcut action keeps opening the
+  Workbench Settings screen.
 - Updated the README interactive command tables to include `/project`,
   `/providers`, `/workspace`, and `/settings`.
 - Added README slash command drift coverage so the Korean and English quick

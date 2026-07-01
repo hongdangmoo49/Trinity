@@ -11204,6 +11204,21 @@ async def test_settings_slash_command_opens_settings_screen(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_settings_binding_action_opens_settings_screen(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        app.action_go_settings()
+        await pilot.pause()
+
+        assert isinstance(app.screen, SettingsScreen)
+        assert app.current_route == "settings"
+
+
+@pytest.mark.asyncio
 async def test_provider_inspector_modal_uses_korean_chrome(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

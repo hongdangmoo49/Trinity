@@ -286,7 +286,7 @@ class SettingsScreen(Screen[None]):
             if spec is not None:
                 return self._agent_model_display_value(name, spec.provider, value)
         if id == "central-model":
-            return self._central_model_display_value(value)
+            return self._central_model_display_value(value, self._current_central_provider())
         if id == "central-provider" and value != "auto":
             return self._agent_label(value)
         return self._display_value(value)
@@ -315,7 +315,10 @@ class SettingsScreen(Screen[None]):
             if central_provider == "auto"
             else self._agent_label(central_provider)
         )
-        central_model_label = self._central_model_display_value(central_model)
+        central_model_label = self._central_model_display_value(
+            central_model,
+            central_provider,
+        )
         return "\n".join(
             [
                 self._label("preview"),
@@ -385,9 +388,25 @@ class SettingsScreen(Screen[None]):
                 values.extend(choice.model for choice in choices)
         return self._dedupe_values([*values, current or "agent-default"])
 
-    def _central_model_display_value(self, value: str) -> str:
+    def _current_central_provider(self) -> str:
+        if self.is_mounted:
+            return self._value("central-provider")
+        return self.config.synthesis_agent or "auto"
+
+    def _central_model_display_value(
+        self,
+        value: str,
+        central_provider: str | None = None,
+    ) -> str:
         if value in {"agent-default", "default", "fast", "strong"}:
             return self._display_value(value)
+        agent_name = central_provider if central_provider not in {None, "", "auto"} else ""
+        if agent_name:
+            spec = self.config.agents.get(agent_name)
+            if spec is not None:
+                label = self._agent_model_display_value(agent_name, spec.provider, value)
+                if label != value:
+                    return label
         for name, spec in self.config.agents.items():
             label = self._agent_model_display_value(name, spec.provider, value)
             if label != value:

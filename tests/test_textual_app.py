@@ -12648,6 +12648,51 @@ async def test_settings_central_models_follow_selected_provider(tmp_path) -> Non
 
 
 @pytest.mark.asyncio
+async def test_settings_central_model_label_prefers_selected_provider(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.synthesis_agent = "codex"
+    config.synthesis_model = "shared-live"
+    app = TrinityTextualApp(config)
+    app._model_discovery_started = True
+    claude = config.agents["claude"]
+    codex = config.agents["codex"]
+    discovered = {
+        "claude": (
+            ProviderModelChoice(
+                provider=claude.provider,
+                model="shared-live",
+                label="Claude Shared",
+                source="cli-live",
+            ),
+        ),
+        "codex": (
+            ProviderModelChoice(
+                provider=codex.provider,
+                model="shared-live",
+                label="Codex Shared",
+                source="cli-live",
+            ),
+        ),
+    }
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        app._apply_discovered_model_choices(discovered)
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        central_select = screen.query_one("#central-model", Select)
+        central_labels = {value: str(label) for label, value in central_select._options}
+        preview = str(screen.query_one("#theme-preview", Static).content)
+
+        assert central_labels["shared-live"] == "Codex Shared  cli-live"
+        assert "Central: Codex / Codex Shared  cli-live" in preview
+        assert "Central: Codex / Claude Shared" not in preview
+
+
+@pytest.mark.asyncio
 async def test_settings_screen_syncs_mounted_agent_model_selectors(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     app = TrinityTextualApp(config)

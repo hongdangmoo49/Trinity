@@ -63,10 +63,9 @@ def _run_git(path: Path, *args: str) -> None:
 def test_target_workspace_state_label_distinguishes_project_states(
     tmp_path: Path,
 ) -> None:
-    control_repo = tmp_path / "Trinity"
-    target = tmp_path / "customer-app"
-    control_repo.mkdir()
-    target.mkdir()
+    _ = tmp_path
+    control_repo = Path("Trinity")
+    target = Path("customer-app")
 
     assert (
         target_workspace_state_label(None, control_repo=control_repo)
@@ -88,6 +87,25 @@ def test_target_workspace_state_label_distinguishes_project_states(
         control_repo=control_repo,
         lang="ko",
     ) == f"계획 대상: {target}"
+
+
+def test_target_workspace_state_label_compacts_long_paths(tmp_path: Path) -> None:
+    control_repo = tmp_path / "Trinity"
+    long_target = (
+        tmp_path
+        / "very-long-workspace-root-name"
+        / "deeply-nested-projects"
+        / "customer-onboarding-automation"
+    )
+
+    label = target_workspace_state_label(long_target, control_repo=control_repo)
+    target_text = label.removeprefix("Planning target: ")
+
+    assert label.startswith("Planning target: ")
+    assert "..." in target_text
+    assert len(target_text) <= 96
+    assert target_text.startswith(str(long_target)[:10])
+    assert target_text.endswith("customer-onboarding-automation")
 
 
 def test_start_and_nexus_labels_use_visible_copy(
@@ -1216,12 +1234,15 @@ def test_nexus_workspace_label_uses_target_state_helper(tmp_path: Path) -> None:
     assert screen.workspace_label() == "No target workspace selected"
 
     screen.snapshot = WorkflowNexusSnapshot(target_workspace=str(target))
-    assert screen.workspace_label() == f"Planning target: {target}"
+    assert screen.workspace_label() == target_workspace_state_label(
+        target,
+        control_repo=control_repo,
+    )
 
     screen.snapshot = WorkflowNexusSnapshot(target_workspace=str(control_repo))
-    assert screen.workspace_label() == (
-        "Control repo selected; confirmation required before write: "
-        f"{control_repo}"
+    assert screen.workspace_label() == target_workspace_state_label(
+        control_repo,
+        control_repo=control_repo,
     )
 
 
@@ -1453,7 +1474,9 @@ async def test_start_workspace_label_skips_unchanged_update(tmp_path: Path) -> N
 
         screen.set_workspace_candidate(next_target)
         await pilot.pause()
-        assert updates == [f"Planning target: {next_target}"]
+        assert updates == [
+            target_workspace_state_label(next_target, control_repo=control_repo)
+        ]
 
 
 @pytest.mark.asyncio

@@ -8,7 +8,7 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1026`
+- Package version inspected: `1.0.1027`
 - Merged PR range reviewed: #90 through #1113
 - Baseline iteration reviewed: #90 through #426
 - Maintenance refresh reviewed: #427 through #1113
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1187: Prompt-Led Workbench Simplification
+### #977-#1188: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2210,8 +2210,10 @@ and what the next release train should optimize.
 - Preserved provider model display labels, source labels, and context budgets
   in Settings model selects.
 - Reused Settings model display labels in preview summaries.
-- Clarified Settings `system` theme display as an automatic dark fallback.
+- Clarified Settings `system` theme display as a dark fallback.
 - Clarified Settings motion and unicode labels as Start logo preferences.
+- Removed unused generic Settings motion labels after motion display became
+  field-specific.
 - Added visible truecolor accent styling for the Settings color profile.
 - Refreshed Settings preview summaries when provider model discovery arrives.
 - Displayed central provider choices with agent labels in Settings.

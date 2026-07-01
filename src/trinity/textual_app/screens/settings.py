@@ -538,8 +538,6 @@ class SettingsScreen(Screen[None]):
             "ascii-safe": self._label("ascii_safe"),
             "comfortable": self._label("comfortable"),
             "compact": self._label("compact"),
-            "normal": self._label("normal"),
-            "reduced": self._label("reduced"),
             "unicode": self._label("unicode_value"),
             "ascii": self._label("ascii"),
         }
@@ -585,8 +583,6 @@ class SettingsScreen(Screen[None]):
             "ascii_safe": "ASCII 안전",
             "comfortable": "여유",
             "compact": "간결",
-            "normal": "기본",
-            "reduced": "줄임",
             "unicode_value": "유니코드",
             "ascii": "ASCII",
         }
@@ -629,8 +625,6 @@ class SettingsScreen(Screen[None]):
             "ascii_safe": "ascii-safe",
             "comfortable": "comfortable",
             "compact": "compact",
-            "normal": "normal",
-            "reduced": "reduced",
             "unicode_value": "unicode",
             "ascii": "ascii",
         }

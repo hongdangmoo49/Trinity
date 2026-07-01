@@ -2018,6 +2018,50 @@ async def test_nexus_command_palette_keyboard_selection_stays_visible(
 
 
 @pytest.mark.asyncio
+async def test_nexus_command_palette_stays_visible_after_terminal_resize(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/")
+        composer.focus_text_area()
+        for _ in range(COMMAND_LIMIT + 4):
+            await pilot.press("down")
+        await pilot.pause()
+
+        for size in ((60, 20), (120, 36)):
+            await pilot.resize_terminal(*size)
+            await pilot.pause()
+            nexus_shell = screen.query_one("#nexus-screen")
+            selected_option = composer.query_one(".command-option-selected")
+            palette = composer.query_one("#prompt-command-palette")
+            more = composer.query_one("#command-option-more")
+            for widget in (composer, palette, selected_option, more):
+                assert widget.region.x >= nexus_shell.region.x
+                assert (
+                    widget.region.x + widget.region.width
+                    <= nexus_shell.region.x + nexus_shell.region.width
+                )
+                assert widget.region.y >= nexus_shell.region.y
+                assert (
+                    widget.region.y + widget.region.height
+                    <= nexus_shell.region.y + nexus_shell.region.height
+                )
+            palette_bottom_border = palette.region.y + palette.region.height - 1
+            composer_bottom_border = composer.region.y + composer.region.height - 1
+            assert palette.region.y + palette.region.height <= composer_bottom_border
+            assert selected_option.region.y < palette_bottom_border
+            assert more.region.y < palette_bottom_border
+
+
+@pytest.mark.asyncio
 async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     config.agents["codex"].enabled = True

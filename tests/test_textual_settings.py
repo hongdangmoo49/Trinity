@@ -161,6 +161,30 @@ async def test_settings_central_provider_keeps_saved_disabled_value(tmp_path) ->
 
 
 @pytest.mark.asyncio
+async def test_settings_marks_disabled_agent_model_rows(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        labels = [str(label.content) for label in screen.query(".settings-row Label")]
+        preview = str(screen.query_one("#theme-preview", Static).content)
+        claude_disabled = screen.query_one("#model-claude", Select).disabled
+        codex_disabled = screen.query_one("#model-codex", Select).disabled
+        antigravity_disabled = screen.query_one("#model-antigravity", Select).disabled
+
+    assert "Codex (off)" in labels
+    assert "Antigravity (off)" in labels
+    assert claude_disabled is False
+    assert codex_disabled is True
+    assert antigravity_disabled is True
+    assert "- Codex (off): default" in preview
+    assert "- Antigravity (off): default" in preview
+
+
+@pytest.mark.asyncio
 async def test_settings_apply_skips_unchanged_display_updates(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)

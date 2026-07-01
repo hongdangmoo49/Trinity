@@ -1234,7 +1234,7 @@ class TrinityTextualApp(App[None]):
     }
 
     #nexus-composer.-commands-open {
-        height: 10;
+        height: 11;
     }
 
     #prompt-command-palette {

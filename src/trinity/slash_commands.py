@@ -117,6 +117,13 @@ COMMAND_SPECS: tuple[SlashCommandSpec, ...] = (
         category=SlashCommandCategory.LOCAL_UI,
     ),
     SlashCommandSpec(
+        name="/settings",
+        usage="/settings",
+        summary="open workbench settings",
+        summary_ko="워크벤치 설정 열기",
+        category=SlashCommandCategory.LOCAL_UI,
+    ),
+    SlashCommandSpec(
         name="/rounds",
         usage="/rounds [N]",
         summary="show or set deliberation rounds",

@@ -385,7 +385,7 @@ class TrinityTextualApp(App[None]):
     }
 
     #start-composer.-commands-open {
-        height: 10;
+        height: 11;
     }
 
     .agent-recipient-selector {
@@ -1234,7 +1234,7 @@ class TrinityTextualApp(App[None]):
     }
 
     #nexus-composer.-commands-open {
-        height: 9;
+        height: 10;
     }
 
     #prompt-command-palette {

@@ -1902,6 +1902,8 @@ async def test_start_command_palette_keyboard_selection_stays_visible(tmp_path) 
                 <= start_shell.region.y + start_shell.region.height
             )
         palette_bottom_border = palette.region.y + palette.region.height - 1
+        composer_bottom_border = composer.region.y + composer.region.height - 1
+        assert palette.region.y + palette.region.height <= composer_bottom_border
         assert selected_option.region.y < palette_bottom_border
         assert more.region.y < palette_bottom_border
 

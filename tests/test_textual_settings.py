@@ -320,6 +320,33 @@ async def test_settings_select_change_marks_unsaved(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_settings_reverted_selects_return_to_saved_status(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        status = screen.query_one("#settings-status", Static)
+
+        screen.query_one("#density").value = "compact"
+        await pilot.pause()
+        assert str(status.content) == SETTINGS_UNSAVED_STATUS
+
+        screen.query_one("#density").value = "comfortable"
+        await pilot.pause()
+        assert str(status.content) == "Saved"
+
+        screen.query_one("#central-provider").value = "claude"
+        await pilot.pause()
+        assert str(status.content) == SETTINGS_UNSAVED_STATUS
+
+        screen.query_one("#central-provider").value = "auto"
+        await pilot.pause()
+        assert str(status.content) == "Saved"
+
+
+@pytest.mark.asyncio
 async def test_settings_apply_button_saves_preferences(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     store = UISettingsStore(tmp_path / ".trinity")

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1086`
-- Merged PR range reviewed: #90 through #1247
+- Package version inspected: `1.0.1087`
+- Merged PR range reviewed: #90 through #1248
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1247
-- Latest refresh reviewed: #1247
+- Maintenance refresh reviewed: #427 through #1248
+- Latest refresh reviewed: #1248
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2252,6 +2252,8 @@ and what the next release train should optimize.
   so it no longer reads like saved Workbench Settings.
 - Showed the Settings status row as saved on first render instead of leaving a
   blank status line before the first edit.
+- Re-enabled Settings select-change handling after screen recompose so
+  regenerated controls still mark edits as unsaved.
 - Updated the README interactive command tables to include `/project`,
   `/providers`, `/workspace`, and `/settings`.
 - Added README slash command drift coverage so the Korean and English quick

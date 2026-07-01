@@ -57,7 +57,7 @@ def test_settings_preview_includes_agent_profile_summary(tmp_path) -> None:
 
     preview = screen.preview_text()
 
-    assert "Theme mode: auto (dark fallback)" in preview
+    assert "Theme mode: dark fallback" in preview
     assert textual_theme_for_mode("system") == "textual-dark"
     assert "architect" in preview
     assert "implementer" in preview
@@ -150,6 +150,38 @@ async def test_settings_preview_updates_before_apply(tmp_path) -> None:
 
     assert UISettingsStore(tmp_path / ".trinity").load() == UISettings()
     assert config.synthesis_agent == ""
+
+
+@pytest.mark.asyncio
+async def test_settings_select_labels_describe_fallbacks(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        theme_labels = {
+            value: str(label)
+            for label, value in screen.query_one("#theme-mode", Select)._options
+        }
+        color_labels = {
+            value: str(label)
+            for label, value in screen.query_one("#color-profile", Select)._options
+        }
+        glyph_labels = {
+            value: str(label)
+            for label, value in screen.query_one("#unicode-rendering", Select)._options
+        }
+        central_labels = {
+            value: str(label)
+            for label, value in screen.query_one("#central-provider", Select)._options
+        }
+
+    assert theme_labels["system"] == "dark fallback"
+    assert color_labels["auto"] == "default palette"
+    assert glyph_labels["auto"] == "ASCII fallback"
+    assert central_labels["auto"] == "Auto"
 
 
 @pytest.mark.asyncio

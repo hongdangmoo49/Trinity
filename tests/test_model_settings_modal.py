@@ -18,6 +18,16 @@ class ModelSettingsModalHarness(App[None]):
         self.push_screen(self.modal)
 
 
+def test_model_settings_modal_cancel_binding_uses_korean_label(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    modal = ModelSettingsModal(config.agents, {}, {}, lang="ko")
+    binding = next(iter(modal._bindings.get_bindings_for_key("escape")))
+
+    assert binding.key == "escape"
+    assert binding.action == "cancel"
+    assert binding.description == "취소"
+
+
 @pytest.mark.asyncio
 async def test_model_settings_modal_skips_unchanged_choice_refresh(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)

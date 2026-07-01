@@ -10,6 +10,7 @@ from textual.widgets import Button, Footer, OptionList, Static
 from trinity.display_labels import display_source_value
 from trinity.models import AgentSpec
 from trinity.providers.model_discovery import ProviderModelChoice
+from trinity.textual_app.i18n import localize_bindings
 
 
 class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
@@ -79,6 +80,10 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         ("escape", "cancel", "Cancel"),
     ]
 
+    LOCALIZED_BINDINGS = {
+        ("escape", "cancel"): ("binding_cancel", None),
+    }
+
     def __init__(
         self,
         agents: dict[str, AgentSpec],
@@ -90,6 +95,7 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         super().__init__()
         self.agents = agents
         self.lang = lang
+        localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
         self.selected_models = {
             name: selected_models.get(name, spec.model or "default")
             for name, spec in self.agents.items()

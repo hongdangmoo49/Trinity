@@ -236,7 +236,7 @@ PROJECT_READ_FIRST_CHECKLIST_LABELS = {
 
 PROJECT_EXISTING_DIAGNOSTIC_LABELS = {
     "en": {
-        "summary": "Existing diagnosis",
+        "summary": "Workspace diagnosis",
         "read": "read",
         "read_missing": "README/docs/source roots missing",
         "tests": "tests",
@@ -249,7 +249,7 @@ PROJECT_EXISTING_DIAGNOSTIC_LABELS = {
         "git": "git",
     },
     "ko": {
-        "summary": "기존 프로젝트 진단",
+        "summary": "작업 폴더 진단",
         "read": "읽기",
         "read_missing": "README/docs/source roots 없음",
         "tests": "테스트",

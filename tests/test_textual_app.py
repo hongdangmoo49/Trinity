@@ -12341,7 +12341,7 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
 
         assert app.has_class("ui-color-profile-ascii-safe")
         assert not app.has_class("ui-color-profile-256color")
-        assert "Color profile: ascii-safe · Motion: normal · Unicode: Auto" in preview
+        assert "Color profile: ascii-safe · Logo motion: normal · Logo glyphs: Auto" in preview
 
         screen.query_one("#color-profile").value = "auto"
         screen.action_apply()
@@ -12421,7 +12421,7 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
         assert screen.label_text("central_provider") == "중앙 프로바이더"
         assert "테마 모드: 자동(다크 대체)" in preview
         assert "밀도: 여유" in preview
-        assert "색상 프로필: 자동 · 애니메이션: 기본 · 유니코드: 자동" in preview
+        assert "색상 프로필: 자동 · 로고 애니메이션: 기본 · 로고 글리프: 자동" in preview
         assert "중앙: 자동 / 강력" in preview
         assert "Claude: 기본값" in preview
         assert "Claude: 기본값 · 설계자 · 아키텍처 0.95" in preview

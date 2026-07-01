@@ -69,6 +69,56 @@ async def test_model_settings_modal_skips_unchanged_choice_refresh(tmp_path) -> 
 
 
 @pytest.mark.asyncio
+async def test_model_settings_modal_refresh_preserves_selected_model(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    spec = config.agents["claude"]
+    default_choice = ProviderModelChoice(
+        provider=spec.provider,
+        model="default",
+        label="default",
+        source="static-fallback",
+        context_budget=None,
+    )
+    custom_choice = ProviderModelChoice(
+        provider=spec.provider,
+        model="custom-live",
+        label="custom-live",
+        source="static-fallback",
+        context_budget=None,
+    )
+    modal = ModelSettingsModal(
+        config.agents,
+        {"claude": (default_choice, custom_choice)},
+        {"claude": "custom-live"},
+    )
+    app = ModelSettingsModalHarness(modal)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+
+        live_choice = ProviderModelChoice(
+            provider=spec.provider,
+            model="opus-live",
+            label="opus-live",
+            source="cli-live",
+            context_budget=None,
+        )
+        modal.set_model_choices({"claude": (default_choice, live_choice)})
+        await pilot.pause()
+
+        choices = modal.choices_by_agent["claude"]
+        option_list = modal.query_one("#model-choice-list", OptionList)
+
+        assert [choice.model for choice in choices] == [
+            "default",
+            "opus-live",
+            "custom-live",
+        ]
+        assert modal.selected_models["claude"] == "custom-live"
+        assert option_list.highlighted == 2
+
+
+@pytest.mark.asyncio
 async def test_model_settings_modal_skips_active_agent_reselect_refresh(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     choices = {

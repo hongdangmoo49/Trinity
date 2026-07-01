@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1065`
-- Merged PR range reviewed: #90 through #1226
+- Package version inspected: `1.0.1066`
+- Merged PR range reviewed: #90 through #1227
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1226
-- Latest refresh reviewed: #1226
+- Maintenance refresh reviewed: #427 through #1227
+- Latest refresh reviewed: #1227
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1226: Prompt-Led Workbench Simplification
+### #977-#1227: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2224,6 +2224,8 @@ and what the next release train should optimize.
   default `trinity` Workbench path instead of a non-existent `--textual` flag.
 - Updated the README interactive command tables to include `/project`,
   `/providers`, `/workspace`, and `/settings`.
+- Added README slash command drift coverage so the Korean and English quick
+  command tables keep registered Trinity slash commands visible.
 - Added Nexus slash command palette resize regression coverage for
   low-to-standard terminal transitions.
 - Added Start slash command palette resize regression coverage for

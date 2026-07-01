@@ -12626,6 +12626,33 @@ async def test_settings_screen_saves_theme_preferences(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_settings_visual_apply_preserves_start_model_override(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        selector = start.query_one(AgentRecipientModelSelector)
+        selector.set_model_overrides({"codex": "gpt-5"})
+        assert selector.model_overrides() == {"codex": "gpt-5"}
+
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+        screen.query_one("#density").value = "compact"
+        screen.action_apply()
+        await pilot.pause()
+
+        app.switch_to("start")
+        await pilot.pause()
+        assert selector.selected_model("codex") == "gpt-5"
+        assert selector.model_overrides() == {"codex": "gpt-5"}
+
+
+@pytest.mark.asyncio
 async def test_settings_apply_keeps_agent_command_changes_session_only(
     tmp_path,
 ) -> None:

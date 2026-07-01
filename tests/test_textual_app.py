@@ -12639,6 +12639,12 @@ async def test_settings_central_models_follow_selected_provider(tmp_path) -> Non
         assert "opus-live" in claude_values
         assert "gpt-live" not in claude_values
         assert central_model.value == "agent-default"
+        screen.action_apply()
+        await pilot.pause()
+
+    saved_config = TrinityConfig.load(tmp_path / ".trinity" / "trinity.config")
+    assert saved_config.synthesis_agent == "claude"
+    assert saved_config.synthesis_model == "agent-default"
 
 
 @pytest.mark.asyncio

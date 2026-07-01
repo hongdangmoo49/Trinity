@@ -2636,6 +2636,40 @@ async def test_textual_app_switches_named_routes(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_settings_route_switch_preserves_unsaved_choices(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        screen.query_one("#density", Select).value = "compact"
+        await pilot.pause()
+        assert str(screen.query_one("#settings-status", Static).content).startswith(
+            "Unsaved changes"
+        )
+
+        app.switch_to("nexus")
+        await pilot.pause()
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        assert str(screen.query_one("#density", Select).value) == "compact"
+        assert str(screen.query_one("#settings-status", Static).content).startswith(
+            "Unsaved changes"
+        )
+
+        screen.action_apply()
+        await pilot.pause()
+
+    assert UISettingsStore(tmp_path / ".trinity").load().density == "compact"
+
+
+@pytest.mark.asyncio
 async def test_textual_app_switches_to_report_screen_without_render_crash(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

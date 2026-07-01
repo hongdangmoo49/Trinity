@@ -323,14 +323,15 @@ Trinity는 기본 실행 화면으로 **Textual 기반 Workbench TUI**를 제공
 - **Start Screen** — workspace를 필수로 묻지 않고 큰 multi-line prompt로 planning을 시작합니다.
 - **Nexus Screen** — provider별 상태 패널, 중앙 synthesis, workflow inspector를 한 화면에 보여줍니다.
 - **Agent Target Row** — Start/Nexus 입력창에서 Claude/Codex/Antigravity 중 질문할
-  대상을 고르고, `/model` modal에서 provider별 모델을 세부 설정합니다.
+  대상을 고르고, `/model` modal에서 다음 요청에만 적용할 provider별 모델 override를
+  설정합니다.
 - **Provider Inspector** — Claude/Codex/Antigravity 원문 output을 탭 modal에서 확인합니다.
 - **Execution Preflight** — `Execute` 시점에만 workspace picker와 경로/git/write 권한 preflight를 보여줍니다.
 - **Execution Matrix** — work package DataTable과 execution log를 모니터링 화면으로 표시합니다.
 - **Resume/Retry** — `/resume`으로 이전 workflow를 복원하고 `/execute-retry` modal에서
   실패, 차단, 중단된 WP를 선택해 재시도합니다.
 - **Workbench Settings** — 앱 안에서 theme mode, color compatibility, density,
-  시작 로고 motion/Unicode glyph, 에이전트/중앙 모델 기본값을 저장합니다.
+  시작 로고 motion/Unicode glyph, 저장된 에이전트/중앙 모델 기본값을 관리합니다.
   `/settings` 또는 `Ctrl+,`로 열 수 있습니다.
 - **Startup Update Check** — `trinity` 실행 시 업데이트가 있으면 적용 여부를 묻고,
   `--skip-update-check`로 건너뛸 수 있습니다.

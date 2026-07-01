@@ -159,6 +159,28 @@ def test_execution_confirmation_modal_shows_agent_run_estimate() -> None:
     assert "Agent runs: 2 approx (1 execution, 1 review)" in (
         ExecutionConfirmModal(summary).summary_text()
     )
+    assert "Work packages: 1 total, 1 executable" in (
+        ExecutionConfirmModal(summary).summary_text()
+    )
+
+
+def test_execution_confirmation_modal_uses_korean_package_summary() -> None:
+    summary = ExecutionConfirmationSummary(
+        target_workspace="/workspace/app",
+        workspace_context="recorded",
+        context_items=("ok",),
+        providers=("claude",),
+        total_packages=2,
+        executable_packages=1,
+        estimated_execution_runs=1,
+        estimated_review_runs=0,
+        package_preview=("WP-001 codex: Build CLI",),
+    )
+
+    text = ExecutionConfirmModal(summary, lang="ko").summary_text()
+
+    assert "작업 패키지: 총 2개, 실행 가능 1개" in text
+    assert "total" not in text
 
 
 @pytest.mark.asyncio

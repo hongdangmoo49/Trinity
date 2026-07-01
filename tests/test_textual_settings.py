@@ -10,7 +10,7 @@ from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.settings import UISettings, UISettingsStore, textual_theme_for_mode
 
 SETTINGS_APPLIED_STATUS = "Saved · applied to UI and model defaults"
-SETTINGS_UNSAVED_STATUS = "Unsaved changes · press Apply to save"
+SETTINGS_UNSAVED_STATUS = "Unsaved changes · press Save & Apply to save"
 
 
 class SettingsHarness(App[None]):
@@ -47,7 +47,7 @@ def test_settings_apply_shortcut_binding_is_registered(tmp_path) -> None:
 
     assert binding.key == "ctrl+s"
     assert binding.action == "apply"
-    assert binding.description == "Apply"
+    assert binding.description == "Save & Apply"
 
 
 def test_settings_apply_shortcut_binding_uses_korean_label(tmp_path) -> None:
@@ -61,7 +61,29 @@ def test_settings_apply_shortcut_binding_uses_korean_label(tmp_path) -> None:
 
     assert binding.key == "ctrl+s"
     assert binding.action == "apply"
-    assert binding.description == "적용"
+    assert binding.description == "저장 및 적용"
+
+
+@pytest.mark.asyncio
+async def test_settings_apply_button_labels_describe_save_and_apply(tmp_path) -> None:
+    en = SettingsScreen(
+        UISettingsStore(tmp_path / ".trinity-en"),
+        TrinityConfig.default_config(project_dir=tmp_path / "en"),
+    )
+    ko_config = TrinityConfig.default_config(project_dir=tmp_path / "ko", lang="ko")
+    ko = SettingsScreen(
+        UISettingsStore(tmp_path / ".trinity-ko"),
+        ko_config,
+        lang="ko",
+    )
+
+    async with SettingsHarness(en).run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        assert str(en.query_one("#apply-settings", Button).label) == "Save & Apply"
+
+    async with SettingsHarness(ko).run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        assert str(ko.query_one("#apply-settings", Button).label) == "저장 및 적용"
 
 
 def test_ui_settings_store_uses_defaults_for_invalid_values(tmp_path) -> None:

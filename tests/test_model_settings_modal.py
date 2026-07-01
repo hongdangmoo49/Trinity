@@ -119,6 +119,36 @@ async def test_model_settings_modal_refresh_preserves_selected_model(tmp_path) -
 
 
 @pytest.mark.asyncio
+async def test_model_settings_modal_keeps_missing_default_first(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    spec = config.agents["codex"]
+    live_choice = ProviderModelChoice(
+        provider=spec.provider,
+        model="gpt-5.5",
+        label="gpt-5.5",
+        source="cli-live",
+        context_budget=None,
+    )
+    modal = ModelSettingsModal(
+        config.agents,
+        {"codex": (live_choice,)},
+        {"codex": "default"},
+    )
+    app = ModelSettingsModalHarness(modal)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+        modal.query_one("#model-agent-codex", Button).press()
+        await pilot.pause()
+
+        option_list = modal.query_one("#model-choice-list", OptionList)
+        choices = modal.choices_by_agent["codex"]
+
+        assert [choice.model for choice in choices] == ["default", "gpt-5.5"]
+        assert option_list.highlighted == 0
+
+
+@pytest.mark.asyncio
 async def test_model_settings_modal_skips_active_agent_reselect_refresh(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     choices = {

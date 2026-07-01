@@ -12434,6 +12434,40 @@ async def test_settings_screen_saves_theme_preferences(tmp_path) -> None:
     assert saved.density == "compact"
 
 
+@pytest.mark.asyncio
+async def test_settings_apply_keeps_agent_command_changes_session_only(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
+    app._refresh_provider_models = (  # type: ignore[method-assign]
+        lambda *, use_cache: None
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app._handle_textual_slash_command("/agent codex on")
+        app._handle_textual_slash_command("/agent claude off")
+        await pilot.pause()
+
+        assert config.agents["codex"].enabled is True
+        assert config.agents["claude"].enabled is False
+
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        screen.query_one("#theme-mode").value = "light"
+        screen.action_apply()
+        await pilot.pause()
+
+    saved_config = TrinityConfig.load(tmp_path / ".trinity" / "trinity.config")
+    assert config.agents["codex"].enabled is True
+    assert config.agents["claude"].enabled is False
+    assert saved_config.agents["codex"].enabled is False
+    assert saved_config.agents["claude"].enabled is True
+
+
 def test_textual_app_applies_saved_theme_on_startup(tmp_path) -> None:
     UISettingsStore(tmp_path / ".trinity").save(UISettings(theme_mode="light"))
 

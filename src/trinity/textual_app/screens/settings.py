@@ -54,6 +54,10 @@ class SettingsScreen(Screen[None]):
         self._status_widget: Static | None = None
         self._central_provider_value = config.synthesis_agent or "auto"
         self._select_events_ready = False
+        self._persisted_agent_enabled = {
+            name: bool(spec.enabled)
+            for name, spec in config.agents.items()
+        }
 
     def compose(self) -> ComposeResult:
         self._select_cache = {}
@@ -237,10 +241,27 @@ class SettingsScreen(Screen[None]):
         central_provider = self._value("central-provider")
         self.config.synthesis_agent = "" if central_provider == "auto" else central_provider
         self.config.synthesis_model = self._value("central-model")
-        self.config.save(self.config.effective_state_dir / "trinity.config")
+        self._save_config_preserving_session_agent_state()
         self._set_preview_text(self.preview_text())
         self._set_status_text(self._label("saved_applied"))
         self.post_message(self.Applied())
+
+    def _save_config_preserving_session_agent_state(self) -> None:
+        session_enabled = {
+            name: bool(spec.enabled)
+            for name, spec in self.config.agents.items()
+        }
+        try:
+            for name, enabled in self._persisted_agent_enabled.items():
+                spec = self.config.agents.get(name)
+                if spec is not None:
+                    spec.enabled = enabled
+            self.config.save(self.config.effective_state_dir / "trinity.config")
+        finally:
+            for name, enabled in session_enabled.items():
+                spec = self.config.agents.get(name)
+                if spec is not None:
+                    spec.enabled = enabled
 
     def _normalize_visual_selects(self) -> None:
         normalized = (

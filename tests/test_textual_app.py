@@ -12593,6 +12593,55 @@ async def test_settings_preview_refreshes_when_model_choices_arrive(tmp_path) ->
 
 
 @pytest.mark.asyncio
+async def test_settings_central_models_follow_selected_provider(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
+    app._model_discovery_started = True
+    claude = config.agents["claude"]
+    codex = config.agents["codex"]
+    discovered = {
+        "claude": (
+            ProviderModelChoice(
+                provider=claude.provider,
+                model="opus-live",
+                label="Opus Live",
+                source="cli-live",
+            ),
+        ),
+        "codex": (
+            ProviderModelChoice(
+                provider=codex.provider,
+                model="gpt-live",
+                label="GPT Live",
+                source="cli-live",
+            ),
+        ),
+    }
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        app._apply_discovered_model_choices(discovered)
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        central_provider = screen.query_one("#central-provider", Select)
+        central_model = screen.query_one("#central-model", Select)
+        auto_values = {value for _label, value in central_model._options}
+        assert {"opus-live", "gpt-live"} <= auto_values
+
+        central_provider.value = "claude"
+        await pilot.pause()
+        central_model = screen.query_one("#central-model", Select)
+        claude_values = {value for _label, value in central_model._options}
+
+        assert "opus-live" in claude_values
+        assert "gpt-live" not in claude_values
+        assert central_model.value == "agent-default"
+
+
+@pytest.mark.asyncio
 async def test_settings_screen_syncs_mounted_agent_model_selectors(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     app = TrinityTextualApp(config)

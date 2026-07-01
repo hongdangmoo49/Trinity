@@ -84,3 +84,8 @@ class UISettingsStore:
 def _choice(value: object, choices: set[str], default: str) -> str:
     text = str(value) if value is not None else default
     return text if text in choices else default
+
+
+def textual_theme_for_mode(theme_mode: str) -> str:
+    """Return the Textual theme name for a saved Trinity theme mode."""
+    return "textual-light" if theme_mode == "light" else "textual-dark"

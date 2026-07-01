@@ -53,12 +53,14 @@ class SettingsScreen(Screen[None]):
         self._agent_model_choices: dict[str, tuple[ProviderModelChoice, ...]] = {}
         self._preview_widget: Static | None = None
         self._status_widget: Static | None = None
+        self._central_provider_value = config.synthesis_agent or "auto"
 
     def compose(self) -> ComposeResult:
         self._select_cache = {}
         self._preview_widget = None
         self._status_widget = None
         self._status_key = ""
+        self._central_provider_value = self.config.synthesis_agent or "auto"
         yield Header(show_clock=False)
         with VerticalScroll(id="settings-screen"):
             yield Static(self._label("settings"), id="settings-title")
@@ -115,7 +117,10 @@ class SettingsScreen(Screen[None]):
                 yield Label(self._label("central_model"))
                 yield self._select(
                     "central-model",
-                    self._central_model_values(self.config.synthesis_model),
+                    self._central_model_values(
+                        self.config.synthesis_model,
+                        self.config.synthesis_agent or "auto",
+                    ),
                     self.config.synthesis_model or "agent-default",
                 )
             preview_text = self.preview_text()
@@ -133,6 +138,20 @@ class SettingsScreen(Screen[None]):
         if event.button.id == "apply-settings":
             event.stop()
             self.action_apply()
+
+    def on_select_changed(self, event: Select.Changed) -> None:
+        if event.select.id != "central-provider":
+            return
+        event.stop()
+        central_provider = str(event.value)
+        if central_provider == self._central_provider_value:
+            return
+        self._central_provider_value = central_provider
+        self._refresh_select_options(
+            "central-model",
+            self._central_model_values("agent-default", central_provider),
+            current="agent-default",
+        )
 
     def set_agent_model_choices(
         self,
@@ -154,9 +173,11 @@ class SettingsScreen(Screen[None]):
                     self._agent_model_values(name, spec.provider, spec.model),
                 )
         if changed and self.is_mounted:
+            central_model = self._value("central-model")
+            central_provider = self._value("central-provider")
             self._refresh_select_options(
                 "central-model",
-                self._central_model_values(self.config.synthesis_model),
+                self._central_model_values(central_model, central_provider),
             )
             self._set_preview_text(self.preview_text())
 
@@ -203,11 +224,17 @@ class SettingsScreen(Screen[None]):
         self._select_cache[id] = select
         return select
 
-    def _refresh_select_options(self, id: str, values: list[str]) -> None:
+    def _refresh_select_options(
+        self,
+        id: str,
+        values: list[str],
+        *,
+        current: str | None = None,
+    ) -> None:
         select = self._select_for(id)
-        current = str(select.value)
-        select.set_options(self._select_options(id, values, current))
-        select.value = current
+        next_current = str(select.value) if current is None else current
+        select.set_options(self._select_options(id, values, next_current))
+        select.value = next_current
 
     def _value(self, id: str) -> str:
         return str(self._select_for(id).value)
@@ -322,18 +349,31 @@ class SettingsScreen(Screen[None]):
             values.append(current)
         return values
 
-    def _central_model_values(self, current: str) -> list[str]:
+    def _central_model_values(
+        self,
+        current: str,
+        central_provider: str | None = None,
+    ) -> list[str]:
         values = [
             "agent-default",
             "default",
             "fast",
             "strong",
         ]
-        for provider in Provider:
-            for choice in provider_model_choices(provider):
-                values.append(choice.model)
-        for choices in self._agent_model_choices.values():
-            values.extend(choice.model for choice in choices)
+        agent_name = central_provider if central_provider not in {None, "", "auto"} else ""
+        if agent_name:
+            spec = self.config.agents.get(agent_name)
+            if spec is not None:
+                values.extend(choice.model for choice in provider_model_choices(spec.provider))
+            choices = self._agent_model_choices.get(agent_name)
+            if choices:
+                values.extend(choice.model for choice in choices)
+        else:
+            for provider in Provider:
+                for choice in provider_model_choices(provider):
+                    values.append(choice.model)
+            for choices in self._agent_model_choices.values():
+                values.extend(choice.model for choice in choices)
         return self._dedupe_values([*values, current or "agent-default"])
 
     def _central_model_display_value(self, value: str) -> str:

@@ -12826,6 +12826,8 @@ async def test_settings_preview_stays_bounded_on_small_terminals(tmp_path) -> No
         assert preview.styles.max_height.value == 14
         assert str(preview.styles.overflow_y) == "auto"
         assert apply_button.is_mounted
+        assert str(apply_button.label) == "Save & Apply"
+        assert apply_button.region.width >= 16
 
 
 @pytest.mark.asyncio

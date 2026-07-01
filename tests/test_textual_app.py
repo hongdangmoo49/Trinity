@@ -6403,6 +6403,38 @@ async def test_agent_command_syncs_open_settings_agent_rows(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_agent_command_preserves_saved_disabled_central_provider(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.synthesis_agent = "codex"
+    config.synthesis_model = "agent-default"
+    app = TrinityTextualApp(config)
+    app._refresh_provider_models = lambda *, use_cache: None  # type: ignore[method-assign]
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+        status = screen.query_one("#settings-status", Static)
+        assert screen.query_one("#central-provider", Select).value == "codex"
+        assert str(status.content) == "Saved"
+
+        app._handle_textual_slash_command("/agent codex on")
+        await pilot.pause()
+        assert screen.query_one("#central-provider", Select).value == "codex"
+        assert str(status.content) == "Saved"
+
+        app._handle_textual_slash_command("/agent codex off")
+        await pilot.pause()
+        preview = str(screen.query_one("#theme-preview", Static).content)
+        assert screen.query_one("#central-provider", Select).value == "codex"
+        assert "Saved central agent default model\n- Codex (off) / Agent default" in preview
+        assert str(status.content) == "Saved"
+
+
+@pytest.mark.asyncio
 async def test_agent_command_preserves_open_settings_unsaved_status(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     app = TrinityTextualApp(config)

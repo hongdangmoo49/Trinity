@@ -6253,6 +6253,38 @@ async def test_agent_command_syncs_recipient_selectors(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_agent_command_refreshes_stale_nexus_provider_snapshot(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
+    app._refresh_provider_models = (  # type: ignore[method-assign]
+        lambda *, use_cache: None
+    )
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        app._handle_textual_slash_command("/status")
+        await pilot.pause()
+        assert screen.query_one("#provider-codex", ProviderPanel).state.enabled is False
+
+        app._handle_textual_slash_command("/agent codex on")
+        await pilot.pause()
+
+        assert screen.query_one("#provider-codex", ProviderPanel).state.enabled is True
+        assert app.active_snapshot is not None
+        codex = next(
+            provider
+            for provider in app.active_snapshot.providers
+            if provider.name == "codex"
+        )
+        assert codex.enabled is True
+        assert app.active_snapshot.local_commands[-1].command == "/agent"
+
+
+@pytest.mark.asyncio
 async def test_agent_command_syncs_open_settings_agent_rows(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     app = TrinityTextualApp(config)

@@ -8,7 +8,7 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.984`
+- Package version inspected: `1.0.985`
 - Merged PR range reviewed: #90 through #1113
 - Baseline iteration reviewed: #90 through #426
 - Maintenance refresh reviewed: #427 through #1113
@@ -2161,13 +2161,14 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1145: Prompt-Led Workbench Simplification
+### #977-#1146: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
 - Made `/project` diagnostics-only and removed workbench project setup slash
   shortcuts, modal runtime paths, and unused project setup widgets.
 - Replaced button-led readiness with prompt-led `workbench_next_step` metadata.
+- Reworded Textual new-project brief readiness labels to prompt readiness.
 - Removed stale project CTA/selector tests, superseded Workbench action notes,
   old Workbench plan reports, obsolete init next-step wording, stale
   `project_start_guide` assertions, dead project rail/runtime notes,

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1077`
-- Merged PR range reviewed: #90 through #1238
+- Package version inspected: `1.0.1078`
+- Merged PR range reviewed: #90 through #1239
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1238
-- Latest refresh reviewed: #1238
+- Maintenance refresh reviewed: #427 through #1239
+- Latest refresh reviewed: #1239
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1238: Prompt-Led Workbench Simplification
+### #977-#1239: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2228,12 +2228,12 @@ and what the next release train should optimize.
   Workbench Settings screen.
 - Added Settings binding registration coverage so the documented `Ctrl+,`
   shortcut stays attached to the Settings route action.
-- Added Settings Apply binding registration coverage so `Ctrl+S` remains wired
-  to the Settings save/apply action.
+- Added Settings Save & Apply binding registration coverage so `Ctrl+S`
+  remains wired to the Settings save/apply action.
 - Added Korean Settings Save & Apply binding label coverage so the footer
   action stays localized as `저장 및 적용`.
-- Added Settings Apply button coverage so the visible button keeps routing
-  through the same save/apply path as the shortcut.
+- Added Settings Save & Apply button coverage so the visible button keeps
+  routing through the same save/apply path as the shortcut.
 - Clarified Settings action copy from Apply to Save & Apply so users can tell
   selections are saved only after the action runs.
 - Updated the README interactive command tables to include `/project`,
@@ -2262,10 +2262,11 @@ and what the next release train should optimize.
   compatibility, Start-logo preferences, and agent/central model defaults.
 - Added Settings preview coverage for color profile, motion, and unicode
   rendering values.
-- Clarified Settings Apply status to show UI preferences and Start/Nexus model
-  selectors were applied.
-- Clarified Settings Apply status again so it describes applied UI preferences
-  and saved model defaults instead of naming only Start/Nexus selectors.
+- Clarified Settings Save & Apply status to show UI preferences and
+  Start/Nexus model selectors were applied.
+- Clarified Settings Save & Apply status again so it describes applied UI
+  preferences and saved model defaults instead of naming only Start/Nexus
+  selectors.
 - Synced Settings model selects with provider-discovered model choices.
 - Preserved provider model display labels, source labels, and context budgets
   in Settings model selects.

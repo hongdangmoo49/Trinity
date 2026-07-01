@@ -259,9 +259,13 @@ class SettingsScreen(Screen[None]):
                 self._select_for(f"model-{name}").disabled = not spec.enabled
             central_provider = self._value("central-provider")
             central_model = self._value("central-model")
+            central_values = self._central_provider_values()
+            if central_provider not in central_values:
+                central_provider = self.config.synthesis_agent or "auto"
+                central_model = self.config.synthesis_model or "agent-default"
             self._refresh_select_options(
                 "central-provider",
-                self._central_provider_values(),
+                central_values,
                 current=central_provider,
             )
             self._refresh_select_options(
@@ -270,6 +274,7 @@ class SettingsScreen(Screen[None]):
                 current=central_model,
             )
         self._set_preview_text(self.preview_text())
+        self._sync_saved_status()
 
     def action_apply(self) -> None:
         self.settings = UISettings(

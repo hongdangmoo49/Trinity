@@ -6366,6 +6366,11 @@ async def test_agent_command_syncs_open_settings_agent_rows(tmp_path) -> None:
         assert str(status.content) == "Saved"
         assert refreshes == [True]
 
+        screen.query_one("#central-provider").value = "codex"
+        await pilot.pause()
+        assert screen.query_one("#central-provider", Select).value == "codex"
+        assert str(status.content) != "Saved"
+
         app._handle_textual_slash_command("/agent codex off")
         await pilot.pause()
 
@@ -6378,6 +6383,7 @@ async def test_agent_command_syncs_open_settings_agent_rows(tmp_path) -> None:
         assert screen.query_one("#model-codex", Select).disabled is True
         assert "Codex (off)" in labels
         assert "codex" not in central_values
+        assert screen.query_one("#central-provider", Select).value == "auto"
         assert "- Codex (off): default" in preview
         assert str(status.content) == "Saved"
         assert refreshes == [True]

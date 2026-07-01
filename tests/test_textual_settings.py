@@ -374,10 +374,24 @@ async def test_settings_apply_normalizes_legacy_visual_values(tmp_path) -> None:
         screen.action_apply()
         await pilot.pause()
 
+        theme = screen.query_one("#theme-mode", Select)
+        color = screen.query_one("#color-profile", Select)
+        glyphs = screen.query_one("#unicode-rendering", Select)
+        preview = str(screen.query_one("#theme-preview", Static).content)
+
     saved = store.load()
     assert saved.theme_mode == "dark"
     assert saved.color_profile == "default"
     assert saved.unicode_rendering == "ascii"
+    assert theme.value == "dark"
+    assert color.value == "default"
+    assert glyphs.value == "ascii"
+    assert "system" not in {value for _, value in theme._options}
+    assert "auto" not in {value for _, value in color._options}
+    assert "auto" not in {value for _, value in glyphs._options}
+    assert "- Theme mode: dark" in preview
+    assert "- Color compatibility: default colors" in preview
+    assert "- Start logo glyphs: ascii" in preview
 
 
 @pytest.mark.asyncio

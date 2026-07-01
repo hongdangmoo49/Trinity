@@ -200,6 +200,7 @@ class SettingsScreen(Screen[None]):
             unicode_rendering=self._saved_setting_value("unicode-rendering"),
         )
         self.settings_store.save(self.settings)
+        self._normalize_visual_selects()
         for name, spec in self.config.agents.items():
             selector_id = f"model-{name}"
             spec.model = self._value(selector_id)
@@ -210,6 +211,20 @@ class SettingsScreen(Screen[None]):
         self._set_preview_text(self.preview_text())
         self._set_status_text(self._label("saved_applied"))
         self.post_message(self.Applied())
+
+    def _normalize_visual_selects(self) -> None:
+        normalized = (
+            ("theme-mode", ["dark", "light"], self.settings.theme_mode),
+            (
+                "color-profile",
+                ["default", "truecolor", "256color", "ascii-safe"],
+                self.settings.color_profile,
+            ),
+            ("unicode-rendering", ["ascii", "unicode"], self.settings.unicode_rendering),
+        )
+        for id, values, current in normalized:
+            if self._value(id) != current:
+                self._refresh_select_options(id, values, current=current)
 
     def _set_preview_text(self, text: str) -> None:
         if text == self._preview_render_key:

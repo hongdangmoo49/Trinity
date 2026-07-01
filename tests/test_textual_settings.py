@@ -8,6 +8,8 @@ from trinity.config import TrinityConfig
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.settings import UISettings, UISettingsStore
 
+SETTINGS_APPLIED_STATUS = "Saved · applied to UI and Start/Nexus model selectors"
+
 
 class SettingsHarness(App[None]):
     def __init__(self, screen: SettingsScreen) -> None:
@@ -90,7 +92,7 @@ async def test_settings_apply_skips_unchanged_display_updates(tmp_path) -> None:
         await pilot.pause()
 
         assert preview_updates == []
-        assert status_updates == ["Saved"]
+        assert status_updates == [SETTINGS_APPLIED_STATUS]
 
         status_updates.clear()
         screen.action_apply()
@@ -123,7 +125,7 @@ async def test_settings_apply_uses_cached_controls(tmp_path) -> None:
 
         assert queries == []
         assert screen._status_widget is not None
-        assert str(screen._status_widget.content) == "Saved"
+        assert str(screen._status_widget.content) == SETTINGS_APPLIED_STATUS
 
 
 @pytest.mark.asyncio
@@ -139,7 +141,7 @@ async def test_settings_recompose_rebinds_cached_controls(tmp_path) -> None:
 
         screen.action_apply()
         await pilot.pause()
-        assert screen._status_key == "Saved"
+        assert screen._status_key == SETTINGS_APPLIED_STATUS
 
         screen.refresh(recompose=True)
         await pilot.pause()
@@ -165,4 +167,4 @@ async def test_settings_recompose_rebinds_cached_controls(tmp_path) -> None:
 
         assert queries == []
         assert isinstance(screen._select_cache["theme-mode"], Select)
-        assert str(screen._status_widget.content) == "Saved"
+        assert str(screen._status_widget.content) == SETTINGS_APPLIED_STATUS

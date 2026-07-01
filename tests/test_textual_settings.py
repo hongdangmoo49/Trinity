@@ -784,7 +784,8 @@ async def test_settings_apply_uses_cached_controls(tmp_path) -> None:
 @pytest.mark.asyncio
 async def test_settings_recompose_rebinds_cached_controls(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
-    screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)
+    store = UISettingsStore(tmp_path / ".trinity")
+    screen = SettingsScreen(store, config)
     app = SettingsHarness(screen)
 
     async with app.run_test(size=(120, 36)) as pilot:
@@ -824,5 +825,17 @@ async def test_settings_recompose_rebinds_cached_controls(tmp_path) -> None:
 
         screen.query_one("#density").value = "compact"
         await pilot.pause()
+        assert str(screen.query_one("#density", Select).value) == "compact"
 
         assert str(screen._status_widget.content) == SETTINGS_UNSAVED_STATUS
+
+        screen.refresh(recompose=True)
+        await pilot.pause()
+
+        assert str(screen.query_one("#density", Select).value) == "compact"
+        assert str(screen._status_widget.content) == SETTINGS_UNSAVED_STATUS
+
+        screen.action_apply()
+        await pilot.pause()
+
+    assert store.load().density == "compact"

@@ -111,7 +111,7 @@ WORKSPACE_PICKER_LABELS = {
         "directory": "디렉터리",
         "dirty_worktree": "변경사항",
         "dirty_worktree_clean": "깨끗함",
-        "dirty_worktree_summary": "변경 {changed}개, 추적 안 됨 {untracked}개",
+        "dirty_worktree_summary": "변경 {changed}개, 미추적 {untracked}개",
         "enable": "활성화",
         "enable_create_copy": "선택한 경로는 현재 생성 가능으로 표시되어 있지 않습니다.",
         "enable_create_title": "디렉터리 생성을 활성화할까요?",

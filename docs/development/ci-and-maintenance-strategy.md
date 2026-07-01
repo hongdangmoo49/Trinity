@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1081`
-- Merged PR range reviewed: #90 through #1242
+- Package version inspected: `1.0.1082`
+- Merged PR range reviewed: #90 through #1243
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1242
-- Latest refresh reviewed: #1242
+- Maintenance refresh reviewed: #427 through #1243
+- Latest refresh reviewed: #1243
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1242: Prompt-Led Workbench Simplification
+### #977-#1243: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2242,6 +2242,8 @@ and what the next release train should optimize.
   pointing users to `저장 및 적용`.
 - Added Settings startup restore coverage so saved UI preferences repopulate
   Settings selects and preview text on the next app session.
+- Added Settings startup restore coverage for saved agent and central model
+  defaults.
 - Updated the README interactive command tables to include `/project`,
   `/providers`, `/workspace`, and `/settings`.
 - Added README slash command drift coverage so the Korean and English quick

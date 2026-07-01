@@ -12979,6 +12979,33 @@ async def test_settings_screen_saves_agent_and_central_models(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_settings_screen_loads_saved_model_defaults(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    config.agents["claude"].model = "sonnet[1m]"
+    config.agents["codex"].model = "gpt-5"
+    config.synthesis_agent = "codex"
+    config.synthesis_model = "agent-default"
+    config.save(tmp_path / ".trinity" / "trinity.config")
+    app = TrinityTextualApp(TrinityConfig.load(tmp_path / ".trinity" / "trinity.config"))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        assert screen.query_one("#model-claude", Select).value == "sonnet[1m]"
+        assert screen.query_one("#model-codex", Select).value == "gpt-5"
+        assert screen.query_one("#central-provider", Select).value == "codex"
+        assert screen.query_one("#central-model", Select).value == "agent-default"
+        preview = str(screen.query_one("#theme-preview", Static).content)
+        assert "- Claude: sonnet[1m]" in preview
+        assert "- Codex: gpt-5" in preview
+        assert "Central agent default model\n- Codex / Agent default" in preview
+
+
+@pytest.mark.asyncio
 async def test_settings_screen_uses_discovered_model_choices(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     app = TrinityTextualApp(config)

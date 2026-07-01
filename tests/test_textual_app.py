@@ -212,7 +212,7 @@ from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.screens.start import SacredGeometryAnimation, StartScreen
 from trinity.textual_app.slash_palette import SlashCommandPaletteProvider
 from trinity.textual_app.status_commands import status_command_result
-from trinity.textual_app.settings import UISettingsStore
+from trinity.textual_app.settings import UISettings, UISettingsStore
 from trinity.textual_app.snapshot import (
     AgentQualitySnapshot,
     PostReviewActionSnapshot,
@@ -12223,14 +12223,25 @@ async def test_settings_screen_saves_theme_preferences(tmp_path) -> None:
         screen = app.screen
         assert isinstance(screen, SettingsScreen)
 
-        screen.query_one("#theme-mode").value = "dark"
+        assert app.theme == "textual-dark"
+        screen.query_one("#theme-mode").value = "light"
         screen.query_one("#density").value = "compact"
         screen.action_apply()
         await pilot.pause()
 
+        assert app.theme == "textual-light"
+
     saved = UISettingsStore(tmp_path / ".trinity").load()
-    assert saved.theme_mode == "dark"
+    assert saved.theme_mode == "light"
     assert saved.density == "compact"
+
+
+def test_textual_app_applies_saved_theme_on_startup(tmp_path) -> None:
+    UISettingsStore(tmp_path / ".trinity").save(UISettings(theme_mode="light"))
+
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    assert app.theme == "textual-light"
 
 
 @pytest.mark.asyncio

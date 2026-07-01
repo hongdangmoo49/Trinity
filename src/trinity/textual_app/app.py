@@ -146,7 +146,7 @@ from trinity.textual_app.slash_command_router import (
     TextualSlashCommandRoute,
     textual_slash_command_dispatch,
 )
-from trinity.textual_app.settings import UISettingsStore
+from trinity.textual_app.settings import UISettingsStore, textual_theme_for_mode
 from trinity.textual_app.snapshot import (
     LocalCommandSnapshot,
     NexusSnapshotAdapter,
@@ -1303,6 +1303,7 @@ class TrinityTextualApp(App[None]):
         self.snapshot_adapter = NexusSnapshotAdapter(config)
         self.active_snapshot: WorkflowNexusSnapshot | None = None
         self.settings_store = UISettingsStore(config.effective_state_dir)
+        self.theme = textual_theme_for_mode(self.settings_store.load().theme_mode)
         self.confirmed_preflight: WorkspacePreflight | None = None
 
     def _init_textual_runtime_state(

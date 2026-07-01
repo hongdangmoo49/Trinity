@@ -8,7 +8,7 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1002`
+- Package version inspected: `1.0.1003`
 - Merged PR range reviewed: #90 through #1113
 - Baseline iteration reviewed: #90 through #426
 - Maintenance refresh reviewed: #427 through #1113
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1163: Prompt-Led Workbench Simplification
+### #977-#1164: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2202,6 +2202,8 @@ and what the next release train should optimize.
   glyph mode.
 - Applied saved Settings color profile preference to live Textual UI palette
   classes.
+- Added Settings preview coverage for color profile, motion, and unicode
+  rendering values.
 - Removed stale project CTA/selector tests, superseded Workbench action notes,
   old Workbench plan reports, obsolete init next-step wording, stale
   `project_start_guide` assertions, dead project rail/runtime notes,

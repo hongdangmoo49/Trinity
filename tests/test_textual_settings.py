@@ -9,6 +9,7 @@ from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.settings import UISettings, UISettingsStore, textual_theme_for_mode
 
 SETTINGS_APPLIED_STATUS = "Saved · applied to UI and Start/Nexus model selectors"
+SETTINGS_UNSAVED_STATUS = "Unsaved changes · press Apply to save"
 
 
 class SettingsHarness(App[None]):
@@ -102,6 +103,29 @@ async def test_settings_apply_skips_unchanged_display_updates(tmp_path) -> None:
 
         assert preview_updates == []
         assert status_updates == []
+
+
+@pytest.mark.asyncio
+async def test_settings_select_change_marks_unsaved(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        status = screen.query_one("#settings-status", Static)
+
+        screen.action_apply()
+        await pilot.pause()
+        assert str(status.content) == SETTINGS_APPLIED_STATUS
+
+        screen.query_one("#density").value = "compact"
+        await pilot.pause()
+        assert str(status.content) == SETTINGS_UNSAVED_STATUS
+
+        screen.action_apply()
+        await pilot.pause()
+        assert str(status.content) == SETTINGS_APPLIED_STATUS
 
 
 @pytest.mark.asyncio

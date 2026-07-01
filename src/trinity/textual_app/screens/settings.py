@@ -54,6 +54,7 @@ class SettingsScreen(Screen[None]):
         self._preview_widget: Static | None = None
         self._status_widget: Static | None = None
         self._central_provider_value = config.synthesis_agent or "auto"
+        self._select_events_ready = False
 
     def compose(self) -> ComposeResult:
         self._select_cache = {}
@@ -61,6 +62,7 @@ class SettingsScreen(Screen[None]):
         self._status_widget = None
         self._status_key = ""
         self._central_provider_value = self.config.synthesis_agent or "auto"
+        self._select_events_ready = False
         yield Header(show_clock=False)
         with VerticalScroll(id="settings-screen"):
             yield Static(self._label("settings"), id="settings-title")
@@ -134,13 +136,19 @@ class SettingsScreen(Screen[None]):
             yield status
         yield Footer()
 
+    def on_mount(self) -> None:
+        self._select_events_ready = True
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "apply-settings":
             event.stop()
             self.action_apply()
 
     def on_select_changed(self, event: Select.Changed) -> None:
+        if not self._select_events_ready:
+            return
         if event.select.id != "central-provider":
+            self._set_status_text(self._label("unsaved_changes"))
             return
         event.stop()
         central_provider = str(event.value)
@@ -152,6 +160,7 @@ class SettingsScreen(Screen[None]):
             self._central_model_values("agent-default", central_provider),
             current="agent-default",
         )
+        self._set_status_text(self._label("unsaved_changes"))
 
     def set_agent_model_choices(
         self,
@@ -495,6 +504,7 @@ class SettingsScreen(Screen[None]):
             "apply": "적용",
             "saved": "저장됨",
             "saved_applied": "저장됨 · UI와 Start/Nexus 모델 선택에 적용됨",
+            "unsaved_changes": "미저장 변경 · 적용을 눌러 저장",
             "preview": "미리보기",
             "profile": "프로필",
             "balanced": "균형",
@@ -533,6 +543,7 @@ class SettingsScreen(Screen[None]):
             "apply": "Apply",
             "saved": "Saved",
             "saved_applied": "Saved · applied to UI and Start/Nexus model selectors",
+            "unsaved_changes": "Unsaved changes · press Apply to save",
             "preview": "Preview",
             "profile": "profile",
             "balanced": "balanced",

@@ -49,6 +49,7 @@ def test_ui_settings_store_uses_defaults_for_invalid_values(tmp_path) -> None:
 
     assert settings.theme_mode == "dark"
     assert settings.density == "comfortable"
+    assert settings.unicode_rendering == "ascii"
 
 
 def test_ui_settings_store_preserves_legacy_system_theme(tmp_path) -> None:
@@ -60,6 +61,16 @@ def test_ui_settings_store_preserves_legacy_system_theme(tmp_path) -> None:
 
     assert settings.theme_mode == "system"
     assert textual_theme_for_mode(settings.theme_mode) == "textual-dark"
+
+
+def test_ui_settings_store_preserves_legacy_auto_glyphs(tmp_path) -> None:
+    store = UISettingsStore(tmp_path / ".trinity")
+    store.path.parent.mkdir(parents=True)
+    store.path.write_text("[theme]\nunicode_rendering='auto'\n", encoding="utf-8")
+
+    settings = store.load()
+
+    assert settings.unicode_rendering == "auto"
 
 
 def test_settings_preview_includes_agent_profile_summary(tmp_path) -> None:
@@ -192,7 +203,8 @@ async def test_settings_select_labels_describe_fallbacks(tmp_path) -> None:
     assert "system" not in theme_labels
     assert theme_labels["dark"] == "dark"
     assert color_labels["auto"] == "default palette"
-    assert glyph_labels["auto"] == "ASCII fallback"
+    assert "auto" not in glyph_labels
+    assert glyph_labels["ascii"] == "ascii"
     assert central_labels["auto"] == "Auto"
 
 
@@ -212,6 +224,24 @@ async def test_settings_theme_select_keeps_legacy_system_value(tmp_path) -> None
 
     assert theme.value == "system"
     assert labels["system"] == "dark fallback"
+
+
+@pytest.mark.asyncio
+async def test_settings_glyph_select_keeps_legacy_auto_value(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    store = UISettingsStore(tmp_path / ".trinity")
+    store.save(UISettings(unicode_rendering="auto"))
+    screen = SettingsScreen(store, config)
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        glyphs = screen.query_one("#unicode-rendering", Select)
+        labels = {value: str(label) for label, value in glyphs._options}
+
+    assert glyphs.value == "auto"
+    assert labels["auto"] == "ASCII fallback"
 
 
 @pytest.mark.asyncio

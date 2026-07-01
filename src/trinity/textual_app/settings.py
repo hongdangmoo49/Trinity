@@ -23,7 +23,7 @@ class UISettings:
     color_profile: str = "auto"
     density: str = "comfortable"
     motion: str = "normal"
-    unicode_rendering: str = "auto"
+    unicode_rendering: str = "ascii"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -48,7 +48,7 @@ class UISettings:
             unicode_rendering=_choice(
                 data.get("unicode_rendering"),
                 {"auto", "unicode", "ascii"},
-                "auto",
+                "ascii",
             ),
         )
 

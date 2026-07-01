@@ -256,13 +256,13 @@ def _execution_confirmation_intake_risk_label(warning: str, *, lang: str) -> str
     labels = {
         "en": {
             "changed_project_intake": "saved analysis changed",
-            "missing_new_project_brief": "incomplete project brief",
+            "missing_new_project_brief": "confirm prompt/work scope",
             "sparse_project_intake": "saved analysis sparse",
             "stale_project_intake": "saved analysis stale",
         },
         "ko": {
             "changed_project_intake": "저장된 분석 변경됨",
-            "missing_new_project_brief": "불완전한 프로젝트 브리프",
+            "missing_new_project_brief": "프롬프트/작업 범위 확인 필요",
             "sparse_project_intake": "저장된 분석 부족함",
             "stale_project_intake": "저장된 분석 오래됨",
         },

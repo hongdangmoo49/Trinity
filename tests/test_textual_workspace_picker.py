@@ -168,7 +168,7 @@ def test_build_preflight_marks_empty_directory_as_new_project_candidate(
     assert preflight.intake_safety_warnings == ("missing_new_project_brief",)
     assert preflight.requires_execute_ack is True
     assert "Workspace state: Empty workspace folder" in preflight.render()
-    assert "Project context: incomplete project brief" in preflight.render()
+    assert "Project context: confirm prompt/work scope" in preflight.render()
     assert "작업 폴더 상태: 빈 작업 폴더" in preflight.render(lang="ko")
 
 
@@ -306,8 +306,8 @@ def test_build_preflight_marks_incomplete_new_project_brief(tmp_path) -> None:
 
     assert preflight.intake_safety_warnings == ("missing_new_project_brief",)
     assert preflight.requires_execute_ack is True
-    assert "Project context: incomplete project brief" in preflight.render()
-    assert "프로젝트 컨텍스트: 불완전한 프로젝트 브리프" in preflight.render(
+    assert "Project context: confirm prompt/work scope" in preflight.render()
+    assert "프로젝트 컨텍스트: 프롬프트/작업 범위 확인 필요" in preflight.render(
         lang="ko",
     )
 
@@ -1057,7 +1057,7 @@ async def test_workspace_picker_requires_second_confirm_for_incomplete_new_brief
 
         status = picker.query_one("#workspace-picker-status", Static)
         assert dismissed == []
-        assert "incomplete project brief" in str(status.content)
+        assert "confirm prompt/work scope" in str(status.content)
 
         picker.action_confirm()
         await pilot.pause()

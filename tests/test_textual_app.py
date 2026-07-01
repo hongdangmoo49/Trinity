@@ -6366,6 +6366,11 @@ async def test_agent_command_syncs_open_settings_agent_rows(tmp_path) -> None:
         assert str(status.content) == "Saved"
         assert refreshes == [True]
 
+        screen.query_one("#model-codex").value = "gpt-5"
+        await pilot.pause()
+        assert screen.query_one("#model-codex", Select).value == "gpt-5"
+        assert str(status.content) != "Saved"
+
         screen.query_one("#central-provider").value = "codex"
         await pilot.pause()
         assert screen.query_one("#central-provider", Select).value == "codex"
@@ -6384,8 +6389,8 @@ async def test_agent_command_syncs_open_settings_agent_rows(tmp_path) -> None:
         assert "Codex (off)" in labels
         assert "codex" not in central_values
         assert screen.query_one("#central-provider", Select).value == "auto"
-        assert "- Codex (off): default" in preview
-        assert str(status.content) == "Saved"
+        assert "- Codex (off): GPT-5" in preview
+        assert str(status.content) == "Unsaved changes · press Save & Apply to save"
         assert refreshes == [True]
 
         screen.action_apply()
@@ -6394,6 +6399,7 @@ async def test_agent_command_syncs_open_settings_agent_rows(tmp_path) -> None:
     saved_config = TrinityConfig.load(tmp_path / ".trinity" / "trinity.config")
     assert config.agents["codex"].enabled is False
     assert saved_config.agents["codex"].enabled is False
+    assert saved_config.agents["codex"].model == "gpt-5"
 
 
 @pytest.mark.asyncio

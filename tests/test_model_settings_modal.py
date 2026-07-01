@@ -187,6 +187,36 @@ async def test_model_settings_modal_moves_existing_default_first(tmp_path) -> No
 
 
 @pytest.mark.asyncio
+async def test_model_settings_modal_starts_on_first_enabled_agent(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["claude"].enabled = False
+    config.agents["codex"].enabled = True
+    choices = {
+        name: (
+            ProviderModelChoice(
+                provider=spec.provider,
+                model="default",
+                label="default",
+                source="static-fallback",
+                context_budget=None,
+            ),
+        )
+        for name, spec in config.agents.items()
+    }
+    modal = ModelSettingsModal(config.agents, choices, {})
+    app = ModelSettingsModalHarness(modal)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+        choice_header = modal.query_one("#model-choice-header")
+
+        assert modal.active_agent == "codex"
+        assert "Codex" in str(choice_header.content)
+        assert str(modal.query_one("#model-agent-codex", Button).label).startswith("> ")
+        assert "off" in str(modal.query_one("#model-agent-claude", Button).label)
+
+
+@pytest.mark.asyncio
 async def test_model_settings_modal_skips_active_agent_reselect_refresh(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     choices = {

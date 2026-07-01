@@ -101,7 +101,7 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
             )
             for name in self.agents
         }
-        self.active_agent = next(iter(self.agents), "")
+        self.active_agent = self._initial_active_agent()
         self._choice_highlight_key: tuple[object, ...] | None = None
         self._choice_list_widget: OptionList | None = None
 
@@ -229,6 +229,12 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         if self._choice_list_widget is None:
             self._choice_list_widget = self.query_one("#model-choice-list", OptionList)
         return self._choice_list_widget
+
+    def _initial_active_agent(self) -> str:
+        for name, spec in self.agents.items():
+            if spec.enabled:
+                return name
+        return next(iter(self.agents), "")
 
     def _agent_button_label(self, name: str, spec: AgentSpec) -> str:
         prefix = "> " if name == self.active_agent else "  "

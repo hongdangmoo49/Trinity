@@ -105,7 +105,6 @@ from trinity.textual_app.presenters import (
     model_settings_title,
     model_settings_unavailable_markdown,
     model_settings_updated_markdown,
-    nexus_refine_prompt,
     packages_action_hint,
     packages_markdown,
     packages_rows,
@@ -3533,13 +3532,9 @@ def test_central_agent_view_localizes_korean_review_repair_action_labels() -> No
         "상세 설계와 작업 패키지 목록은 인스펙터 또는 리포트에서 확인하세요."
     )
     assert view.label("execution_retry") == "실패 작업 재시도"
-    assert view.label("refine_work_packages") == "작업 재분배"
     assert view.label("execute_tooltip") == "현재 작업 패키지를 실행합니다."
     assert view.label("execution-retry_tooltip") == (
         "실패, 막힘, 중단 상태의 작업 패키지를 선택해서 다시 실행합니다."
-    )
-    assert view.label("refine-work-packages_tooltip") == (
-        "작업 패키지 분해, 담당자, 의존성을 다시 정리합니다."
     )
     assert view.label("repair_action") == "리뷰 보정 결정"
     assert view.label("repair-retry-once_tooltip") == (
@@ -12428,13 +12423,3 @@ async def test_nexus_repair_mark_done_and_stop_delegate_to_controller(tmp_path) 
         assert controller.repair_actions == ["accept", "stop"]
         assert app.active_snapshot is not None
         assert app.active_snapshot.state == "failed"
-
-
-def test_nexus_refine_prompts_are_scope_specific() -> None:
-    feature_prompt = nexus_refine_prompt("refine-features", lang="ko")
-    risk_prompt = nexus_refine_prompt("refine-risks", lang="ko")
-    package_prompt = nexus_refine_prompt("refine-work-packages", lang="ko")
-
-    assert "핵심 기능" in feature_prompt
-    assert "실행 리스크" in risk_prompt
-    assert "작업 패키지의 범위" in package_prompt

@@ -20,7 +20,6 @@ from trinity.textual_app.presenters import (
     nexus_current_workspace_text,
     nexus_fallback_snapshot,
     nexus_provider_panel_state,
-    nexus_refine_prompt,
 )
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.workspace_labels import (
@@ -390,10 +389,6 @@ class NexusScreen(Screen[None]):
         if event.action == "execute":
             self.post_message(self.ExecuteRequested(self.snapshot))
             return
-        if event.action.startswith("refine-"):
-            self._submit_follow_up(
-                nexus_refine_prompt(event.action, lang=self.config.lang)
-            )
 
     def update_provider(
         self,

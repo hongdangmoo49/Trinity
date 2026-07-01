@@ -12333,6 +12333,29 @@ def test_textual_app_applies_saved_theme_on_startup(tmp_path) -> None:
     assert app.theme == "textual-light"
 
 
+def test_textual_app_discovers_models_for_enabled_agents_only(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    seen: list[str] = []
+
+    def fake_iter_discovered_agent_model_choices(agent_specs, **_kwargs):
+        seen.extend(name for name, _spec in agent_specs)
+        return ()
+
+    monkeypatch.setattr(
+        textual_app_module,
+        "iter_discovered_agent_model_choices",
+        fake_iter_discovered_agent_model_choices,
+    )
+    app = TrinityTextualApp(config)
+
+    app._discover_provider_models()
+
+    assert seen == ["claude"]
+
+
 @pytest.mark.asyncio
 async def test_textual_app_applies_saved_color_profile_on_startup(tmp_path) -> None:
     UISettingsStore(tmp_path / ".trinity").save(UISettings(color_profile="256color"))
@@ -12658,6 +12681,7 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
 @pytest.mark.asyncio
 async def test_settings_screen_saves_agent_and_central_models(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
     app = TrinityTextualApp(config)
 
     async with app.run_test(size=(120, 40)) as pilot:
@@ -12791,6 +12815,7 @@ async def test_settings_preview_refreshes_when_model_choices_arrive(tmp_path) ->
 @pytest.mark.asyncio
 async def test_settings_central_models_follow_selected_provider(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
     app = TrinityTextualApp(config)
     app._model_discovery_started = True
     claude = config.agents["claude"]
@@ -12846,6 +12871,7 @@ async def test_settings_central_models_follow_selected_provider(tmp_path) -> Non
 @pytest.mark.asyncio
 async def test_settings_central_model_label_prefers_selected_provider(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
     config.synthesis_agent = "codex"
     config.synthesis_model = "shared-live"
     app = TrinityTextualApp(config)

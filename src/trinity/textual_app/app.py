@@ -1517,7 +1517,7 @@ class TrinityTextualApp(App[None]):
 
     def _discover_provider_models(self, *, use_cache: bool = True) -> None:
         for name, choices in iter_discovered_agent_model_choices(
-            self.config.agents.items(),
+            self.config.active_agents.items(),
             use_cache=use_cache,
         ):
             self.call_from_thread(

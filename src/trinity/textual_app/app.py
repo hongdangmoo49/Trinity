@@ -930,7 +930,8 @@ class TrinityTextualApp(App[None]):
     }
 
     .settings-row {
-        width: 72;
+        width: 100%;
+        max-width: 96;
         height: 3;
     }
 
@@ -944,11 +945,13 @@ class TrinityTextualApp(App[None]):
     }
 
     .settings-row Select {
-        width: 32;
+        width: 1fr;
+        min-width: 32;
     }
 
     #theme-preview {
-        width: 72;
+        width: 100%;
+        max-width: 96;
         height: auto;
         border: round $accent;
         margin-top: 1;

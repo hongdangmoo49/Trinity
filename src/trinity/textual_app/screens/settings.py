@@ -255,7 +255,12 @@ class SettingsScreen(Screen[None]):
     def preview_text(self) -> str:
         model_lines = []
         for name, spec in self.config.agents.items():
-            model = self._display_value(spec.model or "default")
+            model_value = spec.model or "default"
+            model = (
+                self._display_value(model_value)
+                if model_value == "default"
+                else self._agent_model_display_value(name, spec.provider, model_value)
+            )
             model_lines.append(
                 (
                     f"{self._agent_label(name)}: {model} · "
@@ -266,6 +271,7 @@ class SettingsScreen(Screen[None]):
             )
         central_provider = self.config.synthesis_agent or "auto"
         central_model = self.config.synthesis_model or "agent-default"
+        central_model_label = self._central_model_display_value(central_model)
         return "\n".join(
             [
                 self._label("preview"),
@@ -283,7 +289,7 @@ class SettingsScreen(Screen[None]):
                 ),
                 (
                     f"{self._label('central')}: {self._display_value(central_provider)} / "
-                    f"{self._display_value(central_model)}"
+                    f"{central_model_label}"
                 ),
                 *model_lines,
             ]

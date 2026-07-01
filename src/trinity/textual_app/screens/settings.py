@@ -25,9 +25,14 @@ class SettingsScreen(Screen[None]):
     class Applied(Message):
         """Posted when settings are saved and applied to config."""
 
-        def __init__(self, *, model_defaults_changed: bool = False) -> None:
+        def __init__(
+            self,
+            *,
+            changed_model_defaults: dict[str, str] | None = None,
+        ) -> None:
             super().__init__()
-            self.model_defaults_changed = model_defaults_changed
+            self.changed_model_defaults = dict(changed_model_defaults or {})
+            self.model_defaults_changed = bool(self.changed_model_defaults)
 
     BINDINGS = [
         ("ctrl+s", "apply", "Save & Apply"),
@@ -302,6 +307,11 @@ class SettingsScreen(Screen[None]):
             name: spec.model or "default"
             for name, spec in self.config.agents.items()
         }
+        changed_models = {
+            name: model
+            for name, model in next_models.items()
+            if model != previous_models.get(name)
+        }
         central_provider = self._value("central-provider")
         self.config.synthesis_agent = "" if central_provider == "auto" else central_provider
         self.config.synthesis_model = self._value("central-model")
@@ -309,7 +319,7 @@ class SettingsScreen(Screen[None]):
         self._set_preview_text(self.preview_text())
         self._set_status_text(self._label("saved_applied"))
         self.post_message(
-            self.Applied(model_defaults_changed=next_models != previous_models)
+            self.Applied(changed_model_defaults=changed_models)
         )
 
     def _save_config_preserving_session_agent_state(self) -> None:

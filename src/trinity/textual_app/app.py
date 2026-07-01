@@ -1623,7 +1623,7 @@ class TrinityTextualApp(App[None]):
         self._apply_ui_settings(self.ui_settings)
         self.get_screen("start", StartScreen).sync_ui_settings()
         if event.model_defaults_changed:
-            self._sync_configured_agent_model_selectors()
+            self._sync_configured_agent_model_selectors(event.changed_model_defaults)
         self._refresh_agent_enabled_snapshot()
 
     def _apply_ui_settings(self, settings: UISettings) -> None:
@@ -1637,8 +1637,11 @@ class TrinityTextualApp(App[None]):
         self.set_class(settings.motion == "reduced", "ui-motion-reduced")
         self.set_class(settings.unicode_rendering == "unicode", "ui-unicode-rendering")
 
-    def _sync_configured_agent_model_selectors(self) -> None:
-        selections = {
+    def _sync_configured_agent_model_selectors(
+        self,
+        selections: dict[str, str] | None = None,
+    ) -> None:
+        selections = selections or {
             name: spec.model or "default"
             for name, spec in self.config.agents.items()
         }

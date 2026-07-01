@@ -146,7 +146,11 @@ from trinity.textual_app.slash_command_router import (
     TextualSlashCommandRoute,
     textual_slash_command_dispatch,
 )
-from trinity.textual_app.settings import UISettingsStore, textual_theme_for_mode
+from trinity.textual_app.settings import (
+    UISettings,
+    UISettingsStore,
+    textual_theme_for_mode,
+)
 from trinity.textual_app.snapshot import (
     LocalCommandSnapshot,
     NexusSnapshotAdapter,
@@ -392,6 +396,14 @@ class TrinityTextualApp(App[None]):
         height: 11;
     }
 
+    .ui-density-compact #start-composer {
+        height: 6;
+    }
+
+    .ui-density-compact #start-composer.-commands-open {
+        height: 9;
+    }
+
     .agent-recipient-selector {
         width: 100%;
         height: auto;
@@ -440,9 +452,17 @@ class TrinityTextualApp(App[None]):
         align-vertical: middle;
     }
 
+    .ui-density-compact #start-actions {
+        height: 2;
+    }
+
     #start-select-workspace {
         width: 22;
         height: 3;
+    }
+
+    .ui-density-compact #start-select-workspace {
+        height: 2;
     }
 
     #prompt-textarea {
@@ -459,6 +479,10 @@ class TrinityTextualApp(App[None]):
         content-align: left middle;
     }
 
+    .ui-density-compact #workspace-candidate {
+        height: 2;
+    }
+
     #nexus-screen {
         width: 100%;
         height: 1fr;
@@ -470,6 +494,10 @@ class TrinityTextualApp(App[None]):
         height: 5;
         layout: grid;
         grid-gutter: 1;
+    }
+
+    .ui-density-compact #provider-strip {
+        height: 4;
     }
 
     .provider-strip-1 {
@@ -488,6 +516,10 @@ class TrinityTextualApp(App[None]):
         height: 5;
         border: round $accent;
         padding: 0 1;
+    }
+
+    .ui-density-compact .provider-panel {
+        height: 4;
     }
 
     .provider-claude {
@@ -585,6 +617,10 @@ class TrinityTextualApp(App[None]):
         overflow-y: auto;
     }
 
+    .ui-density-compact #central-agent {
+        padding: 0 1;
+    }
+
     #central-agent.central-running {
         border: heavy $warning;
     }
@@ -592,6 +628,10 @@ class TrinityTextualApp(App[None]):
     #nexus-main {
         height: 1fr;
         margin: 1 0;
+    }
+
+    .ui-density-compact #nexus-main {
+        margin: 0;
     }
 
     #nexus-center-stack {
@@ -765,6 +805,11 @@ class TrinityTextualApp(App[None]):
         padding: 0 1;
     }
 
+    .ui-density-compact #nexus-question-panel {
+        height: 9;
+        margin-top: 0;
+    }
+
     #nexus-question-panel.question-panel-empty {
         height: 3;
         border: round $primary;
@@ -879,9 +924,18 @@ class TrinityTextualApp(App[None]):
         margin-bottom: 1;
     }
 
+    .ui-density-compact .settings-section-title {
+        margin-top: 0;
+        margin-bottom: 0;
+    }
+
     .settings-row {
         width: 72;
         height: 3;
+    }
+
+    .ui-density-compact .settings-row {
+        height: 2;
     }
 
     .settings-row Label {
@@ -899,6 +953,12 @@ class TrinityTextualApp(App[None]):
         border: round $accent;
         margin-top: 1;
         padding: 1 2;
+    }
+
+    .ui-density-compact #theme-preview {
+        height: 8;
+        margin-top: 0;
+        padding: 0 1;
     }
 
     WorkspacePicker {
@@ -1303,7 +1363,8 @@ class TrinityTextualApp(App[None]):
         self.snapshot_adapter = NexusSnapshotAdapter(config)
         self.active_snapshot: WorkflowNexusSnapshot | None = None
         self.settings_store = UISettingsStore(config.effective_state_dir)
-        self.theme = textual_theme_for_mode(self.settings_store.load().theme_mode)
+        self.ui_settings = self.settings_store.load()
+        self.theme = textual_theme_for_mode(self.ui_settings.theme_mode)
         self.confirmed_preflight: WorkspacePreflight | None = None
 
     def _init_textual_runtime_state(
@@ -1320,6 +1381,7 @@ class TrinityTextualApp(App[None]):
         self._pending_execute_retry: ExecutionRetrySelection | None = None
 
     def on_mount(self) -> None:
+        self._apply_ui_settings(self.ui_settings)
         self._install_workbench_screens()
         self.current_route = "start"
         self.push_screen("start")
@@ -1410,7 +1472,14 @@ class TrinityTextualApp(App[None]):
 
     def on_settings_screen_applied(self, event: SettingsScreen.Applied) -> None:
         event.stop()
+        self.ui_settings = self.settings_store.load()
+        self._apply_ui_settings(self.ui_settings)
         self._sync_configured_agent_model_selectors()
+
+    def _apply_ui_settings(self, settings: UISettings) -> None:
+        self.theme = textual_theme_for_mode(settings.theme_mode)
+        self.set_class(settings.density == "compact", "ui-density-compact")
+        self.set_class(settings.motion == "reduced", "ui-motion-reduced")
 
     def _sync_configured_agent_model_selectors(self) -> None:
         selections = {

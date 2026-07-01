@@ -300,12 +300,7 @@ def test_central_action_plan_falls_back_to_blueprint_actions() -> None:
     )
 
     assert plan.title_key == "next_action"
-    assert [button.action for button in plan.buttons] == [
-        "execute",
-        "refine-features",
-        "refine-risks",
-        "refine-work-packages",
-    ]
+    assert [button.action for button in plan.buttons] == ["execute"]
 
 
 def test_central_markdown_summarizes_execution_progress_without_result_dump() -> None:
@@ -526,7 +521,7 @@ async def test_central_apply_snapshot_rebinds_render_keys_after_recompose() -> N
         await pilot.pause()
 
         assert len(list(view.query(".local-command-table"))) == 1
-        assert len(list(view.query("#central-actions Button"))) == 4
+        assert len(list(view.query("#central-actions Button"))) == 1
 
         view.refresh(recompose=True)
         await pilot.pause()
@@ -541,13 +536,8 @@ async def test_central_apply_snapshot_rebinds_render_keys_after_recompose() -> N
         assert len(tables) == 1
         assert isinstance(tables[0], DataTable)
         assert tables[0].row_count == 1
-        assert len(list(view.query("#central-actions Button"))) == 4
-        assert set(view._button_actions.values()) == {
-            "execute",
-            "refine-features",
-            "refine-risks",
-            "refine-work-packages",
-        }
+        assert len(list(view.query("#central-actions Button"))) == 1
+        assert set(view._button_actions.values()) == {"execute"}
 
 
 @pytest.mark.asyncio

@@ -698,24 +698,6 @@ def central_action_plan(snapshot: WorkflowNexusSnapshot) -> CentralActionPlan:
             "next_action",
             (
                 CentralActionButton("execute", "execute", "primary", "execute_tooltip"),
-                CentralActionButton(
-                    "refine-features",
-                    "refine_features",
-                    "default",
-                    "refine-features_tooltip",
-                ),
-                CentralActionButton(
-                    "refine-risks",
-                    "refine_risks",
-                    "default",
-                    "refine-risks_tooltip",
-                ),
-                CentralActionButton(
-                    "refine-work-packages",
-                    "refine_work_packages",
-                    "default",
-                    "refine-work-packages_tooltip",
-                ),
             ),
         )
 

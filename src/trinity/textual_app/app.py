@@ -949,7 +949,7 @@ class TrinityTextualApp(App[None]):
         min-width: 28;
     }
 
-    #theme-preview {
+    #settings-summary {
         width: 100%;
         max-width: 96;
         height: auto;
@@ -960,7 +960,7 @@ class TrinityTextualApp(App[None]):
         padding: 1 2;
     }
 
-    .ui-density-compact #theme-preview {
+    .ui-density-compact #settings-summary {
         max-height: 10;
         margin-top: 0;
         padding: 0 1;
@@ -1407,7 +1407,7 @@ class TrinityTextualApp(App[None]):
     .ui-color-profile-truecolor .provider-inspector-output,
     .ui-color-profile-truecolor #model-settings-modal,
     .ui-color-profile-truecolor #model-choice-list,
-    .ui-color-profile-truecolor #theme-preview {
+    .ui-color-profile-truecolor #settings-summary {
         border: round #5ce1e6;
     }
 
@@ -1441,7 +1441,7 @@ class TrinityTextualApp(App[None]):
     .ui-color-profile-256color .provider-inspector-output,
     .ui-color-profile-256color #model-settings-modal,
     .ui-color-profile-256color #model-choice-list,
-    .ui-color-profile-256color #theme-preview {
+    .ui-color-profile-256color #settings-summary {
         border: round cyan;
     }
 
@@ -1479,7 +1479,7 @@ class TrinityTextualApp(App[None]):
     .ui-color-profile-ascii-safe .provider-inspector-output,
     .ui-color-profile-ascii-safe #model-settings-modal,
     .ui-color-profile-ascii-safe #model-choice-list,
-    .ui-color-profile-ascii-safe #theme-preview {
+    .ui-color-profile-ascii-safe #settings-summary {
         border: round white;
     }
     """

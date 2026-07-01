@@ -167,7 +167,7 @@ class SettingsScreen(Screen[None]):
                 )
             preview_text = self.preview_text()
             self._preview_render_key = preview_text
-            preview = Static(preview_text, id="theme-preview")
+            preview = Static(preview_text, id="settings-summary")
             self._preview_widget = preview
             yield preview
             yield Button(self._label("apply"), id="apply-settings", variant="primary")
@@ -427,7 +427,7 @@ class SettingsScreen(Screen[None]):
     def _preview_static(self) -> Static:
         if self._preview_widget is not None:
             return self._preview_widget
-        self._preview_widget = self.query_one("#theme-preview", Static)
+        self._preview_widget = self.query_one("#settings-summary", Static)
         return self._preview_widget
 
     def _status_static(self) -> Static:

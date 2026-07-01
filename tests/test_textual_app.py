@@ -12245,6 +12245,52 @@ def test_textual_app_applies_saved_theme_on_startup(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_textual_app_applies_saved_density_and_motion_on_startup(tmp_path) -> None:
+    UISettingsStore(tmp_path / ".trinity").save(
+        UISettings(density="compact", motion="reduced")
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        animation = app.screen.query_one(SacredGeometryAnimation)
+        angle = animation._angle
+
+        animation._tick()
+
+        assert app.has_class("ui-density-compact")
+        assert app.has_class("ui-motion-reduced")
+        assert animation._angle == angle
+
+
+@pytest.mark.asyncio
+async def test_settings_screen_applies_density_and_motion_preferences(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        screen.query_one("#density").value = "compact"
+        screen.query_one("#motion").value = "reduced"
+        screen.action_apply()
+        await pilot.pause()
+
+        assert app.has_class("ui-density-compact")
+        assert app.has_class("ui-motion-reduced")
+
+        screen.query_one("#density").value = "comfortable"
+        screen.query_one("#motion").value = "normal"
+        screen.action_apply()
+        await pilot.pause()
+
+        assert not app.has_class("ui-density-compact")
+        assert not app.has_class("ui-motion-reduced")
+
+
+@pytest.mark.asyncio
 async def test_settings_preview_shows_profile_output_contracts(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

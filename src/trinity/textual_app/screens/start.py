@@ -38,6 +38,8 @@ class SacredGeometryAnimation(Static):
         self.set_interval(0.12, self._tick)
 
     def _tick(self) -> None:
+        if self.app.has_class("ui-motion-reduced"):
+            return
         self._angle = (self._angle + 8.0) % 360.0
         self._render_frame()
 

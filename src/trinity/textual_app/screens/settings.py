@@ -100,7 +100,10 @@ class SettingsScreen(Screen[None]):
             yield Static(self._label("agent_models"), classes="settings-section-title")
             for name, spec in self.config.agents.items():
                 with Horizontal(classes="settings-row"):
-                    yield Label(self._agent_label_with_state(name))
+                    yield Label(
+                        self._agent_label_with_state(name),
+                        id=f"model-label-{name}",
+                    )
                     yield self._select(
                         f"model-{name}",
                         self._agent_model_values(name, spec.provider, spec.model),
@@ -193,6 +196,30 @@ class SettingsScreen(Screen[None]):
                     self._central_model_values(central_model, central_provider),
                 )
             self._set_preview_text(self.preview_text())
+
+    def sync_agent_enabled_states(self) -> None:
+        """Refresh agent model rows after `/agent` changes enabled state."""
+        if not self.is_mounted:
+            return
+        with self.prevent(Select.Changed):
+            for name, spec in self.config.agents.items():
+                self.query_one(f"#model-label-{name}", Label).update(
+                    self._agent_label_with_state(name)
+                )
+                self._select_for(f"model-{name}").disabled = not spec.enabled
+            central_provider = self._value("central-provider")
+            central_model = self._value("central-model")
+            self._refresh_select_options(
+                "central-provider",
+                self._central_provider_values(),
+                current=central_provider,
+            )
+            self._refresh_select_options(
+                "central-model",
+                self._central_model_values(central_model, central_provider),
+                current=central_model,
+            )
+        self._set_preview_text(self.preview_text())
 
     def action_apply(self) -> None:
         self.settings = UISettings(

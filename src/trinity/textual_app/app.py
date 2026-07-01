@@ -1596,6 +1596,18 @@ class TrinityTextualApp(App[None]):
                     selections,
                 )
 
+    def _sync_agent_enabled_surfaces(self) -> None:
+        for screen_name, screen_type in (
+            ("start", StartScreen),
+            ("nexus", NexusScreen),
+        ):
+            screen = self.get_screen(screen_name, screen_type)
+            if screen.is_mounted:
+                screen.query_one(AgentRecipientModelSelector).sync_agent_states()
+        settings = self.get_screen("settings", SettingsScreen)
+        if settings.is_mounted:
+            settings.sync_agent_enabled_states()
+
     def on_start_screen_submitted(self, event: StartScreen.Submitted) -> None:
         event.stop()
         effect = start_submission_effect(
@@ -3145,10 +3157,28 @@ class TrinityTextualApp(App[None]):
         command_name: str,
         args: list[str],
     ) -> None:
+        before = {
+            name: bool(spec.enabled)
+            for name, spec in self.config.agents.items()
+        }
         self._record_slash_command_presentation(
             command_name,
             agent_command_presentation(self.config.agents, args, lang=self.config.lang),
         )
+        after = {
+            name: bool(spec.enabled)
+            for name, spec in self.config.agents.items()
+        }
+        changed = {
+            name
+            for name, was_enabled in before.items()
+            if after.get(name) != was_enabled
+        }
+        if not changed:
+            return
+        self._sync_agent_enabled_surfaces()
+        if any(after.get(name) for name in changed):
+            self._refresh_provider_models(use_cache=True)
 
     def _handle_textual_caveman_command(
         self,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from trinity.slash_commands import (
@@ -12,6 +13,18 @@ ROOT = Path(__file__).resolve().parents[1]
 REFERENCE_DOC = ROOT / "docs" / "slash-command-reference.md"
 DESIGN_DOC = (
     ROOT / "docs" / "plans" / "2026-06-06-trinity-slash-command-routing-design.md"
+)
+README_DOCS = (
+    (
+        ROOT / "README.md",
+        "[Slash Command Reference](docs/slash-command-reference.md)를 기준으로 한다.",
+        "명령어",
+    ),
+    (
+        ROOT / "README.en.md",
+        "[Slash Command Reference](docs/slash-command-reference.md).",
+        "Command",
+    ),
 )
 
 
@@ -57,6 +70,27 @@ def _table_after_heading(path: Path, heading: str) -> list[dict[str, str]]:
 
 def _code_span(value: str) -> str:
     return value.strip().strip("`")
+
+
+def _command_tokens(value: str) -> set[str]:
+    return {
+        code.split()[0]
+        for code in re.findall(r"`([^`]+)`", value)
+        if code.startswith("/")
+    }
+
+
+def test_readme_command_tables_include_registered_commands() -> None:
+    registered = {name for spec in COMMAND_SPECS for name in spec.names}
+    for path, anchor, column in README_DOCS:
+        rows = _table_after_heading(path, anchor)
+        documented = {
+            token
+            for row in rows
+            for token in _command_tokens(row[column])
+        }
+
+        assert sorted(registered - documented) == []
 
 
 def test_reference_command_summary_matches_registry() -> None:

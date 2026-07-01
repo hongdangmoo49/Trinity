@@ -12370,6 +12370,39 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
 
 
 @pytest.mark.asyncio
+async def test_settings_visual_preferences_reach_settings_and_nexus_surfaces(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        preview = screen.query_one("#theme-preview", Static)
+        screen.query_one("#color-profile").value = "truecolor"
+        screen.query_one("#density").value = "compact"
+        screen.action_apply()
+        await pilot.pause()
+
+        assert app.has_class("ui-color-profile-truecolor")
+        assert app.has_class("ui-density-compact")
+        assert preview.is_mounted
+
+        app.switch_to("nexus")
+        await pilot.pause()
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+
+        assert app.has_class("ui-color-profile-truecolor")
+        assert app.has_class("ui-density-compact")
+        assert nexus.query_one("#provider-strip").is_mounted
+        assert nexus.query_one("#nexus-composer", PromptComposer).is_mounted
+
+
+@pytest.mark.asyncio
 async def test_settings_controls_use_flexible_width(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

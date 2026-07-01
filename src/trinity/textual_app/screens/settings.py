@@ -16,7 +16,6 @@ from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.settings import (
     UISettings,
     UISettingsStore,
-    textual_theme_for_mode,
 )
 
 
@@ -201,7 +200,6 @@ class SettingsScreen(Screen[None]):
             unicode_rendering=self._value("unicode-rendering"),
         )
         self.settings_store.save(self.settings)
-        self.app.theme = textual_theme_for_mode(self.settings.theme_mode)
         for name, spec in self.config.agents.items():
             selector_id = f"model-{name}"
             spec.model = self._value(selector_id)

@@ -373,6 +373,10 @@ Trinity는 기본 실행 화면으로 **Textual 기반 Workbench TUI**를 제공
 | `<텍스트>` | 에이전트들에게 새로운 주제로 토론(Deliberation) 시작 요청 |
 | `/status` | 에이전트별 상세 상태 대시보드 표시 |
 | `/context` | 현재 세션의 목표, 합의, 질문, 결정, 작업 패키지 요약 확인 |
+| `/project` | 선택된 프로젝트/target workspace 진단 요약 표시 |
+| `/providers` | Textual Workbench에서 provider inspector 열기 |
+| `/workspace` | target workspace 선택 UI 열기 |
+| `/settings` | Textual Workbench 설정 화면 열기 |
 | `/rounds [N]` | 토론을 진행할 최대 라운드 횟수 설정 (1–20 범위) |
 | `/agent <이름> on\|off` | 특정 에이전트를 즉시 활성화하거나 비활성화 |
 | `/model` | 에이전트별 모델 선택 modal을 열고 다음 요청의 모델 override 설정 |

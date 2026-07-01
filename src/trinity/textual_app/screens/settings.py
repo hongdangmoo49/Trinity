@@ -138,12 +138,17 @@ class SettingsScreen(Screen[None]):
             self._preview_widget = preview
             yield preview
             yield Button(self._label("apply"), id="apply-settings", variant="primary")
-            status = Static("", id="settings-status")
+            saved_text = self._label("saved")
+            self._status_key = saved_text
+            status = Static(saved_text, id="settings-status")
             self._status_widget = status
             yield status
         yield Footer()
 
     def on_mount(self) -> None:
+        self.call_after_refresh(self._enable_select_events)
+
+    def _enable_select_events(self) -> None:
         self._select_events_ready = True
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

@@ -60,11 +60,20 @@ class SettingsScreen(Screen[None]):
         }
 
     def compose(self) -> ComposeResult:
+        pending_values = (
+            self._current_select_values()
+            if self._status_key == self._label("unsaved_changes")
+            else {}
+        )
+        central_provider = pending_values.get(
+            "central-provider",
+            self.config.synthesis_agent or "auto",
+        )
         self._select_cache = {}
         self._preview_widget = None
         self._status_widget = None
         self._status_key = ""
-        self._central_provider_value = self.config.synthesis_agent or "auto"
+        self._central_provider_value = central_provider
         self._select_events_ready = False
         yield Header(show_clock=False)
         with VerticalScroll(id="settings-screen"):
@@ -75,31 +84,38 @@ class SettingsScreen(Screen[None]):
                 yield self._select(
                     "theme-mode",
                     ["dark", "light"],
-                    self.settings.theme_mode,
+                    pending_values.get("theme-mode", self.settings.theme_mode),
                 )
             with Horizontal(classes="settings-row"):
                 yield Label(self._label("color_profile"))
                 yield self._select(
                     "color-profile",
                     ["default", "truecolor", "256color", "ascii-safe"],
-                    self.settings.color_profile,
+                    pending_values.get("color-profile", self.settings.color_profile),
                 )
             with Horizontal(classes="settings-row"):
                 yield Label(self._label("density"))
                 yield self._select(
                     "density",
                     ["comfortable", "compact"],
-                    self.settings.density,
+                    pending_values.get("density", self.settings.density),
                 )
             with Horizontal(classes="settings-row"):
                 yield Label(self._label("motion"))
-                yield self._select("motion", ["normal", "reduced"], self.settings.motion)
+                yield self._select(
+                    "motion",
+                    ["normal", "reduced"],
+                    pending_values.get("motion", self.settings.motion),
+                )
             with Horizontal(classes="settings-row"):
                 yield Label(self._label("unicode"))
                 yield self._select(
                     "unicode-rendering",
                     ["ascii", "unicode"],
-                    self.settings.unicode_rendering,
+                    pending_values.get(
+                        "unicode-rendering",
+                        self.settings.unicode_rendering,
+                    ),
                 )
             yield Static(self._label("agent_models"), classes="settings-section-title")
             for name, spec in self.config.agents.items():
@@ -111,7 +127,7 @@ class SettingsScreen(Screen[None]):
                     yield self._select(
                         f"model-{name}",
                         self._agent_model_values(name, spec.provider, spec.model),
-                        spec.model or "default",
+                        pending_values.get(f"model-{name}", spec.model or "default"),
                         disabled=not spec.enabled,
                     )
             yield Static(self._label("central_agent"), classes="settings-section-title")
@@ -120,17 +136,23 @@ class SettingsScreen(Screen[None]):
                 yield self._select(
                     "central-provider",
                     self._central_provider_values(),
-                    self.config.synthesis_agent or "auto",
+                    central_provider,
                 )
             with Horizontal(classes="settings-row"):
                 yield Label(self._label("central_model"))
                 yield self._select(
                     "central-model",
                     self._central_model_values(
-                        self.config.synthesis_model,
-                        self.config.synthesis_agent or "auto",
+                        pending_values.get(
+                            "central-model",
+                            self.config.synthesis_model or "agent-default",
+                        ),
+                        central_provider,
                     ),
-                    self.config.synthesis_model or "agent-default",
+                    pending_values.get(
+                        "central-model",
+                        self.config.synthesis_model or "agent-default",
+                    ),
                 )
             preview_text = self.preview_text()
             self._preview_render_key = preview_text
@@ -138,13 +160,23 @@ class SettingsScreen(Screen[None]):
             self._preview_widget = preview
             yield preview
             yield Button(self._label("apply"), id="apply-settings", variant="primary")
-            saved_text = self._label("saved")
-            self._status_key = saved_text
-            status = Static(saved_text, id="settings-status")
+            status_text = (
+                self._label("unsaved_changes")
+                if pending_values
+                else self._label("saved")
+            )
+            self._status_key = status_text
+            status = Static(status_text, id="settings-status")
             self._status_widget = status
             yield status
             self.call_after_refresh(self._enable_select_events)
         yield Footer()
+
+    def _current_select_values(self) -> dict[str, str]:
+        return {
+            id: str(select.value)
+            for id, select in self._select_cache.items()
+        }
 
     def _enable_select_events(self) -> None:
         self._select_events_ready = True

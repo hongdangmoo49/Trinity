@@ -12934,8 +12934,8 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
         assert "- 색상 호환성: 기본 색상" in preview
         assert "- 시작 로고 애니메이션: 애니메이션" in preview
         assert "- 시작 로고 글리프: ASCII" in preview
-        assert "중앙 에이전트 기본 모델\n- 자동 / 강력" in preview
-        assert "에이전트 기본 모델" in preview
+        assert "저장된 중앙 에이전트 기본 모델\n- 자동 / 강력" in preview
+        assert "저장된 에이전트 기본 모델" in preview
         assert "Claude: 기본값" in preview
         assert "설계자 · 아키텍처 0.95" in preview
         assert "출력 형식 실행:실행 v1 리뷰:리뷰 v1" in preview
@@ -13002,7 +13002,7 @@ async def test_settings_screen_loads_saved_model_defaults(tmp_path) -> None:
         preview = str(screen.query_one("#theme-preview", Static).content)
         assert "- Claude: sonnet[1m]" in preview
         assert "- Codex: gpt-5" in preview
-        assert "Central agent default model\n- Codex / Agent default" in preview
+        assert "Saved central agent default model\n- Codex / Agent default" in preview
 
 
 @pytest.mark.asyncio
@@ -13064,7 +13064,7 @@ async def test_settings_screen_uses_discovered_model_choices(tmp_path) -> None:
 
         assert "- Claude: Opus Live  cli-live  1,000,000 ctx" in preview
         assert (
-            "Central agent default model\n"
+            "Saved central agent default model\n"
             "- Claude / Opus Live  cli-live  1,000,000 ctx"
         ) in preview
 
@@ -13100,7 +13100,7 @@ async def test_settings_preview_refreshes_when_model_choices_arrive(tmp_path) ->
 
         preview = str(screen.query_one("#theme-preview", Static).content)
         assert "- Claude: opus-live" in preview
-        assert "Central agent default model\n- Claude / opus-live" in preview
+        assert "Saved central agent default model\n- Claude / opus-live" in preview
 
         app._apply_discovered_model_choices({"claude": discovered})
         await pilot.pause()
@@ -13108,7 +13108,7 @@ async def test_settings_preview_refreshes_when_model_choices_arrive(tmp_path) ->
 
         assert "- Claude: Opus Live  cli-live  1,000,000 ctx" in preview
         assert (
-            "Central agent default model\n"
+            "Saved central agent default model\n"
             "- Claude / Opus Live  cli-live  1,000,000 ctx"
         ) in preview
 
@@ -13211,8 +13211,8 @@ async def test_settings_central_model_label_prefers_selected_provider(tmp_path) 
         preview = str(screen.query_one("#theme-preview", Static).content)
 
         assert central_labels["shared-live"] == "Codex Shared  cli-live"
-        assert "Central agent default model\n- Codex / Codex Shared  cli-live" in preview
-        assert "Central agent default model\n- Codex / Claude Shared" not in preview
+        assert "Saved central agent default model\n- Codex / Codex Shared  cli-live" in preview
+        assert "Saved central agent default model\n- Codex / Claude Shared" not in preview
 
 
 @pytest.mark.asyncio

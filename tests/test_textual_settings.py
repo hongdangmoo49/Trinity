@@ -144,7 +144,7 @@ def test_settings_preview_includes_agent_profile_summary(tmp_path) -> None:
     assert "Current selections" in preview
     assert "UI preferences" in preview
     assert "- Theme mode: dark" in preview
-    assert "Agent model defaults" in preview
+    assert "Saved agent model defaults" in preview
     assert "- Claude: default" in preview
     assert textual_theme_for_mode("system") == "textual-dark"
     assert "architect" in preview
@@ -166,14 +166,14 @@ def test_settings_labels_describe_ui_and_model_scopes(tmp_path) -> None:
 
     assert en.label_text("appearance") == "UI preferences"
     assert en.label_text("color_profile") == "Color compatibility"
-    assert en.label_text("agent_models") == "Agent model defaults"
-    assert en.label_text("central_agent") == "Central agent default model"
+    assert en.label_text("agent_models") == "Saved agent model defaults"
+    assert en.label_text("central_agent") == "Saved central agent default model"
     assert en.label_text("central_provider") == "Central agent provider"
     assert en.label_text("central_model") == "Central agent model"
     assert ko.label_text("appearance") == "화면 설정"
     assert ko.label_text("color_profile") == "색상 호환성"
-    assert ko.label_text("agent_models") == "에이전트 기본 모델"
-    assert ko.label_text("central_agent") == "중앙 에이전트 기본 모델"
+    assert ko.label_text("agent_models") == "저장된 에이전트 기본 모델"
+    assert ko.label_text("central_agent") == "저장된 중앙 에이전트 기본 모델"
     assert ko.label_text("central_provider") == "중앙 에이전트 프로바이더"
     assert ko.label_text("central_model") == "중앙 에이전트 모델"
 
@@ -207,7 +207,7 @@ async def test_settings_central_provider_keeps_saved_disabled_value(tmp_path) ->
     assert central_provider.value == "codex"
     assert set(labels) == {"auto", "claude", "codex"}
     assert labels["codex"] == "Codex (off)"
-    assert "Central agent default model\n- Codex (off) / Agent default" in preview
+    assert "Saved central agent default model\n- Codex (off) / Agent default" in preview
 
 
 @pytest.mark.asyncio
@@ -368,7 +368,7 @@ async def test_settings_preview_updates_before_apply(tmp_path) -> None:
         text = str(preview.content)
         assert "- Theme mode: light" in text
         assert "- Density: compact" in text
-        assert "Central agent default model\n- Codex / Agent default" in text
+        assert "Saved central agent default model\n- Codex / Agent default" in text
 
     assert UISettingsStore(tmp_path / ".trinity").load() == UISettings()
     assert config.synthesis_agent == ""

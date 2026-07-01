@@ -38,6 +38,18 @@ def test_ui_settings_store_round_trips_theme_preferences(tmp_path) -> None:
     assert store.path == tmp_path / ".trinity" / "ui" / "settings.toml"
 
 
+def test_settings_apply_shortcut_binding_is_registered(tmp_path) -> None:
+    screen = SettingsScreen(
+        UISettingsStore(tmp_path / ".trinity"),
+        TrinityConfig.default_config(project_dir=tmp_path),
+    )
+    binding = next(iter(screen._bindings.get_bindings_for_key("ctrl+s")))
+
+    assert binding.key == "ctrl+s"
+    assert binding.action == "apply"
+    assert binding.description == "Apply"
+
+
 def test_ui_settings_store_uses_defaults_for_invalid_values(tmp_path) -> None:
     store = UISettingsStore(tmp_path / ".trinity")
     store.path.parent.mkdir(parents=True)

@@ -1336,6 +1336,42 @@ class TrinityTextualApp(App[None]):
         color: $text-muted;
         text-style: italic;
     }
+
+    .ui-color-profile-256color #start-geometry,
+    .ui-color-profile-256color #start-title,
+    .ui-color-profile-256color .recipient-agent-toggle-selected,
+    .ui-color-profile-256color .command-option-selected,
+    .ui-color-profile-256color .command-option-first,
+    .ui-color-profile-256color #settings-title {
+        color: cyan;
+    }
+
+    .ui-color-profile-256color #start-composer,
+    .ui-color-profile-256color #nexus-composer,
+    .ui-color-profile-256color #prompt-command-palette,
+    .ui-color-profile-256color #theme-preview {
+        border: round cyan;
+    }
+
+    .ui-color-profile-ascii-safe #start-geometry,
+    .ui-color-profile-ascii-safe #start-title,
+    .ui-color-profile-ascii-safe .recipient-agent-toggle-selected,
+    .ui-color-profile-ascii-safe .command-option-selected,
+    .ui-color-profile-ascii-safe .command-option-first,
+    .ui-color-profile-ascii-safe .provider-status,
+    .ui-color-profile-ascii-safe #settings-title {
+        color: $text;
+    }
+
+    .ui-color-profile-ascii-safe #start-composer,
+    .ui-color-profile-ascii-safe #nexus-composer,
+    .ui-color-profile-ascii-safe #prompt-command-palette,
+    .ui-color-profile-ascii-safe .provider-panel,
+    .ui-color-profile-ascii-safe #workflow-inspector,
+    .ui-color-profile-ascii-safe #nexus-question-panel,
+    .ui-color-profile-ascii-safe #theme-preview {
+        border: round white;
+    }
     """
 
     def __init__(
@@ -1478,6 +1514,11 @@ class TrinityTextualApp(App[None]):
 
     def _apply_ui_settings(self, settings: UISettings) -> None:
         self.theme = textual_theme_for_mode(settings.theme_mode)
+        for profile in ("truecolor", "256color", "ascii-safe"):
+            self.set_class(
+                settings.color_profile == profile,
+                f"ui-color-profile-{profile}",
+            )
         self.set_class(settings.density == "compact", "ui-density-compact")
         self.set_class(settings.motion == "reduced", "ui-motion-reduced")
         self.set_class(settings.unicode_rendering == "unicode", "ui-unicode-rendering")

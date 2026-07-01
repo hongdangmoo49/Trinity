@@ -12245,6 +12245,19 @@ def test_textual_app_applies_saved_theme_on_startup(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_textual_app_applies_saved_color_profile_on_startup(tmp_path) -> None:
+    UISettingsStore(tmp_path / ".trinity").save(UISettings(color_profile="256color"))
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+
+        assert app.has_class("ui-color-profile-256color")
+        assert not app.has_class("ui-color-profile-truecolor")
+        assert not app.has_class("ui-color-profile-ascii-safe")
+
+
+@pytest.mark.asyncio
 async def test_textual_app_applies_saved_density_and_motion_on_startup(tmp_path) -> None:
     UISettingsStore(tmp_path / ".trinity").save(
         UISettings(density="compact", motion="reduced")
@@ -12301,6 +12314,32 @@ async def test_settings_screen_applies_density_and_motion_preferences(tmp_path) 
 
         assert not app.has_class("ui-density-compact")
         assert not app.has_class("ui-motion-reduced")
+
+
+@pytest.mark.asyncio
+async def test_settings_screen_applies_color_profile_preference(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        screen.query_one("#color-profile").value = "ascii-safe"
+        screen.action_apply()
+        await pilot.pause()
+
+        assert app.has_class("ui-color-profile-ascii-safe")
+        assert not app.has_class("ui-color-profile-256color")
+
+        screen.query_one("#color-profile").value = "auto"
+        screen.action_apply()
+        await pilot.pause()
+
+        assert not app.has_class("ui-color-profile-ascii-safe")
+        assert not app.has_class("ui-color-profile-256color")
+        assert not app.has_class("ui-color-profile-truecolor")
 
 
 @pytest.mark.asyncio

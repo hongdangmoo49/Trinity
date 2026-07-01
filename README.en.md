@@ -383,6 +383,10 @@ the current Textual Workbench palette limitations, use the
 | `<text>` | Ask agents to deliberate on a topic |
 | `/status` | Show agent status |
 | `/context` | Show current-session goal, synthesis, questions, decisions, and work package summary |
+| `/project` | Show compact diagnostics for the selected project or target workspace |
+| `/providers` | Open the provider inspector in the Textual Workbench |
+| `/workspace` | Open the target workspace picker |
+| `/settings` | Open the Textual Workbench settings screen |
 | `/rounds [N]` | Set max deliberation rounds (1–20) |
 | `/agent <name> on\|off` | Enable/disable an agent |
 | `/model` | Open the per-agent model selection modal and set model overrides |

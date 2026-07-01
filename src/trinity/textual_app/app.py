@@ -1529,6 +1529,7 @@ class TrinityTextualApp(App[None]):
         event.stop()
         self.ui_settings = self.settings_store.load()
         self._apply_ui_settings(self.ui_settings)
+        self.get_screen("start", StartScreen).sync_ui_settings()
         self._sync_configured_agent_model_selectors()
 
     def _apply_ui_settings(self, settings: UISettings) -> None:

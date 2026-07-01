@@ -156,6 +156,10 @@ class StartScreen(Screen[None]):
         self._apply_model_choices()
         self._prompt_composer().focus_text_area()
 
+    def sync_ui_settings(self) -> None:
+        if self.is_mounted:
+            self.query_one(SacredGeometryAnimation)._render_frame()
+
     def set_agent_model_choices(
         self,
         choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]],

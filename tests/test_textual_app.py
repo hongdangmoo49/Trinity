@@ -12403,10 +12403,10 @@ async def test_settings_screen_applies_unicode_rendering_preference(tmp_path) ->
         screen.action_apply()
         await pilot.pause()
 
+        assert app.has_class("ui-unicode-rendering")
+        assert start_animation._render_mode == "unicode"
         app.switch_to("start")
         await pilot.pause()
-        start_animation._tick()
-        assert app.has_class("ui-unicode-rendering")
         assert start_animation._render_mode == "unicode"
 
         app.switch_to("settings")
@@ -12417,10 +12417,10 @@ async def test_settings_screen_applies_unicode_rendering_preference(tmp_path) ->
         screen.action_apply()
         await pilot.pause()
 
+        assert not app.has_class("ui-unicode-rendering")
+        assert start_animation._render_mode == "ascii"
         app.switch_to("start")
         await pilot.pause()
-        start_animation._tick()
-        assert not app.has_class("ui-unicode-rendering")
         assert start_animation._render_mode == "ascii"
 
 

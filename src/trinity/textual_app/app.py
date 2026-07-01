@@ -1234,6 +1234,7 @@ class TrinityTextualApp(App[None]):
     }
 
     #nexus-composer.-commands-open {
+        dock: bottom;
         height: 11;
     }
 

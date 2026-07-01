@@ -1908,11 +1908,15 @@ async def test_start_command_palette_keyboard_selection_stays_visible(tmp_path) 
         assert more.region.y < palette_bottom_border
 
 
+@pytest.mark.parametrize("size", [(120, 20), (120, 36)])
 @pytest.mark.asyncio
-async def test_nexus_command_palette_keyboard_selection_stays_visible(tmp_path) -> None:
+async def test_nexus_command_palette_keyboard_selection_stays_visible(
+    tmp_path,
+    size: tuple[int, int],
+) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
 
-    async with app.run_test(size=(120, 36)) as pilot:
+    async with app.run_test(size=size) as pilot:
         app.switch_to("nexus")
         await pilot.pause()
 

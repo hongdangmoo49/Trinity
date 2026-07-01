@@ -31,6 +31,7 @@ class SacredGeometryAnimation(Static):
     def __init__(self) -> None:
         super().__init__("", id="start-geometry")
         self._angle = 0.0
+        self._render_mode = "ascii"
         self._animator = SacredGeometryAnimator(width=56, height=14, mode="ascii")
 
     def on_mount(self) -> None:
@@ -39,11 +40,22 @@ class SacredGeometryAnimation(Static):
 
     def _tick(self) -> None:
         if self.app.has_class("ui-motion-reduced"):
+            if self._sync_render_mode():
+                self.update(self._animator.render(angle=self._angle))
             return
         self._angle = (self._angle + 8.0) % 360.0
         self._render_frame()
 
+    def _sync_render_mode(self) -> bool:
+        mode = "unicode" if self.app.has_class("ui-unicode-rendering") else "ascii"
+        if mode == self._render_mode:
+            return False
+        self._animator.update_mode(mode)
+        self._render_mode = mode
+        return True
+
     def _render_frame(self) -> None:
+        self._sync_render_mode()
         self.update(self._animator.render(angle=self._angle))
 
 

@@ -158,6 +158,7 @@ class SettingsScreen(Screen[None]):
                 "central-model",
                 self._central_model_values(self.config.synthesis_model),
             )
+            self._set_preview_text(self.preview_text())
 
     def action_apply(self) -> None:
         self.settings = UISettings(

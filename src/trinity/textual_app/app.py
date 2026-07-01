@@ -385,7 +385,7 @@ class TrinityTextualApp(App[None]):
     }
 
     #start-composer.-commands-open {
-        height: 9;
+        height: 10;
     }
 
     .agent-recipient-selector {
@@ -432,13 +432,13 @@ class TrinityTextualApp(App[None]):
 
     #start-actions {
         width: 100%;
-        height: 2;
+        height: 3;
         align-vertical: middle;
     }
 
     #start-select-workspace {
         width: 22;
-        height: 2;
+        height: 3;
     }
 
     #prompt-textarea {
@@ -449,7 +449,7 @@ class TrinityTextualApp(App[None]):
     #workspace-candidate {
         width: 1fr;
         min-width: 0;
-        height: 2;
+        height: 3;
         margin-right: 1;
         color: $text-muted;
         content-align: left middle;
@@ -1240,7 +1240,7 @@ class TrinityTextualApp(App[None]):
     #prompt-command-palette {
         display: none;
         width: 1fr;
-        max-height: 6;
+        max-height: 7;
         height: auto;
         border: round $primary;
         margin-top: 1;

@@ -294,6 +294,12 @@ class SettingsScreen(Screen[None]):
             )
         if id == "central-provider" and value != "auto":
             return self._agent_label(value)
+        if id == "theme-mode" and value == "system":
+            return self._label("dark_fallback")
+        if id == "color-profile" and value == "auto":
+            return self._label("default_palette")
+        if id == "unicode-rendering" and value == "auto":
+            return self._label("ascii_fallback")
         return self._display_value(value)
 
     def preview_text(self) -> str:
@@ -344,15 +350,18 @@ class SettingsScreen(Screen[None]):
         return "\n".join(
             [
                 self._label("preview"),
-                f"{self._label('theme_mode')}: {self._display_value(theme_mode)}",
+                (
+                    f"{self._label('theme_mode')}: "
+                    f"{self._settings_display_value('theme-mode', theme_mode)}"
+                ),
                 f"{self._label('density')}: {self._display_value(density)}",
                 (
                     f"{self._label('color_profile')}: "
-                    f"{self._display_value(color_profile)} · "
+                    f"{self._settings_display_value('color-profile', color_profile)} · "
                     f"{self._label('motion')}: "
                     f"{self._display_value(motion)} · "
                     f"{self._label('unicode')}: "
-                    f"{self._display_value(unicode_rendering)}"
+                    f"{self._settings_display_value('unicode-rendering', unicode_rendering)}"
                 ),
                 (
                     f"{self._label('central')}: {central_provider_label} / "
@@ -361,6 +370,9 @@ class SettingsScreen(Screen[None]):
                 *model_lines,
             ]
         )
+
+    def _settings_display_value(self, id: str, value: str) -> str:
+        return self._select_display_value(id, value)
 
     def _preview_value(self, id: str, fallback: str) -> str:
         if self.is_mounted:
@@ -556,7 +568,10 @@ class SettingsScreen(Screen[None]):
             "default": "기본값",
             "fast": "빠름",
             "strong": "강력",
-            "system": "자동(다크 대체)",
+            "dark_fallback": "다크 대체",
+            "default_palette": "기본 팔레트",
+            "ascii_fallback": "ASCII 대체",
+            "system": "다크 대체",
             "dark": "다크",
             "light": "라이트",
             "truecolor": "트루컬러",
@@ -595,7 +610,10 @@ class SettingsScreen(Screen[None]):
             "default": "default",
             "fast": "fast",
             "strong": "strong",
-            "system": "auto (dark fallback)",
+            "dark_fallback": "dark fallback",
+            "default_palette": "default palette",
+            "ascii_fallback": "ASCII fallback",
+            "system": "dark fallback",
             "dark": "dark",
             "light": "light",
             "truecolor": "truecolor",

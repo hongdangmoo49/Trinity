@@ -12342,7 +12342,10 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
         assert app.has_class("ui-color-profile-truecolor")
         assert not app.has_class("ui-color-profile-256color")
         assert not app.has_class("ui-color-profile-ascii-safe")
-        assert "Color profile: truecolor · Logo motion: normal · Logo glyphs: Auto" in preview
+        assert (
+            "Color profile: truecolor · Logo motion: normal · "
+            "Logo glyphs: ASCII fallback"
+        ) in preview
 
         screen.query_one("#color-profile").value = "ascii-safe"
         screen.action_apply()
@@ -12352,7 +12355,10 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
         assert app.has_class("ui-color-profile-ascii-safe")
         assert not app.has_class("ui-color-profile-256color")
         assert not app.has_class("ui-color-profile-truecolor")
-        assert "Color profile: ascii-safe · Logo motion: normal · Logo glyphs: Auto" in preview
+        assert (
+            "Color profile: ascii-safe · Logo motion: normal · "
+            "Logo glyphs: ASCII fallback"
+        ) in preview
 
         screen.query_one("#color-profile").value = "auto"
         screen.action_apply()
@@ -12447,9 +12453,12 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
         preview = str(screen.query_one("#theme-preview", Static).content)
 
         assert screen.label_text("central_provider") == "중앙 프로바이더"
-        assert "테마 모드: 자동(다크 대체)" in preview
+        assert "테마 모드: 다크 대체" in preview
         assert "밀도: 여유" in preview
-        assert "색상 프로필: 자동 · 로고 애니메이션: 기본 · 로고 글리프: 자동" in preview
+        assert (
+            "색상 프로필: 기본 팔레트 · 로고 애니메이션: 기본 · "
+            "로고 글리프: ASCII 대체"
+        ) in preview
         assert "중앙: 자동 / 강력" in preview
         assert "Claude: 기본값" in preview
         assert "Claude: 기본값 · 설계자 · 아키텍처 0.95" in preview

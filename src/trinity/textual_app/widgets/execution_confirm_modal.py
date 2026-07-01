@@ -23,6 +23,7 @@ EXECUTION_CONFIRM_LABELS = {
         "instruction": "Instruction",
         "none": "(none)",
         "package_preview": "Preview",
+        "package_summary": "{total} total, {executable} {executable_label}",
         "project_context": "Project context",
         "workspace_context": "Workspace context",
         "providers": "Providers",
@@ -42,6 +43,7 @@ EXECUTION_CONFIRM_LABELS = {
         "instruction": "실행 지시",
         "none": "(없음)",
         "package_preview": "미리보기",
+        "package_summary": "총 {total}개, 실행 가능 {executable}개",
         "project_context": "프로젝트 컨텍스트",
         "workspace_context": "작업 폴더 컨텍스트",
         "providers": "프로바이더",
@@ -196,8 +198,8 @@ class ExecutionConfirmModal(ModalScreen[bool]):
             f"{self._label('providers')}: {_join_or_none(summary.providers, self._label('none'))}",
             self._agent_runs_text(summary),
             (
-                f"{self._label('work_packages')}: {summary.total_packages} total, "
-                f"{summary.executable_packages} {self._label('executable')}"
+                f"{self._label('work_packages')}: "
+                f"{self._package_summary_text(summary)}"
             ),
             (
                 f"{self._label('risks')}: "
@@ -209,6 +211,13 @@ class ExecutionConfirmModal(ModalScreen[bool]):
                 f"{self._label('instruction')}: {summary.instruction.strip()}"
             )
         return "\n".join(lines)
+
+    def _package_summary_text(self, summary: ExecutionConfirmationSummary) -> str:
+        return self._label("package_summary").format(
+            total=summary.total_packages,
+            executable=summary.executable_packages,
+            executable_label=self._label("executable"),
+        )
 
     def _agent_runs_text(self, summary: ExecutionConfirmationSummary) -> str:
         estimate = self._label("run_estimate").format(

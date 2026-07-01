@@ -193,11 +193,11 @@ class SettingsScreen(Screen[None]):
 
     def action_apply(self) -> None:
         self.settings = UISettings(
-            theme_mode=self._value("theme-mode"),
-            color_profile=self._value("color-profile"),
+            theme_mode=self._saved_setting_value("theme-mode"),
+            color_profile=self._saved_setting_value("color-profile"),
             density=self._value("density"),
             motion=self._value("motion"),
-            unicode_rendering=self._value("unicode-rendering"),
+            unicode_rendering=self._saved_setting_value("unicode-rendering"),
         )
         self.settings_store.save(self.settings)
         for name, spec in self.config.agents.items():
@@ -247,6 +247,15 @@ class SettingsScreen(Screen[None]):
 
     def _value(self, id: str) -> str:
         return str(self._select_for(id).value)
+
+    def _saved_setting_value(self, id: str) -> str:
+        legacy_fallbacks = {
+            ("theme-mode", "system"): "dark",
+            ("color-profile", "auto"): "default",
+            ("unicode-rendering", "auto"): "ascii",
+        }
+        value = self._value(id)
+        return legacy_fallbacks.get((id, value), value)
 
     def _select_for(self, id: str) -> Select[str]:
         select = self._select_cache.get(id)

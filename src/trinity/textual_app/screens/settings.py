@@ -148,6 +148,7 @@ class SettingsScreen(Screen[None]):
         if not self._select_events_ready:
             return
         if event.select.id != "central-provider":
+            self._set_preview_text(self.preview_text())
             self._set_status_text(self._label("unsaved_changes"))
             return
         event.stop()
@@ -160,6 +161,7 @@ class SettingsScreen(Screen[None]):
             self._central_model_values("agent-default", central_provider),
             current="agent-default",
         )
+        self._set_preview_text(self.preview_text())
         self._set_status_text(self._label("unsaved_changes"))
 
     def set_agent_model_choices(
@@ -286,7 +288,10 @@ class SettingsScreen(Screen[None]):
             if spec is not None:
                 return self._agent_model_display_value(name, spec.provider, value)
         if id == "central-model":
-            return self._central_model_display_value(value, self._current_central_provider())
+            return self._central_model_display_value(
+                value,
+                self._current_central_provider(),
+            )
         if id == "central-provider" and value != "auto":
             return self._agent_label(value)
         return self._display_value(value)
@@ -294,7 +299,7 @@ class SettingsScreen(Screen[None]):
     def preview_text(self) -> str:
         model_lines = []
         for name, spec in self.config.agents.items():
-            model_value = spec.model or "default"
+            model_value = self._preview_value(f"model-{name}", spec.model or "default")
             model = (
                 self._display_value(model_value)
                 if model_value == "default"
@@ -308,8 +313,14 @@ class SettingsScreen(Screen[None]):
                     f"{self._profile_contract_summary(spec)}"
                 )
             )
-        central_provider = self.config.synthesis_agent or "auto"
-        central_model = self.config.synthesis_model or "agent-default"
+        central_provider = self._preview_value(
+            "central-provider",
+            self.config.synthesis_agent or "auto",
+        )
+        central_model = self._preview_value(
+            "central-model",
+            self.config.synthesis_model or "agent-default",
+        )
         central_provider_label = (
             self._display_value(central_provider)
             if central_provider == "auto"
@@ -319,20 +330,29 @@ class SettingsScreen(Screen[None]):
             central_model,
             central_provider,
         )
+        theme_mode = self._preview_value("theme-mode", self.settings.theme_mode)
+        density = self._preview_value("density", self.settings.density)
+        color_profile = self._preview_value(
+            "color-profile",
+            self.settings.color_profile,
+        )
+        motion = self._preview_value("motion", self.settings.motion)
+        unicode_rendering = self._preview_value(
+            "unicode-rendering",
+            self.settings.unicode_rendering,
+        )
         return "\n".join(
             [
                 self._label("preview"),
-                (
-                    f"{self._label('theme_mode')}: "
-                    f"{self._display_value(self.settings.theme_mode)}"
-                ),
-                f"{self._label('density')}: {self._display_value(self.settings.density)}",
+                f"{self._label('theme_mode')}: {self._display_value(theme_mode)}",
+                f"{self._label('density')}: {self._display_value(density)}",
                 (
                     f"{self._label('color_profile')}: "
-                    f"{self._display_value(self.settings.color_profile)} · "
-                    f"{self._label('motion')}: {self._display_value(self.settings.motion)} · "
+                    f"{self._display_value(color_profile)} · "
+                    f"{self._label('motion')}: "
+                    f"{self._display_value(motion)} · "
                     f"{self._label('unicode')}: "
-                    f"{self._display_value(self.settings.unicode_rendering)}"
+                    f"{self._display_value(unicode_rendering)}"
                 ),
                 (
                     f"{self._label('central')}: {central_provider_label} / "
@@ -341,6 +361,11 @@ class SettingsScreen(Screen[None]):
                 *model_lines,
             ]
         )
+
+    def _preview_value(self, id: str, fallback: str) -> str:
+        if self.is_mounted:
+            return self._value(id)
+        return fallback
 
     def _agent_model_values(
         self,

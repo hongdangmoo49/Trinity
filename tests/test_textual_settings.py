@@ -129,6 +129,30 @@ async def test_settings_select_change_marks_unsaved(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_settings_preview_updates_before_apply(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        preview = screen.query_one("#theme-preview", Static)
+
+        screen.query_one("#theme-mode").value = "light"
+        screen.query_one("#density").value = "compact"
+        screen.query_one("#central-provider").value = "codex"
+        await pilot.pause()
+
+        text = str(preview.content)
+        assert "Theme mode: light" in text
+        assert "Density: compact" in text
+        assert "Central: Codex / Agent default" in text
+
+    assert UISettingsStore(tmp_path / ".trinity").load() == UISettings()
+    assert config.synthesis_agent == ""
+
+
+@pytest.mark.asyncio
 async def test_settings_apply_uses_cached_controls(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)

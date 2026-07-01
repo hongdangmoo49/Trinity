@@ -12542,6 +12542,8 @@ async def test_settings_screen_uses_discovered_model_choices(tmp_path) -> None:
 
         model_select.value = "opus-live"
         screen.query_one("#central-provider").value = "claude"
+        await pilot.pause()
+        central_select = screen.query_one("#central-model", Select)
         central_select.value = "opus-live"
         screen.action_apply()
         await pilot.pause()

@@ -12500,8 +12500,12 @@ async def test_settings_screen_uses_discovered_model_choices(tmp_path) -> None:
         central_select = screen.query_one("#central-model", Select)
         model_values = {value for _label, value in model_select._options}
         central_values = {value for _label, value in central_select._options}
+        model_labels = {value: str(label) for label, value in model_select._options}
+        central_labels = {value: str(label) for label, value in central_select._options}
         assert "opus-live" in model_values
         assert "opus-live" in central_values
+        assert model_labels["opus-live"] == "Opus Live  cli-live  1,000,000 ctx"
+        assert central_labels["opus-live"] == "Opus Live  cli-live  1,000,000 ctx"
 
         model_select.value = "opus-live"
         screen.query_one("#central-provider").value = "claude"

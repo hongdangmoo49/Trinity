@@ -821,3 +821,8 @@ async def test_settings_recompose_rebinds_cached_controls(tmp_path) -> None:
         assert queries == []
         assert isinstance(screen._select_cache["theme-mode"], Select)
         assert str(screen._status_widget.content) == SETTINGS_APPLIED_STATUS
+
+        screen.query_one("#density").value = "compact"
+        await pilot.pause()
+
+        assert str(screen._status_widget.content) == SETTINGS_UNSAVED_STATUS

@@ -143,10 +143,8 @@ class SettingsScreen(Screen[None]):
             status = Static(saved_text, id="settings-status")
             self._status_widget = status
             yield status
+            self.call_after_refresh(self._enable_select_events)
         yield Footer()
-
-    def on_mount(self) -> None:
-        self.call_after_refresh(self._enable_select_events)
 
     def _enable_select_events(self) -> None:
         self._select_events_ready = True

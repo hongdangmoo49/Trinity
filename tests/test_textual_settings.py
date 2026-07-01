@@ -437,6 +437,38 @@ async def test_settings_model_discovery_keeps_saved_status(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_settings_model_discovery_preserves_unsaved_status(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        status = screen.query_one("#settings-status", Static)
+
+        screen.query_one("#density").value = "compact"
+        await pilot.pause()
+        assert str(status.content) == SETTINGS_UNSAVED_STATUS
+
+        screen.set_agent_model_choices(
+            {
+                "claude": (
+                    ProviderModelChoice(
+                        provider=config.agents["claude"].provider,
+                        model="opus-live",
+                        label="Opus Live",
+                        source="cli-live",
+                        context_budget=1_000_000,
+                    ),
+                )
+            }
+        )
+        await pilot.pause()
+
+        assert str(status.content) == SETTINGS_UNSAVED_STATUS
+
+
+@pytest.mark.asyncio
 async def test_settings_apply_uses_cached_controls(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)

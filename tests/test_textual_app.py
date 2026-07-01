@@ -12349,8 +12349,8 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
         assert not app.has_class("ui-color-profile-256color")
         assert not app.has_class("ui-color-profile-ascii-safe")
         assert (
-            "Color profile: truecolor · Logo motion: animated · "
-            "Logo glyphs: ascii"
+            "Terminal colors: truecolor · Start logo motion: animated · "
+            "Start logo glyphs: ascii"
         ) in preview
 
         screen.query_one("#color-profile").value = "ascii-safe"
@@ -12362,8 +12362,8 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
         assert not app.has_class("ui-color-profile-256color")
         assert not app.has_class("ui-color-profile-truecolor")
         assert (
-            "Color profile: ascii-safe · Logo motion: animated · "
-            "Logo glyphs: ascii"
+            "Terminal colors: ascii-safe · Start logo motion: animated · "
+            "Start logo glyphs: ascii"
         ) in preview
 
         screen.query_one("#color-profile").value = "default"
@@ -12495,8 +12495,8 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
         assert "테마 모드: 다크" in preview
         assert "밀도: 여유" in preview
         assert (
-            "색상 프로필: 기본 팔레트 · 로고 애니메이션: 애니메이션 · "
-            "로고 글리프: ASCII"
+            "터미널 색상: 기본 팔레트 · 시작 로고 애니메이션: 애니메이션 · "
+            "시작 로고 글리프: ASCII"
         ) in preview
         assert "중앙: 자동 / 강력" in preview
         assert "Claude: 기본값" in preview
@@ -12504,7 +12504,7 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
         assert "출력 형식 실행:실행 v1 리뷰:리뷰 v1" in preview
         assert "Mode:" not in preview
         assert "Density:" not in preview
-        assert "Color profile:" not in preview
+        assert "Terminal colors:" not in preview
         assert "Motion:" not in preview
         assert "Unicode:" not in preview
         assert "Central:" not in preview

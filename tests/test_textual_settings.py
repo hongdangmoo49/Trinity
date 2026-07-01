@@ -83,7 +83,9 @@ async def test_settings_apply_button_labels_describe_save_and_apply(tmp_path) ->
 
     async with SettingsHarness(ko).run_test(size=(120, 36)) as pilot:
         await pilot.pause()
-        assert str(ko.query_one("#apply-settings", Button).label) == "저장 및 적용"
+        apply_button = ko.query_one("#apply-settings", Button)
+        assert str(apply_button.label) == "저장 및 적용"
+        assert apply_button.region.width >= 16
 
 
 def test_ui_settings_store_uses_defaults_for_invalid_values(tmp_path) -> None:

@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1078`
-- Merged PR range reviewed: #90 through #1239
+- Package version inspected: `1.0.1079`
+- Merged PR range reviewed: #90 through #1240
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1239
-- Latest refresh reviewed: #1239
+- Maintenance refresh reviewed: #427 through #1240
+- Latest refresh reviewed: #1240
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1239: Prompt-Led Workbench Simplification
+### #977-#1240: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2236,6 +2236,8 @@ and what the next release train should optimize.
   routing through the same save/apply path as the shortcut.
 - Clarified Settings action copy from Apply to Save & Apply so users can tell
   selections are saved only after the action runs.
+- Added small-terminal Save & Apply button width coverage so the longer
+  Settings action label stays visible.
 - Updated the README interactive command tables to include `/project`,
   `/providers`, `/workspace`, and `/settings`.
 - Added README slash command drift coverage so the Korean and English quick

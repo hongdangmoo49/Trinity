@@ -13376,6 +13376,35 @@ async def test_settings_screen_syncs_mounted_agent_model_selectors(tmp_path) -> 
 
 
 @pytest.mark.asyncio
+async def test_settings_model_default_reaches_unvisited_nexus_selector(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        start = app.screen
+        assert isinstance(start, StartScreen)
+
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        screen.query_one("#model-claude").value = "sonnet[1m]"
+        screen.action_apply()
+        await pilot.pause()
+
+        app.switch_to("nexus")
+        await pilot.pause()
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        nexus_selector = nexus.query_one(AgentRecipientModelSelector)
+        assert nexus_selector.selected_model("claude") == "sonnet[1m]"
+        assert nexus_selector.model_overrides() == {}
+
+
+@pytest.mark.asyncio
 async def test_settings_saved_agent_model_default_is_not_request_override(
     tmp_path,
 ) -> None:

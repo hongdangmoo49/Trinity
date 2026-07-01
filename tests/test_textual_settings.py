@@ -50,6 +50,20 @@ def test_settings_apply_shortcut_binding_is_registered(tmp_path) -> None:
     assert binding.description == "Apply"
 
 
+def test_settings_apply_shortcut_binding_uses_korean_label(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    screen = SettingsScreen(
+        UISettingsStore(tmp_path / ".trinity"),
+        config,
+        lang="ko",
+    )
+    binding = next(iter(screen._bindings.get_bindings_for_key("ctrl+s")))
+
+    assert binding.key == "ctrl+s"
+    assert binding.action == "apply"
+    assert binding.description == "적용"
+
+
 def test_ui_settings_store_uses_defaults_for_invalid_values(tmp_path) -> None:
     store = UISettingsStore(tmp_path / ".trinity")
     store.path.parent.mkdir(parents=True)

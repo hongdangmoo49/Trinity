@@ -6366,11 +6366,27 @@ async def test_agent_command_syncs_open_settings_agent_rows(tmp_path) -> None:
         assert str(status.content) == "Saved"
         assert refreshes == [True]
 
+        app._handle_textual_slash_command("/agent codex off")
+        await pilot.pause()
+
+        labels = [str(label.content) for label in screen.query(".settings-row Label")]
+        central_values = {
+            value
+            for _label, value in screen.query_one("#central-provider", Select)._options
+        }
+        preview = str(screen.query_one("#theme-preview", Static).content)
+        assert screen.query_one("#model-codex", Select).disabled is True
+        assert "Codex (off)" in labels
+        assert "codex" not in central_values
+        assert "- Codex (off): default" in preview
+        assert str(status.content) == "Saved"
+        assert refreshes == [True]
+
         screen.action_apply()
         await pilot.pause()
 
     saved_config = TrinityConfig.load(tmp_path / ".trinity" / "trinity.config")
-    assert config.agents["codex"].enabled is True
+    assert config.agents["codex"].enabled is False
     assert saved_config.agents["codex"].enabled is False
 
 

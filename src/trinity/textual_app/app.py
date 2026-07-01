@@ -1337,6 +1337,22 @@ class TrinityTextualApp(App[None]):
         text-style: italic;
     }
 
+    .ui-color-profile-truecolor #start-geometry,
+    .ui-color-profile-truecolor #start-title,
+    .ui-color-profile-truecolor .recipient-agent-toggle-selected,
+    .ui-color-profile-truecolor .command-option-selected,
+    .ui-color-profile-truecolor .command-option-first,
+    .ui-color-profile-truecolor #settings-title {
+        color: #5ce1e6;
+    }
+
+    .ui-color-profile-truecolor #start-composer,
+    .ui-color-profile-truecolor #nexus-composer,
+    .ui-color-profile-truecolor #prompt-command-palette,
+    .ui-color-profile-truecolor #theme-preview {
+        border: round #5ce1e6;
+    }
+
     .ui-color-profile-256color #start-geometry,
     .ui-color-profile-256color #start-title,
     .ui-color-profile-256color .recipient-agent-toggle-selected,

@@ -12334,6 +12334,16 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
         screen = app.screen
         assert isinstance(screen, SettingsScreen)
 
+        screen.query_one("#color-profile").value = "truecolor"
+        screen.action_apply()
+        await pilot.pause()
+        preview = str(screen.query_one("#theme-preview", Static).content)
+
+        assert app.has_class("ui-color-profile-truecolor")
+        assert not app.has_class("ui-color-profile-256color")
+        assert not app.has_class("ui-color-profile-ascii-safe")
+        assert "Color profile: truecolor · Logo motion: normal · Logo glyphs: Auto" in preview
+
         screen.query_one("#color-profile").value = "ascii-safe"
         screen.action_apply()
         await pilot.pause()
@@ -12341,6 +12351,7 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
 
         assert app.has_class("ui-color-profile-ascii-safe")
         assert not app.has_class("ui-color-profile-256color")
+        assert not app.has_class("ui-color-profile-truecolor")
         assert "Color profile: ascii-safe · Logo motion: normal · Logo glyphs: Auto" in preview
 
         screen.query_one("#color-profile").value = "auto"

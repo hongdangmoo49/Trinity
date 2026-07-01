@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 from textual import events
 from textual.app import App
+from textual.color import Color
 from textual.containers import VerticalScroll
 from textual.css.query import NoMatches
 from textual.widgets import (
@@ -12642,6 +12643,7 @@ async def test_settings_visual_preferences_reach_workbench_surfaces(
         assert isinstance(screen, SettingsScreen)
 
         preview = screen.query_one("#theme-preview", Static)
+        truecolor = Color.parse("#5ce1e6")
         screen.query_one("#color-profile").value = "truecolor"
         screen.query_one("#density").value = "compact"
         screen.action_apply()
@@ -12669,7 +12671,10 @@ async def test_settings_visual_preferences_reach_workbench_surfaces(
         assert isinstance(execution, ExecutionMatrixScreen)
         assert execution.query_one("#execution-screen").styles.padding.top == 0
         assert execution.query_one("#execution-summary").styles.margin.top == 0
+        assert execution.query_one("#execution-header").styles.color == truecolor
+        assert execution.query_one("#execution-package-list").styles.border_top[1] == truecolor
         assert execution.query_one("#execution-package-list").styles.height.value == 12
+        assert execution.query_one("#execution-log").styles.border_top[1] == truecolor
         assert execution.query_one("#execution-log").styles.height.value == 8
 
         app.switch_to("report")
@@ -12679,6 +12684,8 @@ async def test_settings_visual_preferences_reach_workbench_surfaces(
         assert report.query_one("#report-screen").styles.padding.top == 0
         assert report.query_one("#report-header").styles.height.value == 3
         assert report.query_one("#report-header").styles.margin.bottom == 0
+        assert report.query_one("#report-title").styles.color == truecolor
+        assert report.query_one("#report-body").styles.border_top[1] == truecolor
         assert report.query_one("#report-body").styles.padding.top == 0
 
 

@@ -1379,6 +1379,11 @@ class TrinityTextualApp(App[None]):
 
     .ui-color-profile-truecolor #start-geometry,
     .ui-color-profile-truecolor #start-title,
+    .ui-color-profile-truecolor #execution-header,
+    .ui-color-profile-truecolor .execution-lane-header,
+    .ui-color-profile-truecolor #execution-retry-title,
+    .ui-color-profile-truecolor #report-title,
+    .ui-color-profile-truecolor #work-package-detail-title,
     .ui-color-profile-truecolor .recipient-agent-toggle-selected,
     .ui-color-profile-truecolor .command-option-selected,
     .ui-color-profile-truecolor .command-option-first,
@@ -1389,12 +1394,24 @@ class TrinityTextualApp(App[None]):
     .ui-color-profile-truecolor #start-composer,
     .ui-color-profile-truecolor #nexus-composer,
     .ui-color-profile-truecolor #prompt-command-palette,
+    .ui-color-profile-truecolor #execution-package-list,
+    .ui-color-profile-truecolor #execution-log,
+    .ui-color-profile-truecolor #execution-retry-modal,
+    .ui-color-profile-truecolor #execution-retry-list,
+    .ui-color-profile-truecolor #report-body,
+    .ui-color-profile-truecolor #work-package-detail-modal,
+    .ui-color-profile-truecolor #work-package-detail-body,
     .ui-color-profile-truecolor #theme-preview {
         border: round #5ce1e6;
     }
 
     .ui-color-profile-256color #start-geometry,
     .ui-color-profile-256color #start-title,
+    .ui-color-profile-256color #execution-header,
+    .ui-color-profile-256color .execution-lane-header,
+    .ui-color-profile-256color #execution-retry-title,
+    .ui-color-profile-256color #report-title,
+    .ui-color-profile-256color #work-package-detail-title,
     .ui-color-profile-256color .recipient-agent-toggle-selected,
     .ui-color-profile-256color .command-option-selected,
     .ui-color-profile-256color .command-option-first,
@@ -1405,12 +1422,24 @@ class TrinityTextualApp(App[None]):
     .ui-color-profile-256color #start-composer,
     .ui-color-profile-256color #nexus-composer,
     .ui-color-profile-256color #prompt-command-palette,
+    .ui-color-profile-256color #execution-package-list,
+    .ui-color-profile-256color #execution-log,
+    .ui-color-profile-256color #execution-retry-modal,
+    .ui-color-profile-256color #execution-retry-list,
+    .ui-color-profile-256color #report-body,
+    .ui-color-profile-256color #work-package-detail-modal,
+    .ui-color-profile-256color #work-package-detail-body,
     .ui-color-profile-256color #theme-preview {
         border: round cyan;
     }
 
     .ui-color-profile-ascii-safe #start-geometry,
     .ui-color-profile-ascii-safe #start-title,
+    .ui-color-profile-ascii-safe #execution-header,
+    .ui-color-profile-ascii-safe .execution-lane-header,
+    .ui-color-profile-ascii-safe #execution-retry-title,
+    .ui-color-profile-ascii-safe #report-title,
+    .ui-color-profile-ascii-safe #work-package-detail-title,
     .ui-color-profile-ascii-safe .recipient-agent-toggle-selected,
     .ui-color-profile-ascii-safe .command-option-selected,
     .ui-color-profile-ascii-safe .command-option-first,
@@ -1425,6 +1454,13 @@ class TrinityTextualApp(App[None]):
     .ui-color-profile-ascii-safe .provider-panel,
     .ui-color-profile-ascii-safe #workflow-inspector,
     .ui-color-profile-ascii-safe #nexus-question-panel,
+    .ui-color-profile-ascii-safe #execution-package-list,
+    .ui-color-profile-ascii-safe #execution-log,
+    .ui-color-profile-ascii-safe #execution-retry-modal,
+    .ui-color-profile-ascii-safe #execution-retry-list,
+    .ui-color-profile-ascii-safe #report-body,
+    .ui-color-profile-ascii-safe #work-package-detail-modal,
+    .ui-color-profile-ascii-safe #work-package-detail-body,
     .ui-color-profile-ascii-safe #theme-preview {
         border: round white;
     }

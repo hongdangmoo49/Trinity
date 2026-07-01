@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 from textual.app import App
-from textual.widgets import Select, Static
+from textual.widgets import Button, Select, Static
 
 from trinity.config import TrinityConfig
 from trinity.providers.model_discovery import ProviderModelChoice
@@ -271,6 +271,24 @@ async def test_settings_select_change_marks_unsaved(tmp_path) -> None:
         screen.action_apply()
         await pilot.pause()
         assert str(status.content) == SETTINGS_APPLIED_STATUS
+
+
+@pytest.mark.asyncio
+async def test_settings_apply_button_saves_preferences(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    store = UISettingsStore(tmp_path / ".trinity")
+    screen = SettingsScreen(store, config)
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        screen.query_one("#density").value = "compact"
+        await pilot.pause()
+        screen.query_one("#apply-settings", Button).press()
+        await pilot.pause()
+
+    assert store.load().density == "compact"
 
 
 @pytest.mark.asyncio

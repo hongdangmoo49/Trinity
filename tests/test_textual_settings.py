@@ -47,8 +47,19 @@ def test_ui_settings_store_uses_defaults_for_invalid_values(tmp_path) -> None:
 
     settings = store.load()
 
-    assert settings.theme_mode == "system"
+    assert settings.theme_mode == "dark"
     assert settings.density == "comfortable"
+
+
+def test_ui_settings_store_preserves_legacy_system_theme(tmp_path) -> None:
+    store = UISettingsStore(tmp_path / ".trinity")
+    store.path.parent.mkdir(parents=True)
+    store.path.write_text("[theme]\ntheme_mode='system'\n", encoding="utf-8")
+
+    settings = store.load()
+
+    assert settings.theme_mode == "system"
+    assert textual_theme_for_mode(settings.theme_mode) == "textual-dark"
 
 
 def test_settings_preview_includes_agent_profile_summary(tmp_path) -> None:
@@ -57,7 +68,7 @@ def test_settings_preview_includes_agent_profile_summary(tmp_path) -> None:
 
     preview = screen.preview_text()
 
-    assert "Theme mode: dark fallback" in preview
+    assert "Theme mode: dark" in preview
     assert textual_theme_for_mode("system") == "textual-dark"
     assert "architect" in preview
     assert "implementer" in preview
@@ -178,10 +189,29 @@ async def test_settings_select_labels_describe_fallbacks(tmp_path) -> None:
             for label, value in screen.query_one("#central-provider", Select)._options
         }
 
-    assert theme_labels["system"] == "dark fallback"
+    assert "system" not in theme_labels
+    assert theme_labels["dark"] == "dark"
     assert color_labels["auto"] == "default palette"
     assert glyph_labels["auto"] == "ASCII fallback"
     assert central_labels["auto"] == "Auto"
+
+
+@pytest.mark.asyncio
+async def test_settings_theme_select_keeps_legacy_system_value(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    store = UISettingsStore(tmp_path / ".trinity")
+    store.save(UISettings(theme_mode="system"))
+    screen = SettingsScreen(store, config)
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        theme = screen.query_one("#theme-mode", Select)
+        labels = {value: str(label) for label, value in theme._options}
+
+    assert theme.value == "system"
+    assert labels["system"] == "dark fallback"
 
 
 @pytest.mark.asyncio

@@ -8,7 +8,7 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1022`
+- Package version inspected: `1.0.1023`
 - Merged PR range reviewed: #90 through #1113
 - Baseline iteration reviewed: #90 through #426
 - Maintenance refresh reviewed: #427 through #1113
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1183: Prompt-Led Workbench Simplification
+### #977-#1184: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2229,6 +2229,8 @@ and what the next release train should optimize.
   glyph changes.
 - Covered Settings visual preference classes across the current Settings
   surface and the Nexus surface after navigation.
+- Defaulted new Settings theme preferences to explicit dark mode while keeping
+  legacy `system` dark-fallback values readable.
 - Removed stale project CTA/selector tests, superseded Workbench action notes,
   old Workbench plan reports, obsolete init next-step wording, stale
   `project_start_guide` assertions, dead project rail/runtime notes,

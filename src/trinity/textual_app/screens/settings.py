@@ -71,7 +71,7 @@ class SettingsScreen(Screen[None]):
                 yield Label(self._label("theme_mode"))
                 yield self._select(
                     "theme-mode",
-                    ["system", "dark", "light"],
+                    ["dark", "light"],
                     self.settings.theme_mode,
                 )
             with Horizontal(classes="settings-row"):

@@ -19,7 +19,7 @@ else:  # pragma: no cover - exercised on Python 3.10 in packaging smoke
 class UISettings:
     """User-level Textual UI preferences."""
 
-    theme_mode: str = "system"
+    theme_mode: str = "dark"
     color_profile: str = "auto"
     density: str = "comfortable"
     motion: str = "normal"
@@ -37,7 +37,7 @@ class UISettings:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "UISettings":
         return cls(
-            theme_mode=_choice(data.get("theme_mode"), {"system", "dark", "light"}, "system"),
+            theme_mode=_choice(data.get("theme_mode"), {"system", "dark", "light"}, "dark"),
             color_profile=_choice(
                 data.get("color_profile"),
                 {"auto", "truecolor", "256color", "ascii-safe"},

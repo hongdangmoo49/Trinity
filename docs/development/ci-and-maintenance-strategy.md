@@ -8,7 +8,7 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.987`
+- Package version inspected: `1.0.988`
 - Merged PR range reviewed: #90 through #1113
 - Baseline iteration reviewed: #90 through #426
 - Maintenance refresh reviewed: #427 through #1113
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1148: Prompt-Led Workbench Simplification
+### #977-#1149: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2172,6 +2172,8 @@ and what the next release train should optimize.
 - Reworded existing-project diagnostic chrome as workspace diagnosis.
 - Restored Start screen workspace selection, geometry height, and command
   palette viewport containment after prompt-led simplification.
+- Restored the original full-height Start geometry, right-aligned workspace
+  action placement, and keyboard-scrolled command palette containment.
 - Removed stale project CTA/selector tests, superseded Workbench action notes,
   old Workbench plan reports, obsolete init next-step wording, stale
   `project_start_guide` assertions, dead project rail/runtime notes,

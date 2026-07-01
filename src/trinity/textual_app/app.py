@@ -362,7 +362,7 @@ class TrinityTextualApp(App[None]):
 
     #start-geometry {
         width: 100%;
-        height: 6;
+        height: 14;
         content-align: center middle;
         text-align: center;
         color: $accent;
@@ -432,13 +432,13 @@ class TrinityTextualApp(App[None]):
 
     #start-actions {
         width: 100%;
-        height: 3;
-        margin-top: 1;
+        height: 2;
         align-vertical: middle;
     }
 
     #start-select-workspace {
         width: 22;
+        height: 2;
     }
 
     #prompt-textarea {
@@ -449,8 +449,8 @@ class TrinityTextualApp(App[None]):
     #workspace-candidate {
         width: 1fr;
         min-width: 0;
-        height: 3;
-        margin-left: 1;
+        height: 2;
+        margin-right: 1;
         color: $text-muted;
         content-align: left middle;
     }

@@ -12446,6 +12446,30 @@ async def test_settings_controls_use_flexible_width(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_settings_korean_control_labels_keep_select_space(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        labels = list(screen.query(".settings-row Label"))
+        central_provider_label = next(
+            label
+            for label in labels
+            if "중앙 에이전트 프로바이더" in str(label.content)
+        )
+        central_provider_select = screen.query_one("#central-provider", Select)
+
+        assert central_provider_label.styles.width.value == 26
+        assert central_provider_select.styles.min_width.value == 28
+        assert central_provider_select.styles.width.is_fraction
+
+
+@pytest.mark.asyncio
 async def test_settings_preview_stays_bounded_on_small_terminals(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

@@ -8,7 +8,7 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1040`
+- Package version inspected: `1.0.1041`
 - Merged PR range reviewed: #90 through #1113
 - Baseline iteration reviewed: #90 through #426
 - Maintenance refresh reviewed: #427 through #1113
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1201: Prompt-Led Workbench Simplification
+### #977-#1202: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2238,6 +2238,8 @@ and what the next release train should optimize.
   sections for better scanability.
 - Bounded the Settings preview height and enabled preview scrolling so Apply
   remains reachable on small terminals.
+- Rebalanced Settings label and select widths so longer Korean model-setting
+  labels keep enough room without crowding selects.
 - Added visible truecolor accent styling for the Settings color profile.
 - Refreshed Settings preview summaries when provider model discovery arrives.
 - Displayed central provider choices with agent labels in Settings.

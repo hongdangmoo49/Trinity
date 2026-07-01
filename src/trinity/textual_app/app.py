@@ -940,13 +940,13 @@ class TrinityTextualApp(App[None]):
     }
 
     .settings-row Label {
-        width: 22;
+        width: 26;
         content-align: left middle;
     }
 
     .settings-row Select {
         width: 1fr;
-        min-width: 32;
+        min-width: 28;
     }
 
     #theme-preview {

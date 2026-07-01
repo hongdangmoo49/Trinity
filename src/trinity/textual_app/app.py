@@ -1480,6 +1480,7 @@ class TrinityTextualApp(App[None]):
         self.theme = textual_theme_for_mode(settings.theme_mode)
         self.set_class(settings.density == "compact", "ui-density-compact")
         self.set_class(settings.motion == "reduced", "ui-motion-reduced")
+        self.set_class(settings.unicode_rendering == "unicode", "ui-unicode-rendering")
 
     def _sync_configured_agent_model_selectors(self) -> None:
         selections = {

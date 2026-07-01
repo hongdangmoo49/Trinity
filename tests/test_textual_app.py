@@ -12264,6 +12264,19 @@ async def test_textual_app_applies_saved_density_and_motion_on_startup(tmp_path)
 
 
 @pytest.mark.asyncio
+async def test_textual_app_applies_saved_unicode_rendering_on_startup(tmp_path) -> None:
+    UISettingsStore(tmp_path / ".trinity").save(UISettings(unicode_rendering="unicode"))
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        animation = app.screen.query_one(SacredGeometryAnimation)
+
+        assert app.has_class("ui-unicode-rendering")
+        assert animation._render_mode == "unicode"
+
+
+@pytest.mark.asyncio
 async def test_settings_screen_applies_density_and_motion_preferences(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 
@@ -12288,6 +12301,44 @@ async def test_settings_screen_applies_density_and_motion_preferences(tmp_path) 
 
         assert not app.has_class("ui-density-compact")
         assert not app.has_class("ui-motion-reduced")
+
+
+@pytest.mark.asyncio
+async def test_settings_screen_applies_unicode_rendering_preference(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        start_animation = app.screen.query_one(SacredGeometryAnimation)
+        assert start_animation._render_mode == "ascii"
+
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        screen.query_one("#unicode-rendering").value = "unicode"
+        screen.action_apply()
+        await pilot.pause()
+
+        app.switch_to("start")
+        await pilot.pause()
+        start_animation._tick()
+        assert app.has_class("ui-unicode-rendering")
+        assert start_animation._render_mode == "unicode"
+
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+        screen.query_one("#unicode-rendering").value = "ascii"
+        screen.action_apply()
+        await pilot.pause()
+
+        app.switch_to("start")
+        await pilot.pause()
+        start_animation._tick()
+        assert not app.has_class("ui-unicode-rendering")
+        assert start_animation._render_mode == "ascii"
 
 
 @pytest.mark.asyncio

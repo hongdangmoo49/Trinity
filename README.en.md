@@ -340,7 +340,8 @@ start after you choose `Execute` and approve the workspace preflight.
 - **Resume/Retry** — restore saved workflows with `/resume` and use the
   `/execute-retry` modal to retry failed, blocked, or interrupted WPs.
 - **Workbench Settings** — save theme mode, color compatibility, density,
-  Start-logo motion/glyphs, and agent/central model defaults.
+  Start-logo motion/glyphs, and agent/central model defaults. Open it with
+  `/settings` or `Ctrl+,`.
 - **Startup Update Check** — when `trinity` starts, it can ask whether to apply an
   available update; use `--skip-update-check` to bypass this check.
 - **Plain fallback** — use `trinity --plain` or `TRINITY_TUI=plain` for the legacy Rich/prompt_toolkit UI.

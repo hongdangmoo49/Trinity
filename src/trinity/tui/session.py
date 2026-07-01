@@ -348,7 +348,7 @@ class InteractiveSession:
         self.console.print(
             "[yellow]/settings opens in the default Textual Workbench. "
             "Run `trinity` without `--plain` or `TRINITY_TUI=plain`, "
-            "then use /settings or Ctrl+comma.[/yellow]"
+            "then use /settings or the Ctrl+, shortcut.[/yellow]"
         )
 
     def _cmd_context(self) -> None:

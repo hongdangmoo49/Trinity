@@ -13372,19 +13372,17 @@ async def test_settings_screen_syncs_mounted_agent_model_selectors(tmp_path) -> 
     async with app.run_test(size=(120, 40)) as pilot:
         start = app.screen
         assert isinstance(start, StartScreen)
-        assert (
-            start.query_one(AgentRecipientModelSelector).selected_model("claude")
-            == "default"
-        )
+        start_selector = start.query_one(AgentRecipientModelSelector)
+        assert start_selector.selected_model("claude") == "default"
+        start_selector.set_selected_agents(("claude",))
 
         app.switch_to("nexus")
         await pilot.pause()
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
-        assert (
-            nexus.query_one(AgentRecipientModelSelector).selected_model("claude")
-            == "default"
-        )
+        nexus_selector = nexus.query_one(AgentRecipientModelSelector)
+        assert nexus_selector.selected_model("claude") == "default"
+        nexus_selector.set_selected_agents(())
 
         app.switch_to("settings")
         await pilot.pause()
@@ -13401,6 +13399,7 @@ async def test_settings_screen_syncs_mounted_agent_model_selectors(tmp_path) -> 
         start = app.screen
         assert isinstance(start, StartScreen)
         start_selector = start.query_one(AgentRecipientModelSelector)
+        assert start_selector.selected_agents() == ("claude",)
         assert start_selector.selected_model("claude") == "sonnet[1m]"
         assert start_selector.selected_model("codex") == "gpt-5"
 
@@ -13409,6 +13408,7 @@ async def test_settings_screen_syncs_mounted_agent_model_selectors(tmp_path) -> 
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
         nexus_selector = nexus.query_one(AgentRecipientModelSelector)
+        assert nexus_selector.selected_agents() == ()
         assert nexus_selector.selected_model("claude") == "sonnet[1m]"
         assert nexus_selector.selected_model("codex") == "gpt-5"
 

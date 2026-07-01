@@ -12508,13 +12508,18 @@ async def test_settings_screen_uses_discovered_model_choices(tmp_path) -> None:
         assert isinstance(screen, SettingsScreen)
 
         model_select = screen.query_one("#model-claude", Select)
+        central_provider_select = screen.query_one("#central-provider", Select)
         central_select = screen.query_one("#central-model", Select)
         model_values = {value for _label, value in model_select._options}
         central_values = {value for _label, value in central_select._options}
         model_labels = {value: str(label) for label, value in model_select._options}
+        central_provider_labels = {
+            value: str(label) for label, value in central_provider_select._options
+        }
         central_labels = {value: str(label) for label, value in central_select._options}
         assert "opus-live" in model_values
         assert "opus-live" in central_values
+        assert central_provider_labels["claude"] == "Claude"
         assert model_labels["opus-live"] == "Opus Live  cli-live  1,000,000 ctx"
         assert central_labels["opus-live"] == "Opus Live  cli-live  1,000,000 ctx"
 
@@ -12526,7 +12531,7 @@ async def test_settings_screen_uses_discovered_model_choices(tmp_path) -> None:
         preview = str(screen.query_one("#theme-preview", Static).content)
 
         assert "Claude: Opus Live  cli-live  1,000,000 ctx" in preview
-        assert "Central: claude / Opus Live  cli-live  1,000,000 ctx" in preview
+        assert "Central: Claude / Opus Live  cli-live  1,000,000 ctx" in preview
 
     assert config.agents["claude"].model == "opus-live"
     assert config.synthesis_agent == "claude"
@@ -12560,14 +12565,14 @@ async def test_settings_preview_refreshes_when_model_choices_arrive(tmp_path) ->
 
         preview = str(screen.query_one("#theme-preview", Static).content)
         assert "Claude: opus-live" in preview
-        assert "Central: claude / opus-live" in preview
+        assert "Central: Claude / opus-live" in preview
 
         app._apply_discovered_model_choices({"claude": discovered})
         await pilot.pause()
         preview = str(screen.query_one("#theme-preview", Static).content)
 
         assert "Claude: Opus Live  cli-live  1,000,000 ctx" in preview
-        assert "Central: claude / Opus Live  cli-live  1,000,000 ctx" in preview
+        assert "Central: Claude / Opus Live  cli-live  1,000,000 ctx" in preview
 
 
 @pytest.mark.asyncio

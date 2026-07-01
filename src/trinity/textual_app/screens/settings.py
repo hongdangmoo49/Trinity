@@ -251,6 +251,8 @@ class SettingsScreen(Screen[None]):
                 return self._agent_model_display_value(name, spec.provider, value)
         if id == "central-model":
             return self._central_model_display_value(value)
+        if id == "central-provider" and value != "auto":
+            return self._agent_label(value)
         return self._display_value(value)
 
     def preview_text(self) -> str:
@@ -272,6 +274,11 @@ class SettingsScreen(Screen[None]):
             )
         central_provider = self.config.synthesis_agent or "auto"
         central_model = self.config.synthesis_model or "agent-default"
+        central_provider_label = (
+            self._display_value(central_provider)
+            if central_provider == "auto"
+            else self._agent_label(central_provider)
+        )
         central_model_label = self._central_model_display_value(central_model)
         return "\n".join(
             [
@@ -289,7 +296,7 @@ class SettingsScreen(Screen[None]):
                     f"{self._display_value(self.settings.unicode_rendering)}"
                 ),
                 (
-                    f"{self._label('central')}: {self._display_value(central_provider)} / "
+                    f"{self._label('central')}: {central_provider_label} / "
                     f"{central_model_label}"
                 ),
                 *model_lines,

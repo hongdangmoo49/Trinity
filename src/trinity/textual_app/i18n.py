@@ -44,6 +44,7 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "recipient_provider_default": "default",
         "start_placeholder": "What should Trinity work on?",
         "start_select_agent_warning": "Select at least one agent.",
+        "start_select_workspace": "Select Workspace",
     },
     "ko": {
         "command_no_matches": "일치하는 명령이 없습니다",
@@ -78,6 +79,7 @@ UI_TEXT: dict[str, dict[str, str]] = {
         "recipient_provider_default": "기본값",
         "start_placeholder": "Trinity가 무엇을 진행하면 될까요?",
         "start_select_agent_warning": "에이전트를 하나 이상 선택하세요.",
+        "start_select_workspace": "작업 폴더 선택",
     },
 }
 

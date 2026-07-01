@@ -1802,7 +1802,7 @@ async def test_textual_app_boots_to_start_screen(tmp_path) -> None:
         assert app.screen.name == "start"
         assert app.screen.query_one(PromptComposer)
         geometry = app.screen.query_one("#start-geometry", SacredGeometryAnimation)
-        assert geometry.styles.height.value == 4
+        assert geometry.styles.height.value == 6
         assert str(geometry.render()).strip()
 
 
@@ -1820,6 +1820,8 @@ async def test_start_screen_stays_within_narrow_viewport(tmp_path) -> None:
             start.query_one("#start-title", Static),
             start.query_one("#start-composer", PromptComposer),
             start.query_one("#start-recipient-selector", AgentRecipientModelSelector),
+            start.query_one("#start-actions"),
+            start.query_one("#start-select-workspace", Button),
             start.query_one("#workspace-candidate", Static),
         )
         for widget in widgets:
@@ -1848,10 +1850,9 @@ async def test_start_workspace_label_stays_compact_with_long_path(
         start = app.screen
         assert isinstance(start, StartScreen)
         workspace_label = start.query_one("#workspace-candidate", Static)
-
-        with pytest.raises(NoMatches):
-            start.query_one("#start-actions")
-        assert workspace_label.region.height == 1
+        select_workspace = start.query_one("#start-select-workspace", Button)
+        assert str(select_workspace.label) == "Select Workspace"
+        assert workspace_label.region.height == 3
         assert (
             workspace_label.region.y + workspace_label.region.height
             <= start.size.height
@@ -1876,9 +1877,15 @@ async def test_start_command_palette_stays_within_narrow_viewport(tmp_path) -> N
             composer,
             composer.query_one("#prompt-command-palette"),
             start.query_one("#start-recipient-selector"),
+            start.query_one("#start-actions"),
             start.query_one("#workspace-candidate", Static),
         )
         for widget in widgets:
+            assert widget.region.x >= start_shell.region.x
+            assert (
+                widget.region.x + widget.region.width
+                <= start_shell.region.x + start_shell.region.width
+            )
             assert widget.region.y >= start_shell.region.y
             assert (
                 widget.region.y + widget.region.height
@@ -11028,6 +11035,28 @@ async def test_start_workspace_command_opens_workspace_picker(tmp_path) -> None:
             "Select Workspace"
         )
         assert str(picker.query_one("#confirm-execute", Button).label) == "Use Workspace"
+
+
+@pytest.mark.asyncio
+async def test_start_workspace_button_opens_workspace_picker(tmp_path) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        FakeWorkflowController(),
+        launch_cwd=tmp_path,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        start.query_one("#start-select-workspace", Button).press()
+        await pilot.pause()
+
+        assert isinstance(app.screen, WorkspacePicker)
+        picker = app.screen
+        assert picker.intent == "select"
+        assert str(picker.query_one("#workspace-picker-title", Static).content) == (
+            "Select Workspace"
+        )
 
 
 @pytest.mark.asyncio

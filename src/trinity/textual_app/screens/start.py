@@ -5,10 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from textual.app import ComposeResult
-from textual.containers import Vertical
+from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.screen import Screen
-from textual.widgets import Footer, Header, Static
+from textual.widgets import Button, Footer, Header, Static
 
 from trinity.config import TrinityConfig
 from trinity.providers.model_discovery import ProviderModelChoice
@@ -30,7 +30,7 @@ class SacredGeometryAnimation(Static):
     def __init__(self) -> None:
         super().__init__("", id="start-geometry")
         self._angle = 0.0
-        self._animator = SacredGeometryAnimator(width=56, height=4, mode="ascii")
+        self._animator = SacredGeometryAnimator(width=56, height=6, mode="ascii")
 
     def on_mount(self) -> None:
         self._render_frame()
@@ -69,6 +69,9 @@ class StartScreen(Screen[None]):
         def __init__(self, text: str) -> None:
             super().__init__()
             self.text = text
+
+    class WorkspaceRequested(Message):
+        """Posted when the user opens the workspace picker from Start."""
 
     BINDINGS = [
         ("ctrl+enter", "submit", "Send"),
@@ -120,12 +123,17 @@ class StartScreen(Screen[None]):
                 )
                 self._recipient_selector = selector
                 yield selector
-                workspace_label = Static(
-                    self._workspace_label(),
-                    id="workspace-candidate",
-                )
-                self._workspace_label_widget = workspace_label
-                yield workspace_label
+                with Horizontal(id="start-actions"):
+                    yield Button(
+                        self.label_text("select_workspace"),
+                        id="start-select-workspace",
+                    )
+                    workspace_label = Static(
+                        self._workspace_label(),
+                        id="workspace-candidate",
+                    )
+                    self._workspace_label_widget = workspace_label
+                    yield workspace_label
         yield Footer()
 
     def on_mount(self) -> None:
@@ -166,6 +174,12 @@ class StartScreen(Screen[None]):
         event: AgentRecipientModelSelector.SelectionChanged,
     ) -> None:
         event.stop()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id != "start-select-workspace":
+            return
+        event.stop()
+        self.post_message(self.WorkspaceRequested())
 
     def action_submit(self) -> None:
         composer = self._prompt_composer()

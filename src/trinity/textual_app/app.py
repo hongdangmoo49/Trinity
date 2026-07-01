@@ -362,7 +362,7 @@ class TrinityTextualApp(App[None]):
 
     #start-geometry {
         width: 100%;
-        height: 4;
+        height: 6;
         content-align: center middle;
         text-align: center;
         color: $accent;
@@ -385,7 +385,7 @@ class TrinityTextualApp(App[None]):
     }
 
     #start-composer.-commands-open {
-        height: 10;
+        height: 9;
     }
 
     .agent-recipient-selector {
@@ -430,6 +430,17 @@ class TrinityTextualApp(App[None]):
         text-style: dim;
     }
 
+    #start-actions {
+        width: 100%;
+        height: 3;
+        margin-top: 1;
+        align-vertical: middle;
+    }
+
+    #start-select-workspace {
+        width: 22;
+    }
+
     #prompt-textarea {
         height: 1fr;
         border: none;
@@ -438,8 +449,8 @@ class TrinityTextualApp(App[None]):
     #workspace-candidate {
         width: 1fr;
         min-width: 0;
-        height: 1;
-        margin-top: 1;
+        height: 3;
+        margin-left: 1;
         color: $text-muted;
         content-align: left middle;
     }
@@ -1228,7 +1239,7 @@ class TrinityTextualApp(App[None]):
 
     #prompt-command-palette {
         display: none;
-        width: 100%;
+        width: 1fr;
         max-height: 6;
         height: auto;
         border: round $primary;
@@ -1443,6 +1454,13 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         event.stop()
         self._handle_textual_slash_command(event.text)
+
+    def on_start_screen_workspace_requested(
+        self,
+        event: StartScreen.WorkspaceRequested,
+    ) -> None:
+        event.stop()
+        self._open_workspace_command()
 
     def on_nexus_screen_follow_up_submitted(
         self,

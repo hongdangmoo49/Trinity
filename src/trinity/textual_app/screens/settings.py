@@ -95,7 +95,7 @@ class SettingsScreen(Screen[None]):
                 yield Label(self._label("unicode"))
                 yield self._select(
                     "unicode-rendering",
-                    ["auto", "unicode", "ascii"],
+                    ["ascii", "unicode"],
                     self.settings.unicode_rendering,
                 )
             yield Static(self._label("agent_models"), classes="settings-section-title")

@@ -11,6 +11,7 @@ from textual.widgets import Button, Footer, Header, Label, Select, Static
 from trinity.config import TrinityConfig
 from trinity.display_labels import display_profile_value
 from trinity.models import Provider, provider_model_choices
+from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.settings import (
     UISettings,
@@ -49,6 +50,7 @@ class SettingsScreen(Screen[None]):
         self._preview_render_key: str | None = None
         self._status_key = ""
         self._select_cache: dict[str, Select[str]] = {}
+        self._agent_model_choices: dict[str, tuple[ProviderModelChoice, ...]] = {}
         self._preview_widget: Static | None = None
         self._status_widget: Static | None = None
 
@@ -98,7 +100,7 @@ class SettingsScreen(Screen[None]):
                     yield Label(self._agent_label(name))
                     yield self._select(
                         f"model-{name}",
-                        self._agent_model_values(spec.provider, spec.model),
+                        self._agent_model_values(name, spec.provider, spec.model),
                         spec.model or "default",
                     )
             yield Static(self._label("central_agent"), classes="settings-section-title")
@@ -131,6 +133,31 @@ class SettingsScreen(Screen[None]):
         if event.button.id == "apply-settings":
             event.stop()
             self.action_apply()
+
+    def set_agent_model_choices(
+        self,
+        choices_by_agent: dict[str, tuple[ProviderModelChoice, ...]],
+    ) -> None:
+        changed = False
+        for name, choices in choices_by_agent.items():
+            if name not in self.config.agents:
+                continue
+            next_choices = tuple(choices)
+            if tuple(self._agent_model_choices.get(name, ())) == next_choices:
+                continue
+            self._agent_model_choices[name] = next_choices
+            changed = True
+            if self.is_mounted:
+                spec = self.config.agents[name]
+                self._refresh_select_options(
+                    f"model-{name}",
+                    self._agent_model_values(name, spec.provider, spec.model),
+                )
+        if changed and self.is_mounted:
+            self._refresh_select_options(
+                "central-model",
+                self._central_model_values(self.config.synthesis_model),
+            )
 
     def action_apply(self) -> None:
         self.settings = UISettings(
@@ -166,17 +193,20 @@ class SettingsScreen(Screen[None]):
         self._status_key = text
 
     def _select(self, id: str, values: list[str], current: str) -> Select[str]:
-        options = [(self._display_value(value), value) for value in values]
-        if current not in values:
-            options.append((self._display_value(current), current))
         select = Select(
-            options,
+            self._select_options(values, current),
             allow_blank=False,
             value=current,
             id=id,
         )
         self._select_cache[id] = select
         return select
+
+    def _refresh_select_options(self, id: str, values: list[str]) -> None:
+        select = self._select_for(id)
+        current = str(select.value)
+        select.set_options(self._select_options(values, current))
+        select.value = current
 
     def _value(self, id: str) -> str:
         return str(self._select_for(id).value)
@@ -200,6 +230,16 @@ class SettingsScreen(Screen[None]):
             return self._status_widget
         self._status_widget = self.query_one("#settings-status", Static)
         return self._status_widget
+
+    def _select_options(
+        self,
+        values: list[str],
+        current: str,
+    ) -> list[tuple[str, str]]:
+        return [
+            (self._display_value(value), value)
+            for value in self._dedupe_values([*values, current])
+        ]
 
     def preview_text(self) -> str:
         model_lines = []
@@ -238,12 +278,17 @@ class SettingsScreen(Screen[None]):
             ]
         )
 
-    @staticmethod
-    def _agent_model_values(provider: Provider, current: str) -> list[str]:
+    def _agent_model_values(
+        self,
+        name: str,
+        provider: Provider,
+        current: str,
+    ) -> list[str]:
         values = [choice.model for choice in provider_model_choices(provider)]
-        if current and current not in values:
-            values.append(current)
-        return values or ["default"]
+        choices = self._agent_model_choices.get(name)
+        if choices:
+            values.extend(choice.model for choice in choices)
+        return self._dedupe_values([*values, current or "default"])
 
     def _central_provider_values(self) -> list[str]:
         values = ["auto", *self.config.agents.keys()]
@@ -252,8 +297,7 @@ class SettingsScreen(Screen[None]):
             values.append(current)
         return values
 
-    @staticmethod
-    def _central_model_values(current: str) -> list[str]:
+    def _central_model_values(self, current: str) -> list[str]:
         values = [
             "agent-default",
             "default",
@@ -262,11 +306,22 @@ class SettingsScreen(Screen[None]):
         ]
         for provider in Provider:
             for choice in provider_model_choices(provider):
-                if choice.model not in values:
-                    values.append(choice.model)
-        if current and current not in values:
-            values.append(current)
-        return values
+                values.append(choice.model)
+        for choices in self._agent_model_choices.values():
+            values.extend(choice.model for choice in choices)
+        return self._dedupe_values([*values, current or "agent-default"])
+
+    @staticmethod
+    def _dedupe_values(values: list[str]) -> list[str]:
+        seen: set[str] = set()
+        output: list[str] = []
+        for raw in values:
+            value = str(raw or "").strip()
+            if not value or value in seen:
+                continue
+            seen.add(value)
+            output.append(value)
+        return output or ["default"]
 
     def _profile_strength_summary(self, spec) -> str:
         strengths = sorted(

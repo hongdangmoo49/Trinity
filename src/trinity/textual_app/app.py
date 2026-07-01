@@ -1494,6 +1494,7 @@ class TrinityTextualApp(App[None]):
         for screen_name, screen_type in (
             ("start", StartScreen),
             ("nexus", NexusScreen),
+            ("settings", SettingsScreen),
         ):
             screen = self.get_screen(screen_name, screen_type)
             screen.set_agent_model_choices(changed_choices)

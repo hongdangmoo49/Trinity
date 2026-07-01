@@ -327,6 +327,32 @@ async def test_settings_legacy_select_labels_use_korean_fallbacks(tmp_path) -> N
 
 
 @pytest.mark.asyncio
+async def test_settings_apply_normalizes_legacy_visual_values(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    store = UISettingsStore(tmp_path / ".trinity")
+    store.save(
+        UISettings(
+            theme_mode="system",
+            color_profile="auto",
+            unicode_rendering="auto",
+        )
+    )
+    screen = SettingsScreen(store, config)
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        screen.action_apply()
+        await pilot.pause()
+
+    saved = store.load()
+    assert saved.theme_mode == "dark"
+    assert saved.color_profile == "default"
+    assert saved.unicode_rendering == "ascii"
+
+
+@pytest.mark.asyncio
 async def test_settings_apply_uses_cached_controls(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)

@@ -48,7 +48,7 @@ EXECUTION_CONFIRM_LABELS = {
         "workspace_context": "작업 폴더 컨텍스트",
         "providers": "프로바이더",
         "risk_none": "없음",
-        "risks": "위험",
+        "risks": "리스크",
         "run_estimate": "{total}회 예상(실행 {execution}, 리뷰 {review})",
         "target_workspace": "대상 작업 폴더",
         "title": "실행 확인",

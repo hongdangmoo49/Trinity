@@ -175,11 +175,14 @@ def test_execution_confirmation_modal_uses_korean_package_summary() -> None:
         estimated_execution_runs=1,
         estimated_review_runs=0,
         package_preview=("WP-001 codex: Build CLI",),
+        risk_items=("변경사항이 있는 Git 작업 폴더",),
     )
 
     text = ExecutionConfirmModal(summary, lang="ko").summary_text()
 
     assert "작업 패키지: 총 2개, 실행 가능 1개" in text
+    assert "리스크: 변경사항이 있는 Git 작업 폴더" in text
+    assert "위험:" not in text
     assert "total" not in text
 
 

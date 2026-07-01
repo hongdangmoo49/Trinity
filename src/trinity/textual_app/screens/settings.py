@@ -298,6 +298,10 @@ class SettingsScreen(Screen[None]):
             return self._label("dark_fallback")
         if id == "color-profile" and value in {"auto", "default"}:
             return self._label("default_palette")
+        if id == "motion" and value == "normal":
+            return self._label("animated_motion")
+        if id == "motion" and value == "reduced":
+            return self._label("reduced_motion")
         if id == "unicode-rendering" and value == "auto":
             return self._label("ascii_fallback")
         return self._display_value(value)
@@ -359,7 +363,7 @@ class SettingsScreen(Screen[None]):
                     f"{self._label('color_profile')}: "
                     f"{self._settings_display_value('color-profile', color_profile)} · "
                     f"{self._label('motion')}: "
-                    f"{self._display_value(motion)} · "
+                    f"{self._settings_display_value('motion', motion)} · "
                     f"{self._label('unicode')}: "
                     f"{self._settings_display_value('unicode-rendering', unicode_rendering)}"
                 ),
@@ -571,6 +575,8 @@ class SettingsScreen(Screen[None]):
             "dark_fallback": "다크 대체",
             "default_palette": "기본 팔레트",
             "ascii_fallback": "ASCII 대체",
+            "animated_motion": "애니메이션",
+            "reduced_motion": "움직임 줄임",
             "system": "다크 대체",
             "dark": "다크",
             "light": "라이트",
@@ -613,6 +619,8 @@ class SettingsScreen(Screen[None]):
             "dark_fallback": "dark fallback",
             "default_palette": "default palette",
             "ascii_fallback": "ASCII fallback",
+            "animated_motion": "animated",
+            "reduced_motion": "reduced motion",
             "system": "dark fallback",
             "dark": "dark",
             "light": "light",

@@ -13324,6 +13324,41 @@ async def test_settings_screen_syncs_mounted_agent_model_selectors(tmp_path) -> 
 
 
 @pytest.mark.asyncio
+async def test_settings_saved_agent_model_default_is_not_request_override(
+    tmp_path,
+) -> None:
+    controller = FakeWorkflowController()
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    app = TrinityTextualApp(config, controller)
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        screen.query_one("#model-claude").value = "sonnet[1m]"
+        screen.action_apply()
+        await pilot.pause()
+
+        app.switch_to("start")
+        await pilot.pause()
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        selector = start.query_one(AgentRecipientModelSelector)
+        assert selector.selected_model("claude") == "sonnet[1m]"
+        assert selector.model_overrides() == {}
+
+        composer = start.query_one(PromptComposer)
+        composer.set_text("저장된 기본 모델로 분석해라")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.started_targets[-1] == ("claude",)
+        assert controller.started_models[-1] == {}
+
+
+@pytest.mark.asyncio
 async def test_settings_apply_refreshes_stale_nexus_provider_models(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     app = TrinityTextualApp(config)

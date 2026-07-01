@@ -315,14 +315,14 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
     def _text(self, key: str) -> str:
         if self.lang == "ko":
             return {
-                "title": "모델 설정",
+                "title": "다음 요청 모델",
                 "cancel": "취소",
                 "apply": "적용",
                 "current": "현재",
                 "no_agents": "설정할 에이전트가 없습니다.",
             }[key]
         return {
-            "title": "Model Settings",
+            "title": "Next Request Models",
             "cancel": "Cancel",
             "apply": "Apply",
             "current": "Current",

@@ -201,9 +201,11 @@ STATUS_CONTEXT_LABELS = {
         ),
         "memory_compact": "Memory Compact",
         "memory_stats": "Memory Stats",
-        "model_settings": "Model Settings",
-        "model_settings_unavailable": "Model settings are available on Start and Nexus.",
-        "model_settings_updated": "Model settings updated.",
+        "model_settings": "Next Request Models",
+        "model_settings_unavailable": (
+            "Next request models are available on Start and Nexus."
+        ),
+        "model_settings_updated": "Next request models updated.",
         "mode": "Mode",
         "next": "Next",
         "no": "no",
@@ -431,11 +433,11 @@ STATUS_CONTEXT_LABELS = {
         ),
         "memory_compact": "메모리 압축",
         "memory_stats": "메모리 통계",
-        "model_settings": "모델 설정",
+        "model_settings": "다음 요청 모델",
         "model_settings_unavailable": (
-            "모델 설정은 시작 화면과 넥서스에서 사용할 수 있습니다."
+            "다음 요청 모델은 시작 화면과 넥서스에서 사용할 수 있습니다."
         ),
-        "model_settings_updated": "모델 설정을 업데이트했습니다.",
+        "model_settings_updated": "다음 요청 모델을 업데이트했습니다.",
         "mode": "모드",
         "next": "다음",
         "no": "아니오",

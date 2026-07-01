@@ -987,12 +987,12 @@ def test_artifact_presenter_uses_korean_labels() -> None:
 
 
 def test_model_settings_presenter_uses_korean_labels() -> None:
-    assert model_settings_title(lang="ko") == "모델 설정"
+    assert model_settings_title(lang="ko") == "다음 요청 모델"
     assert model_settings_unavailable_markdown(lang="ko") == (
-        "모델 설정은 시작 화면과 넥서스에서 사용할 수 있습니다."
+        "다음 요청 모델은 시작 화면과 넥서스에서 사용할 수 있습니다."
     )
     assert model_settings_updated_markdown(lang="ko") == (
-        "모델 설정을 업데이트했습니다."
+        "다음 요청 모델을 업데이트했습니다."
     )
 
 
@@ -2362,8 +2362,8 @@ def test_open_model_settings_unavailable_uses_korean_notification(
 
     assert notifications == [
         (
-            "모델 설정은 시작 화면과 넥서스에서 사용할 수 있습니다.",
-            "모델 설정",
+            "다음 요청 모델은 시작 화면과 넥서스에서 사용할 수 있습니다.",
+            "다음 요청 모델",
             "warning",
         )
     ]
@@ -2395,7 +2395,7 @@ def test_model_settings_applied_uses_korean_notification(tmp_path, monkeypatch) 
 
     assert selector.selections == {"codex": "gpt-5.5"}
     assert notifications == [
-        ("모델 설정을 업데이트했습니다.", "모델 설정", "info"),
+        ("다음 요청 모델을 업데이트했습니다.", "다음 요청 모델", "info"),
     ]
 
 

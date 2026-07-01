@@ -239,7 +239,7 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
 
     def _agent_button_label(self, name: str, spec: AgentSpec) -> str:
         prefix = "> " if name == self.active_agent else "  "
-        enabled = "" if spec.enabled else " off"
+        enabled = "" if spec.enabled else f" {self._text('off')}"
         model = self._model_label(name, self.selected_models.get(name, "default"))
         return f"{prefix}{self._agent_label(name)}{enabled}: {model}"
 
@@ -320,6 +320,7 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
                 "apply": "적용",
                 "current": "현재",
                 "no_agents": "설정할 에이전트가 없습니다.",
+                "off": "비활성",
             }[key]
         return {
             "title": "Next Request Models",
@@ -327,4 +328,5 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
             "apply": "Apply",
             "current": "Current",
             "no_agents": "No agents to configure.",
+            "off": "off",
         }[key]

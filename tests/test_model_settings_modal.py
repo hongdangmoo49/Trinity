@@ -226,6 +226,23 @@ async def test_model_settings_modal_starts_on_first_enabled_agent(tmp_path) -> N
 
 
 @pytest.mark.asyncio
+async def test_model_settings_modal_uses_korean_disabled_agent_label(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    config.agents["claude"].enabled = False
+    config.agents["codex"].enabled = True
+    modal = ModelSettingsModal(config.agents, {}, {}, lang="ko")
+    app = ModelSettingsModalHarness(modal)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+
+        claude_button = modal.query_one("#model-agent-claude", Button)
+
+    assert "비활성" in str(claude_button.label)
+    assert "off" not in str(claude_button.label)
+
+
+@pytest.mark.asyncio
 async def test_model_settings_modal_skips_active_agent_reselect_refresh(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     config.agents["codex"].enabled = True

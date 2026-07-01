@@ -9,7 +9,7 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Label, Select, Static
 
 from trinity.config import TrinityConfig
-from trinity.display_labels import display_profile_value
+from trinity.display_labels import display_profile_value, display_source_value
 from trinity.models import Provider, provider_model_choices
 from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.textual_app.i18n import localize_bindings
@@ -194,7 +194,7 @@ class SettingsScreen(Screen[None]):
 
     def _select(self, id: str, values: list[str], current: str) -> Select[str]:
         select = Select(
-            self._select_options(values, current),
+            self._select_options(id, values, current),
             allow_blank=False,
             value=current,
             id=id,
@@ -205,7 +205,7 @@ class SettingsScreen(Screen[None]):
     def _refresh_select_options(self, id: str, values: list[str]) -> None:
         select = self._select_for(id)
         current = str(select.value)
-        select.set_options(self._select_options(values, current))
+        select.set_options(self._select_options(id, values, current))
         select.value = current
 
     def _value(self, id: str) -> str:
@@ -233,13 +233,24 @@ class SettingsScreen(Screen[None]):
 
     def _select_options(
         self,
+        id: str,
         values: list[str],
         current: str,
     ) -> list[tuple[str, str]]:
         return [
-            (self._display_value(value), value)
+            (self._select_display_value(id, value), value)
             for value in self._dedupe_values([*values, current])
         ]
+
+    def _select_display_value(self, id: str, value: str) -> str:
+        if id.startswith("model-"):
+            name = id.removeprefix("model-")
+            spec = self.config.agents.get(name)
+            if spec is not None:
+                return self._agent_model_display_value(name, spec.provider, value)
+        if id == "central-model":
+            return self._central_model_display_value(value)
+        return self._display_value(value)
 
     def preview_text(self) -> str:
         model_lines = []
@@ -310,6 +321,40 @@ class SettingsScreen(Screen[None]):
         for choices in self._agent_model_choices.values():
             values.extend(choice.model for choice in choices)
         return self._dedupe_values([*values, current or "agent-default"])
+
+    def _central_model_display_value(self, value: str) -> str:
+        if value in {"agent-default", "default", "fast", "strong"}:
+            return self._display_value(value)
+        for name, spec in self.config.agents.items():
+            label = self._agent_model_display_value(name, spec.provider, value)
+            if label != value:
+                return label
+        return value
+
+    def _agent_model_display_value(
+        self,
+        name: str,
+        provider: Provider,
+        value: str,
+    ) -> str:
+        for choice in self._agent_model_choices.get(name, ()):
+            if choice.model == value:
+                return self._provider_model_choice_label(choice)
+        for choice in provider_model_choices(provider):
+            if choice.model == value:
+                details = [choice.display_name or choice.model]
+                if choice.context_budget:
+                    details.append(f"{choice.context_budget:,} ctx")
+                return "  ".join(details)
+        return self._display_value(value)
+
+    def _provider_model_choice_label(self, choice: ProviderModelChoice) -> str:
+        details: list[str] = [choice.label]
+        if choice.source:
+            details.append(display_source_value(choice.source, lang=self.lang))
+        if choice.context_budget:
+            details.append(f"{choice.context_budget:,} ctx")
+        return "  ".join(details)
 
     @staticmethod
     def _dedupe_values(values: list[str]) -> list[str]:

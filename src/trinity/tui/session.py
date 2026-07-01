@@ -569,7 +569,7 @@ class InteractiveSession:
         """Show model settings in the plain TUI."""
         from rich.table import Table
 
-        table = Table(title="Model Settings")
+        table = Table(title="Model Overrides")
         table.add_column("Agent", style="cyan")
         table.add_column("Provider", style="green")
         table.add_column("Enabled")

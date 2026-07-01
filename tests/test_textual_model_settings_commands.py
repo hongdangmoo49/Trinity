@@ -8,16 +8,18 @@ from trinity.textual_app.model_settings_commands import (
 def test_model_settings_unavailable_notification_marks_warning() -> None:
     notification = model_settings_unavailable_notification()
 
-    assert notification.title == "Model Settings"
-    assert notification.message == "Model settings are available on Start and Nexus."
+    assert notification.title == "Next Request Models"
+    assert notification.message == (
+        "Next request models are available on Start and Nexus."
+    )
     assert notification.severity == "warning"
 
 
 def test_model_settings_updated_notification_marks_information() -> None:
     notification = model_settings_updated_notification()
 
-    assert notification.title == "Model Settings"
-    assert notification.message == "Model settings updated."
+    assert notification.title == "Next Request Models"
+    assert notification.message == "Next request models updated."
     assert notification.severity == ""
 
 
@@ -25,11 +27,13 @@ def test_model_settings_notifications_use_korean_labels() -> None:
     unavailable = model_settings_unavailable_notification(lang="ko")
     updated = model_settings_updated_notification(lang="ko")
 
-    assert unavailable.title == "모델 설정"
-    assert unavailable.message == "모델 설정은 시작 화면과 넥서스에서 사용할 수 있습니다."
+    assert unavailable.title == "다음 요청 모델"
+    assert unavailable.message == (
+        "다음 요청 모델은 시작 화면과 넥서스에서 사용할 수 있습니다."
+    )
     assert unavailable.severity == "warning"
-    assert updated.title == "모델 설정"
-    assert updated.message == "모델 설정을 업데이트했습니다."
+    assert updated.title == "다음 요청 모델"
+    assert updated.message == "다음 요청 모델을 업데이트했습니다."
     assert updated.severity == ""
 
 
@@ -38,7 +42,7 @@ def test_model_settings_modal_request_returns_unavailable_notification() -> None
 
     assert request.show_modal is False
     assert request.notification is not None
-    assert request.notification.title == "모델 설정"
+    assert request.notification.title == "다음 요청 모델"
     assert request.choices_by_agent is None
     assert request.selected_models is None
 

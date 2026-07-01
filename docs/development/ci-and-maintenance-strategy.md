@@ -8,11 +8,11 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1084`
-- Merged PR range reviewed: #90 through #1245
+- Package version inspected: `1.0.1085`
+- Merged PR range reviewed: #90 through #1246
 - Baseline iteration reviewed: #90 through #426
-- Maintenance refresh reviewed: #427 through #1245
-- Latest refresh reviewed: #1245
+- Maintenance refresh reviewed: #427 through #1246
+- Latest refresh reviewed: #1246
 - Required CI workflows inspected:
   - `.github/workflows/cross-platform-smoke.yml`
   - `.github/workflows/full-validation.yml`
@@ -2248,6 +2248,8 @@ and what the next release train should optimize.
   are not confused with one-request `/model` overrides.
 - Clarified README and slash-command docs so `/model` is a session override
   while Settings owns saved model defaults.
+- Renamed `/model` modal and notification copy to next-request model wording
+  so it no longer reads like saved Workbench Settings.
 - Updated the README interactive command tables to include `/project`,
   `/providers`, `/workspace`, and `/settings`.
 - Added README slash command drift coverage so the Korean and English quick

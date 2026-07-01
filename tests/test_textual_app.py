@@ -6345,6 +6345,7 @@ async def test_agent_command_syncs_open_settings_agent_rows(tmp_path) -> None:
         screen = app.screen
         assert isinstance(screen, SettingsScreen)
         assert screen.query_one("#model-codex", Select).disabled is True
+        status = screen.query_one("#settings-status", Static)
         labels = [str(label.content) for label in screen.query(".settings-row Label")]
         assert "Codex (off)" in labels
 
@@ -6362,7 +6363,15 @@ async def test_agent_command_syncs_open_settings_agent_rows(tmp_path) -> None:
         assert "Codex (off)" not in labels
         assert "codex" in central_values
         assert "- Codex: default" in preview
+        assert str(status.content) == "Saved"
         assert refreshes == [True]
+
+        screen.action_apply()
+        await pilot.pause()
+
+    saved_config = TrinityConfig.load(tmp_path / ".trinity" / "trinity.config")
+    assert config.agents["codex"].enabled is True
+    assert saved_config.agents["codex"].enabled is False
 
 
 @pytest.mark.asyncio

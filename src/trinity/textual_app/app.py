@@ -1608,6 +1608,13 @@ class TrinityTextualApp(App[None]):
         if settings.is_mounted:
             settings.sync_agent_enabled_states()
 
+    def _refresh_agent_enabled_snapshot(self) -> None:
+        snapshot = snapshot_with_local_command_results(
+            self._fresh_textual_snapshot(),
+            self._local_command_results,
+        )
+        self._apply_workflow_outcome(TextualWorkflowOutcome(snapshot))
+
     def on_start_screen_submitted(self, event: StartScreen.Submitted) -> None:
         event.stop()
         effect = start_submission_effect(
@@ -3177,6 +3184,7 @@ class TrinityTextualApp(App[None]):
         if not changed:
             return
         self._sync_agent_enabled_surfaces()
+        self._refresh_agent_enabled_snapshot()
         if any(after.get(name) for name in changed):
             self._refresh_provider_models(use_cache=True)
 

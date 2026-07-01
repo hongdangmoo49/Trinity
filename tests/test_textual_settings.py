@@ -224,7 +224,7 @@ async def test_settings_central_provider_keeps_saved_disabled_value(tmp_path) ->
 
         central_provider = screen.query_one("#central-provider", Select)
         labels = {value: str(label) for label, value in central_provider._options}
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
 
     assert central_provider.value == "codex"
     assert set(labels) == {"auto", "claude", "codex"}
@@ -242,7 +242,7 @@ async def test_settings_marks_disabled_agent_model_rows(tmp_path) -> None:
         await pilot.pause()
 
         labels = [str(label.content) for label in screen.query(".settings-row Label")]
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
         claude_disabled = screen.query_one("#model-claude", Select).disabled
         codex_disabled = screen.query_one("#model-codex", Select).disabled
         antigravity_disabled = screen.query_one("#model-antigravity", Select).disabled
@@ -264,7 +264,7 @@ async def test_settings_apply_skips_unchanged_display_updates(tmp_path) -> None:
 
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
-        preview = screen.query_one("#theme-preview", Static)
+        preview = screen.query_one("#settings-summary", Static)
         status = screen.query_one("#settings-status", Static)
         preview_updates: list[str] = []
         status_updates: list[str] = []
@@ -447,7 +447,7 @@ async def test_settings_recompose_preserves_unsaved_central_model(
 
         assert str(screen.query_one("#central-provider", Select).value) == "claude"
         assert str(screen.query_one("#central-model", Select).value) == "opus-live"
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
         assert "- Claude / Opus Live" in preview
         assert str(screen.query_one("#settings-status", Static).content) == (
             SETTINGS_UNSAVED_STATUS
@@ -504,7 +504,7 @@ async def test_settings_preview_updates_before_apply(tmp_path) -> None:
 
     async with app.run_test(size=(120, 36)) as pilot:
         await pilot.pause()
-        preview = screen.query_one("#theme-preview", Static)
+        preview = screen.query_one("#settings-summary", Static)
 
         screen.query_one("#theme-mode").value = "light"
         screen.query_one("#density").value = "compact"
@@ -668,7 +668,7 @@ async def test_settings_apply_normalizes_legacy_visual_values(tmp_path) -> None:
         color = screen.query_one("#color-profile", Select)
         glyphs = screen.query_one("#unicode-rendering", Select)
         status = str(screen.query_one("#settings-status", Static).content)
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
 
     saved = store.load()
     assert saved.theme_mode == "dark"

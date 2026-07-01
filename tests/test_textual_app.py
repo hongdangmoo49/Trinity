@@ -6357,7 +6357,7 @@ async def test_agent_command_syncs_open_settings_agent_rows(tmp_path) -> None:
             value
             for _label, value in screen.query_one("#central-provider", Select)._options
         }
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
         assert screen.query_one("#model-codex", Select).disabled is False
         assert "Codex" in labels
         assert "Codex (off)" not in labels
@@ -6384,7 +6384,7 @@ async def test_agent_command_syncs_open_settings_agent_rows(tmp_path) -> None:
             value
             for _label, value in screen.query_one("#central-provider", Select)._options
         }
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
         assert screen.query_one("#model-codex", Select).disabled is True
         assert "Codex (off)" in labels
         assert "codex" not in central_values
@@ -6428,7 +6428,7 @@ async def test_agent_command_preserves_saved_disabled_central_provider(
 
         app._handle_textual_slash_command("/agent codex off")
         await pilot.pause()
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
         assert screen.query_one("#central-provider", Select).value == "codex"
         assert "Saved central agent default model\n- Codex (off) / Agent default" in preview
         assert str(status.content) == "Saved"
@@ -12755,7 +12755,7 @@ async def test_settings_screen_loads_saved_ui_preferences(tmp_path) -> None:
         assert screen.query_one("#density", Select).value == "compact"
         assert screen.query_one("#motion", Select).value == "reduced"
         assert screen.query_one("#unicode-rendering", Select).value == "unicode"
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
         assert "- Theme mode: light" in preview
         assert "- Color compatibility: truecolor" in preview
         assert "- Density: compact" in preview
@@ -12869,7 +12869,7 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
         screen.query_one("#color-profile").value = "truecolor"
         screen.action_apply()
         await pilot.pause()
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
 
         assert app.has_class("ui-color-profile-truecolor")
         assert not app.has_class("ui-color-profile-256color")
@@ -12881,7 +12881,7 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
         screen.query_one("#color-profile").value = "ascii-safe"
         screen.action_apply()
         await pilot.pause()
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
 
         assert app.has_class("ui-color-profile-ascii-safe")
         assert not app.has_class("ui-color-profile-256color")
@@ -12912,7 +12912,7 @@ async def test_settings_visual_preferences_reach_workbench_surfaces(
         screen = app.screen
         assert isinstance(screen, SettingsScreen)
 
-        preview = screen.query_one("#theme-preview", Static)
+        preview = screen.query_one("#settings-summary", Static)
         truecolor = Color.parse("#5ce1e6")
         screen.query_one("#color-profile").value = "truecolor"
         screen.query_one("#density").value = "compact"
@@ -13018,7 +13018,7 @@ async def test_settings_controls_use_flexible_width(tmp_path) -> None:
         await pilot.pause()
         screen = app.screen
         assert isinstance(screen, SettingsScreen)
-        preview = screen.query_one("#theme-preview", Static)
+        preview = screen.query_one("#settings-summary", Static)
         model_select = screen.query_one("#model-claude", Select)
 
         assert preview.styles.height.is_auto
@@ -13062,7 +13062,7 @@ async def test_settings_preview_stays_bounded_on_small_terminals(tmp_path) -> No
         screen = app.screen
         assert isinstance(screen, SettingsScreen)
 
-        preview = screen.query_one("#theme-preview", Static)
+        preview = screen.query_one("#settings-summary", Static)
         apply_button = screen.query_one("#apply-settings", Button)
 
         assert preview.styles.height.is_auto
@@ -13121,7 +13121,7 @@ async def test_settings_preview_shows_profile_output_contracts(tmp_path) -> None
         screen = app.screen
         assert isinstance(screen, SettingsScreen)
 
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
 
         assert "contracts execute:execution_v1 review:review_v1" in preview
 
@@ -13137,7 +13137,7 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
         screen = app.screen
         assert isinstance(screen, SettingsScreen)
 
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
 
         assert screen.label_text("central_provider") == "중앙 에이전트 프로바이더"
         assert "설정 요약" in preview
@@ -13212,7 +13212,7 @@ async def test_settings_screen_loads_saved_model_defaults(tmp_path) -> None:
         assert screen.query_one("#model-codex", Select).value == "gpt-5"
         assert screen.query_one("#central-provider", Select).value == "codex"
         assert screen.query_one("#central-model", Select).value == "agent-default"
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
         assert "- Claude: sonnet[1m]" in preview
         assert "- Codex: gpt-5" in preview
         assert "Saved central agent default model\n- Codex / Agent default" in preview
@@ -13273,7 +13273,7 @@ async def test_settings_screen_uses_discovered_model_choices(tmp_path) -> None:
         central_select.value = "opus-live"
         screen.action_apply()
         await pilot.pause()
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
 
         assert "- Claude: Opus Live  cli-live  1,000,000 ctx" in preview
         assert (
@@ -13311,13 +13311,13 @@ async def test_settings_preview_refreshes_when_model_choices_arrive(tmp_path) ->
         screen = app.screen
         assert isinstance(screen, SettingsScreen)
 
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
         assert "- Claude: opus-live" in preview
         assert "Saved central agent default model\n- Claude / opus-live" in preview
 
         app._apply_discovered_model_choices({"claude": discovered})
         await pilot.pause()
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
 
         assert "- Claude: Opus Live  cli-live  1,000,000 ctx" in preview
         assert (
@@ -13421,7 +13421,7 @@ async def test_settings_central_model_label_prefers_selected_provider(tmp_path) 
 
         central_select = screen.query_one("#central-model", Select)
         central_labels = {value: str(label) for label, value in central_select._options}
-        preview = str(screen.query_one("#theme-preview", Static).content)
+        preview = str(screen.query_one("#settings-summary", Static).content)
 
         assert central_labels["shared-live"] == "Codex Shared  cli-live"
         assert "Saved central agent default model\n- Codex / Codex Shared  cli-live" in preview

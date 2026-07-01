@@ -202,6 +202,10 @@ async def test_settings_select_labels_describe_fallbacks(tmp_path) -> None:
             value: str(label)
             for label, value in screen.query_one("#color-profile", Select)._options
         }
+        motion_labels = {
+            value: str(label)
+            for label, value in screen.query_one("#motion", Select)._options
+        }
         glyph_labels = {
             value: str(label)
             for label, value in screen.query_one("#unicode-rendering", Select)._options
@@ -215,6 +219,8 @@ async def test_settings_select_labels_describe_fallbacks(tmp_path) -> None:
     assert theme_labels["dark"] == "dark"
     assert "auto" not in color_labels
     assert color_labels["default"] == "default palette"
+    assert motion_labels["normal"] == "animated"
+    assert motion_labels["reduced"] == "reduced motion"
     assert "auto" not in glyph_labels
     assert glyph_labels["ascii"] == "ascii"
     assert central_labels["auto"] == "Auto"

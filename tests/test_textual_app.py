@@ -12343,7 +12343,7 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
         assert not app.has_class("ui-color-profile-256color")
         assert not app.has_class("ui-color-profile-ascii-safe")
         assert (
-            "Color profile: truecolor · Logo motion: normal · "
+            "Color profile: truecolor · Logo motion: animated · "
             "Logo glyphs: ascii"
         ) in preview
 
@@ -12356,7 +12356,7 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
         assert not app.has_class("ui-color-profile-256color")
         assert not app.has_class("ui-color-profile-truecolor")
         assert (
-            "Color profile: ascii-safe · Logo motion: normal · "
+            "Color profile: ascii-safe · Logo motion: animated · "
             "Logo glyphs: ascii"
         ) in preview
 
@@ -12489,7 +12489,7 @@ async def test_settings_screen_uses_korean_preview_labels(tmp_path) -> None:
         assert "테마 모드: 다크" in preview
         assert "밀도: 여유" in preview
         assert (
-            "색상 프로필: 기본 팔레트 · 로고 애니메이션: 기본 · "
+            "색상 프로필: 기본 팔레트 · 로고 애니메이션: 애니메이션 · "
             "로고 글리프: ASCII"
         ) in preview
         assert "중앙: 자동 / 강력" in preview

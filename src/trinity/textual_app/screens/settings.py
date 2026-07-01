@@ -100,11 +100,12 @@ class SettingsScreen(Screen[None]):
             yield Static(self._label("agent_models"), classes="settings-section-title")
             for name, spec in self.config.agents.items():
                 with Horizontal(classes="settings-row"):
-                    yield Label(self._agent_label(name))
+                    yield Label(self._agent_label_with_state(name))
                     yield self._select(
                         f"model-{name}",
                         self._agent_model_values(name, spec.provider, spec.model),
                         spec.model or "default",
+                        disabled=not spec.enabled,
                     )
             yield Static(self._label("central_agent"), classes="settings-section-title")
             with Horizontal(classes="settings-row"):
@@ -241,13 +242,21 @@ class SettingsScreen(Screen[None]):
         self._status_static().update(text)
         self._status_key = text
 
-    def _select(self, id: str, values: list[str], current: str) -> Select[str]:
+    def _select(
+        self,
+        id: str,
+        values: list[str],
+        current: str,
+        *,
+        disabled: bool = False,
+    ) -> Select[str]:
         select = Select(
             self._select_options(id, values, current),
             allow_blank=False,
             value=current,
             id=id,
         )
+        select.disabled = disabled
         self._select_cache[id] = select
         return select
 
@@ -340,7 +349,7 @@ class SettingsScreen(Screen[None]):
                 if model_value == "default"
                 else self._agent_model_display_value(name, spec.provider, model_value)
             )
-            model_lines.append(f"- {self._agent_label(name)}: {model}")
+            model_lines.append(f"- {self._agent_label_with_state(name)}: {model}")
             model_lines.append(
                 (
                     f"  {display_profile_value(spec.profile.context_profile, lang=self.lang)} · "

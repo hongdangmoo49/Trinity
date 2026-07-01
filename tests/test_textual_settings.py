@@ -48,6 +48,7 @@ def test_ui_settings_store_uses_defaults_for_invalid_values(tmp_path) -> None:
     settings = store.load()
 
     assert settings.theme_mode == "dark"
+    assert settings.color_profile == "default"
     assert settings.density == "comfortable"
     assert settings.unicode_rendering == "ascii"
 
@@ -71,6 +72,16 @@ def test_ui_settings_store_preserves_legacy_auto_glyphs(tmp_path) -> None:
     settings = store.load()
 
     assert settings.unicode_rendering == "auto"
+
+
+def test_ui_settings_store_preserves_legacy_auto_color_profile(tmp_path) -> None:
+    store = UISettingsStore(tmp_path / ".trinity")
+    store.path.parent.mkdir(parents=True)
+    store.path.write_text("[theme]\ncolor_profile='auto'\n", encoding="utf-8")
+
+    settings = store.load()
+
+    assert settings.color_profile == "auto"
 
 
 def test_settings_preview_includes_agent_profile_summary(tmp_path) -> None:
@@ -202,7 +213,8 @@ async def test_settings_select_labels_describe_fallbacks(tmp_path) -> None:
 
     assert "system" not in theme_labels
     assert theme_labels["dark"] == "dark"
-    assert color_labels["auto"] == "default palette"
+    assert "auto" not in color_labels
+    assert color_labels["default"] == "default palette"
     assert "auto" not in glyph_labels
     assert glyph_labels["ascii"] == "ascii"
     assert central_labels["auto"] == "Auto"
@@ -242,6 +254,24 @@ async def test_settings_glyph_select_keeps_legacy_auto_value(tmp_path) -> None:
 
     assert glyphs.value == "auto"
     assert labels["auto"] == "ASCII fallback"
+
+
+@pytest.mark.asyncio
+async def test_settings_color_profile_select_keeps_legacy_auto_value(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    store = UISettingsStore(tmp_path / ".trinity")
+    store.save(UISettings(color_profile="auto"))
+    screen = SettingsScreen(store, config)
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+
+        color = screen.query_one("#color-profile", Select)
+        labels = {value: str(label) for label, value in color._options}
+
+    assert color.value == "auto"
+    assert labels["auto"] == "default palette"
 
 
 @pytest.mark.asyncio

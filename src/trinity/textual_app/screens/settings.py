@@ -78,7 +78,7 @@ class SettingsScreen(Screen[None]):
                 yield Label(self._label("color_profile"))
                 yield self._select(
                     "color-profile",
-                    ["auto", "truecolor", "256color", "ascii-safe"],
+                    ["default", "truecolor", "256color", "ascii-safe"],
                     self.settings.color_profile,
                 )
             with Horizontal(classes="settings-row"):
@@ -296,7 +296,7 @@ class SettingsScreen(Screen[None]):
             return self._agent_label(value)
         if id == "theme-mode" and value == "system":
             return self._label("dark_fallback")
-        if id == "color-profile" and value == "auto":
+        if id == "color-profile" and value in {"auto", "default"}:
             return self._label("default_palette")
         if id == "unicode-rendering" and value == "auto":
             return self._label("ascii_fallback")

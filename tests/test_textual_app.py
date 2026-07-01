@@ -12360,7 +12360,7 @@ async def test_settings_screen_applies_color_profile_preference(tmp_path) -> Non
             "Logo glyphs: ascii"
         ) in preview
 
-        screen.query_one("#color-profile").value = "auto"
+        screen.query_one("#color-profile").value = "default"
         screen.action_apply()
         await pilot.pause()
 

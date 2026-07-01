@@ -5,6 +5,7 @@ from textual.app import App
 from textual.widgets import Select, Static
 
 from trinity.config import TrinityConfig
+from trinity.providers.model_discovery import ProviderModelChoice
 from trinity.textual_app.screens.settings import SettingsScreen
 from trinity.textual_app.settings import UISettings, UISettingsStore, textual_theme_for_mode
 
@@ -396,6 +397,43 @@ async def test_settings_apply_normalizes_legacy_visual_values(tmp_path) -> None:
     assert "- Theme mode: dark" in preview
     assert "- Color compatibility: default colors" in preview
     assert "- Start logo glyphs: ascii" in preview
+
+
+@pytest.mark.asyncio
+async def test_settings_model_discovery_keeps_saved_status(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    screen = SettingsScreen(UISettingsStore(tmp_path / ".trinity"), config)
+    app = SettingsHarness(screen)
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        await pilot.pause()
+        status = screen.query_one("#settings-status", Static)
+
+        screen.action_apply()
+        await pilot.pause()
+        assert str(status.content) == SETTINGS_APPLIED_STATUS
+
+        screen.set_agent_model_choices(
+            {
+                "claude": (
+                    ProviderModelChoice(
+                        provider=config.agents["claude"].provider,
+                        model="opus-live",
+                        label="Opus Live",
+                        source="cli-live",
+                        context_budget=1_000_000,
+                    ),
+                )
+            }
+        )
+        await pilot.pause()
+
+        model_labels = {
+            value: str(label)
+            for label, value in screen.query_one("#model-claude", Select)._options
+        }
+        assert "Opus Live" in model_labels["opus-live"]
+        assert str(status.content) == SETTINGS_APPLIED_STATUS
 
 
 @pytest.mark.asyncio

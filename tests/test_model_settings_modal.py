@@ -149,6 +149,44 @@ async def test_model_settings_modal_keeps_missing_default_first(tmp_path) -> Non
 
 
 @pytest.mark.asyncio
+async def test_model_settings_modal_moves_existing_default_first(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    spec = config.agents["codex"]
+    default_choice = ProviderModelChoice(
+        provider=spec.provider,
+        model="default",
+        label="codex(default)",
+        source="static-fallback",
+        context_budget=128_000,
+    )
+    live_choice = ProviderModelChoice(
+        provider=spec.provider,
+        model="gpt-5.5",
+        label="gpt-5.5",
+        source="cli-live",
+        context_budget=None,
+    )
+    modal = ModelSettingsModal(
+        config.agents,
+        {"codex": (live_choice, default_choice)},
+        {"codex": "default"},
+    )
+    app = ModelSettingsModalHarness(modal)
+
+    async with app.run_test(size=(100, 24)) as pilot:
+        await pilot.pause()
+        modal.query_one("#model-agent-codex", Button).press()
+        await pilot.pause()
+
+        choices = modal.choices_by_agent["codex"]
+        option_list = modal.query_one("#model-choice-list", OptionList)
+
+        assert [choice.model for choice in choices] == ["default", "gpt-5.5"]
+        assert choices[0].label == "codex(default)"
+        assert option_list.highlighted == 0
+
+
+@pytest.mark.asyncio
 async def test_model_settings_modal_skips_active_agent_reselect_refresh(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     choices = {

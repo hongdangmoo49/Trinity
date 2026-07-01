@@ -26,7 +26,7 @@ def test_model_settings_notifications_use_korean_labels() -> None:
     updated = model_settings_updated_notification(lang="ko")
 
     assert unavailable.title == "모델 설정"
-    assert unavailable.message == "모델 설정은 시작 화면과 Nexus에서 사용할 수 있습니다."
+    assert unavailable.message == "모델 설정은 시작 화면과 넥서스에서 사용할 수 있습니다."
     assert unavailable.severity == "warning"
     assert updated.title == "모델 설정"
     assert updated.message == "모델 설정을 업데이트했습니다."

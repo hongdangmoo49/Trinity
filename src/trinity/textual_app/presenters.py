@@ -383,7 +383,7 @@ STATUS_CONTEXT_LABELS = {
         "enabled": "활성화",
         "execution": "실행",
         "execute": "실행",
-        "execute_finish_planning_hint": "작업 패키지가 준비되면 Nexus에서 `/execute`를 실행하세요.",
+        "execute_finish_planning_hint": "작업 패키지가 준비되면 넥서스에서 `/execute`를 실행하세요.",
         "execute_retry": "실행 재시도",
         "execute_retry_no_packages": (
             "현재 워크플로우에 사용할 수 있는 작업 패키지가 없습니다."
@@ -433,7 +433,7 @@ STATUS_CONTEXT_LABELS = {
         "memory_stats": "메모리 통계",
         "model_settings": "모델 설정",
         "model_settings_unavailable": (
-            "모델 설정은 시작 화면과 Nexus에서 사용할 수 있습니다."
+            "모델 설정은 시작 화면과 넥서스에서 사용할 수 있습니다."
         ),
         "model_settings_updated": "모델 설정을 업데이트했습니다.",
         "mode": "모드",

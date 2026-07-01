@@ -8,7 +8,7 @@ and what the next release train should optimize.
 ## Current Evidence
 
 - Baseline branch inspected: `main`
-- Package version inspected: `1.0.1049`
+- Package version inspected: `1.0.1050`
 - Merged PR range reviewed: #90 through #1113
 - Baseline iteration reviewed: #90 through #426
 - Maintenance refresh reviewed: #427 through #1113
@@ -2161,7 +2161,7 @@ and what the next release train should optimize.
   modals.
 - Reduced repeated execution matrix row/action/log reconciliation work.
 
-### #977-#1210: Prompt-Led Workbench Simplification
+### #977-#1211: Prompt-Led Workbench Simplification
 
 - Simplified the Nexus action bar and Start workspace action.
 - Added provider inspector and workspace slash commands.
@@ -2192,6 +2192,8 @@ and what the next release train should optimize.
   model so automatic choices preserve the selected model.
 - Kept the `/model` settings modal selection visible when live discovery
   refreshes replace the available model list.
+- Covered Nexus `/model` settings modal selections through follow-up model
+  overrides.
 - Added Nexus slash command palette resize regression coverage for
   low-to-standard terminal transitions.
 - Added Start slash command palette resize regression coverage for

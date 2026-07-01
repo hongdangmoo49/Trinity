@@ -2265,6 +2265,81 @@ async def test_model_slash_modal_updates_selector_model_override(tmp_path) -> No
         assert controller.started_models[-1] == {"codex": "gpt-5.5"}
 
 
+@pytest.mark.asyncio
+async def test_model_slash_modal_updates_nexus_follow_up_model_override(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["codex"].enabled = True
+    config.agents["codex"].model = "default"
+    controller = FakeWorkflowController()
+    app = TrinityTextualApp(config, controller)
+    app._start_model_discovery = lambda: None  # type: ignore[method-assign]
+    app._refresh_provider_models = lambda *, use_cache: None  # type: ignore[method-assign]
+
+    async with app.run_test(size=(120, 34)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+
+        selector = nexus.query_one(
+            "#nexus-recipient-selector",
+            AgentRecipientModelSelector,
+        )
+        selector.set_selected_agents(("codex",))
+        selector.set_model_choices(
+            "codex",
+            [
+                ProviderModelChoice(
+                    provider=Provider.CODEX,
+                    model="default",
+                    label="codex(default)",
+                    source="static-fallback",
+                    is_default=True,
+                    context_budget=128_000,
+                ),
+                ProviderModelChoice(
+                    provider=Provider.CODEX,
+                    model="gpt-5.5",
+                    label="gpt-5.5",
+                    source="cli-live",
+                    context_budget=None,
+                ),
+            ],
+        )
+
+        app._handle_textual_slash_command("/model")
+        await pilot.pause()
+
+        assert isinstance(app.screen, ModelSettingsModal)
+        app.screen.query_one("#model-agent-codex", Button).press()
+        await pilot.pause()
+
+        menu = app.screen.query_one("#model-choice-list", OptionList)
+        labels = app.screen.choice_labels("codex")
+        menu.highlighted = next(
+            index for index, label in enumerate(labels) if "gpt-5.5" in label
+        )
+        menu.action_select()
+        await pilot.pause()
+
+        app.screen.query_one("#apply-model-settings", Button).press()
+        await pilot.pause()
+
+        assert selector.selected_model("codex") == "gpt-5.5"
+        assert selector.model_overrides() == {"codex": "gpt-5.5"}
+
+        composer = app.screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("코덱스 모델 확인")
+        composer.action_submit()
+        await pilot.pause()
+
+        assert controller.follow_ups[-1] == "코덱스 모델 확인"
+        assert controller.follow_up_targets[-1] == ("codex",)
+        assert controller.follow_up_models[-1] == {"codex": "gpt-5.5"}
+
+
 def test_open_model_settings_unavailable_uses_korean_notification(
     tmp_path,
     monkeypatch,

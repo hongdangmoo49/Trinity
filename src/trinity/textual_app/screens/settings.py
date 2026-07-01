@@ -150,7 +150,7 @@ class SettingsScreen(Screen[None]):
         self.config.synthesis_model = self._value("central-model")
         self.config.save(self.config.effective_state_dir / "trinity.config")
         self._set_preview_text(self.preview_text())
-        self._set_status_text(self._label("saved"))
+        self._set_status_text(self._label("saved_applied"))
         self.post_message(self.Applied())
 
     def _set_preview_text(self, text: str) -> None:
@@ -340,6 +340,7 @@ class SettingsScreen(Screen[None]):
             "auto": "자동",
             "apply": "적용",
             "saved": "저장됨",
+            "saved_applied": "저장됨 · UI와 Start/Nexus 모델 선택에 적용됨",
             "preview": "미리보기",
             "profile": "프로필",
             "balanced": "균형",
@@ -377,6 +378,7 @@ class SettingsScreen(Screen[None]):
             "auto": "Auto",
             "apply": "Apply",
             "saved": "Saved",
+            "saved_applied": "Saved · applied to UI and Start/Nexus model selectors",
             "preview": "Preview",
             "profile": "profile",
             "balanced": "balanced",

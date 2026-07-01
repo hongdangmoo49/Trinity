@@ -89,12 +89,18 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
     ) -> None:
         super().__init__()
         self.agents = agents
-        self.choices_by_agent = choices_by_agent
+        self.lang = lang
         self.selected_models = {
             name: selected_models.get(name, spec.model or "default")
             for name, spec in self.agents.items()
         }
-        self.lang = lang
+        self.choices_by_agent = {
+            name: self._choices_with_selected_model(
+                name,
+                tuple(choices_by_agent.get(name, ())),
+            )
+            for name in self.agents
+        }
         self.active_agent = next(iter(self.agents), "")
         self._choice_highlight_key: tuple[object, ...] | None = None
         self._choice_list_widget: OptionList | None = None
@@ -147,7 +153,9 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         """Refresh available choices while preserving modal selections."""
         changed = False
         for name, choices in choices_by_agent.items():
-            next_choices = tuple(choices)
+            if name not in self.agents:
+                continue
+            next_choices = self._choices_with_selected_model(name, tuple(choices))
             if tuple(self.choices_by_agent.get(name, ())) == next_choices:
                 continue
             self.choices_by_agent[name] = next_choices
@@ -250,6 +258,26 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         if choice.context_budget:
             details.append(f"{choice.context_budget:,} ctx")
         return "  ".join(details)
+
+    def _choices_with_selected_model(
+        self,
+        name: str,
+        choices: tuple[ProviderModelChoice, ...],
+    ) -> tuple[ProviderModelChoice, ...]:
+        selected = str(self.selected_models.get(name, "default")).strip() or "default"
+        if selected in {choice.model for choice in choices}:
+            return choices
+        spec = self.agents[name]
+        label = "기본값" if selected == "default" and self.lang == "ko" else selected
+        return (
+            *choices,
+            ProviderModelChoice(
+                provider=spec.provider,
+                model=selected,
+                label=label,
+                source="static-fallback",
+            ),
+        )
 
     def _model_label(self, name: str, model: str) -> str:
         for choice in self.choices_by_agent.get(name, ()):

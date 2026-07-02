@@ -474,6 +474,8 @@ class TrinityTextualApp(App[None]):
 
     .ui-density-compact #start-select-workspace {
         height: 2;
+        outline-top: none;
+        outline-bottom: none;
     }
 
     #prompt-textarea {

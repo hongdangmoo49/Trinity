@@ -14,6 +14,7 @@ from textual.app import App
 from textual.color import Color
 from textual.containers import VerticalScroll
 from textual.css.query import NoMatches
+from textual.geometry import Region
 from textual.widgets import (
     Button,
     DataTable,
@@ -1946,6 +1947,44 @@ async def test_start_workspace_button_keeps_korean_label_visible(tmp_path) -> No
         assert select_workspace.styles.outline_left[0] == "solid"
         assert select_workspace.styles.outline_right[0] == "solid"
         assert select_workspace.region.width >= 28
+        screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
+        assert "작업 폴더 선택" in screenshot
+
+
+@pytest.mark.asyncio
+async def test_start_workspace_button_keeps_korean_label_visible_in_compact_density(
+    tmp_path,
+) -> None:
+    UISettingsStore(tmp_path / ".trinity").save(UISettings(density="compact"))
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        await pilot.pause()
+
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        select_workspace = start.query_one("#start-select-workspace", Static)
+
+        assert app.has_class("ui-density-compact")
+        assert str(select_workspace.content) == "작업 폴더 선택"
+        assert select_workspace.styles.height.value == 2
+        assert select_workspace.styles.outline_top[0] == ""
+        assert select_workspace.styles.outline_bottom[0] == ""
+        assert select_workspace.styles.outline_left[0] == "solid"
+        assert select_workspace.styles.outline_right[0] == "solid"
+        rendered = "\n".join(
+            strip.text
+            for strip in select_workspace.render_lines(
+                Region(
+                    0,
+                    0,
+                    select_workspace.region.width,
+                    select_workspace.region.height,
+                )
+            )
+        )
+        assert "작업 폴더 선택" in rendered
         screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
         assert "작업 폴더 선택" in screenshot
 

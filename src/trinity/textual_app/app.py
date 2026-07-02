@@ -457,7 +457,8 @@ class TrinityTextualApp(App[None]):
     }
 
     #start-select-workspace {
-        width: 22;
+        width: 28;
+        min-width: 28;
         height: 3;
     }
 
@@ -872,13 +873,25 @@ class TrinityTextualApp(App[None]):
         padding: 0 1;
     }
 
+    #nexus-workspace-row {
+        width: 100%;
+        height: 2;
+        align-vertical: middle;
+    }
+
     #nexus-target-workspace {
         width: 1fr;
         min-width: 0;
-        height: 1;
-        margin-top: 1;
+        height: 2;
+        margin-right: 1;
         content-align: left middle;
         color: $text-muted;
+    }
+
+    #nexus-select-workspace {
+        width: 28;
+        min-width: 28;
+        height: 2;
     }
 
     ProviderInspector {
@@ -1766,6 +1779,13 @@ class TrinityTextualApp(App[None]):
     ) -> None:
         event.stop()
         self._handle_textual_slash_command(event.text)
+
+    def on_nexus_screen_workspace_requested(
+        self,
+        event: NexusScreen.WorkspaceRequested,
+    ) -> None:
+        event.stop()
+        self._open_workspace_command()
 
     def on_nexus_screen_question_answered(
         self,

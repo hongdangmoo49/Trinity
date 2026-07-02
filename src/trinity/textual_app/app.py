@@ -465,6 +465,10 @@ class TrinityTextualApp(App[None]):
         text-style: bold;
         color: $text;
         background: $surface;
+        outline-top: tall $surface-lighten-1;
+        outline-bottom: tall $surface-darken-1;
+        outline-left: solid $surface-lighten-1;
+        outline-right: solid $surface-darken-1;
         pointer: pointer;
     }
 
@@ -903,6 +907,8 @@ class TrinityTextualApp(App[None]):
         text-style: bold;
         color: $text;
         background: $surface;
+        outline-left: solid $surface-lighten-1;
+        outline-right: solid $surface-darken-1;
         pointer: pointer;
     }
 

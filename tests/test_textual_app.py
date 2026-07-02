@@ -1941,6 +1941,10 @@ async def test_start_workspace_button_keeps_korean_label_visible(tmp_path) -> No
         assert str(select_workspace.content) == "작업 폴더 선택"
         assert select_workspace.styles.width.value == 28
         assert select_workspace.styles.min_width.value == 28
+        assert select_workspace.styles.outline_top[0] == "tall"
+        assert select_workspace.styles.outline_bottom[0] == "tall"
+        assert select_workspace.styles.outline_left[0] == "solid"
+        assert select_workspace.styles.outline_right[0] == "solid"
         assert select_workspace.region.width >= 28
         screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
         assert "작업 폴더 선택" in screenshot
@@ -12206,6 +12210,8 @@ async def test_nexus_action_bar_keeps_korean_workspace_label(tmp_path) -> None:
         assert workspace_label.startswith("계획 대상: ")
         assert str(target.resolve()) in workspace_label
         assert str(select_workspace.content) == "작업 폴더 선택"
+        assert select_workspace.styles.outline_left[0] == "solid"
+        assert select_workspace.styles.outline_right[0] == "solid"
         assert select_workspace.region.width >= 28
         screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
         assert "작업 폴더 선택" in screenshot

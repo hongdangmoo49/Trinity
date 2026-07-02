@@ -1925,6 +1925,24 @@ async def test_start_workspace_label_stays_compact_with_long_path(
         )
 
 
+@pytest.mark.asyncio
+async def test_start_workspace_button_keeps_korean_label_visible(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        await pilot.pause()
+
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        select_workspace = start.query_one("#start-select-workspace", Button)
+
+        assert str(select_workspace.label) == "작업 폴더 선택"
+        assert select_workspace.styles.width.value == 28
+        assert select_workspace.styles.min_width.value == 28
+        assert select_workspace.region.width >= 28
+
+
 @pytest.mark.parametrize(
     ("size", "geometry_visible"),
     [
@@ -11902,10 +11920,13 @@ async def test_nexus_workspace_command_selects_target_without_execution(
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
         workspace_label = nexus.query_one("#nexus-target-workspace", Static)
+        select_workspace = nexus.query_one("#nexus-select-workspace", Button)
         assert str(target.resolve()) in str(workspace_label.content)
         assert workspace_label.styles.min_width.value == 0
-        assert workspace_label.styles.height.value == 1
+        assert workspace_label.styles.height.value == 2
         assert workspace_label.styles.content_align_vertical == "middle"
+        assert str(select_workspace.label) == "Select Workspace"
+        assert select_workspace.styles.width.value == 28
 
         app._handle_textual_slash_command("/workspace")
         await pilot.pause()
@@ -11924,6 +11945,36 @@ async def test_nexus_workspace_command_selects_target_without_execution(
         assert controller.execution_requests == 0
         assert controller.target_workspace == target.resolve()
         assert app.current_route == "nexus"
+
+
+@pytest.mark.asyncio
+async def test_nexus_workspace_button_opens_workspace_picker(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target-app"
+    control_repo.mkdir()
+    target.mkdir()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        controller,
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        nexus.query_one("#nexus-select-workspace", Button).press()
+        await pilot.pause()
+
+        assert controller.execution_requests == 0
+        picker = app.screen
+        assert isinstance(picker, WorkspacePicker)
+        assert picker.intent == "select"
 
 
 @pytest.mark.asyncio
@@ -11949,6 +12000,7 @@ async def test_nexus_workspace_label_stays_within_narrow_width(tmp_path) -> None
         assert isinstance(nexus, NexusScreen)
         widgets = (
             nexus.query_one("#nexus-target-workspace", Static),
+            nexus.query_one("#nexus-select-workspace", Button),
         )
         for widget in widgets:
             assert widget.region.x >= 0
@@ -11972,7 +12024,9 @@ async def test_nexus_screen_stays_within_narrow_viewport(
         nexus_shell = nexus.query_one("#nexus-screen")
         widgets = (
             nexus.query_one("#provider-strip"),
+            nexus.query_one("#nexus-workspace-row"),
             nexus.query_one("#nexus-target-workspace", Static),
+            nexus.query_one("#nexus-select-workspace", Button),
             nexus.query_one("#nexus-main"),
             nexus.query_one("#nexus-recipient-selector"),
             nexus.query_one("#nexus-composer", PromptComposer),
@@ -12145,8 +12199,11 @@ async def test_nexus_action_bar_keeps_korean_workspace_label(tmp_path) -> None:
         workspace_label = str(
             nexus.query_one("#nexus-target-workspace", Static).content
         )
+        select_workspace = nexus.query_one("#nexus-select-workspace", Button)
         assert workspace_label.startswith("계획 대상: ")
         assert str(target.resolve()) in workspace_label
+        assert str(select_workspace.label) == "작업 폴더 선택"
+        assert select_workspace.region.width >= 28
         assert nexus.query_one("#nexus-composer", PromptComposer).placeholder == (
             "답변, 방향 조정 또는 /로 명령 입력"
         )

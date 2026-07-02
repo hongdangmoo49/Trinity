@@ -460,6 +460,12 @@ class TrinityTextualApp(App[None]):
         width: 28;
         min-width: 28;
         height: 3;
+        content-align: center middle;
+        text-align: center;
+        text-style: bold;
+        color: $text;
+        background: $surface;
+        pointer: pointer;
     }
 
     .ui-density-compact #start-select-workspace {
@@ -892,6 +898,12 @@ class TrinityTextualApp(App[None]):
         width: 28;
         min-width: 28;
         height: 2;
+        content-align: center middle;
+        text-align: center;
+        text-style: bold;
+        color: $text;
+        background: $surface;
+        pointer: pointer;
     }
 
     ProviderInspector {

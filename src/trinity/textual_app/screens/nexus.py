@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from textual import events
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Header, Static
+from textual.widgets import Footer, Header, Static
 
 from trinity.config import TrinityConfig
 from trinity.providers.model_discovery import ProviderModelChoice
@@ -167,7 +168,7 @@ class NexusScreen(Screen[None]):
                 self._workspace_label_widget = workspace_label
                 self._workspace_label_key = workspace_label_text
                 yield workspace_label
-                yield Button(
+                yield Static(
                     self.label_text("select_workspace"),
                     id="nexus-select-workspace",
                 )
@@ -213,8 +214,8 @@ class NexusScreen(Screen[None]):
         self._apply_model_choices()
         self._prompt_composer().focus_text_area()
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id != "nexus-select-workspace":
+    def on_click(self, event: events.Click) -> None:
+        if event.widget.id != "nexus-select-workspace":
             return
         event.stop()
         self.post_message(self.WorkspaceRequested())

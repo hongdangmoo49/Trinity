@@ -9,7 +9,7 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Header, Static
+from textual.widgets import Footer, Header, Static
 
 from trinity.config import TrinityConfig
 from trinity.providers.model_discovery import ProviderModelChoice
@@ -145,7 +145,7 @@ class StartScreen(Screen[None]):
                     )
                     self._workspace_label_widget = workspace_label
                     yield workspace_label
-                    yield Button(
+                    yield Static(
                         self.label_text("select_workspace"),
                         id="start-select-workspace",
                     )
@@ -198,8 +198,8 @@ class StartScreen(Screen[None]):
     ) -> None:
         event.stop()
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id != "start-select-workspace":
+    def on_click(self, event: events.Click) -> None:
+        if event.widget.id != "start-select-workspace":
             return
         event.stop()
         self.post_message(self.WorkspaceRequested())

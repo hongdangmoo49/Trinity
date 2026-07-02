@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import html
 import subprocess
 import sys
 import time
@@ -1829,7 +1830,7 @@ async def test_start_screen_stays_within_standard_viewport(tmp_path) -> None:
             start.query_one("#start-composer", PromptComposer),
             start.query_one("#start-recipient-selector", AgentRecipientModelSelector),
             start.query_one("#start-actions"),
-            start.query_one("#start-select-workspace", Button),
+            start.query_one("#start-select-workspace", Static),
             start.query_one("#workspace-candidate", Static),
         )
         for widget in widgets:
@@ -1863,7 +1864,7 @@ async def test_start_screen_compacts_geometry_in_low_viewport(
             start.query_one("#start-composer", PromptComposer),
             start.query_one("#start-recipient-selector", AgentRecipientModelSelector),
             start.query_one("#start-actions"),
-            start.query_one("#start-select-workspace", Button),
+            start.query_one("#start-select-workspace", Static),
             start.query_one("#workspace-candidate", Static),
         )
         for widget in widgets:
@@ -1914,8 +1915,8 @@ async def test_start_workspace_label_stays_compact_with_long_path(
         start = app.screen
         assert isinstance(start, StartScreen)
         workspace_label = start.query_one("#workspace-candidate", Static)
-        select_workspace = start.query_one("#start-select-workspace", Button)
-        assert str(select_workspace.label) == "Select Workspace"
+        select_workspace = start.query_one("#start-select-workspace", Static)
+        assert str(select_workspace.content) == "Select Workspace"
         assert select_workspace.region.height == 3
         assert workspace_label.region.height == 3
         assert select_workspace.region.x > workspace_label.region.x
@@ -1935,12 +1936,14 @@ async def test_start_workspace_button_keeps_korean_label_visible(tmp_path) -> No
 
         start = app.screen
         assert isinstance(start, StartScreen)
-        select_workspace = start.query_one("#start-select-workspace", Button)
+        select_workspace = start.query_one("#start-select-workspace", Static)
 
-        assert str(select_workspace.label) == "작업 폴더 선택"
+        assert str(select_workspace.content) == "작업 폴더 선택"
         assert select_workspace.styles.width.value == 28
         assert select_workspace.styles.min_width.value == 28
         assert select_workspace.region.width >= 28
+        screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
+        assert "작업 폴더 선택" in screenshot
 
 
 @pytest.mark.parametrize(
@@ -11684,7 +11687,7 @@ async def test_start_workspace_button_opens_workspace_picker(tmp_path) -> None:
     async with app.run_test(size=(140, 44)) as pilot:
         start = app.screen
         assert isinstance(start, StartScreen)
-        start.query_one("#start-select-workspace", Button).press()
+        await pilot.click("#start-select-workspace")
         await pilot.pause()
 
         assert isinstance(app.screen, WorkspacePicker)
@@ -11920,12 +11923,12 @@ async def test_nexus_workspace_command_selects_target_without_execution(
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
         workspace_label = nexus.query_one("#nexus-target-workspace", Static)
-        select_workspace = nexus.query_one("#nexus-select-workspace", Button)
+        select_workspace = nexus.query_one("#nexus-select-workspace", Static)
         assert str(target.resolve()) in str(workspace_label.content)
         assert workspace_label.styles.min_width.value == 0
         assert workspace_label.styles.height.value == 2
         assert workspace_label.styles.content_align_vertical == "middle"
-        assert str(select_workspace.label) == "Select Workspace"
+        assert str(select_workspace.content) == "Select Workspace"
         assert select_workspace.styles.width.value == 28
 
         app._handle_textual_slash_command("/workspace")
@@ -11968,7 +11971,7 @@ async def test_nexus_workspace_button_opens_workspace_picker(tmp_path) -> None:
 
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
-        nexus.query_one("#nexus-select-workspace", Button).press()
+        await pilot.click("#nexus-select-workspace")
         await pilot.pause()
 
         assert controller.execution_requests == 0
@@ -12000,7 +12003,7 @@ async def test_nexus_workspace_label_stays_within_narrow_width(tmp_path) -> None
         assert isinstance(nexus, NexusScreen)
         widgets = (
             nexus.query_one("#nexus-target-workspace", Static),
-            nexus.query_one("#nexus-select-workspace", Button),
+            nexus.query_one("#nexus-select-workspace", Static),
         )
         for widget in widgets:
             assert widget.region.x >= 0
@@ -12026,7 +12029,7 @@ async def test_nexus_screen_stays_within_narrow_viewport(
             nexus.query_one("#provider-strip"),
             nexus.query_one("#nexus-workspace-row"),
             nexus.query_one("#nexus-target-workspace", Static),
-            nexus.query_one("#nexus-select-workspace", Button),
+            nexus.query_one("#nexus-select-workspace", Static),
             nexus.query_one("#nexus-main"),
             nexus.query_one("#nexus-recipient-selector"),
             nexus.query_one("#nexus-composer", PromptComposer),
@@ -12199,11 +12202,13 @@ async def test_nexus_action_bar_keeps_korean_workspace_label(tmp_path) -> None:
         workspace_label = str(
             nexus.query_one("#nexus-target-workspace", Static).content
         )
-        select_workspace = nexus.query_one("#nexus-select-workspace", Button)
+        select_workspace = nexus.query_one("#nexus-select-workspace", Static)
         assert workspace_label.startswith("계획 대상: ")
         assert str(target.resolve()) in workspace_label
-        assert str(select_workspace.label) == "작업 폴더 선택"
+        assert str(select_workspace.content) == "작업 폴더 선택"
         assert select_workspace.region.width >= 28
+        screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
+        assert "작업 폴더 선택" in screenshot
         assert nexus.query_one("#nexus-composer", PromptComposer).placeholder == (
             "답변, 방향 조정 또는 /로 명령 입력"
         )

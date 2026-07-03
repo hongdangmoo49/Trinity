@@ -10868,10 +10868,20 @@ def test_execution_log_modal_shows_empty_filtered_state() -> None:
     modal = ExecutionLogModal(["WP-001 started"])
     korean = ExecutionLogModal(["WP-001 started"], lang="ko")
 
-    assert modal.render_log_lines("missing") == ["No matching execution log lines."]
-    assert korean.render_log_lines("missing") == ["일치하는 실행 로그가 없습니다."]
-    assert modal.status_text("missing") == "0 matches"
-    assert korean.status_text("missing") == "0개 결과"
+    assert modal.render_log_lines("missing") == [
+        "No matching execution log lines. Clear search to show all logs."
+    ]
+    assert korean.render_log_lines("missing") == [
+        "일치하는 실행 로그가 없습니다. 검색어를 지우면 전체 로그를 볼 수 있습니다."
+    ]
+    assert (
+        modal.status_text("missing")
+        == "0 matches · clear search to show all logs"
+    )
+    assert (
+        korean.status_text("missing")
+        == "0개 결과 · 검색어를 지우면 전체 로그 표시"
+    )
 
 
 def test_execution_log_modal_localizes_large_log_window() -> None:

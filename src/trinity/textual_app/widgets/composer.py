@@ -9,6 +9,7 @@ from textual.containers import Vertical
 from textual.message import Message
 from textual.widgets import Static, TextArea
 
+from trinity.slash_commands import COMMAND_BY_NAME, SlashCommandCategory
 from trinity.tui.prompt import TRINITY_COMMANDS
 from trinity.textual_app.i18n import (
     command_palette_option_label,
@@ -19,6 +20,16 @@ from trinity.textual_app.i18n import (
 
 COMMAND_LIMIT = 4
 PASTE_SUMMARY_THRESHOLD = 1_000
+
+COMMAND_PREVIEW_GROUPS = {
+    SlashCommandCategory.LOCAL_UI: "local",
+    SlashCommandCategory.LOCAL_FILE: "local",
+    SlashCommandCategory.SESSION_SETTING: "setting",
+    SlashCommandCategory.WORKFLOW_LOCAL: "workflow",
+    SlashCommandCategory.CONDITIONAL_WORKFLOW: "workflow",
+    SlashCommandCategory.EXECUTION: "execution",
+    SlashCommandCategory.APP_EXIT: "exit",
+}
 
 _PASTE_PLACEHOLDERS = {
     "en": "[Pasted Content {count} chars]",
@@ -526,11 +537,33 @@ class PromptComposer(Vertical):
 
     @staticmethod
     def _matching_commands(query: str) -> list[str]:
-        return [
+        matches = [
             command
             for command in TRINITY_COMMANDS
             if command.lower().startswith(query)
         ]
+        if query == "/":
+            return PromptComposer._root_preview_commands(matches)
+        return matches
+
+    @staticmethod
+    def _root_preview_commands(matches: list[str]) -> list[str]:
+        preview: list[str] = []
+        rest: list[str] = []
+        seen_groups: set[str] = set()
+        for command in matches:
+            spec = COMMAND_BY_NAME.get(command)
+            group = (
+                COMMAND_PREVIEW_GROUPS.get(spec.category, spec.category.value)
+                if spec is not None
+                else ""
+            )
+            if group and group not in seen_groups:
+                preview.append(command)
+                seen_groups.add(group)
+            else:
+                rest.append(command)
+        return preview + rest
 
     def _is_exact_command_input(self) -> bool:
         query = self._slash_query()

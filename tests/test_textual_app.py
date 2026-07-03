@@ -8085,6 +8085,9 @@ async def test_prompt_composer_shows_slash_command_palette(tmp_path) -> None:
         assert palette.display is True
         assert any("/status" in option for option in options)
         assert any("[local]" in option for option in options)
+        assert any("[setting" in option for option in options)
+        assert any("[workflow" in option for option in options)
+        assert any("[run AI !write]" in option for option in options)
 
         composer.set_text("/ex")
         await pilot.pause()
@@ -8125,6 +8128,9 @@ async def test_prompt_composer_localizes_slash_command_palette_in_korean(tmp_pat
 
         assert any("/status" in option for option in options)
         assert any("[로컬]" in option for option in options)
+        assert any("[설정" in option for option in options)
+        assert any("[흐름" in option for option in options)
+        assert any("[실행 AI !쓰기]" in option for option in options)
         assert any("제공자와 워크플로우 상태 보기" in option for option in options)
         assert not any("show provider and workflow status" in option for option in options)
         assert "명령 더 있음" in more

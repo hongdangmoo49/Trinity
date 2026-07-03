@@ -836,8 +836,8 @@ class TrinityTextualApp(App[None]):
     }
 
     #nexus-question-panel.question-panel-empty {
-        height: 3;
-        border: round $primary;
+        height: 1;
+        border: none;
     }
 
     #question-panel-title {
@@ -845,6 +845,11 @@ class TrinityTextualApp(App[None]):
         color: $warning;
         height: 1;
         margin-bottom: 1;
+    }
+
+    #nexus-question-panel.question-panel-empty #question-panel-title {
+        color: $text-muted;
+        margin-bottom: 0;
     }
 
     #question-panel-body {

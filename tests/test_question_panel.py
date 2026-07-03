@@ -240,7 +240,7 @@ async def test_question_panel_skips_unchanged_empty_class_sync() -> None:
 
 
 @pytest.mark.asyncio
-async def test_question_panel_renders_initial_empty_state() -> None:
+async def test_question_panel_renders_initial_empty_state_as_one_line_title() -> None:
     panel = QuestionPanel()
     app = QuestionPanelHarness(panel)
 
@@ -248,8 +248,10 @@ async def test_question_panel_renders_initial_empty_state() -> None:
         panel.apply_questions([])
         await pilot.pause()
 
-        empty = panel.query_one(".question-empty", Static)
-        assert str(empty.content) == "No questions waiting for an answer."
+        assert str(panel.query_one("#question-panel-title", Static).content) == (
+            "No questions"
+        )
+        assert list(panel.query(".question-empty")) == []
 
 
 @pytest.mark.asyncio

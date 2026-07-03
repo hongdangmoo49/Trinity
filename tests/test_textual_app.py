@@ -276,6 +276,7 @@ from trinity.textual_app.widgets.workspace_picker import (
     WorkspacePicker,
     build_preflight,
 )
+from trinity.textual_app.widgets.workspace_select import WorkspaceSelectSurface
 from trinity.workflow import (
     ArchitectureComponent,
     Blueprint,
@@ -2041,6 +2042,7 @@ async def test_start_workspace_button_keeps_korean_label_visible(tmp_path) -> No
         assert isinstance(start, StartScreen)
         select_workspace = start.query_one("#start-select-workspace", Static)
 
+        assert isinstance(select_workspace, WorkspaceSelectSurface)
         assert str(select_workspace.content) == "작업 폴더 선택"
         assert select_workspace.has_class("workspace-select-surface")
         assert select_workspace.has_class("workspace-select-surface-tall")
@@ -2284,6 +2286,8 @@ async def test_nexus_workspace_button_keeps_korean_label_visible(tmp_path) -> No
         assert select_workspace.has_class("workspace-select-surface")
         assert select_workspace.styles.width.value == 28
         assert select_workspace.styles.min_width.value == 28
+        assert select_workspace.styles.outline_top[0] == "solid"
+        assert select_workspace.styles.outline_bottom[0] == "solid"
         assert select_workspace.styles.outline_left[0] == "solid"
         assert select_workspace.styles.outline_right[0] == "solid"
         assert select_workspace.region.x > workspace_label.region.x
@@ -12253,7 +12257,7 @@ async def test_nexus_workspace_command_selects_target_without_execution(
         select_workspace = nexus.query_one("#nexus-select-workspace", Static)
         assert str(target.resolve()) in str(workspace_label.content)
         assert workspace_label.styles.min_width.value == 0
-        assert workspace_label.styles.height.value == 2
+        assert workspace_label.styles.height.value == 3
         assert workspace_label.styles.content_align_vertical == "middle"
         assert str(select_workspace.content) == "Select Workspace"
         assert select_workspace.styles.width.value == 28
@@ -12574,11 +12578,14 @@ async def test_nexus_action_bar_keeps_korean_workspace_label(tmp_path) -> None:
             nexus.query_one("#nexus-target-workspace", Static).content
         )
         select_workspace = nexus.query_one("#nexus-select-workspace", Static)
+        assert isinstance(select_workspace, WorkspaceSelectSurface)
         assert workspace_label.startswith("계획 대상: ")
         assert str(target.resolve()) in workspace_label
         assert str(select_workspace.content) == "작업 폴더 선택"
         assert select_workspace.has_class("workspace-select-surface")
         assert not select_workspace.has_class("workspace-select-surface-tall")
+        assert select_workspace.styles.outline_top[0] == "solid"
+        assert select_workspace.styles.outline_bottom[0] == "solid"
         assert select_workspace.styles.outline_left[0] == "solid"
         assert select_workspace.styles.outline_right[0] == "solid"
         assert select_workspace.region.width >= 28

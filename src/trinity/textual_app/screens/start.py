@@ -22,6 +22,7 @@ from trinity.textual_app.widgets.agent_recipient_model_selector import (
     AgentRecipientModelSelector,
 )
 from trinity.textual_app.widgets.composer import PromptComposer
+from trinity.textual_app.widgets.workspace_select import WorkspaceSelectSurface
 from trinity.tui.sacred_geometry import SacredGeometryAnimator
 
 
@@ -145,13 +146,10 @@ class StartScreen(Screen[None]):
                     )
                     self._workspace_label_widget = workspace_label
                     yield workspace_label
-                    yield Static(
+                    yield WorkspaceSelectSurface(
                         self.label_text("select_workspace"),
                         id="start-select-workspace",
-                        classes=(
-                            "workspace-select-surface "
-                            "workspace-select-surface-tall"
-                        ),
+                        tall=True,
                     )
         yield Footer()
 
@@ -202,9 +200,10 @@ class StartScreen(Screen[None]):
     ) -> None:
         event.stop()
 
-    def on_click(self, event: events.Click) -> None:
-        if event.widget.id != "start-select-workspace":
-            return
+    def on_workspace_select_surface_pressed(
+        self,
+        event: WorkspaceSelectSurface.Pressed,
+    ) -> None:
         event.stop()
         self.post_message(self.WorkspaceRequested())
 

@@ -39,6 +39,7 @@ from trinity.textual_app.widgets.provider_panel import (
     provider_panel_state_group,
 )
 from trinity.textual_app.widgets.question_panel import QuestionAnswer, QuestionPanel
+from trinity.textual_app.widgets.workspace_select import WorkspaceSelectSurface
 from trinity.workflow.provider_error_gate import (
     PROVIDER_ERROR_GATE_QUESTION_ID,
     provider_error_action_answer,
@@ -171,10 +172,9 @@ class NexusScreen(Screen[None]):
                 self._workspace_label_widget = workspace_label
                 self._workspace_label_key = workspace_label_text
                 yield workspace_label
-                yield Static(
+                yield WorkspaceSelectSurface(
                     self.label_text("select_workspace"),
                     id="nexus-select-workspace",
-                    classes="workspace-select-surface",
                 )
             next_action = Static(self.next_action_line(), id="nexus-next-action")
             self._next_action_widget = next_action
@@ -227,9 +227,10 @@ class NexusScreen(Screen[None]):
     def on_resize(self, event: events.Resize) -> None:
         self._sync_provider_strip_compact_mode()
 
-    def on_click(self, event: events.Click) -> None:
-        if event.widget.id != "nexus-select-workspace":
-            return
+    def on_workspace_select_surface_pressed(
+        self,
+        event: WorkspaceSelectSurface.Pressed,
+    ) -> None:
         event.stop()
         self.post_message(self.WorkspaceRequested())
 

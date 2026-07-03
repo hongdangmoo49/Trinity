@@ -8854,11 +8854,12 @@ async def test_nexus_provider_strip_stays_compact_on_small_viewport(tmp_path) ->
         strip = screen.query_one("#provider-strip")
         panels = list(screen.query(ProviderPanel))
 
-        assert strip.region.height == 5
+        assert strip.region.height == 4
+        assert strip.has_class("provider-strip-compact")
         assert strip.has_class("provider-strip-3")
         assert len(panels) == 3
         for panel in panels:
-            assert panel.region.height == 5
+            assert panel.region.height == 4
             assert panel.region.y >= strip.region.y
             assert (
                 panel.region.y + panel.region.height
@@ -8911,6 +8912,7 @@ async def test_nexus_disabled_provider_card_stays_quiet(tmp_path) -> None:
         active = screen.query_one("#provider-claude", ProviderPanel)
         disabled = screen.query_one("#provider-codex", ProviderPanel)
 
+        assert not screen.query_one("#provider-strip").has_class("provider-strip-compact")
         assert active.region.height == 5
         assert disabled.has_class("provider-disabled")
         assert disabled.region.height == 1
@@ -12233,8 +12235,13 @@ async def test_nexus_screen_stays_within_narrow_viewport(
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
         nexus_shell = nexus.query_one("#nexus-screen")
+        provider_strip = nexus.query_one("#provider-strip")
+        assert provider_strip.has_class("provider-strip-compact")
+        assert provider_strip.region.height == 4
+        for panel in nexus.query(ProviderPanel):
+            assert panel.region.height <= 4
         widgets = (
-            nexus.query_one("#provider-strip"),
+            provider_strip,
             nexus.query_one("#nexus-workspace-row"),
             nexus.query_one("#nexus-target-workspace", Static),
             nexus.query_one("#nexus-select-workspace", Static),

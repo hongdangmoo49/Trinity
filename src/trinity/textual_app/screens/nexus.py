@@ -211,6 +211,7 @@ class NexusScreen(Screen[None]):
         yield Footer()
 
     def on_mount(self) -> None:
+        self._sync_provider_strip_compact_mode()
         if self.snapshot is not None:
             self.apply_snapshot(self.snapshot)
         else:
@@ -222,6 +223,9 @@ class NexusScreen(Screen[None]):
             self._apply_agent_selection()
         self._apply_model_choices()
         self._prompt_composer().focus_text_area()
+
+    def on_resize(self, event: events.Resize) -> None:
+        self._sync_provider_strip_compact_mode()
 
     def on_click(self, event: events.Click) -> None:
         if event.widget.id != "nexus-select-workspace":
@@ -313,6 +317,14 @@ class NexusScreen(Screen[None]):
         self._applied_snapshot_identity = None
         self._workspace_label_key = ""
         self._next_action_key = ""
+
+    def _sync_provider_strip_compact_mode(self) -> None:
+        if not self.is_mounted:
+            return
+        self.query_one("#provider-strip").set_class(
+            self.size.width <= 80 or self.size.height <= 24,
+            "provider-strip-compact",
+        )
 
     def _provider_panel(self, name: str) -> ProviderPanel | None:
         panel = self._provider_panels.get(name)

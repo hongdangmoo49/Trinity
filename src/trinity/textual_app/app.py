@@ -517,6 +517,10 @@ class TrinityTextualApp(App[None]):
         height: 4;
     }
 
+    #provider-strip.provider-strip-compact {
+        height: 4;
+    }
+
     .provider-strip-1 {
         grid-size: 1 1;
     }
@@ -536,6 +540,10 @@ class TrinityTextualApp(App[None]):
     }
 
     .ui-density-compact .provider-panel {
+        height: 4;
+    }
+
+    #provider-strip.provider-strip-compact .provider-panel {
         height: 4;
     }
 
@@ -578,6 +586,10 @@ class TrinityTextualApp(App[None]):
     .provider-disabled {
         color: $text-muted;
         border: none;
+        height: 1;
+    }
+
+    #provider-strip.provider-strip-compact .provider-disabled {
         height: 1;
     }
 

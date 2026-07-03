@@ -354,18 +354,22 @@ def target_workspace_state_label(
     target_text = str(target or "").strip()
     if not target_text:
         return labels["not_selected"]
-    display_target = _compact_workspace_target(target_text)
+    display_target = compact_workspace_target(target_text)
     if control_repo is not None and _same_resolved_path(Path(target_text), control_repo):
         return labels["control_repo"].format(target=display_target)
     return labels["planning_target"].format(target=display_target)
 
 
-def _compact_workspace_target(target: str, *, max_chars: int = 96) -> str:
+def compact_workspace_target(target: str, *, max_chars: int = 96) -> str:
     if len(target) <= max_chars:
         return target
     head_len = max((max_chars - 3) // 2, 1)
     tail_len = max(max_chars - 3 - head_len, 1)
     return f"{target[:head_len]}...{target[-tail_len:]}"
+
+
+def _compact_workspace_target(target: str, *, max_chars: int = 96) -> str:
+    return compact_workspace_target(target, max_chars=max_chars)
 
 
 def provider_execution_review_policy_label(

@@ -13283,6 +13283,51 @@ async def test_execution_matrix_header_uses_snapshot_target_without_preflight(
 
 
 @pytest.mark.asyncio
+async def test_execution_matrix_header_compacts_very_long_target_path(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+    target = (
+        tmp_path
+        / ("very-long-workspace-root-name-" * 4)
+        / "deeply-nested-projects"
+        / "customer-onboarding-automation"
+    )
+    target.mkdir(parents=True)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(target_workspace=str(target)),
+        )
+        await pilot.pause()
+
+        header_row = screen.query_one("#execution-header-row")
+        header = screen.query_one("#execution-header", Static)
+        header_text = str(header.content)
+        assert "..." in header_text
+        assert header_text.endswith("customer-onboarding-automation")
+        assert 1 <= header.region.height <= 2
+        assert header_row.region.height <= 2
+        assert "customer-onboarding-automation" in _rendered_static_text(header)
+        for selector in (
+            "#toggle-task-expanded",
+            "#toggle-activity-expanded",
+            "#execution-retry",
+        ):
+            button = screen.query_one(selector, Button)
+            assert button.region.x + button.region.width <= screen.size.width
+            assert (
+                button.region.y + button.region.height
+                <= header_row.region.y + header_row.region.height
+            )
+
+
+@pytest.mark.asyncio
 async def test_execution_matrix_retry_button_opens_retry_modal(tmp_path) -> None:
     snapshot = WorkflowNexusSnapshot(
         session_id="wf-retry-action",

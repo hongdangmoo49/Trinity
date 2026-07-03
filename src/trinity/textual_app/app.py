@@ -1186,12 +1186,18 @@ class TrinityTextualApp(App[None]):
     }
 
     #execution-header-row {
-        height: 1;
+        height: auto;
+        max-height: 2;
+        align-vertical: top;
     }
 
     #execution-header {
-        height: 1;
         width: 1fr;
+        min-height: 1;
+        height: auto;
+        max-height: 2;
+        overflow-y: auto;
+        content-align: left top;
         text-style: bold;
         color: $accent;
     }

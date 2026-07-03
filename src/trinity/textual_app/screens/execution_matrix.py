@@ -22,6 +22,7 @@ from trinity.textual_app.widgets.status_label import (
     display_status_value,
     is_no_peer_review_skip,
 )
+from trinity.textual_app.workspace_labels import compact_workspace_target
 from trinity.textual_app.widgets.work_package_detail_modal import WorkPackageDetailModal
 from trinity.textual_app.widgets.workspace_picker import WorkspacePreflight
 
@@ -1064,9 +1065,10 @@ class ExecutionMatrixScreen(Screen[None]):
                 f"{self._label('execution_matrix')} · "
                 f"{self._label('workspace')}: {self._label('not_selected')}"
             )
+        display_target = _compact_execution_header_target(target)
         return (
             f"{self._label('execution_matrix')} · "
-            f"{self._label('workspace')}: {target}"
+            f"{self._label('workspace')}: {display_target}"
         )
 
     def _target_workspace_text(self) -> str:
@@ -1413,6 +1415,18 @@ def _agent_short_label(agent: str) -> str:
         "codex": "codex",
     }
     return aliases.get(normalized, _clip(agent, 8))
+
+
+def _compact_execution_header_target(target: str) -> str:
+    clean = " ".join(str(target).split())
+    if len(clean) <= 120:
+        return clean
+    tail = clean.rstrip("/\\").replace("\\", "/").rsplit("/", 1)[-1]
+    suffix = f".../{tail}" if tail else "..."
+    max_chars = 48
+    if len(suffix) >= max_chars:
+        return compact_workspace_target(clean, max_chars=max_chars)
+    return f"{clean[: max_chars - len(suffix)]}{suffix}"
 
 
 def _clip(value: str, width: int) -> str:

@@ -294,6 +294,8 @@ class ProviderInspector(ModalScreen[None]):
         return "\n".join(lines)
 
     def _all_output(self) -> str:
+        if not self.providers:
+            return self._label("no_raw_output")
         sections: list[str] = []
         for provider in self.providers:
             sections.extend(

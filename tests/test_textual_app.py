@@ -11679,6 +11679,19 @@ async def test_provider_inspector_modal_uses_korean_chrome(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_provider_inspector_all_tab_handles_empty_provider_list(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.push_screen(ProviderInspector([], lang="ko"))
+        await pilot.pause()
+
+        output = app.screen.query_one("#inspect-all .provider-inspector-output", RichLog)
+        text = "\n".join(line.text for line in output.lines)
+        assert "아직 캡처된 원본 출력이 없습니다." in text
+
+
+@pytest.mark.asyncio
 async def test_provider_inspector_all_tab_wraps_long_output(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

@@ -420,7 +420,8 @@ class TrinityTextualApp(App[None]):
 
     .agent-recipient-selector {
         width: 100%;
-        height: auto;
+        height: 1;
+        min-height: 1;
         margin-top: 0;
         align-vertical: middle;
     }

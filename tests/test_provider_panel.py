@@ -330,7 +330,7 @@ def test_provider_panel_compacts_long_summary() -> None:
     assert provider_panel_summary_line(state).endswith("…")
 
 
-def test_provider_panel_shows_compact_model_context_and_session_metadata() -> None:
+def test_provider_panel_keeps_card_metadata_to_provider_and_model() -> None:
     state = ProviderPanelState(
         name="codex",
         provider="codex",
@@ -342,26 +342,20 @@ def test_provider_panel_shows_compact_model_context_and_session_metadata() -> No
         budget_source="local_cli_cache",
         session_id="019ea9e3-426f",
         output_contract="execution_v1",
+        quality_signal_count=3,
+        quality_success_count=2,
+        quality_score=0.667,
     )
-    assert provider_panel_provider_line(state) == (
-        "codex · gpt-5.5 · ctx 272K/local · sid 019ea9e3 · out execution_v1"
-    )
+    provider_line = provider_panel_provider_line(state)
+
+    assert provider_line == "codex · gpt-5.5"
+    assert "ctx" not in provider_line
+    assert "sid" not in provider_line
+    assert "out" not in provider_line
+    assert "q " not in provider_line
 
 
-def test_provider_panel_localizes_compact_source_metadata() -> None:
-    state = ProviderPanelState(
-        name="codex",
-        provider="codex",
-        enabled=True,
-        status="Ready",
-        actual_model="gpt-5.5",
-        context_window=272000,
-        budget_source="local_cli_cache",
-    )
-    assert "컨텍스트 272K/로컬" in provider_panel_provider_line(state, lang="ko")
-
-
-def test_provider_panel_localizes_korean_compact_metadata_labels() -> None:
+def test_provider_panel_keeps_korean_card_metadata_to_provider_and_model() -> None:
     state = ProviderPanelState(
         name="codex",
         provider="codex",
@@ -376,23 +370,13 @@ def test_provider_panel_localizes_korean_compact_metadata_labels() -> None:
         quality_success_count=2,
         quality_score=0.667,
     )
-    assert provider_panel_provider_line(state, lang="ko") == (
-        "codex · gpt-5.5 · 컨텍스트 272K/로컬 · 세션 019ea9e3 · "
-        "출력 실행 v1 · 품질 0.667 2/3"
-    )
+    provider_line = provider_panel_provider_line(state, lang="ko")
 
-
-def test_provider_panel_shows_compact_quality_signal_metadata() -> None:
-    state = ProviderPanelState(
-        name="codex",
-        provider="codex",
-        enabled=True,
-        status="Ready",
-        quality_signal_count=3,
-        quality_success_count=2,
-        quality_score=0.667,
-    )
-    assert provider_panel_provider_line(state) == "codex · q 0.667 2/3"
+    assert provider_line == "codex · gpt-5.5"
+    assert "컨텍스트" not in provider_line
+    assert "세션" not in provider_line
+    assert "출력" not in provider_line
+    assert "품질" not in provider_line
 
 
 def test_provider_panel_does_not_duplicate_snapshot_provider_model_label() -> None:
@@ -409,4 +393,4 @@ def test_provider_panel_does_not_duplicate_snapshot_provider_model_label() -> No
     provider_line = provider_panel_provider_line(state)
 
     assert provider_line.count("gpt-5.5") == 1
-    assert "ctx 272K/runtime" in provider_line
+    assert provider_line == "codex · gpt-5.5"

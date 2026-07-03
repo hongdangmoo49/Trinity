@@ -8,7 +8,6 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Static
 
-from trinity.display_labels import compact_source_value, display_profile_value
 from trinity.textual_app.widgets.status_label import (
     COMPACT_STATUS_LABELS,
     compact_status_group,
@@ -127,21 +126,6 @@ def provider_panel_provider_line(state: ProviderPanelState, *, lang: str = "en")
     model = _provider_panel_model_label(state)
     if model and model.lower() not in state.provider.lower():
         parts.append(model)
-    context = _provider_panel_context_label(state, lang=lang)
-    if context:
-        parts.append(context)
-    session = state.session_id.strip()
-    if session:
-        parts.append(f"{_provider_panel_meta_label('session', lang=lang)} {session[:8]}")
-    output_contract = state.output_contract.strip()
-    if output_contract:
-        parts.append(
-            f"{_provider_panel_meta_label('output', lang=lang)} "
-            f"{display_profile_value(output_contract, lang=lang)}"
-        )
-    quality = _provider_panel_quality_label(state, lang=lang)
-    if quality:
-        parts.append(quality)
     return _compact_provider_panel_line(" · ".join(part for part in parts if part))
 
 
@@ -151,73 +135,6 @@ def _provider_panel_model_label(state: ProviderPanelState) -> str:
         or state.model_label
         or state.configured_model
     ).strip()
-
-
-def _provider_panel_context_label(
-    state: ProviderPanelState,
-    *,
-    lang: str = "en",
-) -> str:
-    if state.context_window <= 0:
-        return ""
-    label = (
-        f"{_provider_panel_meta_label('context', lang=lang)} "
-        f"{_format_provider_panel_context_window(state.context_window)}"
-    )
-    source = compact_source_value(state.budget_source, lang=lang)
-    if source:
-        label = f"{label}/{source}"
-    return label
-
-
-def _provider_panel_quality_label(
-    state: ProviderPanelState,
-    *,
-    lang: str = "en",
-) -> str:
-    if state.quality_signal_count <= 0:
-        return ""
-    label = _provider_panel_meta_label("quality", lang=lang)
-    score = _format_provider_panel_score(state.quality_score)
-    return (
-        f"{label} {score} "
-        f"{state.quality_success_count}/{state.quality_signal_count}"
-    )
-
-
-def _provider_panel_meta_label(key: str, *, lang: str = "en") -> str:
-    labels = {
-        "ko": {
-            "context": "컨텍스트",
-            "output": "출력",
-            "quality": "품질",
-            "session": "세션",
-        },
-        "en": {
-            "context": "ctx",
-            "output": "out",
-            "quality": "q",
-            "session": "sid",
-        },
-    }
-    return labels.get(lang, labels["en"]).get(key, key)
-
-
-def _format_provider_panel_context_window(context_window: int) -> str:
-    if context_window >= 1_000_000:
-        value = context_window / 1_000_000
-        return f"{value:g}M"
-    if context_window >= 1_000:
-        value = context_window / 1_000
-        return f"{value:g}K"
-    return str(context_window)
-
-
-def _format_provider_panel_score(score: float) -> str:
-    text = f"{score:.3f}".rstrip("0").rstrip(".")
-    if text == "-0":
-        return "0"
-    return text or "0"
 
 
 class ProviderPanel(Vertical):

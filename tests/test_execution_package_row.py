@@ -89,6 +89,7 @@ async def test_execution_package_row_status_change_updates_only_status_field() -
                 assignee="codex",
                 executor="codex",
                 status="done",
+                status_group="done",
                 review_status="pending",
                 risk="low",
                 button_id="detail-WP-001",
@@ -107,6 +108,9 @@ async def test_execution_package_row_status_change_updates_only_status_field() -
             "risk": [],
         }
         assert child_queries == []
+        status = widgets["status"]
+        assert status.has_class("execution-status-done")
+        assert not status.has_class("execution-status-unknown")
 
 
 @pytest.mark.asyncio
@@ -145,6 +149,7 @@ async def test_execution_package_row_detail_button_updates_when_projection_chang
                 assignee="codex",
                 executor="codex",
                 status="running",
+                status_group="running",
                 review_status="pending",
                 risk="low",
                 button_id="detail-WP-001",
@@ -206,6 +211,7 @@ async def test_execution_package_row_recompose_rebinds_cached_widgets() -> None:
                 assignee="codex",
                 executor="codex",
                 status="done",
+                status_group="done",
                 review_status="pending",
                 risk="low",
                 button_id="detail-WP-001",

@@ -1276,6 +1276,25 @@ class TrinityTextualApp(App[None]):
         text-style: bold;
     }
 
+    .execution-status-running {
+        color: $accent;
+    }
+
+    .execution-status-waiting,
+    .execution-status-idle,
+    .execution-status-unknown {
+        color: $text-muted;
+    }
+
+    .execution-status-done {
+        color: $success;
+    }
+
+    .execution-status-issue {
+        color: $warning;
+        text-style: bold reverse;
+    }
+
     .execution-package-review {
         width: 18;
         color: $text-muted;

@@ -9683,6 +9683,20 @@ async def test_execution_matrix_renders_compact_status_labels(tmp_path) -> None:
             "IDLE",
             "?",
         ]
+        assert [status.has_class("execution-status-issue") for status in statuses] == [
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            True,
+            False,
+            False,
+        ]
+        assert statuses[5].has_class("execution-status-done")
+        assert not statuses[5].has_class("execution-status-issue")
 
 
 @pytest.mark.asyncio
@@ -9756,6 +9770,9 @@ async def test_execution_matrix_renders_korean_compact_status_labels(
             "휴식",
             "?",
         ]
+        assert statuses[2].has_class("execution-status-done")
+        assert statuses[3].has_class("execution-status-issue")
+        assert not statuses[3].has_class("execution-status-done")
 
 
 @pytest.mark.asyncio

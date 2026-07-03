@@ -17,6 +17,7 @@ from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.execution_log_modal import ExecutionLogModal
 from trinity.textual_app.widgets.status_label import (
+    compact_status_group,
     compact_status_label,
     display_status_value,
     is_no_peer_review_skip,
@@ -130,6 +131,7 @@ class _PackageRowProjection:
     assignee: str
     executor: str
     status: str
+    status_group: str
     review_status: str
     risk: str
     button_id: str
@@ -152,6 +154,7 @@ class _PackageRowProjection:
             self.assignee,
             self.executor,
             self.status,
+            self.status_group,
             self.review_status,
             self.risk,
             self.button_id,
@@ -214,6 +217,7 @@ class ExecutionPackageRow(Horizontal):
         review_label: str = "",
         review_enabled: bool = False,
         detail_enabled: bool = True,
+        status_group: str = "unknown",
         lang: str = "en",
     ) -> None:
         super().__init__(classes="execution-package-row")
@@ -222,6 +226,7 @@ class ExecutionPackageRow(Horizontal):
         self.assignee = assignee
         self.executor = executor
         self.status = status
+        self.status_group = status_group
         self.review_status = review_status
         self.risk = risk
         self.button_id = button_id
@@ -255,7 +260,7 @@ class ExecutionPackageRow(Horizontal):
                 )
                 status = Static(
                     _clip(self.status, 10),
-                    classes="execution-package-status",
+                    classes=f"execution-package-status execution-status-{self.status_group}",
                 )
                 self._static_cache[".execution-package-task"] = task
                 self._static_cache[".execution-package-executor"] = executor
@@ -341,6 +346,8 @@ class ExecutionPackageRow(Horizontal):
         self.assignee = projection.assignee
         self.executor = projection.executor
         self.status = projection.status
+        previous_status_group = self.status_group
+        self.status_group = projection.status_group
         self.review_status = projection.review_status
         self.risk = projection.risk
         self.button_id = projection.button_id
@@ -358,6 +365,8 @@ class ExecutionPackageRow(Horizontal):
         for selector, text in next_fields.items():
             if text != previous_fields[selector]:
                 self._static_for(selector).update(text)
+        if self.status_group != previous_status_group:
+            self._sync_status_class()
         if previous_detail != (
             self.button_id,
             self.button_label,
@@ -418,6 +427,11 @@ class ExecutionPackageRow(Horizontal):
                 18,
             ),
         }
+
+    def _sync_status_class(self) -> None:
+        status = self._static_for(".execution-package-status")
+        for group in ("running", "waiting", "idle", "done", "issue", "unknown"):
+            status.set_class(group == self.status_group, f"execution-status-{group}")
 
     def _static_for(self, selector: str) -> Static:
         widget = self._static_cache.get(selector)
@@ -914,6 +928,7 @@ class ExecutionMatrixScreen(Screen[None]):
                         package.status or "pending",
                         lang=self.lang,
                     ),
+                    status_group=compact_status_group(package.status or "pending"),
                     review_status=_review_label(package, self.lang),
                     risk=_risk_lane_label(package, self.lang),
                     button_id=f"wp-detail-{index}",
@@ -941,6 +956,7 @@ class ExecutionMatrixScreen(Screen[None]):
                     assignee=assignee,
                     executor="-",
                     status=compact_status_label(status, lang=self.lang),
+                    status_group=compact_status_group(status),
                     review_status="-",
                     risk=_label(self.lang, "unknown_risk"),
                     button_id=f"wp-detail-legacy-{index}",
@@ -958,6 +974,7 @@ class ExecutionMatrixScreen(Screen[None]):
             assignee=projection.assignee,
             executor=projection.executor,
             status=projection.status,
+            status_group=projection.status_group,
             review_status=projection.review_status,
             risk=projection.risk,
             button_id=projection.button_id,

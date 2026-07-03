@@ -1207,6 +1207,11 @@ class TrinityTextualApp(App[None]):
         margin-left: 1;
     }
 
+    #toggle-activity-expanded,
+    #execution-retry {
+        width: 16;
+    }
+
     #execution-summary {
         height: 1;
         margin-top: 1;

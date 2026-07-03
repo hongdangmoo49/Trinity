@@ -10509,7 +10509,22 @@ async def test_execution_matrix_viewport_qa_matrix_with_long_workspace(
                 "#execution-retry",
             ):
                 widget = screen.query_one(selector, Button)
+                assert widget.region.width == 16
                 assert widget.region.x + widget.region.width <= width
+            header_button_labels = {
+                "#toggle-task-expanded": "작업 펼치기",
+                "#toggle-activity-expanded": "전체 로그 13",
+                "#execution-retry": "재시도 1",
+            }
+            for selector, label in header_button_labels.items():
+                button = screen.query_one(selector, Button)
+                button_text = "\n".join(
+                    strip.text
+                    for strip in button.render_lines(
+                        Region(0, 0, button.region.width, button.region.height)
+                    )
+                )
+                assert label in button_text
 
             rows = list(screen.query("#execution-package-list .execution-package-row"))
             assert len(rows) == 2

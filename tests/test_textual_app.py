@@ -2085,6 +2085,32 @@ async def test_start_workspace_button_keeps_korean_label_visible_in_compact_dens
         assert "작업 폴더 선택" in screenshot
 
 
+@pytest.mark.asyncio
+async def test_start_workspace_button_stays_visible_with_command_palette_open(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        composer = start.query_one("#start-composer", PromptComposer)
+        composer.set_text("/")
+        await pilot.pause()
+
+        workspace_label = start.query_one("#workspace-candidate", Static)
+        select_workspace = start.query_one("#start-select-workspace", Static)
+        assert select_workspace.region.x > workspace_label.region.x
+        assert select_workspace.region.x + select_workspace.region.width <= start.size.width
+        assert str(select_workspace.content) == "작업 폴더 선택"
+        assert "작업 폴더 선택" in _rendered_static_text(select_workspace)
+        screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
+        assert "작업 폴더 선택" in screenshot
+
+
 @pytest.mark.parametrize(
     ("size", "geometry_visible"),
     [
@@ -12476,6 +12502,34 @@ async def test_nexus_action_bar_keeps_korean_workspace_label(tmp_path) -> None:
         TrinityConfig.default_config(project_dir=control_repo, lang="ko")
     )
     assert screen.workspace_label() == "대상 작업 폴더 없음"
+
+
+@pytest.mark.asyncio
+async def test_nexus_workspace_button_stays_visible_with_command_palette_open(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        composer = nexus.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/")
+        await pilot.pause()
+
+        workspace_label = nexus.query_one("#nexus-target-workspace", Static)
+        select_workspace = nexus.query_one("#nexus-select-workspace", Static)
+        assert select_workspace.region.x > workspace_label.region.x
+        assert select_workspace.region.x + select_workspace.region.width <= nexus.size.width
+        assert str(select_workspace.content) == "작업 폴더 선택"
+        assert "작업 폴더 선택" in _rendered_static_text(select_workspace)
+        screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
+        assert "작업 폴더 선택" in screenshot
 
 
 @pytest.mark.asyncio

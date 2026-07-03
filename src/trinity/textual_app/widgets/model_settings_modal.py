@@ -59,7 +59,9 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
     }
 
     #model-choice-header {
-        height: 3;
+        height: auto;
+        max-height: 4;
+        overflow-y: auto;
         color: $text-muted;
     }
 

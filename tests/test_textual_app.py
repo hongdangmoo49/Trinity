@@ -205,7 +205,9 @@ from trinity.textual_app.screens.execution_matrix import (
     ExecutionPackageRow,
     ExecutionMatrixScreen,
     _detail_button_label,
+    _risk_lane_label,
     _review_label,
+    _status_note_label,
 )
 from trinity.textual_app.screens.nexus import NexusScreen
 from trinity.textual_app.screens.report import (
@@ -10038,6 +10040,38 @@ def test_execution_matrix_compacts_reviewer_status_labels() -> None:
     )
 
 
+def test_execution_matrix_risk_lane_labels_include_status_notes() -> None:
+    retryable = WorkPackageSnapshot(
+        id="WP-001",
+        title="Retryable package",
+        owner_agent="codex",
+        status="failed",
+        risk="high",
+        retryable=True,
+    )
+    second_review = WorkPackageSnapshot(
+        id="WP-002",
+        title="Second review",
+        owner_agent="claude",
+        status="done",
+        review_status="needs_second_review",
+        risk="medium",
+    )
+    waiting = WorkPackageSnapshot(
+        id="WP-003",
+        title="Waiting package",
+        owner_agent="claude",
+        status="pending",
+        risk="low",
+    )
+
+    assert _status_note_label(retryable) == "retry"
+    assert _risk_lane_label(retryable) == "high retry"
+    assert _status_note_label(second_review, lang="ko") == "2차"
+    assert "2차" in _risk_lane_label(second_review, lang="ko")
+    assert _status_note_label(waiting) == "wait"
+
+
 @pytest.mark.asyncio
 async def test_execution_matrix_row_labels_no_peer_review_skip(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
@@ -10239,7 +10273,7 @@ async def test_execution_matrix_80_columns_keeps_review_risk_and_spec_visible(
         row = screen.query("#execution-package-list .execution-package-row").first()
         row_text = _widget_tree_text(row)
         assert "review: agy queued" in row_text
-        assert "risk: high" in row_text
+        assert "risk: high retry" in row_text
         assert "Spec" in row_text
         for widget in row.query(
             ".execution-package-review, .execution-package-risk, .execution-package-spec"

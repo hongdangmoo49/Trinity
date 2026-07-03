@@ -148,6 +148,10 @@ class StartScreen(Screen[None]):
                     yield Static(
                         self.label_text("select_workspace"),
                         id="start-select-workspace",
+                        classes=(
+                            "workspace-select-surface "
+                            "workspace-select-surface-tall"
+                        ),
                     )
         yield Footer()
 

@@ -1927,6 +1927,15 @@ async def test_start_workspace_label_stays_compact_with_long_path(
         )
 
 
+def _rendered_static_text(widget: Static) -> str:
+    return "\n".join(
+        strip.text
+        for strip in widget.render_lines(
+            Region(0, 0, widget.region.width, widget.region.height)
+        )
+    )
+
+
 @pytest.mark.asyncio
 async def test_start_workspace_button_keeps_korean_label_visible(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
@@ -1940,6 +1949,8 @@ async def test_start_workspace_button_keeps_korean_label_visible(tmp_path) -> No
         select_workspace = start.query_one("#start-select-workspace", Static)
 
         assert str(select_workspace.content) == "작업 폴더 선택"
+        assert select_workspace.has_class("workspace-select-surface")
+        assert select_workspace.has_class("workspace-select-surface-tall")
         assert select_workspace.styles.width.value == 28
         assert select_workspace.styles.min_width.value == 28
         assert select_workspace.styles.outline_top[0] == "tall"
@@ -1947,6 +1958,7 @@ async def test_start_workspace_button_keeps_korean_label_visible(tmp_path) -> No
         assert select_workspace.styles.outline_left[0] == "solid"
         assert select_workspace.styles.outline_right[0] == "solid"
         assert select_workspace.region.width >= 28
+        assert "작업 폴더 선택" in _rendered_static_text(select_workspace)
         screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
         assert "작업 폴더 선택" in screenshot
 
@@ -1968,23 +1980,14 @@ async def test_start_workspace_button_keeps_korean_label_visible_in_compact_dens
 
         assert app.has_class("ui-density-compact")
         assert str(select_workspace.content) == "작업 폴더 선택"
+        assert select_workspace.has_class("workspace-select-surface")
+        assert select_workspace.has_class("workspace-select-surface-tall")
         assert select_workspace.styles.height.value == 2
         assert select_workspace.styles.outline_top[0] == ""
         assert select_workspace.styles.outline_bottom[0] == ""
         assert select_workspace.styles.outline_left[0] == "solid"
         assert select_workspace.styles.outline_right[0] == "solid"
-        rendered = "\n".join(
-            strip.text
-            for strip in select_workspace.render_lines(
-                Region(
-                    0,
-                    0,
-                    select_workspace.region.width,
-                    select_workspace.region.height,
-                )
-            )
-        )
-        assert "작업 폴더 선택" in rendered
+        assert "작업 폴더 선택" in _rendered_static_text(select_workspace)
         screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
         assert "작업 폴더 선택" in screenshot
 
@@ -12249,9 +12252,12 @@ async def test_nexus_action_bar_keeps_korean_workspace_label(tmp_path) -> None:
         assert workspace_label.startswith("계획 대상: ")
         assert str(target.resolve()) in workspace_label
         assert str(select_workspace.content) == "작업 폴더 선택"
+        assert select_workspace.has_class("workspace-select-surface")
+        assert not select_workspace.has_class("workspace-select-surface-tall")
         assert select_workspace.styles.outline_left[0] == "solid"
         assert select_workspace.styles.outline_right[0] == "solid"
         assert select_workspace.region.width >= 28
+        assert "작업 폴더 선택" in _rendered_static_text(select_workspace)
         screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
         assert "작업 폴더 선택" in screenshot
         assert nexus.query_one("#nexus-composer", PromptComposer).placeholder == (

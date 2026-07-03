@@ -371,22 +371,24 @@ class ExecutionPackageRow(Horizontal):
             disabled = not self.detail_enabled
             if detail_button.disabled != disabled:
                 detail_button.disabled = disabled
-        if previous_retry != (
+        next_retry = (
             self.retry_enabled,
             self.retry_button_id,
             self.retry_label,
-        ):
+        )
+        if previous_retry != next_retry and (previous_retry[0] or next_retry[0]):
             self._sync_optional_button(
                 ".execution-package-retry",
                 enabled=self.retry_enabled,
                 button_id=self.retry_button_id,
                 label=self.retry_label,
             )
-        if previous_review != (
+        next_review = (
             self.review_enabled,
             self.review_button_id,
             self.review_label,
-        ):
+        )
+        if previous_review != next_review and (previous_review[0] or next_review[0]):
             self._sync_optional_button(
                 ".execution-package-review-action",
                 enabled=self.review_enabled,

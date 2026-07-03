@@ -1250,7 +1250,7 @@ class TrinityTextualApp(App[None]):
     }
 
     .execution-package-assignee {
-        width: 20;
+        width: 18;
         color: $text-muted;
     }
 
@@ -1264,17 +1264,17 @@ class TrinityTextualApp(App[None]):
     }
 
     .execution-package-review {
-        width: 22;
-        color: $text-muted;
-    }
-
-    .execution-package-risk {
         width: 18;
         color: $text-muted;
     }
 
-    .execution-package-actions {
+    .execution-package-risk {
         width: 16;
+        color: $text-muted;
+    }
+
+    .execution-package-actions {
+        width: 20;
         height: 1;
     }
 
@@ -1284,13 +1284,13 @@ class TrinityTextualApp(App[None]):
     }
 
     .execution-package-spec {
-        width: 5;
-        min-width: 5;
+        width: 6;
+        min-width: 6;
     }
 
     .execution-package-retry {
-        width: 5;
-        min-width: 5;
+        width: 8;
+        min-width: 8;
     }
 
     .execution-package-review-action {

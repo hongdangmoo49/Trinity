@@ -459,12 +459,14 @@ class TrinityTextualApp(App[None]):
     .workspace-select-surface {
         width: 28;
         min-width: 28;
-        height: 2;
+        height: 3;
         content-align: center middle;
         text-align: center;
         text-style: bold;
         color: $text;
         background: $surface;
+        outline-top: solid $surface-lighten-1;
+        outline-bottom: solid $surface-darken-1;
         outline-left: solid $surface-lighten-1;
         outline-right: solid $surface-darken-1;
         pointer: pointer;
@@ -477,6 +479,12 @@ class TrinityTextualApp(App[None]):
     }
 
     .ui-density-compact .workspace-select-surface-tall {
+        height: 2;
+        outline-top: none;
+        outline-bottom: none;
+    }
+
+    .ui-density-compact .workspace-select-surface {
         height: 2;
         outline-top: none;
         outline-bottom: none;
@@ -933,17 +941,22 @@ class TrinityTextualApp(App[None]):
 
     #nexus-workspace-row {
         width: 100%;
-        height: 2;
+        height: 3;
         align-vertical: middle;
     }
 
     #nexus-target-workspace {
         width: 1fr;
         min-width: 0;
-        height: 2;
+        height: 3;
         margin-right: 1;
         content-align: left middle;
         color: $text-muted;
+    }
+
+    .ui-density-compact #nexus-workspace-row,
+    .ui-density-compact #nexus-target-workspace {
+        height: 2;
     }
 
     #nexus-next-action {

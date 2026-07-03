@@ -1444,12 +1444,12 @@ class TrinityTextualApp(App[None]):
     }
 
     #report-header {
-        height: 4;
+        height: 5;
         margin-bottom: 1;
     }
 
     .ui-density-compact #report-header {
-        height: 3;
+        height: 4;
         margin-bottom: 0;
     }
 
@@ -1468,6 +1468,9 @@ class TrinityTextualApp(App[None]):
 
     #report-export-status {
         color: $text-muted;
+        height: auto;
+        max-height: 2;
+        overflow-y: auto;
     }
 
     #report-body {

@@ -178,7 +178,7 @@ class CentralAgentView(VerticalScroll):
         if snapshot is None:
             return (
                 f"**{self.label('progress')}:** {self.label('waiting')}\n\n"
-                f"{self.label('planning_no_workspace')}"
+                f"{self.label('empty_prompt')}"
             )
 
         lines = [f"**{self.label('progress')}:** {self._progress_line(snapshot)}"]
@@ -208,7 +208,7 @@ class CentralAgentView(VerticalScroll):
                     "",
                     self.label("waiting"),
                     "",
-                    self.label("planning_no_workspace"),
+                    self.label("empty_prompt"),
                 ]
             )
         self._append_work_package_overview(lines, snapshot)
@@ -642,7 +642,7 @@ class CentralAgentView(VerticalScroll):
             "next": "다음",
             "next_action": "다음 작업",
             "no_follow_up_items": "최종 리뷰에서 추가 작업 항목이 추출되지 않았습니다.",
-            "planning_no_workspace": "기획은 작업 폴더 없이 진행할 수 있습니다. 실행 시 작업 폴더를 선택합니다.",
+            "empty_prompt": "입력창에 목표나 작업을 한 줄로 적으세요.",
             "post_review_ready": "최종 리뷰 이후 보강 선택 대기",
             "provider_error_action": "프로바이더 오류 결정",
             "provider_error_retry": "실패 재시도",
@@ -707,7 +707,7 @@ class CentralAgentView(VerticalScroll):
             "next": "Next",
             "next_action": "Next action",
             "no_follow_up_items": "No action items were extracted from the final review.",
-            "planning_no_workspace": "Planning does not require a workspace. Execute will ask for one.",
+            "empty_prompt": "Type one goal or task in the composer.",
             "post_review_ready": "Post-review follow-up ready",
             "provider_error_action": "Provider error decision",
             "provider_error_retry": "Retry failed",

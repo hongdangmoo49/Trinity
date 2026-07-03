@@ -984,8 +984,11 @@ class TrinityTextualApp(App[None]):
 
     #nexus-next-action {
         width: 100%;
-        height: 1;
-        content-align: left middle;
+        min-height: 1;
+        height: auto;
+        max-height: 2;
+        overflow-y: auto;
+        content-align: left top;
         color: $text-muted;
         text-style: bold;
     }

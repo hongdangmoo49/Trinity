@@ -13679,6 +13679,51 @@ async def test_settings_preview_stays_bounded_on_small_terminals(tmp_path) -> No
 
 
 @pytest.mark.asyncio
+async def test_settings_korean_action_text_stays_visible_on_small_terminals(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(60, 20)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+        apply_button = screen.query_one("#apply-settings", Button)
+        status = screen.query_one("#settings-status", Static)
+
+        apply_text = "\n".join(
+            strip.text
+            for strip in apply_button.render_lines(
+                Region(0, 0, apply_button.region.width, apply_button.region.height)
+            )
+        )
+        saved_text = "\n".join(
+            strip.text
+            for strip in status.render_lines(
+                Region(0, 0, status.region.width, status.region.height)
+            )
+        )
+        assert "저장 및 적용" in apply_text
+        assert "저장됨" in saved_text
+        assert status.styles.min_width.value == 0
+
+        screen.query_one("#density", Select).value = "compact"
+        await pilot.pause()
+
+        unsaved_text = "\n".join(
+            strip.text
+            for strip in status.render_lines(
+                Region(0, 0, status.region.width, status.region.height)
+            )
+        )
+        assert "미저장 변경" in unsaved_text
+        assert "저장 및 적용" in unsaved_text
+
+
+@pytest.mark.asyncio
 async def test_settings_screen_applies_unicode_rendering_preference(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

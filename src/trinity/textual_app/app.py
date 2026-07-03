@@ -1088,6 +1088,7 @@ class TrinityTextualApp(App[None]):
 
     #settings-status {
         width: 1fr;
+        min-width: 0;
         height: 3;
         content-align: left middle;
         color: $text-muted;

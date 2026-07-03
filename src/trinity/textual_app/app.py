@@ -1034,6 +1034,17 @@ class TrinityTextualApp(App[None]):
         margin-bottom: 1;
     }
 
+    #settings-target-workspace {
+        width: 100%;
+        max-width: 96;
+        min-height: 1;
+        height: auto;
+        max-height: 2;
+        overflow-y: auto;
+        color: $text-muted;
+        margin-bottom: 1;
+    }
+
     .settings-section-title {
         text-style: bold;
         color: $warning;
@@ -1496,18 +1507,26 @@ class TrinityTextualApp(App[None]):
     }
 
     #report-header {
-        height: 5;
+        height: 6;
         margin-bottom: 1;
     }
 
     .ui-density-compact #report-header {
-        height: 4;
+        height: 5;
         margin-bottom: 0;
     }
 
     #report-title {
         text-style: bold;
         color: $accent;
+    }
+
+    #report-target-workspace {
+        min-height: 1;
+        height: auto;
+        max-height: 2;
+        overflow-y: auto;
+        color: $text-muted;
     }
 
     #report-export-btn {
@@ -1740,6 +1759,7 @@ class TrinityTextualApp(App[None]):
 
         self._screens_installed = True
         self._sync_nexus_workspace_candidate()
+        self._sync_settings_workspace_candidate()
 
     def _start_model_discovery(self) -> None:
         if self._model_discovery_started:
@@ -3636,6 +3656,13 @@ class TrinityTextualApp(App[None]):
             self.workspace_candidate,
         )
 
+    def _sync_settings_workspace_candidate(self) -> None:
+        if not self._screens_installed:
+            return
+        self.get_screen("settings", SettingsScreen).set_workspace_candidate(
+            self.workspace_candidate,
+        )
+
     def _safe_nexus_target_workspace(
         self,
         snapshot: WorkflowNexusSnapshot | None,
@@ -3664,6 +3691,7 @@ class TrinityTextualApp(App[None]):
             self.get_screen("start", StartScreen).set_workspace_candidate(path)
         if sync_nexus:
             self._sync_nexus_workspace_candidate()
+        self._sync_settings_workspace_candidate()
 
     def _handle_textual_resume_command(self, args: list[str]) -> None:
         action = resume_command_action(

@@ -33,6 +33,7 @@ from trinity.textual_app.widgets.status_label import (
     display_review_status_value,
     display_status_value,
 )
+from trinity.textual_app.workspace_labels import target_workspace_state_label
 
 if TYPE_CHECKING:
     from trinity.tui.report import DeliberationReport
@@ -170,21 +171,31 @@ class ReportScreen(Screen[None]):
         self._report: DeliberationReport | None = None
         self._applied_source_identity: tuple[str, int] | None = None
         self._export_status_key = ""
+        self._target_workspace_key = ""
         self._last_rendered_id: str = ""
         self._export_status_widget: Static | None = None
+        self._target_workspace_widget: Static | None = None
         self._body_widget: VerticalScroll | None = None
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
 
     def compose(self) -> ComposeResult:
         self._export_status_widget = None
+        self._target_workspace_widget = None
         self._body_widget = None
         self._export_status_key = ""
+        self._target_workspace_key = self._target_workspace_label()
         self._last_rendered_id = ""
         self._applied_source_identity = None
         yield Header(show_clock=False)
         with Vertical(id="report-screen"):
             with Vertical(id="report-header"):
                 yield Static(self._label("title"), id="report-title")
+                target_workspace = Static(
+                    self._target_workspace_label(),
+                    id="report-target-workspace",
+                )
+                self._target_workspace_widget = target_workspace
+                yield target_workspace
                 yield Button(
                     self._label("export"),
                     id="report-export-btn",
@@ -257,6 +268,7 @@ class ReportScreen(Screen[None]):
         if render_id == self._last_rendered_id:
             return
         self._last_rendered_id = render_id
+        self._refresh_target_workspace_label()
 
         body = self._report_body()
 
@@ -290,6 +302,33 @@ class ReportScreen(Screen[None]):
             return self._export_status_widget
         self._export_status_widget = self.query_one("#report-export-status", Static)
         return self._export_status_widget
+
+    def _refresh_target_workspace_label(self) -> None:
+        label = self._target_workspace_label()
+        if label == self._target_workspace_key:
+            return
+        self._target_workspace_static().update(label)
+        self._target_workspace_key = label
+
+    def _target_workspace_static(self) -> Static:
+        if self._target_workspace_widget is None:
+            self._target_workspace_widget = self.query_one(
+                "#report-target-workspace",
+                Static,
+            )
+        return self._target_workspace_widget
+
+    def _target_workspace_label(self) -> str:
+        target = ""
+        if self._report is not None:
+            target = self._report.target_workspace
+        elif self.snapshot is not None:
+            target = self.snapshot.target_workspace
+        return target_workspace_state_label(
+            target,
+            control_repo=None,
+            lang=self.lang,
+        )
 
     def _report_body(self) -> VerticalScroll:
         if self._body_widget is not None:

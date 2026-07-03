@@ -10585,7 +10585,8 @@ async def test_execution_log_modal_search_input_refreshes_log(tmp_path) -> None:
 
         modal = app.screen
         assert isinstance(modal, ExecutionLogModal)
-        await pilot.click("#execution-log-search")
+        search = modal.query_one("#execution-log-search", Input)
+        assert search.has_focus is True
         await pilot.press("f", "a", "i", "l")
         await pilot.pause()
 

@@ -95,7 +95,7 @@ async def test_execution_activity_log_reconciles_direct_append_with_snapshot() -
         await pilot.pause()
 
         assert clears == [True]
-        assert writes == ["Activity", "event-1"]
+        assert writes == ["Recent Log", "event-1"]
 
 
 @pytest.mark.asyncio

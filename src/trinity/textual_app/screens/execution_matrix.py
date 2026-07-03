@@ -1137,7 +1137,7 @@ class ExecutionMatrixScreen(Screen[None]):
         source = self._activity_source_lines()
         if not source:
             return [self._label("activity"), self._label("execution_not_started")]
-        lines = [self._label("activity")]
+        lines = [self._label("recent_log")]
         source_len = len(source)
         recent_start = max(0, source_len - 7)
         recent = [str(source[index]) for index in range(recent_start, source_len)]

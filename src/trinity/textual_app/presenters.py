@@ -716,15 +716,16 @@ NEXT_ACTION_LABELS = {
         "executing_current": "Executing",
         "planning_current": "Planning",
         "provider_error_current": "Provider error decision",
-        "provider_error_next": "choose retry, continue, or stop",
+        "provider_error_next": "central buttons: Retry failed / Continue without / Stop",
+        "provider_error_next_no_continue": "central buttons: Retry failed / Stop",
         "question_current": "Waiting for your answer ({count})",
         "question_next": "use the question panel or `/answer next <answer>`",
         "ready_current": "Ready",
         "ready_next": "type a follow-up or `/` for commands",
         "repair_current": "Review repair paused",
-        "repair_next": "choose retry, mark done, or stop",
+        "repair_next": "central buttons: Retry once / Mark done / Open review / Stop",
         "retry_current": "Execution recovery",
-        "retry_next": "run `/execute-retry`",
+        "retry_next": "central button: Retry failed WPs",
         "reviewing_current": "Reviewing",
         "reviewing_next": "wait for review or run `/review`",
         "running_next": "watch provider cards",
@@ -739,15 +740,16 @@ NEXT_ACTION_LABELS = {
         "executing_current": "실행 중",
         "planning_current": "계획 중",
         "provider_error_current": "프로바이더 오류 결정",
-        "provider_error_next": "재시도, 제외하고 계속, 중단 중 선택",
+        "provider_error_next": "중앙 버튼: 실패 재시도 / 제외하고 계속 / 중단",
+        "provider_error_next_no_continue": "중앙 버튼: 실패 재시도 / 중단",
         "question_current": "사용자 답변 대기 ({count})",
         "question_next": "질문 패널 또는 `/answer next <답변>`",
         "ready_current": "준비됨",
         "ready_next": "답변 입력 또는 `/` 명령",
         "repair_current": "리뷰 보정 일시 중지",
-        "repair_next": "재시도, 완료 처리, 중단 중 선택",
+        "repair_next": "중앙 버튼: 재시도 / 완료 처리 / 리뷰 보기 / 중단",
         "retry_current": "실행 복구",
-        "retry_next": "`/execute-retry` 실행",
+        "retry_next": "중앙 버튼: 실패 작업 재시도",
         "reviewing_current": "리뷰 중",
         "reviewing_next": "리뷰 완료 대기 또는 `/review`",
         "running_next": "프로바이더 카드 확인",
@@ -770,10 +772,16 @@ def nexus_next_action_line(
             next=labels["ready_next"],
         )
 
-    if provider_error_gate_options(snapshot):
+    provider_error_options = provider_error_gate_options(snapshot)
+    if provider_error_options:
+        next_key = (
+            "provider_error_next"
+            if "Continue without failed providers" in provider_error_options
+            else "provider_error_next_no_continue"
+        )
         return labels["line"].format(
             current=labels["provider_error_current"],
-            next=labels["provider_error_next"],
+            next=labels[next_key],
         )
 
     open_questions = [

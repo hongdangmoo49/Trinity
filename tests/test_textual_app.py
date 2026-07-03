@@ -1027,6 +1027,20 @@ def test_nexus_next_action_line_prioritizes_user_decisions() -> None:
             )
         ],
     )
+    provider_error_with_continue = WorkflowNexusSnapshot(
+        state="needs_user_decision",
+        questions=[
+            QuestionSnapshot(
+                id="q-provider-error-retry",
+                question="Retry failed provider?",
+                options=[
+                    "Retry failed providers",
+                    "Continue without failed providers",
+                    "Stop workflow",
+                ],
+            )
+        ],
+    )
     open_question = WorkflowNexusSnapshot(
         questions=[QuestionSnapshot(id="q-1", question="Proceed?")]
     )
@@ -1044,13 +1058,18 @@ def test_nexus_next_action_line_prioritizes_user_decisions() -> None:
     )
 
     assert nexus_next_action_line(provider_error) == (
-        "Now: Provider error decision | Next: choose retry, continue, or stop"
+        "Now: Provider error decision | Next: central buttons: Retry failed / Stop"
+    )
+    assert nexus_next_action_line(provider_error_with_continue, lang="ko") == (
+        "현재: 프로바이더 오류 결정 | 다음: "
+        "중앙 버튼: 실패 재시도 / 제외하고 계속 / 중단"
     )
     assert nexus_next_action_line(open_question, lang="ko") == (
         "현재: 사용자 답변 대기 (1) | 다음: 질문 패널 또는 `/answer next <답변>`"
     )
     assert nexus_next_action_line(repair_blocked, lang="ko") == (
-        "현재: 리뷰 보정 일시 중지 | 다음: 재시도, 완료 처리, 중단 중 선택"
+        "현재: 리뷰 보정 일시 중지 | 다음: "
+        "중앙 버튼: 재시도 / 완료 처리 / 리뷰 보기 / 중단"
     )
 
 
@@ -1074,7 +1093,7 @@ def test_nexus_next_action_line_guides_execution_states() -> None:
         "현재: 설계 준비됨 | 다음: `/execute` 실행"
     )
     assert nexus_next_action_line(retry_ready) == (
-        "Now: Execution recovery | Next: run `/execute-retry`"
+        "Now: Execution recovery | Next: central button: Retry failed WPs"
     )
     assert nexus_next_action_line(post_review_ready, lang="ko") == (
         "현재: 리뷰 후속 보강 준비 (1) | 다음: `/improve high` 또는 `/improve done`"

@@ -1366,12 +1366,50 @@ def _risk_lane_label(package: object, lang: str = "en") -> str:
         risk = _label(lang, "unknown_risk")
     else:
         risk = display_risk_value(risk, lang=lang)
+    note = _status_note_label(package, lang=lang)
+    if note:
+        risk = f"{risk} {note}"
     if not bool(getattr(package, "parallelizable", True)):
         return f"{risk} {_label(lang, 'serial_summary')}"
     group = getattr(package, "parallel_group", None)
     if group is None:
         return risk
     return f"{risk} g{group}"
+
+
+def _status_note_label(package: object, lang: str = "en") -> str:
+    labels = (
+        {
+            "retry": "재시도",
+            "second": "2차",
+            "review": "리뷰",
+            "issue": "문제",
+            "wait": "대기",
+        }
+        if lang == "ko"
+        else {
+            "retry": "retry",
+            "second": "2nd",
+            "review": "review",
+            "issue": "issue",
+            "wait": "wait",
+        }
+    )
+    if bool(getattr(package, "retryable", False)):
+        return labels["retry"]
+    review_status = str(getattr(package, "review_status", "") or "").strip().lower()
+    if review_status == "needs_second_review":
+        return labels["second"]
+    if _is_pending_review_package(package):
+        return labels["review"]
+    status = str(getattr(package, "status", "") or "").strip().lower()
+    if status in {"blocked", "failed", "interrupted"} or str(
+        getattr(package, "repair_blocked_reason", "") or ""
+    ).strip():
+        return labels["issue"]
+    if status in {"pending", "queued", "waiting"}:
+        return labels["wait"]
+    return ""
 
 
 def _execution_lane_label(package: object, lang: str = "en") -> str:

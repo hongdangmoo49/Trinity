@@ -109,6 +109,7 @@ from trinity.textual_app.presenters import (
     model_settings_title,
     model_settings_unavailable_markdown,
     model_settings_updated_markdown,
+    nexus_next_action_line,
     packages_action_hint,
     packages_markdown,
     packages_rows,
@@ -1012,6 +1013,72 @@ def test_textual_nexus_binding_label_is_localized() -> None:
 
 def test_slash_command_notification_title_uses_korean_label() -> None:
     assert slash_command_notification_title(lang="ko") == "슬래시 명령"
+
+
+def test_nexus_next_action_line_prioritizes_user_decisions() -> None:
+    provider_error = WorkflowNexusSnapshot(
+        state="blueprint_ready",
+        work_packages=["WP-001"],
+        questions=[
+            QuestionSnapshot(
+                id="q-provider-error-retry",
+                question="Retry failed provider?",
+                options=["Retry failed providers", "Stop"],
+            )
+        ],
+    )
+    open_question = WorkflowNexusSnapshot(
+        questions=[QuestionSnapshot(id="q-1", question="Proceed?")]
+    )
+    repair_blocked = WorkflowNexusSnapshot(
+        state="needs_user_decision",
+        work_package_details=[
+            WorkPackageSnapshot(
+                id="WP-001",
+                title="Implement",
+                owner_agent="codex",
+                status="blocked",
+                repair_blocked_reason="duplicate changes",
+            )
+        ],
+    )
+
+    assert nexus_next_action_line(provider_error) == (
+        "Now: Provider error decision | Next: choose retry, continue, or stop"
+    )
+    assert nexus_next_action_line(open_question, lang="ko") == (
+        "현재: 사용자 답변 대기 (1) | 다음: 질문 패널 또는 `/answer next <답변>`"
+    )
+    assert nexus_next_action_line(repair_blocked, lang="ko") == (
+        "현재: 리뷰 보정 일시 중지 | 다음: 재시도, 완료 처리, 중단 중 선택"
+    )
+
+
+def test_nexus_next_action_line_guides_execution_states() -> None:
+    blueprint_ready = WorkflowNexusSnapshot(
+        state="blueprint_ready",
+        work_packages=["WP-001"],
+    )
+    retry_ready = WorkflowNexusSnapshot(
+        execution_recovery=ExecutionRecoverySnapshot(
+            state="interrupted",
+            retry_candidates=("WP-001",),
+        )
+    )
+    post_review_ready = WorkflowNexusSnapshot(
+        state="post_review_ready",
+        post_review_items=[PostReviewActionSnapshot(id="AI-001", title="Polish UX")],
+    )
+
+    assert nexus_next_action_line(blueprint_ready, lang="ko") == (
+        "현재: 설계 준비됨 | 다음: `/execute` 실행"
+    )
+    assert nexus_next_action_line(retry_ready) == (
+        "Now: Execution recovery | Next: run `/execute-retry`"
+    )
+    assert nexus_next_action_line(post_review_ready, lang="ko") == (
+        "현재: 리뷰 후속 보강 준비 (1) | 다음: `/improve high` 또는 `/improve done`"
+    )
 
 
 def test_workflow_presenter_uses_korean_labels() -> None:
@@ -12087,6 +12154,7 @@ async def test_nexus_screen_stays_within_narrow_viewport(
             nexus.query_one("#nexus-workspace-row"),
             nexus.query_one("#nexus-target-workspace", Static),
             nexus.query_one("#nexus-select-workspace", Static),
+            nexus.query_one("#nexus-next-action", Static),
             nexus.query_one("#nexus-main"),
             nexus.query_one("#nexus-recipient-selector"),
             nexus.query_one("#nexus-composer", PromptComposer),
@@ -12099,6 +12167,44 @@ async def test_nexus_screen_stays_within_narrow_viewport(
                 widget.region.y + widget.region.height
                 <= nexus_shell.region.y + nexus_shell.region.height
             )
+
+
+@pytest.mark.asyncio
+async def test_nexus_next_action_strip_updates_with_snapshot(tmp_path) -> None:
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(
+            session_id="wf-fake",
+            state="blueprint_ready",
+            work_packages=["WP-001"],
+        )
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        controller,
+    )
+
+    async with app.run_test(size=(120, 36)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        next_action = nexus.query_one("#nexus-next-action", Static)
+        assert str(next_action.content) == "Now: Blueprint ready | Next: run `/execute`"
+        assert next_action.styles.height.value == 1
+
+        nexus.apply_snapshot(
+            WorkflowNexusSnapshot(
+                session_id="wf-fake",
+                questions=[QuestionSnapshot(id="q-1", question="Proceed?")],
+            )
+        )
+        await pilot.pause()
+
+        assert str(next_action.content) == (
+            "Now: Waiting for your answer (1) | Next: "
+            "use the question panel or `/answer next <answer>`"
+        )
 
 
 @pytest.mark.asyncio

@@ -707,6 +707,127 @@ def provider_error_gate_options(snapshot: WorkflowNexusSnapshot) -> set[str]:
     return set()
 
 
+NEXT_ACTION_LABELS = {
+    "en": {
+        "line": "Now: {current} | Next: {next}",
+        "blueprint_current": "Blueprint ready",
+        "blueprint_next": "run `/execute`",
+        "default_next": "reply, adjust direction, or type `/`",
+        "executing_current": "Executing",
+        "planning_current": "Planning",
+        "provider_error_current": "Provider error decision",
+        "provider_error_next": "choose retry, continue, or stop",
+        "question_current": "Waiting for your answer ({count})",
+        "question_next": "use the question panel or `/answer next <answer>`",
+        "ready_current": "Ready",
+        "ready_next": "type a follow-up or `/` for commands",
+        "repair_current": "Review repair paused",
+        "repair_next": "choose retry, mark done, or stop",
+        "retry_current": "Execution recovery",
+        "retry_next": "run `/execute-retry`",
+        "reviewing_current": "Reviewing",
+        "reviewing_next": "wait for review or run `/review`",
+        "running_next": "watch provider cards",
+        "post_review_current": "Post-review follow-up ready ({count})",
+        "post_review_next": "run `/improve high` or `/improve done`",
+    },
+    "ko": {
+        "line": "현재: {current} | 다음: {next}",
+        "blueprint_current": "설계 준비됨",
+        "blueprint_next": "`/execute` 실행",
+        "default_next": "답변 입력, 방향 조정 또는 `/` 명령",
+        "executing_current": "실행 중",
+        "planning_current": "계획 중",
+        "provider_error_current": "프로바이더 오류 결정",
+        "provider_error_next": "재시도, 제외하고 계속, 중단 중 선택",
+        "question_current": "사용자 답변 대기 ({count})",
+        "question_next": "질문 패널 또는 `/answer next <답변>`",
+        "ready_current": "준비됨",
+        "ready_next": "답변 입력 또는 `/` 명령",
+        "repair_current": "리뷰 보정 일시 중지",
+        "repair_next": "재시도, 완료 처리, 중단 중 선택",
+        "retry_current": "실행 복구",
+        "retry_next": "`/execute-retry` 실행",
+        "reviewing_current": "리뷰 중",
+        "reviewing_next": "리뷰 완료 대기 또는 `/review`",
+        "running_next": "프로바이더 카드 확인",
+        "post_review_current": "리뷰 후속 보강 준비 ({count})",
+        "post_review_next": "`/improve high` 또는 `/improve done`",
+    },
+}
+
+
+def nexus_next_action_line(
+    snapshot: WorkflowNexusSnapshot | None,
+    *,
+    lang: str = "en",
+) -> str:
+    """Return the one-line Nexus current state and next action."""
+    labels = NEXT_ACTION_LABELS.get(lang, NEXT_ACTION_LABELS["en"])
+    if snapshot is None:
+        return labels["line"].format(
+            current=labels["ready_current"],
+            next=labels["ready_next"],
+        )
+
+    if provider_error_gate_options(snapshot):
+        return labels["line"].format(
+            current=labels["provider_error_current"],
+            next=labels["provider_error_next"],
+        )
+
+    open_questions = [
+        question
+        for question in snapshot.questions
+        if not question.answer and question.status != "answered"
+    ]
+    if open_questions:
+        return labels["line"].format(
+            current=labels["question_current"].format(count=len(open_questions)),
+            next=labels["question_next"],
+        )
+
+    if should_show_repair_actions(snapshot):
+        return labels["line"].format(
+            current=labels["repair_current"],
+            next=labels["repair_next"],
+        )
+    if should_show_execution_retry_action(snapshot):
+        return labels["line"].format(
+            current=labels["retry_current"],
+            next=labels["retry_next"],
+        )
+    if should_show_blueprint_actions(snapshot):
+        return labels["line"].format(
+            current=labels["blueprint_current"],
+            next=labels["blueprint_next"],
+        )
+    if snapshot.state == "post_review_ready":
+        return labels["line"].format(
+            current=labels["post_review_current"].format(
+                count=len(snapshot.post_review_items)
+            ),
+            next=labels["post_review_next"],
+        )
+    if snapshot.state == "reviewing":
+        return labels["line"].format(
+            current=labels["reviewing_current"],
+            next=labels["reviewing_next"],
+        )
+    if snapshot.state in {"preflight", "deliberating", "executing"}:
+        current_key = (
+            "executing_current" if snapshot.state == "executing" else "planning_current"
+        )
+        return labels["line"].format(
+            current=labels[current_key],
+            next=labels["running_next"],
+        )
+    return labels["line"].format(
+        current=_status_value(snapshot.state, lang=lang),
+        next=labels["default_next"],
+    )
+
+
 def review_repair_blocked_ids(snapshot: WorkflowNexusSnapshot) -> tuple[str, ...]:
     package_ids: list[str] = []
     seen: set[str] = set()

@@ -148,6 +148,14 @@ class FakeExecutionReviewOrchestrator(FakeReviewOrchestrator):
         ]
 
 
+class CapturingExecutionReviewOrchestrator(FakeExecutionReviewOrchestrator):
+    calls: list[dict[str, object]] = []
+
+    def __init__(self, *args, **kwargs) -> None:
+        type(self).calls.append(dict(kwargs))
+        super().__init__(*args, **kwargs)
+
+
 class FakeRepairReviewOrchestrator(FakeReviewOrchestrator):
     review_calls = 0
 
@@ -765,6 +773,41 @@ def test_textual_workflow_controller_requests_workspace_before_execution(tmp_pat
     assert controller.workflow.state == WorkflowState.BLUEPRINT_READY
 
 
+def test_textual_workflow_controller_passes_target_workspace_to_execution(
+    tmp_path,
+) -> None:
+    CapturingExecutionReviewOrchestrator.calls = []
+    control_repo = tmp_path / "control"
+    target = tmp_path / "selected-app"
+    control_repo.mkdir()
+    target.mkdir()
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("선택한 프로젝트를 구현해줘", ["claude", "codex"])
+    workflow.session.blueprint = Blueprint(
+        title="Selected app",
+        summary="Build the selected app.",
+        acceptance_criteria=["runs in the selected workspace"],
+    )
+    workflow.set_target_workspace(target)
+    workflow.set_state(WorkflowState.BLUEPRINT_READY, reason="test blueprint ready")
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=CapturingExecutionReviewOrchestrator,
+        archive_active_session=False,
+    )
+
+    outcome = controller.request_execution()
+
+    assert outcome.running is True
+    assert controller.wait_until_idle(timeout=2.0)
+    assert CapturingExecutionReviewOrchestrator.calls
+    call = CapturingExecutionReviewOrchestrator.calls[0]
+    assert call["target_workspace"] == target.resolve()
+    assert call["allow_control_repo_writes"] is False
+
+
 def test_textual_workflow_controller_runs_review_all(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     workflow = WorkflowEngine(config.effective_state_dir)
@@ -808,6 +851,55 @@ def test_textual_workflow_controller_runs_review_all(tmp_path) -> None:
         ReviewStatus.APPROVED,
         ReviewStatus.APPROVED,
     ]
+
+
+def test_textual_workflow_controller_passes_target_workspace_to_review(
+    tmp_path,
+) -> None:
+    CapturingExecutionReviewOrchestrator.calls = []
+    control_repo = tmp_path / "control"
+    target = tmp_path / "selected-app"
+    control_repo.mkdir()
+    target.mkdir()
+    config = TrinityConfig.default_config(project_dir=control_repo)
+    workflow = WorkflowEngine(config.effective_state_dir)
+    workflow.start("선택한 프로젝트를 검토해줘", ["claude", "codex"])
+    workflow.session.work_packages = [
+        WorkPackage(
+            id="WP-001",
+            title="client",
+            owner_agent="claude",
+            objective="Build client.",
+            status=WorkStatus.RUNNING,
+        )
+    ]
+    workflow.set_target_workspace(target)
+    workflow.begin_execution()
+    workflow.record_execution_results(
+        [
+            ExecutionResult(
+                package_id="WP-001",
+                agent_name="claude",
+                status=WorkStatus.DONE,
+                summary="Implemented client.",
+            )
+        ]
+    )
+    controller = TextualWorkflowController(
+        config,
+        workflow=workflow,
+        orchestrator_factory=CapturingExecutionReviewOrchestrator,
+        archive_active_session=False,
+    )
+
+    outcome = controller.request_review(["all"])
+
+    assert outcome.running is True
+    assert controller.wait_until_idle(timeout=2.0)
+    assert CapturingExecutionReviewOrchestrator.calls
+    call = CapturingExecutionReviewOrchestrator.calls[-1]
+    assert call["target_workspace"] == target.resolve()
+    assert call["allow_control_repo_writes"] is False
 
 
 def test_textual_workflow_controller_keeps_review_package_events_capped(

@@ -642,6 +642,14 @@ class TrinityTextualApp(App[None]):
         border: heavy $warning;
     }
 
+    #central-agent.central-provider-error {
+        border: heavy $error;
+    }
+
+    #central-agent.central-provider-error #central-action-title {
+        color: $error;
+    }
+
     #nexus-main {
         height: 1fr;
         margin: 0;

@@ -12671,7 +12671,8 @@ async def test_nexus_next_action_strip_updates_with_snapshot(tmp_path) -> None:
         assert isinstance(nexus, NexusScreen)
         next_action = nexus.query_one("#nexus-next-action", Static)
         assert str(next_action.content) == "Now: Blueprint ready | Next: run `/execute`"
-        assert next_action.styles.height.value == 1
+        assert next_action.styles.min_height.value == 1
+        assert next_action.styles.max_height.value == 2
 
         nexus.apply_snapshot(
             WorkflowNexusSnapshot(
@@ -12685,6 +12686,47 @@ async def test_nexus_next_action_strip_updates_with_snapshot(tmp_path) -> None:
             "Now: Waiting for your answer (1) | Next: "
             "use the question panel or `/answer next <answer>`"
         )
+
+
+@pytest.mark.asyncio
+async def test_nexus_next_action_strip_wraps_long_korean_hint(tmp_path) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        next_action = nexus.query_one("#nexus-next-action", Static)
+        nexus.apply_snapshot(
+            WorkflowNexusSnapshot(
+                session_id="wf-fake",
+                questions=[
+                    QuestionSnapshot(
+                        id="q-provider-error-retry",
+                        question="Retry failed provider?",
+                        options=[
+                            "Retry failed providers",
+                            "Continue without failed providers",
+                            "Stop workflow",
+                        ],
+                    )
+                ],
+            )
+        )
+        await pilot.pause()
+
+        assert str(next_action.content) == (
+            "현재: 프로바이더 오류 결정 | 다음: "
+            "중앙 버튼: 실패 재시도 / 제외하고 계속 / 중단"
+        )
+        assert 1 <= next_action.region.height <= 2
+        rendered = _rendered_static_text(next_action)
+        assert "프로바이더 오류 결정" in rendered
+        assert "중앙 버튼" in rendered
 
 
 @pytest.mark.asyncio

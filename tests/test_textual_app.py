@@ -2266,6 +2266,62 @@ async def test_nexus_command_palette_keyboard_selection_stays_visible(
 
 
 @pytest.mark.asyncio
+async def test_nexus_workspace_button_keeps_korean_label_visible(tmp_path) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        workspace_label = screen.query_one("#nexus-target-workspace", Static)
+        select_workspace = screen.query_one("#nexus-select-workspace", Static)
+
+        assert str(select_workspace.content) == "작업 폴더 선택"
+        assert select_workspace.has_class("workspace-select-surface")
+        assert select_workspace.styles.width.value == 28
+        assert select_workspace.styles.min_width.value == 28
+        assert select_workspace.styles.outline_left[0] == "solid"
+        assert select_workspace.styles.outline_right[0] == "solid"
+        assert select_workspace.region.x > workspace_label.region.x
+        assert select_workspace.region.x + select_workspace.region.width <= screen.size.width
+        assert "작업 폴더 선택" in _rendered_static_text(select_workspace)
+        screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
+        assert "작업 폴더 선택" in screenshot
+
+
+@pytest.mark.asyncio
+async def test_nexus_workspace_button_stays_visible_with_command_palette_open(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        composer = screen.query_one("#nexus-composer", PromptComposer)
+        composer.set_text("/")
+        await pilot.pause()
+
+        workspace_label = screen.query_one("#nexus-target-workspace", Static)
+        select_workspace = screen.query_one("#nexus-select-workspace", Static)
+        assert select_workspace.region.x > workspace_label.region.x
+        assert select_workspace.region.x + select_workspace.region.width <= screen.size.width
+        assert str(select_workspace.content) == "작업 폴더 선택"
+        assert "작업 폴더 선택" in _rendered_static_text(select_workspace)
+        screenshot = html.unescape(app.export_screenshot()).replace("\xa0", " ")
+        assert "작업 폴더 선택" in screenshot
+
+
+@pytest.mark.asyncio
 async def test_nexus_command_palette_stays_visible_after_terminal_resize(
     tmp_path,
 ) -> None:

@@ -17,6 +17,7 @@ from trinity.textual_app.settings import (
     UISettings,
     UISettingsStore,
 )
+from trinity.textual_app.workspace_labels import target_workspace_state_label
 
 
 class SettingsScreen(Screen[None]):
@@ -48,11 +49,13 @@ class SettingsScreen(Screen[None]):
         config: TrinityConfig,
         *,
         lang: str = "en",
+        workspace_candidate: object | None = None,
     ) -> None:
         super().__init__(name="settings")
         self.settings_store = settings_store
         self.config = config
         self.lang = lang
+        self.workspace_candidate = workspace_candidate
         localize_bindings(self._bindings, self.lang, self.LOCALIZED_BINDINGS)
         self.settings = settings_store.load()
         self._preview_render_key: str | None = None
@@ -64,6 +67,8 @@ class SettingsScreen(Screen[None]):
         self._central_provider_value = config.synthesis_agent or "auto"
         self._select_events_ready = False
         self._pending_select_values: dict[str, str] = {}
+        self._workspace_label_key = self._workspace_label()
+        self._workspace_label_widget: Static | None = None
         self._persisted_agent_enabled = {
             name: bool(spec.enabled)
             for name, spec in config.agents.items()
@@ -83,13 +88,21 @@ class SettingsScreen(Screen[None]):
         self._select_cache = {}
         self._preview_widget = None
         self._status_widget = None
+        self._workspace_label_widget = None
         self._status_key = ""
+        self._workspace_label_key = self._workspace_label()
         self._central_provider_value = central_provider
         self._select_events_ready = False
         yield Header(show_clock=False)
         with Vertical(id="settings-screen"):
             with VerticalScroll(id="settings-form"):
                 yield Static(self._label("settings"), id="settings-title")
+                workspace_label = Static(
+                    self._workspace_label(),
+                    id="settings-target-workspace",
+                )
+                self._workspace_label_widget = workspace_label
+                yield workspace_label
                 yield Static(self._label("appearance"), classes="settings-section-title")
                 yield Static(
                     self._label("appearance_scope"),
@@ -212,6 +225,16 @@ class SettingsScreen(Screen[None]):
     def _enable_select_events(self) -> None:
         self._select_events_ready = True
 
+    def set_workspace_candidate(self, path: object | None) -> None:
+        next_candidate = str(path or "")
+        if next_candidate == str(self.workspace_candidate or ""):
+            return
+        self.workspace_candidate = path
+        if not self.is_mounted:
+            self._workspace_label_key = self._workspace_label()
+            return
+        self._refresh_workspace_label()
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "apply-settings":
             event.stop()
@@ -301,6 +324,13 @@ class SettingsScreen(Screen[None]):
             )
         self._set_preview_text(self.preview_text())
         self._sync_saved_status()
+
+    def _refresh_workspace_label(self) -> None:
+        label = self._workspace_label()
+        if label == self._workspace_label_key:
+            return
+        self._workspace_label_static().update(label)
+        self._workspace_label_key = label
 
     def action_apply(self) -> None:
         previous_models = {
@@ -452,6 +482,21 @@ class SettingsScreen(Screen[None]):
             return self._status_widget
         self._status_widget = self.query_one("#settings-status", Static)
         return self._status_widget
+
+    def _workspace_label_static(self) -> Static:
+        if self._workspace_label_widget is None:
+            self._workspace_label_widget = self.query_one(
+                "#settings-target-workspace",
+                Static,
+            )
+        return self._workspace_label_widget
+
+    def _workspace_label(self) -> str:
+        return target_workspace_state_label(
+            self.workspace_candidate,
+            control_repo=self.config.project_dir,
+            lang=self.lang,
+        )
 
     def _select_options(
         self,

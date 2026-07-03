@@ -3052,6 +3052,32 @@ async def test_report_screen_uses_korean_chrome_labels(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_report_header_shows_snapshot_target_workspace(tmp_path) -> None:
+    target = tmp_path / "target-app"
+    target.mkdir()
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    )
+    app.active_snapshot = WorkflowNexusSnapshot(
+        session_id="wf-target-report",
+        target_workspace=str(target),
+    )
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("report")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, ReportScreen)
+        label = screen.query_one("#report-target-workspace", Static)
+
+        assert "계획 대상" in str(label.content)
+        assert str(target) in str(label.content)
+        assert label.styles.max_height.value == 2
+        assert str(label.styles.overflow_y) == "auto"
+
+
+@pytest.mark.asyncio
 async def test_report_screen_snapshot_uses_korean_body_labels(tmp_path) -> None:
     snapshot = WorkflowNexusSnapshot(
         session_id="wf-ko-report",
@@ -13877,7 +13903,7 @@ async def test_settings_visual_preferences_reach_workbench_surfaces(
         report = app.screen
         assert isinstance(report, ReportScreen)
         assert report.query_one("#report-screen").styles.padding.top == 0
-        assert report.query_one("#report-header").styles.height.value == 4
+        assert report.query_one("#report-header").styles.height.value == 5
         assert report.query_one("#report-header").styles.margin.bottom == 0
         assert report.query_one("#report-title").styles.color == truecolor
         assert report.query_one("#report-body").styles.border_top[1] == truecolor
@@ -13952,6 +13978,35 @@ async def test_settings_scope_hints_explain_impact_in_korean(tmp_path) -> None:
             assert hint.styles.max_height.value == 2
             assert str(hint.styles.overflow_y) == "auto"
             assert _rendered_static_text(hint).strip()
+
+
+@pytest.mark.asyncio
+async def test_settings_header_follows_workspace_candidate(tmp_path) -> None:
+    control_repo = tmp_path / "control"
+    launch_target = tmp_path / "launch-target"
+    selected_target = tmp_path / "selected-target"
+    control_repo.mkdir()
+    launch_target.mkdir()
+    selected_target.mkdir()
+    config = TrinityConfig.default_config(project_dir=control_repo, lang="ko")
+    app = TrinityTextualApp(config, launch_cwd=launch_target)
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        label = screen.query_one("#settings-target-workspace", Static)
+        assert "계획 대상" in str(label.content)
+        assert str(launch_target.resolve()) in str(label.content)
+        assert label.styles.max_height.value == 2
+        assert str(label.styles.overflow_y) == "auto"
+
+        app._set_workspace_candidate(selected_target.resolve(), sync_start=True)
+        await pilot.pause()
+
+        assert str(selected_target.resolve()) in str(label.content)
 
 
 @pytest.mark.asyncio

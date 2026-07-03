@@ -46,7 +46,12 @@ def workbench_screen_specs(
         WorkbenchScreenSpec("nexus", NexusScreen(config)),
         WorkbenchScreenSpec(
             "settings",
-            SettingsScreen(settings_store, config, lang=config.lang),
+            SettingsScreen(
+                settings_store,
+                config,
+                lang=config.lang,
+                workspace_candidate=workspace_candidate,
+            ),
         ),
         WorkbenchScreenSpec(
             "execution",

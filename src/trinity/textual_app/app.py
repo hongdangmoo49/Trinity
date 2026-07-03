@@ -978,6 +978,11 @@ class TrinityTextualApp(App[None]):
         padding: 1 2;
     }
 
+    #settings-form {
+        width: 100%;
+        height: 1fr;
+    }
+
     #settings-title {
         text-style: bold;
         color: $accent;
@@ -1031,6 +1036,27 @@ class TrinityTextualApp(App[None]):
         max-height: 10;
         margin-top: 0;
         padding: 0 1;
+    }
+
+    #settings-actions {
+        width: 100%;
+        max-width: 96;
+        height: 3;
+        margin-top: 1;
+        align-vertical: middle;
+    }
+
+    #apply-settings {
+        min-width: 16;
+        height: 3;
+        margin-right: 1;
+    }
+
+    #settings-status {
+        width: 1fr;
+        height: 3;
+        content-align: left middle;
+        color: $text-muted;
     }
 
     WorkspacePicker {

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Label, Select, Static
@@ -87,99 +87,101 @@ class SettingsScreen(Screen[None]):
         self._central_provider_value = central_provider
         self._select_events_ready = False
         yield Header(show_clock=False)
-        with VerticalScroll(id="settings-screen"):
-            yield Static(self._label("settings"), id="settings-title")
-            yield Static(self._label("appearance"), classes="settings-section-title")
-            with Horizontal(classes="settings-row"):
-                yield Label(self._label("theme_mode"))
-                yield self._select(
-                    "theme-mode",
-                    ["dark", "light"],
-                    pending_values.get("theme-mode", self.settings.theme_mode),
-                )
-            with Horizontal(classes="settings-row"):
-                yield Label(self._label("color_profile"))
-                yield self._select(
-                    "color-profile",
-                    ["default", "truecolor", "256color", "ascii-safe"],
-                    pending_values.get("color-profile", self.settings.color_profile),
-                )
-            with Horizontal(classes="settings-row"):
-                yield Label(self._label("density"))
-                yield self._select(
-                    "density",
-                    ["comfortable", "compact"],
-                    pending_values.get("density", self.settings.density),
-                )
-            with Horizontal(classes="settings-row"):
-                yield Label(self._label("motion"))
-                yield self._select(
-                    "motion",
-                    ["normal", "reduced"],
-                    pending_values.get("motion", self.settings.motion),
-                )
-            with Horizontal(classes="settings-row"):
-                yield Label(self._label("unicode"))
-                yield self._select(
-                    "unicode-rendering",
-                    ["ascii", "unicode"],
-                    pending_values.get(
-                        "unicode-rendering",
-                        self.settings.unicode_rendering,
-                    ),
-                )
-            yield Static(self._label("agent_models"), classes="settings-section-title")
-            for name, spec in self.config.agents.items():
+        with Vertical(id="settings-screen"):
+            with VerticalScroll(id="settings-form"):
+                yield Static(self._label("settings"), id="settings-title")
+                yield Static(self._label("appearance"), classes="settings-section-title")
                 with Horizontal(classes="settings-row"):
-                    yield Label(
-                        self._agent_label_with_state(name),
-                        id=f"model-label-{name}",
-                    )
+                    yield Label(self._label("theme_mode"))
                     yield self._select(
-                        f"model-{name}",
-                        self._agent_model_values(name, spec.provider, spec.model),
-                        pending_values.get(f"model-{name}", spec.model or "default"),
-                        disabled=not spec.enabled,
+                        "theme-mode",
+                        ["dark", "light"],
+                        pending_values.get("theme-mode", self.settings.theme_mode),
                     )
-            yield Static(self._label("central_agent"), classes="settings-section-title")
-            with Horizontal(classes="settings-row"):
-                yield Label(self._label("central_provider"))
-                yield self._select(
-                    "central-provider",
-                    self._central_provider_values(),
-                    central_provider,
-                )
-            with Horizontal(classes="settings-row"):
-                yield Label(self._label("central_model"))
-                yield self._select(
-                    "central-model",
-                    self._central_model_values(
+                with Horizontal(classes="settings-row"):
+                    yield Label(self._label("color_profile"))
+                    yield self._select(
+                        "color-profile",
+                        ["default", "truecolor", "256color", "ascii-safe"],
+                        pending_values.get("color-profile", self.settings.color_profile),
+                    )
+                with Horizontal(classes="settings-row"):
+                    yield Label(self._label("density"))
+                    yield self._select(
+                        "density",
+                        ["comfortable", "compact"],
+                        pending_values.get("density", self.settings.density),
+                    )
+                with Horizontal(classes="settings-row"):
+                    yield Label(self._label("motion"))
+                    yield self._select(
+                        "motion",
+                        ["normal", "reduced"],
+                        pending_values.get("motion", self.settings.motion),
+                    )
+                with Horizontal(classes="settings-row"):
+                    yield Label(self._label("unicode"))
+                    yield self._select(
+                        "unicode-rendering",
+                        ["ascii", "unicode"],
+                        pending_values.get(
+                            "unicode-rendering",
+                            self.settings.unicode_rendering,
+                        ),
+                    )
+                yield Static(self._label("agent_models"), classes="settings-section-title")
+                for name, spec in self.config.agents.items():
+                    with Horizontal(classes="settings-row"):
+                        yield Label(
+                            self._agent_label_with_state(name),
+                            id=f"model-label-{name}",
+                        )
+                        yield self._select(
+                            f"model-{name}",
+                            self._agent_model_values(name, spec.provider, spec.model),
+                            pending_values.get(f"model-{name}", spec.model or "default"),
+                            disabled=not spec.enabled,
+                        )
+                yield Static(self._label("central_agent"), classes="settings-section-title")
+                with Horizontal(classes="settings-row"):
+                    yield Label(self._label("central_provider"))
+                    yield self._select(
+                        "central-provider",
+                        self._central_provider_values(),
+                        central_provider,
+                    )
+                with Horizontal(classes="settings-row"):
+                    yield Label(self._label("central_model"))
+                    yield self._select(
+                        "central-model",
+                        self._central_model_values(
+                            pending_values.get(
+                                "central-model",
+                                self.config.synthesis_model or "agent-default",
+                            ),
+                            central_provider,
+                        ),
                         pending_values.get(
                             "central-model",
                             self.config.synthesis_model or "agent-default",
                         ),
-                        central_provider,
-                    ),
-                    pending_values.get(
-                        "central-model",
-                        self.config.synthesis_model or "agent-default",
-                    ),
-                )
-            preview_text = self.preview_text()
-            self._preview_render_key = preview_text
-            preview = Static(preview_text, id="settings-summary")
-            self._preview_widget = preview
-            yield preview
-            yield Button(self._label("apply"), id="apply-settings", variant="primary")
+                    )
+                preview_text = self.preview_text()
+                self._preview_render_key = preview_text
+                preview = Static(preview_text, id="settings-summary")
+                self._preview_widget = preview
+                yield preview
             status_text = (
                 self._label("unsaved_changes")
                 if pending_values
                 else self._label("saved")
             )
             self._status_key = status_text
-            status = Static(status_text, id="settings-status")
-            self._status_widget = status
-            yield status
+            with Horizontal(id="settings-actions"):
+                yield Button(self._label("apply"), id="apply-settings", variant="primary")
+                status = Static(status_text, id="settings-status")
+                self._status_widget = status
+                yield status
             self.call_after_refresh(self._enable_select_events)
         yield Footer()
 

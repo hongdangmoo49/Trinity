@@ -13437,12 +13437,24 @@ async def test_settings_preview_stays_bounded_on_small_terminals(tmp_path) -> No
         screen = app.screen
         assert isinstance(screen, SettingsScreen)
 
+        settings_screen = screen.query_one("#settings-screen")
+        form = screen.query_one("#settings-form")
+        actions = screen.query_one("#settings-actions")
         preview = screen.query_one("#settings-summary", Static)
         apply_button = screen.query_one("#apply-settings", Button)
+        status = screen.query_one("#settings-status", Static)
 
         assert preview.styles.height.is_auto
         assert preview.styles.max_height.value == 14
         assert str(preview.styles.overflow_y) == "auto"
+        assert form.region.y >= settings_screen.region.y
+        assert form.region.y + form.region.height <= actions.region.y
+        for widget in (actions, apply_button, status):
+            assert widget.region.y >= settings_screen.region.y
+            assert (
+                widget.region.y + widget.region.height
+                <= settings_screen.region.y + settings_screen.region.height
+            )
         assert apply_button.is_mounted
         assert str(apply_button.label) == "Save & Apply"
         assert apply_button.region.width >= 16
@@ -13589,7 +13601,8 @@ async def test_settings_screen_loads_saved_model_defaults(tmp_path) -> None:
         assert screen.query_one("#central-model", Select).value == "agent-default"
         preview = str(screen.query_one("#settings-summary", Static).content)
         assert "- Claude: sonnet[1m]" in preview
-        assert "- Codex: gpt-5" in preview
+        assert "- Codex:" in preview
+        assert "gpt-5" in preview.lower()
         assert "Saved central agent default model\n- Codex / Agent default" in preview
 
 

@@ -3276,6 +3276,36 @@ async def test_report_screen_escapes_export_status_path(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_report_export_status_wraps_long_paths(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("report")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, ReportScreen)
+        screen.show_export_path(
+            tmp_path / ("very-long-report-directory-" * 3) / "report.md"
+        )
+        await pilot.pause()
+
+        status = screen.query_one("#report-export-status", Static)
+        rendered = "\n".join(
+            strip.text
+            for strip in status.render_lines(
+                Region(0, 0, status.region.width, status.region.height)
+            )
+        )
+
+        assert status.styles.height.is_auto
+        assert status.styles.max_height.value == 2
+        assert str(status.styles.overflow_y) == "auto"
+        assert 1 < status.region.height <= 2
+        assert "Saved:" in rendered
+
+
+@pytest.mark.asyncio
 async def test_report_screen_snapshot_shows_work_package_routing_metadata(
     tmp_path,
 ) -> None:
@@ -13713,7 +13743,7 @@ async def test_settings_visual_preferences_reach_workbench_surfaces(
         report = app.screen
         assert isinstance(report, ReportScreen)
         assert report.query_one("#report-screen").styles.padding.top == 0
-        assert report.query_one("#report-header").styles.height.value == 3
+        assert report.query_one("#report-header").styles.height.value == 4
         assert report.query_one("#report-header").styles.margin.bottom == 0
         assert report.query_one("#report-title").styles.color == truecolor
         assert report.query_one("#report-body").styles.border_top[1] == truecolor

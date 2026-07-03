@@ -1166,7 +1166,9 @@ class TrinityTextualApp(App[None]):
     }
 
     #workspace-picker-status {
-        height: 1;
+        height: auto;
+        max-height: 3;
+        overflow-y: auto;
         margin-top: 1;
     }
 

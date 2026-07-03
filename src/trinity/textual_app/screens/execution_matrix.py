@@ -47,7 +47,7 @@ _EXECUTION_MATRIX_LABELS = {
         "retry_action": "재시도",
         "retry_summary": "재시도",
         "run": "실행",
-        "run_second_review_action": "2차 실행",
+        "run_second_review_action": "2차",
         "review": "리뷰",
         "review_prefix": "리뷰",
         "risk_lane": "리스크/그룹",
@@ -90,7 +90,7 @@ _EXECUTION_MATRIX_LABELS = {
         "retry_action": "Retry",
         "retry_summary": "retry",
         "run": "run",
-        "run_second_review_action": "Run 2nd",
+        "run_second_review_action": "2nd",
         "review": "Review",
         "review_prefix": "review",
         "risk_lane": "Risk/Lane",
@@ -1364,14 +1364,11 @@ def _execution_lane_label(package: object, lang: str = "en") -> str:
 
 def _detail_button_label(package: object, lang: str = "en") -> str:
     status = str(getattr(package, "status", "") or "").strip().lower()
-    review_status = str(getattr(package, "review_status", "") or "").strip().lower()
     blocked_reason = str(
         getattr(package, "repair_blocked_reason", "") or ""
     ).strip()
     if status == "blocked" or blocked_reason:
         return _label(lang, "blocked")
-    if review_status == "needs_second_review":
-        return _label(lang, "second_review_action")
     return _label(lang, "spec")
 
 

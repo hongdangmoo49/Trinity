@@ -12206,6 +12206,31 @@ async def test_start_workspace_button_opens_workspace_picker(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_start_workspace_button_opens_workspace_picker_from_keyboard(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path),
+        FakeWorkflowController(),
+        launch_cwd=tmp_path,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        select_workspace = start.query_one(
+            "#start-select-workspace",
+            WorkspaceSelectSurface,
+        )
+        select_workspace.focus()
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert isinstance(app.screen, WorkspacePicker)
+        assert app.screen.intent == "select"
+
+
+@pytest.mark.asyncio
 async def test_start_workspace_command_updates_workspace_candidate(tmp_path) -> None:
     app = TrinityTextualApp(
         TrinityConfig.default_config(project_dir=tmp_path),
@@ -12479,6 +12504,43 @@ async def test_nexus_workspace_button_opens_workspace_picker(tmp_path) -> None:
         nexus = app.screen
         assert isinstance(nexus, NexusScreen)
         await pilot.click("#nexus-select-workspace")
+        await pilot.pause()
+
+        assert controller.execution_requests == 0
+        picker = app.screen
+        assert isinstance(picker, WorkspacePicker)
+        assert picker.intent == "select"
+
+
+@pytest.mark.asyncio
+async def test_nexus_workspace_button_opens_workspace_picker_from_keyboard(
+    tmp_path,
+) -> None:
+    control_repo = tmp_path / "control"
+    target = tmp_path / "target-app"
+    control_repo.mkdir()
+    target.mkdir()
+    controller = FakeWorkflowController(
+        WorkflowNexusSnapshot(session_id="wf-fake", state="idle")
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=control_repo),
+        controller,
+        launch_cwd=target,
+    )
+
+    async with app.run_test(size=(140, 44)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        select_workspace = nexus.query_one(
+            "#nexus-select-workspace",
+            WorkspaceSelectSurface,
+        )
+        select_workspace.focus()
+        await pilot.press("space")
         await pilot.pause()
 
         assert controller.execution_requests == 0

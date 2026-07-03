@@ -487,6 +487,14 @@ class TrinityTextualApp(App[None]):
         pointer: pointer;
     }
 
+    .workspace-select-surface:focus {
+        color: $accent;
+        outline-top: solid $accent;
+        outline-bottom: solid $accent;
+        outline-left: solid $accent;
+        outline-right: solid $accent;
+    }
+
     .workspace-select-surface-tall {
         height: 3;
         outline-top: tall $surface-lighten-1;

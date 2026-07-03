@@ -10,6 +10,8 @@ from textual.widgets import Static
 class WorkspaceSelectSurface(Static):
     """Clickable workspace selector used by Start and Nexus."""
 
+    can_focus = True
+
     class Pressed(Message):
         """Posted when the selector is clicked."""
 
@@ -20,5 +22,11 @@ class WorkspaceSelectSurface(Static):
         super().__init__(label, id=id, classes=classes)
 
     def on_click(self, event: events.Click) -> None:
+        event.stop()
+        self.post_message(self.Pressed())
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key not in {"space", "enter"}:
+            return
         event.stop()
         self.post_message(self.Pressed())

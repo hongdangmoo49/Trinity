@@ -114,6 +114,7 @@ class ExecutionLogModal(ModalScreen[None]):
 
     def on_mount(self) -> None:
         self._refresh_log()
+        self.query_one("#execution-log-search", Input).focus()
 
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id != "execution-log-search":

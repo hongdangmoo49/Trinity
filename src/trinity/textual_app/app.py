@@ -1046,6 +1046,21 @@ class TrinityTextualApp(App[None]):
         margin-bottom: 0;
     }
 
+    .settings-section-hint {
+        width: 100%;
+        max-width: 96;
+        min-height: 1;
+        height: auto;
+        max-height: 2;
+        overflow-y: auto;
+        color: $text-muted;
+        margin-bottom: 1;
+    }
+
+    .ui-density-compact .settings-section-hint {
+        margin-bottom: 0;
+    }
+
     .settings-row {
         width: 100%;
         max-width: 96;

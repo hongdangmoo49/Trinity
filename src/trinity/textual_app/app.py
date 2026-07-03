@@ -385,22 +385,36 @@ class TrinityTextualApp(App[None]):
         color: $accent;
     }
 
-    #start-composer {
+    .prompt-composer {
         width: 100%;
-        height: 8;
         border: round $accent;
         padding: 0 1;
     }
 
-    #start-composer.-commands-open {
+    #start-composer {
+        height: 8;
+    }
+
+    #nexus-composer {
+        height: 7;
+    }
+
+    #start-composer.-commands-open,
+    #nexus-composer.-commands-open {
         height: 11;
     }
 
-    .ui-density-compact #start-composer {
+    #nexus-composer.-commands-open {
+        dock: bottom;
+    }
+
+    .ui-density-compact #start-composer,
+    .ui-density-compact #nexus-composer {
         height: 6;
     }
 
-    .ui-density-compact #start-composer.-commands-open {
+    .ui-density-compact #start-composer.-commands-open,
+    .ui-density-compact #nexus-composer.-commands-open {
         height: 9;
     }
 
@@ -1452,18 +1466,6 @@ class TrinityTextualApp(App[None]):
 
     .ui-density-compact #report-body {
         padding: 0 1;
-    }
-
-    #nexus-composer {
-        width: 100%;
-        height: 7;
-        border: round $accent;
-        padding: 0 1;
-    }
-
-    #nexus-composer.-commands-open {
-        dock: bottom;
-        height: 11;
     }
 
     #prompt-command-palette {

@@ -7,9 +7,12 @@ from pathlib import Path
 import pytest
 from textual.app import App
 from textual.css.query import NoMatches
+from textual.geometry import Region
 from textual.widgets import Button, DirectoryTree, Input, Static
 
+from trinity.config import TrinityConfig
 from trinity.project_intake import build_project_intake, write_project_intake
+from trinity.textual_app.app import TrinityTextualApp
 from trinity.textual_app.widgets import workspace_picker as workspace_picker_module
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.workspace_picker import (
@@ -706,6 +709,43 @@ async def test_workspace_picker_rebinds_status_key_after_recompose(tmp_path) -> 
 
         status = picker.query_one("#workspace-picker-status", Static)
         assert "Ready" in str(status.content)
+
+
+@pytest.mark.asyncio
+async def test_workspace_picker_status_wraps_long_error_messages(tmp_path) -> None:
+    control_repo = tmp_path / "Trinity"
+    control_repo.mkdir()
+    picker = WorkspacePicker(
+        candidate=control_repo,
+        snapshot=WorkflowNexusSnapshot(),
+        cwd=control_repo,
+        tree_root=tmp_path,
+    )
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=control_repo))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.push_screen(picker)
+        await pilot.pause()
+
+        picker._set_status(
+            "Could not create directory: "
+            f"{tmp_path / ('very-long-directory-name-' * 4)} permission denied"
+        )
+        await pilot.pause()
+
+        status = picker.query_one("#workspace-picker-status", Static)
+        rendered = "\n".join(
+            strip.text
+            for strip in status.render_lines(
+                Region(0, 0, status.region.width, status.region.height)
+            )
+        )
+
+        assert status.styles.height.is_auto
+        assert status.styles.max_height.value == 3
+        assert str(status.styles.overflow_y) == "auto"
+        assert 1 < status.region.height <= 3
+        assert "Could not create directory" in rendered
 
 
 @pytest.mark.asyncio

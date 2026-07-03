@@ -8877,6 +8877,49 @@ async def test_nexus_provider_strip_stays_compact_on_small_viewport(tmp_path) ->
 
 
 @pytest.mark.asyncio
+async def test_nexus_disabled_provider_card_stays_quiet(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        screen.apply_snapshot(
+            WorkflowNexusSnapshot(
+                providers=[
+                    ProviderSnapshot(
+                        name="claude",
+                        provider="claude-code",
+                        enabled=True,
+                        status="Ready",
+                        actual_model="sonnet",
+                    ),
+                    ProviderSnapshot(
+                        name="codex",
+                        provider="codex",
+                        enabled=False,
+                        status="Ready",
+                        actual_model="gpt-5.5",
+                    ),
+                ]
+            )
+        )
+        await pilot.pause()
+
+        active = screen.query_one("#provider-claude", ProviderPanel)
+        disabled = screen.query_one("#provider-codex", ProviderPanel)
+
+        assert active.region.height == 5
+        assert disabled.has_class("provider-disabled")
+        assert disabled.region.height == 1
+        assert str(disabled.query_one(".provider-status").content) == "OFF"
+        assert disabled.query_one(".provider-meta").display is False
+        assert disabled.query_one(".provider-summary").display is False
+
+
+@pytest.mark.asyncio
 async def test_nexus_provider_strip_uses_configured_provider_count(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     config.agents.pop("antigravity")

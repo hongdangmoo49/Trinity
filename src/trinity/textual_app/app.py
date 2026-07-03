@@ -577,6 +577,17 @@ class TrinityTextualApp(App[None]):
 
     .provider-disabled {
         color: $text-muted;
+        border: none;
+        height: 1;
+    }
+
+    .provider-disabled .provider-meta,
+    .provider-disabled .provider-summary {
+        display: none;
+    }
+
+    .provider-disabled .provider-status {
+        color: $text-muted;
     }
 
     .provider-heading {

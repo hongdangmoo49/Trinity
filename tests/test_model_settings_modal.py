@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pytest
 from textual.app import App
-from textual.widgets import Button, OptionList
+from textual.geometry import Region
+from textual.widgets import Button, OptionList, Static
 
 from trinity.config import TrinityConfig
 from trinity.providers.model_discovery import ProviderModelChoice
@@ -490,3 +491,46 @@ async def test_model_settings_modal_keeps_actions_inside_narrow_viewport(
             assert widget.region.y + widget.region.height <= (
                 shell.region.y + shell.region.height
             )
+
+
+@pytest.mark.asyncio
+async def test_model_settings_modal_wraps_long_current_model_label(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path)
+    spec = config.agents["claude"]
+    long_label = "Claude live model with a very long descriptive label and source notes"
+    choices = {
+        "claude": (
+            ProviderModelChoice(
+                provider=spec.provider,
+                model="claude-long-live-model",
+                label=long_label,
+                source="cli-live",
+                context_budget=1_000_000,
+            ),
+        )
+    }
+    modal = ModelSettingsModal(
+        config.agents,
+        choices,
+        {"claude": "claude-long-live-model"},
+        lang="en",
+    )
+    app = ModelSettingsModalHarness(modal)
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+
+        header = modal.query_one("#model-choice-header", Static)
+        rendered = "\n".join(
+            strip.text
+            for strip in header.render_lines(
+                Region(0, 0, header.region.width, header.region.height)
+            )
+        )
+
+        assert header.styles.height.is_auto
+        assert header.styles.max_height.value == 4
+        assert str(header.styles.overflow_y) == "auto"
+        assert 2 < header.region.height <= 4
+        assert "Current:" in rendered
+        assert "Claude live model" in rendered

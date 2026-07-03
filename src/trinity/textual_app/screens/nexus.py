@@ -587,7 +587,13 @@ class NexusScreen(Screen[None]):
             self.initial_prompt,
             self.follow_ups,
         )
-        question_panel.apply_questions(snapshot.questions)
+        question_panel.apply_questions(
+            [
+                question
+                for question in snapshot.questions
+                if question.id != PROVIDER_ERROR_GATE_QUESTION_ID or question.answer
+            ]
+        )
 
     def _refresh_inspector(self) -> None:
         inspector = self._workflow_inspector()

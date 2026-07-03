@@ -840,8 +840,14 @@ class TrinityTextualApp(App[None]):
         margin-bottom: 1;
     }
 
+    #central-agent.central-provider-error #central-actions {
+        grid-size: 3;
+    }
+
     #central-actions Button {
         width: 100%;
+        height: 1;
+        min-height: 1;
     }
 
     #nexus-question-panel {

@@ -14177,6 +14177,57 @@ async def test_nexus_provider_error_gate_actions_answer_question(tmp_path) -> No
     ]
 
 
+@pytest.mark.asyncio
+async def test_nexus_provider_error_actions_stay_visible_in_narrow_layout(
+    tmp_path,
+) -> None:
+    snapshot = WorkflowNexusSnapshot(
+        session_id="wf-provider-error",
+        state="needs_user_decision",
+        questions=[
+            QuestionSnapshot(
+                id="q-provider-error-retry",
+                question="Provider errors occurred.",
+                options=[
+                    "Retry failed providers",
+                    "Continue without failed providers",
+                    "Stop workflow",
+                ],
+            )
+        ],
+    )
+    app = TrinityTextualApp(
+        TrinityConfig.default_config(project_dir=tmp_path, lang="ko"),
+        FakeWorkflowController(snapshot),
+    )
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+        screen.apply_snapshot(snapshot)
+        await pilot.pause()
+
+        central = screen.query_one(CentralAgentView)
+        actions = central.query_one("#central-actions")
+        buttons = list(actions.query(Button))
+        assert [str(button.label) for button in buttons] == [
+            "실패 재시도",
+            "제외하고 계속",
+            "중단",
+        ]
+        for button in buttons:
+            assert button.region.x >= actions.region.x
+            assert button.region.x + button.region.width <= (
+                actions.region.x + actions.region.width
+            )
+            assert button.region.y >= central.region.y
+            assert button.region.y + button.region.height <= (
+                central.region.y + central.region.height
+            )
+
+
 def test_review_repair_details_markdown_summarizes_blocked_packages() -> None:
     snapshot = _review_repair_blocked_snapshot()
 

@@ -562,6 +562,15 @@ class CentralAgentView(VerticalScroll):
                     tooltip=self.label(button.tooltip_key),
                 )
             )
+        self.call_after_refresh(self._scroll_actions_into_view)
+
+    def _scroll_actions_into_view(self) -> None:
+        if not self.is_mounted:
+            return
+        actions = self._actions_grid()
+        if not list(actions.children):
+            return
+        self.scroll_end(animate=False, force=True, immediate=True, x_axis=False)
 
     def _set_action_title(self, text: str) -> None:
         if text == self._action_title_key:

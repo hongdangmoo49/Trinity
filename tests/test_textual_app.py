@@ -2419,8 +2419,10 @@ async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> 
         assert start_selector.selected_agents() == ("claude", "codex")
         claude_toggle = start_selector.query_one("#recipient-claude", AgentToggle)
         codex_toggle = start_selector.query_one("#recipient-codex", AgentToggle)
-        assert claude_toggle.styles.width.value == 12
-        assert codex_toggle.styles.width.value == 12
+        assert claude_toggle.styles.min_width.value == 8
+        assert codex_toggle.styles.min_width.value == 8
+        assert claude_toggle.region.width >= 8
+        assert codex_toggle.region.width >= 8
         assert claude_toggle.value is True
         assert codex_toggle.value is True
         assert start_selector.selected_model("codex") == "default"
@@ -2443,6 +2445,61 @@ async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> 
         assert nexus_selector.selected_agents() == ("claude", "codex")
         assert nexus_selector.selected_model("claude") == "default"
         assert nexus_selector.query_one("#recipient-antigravity", AgentToggle).value is False
+
+
+@pytest.mark.asyncio
+async def test_start_agent_selector_toggles_stay_inside_narrow_viewport(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    for spec in config.agents.values():
+        spec.enabled = True
+    app = TrinityTextualApp(config, FakeWorkflowController())
+
+    async with app.run_test(size=(60, 20)) as pilot:
+        await pilot.pause()
+
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        selector = start.query_one("#start-recipient-selector", AgentRecipientModelSelector)
+        assert selector.region.height == 1
+        assert selector.styles.height.value == 1
+        for toggle in selector.query(AgentToggle):
+            assert toggle.region.x >= selector.region.x
+            assert (
+                toggle.region.x + toggle.region.width
+                <= selector.region.x + selector.region.width
+            )
+            assert toggle.region.y == selector.region.y
+            assert toggle.region.x + toggle.region.width <= start.size.width
+
+
+@pytest.mark.asyncio
+async def test_nexus_agent_selector_toggles_stay_inside_narrow_viewport(
+    tmp_path,
+) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    for spec in config.agents.values():
+        spec.enabled = True
+    app = TrinityTextualApp(config, FakeWorkflowController())
+
+    async with app.run_test(size=(60, 20)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        selector = nexus.query_one("#nexus-recipient-selector", AgentRecipientModelSelector)
+        assert selector.region.height == 1
+        assert selector.styles.height.value == 1
+        for toggle in selector.query(AgentToggle):
+            assert toggle.region.x >= selector.region.x
+            assert (
+                toggle.region.x + toggle.region.width
+                <= selector.region.x + selector.region.width
+            )
+            assert toggle.region.y == selector.region.y
+            assert toggle.region.x + toggle.region.width <= nexus.size.width
 
 
 @pytest.mark.asyncio

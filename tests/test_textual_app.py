@@ -10216,7 +10216,7 @@ async def test_execution_matrix_80_columns_keeps_review_risk_and_spec_visible(
 
         activity_lines = screen.activity_lines()
         assert activity_lines[0] == "Recent Log"
-        assert "... 4 earlier log lines hidden" in activity_lines
+        assert "... 4 earlier log lines hidden · open Full Log" in activity_lines
         assert "event-11" in activity_lines
 
 
@@ -10300,7 +10300,7 @@ def test_execution_matrix_recent_activity_reads_only_recent_log_window() -> None
     activity_lines = screen.activity_lines()
 
     assert activity_lines[0] == "Recent Log"
-    assert "... 93 earlier log lines hidden" in activity_lines
+    assert "... 93 earlier log lines hidden · open Full Log" in activity_lines
     assert activity_lines[-1] == "event-100"
     assert source.indexes == list(range(93, 100))
 
@@ -10620,7 +10620,7 @@ async def test_execution_matrix_opens_full_activity_log_modal(tmp_path) -> None:
         )
         recent_lines = screen.activity_lines()
         assert recent_lines[0] == "Recent Log"
-        assert "... 4 earlier log lines hidden" in recent_lines
+        assert "... 4 earlier log lines hidden · open Full Log" in recent_lines
         assert "event-1" not in recent_lines
 
         screen.query_one("#toggle-activity-expanded", Button).press()
@@ -10724,7 +10724,7 @@ async def test_execution_matrix_supports_korean_chrome_labels(tmp_path) -> None:
 
         activity_lines = screen.activity_lines()
         assert activity_lines[0] == "최근 로그"
-        assert "... 이전 로그 2줄 숨김" in activity_lines
+        assert "... 이전 로그 2줄 숨김 · 전체 로그에서 보기" in activity_lines
 
         screen.query_one("#toggle-activity-expanded", Button).press()
         await pilot.pause()

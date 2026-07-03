@@ -8830,8 +8830,9 @@ async def test_nexus_provider_strip_stays_compact_on_small_viewport(tmp_path) ->
         assert "Antigravity" in str(
             screen.query_one("#provider-antigravity .provider-name").content
         )
-        assert "out execution_v1" in str(
-            screen.query_one("#provider-codex .provider-meta").content
+        assert (
+            str(screen.query_one("#provider-codex .provider-meta").content)
+            == "codex · gpt-5.5"
         )
 
 

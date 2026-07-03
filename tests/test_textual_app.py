@@ -10295,8 +10295,8 @@ async def test_execution_matrix_opens_full_activity_log_modal(tmp_path) -> None:
         )
         await pilot.pause()
 
-        assert "Full Log" in str(
-            screen.query_one("#toggle-activity-expanded", Button).label
+        assert str(screen.query_one("#toggle-activity-expanded", Button).label) == (
+            "Full Log 11"
         )
         recent_lines = screen.activity_lines()
         assert "... 4 earlier log lines hidden" in recent_lines
@@ -10382,6 +10382,9 @@ async def test_execution_matrix_supports_korean_chrome_labels(tmp_path) -> None:
         await pilot.pause()
 
         assert str(screen.query_one("#execution-retry", Button).label) == "재시도 1"
+        assert str(screen.query_one("#toggle-activity-expanded", Button).label) == (
+            "전체 로그 9"
+        )
         header_text = _widget_tree_text(
             screen.query("#execution-package-list .execution-package-header").first()
         )

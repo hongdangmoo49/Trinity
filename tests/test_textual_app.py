@@ -657,10 +657,17 @@ async def test_textual_command_palette_runs_slash_command_handler(tmp_path) -> N
         app._handle_textual_slash_command = handled.append  # type: ignore[method-assign]
         provider = SlashCommandPaletteProvider(app.screen)
         status_hit = [hit async for hit in provider.search("status")][0]
+        execute_hit = next(
+            hit
+            for hit in [hit async for hit in provider.search("execute")]
+            if hit.text == "/execute"
+        )
 
         status_hit.command()
 
     assert handled == ["/status"]
+    assert status_hit.help == "[local] show provider and workflow status"
+    assert execute_hit.help == "[run AI !write] open execution preflight"
 
 
 def test_status_modal_centers_and_uses_read_only_table() -> None:
@@ -7757,12 +7764,14 @@ async def test_prompt_composer_shows_slash_command_palette(tmp_path) -> None:
 
         assert palette.display is True
         assert any("/status" in option for option in options)
+        assert any("[local]" in option for option in options)
 
         composer.set_text("/ex")
         await pilot.pause()
         filtered_options = [str(option.content) for option in composer.query(".command-option")]
 
         assert any("/execute" in option for option in filtered_options)
+        assert any("[run AI !write]" in option for option in filtered_options)
 
         composer.set_text("/rep")
         await pilot.pause()
@@ -7795,6 +7804,7 @@ async def test_prompt_composer_localizes_slash_command_palette_in_korean(tmp_pat
         more = str(composer.query_one("#command-option-more").content)
 
         assert any("/status" in option for option in options)
+        assert any("[로컬]" in option for option in options)
         assert any("제공자와 워크플로우 상태 보기" in option for option in options)
         assert not any("show provider and workflow status" in option for option in options)
         assert "명령 더 있음" in more
@@ -7823,6 +7833,7 @@ async def test_nexus_composer_uses_configured_slash_command_language(tmp_path) -
         options = [str(option.content) for option in composer.query(".command-option")]
 
         assert any("/execute" in option for option in options)
+        assert any("[실행 AI !쓰기]" in option for option in options)
         assert any("실행 사전 점검 열기" in option for option in options)
         assert not any("open execution preflight" in option for option in options)
 

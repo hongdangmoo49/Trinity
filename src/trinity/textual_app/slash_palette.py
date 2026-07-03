@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, cast
 from textual.command import DiscoveryHit, Hit, Hits, Provider
 
 from trinity.slash_commands import COMMAND_SPECS
-from trinity.textual_app.i18n import command_description
+from trinity.textual_app.i18n import command_description, command_palette_help
 
 if TYPE_CHECKING:
     from trinity.textual_app.app import TrinityTextualApp
@@ -34,7 +34,7 @@ class SlashCommandPaletteProvider(Provider):
                         matcher.highlight(name),
                         self._callback(name),
                         text=name,
-                        help=summary,
+                        help=command_palette_help(name, self._app_lang()),
                     )
 
     def _discovery_hit(self, name: str) -> DiscoveryHit:
@@ -42,7 +42,7 @@ class SlashCommandPaletteProvider(Provider):
             name,
             self._callback(name),
             text=name,
-            help=command_description(name, self._app_lang()),
+            help=command_palette_help(name, self._app_lang()),
         )
 
     def _callback(self, command: str) -> Callable[[], None]:

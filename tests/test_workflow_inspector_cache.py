@@ -35,6 +35,34 @@ def _snapshot(*, status: str) -> WorkflowNexusSnapshot:
 
 
 @pytest.mark.asyncio
+async def test_workflow_inspector_hides_empty_optional_sections() -> None:
+    inspector = WorkflowInspector()
+    app = InspectorHarness(inspector)
+
+    async with app.run_test(size=(100, 28)) as pilot:
+        inspector.apply_snapshot(WorkflowNexusSnapshot(state="idle"))
+        await pilot.pause()
+
+        assert inspector.query_one("#inspector-workflow-title").display is True
+        assert inspector.query_one("#inspector-workflow").display is True
+        assert "State: idle" in str(inspector.query_one("#inspector-workflow").content)
+        assert inspector.query_one("#inspector-progress-title").display is False
+        assert inspector.query_one("#inspector-current").display is False
+        assert inspector.query_one("#inspector-next-title").display is False
+        assert inspector.query_one("#inspector-blocked").display is False
+        assert inspector.query_one("#inspector-log-title").display is False
+
+        inspector.apply_snapshot(_snapshot(status="running"))
+        await pilot.pause()
+
+        assert inspector.query_one("#inspector-progress-title").display is True
+        assert inspector.query_one("#inspector-progress").display is True
+        assert inspector.query_one("#inspector-current-title").display is True
+        assert inspector.query_one("#inspector-current").display is True
+        assert "WP-001" in str(inspector.query_one("#inspector-current").content)
+
+
+@pytest.mark.asyncio
 async def test_workflow_inspector_reuses_composed_section_widgets() -> None:
     inspector = WorkflowInspector()
     app = InspectorHarness(inspector)

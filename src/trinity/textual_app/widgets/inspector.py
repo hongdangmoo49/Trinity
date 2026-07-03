@@ -80,31 +80,33 @@ class WorkflowInspector(Vertical):
         self.lang = lang
         self.snapshot = WorkflowNexusSnapshot()
         self._section_text: dict[str, str] = {}
+        self._section_display: dict[str, bool] = {}
         self._snapshot_render_key: tuple[object, ...] = ()
+        self._title_widgets: dict[str, Static] = {}
         self._section_widgets: dict[str, Static] = {}
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
         self._reset_render_cache()
-        yield Static(self._label("progress"), classes="inspector-title")
+        yield self._title_static("inspector-progress", "progress")
         yield self._section_static("inspector-progress")
-        yield Static(self._label("current"), classes="inspector-title")
+        yield self._title_static("inspector-current", "current")
         yield self._section_static("inspector-current")
-        yield Static(self._label("next"), classes="inspector-title")
+        yield self._title_static("inspector-next", "next")
         yield self._section_static("inspector-next")
-        yield Static(self._label("blocked"), classes="inspector-title")
+        yield self._title_static("inspector-blocked", "blocked")
         yield self._section_static("inspector-blocked")
-        yield Static(self._label("workflow"), classes="inspector-title")
+        yield self._title_static("inspector-workflow", "workflow")
         yield self._section_static("inspector-workflow")
-        yield Static(self._label("providers"), classes="inspector-title")
+        yield self._title_static("inspector-providers", "providers")
         yield self._section_static("inspector-providers")
-        yield Static(self._label("questions"), classes="inspector-title")
+        yield self._title_static("inspector-questions", "questions")
         yield self._section_static("inspector-questions")
-        yield Static(self._label("decisions"), classes="inspector-title")
+        yield self._title_static("inspector-decisions", "decisions")
         yield self._section_static("inspector-decisions")
-        yield Static(self._label("post_review"), classes="inspector-title")
+        yield self._title_static("inspector-post-review", "post_review")
         yield self._section_static("inspector-post-review")
-        yield Static(self._label("execution_log"), classes="inspector-title")
+        yield self._title_static("inspector-log", "execution_log")
         yield self._section_static("inspector-log")
 
     def apply_snapshot(self, snapshot: WorkflowNexusSnapshot) -> None:
@@ -231,14 +233,37 @@ class WorkflowInspector(Vertical):
         )
 
     def _update_section(self, selector: str, text: str) -> None:
+        display = selector == "#inspector-workflow" or bool(text.strip())
+        if self._section_display.get(selector) != display:
+            self._section_widget(selector).display = display
+            self._title_widget(selector).display = display
+            self._section_display[selector] = display
         if self._section_text.get(selector) == text:
             return
         self._section_widget(selector).update(text)
         self._section_text[selector] = text
 
+    def _title_static(self, section_id: str, label_key: str) -> Static:
+        widget = Static(
+            self._label(label_key),
+            id=f"{section_id}-title",
+            classes="inspector-title",
+        )
+        self._title_widgets[f"#{section_id}"] = widget
+        return widget
+
     def _section_static(self, widget_id: str) -> Static:
         widget = Static("", id=widget_id)
         self._section_widgets[f"#{widget_id}"] = widget
+        return widget
+
+    def _title_widget(self, selector: str) -> Static:
+        widget = self._title_widgets.get(selector)
+        if widget is not None:
+            return widget
+        section_id = selector.lstrip("#")
+        widget = self.query_one(f"#{section_id}-title", Static)
+        self._title_widgets[selector] = widget
         return widget
 
     def _section_widget(self, selector: str) -> Static:
@@ -250,15 +275,17 @@ class WorkflowInspector(Vertical):
         return widget
 
     def _reset_widget_cache(self) -> None:
+        self._title_widgets = {}
         self._section_widgets = {}
 
     def _reset_render_cache(self) -> None:
         self._section_text = {}
+        self._section_display = {}
         self._snapshot_render_key = ()
 
     def _list_or_empty(self, items: list[str], *, limit: int = 5) -> str:
         if not items:
-            return self._label("empty")
+            return ""
         lines: list[str] = []
         for item in items[:limit]:
             if item.startswith("  "):
@@ -269,7 +296,7 @@ class WorkflowInspector(Vertical):
 
     def _progress_summary(self, snapshot: WorkflowNexusSnapshot) -> str:
         if not snapshot.work_package_details:
-            return self._label("empty")
+            return ""
         return "\n".join(
             [
                 progress_summary_line(snapshot.work_package_details, lang=self.lang),

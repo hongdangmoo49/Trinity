@@ -5,10 +5,41 @@ from __future__ import annotations
 from dataclasses import replace
 
 from trinity.i18n import DEFAULT_LANG, validate_lang
-from trinity.slash_commands import SLASH_COMMAND_DESCRIPTIONS
+from trinity.slash_commands import (
+    AgentCallPolicy,
+    COMMAND_BY_NAME,
+    SLASH_COMMAND_DESCRIPTIONS,
+    SlashCommandCategory,
+)
 
 
 COMMAND_DESCRIPTIONS: dict[str, dict[str, str]] = SLASH_COMMAND_DESCRIPTIONS
+
+COMMAND_CATEGORY_LABELS: dict[str, dict[SlashCommandCategory, str]] = {
+    "en": {
+        SlashCommandCategory.APP_EXIT: "exit",
+        SlashCommandCategory.CONDITIONAL_WORKFLOW: "workflow",
+        SlashCommandCategory.EXECUTION: "run",
+        SlashCommandCategory.LOCAL_FILE: "file",
+        SlashCommandCategory.LOCAL_UI: "local",
+        SlashCommandCategory.SESSION_SETTING: "setting",
+        SlashCommandCategory.WORKFLOW_LOCAL: "workflow",
+    },
+    "ko": {
+        SlashCommandCategory.APP_EXIT: "종료",
+        SlashCommandCategory.CONDITIONAL_WORKFLOW: "흐름",
+        SlashCommandCategory.EXECUTION: "실행",
+        SlashCommandCategory.LOCAL_FILE: "파일",
+        SlashCommandCategory.LOCAL_UI: "로컬",
+        SlashCommandCategory.SESSION_SETTING: "설정",
+        SlashCommandCategory.WORKFLOW_LOCAL: "흐름",
+    },
+}
+
+COMMAND_EFFECT_LABELS: dict[str, dict[str, str]] = {
+    "en": {"agent": "AI", "state": "state", "write": "!write"},
+    "ko": {"agent": "AI", "state": "상태", "write": "!쓰기"},
+}
 
 UI_TEXT: dict[str, dict[str, str]] = {
     "en": {
@@ -106,6 +137,43 @@ def command_description(command: str, lang: str | None = None) -> str:
     )
     fallback = COMMAND_DESCRIPTIONS[DEFAULT_LANG]
     return descriptions.get(command, fallback.get(command, ""))
+
+
+def command_context_badge(command: str, lang: str | None = None) -> str:
+    """Return a compact category/effect badge for a slash command."""
+    spec = COMMAND_BY_NAME.get(command)
+    if spec is None:
+        return ""
+    safe_lang = textual_lang(lang)
+    category_labels = COMMAND_CATEGORY_LABELS.get(
+        safe_lang, COMMAND_CATEGORY_LABELS[DEFAULT_LANG]
+    )
+    effect_labels = COMMAND_EFFECT_LABELS.get(
+        safe_lang, COMMAND_EFFECT_LABELS[DEFAULT_LANG]
+    )
+    parts = [category_labels.get(spec.category, spec.category.value)]
+    if spec.agent_call is not AgentCallPolicy.NONE:
+        parts.append(effect_labels["agent"])
+    if spec.writes_files:
+        parts.append(effect_labels["write"])
+    elif spec.mutates_workflow:
+        parts.append(effect_labels["state"])
+    return f"[{' '.join(parts)}]"
+
+
+def command_palette_option_label(command: str, lang: str | None = None) -> str:
+    """Return the inline slash palette row label for a command."""
+    description = command_description(command, lang)
+    badge = command_context_badge(command, lang)
+    prefix = f"{command:<16} {badge}"
+    return f"{prefix} {description}" if description else prefix.rstrip()
+
+
+def command_palette_help(command: str, lang: str | None = None) -> str:
+    """Return Textual command palette help with the same context badge."""
+    description = command_description(command, lang)
+    badge = command_context_badge(command, lang)
+    return f"{badge} {description}".strip()
 
 
 def command_palette_text(key: str, lang: str | None = None) -> str:

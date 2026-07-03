@@ -13932,6 +13932,7 @@ async def test_nexus_provider_error_gate_actions_answer_question(tmp_path) -> No
         assert screen.query_one("#central-action-title", Static).content == (
             "프로바이더 오류 결정"
         )
+        assert screen.query_one(CentralAgentView).has_class("central-provider-error")
         buttons = list(screen.query("#central-actions Button"))
         assert [str(button.label) for button in buttons] == [
             "실패 재시도",

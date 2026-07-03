@@ -79,6 +79,7 @@ class CentralAgentView(VerticalScroll):
         self._actions_key: tuple[object, ...] = ()
         self._applied_snapshot_identity: int | None = None
         self._running_class_key: bool | None = None
+        self._provider_error_class_key: bool | None = None
         self._title_widget: Static | None = None
         self._markdown_widget: Markdown | None = None
         self._local_command_container: Vertical | None = None
@@ -132,6 +133,7 @@ class CentralAgentView(VerticalScroll):
             self.render_local_command_tables(snapshot.local_commands)
             self._local_commands_key = local_commands_key
         action_plan = central_action_plan(snapshot)
+        self._sync_provider_error_class(action_plan)
         actions_key = self._action_plan_key(action_plan)
         if actions_key != self._actions_key:
             self.render_blueprint_actions(action_plan)
@@ -163,6 +165,13 @@ class CentralAgentView(VerticalScroll):
             return
         self.set_class(running, "central-running")
         self._running_class_key = running
+
+    def _sync_provider_error_class(self, plan: CentralActionPlan) -> None:
+        provider_error = plan.title_key == "provider_error_action"
+        if provider_error == self._provider_error_class_key:
+            return
+        self.set_class(provider_error, "central-provider-error")
+        self._provider_error_class_key = provider_error
 
     def render_markdown(self) -> str:
         snapshot = self.snapshot
@@ -576,6 +585,7 @@ class CentralAgentView(VerticalScroll):
         self._actions_key = ()
         self._applied_snapshot_identity = None
         self._running_class_key = None
+        self._provider_error_class_key = None
 
     def _title_static(self) -> Static:
         if self._title_widget is None:

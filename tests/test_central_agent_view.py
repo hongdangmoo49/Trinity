@@ -569,6 +569,40 @@ async def test_central_apply_snapshot_skips_unchanged_running_class_sync() -> No
 
 
 @pytest.mark.asyncio
+async def test_central_provider_error_class_tracks_provider_gate() -> None:
+    view = CentralAgentView()
+    app = CentralAgentHarness(view)
+    provider_error = WorkflowNexusSnapshot(
+        state="needs_user_decision",
+        questions=[
+            QuestionSnapshot(
+                id="q-provider-error-retry",
+                question="Provider errors occurred.",
+                options=["Retry failed providers", "Stop workflow"],
+            )
+        ],
+    )
+    ready = WorkflowNexusSnapshot(
+        state="blueprint_ready",
+        work_packages=["WP-001 codex: Build API (pending)"],
+    )
+
+    async with app.run_test(size=(80, 20)) as pilot:
+        view.apply_snapshot(provider_error)
+        await pilot.pause()
+
+        assert view.has_class("central-provider-error")
+        assert view.query_one("#central-action-title", Static).content == (
+            "Provider error decision"
+        )
+
+        view.apply_snapshot(ready)
+        await pilot.pause()
+
+        assert not view.has_class("central-provider-error")
+
+
+@pytest.mark.asyncio
 async def test_central_apply_snapshot_skips_unchanged_action_plan_render() -> None:
     view = CentralAgentView()
     first = WorkflowNexusSnapshot(

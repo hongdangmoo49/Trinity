@@ -1213,7 +1213,11 @@ class TrinityTextualApp(App[None]):
     }
 
     #execution-summary {
-        height: 1;
+        min-height: 1;
+        height: auto;
+        max-height: 2;
+        overflow-y: auto;
+        content-align: left top;
         margin-top: 1;
         color: $text-muted;
     }

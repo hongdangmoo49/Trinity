@@ -10502,6 +10502,11 @@ async def test_execution_matrix_viewport_qa_matrix_with_long_workspace(
             assert "워크플로우 실행 중" in summary
             assert "실행 exec-run-viewport-qa" in summary
             assert "대상:" in summary
+            summary_widget = screen.query_one("#execution-summary", Static)
+            assert 1 <= summary_widget.region.height <= 2
+            summary_rendered = _rendered_static_text(summary_widget)
+            assert "워크플로우 실행 중" in summary_rendered
+            assert "exec-run-viewport-qa" in summary_rendered
 
             for selector in (
                 "#toggle-task-expanded",

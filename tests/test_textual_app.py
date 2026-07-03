@@ -9864,8 +9864,8 @@ def test_execution_matrix_detail_button_labels_review_escalation() -> None:
         status="done",
     )
 
-    assert _detail_button_label(package) == "2nd Review"
-    assert _detail_button_label(package, lang="ko") == "2차 리뷰"
+    assert _detail_button_label(package) == "Spec"
+    assert _detail_button_label(package, lang="ko") == "상세"
     assert _detail_button_label(blocked) == "Blocked"
     assert _detail_button_label(blocked, lang="ko") == "차단됨"
     assert _detail_button_label(default) == "Spec"
@@ -10078,7 +10078,9 @@ async def test_execution_matrix_row_labels_second_review_action(tmp_path) -> Non
         await pilot.pause()
 
         button = screen.query_one("#wp-detail-0", Button)
-        assert str(button.label) == "2nd Review"
+        assert str(button.label) == "Spec"
+        review_button = screen.query_one("#wp-review-0", Button)
+        assert str(review_button.label) == "2nd"
 
 
 @pytest.mark.asyncio
@@ -10118,7 +10120,7 @@ async def test_execution_matrix_row_requests_second_review(tmp_path) -> None:
         await pilot.pause()
 
         review_button = screen.query_one("#wp-review-0", Button)
-        assert str(review_button.label) == "Run 2nd"
+        assert str(review_button.label) == "2nd"
         assert review_button.region.x + review_button.region.width <= 100
         detail_button = screen.query_one("#wp-detail-0", Button)
         assert detail_button.region.x + detail_button.region.width <= 100
@@ -10128,6 +10130,50 @@ async def test_execution_matrix_row_requests_second_review(tmp_path) -> None:
         await pilot.pause()
 
         assert controller.review_requests == [("wp", "WP-001")]
+
+
+@pytest.mark.asyncio
+async def test_execution_matrix_compacts_three_row_actions_in_80_columns(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Retry and second review",
+                        owner_agent="codex",
+                        current_executor="codex",
+                        status="failed",
+                        retryable=True,
+                        review_status="needs_second_review",
+                    )
+                ]
+            ),
+        )
+        await pilot.pause()
+
+        row = screen.query("#execution-package-list .execution-package-row").first()
+        actions = row.query_one(".execution-package-actions")
+        buttons = list(actions.query(Button))
+        assert [button.id for button in buttons] == [
+            "wp-detail-0",
+            "wp-retry-0",
+            "wp-review-0",
+        ]
+        assert [str(button.label) for button in buttons] == ["Spec", "Retry", "2nd"]
+        for button in buttons:
+            assert button.region.x + button.region.width <= actions.region.x + actions.region.width
+            assert button.region.y + button.region.height <= row.region.y + row.region.height
+            assert button.region.x + button.region.width <= 80
 
 
 @pytest.mark.asyncio

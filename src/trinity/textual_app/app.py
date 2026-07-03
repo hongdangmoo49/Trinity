@@ -1243,12 +1243,24 @@ class TrinityTextualApp(App[None]):
         height: 1;
     }
 
+    .execution-package-actions Button {
+        height: 1;
+        min-height: 1;
+    }
+
     .execution-package-spec {
-        width: 8;
+        width: 5;
+        min-width: 5;
     }
 
     .execution-package-retry {
-        width: 8;
+        width: 5;
+        min-width: 5;
+    }
+
+    .execution-package-review-action {
+        width: 6;
+        min-width: 6;
     }
 
     .execution-package-empty {

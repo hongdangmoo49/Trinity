@@ -1,3 +1,3 @@
 """Trinity — Three minds, one context."""
 
-__version__ = "1.0.1119"
+__version__ = "1.0.1120"

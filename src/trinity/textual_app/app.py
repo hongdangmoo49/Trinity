@@ -644,7 +644,7 @@ class TrinityTextualApp(App[None]):
 
     #nexus-main {
         height: 1fr;
-        margin: 1 0;
+        margin: 0;
     }
 
     .ui-density-compact #nexus-main {
@@ -902,6 +902,14 @@ class TrinityTextualApp(App[None]):
         margin-right: 1;
         content-align: left middle;
         color: $text-muted;
+    }
+
+    #nexus-next-action {
+        width: 100%;
+        height: 1;
+        content-align: left middle;
+        color: $text-muted;
+        text-style: bold;
     }
 
     ProviderInspector {

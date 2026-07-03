@@ -10747,7 +10747,7 @@ def test_execution_log_modal_windows_large_logs() -> None:
     modal = ExecutionLogModal(lines)
     rendered = modal.render_log_lines()
 
-    assert rendered[0] == "... 25 earlier log lines hidden"
+    assert rendered[0] == "... 25 earlier log lines hidden · use search to narrow"
     assert rendered[1] == "event-26"
     assert rendered[-1] == f"event-{MAX_RENDERED_LOG_LINES + 25}"
     assert "event-1" not in rendered
@@ -10784,7 +10784,7 @@ def test_execution_log_modal_unfiltered_window_avoids_full_iteration() -> None:
 
     rendered = modal.render_log_lines()
 
-    assert rendered[0] == "... 25 earlier log lines hidden"
+    assert rendered[0] == "... 25 earlier log lines hidden · use search to narrow"
     assert rendered[1] == "event-26"
     assert rendered[-1] == f"event-{MAX_RENDERED_LOG_LINES + 25}"
     assert source.indexes == list(range(25, MAX_RENDERED_LOG_LINES + 25))
@@ -10856,7 +10856,7 @@ def test_execution_log_modal_filters_large_match_sets() -> None:
     modal = ExecutionLogModal(lines)
     rendered = modal.render_log_lines("failed")
 
-    assert rendered[0] == "... 3 earlier log lines hidden"
+    assert rendered[0] == "... 3 earlier log lines hidden · use search to narrow"
     assert rendered[1] == "WP-004 failed"
     assert rendered[-1] == f"WP-{MAX_RENDERED_LOG_LINES + 3:03d} failed"
     assert modal.status_text("failed") == (
@@ -10888,7 +10888,7 @@ def test_execution_log_modal_localizes_large_log_window() -> None:
     lines = [f"event-{index}" for index in range(1, MAX_RENDERED_LOG_LINES + 3)]
     modal = ExecutionLogModal(lines, lang="ko")
 
-    assert modal.render_log_lines()[0] == "... 이전 로그 2줄 숨김"
+    assert modal.render_log_lines()[0] == "... 이전 로그 2줄 숨김 · 검색으로 좁혀보기"
 
 
 def test_execution_log_modal_keeps_empty_state() -> None:

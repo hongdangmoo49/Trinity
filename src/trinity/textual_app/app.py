@@ -456,23 +456,27 @@ class TrinityTextualApp(App[None]):
         height: 2;
     }
 
-    #start-select-workspace {
+    .workspace-select-surface {
         width: 28;
         min-width: 28;
-        height: 3;
+        height: 2;
         content-align: center middle;
         text-align: center;
         text-style: bold;
         color: $text;
         background: $surface;
-        outline-top: tall $surface-lighten-1;
-        outline-bottom: tall $surface-darken-1;
         outline-left: solid $surface-lighten-1;
         outline-right: solid $surface-darken-1;
         pointer: pointer;
     }
 
-    .ui-density-compact #start-select-workspace {
+    .workspace-select-surface-tall {
+        height: 3;
+        outline-top: tall $surface-lighten-1;
+        outline-bottom: tall $surface-darken-1;
+    }
+
+    .ui-density-compact .workspace-select-surface-tall {
         height: 2;
         outline-top: none;
         outline-bottom: none;
@@ -898,20 +902,6 @@ class TrinityTextualApp(App[None]):
         margin-right: 1;
         content-align: left middle;
         color: $text-muted;
-    }
-
-    #nexus-select-workspace {
-        width: 28;
-        min-width: 28;
-        height: 2;
-        content-align: center middle;
-        text-align: center;
-        text-style: bold;
-        color: $text;
-        background: $surface;
-        outline-left: solid $surface-lighten-1;
-        outline-right: solid $surface-darken-1;
-        pointer: pointer;
     }
 
     ProviderInspector {

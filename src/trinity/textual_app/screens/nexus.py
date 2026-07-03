@@ -171,6 +171,7 @@ class NexusScreen(Screen[None]):
                 yield Static(
                     self.label_text("select_workspace"),
                     id="nexus-select-workspace",
+                    classes="workspace-select-surface",
                 )
             with Horizontal(id="nexus-main"):
                 with Vertical(id="nexus-center-stack"):

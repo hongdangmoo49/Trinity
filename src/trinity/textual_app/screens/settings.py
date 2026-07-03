@@ -91,6 +91,11 @@ class SettingsScreen(Screen[None]):
             with VerticalScroll(id="settings-form"):
                 yield Static(self._label("settings"), id="settings-title")
                 yield Static(self._label("appearance"), classes="settings-section-title")
+                yield Static(
+                    self._label("appearance_scope"),
+                    id="settings-appearance-hint",
+                    classes="settings-section-hint",
+                )
                 with Horizontal(classes="settings-row"):
                     yield Label(self._label("theme_mode"))
                     yield self._select(
@@ -130,6 +135,11 @@ class SettingsScreen(Screen[None]):
                         ),
                     )
                 yield Static(self._label("agent_models"), classes="settings-section-title")
+                yield Static(
+                    self._label("agent_models_scope"),
+                    id="settings-agent-models-hint",
+                    classes="settings-section-hint",
+                )
                 for name, spec in self.config.agents.items():
                     with Horizontal(classes="settings-row"):
                         yield Label(
@@ -143,6 +153,11 @@ class SettingsScreen(Screen[None]):
                             disabled=not spec.enabled,
                         )
                 yield Static(self._label("central_agent"), classes="settings-section-title")
+                yield Static(
+                    self._label("central_agent_scope"),
+                    id="settings-central-agent-hint",
+                    classes="settings-section-hint",
+                )
                 with Horizontal(classes="settings-row"):
                     yield Label(self._label("central_provider"))
                     yield self._select(
@@ -769,14 +784,17 @@ class SettingsScreen(Screen[None]):
         ko = {
             "settings": "설정",
             "appearance": "화면 설정",
+            "appearance_scope": "저장 및 적용 후 현재 워크벤치에 바로 반영됩니다.",
             "theme_mode": "테마 모드",
             "color_profile": "색상 호환성",
             "density": "밀도",
             "motion": "시작 로고 애니메이션",
             "unicode": "시작 로고 글리프",
             "agent_models": "저장된 에이전트 기본 모델",
+            "agent_models_scope": "저장된 기본 모델입니다. 시작/Nexus에서 직접 고른 모델은 유지됩니다.",
             "central": "중앙",
             "central_agent": "저장된 중앙 에이전트 기본 모델",
+            "central_agent_scope": "중앙 응답 기본값입니다. 자동은 활성 에이전트 기준으로 선택합니다.",
             "central_provider": "중앙 에이전트 프로바이더",
             "central_model": "중앙 에이전트 모델",
             "agent_default": "에이전트 기본값",
@@ -811,14 +829,17 @@ class SettingsScreen(Screen[None]):
         en = {
             "settings": "Settings",
             "appearance": "UI preferences",
+            "appearance_scope": "Applies to the current workbench after Save & Apply.",
             "theme_mode": "Theme mode",
             "color_profile": "Color compatibility",
             "density": "Density",
             "motion": "Start logo motion",
             "unicode": "Start logo glyphs",
             "agent_models": "Saved agent model defaults",
+            "agent_models_scope": "Saved defaults. Start/Nexus model choices you made stay intact.",
             "central": "Central",
             "central_agent": "Saved central agent default model",
+            "central_agent_scope": "Default for central replies. Auto uses enabled agents.",
             "central_provider": "Central agent provider",
             "central_model": "Central agent model",
             "agent_default": "Agent default",

@@ -13928,6 +13928,33 @@ async def test_settings_korean_control_labels_keep_select_space(tmp_path) -> Non
 
 
 @pytest.mark.asyncio
+async def test_settings_scope_hints_explain_impact_in_korean(tmp_path) -> None:
+    config = TrinityConfig.default_config(project_dir=tmp_path, lang="ko")
+    app = TrinityTextualApp(config)
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("settings")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, SettingsScreen)
+
+        hints = [
+            screen.query_one("#settings-appearance-hint", Static),
+            screen.query_one("#settings-agent-models-hint", Static),
+            screen.query_one("#settings-central-agent-hint", Static),
+        ]
+
+        assert "현재 워크벤치" in str(hints[0].content)
+        assert "직접 고른 모델" in str(hints[1].content)
+        assert "자동은 활성 에이전트" in str(hints[2].content)
+        for hint in hints:
+            assert hint.has_class("settings-section-hint")
+            assert hint.styles.max_height.value == 2
+            assert str(hint.styles.overflow_y) == "auto"
+            assert _rendered_static_text(hint).strip()
+
+
+@pytest.mark.asyncio
 async def test_settings_preview_stays_bounded_on_small_terminals(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

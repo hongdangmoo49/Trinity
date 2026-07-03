@@ -170,7 +170,7 @@ class PromptComposer(Vertical):
         id: str | None = None,
         lang: str = "en",
     ) -> None:
-        super().__init__(id=id)
+        super().__init__(id=id, classes="prompt-composer")
         self.placeholder = placeholder
         self.initial_text = initial_text
         self._command_matches: list[str] = []

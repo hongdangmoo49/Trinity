@@ -2342,6 +2342,69 @@ async def test_nexus_command_palette_stays_visible_after_terminal_resize(
 
 
 @pytest.mark.asyncio
+async def test_start_and_nexus_composers_share_command_palette_layout_contract(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        await pilot.pause()
+
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        start_composer = start.query_one("#start-composer", PromptComposer)
+        assert start_composer.has_class("prompt-composer")
+        assert start_composer.styles.height.value == 8
+        start_composer.set_text("/")
+        await pilot.pause()
+        assert start_composer.styles.height.value == 11
+        assert start_composer.styles.dock == "none"
+
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        nexus_composer = nexus.query_one("#nexus-composer", PromptComposer)
+        assert nexus_composer.has_class("prompt-composer")
+        assert nexus_composer.styles.height.value == 7
+        nexus_composer.set_text("/")
+        await pilot.pause()
+        assert nexus_composer.styles.height.value == 11
+        assert nexus_composer.styles.dock == "bottom"
+
+
+@pytest.mark.asyncio
+async def test_start_and_nexus_composers_share_compact_palette_height(
+    tmp_path,
+) -> None:
+    UISettingsStore(tmp_path / ".trinity").save(UISettings(density="compact"))
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        await pilot.pause()
+
+        start = app.screen
+        assert isinstance(start, StartScreen)
+        start_composer = start.query_one("#start-composer", PromptComposer)
+        assert start_composer.styles.height.value == 6
+        start_composer.set_text("/")
+        await pilot.pause()
+        assert start_composer.styles.height.value == 9
+
+        app.switch_to("nexus")
+        await pilot.pause()
+
+        nexus = app.screen
+        assert isinstance(nexus, NexusScreen)
+        nexus_composer = nexus.query_one("#nexus-composer", PromptComposer)
+        assert nexus_composer.styles.height.value == 6
+        nexus_composer.set_text("/")
+        await pilot.pause()
+        assert nexus_composer.styles.height.value == 9
+
+
+@pytest.mark.asyncio
 async def test_start_and_nexus_show_agent_recipient_model_selector(tmp_path) -> None:
     config = TrinityConfig.default_config(project_dir=tmp_path)
     config.agents["codex"].enabled = True

@@ -318,6 +318,23 @@ def test_provider_panel_treats_error_summary_as_issue() -> None:
     assert "문제" in provider_panel_status_label(state, lang="ko")
 
 
+def test_provider_panel_error_metadata_overrides_completed_status() -> None:
+    state = ProviderPanelState(
+        name="claude",
+        provider="claude-code",
+        enabled=True,
+        status="completed",
+        summary="[Error: exit code 1]",
+        response_status="invalid",
+    )
+
+    assert provider_panel_state_group(state) == "issue"
+    assert "ISSUE" in provider_panel_status_label(state)
+    ko_label = provider_panel_status_label(state, lang="ko")
+    assert "문제" in ko_label
+    assert "완료" not in ko_label
+
+
 def test_provider_panel_compacts_long_summary() -> None:
     state = ProviderPanelState(
         name="claude",

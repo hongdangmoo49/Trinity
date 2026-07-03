@@ -31,6 +31,25 @@ class CentralAgentHarness(App[None]):
         yield self.view
 
 
+def test_central_markdown_empty_state_prompts_one_action() -> None:
+    view = CentralAgentView()
+
+    markdown = view.render_markdown()
+
+    assert "Type one goal or task in the composer." in markdown
+    assert "Planning does not require a workspace" not in markdown
+
+
+def test_central_markdown_empty_snapshot_uses_short_korean_prompt() -> None:
+    view = CentralAgentView(lang="ko")
+    view.snapshot = WorkflowNexusSnapshot()
+
+    markdown = view.render_markdown()
+
+    assert "입력창에 목표나 작업을 한 줄로 적으세요." in markdown
+    assert "기획은 작업 폴더 없이" not in markdown
+
+
 def test_central_markdown_keeps_conversation_and_hides_internal_dump() -> None:
     view = CentralAgentView()
     view.snapshot = WorkflowNexusSnapshot(

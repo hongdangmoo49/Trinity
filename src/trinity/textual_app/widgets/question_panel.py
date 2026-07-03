@@ -83,9 +83,6 @@ class QuestionPanel(VerticalScroll):
         container.remove_children()
         self._button_answers = {}
         if not questions:
-            container.mount(
-                Static(self._label("no_questions"), classes="question-empty")
-            )
             return
 
         for question_number, question in enumerate(questions, start=1):
@@ -185,19 +182,17 @@ class QuestionPanel(VerticalScroll):
     def _label(self, key: str) -> str:
         ko = {
             "answer": "답변",
-            "no_questions": "현재 답변할 질문이 없습니다.",
             "recommended": "추천",
             "title_answered": "답변 기록",
-            "title_empty": "질문",
+            "title_empty": "질문 없음",
             "title_many": "질문",
             "title_one": "질문",
         }
         en = {
             "answer": "Answer",
-            "no_questions": "No questions waiting for an answer.",
             "recommended": "recommended",
             "title_answered": "Answered Questions",
-            "title_empty": "Questions",
+            "title_empty": "No questions",
             "title_many": "Questions for You",
             "title_one": "Question for You",
         }

@@ -8406,6 +8406,27 @@ async def test_central_agent_view_renders_question_options(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_nexus_empty_question_panel_uses_one_line_status(tmp_path) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.switch_to("nexus")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, NexusScreen)
+
+        screen.apply_snapshot(WorkflowNexusSnapshot())
+        await pilot.pause()
+
+        question_panel = screen.query_one(QuestionPanel)
+        assert question_panel.has_class("question-panel-empty")
+        assert question_panel.region.height == 1
+        assert str(question_panel.query_one("#question-panel-title", Static).content) == (
+            "No questions"
+        )
+
+
+@pytest.mark.asyncio
 async def test_central_agent_view_renders_all_questions(tmp_path) -> None:
     app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path))
 

@@ -1166,7 +1166,9 @@ class ExecutionMatrixScreen(Screen[None]):
         )
 
     def _activity_toggle_label(self) -> str:
-        return self._label("full_log")
+        count = len(self._activity_source_lines())
+        label = self._label("full_log")
+        return f"{label} {count}" if count else label
 
     def _retry_button_label(self) -> str:
         retry_count = self._retry_count()

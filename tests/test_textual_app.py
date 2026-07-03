@@ -10173,6 +10173,61 @@ async def test_execution_matrix_80_columns_keeps_review_risk_and_spec_visible(
         assert "event-11" in activity_lines
 
 
+@pytest.mark.asyncio
+async def test_execution_matrix_80_columns_keeps_korean_action_labels_visible(
+    tmp_path,
+) -> None:
+    app = TrinityTextualApp(TrinityConfig.default_config(project_dir=tmp_path, lang="ko"))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.switch_to("execution")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ExecutionMatrixScreen)
+        screen.apply_execution_state(
+            None,
+            WorkflowNexusSnapshot(
+                session_id="wf-action-labels",
+                state="executing",
+                work_package_details=[
+                    WorkPackageSnapshot(
+                        id="WP-001",
+                        title="Compact action labels",
+                        owner_agent="codex",
+                        current_executor="codex",
+                        status="failed",
+                        review_status="needs_second_review",
+                        retryable=True,
+                        risk="high",
+                    )
+                ],
+                execution_log=[f"event-{index}" for index in range(1, 10)],
+            ),
+        )
+        await pilot.pause()
+
+        row = screen.query("#execution-package-list .execution-package-row").first()
+        actions = row.query_one(".execution-package-actions")
+        assert actions.region.x + actions.region.width <= 80
+        assert actions.styles.width.value == 20
+
+        expected = {
+            "#wp-detail-0": "상세",
+            "#wp-retry-0": "재시도",
+            "#wp-review-0": "2차",
+        }
+        for selector, label in expected.items():
+            button = row.query_one(selector, Button)
+            button_text = "\n".join(
+                strip.text
+                for strip in button.render_lines(
+                    Region(0, 0, button.region.width, button.region.height)
+                )
+            )
+            assert label in button_text
+            assert button.region.x + button.region.width <= 80
+
+
 def test_execution_matrix_recent_activity_reads_only_recent_log_window() -> None:
     class CountingLog:
         def __init__(self, lines: list[str]) -> None:

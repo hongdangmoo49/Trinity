@@ -1,11 +1,28 @@
 """Shared test fixtures for Trinity."""
 
+import os
+
 import pytest
 from pathlib import Path
+from textual.pilot import Pilot
 
 from trinity.models import AgentSpec, Provider
 from trinity.config import TrinityConfig
 from trinity.context.shared import SharedContextEngine
+
+
+@pytest.fixture(autouse=True)
+def stabilize_textual_ci_pause(monkeypatch):
+    if not os.environ.get("CI"):
+        return
+    original_pause = Pilot.pause
+
+    async def pause(pilot, delay=None):
+        await original_pause(pilot, delay)
+        if delay is None:
+            await original_pause(pilot, 0.05)
+
+    monkeypatch.setattr(Pilot, "pause", pause)
 
 
 @pytest.fixture

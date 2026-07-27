@@ -5621,7 +5621,7 @@ async def test_start_slash_workflow_uses_generic_local_command_modal(
         composer = screen.query_one(PromptComposer)
         composer.set_text("/workflow ")
         composer.action_submit()
-        await pilot.pause()
+        await pilot.pause(0.05)
 
         assert app.current_route == "start"
         assert isinstance(app.screen, LocalCommandModal)
@@ -12408,7 +12408,9 @@ async def test_start_workspace_command_updates_workspace_candidate(tmp_path) -> 
 
         start = app.get_screen("start", StartScreen)
         assert app.workspace_candidate == tmp_path
-        assert str(tmp_path) in str(start.query_one("#workspace-candidate").content)
+        assert str(start.query_one("#workspace-candidate").content) == (
+            target_workspace_state_label(tmp_path, control_repo=tmp_path)
+        )
         assert load_project_intake(app.config.effective_state_dir) is None
         with pytest.raises(NoMatches):
             start.query_one("#project-intake-summary", Static)

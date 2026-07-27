@@ -526,9 +526,9 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         return self._label("confirm_execute")
 
     def on_mount(self) -> None:
-        self.set_timer(0.05, self._mount_directory_tree)
+        self.call_after_refresh(self._mount_directory_tree)
 
-    def _mount_directory_tree(self) -> None:
+    async def _mount_directory_tree(self) -> None:
         if self._tree_mounted or not self.is_mounted:
             return
         pane = self._tree_pane()
@@ -536,7 +536,7 @@ class WorkspacePicker(ModalScreen[WorkspacePreflight | None]):
         placeholder.remove()
         tree = DirectoryTree(self.tree_root, id="workspace-directory-tree")
         self._directory_tree_widget = tree
-        pane.mount(tree)
+        await pane.mount(tree)
         self._tree_mounted = True
 
     def on_input_changed(self, event: Input.Changed) -> None:

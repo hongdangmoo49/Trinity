@@ -698,6 +698,7 @@ class TrinityTextualApp(App[None]):
 
     #central-agent.central-provider-error {
         border: heavy $error;
+        min-height: 5;
     }
 
     #central-agent.central-provider-error #central-action-title {
@@ -2511,7 +2512,10 @@ class TrinityTextualApp(App[None]):
         snapshot: WorkflowNexusSnapshot,
     ) -> None:
         if self._screens_installed and self.current_route == "nexus":
-            nexus = self.get_screen("nexus", NexusScreen)
+            try:
+                nexus = self.get_screen("nexus", NexusScreen)
+            except KeyError:
+                return
             nexus.apply_snapshot(snapshot)
             if outcome.running:
                 nexus.advance_activity_frame()

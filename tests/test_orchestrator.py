@@ -1,5 +1,7 @@
 """Tests for trinity.orchestrator — TrinityOrchestrator."""
 
+import os
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -295,7 +297,10 @@ class TestWorkspaceHomeIsolation:
         env = orch.get_agent_env_overrides("antigravity")
         expected_home = state_dir / "agents" / "antigravity" / "provider-state"
         assert env["HOME"] == str(expected_home)
-        assert env["XDG_CONFIG_HOME"] == str(expected_home / ".config")
+        if os.name == "nt":
+            assert env["USERPROFILE"] == str(expected_home)
+        else:
+            assert env["XDG_CONFIG_HOME"] == str(expected_home / ".config")
 
         env["HOME"] = "changed"
         assert orch.agent_launch_contexts["antigravity"].env_overrides["HOME"] == str(

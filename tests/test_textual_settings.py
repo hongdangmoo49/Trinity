@@ -64,6 +64,18 @@ def test_settings_apply_shortcut_binding_uses_korean_label(tmp_path) -> None:
     assert binding.description == "저장 및 적용"
 
 
+def test_settings_binding_returns_to_english_after_korean(tmp_path) -> None:
+    ko_config = TrinityConfig.default_config(project_dir=tmp_path / "ko", lang="ko")
+    SettingsScreen(UISettingsStore(tmp_path / ".trinity-ko"), ko_config, lang="ko")
+    screen = SettingsScreen(
+        UISettingsStore(tmp_path / ".trinity-en"),
+        TrinityConfig.default_config(project_dir=tmp_path / "en"),
+    )
+
+    binding = next(iter(screen._bindings.get_bindings_for_key("ctrl+s")))
+    assert binding.description == "Save & Apply"
+
+
 @pytest.mark.asyncio
 async def test_settings_apply_button_labels_describe_save_and_apply(tmp_path) -> None:
     en = SettingsScreen(

@@ -8,9 +8,13 @@ permissions:
 
 jobs:
   full-suite:
-    name: Ubuntu / Python 3.12
-    runs-on: ubuntu-latest
+    name: ${{ matrix.os }} / Python 3.12
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
 
     steps:
       - name: Check out repository

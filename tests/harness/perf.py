@@ -200,9 +200,8 @@ def create_workflow_perf_fixture(
 
     if shared_bytes:
         config.shared_context_path.parent.mkdir(parents=True, exist_ok=True)
-        config.shared_context_path.write_text(
-            _sized_markdown(shared_bytes),
-            encoding="utf-8",
+        config.shared_context_path.write_bytes(
+            _sized_markdown(shared_bytes).encode("utf-8"),
         )
 
     return WorkflowPerfFixture(

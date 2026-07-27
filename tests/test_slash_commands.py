@@ -26,6 +26,13 @@ def test_parse_slash_command_keeps_execute_retry_args() -> None:
     assert parsed.args == ("blocked", "WP-003")
 
 
+def test_parse_slash_command_preserves_windows_path() -> None:
+    parsed = parse_slash_command(r"/target C:\Users\USER\Project")
+
+    assert parsed is not None
+    assert parsed.args == (r"C:\Users\USER\Project",)
+
+
 def test_parse_slash_command_registers_project_command() -> None:
     parsed = parse_slash_command("/project")
 

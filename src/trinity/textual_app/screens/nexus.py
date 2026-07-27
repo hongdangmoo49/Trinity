@@ -9,7 +9,7 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.screen import Screen
-from textual.widgets import Footer, Header, Static
+from textual.widgets import Footer, Static
 
 from trinity.config import TrinityConfig
 from trinity.providers.model_discovery import ProviderModelChoice
@@ -33,6 +33,7 @@ from trinity.textual_app.widgets.agent_recipient_model_selector import (
 from trinity.textual_app.widgets.composer import PromptComposer
 from trinity.textual_app.widgets.central_agent import CentralAgentView
 from trinity.textual_app.widgets.inspector import WorkflowInspector
+from trinity.textual_app.widgets.header import TrinityHeader
 from trinity.textual_app.widgets.provider_panel import (
     ProviderPanel,
     ProviderPanelState,
@@ -149,7 +150,7 @@ class NexusScreen(Screen[None]):
             for name, spec in self.config.agents.items()
         ]
         provider_strip_class = f"provider-strip-{min(max(len(provider_states), 1), 3)}"
-        yield Header(show_clock=False)
+        yield TrinityHeader(show_clock=False)
         with Vertical(id="nexus-screen"):
             with Horizontal(
                 id="provider-strip",

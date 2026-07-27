@@ -7,6 +7,7 @@ events are emitted correctly and can be polled from a TUIEventBus.
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -19,15 +20,18 @@ from trinity.tui.events import TUIEvent, TUIEventBus, TUIEventType
 # ---------------------------------------------------------------------------
 
 
-def _make_protocol(*, max_rounds: int = 1, event_bus: TUIEventBus | None = None):
+def _make_protocol(
+    state_dir: Path,
+    *,
+    max_rounds: int = 1,
+    event_bus: TUIEventBus | None = None,
+):
     """Create a DeliberationProtocol with minimal stubs and an optional event bus."""
     from trinity.deliberation.protocol import DeliberationProtocol
 
     shared = MagicMock()
     shared.initialize = MagicMock()
-    shared.path = MagicMock()
-    shared.path.parent = MagicMock()
-    shared.path.parent.__truediv__ = MagicMock(return_value=MagicMock())
+    shared.path = state_dir / "shared.md"
 
     agents = {
         "agent-a": MagicMock(),
@@ -121,10 +125,10 @@ class TestProtocolEmits:
     """Verify that DeliberationProtocol.run() emits the new events."""
 
     @pytest.mark.asyncio
-    async def test_deliberation_started_emitted_at_run_start(self):
+    async def test_deliberation_started_emitted_at_run_start(self, tmp_path):
         """DELIBERATION_STARTED should be the very first event emitted."""
         bus = TUIEventBus()
-        proto = _make_protocol(event_bus=bus)
+        proto = _make_protocol(tmp_path, event_bus=bus)
 
         # Stub _collect_opinions to return empty opinions and short-circuit
         async def fake_collect(round_num, prompt):
@@ -166,10 +170,10 @@ class TestProtocolEmits:
         assert events[0].data["prompt"] == "test prompt"
 
     @pytest.mark.asyncio
-    async def test_deliberation_phase_opinions_emitted(self):
+    async def test_deliberation_phase_opinions_emitted(self, tmp_path):
         """DELIBERATION_PHASE with phase='opinions' should appear each round."""
         bus = TUIEventBus()
-        proto = _make_protocol(event_bus=bus)
+        proto = _make_protocol(tmp_path, event_bus=bus)
 
         async def fake_collect(round_num, prompt):
             return {}
@@ -212,10 +216,10 @@ class TestProtocolEmits:
         assert "round_num" in phase_opinions[0].data
 
     @pytest.mark.asyncio
-    async def test_deliberation_phase_consensus_emitted(self):
+    async def test_deliberation_phase_consensus_emitted(self, tmp_path):
         """DELIBERATION_PHASE with phase='consensus' should appear each round."""
         bus = TUIEventBus()
-        proto = _make_protocol(event_bus=bus)
+        proto = _make_protocol(tmp_path, event_bus=bus)
 
         async def fake_collect(round_num, prompt):
             return {}
@@ -258,10 +262,10 @@ class TestProtocolEmits:
         assert "round_num" in phase_consensus[0].data
 
     @pytest.mark.asyncio
-    async def test_deliberation_phase_synthesis_emitted(self):
+    async def test_deliberation_phase_synthesis_emitted(self, tmp_path):
         """DELIBERATION_PHASE with phase='synthesis' should appear each round."""
         bus = TUIEventBus()
-        proto = _make_protocol(event_bus=bus)
+        proto = _make_protocol(tmp_path, event_bus=bus)
 
         async def fake_collect(round_num, prompt):
             return {}
@@ -304,10 +308,13 @@ class TestProtocolEmits:
         assert "round_num" in phase_synthesis[0].data
 
     @pytest.mark.asyncio
-    async def test_deliberation_progress_emitted_during_opinion_collection(self):
+    async def test_deliberation_progress_emitted_during_opinion_collection(
+        self,
+        tmp_path,
+    ):
         """DELIBERATION_PROGRESS events should be emitted as each agent responds."""
         bus = TUIEventBus()
-        proto = _make_protocol(event_bus=bus)
+        proto = _make_protocol(tmp_path, event_bus=bus)
 
         from trinity.models import DeliberationMessage, MessageRole
 
@@ -378,9 +385,9 @@ class TestProtocolEmits:
         assert progress_events[1].data["round_num"] == 1
 
     @pytest.mark.asyncio
-    async def test_no_emit_without_event_bus(self):
+    async def test_no_emit_without_event_bus(self, tmp_path):
         """Protocol should not crash when no event bus is set."""
-        proto = _make_protocol(event_bus=None)
+        proto = _make_protocol(tmp_path, event_bus=None)
 
         async def fake_collect(round_num, prompt):
             return {}

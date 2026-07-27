@@ -104,14 +104,14 @@ class TestEnvOverrides:
 
     def test_includes_xdg_dirs(self, mh):
         mh.setup("claude")
-        env = mh.get_env_overrides("claude")
+        env = mh.get_env_overrides("claude", os_name="linux")
         assert "XDG_CONFIG_HOME" in env
         assert "XDG_DATA_HOME" in env
         assert "XDG_CACHE_HOME" in env
 
     def test_xdg_paths_inside_home(self, mh):
         home = mh.setup("claude")
-        env = mh.get_env_overrides("claude")
+        env = mh.get_env_overrides("claude", os_name="linux")
         assert env["XDG_CONFIG_HOME"] == str(home / ".config")
 
     def test_xdg_directories_are_created(self, mh):

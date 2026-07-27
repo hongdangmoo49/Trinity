@@ -6,7 +6,7 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.message import Message
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Header, Label, Select, Static
+from textual.widgets import Button, Footer, Label, Select, Static
 
 from trinity.config import TrinityConfig
 from trinity.display_labels import display_profile_value, display_source_value
@@ -18,6 +18,7 @@ from trinity.textual_app.settings import (
     UISettingsStore,
 )
 from trinity.textual_app.workspace_labels import target_workspace_state_label
+from trinity.textual_app.widgets.header import TrinityHeader
 
 
 class SettingsScreen(Screen[None]):
@@ -93,7 +94,7 @@ class SettingsScreen(Screen[None]):
         self._workspace_label_key = self._workspace_label()
         self._central_provider_value = central_provider
         self._select_events_ready = False
-        yield Header(show_clock=False)
+        yield TrinityHeader(show_clock=False)
         with Vertical(id="settings-screen"):
             with VerticalScroll(id="settings-form"):
                 yield Static(self._label("settings"), id="settings-title")

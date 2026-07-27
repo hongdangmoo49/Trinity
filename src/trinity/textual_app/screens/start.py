@@ -9,7 +9,7 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.screen import Screen
-from textual.widgets import Footer, Header, Static
+from textual.widgets import Footer, Static
 
 from trinity.config import TrinityConfig
 from trinity.providers.model_discovery import ProviderModelChoice
@@ -22,6 +22,7 @@ from trinity.textual_app.widgets.agent_recipient_model_selector import (
     AgentRecipientModelSelector,
 )
 from trinity.textual_app.widgets.composer import PromptComposer
+from trinity.textual_app.widgets.header import TrinityHeader
 from trinity.textual_app.widgets.workspace_select import WorkspaceSelectSurface
 from trinity.tui.sacred_geometry import SacredGeometryAnimator
 
@@ -119,7 +120,7 @@ class StartScreen(Screen[None]):
 
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
-        yield Header(show_clock=False)
+        yield TrinityHeader(show_clock=False)
         with Vertical(id="start-screen"):
             with Vertical(id="start-shell"):
                 yield SacredGeometryAnimation()

@@ -10,12 +10,13 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.message import Message
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Header, RichLog, Static
+from textual.widgets import Button, Footer, RichLog, Static
 
 from trinity.display_labels import display_risk_value
 from trinity.textual_app.i18n import localize_bindings
 from trinity.textual_app.snapshot import WorkflowNexusSnapshot
 from trinity.textual_app.widgets.execution_log_modal import ExecutionLogModal
+from trinity.textual_app.widgets.header import TrinityHeader
 from trinity.textual_app.widgets.status_label import (
     compact_status_group,
     compact_status_label,
@@ -602,7 +603,7 @@ class ExecutionMatrixScreen(Screen[None]):
     def compose(self) -> ComposeResult:
         self._reset_widget_cache()
         self._reset_render_cache()
-        yield Header(show_clock=False)
+        yield TrinityHeader(show_clock=False)
         screen = Vertical(id="execution-screen")
         self._screen_container = screen
         with screen:

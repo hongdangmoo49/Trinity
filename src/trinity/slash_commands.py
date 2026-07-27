@@ -356,7 +356,10 @@ def parse_slash_command(text: str) -> ParsedSlashCommand | None:
     if not stripped.startswith("/"):
         return None
     try:
-        parts = shlex.split(stripped[1:])
+        lexer = shlex.shlex(stripped[1:], posix=True)
+        lexer.whitespace_split = True
+        lexer.escape = ""
+        parts = list(lexer)
     except ValueError as exc:
         return ParsedSlashCommand(
             raw=text,

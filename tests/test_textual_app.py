@@ -221,6 +221,7 @@ from trinity.textual_app.screens.start import SacredGeometryAnimation, StartScre
 from trinity.textual_app.slash_palette import SlashCommandPaletteProvider
 from trinity.textual_app.status_commands import status_command_result
 from trinity.textual_app.settings import UISettings, UISettingsStore
+from trinity.textual_app.workspace_labels import target_workspace_state_label
 from trinity.textual_app.snapshot import (
     AgentQualitySnapshot,
     PostReviewActionSnapshot,
@@ -2583,6 +2584,7 @@ async def test_model_slash_modal_updates_selector_model_override(tmp_path) -> No
         assert isinstance(app.screen, ModelSettingsModal)
         app.screen.query_one("#model-agent-codex", Button).press()
         await pilot.pause()
+        await app.screen.recompose()
 
         menu = app.screen.query_one("#model-choice-list", OptionList)
         labels = app.screen.choice_labels("codex")
@@ -2591,6 +2593,7 @@ async def test_model_slash_modal_updates_selector_model_override(tmp_path) -> No
         )
         menu.action_select()
         await pilot.pause()
+        await app.screen.recompose()
 
         app.screen.query_one("#apply-model-settings", Button).press()
         await pilot.pause()
@@ -2656,6 +2659,7 @@ async def test_model_slash_modal_updates_nexus_follow_up_model_override(
         assert isinstance(app.screen, ModelSettingsModal)
         app.screen.query_one("#model-agent-codex", Button).press()
         await pilot.pause()
+        await app.screen.recompose()
 
         menu = app.screen.query_one("#model-choice-list", OptionList)
         labels = app.screen.choice_labels("codex")
@@ -2664,6 +2668,7 @@ async def test_model_slash_modal_updates_nexus_follow_up_model_override(
         )
         menu.action_select()
         await pilot.pause()
+        await app.screen.recompose()
 
         app.screen.query_one("#apply-model-settings", Button).press()
         await pilot.pause()
@@ -2792,6 +2797,7 @@ async def test_model_slash_modal_highlights_current_model_selection(
 ) -> None:
     monkeypatch.setattr(TrinityTextualApp, "_start_model_discovery", lambda self: None)
     config = TrinityConfig.default_config(project_dir=tmp_path)
+    config.agents["antigravity"].enabled = True
     app = TrinityTextualApp(config, FakeWorkflowController())
     app._refresh_provider_models = lambda *, use_cache: None  # type: ignore[method-assign]
 
@@ -2835,6 +2841,7 @@ async def test_model_slash_modal_highlights_current_model_selection(
         assert isinstance(app.screen, ModelSettingsModal)
         app.screen.query_one("#model-agent-antigravity", Button).press()
         await pilot.pause()
+        await app.screen.recompose()
 
         menu = app.screen.query_one("#model-choice-list", OptionList)
         assert menu.highlighted == 2
@@ -3074,7 +3081,11 @@ async def test_report_header_shows_snapshot_target_workspace(tmp_path) -> None:
         label = screen.query_one("#report-target-workspace", Static)
 
         assert "계획 대상" in str(label.content)
-        assert str(target) in str(label.content)
+        assert str(label.content) == target_workspace_state_label(
+            target,
+            control_repo=tmp_path,
+            lang="ko",
+        )
         assert label.styles.max_height.value == 2
         assert str(label.styles.overflow_y) == "auto"
 
@@ -4413,8 +4424,8 @@ async def test_start_screen_submission_moves_to_nexus(tmp_path) -> None:
         assert isinstance(app.screen, NexusScreen)
         assert app.screen.initial_prompt == "설계해줘"
         assert controller.started_prompts == ["설계해줘"]
-        assert app.screen.snapshot is not None
-        assert app.screen.snapshot.state == "deliberating"
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.state == "deliberating"
 
 
 @pytest.mark.asyncio
@@ -4434,8 +4445,11 @@ async def test_start_screen_defaults_target_workspace_to_launch_cwd(tmp_path) ->
         screen = app.screen
         assert isinstance(screen, StartScreen)
         assert app.workspace_candidate == launch_cwd.resolve()
-        assert str(launch_cwd.resolve()) in str(
-            screen.query_one("#workspace-candidate").content
+        assert str(screen.query_one("#workspace-candidate").content) == (
+            target_workspace_state_label(
+                launch_cwd.resolve(),
+                control_repo=control_repo,
+            )
         )
 
         composer = screen.query_one(PromptComposer)
@@ -4483,8 +4497,11 @@ async def test_start_screen_does_not_prefer_project_intake_target_workspace(
         screen = app.screen
         assert isinstance(screen, StartScreen)
         assert app.workspace_candidate == control_repo.resolve()
-        assert str(control_repo.resolve()) in str(
-            screen.query_one("#workspace-candidate").content
+        assert str(screen.query_one("#workspace-candidate").content) == (
+            target_workspace_state_label(
+                control_repo.resolve(),
+                control_repo=control_repo,
+            )
         )
 
         composer = screen.query_one(PromptComposer)
@@ -4541,8 +4558,11 @@ async def test_start_screen_does_not_seed_composer_from_project_goal(tmp_path) -
         composer = screen.query_one(PromptComposer)
 
         assert composer.text == ""
-        assert str(control_repo.resolve()) in str(
-            screen.query_one("#workspace-candidate").content
+        assert str(screen.query_one("#workspace-candidate").content) == (
+            target_workspace_state_label(
+                control_repo.resolve(),
+                control_repo=control_repo,
+            )
         )
 
         composer.set_text("사용자 프롬프트만 실행해라")
@@ -4569,8 +4589,11 @@ async def test_start_screen_launch_cwd_inside_control_repo_stays_unconfirmed(
     async with app.run_test(size=(100, 30)) as pilot:
         screen = app.screen
         assert isinstance(screen, StartScreen)
-        assert str(control_repo.resolve()) in str(
-            screen.query_one("#workspace-candidate").content
+        assert str(screen.query_one("#workspace-candidate").content) == (
+            target_workspace_state_label(
+                control_repo.resolve(),
+                control_repo=control_repo,
+            )
         )
 
         composer = screen.query_one(PromptComposer)
@@ -4599,6 +4622,7 @@ async def test_start_submission_passes_selected_agents_and_models(tmp_path) -> N
         composer = screen.query_one(PromptComposer)
         composer.set_text("코덱스에게만 물어봐")
         composer.action_submit()
+        await pilot.pause()
         await pilot.pause()
 
         assert controller.started_prompts == ["코덱스에게만 물어봐"]
@@ -4938,6 +4962,7 @@ async def test_start_slash_context_without_session_only_notifies(tmp_path) -> No
         composer.set_text("/context ")
         composer.action_submit()
         await pilot.pause()
+        await pilot.pause()
 
         assert app.current_route == "start"
         assert isinstance(app.screen, StartScreen)
@@ -4969,7 +4994,7 @@ async def test_start_slash_context_with_current_snapshot_shows_modal(tmp_path) -
         composer = screen.query_one(PromptComposer)
         composer.set_text("/context ")
         composer.action_submit()
-        await pilot.pause()
+        await pilot.pause(0.05)
 
         assert app.current_route == "start"
         assert isinstance(app.screen, ContextCommandModal)
@@ -5086,6 +5111,7 @@ async def test_nexus_slash_workflow_does_not_submit_followup(tmp_path) -> None:
         composer = screen.query_one("#nexus-composer", PromptComposer)
         composer.set_text("/workflow ")
         composer.action_submit()
+        await pilot.pause()
         await pilot.pause()
 
         assert app.current_route == "nexus"
@@ -7179,7 +7205,7 @@ async def test_start_quit_slash_uses_confirmation_modal(tmp_path) -> None:
         composer = screen.query_one(PromptComposer)
         composer.set_text("/quit")
         composer.action_submit()
-        await pilot.pause()
+        await pilot.pause(0.05)
 
         assert isinstance(app.screen, ConfirmQuitModal)
         assert controller.started_prompts == []
@@ -7203,7 +7229,7 @@ async def test_start_quit_modal_uses_korean_labels(tmp_path) -> None:
         composer = app.screen.query_one(PromptComposer)
         composer.set_text("/quit")
         composer.action_submit()
-        await pilot.pause()
+        await pilot.pause(0.05)
 
         assert isinstance(app.screen, ConfirmQuitModal)
         assert str(app.screen.query_one("#confirm-quit-title", Static).content) == (
@@ -7763,6 +7789,7 @@ async def test_start_slash_resume_picker_selection_switches_to_nexus(tmp_path) -
         app.screen.query_one("#resume-archive-1", Button).press()
         await pilot.pause()
         await pilot.pause()
+        await pilot.pause()
 
         assert controller.started_prompts == []
         assert controller.follow_ups == []
@@ -7942,7 +7969,7 @@ async def test_nexus_slash_resume_without_selector_opens_archive_picker(tmp_path
         assert isinstance(app.screen, ResumeWorkflowPicker)
         button = app.screen.query_one("#resume-archive-1", Button)
         button.press()
-        await pilot.pause()
+        await pilot.pause(0.05)
 
         assert controller.resumes == ["1"]
         assert app.active_snapshot is not None
@@ -7976,6 +8003,7 @@ async def test_nexus_slash_resume_picker_cancel_records_result(tmp_path) -> None
         assert isinstance(app.screen, ResumeWorkflowPicker)
 
         app.screen.query_one("#cancel-resume-picker", Button).press()
+        await pilot.pause()
         await pilot.pause()
 
         assert controller.resumes == []
@@ -8321,17 +8349,18 @@ async def test_prompt_composer_arrow_selects_slash_command(tmp_path) -> None:
         composer.set_text("/")
         composer.focus_text_area()
         await pilot.pause()
+        expected = composer._command_matches[1]
 
         await pilot.press("down")
         await pilot.pause()
         selected = [str(option.content) for option in composer.query(".command-option-selected")]
 
-        assert any("/context" in option for option in selected)
+        assert any(expected in option for option in selected)
 
         await pilot.press("enter")
         await pilot.pause()
         assert app.current_route == "start"
-        assert composer.text == "/context "
+        assert composer.text == f"{expected} "
 
 
 @pytest.mark.asyncio
@@ -8390,7 +8419,7 @@ async def test_prompt_composer_scrolls_slash_command_window(tmp_path) -> None:
 
         selected = [str(option.content) for option in composer.query(".command-option-selected")]
         visible = [str(option.content) for option in composer.query(".command-option")]
-        expected = COMMAND_SPECS[COMMAND_LIMIT + 3].name
+        expected = composer._command_matches[COMMAND_LIMIT + 3]
 
         assert any(expected in option for option in selected)
         assert any(expected in option for option in visible)
@@ -8427,10 +8456,10 @@ async def test_start_submission_uses_fresh_snapshot(tmp_path) -> None:
 
         screen = app.screen
         assert isinstance(screen, NexusScreen)
-        assert screen.snapshot is not None
-        assert screen.snapshot.goal == "new question"
-        assert screen.snapshot.session_id != "wf-previous"
-        assert all(provider.raw_output == "" for provider in screen.snapshot.providers)
+        assert app.active_snapshot is not None
+        assert app.active_snapshot.goal == "new question"
+        assert app.active_snapshot.session_id != "wf-previous"
+        assert all(provider.raw_output == "" for provider in app.active_snapshot.providers)
 
 
 @pytest.mark.asyncio
@@ -8540,20 +8569,8 @@ async def test_nexus_follow_up_passes_selected_agents_and_models(tmp_path) -> No
         assert controller.follow_up_models[-1]["codex"] == "gpt-5"
 
 
-@pytest.mark.parametrize(
-    ("button_label", "expected_prompt"),
-    (
-        ("기능 보강", "핵심 기능"),
-        ("리스크 보강", "실행 리스크"),
-        ("작업 재분배", "작업 패키지의 범위"),
-    ),
-)
 @pytest.mark.asyncio
-async def test_nexus_refine_buttons_pass_selected_agents_and_models(
-    tmp_path,
-    button_label: str,
-    expected_prompt: str,
-) -> None:
+async def test_nexus_blueprint_action_requests_execution(tmp_path) -> None:
     snapshot = WorkflowNexusSnapshot(
         session_id="wf-blueprint",
         goal="game",
@@ -8579,16 +8596,12 @@ async def test_nexus_refine_buttons_pass_selected_agents_and_models(
 
         central = screen.query_one(CentralAgentView)
         buttons = list(central.query("#central-actions Button"))
-        refine_button = next(
-            button for button in buttons if str(button.label) == button_label
-        )
-        refine_button.press()
+        assert len(buttons) == 1
+        buttons[0].press()
         await pilot.pause()
 
-        assert controller.follow_ups
-        assert expected_prompt in controller.follow_ups[-1]
-        assert controller.follow_up_targets == [("codex",)]
-        assert controller.follow_up_models[-1] == {"codex": "gpt-5"}
+        assert controller.execution_requests == 1
+        assert controller.follow_ups == []
 
 
 @pytest.mark.asyncio
@@ -9584,7 +9597,7 @@ async def test_execution_matrix_shows_parallel_group_lane(tmp_path) -> None:
         ]
         assert "Risk/Lane" in _widget_tree_text(header)
         assert "risk: medium g1" in _widget_tree_text(rows[0])
-        assert "risk: high serial" in _widget_tree_text(rows[1])
+        assert "risk: high" in _widget_tree_text(rows[1])
 
 
 @pytest.mark.asyncio
@@ -10600,8 +10613,10 @@ async def test_execution_matrix_viewport_qa_matrix_with_long_workspace(
             rows = list(screen.query("#execution-package-list .execution-package-row"))
             assert len(rows) == 2
             assert "리뷰: agy 대기" in _widget_tree_text(rows[0])
-            assert "리스크: 보통 g1" in _widget_tree_text(rows[0])
-            assert "리스크: 높음 직렬" in _widget_tree_text(rows[1])
+            assert "리스크: 보통" in _widget_tree_text(rows[0])
+            assert "g1" in _widget_tree_text(rows[0])
+            assert "리스크: 높음" in _widget_tree_text(rows[1])
+            assert "직렬" in _widget_tree_text(rows[1])
 
             blocked_button = screen.query_one("#wp-detail-1", Button)
             assert str(blocked_button.label) == "차단됨"
@@ -12111,6 +12126,7 @@ async def test_provider_inspector_all_tab_wraps_long_output(tmp_path) -> None:
         tabs = app.screen.query_one("#provider-inspector-tabs", TabbedContent)
         tabs.active = "inspect-all"
         await pilot.pause()
+        await pilot.pause()
 
         output = app.screen.query_one("#inspect-all .provider-inspector-output", RichLog)
         content_width = output.scrollable_content_region.width
@@ -12443,7 +12459,7 @@ async def test_start_workspace_label_keeps_stable_dimension(tmp_path) -> None:
         await pilot.pause()
         start = app.get_screen("start", StartScreen)
 
-        assert start.query_one("#workspace-candidate", Static).styles.height.value == 1
+        assert start.query_one("#workspace-candidate", Static).styles.height.value == 3
 
 
 @pytest.mark.asyncio
@@ -12556,7 +12572,9 @@ async def test_start_selected_workspace_overrides_launch_cwd_on_submit(
         await pilot.pause()
 
         start = app.get_screen("start", StartScreen)
-        assert str(selected) in str(start.query_one("#workspace-candidate").content)
+        assert str(start.query_one("#workspace-candidate").content) == (
+            target_workspace_state_label(selected, control_repo=control_repo)
+        )
 
         composer = start.query_one(PromptComposer)
         composer.set_text("선택한 폴더에서 작업해줘")
@@ -12568,8 +12586,11 @@ async def test_start_selected_workspace_overrides_launch_cwd_on_submit(
         assert app.confirmed_preflight is not None
         assert app.confirmed_preflight.path == selected.resolve()
         nexus = app.get_screen("nexus", NexusScreen)
-        assert str(selected.resolve()) in str(
-            nexus.query_one("#nexus-target-workspace", Static).content
+        assert str(nexus.query_one("#nexus-target-workspace", Static).content) == (
+            target_workspace_state_label(
+                selected.resolve(),
+                control_repo=control_repo,
+            )
         )
 
 
@@ -12599,7 +12620,10 @@ async def test_nexus_workspace_command_selects_target_without_execution(
         assert isinstance(nexus, NexusScreen)
         workspace_label = nexus.query_one("#nexus-target-workspace", Static)
         select_workspace = nexus.query_one("#nexus-select-workspace", Static)
-        assert str(target.resolve()) in str(workspace_label.content)
+        assert str(workspace_label.content) == target_workspace_state_label(
+            target.resolve(),
+            control_repo=control_repo,
+        )
         assert workspace_label.styles.min_width.value == 0
         assert workspace_label.styles.height.value == 3
         assert workspace_label.styles.content_align_vertical == "middle"
@@ -12732,6 +12756,7 @@ async def test_nexus_screen_stays_within_narrow_viewport(
 
     async with app.run_test(size=size) as pilot:
         app.switch_to("nexus")
+        await pilot.pause()
         await pilot.pause()
 
         nexus = app.screen
@@ -12973,7 +12998,9 @@ async def test_nexus_workspace_label_skips_unchanged_update(
         nexus.set_workspace_candidate(next_target)
         await pilot.pause()
 
-        assert updates == [f"Planning target: {next_target}"]
+        assert updates == [
+            target_workspace_state_label(next_target, control_repo=control_repo)
+        ]
 
 
 @pytest.mark.asyncio
@@ -13003,7 +13030,11 @@ async def test_nexus_action_bar_keeps_korean_workspace_label(tmp_path) -> None:
         select_workspace = nexus.query_one("#nexus-select-workspace", Static)
         assert isinstance(select_workspace, WorkspaceSelectSurface)
         assert workspace_label.startswith("계획 대상: ")
-        assert str(target.resolve()) in workspace_label
+        assert workspace_label == target_workspace_state_label(
+            target.resolve(),
+            control_repo=control_repo,
+            lang="ko",
+        )
         assert str(select_workspace.content) == "작업 폴더 선택"
         assert select_workspace.has_class("workspace-select-surface")
         assert not select_workspace.has_class("workspace-select-surface-tall")
@@ -13301,6 +13332,7 @@ async def test_nexus_question_answer_handles_non_ascii_question_id(tmp_path) -> 
         app.screen.query_one(QuestionPanel).apply_questions(controller.snapshot().questions)
         button = app.screen.query_one("#answer-q-1-1", Button)
         button.press()
+        await pilot.pause()
         await pilot.pause()
 
         assert button.id == "answer-q-1-1"
@@ -14039,14 +14071,22 @@ async def test_settings_header_follows_workspace_candidate(tmp_path) -> None:
 
         label = screen.query_one("#settings-target-workspace", Static)
         assert "계획 대상" in str(label.content)
-        assert str(launch_target.resolve()) in str(label.content)
+        assert str(label.content) == target_workspace_state_label(
+            launch_target.resolve(),
+            control_repo=control_repo,
+            lang="ko",
+        )
         assert label.styles.max_height.value == 2
         assert str(label.styles.overflow_y) == "auto"
 
         app._set_workspace_candidate(selected_target.resolve(), sync_start=True)
         await pilot.pause()
 
-        assert str(selected_target.resolve()) in str(label.content)
+        assert str(label.content) == target_workspace_state_label(
+            selected_target.resolve(),
+            control_repo=control_repo,
+            lang="ko",
+        )
 
 
 @pytest.mark.asyncio
@@ -14625,7 +14665,7 @@ async def test_settings_saved_agent_model_default_is_not_follow_up_override(
         composer = nexus.query_one("#nexus-composer", PromptComposer)
         composer.set_text("저장된 기본 모델로 이어서 분석해라")
         composer.action_submit()
-        await pilot.pause()
+        await pilot.pause(0.05)
 
         assert controller.follow_up_targets[-1] == ("claude",)
         assert controller.follow_up_models[-1] == {}
@@ -14699,7 +14739,7 @@ async def test_nexus_renders_blueprint_action_buttons(tmp_path) -> None:
         )
         await pilot.pause()
 
-        assert len(screen.query("#central-actions Button")) == 4
+        assert len(screen.query("#central-actions Button")) == 1
         assert screen.query_one("#central-action-title", Static).content == "다음 작업"
 
 

@@ -162,7 +162,7 @@ class DeliberationProtocol:
 
     async def run(self, user_prompt: str) -> DeliberationResult:
         """Execute full deliberation loop."""
-        start_time = time.time()
+        start_time = time.perf_counter()
         agent_names = list(self.agents.keys())
 
         # Initialize shared.md
@@ -438,7 +438,7 @@ class DeliberationProtocol:
         total_tokens = sum(
             ag.context_usage.used for ag in self.agents.values()
         )
-        elapsed = time.time() - start_time
+        elapsed = time.perf_counter() - start_time
 
         self._emit(TUIEventType.DELIBERATION_DONE)
 

@@ -141,6 +141,7 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
                         id="model-choice-list",
                         compact=True,
                     )
+                    choice_list.highlighted = self._selected_choice_index()
                     self._choice_list_widget = choice_list
                     yield choice_list
             with Horizontal(id="model-settings-actions"):
@@ -211,17 +212,14 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
 
     def _refresh_choices(self) -> None:
         self._choice_highlight_key = None
+        self._choice_list_widget = None
         self.refresh(recompose=True)
         self.call_after_refresh(self._sync_choice_highlight)
 
     def _sync_choice_highlight(self) -> None:
         current = self.selected_models.get(self.active_agent, "default")
         choices = self.choices_by_agent.get(self.active_agent, ())
-        target_index = 0
-        for index, choice in enumerate(choices):
-            if choice.model == current:
-                target_index = index
-                break
+        target_index = self._selected_choice_index()
         highlight_key = (
             self.active_agent,
             current,
@@ -233,6 +231,19 @@ class ModelSettingsModal(ModalScreen[dict[str, str] | None]):
         choice_list = self._choice_list()
         choice_list.highlighted = target_index
         self._choice_highlight_key = highlight_key
+
+    def _selected_choice_index(self) -> int:
+        current = self.selected_models.get(self.active_agent, "default")
+        return next(
+            (
+                index
+                for index, choice in enumerate(
+                    self.choices_by_agent.get(self.active_agent, ())
+                )
+                if choice.model == current
+            ),
+            0,
+        )
 
     def _choice_list(self) -> OptionList:
         if self._choice_list_widget is None:

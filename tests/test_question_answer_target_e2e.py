@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import sys
 
 from trinity.config import TrinityConfig
 from trinity.models import AgentSpec, Provider
@@ -12,7 +14,22 @@ from trinity.workflow import OpenQuestion, WorkflowEngine
 from trinity.workflow.models import ProviderSessionRef
 
 
-def _write_fake_codex(path: Path, log_path: Path) -> None:
+def _write_executable_script(path: Path, script: str) -> Path:
+    if os.name == "nt":
+        script_path = path.with_suffix(".py")
+        script_path.write_text(script, encoding="utf-8")
+        wrapper = path.with_suffix(".cmd")
+        wrapper.write_text(
+            f'@echo off\r\n"{sys.executable}" "%~dp0{script_path.name}" %*\r\n',
+            encoding="utf-8",
+        )
+        return wrapper
+    path.write_text(script, encoding="utf-8")
+    path.chmod(0o755)
+    return path
+
+
+def _write_fake_codex(path: Path, log_path: Path) -> Path:
     """Write a fake Codex CLI that records argv/stdin and emits JSONL."""
     script = f"""#!/usr/bin/env python3
 import json
@@ -82,11 +99,10 @@ print(json.dumps(thread_event))
 print(json.dumps(message_event, ensure_ascii=False))
 print(json.dumps(completed_event))
 """
-    path.write_text(script, encoding="utf-8")
-    path.chmod(0o755)
+    return _write_executable_script(path, script)
 
 
-def _write_fake_claude(path: Path, log_path: Path) -> None:
+def _write_fake_claude(path: Path, log_path: Path) -> Path:
     """Write a fake Claude CLI that records argv/stdin and emits JSON."""
     script = f"""#!/usr/bin/env python3
 import json
@@ -139,11 +155,10 @@ payload = {{
 }}
 print(json.dumps(payload, ensure_ascii=False))
 """
-    path.write_text(script, encoding="utf-8")
-    path.chmod(0o755)
+    return _write_executable_script(path, script)
 
 
-def _write_fake_antigravity(path: Path, log_path: Path) -> None:
+def _write_fake_antigravity(path: Path, log_path: Path) -> Path:
     """Write a fake Antigravity CLI that records argv/stdin and emits text."""
     script = f"""#!/usr/bin/env python3
 import json
@@ -206,8 +221,7 @@ agent_payload = {{
 }}
 print(json.dumps(agent_payload, ensure_ascii=False))
 """
-    path.write_text(script, encoding="utf-8")
-    path.chmod(0o755)
+    return _write_executable_script(path, script)
 
 
 def _read_jsonl(path: Path) -> list[dict[str, object]]:
@@ -244,8 +258,8 @@ def test_question_answer_continuation_invokes_only_saved_target_agent_model_and_
     claude_log = tmp_path / "logs" / "claude.jsonl"
     fake_codex = bin_dir / "codex"
     fake_claude = bin_dir / "claude"
-    _write_fake_codex(fake_codex, codex_log)
-    _write_fake_claude(fake_claude, claude_log)
+    fake_codex = _write_fake_codex(fake_codex, codex_log)
+    fake_claude = _write_fake_claude(fake_claude, claude_log)
 
     config = TrinityConfig(
         project_dir=tmp_path,
@@ -334,8 +348,8 @@ def test_question_answer_continuation_invokes_claude_resume_for_targeted_agent(
     codex_log = tmp_path / "logs" / "codex.jsonl"
     fake_claude = bin_dir / "claude"
     fake_codex = bin_dir / "codex"
-    _write_fake_claude(fake_claude, claude_log)
-    _write_fake_codex(fake_codex, codex_log)
+    fake_claude = _write_fake_claude(fake_claude, claude_log)
+    fake_codex = _write_fake_codex(fake_codex, codex_log)
 
     config = TrinityConfig(
         project_dir=tmp_path,
@@ -407,7 +421,8 @@ def test_question_answer_continuation_invokes_claude_resume_for_targeted_agent(
     assert argv[argv.index("--model") + 1] == "opus[1m]"
     assert "-p" in argv
     assert "--output-format" in argv
-    assert "dark" in " ".join(argv)
+    if os.name != "nt":
+        assert "dark" in " ".join(argv)
     assert (
         controller.workflow.session.runtime_models["claude"].actual_model
         == "opus[1m]"
@@ -424,8 +439,8 @@ def test_question_answer_continuation_invokes_agy_conversation_for_targeted_agen
     claude_log = tmp_path / "logs" / "claude.jsonl"
     fake_agy = bin_dir / "agy"
     fake_claude = bin_dir / "claude"
-    _write_fake_antigravity(fake_agy, agy_log)
-    _write_fake_claude(fake_claude, claude_log)
+    fake_agy = _write_fake_antigravity(fake_agy, agy_log)
+    fake_claude = _write_fake_claude(fake_claude, claude_log)
 
     config = TrinityConfig(
         project_dir=tmp_path,
@@ -497,7 +512,8 @@ def test_question_answer_continuation_invokes_agy_conversation_for_targeted_agen
     assert argv[argv.index("--model") + 1] == "Gemini 3.1 Pro (High)"
     assert "--sandbox" in argv
     assert "--print" in argv
-    assert "dark" in " ".join(argv)
+    if os.name != "nt":
+        assert "dark" in " ".join(argv)
     assert (
         controller.workflow.session.runtime_models["antigravity"].model_label
         == "Gemini 3.1 Pro (High)"

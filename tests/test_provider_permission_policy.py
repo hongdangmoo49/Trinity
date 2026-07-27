@@ -52,10 +52,11 @@ def test_claude_workspace_write_uses_accept_edits_and_filters_bypass() -> None:
 
 
 def test_codex_policy_owns_sandbox_cd_and_strips_escape_hatches() -> None:
+    cwd = Path("/workspace")
     plan = ProviderPermissionPolicy().plan(
         provider=Provider.CODEX,
         access=InvocationAccess.WORKSPACE_WRITE,
-        cwd=Path("/workspace"),
+        cwd=cwd,
         extra_args=(
             "--sandbox",
             "danger-full-access",
@@ -67,7 +68,7 @@ def test_codex_policy_owns_sandbox_cd_and_strips_escape_hatches() -> None:
         ),
     )
 
-    assert plan.args == ("--sandbox", "workspace-write", "--cd", "/workspace")
+    assert plan.args == ("--sandbox", "workspace-write", "--cd", str(cwd))
     assert plan.extra_args == ("--ignore-rules",)
     assert any("removed_controlled_arg:--sandbox" in item for item in plan.diagnostics)
     assert any("removed_controlled_arg:--cd" in item for item in plan.diagnostics)

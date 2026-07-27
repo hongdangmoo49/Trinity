@@ -11,7 +11,7 @@ from textual.binding import Binding
 from textual.containers import Vertical, VerticalScroll
 from textual.message import Message
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Header, Static
+from textual.widgets import Button, Footer, Static
 
 from rich.markup import escape
 
@@ -33,6 +33,7 @@ from trinity.textual_app.widgets.status_label import (
     display_review_status_value,
     display_status_value,
 )
+from trinity.textual_app.widgets.header import TrinityHeader
 from trinity.textual_app.workspace_labels import target_workspace_state_label
 
 if TYPE_CHECKING:
@@ -186,7 +187,7 @@ class ReportScreen(Screen[None]):
         self._target_workspace_key = self._target_workspace_label()
         self._last_rendered_id = ""
         self._applied_source_identity = None
-        yield Header(show_clock=False)
+        yield TrinityHeader(show_clock=False)
         with Vertical(id="report-screen"):
             with Vertical(id="report-header"):
                 yield Static(self._label("title"), id="report-title")

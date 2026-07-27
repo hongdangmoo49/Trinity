@@ -152,6 +152,7 @@ async def test_model_settings_modal_keeps_missing_default_first(tmp_path) -> Non
         await pilot.pause()
         modal.query_one("#model-agent-codex", Button).press()
         await pilot.pause()
+        await modal.recompose()
 
         option_list = modal.query_one("#model-choice-list", OptionList)
         choices = modal.choices_by_agent["codex"]
@@ -190,6 +191,7 @@ async def test_model_settings_modal_moves_existing_default_first(tmp_path) -> No
         await pilot.pause()
         modal.query_one("#model-agent-codex", Button).press()
         await pilot.pause()
+        await modal.recompose()
 
         choices = modal.choices_by_agent["codex"]
         option_list = modal.query_one("#model-choice-list", OptionList)

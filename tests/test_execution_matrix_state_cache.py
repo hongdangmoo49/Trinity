@@ -311,8 +311,7 @@ async def test_execution_matrix_recompose_resets_render_identity_caches() -> Non
         assert screen._package_list_identity is not None
         assert screen._activity_lines_key
 
-        screen.refresh(recompose=True)
-        await pilot.pause()
+        await screen.recompose()
 
         assert screen._summary_widget is not first_summary
         assert screen._package_list_widget is not first_package_list

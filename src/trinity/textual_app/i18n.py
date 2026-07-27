@@ -195,9 +195,6 @@ def localize_bindings(
     replacements: BindingReplacements,
 ) -> None:
     """Update Textual binding descriptions in-place for the configured language."""
-    if textual_lang(lang) == DEFAULT_LANG:
-        return
-
     key_to_bindings = getattr(bindings_map, "key_to_bindings", {})
     for (key, action), (description_key, tooltip_key) in replacements.items():
         bindings = key_to_bindings.get(key, [])

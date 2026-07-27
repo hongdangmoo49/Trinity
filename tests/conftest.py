@@ -1,6 +1,7 @@
 """Shared test fixtures for Trinity."""
 
 import os
+import sys
 
 import pytest
 from pathlib import Path
@@ -20,7 +21,7 @@ def stabilize_textual_ci_pause(monkeypatch):
     async def pause(pilot, delay=None):
         await original_pause(pilot, delay)
         if delay is None:
-            await original_pause(pilot, 0.05)
+            await original_pause(pilot, 0.1 if sys.platform == "win32" else 0.05)
 
     monkeypatch.setattr(Pilot, "pause", pause)
 

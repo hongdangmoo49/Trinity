@@ -7787,9 +7787,7 @@ async def test_start_slash_resume_picker_selection_switches_to_nexus(tmp_path) -
 
         assert isinstance(app.screen, ResumeWorkflowPicker)
         app.screen.query_one("#resume-archive-1", Button).press()
-        await pilot.pause()
-        await pilot.pause()
-        await pilot.pause()
+        await pilot.pause(0.5)
 
         assert controller.started_prompts == []
         assert controller.follow_ups == []

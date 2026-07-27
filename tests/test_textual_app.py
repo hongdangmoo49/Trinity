@@ -5660,7 +5660,7 @@ async def test_start_slash_workflow_uses_korean_local_command_modal_chrome(
         composer = screen.query_one(PromptComposer)
         composer.set_text("/workflow ")
         composer.action_submit()
-        await pilot.pause()
+        await pilot.pause(0.05)
 
         assert isinstance(app.screen, LocalCommandModal)
         assert str(app.screen.query_one("#close-local-command", Button).label) == "닫기"
@@ -5704,7 +5704,7 @@ async def test_start_slash_questions_uses_korean_labels(tmp_path) -> None:
         composer = screen.query_one(PromptComposer)
         composer.set_text("/questions ")
         composer.action_submit()
-        await pilot.pause()
+        await pilot.pause(0.05)
 
         assert isinstance(app.screen, LocalCommandModal)
         assert app.active_snapshot is not None
@@ -5741,7 +5741,7 @@ async def test_start_slash_decisions_uses_korean_labels(tmp_path) -> None:
         composer = screen.query_one(PromptComposer)
         composer.set_text("/decisions ")
         composer.action_submit()
-        await pilot.pause()
+        await pilot.pause(0.05)
 
         assert isinstance(app.screen, LocalCommandModal)
         assert app.active_snapshot is not None
@@ -5795,7 +5795,7 @@ async def test_start_slash_packages_uses_korean_labels(tmp_path) -> None:
         composer = screen.query_one(PromptComposer)
         composer.set_text("/packages ")
         composer.action_submit()
-        await pilot.pause()
+        await pilot.pause(0.05)
 
         assert isinstance(app.screen, LocalCommandModal)
         assert app.active_snapshot is not None
@@ -5858,7 +5858,7 @@ async def test_start_slash_subtasks_uses_korean_labels(tmp_path) -> None:
         composer = screen.query_one(PromptComposer)
         composer.set_text("/subtasks ")
         composer.action_submit()
-        await pilot.pause()
+        await pilot.pause(0.05)
 
         assert isinstance(app.screen, LocalCommandModal)
         assert app.active_snapshot is not None
@@ -6227,7 +6227,7 @@ async def test_local_command_modal_keeps_help_controls_in_narrow_viewport(
 
     async with app.run_test(size=(80, 24)) as pilot:
         app._handle_textual_slash_command("/help")
-        await pilot.pause()
+        await pilot.pause(0.05)
 
         assert isinstance(app.screen, LocalCommandModal)
         modal_shell = app.screen.query_one("#local-command-modal")
@@ -6347,7 +6347,7 @@ async def test_start_slash_history_uses_korean_labels(tmp_path) -> None:
         composer = screen.query_one(PromptComposer)
         composer.set_text("/history ")
         composer.action_submit()
-        await pilot.pause()
+        await pilot.pause(0.05)
 
         assert isinstance(app.screen, LocalCommandModal)
         assert app.active_snapshot is not None

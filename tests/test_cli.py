@@ -1602,13 +1602,38 @@ class TestFindConfigPath:
     def test_finds_config_in_current_dir(self, trinity_project):
         with patch("trinity.cli.Path.cwd", return_value=trinity_project):
             path = find_config_path()
-            assert path is not None
-            assert path.name == "trinity.config"
+        assert path is not None
+        assert path.name == "trinity.config"
+
+    def test_finds_config_in_parent_dir(self, trinity_project):
+        nested = trinity_project / "src" / "nested"
+        nested.mkdir(parents=True)
+
+        with patch("trinity.cli.Path.cwd", return_value=nested):
+            path = find_config_path()
+
+        assert path == trinity_project / ".trinity" / "trinity.config"
+
+    def test_ignores_home_config_for_descendant(self, tmp_path):
+        home = tmp_path / "home"
+        cwd = home / "projects" / "unrelated"
+        cwd.mkdir(parents=True)
+        config = home / ".trinity" / "trinity.config"
+        config.parent.mkdir()
+        config.write_text("[trinity]\n", encoding="utf-8")
+
+        with (
+            patch("trinity.cli.Path.cwd", return_value=cwd),
+            patch("trinity.cli.Path.home", return_value=home),
+        ):
+            path = find_config_path()
+
+        assert path is None
 
     def test_returns_none_when_no_config(self, tmp_path):
         with patch("trinity.cli.Path.cwd", return_value=tmp_path):
             path = find_config_path()
-            assert path is None
+        assert path is None
 
 
 class TestLoadConfig:

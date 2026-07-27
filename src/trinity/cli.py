@@ -121,9 +121,12 @@ class InitNewProjectRequest:
 
 
 def find_config_path() -> Path | None:
-    """Find .trinity/trinity.config by walking up from cwd."""
-    current = Path.cwd()
+    """Find project config without treating the user home as a project."""
+    current = Path.cwd().resolve()
+    home = Path.home().resolve()
     for _ in range(10):
+        if current == home:
+            break
         candidate = current / ".trinity" / "trinity.config"
         if candidate.exists():
             return candidate

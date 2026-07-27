@@ -25,3 +25,14 @@ def test_generated_python_artifacts_are_not_tracked() -> None:
             tracked_generated.append(path)
 
     assert tracked_generated == []
+
+
+def test_pypi_publish_is_manual_and_requires_full_tests() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "publish-pypi.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert "\n  push:" not in workflow
+    assert "\n  workflow_dispatch:" in workflow
+    assert "needs:\n      - test\n      - full-test" in workflow
+    assert "run: uv run pytest -q" in workflow

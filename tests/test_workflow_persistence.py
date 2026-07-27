@@ -4,6 +4,8 @@ import json
 import logging
 from pathlib import Path
 
+import pytest
+
 from trinity.workflow import (
     AgentRuntimeModel,
     Blueprint,
@@ -36,6 +38,30 @@ def test_workflow_persistence_round_trips_typed_blueprint(tmp_path):
     assert loaded.blueprint is not None
     assert loaded.blueprint.title == "Route Bot"
     assert loaded.blueprint.data_flow == ["request -> route"]
+
+
+def test_workflow_persistence_keeps_existing_session_when_replace_fails(
+    tmp_path,
+    monkeypatch,
+):
+    persistence = WorkflowPersistence(tmp_path / ".trinity")
+    persistence.save(
+        WorkflowSession(id="wf-existing", goal="Keep me", state=WorkflowState.DELIBERATING)
+    )
+
+    def fail_replace(source, destination):
+        raise OSError("replace failed")
+
+    monkeypatch.setattr("trinity.workflow.persistence.os.replace", fail_replace)
+
+    with pytest.raises(OSError, match="replace failed"):
+        persistence.save(
+            WorkflowSession(id="wf-new", goal="Do not keep", state=WorkflowState.FAILED)
+        )
+
+    loaded = persistence.load()
+    assert loaded is not None
+    assert loaded.id == "wf-existing"
 
 
 def test_workflow_persistence_round_trips_work_package_repair_notes(tmp_path):

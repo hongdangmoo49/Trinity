@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 import time
 from collections.abc import Iterable, Mapping
@@ -75,10 +76,13 @@ class WorkflowPersistence:
     def save(self, session: WorkflowSession) -> None:
         """Write the session to disk as JSON."""
         self.session_path.parent.mkdir(parents=True, exist_ok=True)
-        self.session_path.write_text(
+        # ponytail: workflow state has one writer; use unique temp files if that changes.
+        temporary_path = self.session_path.with_suffix(f"{self.session_path.suffix}.tmp")
+        temporary_path.write_text(
             json.dumps(session.to_dict(), indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
+        os.replace(temporary_path, self.session_path)
         logger.debug("Workflow session saved: %s", session.id)
 
     def load(self) -> WorkflowSession | None:

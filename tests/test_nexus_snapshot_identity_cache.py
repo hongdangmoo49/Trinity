@@ -112,7 +112,7 @@ async def test_nexus_rebinds_render_cache_after_recompose(tmp_path) -> None:
 
         panel = screen.query_one("#provider-claude", ProviderPanel)
         assert "Drafting." not in str(panel.query_one(".provider-summary").content)
-        assert screen.query_one(CentralAgentView).snapshot is None
+        assert screen.query_one(CentralAgentView).snapshot is snapshot
 
         screen.apply_snapshot(snapshot)
         await pilot.pause()

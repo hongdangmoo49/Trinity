@@ -184,6 +184,8 @@ class NexusScreen(Screen[None]):
             with Horizontal(id="nexus-main"):
                 with Vertical(id="nexus-center-stack"):
                     central = CentralAgentView(id="central-agent", lang=self.config.lang)
+                    if self.snapshot is not None:
+                        central.apply_snapshot(self.snapshot)
                     self._central_view = central
                     yield central
                     question_panel = QuestionPanel(
